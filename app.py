@@ -1,6 +1,7 @@
 import os
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect, abort
 from scanner import search_flights, scan_configured_routes
+from deals import create_booking_token, verify_booking_token, calculate_service_fee
 
 app = Flask(__name__)
 
@@ -8,18 +9,23 @@ app = Flask(__name__)
 def home():
     return jsonify({
         "name": "Ariella Tours",
-        "version": "2.0",
+        "version": "3.0",
         "status": "online",
         "serpapi_configured": bool(os.getenv("SERPAPI_API_KEY")),
-        "manual_search_example": "/search?departure=TLV&arrival=ATH&outbound=2026-09-10&return_date=2026-09-15",
-        "configured_scan": "/scan"
+        "endpoints": {
+            "health": "/health",
+            "search": "/search?departure=TLV&arrival=ATH&outbound=2026-09-10&return_date=2026-09-15",
+            "scan": "/scan",
+            "deals": "/deals"
+        }
     })
 
 @app.get("/health")
 def health():
     return jsonify({
         "status": "ok",
-        "serpapi_configured": bool(os.getenv("SERPAPI_API_KEY"))
+        "serpapi_configured": bool(os.getenv("SERPAPI_API_KEY")),
+        "booking_secret_configured": bool(os.getenv("BOOKING_LINK_SECRET"))
     })
 
 @app.get("/search")
@@ -28,25 +34,14 @@ def search():
     arrival = request.args.get("arrival", "").upper()
     outbound = request.args.get("outbound", "")
     return_date = request.args.get("return_date", "")
-    adults = request.args.get("adults", "1")
-    children = request.args.get("children", "0")
-    carry_on_bags = request.args.get("carry_on_bags", "0")
-
     if not arrival or not outbound:
-        return jsonify({
-            "status": "error",
-            "message": "Missing required parameters: arrival and outbound"
-        }), 400
-
+        return jsonify({"status": "error", "message": "Missing arrival or outbound"}), 400
     try:
         return jsonify(search_flights(
-            departure=departure,
-            arrival=arrival,
-            outbound_date=outbound,
-            return_date=return_date or None,
-            adults=adults,
-            children=children,
-            carry_on_bags=carry_on_bags
+            departure, arrival, outbound, return_date or None,
+            request.args.get("adults", "1"),
+            request.args.get("children", "0"),
+            request.args.get("carry_on_bags", "0")
         ))
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
@@ -59,6 +54,56 @@ def scan():
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
+@app.get("/deals")
+def deals():
+    try:
+        scan_result = scan_configured_routes()
+        output = []
+        for result in scan_result.get("exceptional_deals", []):
+            cheapest = (result.get("cheapest_flights") or [{}])[0]
+            price = cheapest.get("price")
+            typical_low = result.get("deal_analysis", {}).get("typical_price_low")
+            savings = max(0, typical_low - price) if isinstance(price, (int, float)) and isinstance(typical_low, (int, float)) else None
+            fee = calculate_service_fee(price, savings)
+            token = create_booking_token({
+                "route": result.get("route"),
+                "flight_price": price,
+                "service_fee": fee,
+                "booking_url": result.get("google_flights_url")
+            })
+            output.append({
+                **result,
+                "service_fee_ils": fee,
+                "estimated_savings_ils": savings,
+                "booking_link_expires_in_minutes": 30,
+                "payment_placeholder_url": f"/pay/{token}"
+            })
+        return jsonify({"status": "success", "count": len(output), "deals": output})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+@app.get("/pay/<token>")
+def pay_placeholder(token):
+    data = verify_booking_token(token)
+    if not data:
+        abort(410, description="This booking link expired or is invalid.")
+    return jsonify({
+        "status": "payment_required",
+        "service_fee_ils": data.get("service_fee"),
+        "flight_price_ils": data.get("flight_price"),
+        "route": data.get("route"),
+        "message": "Payment provider is not connected yet."
+    })
+
+@app.get("/book/<token>")
+def book(token):
+    data = verify_booking_token(token)
+    if not data:
+        abort(410, description="This booking link expired or is invalid.")
+    url = data.get("booking_url")
+    if not url:
+        return jsonify({"status": "error", "message": "No booking URL"}), 400
+    return redirect(url, code=302)
+
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "10000"))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "10000")))

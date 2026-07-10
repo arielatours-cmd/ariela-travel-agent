@@ -1,19 +1,21 @@
-# Ariella Tours v2
+# Ariella Tours v3
 
-This version connects Ariella to SerpApi Google Flights.
+New:
+- Hebrew weekday beside dates
+- Consolidated deal list at /deals
+- Fee = 10% of flight price minus 5 ILS
+- Fee cap = half of estimated savings
+- Booking links expire after 30 minutes
+- Placeholder payment page
 
-## Required Render variable
+Required Render variables:
+- SERPAPI_API_KEY
+- BOOKING_LINK_SECRET
 
-SERPAPI_API_KEY
+Test:
+- /health
+- /search?departure=TLV&arrival=ATH&outbound=2026-09-10&return_date=2026-09-15
+- /scan
+- /deals
 
-## Test endpoints
-
-/health
-
-/search?departure=TLV&arrival=ATH&outbound=2026-09-10&return_date=2026-09-15
-
-/scan
-
-The configured scan checks five destinations and therefore uses five SerpApi searches.
-
-Important: SerpApi's `bags` parameter covers carry-on bags, not checked baggage.
+Payment and WhatsApp are not connected yet.
