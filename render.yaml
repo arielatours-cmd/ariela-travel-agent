@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ariella-tours
+    name: ariela-travel-agent
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app

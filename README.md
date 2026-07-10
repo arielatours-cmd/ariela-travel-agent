@@ -1,25 +1,19 @@
-# Ariella Tours
+# Ariella Tours v2
 
-A starter project for the Ariella flight-deal agent.
+This version connects Ariella to SerpApi Google Flights.
 
-## Current settings
+## Required Render variable
 
-- Departure from Ben Gurion Airport
-- Haifa Airport included for nearby destinations
-- Checked baggage required
-- Alerts only for prices significantly below the usual price
-- Hotels and rental cars are not enabled yet
+SERPAPI_API_KEY
 
-## Deploy on Render
+## Test endpoints
 
-1. Upload all files to a GitHub repository.
-2. In Render, create a new Web Service.
-3. Connect the GitHub repository.
-4. Render should detect `render.yaml`.
-5. Deploy the service.
+/health
 
-## Test
+/search?departure=TLV&arrival=ATH&outbound=2026-09-10&return_date=2026-09-15
 
-Open the deployed Render address. You should see that Ariella is online.
+/scan
 
-The live flight provider and WhatsApp alerts will be connected in the next stage.
+The configured scan checks five destinations and therefore uses five SerpApi searches.
+
+Important: SerpApi's `bags` parameter covers carry-on bags, not checked baggage.
