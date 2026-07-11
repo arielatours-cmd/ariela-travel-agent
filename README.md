@@ -1,21 +1,7 @@
-# Ariella Tours v3
+# Ariella Tours v5
 
-New:
-- Hebrew weekday beside dates
-- Consolidated deal list at /deals
-- Fee = 10% of flight price minus 5 ILS
-- Fee cap = half of estimated savings
-- Booking links expire after 30 minutes
-- Placeholder payment page
+Included: up to five deals, deal scoring, compact direct/connection formatting, one total price line, baggage structure, handling fee, reason for selection, and 30-minute booking links.
 
-Required Render variables:
-- SERPAPI_API_KEY
-- BOOKING_LINK_SECRET
+Test endpoints: /health, /deals, /message-preview, /delivery-status
 
-Test:
-- /health
-- /search?departure=TLV&arrival=ATH&outbound=2026-09-10&return_date=2026-09-15
-- /scan
-- /deals
-
-Payment and WhatsApp are not connected yet.
+Important limitations: WhatsApp, real payment, exact Shabbat times, reliable baggage prices, and complete return-flight times are not connected yet.
