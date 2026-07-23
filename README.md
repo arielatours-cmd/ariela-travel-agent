@@ -16,3 +16,11 @@
 
 ## Version 8.0
 Dashboard table now shows deal dates with Hebrew weekdays, the actual scoring reference price, every available score component once, a single final score, and connection color coding only.
+
+
+## Version 8.1
+- Added client-side filters for destination, travel dates, maximum price, route, minimum score and qualified deals.
+- Route score now uses a small colored dot instead of a colored background.
+- Summary text updates automatically according to active filters.
+- Clicking an offer opens a scoring detail window with the saved scoring reasons.
+- Dashboard version updated to 8.1.
