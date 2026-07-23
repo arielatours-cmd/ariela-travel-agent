@@ -28,7 +28,7 @@ pre{white-space:pre-wrap}.reason{font-size:12px;color:#697386;max-width:330px}.s
 </div>
 <h2>ההצעות האחרונות</h2>
 <table><thead><tr><th>יעד</th><th>תאריכים</th><th>מחיר</th><th>מסלול</th><th>ציון</th><th>עבר?</th><th>פירוט</th></tr></thead><tbody>
-{% for o in offers %}<tr><td>{{ o.country_flag or '' }} {{ o.destination_name or o.arrival_code }}</td><td>{{ o.outbound_date }}–{{ o.return_date }}</td><td>₪{{ o.price_ils|round|int }}</td><td>{{ 'ישירה' if o.stops == 0 else (o.stops|string + ' עצירות') }}</td><td><b>{{ o.score }}</b> · {{ o.score_label }}</td><td class="{{ 'ok' if o.score >= minimum_score else 'bad' }}">{{ 'כן' if o.score >= minimum_score else 'לא' }}</td><td class="reason">{{ o.score_reasons|join(' · ') }}</td></tr>{% else %}<tr><td colspan="7">עדיין אין הצעות. הפעילי סריקה.</td></tr>{% endfor %}
+{% for o in offers %}<tr><td>{{ o.country_flag or '' }} {{ o.destination_name or o.arrival_code }}</td><td>{{ o.outbound_date }}–{{ o.return_date }}</td><td>₪{{ o.price_ils|round|int }}</td><td>{{ 'ישירה' if o.stops == 0 else (o.stops|string + ' עצירות') }}</td><td><b>{{ o.score }}</b> · {{ o.score_label }}</td><td class="{{ 'ok' if o.score >= minimum_score else 'bad' }}">{% if o.score >= minimum_score %}עבר ב-{{ o.score-minimum_score }}{% else %}חסרות {{ minimum_score-o.score }} נק׳{% endif %}</td><td class="reason">{{ o.score_reasons|join(' · ') }}</td></tr>{% else %}<tr><td colspan="7">עדיין אין הצעות. הפעילי סריקה.</td></tr>{% endfor %}
 </tbody></table>
 <h2>סריקות אחרונות</h2>
 <table><thead><tr><th>מס׳</th><th>סטטוס</th><th>התחלה</th><th>חיפושים</th><th>הצעות</th><th>שגיאות</th></tr></thead><tbody>
@@ -37,7 +37,7 @@ pre{white-space:pre-wrap}.reason{font-size:12px;color:#697386;max-width:330px}.s
 </div>
 <script>
 async function post(url){let e=document.getElementById('actionStatus');e.textContent='מבצעת...';try{let r=await fetch(url,{method:'POST'});let j=await r.json();e.textContent=JSON.stringify(j);if(r.ok)setTimeout(()=>location.reload(),1200)}catch(x){e.textContent='שגיאה: '+x}}
-function runScan(){post('/scan?max_searches=1')} function buildBatch(){post('/daily-batch?force=true')}
+function runScan(){post('/scan?max_searches=8')} function buildBatch(){post('/daily-batch?force=true')}
 </script></body></html>
 """
 

@@ -7,7 +7,7 @@ from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
     MAX_SEARCHES_PER_SCAN, SERPAPI_API_KEY, TRIP_LENGTHS_DAYS,
 )
-from database import create_scan_run, finish_scan_run, get_setting, insert_offer, set_setting
+from database import create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference, set_setting
 from scoring import calculate_deal_score
 
 SERPAPI_URL = "https://serpapi.com/search.json"
@@ -58,19 +58,27 @@ def _summarize_flight(item: dict) -> dict:
     }
 
 
-def _deal_analysis(data: dict) -> dict:
+def _deal_analysis(data: dict, flight_prices: list[float] | None = None) -> dict:
     insights = data.get("price_insights") or {}
     lowest = insights.get("lowest_price")
     typical = insights.get("typical_price_range") or []
     level = str(insights.get("price_level") or "").lower()
     low = typical[0] if len(typical) >= 2 else None
     high = typical[1] if len(typical) >= 2 else None
-    discount = round((low - lowest) / low * 100, 1) if isinstance(lowest, (int, float)) and isinstance(low, (int, float)) and low > 0 else None
+    serp_discount = round((low - lowest) / low * 100, 1) if isinstance(lowest, (int, float)) and isinstance(low, (int, float)) and low > 0 else None
+
+    prices = sorted(float(x) for x in (flight_prices or []) if isinstance(x, (int, float)))
+    search_median = None
+    if len(prices) >= 3:
+        middle = len(prices) // 2
+        search_median = prices[middle] if len(prices) % 2 else (prices[middle - 1] + prices[middle]) / 2
+
     return {
-        "is_exceptional_deal": level == "low" or (discount is not None and discount >= 15),
+        "is_exceptional_deal": level == "low" or (serp_discount is not None and serp_discount >= 15),
         "price_level": level or None, "lowest_price": lowest,
         "typical_price_low": low, "typical_price_high": high,
-        "below_typical_low_percent": discount,
+        "below_typical_low_percent": serp_discount,
+        "search_median": search_median,
     }
 
 
@@ -89,13 +97,14 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
     flights = (data.get("best_flights") or []) + (data.get("other_flights") or [])
     flights = [f for f in flights if isinstance(f.get("price"), (int, float))]
     flights.sort(key=lambda f: f["price"])
+    analysis = _deal_analysis(data, [f["price"] for f in flights])
     metadata = data.get("search_metadata") or {}
     return {
         "route": f"{departure}-{arrival}", "departure_code": departure, "arrival_code": arrival,
         "departure_airport_name": AIRPORT_NAMES.get(departure, departure),
         "arrival_airport_name": AIRPORT_NAMES.get(arrival, arrival),
         "outbound": _date_with_weekday(outbound_date), "return": _date_with_weekday(return_date),
-        "deal_analysis": _deal_analysis(data), "flights": [_summarize_flight(f) for f in flights[:5]],
+        "deal_analysis": analysis, "flights": [_summarize_flight(f) for f in flights[:5]],
         "booking_url": metadata.get("google_flights_url"),
     }
 
@@ -104,7 +113,8 @@ def _all_search_jobs() -> list[dict]:
     today = date.today()
     jobs = []
     destinations_by_code = {d["code"]: d for d in DESTINATIONS}
-    for departure, destination, offset, trip_length in itertools.product(DEPARTURE_AIRPORTS, DESTINATIONS, DEPARTURE_OFFSETS_DAYS, TRIP_LENGTHS_DAYS):
+    # Interleave destinations so every small scan covers several countries, not one destination repeatedly.
+    for offset, trip_length, departure, destination in itertools.product(DEPARTURE_OFFSETS_DAYS, TRIP_LENGTHS_DAYS, DEPARTURE_AIRPORTS, DESTINATIONS):
         outbound = today + timedelta(days=offset)
         ret = outbound + timedelta(days=trip_length)
         jobs.append({
@@ -134,7 +144,28 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
             result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
             completed += 1
             for flight in result["flights"]:
-                score = calculate_deal_score(result["deal_analysis"], flight)
+                analysis = dict(result["deal_analysis"])
+                price = float(flight["price"])
+                month = int(job["outbound"][5:7])
+                history = price_history_reference(job["departure"], job["arrival"], month, price)
+                analysis["historical_sample_count"] = history["sample_count"]
+                analysis["historical_median"] = history["median"]
+                analysis["historical_percentile"] = history["percentile"]
+
+                candidates = []
+                if isinstance(analysis.get("below_typical_low_percent"), (int, float)):
+                    candidates.append((analysis["below_typical_low_percent"], "serpapi_typical"))
+                if isinstance(history.get("median"), (int, float)) and history["median"] > 0:
+                    candidates.append(((history["median"] - price) / history["median"] * 100, "history"))
+                search_median = analysis.get("search_median")
+                if isinstance(search_median, (int, float)) and search_median > 0:
+                    candidates.append(((search_median - price) / search_median * 100, "search_distribution"))
+                if candidates:
+                    best_discount, source = max(candidates, key=lambda item: item[0])
+                    analysis["best_discount_percent"] = round(best_discount, 1)
+                    analysis["price_reference_source"] = source
+
+                score = calculate_deal_score(analysis, flight)
                 offer = {
                     "observed_at": datetime.now(timezone.utc).isoformat(), "route": result["route"],
                     "departure_code": job["departure"], "arrival_code": job["arrival"],
@@ -143,7 +174,7 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
                     "destination_name": job["destination_name"], "country_flag": job["country_flag"],
                     "outbound_date": job["outbound"], "return_date": job["return"],
                     "outbound": result["outbound"], "return": result["return"],
-                    "deal_analysis": result["deal_analysis"], "flight": flight,
+                    "deal_analysis": analysis, "flight": flight,
                     "deal_score": score, "booking_url": result["booking_url"],
                 }
                 insert_offer(run_id, offer)

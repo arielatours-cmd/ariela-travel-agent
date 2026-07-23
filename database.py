@@ -241,3 +241,26 @@ def all_settings() -> dict:
     with connection() as conn:
         rows = conn.execute("SELECT key,value FROM settings ORDER BY key").fetchall()
     return {row["key"]: row["value"] for row in rows}
+
+
+def price_history_reference(departure_code: str, arrival_code: str, outbound_month: int, current_price: float) -> dict:
+    """Return robust historical price context for a route and travel month."""
+    with connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT price_ils FROM offers
+            WHERE departure_code=? AND arrival_code=?
+              AND CAST(strftime('%m', outbound_date) AS INTEGER)=?
+            ORDER BY price_ils ASC
+            LIMIT 500
+            """,
+            (departure_code, arrival_code, outbound_month),
+        ).fetchall()
+    prices = sorted(float(r["price_ils"]) for r in rows if r["price_ils"] is not None)
+    if len(prices) < 8:
+        return {"sample_count": len(prices), "median": None, "percentile": None}
+    mid = len(prices) // 2
+    median = prices[mid] if len(prices) % 2 else (prices[mid - 1] + prices[mid]) / 2
+    below_or_equal = sum(1 for value in prices if value <= current_price)
+    percentile = (below_or_equal / len(prices)) * 100
+    return {"sample_count": len(prices), "median": round(median, 2), "percentile": round(percentile, 1)}
