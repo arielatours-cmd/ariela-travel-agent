@@ -1,7 +1,24 @@
 services:
   - type: web
-    name: ariela-travel-agent
+    name: ariela-travel-agent-v6
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    # One worker is intentional because the in-process scheduler must run only once.
+    startCommand: gunicorn --workers 1 --threads 4 app:app
     healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: MAX_SEARCHES_PER_SCAN
+        value: "8"
+      - key: MIN_DEAL_SCORE
+        value: "70"
+      - key: MAX_DAILY_DEALS
+        value: "5"
+      - key: DAILY_SEND_HOUR
+        value: "17"
+      - key: DAILY_SEND_MINUTE
+        value: "0"
+      - key: DB_PATH
+        value: /tmp/ariella.db

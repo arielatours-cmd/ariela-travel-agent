@@ -1,19 +1,54 @@
-# Ariella Tours v5 Stable
+# Ariella Tours v6
 
-גרסה תקינה להעלאה ל-GitHub ול-Render.
+Version 6 focuses only on the agreed MVP:
 
-כתובות בדיקה:
-- /health
-- /deals
-- /message-preview
-- /delivery-status
+1. Scan flight searches automatically every hour.
+2. Store scan runs and offers in a database.
+3. Score each offer internally.
+4. Select up to five top deals from the last 24 hours.
+5. Prepare one WhatsApp-ready message each day.
 
-העלאה:
-1. חלצי את ה-ZIP.
-2. העלי את תוכן התיקייה ל-GitHub.
-3. ב-Render לחצי Manual Deploy.
-4. ודאי שקיימים BOOKING_LINK_SECRET ו-PUBLIC_BASE_URL.
+## Important
 
-חשוב: בגרסה זו נתוני הטיסות הם נתוני דוגמה יציבים, כדי לוודא שהשרת,
-העיצוב והקישורים עובדים ללא שגיאות. חיבור החיפוש החי ל-SerpApi הוא השלב הבא.
-כלל השבת בגרסה זו הוא כלל בטיחות קבוע ולא חישוב זמני הלכה מדויקים.
+WhatsApp sending itself is **not connected yet**. Version 6 prepares and stores the daily message. The next version will connect the approved WhatsApp Business API provider.
+
+## What changed from v5
+
+- Removed the old service-fee/payment-link logic.
+- Added SQLite persistence.
+- Added rotating searches so API usage stays controlled.
+- Added hourly APScheduler job.
+- Added daily batch creation at 17:00 Israel time.
+- Added duplicate filtering and destination diversity.
+- Fixed the message formatter.
+- Added scan status and daily preview endpoints.
+
+## Environment variables
+
+Required:
+
+- `SERPAPI_API_KEY`
+
+Optional:
+
+- `SCHEDULER_ENABLED=true`
+- `MAX_SEARCHES_PER_SCAN=8`
+- `MIN_DEAL_SCORE=70`
+- `MAX_DAILY_DEALS=5`
+- `DAILY_SEND_HOUR=17`
+- `DAILY_SEND_MINUTE=0`
+- `DB_PATH=/tmp/ariella.db`
+
+## Endpoints
+
+- `GET /health`
+- `POST /scan`
+- `GET /scan-status`
+- `GET /search?departure=TLV&arrival=ATH&outbound=2026-09-01&return_date=2026-09-06`
+- `POST /daily-batch?force=true`
+- `GET /daily-preview`
+- `GET /delivery-status`
+
+## Render note
+
+`/tmp/ariella.db` can be erased when Render restarts. For real historical price retention, attach a persistent disk and change `DB_PATH` to that mounted path, or migrate to PostgreSQL before production.
