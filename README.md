@@ -1,54 +1,48 @@
-# Ariella Tours v6
+# Ariella Tours v7
 
-Version 6 focuses only on the agreed MVP:
+גרסה מתקדמת של מנוע הסריקות והדילים של אריאלה.
 
-1. Scan flight searches automatically every hour.
-2. Store scan runs and offers in a database.
-3. Score each offer internally.
-4. Select up to five top deals from the last 24 hours.
-5. Prepare one WhatsApp-ready message each day.
+## חדש בגרסה 7
 
-## Important
+- לוח בקרה פנימי בעברית: `/admin`
+- הצגת כל ההצעות והסיבות לציון: `/offers-preview`
+- היסטוריית סריקות: `/scan-history`
+- בדיקת בריאות מורחבת: `/health`
+- הפעלת סריקה ובניית רשימה יומית מתוך לוח הבקרה
+- פירוט מלא יותר של חישוב הציון
+- הגנת מנהל אופציונלית באמצעות `ADMIN_TOKEN`
 
-WhatsApp sending itself is **not connected yet**. Version 6 prepares and stores the daily message. The next version will connect the approved WhatsApp Business API provider.
+## משתני Environment ב-Render
 
-## What changed from v5
-
-- Removed the old service-fee/payment-link logic.
-- Added SQLite persistence.
-- Added rotating searches so API usage stays controlled.
-- Added hourly APScheduler job.
-- Added daily batch creation at 17:00 Israel time.
-- Added duplicate filtering and destination diversity.
-- Fixed the message formatter.
-- Added scan status and daily preview endpoints.
-
-## Environment variables
-
-Required:
-
+חובה:
 - `SERPAPI_API_KEY`
 
-Optional:
+מומלץ:
+- `DB_PATH=/var/data/ariella.db` כאשר מחובר Persistent Disk
+- `ADMIN_TOKEN` להגנה על מסכי הניהול
 
+קיימים גם:
 - `SCHEDULER_ENABLED=true`
 - `MAX_SEARCHES_PER_SCAN=8`
 - `MIN_DEAL_SCORE=70`
 - `MAX_DAILY_DEALS=5`
 - `DAILY_SEND_HOUR=17`
 - `DAILY_SEND_MINUTE=0`
-- `DB_PATH=/tmp/ariella.db`
 
-## Endpoints
+כאשר מוגדר `ADMIN_TOKEN`, אפשר לפתוח את לוח הבקרה כך:
+`/admin?token=YOUR_TOKEN`
 
-- `GET /health`
-- `POST /scan`
-- `GET /scan-status`
-- `GET /search?departure=TLV&arrival=ATH&outbound=2026-09-01&return_date=2026-09-06`
-- `POST /daily-batch?force=true`
-- `GET /daily-preview`
-- `GET /delivery-status`
+## נקודות בדיקה
 
-## Render note
+- `/health`
+- `/admin`
+- `/scan-status`
+- `/offers-preview`
+- `/daily-preview`
 
-`/tmp/ariella.db` can be erased when Render restarts. For real historical price retention, attach a persistent disk and change `DB_PATH` to that mounted path, or migrate to PostgreSQL before production.
+## הפעלה מקומית
+
+```bash
+pip install -r requirements.txt
+python app.py
+```

@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "6.0"
+APP_VERSION = "7.0"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -9,6 +9,7 @@ DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "data" / "ariella.db")))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY", "").strip()
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "").strip()
 SCANNER_ENABLED = os.getenv("SCANNER_ENABLED", "true").lower() == "true"
 SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
 MAX_SEARCHES_PER_SCAN = int(os.getenv("MAX_SEARCHES_PER_SCAN", "8"))
@@ -17,7 +18,6 @@ MAX_DAILY_DEALS = int(os.getenv("MAX_DAILY_DEALS", "5"))
 DAILY_SEND_HOUR = int(os.getenv("DAILY_SEND_HOUR", "17"))
 DAILY_SEND_MINUTE = int(os.getenv("DAILY_SEND_MINUTE", "0"))
 
-# MVP destinations. Add or remove airport codes without changing scanner logic.
 DESTINATIONS = [
     {"code": "ATH", "name": "אתונה", "country_flag": "🇬🇷"},
     {"code": "LCA", "name": "לרנקה", "country_flag": "🇨🇾"},

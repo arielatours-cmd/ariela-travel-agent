@@ -188,3 +188,56 @@ def get_daily_batch(batch_date: str) -> dict | None:
     with connection() as conn:
         row = conn.execute("SELECT * FROM daily_batches WHERE batch_date=?", (batch_date,)).fetchone()
         return dict(row) if row else None
+
+
+def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dict]:
+    query = "SELECT * FROM offers"
+    params: list = []
+    if minimum_score is not None:
+        query += " WHERE score >= ?"
+        params.append(minimum_score)
+    query += " ORDER BY observed_at DESC, score DESC LIMIT ?"
+    params.append(max(1, min(limit, 500)))
+    with connection() as conn:
+        rows = conn.execute(query, params).fetchall()
+    result = []
+    for row in rows:
+        item = dict(row)
+        payload = json.loads(item.pop("payload_json"))
+        item["score_reasons"] = payload.get("deal_score", {}).get("reasons", [])
+        item["booking_url"] = item.get("booking_url") or payload.get("booking_url")
+        result.append(item)
+    return result
+
+
+def recent_scan_runs(limit: int = 20) -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM scan_runs ORDER BY id DESC LIMIT ?", (max(1, min(limit, 200)),)
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def dashboard_stats(minimum_score: int) -> dict:
+    with connection() as conn:
+        totals = conn.execute(
+            """
+            SELECT COUNT(*) AS offers_total,
+                   SUM(CASE WHEN score >= ? THEN 1 ELSE 0 END) AS offers_qualified,
+                   ROUND(AVG(score),1) AS average_score,
+                   MAX(score) AS highest_score,
+                   MAX(observed_at) AS latest_offer_at
+            FROM offers
+            """,
+            (minimum_score,),
+        ).fetchone()
+        scans = conn.execute(
+            "SELECT COUNT(*) AS scans_total, SUM(errors) AS scan_errors FROM scan_runs"
+        ).fetchone()
+    return {**dict(totals), **dict(scans)}
+
+
+def all_settings() -> dict:
+    with connection() as conn:
+        rows = conn.execute("SELECT key,value FROM settings ORDER BY key").fetchall()
+    return {row["key"]: row["value"] for row in rows}
