@@ -12,3 +12,7 @@
 
 ## בדיקה
 לאחר הפריסה פתחי `/admin` ולחצי "הפעל סריקת ניסיון". הסריקה מבצעת 8 קריאות SerpAPI ועלולה לצרוך 8 חיפושים מהמכסה.
+
+
+## Version 8.0
+Dashboard table now shows deal dates with Hebrew weekdays, the actual scoring reference price, every available score component once, a single final score, and connection color coding only.

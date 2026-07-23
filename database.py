@@ -200,12 +200,45 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
     params.append(max(1, min(limit, 500)))
     with connection() as conn:
         rows = conn.execute(query, params).fetchall()
+
     result = []
     for row in rows:
         item = dict(row)
         payload = json.loads(item.pop("payload_json"))
-        item["score_reasons"] = payload.get("deal_score", {}).get("reasons", [])
-        item["booking_url"] = item.get("booking_url") or payload.get("booking_url")
+        deal_score = payload.get("deal_score") or {}
+        components = deal_score.get("components") or {}
+        analysis = payload.get("deal_analysis") or {}
+
+        source = analysis.get("price_reference_source")
+        if source == "history":
+            reference_price = analysis.get("historical_median")
+        elif source == "search_distribution":
+            reference_price = analysis.get("search_median")
+        elif source == "serpapi_typical":
+            reference_price = analysis.get("typical_price_low")
+        else:
+            reference_price = (
+                analysis.get("historical_median")
+                or analysis.get("search_median")
+                or analysis.get("typical_price_low")
+            )
+
+        reasons = deal_score.get("reasons") or []
+        item.update({
+            "score_reasons": reasons,
+            "booking_url": item.get("booking_url") or payload.get("booking_url"),
+            "reference_price_ils": reference_price,
+            "cost_score": components.get("price"),
+            "route_score": components.get("route"),
+            "baggage_score": components.get("baggage"),
+            "hours_score": components.get("hours"),
+            "rarity_score": components.get("rarity"),
+            # The current scoring engine reserves one combined field and does not yet
+            # calculate seasonality and reliability separately. Show honest zeroes.
+            "seasonality_score": 0,
+            "reliability_score": 0,
+            "send_reason": reasons[0].split(": +")[0] if reasons else deal_score.get("label"),
+        })
         result.append(item)
     return result
 
