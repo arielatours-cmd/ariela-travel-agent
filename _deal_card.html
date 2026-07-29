@@ -1,0 +1,30 @@
+{% macro deal_card(offer) -%}
+<article class="deal-card">
+  <div class="deal-top">
+    <div>
+      <span class="flag">{{ offer.country_flag or '✈' }}</span>
+      <h3>{{ offer.destination_name or offer.arrival_code }}</h3>
+      <p>{{ offer.departure_code }} → {{ offer.arrival_code }}</p>
+    </div>
+    <div class="score-ring"><strong>{{ offer.score }}</strong><small>ציון דיל</small></div>
+  </div>
+  <div class="deal-dates">
+    <span>יציאה <strong>{{ offer.outbound_date }}</strong></span>
+    <span>חזרה <strong>{{ offer.return_date }}</strong></span>
+  </div>
+  <div class="deal-price">
+    <span>החל מ־</span><strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong><small>לאדם</small>
+  </div>
+  <div class="deal-meta">
+    <span>{{ 'ישירה' if offer.stops == 0 else (offer.stops|string + ' עצירות') }}</span>
+    {% if offer.airline %}<span>{{ offer.airline }}</span>{% endif %}
+    {% if offer.total_duration_minutes %}<span>{{ (offer.total_duration_minutes // 60) }} ש׳ {{ offer.total_duration_minutes % 60 }} דק׳</span>{% endif %}
+  </div>
+  <p class="deal-reason">{{ offer.send_reason or offer.score_label or 'דיל שאותר על ידי אריאלה' }}</p>
+  {% if offer.booking_url %}
+    <a class="text-link" href="{{ offer.booking_url }}" target="_blank" rel="noopener">לפרטי הדיל ←</a>
+  {% else %}
+    <span class="text-link muted">קישור הזמנה יתווסף עם עדכון הספק</span>
+  {% endif %}
+</article>
+{%- endmacro %}
