@@ -22,3 +22,10 @@ services:
         value: "0"
       - key: DB_PATH
         value: /tmp/ariella.db
+
+
+# WhatsApp values must be added securely in the Render dashboard:
+# WHATSAPP_ACCESS_TOKEN
+# WHATSAPP_PHONE_NUMBER_ID
+# WHATSAPP_RECIPIENT
+# Optional: WHATSAPP_API_VERSION

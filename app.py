@@ -16,6 +16,10 @@ from database import (
 )
 from scanner import run_hourly_scan, search_flights
 from schedule_rules import delivery_status
+from whatsapp import (
+    WhatsAppConfigurationError, WhatsAppSendError,
+    send_text_message, whatsapp_status,
+)
 
 app = Flask(__name__)
 init_db()
@@ -47,6 +51,7 @@ def home():
         "endpoints": [
             "/health", "/admin", "/offers-preview", "/scan-history", "/scan",
             "/scan-status", "/daily-preview", "/daily-batch", "/search", "/settings",
+            "/whatsapp-status", "/whatsapp-send-test",
         ],
     })
 
@@ -68,6 +73,7 @@ def health():
         "database_error": db_error, "database_path": str(DB_PATH),
         "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
         "admin_protected": bool(ADMIN_TOKEN),
+        "whatsapp": whatsapp_status(),
     })
 
 
@@ -167,6 +173,54 @@ def daily_preview():
 @app.get("/delivery-status")
 def delivery_status_route():
     return jsonify(delivery_status())
+
+
+
+@app.get("/whatsapp-status")
+def whatsapp_status_route():
+    denied = _require_admin()
+    if denied:
+        return denied
+    return jsonify({"status": "success", **whatsapp_status()})
+
+
+@app.post("/whatsapp-send-test")
+def whatsapp_send_test():
+    denied = _require_admin()
+    if denied:
+        return denied
+
+    try:
+        result = prepare_daily_batch(force=True)
+        message = (result.get("message") or "").strip()
+        deals = result.get("deals") or []
+        if not deals or not message:
+            return jsonify({
+                "status": "error",
+                "message": "אין כרגע דילים מתאימים לשליחה. הפעילי סריקה ובני רשימה יומית.",
+            }), 400
+
+        send_result = send_text_message(message)
+        return jsonify({
+            "status": "success",
+            "message": f"הודעת ניסיון נשלחה בהצלחה עם {len(deals)} דילים.",
+            "deal_count": len(deals),
+            "recipient_ending": send_result.get("recipient_ending"),
+            "message_id": send_result.get("message_id"),
+        })
+    except WhatsAppConfigurationError as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
+    except WhatsAppSendError as exc:
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+            "hint": (
+                "אם Meta חסמה הודעת טקסט חופשית, שלחי הודעה ממספר הבדיקה "
+                "אל מספר ה-WhatsApp של Meta ונסי שוב בתוך חלון השיחה."
+            ),
+        }), 502
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 @app.route("/settings", methods=["GET", "POST"])

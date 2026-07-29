@@ -61,7 +61,7 @@ h1{margin:0 0 6px}.muted{color:var(--muted)}
 .num{font-size:28px;font-weight:700;margin-top:8px}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.status{padding:8px 0;font-weight:700}
 button,a.btn{background:var(--navy);color:#fff;border:0;border-radius:9px;padding:10px 14px;text-decoration:none;cursor:pointer}
-.secondary{background:#65748b!important}
+.secondary{background:#65748b!important}.whatsapp-button{background:#178b63!important}.sortable{cursor:pointer;user-select:none}.sortable:hover{background:#e2e8f2}
 h2{margin:24px 0 9px}
 .summary{background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 13px;margin-bottom:9px;font-size:14px;font-weight:700}
 .legend{font-size:12px;color:var(--muted);font-weight:400;margin-right:14px;white-space:nowrap}
@@ -150,6 +150,8 @@ tbody tr.offer-row:hover{background:#f7f9fd}
     <button onclick="runScan()">הפעל סריקת ניסיון</button>
     <button class="secondary" onclick="buildBatch()">בנה רשימה יומית</button>
     <a class="btn secondary" href="/daily-preview" target="_blank">תצוגת WhatsApp</a>
+    <button class="whatsapp-button" onclick="sendWhatsAppTest()">📲 שלח דילים לניסיון ב־WhatsApp</button>
+    <button class="secondary" onclick="checkWhatsAppStatus()">בדוק חיבור WhatsApp</button>
 </div>
 <div id="actionStatus" class="status"></div>
 
@@ -216,18 +218,18 @@ tbody tr.offer-row:hover{background:#f7f9fd}
 <div class="table-wrap">
 <table id="offersTable">
 <thead><tr>
-    <th class="destination">יעד</th>
-    <th class="dates">תאריכים</th>
-    <th class="price">מחיר ₪</th>
-    <th class="price">ממוצע ₪</th>
-    <th class="points">עלות</th>
-    <th class="route">מסלול</th>
-    <th class="points">כבודה</th>
-    <th class="points">שעות</th>
-    <th class="points">נדירות</th>
-    <th class="points">עונתיות</th>
-    <th class="points">אמינות</th>
-    <th class="final">ציון סופי</th>
+    <th class="destination sortable" data-key="destination" data-type="text">יעד ↕</th>
+    <th class="dates sortable" data-key="outbound" data-type="text">תאריכים ↕</th>
+    <th class="price sortable" data-key="price" data-type="number">מחיר ₪ ↕</th>
+    <th class="price sortable" data-key="reference" data-type="number">ממוצע ₪ ↕</th>
+    <th class="points sortable" data-key="cost" data-type="number">עלות ↕</th>
+    <th class="route sortable" data-key="routeScore" data-type="number">מסלול ↕</th>
+    <th class="points sortable" data-key="baggage" data-type="number">כבודה ↕</th>
+    <th class="points sortable" data-key="hours" data-type="number">שעות ↕</th>
+    <th class="points sortable" data-key="rarity" data-type="number">נדירות ↕</th>
+    <th class="points sortable" data-key="seasonality" data-type="number">עונתיות ↕</th>
+    <th class="points sortable" data-key="reliability" data-type="number">אמינות ↕</th>
+    <th class="final sortable" data-key="score" data-type="number">ציון סופי ↕</th>
     <th class="reason">סיבת השליחה</th>
 </tr></thead>
 <tbody>
@@ -240,6 +242,14 @@ tbody tr.offer-row:hover{background:#f7f9fd}
     data-price="{{ o.price_ils or 0 }}"
     data-route="{{ o.route_filter }}"
     data-score="{{ o.score or 0 }}"
+    data-reference="{{ o.reference_price_ils or 0 }}"
+    data-cost="{{ o.cost_score or 0 }}"
+    data-routescore="{{ o.route_score or 0 }}"
+    data-baggage="{{ o.baggage_score or 0 }}"
+    data-hours="{{ o.hours_score or 0 }}"
+    data-rarity="{{ o.rarity_score or 0 }}"
+    data-seasonality="{{ o.seasonality_score or 0 }}"
+    data-reliability="{{ o.reliability_score or 0 }}"
     onclick="openDetails({{ loop.index0 }})">
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
@@ -330,6 +340,68 @@ async function post(url){
 }
 function runScan(){post('/scan?max_searches=8')}
 function buildBatch(){post('/daily-batch?force=true')}
+
+async function sendWhatsAppTest(){
+    const status=document.getElementById('actionStatus');
+    status.textContent='מכינה ושולחת את הדילים ל־WhatsApp...';
+    try{
+        const response=await fetch('/whatsapp-send-test',{method:'POST'});
+        const data=await response.json();
+        status.textContent=data.message || JSON.stringify(data);
+        if(!response.ok && data.hint) status.textContent += ' ' + data.hint;
+    }catch(error){
+        status.textContent='שגיאה בשליחה: '+error;
+    }
+}
+
+async function checkWhatsAppStatus(){
+    const status=document.getElementById('actionStatus');
+    status.textContent='בודקת את חיבור ה־WhatsApp...';
+    try{
+        const response=await fetch('/whatsapp-status');
+        const data=await response.json();
+        if(data.configured){
+            status.textContent='✅ WhatsApp מחובר. מספר הנמען מסתיים ב־'+(data.recipient_ending || '—');
+        }else{
+            status.textContent='⚠️ חסרים ב־Render: '+(data.missing || []).join(', ');
+        }
+    }catch(error){
+        status.textContent='שגיאה בבדיקת החיבור: '+error;
+    }
+}
+
+
+let currentSort = {key: '', direction: 'asc'};
+
+document.querySelectorAll('#offersTable th.sortable').forEach(header => {
+    header.addEventListener('click', () => {
+        const key = header.dataset.key;
+        const type = header.dataset.type || 'text';
+        const direction =
+            currentSort.key === key && currentSort.direction === 'asc' ? 'desc' : 'asc';
+        currentSort = {key, direction};
+
+        const tbody = document.querySelector('#offersTable tbody');
+        const rows = [...tbody.querySelectorAll('tr.offer-row')];
+        rows.sort((a, b) => {
+            let left = a.dataset[key] ?? '';
+            let right = b.dataset[key] ?? '';
+            if(type === 'number'){
+                left = Number(left || 0);
+                right = Number(right || 0);
+                return direction === 'asc' ? left - right : right - left;
+            }
+            const comparison = String(left).localeCompare(String(right), 'he');
+            return direction === 'asc' ? comparison : -comparison;
+        });
+        rows.forEach(row => tbody.appendChild(row));
+
+        document.querySelectorAll('#offersTable th.sortable').forEach(item => {
+            item.textContent = item.textContent.replace(/[↑↓]$/, '↕');
+        });
+        header.textContent = header.textContent.replace(/↕$/, direction === 'asc' ? '↑' : '↓');
+    });
+});
 
 const filterIds = [
     'filterDestination','filterDateFrom','filterDateTo','filterMaxPrice',

@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "8.1"
+APP_VERSION = "9.0"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -38,3 +38,10 @@ AIRPORT_NAMES = {
     "BUD": "בודפשט", "VIE": "וינה", "SOF": "סופיה", "PRG": "פראג",
     "FCO": "רומא", "MXP": "מילאנו",
 }
+
+
+# WhatsApp Cloud API — store real values only in Render Environment Variables.
+WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
+WHATSAPP_RECIPIENT = os.getenv("WHATSAPP_RECIPIENT", "").strip()
+WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
