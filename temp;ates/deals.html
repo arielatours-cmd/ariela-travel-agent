@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "_deal_card.html" import deal_card %}
+{% block title %}הדילים של אריאלה{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="shell"><span class="eyebrow">הזדמנויות שאותרו במערכת</span><h1>הדילים של אריאלה</h1><p>הצעות נבחרות לפי מחיר, מסלול ופרטי הטיסה. המחיר והזמינות נבדקים מחדש באתר הספק.</p></div></section>
+<section class="section"><div class="shell">
+{% if offers %}
+  <div class="deal-grid">{% for offer in offers %}{{ deal_card(offer) }}{% endfor %}</div>
+{% else %}
+  <div class="empty-state"><h3>אין כרגע דילים חדשים להצגה</h3><p>מכסת החיפוש תתחדש והדילים הבאים יופיעו כאן לאחר הסריקה.</p></div>
+{% endif %}
+</div></section>
+{% endblock %}
