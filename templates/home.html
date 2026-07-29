@@ -5,59 +5,160 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>אריאלה | חיפוש חופשה בצורה חכמה</title>
 <style>
-:root{--black:#070707;--cream:#f7f0e4;--cream2:#fffaf2;--gold:#c99a3f;--gold2:#e7c778}
-*{box-sizing:border-box} body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);color:#111}
-header{min-height:126px;background:linear-gradient(#030303,#090909);border-bottom:1px solid var(--gold);display:flex;align-items:center;direction:ltr}
-.header{width:min(1440px,92%);margin:auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:28px}
-.brand{display:flex;align-items:center;gap:18px;color:var(--gold2);text-decoration:none;justify-self:start;direction:ltr}
-.mark{position:relative;width:72px;height:76px;font:italic 72px/1 Georgia,serif;background:linear-gradient(145deg,#f7dda1,#bd8128 62%,#ffe6a6);-webkit-background-clip:text;color:transparent}
-.mark:after{content:"";position:absolute;width:66px;height:1.5px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);left:4px;top:50px;transform:rotate(-7deg)}
-.spark{position:absolute;left:0;bottom:5px;color:#ffd978;font-size:17px}
-.brandname{font:30px/1 Georgia,serif;letter-spacing:9px}.tag{margin-top:11px;font-size:12px;letter-spacing:5px;color:var(--gold);text-align:center}
-nav{direction:rtl;display:flex;gap:42px;justify-self:center}nav a{color:#f5f1e8;text-decoration:none;font-size:18px;padding:18px 4px;position:relative}
-nav a.active{color:var(--gold2)}nav a.active:after{content:"";position:absolute;right:15%;left:15%;bottom:5px;height:1px;background:var(--gold)}
-.account{justify-self:end;direction:rtl;color:#fff;border:1px solid var(--gold2);border-radius:999px;padding:15px 28px;text-decoration:none;font-size:17px}
-.hero{min-height:calc(100vh - 126px);display:flex;align-items:center;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 0%,#fff,transparent 36%),linear-gradient(135deg,var(--cream2),var(--cream))}
-.hero:before{content:"";position:absolute;width:520px;height:520px;border:1px solid rgba(201,154,63,.12);border-radius:50%;left:-260px;bottom:-160px}
+
+:root{
+  --black:#070707;
+  --cream:#f7f0e4;
+  --cream2:#fffaf2;
+  --gold:#c99a3f;
+  --gold2:#e7c778;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);color:#111}
+.site-header{
+  min-height:126px;background:linear-gradient(#030303,#090909);
+  border-bottom:1px solid var(--gold);display:flex;align-items:center;direction:ltr
+}
+.header-inner{
+  width:min(1440px,92%);margin:auto;display:grid;
+  grid-template-columns:1fr auto 1fr;align-items:center;gap:28px
+}
+.brand{display:flex;align-items:center;gap:16px;justify-self:start;direction:ltr;cursor:default;user-select:none}
+.logo-a{width:72px;height:78px;display:block;flex:0 0 auto}
+.brand-copy{display:block}
+.brand-name{
+  display:block;font:30px/1 Georgia,"Times New Roman",serif;
+  letter-spacing:9px;color:var(--gold2)
+}
+.brand-tag{
+  display:block;margin-top:11px;font-size:12px;letter-spacing:5px;
+  color:var(--gold);text-align:center
+}
+.main-nav{direction:rtl;display:flex;gap:42px;justify-self:center}
+.main-nav a{
+  color:#f5f1e8;text-decoration:none;font-size:18px;padding:18px 4px;
+  position:relative;transition:color .25s ease
+}
+.main-nav a::after{
+  content:"";position:absolute;right:50%;left:50%;bottom:5px;height:1px;
+  background:var(--gold);transition:right .28s ease,left .28s ease
+}
+.main-nav a:hover,.main-nav a:focus-visible,.main-nav a.active{color:var(--gold2)}
+.main-nav a:hover::after,.main-nav a:focus-visible::after,.main-nav a.active::after{right:15%;left:15%}
+.account{
+  justify-self:end;direction:rtl;color:#fff;border:1px solid var(--gold2);
+  border-radius:999px;padding:15px 28px;text-decoration:none;font-size:17px;
+  transition:background .25s ease,color .25s ease
+}
+.account:hover,.account:focus-visible{background:var(--gold2);color:#111}
+@media(max-width:900px){
+  .site-header{padding:18px 0;min-height:auto}
+  .header-inner{grid-template-columns:1fr auto}
+  .main-nav{display:none}
+}
+@media(max-width:600px){
+  .brand-name{font-size:20px;letter-spacing:5px}
+  .brand-tag{font-size:9px;letter-spacing:3px}
+  .logo-a{width:50px;height:55px}
+  .account{font-size:14px;padding:11px 13px}
+}
+
+.hero{
+  min-height:calc(100vh - 126px);display:flex;align-items:center;position:relative;
+  overflow:hidden;background:radial-gradient(circle at 50% 0%,#fff,transparent 36%),
+  linear-gradient(135deg,var(--cream2),var(--cream))
+}
+.hero::before{
+  content:"";position:absolute;width:520px;height:520px;border:1px solid rgba(201,154,63,.12);
+  border-radius:50%;left:-260px;bottom:-160px
+}
 .plane{position:absolute;left:10%;top:18%;font-size:44px;color:var(--gold);opacity:.7;transform:rotate(-17deg)}
 .trail{position:absolute;left:12%;top:27%;width:200px;height:260px;border-left:2px dashed rgba(201,154,63,.45);border-radius:50%;transform:rotate(-20deg)}
 .inner{width:min(1000px,88%);margin:auto;text-align:center;z-index:2;padding:76px 0 90px}
 h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-weight:600}
 .dark{display:block;font-size:clamp(52px,7.4vw,105px)}
-.gold{display:block;font-size:clamp(48px,6.6vw,91px);margin-top:8px;background:linear-gradient(90deg,#a87523,#e1bf69 48%,#af7c25);-webkit-background-clip:text;color:transparent}
+.gold{display:block;font-size:clamp(48px,6.6vw,91px);margin-top:8px;background:linear-gradient(90deg,#a87523,#e1bf69 48%,#af7c25);-webkit-background-clip:text;background-clip:text;color:transparent}
 .subtitle{margin:34px 0 0;font-size:clamp(24px,2.2vw,34px);font-weight:600}
-.story{margin:48px auto 0;max-width:860px;font-size:clamp(18px,1.7vw,24px);line-height:1.85}.story strong{display:block;margin-top:7px;font-size:1.12em}
-.actions{margin-top:38px;display:flex;justify-content:center;gap:20px;flex-wrap:wrap}.btn{min-width:240px;padding:17px 26px;border-radius:10px;text-decoration:none;font-size:19px;font-weight:700}
-.goldbtn{color:#111;background:linear-gradient(135deg,#eed28a,#c99234)}.darkbtn{color:#fff;background:#050505}
-@media(max-width:900px){header{padding:18px 0;min-height:auto}.header{grid-template-columns:1fr auto}nav{display:none}.hero{min-height:calc(100vh - 102px)}}
-@media(max-width:600px){.brandname{font-size:20px;letter-spacing:5px}.tag{font-size:9px;letter-spacing:3px}.mark{width:48px;height:54px;font-size:52px}.mark:after{width:48px;top:37px}.account{font-size:14px;padding:11px 13px}.inner{width:91%;padding:58px 0 70px}.btn{width:100%}}
+.story{margin:48px auto 0;max-width:860px;font-size:clamp(18px,1.7vw,24px);line-height:1.85}
+.story strong{display:block;margin-top:7px;font-size:1.12em}
+.actions{margin-top:38px;display:flex;justify-content:center;gap:20px;flex-wrap:wrap}
+.btn{min-width:240px;padding:17px 26px;border-radius:10px;text-decoration:none;font-size:19px;font-weight:700;transition:transform .2s ease,box-shadow .2s ease}
+.btn:hover,.btn:focus-visible{transform:translateY(-2px);box-shadow:0 9px 22px rgba(0,0,0,.14)}
+.goldbtn{color:#111;background:linear-gradient(135deg,#eed28a,#c99234)}
+.darkbtn{color:#fff;background:#050505}
+@media(max-width:900px){.hero{min-height:calc(100vh - 102px)}}
+@media(max-width:600px){.inner{width:91%;padding:58px 0 70px}.btn{width:100%}}
 </style>
 </head>
 <body>
-<header>
-  <div class="header">
-    <a class="brand" href="#">
-      <span class="mark">A<span class="spark">✦</span></span>
-      <span><div class="brandname">ARIELA</div><div class="tag">AI TRAVEL</div></span>
-    </a>
-    <nav><a class="active" href="#">ראשי</a><a href="#">קצת עלינו</a><a href="#">דילים</a></nav>
-    <a class="account" href="#">אריאלה שלי⌄</a>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand">
+
+<svg class="logo-a" viewBox="0 0 100 100" role="img" aria-label="Ariella">
+  <defs>
+    <linearGradient id="ariellaGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe8aa"/>
+      <stop offset=".5" stop-color="#d5a24b"/>
+      <stop offset="1" stop-color="#a66d1d"/>
+    </linearGradient>
+  </defs>
+  <path d="M20 88 L50 12 L80 88"
+        fill="none"
+        stroke="url(#ariellaGold)"
+        stroke-width="6"
+        stroke-linecap="square"
+        stroke-linejoin="miter"/>
+  <path d="M31 60 H69"
+        fill="none"
+        stroke="url(#ariellaGold)"
+        stroke-width="4"
+        stroke-linecap="square"/>
+  <path d="M36 60 H64"
+        fill="none"
+        stroke="#fff0bd"
+        stroke-width="1.2"
+        stroke-dasharray="5 5"/>
+  <path d="M27 54 V66 M21 60 H33 M23 56 L31 64 M31 56 L23 64"
+        stroke="#ffd978"
+        stroke-width="1.5"
+        stroke-linecap="round"/>
+</svg>
+
+      <span class="brand-copy">
+        <span class="brand-name">ARIELA</span>
+        <span class="brand-tag">AI TRAVEL</span>
+      </span>
+    </div>
+    <nav class="main-nav" aria-label="תפריט ראשי">
+      <a class="active" aria-current="page" href="{{ url_for('site.home') }}">ראשי</a>
+      <a href="{{ url_for('site.about') }}">קצת עלינו</a>
+      <a href="/deals">דילים</a>
+    </nav>
+    <a class="account" href="/my-ariela">אריאלה שלי⌄</a>
   </div>
 </header>
+
 <main>
-<section class="hero">
-  <div class="plane">✈</div><div class="trail"></div>
-  <div class="inner">
-    <h1><span class="dark">למצוא את החופשה</span><span class="gold">שמתאימה לך</span></h1>
-    <p class="subtitle">חיפוש חופשה בצורה חכמה</p>
-    <div class="story">
-      איך יודעים לאן לטוס, איזו מדינה מתאימה לנו ובאיזה אזור כדאי לטייל?<br>
-      לא כל מקום מתאים לכל הרכב, תקציב או סגנון חופשה.
-      <strong>בדיוק בשביל זה בנינו את אריאלה.</strong>
+  <section class="hero">
+    <div class="plane" aria-hidden="true">✈</div>
+    <div class="trail" aria-hidden="true"></div>
+    <div class="inner">
+      <h1><span class="dark">למצוא את החופשה</span><span class="gold">שמתאימה לך</span></h1>
+      <p class="subtitle">חיפוש חופשה בצורה חכמה</p>
+      <div class="story">
+        איך יודעים לאן לטוס, איזו מדינה מתאימה לנו ובאיזה אזור כדאי לטייל?<br>
+        לא כל מקום מתאים לכל הרכב, תקציב או סגנון חופשה.
+        <strong>בדיוק בשביל זה בנינו את אריאלה.</strong>
+      </div>
+      <div class="actions">
+        <a class="btn goldbtn" href="/deals">לצפייה בדילים</a>
+        <a class="btn darkbtn" href="/my-ariela">התחילו עם אריאלה ✦</a>
+      </div>
     </div>
-    <div class="actions"><a class="btn goldbtn" href="#">לצפייה בדילים</a><a class="btn darkbtn" href="#">התחילו עם אריאלה ✦</a></div>
-  </div>
-</section>
+  </section>
 </main>
 </body>
 </html>
