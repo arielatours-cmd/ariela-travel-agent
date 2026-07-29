@@ -29,3 +29,6 @@ services:
 # WHATSAPP_PHONE_NUMBER_ID
 # WHATSAPP_RECIPIENT
 # Optional: WHATSAPP_API_VERSION
+
+# Public website login sessions:
+# FLASK_SECRET_KEY (use a long random secret in Render)

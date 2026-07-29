@@ -86,6 +86,30 @@ def init_db() -> None:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                phone TEXT,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active'
+            );
+
+            CREATE TABLE IF NOT EXISTS trip_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                request_name TEXT NOT NULL,
+                travel_window TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                answers_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_trip_requests_member
+            ON trip_requests(member_id, id DESC);
             """
         )
 

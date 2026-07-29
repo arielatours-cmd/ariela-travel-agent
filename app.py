@@ -7,7 +7,7 @@ from flask import Flask, jsonify, request
 from admin import render_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
-    MIN_DEAL_SCORE, SCHEDULER_ENABLED,
+    MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY,
 )
 from daily import prepare_daily_batch
 from database import (
@@ -16,12 +16,15 @@ from database import (
 )
 from scanner import run_hourly_scan, search_flights
 from schedule_rules import delivery_status
+from public_site import site
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
 )
 
 app = Flask(__name__)
+app.secret_key = FLASK_SECRET_KEY
+app.register_blueprint(site)
 init_db()
 
 if SCHEDULER_ENABLED and os.getenv("WERKZEUG_RUN_MAIN") != "true":
@@ -40,20 +43,6 @@ def _require_admin():
     if not _authorized():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     return None
-
-
-@app.get("/")
-def home():
-    return jsonify({
-        "name": "Ariella Tours", "version": APP_VERSION, "status": "online",
-        "purpose": "flight scans, transparent scoring and daily WhatsApp-ready batches",
-        "dashboard": "/admin",
-        "endpoints": [
-            "/health", "/admin", "/offers-preview", "/scan-history", "/scan",
-            "/scan-status", "/daily-preview", "/daily-batch", "/search", "/settings",
-            "/whatsapp-status", "/whatsapp-send-test",
-        ],
-    })
 
 
 @app.get("/health")

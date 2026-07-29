@@ -48,3 +48,29 @@ Never store the real access token in GitHub.
 A free-form deal message can require an open customer-service conversation window.
 If Meta rejects it, send a message from the recipient to the Meta test number and try again.
 Production outbound messages will later use approved WhatsApp templates.
+
+
+## Version 10.0 — Public website
+
+Version 10 adds the first complete public Ariella website:
+
+- Luxury, classic, mobile-friendly home page
+- A dedicated public deals page connected to the existing offers database
+- Personal “About us” page
+- Registration and login
+- Personal account area
+- A detailed “My next trip” questionnaire
+- Storage of member accounts and trip requests in SQLite
+- Clear airline/travel-supplier disclaimer across the website
+- Preliminary privacy and terms pages
+
+### New Render variable
+
+Add `FLASK_SECRET_KEY` in Render Environment with a long random value.
+Do not use the included development fallback in production.
+
+### Current scope
+
+The questionnaire is functional and stores each trip request. The next stage is to
+connect stored preferences to the scoring and search engine, add email verification,
+password reset, member management, and legally reviewed terms/privacy text.
