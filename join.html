@@ -1,17 +1,63 @@
 {% extends "base.html" %}
-{% block title %}הצטרפות לאריאלה{% endblock %}
+{% from "_deal_card.html" import deal_card %}
+{% block title %}אריאלה — למצוא את החופש שמתאים לך{% endblock %}
 {% block content %}
-<section class="auth-section"><div class="shell auth-grid">
-  <div class="auth-copy"><span class="eyebrow">חברות באריאלה</span><h1>פותחים חשבון.<br>מתחילים לדייק.</h1><p>לאחר ההתחברות תוכלו ליצור בקשת “הטיול הבא שלי” נפרדת לכל חופשה.</p><div class="trial-note"><strong>ללא תשלום בתקופת ההרצה</strong><span>שירות ההתאמה האישית מיועד בעתיד לפעול במסגרת חברות בתשלום, בכפוף להודעה מראש.</span></div></div>
-  <form class="form-card" method="post">
-    <h2>יצירת חשבון</h2>
-    <label>שם מלא<input name="full_name" autocomplete="name" required></label>
-    <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" required></label>
-    <label>מספר טלפון<input name="phone" autocomplete="tel"></label>
-    <label>סיסמה<input type="password" name="password" minlength="8" autocomplete="new-password" required><small>לפחות 8 תווים</small></label>
-    <label class="consent"><input type="checkbox" name="consent" value="yes" required><span>קראתי ואני מאשר/ת את <a href="{{ url_for('site.terms') }}">תנאי השימוש</a> ואת <a href="{{ url_for('site.privacy') }}">מדיניות הפרטיות</a>.</span></label>
-    <button class="button primary full" type="submit">פתיחת חשבון</button>
-    <p class="form-footer">כבר יש לך חשבון? <a href="{{ url_for('site.login') }}">להתחברות</a></p>
-  </form>
-</div></section>
+<section class="hero">
+  <div class="shell hero-grid">
+    <div class="hero-copy">
+      <div class="eyebrow">חיפוש חופשה, בצורה חכמה יותר</div>
+      <h1>למצוא את החופש<br><em>שמתאים לך</em></h1>
+      <p>איך יודעים לאן לטוס, איזו מדינה מתאימה לנו ובאיזה אזור כדאי לטייל? לא כל מקום מתאים לכל הרכב, תקציב או סגנון חופשה. בדיוק בשביל זה בנינו את אריאלה.</p>
+      <div class="hero-actions">
+        <a class="button primary" href="{{ url_for('site.deals') }}">לצפייה בדילים</a>
+        <a class="button outline" href="{{ url_for('site.join') }}">הצטרפות לאריאלה</a>
+      </div>
+    </div>
+    <div class="hero-panel">
+      <div class="route-line"><span>TLV</span><i></i><span>החופשה שלך</span></div>
+      <div class="panel-card">
+        <small>אריאלה בודקת עבורכם</small>
+        <strong>מחיר · מסלול · שעות · כבודה</strong>
+        <p>כדי להציג דילים טובים — ובהמשך גם דילים שבאמת מתאימים לבקשת הטיול שלכם.</p>
+      </div>
+      <div class="panel-number">01</div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
+    <div class="section-heading split">
+      <div><span class="eyebrow">הזדמנויות אחרונות</span><h2>הדילים של אריאלה</h2></div>
+      <a class="text-link" href="{{ url_for('site.deals') }}">לכל הדילים ←</a>
+    </div>
+    {% if offers %}
+      <div class="deal-grid">{% for offer in offers %}{{ deal_card(offer) }}{% endfor %}</div>
+    {% else %}
+      <div class="empty-state"><h3>הסריקה הבאה בדרך</h3><p>ברגע שמנוע החיפוש יאתר דילים חדשים, הם יוצגו כאן באופן אוטומטי.</p></div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section soft">
+  <div class="shell">
+    <div class="section-heading centered"><span class="eyebrow">לא רק מחיר נמוך</span><h2>כך אריאלה חושבת</h2><p>דיל טוב נבחן לפי התמונה המלאה.</p></div>
+    <div class="principles">
+      <article><b>01</b><h3>מאתרת</h3><p>סורקת הצעות ומחפשת מחירים חריגים ביחס לטווח המקובל.</p></article>
+      <article><b>02</b><h3>בודקת</h3><p>משקללת מסלול, שעות, כבודה ופרטים המשפיעים על איכות החופשה.</p></article>
+      <article><b>03</b><h3>מתאימה</h3><p>שירות “הטיול הבא שלי” ילמד את ההעדפות וימקד את החיפוש עבורכם.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="membership">
+  <div class="shell membership-grid">
+    <div><span class="eyebrow light">האזור האישי</span><h2>הטיול הבא שלי</h2><p>ספרו לאריאלה מי מטייל, מתי, מה אתם אוהבים ומה התקציב. המערכת תשמור בקשת טיול נפרדת לכל הרכב ולכל חופשה.</p></div>
+    <div class="membership-box">
+      <p><strong>בתקופת ההרצה:</strong> ההצטרפות והשימוש זמינים ללא תשלום.</p>
+      <p>בהמשך, שירות ההתאמה האישית מיועד לפעול במסגרת חברות בתשלום, לאחר שנשלים את הבדיקות והשיפורים.</p>
+      <a class="button light-button" href="{{ url_for('site.join') }}">פתיחת חשבון</a>
+    </div>
+  </div>
+</section>
 {% endblock %}

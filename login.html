@@ -1,14 +1,17 @@
 {% extends "base.html" %}
-{% block title %}התחברות לאריאלה{% endblock %}
+{% block title %}הצטרפות לאריאלה{% endblock %}
 {% block content %}
-<section class="auth-section"><div class="shell auth-grid compact">
-  <div class="auth-copy"><span class="eyebrow">ברוכים השבים</span><h1>החופשה הבאה<br>מתחילה כאן.</h1><p>התחברו כדי לנהל את בקשות הטיול שלכם.</p></div>
+<section class="auth-section"><div class="shell auth-grid">
+  <div class="auth-copy"><span class="eyebrow">חברות באריאלה</span><h1>פותחים חשבון.<br>מתחילים לדייק.</h1><p>לאחר ההתחברות תוכלו ליצור בקשת “הטיול הבא שלי” נפרדת לכל חופשה.</p><div class="trial-note"><strong>ללא תשלום בתקופת ההרצה</strong><span>שירות ההתאמה האישית מיועד בעתיד לפעול במסגרת חברות בתשלום, בכפוף להודעה מראש.</span></div></div>
   <form class="form-card" method="post">
-    <h2>התחברות</h2>
+    <h2>יצירת חשבון</h2>
+    <label>שם מלא<input name="full_name" autocomplete="name" required></label>
     <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" required></label>
-    <label>סיסמה<input type="password" name="password" autocomplete="current-password" required></label>
-    <button class="button primary full" type="submit">התחברות</button>
-    <p class="form-footer">עדיין אין חשבון? <a href="{{ url_for('site.join') }}">להצטרפות</a></p>
+    <label>מספר טלפון<input name="phone" autocomplete="tel"></label>
+    <label>סיסמה<input type="password" name="password" minlength="8" autocomplete="new-password" required><small>לפחות 8 תווים</small></label>
+    <label class="consent"><input type="checkbox" name="consent" value="yes" required><span>קראתי ואני מאשר/ת את <a href="{{ url_for('site.terms') }}">תנאי השימוש</a> ואת <a href="{{ url_for('site.privacy') }}">מדיניות הפרטיות</a>.</span></label>
+    <button class="button primary full" type="submit">פתיחת חשבון</button>
+    <p class="form-footer">כבר יש לך חשבון? <a href="{{ url_for('site.login') }}">להתחברות</a></p>
   </form>
 </div></section>
 {% endblock %}

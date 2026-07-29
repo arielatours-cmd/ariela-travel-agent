@@ -1,1 +1,14 @@
-{% extends "base.html" %}{% block title %}מדיניות פרטיות — אריאלה{% endblock %}{% block content %}<section class="page-hero"><div class="shell narrow"><h1>מדיניות פרטיות</h1></div></section><section class="article-section"><div class="shell narrow article-copy"><p>אריאלה שומרת את הפרטים שהוזנו לצורך ניהול החשבון, שמירת בקשות הטיול והתאמת השירות. בשלב זה אין להעביר באתר מידע רפואי, פרטי כרטיס אשראי או מידע רגיש שאינו נחוץ לחיפוש חופשה. נוסח משפטי מלא ייבדק ויעודכן לפני פתיחת השירות לציבור הרחב.</p><p><strong>הערה:</strong> זהו נוסח ראשוני לצורכי בניית האתר, ויש לקבל ייעוץ משפטי מתאים לפני השקה מסחרית.</p></div></section>{% endblock %}
+{% extends "base.html" %}
+{% block title %}התחברות לאריאלה{% endblock %}
+{% block content %}
+<section class="auth-section"><div class="shell auth-grid compact">
+  <div class="auth-copy"><span class="eyebrow">ברוכים השבים</span><h1>החופשה הבאה<br>מתחילה כאן.</h1><p>התחברו כדי לנהל את בקשות הטיול שלכם.</p></div>
+  <form class="form-card" method="post">
+    <h2>התחברות</h2>
+    <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" required></label>
+    <label>סיסמה<input type="password" name="password" autocomplete="current-password" required></label>
+    <button class="button primary full" type="submit">התחברות</button>
+    <p class="form-footer">עדיין אין חשבון? <a href="{{ url_for('site.join') }}">להצטרפות</a></p>
+  </form>
+</div></section>
+{% endblock %}
