@@ -48,3 +48,12 @@ WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
 
 # Public website sessions. Set a long random value in Render.
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "change-this-before-production")
+
+
+# Feedback form email delivery.
+# For Gmail, MAIL_APP_PASSWORD must be a Google App Password, not the regular password.
+FEEDBACK_TO_EMAIL = os.getenv("FEEDBACK_TO_EMAIL", "arielatours@gmail.com").strip()
+MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
+MAIL_APP_PASSWORD = os.getenv("MAIL_APP_PASSWORD", "").strip()
+MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
+MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))

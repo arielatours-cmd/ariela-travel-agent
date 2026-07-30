@@ -12,7 +12,7 @@ from config import (
 from daily import prepare_daily_batch
 from database import (
     all_settings, dashboard_stats, get_daily_batch, init_db, latest_scan_run,
-    recent_offers, recent_scan_runs, set_setting,
+    recent_feedback, recent_offers, recent_scan_runs, set_setting,
 )
 from scanner import run_hourly_scan, search_flights
 from schedule_rules import delivery_status
@@ -89,6 +89,20 @@ def offers_preview():
     return jsonify({
         "status": "success", "count": len(offers), "minimum_deal_score": MIN_DEAL_SCORE,
         "offers": offers,
+    })
+
+
+@app.get("/feedback-preview")
+def feedback_preview():
+    denied = _require_admin()
+    if denied:
+        return denied
+    limit = request.args.get("limit", 100, type=int)
+    messages = recent_feedback(limit)
+    return jsonify({
+        "status": "success",
+        "count": len(messages),
+        "messages": messages,
     })
 
 

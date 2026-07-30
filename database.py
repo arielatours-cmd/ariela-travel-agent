@@ -110,6 +110,20 @@ def init_db() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_trip_requests_member
             ON trip_requests(member_id, id DESC);
+
+            CREATE TABLE IF NOT EXISTS feedback_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                email_status TEXT NOT NULL DEFAULT 'pending',
+                email_error TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_feedback_created_at
+            ON feedback_messages(created_at DESC);
             """
         )
 
@@ -321,3 +335,40 @@ def price_history_reference(departure_code: str, arrival_code: str, outbound_mon
     below_or_equal = sum(1 for value in prices if value <= current_price)
     percentile = (below_or_equal / len(prices)) * 100
     return {"sample_count": len(prices), "median": round(median, 2), "percentile": round(percentile, 1)}
+
+
+def save_feedback(full_name: str, email: str, phone: str, message: str) -> int:
+    with connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO feedback_messages
+               (full_name,email,phone,message,created_at,email_status)
+               VALUES(?,?,?,?,?,?)""",
+            (full_name, email, phone, message, utc_now_iso(), "pending"),
+        )
+        return int(cur.lastrowid)
+
+
+def mark_feedback_email_result(
+    feedback_id: int, status: str, error_message: str | None = None
+) -> None:
+    with connection() as conn:
+        conn.execute(
+            """UPDATE feedback_messages
+               SET email_status=?, email_error=?
+               WHERE id=?""",
+            (status, error_message, feedback_id),
+        )
+
+
+def recent_feedback(limit: int = 100) -> list[dict]:
+    safe_limit = max(1, min(int(limit), 500))
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT id,full_name,email,phone,message,created_at,
+                      email_status,email_error
+               FROM feedback_messages
+               ORDER BY id DESC
+               LIMIT ?""",
+            (safe_limit,),
+        ).fetchall()
+    return [dict(row) for row in rows]
