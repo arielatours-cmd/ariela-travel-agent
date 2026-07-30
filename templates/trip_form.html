@@ -1,96 +1,230 @@
 {% extends "base.html" %}
-{% block title %}תכנון הטיול הבא — אריאלה{% endblock %}
+{% block title %}תכנון חופשה חדשה — אריאלה{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="shell narrow"><span class="eyebrow">שאלון התאמה אישי</span><h1>הטיול הבא שלי</h1><p>אפשר לסמן יותר מתשובה אחת. בכל חופשה תוכלו ליצור בקשה חדשה להרכב אחר.</p></div></section>
-<form method="post" class="trip-form shell">
-<section class="form-step"><div class="step-number">01</div><div class="step-content">
-  <h2>איך נקרא לבקשה?</h2><label>שם לבקשה<input name="request_name" placeholder="לדוגמה: חופשה משפחתית באוקטובר"></label>
-</div></section>
-<section class="form-step"><div class="step-number">02</div><div class="step-content">
-  <h2>מי מטייל?</h2><p class="helper">סמנו את כל האפשרויות הרלוונטיות.</p>
-  <div class="choice-grid">
-    {% for value,label in [('solo','לבד'),('couple','זוג'),('friends','חברים'),('family','משפחה עם ילדים'),('extended','משפחה מורחבת'),('adults_only','מבוגרים בלבד')] %}
-    <label class="check-card"><input type="checkbox" name="travel_party" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
+<section class="page-hero trip-questionnaire-hero">
+  <div class="shell narrow">
+    <span class="eyebrow">שאלון התאמה אישי</span>
+    <h1>בואו נתכנן את החופשה הבאה</h1>
+    <p>בכל פעם תופיע רק שאלה אחת. אריאלה תשתמש בתשובות כדי לדעת מה לחפש עבורכם.</p>
   </div>
-  <div class="two-cols"><label>מספר מבוגרים<input type="number" name="adults" min="1" value="2"></label><label>מספר ילדים<input type="number" name="children" min="0" value="0"></label></div>
-  <h3>אילו קבוצות גיל משתתפות?</h3>
-  <div class="choice-grid small">
-    {% for value,label in [('infants','תינוקות 0–2'),('young','ילדים 3–7'),('children','ילדים 8–12'),('teens','בני נוער 13–17'),('adults','מבוגרים'),('seniors','הגיל השלישי')] %}
-    <label class="check-card"><input type="checkbox" name="age_groups" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
+</section>
+
+<form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
+  <div class="wizard-progress" aria-label="התקדמות בשאלון">
+    <div class="wizard-progress-bar" id="wizardProgressBar"></div>
   </div>
-</div></section>
-<section class="form-step"><div class="step-number">03</div><div class="step-content">
-  <h2>מתי רוצים לטייל?</h2>
-  <div class="radio-line"><label><input type="radio" name="date_mode" value="month" checked> חודש מסוים</label><label><input type="radio" name="date_mode" value="exact"> תאריכים מדויקים</label></div>
-  <div class="two-cols"><label>חודש מועדף<input type="month" name="travel_month"></label><label>גמישות בתאריכים<select name="date_flexibility"><option value="none">ללא גמישות</option><option value="1">יום קדימה או אחורה</option><option value="3">עד 3 ימים</option><option value="7">עד שבוע</option><option value="month">כל החודש מתאים</option></select></label></div>
-  <div class="two-cols"><label>תאריך יציאה<input type="date" name="departure_date"></label><label>תאריך חזרה<input type="date" name="return_date"></label></div>
-  <div class="two-cols"><label>מינימום לילות<input type="number" name="minimum_nights" min="1"></label><label>מקסימום לילות<input type="number" name="maximum_nights" min="1"></label></div>
-</div></section>
-<section class="form-step"><div class="step-number">04</div><div class="step-content">
-  <h2>איזו חופשה מחפשים?</h2><p class="helper">אפשר לבחור כמה סגנונות.</p>
-  <div class="choice-grid">
-    {% for value,label in [('beach','בטן־גב'),('nature','טבע ונופים'),('hiking','טרקים ומסלולים'),('city','ערים ותרבות'),('shopping','קניות'),('family','אטרקציות לילדים'),('food','אוכל וקולינריה'),('nightlife','חיי לילה'),('spa','ספא ורוגע'),('ski','סקי'),('adventure','ספורט אתגרי'),('romantic','חופשה רומנטית')] %}
-    <label class="check-card"><input type="checkbox" name="holiday_styles" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
-  </div>
-  <h3>מה הכי חשוב בחופשה הזאת?</h3>
-  <div class="choice-grid small">
-    {% for value,label in [('price','מחיר'),('direct','טיסה ישירה'),('hours','שעות נוחות'),('baggage','כבודה'),('weather','מזג אוויר'),('hotel','מלון איכותי'),('quiet','יעד פחות עמוס'),('cancellation','גמישות בביטול')] %}
-    <label class="check-card"><input type="checkbox" name="top_priorities" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
-  </div>
-</div></section>
-<section class="form-step"><div class="step-number">05</div><div class="step-content">
-  <h2>יעד ותקציב</h2>
-  <label>כמה פתוחים להצעות?<select name="destination_mode"><option value="specific">יש לי יעד מסוים</option><option value="several">יש לי כמה יעדים אפשריים</option><option value="open">פתוח/ה להצעות</option><option value="ariella">אריאלה תבחר עבורי</option></select></label>
-  <label>יעדים שמעניינים אתכם<input name="destinations" placeholder="אפשר לכתוב מדינות, ערים או אזורים"></label>
-  <div class="two-cols"><label>תקציב לטיסה לאדם (₪)<input type="number" name="flight_budget_pp" min="0"></label><label>תקציב כולל לחופשה (₪)<input type="number" name="total_budget" min="0"></label></div>
-  <label>גמישות בתקציב<select name="budget_flexibility"><option value="strict">חשוב לא לחרוג</option><option value="small">אפשר חריגה קטנה לדיל מצוין</option><option value="alternatives">להציע יעד או תאריך חלופי</option></select></label>
-  <div class="system-note"><strong>בדיקת היתכנות:</strong> בשלב הבא נחבר מנגנון שיתריע כאשר התקציב אינו נראה ריאלי, ויסביר אילו שינויים עשויים להפוך אותו לאפשרי — בלי לחסום את החיפוש.</div>
-</div></section>
-<section class="form-step"><div class="step-number">06</div><div class="step-content">
-  <h2>טיסה וכבודה</h2>
-  <div class="choice-grid small">
-    {% for value,label in [('direct','טיסה ישירה בלבד'),('one_stop','קונקשן אחד אפשרי'),('low_cost','לואו־קוסט מתאים'),('daytime','שעות יום מועדפות'),('flexible','אפשרות שינוי/ביטול חשובה')] %}
-    <label class="check-card"><input type="checkbox" name="flight_preferences" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
-  </div>
-  <h3>מה צריך לקחת?</h3>
-  <div class="choice-grid small">
-    {% for value,label in [('personal','תיק אישי'),('trolley','טרולי'),('suitcase','מזוודה'),('included','חשוב שהכבודה תהיה כלולה')] %}
-    <label class="check-card"><input type="checkbox" name="baggage" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
-  </div>
-</div></section>
-<section class="form-step"><div class="step-number">07</div><div class="step-content">
-  <h2>להוסיף מלון?</h2>
-  <select name="hotel_needed"><option value="flight_only">טיסה בלבד</option><option value="flight_hotel">טיסה ומלון</option><option value="undecided">עדיין לא החלטתי</option></select>
-  <div class="choice-grid small">
-    {% for value,label in [('hotel','מלון'),('apartment','דירה'),('resort','ריזורט'),('central','מיקום מרכזי'),('quiet','אזור שקט'),('breakfast','ארוחת בוקר'),('pool','בריכה'),('free_cancel','ביטול חינם'),('family','מתאים למשפחות')] %}
-    <label class="check-card"><input type="checkbox" name="hotel_preferences" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
-  </div>
-</div></section>
-<section class="form-step"><div class="step-number">08</div><div class="step-content">
-  <h2>המלצות על אטרקציות?</h2>
-  <select name="attractions_needed"><option value="yes">כן, ארצה המלצות</option><option value="main">רק האטרקציות המרכזיות</option><option value="no">לא כרגע</option></select>
-  <div class="choice-grid small">
-    {% for value,label in [('children','אטרקציות לילדים'),('nature','טבע ומסלולים'),('food','מסעדות וקולינריה'),('shopping','קניות ושווקים'),('culture','תרבות ומוזיאונים'),('nightlife','חיי לילה')] %}
-    <label class="check-card"><input type="checkbox" name="attraction_types" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
-  </div>
-</div></section>
-<section class="form-step"><div class="step-number">09</div><div class="step-content">
-  <h2>צרכים חשובים נוספים</h2>
-  <div class="choice-grid small">
-    {% for value,label in [('kosher','אוכל כשר'),('shabbat','שמירת שבת'),('accessible','נגישות'),('stroller','טיול עם עגלה'),('walking','מגבלת הליכה'),('vegetarian','צמחוני/טבעוני')] %}
-    <label class="check-card"><input type="checkbox" name="special_needs" value="{{ value }}"><span>{{ label }}</span></label>
-    {% endfor %}
-  </div>
-  <label>משהו נוסף שחשוב שנדע?<textarea name="notes" rows="4"></textarea></label>
-</div></section>
-<div class="form-submit"><button class="button primary" type="submit">שמירת בקשת הטיול</button><p>אפשר יהיה לערוך, להשהות או לשכפל את הבקשה בהמשך.</p></div>
+  <p class="wizard-counter" id="wizardCounter">שאלה 1 מתוך 6</p>
+
+  <section class="wizard-step is-active" data-step="1">
+    <span class="step-number">01</span>
+    <h2>לאן תרצו לטוס?</h2>
+    <p class="helper">בחרו את האפשרות שהכי מתאימה לכם.</p>
+    <div class="choice-row destination-options">
+      {% for value,label in [('specific','יש לי יעד מסוים'),('several','יש לי כמה יעדים אפשריים'),('open','אני פתוח/ה להצעות של אריאלה')] %}
+      <label class="choice-button"><input type="radio" name="destination_mode" value="{{ value }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <div class="conditional-panel" id="destinationDetails" hidden>
+      <label id="destinationLabel">לאיזה יעד תרצו לטוס?
+        <input name="destinations" id="destinationsInput" placeholder="לדוגמה: יפן">
+      </label>
+    </div>
+    <div class="wizard-actions"><button type="button" class="button primary wizard-next">המשך</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="2" hidden>
+    <span class="step-number">02</span>
+    <h2>מתי תרצו לטוס?</h2>
+    <div class="choice-row">
+      {% for value,label in [('exact','בתאריכים מדויקים'),('month','בחודש מסוים'),('anytime','לא משנה — כל השנה מתאימה')] %}
+      <label class="choice-button"><input type="radio" name="date_mode" value="{{ value }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <div class="conditional-panel" id="monthPanel" hidden>
+      <label>בחרו חודש
+        <input type="month" name="travel_month" id="travelMonth">
+      </label>
+    </div>
+    <div class="conditional-panel two-cols" id="exactDatesPanel" hidden>
+      <label>תאריך יציאה<input type="date" name="departure_date" id="departureDate"></label>
+      <label>תאריך חזרה<input type="date" name="return_date" id="returnDate"></label>
+    </div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="3" hidden>
+    <span class="step-number">03</span>
+    <h2>מי משתתף בחופשה?</h2>
+    <div class="choice-row compact-options">
+      {% for value,label in [('solo','לבד'),('couple','זוג'),('friends','חברים'),('family','משפחה עם ילדים'),('extended','משפחה מורחבת'),('adults_only','מבוגרים בלבד')] %}
+      <label class="choice-button small"><input type="radio" name="travel_party" value="{{ value }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+
+    <div class="conditional-panel" id="adultCountPanel" hidden>
+      <label>מספר מבוגרים<input type="number" name="adults" min="1" value="2"></label>
+    </div>
+    <div class="conditional-panel" id="familyDetails" hidden>
+      <div class="two-cols">
+        <label>מספר מבוגרים<input type="number" name="family_adults" min="1" value="2"></label>
+        <label>מספר ילדים<input type="number" name="children" min="1" value="1"></label>
+      </div>
+      <h3>אילו קבוצות גיל משתתפות?</h3>
+      <div class="choice-row compact-options">
+        {% for value,label in [('infants','תינוקות 0–2'),('children','ילדים 3–12'),('teens','בני נוער 13–17'),('adults','מבוגרים'),('seniors','הגיל השלישי')] %}
+        <label class="choice-button small"><input type="checkbox" name="age_groups" value="{{ value }}"><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="conditional-panel" id="adultAgeGroups" hidden>
+      <h3>איזו קבוצת גיל מתאימה?</h3>
+      <div class="choice-row compact-options">
+        {% for value,label in [('adults','מבוגרים'),('seniors','הגיל השלישי')] %}
+        <label class="choice-button small"><input type="checkbox" name="age_groups" value="{{ value }}"><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="4" hidden>
+    <span class="step-number">04</span>
+    <h2>מה הכי חשוב בחופשה הזו?</h2>
+    <p class="helper">אפשר לבחור כמה אפשרויות.</p>
+    <div class="choice-grid priority-grid">
+      {% for value,label in [('price','מחיר משתלם'),('beach','בטן־גב'),('nature','טבע ונופים'),('hiking','מסלולים וטיולים'),('city','ערים ותרבות'),('family','אטרקציות לילדים'),('food','אוכל וקולינריה'),('shopping','קניות'),('quiet','יעד פחות עמוס'),('weather','מזג אוויר נעים'),('nightlife','חיי לילה'),('relax','רוגע ופינוק')] %}
+      <label class="choice-button"><input type="checkbox" name="holiday_priorities" value="{{ value }}"><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="5" hidden>
+    <span class="step-number">05</span>
+    <h2>האם תרצו להגביל את התקציב?</h2>
+    <div class="choice-row budget-options">
+      {% for value,label in [('per_person','תקציב לאדם'),('total','תקציב כולל לחופשה'),('unlimited','ללא הגבלת תקציב')] %}
+      <label class="choice-button"><input type="radio" name="budget_mode" value="{{ value }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <div class="conditional-panel" id="budgetAmountPanel" hidden>
+      <label id="budgetAmountLabel">מה התקציב המרבי? (₪)
+        <input type="number" name="budget_amount" id="budgetAmount" min="0" step="100" placeholder="לדוגמה: 5000">
+      </label>
+    </div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="6" hidden>
+    <span class="step-number">06</span>
+    <h2>האם יש צרכים חשובים שנרצה לקחת בחשבון?</h2>
+    <p class="helper">אפשר לבחור כמה אפשרויות, או להשאיר ריק.</p>
+    <div class="choice-row compact-options special-needs-row">
+      {% for value,label in [('kosher','אוכל כשר'),('shabbat','שמירת שבת'),('accessible','נגישות'),('stroller','טיול עם עגלה'),('walking','מגבלת הליכה'),('vegetarian','צמחוני/טבעוני')] %}
+      <label class="choice-button small"><input type="checkbox" name="special_needs" value="{{ value }}"><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <label class="notes-label">משהו נוסף שחשוב שנדע?<textarea name="notes" rows="4"></textarea></label>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button class="button primary" type="submit">שמירת החופשה</button></div>
+  </section>
 </form>
+
+<script>
+(function () {
+  const form = document.getElementById('tripWizard');
+  const steps = Array.from(form.querySelectorAll('.wizard-step'));
+  const counter = document.getElementById('wizardCounter');
+  const progress = document.getElementById('wizardProgressBar');
+  let current = 0;
+
+  function setSelectedState(input) {
+    const name = input.name;
+    if (input.type === 'radio') {
+      form.querySelectorAll(`input[name="${name}"]`).forEach(el => el.closest('.choice-button')?.classList.toggle('selected', el.checked));
+    } else {
+      input.closest('.choice-button')?.classList.toggle('selected', input.checked);
+    }
+  }
+
+  form.querySelectorAll('.choice-button input').forEach(input => {
+    input.addEventListener('change', () => setSelectedState(input));
+  });
+
+  function showStep(index) {
+    current = Math.max(0, Math.min(index, steps.length - 1));
+    steps.forEach((step, i) => {
+      step.hidden = i !== current;
+      step.classList.toggle('is-active', i === current);
+    });
+    counter.textContent = `שאלה ${current + 1} מתוך ${steps.length}`;
+    progress.style.width = `${((current + 1) / steps.length) * 100}%`;
+    window.scrollTo({ top: form.offsetTop - 105, behavior: 'smooth' });
+  }
+
+  function validateStep(step) {
+    const requiredGroups = new Set(Array.from(step.querySelectorAll('[required]')).map(el => el.name));
+    for (const name of requiredGroups) {
+      const fields = Array.from(step.querySelectorAll(`[name="${name}"]`)).filter(el => !el.closest('[hidden]'));
+      if (!fields.some(el => (el.type === 'radio' || el.type === 'checkbox') ? el.checked : el.value.trim())) {
+        fields[0]?.focus();
+        step.classList.add('validation-shake');
+        setTimeout(() => step.classList.remove('validation-shake'), 350);
+        return false;
+      }
+    }
+    if (step.dataset.step === '1') {
+      const mode = form.destination_mode.value;
+      if ((mode === 'specific' || mode === 'several') && !document.getElementById('destinationsInput').value.trim()) {
+        document.getElementById('destinationsInput').focus(); return false;
+      }
+    }
+    if (step.dataset.step === '2') {
+      const mode = form.date_mode.value;
+      if (mode === 'month' && !document.getElementById('travelMonth').value) return document.getElementById('travelMonth').focus(), false;
+      if (mode === 'exact' && (!document.getElementById('departureDate').value || !document.getElementById('returnDate').value)) return document.getElementById('departureDate').focus(), false;
+    }
+    if (step.dataset.step === '5' && form.budget_mode.value !== 'unlimited' && !document.getElementById('budgetAmount').value) {
+      document.getElementById('budgetAmount').focus(); return false;
+    }
+    return true;
+  }
+
+  form.querySelectorAll('.wizard-next').forEach(btn => btn.addEventListener('click', () => {
+    if (validateStep(steps[current])) showStep(current + 1);
+  }));
+  form.querySelectorAll('.wizard-back').forEach(btn => btn.addEventListener('click', () => showStep(current - 1)));
+
+  form.querySelectorAll('input[name="destination_mode"]').forEach(input => input.addEventListener('change', () => {
+    const panel = document.getElementById('destinationDetails');
+    const label = document.getElementById('destinationLabel');
+    const show = input.value !== 'open' && input.checked;
+    panel.hidden = !show;
+    if (show) label.childNodes[0].nodeValue = input.value === 'specific' ? 'לאיזה יעד תרצו לטוס? ' : 'אילו יעדים מעניינים אתכם? ';
+    if (!show) document.getElementById('destinationsInput').value = '';
+  }));
+
+  form.querySelectorAll('input[name="date_mode"]').forEach(input => input.addEventListener('change', () => {
+    document.getElementById('monthPanel').hidden = !(input.checked && input.value === 'month');
+    document.getElementById('exactDatesPanel').hidden = !(input.checked && input.value === 'exact');
+  }));
+
+  form.querySelectorAll('input[name="travel_party"]').forEach(input => input.addEventListener('change', () => {
+    const family = input.checked && ['family','extended'].includes(input.value);
+    const adultOnly = input.checked && input.value === 'adults_only';
+    const counts = input.checked && ['couple','friends'].includes(input.value);
+    document.getElementById('familyDetails').hidden = !family;
+    document.getElementById('adultAgeGroups').hidden = !adultOnly;
+    document.getElementById('adultCountPanel').hidden = !counts;
+  }));
+
+  form.querySelectorAll('input[name="budget_mode"]').forEach(input => input.addEventListener('change', () => {
+    const panel = document.getElementById('budgetAmountPanel');
+    panel.hidden = input.value === 'unlimited';
+    document.getElementById('budgetAmountLabel').childNodes[0].nodeValue = input.value === 'per_person' ? 'מה התקציב המרבי לאדם? (₪) ' : 'מה התקציב המרבי לכל החופשה? (₪) ';
+    if (input.value === 'unlimited') document.getElementById('budgetAmount').value = '';
+  }));
+
+  showStep(0);
+})();
+</script>
 {% endblock %}

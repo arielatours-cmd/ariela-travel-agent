@@ -141,15 +141,9 @@ def join():
             return render_template("join.html")
 
         session["member_id"] = member_id
-        return redirect(url_for("site.welcome"))
+        return redirect(url_for("site.account", welcome="1"))
 
     return render_template("join.html")
-
-
-@site.get("/welcome")
-@login_required
-def welcome():
-    return render_template("welcome.html")
 
 
 @site.route("/login", methods=["GET", "POST"])
@@ -195,7 +189,10 @@ def account():
             (member["id"],),
         ).fetchall()
     return render_template(
-        "account.html", member=member, trips=[dict(row) for row in rows]
+        "account.html",
+        member=member,
+        trips=[dict(row) for row in rows],
+        welcome=request.args.get("welcome") == "1",
     )
 
 
@@ -204,41 +201,58 @@ def account():
 def new_trip():
     if request.method == "POST":
         form = request.form
-        request_name = form.get("request_name", "").strip() or "הטיול הבא שלי"
-        date_mode = form.get("date_mode", "month")
-        travel_window = (
-            form.get("travel_month", "").strip()
-            if date_mode == "month"
-            else f'{form.get("departure_date", "")} – {form.get("return_date", "")}'
-        )
+        destination_mode = form.get("destination_mode", "open")
+        destinations = form.get("destinations", "").strip()
+        date_mode = form.get("date_mode", "anytime")
+        travel_month = form.get("travel_month", "").strip()
+        departure_date = form.get("departure_date", "").strip()
+        return_date = form.get("return_date", "").strip()
+
+        if destination_mode in {"specific", "several"} and not destinations:
+            flash("יש לכתוב את היעד או היעדים שמעניינים אתכם.", "error")
+            return render_template("trip_form.html")
+        if date_mode == "month" and not travel_month:
+            flash("יש לבחור חודש מועדף.", "error")
+            return render_template("trip_form.html")
+        if date_mode == "exact" and (not departure_date or not return_date):
+            flash("יש לבחור תאריך יציאה ותאריך חזרה.", "error")
+            return render_template("trip_form.html")
+
+        destination_title = destinations if destinations else "הצעות של אריאלה"
+        if date_mode == "month":
+            date_title = travel_month
+            travel_window = travel_month
+        elif date_mode == "exact":
+            date_title = f"{departure_date}–{return_date}"
+            travel_window = f"{departure_date} – {return_date}"
+        else:
+            date_title = "תאריכים גמישים"
+            travel_window = "כל השנה"
+        request_name = f"{destination_title} • {date_title}"
+
+        travel_party = form.get("travel_party")
+        adults = form.get("family_adults") if travel_party in {"family", "extended"} else form.get("adults")
+        if travel_party == "solo":
+            adults = "1"
+        elif travel_party == "couple":
+            adults = "2"
 
         payload = {
-            "travel_party": form.getlist("travel_party"),
-            "adults": form.get("adults"),
+            "destination_mode": destination_mode,
+            "destinations": destinations,
+            "date_mode": date_mode,
+            "travel_month": travel_month,
+            "departure_date": departure_date,
+            "return_date": return_date,
+            "travel_party": travel_party,
+            "adults": adults,
             "children": form.get("children"),
             "age_groups": form.getlist("age_groups"),
-            "date_mode": date_mode,
-            "travel_month": form.get("travel_month"),
-            "departure_date": form.get("departure_date"),
-            "return_date": form.get("return_date"),
-            "date_flexibility": form.get("date_flexibility"),
-            "minimum_nights": form.get("minimum_nights"),
-            "maximum_nights": form.get("maximum_nights"),
-            "holiday_styles": form.getlist("holiday_styles"),
-            "top_priorities": form.getlist("top_priorities"),
-            "destination_mode": form.get("destination_mode"),
-            "destinations": form.get("destinations"),
-            "flight_budget_pp": form.get("flight_budget_pp"),
-            "total_budget": form.get("total_budget"),
-            "budget_flexibility": form.get("budget_flexibility"),
-            "flight_preferences": form.getlist("flight_preferences"),
-            "baggage": form.getlist("baggage"),
-            "hotel_needed": form.get("hotel_needed"),
-            "hotel_preferences": form.getlist("hotel_preferences"),
-            "attractions_needed": form.get("attractions_needed"),
-            "attraction_types": form.getlist("attraction_types"),
+            "holiday_priorities": form.getlist("holiday_priorities"),
+            "budget_mode": form.get("budget_mode"),
+            "budget_amount": form.get("budget_amount"),
             "special_needs": form.getlist("special_needs"),
-            "notes": form.get("notes"),
+            "notes": form.get("notes", "").strip(),
         }
 
         with _db() as conn:
@@ -253,10 +267,7 @@ def new_trip():
             )
             conn.commit()
 
-        flash(
-            "בקשת הטיול נשמרה. מנגנון ההתאמה האישית יחובר למנוע הדילים בשלב הבא.",
-            "success",
-        )
+        flash("החופשה נשמרה בהצלחה.", "success")
         return redirect(url_for("site.account"))
 
     return render_template("trip_form.html")

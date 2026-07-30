@@ -1,50 +1,41 @@
 {% extends "base.html" %}
-{% block title %}האזור האישי — אריאלה{% endblock %}
+{% block title %}אריאלה שלי{% endblock %}
 {% block content %}
+{% if welcome %}
+<div class="welcome-overlay" id="welcomeOverlay" role="status" aria-live="polite">
+  <div class="welcome-card">
+    <span class="welcome-check">✓</span>
+    <h1>ברוכים הבאים לאריאלה!</h1>
+    <p>החשבון שלך נוצר בהצלחה.</p>
+    <small>אנחנו מכינים עבורך את האזור האישי...</small>
+  </div>
+</div>
+<script>setTimeout(function(){ document.getElementById('welcomeOverlay')?.classList.add('fade-out'); history.replaceState({}, '', '{{ url_for("site.account") }}'); }, 2100); setTimeout(function(){ document.getElementById('welcomeOverlay')?.remove(); }, 2700);</script>
+{% endif %}
+
 {% if trips %}
-<section class="page-hero account-hero account-hero-has-trips">
-  <div class="shell split">
-    <div>
-      <span class="eyebrow">האזור האישי</span>
-      <h1>שלום, {{ member.full_name }}</h1>
-    </div>
-    <a class="button primary" href="{{ url_for('site.new_trip') }}">+ תכנון הטיול הבא</a>
+<section class="page-hero account-hero account-hero-compact"><div class="shell split">
+  <div><span class="eyebrow">האזור האישי</span><h1>שלום, {{ member.full_name }}</h1></div>
+  <a class="button primary" href="{{ url_for('site.new_trip') }}">+ תכנון החופשה הבאה</a>
+</div></section>
+<section class="section account-trips-section"><div class="shell">
+  <div class="section-heading"><h2>הטיולים שלי</h2></div>
+  <div class="trip-list">
+  {% for trip in trips %}
+    <article class="trip-row"><div><small>{{ trip.status }}</small><h3>{{ trip.request_name }}</h3><p>{{ trip.travel_window or 'התאריכים גמישים' }}</p></div><span class="status-pill">הבקשה נשמרה</span></article>
+  {% endfor %}
   </div>
-</section>
-<section class="section account-trips-section">
-  <div class="shell">
-    <div class="section-heading"><h2>הטיולים שלי</h2></div>
-    <div class="trip-list">
-      {% for trip in trips %}
-      <article class="trip-row">
-        <div>
-          <small>{{ trip.status }}</small>
-          <h3>{{ trip.request_name }}</h3>
-          <p>{{ trip.travel_window or 'טרם נבחרו תאריכים' }}</p>
-        </div>
-        <span class="status-pill">הבקשה נשמרה</span>
-      </article>
-      {% endfor %}
-    </div>
-  </div>
-</section>
+</div></section>
 {% else %}
-<section class="page-hero account-hero account-hero-empty">
-  <div class="shell account-empty-intro">
-    <span class="eyebrow">האזור האישי</span>
-    <h1>שלום, {{ member.full_name }}</h1>
-    <p class="account-intro-text">ענו על כמה שאלות, ואריאלה תלמד מה לחפש עבורכם.</p>
-    <a class="button primary" href="{{ url_for('site.new_trip') }}">+ תכנון הטיול הראשון</a>
-  </div>
-</section>
-<section class="section account-empty-section">
-  <div class="shell">
-    <div class="section-heading"><h2>הטיולים שלי</h2></div>
-    <div class="empty-state">
-      <h3>עדיין לא יצרת בקשת טיול</h3>
-      <p>לאחר שתענו על השאלות, הבקשה תופיע כאן.</p>
-    </div>
-  </div>
-</section>
+<section class="page-hero account-hero account-hero-new"><div class="shell account-new-content">
+  <span class="eyebrow">האזור האישי</span>
+  <h1>שלום, {{ member.full_name }}</h1>
+  <p class="account-intro">ענו על כמה שאלות, ואריאלה תלמד מה לחפש עבורכם.</p>
+  <a class="button primary" href="{{ url_for('site.new_trip') }}">+ תכנון החופשה הראשונה</a>
+</div></section>
+<section class="section account-empty-section"><div class="shell">
+  <div class="section-heading"><h2>הטיולים שלי</h2></div>
+  <div class="empty-state"><h3>עדיין לא יצרת חופשה</h3><p>לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.</p></div>
+</div></section>
 {% endif %}
 {% endblock %}
