@@ -1,0 +1,5 @@
+.feedback-section{padding:80px 20px;background:#f7f3ea}
+.feedback-card{max-width:760px;margin:auto;background:#fff;border:1px solid #d8b15b;border-radius:20px;padding:40px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.feedback-card h2,.feedback-card p{text-align:center}
+.feedback-card input,.feedback-card textarea{width:100%;padding:14px;margin:0 0 16px;border:1px solid #ddd;border-radius:10px;font:inherit}
+.feedback-card button{width:100%;padding:16px;border:none;border-radius:10px;background:#c89b3c;color:#fff;font-size:18px;cursor:pointer}
