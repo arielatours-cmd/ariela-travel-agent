@@ -4,7 +4,6 @@
 3. database.py
 4. public_site.py
 5. templates/about.html
-6. templates/feedback.html
 
 אחרי העלאת הקבצים ל-GitHub, הגדירי ב-Render תחת Environment:
 

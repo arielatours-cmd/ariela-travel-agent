@@ -35,8 +35,29 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);co
 .site-footer{background:#050505;color:#eee;text-align:center;padding:54px 20px 58px;border-top:1px solid #242424}
 .footer-lead{margin:0 0 10px;font-size:22px}
 .footer-sub{margin:0 0 28px;color:#c9c2b5;font-size:18px}
-.contact-open{display:inline-block;min-width:170px;border:1px solid var(--gold2);background:transparent;color:var(--gold2);padding:14px 30px;font-size:18px;text-decoration:none;cursor:pointer;transition:background .25s ease,color .25s ease,transform .2s ease}
+.contact-open{min-width:170px;border:1px solid var(--gold2);background:transparent;color:var(--gold2);padding:14px 30px;font-size:18px;cursor:pointer;transition:background .25s ease,color .25s ease,transform .2s ease}
 .contact-open:hover,.contact-open:focus-visible{background:var(--gold2);color:#111;transform:translateY(-2px)}
+
+.modal-open{overflow:hidden}
+.feedback-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:22px}
+.feedback-modal.is-open{display:flex}
+.feedback-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(4px)}
+.feedback-dialog{position:relative;z-index:1;width:min(760px,100%);max-height:92vh;overflow:auto;padding:44px 46px 48px;border:1px solid rgba(231,199,120,.75);background:linear-gradient(145deg,#111,#070707);color:#fff;box-shadow:0 28px 90px rgba(0,0,0,.55)}
+.feedback-close{position:absolute;top:14px;left:17px;border:0;background:transparent;color:#d8c38f;font-size:36px;line-height:1;cursor:pointer}
+.feedback-dialog h2{margin:0;text-align:center;font:700 clamp(36px,4vw,52px)/1.2 Georgia,"Times New Roman",serif;color:var(--gold2)}
+.feedback-intro{max-width:650px;margin:18px auto 30px;text-align:center;color:#eee;font-size:19px;line-height:1.8}
+.feedback-form{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.feedback-form label{display:block;text-align:right;color:#f6f0e5;font-size:15px}
+.feedback-form label.full{grid-column:1/-1}
+.feedback-form input,.feedback-form textarea{width:100%;margin-top:8px;border:1px solid #74623d;background:#151515;color:#fff;padding:14px 15px;border-radius:4px;font:inherit;outline:none}
+.feedback-form input:focus,.feedback-form textarea:focus{border-color:var(--gold2);box-shadow:0 0 0 3px rgba(231,199,120,.12)}
+.feedback-form textarea{min-height:150px;resize:vertical}
+.feedback-submit{grid-column:1/-1;border:1px solid var(--gold2);background:linear-gradient(100deg,#b98229,#e5c26f,#b98229);color:#111;padding:15px 25px;font-size:19px;font-weight:700;cursor:pointer;transition:transform .2s ease,filter .2s ease}
+.feedback-submit:hover,.feedback-submit:focus-visible{transform:translateY(-2px);filter:brightness(1.07)}
+.honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.flash-stack{margin:0 auto 20px}
+.flash{padding:15px 18px;border:1px solid var(--gold);background:#17130b;color:#fff;text-align:center;line-height:1.6}
+.flash.error{border-color:#d16b6b;background:#2b1010}
 @media(max-width:900px){.site-header{padding:18px 0;min-height:auto}.header-inner{grid-template-columns:1fr auto}.main-nav{display:none}}
 @media(max-width:600px){.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:55px}.account{font-size:14px;padding:11px 13px}.about-wrap{width:89%;padding:52px 0 58px}.about-wrap p{line-height:1.75}.mission{margin-top:48px}.feedback-dialog{padding:38px 20px 30px}.feedback-form{grid-template-columns:1fr}.feedback-form label.full,.feedback-submit{grid-column:auto}}
 </style>
@@ -76,10 +97,102 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);co
   </section>
 </main>
 
+
 <footer class="site-footer">
   <p class="footer-lead">אנחנו ממשיכים לפתח את אריאלה כל הזמן.</p>
   <p class="footer-sub">יש לכם רעיון או הצעה? נשמח לשמוע.</p>
-  <a class="contact-open" href="{{ url_for('site.feedback_form') }}">כתבו לנו</a>
+  <button class="contact-open" type="button" id="openFeedback">כתבו לנו</button>
 </footer>
+
+<div class="feedback-modal" id="feedbackModal" aria-hidden="true">
+  <div class="feedback-backdrop" data-close-feedback></div>
+
+  <section class="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+    <button class="feedback-close" type="button" aria-label="סגירה" data-close-feedback>×</button>
+
+    <h2 id="feedbackTitle">חושבים שחסר משהו?</h2>
+
+    <p class="feedback-intro">
+      נשמח לשמוע על רעיונות, הצעות לשיפור או כל דבר שלדעתכם
+      יהפוך את אריאלה לשימושית יותר.
+    </p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form class="feedback-form" method="post" action="{{ url_for('site.feedback') }}">
+      <label>שם מלא
+        <input type="text" name="full_name" maxlength="120" autocomplete="name" required>
+      </label>
+
+      <label>כתובת אימייל
+        <input type="email" name="email" maxlength="254" autocomplete="email" required>
+      </label>
+
+      <label class="full">טלפון
+        <input type="tel" name="phone" maxlength="40" autocomplete="tel" required>
+      </label>
+
+      <label class="full">הודעה
+        <textarea
+          name="message"
+          minlength="5"
+          maxlength="5000"
+          placeholder="כתבו כאן את ההערה, ההצעה או הרעיון שלכם..."
+          required></textarea>
+      </label>
+
+      <label class="honeypot" aria-hidden="true">אתר
+        <input type="text" name="website" tabindex="-1" autocomplete="off">
+      </label>
+
+      <button class="feedback-submit" type="submit">שלחו לנו את הרעיון</button>
+    </form>
+  </section>
+</div>
+
+<script>
+(() => {
+  const modal = document.getElementById("feedbackModal");
+  const openButton = document.getElementById("openFeedback");
+  const closeButtons = modal.querySelectorAll("[data-close-feedback]");
+
+  function openFeedback() {
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    const firstInput = modal.querySelector("input:not([tabindex='-1'])");
+    if (firstInput) firstInput.focus();
+  }
+
+  function closeFeedback() {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+  }
+
+  openButton.addEventListener("click", openFeedback);
+  closeButtons.forEach(button => button.addEventListener("click", closeFeedback));
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && modal.classList.contains("is-open")) {
+      closeFeedback();
+    }
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("sent") === "1" || document.querySelector(".flash-stack")) {
+    openFeedback();
+  }
+})();
+</script>
+
 </body>
 </html>
