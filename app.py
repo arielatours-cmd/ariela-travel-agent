@@ -75,6 +75,7 @@ def admin_dashboard():
         version=APP_VERSION, minimum_score=MIN_DEAL_SCORE,
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(50),
         scans=recent_scan_runs(20),
+        feedback=recent_feedback(100),
     )
 
 

@@ -1,7 +1,5 @@
 import json
 import sqlite3
-import smtplib
-from email.message import EmailMessage
 from functools import wraps
 
 from flask import (
@@ -9,13 +7,8 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import (
-    DB_PATH, FEEDBACK_TO_EMAIL, MAIL_APP_PASSWORD, MAIL_SMTP_HOST,
-    MAIL_SMTP_PORT, MAIL_USERNAME,
-)
-from database import (
-    mark_feedback_email_result, recent_offers, save_feedback, utc_now_iso,
-)
+from config import DB_PATH
+from database import recent_offers, save_feedback, utc_now_iso
 
 
 site = Blueprint("site", __name__)
@@ -77,34 +70,6 @@ def feedback_form():
     return render_template("feedback.html")
 
 
-def _send_feedback_email(
-    full_name: str, email: str, phone: str, message: str
-) -> None:
-    if not MAIL_USERNAME or not MAIL_APP_PASSWORD:
-        raise RuntimeError(
-            "MAIL_USERNAME או MAIL_APP_PASSWORD אינם מוגדרים ב-Render."
-        )
-
-    mail = EmailMessage()
-    mail["Subject"] = f"משוב חדש באתר אריאלה — {full_name}"
-    mail["From"] = MAIL_USERNAME
-    mail["To"] = FEEDBACK_TO_EMAIL
-    mail["Reply-To"] = email
-    mail.set_content(
-        "התקבל משוב חדש באתר אריאלה\n\n"
-        f"שם מלא: {full_name}\n"
-        f"אימייל: {email}\n"
-        f"טלפון: {phone}\n\n"
-        "הודעה:\n"
-        f"{message}\n"
-    )
-
-    with smtplib.SMTP_SSL(
-        MAIL_SMTP_HOST, MAIL_SMTP_PORT, timeout=20
-    ) as smtp:
-        smtp.login(MAIL_USERNAME, MAIL_APP_PASSWORD)
-        smtp.send_message(mail)
-
 
 @site.post("/feedback")
 def feedback():
@@ -134,14 +99,7 @@ def feedback():
         flash("ההודעה צריכה להכיל בין 5 ל-5,000 תווים.", "error")
         return redirect(url_for("site.feedback_form"))
 
-    feedback_id = save_feedback(full_name, email, phone, message)
-
-    try:
-        _send_feedback_email(full_name, email, phone, message)
-        mark_feedback_email_result(feedback_id, "sent")
-    except Exception as exc:
-        # The message is still safely stored in the database.
-        mark_feedback_email_result(feedback_id, "failed", str(exc)[:1000])
+    save_feedback(full_name, email, phone, message)
 
     flash(
         "תודה! קיבלנו את ההצעה שלכם. "

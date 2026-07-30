@@ -12,7 +12,7 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);co
 .site-header{min-height:126px;background:linear-gradient(#030303,#090909);border-bottom:1px solid var(--gold);display:flex;align-items:center;direction:ltr}
 .header-inner{width:min(1440px,92%);margin:auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:28px}
 .brand{display:flex;align-items:center;gap:16px;justify-self:start;direction:ltr;cursor:default;user-select:none}
-.logo-a{width:72px;height:78px;display:block;flex:0 0 auto}
+.logo-a{width:72px;height:72px;display:block;flex:0 0 auto;object-fit:contain}
 .brand-copy{display:block}.brand-name{display:block;font:30px/1 Georgia,"Times New Roman",serif;letter-spacing:9px;color:var(--gold2)}
 .brand-tag{display:block;margin-top:11px;font-size:12px;letter-spacing:5px;color:var(--gold);text-align:center}
 .main-nav{direction:rtl;display:flex;gap:42px;justify-self:center}
@@ -38,20 +38,14 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);co
 .contact-open{display:inline-block;min-width:170px;border:1px solid var(--gold2);background:transparent;color:var(--gold2);padding:14px 30px;font-size:18px;text-decoration:none;cursor:pointer;transition:background .25s ease,color .25s ease,transform .2s ease}
 .contact-open:hover,.contact-open:focus-visible{background:var(--gold2);color:#111;transform:translateY(-2px)}
 @media(max-width:900px){.site-header{padding:18px 0;min-height:auto}.header-inner{grid-template-columns:1fr auto}.main-nav{display:none}}
-@media(max-width:600px){.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:55px}.account{font-size:14px;padding:11px 13px}.about-wrap{width:89%;padding:52px 0 58px}.about-wrap p{line-height:1.75}.mission{margin-top:48px}.feedback-dialog{padding:38px 20px 30px}.feedback-form{grid-template-columns:1fr}.feedback-form label.full,.feedback-submit{grid-column:auto}}
+@media(max-width:600px){.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:50px}.account{font-size:14px;padding:11px 13px}.about-wrap{width:89%;padding:52px 0 58px}.about-wrap p{line-height:1.75}.mission{margin-top:48px}.feedback-dialog{padding:38px 20px 30px}.feedback-form{grid-template-columns:1fr}.feedback-form label.full,.feedback-submit{grid-column:auto}}
 </style>
 </head>
 <body>
 <header class="site-header">
   <div class="header-inner">
     <div class="brand">
-      <svg class="logo-a" viewBox="0 0 100 100" role="img" aria-label="Ariella">
-        <defs><linearGradient id="ariellaGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe8aa"/><stop offset=".5" stop-color="#d5a24b"/><stop offset="1" stop-color="#a66d1d"/></linearGradient></defs>
-        <path d="M20 88 L50 12 L80 88" fill="none" stroke="url(#ariellaGold)" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter"/>
-        <path d="M31 60 H69" fill="none" stroke="url(#ariellaGold)" stroke-width="4"/>
-        <path d="M36 60 H64" fill="none" stroke="#fff0bd" stroke-width="1.2" stroke-dasharray="5 5"/>
-        <path d="M27 54 V66 M21 60 H33 M23 56 L31 64 M31 56 L23 64" stroke="#ffd978" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
+      <img class="logo-a" src="{{ url_for('static', filename='ariella-a-logo.png') }}" alt="Ariella">
       <span class="brand-copy"><span class="brand-name">ARIELA</span><span class="brand-tag">AI TRAVEL</span></span>
     </div>
     <nav class="main-nav" aria-label="תפריט ראשי">

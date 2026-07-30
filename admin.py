@@ -1,42 +1,4 @@
-from datetime import datetime
 from flask import render_template_string
-
-HEBREW_WEEKDAYS_SHORT = {
-    0: "ב׳", 1: "ג׳", 2: "ד׳", 3: "ה׳", 4: "ו׳", 5: "שבת", 6: "א׳",
-}
-
-
-def _date_display(value: str | None) -> str:
-    if not value:
-        return "—"
-    try:
-        parsed = datetime.strptime(value, "%Y-%m-%d")
-    except (TypeError, ValueError):
-        return value
-    return f"{HEBREW_WEEKDAYS_SHORT[parsed.weekday()]} {parsed.strftime('%d.%m.%Y')}"
-
-
-def _prepare_offer(offer: dict) -> dict:
-    item = dict(offer)
-    item["outbound_display"] = _date_display(item.get("outbound_date"))
-    item["return_display"] = _date_display(item.get("return_date"))
-
-    stops = int(item.get("stops") or 0)
-    item["route_color"] = (
-        "direct" if stops == 0 else
-        "one-stop" if stops == 1 else
-        "multi-stop"
-    )
-    item["route_tooltip"] = (
-        "טיסה ישירה" if stops == 0 else
-        "קונקשן אחד" if stops == 1 else
-        "שני קונקשנים ומעלה"
-    )
-    item["route_filter"] = "direct" if stops == 0 else "one" if stops == 1 else "multi"
-
-    reasons = item.get("score_reasons") or []
-    item["details_reasons"] = reasons
-    return item
 
 
 DASHBOARD_HTML = r"""
@@ -48,96 +10,160 @@ DASHBOARD_HTML = r"""
 <title>אריאלה — לוח בקרה</title>
 <style>
 :root{
-    --bg:#f5f7fb;--text:#182033;--muted:#697386;--line:#e5eaf2;
-    --head:#eef2f8;--navy:#263a70;--good:#16865f;--orange:#e58a19;
-    --bad:#cf3f3f;--white:#fff;
+    --bg:#f5f7fb;
+    --text:#182033;
+    --muted:#697386;
+    --line:#edf0f5;
+    --head:#eef2f8;
+    --good:#087f5b;
+    --medium:#b26a00;
+    --bad:#c92a2a;
+    --gold:#b8892e;
 }
 *{box-sizing:border-box}
-body{font-family:Arial,sans-serif;background:var(--bg);margin:0;color:var(--text)}
-.wrap{width:96%;max-width:1450px;margin:auto;padding:22px 12px 34px}
-h1{margin:0 0 6px}.muted{color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:20px 0}
-.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 10px #00000012}
-.num{font-size:28px;font-weight:700;margin-top:8px}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.status{padding:8px 0;font-weight:700}
-button,a.btn{background:var(--navy);color:#fff;border:0;border-radius:9px;padding:10px 14px;text-decoration:none;cursor:pointer}
-.secondary{background:#65748b!important}.whatsapp-button{background:#178b63!important}.sortable{cursor:pointer;user-select:none}.sortable:hover{background:#e2e8f2}
-h2{margin:24px 0 9px}
-.summary{background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 13px;margin-bottom:9px;font-size:14px;font-weight:700}
-.legend{font-size:12px;color:var(--muted);font-weight:400;margin-right:14px;white-space:nowrap}
-.dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin:0 3px}
-.dot.direct{background:var(--good)}.dot.one-stop{background:var(--orange)}.dot.multi-stop{background:var(--bad)}
-
-.filters{
+body{
+    font-family:Arial,sans-serif;
+    background:var(--bg);
+    margin:0;
+    color:var(--text);
+}
+.wrap{
+    width:98%;
+    max-width:none;
+    margin:auto;
+    padding:18px 10px 28px;
+}
+h1{margin:0 0 6px}
+h2{margin:22px 0 8px}
+.muted{color:var(--muted)}
+.grid{
     display:grid;
-    grid-template-columns:1.25fr 1fr 1fr .9fr .9fr auto auto;
-    gap:8px;
-    align-items:end;
-    background:#fff;
-    border:1px solid var(--line);
+    grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+    gap:10px;
+    margin:16px 0;
+}
+.card{
+    background:white;
     border-radius:12px;
-    padding:11px;
-    margin-bottom:10px;
+    padding:13px;
+    box-shadow:0 2px 10px #00000012;
 }
-.filter-group{display:flex;flex-direction:column;gap:4px}
-.filter-group label{font-size:11px;color:var(--muted);font-weight:700}
-.filters input,.filters select{
-    width:100%;border:1px solid #cfd7e5;border-radius:8px;padding:8px 9px;
-    font-family:inherit;background:#fff;color:var(--text)
+.num{
+    font-size:25px;
+    font-weight:700;
+    margin-top:6px;
 }
-.checkbox-filter{display:flex;align-items:center;gap:6px;height:36px;white-space:nowrap;font-size:12px;font-weight:700}
-.checkbox-filter input{width:auto}
-.clear-filter{height:36px;background:#65748b}
-
-.table-wrap{width:100%;overflow-x:auto;background:#fff;border-radius:14px;box-shadow:0 2px 10px #0000000d}
-table{width:100%;min-width:1180px;border-collapse:collapse;background:#fff}
-th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:center;font-size:13px;line-height:1.25;white-space:nowrap}
-th{background:var(--head);font-size:12px;font-weight:700}
-tbody tr.offer-row{cursor:pointer}
-tbody tr.offer-row:hover{background:#f7f9fd}
-.destination{min-width:90px}.destination-code{display:block;font-size:14px;font-weight:800}.destination-name{display:block;margin-top:3px;font-size:12px}
-.dates{min-width:145px;line-height:1.45}.date-line{display:block}
-.price{min-width:82px}.points{min-width:62px}.route{min-width:72px}.final{min-width:88px}
-.reason{min-width:190px;max-width:260px;text-align:right;white-space:normal}
-.route-value{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:800}
-.route-value .route-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
-.route-value.direct .route-dot{background:var(--good)}
-.route-value.one-stop .route-dot{background:var(--orange)}
-.route-value.multi-stop .route-dot{background:var(--bad)}
-.final-score{font-size:16px;font-weight:800}
-.scans{min-width:760px}.empty{padding:20px!important;color:var(--muted)}
-.no-results{display:none;padding:18px;text-align:center;color:var(--muted);background:#fff}
-
-.modal-backdrop{
-    position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;
-    z-index:9999;padding:16px
+.actions{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin:12px 0;
 }
-.modal{
-    width:min(720px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:16px;
-    box-shadow:0 20px 60px #0005;padding:18px
+button,a.btn{
+    background:#263a70;
+    color:white;
+    border:0;
+    border-radius:8px;
+    padding:9px 12px;
+    text-decoration:none;
+    cursor:pointer;
 }
-.modal-header{display:flex;justify-content:space-between;align-items:start;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px}
-.modal-title{font-size:21px;font-weight:800}.modal-close{background:#eef2f8;color:var(--text);padding:7px 11px}
-.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;margin:15px 0}
-.detail-item{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding:7px 0}
-.detail-label{color:var(--muted)}.detail-value{font-weight:800}
-.reasons-box{background:#f7f9fd;border-radius:11px;padding:12px}
-.reasons-box h3{margin:0 0 8px}.reasons-box ul{margin:0;padding-right:20px}.reasons-box li{margin:6px 0}
-.source-note{margin-top:10px;font-size:12px;color:var(--muted)}
-
-@media(max-width:1050px){
-    .filters{grid-template-columns:repeat(3,1fr)}
+.secondary{background:#65748b!important}
+.status{padding:6px 0;font-weight:700}
+.table-summary{
+    background:white;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 10px;
+    margin-bottom:7px;
+    font-size:13px;
+    font-weight:700;
 }
+.table-wrap{
+    width:100%;
+    overflow-x:hidden;
+    border-radius:12px;
+    box-shadow:0 2px 10px #0000000d;
+}
+table{
+    width:100%;
+    table-layout:fixed;
+    border-collapse:collapse;
+    background:white;
+}
+th,td{
+    padding:5px 3px;
+    border-bottom:1px solid var(--line);
+    text-align:center;
+    font-size:12px;
+    line-height:1.15;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+th{
+    background:var(--head);
+    font-size:11px;
+    font-weight:700;
+}
+tbody tr:hover{background:#fafbfe}
+.destination{
+    width:70px;
+    white-space:normal;
+    line-height:1.05;
+}
+.destination-code{
+    display:block;
+    font-size:12px;
+    font-weight:800;
+}
+.destination-name{
+    display:block;
+    margin-top:2px;
+    font-size:11px;
+}
+.price-col{width:57px}
+.average-col{width:57px}
+.score-part{width:43px}
+.total-score{width:50px}
+.reason-col{
+    width:auto;
+    min-width:100px;
+    text-align:right;
+    white-space:nowrap;
+}
+.score-badge{
+    display:inline-block;
+    min-width:34px;
+    padding:4px 5px;
+    border-radius:7px;
+    color:white;
+    font-weight:800;
+}
+.score-good{background:var(--good)}
+.score-medium{background:var(--medium)}
+.score-bad{background:var(--bad)}
+.scans th,.scans td{font-size:12px;padding:6px 4px}
+.scans .scan-id{width:48px}
+.scans .scan-status{width:75px}
+.scans .scan-date{width:155px}
+.scans .scan-number{width:75px}
+.empty{padding:18px!important;color:var(--muted)}
+.feedback-table th,.feedback-table td{white-space:normal;text-align:right;vertical-align:top;padding:10px 8px;line-height:1.45}
+.feedback-table .feedback-date{width:165px;direction:ltr;text-align:center}
+.feedback-table .feedback-name{width:130px}
+.feedback-table .feedback-phone{width:120px;direction:ltr;text-align:center}
+.feedback-table .feedback-email{width:210px;direction:ltr;text-align:left}
+.feedback-table .feedback-message{width:auto}
+.feedback-count{color:var(--gold);font-weight:800}
 @media(max-width:900px){
-    .wrap{width:100%;padding:14px 5px 25px}
-    .grid{grid-template-columns:repeat(2,minmax(130px,1fr))}
-    .legend{display:block;margin:7px 0 0}
-    th,td{font-size:12px;padding:7px 5px}
-    .filters{grid-template-columns:repeat(2,1fr)}
-}
-@media(max-width:560px){
-    .filters{grid-template-columns:1fr}
-    .detail-grid{grid-template-columns:1fr}
+    .wrap{width:100%;padding:12px 4px 22px}
+    th,td{font-size:11px;padding:4px 2px}
+    th{font-size:10px}
+    .destination{width:62px}
+    .price-col,.average-col{width:51px}
+    .score-part{width:38px}
+    .total-score{width:45px}
 }
 </style>
 </head>
@@ -150,8 +176,6 @@ tbody tr.offer-row:hover{background:#f7f9fd}
     <button onclick="runScan()">הפעל סריקת ניסיון</button>
     <button class="secondary" onclick="buildBatch()">בנה רשימה יומית</button>
     <a class="btn secondary" href="/daily-preview" target="_blank">תצוגת WhatsApp</a>
-    <button class="whatsapp-button" onclick="sendWhatsAppTest()">📲 שלח דילים לניסיון ב־WhatsApp</button>
-    <button class="secondary" onclick="checkWhatsAppStatus()">בדוק חיבור WhatsApp</button>
 </div>
 <div id="actionStatus" class="status"></div>
 
@@ -162,137 +186,149 @@ tbody tr.offer-row:hover{background:#f7f9fd}
     <div class="card">ציון ממוצע<div class="num">{{ stats.average_score or 0 }}</div></div>
     <div class="card">ציון גבוה<div class="num">{{ stats.highest_score or 0 }}</div></div>
     <div class="card">שגיאות סריקה<div class="num">{{ stats.scan_errors or 0 }}</div></div>
+    <div class="card">הערות והצעות<div class="num">{{ feedback|length }}</div></div>
 </div>
 
 <h2>ההצעות האחרונות</h2>
-
-<div class="summary">
-    <span id="summaryCount">{{ offers|length }}</span> הצעות ·
-    <span id="summaryQualified">{{ qualified_count }}</span> עברו את הסף ·
-    ציון ממוצע <span id="summaryAverage">{{ offers_average }}</span> ·
-    ציון גבוה <span id="summaryHighest">{{ offers_highest }}</span>
-    <span class="legend">
-        <span class="dot direct"></span>ישירה
-        <span class="dot one-stop"></span>קונקשן אחד
-        <span class="dot multi-stop"></span>שניים ומעלה
-    </span>
-</div>
-
-<div class="filters">
-    <div class="filter-group">
-        <label for="filterDestination">יעד</label>
-        <input id="filterDestination" type="search" placeholder="שם יעד או קוד">
-    </div>
-    <div class="filter-group">
-        <label for="filterDateFrom">יציאה מתאריך</label>
-        <input id="filterDateFrom" type="date">
-    </div>
-    <div class="filter-group">
-        <label for="filterDateTo">חזרה עד תאריך</label>
-        <input id="filterDateTo" type="date">
-    </div>
-    <div class="filter-group">
-        <label for="filterMaxPrice">מחיר מרבי</label>
-        <input id="filterMaxPrice" type="number" min="0" step="1" placeholder="למשל 1500">
-    </div>
-    <div class="filter-group">
-        <label for="filterRoute">מסלול</label>
-        <select id="filterRoute">
-            <option value="">הכול</option>
-            <option value="direct">ישירה</option>
-            <option value="one">קונקשן אחד</option>
-            <option value="multi">שניים ומעלה</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label for="filterMinScore">ציון סופי מינימלי</label>
-        <input id="filterMinScore" type="number" min="0" max="100" step="1" placeholder="0">
-    </div>
-    <label class="checkbox-filter">
-        <input id="filterQualified" type="checkbox">
-        עברו את הסף בלבד
-    </label>
-    <button class="clear-filter" type="button" onclick="clearFilters()">נקה סינון</button>
+<div class="table-summary">
+    {{ offers|length }} דילים אחרונים ·
+    {{ offers|selectattr('score', 'ge', minimum_score)|list|length }} עברו את הסף ·
+    ציון ממוצע:
+    {% if offers %}
+        {{ ((offers|sum(attribute='score')) / (offers|length))|round(1) }}
+    {% else %}0{% endif %} ·
+    ציון גבוה:
+    {% if offers %}{{ offers|max(attribute='score')|attr('score') }}{% else %}0{% endif %}
 </div>
 
 <div class="table-wrap">
-<table id="offersTable">
-<thead><tr>
-    <th class="destination sortable" data-key="destination" data-type="text">יעד ↕</th>
-    <th class="dates sortable" data-key="outbound" data-type="text">תאריכים ↕</th>
-    <th class="price sortable" data-key="price" data-type="number">מחיר ₪ ↕</th>
-    <th class="price sortable" data-key="reference" data-type="number">ממוצע ₪ ↕</th>
-    <th class="points sortable" data-key="cost" data-type="number">עלות ↕</th>
-    <th class="route sortable" data-key="routeScore" data-type="number">מסלול ↕</th>
-    <th class="points sortable" data-key="baggage" data-type="number">כבודה ↕</th>
-    <th class="points sortable" data-key="hours" data-type="number">שעות ↕</th>
-    <th class="points sortable" data-key="rarity" data-type="number">נדירות ↕</th>
-    <th class="points sortable" data-key="seasonality" data-type="number">עונתיות ↕</th>
-    <th class="points sortable" data-key="reliability" data-type="number">אמינות ↕</th>
-    <th class="final sortable" data-key="score" data-type="number">ציון סופי ↕</th>
-    <th class="reason">סיבת השליחה</th>
-</tr></thead>
+<table>
+<thead>
+<tr>
+    <th class="destination">יעד</th>
+    <th class="price-col">מחיר</th>
+    <th class="average-col">ממוצע</th>
+    <th class="score-part">עלות</th>
+    <th class="score-part">מסלול</th>
+    <th class="score-part">כבודה</th>
+    <th class="score-part">שעות</th>
+    <th class="score-part">נדירות</th>
+    <th class="score-part">עונתיות</th>
+    <th class="score-part">אמינות</th>
+    <th class="total-score">ציון</th>
+    <th class="reason-col">סיבת השליחה</th>
+</tr>
+</thead>
 <tbody>
 {% for o in offers %}
-<tr class="offer-row"
-    data-index="{{ loop.index0 }}"
-    data-destination="{{ (o.arrival_code or '')|lower }} {{ (o.destination_name or '')|lower }}"
-    data-outbound="{{ o.outbound_date or '' }}"
-    data-return="{{ o.return_date or '' }}"
-    data-price="{{ o.price_ils or 0 }}"
-    data-route="{{ o.route_filter }}"
-    data-score="{{ o.score or 0 }}"
-    data-reference="{{ o.reference_price_ils or 0 }}"
-    data-cost="{{ o.cost_score or 0 }}"
-    data-routescore="{{ o.route_score or 0 }}"
-    data-baggage="{{ o.baggage_score or 0 }}"
-    data-hours="{{ o.hours_score or 0 }}"
-    data-rarity="{{ o.rarity_score or 0 }}"
-    data-seasonality="{{ o.seasonality_score or 0 }}"
-    data-reliability="{{ o.reliability_score or 0 }}"
-    onclick="openDetails({{ loop.index0 }})">
+<tr>
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
         <span class="destination-name">{{ o.destination_name or o.arrival_code or '—' }}</span>
     </td>
-    <td class="dates">
-        <span class="date-line">{{ o.outbound_display }}</span>
-        <span class="date-line">{{ o.return_display }}</span>
+    <td class="price-col" title="מחיר נוכחי בש״ח">
+        {{ o.price_ils|round|int if o.price_ils is not none else '—' }}
     </td>
-    <td class="price">{{ o.price_ils|round|int if o.price_ils is not none else '—' }}</td>
-    <td class="price" title="מחיר הייחוס שעליו התבסס ניקוד העלות">
-        {{ o.reference_price_ils|round|int if o.reference_price_ils is not none else '—' }}
+    <td class="average-col" title="מחיר ממוצע בש״ח">
+        {{ o.average_price_ils|round|int if o.average_price_ils is defined and o.average_price_ils is not none else
+           (o.avg_price_ils|round|int if o.avg_price_ils is defined and o.avg_price_ils is not none else '—') }}
     </td>
-    <td class="points">{{ o.cost_score if o.cost_score is not none else '—' }}</td>
-    <td class="route" title="{{ o.route_tooltip }}">
-        <span class="route-value {{ o.route_color }}">
-            <span class="route-dot"></span>
-            <span>{{ o.route_score if o.route_score is not none else '—' }}</span>
+    <td class="score-part" title="ניקוד עלות">
+        {{ o.cost_score if o.cost_score is defined else
+           (o.price_score if o.price_score is defined else '—') }}
+    </td>
+    <td class="score-part" title="ניקוד מסלול">
+        {{ o.route_score if o.route_score is defined else '—' }}
+    </td>
+    <td class="score-part" title="ניקוד כבודה">
+        {{ o.baggage_score if o.baggage_score is defined else '—' }}
+    </td>
+    <td class="score-part" title="ניקוד שעות">
+        {{ o.time_score if o.time_score is defined else
+           (o.schedule_score if o.schedule_score is defined else '—') }}
+    </td>
+    <td class="score-part" title="ניקוד נדירות">
+        {{ o.rarity_score if o.rarity_score is defined else '—' }}
+    </td>
+    <td class="score-part" title="ניקוד עונתיות">
+        {{ o.seasonality_score if o.seasonality_score is defined else
+           (o.season_score if o.season_score is defined else '—') }}
+    </td>
+    <td class="score-part" title="ניקוד אמינות">
+        {{ o.reliability_score if o.reliability_score is defined else '—' }}
+    </td>
+    <td class="total-score">
+        <span class="score-badge {% if o.score >= minimum_score %}score-good{% elif o.score >= minimum_score-10 %}score-medium{% else %}score-bad{% endif %}">
+            {{ o.score }}
         </span>
     </td>
-    <td class="points">{{ o.baggage_score if o.baggage_score is not none else '—' }}</td>
-    <td class="points">{{ o.hours_score if o.hours_score is not none else '—' }}</td>
-    <td class="points">{{ o.rarity_score if o.rarity_score is not none else '—' }}</td>
-    <td class="points">{{ o.seasonality_score if o.seasonality_score is not none else '—' }}</td>
-    <td class="points">{{ o.reliability_score if o.reliability_score is not none else '—' }}</td>
-    <td class="final"><span class="final-score">{{ o.score }}</span></td>
-    <td class="reason" title="{{ o.score_reasons|join(' · ') }}">{{ o.send_reason or '—' }}</td>
+    <td class="reason-col"
+        title="{{ o.score_reasons|join(' · ') if o.score_reasons else (o.send_reason or '') }}">
+        {% if o.send_reason is defined and o.send_reason %}
+            {{ o.send_reason }}
+        {% elif o.score_reasons %}
+            {{ o.score_reasons|first }}
+        {% else %}
+            —
+        {% endif %}
+    </td>
 </tr>
 {% else %}
-<tr><td class="empty" colspan="13">עדיין אין הצעות. הפעילי סריקה.</td></tr>
+<tr><td class="empty" colspan="12">עדיין אין הצעות. הפעילי סריקה.</td></tr>
 {% endfor %}
 </tbody>
 </table>
-<div id="noResults" class="no-results">לא נמצאו הצעות שמתאימות לסינון.</div>
+</div>
+
+<h2>הערות והצעות <span class="feedback-count">({{ feedback|length }})</span></h2>
+<div class="table-wrap">
+<table class="feedback-table">
+<thead><tr>
+    <th class="feedback-date">תאריך</th>
+    <th class="feedback-name">שם מלא</th>
+    <th class="feedback-phone">טלפון</th>
+    <th class="feedback-email">אימייל</th>
+    <th class="feedback-message">הודעה</th>
+</tr></thead>
+<tbody>
+{% for f in feedback %}
+<tr>
+    <td class="feedback-date">{{ f.created_at|replace('T', ' ')|truncate(19, True, '') }}</td>
+    <td class="feedback-name">{{ f.full_name }}</td>
+    <td class="feedback-phone"><a href="tel:{{ f.phone }}">{{ f.phone }}</a></td>
+    <td class="feedback-email"><a href="mailto:{{ f.email }}">{{ f.email }}</a></td>
+    <td class="feedback-message">{{ f.message }}</td>
+</tr>
+{% else %}
+<tr><td class="empty" colspan="5">עדיין לא התקבלו הערות או הצעות.</td></tr>
+{% endfor %}
+</tbody>
+</table>
 </div>
 
 <h2>סריקות אחרונות</h2>
 <div class="table-wrap">
 <table class="scans">
-<thead><tr><th>מס׳</th><th>סטטוס</th><th>התחלה</th><th>חיפושים</th><th>הצעות</th><th>שגיאות</th></tr></thead>
+<thead>
+<tr>
+    <th class="scan-id">מס׳</th>
+    <th class="scan-status">סטטוס</th>
+    <th class="scan-date">התחלה</th>
+    <th class="scan-number">חיפושים</th>
+    <th class="scan-number">הצעות</th>
+    <th class="scan-number">שגיאות</th>
+</tr>
+</thead>
 <tbody>
 {% for s in scans %}
-<tr><td>{{ s.id }}</td><td>{{ s.status }}</td><td>{{ s.started_at }}</td><td>{{ s.searches_completed }}/{{ s.searches_planned }}</td><td>{{ s.offers_found }}</td><td>{{ s.errors }}</td></tr>
+<tr>
+    <td>{{ s.id }}</td>
+    <td>{{ s.status }}</td>
+    <td>{{ s.started_at }}</td>
+    <td>{{ s.searches_completed }}/{{ s.searches_planned }}</td>
+    <td>{{ s.offers_found }}</td>
+    <td>{{ s.errors }}</td>
+</tr>
 {% else %}
 <tr><td class="empty" colspan="6">עדיין אין סריקות.</td></tr>
 {% endfor %}
@@ -301,31 +337,7 @@ tbody tr.offer-row:hover{background:#f7f9fd}
 </div>
 </div>
 
-<div id="detailsBackdrop" class="modal-backdrop" onclick="closeDetails(event)">
-    <div class="modal" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <div>
-                <div id="detailTitle" class="modal-title"></div>
-                <div id="detailDates" class="muted"></div>
-            </div>
-            <button class="modal-close" type="button" onclick="closeDetails()">סגירה</button>
-        </div>
-        <div id="detailGrid" class="detail-grid"></div>
-        <div class="reasons-box">
-            <h3>איך חושב הציון?</h3>
-            <ul id="detailReasons"></ul>
-            <div class="source-note">
-                הפירוט מוצג ישירות מנתוני מנוע הניקוד. ערך 0 יכול להיות ציון אמיתי,
-                או תוצאה של מחסור בנתונים — ההסבר לידו מבהיר מה קרה.
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
-const offersData = {{ offers|tojson }};
-const minimumScore = {{ minimum_score }};
-
 async function post(url){
     const e=document.getElementById('actionStatus');
     e.textContent='מבצעת...';
@@ -340,208 +352,24 @@ async function post(url){
 }
 function runScan(){post('/scan?max_searches=8')}
 function buildBatch(){post('/daily-batch?force=true')}
-
-async function sendWhatsAppTest(){
-    const status=document.getElementById('actionStatus');
-    status.textContent='מכינה ושולחת את הדילים ל־WhatsApp...';
-    try{
-        const response=await fetch('/whatsapp-send-test',{method:'POST'});
-        const data=await response.json();
-        status.textContent=data.message || JSON.stringify(data);
-        if(!response.ok && data.hint) status.textContent += ' ' + data.hint;
-    }catch(error){
-        status.textContent='שגיאה בשליחה: '+error;
-    }
-}
-
-async function checkWhatsAppStatus(){
-    const status=document.getElementById('actionStatus');
-    status.textContent='בודקת את חיבור ה־WhatsApp...';
-    try{
-        const response=await fetch('/whatsapp-status');
-        const data=await response.json();
-        if(data.configured){
-            status.textContent='✅ WhatsApp מחובר. מספר הנמען מסתיים ב־'+(data.recipient_ending || '—');
-        }else{
-            status.textContent='⚠️ חסרים ב־Render: '+(data.missing || []).join(', ');
-        }
-    }catch(error){
-        status.textContent='שגיאה בבדיקת החיבור: '+error;
-    }
-}
-
-
-let currentSort = {key: '', direction: 'asc'};
-
-document.querySelectorAll('#offersTable th.sortable').forEach(header => {
-    header.addEventListener('click', () => {
-        const key = header.dataset.key;
-        const type = header.dataset.type || 'text';
-        const direction =
-            currentSort.key === key && currentSort.direction === 'asc' ? 'desc' : 'asc';
-        currentSort = {key, direction};
-
-        const tbody = document.querySelector('#offersTable tbody');
-        const rows = [...tbody.querySelectorAll('tr.offer-row')];
-        rows.sort((a, b) => {
-            let left = a.dataset[key] ?? '';
-            let right = b.dataset[key] ?? '';
-            if(type === 'number'){
-                left = Number(left || 0);
-                right = Number(right || 0);
-                return direction === 'asc' ? left - right : right - left;
-            }
-            const comparison = String(left).localeCompare(String(right), 'he');
-            return direction === 'asc' ? comparison : -comparison;
-        });
-        rows.forEach(row => tbody.appendChild(row));
-
-        document.querySelectorAll('#offersTable th.sortable').forEach(item => {
-            item.textContent = item.textContent.replace(/[↑↓]$/, '↕');
-        });
-        header.textContent = header.textContent.replace(/↕$/, direction === 'asc' ? '↑' : '↓');
-    });
-});
-
-const filterIds = [
-    'filterDestination','filterDateFrom','filterDateTo','filterMaxPrice',
-    'filterRoute','filterMinScore','filterQualified'
-];
-filterIds.forEach(id => {
-    const element = document.getElementById(id);
-    element.addEventListener(element.type === 'checkbox' ? 'change' : 'input', applyFilters);
-    if(element.tagName === 'SELECT') element.addEventListener('change', applyFilters);
-});
-
-function applyFilters(){
-    const destination = document.getElementById('filterDestination').value.trim().toLowerCase();
-    const dateFrom = document.getElementById('filterDateFrom').value;
-    const dateTo = document.getElementById('filterDateTo').value;
-    const maxPrice = Number(document.getElementById('filterMaxPrice').value || 0);
-    const route = document.getElementById('filterRoute').value;
-    const minScore = Number(document.getElementById('filterMinScore').value || 0);
-    const qualifiedOnly = document.getElementById('filterQualified').checked;
-
-    const rows = [...document.querySelectorAll('#offersTable tbody tr.offer-row')];
-    const visibleScores = [];
-
-    rows.forEach(row => {
-        const rowDestination = row.dataset.destination || '';
-        const outbound = row.dataset.outbound || '';
-        const returnDate = row.dataset.return || '';
-        const price = Number(row.dataset.price || 0);
-        const rowRoute = row.dataset.route || '';
-        const score = Number(row.dataset.score || 0);
-
-        const visible =
-            (!destination || rowDestination.includes(destination)) &&
-            (!dateFrom || outbound >= dateFrom) &&
-            (!dateTo || returnDate <= dateTo) &&
-            (!maxPrice || price <= maxPrice) &&
-            (!route || rowRoute === route) &&
-            (!minScore || score >= minScore) &&
-            (!qualifiedOnly || score >= minimumScore);
-
-        row.style.display = visible ? '' : 'none';
-        if(visible) visibleScores.push(score);
-    });
-
-    document.getElementById('noResults').style.display =
-        visibleScores.length === 0 && rows.length ? 'block' : 'none';
-
-    const qualified = visibleScores.filter(score => score >= minimumScore).length;
-    const average = visibleScores.length
-        ? (visibleScores.reduce((a,b)=>a+b,0) / visibleScores.length).toFixed(1)
-        : '0';
-    const highest = visibleScores.length ? Math.max(...visibleScores) : 0;
-
-    document.getElementById('summaryCount').textContent = visibleScores.length;
-    document.getElementById('summaryQualified').textContent = qualified;
-    document.getElementById('summaryAverage').textContent = average;
-    document.getElementById('summaryHighest').textContent = highest;
-}
-
-function clearFilters(){
-    filterIds.forEach(id => {
-        const element = document.getElementById(id);
-        if(element.type === 'checkbox') element.checked = false;
-        else element.value = '';
-    });
-    applyFilters();
-}
-
-function valueOrDash(value){
-    return value === null || value === undefined || value === '' ? '—' : value;
-}
-function money(value){
-    if(value === null || value === undefined || value === '') return '—';
-    return Math.round(Number(value)).toLocaleString('he-IL') + ' ₪';
-}
-function addDetail(label, value){
-    return `<div class="detail-item"><span class="detail-label">${label}</span><span class="detail-value">${valueOrDash(value)}</span></div>`;
-}
-
-function openDetails(index){
-    const offer = offersData[index];
-    document.getElementById('detailTitle').textContent =
-        `${offer.arrival_code || '—'} · ${offer.destination_name || offer.arrival_code || '—'}`;
-    document.getElementById('detailDates').textContent =
-        `${offer.outbound_display || '—'}  ←  ${offer.return_display || '—'}`;
-
-    document.getElementById('detailGrid').innerHTML =
-        addDetail('מחיר בפועל', money(offer.price_ils)) +
-        addDetail('מחיר ממוצע / ייחוס', money(offer.reference_price_ils)) +
-        addDetail('עלות', offer.cost_score) +
-        addDetail('מסלול', `${valueOrDash(offer.route_score)} · ${offer.route_tooltip || ''}`) +
-        addDetail('כבודה', offer.baggage_score) +
-        addDetail('שעות', offer.hours_score) +
-        addDetail('נדירות', offer.rarity_score) +
-        addDetail('עונתיות', offer.seasonality_score) +
-        addDetail('אמינות', offer.reliability_score) +
-        addDetail('ציון סופי', offer.score);
-
-    const list = document.getElementById('detailReasons');
-    list.innerHTML = '';
-    const reasons = offer.details_reasons || [];
-    if(reasons.length){
-        reasons.forEach(reason => {
-            const li = document.createElement('li');
-            li.textContent = reason;
-            list.appendChild(li);
-        });
-    }else{
-        const li = document.createElement('li');
-        li.textContent = 'אין פירוט חישוב שמור עבור הדיל הזה.';
-        list.appendChild(li);
-    }
-
-    document.getElementById('detailsBackdrop').style.display = 'flex';
-}
-function closeDetails(event){
-    if(event && event.target !== document.getElementById('detailsBackdrop')) return;
-    document.getElementById('detailsBackdrop').style.display = 'none';
-}
-document.addEventListener('keydown', event => {
-    if(event.key === 'Escape') closeDetails();
-});
 </script>
 </body>
 </html>
 """
 
 
-def render_dashboard(*, version, minimum_score, stats, offers, scans):
-    prepared = [_prepare_offer(o) for o in offers]
-    prepared.sort(key=lambda o: float(o.get("score") or 0), reverse=True)
-    scores = [float(o.get("score") or 0) for o in prepared]
+def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback):
+    offers = sorted(
+        offers,
+        key=lambda offer: float(offer.get("score") or 0),
+        reverse=True,
+    )
     return render_template_string(
         DASHBOARD_HTML,
         version=version,
         minimum_score=minimum_score,
         stats=stats,
-        offers=prepared,
+        offers=offers,
         scans=scans,
-        qualified_count=sum(1 for score in scores if score >= minimum_score),
-        offers_average=round(sum(scores) / len(scores), 1) if scores else 0,
-        offers_highest=round(max(scores), 1) if scores else 0,
+        feedback=feedback,
     )
