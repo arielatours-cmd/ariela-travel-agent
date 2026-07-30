@@ -31,26 +31,14 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);co
 .brand-word{color:#111}.mission{margin-top:64px;color:var(--gold);font-weight:700}
 .mission-first{font-size:clamp(28px,3vw,38px);line-height:1.5}.mission-last{margin-top:12px;font:700 clamp(42px,5vw,62px)/1.2 Georgia,"Times New Roman",serif}
 
-.feedback-section{padding:82px 20px 90px;background:#0a0a0a;color:#fff;border-top:1px solid rgba(201,154,63,.55)}
-.feedback-card{width:min(760px,100%);margin:auto;padding:44px 46px 48px;border:1px solid rgba(231,199,120,.68);background:linear-gradient(145deg,#111,#070707);box-shadow:0 24px 70px rgba(0,0,0,.28)}
-.feedback-card h2{margin:0;text-align:center;font:700 clamp(36px,4vw,52px)/1.2 Georgia,"Times New Roman",serif;color:var(--gold2)}
-.feedback-intro{max-width:650px;margin:18px auto 32px;text-align:center;color:#eee;font-size:19px;line-height:1.8}
-.feedback-form{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.feedback-form label{display:block;text-align:right;color:#f6f0e5;font-size:15px}
-.feedback-form label.full{grid-column:1/-1}
-.feedback-form input,.feedback-form textarea{width:100%;margin-top:8px;border:1px solid #74623d;background:#151515;color:#fff;padding:14px 15px;border-radius:4px;font:inherit;outline:none}
-.feedback-form input:focus,.feedback-form textarea:focus{border-color:var(--gold2);box-shadow:0 0 0 3px rgba(231,199,120,.12)}
-.feedback-form textarea{min-height:160px;resize:vertical}
-.feedback-submit{grid-column:1/-1;border:1px solid var(--gold2);background:linear-gradient(100deg,#b98229,#e5c26f,#b98229);color:#111;padding:15px 25px;font-size:19px;font-weight:700;cursor:pointer;transition:transform .2s ease,filter .2s ease}
-.feedback-submit:hover,.feedback-submit:focus-visible{transform:translateY(-2px);filter:brightness(1.07)}
-.honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
-.flash-stack{width:min(760px,100%);margin:0 auto 20px}
-.flash{padding:15px 18px;border:1px solid var(--gold);background:#17130b;color:#fff;text-align:center;line-height:1.6}
-.flash.error{border-color:#d16b6b;background:#2b1010}
-footer{background:#050505;color:#aaa;text-align:center;padding:25px 20px 30px;border-top:1px solid #242424}
-footer p{margin:0;font-size:14px}
+
+.site-footer{background:#050505;color:#eee;text-align:center;padding:54px 20px 58px;border-top:1px solid #242424}
+.footer-lead{margin:0 0 10px;font-size:22px}
+.footer-sub{margin:0 0 28px;color:#c9c2b5;font-size:18px}
+.contact-open{display:inline-block;min-width:170px;border:1px solid var(--gold2);background:transparent;color:var(--gold2);padding:14px 30px;font-size:18px;text-decoration:none;cursor:pointer;transition:background .25s ease,color .25s ease,transform .2s ease}
+.contact-open:hover,.contact-open:focus-visible{background:var(--gold2);color:#111;transform:translateY(-2px)}
 @media(max-width:900px){.site-header{padding:18px 0;min-height:auto}.header-inner{grid-template-columns:1fr auto}.main-nav{display:none}}
-@media(max-width:600px){.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:55px}.account{font-size:14px;padding:11px 13px}.about-wrap{width:89%;padding:52px 0 58px}.about-wrap p{line-height:1.75}.mission{margin-top:48px}.feedback-card{padding:34px 20px}.feedback-form{grid-template-columns:1fr}.feedback-form label.full,.feedback-submit{grid-column:auto}}
+@media(max-width:600px){.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:55px}.account{font-size:14px;padding:11px 13px}.about-wrap{width:89%;padding:52px 0 58px}.about-wrap p{line-height:1.75}.mission{margin-top:48px}.feedback-dialog{padding:38px 20px 30px}.feedback-form{grid-template-columns:1fr}.feedback-form label.full,.feedback-submit{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -88,42 +76,10 @@ footer p{margin:0;font-size:14px}
   </section>
 </main>
 
-<section class="feedback-section" id="feedback">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="flash-stack">
-        {% for category, message in messages %}
-          <div class="flash {{ category }}">{{ message }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
-  <div class="feedback-card">
-    <h2>חושבים שחסר משהו?</h2>
-    <p class="feedback-intro">נשמח לשמוע על רעיונות, הצעות לשיפור או כל דבר שלדעתכם יהפוך את אריאלה לשימושית יותר.</p>
-
-    <form class="feedback-form" method="post" action="{{ url_for('site.feedback') }}">
-      <label>שם מלא
-        <input type="text" name="full_name" maxlength="120" autocomplete="name" required>
-      </label>
-      <label>כתובת אימייל
-        <input type="email" name="email" maxlength="254" autocomplete="email" required>
-      </label>
-      <label class="full">טלפון
-        <input type="tel" name="phone" maxlength="40" autocomplete="tel" required>
-      </label>
-      <label class="full">ההערה, ההצעה או הרעיון שלכם
-        <textarea name="message" minlength="5" maxlength="5000" required></textarea>
-      </label>
-      <label class="honeypot" aria-hidden="true">אתר
-        <input type="text" name="website" tabindex="-1" autocomplete="off">
-      </label>
-      <button class="feedback-submit" type="submit">שלחו לנו את הרעיון</button>
-    </form>
-  </div>
-</section>
-
-<footer><p>ARIELA AI TRAVEL</p></footer>
+<footer class="site-footer">
+  <p class="footer-lead">אנחנו ממשיכים לפתח את אריאלה כל הזמן.</p>
+  <p class="footer-sub">יש לכם רעיון או הצעה? נשמח לשמוע.</p>
+  <a class="contact-open" href="{{ url_for('site.feedback_form') }}">כתבו לנו</a>
+</footer>
 </body>
 </html>

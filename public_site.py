@@ -71,6 +71,12 @@ def about():
     return render_template("about.html")
 
 
+
+@site.get("/feedback")
+def feedback_form():
+    return render_template("feedback.html")
+
+
 def _send_feedback_email(
     full_name: str, email: str, phone: str, message: str
 ) -> None:
@@ -110,23 +116,23 @@ def feedback():
 
     # Invisible anti-spam field. A normal visitor never fills it.
     if website:
-        return redirect(url_for("site.about", sent="1") + "#feedback")
+        return redirect(url_for("site.feedback_form", sent="1"))
 
     if not full_name or not email or not phone or not message:
         flash("יש למלא את כל הפרטים לפני השליחה.", "error")
-        return redirect(url_for("site.about") + "#feedback")
+        return redirect(url_for("site.feedback_form"))
 
     if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
         flash("כתובת האימייל אינה תקינה.", "error")
-        return redirect(url_for("site.about") + "#feedback")
+        return redirect(url_for("site.feedback_form"))
 
     if len(full_name) > 120 or len(email) > 254 or len(phone) > 40:
         flash("אחד הפרטים שהוזנו ארוך מדי.", "error")
-        return redirect(url_for("site.about") + "#feedback")
+        return redirect(url_for("site.feedback_form"))
 
     if len(message) < 5 or len(message) > 5000:
         flash("ההודעה צריכה להכיל בין 5 ל-5,000 תווים.", "error")
-        return redirect(url_for("site.about") + "#feedback")
+        return redirect(url_for("site.feedback_form"))
 
     feedback_id = save_feedback(full_name, email, phone, message)
 
@@ -142,7 +148,7 @@ def feedback():
         "כל רעיון נקרא ועוזר לנו להמשיך לשפר את אריאלה.",
         "success",
     )
-    return redirect(url_for("site.about", sent="1") + "#feedback")
+    return redirect(url_for("site.feedback_form", sent="1"))
 
 
 @site.route("/join", methods=["GET", "POST"])
