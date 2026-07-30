@@ -8,34 +8,26 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
 </head>
 <body>
-<header class="site-header">
-  <div class="shell nav-wrap">
-    <a class="brand" href="{{ url_for('site.home') }}" aria-label="אריאלה - דף הבית">
-      <img class="brand-mark" src="{{ url_for('static', filename='ariella-a-logo.png') }}" alt="Ariella">
-      <span><strong>אריאלה</strong><small>למצוא את החופש שמתאים לך</small></span>
-    </a>
+<header class="site-header luxury-header">
+  <div class="header-inner">
+    <div class="brand brand-static" aria-label="אריאלה">
+      <img class="logo-a" src="{{ url_for('static', filename='ariella-a-logo.png') }}" alt="Ariella">
+      <span class="brand-copy"><span class="brand-name">ARIELA</span><span class="brand-tag">AI TRAVEL</span></span>
+    </div>
     <button class="nav-toggle" type="button" aria-label="פתיחת תפריט" onclick="document.body.classList.toggle('nav-open')">☰</button>
-    <nav class="main-nav">
-      <a href="{{ url_for('site.home') }}">ראשי</a>
-      <a href="{{ url_for('site.deals') }}">הדילים של אריאלה</a>
-      <a href="{{ url_for('site.about') }}">קצת עלינו</a>
-      {% if current_member %}
-        <a href="{{ url_for('site.account') }}">האזור האישי</a>
-        <form action="{{ url_for('site.logout') }}" method="post"><button class="nav-link-button">התנתקות</button></form>
-      {% else %}
-        <a href="{{ url_for('site.login') }}">התחברות</a>
-        <a class="nav-cta" href="{{ url_for('site.join') }}">הצטרפות</a>
-      {% endif %}
+    <nav class="main-nav" aria-label="תפריט ראשי">
+      <a class="{% if request.endpoint == 'site.home' %}active{% endif %}" href="{{ url_for('site.home') }}">ראשי</a>
+      <a class="{% if request.endpoint == 'site.about' %}active{% endif %}" href="{{ url_for('site.about') }}">קצת עלינו</a>
+      <a class="{% if request.endpoint == 'site.deals' %}active{% endif %}" href="{{ url_for('site.deals') }}">דילים</a>
     </nav>
+    <a class="account" href="{{ url_for('site.account') if current_member else url_for('site.login') }}">אריאלה שלי⌄</a>
   </div>
 </header>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
   <div class="shell flash-stack">
-    {% for category, message in messages %}
-      <div class="flash {{ category }}">{{ message }}</div>
-    {% endfor %}
+    {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
   </div>
   {% endif %}
 {% endwith %}
@@ -43,38 +35,18 @@
 <main>{% block content %}{% endblock %}</main>
 
 <section class="disclaimer">
-  <div class="shell">
-    <strong>חשוב לדעת:</strong>
-    אריאלה אינה חברת תעופה ואינה ספקית תיירות. המחירים, הזמינות, תנאי הכבודה,
-    השינוי והביטול נקבעים על ידי ספקי התיירות ועשויים להשתנות בכל עת.
-  </div>
+  <div class="shell"><strong>חשוב לדעת:</strong> אריאלה אינה חברת תעופה ואינה ספקית תיירות. המחירים, הזמינות, תנאי הכבודה, השינוי והביטול נקבעים על ידי ספקי התיירות ועשויים להשתנות בכל עת.</div>
 </section>
-
-<footer class="site-footer">
+<footer class="global-footer">
   <div class="shell footer-grid">
-    <div>
-      <div class="footer-brand">אריאלה</div>
-      <p>מערכת חכמה לאיתור דילים והתאמת חופשות.</p>
-    </div>
-    <div>
-      <strong>ניווט</strong>
-      <a href="{{ url_for('site.deals') }}">דילים</a>
-      <a href="{{ url_for('site.about') }}">קצת עלינו</a>
-      <a href="{{ url_for('site.join') }}">הצטרפות</a>
-    </div>
-    <div>
-      <strong>מידע</strong>
-      <a href="{{ url_for('site.terms') }}">תנאי שימוש</a>
-      <a href="{{ url_for('site.privacy') }}">מדיניות פרטיות</a>
-    </div>
+    <div><div class="footer-brand">אריאלה</div><p>מערכת חכמה לאיתור דילים והתאמת חופשות.</p></div>
+    <div><strong>ניווט</strong><a href="{{ url_for('site.deals') }}">דילים</a><a href="{{ url_for('site.about') }}">קצת עלינו</a><a href="{{ url_for('site.join') }}">הצטרפות</a></div>
+    <div><strong>מידע</strong><a href="{{ url_for('site.terms') }}">תנאי שימוש</a><a href="{{ url_for('site.privacy') }}">מדיניות פרטיות</a></div>
   </div>
   <div class="shell copyright">© אריאלה. כל הזכויות שמורות.</div>
 </footer>
 <script>
-document.querySelectorAll('.check-card input').forEach(input => {
-  const update = () => input.closest('.check-card')?.classList.toggle('selected', input.checked);
-  input.addEventListener('change', update); update();
-});
+document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});
 </script>
 </body>
 </html>
