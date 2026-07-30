@@ -141,10 +141,15 @@ def join():
             return render_template("join.html")
 
         session["member_id"] = member_id
-        flash("ברוכים הבאים לאריאלה. החשבון נוצר בהצלחה.", "success")
-        return redirect(url_for("site.account"))
+        return redirect(url_for("site.welcome"))
 
     return render_template("join.html")
+
+
+@site.get("/welcome")
+@login_required
+def welcome():
+    return render_template("welcome.html")
 
 
 @site.route("/login", methods=["GET", "POST"])

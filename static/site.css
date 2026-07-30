@@ -47,3 +47,30 @@
 @media(max-width:1180px){.ariella-deal-card{grid-template-columns:220px 1.4fr 190px 1fr}.deal-price-box{grid-column:4;grid-row:1}.deal-why{grid-column:2/4;border-top:1px solid var(--deal-line)}.deal-baggage{border-left:0}.ariella-deal-card>section{padding:18px}.flight-timeline{grid-template-columns:105px 1fr 105px}}
 @media(max-width:850px){.deals-page{padding-top:18px}.ariella-deal-card{display:grid;grid-template-columns:1fr 1fr}.deal-visual{grid-column:1/-1;min-height:240px}.deal-flight{grid-column:1/-1}.deal-baggage,.deal-why,.deal-price-box{grid-column:auto;grid-row:auto;border-top:1px solid var(--deal-line)}.deal-price-box{grid-column:1/-1}.deal-price-box a,.booking-disabled{max-width:360px}.ariella-deal-card>section{border-left:0}.deal-baggage{border-left:1px solid var(--deal-line)}}
 @media(max-width:560px){.deals-shell{width:min(100% - 22px,1480px)}.deals-heading p{font-size:17px}.ariella-deal-card{grid-template-columns:1fr}.deal-visual,.deal-flight,.deal-baggage,.deal-why,.deal-price-box{grid-column:1}.deal-baggage{border-left:0}.flight-timeline{grid-template-columns:1fr;gap:16px}.route-line{order:2}.flight-date{padding:4px}.deal-flight h2{font-size:18px}.duration-line{flex-direction:column;gap:5px;align-items:center}}
+
+/* ===== Ariella שלי — compact, state-aware account page ===== */
+.account-hero{padding:48px 0 38px}
+.account-hero h1{margin:10px 0 8px;font-size:clamp(42px,5vw,62px)}
+.account-hero-has-trips .split{min-height:150px}
+.account-trips-section{padding-top:48px}
+.account-empty-intro{min-height:260px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center}
+.account-intro-text{font-size:23px!important;font-weight:500;color:#3f4855!important;margin:4px 0 24px!important;max-width:760px!important}
+.account-empty-section{padding-top:44px}
+
+/* ===== Registration success screen ===== */
+.welcome-success{min-height:calc(100vh - 104px);display:grid;place-items:center;background:linear-gradient(120deg,var(--cream),#fff);padding:40px 20px}
+.welcome-success-card{width:min(560px,100%);background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);text-align:center;padding:54px 38px}
+.welcome-check{width:66px;height:66px;border:1px solid var(--gold);border-radius:50%;display:grid;place-items:center;margin:0 auto 22px;color:var(--gold);font-size:34px;font-weight:700}
+.welcome-success-card h1{font:500 clamp(34px,5vw,52px)/1.15 Georgia,"Times New Roman",serif;margin:0 0 14px;color:var(--navy)}
+.welcome-success-card p{font-size:21px;margin:0 0 8px;color:var(--ink)}
+.welcome-success-card span{color:var(--muted);font-size:15px}
+
+@media(max-width:600px){
+  .account-hero{padding:36px 0 30px}
+  .account-hero-has-trips .split{min-height:auto}
+  .account-empty-intro{min-height:230px;align-items:stretch}
+  .account-intro-text{font-size:20px!important}
+  .account-empty-intro .button{width:100%}
+  .welcome-success{min-height:calc(100vh - 88px)}
+  .welcome-success-card{padding:42px 24px}
+}
