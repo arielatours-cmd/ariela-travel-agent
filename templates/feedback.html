@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>כתבו לנו | אריאלה</title>
-{% if request.args.get("sent") == "1" %}<meta http-equiv="refresh" content="4;url={{ url_for('site.about') }}">{% endif %}
 <style>
 :root{--black:#070707;--cream:#f7f0e4;--cream2:#fffaf2;--gold:#c99a3f;--gold2:#e7c778}
 *{box-sizing:border-box}
@@ -12,7 +11,7 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 .site-header{min-height:126px;background:linear-gradient(#030303,#090909);border-bottom:1px solid var(--gold);display:flex;align-items:center;direction:ltr}
 .header-inner{width:min(1440px,92%);margin:auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:28px}
 .brand{display:flex;align-items:center;gap:16px;justify-self:start;direction:ltr;cursor:default;user-select:none}
-.logo-a{width:72px;height:72px;display:block;flex:0 0 auto;object-fit:contain}
+.logo-a{width:72px;height:78px;display:block;flex:0 0 auto}
 .brand-name{display:block;font:30px/1 Georgia,"Times New Roman",serif;letter-spacing:9px;color:var(--gold2)}
 .brand-tag{display:block;margin-top:11px;font-size:12px;letter-spacing:5px;color:var(--gold);text-align:center}
 .main-nav{direction:rtl;display:flex;gap:42px;justify-self:center}
@@ -22,8 +21,6 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 .main-nav a:hover::after{right:15%;left:15%}
 .account{justify-self:end;direction:rtl;color:#fff;border:1px solid var(--gold2);border-radius:999px;padding:15px 28px;text-decoration:none;font-size:17px}
 .feedback-page{min-height:calc(100vh - 126px);padding:70px 20px 90px}
-.feedback-thankyou{width:min(820px,100%);margin:110px auto 40px;text-align:center}
-.feedback-thankyou p{margin:0;font:700 clamp(27px,3.2vw,42px)/1.7 Georgia,"Times New Roman",serif;color:#9b6b1d}.feedback-thankyou p+p{margin-top:12px;font-size:clamp(20px,2.3vw,30px)}
 .feedback-card{width:min(760px,100%);margin:auto;padding:46px;border:1px solid rgba(201,154,63,.72);background:#0b0b0b;color:#fff;box-shadow:0 24px 70px rgba(0,0,0,.18)}
 .feedback-card h1{margin:0;text-align:center;font:700 clamp(36px,4vw,52px)/1.2 Georgia,"Times New Roman",serif;color:var(--gold2)}
 .feedback-intro{max-width:650px;margin:18px auto 32px;text-align:center;color:#eee;font-size:19px;line-height:1.8}
@@ -41,14 +38,19 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 .flash{padding:15px 18px;border:1px solid var(--gold);background:#17130b;color:#fff;text-align:center;line-height:1.6}
 .flash.error{border-color:#d16b6b;background:#2b1010}
 @media(max-width:900px){.site-header{padding:18px 0;min-height:auto}.header-inner{grid-template-columns:1fr auto}.main-nav{display:none}}
-@media(max-width:600px){.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:50px}.account{font-size:14px;padding:11px 13px}.feedback-card{padding:36px 20px}.feedback-form{grid-template-columns:1fr}.feedback-form label.full,.feedback-submit{grid-column:auto}}
+@media(max-width:600px){.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:55px}.account{font-size:14px;padding:11px 13px}.feedback-card{padding:36px 20px}.feedback-form{grid-template-columns:1fr}.feedback-form label.full,.feedback-submit{grid-column:auto}}
 </style>
 </head>
 <body>
 <header class="site-header">
   <div class="header-inner">
     <div class="brand">
-      <img class="logo-a" src="{{ url_for('static', filename='ariella-a-logo.png') }}" alt="Ariella">
+      <svg class="logo-a" viewBox="0 0 100 100" role="img" aria-label="Ariella">
+        <defs><linearGradient id="ariellaGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe8aa"/><stop offset=".5" stop-color="#d5a24b"/><stop offset="1" stop-color="#a66d1d"/></linearGradient></defs>
+        <path d="M20 88 L50 12 L80 88" fill="none" stroke="url(#ariellaGold)" stroke-width="6"/>
+        <path d="M31 60 H69" fill="none" stroke="url(#ariellaGold)" stroke-width="4"/>
+        <path d="M36 60 H64" fill="none" stroke="#fff0bd" stroke-width="1.2" stroke-dasharray="5 5"/>
+      </svg>
       <span><span class="brand-name">ARIELA</span><span class="brand-tag">AI TRAVEL</span></span>
     </div>
     <nav class="main-nav" aria-label="תפריט ראשי">
@@ -61,46 +63,39 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 </header>
 
 <main class="feedback-page">
-  {% if request.args.get("sent") == "1" %}
-    <section class="feedback-thankyou" aria-live="polite">
-      <p>תודה! קיבלנו את ההצעה שלכם.</p>
-      <p>כל רעיון נקרא ועוזר לנו להמשיך לשפר את אריאלה.</p>
-    </section>
-  {% else %}
-    <section class="feedback-card">
-      <h1>חושבים שחסר משהו?</h1>
-      <p class="feedback-intro">נשמח לשמוע על רעיונות, הצעות לשיפור או כל דבר שלדעתכם יהפוך את אריאלה לשימושית יותר.</p>
+  <section class="feedback-card">
+    <h1>חושבים שחסר משהו?</h1>
+    <p class="feedback-intro">נשמח לשמוע על רעיונות, הצעות לשיפור או כל דבר שלדעתכם יהפוך את אריאלה לשימושית יותר.</p>
 
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <div class="flash-stack">
-            {% for category, message in messages %}
-              <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %}
-          </div>
-        {% endif %}
-      {% endwith %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
 
-      <form class="feedback-form" method="post" action="{{ url_for('site.feedback') }}">
-        <label>שם מלא
-          <input type="text" name="full_name" maxlength="120" autocomplete="name" required>
-        </label>
-        <label>כתובת אימייל
-          <input type="email" name="email" maxlength="254" autocomplete="email" required>
-        </label>
-        <label class="full">טלפון
-          <input type="tel" name="phone" maxlength="40" autocomplete="tel" required>
-        </label>
-        <label class="full">הודעה
-          <textarea name="message" minlength="5" maxlength="5000" placeholder="כתבו כאן את ההערה, ההצעה או הרעיון שלכם..." required></textarea>
-        </label>
-        <label class="honeypot" aria-hidden="true">אתר
-          <input type="text" name="website" tabindex="-1" autocomplete="off">
-        </label>
-        <button class="feedback-submit" type="submit">שלחו לנו את הרעיון</button>
-      </form>
-    </section>
-  {% endif %}
+    <form class="feedback-form" method="post" action="{{ url_for('site.feedback') }}">
+      <label>שם מלא
+        <input type="text" name="full_name" maxlength="120" autocomplete="name" required>
+      </label>
+      <label>כתובת אימייל
+        <input type="email" name="email" maxlength="254" autocomplete="email" required>
+      </label>
+      <label class="full">טלפון
+        <input type="tel" name="phone" maxlength="40" autocomplete="tel" required>
+      </label>
+      <label class="full">הודעה
+        <textarea name="message" minlength="5" maxlength="5000" placeholder="כתבו כאן את ההערה, ההצעה או הרעיון שלכם..." required></textarea>
+      </label>
+      <label class="honeypot" aria-hidden="true">אתר
+        <input type="text" name="website" tabindex="-1" autocomplete="off">
+      </label>
+      <button class="feedback-submit" type="submit">שלחו לנו את הרעיון</button>
+    </form>
+  </section>
 
   <a class="back-link" href="{{ url_for('site.about') }}">חזרה לקצת עלינו</a>
 </main>

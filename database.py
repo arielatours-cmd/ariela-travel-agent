@@ -343,7 +343,7 @@ def save_feedback(full_name: str, email: str, phone: str, message: str) -> int:
             """INSERT INTO feedback_messages
                (full_name,email,phone,message,created_at,email_status)
                VALUES(?,?,?,?,?,?)""",
-            (full_name, email, phone, message, utc_now_iso(), "stored"),
+            (full_name, email, phone, message, utc_now_iso(), "pending"),
         )
         return int(cur.lastrowid)
 
