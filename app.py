@@ -4,7 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request
 
-from admin import render_dashboard, render_feedback_dashboard
+from admin import render_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
     MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY,
@@ -71,23 +71,11 @@ def admin_dashboard():
     denied = _require_admin()
     if denied:
         return denied
-    feedback = recent_feedback(100)
     return render_dashboard(
         version=APP_VERSION, minimum_score=MIN_DEAL_SCORE,
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(50),
         scans=recent_scan_runs(20),
-        feedback_count=len(feedback), token=request.args.get("token", ""),
-    )
-
-
-@app.get("/admin/feedback")
-def admin_feedback():
-    denied = _require_admin()
-    if denied:
-        return denied
-    return render_feedback_dashboard(
-        feedback=recent_feedback(500),
-        token=request.args.get("token", ""),
+        feedback=recent_feedback(100),
     )
 
 
