@@ -183,20 +183,29 @@ def logout():
 @site.get("/account")
 @login_required
 def account():
-    member = _current_member()
-    # Defensive fallback in case the member was removed between the
-    # authentication check and this database query.
-    if member is None:
-        session.pop("member_id", None)
+    member_id = session.get("member_id")
+    if not member_id:
         return redirect(url_for("site.login", next=request.path))
+
     with _db() as conn:
+        member_row = conn.execute(
+            "SELECT id, full_name, email, phone, created_at FROM members WHERE id=? AND status='active'",
+            (member_id,),
+        ).fetchone()
+
+        if member_row is None:
+            session.pop("member_id", None)
+            return redirect(url_for("site.login", next=request.path))
+
         rows = conn.execute(
             """SELECT id, request_name, travel_window, status, created_at
                FROM trip_requests
                WHERE member_id=?
                ORDER BY id DESC""",
-            (member["id"],),
+            (int(member_row["id"]),),
         ).fetchall()
+
+    member = dict(member_row)
     return render_template(
         "account.html",
         member=member,
