@@ -1,23 +1,105 @@
+{% macro minutes(value) -%}
+  {%- if value is number -%}{{ value // 60 }}:{{ '%02d'|format(value % 60) }} שעות{%- else -%}לא ידוע{%- endif -%}
+{%- endmacro %}
+
+{% macro baggage_row(label, item, icon) -%}
+  <li>
+    <span class="baggage-icon" aria-hidden="true">{{ icon }}</span>
+    <span>{{ label }}</span>
+    {% if item and item.included %}
+      <strong class="included" aria-label="כלול">✓</strong>
+    {% elif item and item.price_each_way is number %}
+      <small>בתוספת ₪{{ '%.0f'|format(item.price_each_way) }} לכיוון</small>
+    {% else %}
+      <strong class="not-included" aria-label="לא כלול">×</strong>
+    {% endif %}
+  </li>
+{%- endmacro %}
+
 {% macro deal_card(offer) -%}
-<article class="deal-card luxury-card">
-  <div class="deal-top">
-    <div class="deal-destination">
-      <span class="flag">{{ offer.country_flag or '✦' }}</span>
-      <div><p class="route-code">{{ offer.departure_code }} → {{ offer.arrival_code }}</p><h3>{{ offer.destination_name or offer.arrival_code }}</h3></div>
+{% set stops = offer.stops or 0 %}
+<article class="ariella-deal-card">
+  <div class="deal-visual {% if stops == 0 %}direct{% elif stops == 1 %}one-stop{% else %}two-stops{% endif %}"
+       {% if offer.destination_image_url %}style="background-image:url('{{ offer.destination_image_url }}')"{% endif %}>
+    <span class="stop-badge">
+      {% if stops == 0 %}✈ ישירה{% elif stops == 1 %}◉ קונקשן 1{% else %}◉ {{ stops }} קונקשנים{% endif %}
+    </span>
+    <div class="visual-destination">
+      <span>{{ offer.country_flag or '✦' }}</span>
+      <strong>{{ offer.destination_name or offer.arrival_code }}</strong>
     </div>
-    <div class="score-ring"><strong>{{ offer.score }}</strong><small>ציון דיל</small></div>
   </div>
-  <div class="deal-dates">
-    <span><small>יציאה</small><strong>{{ offer.outbound_date }}</strong></span>
-    <span><small>חזרה</small><strong>{{ offer.return_date }}</strong></span>
-  </div>
-  <div class="deal-price"><span>החל מ־</span><strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong><small>לאדם</small></div>
-  <div class="deal-meta">
-    <span>{{ 'טיסה ישירה' if offer.stops == 0 else (offer.stops|string + ' עצירות') }}</span>
-    {% if offer.airline %}<span>{{ offer.airline }}</span>{% endif %}
-    {% if offer.total_duration_minutes %}<span>{{ (offer.total_duration_minutes // 60) }} ש׳ {{ offer.total_duration_minutes % 60 }} דק׳</span>{% endif %}
-  </div>
-  <p class="deal-reason">{{ offer.send_reason or offer.score_label or 'דיל שאותר על ידי אריאלה' }}</p>
-  {% if offer.booking_url %}<a class="deal-link" href="{{ offer.booking_url }}" target="_blank" rel="noopener">לפרטי הדיל <span>←</span></a>{% else %}<span class="deal-link disabled">קישור ההזמנה יתווסף לאחר עדכון הספק</span>{% endif %}
+
+  <section class="deal-flight" aria-label="פרטי הטיסה">
+    <h2>{{ offer.departure_airport_name or offer.departure_code }} <bdi>({{ offer.departure_code }})</bdi>
+      <span aria-hidden="true">←</span>
+      {{ offer.destination_name or offer.arrival_airport_name or offer.arrival_code }} <bdi>({{ offer.arrival_code }})</bdi>
+    </h2>
+
+    <div class="flight-timeline">
+      <div class="flight-date">
+        <small>יציאה</small>
+        <strong>{{ offer.outbound_display or offer.outbound_date }}</strong>
+        {% if offer.departure_time %}<time>{{ offer.departure_time[-5:] }}</time>{% endif %}
+      </div>
+
+      <div class="route-line">
+        {% if stops == 0 %}
+          <span class="plane">✈</span><small>טיסה ישירה</small>
+        {% else %}
+          {% for connection in offer.connections %}
+            <span class="plane">✈</span>
+            <span class="connection"><b>{{ connection.airport }}</b>{% if connection.duration_minutes %}<small>המתנה {{ minutes(connection.duration_minutes) }}</small>{% endif %}</span>
+          {% endfor %}
+          <span class="plane">✈</span>
+        {% endif %}
+      </div>
+
+      <div class="flight-date">
+        <small>חזרה</small>
+        <strong>{{ offer.return_display or offer.return_date }}</strong>
+        <time>השעה באתר הספק</time>
+      </div>
+    </div>
+
+    <div class="duration-line">
+      {% if stops > 0 and offer.actual_flight_duration_minutes %}<span>זמן טיסה בפועל: {{ minutes(offer.actual_flight_duration_minutes) }}</span>{% endif %}
+      {% if offer.total_duration_minutes %}<span>זמן הגעה כולל: {{ minutes(offer.total_duration_minutes) }}</span>{% endif %}
+    </div>
+  </section>
+
+  <section class="deal-baggage" aria-label="כבודה">
+    <h3>מה כלול בכרטיס</h3>
+    <ul>
+      {{ baggage_row('תיק אישי', offer.baggage.personal_item, '▰') }}
+      {{ baggage_row('טרולי 8 ק״ג', offer.baggage.carry_on_8kg, '▮') }}
+      {{ baggage_row('מזוודה 23 ק״ג', offer.baggage.checked_bag_23kg, '▥') }}
+    </ul>
+  </section>
+
+  <section class="deal-why" aria-label="מדוע הדיל נבחר">
+    <h3>נבחר ע״י אריאלה כי...</h3>
+    <div class="reason-tags">
+      {% for reason in offer.display_reasons[:4] %}<span>{{ reason }}</span>{% endfor %}
+    </div>
+    <dl class="important-terms">
+      <div><dt>הגנת הצרכן:</dt><dd class="{{ offer.consumer_protection_class }}">{{ offer.consumer_protection_label }}</dd></div>
+      <div><dt>שינוי / ביטול:</dt><dd>{{ offer.change_cancel_label }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="deal-price-box" aria-label="מחיר">
+    {% if offer.reference_price_ils %}
+      <span class="average-label">מחיר ממוצע לתקופה זו</span>
+      <del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>
+    {% endif %}
+    <span class="found-label">המחיר שאריאלה מצאה</span>
+    <strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>
+    {% if offer.booking_url %}
+      <a href="{{ offer.booking_url }}" target="_blank" rel="noopener noreferrer">למעבר להזמנה</a>
+    {% else %}
+      <span class="booking-disabled">קישור ההזמנה אינו זמין כרגע</span>
+    {% endif %}
+  </section>
 </article>
 {%- endmacro %}

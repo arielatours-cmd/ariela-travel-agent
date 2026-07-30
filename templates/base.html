@@ -34,9 +34,12 @@
 
 <main>{% block content %}{% endblock %}</main>
 
+{% block site_disclaimer %}
 <section class="disclaimer">
   <div class="shell"><strong>חשוב לדעת:</strong> אריאלה אינה חברת תעופה ואינה ספקית תיירות. המחירים, הזמינות, תנאי הכבודה, השינוי והביטול נקבעים על ידי ספקי התיירות ועשויים להשתנות בכל עת.</div>
 </section>
+{% endblock %}
+{% block site_footer %}
 <footer class="global-footer">
   <div class="shell footer-grid">
     <div><div class="footer-brand">אריאלה</div><p>מערכת חכמה לאיתור דילים והתאמת חופשות.</p></div>
@@ -45,6 +48,7 @@
   </div>
   <div class="shell copyright">© אריאלה. כל הזכויות שמורות.</div>
 </footer>
+{% endblock %}
 <script>
 document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});
 </script>

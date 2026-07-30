@@ -262,10 +262,78 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             )
 
         reasons = deal_score.get("reasons") or []
+        flight = payload.get("flight") or {}
+        baggage = flight.get("baggage") or {}
+        connections = flight.get("connections") or []
+        outbound = payload.get("outbound") or {}
+        return_trip = payload.get("return") or {}
+
+        def _reason_label(value):
+            text = str(value or "").split(": +", 1)[0].strip()
+            replacements = {
+                "Price": "מחיר נמוך משמעותית",
+                "Route": "מסלול טיסה נוח",
+                "Baggage": "תנאי כבודה טובים",
+                "Hours": "שעות טיסה נוחות",
+                "Rarity": "הזדמנות נדירה",
+            }
+            return replacements.get(text, text)
+
+        display_reasons = [_reason_label(reason) for reason in reasons if _reason_label(reason)]
+        if not display_reasons:
+            if item.get("discount_percent") and item["discount_percent"] >= 15:
+                display_reasons.append("מחיר נמוך משמעותית")
+            if (item.get("stops") or 0) == 0:
+                display_reasons.append("טיסה ישירה")
+            elif (item.get("stops") or 0) == 1:
+                display_reasons.append("קונקשן אחד")
+            else:
+                display_reasons.append("מסלול משתלם")
+            display_reasons.append("נבחר לאחר השוואת אפשרויות")
+
+        protection = payload.get("consumer_protection") or {}
+        if isinstance(protection, str):
+            protection = {"status": protection}
+        protection_status = str(protection.get("status") or "check").lower()
+        protection_map = {
+            "applies": ("חלה", "applies"),
+            "yes": ("חלה", "applies"),
+            "not_applies": ("אינה חלה", "not-applies"),
+            "no": ("אינה חלה", "not-applies"),
+            "check": ("בדיקה נדרשת", "check"),
+            "unknown": ("בדיקה נדרשת", "check"),
+        }
+        protection_label, protection_class = protection_map.get(protection_status, ("בדיקה נדרשת", "check"))
+
+        change_cancel = payload.get("change_cancel") or payload.get("ticket_change") or {}
+        if isinstance(change_cancel, str):
+            change_cancel_label = change_cancel
+        else:
+            change_cancel_label = (
+                change_cancel.get("label")
+                or change_cancel.get("status_he")
+                or "בכפוף לתנאי הספק"
+            )
+
         item.update({
             "score_reasons": reasons,
+            "display_reasons": display_reasons,
             "booking_url": item.get("booking_url") or payload.get("booking_url"),
             "reference_price_ils": reference_price,
+            "departure_airport_name": payload.get("departure_airport_name") or flight.get("departure_airport_name"),
+            "arrival_airport_name": payload.get("arrival_airport_name") or flight.get("arrival_airport_name"),
+            "outbound_display": outbound.get("display_he"),
+            "return_display": return_trip.get("display_he"),
+            "connections": connections,
+            "baggage": {
+                "personal_item": baggage.get("personal_item") or {"included": True},
+                "carry_on_8kg": baggage.get("carry_on_8kg") or {"included": False},
+                "checked_bag_23kg": baggage.get("checked_bag_23kg") or {"included": False},
+            },
+            "destination_image_url": payload.get("destination_image_url") or payload.get("image_url"),
+            "consumer_protection_label": protection_label,
+            "consumer_protection_class": protection_class,
+            "change_cancel_label": change_cancel_label,
             "cost_score": components.get("price"),
             "route_score": components.get("route"),
             "baggage_score": components.get("baggage"),

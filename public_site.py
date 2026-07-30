@@ -100,12 +100,6 @@ def feedback():
         return redirect(url_for("site.feedback_form"))
 
     save_feedback(full_name, email, phone, message)
-
-    flash(
-        "תודה! קיבלנו את ההצעה שלכם. "
-        "כל רעיון נקרא ועוזר לנו להמשיך לשפר את אריאלה.",
-        "success",
-    )
     return redirect(url_for("site.feedback_form", sent="1"))
 
 

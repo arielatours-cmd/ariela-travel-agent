@@ -2,25 +2,32 @@
 {% from "_deal_card.html" import deal_card %}
 {% block title %}הדילים של אריאלה{% endblock %}
 {% block content %}
-<section class="deals-hero">
-  <div class="shell deals-hero-inner">
-    <span class="luxury-eyebrow">הזדמנויות שאותרו במערכת</span>
-    <h1>הדילים של <span>אריאלה</span></h1>
-    <p>הצעות נבחרות לפי מחיר, מסלול, שעות וכבודה — בעיצוב נקי שמאפשר להבין במהירות אם הדיל מתאים לכם.</p>
-    <div class="gold-rule" aria-hidden="true"></div>
-  </div>
-</section>
-<section class="deals-section">
-  <div class="shell">
-    <div class="deals-toolbar">
-      <div><strong>{{ offers|length }}</strong><span>דילים זמינים כרגע</span></div>
-      <p>המחיר והזמינות נבדקים מחדש באתר הספק לפני ההזמנה.</p>
-    </div>
+<section class="deals-page" aria-labelledby="deals-title">
+  <div class="deals-shell">
+    <header class="deals-heading">
+      <h1 id="deals-title">הדילים של אריאלה</h1>
+      <p>הדילים הטובים ביותר שאריאלה מצאה</p>
+    </header>
+
     {% if offers %}
-      <div class="deal-grid luxury-deal-grid">{% for offer in offers %}{{ deal_card(offer) }}{% endfor %}</div>
+      <div class="ariella-deals-list">
+        {% for offer in offers %}{{ deal_card(offer) }}{% endfor %}
+      </div>
     {% else %}
-      <div class="empty-state luxury-empty"><span class="empty-a">A</span><h3>אין כרגע דילים חדשים להצגה</h3><p>לאחר הסריקה הבאה, דילים שעומדים בקריטריונים של אריאלה יופיעו כאן.</p></div>
+      <section class="ariella-deals-empty">
+        <span>A</span>
+        <h2>אין כרגע דילים חדשים להצגה</h2>
+        <p>דילים חדשים שיעברו את הסינון של אריאלה יופיעו כאן לאחר הסריקה הבאה.</p>
+      </section>
     {% endif %}
   </div>
 </section>
+{% endblock %}
+{% block site_disclaimer %}{% endblock %}
+{% block site_footer %}
+<footer class="deals-legal-footer">
+  <div class="deals-shell">
+    <p><strong>ט.ל.ח.</strong> המחירים, הזמינות ותנאי הכרטיס נקבעים על ידי הספק ועשויים להשתנות בכל עת. אריאלה מאתרת ומציגה דילים ואינה הגורם המוכר את הכרטיסים.</p>
+  </div>
+</footer>
 {% endblock %}
