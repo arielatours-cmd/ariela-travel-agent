@@ -2,12 +2,25 @@
 {% from "_deal_card.html" import deal_card %}
 {% block title %}הדילים של אריאלה{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="shell"><span class="eyebrow">הזדמנויות שאותרו במערכת</span><h1>הדילים של אריאלה</h1><p>הצעות נבחרות לפי מחיר, מסלול ופרטי הטיסה. המחיר והזמינות נבדקים מחדש באתר הספק.</p></div></section>
-<section class="section"><div class="shell">
-{% if offers %}
-  <div class="deal-grid">{% for offer in offers %}{{ deal_card(offer) }}{% endfor %}</div>
-{% else %}
-  <div class="empty-state"><h3>אין כרגע דילים חדשים להצגה</h3><p>מכסת החיפוש תתחדש והדילים הבאים יופיעו כאן לאחר הסריקה.</p></div>
-{% endif %}
-</div></section>
+<section class="deals-hero">
+  <div class="shell deals-hero-inner">
+    <span class="luxury-eyebrow">הזדמנויות שאותרו במערכת</span>
+    <h1>הדילים של <span>אריאלה</span></h1>
+    <p>הצעות נבחרות לפי מחיר, מסלול, שעות וכבודה — בעיצוב נקי שמאפשר להבין במהירות אם הדיל מתאים לכם.</p>
+    <div class="gold-rule" aria-hidden="true"></div>
+  </div>
+</section>
+<section class="deals-section">
+  <div class="shell">
+    <div class="deals-toolbar">
+      <div><strong>{{ offers|length }}</strong><span>דילים זמינים כרגע</span></div>
+      <p>המחיר והזמינות נבדקים מחדש באתר הספק לפני ההזמנה.</p>
+    </div>
+    {% if offers %}
+      <div class="deal-grid luxury-deal-grid">{% for offer in offers %}{{ deal_card(offer) }}{% endfor %}</div>
+    {% else %}
+      <div class="empty-state luxury-empty"><span class="empty-a">A</span><h3>אין כרגע דילים חדשים להצגה</h3><p>לאחר הסריקה הבאה, דילים שעומדים בקריטריונים של אריאלה יופיעו כאן.</p></div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

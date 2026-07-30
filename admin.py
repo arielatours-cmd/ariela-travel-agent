@@ -156,6 +156,7 @@ tbody tr:hover{background:#fafbfe}
 .feedback-table .feedback-email{width:210px;direction:ltr;text-align:left}
 .feedback-table .feedback-message{width:auto}
 .feedback-count{color:var(--gold);font-weight:800}
+.admin-nav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 8px}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-radius:9px;padding:10px 15px;text-decoration:none;font-weight:700}.admin-nav a.active{background:#263a70;color:#fff}.feedback-card-admin{background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px #0000000d}.feedback-card-admin .meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-bottom:10px}.feedback-card-admin .message{white-space:pre-wrap;line-height:1.65}.feedback-card-admin a{color:#263a70}
 @media(max-width:900px){
     .wrap{width:100%;padding:12px 4px 22px}
     th,td{font-size:11px;padding:4px 2px}
@@ -171,6 +172,7 @@ tbody tr:hover{background:#fafbfe}
 <div class="wrap">
 <h1>אריאלה — לוח בקרה פנימי</h1>
 <div class="muted">גרסה {{ version }} · סף דיל: {{ minimum_score }}</div>
+<div class="admin-nav"><a class="active" href="/admin{% if token %}?token={{ token }}{% endif %}">סריקות ודילים</a><a href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">הערות והצעות {% if feedback_count %}({{ feedback_count }}){% endif %}</a></div>
 
 <div class="actions">
     <button onclick="runScan()">הפעל סריקת ניסיון</button>
@@ -186,7 +188,7 @@ tbody tr:hover{background:#fafbfe}
     <div class="card">ציון ממוצע<div class="num">{{ stats.average_score or 0 }}</div></div>
     <div class="card">ציון גבוה<div class="num">{{ stats.highest_score or 0 }}</div></div>
     <div class="card">שגיאות סריקה<div class="num">{{ stats.scan_errors or 0 }}</div></div>
-    <div class="card">הערות והצעות<div class="num">{{ feedback|length }}</div></div>
+    <div class="card">הערות והצעות<div class="num">{{ feedback_count or 0 }}</div></div>
 </div>
 
 <h2>ההצעות האחרונות</h2>
@@ -280,32 +282,6 @@ tbody tr:hover{background:#fafbfe}
 </table>
 </div>
 
-<h2>הערות והצעות <span class="feedback-count">({{ feedback|length }})</span></h2>
-<div class="table-wrap">
-<table class="feedback-table">
-<thead><tr>
-    <th class="feedback-date">תאריך</th>
-    <th class="feedback-name">שם מלא</th>
-    <th class="feedback-phone">טלפון</th>
-    <th class="feedback-email">אימייל</th>
-    <th class="feedback-message">הודעה</th>
-</tr></thead>
-<tbody>
-{% for f in feedback %}
-<tr>
-    <td class="feedback-date">{{ f.created_at|replace('T', ' ')|truncate(19, True, '') }}</td>
-    <td class="feedback-name">{{ f.full_name }}</td>
-    <td class="feedback-phone"><a href="tel:{{ f.phone }}">{{ f.phone }}</a></td>
-    <td class="feedback-email"><a href="mailto:{{ f.email }}">{{ f.email }}</a></td>
-    <td class="feedback-message">{{ f.message }}</td>
-</tr>
-{% else %}
-<tr><td class="empty" colspan="5">עדיין לא התקבלו הערות או הצעות.</td></tr>
-{% endfor %}
-</tbody>
-</table>
-</div>
-
 <h2>סריקות אחרונות</h2>
 <div class="table-wrap">
 <table class="scans">
@@ -358,7 +334,7 @@ function buildBatch(){post('/daily-batch?force=true')}
 """
 
 
-def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback):
+def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_count=0, token=""):
     offers = sorted(
         offers,
         key=lambda offer: float(offer.get("score") or 0),
@@ -371,5 +347,35 @@ def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback):
         stats=stats,
         offers=offers,
         scans=scans,
-        feedback=feedback,
+        feedback_count=feedback_count,
+        token=token,
     )
+
+
+FEEDBACK_DASHBOARD_HTML = r"""
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>אריאלה — הערות והצעות</title>
+<style>
+:root{--bg:#f5f7fb;--text:#182033;--muted:#697386;--line:#e7eaf0;--gold:#b8892e}
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:var(--bg);margin:0;color:var(--text)}
+.wrap{width:min(1250px,96%);margin:auto;padding:20px 8px 35px}h1{margin:0 0 6px}.muted{color:var(--muted)}
+.admin-nav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 22px}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-radius:9px;padding:10px 15px;text-decoration:none;font-weight:700}.admin-nav a.active{background:#263a70;color:#fff}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:22px}.summary .box{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 10px #0000000d}.summary strong{display:block;font-size:28px;color:var(--gold);margin-top:5px}
+.feedback-list{display:grid;gap:13px}.feedback-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 2px 10px #0000000d;border-right:4px solid var(--gold)}.feedback-card .top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.feedback-card h2{font-size:18px;margin:0}.date{direction:ltr;color:var(--muted);font-size:13px}.contacts{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 13px;color:var(--muted);font-size:14px}.contacts a{color:#263a70;text-decoration:none}.message{border-top:1px solid var(--line);padding-top:13px;white-space:pre-wrap;line-height:1.7}.empty{background:#fff;text-align:center;padding:45px;border-radius:12px;color:var(--muted)}
+@media(max-width:650px){.feedback-card .top{flex-direction:column;gap:5px}}
+</style></head>
+<body><div class="wrap">
+<h1>הערות והצעות</h1><div class="muted">כל ההודעות שנשלחו מטופס המשוב באתר נשמרות כאן במסד הנתונים.</div>
+<div class="admin-nav"><a href="/admin{% if token %}?token={{ token }}{% endif %}">סריקות ודילים</a><a class="active" href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">הערות והצעות ({{ feedback|length }})</a></div>
+<div class="summary"><div class="box">סה״כ הודעות<strong>{{ feedback|length }}</strong></div><div class="box">הודעה אחרונה<strong style="font-size:16px">{% if feedback %}{{ feedback[0].created_at|replace('T',' ')|truncate(19, True, '') }}{% else %}—{% endif %}</strong></div></div>
+<div class="feedback-list">
+{% for f in feedback %}<article class="feedback-card"><div class="top"><h2>{{ f.full_name }}</h2><span class="date">{{ f.created_at|replace('T',' ')|truncate(19, True, '') }}</span></div><div class="contacts"><a href="tel:{{ f.phone }}">{{ f.phone }}</a><a href="mailto:{{ f.email }}">{{ f.email }}</a></div><div class="message">{{ f.message }}</div></article>{% else %}<div class="empty">עדיין לא התקבלו הערות או הצעות.</div>{% endfor %}
+</div></div></body></html>
+"""
+
+
+def render_feedback_dashboard(*, feedback, token=""):
+    return render_template_string(FEEDBACK_DASHBOARD_HTML, feedback=feedback, token=token)
