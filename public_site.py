@@ -35,7 +35,11 @@ def _current_member():
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if not session.get("member_id"):
+        # A session can outlive the database row after a redeploy/reset.
+        # Validate the member itself, not only the session key, so /account
+        # never crashes when an old/stale session is present.
+        if not session.get("member_id") or _current_member() is None:
+            session.pop("member_id", None)
             flash("כדי להמשיך יש להתחבר לחשבון.", "info")
             return redirect(url_for("site.login", next=request.path))
         return view(*args, **kwargs)
@@ -180,6 +184,11 @@ def logout():
 @login_required
 def account():
     member = _current_member()
+    # Defensive fallback in case the member was removed between the
+    # authentication check and this database query.
+    if member is None:
+        session.pop("member_id", None)
+        return redirect(url_for("site.login", next=request.path))
     with _db() as conn:
         rows = conn.execute(
             """SELECT id, request_name, travel_window, status, created_at
