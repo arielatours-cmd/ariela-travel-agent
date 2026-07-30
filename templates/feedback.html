@@ -34,6 +34,8 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 .feedback-form input:focus,.feedback-form textarea:focus{border-color:var(--gold2);box-shadow:0 0 0 3px rgba(231,199,120,.12)}
 .feedback-form textarea{min-height:160px;resize:vertical}
 .feedback-submit{grid-column:1/-1;border:1px solid var(--gold2);background:linear-gradient(100deg,#b98229,#e5c26f,#b98229);color:#111;padding:15px 25px;font-size:19px;font-weight:700;cursor:pointer}
+.back-link{display:block;width:max-content;margin:26px auto 0;color:#70501f;text-decoration:none}
+.back-link:hover{text-decoration:underline}
 .honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
 .flash-stack{margin:0 auto 22px}
 .flash{padding:15px 18px;border:1px solid var(--gold);background:#17130b;color:#fff;text-align:center;line-height:1.6}
@@ -100,7 +102,7 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
     </section>
   {% endif %}
 
-  
+  <a class="back-link" href="{{ url_for('site.about') }}">חזרה לקצת עלינו</a>
 </main>
 </body>
 </html>
