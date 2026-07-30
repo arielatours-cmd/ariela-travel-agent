@@ -21,6 +21,8 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 .main-nav a:hover::after{right:15%;left:15%}
 .account{justify-self:end;direction:rtl;color:#fff;border:1px solid var(--gold2);border-radius:999px;padding:15px 28px;text-decoration:none;font-size:17px}
 .feedback-page{min-height:calc(100vh - 126px);padding:70px 20px 90px}
+.feedback-thankyou{width:min(820px,100%);margin:110px auto 40px;text-align:center}
+.feedback-thankyou p{margin:0;font:700 clamp(27px,3.2vw,42px)/1.7 Georgia,"Times New Roman",serif;color:#9b6b1d}
 .feedback-card{width:min(760px,100%);margin:auto;padding:46px;border:1px solid rgba(201,154,63,.72);background:#0b0b0b;color:#fff;box-shadow:0 24px 70px rgba(0,0,0,.18)}
 .feedback-card h1{margin:0;text-align:center;font:700 clamp(36px,4vw,52px)/1.2 Georgia,"Times New Roman",serif;color:var(--gold2)}
 .feedback-intro{max-width:650px;margin:18px auto 32px;text-align:center;color:#eee;font-size:19px;line-height:1.8}
@@ -63,39 +65,45 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 </header>
 
 <main class="feedback-page">
-  <section class="feedback-card">
-    <h1>חושבים שחסר משהו?</h1>
-    <p class="feedback-intro">נשמח לשמוע על רעיונות, הצעות לשיפור או כל דבר שלדעתכם יהפוך את אריאלה לשימושית יותר.</p>
+  {% if request.args.get("sent") == "1" %}
+    <section class="feedback-thankyou" aria-live="polite">
+      <p>תודה! קיבלנו את ההצעה שלכם. כל רעיון נקרא ועוזר לנו להמשיך לשפר את אריאלה.</p>
+    </section>
+  {% else %}
+    <section class="feedback-card">
+      <h1>חושבים שחסר משהו?</h1>
+      <p class="feedback-intro">נשמח לשמוע על רעיונות, הצעות לשיפור או כל דבר שלדעתכם יהפוך את אריאלה לשימושית יותר.</p>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-stack">
-          {% for category, message in messages %}
-            <div class="flash {{ category }}">{{ message }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-stack">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
 
-    <form class="feedback-form" method="post" action="{{ url_for('site.feedback') }}">
-      <label>שם מלא
-        <input type="text" name="full_name" maxlength="120" autocomplete="name" required>
-      </label>
-      <label>כתובת אימייל
-        <input type="email" name="email" maxlength="254" autocomplete="email" required>
-      </label>
-      <label class="full">טלפון
-        <input type="tel" name="phone" maxlength="40" autocomplete="tel" required>
-      </label>
-      <label class="full">הודעה
-        <textarea name="message" minlength="5" maxlength="5000" placeholder="כתבו כאן את ההערה, ההצעה או הרעיון שלכם..." required></textarea>
-      </label>
-      <label class="honeypot" aria-hidden="true">אתר
-        <input type="text" name="website" tabindex="-1" autocomplete="off">
-      </label>
-      <button class="feedback-submit" type="submit">שלחו לנו את הרעיון</button>
-    </form>
-  </section>
+      <form class="feedback-form" method="post" action="{{ url_for('site.feedback') }}">
+        <label>שם מלא
+          <input type="text" name="full_name" maxlength="120" autocomplete="name" required>
+        </label>
+        <label>כתובת אימייל
+          <input type="email" name="email" maxlength="254" autocomplete="email" required>
+        </label>
+        <label class="full">טלפון
+          <input type="tel" name="phone" maxlength="40" autocomplete="tel" required>
+        </label>
+        <label class="full">הודעה
+          <textarea name="message" minlength="5" maxlength="5000" placeholder="כתבו כאן את ההערה, ההצעה או הרעיון שלכם..." required></textarea>
+        </label>
+        <label class="honeypot" aria-hidden="true">אתר
+          <input type="text" name="website" tabindex="-1" autocomplete="off">
+        </label>
+        <button class="feedback-submit" type="submit">שלחו לנו את הרעיון</button>
+      </form>
+    </section>
+  {% endif %}
 
   <a class="back-link" href="{{ url_for('site.about') }}">חזרה לקצת עלינו</a>
 </main>
