@@ -8,6 +8,8 @@
     <label>שם מלא<input name="full_name" autocomplete="name" value="{{ member.full_name or '' }}" required></label>
     <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" value="{{ member.email or '' }}" required></label>
     <label>מספר טלפון<input name="phone" autocomplete="tel" value="{{ member.phone or '' }}"></label>
+    <label>מדינה<input name="country" maxlength="2" value="{{ member.country or '' }}" placeholder="IL"></label>
+    <label>מאילו שדות תעופה תרצו לצאת?<input name="preferred_airports" required value="{{ (member.preferred_airports_list or [])|join(', ') }}" placeholder="TLV, HFA"><small>אפשר לבחור כמה שדות תעופה. אלה יהיו ברירת המחדל לכל חופשה חדשה.</small></label>
     <button class="button primary" type="submit">שמירת פרטים</button>
   </form>
 </div></section>

@@ -136,6 +136,12 @@ def init_db() -> None:
         if "ended_at" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN ended_at TEXT")
 
+        member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
+        if "country" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN country TEXT")
+        if "preferred_airports" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN preferred_airports TEXT NOT NULL DEFAULT '[]'")
+
 
 def create_scan_run(searches_planned: int) -> int:
     with connection() as conn:

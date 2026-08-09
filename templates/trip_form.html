@@ -9,6 +9,10 @@
 </section>
 
 <form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
+  <div class="trip-origin-defaults">
+    <strong>שדות מוצא:</strong> {{ (current_member.preferred_airports_list or [])|join(', ') }}
+    <details><summary>שינוי שדות מוצא לחופשה הזו</summary><label>שדות מוצא<input name="origin_airports" placeholder="לדוגמה: TLV, HFA"></label></details>
+  </div>
   <div class="wizard-progress" aria-label="התקדמות בשאלון">
     <div class="wizard-progress-bar" id="wizardProgressBar"></div>
   </div>

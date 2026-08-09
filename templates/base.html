@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="he" dir="rtl">
+<html lang="{{ site_lang }}" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -20,6 +20,7 @@
       <a class="{% if request.endpoint == 'site.about' %}active{% endif %}" href="{{ url_for('site.about') }}">קצת עלינו</a>
       <a class="{% if request.endpoint == 'site.deals' %}active{% endif %}" href="{{ url_for('site.deals') }}">דילים</a>
     </nav>
+    <div class="language-switch" aria-label="Language"><a href="?lang=he" class="{% if site_lang == 'he' %}active{% endif %}">עברית</a><span>|</span><a href="?lang=en" class="{% if site_lang == 'en' %}active{% endif %}">English</a></div>
     <div class="account-menu-wrap">
       <button class="account account-menu-button" id="accountMenuButton" type="button" aria-expanded="false" aria-controls="accountMenu">אריאלה שלי⌄</button>
       <div class="account-dropdown" id="accountMenu" hidden>
@@ -68,6 +69,30 @@ document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>
  document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 })();
 function togglePassword(button){const input=button.closest('.password-field').querySelector('input');const show=input.type==='password';input.type=show?'text':'password';button.setAttribute('aria-label',show?'הסתרת סיסמה':'הצגת סיסמה');button.textContent=show?'◉':'◉';}
+</script>
+
+<script>
+(function(){
+ const lang={{ site_lang|tojson }}; if(lang!=="en") return;
+ const map={
+ "ראשי":"Home","קצת עלינו":"About","דילים":"Deals","אריאלה שלי⌄":"My Ariella⌄","כניסה":"Sign in","הדילים של אריאלה":"Deals Ariella Found","החופשות שלי":"My Vacations","פרטי החשבון":"Account Details","התנתקות":"Sign out","הרשמה":"Sign up",
+ "חשוב לדעת:":"Important:","אריאלה אינה חברת תעופה ואינה ספקית תיירות. המחירים, הזמינות, תנאי הכבודה, השינוי והביטול נקבעים על ידי ספקי התיירות ועשויים להשתנות בכל עת.":"Ariella is not an airline or travel supplier. Prices, availability, baggage, change and cancellation terms are set by travel suppliers and may change at any time.",
+ "ניווט":"Navigation","מידע":"Information","תנאי שימוש":"Terms of Use","מדיניות פרטיות":"Privacy Policy","הצטרפות":"Join","© אריאלה. כל הזכויות שמורות.":"© Ariella. All rights reserved.",
+ "הדילים של אריאלה":"Ariella's Deals","הדילים הטובים ביותר שאריאלה מצאה":"The best deals Ariella found","הדילים לחופשות שלי":"Deals for My Vacations","אין כרגע דילים חדשים להצגה":"No new deals to show right now",
+ "פרטי החשבון":"Account Details","הפרטים שלי":"My Details","שם מלא":"Full name","כתובת דוא״ל":"Email address","מספר טלפון":"Phone number","שמירת פרטים":"Save details",
+ "יצירת חשבון":"Create Account","סיסמה":"Password","לפחות 8 תווים":"At least 8 characters","פתיחת חשבון":"Create account","כבר יש לך חשבון?":"Already have an account?","להתחברות":"Sign in",
+ "התחברות":"Sign in","עדיין אין חשבון?":"Don't have an account yet?","להצטרפות":"Sign up",
+ "שאלון התאמה אישי":"Personal matching questionnaire","בואו נתכנן את החופשה הבאה":"Let's plan your next vacation","לאן תרצו לטוס?":"Where would you like to fly?","בחרו את האפשרות שהכי מתאימה לכם.":"Choose the option that suits you best.","יש לי יעד מסוים":"I have a specific destination","יש לי כמה יעדים אפשריים":"I have several possible destinations","אני פתוח/ה להצעות של אריאלה":"I'm open to Ariella's suggestions","המשך":"Continue","חזרה":"Back",
+ "מתי תרצו לטוס?":"When would you like to travel?","בתאריכים מדויקים":"Exact dates","בחודש מסוים":"A specific month","לא משנה — כל השנה מתאימה":"Any time — all year works","בחרו חודש":"Choose a month","תאריך יציאה":"Departure date","תאריך חזרה":"Return date",
+ "מי משתתף בחופשה?":"Who's traveling?","לבד":"Solo","זוג":"Couple","חברים":"Friends","משפחה עם ילדים":"Family with children","משפחה מורחבת":"Extended family","מבוגרים בלבד":"Adults only","מספר מבוגרים":"Number of adults","מספר ילדים":"Number of children",
+ "מה הכי חשוב בחופשה הזו?":"What's most important on this vacation?","אפשר לבחור כמה אפשרויות.":"You can choose several options.","מחיר משתלם":"Good value","בטן־גב":"Beach & relaxation","טבע ונופים":"Nature & scenery","מסלולים וטיולים":"Hiking & touring","ערים ותרבות":"Cities & culture","אטרקציות לילדים":"Kids' attractions","אוכל וקולינריה":"Food & culinary","קניות":"Shopping","יעד פחות עמוס":"Less crowded destination","מזג אוויר נעים":"Pleasant weather","חיי לילה":"Nightlife","רוגע ופינוק":"Relaxation & pampering",
+ "האם תרצו להגביל את התקציב?":"Would you like to set a budget?","תקציב לאדם":"Budget per person","ללא הגבלת תקציב":"No budget limit","שמירת החופשה":"Save vacation",
+ "עדיין לא חיפשת חופשה":"You haven't searched for a vacation yet","לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.":"After completing the questionnaire, your vacation will appear here and Ariella will start learning what to look for.","תכנון החופשה הראשונה +":"+ Plan your first vacation","תכנון חופשה חדשה +":"+ Plan a new vacation","פעיל":"Active","הסתיים":"Ended","סיים חיפוש":"End search","חפש שוב":"Search again","התראות לנייד":"Mobile notifications","הצגת הדילים":"View deals"
+ };
+ const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT); let n; while(n=walker.nextNode()){const t=n.nodeValue.trim(); if(map[t]) n.nodeValue=n.nodeValue.replace(t,map[t]);}
+ document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(el=>{if(map[el.placeholder])el.placeholder=map[el.placeholder]});
+ document.title=document.title.replace('אריאלה','Ariella');
+})();
 </script>
 </body>
 </html>

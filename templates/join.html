@@ -8,6 +8,8 @@
     <label>שם מלא<input name="full_name" autocomplete="name" required></label>
     <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" required></label>
     <label>מספר טלפון<input name="phone" autocomplete="tel"></label>
+    <label>מדינה<input name="country" maxlength="2" placeholder="IL" aria-label="קוד מדינה"></label>
+    <label>מאילו שדות תעופה תרצו לצאת?<input name="preferred_airports" required placeholder="TLV, HFA"><small>אפשר לבחור כמה שדות תעופה. הפרידו ביניהם בפסיק.</small></label>
     <label>סיסמה<div class="password-field"><input type="password" name="password" minlength="8" autocomplete="new-password" required><button class="password-eye" type="button" onclick="togglePassword(this)" aria-label="הצגת סיסמה">◉</button></div><small>לפחות 8 תווים</small></label>
     <label class="consent"><input type="checkbox" name="consent" value="yes" required><span>קראתי ואני מאשר/ת את <a href="{{ url_for('site.terms') }}">תנאי השימוש</a> ואת <a href="{{ url_for('site.privacy') }}">מדיניות הפרטיות</a>.</span></label>
     <button class="button primary full" type="submit">פתיחת חשבון</button>

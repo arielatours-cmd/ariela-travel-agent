@@ -27,10 +27,18 @@ def _current_member():
         return None
     with _db() as conn:
         row = conn.execute(
-            "SELECT id, full_name, email, phone, created_at FROM members WHERE id=?",
+            "SELECT id, full_name, email, phone, country, preferred_airports, created_at FROM members WHERE id=?",
             (member_id,),
         ).fetchone()
-    return dict(row) if row else None
+    
+    if not row:
+        return None
+    member = dict(row)
+    try:
+        member["preferred_airports_list"] = json.loads(member.get("preferred_airports") or "[]")
+    except (TypeError, json.JSONDecodeError):
+        member["preferred_airports_list"] = []
+    return member
 
 
 def login_required(view):
@@ -112,7 +120,11 @@ def _offer_matches_trip(offer, trip):
 
 @site.app_context_processor
 def inject_site_context():
-    return {"current_member": _current_member()}
+    
+    lang = request.args.get("lang") or session.get("lang") or "he"
+    if lang not in {"he", "en"}: lang = "he"
+    if request.args.get("lang") in {"he", "en"}: session["lang"] = lang
+    return {"current_member": _current_member(), "site_lang": lang}
 
 
 @site.get("/")
@@ -181,10 +193,12 @@ def join():
         full_name = request.form.get("full_name", "").strip()
         email = request.form.get("email", "").strip().lower()
         phone = request.form.get("phone", "").strip()
+        country = request.form.get("country", "").strip().upper()
+        preferred_airports = [x.strip().upper() for x in request.form.get("preferred_airports", "").replace(";", ",").split(",") if x.strip()]
         password = request.form.get("password", "")
         consent = request.form.get("consent") == "yes"
-        if not full_name or not email or not password:
-            flash("יש למלא שם, כתובת דוא״ל וסיסמה.", "error")
+        if not full_name or not email or not password or not preferred_airports:
+            flash("יש למלא שם, כתובת דוא״ל, סיסמה ולבחור לפחות שדה תעופה אחד.", "error")
             return render_template("join.html")
         if len(password) < 8:
             flash("הסיסמה צריכה להכיל לפחות 8 תווים.", "error")
@@ -205,8 +219,8 @@ def join():
                     flash("כבר קיים חשבון עם מספר הטלפון הזה.", "error")
                 return render_template("join.html", duplicate_account=True)
             cur = conn.execute(
-                "INSERT INTO members (full_name,email,phone,password_hash,created_at,status) VALUES(?,?,?,?,?,?)",
-                (full_name, email, phone, generate_password_hash(password), utc_now_iso(), "active"),
+                "INSERT INTO members (full_name,email,phone,password_hash,created_at,status,country,preferred_airports) VALUES(?,?,?,?,?,?,?,?)",
+                (full_name, email, phone, generate_password_hash(password), utc_now_iso(), "active", country, json.dumps(preferred_airports)),
             )
             member_id = int(cur.lastrowid)
             conn.commit()
@@ -246,8 +260,10 @@ def account_details():
         full_name = request.form.get("full_name", "").strip()
         email = request.form.get("email", "").strip().lower()
         phone = request.form.get("phone", "").strip()
-        if not full_name or not email:
-            flash("יש למלא שם וכתובת דוא״ל.", "error")
+        country = request.form.get("country", "").strip().upper()
+        preferred_airports = [x.strip().upper() for x in request.form.get("preferred_airports", "").replace(";", ",").split(",") if x.strip()]
+        if not full_name or not email or not preferred_airports:
+            flash("יש למלא שם, כתובת דוא״ל ולבחור לפחות שדה תעופה אחד.", "error")
         else:
             with _db() as conn:
                 email_match = conn.execute("SELECT id FROM members WHERE email=? AND id<>?", (email, member_id)).fetchone()
@@ -257,7 +273,7 @@ def account_details():
                 elif phone_match:
                     flash("מספר הטלפון הזה כבר משויך לחשבון אחר.", "error")
                 else:
-                    conn.execute("UPDATE members SET full_name=?, email=?, phone=? WHERE id=?", (full_name, email, phone, member_id))
+                    conn.execute("UPDATE members SET full_name=?, email=?, phone=?, country=?, preferred_airports=? WHERE id=?", (full_name, email, phone, country, json.dumps(preferred_airports), member_id))
                     conn.commit()
                     flash("פרטי החשבון עודכנו בהצלחה.", "success")
                     return redirect(url_for("site.account_details"))
@@ -271,7 +287,7 @@ def account():
     member_id = session["member_id"]
     with _db() as conn:
         member_row = conn.execute(
-            "SELECT id, full_name, email, phone, created_at FROM members WHERE id=? AND status='active'",
+            "SELECT id, full_name, email, phone, country, preferred_airports, created_at FROM members WHERE id=? AND status='active'",
             (member_id,),
         ).fetchone()
         if member_row is None:
@@ -361,7 +377,13 @@ def new_trip():
         if budget_mode not in {"per_person", "unlimited"}:
             budget_mode = "unlimited"
 
+        member = _current_member() or {}
+        profile_airports = member.get("preferred_airports_list", [])
+        override_airports = [x.strip().upper() for x in form.get("origin_airports", "").replace(";", ",").split(",") if x.strip()]
+        origin_airports = override_airports or profile_airports
+
         payload = {
+            "origin_airports": origin_airports,
             "destination_mode": destination_mode, "destinations": destinations,
             "date_mode": date_mode, "travel_month": travel_month,
             "departure_date": departure_date, "return_date": return_date,
