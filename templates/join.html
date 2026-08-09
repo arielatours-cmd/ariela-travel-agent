@@ -8,7 +8,7 @@
     <label>שם מלא<input name="full_name" autocomplete="name" required></label>
     <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" required></label>
     <label>מספר טלפון<input name="phone" autocomplete="tel"></label>
-    <label>סיסמה<input type="password" name="password" minlength="8" autocomplete="new-password" required><small>לפחות 8 תווים</small></label>
+    <label>סיסמה<div class="password-field"><input type="password" name="password" minlength="8" autocomplete="new-password" required><button class="password-eye" type="button" onclick="togglePassword(this)" aria-label="הצגת סיסמה">◉</button></div><small>לפחות 8 תווים</small></label>
     <label class="consent"><input type="checkbox" name="consent" value="yes" required><span>קראתי ואני מאשר/ת את <a href="{{ url_for('site.terms') }}">תנאי השימוש</a> ואת <a href="{{ url_for('site.privacy') }}">מדיניות הפרטיות</a>.</span></label>
     <button class="button primary full" type="submit">פתיחת חשבון</button>
     <p class="form-footer">כבר יש לך חשבון? <a href="{{ url_for('site.login') }}">להתחברות</a></p>

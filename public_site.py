@@ -38,7 +38,6 @@ def login_required(view):
     def wrapped(*args, **kwargs):
         if not session.get("member_id") or _current_member() is None:
             session.pop("member_id", None)
-            flash("כדי להמשיך יש להתחבר לחשבון.", "info")
             return redirect(url_for("site.login", next=request.path))
         return view(*args, **kwargs)
     return wrapped
@@ -237,6 +236,33 @@ def logout():
     session.clear()
     flash("התנתקת מהחשבון.", "info")
     return redirect(url_for("site.home"))
+
+
+@site.route("/account/details", methods=["GET", "POST"])
+@login_required
+def account_details():
+    member_id = session["member_id"]
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        phone = request.form.get("phone", "").strip()
+        if not full_name or not email:
+            flash("יש למלא שם וכתובת דוא״ל.", "error")
+        else:
+            with _db() as conn:
+                email_match = conn.execute("SELECT id FROM members WHERE email=? AND id<>?", (email, member_id)).fetchone()
+                phone_match = conn.execute("SELECT id FROM members WHERE phone=? AND phone<>'' AND id<>?", (phone, member_id)).fetchone() if phone else None
+                if email_match:
+                    flash("כתובת הדוא״ל הזו כבר משויכת לחשבון אחר.", "error")
+                elif phone_match:
+                    flash("מספר הטלפון הזה כבר משויך לחשבון אחר.", "error")
+                else:
+                    conn.execute("UPDATE members SET full_name=?, email=?, phone=? WHERE id=?", (full_name, email, phone, member_id))
+                    conn.commit()
+                    flash("פרטי החשבון עודכנו בהצלחה.", "success")
+                    return redirect(url_for("site.account_details"))
+    member = _current_member()
+    return render_template("account_details.html", member=member)
 
 
 @site.get("/account")

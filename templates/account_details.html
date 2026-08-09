@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}פרטי החשבון | אריאלה{% endblock %}
+{% block content %}
+<section class="page-hero account-details-hero"><div class="shell"><span class="eyebrow">אריאלה שלי</span><h1>פרטי החשבון</h1></div></section>
+<section class="section"><div class="shell narrow">
+  <form class="form-card" method="post">
+    <h2>הפרטים שלי</h2>
+    <label>שם מלא<input name="full_name" autocomplete="name" value="{{ member.full_name or '' }}" required></label>
+    <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" value="{{ member.email or '' }}" required></label>
+    <label>מספר טלפון<input name="phone" autocomplete="tel" value="{{ member.phone or '' }}"></label>
+    <button class="button primary" type="submit">שמירת פרטים</button>
+  </form>
+</div></section>
+{% endblock %}

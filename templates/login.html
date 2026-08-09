@@ -2,13 +2,13 @@
 {% block title %}התחברות לאריאלה{% endblock %}
 {% block content %}
 <section class="auth-section"><div class="shell auth-grid compact">
-  <div class="auth-copy"><span class="eyebrow">ברוכים השבים</span><h1>החופשה הבאה<br>מתחילה כאן.</h1><p>התחברו כדי לנהל את בקשות הטיול שלכם.</p></div>
+  <div class="auth-copy"><h1>החופשה הבאה<br>מתחילה כאן.</h1><p>התחברו כדי לנהל את החופשות שלכם.</p></div>
   <form class="form-card" method="post">
     <h2>התחברות</h2>
     <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" required></label>
-    <label>סיסמה<input type="password" name="password" autocomplete="current-password" required></label>
+    <label>סיסמה<div class="password-field"><input type="password" name="password" autocomplete="current-password" required><button class="password-eye" type="button" onclick="togglePassword(this)" aria-label="הצגת סיסמה">◉</button></div></label>
     <button class="button primary full" type="submit">התחברות</button>
-    <p class="form-footer">עדיין אין חשבון? <a href="{{ url_for('site.join') }}">להצטרפות</a></p>
+    <p class="form-footer">עדיין אין חשבון? <a href="{{ url_for('site.join') }}">להרשמה</a></p>
   </form>
 </div></section>
 {% endblock %}

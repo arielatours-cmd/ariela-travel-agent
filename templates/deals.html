@@ -10,6 +10,7 @@
     </header>
 
     {% if current_member %}
+    <div class="deals-account-back"><a href="{{ url_for('site.account') }}">← חזרה לחופשות שלי</a></div>
     <div class="deals-tabs" role="tablist" aria-label="סוגי דילים">
       <button class="deals-tab is-active" type="button" role="tab" aria-selected="true" data-tab="generalDeals">הדילים שאריאלה מצאה</button>
       <button class="deals-tab" type="button" role="tab" aria-selected="false" data-tab="personalDeals">הדילים לחופשות שלי</button>
