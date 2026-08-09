@@ -19,10 +19,42 @@
   <a class="button primary" href="{{ url_for('site.new_trip') }}">+ תכנון החופשה הבאה</a>
 </div></section>
 <section class="section account-trips-section"><div class="shell">
-  <div class="section-heading"><h2>הטיולים שלי</h2></div>
+  <div class="section-heading"><h2>החופשות שלי</h2></div>
   <div class="trip-list">
   {% for trip in trips %}
-    <article class="trip-row"><div><small>{{ trip.status }}</small><h3>{{ trip.request_name }}</h3><p>{{ trip.travel_window or 'התאריכים גמישים' }}</p></div><span class="status-pill">הבקשה נשמרה</span></article>
+    {% set a = trip.answers %}
+    <article class="trip-row trip-management-card">
+      <div class="trip-main-details">
+        <div class="trip-title-line">
+          <h3>{{ trip.request_name }}</h3>
+          <span class="search-status {{ 'is-active' if trip.status == 'active' else 'is-ended' }}">{{ 'פעיל' if trip.status == 'active' else 'הסתיים' }}</span>
+        </div>
+        <dl class="trip-details-list">
+          <div><dt>תאריכי החופשה</dt><dd>{{ trip.travel_window or 'התאריכים גמישים' }}</dd></div>
+          <div><dt>מי טס</dt><dd>
+            {% if a.travel_party == 'solo' %}יחיד
+            {% elif a.travel_party == 'couple' %}זוג
+            {% elif a.travel_party == 'friends' %}חברים{% if a.adults %} · {{ a.adults }} נוסעים{% endif %}
+            {% elif a.travel_party in ['family','extended'] %}משפחה{% if a.adults %} · {{ a.adults }} מבוגרים{% endif %}{% if a.children %} · {{ a.children }} ילדים{% endif %}
+            {% elif a.travel_party == 'adults_only' %}מבוגרים בלבד{% if a.adults %} · {{ a.adults }} נוסעים{% endif %}
+            {% else %}לא צוין{% endif %}
+          </dd></div>
+          <div><dt>תקציב</dt><dd>{% if a.budget_mode == 'per_person' and a.budget_amount %}עד ₪{{ a.budget_amount }} לאדם{% else %}ללא הגבלת תקציב{% endif %}</dd></div>
+        </dl>
+      </div>
+      <div class="trip-controls">
+        <form method="post" action="{{ url_for('site.toggle_trip_notifications', trip_id=trip.id) }}">
+          <button class="notification-toggle {{ 'on' if trip.mobile_notifications else 'off' }}" type="submit" {% if trip.status != 'active' %}disabled{% endif %} aria-pressed="{{ 'true' if trip.mobile_notifications else 'false' }}">
+            <span class="toggle-track"><i></i></span>
+            <span>התראות לנייד</span>
+          </button>
+        </form>
+        <a class="button secondary" href="{{ url_for('site.deals') }}#vacation-{{ trip.id }}">הצגת הדילים</a>
+        <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}" {% if trip.status == 'active' %}onsubmit="return confirm('האם לסיים את החיפוש עבור החופשה הזו?')"{% endif %}>
+          <button class="button {{ 'outline' if trip.status == 'active' else 'primary' }}" type="submit">{{ 'סיים חיפוש' if trip.status == 'active' else 'חפש שוב' }}</button>
+        </form>
+      </div>
+    </article>
   {% endfor %}
   </div>
 </div></section>
@@ -31,11 +63,10 @@
   <span class="eyebrow">האזור האישי</span>
   <h1>שלום, {{ member.full_name }}</h1>
   <p class="account-intro">ענו על כמה שאלות, ואריאלה תלמד מה לחפש עבורכם.</p>
-  <a class="button primary" href="{{ url_for('site.new_trip') }}">+ תכנון החופשה הראשונה</a>
+  <a class="button primary" href="{{ url_for('site.new_trip') }}">תכנון החופשה הראשונה</a>
 </div></section>
 <section class="section account-empty-section"><div class="shell">
-  <div class="section-heading"><h2>הטיולים שלי</h2></div>
-  <div class="empty-state"><h3>עדיין לא יצרת חופשה</h3><p>לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.</p></div>
+  <div class="empty-state"><h3>עדיין לא חיפשת חופשה</h3><p>לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.</p></div>
 </div></section>
 {% endif %}
 {% endblock %}

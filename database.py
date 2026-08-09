@@ -111,6 +111,8 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_trip_requests_member
             ON trip_requests(member_id, id DESC);
 
+            -- Columns below are also added by the migration block for existing databases.
+
             CREATE TABLE IF NOT EXISTS feedback_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 full_name TEXT NOT NULL,
@@ -126,6 +128,13 @@ def init_db() -> None:
             ON feedback_messages(created_at DESC);
             """
         )
+
+        # Safe, additive migrations for existing Render databases.
+        trip_columns = {row["name"] for row in conn.execute("PRAGMA table_info(trip_requests)").fetchall()}
+        if "mobile_notifications" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN mobile_notifications INTEGER NOT NULL DEFAULT 0")
+        if "ended_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN ended_at TEXT")
 
 
 def create_scan_run(searches_planned: int) -> int:

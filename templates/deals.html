@@ -9,25 +9,76 @@
       <p>הדילים הטובים ביותר שאריאלה מצאה</p>
     </header>
 
+    {% if current_member %}
+    <div class="deals-tabs" role="tablist" aria-label="סוגי דילים">
+      <button class="deals-tab is-active" type="button" role="tab" aria-selected="true" data-tab="generalDeals">הדילים שאריאלה מצאה</button>
+      <button class="deals-tab" type="button" role="tab" aria-selected="false" data-tab="personalDeals">הדילים לחופשות שלי</button>
+    </div>
+    {% endif %}
+
+    <section id="generalDeals" class="deals-tab-panel is-active" role="tabpanel">
     {% if offers %}
       <div class="ariella-deals-list">
         {% for offer in offers %}{{ deal_card(offer) }}{% endfor %}
       </div>
     {% else %}
-      <section class="ariella-deals-empty">
-        <span>A</span>
-        <h2>אין כרגע דילים חדשים להצגה</h2>
-        <p>דילים חדשים שיעברו את הסינון של אריאלה יופיעו כאן לאחר הסריקה הבאה.</p>
-      </section>
+      <section class="ariella-deals-empty"><span>A</span><h2>אין כרגע דילים חדשים להצגה</h2><p>דילים חדשים שיעברו את הסינון של אריאלה יופיעו כאן לאחר הסריקה הבאה.</p></section>
+    {% endif %}
+    </section>
+
+    {% if current_member %}
+    <section id="personalDeals" class="deals-tab-panel" role="tabpanel" hidden>
+      {% if personal_trips %}
+        <div class="personal-deals-groups">
+        {% for trip in personal_trips %}
+          <article class="personal-vacation" id="vacation-{{ trip.id }}">
+            <button class="personal-vacation-header" type="button" aria-expanded="{{ 'true' if loop.first else 'false' }}">
+              <span><strong>{{ trip.request_name }}</strong><small>{{ trip.travel_window or 'התאריכים גמישים' }}</small></span>
+              <span>{{ trip.offers|length }} דילים נמצאו</span>
+            </button>
+            <div class="personal-vacation-deals" {% if not loop.first %}hidden{% endif %}>
+              {% if trip.offers %}
+                <div class="ariella-deals-list">{% for offer in trip.offers %}{{ deal_card(offer) }}{% endfor %}</div>
+              {% else %}
+                <div class="ariella-deals-empty compact"><span>A</span><h2>אריאלה מחפשת עבורך...</h2><p>דילים מתאימים יופיעו כאן כשיימצאו.</p></div>
+              {% endif %}
+              <button class="button secondary close-vacation-deals" type="button">סגירת הדילים</button>
+            </div>
+          </article>
+        {% endfor %}
+        </div>
+      {% else %}
+        <section class="ariella-deals-empty"><span>A</span><h2>עדיין לא חיפשת חופשה</h2><p>לאחר יצירת חיפוש חופשה, הדילים המתאימים יופיעו כאן.</p></section>
+      {% endif %}
+    </section>
     {% endif %}
   </div>
 </section>
+{% if current_member %}
+<script>
+(function(){
+  const tabs = document.querySelectorAll('.deals-tab');
+  const panels = document.querySelectorAll('.deals-tab-panel');
+  function activate(id){
+    tabs.forEach(t => { const active=t.dataset.tab===id; t.classList.toggle('is-active',active); t.setAttribute('aria-selected',active?'true':'false'); });
+    panels.forEach(p => { const active=p.id===id; p.hidden=!active; p.classList.toggle('is-active',active); });
+  }
+  tabs.forEach(t => t.addEventListener('click',()=>activate(t.dataset.tab)));
+  document.querySelectorAll('.personal-vacation-header').forEach(header => header.addEventListener('click',()=>{
+    const body=header.nextElementSibling; const willOpen=body.hidden;
+    document.querySelectorAll('.personal-vacation-deals').forEach(x=>x.hidden=true);
+    document.querySelectorAll('.personal-vacation-header').forEach(x=>x.setAttribute('aria-expanded','false'));
+    body.hidden=!willOpen; header.setAttribute('aria-expanded',willOpen?'true':'false');
+  }));
+  document.querySelectorAll('.close-vacation-deals').forEach(btn=>btn.addEventListener('click',()=>{
+    const body=btn.closest('.personal-vacation-deals'); body.hidden=true; body.previousElementSibling.setAttribute('aria-expanded','false');
+  }));
+  if (location.hash.startsWith('#vacation-')) { activate('personalDeals'); const card=document.querySelector(location.hash); if(card){ document.querySelectorAll('.personal-vacation-deals').forEach(x=>x.hidden=true); card.querySelector('.personal-vacation-deals').hidden=false; card.querySelector('.personal-vacation-header').setAttribute('aria-expanded','true'); card.scrollIntoView({behavior:'smooth'}); } }
+})();
+</script>
+{% endif %}
 {% endblock %}
 {% block site_disclaimer %}{% endblock %}
 {% block site_footer %}
-<footer class="deals-legal-footer">
-  <div class="deals-shell">
-    <p><strong>ט.ל.ח.</strong> המחירים, הזמינות ותנאי הכרטיס נקבעים על ידי הספק ועשויים להשתנות בכל עת. אריאלה מאתרת ומציגה דילים ואינה הגורם המוכר את הכרטיסים.</p>
-  </div>
-</footer>
+<footer class="deals-legal-footer"><div class="deals-shell"><p><strong>ט.ל.ח.</strong> המחירים, הזמינות ותנאי הכרטיס נקבעים על ידי הספק ועשויים להשתנות בכל עת. אריאלה מאתרת ומציגה דילים ואינה הגורם המוכר את הכרטיסים.</p></div></footer>
 {% endblock %}

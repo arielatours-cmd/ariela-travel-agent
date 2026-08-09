@@ -5,7 +5,6 @@
   <div class="shell narrow">
     <span class="eyebrow">שאלון התאמה אישי</span>
     <h1>בואו נתכנן את החופשה הבאה</h1>
-    <p>בכל פעם תופיע רק שאלה אחת. אריאלה תשתמש בתשובות כדי לדעת מה לחפש עבורכם.</p>
   </div>
 </section>
 
@@ -42,12 +41,12 @@
     </div>
     <div class="conditional-panel" id="monthPanel" hidden>
       <label>בחרו חודש
-        <input type="month" name="travel_month" id="travelMonth">
+        <input type="month" name="travel_month" id="travelMonth" min="{{ current_month }}">
       </label>
     </div>
     <div class="conditional-panel two-cols" id="exactDatesPanel" hidden>
-      <label>תאריך יציאה<input type="date" name="departure_date" id="departureDate"></label>
-      <label>תאריך חזרה<input type="date" name="return_date" id="returnDate"></label>
+      <label>תאריך יציאה<input type="date" name="departure_date" id="departureDate" min="{{ today }}"></label>
+      <label>תאריך חזרה<input type="date" name="return_date" id="returnDate" min="{{ today }}"></label>
     </div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
   </section>
@@ -103,7 +102,7 @@
     <span class="step-number">05</span>
     <h2>האם תרצו להגביל את התקציב?</h2>
     <div class="choice-row budget-options">
-      {% for value,label in [('per_person','תקציב לאדם'),('total','תקציב כולל לחופשה'),('unlimited','ללא הגבלת תקציב')] %}
+      {% for value,label in [('per_person','תקציב לאדם'),('unlimited','ללא הגבלת תקציב')] %}
       <label class="choice-button"><input type="radio" name="budget_mode" value="{{ value }}" required><span>{{ label }}</span></label>
       {% endfor %}
     </div>
@@ -208,10 +207,21 @@
     document.getElementById('exactDatesPanel').hidden = !(input.checked && input.value === 'exact');
   }));
 
+  const departureDate = document.getElementById('departureDate');
+  const returnDate = document.getElementById('returnDate');
+  departureDate.addEventListener('change', () => {
+    if (!departureDate.value) return;
+    const nextDay = new Date(departureDate.value + 'T00:00:00');
+    nextDay.setDate(nextDay.getDate() + 1);
+    const minReturn = nextDay.toISOString().slice(0, 10);
+    returnDate.min = minReturn;
+    if (returnDate.value && returnDate.value < minReturn) returnDate.value = '';
+  });
+
   form.querySelectorAll('input[name="travel_party"]').forEach(input => input.addEventListener('change', () => {
     const family = input.checked && ['family','extended'].includes(input.value);
     const adultOnly = input.checked && input.value === 'adults_only';
-    const counts = input.checked && ['couple','friends'].includes(input.value);
+    const counts = input.checked && input.value === 'friends';
     document.getElementById('familyDetails').hidden = !family;
     document.getElementById('adultAgeGroups').hidden = !adultOnly;
     document.getElementById('adultCountPanel').hidden = !counts;
@@ -220,7 +230,7 @@
   form.querySelectorAll('input[name="budget_mode"]').forEach(input => input.addEventListener('change', () => {
     const panel = document.getElementById('budgetAmountPanel');
     panel.hidden = input.value === 'unlimited';
-    document.getElementById('budgetAmountLabel').childNodes[0].nodeValue = input.value === 'per_person' ? 'מה התקציב המרבי לאדם? (₪) ' : 'מה התקציב המרבי לכל החופשה? (₪) ';
+    document.getElementById('budgetAmountLabel').childNodes[0].nodeValue = 'מה התקציב המרבי לאדם? (₪) ';
     if (input.value === 'unlimited') document.getElementById('budgetAmount').value = '';
   }));
 
