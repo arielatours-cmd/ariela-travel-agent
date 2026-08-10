@@ -156,8 +156,8 @@ tbody tr:hover{background:#fafbfe}
 .feedback-table .feedback-email{width:210px;direction:ltr;text-align:left}
 .feedback-table .feedback-message{width:auto}
 .feedback-count{color:var(--gold);font-weight:800}
-.admin-nav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 8px}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-radius:9px;padding:10px 15px;text-decoration:none;font-weight:700}.admin-nav a.active{background:#263a70;color:#fff}.feedback-card-admin{background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px #0000000d}.feedback-card-admin .meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-bottom:10px}.feedback-card-admin .message{white-space:pre-wrap;line-height:1.65}.feedback-card-admin a{color:#263a70}
-@media(max-width:900px){
+.admin-nav{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:24px 0 20px;border-bottom:2px solid #d8c49a}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-bottom:0;padding:16px 22px;text-decoration:none;font-weight:800;font-size:17px;text-align:center;position:relative}.admin-nav a:first-child{border-radius:0 12px 0 0}.admin-nav a:last-child{border-radius:12px 0 0 0}.admin-nav a.active{background:#fff;color:#182033}.admin-nav a.active:after{content:'';position:absolute;right:12%;left:12%;bottom:-2px;height:4px;background:var(--gold);border-radius:4px 4px 0 0}.admin-nav a:hover{background:#fbf8f1}.feedback-card-admin{background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px #0000000d}.feedback-card-admin .meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-bottom:10px}.feedback-card-admin .message{white-space:pre-wrap;line-height:1.65}.feedback-card-admin a{color:#263a70}
+@media(max-width:900px){.admin-nav{grid-template-columns:1fr 1fr}.admin-nav a{font-size:14px;padding:13px 8px}
     .wrap{width:100%;padding:12px 4px 22px}
     th,td{font-size:11px;padding:4px 2px}
     th{font-size:10px}
@@ -172,7 +172,7 @@ tbody tr:hover{background:#fafbfe}
 <div class="wrap">
 <h1>אריאלה — לוח בקרה פנימי</h1>
 <div class="muted">גרסה {{ version }} · סף דיל: {{ minimum_score }}</div>
-<div class="admin-nav"><a class="active" href="/admin{% if token %}?token={{ token }}{% endif %}">סריקות ודילים</a><a href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">הערות והצעות {% if feedback_count %}({{ feedback_count }}){% endif %}</a></div>
+<div class="admin-nav"><a class="active" href="/admin{% if token %}?token={{ token }}{% endif %}">✦ סריקות ודילים</a><a href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">✦ הערות והצעות {% if feedback_count %}({{ feedback_count }}){% endif %}</a></div>
 
 <div class="actions">
     <button onclick="runScan()">הפעל סריקת ניסיון</button>
@@ -188,7 +188,6 @@ tbody tr:hover{background:#fafbfe}
     <div class="card">ציון ממוצע<div class="num">{{ stats.average_score or 0 }}</div></div>
     <div class="card">ציון גבוה<div class="num">{{ stats.highest_score or 0 }}</div></div>
     <div class="card">שגיאות סריקה<div class="num">{{ stats.scan_errors or 0 }}</div></div>
-    <div class="card">הערות והצעות<div class="num">{{ feedback_count or 0 }}</div></div>
 </div>
 
 <h2>ההצעות האחרונות</h2>
@@ -362,14 +361,14 @@ FEEDBACK_DASHBOARD_HTML = r"""
 :root{--bg:#f5f7fb;--text:#182033;--muted:#697386;--line:#e7eaf0;--gold:#b8892e}
 *{box-sizing:border-box}body{font-family:Arial,sans-serif;background:var(--bg);margin:0;color:var(--text)}
 .wrap{width:min(1250px,96%);margin:auto;padding:20px 8px 35px}h1{margin:0 0 6px}.muted{color:var(--muted)}
-.admin-nav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 22px}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-radius:9px;padding:10px 15px;text-decoration:none;font-weight:700}.admin-nav a.active{background:#263a70;color:#fff}
+.admin-nav{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:24px 0 24px;border-bottom:2px solid #d8c49a}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-bottom:0;padding:16px 22px;text-decoration:none;font-weight:800;font-size:17px;text-align:center;position:relative}.admin-nav a:first-child{border-radius:0 12px 0 0}.admin-nav a:last-child{border-radius:12px 0 0 0}.admin-nav a.active{background:#fff;color:#182033}.admin-nav a.active:after{content:'';position:absolute;right:12%;left:12%;bottom:-2px;height:4px;background:var(--gold);border-radius:4px 4px 0 0}.admin-nav a:hover{background:#fbf8f1}
 .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:22px}.summary .box{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 10px #0000000d}.summary strong{display:block;font-size:28px;color:var(--gold);margin-top:5px}
 .feedback-list{display:grid;gap:13px}.feedback-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 2px 10px #0000000d;border-right:4px solid var(--gold)}.feedback-card .top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.feedback-card h2{font-size:18px;margin:0}.date{direction:ltr;color:var(--muted);font-size:13px}.contacts{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 13px;color:var(--muted);font-size:14px}.contacts a{color:#263a70;text-decoration:none}.message{border-top:1px solid var(--line);padding-top:13px;white-space:pre-wrap;line-height:1.7}.empty{background:#fff;text-align:center;padding:45px;border-radius:12px;color:var(--muted)}
-@media(max-width:650px){.feedback-card .top{flex-direction:column;gap:5px}}
+@media(max-width:650px){.admin-nav a{font-size:14px;padding:13px 8px}.feedback-card .top{flex-direction:column;gap:5px}}
 </style></head>
 <body><div class="wrap">
 <h1>הערות והצעות</h1><div class="muted">כל ההודעות שנשלחו מטופס המשוב באתר נשמרות כאן במסד הנתונים.</div>
-<div class="admin-nav"><a href="/admin{% if token %}?token={{ token }}{% endif %}">סריקות ודילים</a><a class="active" href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">הערות והצעות ({{ feedback|length }})</a></div>
+<div class="admin-nav"><a href="/admin{% if token %}?token={{ token }}{% endif %}">✦ סריקות ודילים</a><a class="active" href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">✦ הערות והצעות ({{ feedback|length }})</a></div>
 <div class="summary"><div class="box">סה״כ הודעות<strong>{{ feedback|length }}</strong></div><div class="box">הודעה אחרונה<strong style="font-size:16px">{% if feedback %}{{ feedback[0].created_at|replace('T',' ')|truncate(19, True, '') }}{% else %}—{% endif %}</strong></div></div>
 <div class="feedback-list">
 {% for f in feedback %}<article class="feedback-card"><div class="top"><h2>{{ f.full_name }}</h2><span class="date">{{ f.created_at|replace('T',' ')|truncate(19, True, '') }}</span></div><div class="contacts"><a href="tel:{{ f.phone }}">{{ f.phone }}</a><a href="mailto:{{ f.email }}">{{ f.email }}</a></div><div class="message">{{ f.message }}</div></article>{% else %}<div class="empty">עדיין לא התקבלו הערות או הצעות.</div>{% endfor %}

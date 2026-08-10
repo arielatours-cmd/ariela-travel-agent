@@ -262,7 +262,7 @@ def login():
         with _db() as conn:
             row = conn.execute("SELECT id,password_hash FROM members WHERE email=? AND status='active'", (email,)).fetchone()
         if not row or not check_password_hash(row["password_hash"], password):
-            flash("כתובת הדוא״ל או הסיסמה אינם נכונים.", "error")
+            flash("The email address or password is incorrect." if _lang() == "en" else "כתובת הדוא״ל או הסיסמה אינם נכונים.", "error")
             return render_template("login.html")
         session["member_id"] = int(row["id"])
         next_url = request.args.get("next")
