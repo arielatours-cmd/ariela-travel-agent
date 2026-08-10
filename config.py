@@ -1,11 +1,16 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "10.1-account-fix"
+APP_VERSION = "9.3.9-persistent-members"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "data" / "ariella.db")))
+
+# Persistent database:
+# - Render production: DB_PATH is set to /var/data/ariella.db by render.yaml.
+# - Local development: falls back to ./data/ariella.db.
+_default_db_path = BASE_DIR / "data" / "ariella.db"
+DB_PATH = Path(os.getenv("DB_PATH", str(_default_db_path))).expanduser()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY", "").strip()

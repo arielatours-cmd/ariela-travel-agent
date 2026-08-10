@@ -60,6 +60,7 @@ def health():
         "serpapi_configured": bool(os.getenv("SERPAPI_API_KEY")),
         "scheduler_enabled": SCHEDULER_ENABLED, "database_ok": db_ok,
         "database_error": db_error, "database_path": str(DB_PATH),
+        "database_persistent_path": str(DB_PATH).startswith("/var/data/"),
         "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
         "admin_protected": bool(ADMIN_TOKEN),
         "whatsapp": whatsapp_status(),
