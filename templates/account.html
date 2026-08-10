@@ -1,25 +1,25 @@
 {% extends "base.html" %}
-{% block title %}אריאלה שלי{% endblock %}
+{% block title %}{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}{% endblock %}
 {% block content %}
 {% if welcome %}
 <div class="welcome-overlay" id="welcomeOverlay" role="status" aria-live="polite">
   <div class="welcome-card">
     <span class="welcome-check">✓</span>
-    <h1>ברוכים הבאים לאריאלה!</h1>
-    <p>החשבון שלך נוצר בהצלחה.</p>
-    <small>אנחנו מכינים עבורך את האזור האישי...</small>
+    <h1>{{ 'Welcome to Ariella!' if site_lang == 'en' else 'ברוכים הבאים לאריאלה!' }}</h1>
+    <p>{{ 'Your account was created successfully.' if site_lang == 'en' else 'החשבון שלך נוצר בהצלחה.' }}</p>
+    <small>{{ 'We are preparing your personal area…' if site_lang == 'en' else 'אנחנו מכינים עבורך את האזור האישי...' }}</small>
   </div>
 </div>
-<script>setTimeout(function(){ document.getElementById('welcomeOverlay')?.classList.add('fade-out'); history.replaceState({}, '', '{{ url_for("site.account") }}'); }, 2100); setTimeout(function(){ document.getElementById('welcomeOverlay')?.remove(); }, 2700);</script>
+<script>setTimeout(function(){ document.getElementById('welcomeOverlay')?.classList.add('fade-out'); history.replaceState({}, '', '{{ url_for("site.account", lang=site_lang) }}'); }, 2100); setTimeout(function(){ document.getElementById('welcomeOverlay')?.remove(); }, 2700);</script>
 {% endif %}
 
 {% if trips %}
 <section class="page-hero account-hero account-hero-compact"><div class="shell split">
-  <div><span class="eyebrow">האזור האישי</span><h1>שלום, {{ member.full_name }}</h1></div>
-  <a class="button primary" href="{{ url_for('site.new_trip') }}">+ תכנון החופשה הבאה</a>
+  <div><span class="eyebrow">{{ 'MY ACCOUNT' if site_lang == 'en' else 'האזור האישי' }}</span><h1>{{ 'Hello' if site_lang == 'en' else 'שלום' }}, {{ member.full_name }}</h1></div>
+  <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
 </div></section>
 <section class="section account-trips-section"><div class="shell">
-  <div class="section-heading"><h2>החופשות שלי</h2></div>
+  <div class="section-heading"><h2>{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</h2></div>
   <div class="trip-list">
   {% for trip in trips %}
     {% set a = trip.answers %}
@@ -27,31 +27,31 @@
       <div class="trip-main-details">
         <div class="trip-title-line">
           <h3>{{ trip.request_name }}</h3>
-          <span class="search-status {{ 'is-active' if trip.status == 'active' else 'is-ended' }}">{{ 'פעיל' if trip.status == 'active' else 'הסתיים' }}</span>
+          <span class="search-status {{ 'is-active' if trip.status == 'active' else 'is-ended' }}">{{ ('Active' if trip.status == 'active' else 'Ended') if site_lang == 'en' else ('פעיל' if trip.status == 'active' else 'הסתיים') }}</span>
         </div>
         <dl class="trip-details-list">
-          <div><dt>תאריכי החופשה</dt><dd>{{ trip.travel_window or 'התאריכים גמישים' }}</dd></div>
-          <div><dt>מי טס</dt><dd>
-            {% if a.travel_party == 'solo' %}יחיד
-            {% elif a.travel_party == 'couple' %}זוג
-            {% elif a.travel_party == 'friends' %}חברים{% if a.adults %} · {{ a.adults }} נוסעים{% endif %}
-            {% elif a.travel_party in ['family','extended'] %}משפחה{% if a.adults %} · {{ a.adults }} מבוגרים{% endif %}{% if a.children %} · {{ a.children }} ילדים{% endif %}
-            {% elif a.travel_party == 'adults_only' %}מבוגרים בלבד{% if a.adults %} · {{ a.adults }} נוסעים{% endif %}
-            {% else %}לא צוין{% endif %}
+          <div><dt>{{ 'Vacation dates' if site_lang == 'en' else 'תאריכי החופשה' }}</dt><dd>{{ trip.travel_window or ('Flexible dates' if site_lang == 'en' else 'התאריכים גמישים') }}</dd></div>
+          <div><dt>{{ 'Who is traveling' if site_lang == 'en' else 'מי טס' }}</dt><dd>
+            {% if a.travel_party == 'solo' %}{{ 'Solo' if site_lang == 'en' else 'יחיד' }}
+            {% elif a.travel_party == 'couple' %}{{ 'Couple' if site_lang == 'en' else 'זוג' }}
+            {% elif a.travel_party == 'friends' %}{{ 'Friends' if site_lang == 'en' else 'חברים' }}{% if a.adults %} · {{ a.adults }} {{ 'travelers' if site_lang == 'en' else 'נוסעים' }}{% endif %}
+            {% elif a.travel_party in ['family','extended'] %}{{ 'Family' if site_lang == 'en' else 'משפחה' }}{% if a.adults %} · {{ a.adults }} {{ 'adults' if site_lang == 'en' else 'מבוגרים' }}{% endif %}{% if a.children %} · {{ a.children }} {{ 'children' if site_lang == 'en' else 'ילדים' }}{% endif %}
+            {% elif a.travel_party == 'adults_only' %}{{ 'Adults only' if site_lang == 'en' else 'מבוגרים בלבד' }}{% if a.adults %} · {{ a.adults }} {{ 'travelers' if site_lang == 'en' else 'נוסעים' }}{% endif %}
+            {% else %}{{ 'Not specified' if site_lang == 'en' else 'לא צוין' }}{% endif %}
           </dd></div>
-          <div><dt>תקציב</dt><dd>{% if a.budget_mode == 'per_person' and a.budget_amount %}עד ₪{{ a.budget_amount }} לאדם{% else %}ללא הגבלת תקציב{% endif %}</dd></div>
+          <div><dt>{{ 'Budget' if site_lang == 'en' else 'תקציב' }}</dt><dd>{% if a.budget_mode == 'per_person' and a.budget_amount %}{{ 'Up to ₪' if site_lang == 'en' else 'עד ₪' }}{{ a.budget_amount }} {{ 'per person' if site_lang == 'en' else 'לאדם' }}{% else %}{{ 'No budget limit' if site_lang == 'en' else 'ללא הגבלת תקציב' }}{% endif %}</dd></div>
         </dl>
       </div>
       <div class="trip-controls">
         <form method="post" action="{{ url_for('site.toggle_trip_notifications', trip_id=trip.id) }}">
           <button class="notification-toggle {{ 'on' if trip.mobile_notifications else 'off' }}" type="submit" {% if trip.status != 'active' %}disabled{% endif %} aria-pressed="{{ 'true' if trip.mobile_notifications else 'false' }}">
             <span class="toggle-track"><i></i></span>
-            <span>התראות לנייד</span>
+            <span>{{ 'Mobile alerts' if site_lang == 'en' else 'התראות לנייד' }}</span>
           </button>
         </form>
-        <a class="button secondary" href="{{ url_for('site.deals') }}#vacation-{{ trip.id }}">הצגת הדילים</a>
-        <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}" {% if trip.status == 'active' %}onsubmit="return confirm('האם לסיים את החיפוש עבור החופשה הזו?')"{% endif %}>
-          <button class="button {{ 'outline' if trip.status == 'active' else 'primary' }}" type="submit">{{ 'סיים חיפוש' if trip.status == 'active' else 'חפש שוב' }}</button>
+        <a class="button secondary" href="{{ url_for('site.deals', lang=site_lang) }}#vacation-{{ trip.id }}">{{ 'View deals' if site_lang == 'en' else 'הצגת הדילים' }}</a>
+        <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}" onsubmit="return confirm({% if trip.status == 'active' %}{{ ('End this vacation search?' if site_lang == 'en' else 'האם לסיים את החיפוש עבור החופשה הזו?')|tojson }}{% else %}{{ ('Would you like to reactivate the search for this vacation? Ariella will resume looking for new deals based on the vacation details you saved.' if site_lang == 'en' else 'האם ברצונך להפעיל שוב את החיפוש עבור החופשה הזו? אריאלה תחזור לחפש דילים חדשים בהתאם לפרטי החופשה ששמרת.')|tojson }}{% endif %})">
+          <button class="button {{ 'outline' if trip.status == 'active' else 'primary' }}" type="submit">{{ ('End search' if trip.status == 'active' else 'Search again') if site_lang == 'en' else ('סיים חיפוש' if trip.status == 'active' else 'חפש שוב') }}</button>
         </form>
       </div>
     </article>
@@ -60,13 +60,13 @@
 </div></section>
 {% else %}
 <section class="page-hero account-hero account-hero-new"><div class="shell account-new-content">
-  <span class="eyebrow">האזור האישי</span>
-  <h1>שלום, {{ member.full_name }}</h1>
-  <p class="account-intro">ענו על כמה שאלות, ואריאלה תלמד מה לחפש עבורכם.</p>
-  <a class="button primary" href="{{ url_for('site.new_trip') }}">תכנון החופשה הראשונה</a>
+  <span class="eyebrow">{{ 'MY ACCOUNT' if site_lang == 'en' else 'האזור האישי' }}</span>
+  <h1>{{ 'Hello' if site_lang == 'en' else 'שלום' }}, {{ member.full_name }}</h1>
+  <p class="account-intro">{{ 'Answer a few questions and Ariella will learn what to look for you.' if site_lang == 'en' else 'ענו על כמה שאלות, ואריאלה תלמד מה לחפש עבורכם.' }}</p>
+  <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ 'Plan your first vacation' if site_lang == 'en' else 'תכנון החופשה הראשונה' }}</a>
 </div></section>
 <section class="section account-empty-section"><div class="shell">
-  <div class="empty-state"><h3>עדיין לא חיפשת חופשה</h3><p>לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.</p></div>
+  <div class="empty-state"><h3>{{ "You haven't searched for a vacation yet" if site_lang == 'en' else 'עדיין לא חיפשת חופשה' }}</h3><p>{{ 'After completing the questionnaire, your vacation will appear here and Ariella will start learning what to look for you.' if site_lang == 'en' else 'לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.' }}</p></div>
 </div></section>
 {% endif %}
 {% endblock %}

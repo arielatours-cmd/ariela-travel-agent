@@ -127,6 +127,15 @@ def inject_site_context():
     return {"current_member": _current_member(), "site_lang": lang}
 
 
+def _lang():
+    lang = request.args.get("lang") or session.get("lang") or "he"
+    return lang if lang in {"he", "en"} else "he"
+
+
+def _msg(he, en):
+    return en if _lang() == "en" else he
+
+
 @site.get("/")
 def home():
     offers = recent_offers(limit=3, minimum_score=None)
@@ -172,16 +181,16 @@ def feedback():
     if website:
         return redirect(url_for("site.feedback_form", sent="1"))
     if not full_name or not email or not phone or not message:
-        flash("יש למלא את כל הפרטים לפני השליחה.", "error")
+        flash(_msg("יש למלא את כל הפרטים לפני השליחה.", "Please complete all fields before sending."), "error")
         return redirect(url_for("site.feedback_form"))
     if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
-        flash("כתובת האימייל אינה תקינה.", "error")
+        flash(_msg("כתובת האימייל אינה תקינה.", "The email address is invalid."), "error")
         return redirect(url_for("site.feedback_form"))
     if len(full_name) > 120 or len(email) > 254 or len(phone) > 40:
-        flash("אחד הפרטים שהוזנו ארוך מדי.", "error")
+        flash(_msg("אחד הפרטים שהוזנו ארוך מדי.", "One of the entered details is too long."), "error")
         return redirect(url_for("site.feedback_form"))
     if len(message) < 5 or len(message) > 5000:
-        flash("ההודעה צריכה להכיל בין 5 ל-5,000 תווים.", "error")
+        flash(_msg("ההודעה צריכה להכיל בין 5 ל-5,000 תווים.", "The message must contain between 5 and 5,000 characters."), "error")
         return redirect(url_for("site.feedback_form"))
     save_feedback(full_name, email, phone, message)
     return redirect(url_for("site.feedback_form", sent="1"))
@@ -198,13 +207,13 @@ def join():
         password = request.form.get("password", "")
         consent = request.form.get("consent") == "yes"
         if not full_name or not email or not password or not preferred_airports:
-            flash("יש למלא שם, כתובת דוא״ל, סיסמה ולבחור לפחות שדה תעופה אחד.", "error")
+            flash(_msg("יש למלא שם, כתובת דוא״ל, סיסמה ולבחור לפחות שדה תעופה אחד.", "Please enter your name, email address, password and select at least one departure airport."), "error")
             return render_template("join.html")
         if len(password) < 8:
-            flash("הסיסמה צריכה להכיל לפחות 8 תווים.", "error")
+            flash(_msg("הסיסמה צריכה להכיל לפחות 8 תווים.", "The password must contain at least 8 characters."), "error")
             return render_template("join.html")
         if not consent:
-            flash("יש לאשר את תנאי השימוש ומדיניות הפרטיות.", "error")
+            flash(_msg("יש לאשר את תנאי השימוש ומדיניות הפרטיות.", "Please accept the Terms of Use and Privacy Policy."), "error")
             return render_template("join.html")
 
         with _db() as conn:
@@ -212,11 +221,11 @@ def join():
             phone_match = conn.execute("SELECT 1 FROM members WHERE phone=? AND phone<>''", (phone,)).fetchone() if phone else None
             if email_match or phone_match:
                 if email_match and phone_match:
-                    flash("כבר קיים חשבון עם כתובת הדוא״ל ומספר הטלפון האלה.", "error")
+                    flash(_msg("כבר קיים חשבון עם כתובת הדוא״ל ומספר הטלפון האלה.", "An account already exists with this email address and phone number."), "error")
                 elif email_match:
-                    flash("כבר קיים חשבון עם כתובת הדוא״ל הזאת.", "error")
+                    flash(_msg("כבר קיים חשבון עם כתובת הדוא״ל הזאת.", "An account already exists with this email address."), "error")
                 else:
-                    flash("כבר קיים חשבון עם מספר הטלפון הזה.", "error")
+                    flash(_msg("כבר קיים חשבון עם מספר הטלפון הזה.", "An account already exists with this phone number."), "error")
                 return render_template("join.html", duplicate_account=True)
             cur = conn.execute(
                 "INSERT INTO members (full_name,email,phone,password_hash,created_at,status,country,preferred_airports) VALUES(?,?,?,?,?,?,?,?)",
@@ -263,7 +272,7 @@ def account_details():
         country = request.form.get("country", "").strip().upper()
         preferred_airports = [x.strip().upper() for x in request.form.get("preferred_airports", "").replace(";", ",").split(",") if x.strip()]
         if not full_name or not email or not preferred_airports:
-            flash("יש למלא שם, כתובת דוא״ל ולבחור לפחות שדה תעופה אחד.", "error")
+            flash(_msg("יש למלא שם, כתובת דוא״ל ולבחור לפחות שדה תעופה אחד.", "Please enter your name, email address and select at least one departure airport."), "error")
         else:
             with _db() as conn:
                 email_match = conn.execute("SELECT id FROM members WHERE email=? AND id<>?", (email, member_id)).fetchone()
@@ -343,29 +352,29 @@ def new_trip():
         current_month = today[:7]
 
         if destination_mode in {"specific", "several"} and not destinations:
-            flash("יש לכתוב את היעד או היעדים שמעניינים אתכם.", "error")
+            flash(_msg("יש לכתוב את היעד או היעדים שמעניינים אתכם.", "Please enter the destination or destinations you are interested in."), "error")
             return render_template("trip_form.html", today=today, current_month=current_month)
         if date_mode == "month" and (not travel_month or travel_month < current_month):
-            flash("יש לבחור חודש נוכחי או עתידי.", "error")
+            flash(_msg("יש לבחור חודש נוכחי או עתידי.", "Please choose the current month or a future month."), "error")
             return render_template("trip_form.html", today=today, current_month=current_month)
         if date_mode == "exact":
             if not departure_date or not return_date:
-                flash("יש לבחור תאריך יציאה ותאריך חזרה.", "error")
+                flash(_msg("יש לבחור תאריך יציאה ותאריך חזרה.", "Please choose a departure date and a return date."), "error")
                 return render_template("trip_form.html", today=today, current_month=current_month)
             if departure_date < today:
-                flash("ניתן לבחור תאריכים מהיום והלאה בלבד.", "error")
+                flash(_msg("ניתן לבחור תאריכים מהיום והלאה בלבד.", "You can only choose dates from today onward."), "error")
                 return render_template("trip_form.html", today=today, current_month=current_month)
             if return_date <= departure_date:
-                flash("תאריך החזרה חייב להיות אחרי תאריך היציאה.", "error")
+                flash(_msg("תאריך החזרה חייב להיות אחרי תאריך היציאה.", "The return date must be after the departure date."), "error")
                 return render_template("trip_form.html", today=today, current_month=current_month)
 
-        destination_title = destinations if destinations else "הצעות של אריאלה"
+        destination_title = destinations if destinations else _msg("הצעות של אריאלה", "Ariella suggestions")
         if date_mode == "month":
             travel_window = travel_month
         elif date_mode == "exact":
             travel_window = f"{departure_date} – {return_date}"
         else:
-            travel_window = "כל השנה"
+            travel_window = _msg("כל השנה", "Anytime")
         request_name = destination_title
 
         travel_party = form.get("travel_party")

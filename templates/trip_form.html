@@ -1,134 +1,134 @@
 {% extends "base.html" %}
-{% block title %}תכנון חופשה חדשה — אריאלה{% endblock %}
+{% block title %}{{ 'New Vacation — Ariella' if site_lang == 'en' else 'תכנון חופשה חדשה — אריאלה' }}{% endblock %}
 {% block content %}
 <section class="page-hero trip-questionnaire-hero">
   <div class="shell narrow">
-    <span class="eyebrow">שאלון התאמה אישי</span>
-    <h1>בואו נתכנן את החופשה הבאה</h1>
+    <span class="eyebrow">{{ 'PERSONAL VACATION SEARCH' if site_lang == 'en' else 'שאלון התאמה אישי' }}</span>
+    <h1>{{ "Let's plan your next vacation" if site_lang == 'en' else 'בואו נתכנן את החופשה הבאה' }}</h1>
   </div>
 </section>
 
 <form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
   <div class="trip-origin-defaults">
-    <strong>שדות מוצא:</strong> {{ (current_member.preferred_airports_list or [])|join(', ') }}
-    <details><summary>שינוי שדות מוצא לחופשה הזו</summary><label>שדות מוצא<input name="origin_airports" placeholder="לדוגמה: TLV, HFA"></label></details>
+    <strong>{{ 'Departure airports:' if site_lang == 'en' else 'שדות מוצא:' }}</strong> {{ (current_member.preferred_airports_list or [])|join(', ') }}
+    <details><summary>{{ 'Change departure airports for this vacation' if site_lang == 'en' else 'שינוי שדות מוצא לחופשה הזו' }}</summary><label>{{ 'Departure airports' if site_lang == 'en' else 'שדות מוצא' }}<div class="airport-picker" data-airport-picker><div class="airport-tags"></div><input class="airport-search" type="text" autocomplete="off" placeholder="{{ 'Search city, airport or IATA code…' if site_lang == 'en' else 'חפשו עיר, שדה תעופה או קוד IATA…' }}"><div class="airport-suggestions" hidden></div><input type="hidden" name="origin_airports" class="airport-values"></div></label></details>
   </div>
-  <div class="wizard-progress" aria-label="התקדמות בשאלון">
+  <div class="wizard-progress" aria-label="{{ 'Questionnaire progress' if site_lang == 'en' else 'התקדמות בשאלון' }}">
     <div class="wizard-progress-bar" id="wizardProgressBar"></div>
   </div>
-  <p class="wizard-counter" id="wizardCounter">שאלה 1 מתוך 6</p>
+  <p class="wizard-counter" id="wizardCounter">{{ 'Question 1 of 6' if site_lang == 'en' else 'שאלה 1 מתוך 6' }}</p>
 
   <section class="wizard-step is-active" data-step="1">
     <span class="step-number">01</span>
-    <h2>לאן תרצו לטוס?</h2>
-    <p class="helper">בחרו את האפשרות שהכי מתאימה לכם.</p>
+    <h2>{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאן תרצו לטוס?' }}</h2>
+    <p class="helper">{{ 'Choose the option that suits you best.' if site_lang == 'en' else 'בחרו את האפשרות שהכי מתאימה לכם.' }}</p>
     <div class="choice-row destination-options">
-      {% for value,label in [('specific','יש לי יעד מסוים'),('several','יש לי כמה יעדים אפשריים'),('open','אני פתוח/ה להצעות של אריאלה')] %}
+      {% set opts = [('specific','I have a specific destination','יש לי יעד מסוים'),('several','I have several possible destinations','יש לי כמה יעדים אפשריים'),('open',"I'm open to Ariella's suggestions",'אני פתוח/ה להצעות של אריאלה')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button"><input type="radio" name="destination_mode" value="{{ value }}" required><span>{{ label }}</span></label>
       {% endfor %}
     </div>
     <div class="conditional-panel" id="destinationDetails" hidden>
-      <label id="destinationLabel">לאיזה יעד תרצו לטוס?
-        <input name="destinations" id="destinationsInput" placeholder="לדוגמה: יפן">
+      <label id="destinationLabel">{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאיזה יעד תרצו לטוס?' }}
+        <input name="destinations" id="destinationsInput" placeholder="{{ 'For example: Japan' if site_lang == 'en' else 'לדוגמה: יפן' }}">
       </label>
     </div>
-    <div class="wizard-actions"><button type="button" class="button primary wizard-next">המשך</button></div>
+    <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
   </section>
 
   <section class="wizard-step" data-step="2" hidden>
     <span class="step-number">02</span>
-    <h2>מתי תרצו לטוס?</h2>
+    <h2>{{ 'When would you like to travel?' if site_lang == 'en' else 'מתי תרצו לטוס?' }}</h2>
     <div class="choice-row">
-      {% for value,label in [('exact','בתאריכים מדויקים'),('month','בחודש מסוים'),('anytime','לא משנה — כל השנה מתאימה')] %}
+      {% set opts = [('exact','Exact dates','בתאריכים מדויקים'),('month','A specific month','בחודש מסוים'),('anytime','Anytime — all year works','לא משנה — כל השנה מתאימה')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button"><input type="radio" name="date_mode" value="{{ value }}" required><span>{{ label }}</span></label>
       {% endfor %}
     </div>
     <div class="conditional-panel" id="monthPanel" hidden>
-      <label>בחרו חודש
+      <label>{{ 'Choose a month' if site_lang == 'en' else 'בחרו חודש' }}
         <input type="month" name="travel_month" id="travelMonth" min="{{ current_month }}">
       </label>
     </div>
     <div class="conditional-panel two-cols" id="exactDatesPanel" hidden>
-      <label>תאריך יציאה<input type="date" name="departure_date" id="departureDate" min="{{ today }}"></label>
-      <label>תאריך חזרה<input type="date" name="return_date" id="returnDate" min="{{ today }}"></label>
+      <label>{{ 'Departure date' if site_lang == 'en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{ today }}"></label>
+      <label>{{ 'Return date' if site_lang == 'en' else 'תאריך חזרה' }}<input type="date" name="return_date" id="returnDate" min="{{ today }}"></label>
     </div>
-    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
   </section>
 
   <section class="wizard-step" data-step="3" hidden>
     <span class="step-number">03</span>
-    <h2>מי משתתף בחופשה?</h2>
+    <h2>{{ 'Who is traveling?' if site_lang == 'en' else 'מי משתתף בחופשה?' }}</h2>
     <div class="choice-row compact-options">
-      {% for value,label in [('solo','לבד'),('couple','זוג'),('friends','חברים'),('family','משפחה עם ילדים'),('extended','משפחה מורחבת'),('adults_only','מבוגרים בלבד')] %}
+      {% set opts = [('solo','Solo','לבד'),('couple','Couple','זוג'),('friends','Friends','חברים'),('family','Family with children','משפחה עם ילדים'),('extended','Extended family','משפחה מורחבת'),('adults_only','Adults only','מבוגרים בלבד')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button small"><input type="radio" name="travel_party" value="{{ value }}" required><span>{{ label }}</span></label>
       {% endfor %}
     </div>
 
     <div class="conditional-panel" id="adultCountPanel" hidden>
-      <label>מספר מבוגרים<input type="number" name="adults" min="1" value="2"></label>
+      <label>{{ 'Number of adults' if site_lang == 'en' else 'מספר מבוגרים' }}<input type="number" name="adults" min="1" value="2"></label>
     </div>
     <div class="conditional-panel" id="familyDetails" hidden>
       <div class="two-cols">
-        <label>מספר מבוגרים<input type="number" name="family_adults" min="1" value="2"></label>
-        <label>מספר ילדים<input type="number" name="children" min="1" value="1"></label>
+        <label>{{ 'Number of adults' if site_lang == 'en' else 'מספר מבוגרים' }}<input type="number" name="family_adults" min="1" value="2"></label>
+        <label>{{ 'Number of children' if site_lang == 'en' else 'מספר ילדים' }}<input type="number" name="children" min="1" value="1"></label>
       </div>
-      <h3>אילו קבוצות גיל משתתפות?</h3>
+      <h3>{{ 'Which age groups are traveling?' if site_lang == 'en' else 'אילו קבוצות גיל משתתפות?' }}</h3>
       <div class="choice-row compact-options">
-        {% for value,label in [('infants','תינוקות 0–2'),('children','ילדים 3–12'),('teens','בני נוער 13–17'),('adults','מבוגרים'),('seniors','הגיל השלישי')] %}
+        {% set opts = [('infants','Infants 0–2','תינוקות 0–2'),('children','Children 3–12','ילדים 3–12'),('teens','Teens 13–17','בני נוער 13–17'),('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
         <label class="choice-button small"><input type="checkbox" name="age_groups" value="{{ value }}"><span>{{ label }}</span></label>
         {% endfor %}
       </div>
     </div>
     <div class="conditional-panel" id="adultAgeGroups" hidden>
-      <h3>איזו קבוצת גיל מתאימה?</h3>
+      <h3>{{ 'Which age group applies?' if site_lang == 'en' else 'איזו קבוצת גיל מתאימה?' }}</h3>
       <div class="choice-row compact-options">
-        {% for value,label in [('adults','מבוגרים'),('seniors','הגיל השלישי')] %}
+        {% set opts = [('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
         <label class="choice-button small"><input type="checkbox" name="age_groups" value="{{ value }}"><span>{{ label }}</span></label>
         {% endfor %}
       </div>
     </div>
-    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
   </section>
 
   <section class="wizard-step" data-step="4" hidden>
     <span class="step-number">04</span>
-    <h2>מה הכי חשוב בחופשה הזו?</h2>
-    <p class="helper">אפשר לבחור כמה אפשרויות.</p>
+    <h2>{{ 'What matters most on this vacation?' if site_lang == 'en' else 'מה הכי חשוב בחופשה הזו?' }}</h2>
+    <p class="helper">{{ 'You can select more than one option.' if site_lang == 'en' else 'אפשר לבחור כמה אפשרויות.' }}</p>
     <div class="choice-grid priority-grid">
-      {% for value,label in [('price','מחיר משתלם'),('beach','בטן־גב'),('nature','טבע ונופים'),('hiking','מסלולים וטיולים'),('city','ערים ותרבות'),('family','אטרקציות לילדים'),('food','אוכל וקולינריה'),('shopping','קניות'),('quiet','יעד פחות עמוס'),('weather','מזג אוויר נעים'),('nightlife','חיי לילה'),('relax','רוגע ופינוק')] %}
+      {% set opts = [('price','Good price','מחיר משתלם'),('beach','Beach & relaxation','בטן־גב'),('nature','Nature & scenery','טבע ונופים'),('hiking','Hiking & touring','מסלולים וטיולים'),('city','Cities & culture','ערים ותרבות'),('family',"Kids' attractions",'אטרקציות לילדים'),('food','Food & cuisine','אוכל וקולינריה'),('shopping','Shopping','קניות'),('quiet','Less crowded destination','יעד פחות עמוס'),('weather','Pleasant weather','מזג אוויר נעים'),('nightlife','Nightlife','חיי לילה'),('relax','Relaxation & pampering','רוגע ופינוק')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button"><input type="checkbox" name="holiday_priorities" value="{{ value }}"><span>{{ label }}</span></label>
       {% endfor %}
     </div>
-    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
   </section>
 
   <section class="wizard-step" data-step="5" hidden>
     <span class="step-number">05</span>
-    <h2>האם תרצו להגביל את התקציב?</h2>
+    <h2>{{ 'Would you like to set a budget?' if site_lang == 'en' else 'האם תרצו להגביל את התקציב?' }}</h2>
     <div class="choice-row budget-options">
-      {% for value,label in [('per_person','תקציב לאדם'),('unlimited','ללא הגבלת תקציב')] %}
+      {% set opts = [('per_person','Budget per person','תקציב לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button"><input type="radio" name="budget_mode" value="{{ value }}" required><span>{{ label }}</span></label>
       {% endfor %}
     </div>
     <div class="conditional-panel" id="budgetAmountPanel" hidden>
-      <label id="budgetAmountLabel">מה התקציב המרבי? (₪)
-        <input type="number" name="budget_amount" id="budgetAmount" min="0" step="100" placeholder="לדוגמה: 5000">
+      <label id="budgetAmountLabel">{{ 'What is the maximum budget? (₪)' if site_lang == 'en' else 'מה התקציב המרבי? (₪)' }}
+        <input type="number" name="budget_amount" id="budgetAmount" min="0" step="100" placeholder="{{ 'For example: 5000' if site_lang == 'en' else 'לדוגמה: 5000' }}">
       </label>
     </div>
-    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button type="button" class="button primary wizard-next">המשך</button></div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
   </section>
 
   <section class="wizard-step" data-step="6" hidden>
     <span class="step-number">06</span>
-    <h2>האם יש צרכים חשובים שנרצה לקחת בחשבון?</h2>
-    <p class="helper">אפשר לבחור כמה אפשרויות, או להשאיר ריק.</p>
+    <h2>{{ 'Are there any important needs we should consider?' if site_lang == 'en' else 'האם יש צרכים חשובים שנרצה לקחת בחשבון?' }}</h2>
+    <p class="helper">{{ 'You can select several options or leave this blank.' if site_lang == 'en' else 'אפשר לבחור כמה אפשרויות, או להשאיר ריק.' }}</p>
     <div class="choice-row compact-options special-needs-row">
-      {% for value,label in [('kosher','אוכל כשר'),('shabbat','שמירת שבת'),('accessible','נגישות'),('stroller','טיול עם עגלה'),('walking','מגבלת הליכה'),('vegetarian','צמחוני/טבעוני')] %}
+      {% set opts = [('kosher','Kosher food','אוכל כשר'),('shabbat','Shabbat observance','שמירת שבת'),('accessible','Accessibility','נגישות'),('stroller','Traveling with a stroller','טיול עם עגלה'),('walking','Walking limitation','מגבלת הליכה'),('vegetarian','Vegetarian / vegan','צמחוני/טבעוני')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button small"><input type="checkbox" name="special_needs" value="{{ value }}"><span>{{ label }}</span></label>
       {% endfor %}
     </div>
-    <label class="notes-label">משהו נוסף שחשוב שנדע?<textarea name="notes" rows="4"></textarea></label>
-    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">חזרה</button><button class="button primary" type="submit">שמירת החופשה</button></div>
+    <label class="notes-label">{{ 'Anything else we should know?' if site_lang == 'en' else 'משהו נוסף שחשוב שנדע?' }}<textarea name="notes" rows="4"></textarea></label>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button class="button primary" type="submit">{{ 'Save vacation' if site_lang == 'en' else 'שמירת החופשה' }}</button></div>
   </section>
 </form>
 
@@ -159,7 +159,7 @@
       step.hidden = i !== current;
       step.classList.toggle('is-active', i === current);
     });
-    counter.textContent = `שאלה ${current + 1} מתוך ${steps.length}`;
+    counter.textContent = {{ ('`Question ${current + 1} of ${steps.length}`' if site_lang == 'en' else '`שאלה ${current + 1} מתוך ${steps.length}`')|safe }};
     progress.style.width = `${((current + 1) / steps.length) * 100}%`;
     window.scrollTo({ top: form.offsetTop - 105, behavior: 'smooth' });
   }

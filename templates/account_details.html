@@ -1,16 +1,15 @@
 {% extends "base.html" %}
-{% block title %}פרטי החשבון | אריאלה{% endblock %}
+{% block title %}{{ 'Account Details | Ariella' if site_lang == 'en' else 'פרטי החשבון | אריאלה' }}{% endblock %}
 {% block content %}
-<section class="page-hero account-details-hero"><div class="shell"><span class="eyebrow">אריאלה שלי</span><h1>פרטי החשבון</h1></div></section>
-<section class="section"><div class="shell narrow">
-  <form class="form-card" method="post">
-    <h2>הפרטים שלי</h2>
-    <label>שם מלא<input name="full_name" autocomplete="name" value="{{ member.full_name or '' }}" required></label>
-    <label>כתובת דוא״ל<input type="email" name="email" autocomplete="email" value="{{ member.email or '' }}" required></label>
-    <label>מספר טלפון<input name="phone" autocomplete="tel" value="{{ member.phone or '' }}"></label>
-    <label>מדינה<input name="country" maxlength="2" value="{{ member.country or '' }}" placeholder="IL"></label>
-    <label>מאילו שדות תעופה תרצו לצאת?<input name="preferred_airports" required value="{{ (member.preferred_airports_list or [])|join(', ') }}" placeholder="TLV, HFA"><small>אפשר לבחור כמה שדות תעופה. אלה יהיו ברירת המחדל לכל חופשה חדשה.</small></label>
-    <button class="button primary" type="submit">שמירת פרטים</button>
-  </form>
-</div></section>
-{% endblock %}
+<section class="page-hero account-details-hero"><div class="shell"><span class="eyebrow">{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}</span><h1>{{ 'Account Details' if site_lang == 'en' else 'פרטי החשבון' }}</h1></div></section>
+<section class="section"><div class="shell narrow"><form class="form-card" method="post">
+<h2>{{ 'My details' if site_lang == 'en' else 'הפרטים שלי' }}</h2>
+<label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}<input name="full_name" autocomplete="name" value="{{ member.full_name or '' }}" required></label>
+<label>{{ 'Email address' if site_lang == 'en' else 'כתובת דוא״ל' }}<input type="email" name="email" autocomplete="email" value="{{ member.email or '' }}" required></label>
+<label>{{ 'Phone number' if site_lang == 'en' else 'מספר טלפון' }}<input name="phone" autocomplete="tel" value="{{ member.phone or '' }}"></label>
+<label>{{ 'Country' if site_lang == 'en' else 'מדינה' }}<input name="country" maxlength="2" value="{{ member.country or '' }}" placeholder="IL"></label>
+<label>{{ 'Which airports would you like to depart from?' if site_lang == 'en' else 'מאילו שדות תעופה תרצו לצאת?' }}
+<div class="airport-picker" data-airport-picker><div class="airport-tags"></div><input class="airport-search" type="text" autocomplete="off" placeholder="{{ 'Search city, airport or IATA code…' if site_lang == 'en' else 'חפשו עיר, שדה תעופה או קוד IATA…' }}"><div class="airport-suggestions" hidden></div><input type="hidden" name="preferred_airports" class="airport-values" required value="{{ (member.preferred_airports_list or [])|join(',') }}"></div>
+<small>{{ 'You can select more than one airport. These will be the default for every new vacation.' if site_lang == 'en' else 'אפשר לבחור כמה שדות תעופה. אלה יהיו ברירת המחדל לכל חופשה חדשה.' }}</small></label>
+<button class="button primary" type="submit">{{ 'Save details' if site_lang == 'en' else 'שמירת פרטים' }}</button>
+</form></div></section>{% endblock %}
