@@ -10,14 +10,29 @@
 .about-page{min-height:calc(100vh - 126px);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.9),transparent 32%),linear-gradient(135deg,var(--cream2),var(--cream))}.about-wrap{width:min(980px,90%);margin:auto;padding:70px 0 72px;text-align:center}.about-wrap h1{margin:0 0 38px;font:700 clamp(48px,6vw,72px)/1.1 Georgia,"Times New Roman",serif}.title-gold{background:linear-gradient(90deg,#a87523,#e1bf69 48%,#af7c25);-webkit-background-clip:text;background-clip:text;color:transparent}.about-wrap p{margin:28px auto;font-size:clamp(19px,1.65vw,24px);line-height:1.95}.questions{font-weight:700}.focus{margin:42px auto 48px;font:700 clamp(31px,3.6vw,46px)/1.35 Georgia,"Times New Roman",serif;color:var(--gold)}.brand-word{color:#111}.mission{margin-top:64px;color:var(--gold);font-weight:700}.mission-first{font-size:clamp(28px,3vw,38px);line-height:1.5}.mission-last{margin-top:12px;font:700 clamp(42px,5vw,62px)/1.2 Georgia,"Times New Roman",serif}.site-footer{background:#050505;color:#eee;text-align:center;padding:54px 20px 58px;border-top:1px solid #242424}.footer-lead{margin:0 0 10px;font-size:22px}.footer-sub{margin:0 0 28px;color:#c9c2b5;font-size:18px}.contact-open{display:inline-block;min-width:170px;border:1px solid var(--gold2);background:transparent;color:var(--gold2);padding:14px 30px;font-size:18px;text-decoration:none}.contact-open:hover{background:var(--gold2);color:#111}
 @media(max-width:1050px){.header-inner{grid-template-columns:1fr auto auto}.main-nav{display:none}}@media(max-width:700px){.site-header{padding:14px 0;min-height:auto}.header-inner{width:94%;grid-template-columns:1fr auto;gap:12px}.language-switch{grid-row:2;justify-self:start}.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:50px}.account{font-size:14px;padding:11px 14px}.about-wrap{width:89%;padding:52px 0 58px}.about-wrap p{line-height:1.75}.mission{margin-top:48px}}
 </style>
+
+
 </head>
 <body>
-<header class="site-header"><div class="header-inner">
-  <div class="brand"><img class="logo-a" src="{{ url_for('static', filename='ariella-a-logo.png') }}" alt="Ariella"><span><span class="brand-name">ARIELA</span><span class="brand-tag">AI TRAVEL</span></span></div>
-  <nav class="main-nav"><a href="{{ url_for('site.home', lang=site_lang) }}">{{ 'Home' if site_lang == 'en' else 'ראשי' }}</a><a class="active" href="{{ url_for('site.about', lang=site_lang) }}">{{ 'About' if site_lang == 'en' else 'קצת עלינו' }}</a><a href="{{ url_for('site.deals', lang=site_lang) }}">{{ 'Deals' if site_lang == 'en' else 'דילים' }}</a></nav>
-  <div class="language-switch"><a href="{{ url_for('site.about', lang='he') }}" class="{% if site_lang == 'he' %}active{% endif %}">עברית</a><span>|</span><a href="{{ url_for('site.about', lang='en') }}" class="{% if site_lang == 'en' %}active{% endif %}">English</a></div>
-  <a class="account" href="{{ url_for('site.account') }}">{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}⌄</a>
-</div></header>
+<header class="site-header">
+  <div class="header-inner">
+    <div class="language-switch" aria-label="Language">
+      {% if site_lang == 'en' %}
+        <a href="{{ url_for('site.about', lang='he') }}">עברית</a>
+      {% else %}
+        <a href="{{ url_for('site.about', lang='en') }}">English</a>
+      {% endif %}
+    </div>
+    <div class="brand">
+      <img class="logo-a" src="{{ url_for('static', filename='ariella-a-logo.png') }}" alt="Ariella">
+      <span class="brand-copy"><span class="brand-name">ARIELA</span><span class="brand-tag">AI TRAVEL</span></span>
+    </div>
+    <nav class="main-nav" aria-label="{{ 'Main navigation' if site_lang == 'en' else 'תפריט ראשי' }}">
+      <a href="{{ url_for('site.home', lang=site_lang) }}">{{ 'Home' if site_lang == 'en' else 'ראשי' }}</a> <a class="active" aria-current="page" href="{{ url_for('site.about', lang=site_lang) }}">{{ 'About' if site_lang == 'en' else 'קצת עלינו' }}</a> <a href="{{ url_for('site.deals', lang=site_lang) }}">{{ 'Deals' if site_lang == 'en' else 'דילים' }}</a>
+    </nav>
+    <a class="account" href="{{ url_for('site.account', lang=site_lang) }}">{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }} ✦</a>
+  </div>
+</header>
 <main class="about-page"><section class="about-wrap">
 {% if site_lang == 'en' %}
   <h1>About <span class="title-gold">Us</span></h1>

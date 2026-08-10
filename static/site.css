@@ -89,3 +89,134 @@ html[dir="rtl"] .site-header .main-nav{direction:rtl!important}
 .airport-suggestions button{display:block;width:100%;padding:11px 13px;border:0;border-bottom:1px solid #eee;background:#fff;text-align:start;cursor:pointer;color:#17283f}
 .airport-suggestions button:hover{background:#fff8eb}
 @media(max-width:900px){.site-header .header-inner{grid-template-columns:1fr auto auto!important}.site-header .main-nav{display:none!important}.site-header .brand{grid-column:1}.site-header .language-switch{grid-column:2}.site-header .account-menu-wrap{grid-column:3}}
+
+/* v9.2.1 language/header correction */
+.site-header .header-inner{
+  display:grid!important;
+  grid-template-columns:auto minmax(250px,1fr) auto minmax(180px,1fr)!important;
+  align-items:center!important;
+  gap:20px!important;
+  direction:ltr!important;
+}
+.site-header .language-switch{
+  grid-column:1!important;
+  justify-self:start!important;
+  white-space:nowrap!important;
+  min-width:64px;
+}
+.site-header .brand{
+  grid-column:2!important;
+  justify-self:start!important;
+}
+.site-header .main-nav{
+  grid-column:3!important;
+  justify-self:center!important;
+  white-space:nowrap!important;
+}
+.site-header .account-menu-wrap{
+  grid-column:4!important;
+  justify-self:end!important;
+}
+html[dir="rtl"] .site-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
+
+@media(max-width:900px){
+  .site-header .header-inner{
+    grid-template-columns:auto 1fr auto!important;
+  }
+  .site-header .language-switch{grid-column:1!important}
+  .site-header .brand{grid-column:2!important}
+  .site-header .account-menu-wrap{grid-column:3!important}
+  .site-header .main-nav{display:none!important}
+}
+
+/* v9.2.4 — identical header geometry on every page, Hebrew and English */
+.site-header .header-inner,
+.luxury-header .header-inner{
+  width:min(1440px,92%)!important;
+  margin-inline:auto!important;
+  display:grid!important;
+  grid-template-columns:280px 1fr 280px!important;
+  grid-template-areas:
+    "brand nav account"!important;
+  align-items:center!important;
+  column-gap:24px!important;
+  direction:ltr!important;
+  position:relative!important;
+}
+
+/* Brand stays in the left structural column. */
+.site-header .brand,
+.luxury-header .brand{
+  grid-area:brand!important;
+  justify-self:start!important;
+}
+
+/* Language selector sits just to the left of the logo without affecting menu centering. */
+.site-header .language-switch,
+.luxury-header .language-switch{
+  position:absolute!important;
+  left:-78px!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  white-space:nowrap!important;
+  min-width:auto!important;
+  z-index:3!important;
+}
+
+/* Menu is always in the exact center column. */
+.site-header .main-nav,
+.luxury-header .main-nav{
+  grid-area:nav!important;
+  justify-self:center!important;
+  align-self:center!important;
+  margin:0!important;
+  width:max-content!important;
+  white-space:nowrap!important;
+}
+
+/* My Ariella stays in the right structural column. */
+.site-header .account,
+.site-header .account-menu-wrap,
+.luxury-header .account,
+.luxury-header .account-menu-wrap{
+  grid-area:account!important;
+  justify-self:end!important;
+  margin:0!important;
+}
+
+html[dir="rtl"] .site-header .main-nav,
+html[dir="rtl"] .luxury-header .main-nav{direction:rtl!important}
+
+html[dir="ltr"] .site-header .main-nav,
+html[dir="ltr"] .luxury-header .main-nav{direction:ltr!important}
+
+@media(max-width:1100px){
+  .site-header .header-inner,
+  .luxury-header .header-inner{
+    grid-template-columns:240px 1fr 240px!important;
+  }
+  .site-header .language-switch,
+  .luxury-header .language-switch{
+    left:-62px!important;
+  }
+}
+
+@media(max-width:900px){
+  .site-header .header-inner,
+  .luxury-header .header-inner{
+    grid-template-columns:1fr auto!important;
+    grid-template-areas:"brand account"!important;
+  }
+  .site-header .main-nav,
+  .luxury-header .main-nav{display:none!important}
+  .site-header .language-switch,
+  .luxury-header .language-switch{
+    position:static!important;
+    transform:none!important;
+    grid-area:brand!important;
+    justify-self:start!important;
+    margin-inline-start:0!important;
+    margin-inline-end:12px!important;
+  }
+}

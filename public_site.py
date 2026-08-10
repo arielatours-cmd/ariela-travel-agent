@@ -120,15 +120,24 @@ def _offer_matches_trip(offer, trip):
 
 @site.app_context_processor
 def inject_site_context():
-    
-    lang = request.args.get("lang") or session.get("lang") or "he"
-    if lang not in {"he", "en"}: lang = "he"
-    if request.args.get("lang") in {"he", "en"}: session["lang"] = lang
+    requested_lang = request.args.get("lang")
+    if requested_lang in {"he", "en"}:
+        session["lang"] = requested_lang
+
+    # Hebrew is the default for every new visitor/session.
+    lang = session.get("lang", "he")
+    if lang not in {"he", "en"}:
+        lang = "he"
+        session["lang"] = "he"
+
     return {"current_member": _current_member(), "site_lang": lang}
 
 
 def _lang():
-    lang = request.args.get("lang") or session.get("lang") or "he"
+    requested_lang = request.args.get("lang")
+    if requested_lang in {"he", "en"}:
+        session["lang"] = requested_lang
+    lang = session.get("lang", "he")
     return lang if lang in {"he", "en"} else "he"
 
 

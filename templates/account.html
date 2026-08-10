@@ -1,5 +1,24 @@
 {% extends "base.html" %}
-{% block title %}{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}{% endblock %}
+{% block title %}{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}
+<script>
+function confirmSearchToggle(form, status) {
+  const isEnglish = document.documentElement.lang === 'en';
+  if (status === 'active') {
+    return window.confirm(
+      isEnglish
+        ? 'Are you sure you want to end the search for this vacation?'
+        : 'האם אתם בטוחים שברצונכם לסיים את החיפוש עבור החופשה הזו?'
+    );
+  }
+  return window.confirm(
+    isEnglish
+      ? 'Are you sure you want to reactivate the search for this vacation?'
+      : 'האם אתם בטוחים שברצונכם להפעיל שוב את החיפוש עבור החופשה הזו?'
+  );
+}
+</script>
+
+{% endblock %}
 {% block content %}
 {% if welcome %}
 <div class="welcome-overlay" id="welcomeOverlay" role="status" aria-live="polite">
@@ -50,7 +69,8 @@
           </button>
         </form>
         <a class="button secondary" href="{{ url_for('site.deals', lang=site_lang) }}#vacation-{{ trip.id }}">{{ 'View deals' if site_lang == 'en' else 'הצגת הדילים' }}</a>
-        <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}" onsubmit="return confirm({% if trip.status == 'active' %}{{ ('End this vacation search?' if site_lang == 'en' else 'האם לסיים את החיפוש עבור החופשה הזו?')|tojson }}{% else %}{{ ('Would you like to reactivate the search for this vacation? Ariella will resume looking for new deals based on the vacation details you saved.' if site_lang == 'en' else 'האם ברצונך להפעיל שוב את החיפוש עבור החופשה הזו? אריאלה תחזור לחפש דילים חדשים בהתאם לפרטי החופשה ששמרת.')|tojson }}{% endif %})">
+        <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}"
+      onsubmit="return confirmSearchToggle(this, '{{ trip.status }}');">
           <button class="button {{ 'outline' if trip.status == 'active' else 'primary' }}" type="submit">{{ ('End search' if trip.status == 'active' else 'Search again') if site_lang == 'en' else ('סיים חיפוש' if trip.status == 'active' else 'חפש שוב') }}</button>
         </form>
       </div>
