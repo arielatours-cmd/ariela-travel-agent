@@ -643,3 +643,11 @@ html[dir="ltr"] .site-header.luxury-header .main-nav{direction:ltr!important}
 html[dir="rtl"] .deal-filters-wrap{text-align:right}
 html[dir="ltr"] .deal-filters-wrap{text-align:left}
 @media(max-width:800px){.deal-filters-wrap label{min-width:calc(50% - 8px);flex:1}.deal-more-filters-toggle,.deal-clear-filters{flex:1}}
+
+/* v9.3.8 — additional filters stay collapsed until explicitly opened */
+.deal-filters-more[hidden]{
+  display:none!important;
+}
+.deal-filters-more:not([hidden]){
+  display:flex!important;
+}

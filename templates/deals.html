@@ -77,7 +77,16 @@
   });
 
   q('moreFiltersToggle')?.addEventListener('click',()=>{
-    const more=q('dealFiltersMore'); more.hidden=!more.hidden;
+    const more=q('dealFiltersMore');
+    const button=q('moreFiltersToggle');
+    if(!more || !button) return;
+    const opening = more.hidden;
+    more.hidden = !opening;
+    more.setAttribute('aria-hidden', opening ? 'false' : 'true');
+    button.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    button.innerHTML = opening
+      ? (document.documentElement.lang === 'en' ? 'Fewer filters ▴' : 'פחות מסננים ▴')
+      : (document.documentElement.lang === 'en' ? 'More filters ▾' : 'מסננים נוספים ▾');
   });
   q('clearDealFilters')?.addEventListener('click',()=>{
     [origin,destination,month,price,stops,baggage,time,length,airline,protection,change].forEach(el=>{
@@ -124,7 +133,7 @@
         <option value="2">{{ 'Up to 2 connections' if site_lang == 'en' else 'עד 2 קונקשנים' }}</option>
       </select>
     </label>
-    <button class="deal-more-filters-toggle" type="button" id="moreFiltersToggle">
+    <button class="deal-more-filters-toggle" type="button" id="moreFiltersToggle" aria-expanded="false">
       {{ 'More filters' if site_lang == 'en' else 'מסננים נוספים' }} ▾
     </button>
     <button class="deal-clear-filters" type="button" id="clearDealFilters">
@@ -132,7 +141,7 @@
     </button>
   </div>
 
-  <div class="deal-filters-more" id="dealFiltersMore" hidden>
+  <div class="deal-filters-more" id="dealFiltersMore" hidden aria-hidden="true">
     <label>
       <span>{{ 'Baggage' if site_lang == 'en' else 'כבודה' }}</span>
       <select id="filterBaggage">
