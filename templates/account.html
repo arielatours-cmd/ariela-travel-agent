@@ -77,7 +77,7 @@ function confirmSearchToggle(form, status) {
         </form>
         {% elif trip.status == 'active' %}
         <details class="continue-search-box">
-          <summary class="continue-search-title">{{ 'Continue searching with Ariella' if site_lang == 'en' else 'המשך חיפוש עם אריאלה' }}</summary>
+          <summary class="continue-search-title">{{ 'Would you like Ariella to keep searching?' if site_lang == 'en' else 'אתה רוצה שאריאלה תמשיך לחפש?' }}</summary>
           <div class="plan-options">
             <form method="post" action="{{ url_for('site.choose_trip_subscription', trip_id=trip.id) }}">
               <input type="hidden" name="plan" value="calm">

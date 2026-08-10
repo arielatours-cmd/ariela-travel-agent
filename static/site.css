@@ -823,3 +823,46 @@ html body .site-header.luxury-header .language-switch a:hover {
 .auth-message{padding:12px;margin:12px 0;background:#f6f1e8;border:1px solid #ead8b4}
 .auth-error{padding:12px;margin:12px 0;background:#faeaea;border:1px solid #e8caca}
 .dev-reset-link{font-size:12px;word-break:break-all}
+
+/* v9.5.0 FINAL shared header account button */
+header.site-header .account-menu-wrap > button.account.account-menu-button{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  width:auto!important;
+  min-width:154px!important;
+  height:56px!important;
+  min-height:56px!important;
+  padding:0 24px!important;
+  margin:0!important;
+  border:1px solid #c99a3f!important;
+  border-radius:999px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#fff!important;
+  font-family:Arial,"Noto Sans Hebrew",sans-serif!important;
+  font-size:16px!important;
+  font-weight:700!important;
+  font-style:normal!important;
+  line-height:1!important;
+  letter-spacing:0!important;
+  text-decoration:none!important;
+  white-space:nowrap!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+header.site-header .account-menu-wrap{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+header.site-header .account-menu-wrap > .account-dropdown{
+  position:absolute!important;
+  top:calc(100% + 8px)!important;
+  right:0!important;
+  left:auto!important;
+  transform:none!important;
+  min-width:210px!important;
+  z-index:9999!important;
+}
