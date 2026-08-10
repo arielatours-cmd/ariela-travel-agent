@@ -295,8 +295,28 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             return replacements.get(text, text)
 
         display_reasons = [_reason_label(reason) for reason in reasons if _reason_label(reason)]
+
+        # Never claim that the price is low unless the found price is actually
+        # lower than the reference price shown to the customer.
+        current_price = item.get("price_ils")
+        price_is_lower = False
+        try:
+            if current_price is not None and reference_price is not None:
+                price_is_lower = float(current_price) < float(reference_price)
+            elif item.get("discount_percent") is not None:
+                price_is_lower = float(item.get("discount_percent") or 0) > 0
+        except (TypeError, ValueError):
+            price_is_lower = False
+
+        if not price_is_lower:
+            display_reasons = [
+                reason for reason in display_reasons
+                if reason != "מחיר נמוך משמעותית"
+            ]
+
         if not display_reasons:
-            if item.get("discount_percent") and item["discount_percent"] >= 15:
+            # In fallback mode, add a price reason only when it is factually true.
+            if price_is_lower and item.get("discount_percent") and item["discount_percent"] >= 15:
                 display_reasons.append("מחיר נמוך משמעותית")
             if (item.get("stops") or 0) == 0:
                 display_reasons.append("טיסה ישירה")

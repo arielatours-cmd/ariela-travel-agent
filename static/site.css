@@ -522,3 +522,111 @@ html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
 .site-header.luxury-header .account-menu-wrap{position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
 html[dir="rtl"] .site-header.luxury-header .main-nav{direction:rtl!important}
 html[dir="ltr"] .site-header.luxury-header .main-nav{direction:ltr!important}
+
+/* v9.3.5 — readable connection details, no overlap into baggage column */
+.ariella-deal-card .flight-route,
+.ariella-deal-card .route-details,
+.ariella-deal-card .flight-path,
+.ariella-deal-card .connection-details,
+.ariella-deal-card .connections,
+.ariella-deal-card .stops,
+.deal-card .flight-route,
+.deal-card .route-details,
+.deal-card .connection-details{
+  min-width:0!important;
+  overflow:hidden!important;
+}
+
+.ariella-deal-card .connection-airport-name,
+.ariella-deal-card .layover-airport,
+.ariella-deal-card .stop-airport,
+.ariella-deal-card .connection-name,
+.deal-card .connection-airport-name,
+.deal-card .layover-airport,
+.deal-card .stop-airport{
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  line-clamp:2!important;
+  white-space:normal!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+  max-width:180px!important;
+  font-size:13px!important;
+  line-height:1.35!important;
+  text-align:center!important;
+  margin-inline:auto!important;
+}
+
+/* Fallback for route labels that are direct children rather than named spans. */
+.ariella-deal-card .flight-route small,
+.ariella-deal-card .route-details small,
+.ariella-deal-card .connection-details small,
+.ariella-deal-card .stops small,
+.deal-card .flight-route small,
+.deal-card .route-details small{
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+  font-size:13px!important;
+  line-height:1.35!important;
+  max-width:190px!important;
+}
+
+/* Keep the flight and baggage columns separated. */
+.ariella-deal-card > *,
+.deal-card > *{
+  min-width:0!important;
+}
+
+/* v9.3.6 connection display — two readable rows, contained inside flight column */
+.ariella-deal-card .deal-flight{
+  min-width:0!important;
+  overflow:hidden!important;
+}
+.ariella-deal-card .flight-timeline{
+  min-width:0!important;
+  grid-template-columns:minmax(100px,1fr) minmax(250px,2fr) minmax(100px,1fr)!important;
+  gap:14px!important;
+}
+.ariella-deal-card .route-line{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:10px!important;
+  overflow:hidden!important;
+}
+.ariella-deal-card .route-line .connection{
+  min-width:0!important;
+  max-width:190px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
+  line-height:1.25!important;
+}
+.ariella-deal-card .route-line .connection b{
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  line-clamp:2!important;
+  overflow:hidden!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+  font-size:13px!important;
+  line-height:1.3!important;
+  max-width:190px!important;
+}
+.ariella-deal-card .route-line .connection small{
+  display:block!important;
+  margin-top:4px!important;
+  white-space:normal!important;
+  font-size:12px!important;
+  line-height:1.3!important;
+  max-width:190px!important;
+}
