@@ -135,6 +135,14 @@ def init_db() -> None:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN mobile_notifications INTEGER NOT NULL DEFAULT 0")
         if "ended_at" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN ended_at TEXT")
+        if "subscription_plan" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN subscription_plan TEXT")
+        if "subscription_status" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN subscription_status TEXT NOT NULL DEFAULT 'none'")
+        if "subscription_started_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN subscription_started_at TEXT")
+        if "subscription_cancel_at_period_end" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN subscription_cancel_at_period_end INTEGER NOT NULL DEFAULT 0")
 
         member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
         if "country" not in member_columns:

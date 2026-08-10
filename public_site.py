@@ -335,8 +335,8 @@ def toggle_trip_search(trip_id):
         if row:
             new_status = "ended" if row["status"] == "active" else "active"
             conn.execute(
-                "UPDATE trip_requests SET status=?, mobile_notifications=CASE WHEN ?='ended' THEN 0 ELSE mobile_notifications END, ended_at=? WHERE id=?",
-                (new_status, new_status, utc_now_iso() if new_status == "ended" else None, trip_id),
+                "UPDATE trip_requests SET status=?, mobile_notifications=CASE WHEN ?='ended' THEN 0 ELSE mobile_notifications END, ended_at=?, subscription_cancel_at_period_end=CASE WHEN ?='ended' AND subscription_status='active' THEN 1 ELSE subscription_cancel_at_period_end END WHERE id=?",
+                (new_status, new_status, utc_now_iso() if new_status == "ended" else None, new_status, trip_id),
             )
             conn.commit()
     return redirect(url_for("site.account"))
@@ -351,6 +351,31 @@ def toggle_trip_notifications(trip_id):
             conn.execute("UPDATE trip_requests SET mobile_notifications=? WHERE id=?", (0 if row["mobile_notifications"] else 1, trip_id))
             conn.commit()
     return redirect(url_for("site.account"))
+
+
+
+
+@site.post("/trip/<int:trip_id>/choose-subscription")
+@login_required
+def choose_trip_subscription(trip_id):
+    plan = request.form.get("plan", "").strip()
+    allowed = {"calm", "daily", "intensive"}
+    if plan not in allowed:
+        return redirect(url_for("site.account"))
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT id,status FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+        if row and row["status"] == "active":
+            conn.execute(
+                "UPDATE trip_requests SET subscription_plan=?, subscription_status='pending' WHERE id=?",
+                (plan, trip_id),
+            )
+            conn.commit()
+    # The actual Isracard checkout will replace this pending step once merchant/API
+    # credentials are connected. We never mark a subscription paid without payment confirmation.
+    return redirect(url_for("site.account", payment="pending", trip_id=trip_id))
 
 
 @site.route("/trip/new", methods=["GET", "POST"])

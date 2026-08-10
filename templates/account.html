@@ -62,17 +62,54 @@ function confirmSearchToggle(form, status) {
         </dl>
       </div>
       <div class="trip-controls">
-        <form method="post" action="{{ url_for('site.toggle_trip_notifications', trip_id=trip.id) }}">
-          <button class="notification-toggle {{ 'on' if trip.mobile_notifications else 'off' }}" type="submit" {% if trip.status != 'active' %}disabled{% endif %} aria-pressed="{{ 'true' if trip.mobile_notifications else 'false' }}">
-            <span class="toggle-track"><i></i></span>
-            <span>{{ 'Mobile alerts' if site_lang == 'en' else 'התראות לנייד' }}</span>
-          </button>
-        </form>
         <a class="button secondary" href="{{ url_for('site.deals', lang=site_lang) }}#vacation-{{ trip.id }}">{{ 'View deals' if site_lang == 'en' else 'הצגת הדילים' }}</a>
         <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}"
       onsubmit="return confirmSearchToggle(this, '{{ trip.status }}');">
           <button class="button {{ 'outline' if trip.status == 'active' else 'primary' }}" type="submit">{{ ('End search' if trip.status == 'active' else 'Search again') if site_lang == 'en' else ('סיים חיפוש' if trip.status == 'active' else 'חפש שוב') }}</button>
         </form>
+
+        {% if trip.status == 'active' and trip.subscription_status == 'active' %}
+        <form method="post" action="{{ url_for('site.toggle_trip_notifications', trip_id=trip.id) }}">
+          <button class="notification-toggle {{ 'on' if trip.mobile_notifications else 'off' }}" type="submit" aria-pressed="{{ 'true' if trip.mobile_notifications else 'false' }}">
+            <span class="toggle-track"><i></i></span>
+            <span>{{ 'Mobile alerts' if site_lang == 'en' else 'התראות לנייד' }}</span>
+          </button>
+        </form>
+        {% elif trip.status == 'active' %}
+        <div class="continue-search-box">
+          <div class="continue-search-title">{{ 'Continue searching with Ariella' if site_lang == 'en' else 'המשך חיפוש עם אריאלה' }}</div>
+          <div class="plan-options">
+            <form method="post" action="{{ url_for('site.choose_trip_subscription', trip_id=trip.id) }}">
+              <input type="hidden" name="plan" value="calm">
+              <button type="submit" class="plan-choice">
+                <strong>{{ 'Relaxed' if site_lang == 'en' else 'רגוע' }}</strong>
+                <span>{{ 'Every 3 days' if site_lang == 'en' else 'פעם ב־3 ימים' }}</span>
+                <b>₪4.90 / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
+              </button>
+            </form>
+            <form method="post" action="{{ url_for('site.choose_trip_subscription', trip_id=trip.id) }}">
+              <input type="hidden" name="plan" value="daily">
+              <button type="submit" class="plan-choice recommended">
+                <em>{{ 'Recommended' if site_lang == 'en' else 'מומלץ' }}</em>
+                <strong>{{ 'Daily' if site_lang == 'en' else 'יומי' }}</strong>
+                <span>{{ 'Once a day' if site_lang == 'en' else 'פעם ביום' }}</span>
+                <b>₪9.90 / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
+              </button>
+            </form>
+            <form method="post" action="{{ url_for('site.choose_trip_subscription', trip_id=trip.id) }}">
+              <input type="hidden" name="plan" value="intensive">
+              <button type="submit" class="plan-choice">
+                <strong>{{ 'Intensive' if site_lang == 'en' else 'אינטנסיבי' }}</strong>
+                <span>{{ '3 times a day' if site_lang == 'en' else '3 פעמים ביום' }}</span>
+                <b>₪14.90 / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
+              </button>
+            </form>
+          </div>
+          {% if trip.subscription_status == 'pending' %}
+          <div class="payment-pending">{{ 'Payment connection is being prepared' if site_lang == 'en' else 'המשך לתשלום יופעל עם חיבור ישראכרט' }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
     </article>
   {% endfor %}
