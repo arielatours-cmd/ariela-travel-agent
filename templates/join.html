@@ -8,7 +8,66 @@
     <label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}<input name="full_name" autocomplete="name" required></label>
     <label>{{ 'Email address' if site_lang == 'en' else 'כתובת דוא״ל' }}<input type="email" name="email" autocomplete="email" required></label>
     <label>{{ 'Phone number' if site_lang == 'en' else 'מספר טלפון' }}<input name="phone" autocomplete="tel"></label>
-    <label>{{ 'Country' if site_lang == 'en' else 'מדינה' }}<input name="country" maxlength="2" placeholder="IL" aria-label="{{ 'Country code' if site_lang == 'en' else 'קוד מדינה' }}"></label>
+    <label>{{ "Country" if site_lang == "en" else "מדינה" }}
+      <select name="country" required>
+        <option value="" disabled>{{ "Select a country" if site_lang == "en" else "בחרו מדינה" }}</option>
+        <option value="IL" selected>{{ "Israel" if site_lang == "en" else "ישראל" }}</option>
+<option value="US" >{{ "United States" if site_lang == "en" else "ארצות הברית" }}</option>
+<option value="CA" >{{ "Canada" if site_lang == "en" else "קנדה" }}</option>
+<option value="GB" >{{ "United Kingdom" if site_lang == "en" else "בריטניה" }}</option>
+<option value="FR" >{{ "France" if site_lang == "en" else "צרפת" }}</option>
+<option value="DE" >{{ "Germany" if site_lang == "en" else "גרמניה" }}</option>
+<option value="IT" >{{ "Italy" if site_lang == "en" else "איטליה" }}</option>
+<option value="ES" >{{ "Spain" if site_lang == "en" else "ספרד" }}</option>
+<option value="PT" >{{ "Portugal" if site_lang == "en" else "פורטוגל" }}</option>
+<option value="NL" >{{ "Netherlands" if site_lang == "en" else "הולנד" }}</option>
+<option value="BE" >{{ "Belgium" if site_lang == "en" else "בלגיה" }}</option>
+<option value="CH" >{{ "Switzerland" if site_lang == "en" else "שווייץ" }}</option>
+<option value="AT" >{{ "Austria" if site_lang == "en" else "אוסטריה" }}</option>
+<option value="GR" >{{ "Greece" if site_lang == "en" else "יוון" }}</option>
+<option value="CY" >{{ "Cyprus" if site_lang == "en" else "קפריסין" }}</option>
+<option value="HR" >{{ "Croatia" if site_lang == "en" else "קרואטיה" }}</option>
+<option value="SI" >{{ "Slovenia" if site_lang == "en" else "סלובניה" }}</option>
+<option value="ME" >{{ "Montenegro" if site_lang == "en" else "מונטנגרו" }}</option>
+<option value="AL" >{{ "Albania" if site_lang == "en" else "אלבניה" }}</option>
+<option value="MK" >{{ "North Macedonia" if site_lang == "en" else "צפון מקדוניה" }}</option>
+<option value="RO" >{{ "Romania" if site_lang == "en" else "רומניה" }}</option>
+<option value="BG" >{{ "Bulgaria" if site_lang == "en" else "בולגריה" }}</option>
+<option value="HU" >{{ "Hungary" if site_lang == "en" else "הונגריה" }}</option>
+<option value="CZ" >{{ "Czechia" if site_lang == "en" else "צ'כיה" }}</option>
+<option value="PL" >{{ "Poland" if site_lang == "en" else "פולין" }}</option>
+<option value="SK" >{{ "Slovakia" if site_lang == "en" else "סלובקיה" }}</option>
+<option value="RS" >{{ "Serbia" if site_lang == "en" else "סרביה" }}</option>
+<option value="BA" >{{ "Bosnia and Herzegovina" if site_lang == "en" else "בוסניה והרצגובינה" }}</option>
+<option value="TR" >{{ "Türkiye" if site_lang == "en" else "טורקיה" }}</option>
+<option value="GE" >{{ "Georgia" if site_lang == "en" else "גאורגיה" }}</option>
+<option value="AE" >{{ "United Arab Emirates" if site_lang == "en" else "איחוד האמירויות הערביות" }}</option>
+<option value="TH" >{{ "Thailand" if site_lang == "en" else "תאילנד" }}</option>
+<option value="JP" >{{ "Japan" if site_lang == "en" else "יפן" }}</option>
+<option value="CN" >{{ "China" if site_lang == "en" else "סין" }}</option>
+<option value="IN" >{{ "India" if site_lang == "en" else "הודו" }}</option>
+<option value="SG" >{{ "Singapore" if site_lang == "en" else "סינגפור" }}</option>
+<option value="AU" >{{ "Australia" if site_lang == "en" else "אוסטרליה" }}</option>
+<option value="NZ" >{{ "New Zealand" if site_lang == "en" else "ניו זילנד" }}</option>
+<option value="ZA" >{{ "South Africa" if site_lang == "en" else "דרום אפריקה" }}</option>
+<option value="BR" >{{ "Brazil" if site_lang == "en" else "ברזיל" }}</option>
+<option value="AR" >{{ "Argentina" if site_lang == "en" else "ארגנטינה" }}</option>
+<option value="MX" >{{ "Mexico" if site_lang == "en" else "מקסיקו" }}</option>
+<option value="NO" >{{ "Norway" if site_lang == "en" else "נורווגיה" }}</option>
+<option value="SE" >{{ "Sweden" if site_lang == "en" else "שוודיה" }}</option>
+<option value="DK" >{{ "Denmark" if site_lang == "en" else "דנמרק" }}</option>
+<option value="FI" >{{ "Finland" if site_lang == "en" else "פינלנד" }}</option>
+<option value="IS" >{{ "Iceland" if site_lang == "en" else "איסלנד" }}</option>
+<option value="IE" >{{ "Ireland" if site_lang == "en" else "אירלנד" }}</option>
+<option value="LU" >{{ "Luxembourg" if site_lang == "en" else "לוקסמבורג" }}</option>
+<option value="MT" >{{ "Malta" if site_lang == "en" else "מלטה" }}</option>
+<option value="EE" >{{ "Estonia" if site_lang == "en" else "אסטוניה" }}</option>
+<option value="LV" >{{ "Latvia" if site_lang == "en" else "לטביה" }}</option>
+<option value="LT" >{{ "Lithuania" if site_lang == "en" else "ליטא" }}</option>
+<option value="MA" >{{ "Morocco" if site_lang == "en" else "מרוקו" }}</option>
+<option value="EG" >{{ "Egypt" if site_lang == "en" else "מצרים" }}</option>
+      </select>
+    </label>
     <label>{{ 'Which airports would you like to depart from?' if site_lang == 'en' else 'מאילו שדות תעופה תרצו לצאת?' }}
       <div class="airport-picker" data-airport-picker>
         <div class="airport-tags"></div>

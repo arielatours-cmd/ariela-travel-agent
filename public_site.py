@@ -147,6 +147,10 @@ def _msg(he, en):
 
 @site.get("/")
 def home():
+    # Opening the site's main URL always starts in Hebrew.
+    # English is entered only by explicitly choosing English.
+    if request.args.get("lang") not in {"he", "en"}:
+        session["lang"] = "he"
     offers = recent_offers(limit=3, minimum_score=None)
     return render_template("home.html", offers=offers)
 

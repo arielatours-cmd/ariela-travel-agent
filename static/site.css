@@ -220,3 +220,131 @@ html[dir="ltr"] .luxury-header .main-nav{direction:ltr!important}
     margin-inline-end:12px!important;
   }
 }
+
+/* v9.2.6 — logo fixed at left; language immediately to its left; menu centered */
+.site-header .header-inner,
+.luxury-header .header-inner{
+  width:min(1440px,92%)!important;
+  margin-inline:auto!important;
+  display:grid!important;
+  grid-template-columns:auto auto 1fr auto 1fr!important;
+  grid-template-areas:"language brand leftspace nav accountspace"!important;
+  align-items:center!important;
+  gap:14px!important;
+  direction:ltr!important;
+}
+.site-header .language-switch,
+.luxury-header .language-switch{
+  grid-area:language!important;
+  position:static!important;
+  transform:none!important;
+  justify-self:start!important;
+  margin:0!important;
+  min-width:auto!important;
+  white-space:nowrap!important;
+}
+.site-header .brand,
+.luxury-header .brand{
+  grid-area:brand!important;
+  justify-self:start!important;
+  margin:0!important;
+  position:static!important;
+}
+.site-header .main-nav,
+.luxury-header .main-nav{
+  grid-area:nav!important;
+  justify-self:center!important;
+  margin:0!important;
+  width:max-content!important;
+  white-space:nowrap!important;
+}
+.site-header .account,
+.site-header .account-menu-wrap,
+.luxury-header .account,
+.luxury-header .account-menu-wrap{
+  position:absolute!important;
+  right:0!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  margin:0!important;
+}
+.site-header .header-inner,
+.luxury-header .header-inner{position:relative!important}
+html[dir="rtl"] .site-header .main-nav,
+html[dir="rtl"] .luxury-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header .main-nav,
+html[dir="ltr"] .luxury-header .main-nav{direction:ltr!important}
+@media(max-width:900px){
+ .site-header .header-inner,.luxury-header .header-inner{
+   display:flex!important;direction:ltr!important;gap:10px!important;
+ }
+ .site-header .language-switch,.luxury-header .language-switch{order:1!important}
+ .site-header .brand,.luxury-header .brand{order:2!important}
+ .site-header .main-nav,.luxury-header .main-nav{display:none!important}
+ .site-header .account,.site-header .account-menu-wrap,
+ .luxury-header .account,.luxury-header .account-menu-wrap{
+   position:static!important;transform:none!important;margin-left:auto!important;order:3!important
+ }
+}
+
+/* v9.2.7 — approved Deals-page header geometry applied everywhere */
+.site-header .header-inner,
+.site-header.luxury-header .header-inner{
+  width:min(1500px,88%)!important;
+  min-height:112px!important;
+  margin:0 auto!important;
+  padding:0!important;
+  display:grid!important;
+  grid-template-columns:70px 290px 1fr 290px!important;
+  grid-template-areas:"language brand nav account"!important;
+  align-items:center!important;
+  gap:10px!important;
+  position:relative!important;
+  direction:ltr!important;
+}
+.site-header .language-switch,
+.site-header.luxury-header .language-switch{
+  grid-area:language!important;position:static!important;transform:none!important;
+  justify-self:start!important;align-self:center!important;margin:0!important;min-width:0!important;white-space:nowrap!important;
+}
+.site-header .brand,
+.site-header.luxury-header .brand{
+  grid-area:brand!important;position:static!important;transform:none!important;
+  justify-self:start!important;align-self:center!important;margin:0!important;
+}
+.site-header .main-nav,
+.site-header.luxury-header .main-nav{
+  grid-area:nav!important;position:static!important;transform:none!important;
+  justify-self:center!important;align-self:center!important;margin:0!important;width:max-content!important;white-space:nowrap!important;
+}
+.site-header .account,
+.site-header .account-menu-wrap,
+.site-header.luxury-header .account,
+.site-header.luxury-header .account-menu-wrap{
+  grid-area:account!important;position:static!important;transform:none!important;
+  justify-self:end!important;align-self:center!important;margin:0!important;
+}
+html[dir="rtl"] .site-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
+@media(max-width:900px){
+ .site-header .header-inner,.site-header.luxury-header .header-inner{
+   width:94%!important;min-height:88px!important;
+   grid-template-columns:auto 1fr auto!important;
+   grid-template-areas:"language brand account"!important;gap:8px!important;
+ }
+ .site-header .main-nav{display:none!important}
+}
+
+/* v9.2.8 country dropdown */
+.form-card select{
+  width:100%;
+  min-height:50px;
+  padding:12px 14px;
+  border:1px solid #c9d1dc;
+  background:#fff;
+  color:#17283f;
+  font:inherit;
+  margin-top:7px;
+}
+html[dir="rtl"] .form-card select{direction:rtl;text-align:right}
+html[dir="ltr"] .form-card select{direction:ltr;text-align:left}
