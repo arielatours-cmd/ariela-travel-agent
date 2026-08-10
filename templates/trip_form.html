@@ -29,7 +29,7 @@
     </div>
     <div class="conditional-panel" id="destinationDetails" hidden>
       <label id="destinationLabel">{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאיזה יעד תרצו לטוס?' }}
-        <input name="destinations" id="destinationsInput" placeholder="{{ 'For example: Japan' if site_lang == 'en' else 'לדוגמה: יפן' }}">
+        <input name="destinations" id="destinationsInput" list="destinationCountries" autocomplete="off" placeholder="{{ 'For example: Japan' if site_lang == 'en' else 'לדוגמה: יפן' }}"><datalist id="destinationCountries">{% if site_lang == 'en' %}<option value="Israel"><option value="United States"><option value="United Kingdom"><option value="France"><option value="Italy"><option value="Greece"><option value="Cyprus"><option value="Germany"><option value="Austria"><option value="Hungary"><option value="Czech Republic"><option value="Spain"><option value="Portugal"><option value="Croatia"><option value="Albania"><option value="Romania"><option value="Bulgaria"><option value="Montenegro"><option value="North Macedonia"><option value="Slovenia"><option value="Norway"><option value="Thailand"><option value="Japan"><option value="South Korea"><option value="United Arab Emirates"><option value="Turkey"><option value="Netherlands"><option value="Switzerland">{% else %}<option value="ישראל"><option value="ארצות הברית"><option value="בריטניה"><option value="צרפת"><option value="איטליה"><option value="יוון"><option value="קפריסין"><option value="גרמניה"><option value="אוסטריה"><option value="הונגריה"><option value="צ׳כיה"><option value="ספרד"><option value="פורטוגל"><option value="קרואטיה"><option value="אלבניה"><option value="רומניה"><option value="בולגריה"><option value="מונטנגרו"><option value="צפון מקדוניה"><option value="סלובניה"><option value="נורווגיה"><option value="תאילנד"><option value="יפן"><option value="קוריאה הדרומית"><option value="איחוד האמירויות"><option value="טורקיה"><option value="הולנד"><option value="שווייץ">{% endif %}</datalist>
       </label>
     </div>
     <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
@@ -45,12 +45,12 @@
     </div>
     <div class="conditional-panel" id="monthPanel" hidden>
       <label>{{ 'Choose a month' if site_lang == 'en' else 'בחרו חודש' }}
-        <input type="month" name="travel_month" id="travelMonth" min="{{ current_month }}">
+        <input type="month" name="travel_month" id="travelMonth" min="{{ current_month }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}">
       </label>
     </div>
     <div class="conditional-panel two-cols" id="exactDatesPanel" hidden>
-      <label>{{ 'Departure date' if site_lang == 'en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{ today }}"></label>
-      <label>{{ 'Return date' if site_lang == 'en' else 'תאריך חזרה' }}<input type="date" name="return_date" id="returnDate" min="{{ today }}"></label>
+      <label>{{ 'Departure date' if site_lang == 'en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{ today }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}"></label>
+      <label>{{ 'Return date' if site_lang == 'en' else 'תאריך חזרה' }}<input type="date" name="return_date" id="returnDate" min="{{ today }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}"></label>
     </div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
   </section>
@@ -202,7 +202,7 @@
     const label = document.getElementById('destinationLabel');
     const show = input.value !== 'open' && input.checked;
     panel.hidden = !show;
-    if (show) label.childNodes[0].nodeValue = input.value === 'specific' ? 'לאיזה יעד תרצו לטוס? ' : 'אילו יעדים מעניינים אתכם? ';
+    if (show) label.childNodes[0].nodeValue = input.value === 'specific' ? {{ ('"Where would you like to fly? "' if site_lang == 'en' else '"לאיזה יעד תרצו לטוס? "')|safe }} : {{ ('"Which destinations interest you? "' if site_lang == 'en' else '"אילו יעדים מעניינים אתכם? "')|safe }};
     if (!show) document.getElementById('destinationsInput').value = '';
   }));
 
@@ -234,7 +234,7 @@
   form.querySelectorAll('input[name="budget_mode"]').forEach(input => input.addEventListener('change', () => {
     const panel = document.getElementById('budgetAmountPanel');
     panel.hidden = input.value === 'unlimited';
-    document.getElementById('budgetAmountLabel').childNodes[0].nodeValue = 'מה התקציב המרבי לאדם? (₪) ';
+    document.getElementById('budgetAmountLabel').childNodes[0].nodeValue = {{ ('"What is the maximum budget per person? (₪) "' if site_lang == 'en' else '"מה התקציב המרבי לאדם? (₪) "')|safe }};
     if (input.value === 'unlimited') document.getElementById('budgetAmount').value = '';
   }));
 
