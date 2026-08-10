@@ -43,6 +43,10 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 </style>
 
 
+
+<style>
+.thankyou-first-line,.thankyou-second-line{display:block}
+</style>
 </head>
 <body>
 <header class="site-header">
@@ -68,7 +72,7 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient
 <main class="feedback-page">
   {% if request.args.get("sent") == "1" %}
     <section class="feedback-thankyou" aria-live="polite">
-      <p>{{ 'Thank you! We received your suggestion.' if site_lang == 'en' else 'תודה! קיבלנו את ההצעה שלכם.' }}</p>
+      <p>{% if site_lang == 'en' %}<span class="thankyou-first-line">Thank you!</span><span class="thankyou-second-line">We received your suggestion.</span>{% else %}תודה! קיבלנו את ההצעה שלכם.{% endif %}</p>
       <p>{{ 'Every idea is read and helps us keep improving Ariella.' if site_lang == 'en' else 'כל רעיון נקרא ועוזר לנו להמשיך לשפר את אריאלה.' }}</p>
     </section>
   {% else %}

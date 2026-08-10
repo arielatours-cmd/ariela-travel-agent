@@ -348,3 +348,104 @@ html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
 }
 html[dir="rtl"] .form-card select{direction:rtl;text-align:right}
 html[dir="ltr"] .form-card select{direction:ltr;text-align:left}
+
+/* v9.3.1 FINAL AUTHORITATIVE HEADER LAYOUT */
+.site-header,
+.site-header.luxury-header{
+  position:relative!important;
+}
+.site-header .header-inner,
+.site-header.luxury-header .header-inner{
+  width:min(1500px,92%)!important;
+  min-height:112px!important;
+  margin:0 auto!important;
+  padding:0!important;
+  display:flex!important;
+  align-items:center!important;
+  position:relative!important;
+  direction:ltr!important;
+  gap:0!important;
+}
+
+/* left cluster */
+.site-header .language-switch,
+.site-header.luxury-header .language-switch{
+  position:static!important;
+  order:1!important;
+  transform:none!important;
+  margin:0 18px 0 0!important;
+  padding:0!important;
+  min-width:auto!important;
+  flex:0 0 auto!important;
+  white-space:nowrap!important;
+}
+.site-header .brand,
+.site-header.luxury-header .brand{
+  position:static!important;
+  order:2!important;
+  transform:none!important;
+  margin:0!important;
+  padding:0!important;
+  flex:0 0 auto!important;
+}
+
+/* exact visual center of header, independent of left/right widths */
+.site-header .main-nav,
+.site-header.luxury-header .main-nav{
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  transform:translate(-50%,-50%)!important;
+  margin:0!important;
+  padding:0!important;
+  width:max-content!important;
+  white-space:nowrap!important;
+}
+
+/* right */
+.site-header .account,
+.site-header .account-menu-wrap,
+.site-header.luxury-header .account,
+.site-header.luxury-header .account-menu-wrap{
+  position:absolute!important;
+  right:0!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  margin:0!important;
+  padding:0!important;
+}
+
+/* only text direction changes between languages; positions do not */
+html[dir="rtl"] .site-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
+
+@media(max-width:900px){
+  .site-header .header-inner,
+  .site-header.luxury-header .header-inner{
+    width:94%!important;
+    min-height:88px!important;
+    display:flex!important;
+  }
+  .site-header .language-switch,
+  .site-header.luxury-header .language-switch{
+    position:static!important;
+    order:1!important;
+    margin-right:10px!important;
+  }
+  .site-header .brand,
+  .site-header.luxury-header .brand{
+    position:static!important;
+    order:2!important;
+  }
+  .site-header .main-nav,
+  .site-header.luxury-header .main-nav{display:none!important}
+  .site-header .account,
+  .site-header .account-menu-wrap,
+  .site-header.luxury-header .account,
+  .site-header.luxury-header .account-menu-wrap{
+    position:static!important;
+    transform:none!important;
+    margin-left:auto!important;
+    order:3!important;
+  }
+}
