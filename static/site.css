@@ -816,3 +816,10 @@ html body .site-header.luxury-header .language-switch a:hover {
   transform:none!important;
   z-index:1000!important;
 }
+
+/* v9.4.9 auth additions */
+.forgot-password-link{margin:-4px 0 14px;font-size:13px}
+.forgot-password-link a{color:#a87922;text-decoration:none}
+.auth-message{padding:12px;margin:12px 0;background:#f6f1e8;border:1px solid #ead8b4}
+.auth-error{padding:12px;margin:12px 0;background:#faeaea;border:1px solid #e8caca}
+.dev-reset-link{font-size:12px;word-break:break-all}

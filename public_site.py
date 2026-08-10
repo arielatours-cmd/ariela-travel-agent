@@ -1,3 +1,6 @@
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
 import json
 import sqlite3
 from datetime import date, datetime
@@ -252,6 +255,71 @@ def join():
         session["member_id"] = member_id
         return redirect(url_for("site.account", welcome="1"))
     return render_template("join.html")
+
+
+
+@site.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    site_lang = _site_lang()
+    message = None
+    reset_link = None
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        # Always show the same response so account existence is not disclosed.
+        message = ("If an account exists for this email, password reset instructions have been prepared."
+                   if site_lang == "en" else
+                   "אם קיים חשבון עם כתובת האימייל הזו, הוכנו הוראות לאיפוס הסיסמה.")
+        with _db() as conn:
+            member = conn.execute("SELECT id FROM members WHERE lower(email)=?", (email,)).fetchone()
+            if member:
+                raw = secrets.token_urlsafe(32)
+                token_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+                now = datetime.now(timezone.utc)
+                expires = now + timedelta(minutes=30)
+                conn.execute("UPDATE password_reset_tokens SET used_at=? WHERE member_id=? AND used_at IS NULL",
+                             (now.isoformat(), member["id"]))
+                conn.execute("""INSERT INTO password_reset_tokens
+                                (member_id,token_hash,created_at,expires_at)
+                                VALUES (?,?,?,?)""",
+                             (member["id"], token_hash, now.isoformat(), expires.isoformat()))
+                conn.commit()
+                # No email provider is connected yet. Keep the token server-side and
+                # do not expose it in production UI. Email delivery will use this URL later.
+                if current_app.config.get("DEBUG"):
+                    reset_link = url_for("site.reset_password", token=raw, lang=site_lang, _external=True)
+    return render_template("forgot_password.html", site_lang=site_lang, message=message, reset_link=reset_link)
+
+@site.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    site_lang = _site_lang()
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    error = None
+    with _db() as conn:
+        row = conn.execute("""SELECT prt.id,prt.member_id,prt.expires_at,prt.used_at
+                              FROM password_reset_tokens prt
+                              WHERE prt.token_hash=?""", (token_hash,)).fetchone()
+    valid = False
+    if row and not row["used_at"]:
+        try:
+            valid = datetime.fromisoformat(row["expires_at"]) > datetime.now(timezone.utc)
+        except Exception:
+            valid = False
+    if request.method == "POST" and valid:
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm_password", "")
+        if len(password) < 8:
+            error = "Password must contain at least 8 characters." if site_lang == "en" else "הסיסמה חייבת להכיל לפחות 8 תווים."
+        elif password != confirm:
+            error = "Passwords do not match." if site_lang == "en" else "הסיסמאות אינן תואמות."
+        else:
+            with _db() as conn:
+                conn.execute("UPDATE members SET password_hash=? WHERE id=?",
+                             (generate_password_hash(password), row["member_id"]))
+                conn.execute("UPDATE password_reset_tokens SET used_at=? WHERE id=?",
+                             (datetime.now(timezone.utc).isoformat(), row["id"]))
+                conn.commit()
+            return redirect(url_for("site.login", lang=site_lang, reset="success"))
+    return render_template("reset_password.html", site_lang=site_lang, valid=valid, error=error)
 
 
 @site.route("/login", methods=["GET", "POST"])
