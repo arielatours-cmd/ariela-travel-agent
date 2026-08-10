@@ -1,9 +1,191 @@
 {% extends "base.html" %}{% from "_deal_card.html" import deal_card %}
-{% block title %}{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}{% endblock %}
+{% block title %}{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}
+<script>
+(function(){
+  const panel = document.getElementById('generalDeals');
+  if(!panel) return;
+  const list = panel.querySelector('.ariella-deals-list');
+  if(!list) return;
+
+  const q = id => document.getElementById(id);
+  const origin=q('filterOrigin'), destination=q('filterDestination'), month=q('filterMonth'),
+        price=q('filterPrice'), stops=q('filterStops'), baggage=q('filterBaggage'),
+        time=q('filterTime'), length=q('filterLength'), airline=q('filterAirline'),
+        protection=q('filterProtection'), change=q('filterChange');
+
+  const cards=[...list.querySelectorAll('.ariella-deal-card')];
+
+  function addOptions(select, values){
+    [...new Set(values.filter(Boolean))].sort().forEach(v=>{
+      const o=document.createElement('option'); o.value=v; o.textContent=v; select.appendChild(o);
+    });
+  }
+  addOptions(origin, cards.map(c=>c.dataset.origin));
+  addOptions(destination, cards.map(c=>c.dataset.destination));
+  addOptions(airline, cards.map(c=>c.dataset.airline));
+
+  function daysBetween(a,b){
+    if(!a||!b) return null;
+    const d1=new Date(a+'T00:00:00'), d2=new Date(b+'T00:00:00');
+    return Math.round((d2-d1)/86400000);
+  }
+  function timeBucket(v){
+    if(!v) return '';
+    const h=parseInt(v.slice(0,2),10);
+    if(Number.isNaN(h)) return '';
+    if(h>=5&&h<12) return 'morning';
+    if(h>=12&&h<17) return 'afternoon';
+    if(h>=17&&h<22) return 'evening';
+    return 'night';
+  }
+  function apply(){
+    cards.forEach(c=>{
+      let ok=true;
+      if(origin.value && c.dataset.origin!==origin.value) ok=false;
+      if(destination.value && c.dataset.destination!==destination.value) ok=false;
+      if(month.value && !(c.dataset.outbound||'').startsWith(month.value)) ok=false;
+      if(price.value && Number(c.dataset.price||0)>Number(price.value)) ok=false;
+      if(stops.value==='0' && Number(c.dataset.stops)!==0) ok=false;
+      if(stops.value==='1' && Number(c.dataset.stops)!==1) ok=false;
+      if(stops.value==='2' && Number(c.dataset.stops)>2) ok=false;
+      if(baggage.value==='personal' && c.dataset.personal!=='1') ok=false;
+      if(baggage.value==='carry' && c.dataset.carry!=='1') ok=false;
+      if(baggage.value==='checked' && c.dataset.checked!=='1') ok=false;
+      if(time.value && timeBucket(c.dataset.departureTime)!==time.value) ok=false;
+      if(length.value){
+        const d=daysBetween(c.dataset.outbound,c.dataset.return);
+        if(d===null) ok=false;
+        if(length.value==='3-5' && !(d>=3&&d<=5)) ok=false;
+        if(length.value==='6-9' && !(d>=6&&d<=9)) ok=false;
+        if(length.value==='10+' && !(d>=10)) ok=false;
+      }
+      if(airline.value && c.dataset.airline!==airline.value) ok=false;
+      if(protection.value==='applies' && c.dataset.protection!=='applies') ok=false;
+      if(change.value){
+        const v=(c.dataset.change||'');
+        if(change.value==='free' && !/ללא תשלום|no charge/i.test(v)) ok=false;
+        if(change.value==='paid' && !/בתשלום|for a fee/i.test(v)) ok=false;
+        if(change.value==='none' && !/לא ניתן|non-changeable|non-refundable/i.test(v)) ok=false;
+      }
+      c.hidden=!ok;
+    });
+  }
+
+  [origin,destination,month,price,stops,baggage,time,length,airline,protection,change].forEach(el=>{
+    if(!el) return;
+    el.addEventListener(el.tagName==='INPUT'?'input':'change',apply);
+  });
+
+  q('moreFiltersToggle')?.addEventListener('click',()=>{
+    const more=q('dealFiltersMore'); more.hidden=!more.hidden;
+  });
+  q('clearDealFilters')?.addEventListener('click',()=>{
+    [origin,destination,month,price,stops,baggage,time,length,airline,protection,change].forEach(el=>{
+      if(el) el.value='';
+    });
+    apply();
+  });
+})();
+</script>
+
+{% endblock %}
 {% block content %}
 <section class="deals-page" aria-labelledby="deals-title"><div class="deals-shell"><header class="deals-heading"><h1 id="deals-title">{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}</h1><p>{{ 'The best deals Ariella found' if site_lang == 'en' else 'הדילים הטובים ביותר שאריאלה מצאה' }}</p></header>
 {% if current_member %}<div class="deals-account-back"><a href="{{ url_for('site.account') }}">{{ '← Back to My Vacations' if site_lang == 'en' else '← חזרה לחופשות שלי' }}</a></div><div class="deals-tabs" role="tablist"><button class="deals-tab is-active" type="button" role="tab" aria-selected="true" data-tab="generalDeals">{{ 'Deals Ariella Found' if site_lang == 'en' else 'הדילים שאריאלה מצאה' }}</button><button class="deals-tab" type="button" role="tab" aria-selected="false" data-tab="personalDeals">{{ 'Deals for My Vacations' if site_lang == 'en' else 'הדילים לחופשות שלי' }}</button></div>{% endif %}
-<section id="generalDeals" class="deals-tab-panel is-active" role="tabpanel">{% if offers %}<div class="ariella-deals-list">{% for offer in offers %}{{ deal_card(offer,site_lang) }}{% endfor %}</div>{% else %}<section class="ariella-deals-empty"><span>A</span><h2>{{ 'No new deals to show right now' if site_lang == 'en' else 'אין כרגע דילים חדשים להצגה' }}</h2><p>{{ 'New deals Ariella finds will appear here after the next scan.' if site_lang == 'en' else 'דילים חדשים שאריאלה תמצא יופיעו כאן לאחר הסריקה הבאה.' }}</p></section>{% endif %}</section>
+<section id="generalDeals" class="deals-tab-panel is-active" role="tabpanel">
+<div class="deal-filters-wrap" id="dealFiltersWrap">
+  <div class="deal-filters-main">
+    <label>
+      <span>{{ 'Departure' if site_lang == 'en' else 'מוצא' }}</span>
+      <select id="filterOrigin">
+        <option value="">{{ 'All' if site_lang == 'en' else 'הכל' }}</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ 'Destination' if site_lang == 'en' else 'יעד' }}</span>
+      <select id="filterDestination">
+        <option value="">{{ 'All' if site_lang == 'en' else 'הכל' }}</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ 'Date / month' if site_lang == 'en' else 'תאריך / חודש' }}</span>
+      <input id="filterMonth" type="month">
+    </label>
+    <label>
+      <span>{{ 'Max price per person' if site_lang == 'en' else 'מחיר מקסימלי לאדם' }}</span>
+      <input id="filterPrice" type="number" min="0" step="100" placeholder="{{ 'No limit' if site_lang == 'en' else 'ללא הגבלה' }}">
+    </label>
+    <label>
+      <span>{{ 'Flight type' if site_lang == 'en' else 'סוג טיסה' }}</span>
+      <select id="filterStops">
+        <option value="">{{ 'All' if site_lang == 'en' else 'הכל' }}</option>
+        <option value="0">{{ 'Direct' if site_lang == 'en' else 'ישירה' }}</option>
+        <option value="1">{{ '1 connection' if site_lang == 'en' else 'קונקשן 1' }}</option>
+        <option value="2">{{ 'Up to 2 connections' if site_lang == 'en' else 'עד 2 קונקשנים' }}</option>
+      </select>
+    </label>
+    <button class="deal-more-filters-toggle" type="button" id="moreFiltersToggle">
+      {{ 'More filters' if site_lang == 'en' else 'מסננים נוספים' }} ▾
+    </button>
+    <button class="deal-clear-filters" type="button" id="clearDealFilters">
+      {{ 'Clear' if site_lang == 'en' else 'נקה' }}
+    </button>
+  </div>
+
+  <div class="deal-filters-more" id="dealFiltersMore" hidden>
+    <label>
+      <span>{{ 'Baggage' if site_lang == 'en' else 'כבודה' }}</span>
+      <select id="filterBaggage">
+        <option value="">{{ 'Any' if site_lang == 'en' else 'הכל' }}</option>
+        <option value="personal">{{ 'Personal item' if site_lang == 'en' else 'תיק אישי' }}</option>
+        <option value="carry">{{ '8 kg carry-on included' if site_lang == 'en' else 'טרולי 8 ק״ג כלול' }}</option>
+        <option value="checked">{{ '23 kg checked bag included' if site_lang == 'en' else 'מזוודה 23 ק״ג כלולה' }}</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ 'Departure time' if site_lang == 'en' else 'שעת יציאה' }}</span>
+      <select id="filterTime">
+        <option value="">{{ 'Any' if site_lang == 'en' else 'הכל' }}</option>
+        <option value="morning">{{ 'Morning' if site_lang == 'en' else 'בוקר' }}</option>
+        <option value="afternoon">{{ 'Afternoon' if site_lang == 'en' else 'צהריים' }}</option>
+        <option value="evening">{{ 'Evening' if site_lang == 'en' else 'ערב' }}</option>
+        <option value="night">{{ 'Night' if site_lang == 'en' else 'לילה' }}</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ 'Vacation length' if site_lang == 'en' else 'משך החופשה' }}</span>
+      <select id="filterLength">
+        <option value="">{{ 'Any' if site_lang == 'en' else 'הכל' }}</option>
+        <option value="3-5">3–5 {{ 'days' if site_lang == 'en' else 'ימים' }}</option>
+        <option value="6-9">6–9 {{ 'days' if site_lang == 'en' else 'ימים' }}</option>
+        <option value="10+">10+ {{ 'days' if site_lang == 'en' else 'ימים' }}</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ 'Airline' if site_lang == 'en' else 'חברת תעופה' }}</span>
+      <select id="filterAirline">
+        <option value="">{{ 'All' if site_lang == 'en' else 'הכל' }}</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ 'Consumer protection' if site_lang == 'en' else 'הגנת הצרכן' }}</span>
+      <select id="filterProtection">
+        <option value="">{{ 'All' if site_lang == 'en' else 'הכל' }}</option>
+        <option value="applies">{{ 'Applies' if site_lang == 'en' else 'חלה' }}</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ 'Change / cancellation' if site_lang == 'en' else 'שינוי / ביטול' }}</span>
+      <select id="filterChange">
+        <option value="">{{ 'All' if site_lang == 'en' else 'הכל' }}</option>
+        <option value="free">{{ 'Available at no charge' if site_lang == 'en' else 'אפשרי ללא תשלום' }}</option>
+        <option value="paid">{{ 'Available for a fee' if site_lang == 'en' else 'אפשרי בתשלום' }}</option>
+        <option value="none">{{ 'Not changeable / refundable' if site_lang == 'en' else 'לא ניתן לשינוי / ביטול' }}</option>
+      </select>
+    </label>
+  </div>
+</div>
+{% if offers %}<div class="ariella-deals-list">{% for offer in offers %}{{ deal_card(offer,site_lang) }}{% endfor %}</div>{% else %}<section class="ariella-deals-empty"><span>A</span><h2>{{ 'No new deals to show right now' if site_lang == 'en' else 'אין כרגע דילים חדשים להצגה' }}</h2><p>{{ 'New deals Ariella finds will appear here after the next scan.' if site_lang == 'en' else 'דילים חדשים שאריאלה תמצא יופיעו כאן לאחר הסריקה הבאה.' }}</p></section>{% endif %}</section>
 {% if current_member %}<section id="personalDeals" class="deals-tab-panel" role="tabpanel" hidden>{% if personal_trips %}<div class="personal-deals-groups">{% for trip in personal_trips %}<article class="personal-vacation" id="vacation-{{ trip.id }}"><button class="personal-vacation-header" type="button" aria-expanded="{{ 'true' if loop.first else 'false' }}"><span><strong>{{ trip.request_name }}</strong><small>{{ trip.travel_window or ('Flexible dates' if site_lang == 'en' else 'התאריכים גמישים') }}</small></span><span>{{ trip.offers|length }} {{ 'deals found' if site_lang == 'en' else 'דילים נמצאו' }}</span></button><div class="personal-vacation-deals" {% if not loop.first %}hidden{% endif %}>{% if trip.offers %}<div class="ariella-deals-list">{% for offer in trip.offers %}{{ deal_card(offer,site_lang) }}{% endfor %}</div>{% else %}<div class="ariella-deals-empty compact"><span>A</span><h2>{{ 'Ariella is searching for you...' if site_lang == 'en' else 'אריאלה מחפשת עבורך...' }}</h2><p>{{ 'Matching deals will appear here when they are found.' if site_lang == 'en' else 'דילים מתאימים יופיעו כאן כשיימצאו.' }}</p></div>{% endif %}<button class="button secondary close-vacation-deals" type="button">{{ 'Close deals' if site_lang == 'en' else 'סגירת הדילים' }}</button></div></article>{% endfor %}</div>{% else %}<section class="ariella-deals-empty"><span>A</span><h2>{{ "You haven't searched for a vacation yet" if site_lang == 'en' else 'עדיין לא חיפשת חופשה' }}</h2><p>{{ 'Once you create a vacation search, matching deals will appear here.' if site_lang == 'en' else 'לאחר יצירת חיפוש חופשה, הדילים המתאימים יופיעו כאן.' }}</p></section>{% endif %}</section>{% endif %}
 </div></section>
 {% if current_member %}<script>(function(){const tabs=document.querySelectorAll('.deals-tab'),panels=document.querySelectorAll('.deals-tab-panel');function activate(id){tabs.forEach(t=>{const a=t.dataset.tab===id;t.classList.toggle('is-active',a);t.setAttribute('aria-selected',a?'true':'false')});panels.forEach(p=>{const a=p.id===id;p.hidden=!a;p.classList.toggle('is-active',a)})}tabs.forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab)));document.querySelectorAll('.personal-vacation-header').forEach(header=>header.addEventListener('click',()=>{const body=header.nextElementSibling,willOpen=body.hidden;document.querySelectorAll('.personal-vacation-deals').forEach(x=>x.hidden=true);document.querySelectorAll('.personal-vacation-header').forEach(x=>x.setAttribute('aria-expanded','false'));body.hidden=!willOpen;header.setAttribute('aria-expanded',willOpen?'true':'false')}));document.querySelectorAll('.close-vacation-deals').forEach(btn=>btn.addEventListener('click',()=>{const body=btn.closest('.personal-vacation-deals');body.hidden=true;body.previousElementSibling.setAttribute('aria-expanded','false')}));if(location.hash.startsWith('#vacation-')){activate('personalDeals');const card=document.querySelector(location.hash);if(card){document.querySelectorAll('.personal-vacation-deals').forEach(x=>x.hidden=true);card.querySelector('.personal-vacation-deals').hidden=false;card.querySelector('.personal-vacation-header').setAttribute('aria-expanded','true');card.scrollIntoView({behavior:'smooth'})}}})();</script>{% endif %}

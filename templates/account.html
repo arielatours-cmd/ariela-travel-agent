@@ -45,7 +45,7 @@ function confirmSearchToggle(form, status) {
     <article class="trip-row trip-management-card">
       <div class="trip-main-details">
         <div class="trip-title-line">
-          <h3>{{ trip.request_name }}</h3>
+          <h3>{% if site_lang == 'en' and trip.request_name == 'הצעות של אריאלה' %}Ariella's Suggestions{% else %}{{ trip.request_name }}{% endif %}</h3>
           <span class="search-status {{ 'is-active' if trip.status == 'active' else 'is-ended' }}">{{ ('Active' if trip.status == 'active' else 'Ended') if site_lang == 'en' else ('פעיל' if trip.status == 'active' else 'הסתיים') }}</span>
         </div>
         <dl class="trip-details-list">
