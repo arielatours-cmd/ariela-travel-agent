@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.4.6-subscription-ui"
+APP_VERSION = "9.4.7-ui-dropdown-fixes"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent

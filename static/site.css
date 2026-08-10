@@ -722,3 +722,51 @@ html body .site-header.luxury-header .language-switch a:hover {
 .plan-choice em{position:absolute;top:-8px;inset-inline-end:8px;background:#c99a3f;color:#fff;font-size:9px;font-style:normal;font-weight:800;padding:2px 7px;border-radius:999px}
 .payment-pending{margin-top:8px;font-size:11px;color:#9a6e1d;text-align:center}
 @media(max-width:700px){.trip-controls{min-width:0}.plan-choice{grid-template-columns:1fr auto}}
+
+/* v9.4.7 — dropdown polish */
+.continue-search-box{margin-top:4px;border-top:1px solid var(--line);padding-top:10px}
+.continue-search-title{
+  list-style:none;cursor:pointer;font-weight:800;font-size:15px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 12px;border:1px solid #d9dfe8;background:#fff
+}
+.continue-search-title::-webkit-details-marker{display:none}
+.continue-search-title::after{content:"⌄";color:#c99a3f;font-size:18px;line-height:1}
+.continue-search-box[open] .continue-search-title::after{content:"⌃"}
+.continue-search-box .plan-options{margin-top:8px}
+
+/* My Ariella menu: anchor its right edge to the button's right edge,
+   which makes the panel extend to the LEFT from the button. */
+.my-ariella-menu,
+.my-ariella-dropdown,
+.account-menu,
+.account-dropdown{position:relative}
+.my-ariella-menu .dropdown-menu,
+.my-ariella-dropdown .dropdown-menu,
+.account-menu .dropdown-menu,
+.account-dropdown .dropdown-menu{
+  left:auto!important;
+  right:0!important;
+  top:calc(100% + 8px)!important;
+  transform:none!important;
+  transform-origin:top right!important;
+}
+[dir="rtl"] .my-ariella-menu .dropdown-menu,
+[dir="rtl"] .my-ariella-dropdown .dropdown-menu,
+[dir="rtl"] .account-menu .dropdown-menu,
+[dir="rtl"] .account-dropdown .dropdown-menu{
+  left:auto!important;
+  right:0!important;
+}
+
+/* Exact account dropdown selector from the shared header */
+.account-menu-wrap{position:relative}
+.account-menu-wrap > .account-dropdown{
+  position:absolute!important;
+  top:calc(100% + 8px)!important;
+  right:0!important;
+  left:auto!important;
+  transform:none!important;
+  transform-origin:top right!important;
+  z-index:1000;
+}
