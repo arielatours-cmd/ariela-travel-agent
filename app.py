@@ -13,6 +13,7 @@ from daily import prepare_daily_batch
 from database import (
     all_settings, dashboard_stats, get_daily_batch, init_db, latest_scan_run,
     recent_feedback, recent_offers, recent_scan_runs, set_setting,
+    unread_feedback_count, mark_feedback_seen,
 )
 from scanner import run_hourly_scan, search_flights
 from schedule_rules import delivery_status
@@ -72,12 +73,12 @@ def admin_dashboard():
     denied = _require_admin()
     if denied:
         return denied
-    feedback = recent_feedback(100)
     return render_dashboard(
         version=APP_VERSION, minimum_score=MIN_DEAL_SCORE,
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(50),
         scans=recent_scan_runs(20),
-        feedback_count=len(feedback), token=request.args.get("token", ""),
+        feedback_count=unread_feedback_count(),
+        token=request.args.get("token", ""),
     )
 
 
@@ -86,8 +87,12 @@ def admin_feedback():
     denied = _require_admin()
     if denied:
         return denied
+    # Newest messages are returned first. Opening this tab marks all currently
+    # available messages as read; only messages arriving afterwards count as new.
+    feedback = recent_feedback(500)
+    mark_feedback_seen()
     return render_feedback_dashboard(
-        feedback=recent_feedback(500),
+        feedback=feedback,
         token=request.args.get("token", ""),
     )
 

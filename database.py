@@ -475,3 +475,25 @@ def recent_feedback(limit: int = 100) -> list[dict]:
             (safe_limit,),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def unread_feedback_count() -> int:
+    """Number of feedback messages added since the admin last opened the feedback tab."""
+    try:
+        last_seen_id = int(get_setting("admin_feedback_last_seen_id", "0") or 0)
+    except (TypeError, ValueError):
+        last_seen_id = 0
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS count FROM feedback_messages WHERE id > ?",
+            (last_seen_id,),
+        ).fetchone()
+    return int(row["count"] or 0)
+
+
+def mark_feedback_seen() -> None:
+    """Mark all feedback currently in the database as seen by the admin."""
+    with connection() as conn:
+        row = conn.execute("SELECT MAX(id) AS max_id FROM feedback_messages").fetchone()
+        max_id = int(row["max_id"] or 0)
+    set_setting("admin_feedback_last_seen_id", str(max_id))

@@ -693,3 +693,19 @@ html[dir="ltr"] .deal-filters-wrap{text-align:left}
 .site-header.luxury-header .language-switch a:visited{
   color:#c99a3f!important;
 }
+
+/* v9.4.5 — ONE exact gold for the language switch on every public page */
+html body .site-header .language-switch,
+html body .site-header .language-switch a,
+html body .site-header .language-switch a:link,
+html body .site-header .language-switch a:visited,
+html body .site-header.luxury-header .language-switch a,
+html body .site-header.luxury-header .language-switch a:link,
+html body .site-header.luxury-header .language-switch a:visited {
+  color:#c99a3f!important;
+  opacity:1!important;
+}
+html body .site-header .language-switch a:hover,
+html body .site-header.luxury-header .language-switch a:hover {
+  color:#d8ad57!important;
+}
