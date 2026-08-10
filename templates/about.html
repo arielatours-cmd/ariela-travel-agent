@@ -12,27 +12,82 @@
 </style>
 
 
+
+<style id="ariella-unified-header">
+.site-header,.site-header.luxury-header{
+  min-height:116px!important;background:linear-gradient(#030303,#090909)!important;
+  border-bottom:1px solid #c99a3f!important;display:flex!important;align-items:center!important;direction:ltr!important;
+}
+.site-header .header-inner{
+  width:min(1500px,88%)!important;margin:0 auto!important;min-height:116px!important;
+  position:relative!important;display:flex!important;align-items:center!important;direction:ltr!important;
+}
+.site-header .language-switch{
+  position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;
+  margin:0!important;padding:0!important;white-space:nowrap!important;z-index:5!important;
+}
+.site-header .language-switch a{color:#c99a3f!important;text-decoration:none!important;font-weight:700!important;font-size:14px!important}
+.site-header .brand{
+  position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;
+  display:flex!important;align-items:center!important;gap:16px!important;margin:0!important;direction:ltr!important;
+}
+.site-header .logo-a{width:72px!important;height:72px!important;object-fit:contain!important;display:block!important}
+.site-header .brand-name{display:block!important;font:30px/1 Georgia,"Times New Roman",serif!important;letter-spacing:9px!important;color:#e7c778!important}
+.site-header .brand-tag{display:block!important;margin-top:11px!important;font-size:12px!important;letter-spacing:5px!important;color:#c99a3f!important;text-align:center!important}
+.site-header .main-nav{
+  position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
+  display:flex!important;gap:42px!important;align-items:center!important;margin:0!important;width:max-content!important;white-space:nowrap!important;
+}
+html[dir="rtl"] .site-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
+.site-header .main-nav a{color:#f5f1e8!important;text-decoration:none!important;font-size:18px!important;padding:18px 4px!important;position:relative!important}
+.site-header .main-nav a.active{color:#e7c778!important}
+.site-header .main-nav a.active:after{content:""!important;position:absolute!important;left:15%!important;right:15%!important;bottom:5px!important;height:1px!important;background:#c99a3f!important}
+.site-header .account-menu-wrap{
+  position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;z-index:10!important;
+}
+.site-header .account{
+  position:static!important;transform:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  color:#fff!important;border:1px solid #e7c778!important;border-radius:999px!important;padding:15px 28px!important;background:transparent!important;
+  text-decoration:none!important;font-size:17px!important;cursor:pointer!important;white-space:nowrap!important;
+}
+.site-header .account-dropdown{
+  position:absolute!important;top:calc(100% + 10px)!important;right:0!important;min-width:220px!important;background:#0b0b0b!important;
+  border:1px solid #c99a3f!important;box-shadow:0 18px 45px rgba(0,0,0,.28)!important;padding:8px!important;z-index:100!important;
+}
+.site-header .account-dropdown[hidden]{display:none!important}
+.site-header .account-dropdown a,.site-header .account-dropdown button{
+  display:block!important;width:100%!important;padding:11px 13px!important;color:#fff!important;text-decoration:none!important;background:transparent!important;
+  border:0!important;text-align:start!important;font:inherit!important;cursor:pointer!important;
+}
+.site-header .account-dropdown a:hover,.site-header .account-dropdown button:hover{color:#e7c778!important;background:#17130b!important}
+@media(max-width:900px){
+  .site-header .header-inner{width:94%!important}
+  .site-header .language-switch{left:0!important}
+  .site-header .brand{left:65px!important}
+  .site-header .main-nav{display:none!important}
+  .site-header .account-menu-wrap{right:0!important}
+  .site-header .logo-a{width:50px!important;height:50px!important}
+  .site-header .brand-name{font-size:20px!important;letter-spacing:5px!important}
+  .site-header .brand-tag{font-size:9px!important;letter-spacing:3px!important}
+}
+</style>
+<style id="v934-shared-header">
+
+/* v9.3.4 authoritative shared header */
+.site-header.luxury-header{min-height:116px!important;display:flex!important;align-items:center!important;direction:ltr!important}
+.site-header.luxury-header .header-inner{width:min(1500px,88%)!important;min-height:116px!important;margin:0 auto!important;padding:0!important;position:relative!important;display:block!important;direction:ltr!important}
+.site-header.luxury-header .language-switch{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
+.site-header.luxury-header .brand{position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;display:flex!important;align-items:center!important;gap:16px!important;direction:ltr!important}
+.site-header.luxury-header .main-nav{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important;width:max-content!important;white-space:nowrap!important}
+.site-header.luxury-header .account-menu-wrap{position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
+html[dir="rtl"] .site-header.luxury-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header.luxury-header .main-nav{direction:ltr!important}
+
+</style>
 </head>
 <body>
-<header class="site-header">
-  <div class="header-inner">
-    <div class="language-switch" aria-label="Language">
-      {% if site_lang == 'en' %}
-        <a href="{{ url_for('site.about', lang='he') }}">עברית</a>
-      {% else %}
-        <a href="{{ url_for('site.about', lang='en') }}">English</a>
-      {% endif %}
-    </div>
-    <div class="brand">
-      <img class="logo-a" src="{{ url_for('static', filename='ariella-a-logo.png') }}" alt="Ariella">
-      <span class="brand-copy"><span class="brand-name">ARIELA</span><span class="brand-tag">AI TRAVEL</span></span>
-    </div>
-    <nav class="main-nav" aria-label="{{ 'Main navigation' if site_lang == 'en' else 'תפריט ראשי' }}">
-      <a href="{{ url_for('site.home', lang=site_lang) }}">{{ 'Home' if site_lang == 'en' else 'ראשי' }}</a> <a class="active" aria-current="page" href="{{ url_for('site.about', lang=site_lang) }}">{{ 'About' if site_lang == 'en' else 'קצת עלינו' }}</a> <a href="{{ url_for('site.deals', lang=site_lang) }}">{{ 'Deals' if site_lang == 'en' else 'דילים' }}</a>
-    </nav>
-    <a class="account" href="{{ url_for('site.account', lang=site_lang) }}">{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }} ✦</a>
-  </div>
-</header>
+{% include "_site_header.html" %}
 <main class="about-page"><section class="about-wrap">
 {% if site_lang == 'en' %}
   <h1>About <span class="title-gold">Us</span></h1>
@@ -58,4 +113,15 @@
 {% if site_lang == 'en' %}<p class="footer-lead">We are constantly improving Ariella.</p><p class="footer-sub">Have an idea or suggestion? We'd love to hear it.</p><a class="contact-open" href="{{ url_for('site.feedback_form') }}">Write to us</a>
 {% else %}<p class="footer-lead">אנחנו ממשיכים לפתח את אריאלה כל הזמן.</p><p class="footer-sub">יש לכם רעיון או הצעה? נשמח לשמוע.</p><a class="contact-open" href="{{ url_for('site.feedback_form') }}">כתבו לנו</a>{% endif %}
 </footer>
+
+<script>
+(function(){
+ const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');
+ if(!button||!menu)return;
+ const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};
+ button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});
+ document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+})();
+</script>
 </body></html>
