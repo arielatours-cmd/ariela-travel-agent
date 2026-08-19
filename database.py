@@ -4,6 +4,20 @@ from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from config import DB_PATH
 
+# Curated destination landmark photography. Wikimedia Commons Special:Redirect/file
+# URLs are stable remote image URLs and require no additional flight/search API calls.
+DESTINATION_LANDMARK_IMAGES = {
+    "ATH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Parthenon_from_west.jpg",
+    "FCO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Colosseum_in_Rome,_Italy_-_April_2007.jpg",
+    "MXP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Milan_Cathedral_from_Piazza_del_Duomo.jpg",
+    "VIE": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Schloss_Schoenbrunn_Wien_2014_%28Zuschnitt_1%29.jpg",
+    "BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hungarian_Parliament_Building_from_Fisherman%27s_Bastion.jpg",
+    "PRG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
+    "SOF": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alexander_Nevsky_Cathedral_in_Sofia.jpg",
+    "LCA": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Church_of_Saint_Lazarus,_Larnaca,_Cyprus.jpg",
+    "PFO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Paphos_harbour_castle.jpg",
+}
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -318,6 +332,20 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
 
         display_reasons = [_reason_label(reason) for reason in reasons if _reason_label(reason)]
 
+        # Never show history/rarity copy unless there is enough actual stored
+        # route history to support it.
+        has_price_history = bool(
+            analysis.get("price_reference_source") == "history"
+            and (analysis.get("historical_sample_count") or 0) >= 8
+        )
+        if not has_price_history:
+            display_reasons = [
+                reason for reason in display_reasons
+                if reason not in ("הזדמנות נדירה", "אין מספיק היסטוריה למדד נדירות")
+                and "היסטוריה" not in reason
+                and "נדירות" not in reason
+            ]
+
         # Never claim that the price is low unless the found price is actually
         # lower than the reference price shown to the customer.
         current_price = item.get("price_ils")
@@ -382,17 +410,19 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "outbound_display": outbound.get("display_he"),
             "return_display": return_trip.get("display_he"),
             "return_departure_time": flight.get("return_departure_time"),
-            "has_price_history": bool(
-                analysis.get("price_reference_source") == "history"
-                and (analysis.get("historical_sample_count") or 0) > 0
-            ),
+            "return_arrival_time": flight.get("return_arrival_time"),
+            "has_price_history": has_price_history,
             "connections": connections,
             "baggage": {
                 "personal_item": baggage.get("personal_item") or {"included": True},
                 "carry_on_8kg": baggage.get("carry_on_8kg") or {"included": False},
                 "checked_bag_23kg": baggage.get("checked_bag_23kg") or {"included": False},
             },
-            "destination_image_url": payload.get("destination_image_url") or payload.get("image_url"),
+            "destination_image_url": (
+                payload.get("destination_image_url")
+                or payload.get("image_url")
+                or DESTINATION_LANDMARK_IMAGES.get(item.get("arrival_code"))
+            ),
             "consumer_protection_label": protection_label,
             "consumer_protection_class": protection_class,
             "change_cancel_label": change_cancel_label,

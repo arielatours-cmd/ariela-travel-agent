@@ -192,7 +192,10 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
 
     all_prices = [f.get("price") for f in outbound_items if isinstance(f.get("price"), (int, float))]
     analysis = _deal_analysis(outbound_data, all_prices)
-    metadata = return_data.get("search_metadata") or outbound_data.get("search_metadata") or {}
+    # IMPORTANT: the return-stage google_flights_url opens Google Flights at
+    # "Choose return flight" and therefore looks like a return-only link.
+    # Keep the original round-trip search URL from the first request instead.
+    outbound_metadata = outbound_data.get("search_metadata") or {}
     return {
         "route": f"{departure}-{arrival}",
         "departure_code": departure,
@@ -203,7 +206,7 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
         "return": _date_with_weekday(return_date),
         "deal_analysis": analysis,
         "flights": complete,
-        "booking_url": metadata.get("google_flights_url"),
+        "booking_url": outbound_metadata.get("google_flights_url"),
         "api_requests": 2,
     }
 

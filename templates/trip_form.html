@@ -10,11 +10,6 @@
 
 <form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
   <div class="trip-origin-defaults">
-    <strong>{{ 'Departure airports:' if site_lang == 'en' else 'שדות מוצא:' }}</strong>
-    <span class="default-airports-display"
-          data-default-airports-display="{{ (current_member.preferred_airports_list or [])|join(',') }}">
-      {{ (current_member.preferred_airports_list or [])|join(', ') }}
-    </span>
     <details>
       <summary>{{ 'Change departure airports for this vacation' if site_lang == 'en' else 'שינוי שדות מוצא לחופשה הזו' }}</summary>
       <div class="airport-picker origin-airport-picker"

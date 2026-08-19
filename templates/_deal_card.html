@@ -1,98 +1,93 @@
 {% macro minutes(value, lang='he') -%}{%- if value is number -%}{{ value // 60 }}:{{ '%02d'|format(value % 60) }} {{ 'hours' if lang == 'en' else 'שעות' }}{%- else -%}{{ 'Unknown' if lang == 'en' else 'לא ידוע' }}{%- endif -%}{%- endmacro %}
-{% macro reason_en(reason) -%}{% set m={'מחיר נמוך משמעותית':'Significantly lower price','מסלול טיסה נוח':'Convenient route','תנאי כבודה טובים':'Good baggage terms','שעות טיסה נוחות':'Convenient flight times','הזדמנות נדירה':'Rare opportunity','טיסה ישירה':'Direct flight','קונקשן אחד':'One connection','מסלול משתלם':'Good-value route','נבחר לאחר השוואת אפשרויות':'Selected after comparing options'} %}{{ m.get(reason, reason) }}{%- endmacro %}
-{% macro protection_en(label) -%}{% set m={'חלה':'Applies','אינה חלה':'Does not apply','בדיקה נדרשת':'Check required'} %}{{ m.get(label,label) }}{%- endmacro %}
-{% macro change_en(label) -%}{% set m={'בכפוף לתנאי הספק':'Subject to supplier terms','אפשרי בתשלום':'Available for a fee','אפשרי ללא תשלום':'Available at no charge','לא ניתן לשינוי או ביטול':'Non-changeable / non-refundable'} %}{{ m.get(label,label) }}{%- endmacro %}
-{% macro baggage_row(label_he,label_en,item,icon,lang='he') -%}<li><span class="baggage-icon" aria-hidden="true">{{ icon }}</span><span>{{ label_en if lang == 'en' else label_he }}</span>{% if item and item.included %}<strong class="included" aria-label="{{ 'Included' if lang == 'en' else 'כלול' }}">✓</strong>{% elif item and item.price_each_way is number %}<small>{{ 'Add' if lang == 'en' else 'בתוספת' }} ₪{{ '%.0f'|format(item.price_each_way) }} {{ 'each way' if lang == 'en' else 'לכיוון' }}</small>{% else %}<strong class="not-included" aria-label="{{ 'Not included' if lang == 'en' else 'לא כלול' }}">×</strong>{% endif %}</li>{%- endmacro %}
+{% macro reason_en(reason) -%}{% set m={'מחיר נמוך משמעותית':'Significantly lower price','מסלול טיסה נוח':'Convenient route','תנאי כבודה טובים':'Good baggage terms','שעות טיסה נוחות':'Convenient flight times','הזדמנות נדירה':'Rare opportunity','טיסה ישירה':'Direct flight','קונקשן אחד':'One connection','מסלול משתלם':'Good-value route','נבחר לאחר השוואת אפשרויות':'Selected after comparing options','כבודה כלולה':'Baggage included','איכות מסלול (ישירה)':'Direct itinerary'} %}{{ m.get(reason, 'Selected after comparing options') }}{%- endmacro %}
+{% macro protection_en(label) -%}{% set m={'חלה':'Applies','אינה חלה':'Does not apply','בדיקה נדרשת':'Check with supplier','יש לבדוק מול הספק':'Check with supplier'} %}{{ m.get(label,'Check with supplier') }}{%- endmacro %}
+{% macro change_en(label) -%}{% set m={'בכפוף לתנאי הספק':'Subject to supplier terms','אפשרי בתשלום':'Available for a fee','אפשרי ללא תשלום':'Available at no charge','לא ניתן לשינוי או ביטול':'Non-changeable / non-refundable'} %}{{ m.get(label,'Subject to supplier terms') }}{%- endmacro %}
+{% macro bag_row(label_he,label_en,item,kind,lang='he') -%}
+<li><span class="bag-svg {{ kind }}" aria-hidden="true">{% if kind=='backpack' %}🎒{% elif kind=='carry' %}🧳{% else %}🧳{% endif %}</span><span>{{ label_en if lang=='en' else label_he }}</span>{% if item and item.included %}<strong class="included">✓</strong>{% elif item and item.price_each_way is number %}<small>{{ 'Add' if lang=='en' else 'בתוספת' }} ₪{{ '%.0f'|format(item.price_each_way) }}</small>{% else %}<strong class="not-included">×</strong>{% endif %}</li>
+{%- endmacro %}
 {% macro deal_card(offer, lang='he') -%}
-{% set stops=offer.stops or 0 %}
-{% set return_time=offer.return_departure_time %}
-{% if return_time %}
-<article class="ariella-deal-card deal-card-v967"
- data-origin="{{ offer.departure_code or '' }}"
- data-destination="{{ offer.arrival_code or '' }}"
- data-outbound="{{ offer.outbound_date or '' }}"
- data-return="{{ offer.return_date or '' }}"
- data-price="{{ offer.price_ils or 0 }}"
- data-stops="{{ offer.stops or 0 }}"
- data-airline="{{ offer.airline or '' }}"
- data-departure-time="{{ offer.departure_time or '' }}"
- data-protection="{{ offer.consumer_protection_class or '' }}"
+{% set stops=offer.stops or 0 %}{% set rt=offer.return_departure_time %}
+{% if rt %}
+<article class="ariella-deal-card deal-card-v970 {{ 'deal-he' if lang=='he' else 'deal-en' }}" dir="{{ 'rtl' if lang=='he' else 'ltr' }}"
+ data-origin="{{ offer.departure_code or '' }}" data-destination="{{ offer.arrival_code or '' }}"
+ data-outbound="{{ offer.outbound_date or '' }}" data-return="{{ offer.return_date or '' }}"
+ data-price="{{ offer.price_ils or 0 }}" data-stops="{{ stops }}" data-airline="{{ offer.airline or '' }}"
+ data-departure-time="{{ offer.departure_time or '' }}" data-protection="{{ offer.consumer_protection_class or '' }}"
  data-change="{{ offer.change_cancel_label or '' }}"
  data-personal="{{ 1 if offer.baggage.personal_item and offer.baggage.personal_item.included else 0 }}"
  data-carry="{{ 1 if offer.baggage.carry_on_8kg and offer.baggage.carry_on_8kg.included else 0 }}"
  data-checked="{{ 1 if offer.baggage.checked_bag_23kg and offer.baggage.checked_bag_23kg.included else 0 }}">
 
-  <div class="deal-main-grid">
-    <div class="deal-visual {% if stops == 0 %}direct{% elif stops == 1 %}one-stop{% else %}two-stops{% endif %}"
-         {% if offer.destination_image_url %}style="background-image:url('{{ offer.destination_image_url }}')"{% endif %}>
-      <span class="stop-badge">{% if stops == 0 %}{{ 'Direct' if lang == 'en' else 'ישירה' }}{% elif stops == 1 %}{{ '1 connection' if lang == 'en' else 'קונקשן 1' }}{% else %}{{ stops }} {{ 'connections' if lang == 'en' else 'קונקשנים' }}{% endif %}</span>
-      <div class="visual-destination"><span>{{ offer.country_flag or '✦' }}</span><strong>{{ offer.destination_name or offer.arrival_code }}</strong></div>
+ <div class="deal-main-grid">
+   <div class="deal-visual {% if stops==0 %}direct{% elif stops==1 %}one-stop{% else %}two-stops{% endif %}"
+    {% if offer.destination_image_url %}style="background-image:linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.48)),url('{{ offer.destination_image_url }}')"{% endif %}>
+    <span class="stop-badge">{% if stops==0 %}{{ 'Direct' if lang=='en' else 'ישירה' }}{% elif stops==1 %}{{ '1 connection' if lang=='en' else 'קונקשן 1' }}{% else %}{{ stops }} {{ 'connections' if lang=='en' else 'קונקשנים' }}{% endif %}</span>
+    <div class="visual-destination"><span>{{ offer.country_flag or '✦' }}</span><strong>{{ offer.arrival_city_en if lang=='en' else offer.arrival_city_he }}</strong></div>
+   </div>
+
+   <section class="deal-flight">
+    <h2 class="deal-route-title">
+      <span class="route-point route-origin">
+        <span class="route-city">{{ offer.departure_city_en if lang=='en' else offer.departure_city_he }}</span>
+        <span class="route-code" dir="ltr">({{ offer.departure_code }})</span>
+      </span>
+      <span class="route-arrow" aria-hidden="true">→</span>
+      <span class="route-point route-destination">
+        <span class="route-city">{{ offer.arrival_city_en if lang=='en' else offer.arrival_city_he }}</span>
+        <span class="route-code" dir="ltr">({{ offer.arrival_code }})</span>
+      </span>
+    </h2>
+
+    <div class="flight-leg">
+      <strong>{{ 'Outbound flight' if lang=='en' else 'טיסת הלוך' }}</strong>
+      <span class="leg-date">{{ offer.outbound_display or offer.outbound_date }}</span>
+      <div class="leg-route-times" dir="ltr">
+        <time>{{ offer.departure_time[-5:] if offer.departure_time else '—' }}</time>
+        <span class="mini-flight-line"><i></i><b aria-hidden="true">✈</b><i></i></span>
+        <time>{{ offer.arrival_time[-5:] if offer.arrival_time else '—' }}</time>
+      </div>
+      {% if stops>0 and offer.connections %}<span class="leg-connections">{% for c in offer.connections %}{{ c.airport }}{% if c.duration_minutes %} · {{ 'Layover' if lang=='en' else 'המתנה' }} {{ minutes(c.duration_minutes,lang) }}{% endif %}{% if not loop.last %} | {% endif %}{% endfor %}</span>{% else %}<span class="leg-connections">{{ 'Direct flight' if lang=='en' else 'טיסה ישירה' }}</span>{% endif %}
     </div>
 
-    <section class="deal-flight" aria-label="{{ 'Flight details' if lang == 'en' else 'פרטי הטיסה' }}">
-      <h2>{{ offer.departure_airport_name or offer.departure_code }} <bdi>({{ offer.departure_code }})</bdi>
-        <span aria-hidden="true">←</span>
-        {{ offer.destination_name or offer.arrival_airport_name or offer.arrival_code }} <bdi>({{ offer.arrival_code }})</bdi>
-      </h2>
-
-      <div class="flight-leg">
-        <strong class="leg-title">{{ 'Outbound' if lang == 'en' else 'טיסת הלוך' }}</strong>
-        <span>{{ offer.outbound_display or offer.outbound_date }}</span>
-        {% if offer.departure_time %}<time>{{ offer.departure_time[-5:] }}</time>{% endif %}
-        {% if stops > 0 and offer.connections %}
-          <span class="leg-connections">{% for connection in offer.connections %}{{ connection.airport }}{% if connection.duration_minutes %} · {{ 'Layover' if lang == 'en' else 'המתנה' }} {{ minutes(connection.duration_minutes,lang) }}{% endif %}{% if not loop.last %} | {% endif %}{% endfor %}</span>
-        {% else %}
-          <span class="leg-connections">{{ 'Direct flight' if lang == 'en' else 'טיסה ישירה' }}</span>
-        {% endif %}
+    <div class="flight-leg">
+      <strong>{{ 'Return flight' if lang=='en' else 'טיסת חזור' }}</strong>
+      <span class="leg-date">{{ offer.return_display or offer.return_date }}</span>
+      <div class="leg-route-times return-times" dir="ltr">
+        <time>{{ rt[-5:] }}</time>
+        <span class="mini-flight-line"><i></i><b aria-hidden="true">✈</b><i></i></span>
+        <time>{{ offer.return_arrival_time[-5:] if offer.return_arrival_time else '—' }}</time>
       </div>
+    </div>
 
-      <div class="flight-leg">
-        <strong class="leg-title">{{ 'Return' if lang == 'en' else 'טיסת חזור' }}</strong>
-        <span>{{ offer.return_display or offer.return_date }}</span>
-        <time>{{ return_time[-5:] }}</time>
-      </div>
+    {% if offer.total_duration_minutes %}<div class="duration-line">{{ 'Outbound journey:' if lang=='en' else 'משך טיסת הלוך:' }} {{ minutes(offer.total_duration_minutes,lang) }}</div>{% endif %}
+   </section>
 
-      <div class="duration-line">
-        {% if stops > 0 and offer.actual_flight_duration_minutes %}<span>{{ 'Actual flight time:' if lang == 'en' else 'זמן טיסה בפועל:' }} {{ minutes(offer.actual_flight_duration_minutes,lang) }}</span>{% endif %}
-        {% if offer.total_duration_minutes %}<span>{{ 'Total journey time:' if lang == 'en' else 'זמן הגעה כולל:' }} {{ minutes(offer.total_duration_minutes,lang) }}</span>{% endif %}
-      </div>
-    </section>
+   <section class="deal-baggage">
+    <h3>{{ 'What is included' if lang=='en' else 'מה כלול בכרטיס' }}</h3>
+    <ul>{{ bag_row('תיק אישי','Personal item',offer.baggage.personal_item,'backpack',lang) }}{{ bag_row('טרולי 8 ק״ג','8 kg carry-on',offer.baggage.carry_on_8kg,'carry',lang) }}{{ bag_row('מזוודה 23 ק״ג','23 kg checked bag',offer.baggage.checked_bag_23kg,'checked',lang) }}</ul>
+   </section>
 
-    <section class="deal-baggage" aria-label="{{ 'Baggage' if lang == 'en' else 'כבודה' }}">
-      <h3>{{ 'What is included' if lang == 'en' else 'מה כלול בכרטיס' }}</h3>
-      <ul>{{ baggage_row('תיק אישי','Personal item',offer.baggage.personal_item,'▰',lang) }}{{ baggage_row('טרולי 8 ק״ג','8 kg carry-on',offer.baggage.carry_on_8kg,'▮',lang) }}{{ baggage_row('מזוודה 23 ק״ג','23 kg checked bag',offer.baggage.checked_bag_23kg,'▥',lang) }}</ul>
-    </section>
-
-    <section class="deal-terms">
-      <dl class="important-terms">
-        <div><dt>{{ 'Consumer protection:' if lang == 'en' else 'הגנת הצרכן:' }}</dt><dd class="{{ offer.consumer_protection_class }}">{{ protection_en(offer.consumer_protection_label) if lang == 'en' else offer.consumer_protection_label }}</dd></div>
-        <div><dt>{{ 'Changes / cancellation:' if lang == 'en' else 'שינוי / ביטול:' }}</dt><dd>{{ change_en(offer.change_cancel_label) if lang == 'en' else offer.change_cancel_label }}</dd></div>
-      </dl>
-    </section>
-
-    <section class="deal-price-box" aria-label="{{ 'Price' if lang == 'en' else 'מחיר' }}">
-      {% if offer.reference_price_ils and offer.discount_percent and offer.discount_percent|float >= 5 %}
-        <span class="average-label">{{ 'Average price for this period' if lang == 'en' else 'מחיר ממוצע לתקופה זו' }}</span>
-        <del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>
-      {% endif %}
-      <span class="found-label">{{ 'Price per person found by Ariella' if lang == 'en' else 'המחיר לאדם שאריאלה מצאה' }}</span>
+   <section class="deal-commerce">
+    <dl class="important-terms">
+      <div><dt>{{ 'Consumer protection:' if lang=='en' else 'הגנת הצרכן:' }}</dt><dd class="{{ offer.consumer_protection_class }}">{{ protection_en(offer.consumer_protection_label) if lang=='en' else offer.consumer_protection_label }}</dd></div>
+      <div><dt>{{ 'Changes / cancellation:' if lang=='en' else 'שינוי / ביטול:' }}</dt><dd>{{ change_en(offer.change_cancel_label) if lang=='en' else offer.change_cancel_label }}</dd></div>
+    </dl>
+    <div class="deal-price-box">
+      {% if offer.reference_price_ils and offer.discount_percent and offer.discount_percent|float >= 5 %}<span class="average-label">{{ 'Average price for this period' if lang=='en' else 'מחיר ממוצע לתקופה זו' }}</span><del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>{% endif %}
+      <span class="found-label">{{ 'Price per person found by Ariella' if lang=='en' else 'המחיר לאדם שאריאלה מצאה' }}</span>
       <strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>
-      {% if offer.booking_url %}<a href="{{ offer.booking_url }}" target="_blank" rel="noopener noreferrer">{{ 'Go to booking' if lang == 'en' else 'למעבר להזמנה' }}</a>{% else %}<span class="booking-disabled">{{ 'Booking link is currently unavailable' if lang == 'en' else 'קישור ההזמנה אינו זמין כרגע' }}</span>{% endif %}
-    </section>
-  </div>
+      {% if offer.booking_url %}<a href="{{ offer.booking_url }}" target="_blank" rel="noopener noreferrer">{{ 'Go to booking' if lang=='en' else 'למעבר להזמנה' }}</a>{% endif %}
+    </div>
+   </section>
+ </div>
 
-  {% set visible_reasons=[] %}
-  {% for reason in offer.display_reasons[:4] %}
-    {% if not ('0.0%' in reason or '0%' in reason) %}
-      {% set _ = visible_reasons.append(reason_en(reason) if lang == 'en' else reason) %}
-    {% endif %}
-  {% endfor %}
-  {% if visible_reasons %}
-  <footer class="deal-reasons-footer">
-    <strong>{{ 'Why Ariella selected this deal' if lang == 'en' else 'למה אריאלה בחרה את הדיל' }}</strong>
-    <div>{% for reason in visible_reasons %}<span>{{ reason }}</span>{% if not loop.last %}<i aria-hidden="true"></i>{% endif %}{% endfor %}</div>
-  </footer>
-  {% endif %}
+ {% set visible=[] %}
+ {% for reason in offer.display_reasons[:5] %}
+   {% if not ('0.0%' in reason or '0%' in reason or 'היסטוריה' in reason or 'נדירות' in reason) %}
+     {% set _=visible.append(reason_en(reason) if lang=='en' else reason) %}
+   {% endif %}
+ {% endfor %}
+ {% if visible %}<footer class="deal-reasons-footer"><strong>{{ 'Why Ariella selected this deal' if lang=='en' else 'למה אריאלה בחרה את הדיל' }}</strong><div>{% for reason in visible %}<span>{{ reason }}</span>{% if not loop.last %}<i></i>{% endif %}{% endfor %}</div></footer>{% endif %}
 </article>
 {% endif %}
 {%- endmacro %}

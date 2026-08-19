@@ -1,3 +1,4 @@
+from pathlib import Path
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,28 @@ from database import recent_offers, save_feedback, utc_now_iso
 
 
 site = Blueprint("site", __name__)
+
+_AIRPORTS_FILE = Path(__file__).resolve().parent / "static" / "airports.json"
+try:
+    _AIRPORT_LOCALIZATION = {
+        row["code"]: row for row in json.loads(_AIRPORTS_FILE.read_text(encoding="utf-8"))
+    }
+except Exception:
+    _AIRPORT_LOCALIZATION = {}
+
+def _localize_offer_airports(offer: dict) -> dict:
+    dep = _AIRPORT_LOCALIZATION.get(offer.get("departure_code"), {})
+    arr = _AIRPORT_LOCALIZATION.get(offer.get("arrival_code"), {})
+    offer["departure_city_he"] = dep.get("city_he") or offer.get("departure_airport_name") or offer.get("departure_code")
+    offer["departure_city_en"] = dep.get("city_en") or offer.get("departure_code")
+    offer["departure_name_he"] = dep.get("name_he") or offer["departure_city_he"]
+    offer["departure_name_en"] = dep.get("name_en") or offer["departure_city_en"]
+    offer["arrival_city_he"] = arr.get("city_he") or offer.get("destination_name") or offer.get("arrival_airport_name") or offer.get("arrival_code")
+    offer["arrival_city_en"] = arr.get("city_en") or offer.get("arrival_code")
+    offer["arrival_name_he"] = arr.get("name_he") or offer["arrival_city_he"]
+    offer["arrival_name_en"] = arr.get("name_en") or offer["arrival_city_en"]
+    return offer
+
 
 
 def _db():
@@ -163,7 +186,7 @@ def home():
 
 @site.get("/deals")
 def deals():
-    offers = recent_offers(limit=60, minimum_score=None)
+    offers = [_localize_offer_airports(o) for o in recent_offers(limit=60, minimum_score=None)]
     personal_trips = []
     if session.get("member_id") and _current_member() is not None:
         with _db() as conn:

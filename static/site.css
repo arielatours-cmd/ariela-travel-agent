@@ -1195,3 +1195,62 @@ html[lang="en"] .trip-controls .plan-choice b{
   line-height:1.6;
   color:#5f6570;
 }
+
+/* v9.7.0 — full bilingual deal-card redesign */
+.deal-card-v970{display:block!important;overflow:hidden!important;font-size:17px!important}
+.deal-card-v970 .deal-main-grid{display:grid!important;grid-template-columns:300px minmax(520px,2.3fr) minmax(235px,1fr) minmax(300px,1.15fr)!important;align-items:stretch!important}
+html[dir="rtl"] .deal-card-v970 .deal-main-grid{direction:rtl}
+html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
+.deal-card-v970 .deal-main-grid>section,.deal-card-v970 .deal-visual{padding:28px 26px!important;min-width:0;border-inline-start:1px solid #e8e0d5}
+.deal-card-v970 .deal-visual{min-height:300px;background-size:cover!important;background-position:center!important}
+.deal-card-v970 .visual-destination strong{font-size:25px!important}
+.deal-card-v970 .stop-badge{font-size:15px!important}
+.deal-card-v970 .deal-flight h2{display:flex;align-items:center;justify-content:flex-start;gap:12px;font-size:23px!important;margin:0 0 18px!important;text-align:start!important}
+.deal-card-v970 .route-arrow{color:#c99a3f;font-size:24px}
+.deal-card-v970.deal-he .route-arrow{transform:scaleX(-1)}
+.deal-card-v970 .flight-leg{padding:16px 0;border-top:1px solid #eee;display:grid;grid-template-columns:110px minmax(170px,1fr);gap:10px 16px;align-items:center;font-size:17px!important}
+.deal-card-v970 .flight-leg:first-of-type{border-top:0}
+.deal-card-v970 .flight-leg>strong{font-size:18px}
+.deal-card-v970 .leg-date{font-size:16px}
+.deal-card-v970 .leg-route-times{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(120px,1fr) auto;align-items:center;gap:10px}
+.deal-card-v970 .leg-route-times time{font-size:25px!important;font-weight:800}
+.deal-card-v970 .mini-flight-line{display:flex;align-items:center;min-width:120px}
+.deal-card-v970 .mini-flight-line i{height:1px;background:#c99a3f;flex:1}
+.deal-card-v970 .mini-flight-line b{font-size:17px;color:#c99a3f;padding:0 8px;transform:rotate(0deg)}
+.deal-card-v970 .return-times .mini-flight-line b{transform:rotate(180deg)}
+.deal-card-v970 .leg-connections{grid-column:1/-1;font-size:15px;color:#6c7480}
+.deal-card-v970 .duration-line{font-size:15px!important;justify-content:flex-start!important;margin-top:10px!important}
+.deal-card-v970 .deal-baggage h3{font-size:19px!important;margin-bottom:18px}
+.deal-card-v970 .deal-baggage ul{gap:17px}
+.deal-card-v970 .deal-baggage li{font-size:17px!important;grid-template-columns:38px 1fr auto!important}
+.deal-card-v970 .bag-svg{font-size:27px;display:inline-flex;justify-content:center;filter:grayscale(1)}
+.deal-card-v970 .bag-svg.checked{font-size:32px;transform:scale(1.12)}
+.deal-card-v970 .included,.deal-card-v970 .not-included{font-size:23px}
+.deal-card-v970 .deal-commerce{display:flex;flex-direction:column;justify-content:center;gap:18px}
+.deal-card-v970 .important-terms{margin:0!important;padding:0 0 16px!important;border-top:0!important;border-bottom:1px solid #e4d8c7;display:grid!important;gap:10px!important}
+.deal-card-v970 .important-terms div{display:grid!important;grid-template-columns:max-content 1fr;gap:8px!important;font-size:15px!important;line-height:1.45}
+.deal-card-v970.deal-he .important-terms{direction:rtl;text-align:right}
+.deal-card-v970.deal-en .important-terms{direction:ltr;text-align:left}
+.deal-card-v970 .deal-price-box{padding:0!important}
+.deal-card-v970 .found-label{font-size:16px!important}
+.deal-card-v970 .deal-price-box>strong{font-size:42px!important;margin:8px 0 18px}
+.deal-card-v970 .deal-price-box a{font-size:18px!important;padding:16px 12px}
+.deal-card-v970 .deal-reasons-footer{padding:18px 26px!important;font-size:16px!important;gap:24px}
+.deal-card-v970 .deal-reasons-footer>strong{font-size:17px!important}
+.deal-card-v970 .deal-reasons-footer>div{gap:18px}
+.deal-card-v970.deal-he .deal-reasons-footer{direction:rtl;text-align:right;justify-content:flex-start}
+.deal-card-v970.deal-en .deal-reasons-footer{direction:ltr;text-align:left;justify-content:flex-start}
+.deal-card-v970 .deal-reasons-footer i{height:22px}
+@media(max-width:1250px){.deal-card-v970 .deal-main-grid{grid-template-columns:250px minmax(430px,2fr) minmax(210px,1fr) minmax(260px,1.1fr)!important}}
+@media(max-width:900px){.deal-card-v970 .deal-main-grid{display:block!important}.deal-card-v970 .deal-visual{min-height:240px}.deal-card-v970 .deal-reasons-footer{display:block}.deal-card-v970 .deal-reasons-footer>div{margin-top:10px}}
+
+/* Filters fill the white panel and are easier to read */
+.deal-filters-wrap{padding:24px 18px!important}
+.deal-filters-main,.deal-filters-more{display:grid!important;grid-template-columns:repeat(5,minmax(150px,1fr)) auto auto;gap:14px!important;width:100%;align-items:end}
+.deal-filters-more{grid-template-columns:repeat(6,minmax(145px,1fr))!important}
+.deal-filters-wrap label{min-width:0!important;width:100%;font-size:15px!important;gap:8px!important}
+.deal-filters-wrap select,.deal-filters-wrap input{width:100%!important;min-height:50px!important;font-size:16px!important;padding:10px 12px!important}
+.deal-more-filters-toggle,.deal-clear-filters{min-height:50px!important;font-size:15px!important;padding:10px 16px!important}
+@media(max-width:1100px){.deal-filters-main,.deal-filters-more{grid-template-columns:repeat(3,1fr)!important}}
+@media(max-width:700px){.deal-filters-main,.deal-filters-more{grid-template-columns:1fr!important}}
+\n/* v9.7.2 — route title bidi isolation + booking-link correction */\n.deal-card-v970 .deal-route-title{\n  display:flex!important;align-items:center!important;gap:12px!important;\n  unicode-bidi:isolate!important;\n}\n.deal-card-v970 .route-point{\n  display:inline-flex!important;align-items:center!important;gap:7px!important;\n  white-space:nowrap!important;unicode-bidi:isolate!important;\n}\n.deal-card-v970 .route-code{font-family:Arial,"Segoe UI",sans-serif;font-weight:800;unicode-bidi:isolate!important}\n.deal-card-v970.deal-he .deal-route-title{direction:rtl!important;justify-content:flex-start!important;text-align:right!important}\n.deal-card-v970.deal-he .route-point{direction:ltr!important;flex-direction:row-reverse!important}\n.deal-card-v970.deal-he .route-city{direction:rtl!important;unicode-bidi:isolate!important}\n.deal-card-v970.deal-en .deal-route-title{direction:ltr!important;justify-content:flex-start!important;text-align:left!important}\n.deal-card-v970.deal-en .route-point{direction:ltr!important;flex-direction:row!important}\n.deal-card-v970.deal-en .route-city{direction:ltr!important;unicode-bidi:isolate!important}\n
