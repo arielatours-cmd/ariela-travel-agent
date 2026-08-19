@@ -71,7 +71,7 @@
     <label>{{ 'Which airports would you like to depart from?' if site_lang == 'en' else 'מאילו שדות תעופה תרצו לצאת?' }}
       <div class="airport-picker" data-airport-picker>
         <div class="airport-tags"></div>
-        <input class="airport-search" type="text" autocomplete="off" placeholder="{{ 'Search city, airport or IATA code…' if site_lang == 'en' else 'חפשו עיר, שדה תעופה או קוד IATA…' }}">
+        <input class="airport-search" type="text" autocomplete="off" placeholder="{{ 'Search city, airport, country or IATA code…' if site_lang == 'en' else 'חפשו עיר, שדה תעופה, מדינה או קוד IATA…' }}">
         <div class="airport-suggestions" hidden></div>
         <input type="hidden" name="preferred_airports" class="airport-values" required>
       </div>

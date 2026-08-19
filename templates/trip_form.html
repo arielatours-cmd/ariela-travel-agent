@@ -10,8 +10,24 @@
 
 <form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
   <div class="trip-origin-defaults">
-    <strong>{{ 'Departure airports:' if site_lang == 'en' else 'שדות מוצא:' }}</strong> {{ (current_member.preferred_airports_list or [])|join(', ') }}
-    <details><summary>{{ 'Change departure airports for this vacation' if site_lang == 'en' else 'שינוי שדות מוצא לחופשה הזו' }}</summary><label>{{ 'Departure airports' if site_lang == 'en' else 'שדות מוצא' }}<div class="airport-picker" data-airport-picker><div class="airport-tags"></div><input class="airport-search" type="text" autocomplete="off" placeholder="{{ 'Search city, airport or IATA code…' if site_lang == 'en' else 'חפשו עיר, שדה תעופה או קוד IATA…' }}"><div class="airport-suggestions" hidden></div><input type="hidden" name="origin_airports" class="airport-values"></div></label></details>
+    <strong>{{ 'Departure airports:' if site_lang == 'en' else 'שדות מוצא:' }}</strong>
+    <span class="default-airports-display"
+          data-default-airports-display="{{ (current_member.preferred_airports_list or [])|join(',') }}">
+      {{ (current_member.preferred_airports_list or [])|join(', ') }}
+    </span>
+    <details>
+      <summary>{{ 'Change departure airports for this vacation' if site_lang == 'en' else 'שינוי שדות מוצא לחופשה הזו' }}</summary>
+      <div class="airport-picker origin-airport-picker"
+           data-airport-picker
+           data-origin-picker
+           data-default-airports="{{ (current_member.preferred_airports_list or [])|join(',') }}">
+        <div class="airport-tags"></div>
+        <input class="airport-search" type="text" autocomplete="off"
+               placeholder="{{ 'Search city, country, airport or IATA code…' if site_lang == 'en' else 'חפשו עיר, מדינה, שדה תעופה או קוד IATA…' }}">
+        <div class="airport-suggestions" hidden></div>
+        <input type="hidden" name="origin_airports" class="airport-values">
+      </div>
+    </details>
   </div>
   <div class="wizard-progress" aria-label="{{ 'Questionnaire progress' if site_lang == 'en' else 'התקדמות בשאלון' }}">
     <div class="wizard-progress-bar" id="wizardProgressBar"></div>
@@ -29,7 +45,13 @@
     </div>
     <div class="conditional-panel" id="destinationDetails" hidden>
       <label id="destinationLabel">{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאיזה יעד תרצו לטוס?' }}
-        <input name="destinations" id="destinationsInput" list="destinationCountries" autocomplete="off" placeholder="{{ 'For example: Japan' if site_lang == 'en' else 'לדוגמה: יפן' }}"><datalist id="destinationCountries">{% if site_lang == 'en' %}<option value="Israel"><option value="United States"><option value="United Kingdom"><option value="France"><option value="Italy"><option value="Greece"><option value="Cyprus"><option value="Germany"><option value="Austria"><option value="Hungary"><option value="Czech Republic"><option value="Spain"><option value="Portugal"><option value="Croatia"><option value="Albania"><option value="Romania"><option value="Bulgaria"><option value="Montenegro"><option value="North Macedonia"><option value="Slovenia"><option value="Norway"><option value="Thailand"><option value="Japan"><option value="South Korea"><option value="United Arab Emirates"><option value="Turkey"><option value="Netherlands"><option value="Switzerland">{% else %}<option value="ישראל"><option value="ארצות הברית"><option value="בריטניה"><option value="צרפת"><option value="איטליה"><option value="יוון"><option value="קפריסין"><option value="גרמניה"><option value="אוסטריה"><option value="הונגריה"><option value="צ׳כיה"><option value="ספרד"><option value="פורטוגל"><option value="קרואטיה"><option value="אלבניה"><option value="רומניה"><option value="בולגריה"><option value="מונטנגרו"><option value="צפון מקדוניה"><option value="סלובניה"><option value="נורווגיה"><option value="תאילנד"><option value="יפן"><option value="קוריאה הדרומית"><option value="איחוד האמירויות"><option value="טורקיה"><option value="הולנד"><option value="שווייץ">{% endif %}</datalist>
+        <div class="airport-picker destination-airport-picker" data-airport-picker data-destination-picker>
+          <div class="airport-tags"></div>
+          <input class="airport-search" id="destinationsSearch" type="text" autocomplete="off"
+                 placeholder="{{ 'Search city, country, airport or IATA code…' if site_lang == 'en' else 'חפשו עיר, מדינה, שדה תעופה או קוד IATA…' }}">
+          <div class="airport-suggestions" hidden></div>
+          <input type="hidden" name="destinations" id="destinationsInput" class="airport-values">
+        </div>
       </label>
     </div>
     <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
@@ -178,7 +200,7 @@
     if (step.dataset.step === '1') {
       const mode = form.destination_mode.value;
       if ((mode === 'specific' || mode === 'several') && !document.getElementById('destinationsInput').value.trim()) {
-        document.getElementById('destinationsInput').focus(); return false;
+        (document.getElementById('destinationsSearch') || document.getElementById('destinationsInput')).focus(); return false;
       }
     }
     if (step.dataset.step === '2') {
