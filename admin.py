@@ -224,6 +224,8 @@ tbody tr:hover{background:#fafbfe}
   text-overflow:clip!important
 }
 
+
+.actions select{padding:10px 12px;border:1px solid #cfd6e2;border-radius:8px;background:white;font-weight:700;font-size:14px}
 </style>
 </head>
 <body>
@@ -234,6 +236,17 @@ tbody tr:hover{background:#fafbfe}
 
 <div class="actions">
     <button onclick="runScan()">הפעל סריקת ניסיון</button>
+    <select id="targetDestination" aria-label="בחירת יעד לסריקה">
+      <option value="FCO">רומא (FCO)</option>
+      <option value="ATH">אתונה (ATH)</option>
+      <option value="LCA">לרנקה (LCA)</option>
+      <option value="BUD">בודפשט (BUD)</option>
+      <option value="VIE">וינה (VIE)</option>
+      <option value="SOF">סופיה (SOF)</option>
+      <option value="PRG">פראג (PRG)</option>
+      <option value="MXP">מילאנו (MXP)</option>
+    </select>
+    <button onclick="runDestinationScan()">סריקת יעד</button>
     <button class="secondary" onclick="buildBatch()">בנה רשימה יומית</button>
     <a class="btn secondary" href="/daily-preview" target="_blank">תצוגת WhatsApp</a>
 </div>
@@ -384,6 +397,11 @@ async function post(url){
     }
 }
 function runScan(){if(confirm('סריקת ניסיון תבדוק מסלול אחד בלבד (הלוך + חזור). להמשיך?'))post('/scan?max_searches=1')}
+function runDestinationScan(){
+  const code=document.getElementById('targetDestination').value;
+  if(confirm('לסרוק עכשיו את '+code+' בלבד? הסריקה תבדוק 3 חלונות חופשה ותשמור את הדילים הטובים.'))
+    post('/scan-destination?arrival='+encodeURIComponent(code)+'&max_searches=3');
+}
 function buildBatch(){post('/daily-batch?force=true')}
 </script>
 </body>

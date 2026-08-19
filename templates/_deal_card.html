@@ -3,7 +3,7 @@
 {% macro protection_en(label) -%}{% set m={'חלה':'Applies','אינה חלה':'Does not apply','בדיקה נדרשת':'Check with supplier','יש לבדוק מול הספק':'Check with supplier'} %}{{ m.get(label,'Check with supplier') }}{%- endmacro %}
 {% macro change_en(label) -%}{% set m={'בכפוף לתנאי הספק':'Subject to supplier terms','אפשרי בתשלום':'Available for a fee','אפשרי ללא תשלום':'Available at no charge','לא ניתן לשינוי או ביטול':'Non-changeable / non-refundable'} %}{{ m.get(label,'Subject to supplier terms') }}{%- endmacro %}
 {% macro bag_row(label_he,label_en,item,kind,lang='he') -%}
-<li><span class="bag-svg {{ kind }}" aria-hidden="true">{% if kind=='backpack' %}🎒{% elif kind=='carry' %}🧳{% else %}🧳{% endif %}</span><span>{{ label_en if lang=='en' else label_he }}</span>{% if item and item.included %}<strong class="included">✓</strong>{% elif item and item.price_each_way is number %}<small>{{ 'Add' if lang=='en' else 'בתוספת' }} ₪{{ '%.0f'|format(item.price_each_way) }}</small>{% else %}<strong class="not-included">×</strong>{% endif %}</li>
+<li><span class="bag-svg {{ kind }}" aria-hidden="true">{% if kind=='backpack' %}🎒{% elif kind=='carry' %}🧳{% else %}🧳{% endif %}</span><span>{{ label_en if lang=='en' else label_he }}</span>{% if item and item.included %}<strong class="included">✓</strong>{% elif kind in ['carry','checked'] and item and item.roundtrip_price_ils is number %}<small class="bag-price">{{ 'Round trip' if lang=='en' else 'הלוך+חזור' }}: ₪{{ '%.0f'|format(item.roundtrip_price_ils) }}</small>{% elif kind in ['carry','checked'] and item and item.price_each_way is number %}<small class="bag-price">{{ 'Round trip' if lang=='en' else 'הלוך+חזור' }}: ₪{{ '%.0f'|format(item.price_each_way * 2) }}</small>{% else %}<strong class="not-included">×</strong>{% endif %}</li>
 {%- endmacro %}
 {% macro deal_card(offer, lang='he') -%}
 {% set stops=offer.stops or 0 %}{% set rt=offer.return_departure_time %}
@@ -87,6 +87,17 @@
       {% if offer.reference_price_ils and offer.discount_percent and offer.discount_percent|float >= 5 %}<span class="average-label">{{ 'Average price for this period' if lang=='en' else 'מחיר ממוצע לתקופה זו' }}</span><del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>{% endif %}
       <span class="found-label">{{ 'Price per person found by Ariella' if lang=='en' else 'המחיר לאדם שאריאלה מצאה' }}</span>
       <strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>
+      {% if offer.booking_supplier %}
+      <div class="supplier-summary">
+        <div><b>{{ 'Recommended booking option' if lang=='en' else 'אפשרות ההזמנה המומלצת' }}:</b> {{ offer.booking_supplier }}{% if offer.booking_supplier_approved %} ✓{% endif %}</div>
+        {% if offer.direct_supplier and offer.direct_supplier_price_ils is number and offer.direct_supplier != offer.booking_supplier %}
+        <div class="direct-compare">{{ 'Direct with airline' if lang=='en' else 'ישירות מחברת התעופה' }}: ₪{{ offer.direct_supplier_price_ils|round|int }}</div>
+        {% endif %}
+        {% if offer.cheapest_any_supplier and offer.cheapest_any_price_ils is number and offer.cheapest_any_price_ils < offer.price_ils and not offer.booking_supplier_approved %}
+        <div class="supplier-note">{{ 'A cheaper unverified supplier exists on Google Flights' if lang=='en' else 'קיימת בגוגל אפשרות זולה יותר אצל ספק שטרם אושר על ידינו' }}</div>
+        {% endif %}
+      </div>
+      {% endif %}
       {% if offer.booking_url %}<a href="{{ offer.booking_url }}" target="_blank" rel="noopener noreferrer">{{ 'Go to booking' if lang=='en' else 'למעבר להזמנה' }}</a>{% endif %}
     </div>
    </section>

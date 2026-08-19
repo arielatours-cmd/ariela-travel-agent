@@ -15,7 +15,7 @@ from database import (
     recent_feedback, recent_offers, recent_scan_runs, set_setting,
     unread_feedback_count, mark_feedback_seen,
 )
-from scanner import run_hourly_scan, search_flights
+from scanner import run_hourly_scan, run_destination_scan, search_flights
 from schedule_rules import delivery_status
 from public_site import site
 from whatsapp import (
@@ -145,6 +145,20 @@ def scan_now():
         # Keep it deliberately small so a click cannot burn the SerpApi quota.
         max_searches = max(1, min(raw_max, 1))
         return jsonify(run_hourly_scan(max_searches))
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.post("/scan-destination")
+def scan_destination():
+    denied = _require_admin()
+    if denied:
+        return denied
+    try:
+        arrival = request.args.get("arrival", "FCO").upper()
+        raw_max = int(request.args.get("max_searches", "3"))
+        max_searches = max(1, min(raw_max, 8))
+        return jsonify(run_destination_scan(arrival, max_searches))
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 

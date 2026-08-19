@@ -1458,3 +1458,9 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
 .personal-match-note{max-width:1180px;margin:0 auto 14px;padding:10px 14px;border:1px solid #e8dcc8;border-radius:12px;background:#fffaf1;font-weight:700}
 .customer-deal-option{position:relative;padding-top:34px}
 .customer-choice-badge{position:absolute;top:0;inset-inline-start:18px;font-weight:850;font-size:15px;padding:6px 13px;border-radius:999px;background:#fff4dc;border:1px solid #d9b96f;z-index:2}
+
+/* v9.7.13 supplier + round-trip baggage */
+.supplier-summary{font-size:12px;line-height:1.45;margin:8px 0 10px;text-align:center}
+.supplier-summary .direct-compare{color:#5e6673;margin-top:3px}
+.supplier-summary .supplier-note{color:#9a6b14;margin-top:4px}
+.bag-price{font-size:11px!important;line-height:1.25;color:#9a6b14;font-weight:700}

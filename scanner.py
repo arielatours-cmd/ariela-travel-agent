@@ -2,6 +2,7 @@ import itertools
 import os
 from datetime import date, datetime, timedelta, timezone
 import requests
+import re
 
 from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
@@ -161,6 +162,148 @@ def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_d
     }
 
 
+
+# Suppliers we are comfortable auto-selecting today. Direct airline booking is always approved.
+# This list is deliberately conservative; it can be expanded from admin later.
+APPROVED_BOOKING_SUPPLIERS = {
+    "trip.com", "booking.com", "expedia", "lastminute.com"
+}
+
+def _supplier_is_approved(option: dict) -> bool:
+    if option.get("airline") is True:
+        return True
+    name = str(option.get("book_with") or "").strip().lower()
+    return name in APPROVED_BOOKING_SUPPLIERS
+
+def _ils_price(option: dict):
+    for local in option.get("local_prices") or []:
+        if str(local.get("currency") or "").upper() == "ILS" and isinstance(local.get("price"), (int, float)):
+            return float(local["price"])
+    return float(option["price"]) if isinstance(option.get("price"), (int, float)) else None
+
+def _extract_bag_number(text: str):
+    # Google/SerpApi returns baggage policy strings such as "1st checked bag: 99-187".
+    nums = re.findall(r'(?<!\w)(\d+(?:\.\d+)?)', str(text or "").replace(",", ""))
+    if not nums:
+        return None
+    # Ignore ordinal "1st"; use the last monetary-looking number / high end of a range.
+    vals = [float(x) for x in nums]
+    return vals[-1]
+
+def _roundtrip_baggage_estimate(booking_data: dict) -> dict:
+    bp = booking_data.get("baggage_prices") or {}
+    departing = bp.get("departing") or []
+    returning = bp.get("returning") or []
+    together = bp.get("together") or []
+
+    def find(kind, rows):
+        keys = ("carry-on", "carry on") if kind == "carry" else ("checked bag", "checked baggage")
+        for row in rows:
+            low = str(row).lower()
+            if any(k in low for k in keys):
+                if "free" in low:
+                    return 0.0
+                return _extract_bag_number(row)
+        return None
+
+    def total(kind):
+        out = find(kind, departing)
+        ret = find(kind, returning)
+        if out is not None or ret is not None:
+            if out is not None and ret is not None:
+                return out + ret, False
+            # One directional price only: show a clearly marked round-trip estimate x2.
+            one = out if out is not None else ret
+            return one * 2, True
+        both = find(kind, together)
+        if both is not None:
+            # "together" may describe the whole itinerary; don't double it blindly.
+            return both, True
+        return None, True
+
+    carry, carry_est = total("carry")
+    checked, checked_est = total("checked")
+    return {
+        "carry_on_roundtrip_ils": carry,
+        "carry_on_estimated": carry_est,
+        "checked_bag_roundtrip_ils": checked,
+        "checked_bag_estimated": checked_est,
+        "raw": bp,
+    }
+
+def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_date: str, return_date: str) -> tuple[dict, int]:
+    token = flight.get("booking_token")
+    if not token:
+        return flight, 0
+    params = _roundtrip_params(departure, arrival, outbound_date, return_date)
+    params.pop("departure_token", None)
+    params["booking_token"] = token
+    data = _serpapi_request(params)
+
+    flattened = []
+    for group in data.get("booking_options") or []:
+        together = group.get("together")
+        if isinstance(together, dict):
+            flattened.append(together)
+        # Separate tickets are not auto-selected as the primary booking option.
+    priced = [(o, _ils_price(o)) for o in flattened]
+    priced = [(o,p) for o,p in priced if p is not None]
+    approved = [(o,p) for o,p in priced if _supplier_is_approved(o)]
+    direct = [(o,p) for o,p in priced if o.get("airline") is True]
+
+    cheapest_any = min(priced, key=lambda x:x[1]) if priced else (None,None)
+    cheapest_approved = min(approved, key=lambda x:x[1]) if approved else (None,None)
+    cheapest_direct = min(direct, key=lambda x:x[1]) if direct else (None,None)
+
+    # Choose the best booking option, balancing reliability and price:
+    # - Never auto-prefer an unapproved third-party supplier when an approved option exists.
+    # - Prefer direct airline booking when it costs no more than 5% or ₪75 above
+    #   the cheapest approved third-party option.
+    # - Otherwise choose the cheapest approved option.
+    # - Fall back to the cheapest available option only when no approved/direct option exists.
+    chosen = None
+    chosen_price = None
+    if cheapest_direct[0] is not None and cheapest_approved[0] is not None:
+        direct_option, direct_price = cheapest_direct
+        approved_option, approved_price = cheapest_approved
+        tolerance = max(75.0, approved_price * 0.05)
+        if direct_price <= approved_price + tolerance:
+            chosen, chosen_price = direct_option, direct_price
+        else:
+            chosen, chosen_price = approved_option, approved_price
+    elif cheapest_direct[0] is not None:
+        chosen, chosen_price = cheapest_direct
+    elif cheapest_approved[0] is not None:
+        chosen, chosen_price = cheapest_approved
+    else:
+        chosen, chosen_price = cheapest_any
+
+    flight = dict(flight)
+    flight["booking_supplier"] = (chosen or {}).get("book_with")
+    flight["booking_supplier_price_ils"] = chosen_price
+    flight["booking_supplier_approved"] = bool(chosen and _supplier_is_approved(chosen))
+    flight["cheapest_any_supplier"] = (cheapest_any[0] or {}).get("book_with")
+    flight["cheapest_any_price_ils"] = cheapest_any[1]
+    flight["direct_supplier"] = (cheapest_direct[0] or {}).get("book_with")
+    flight["direct_supplier_price_ils"] = cheapest_direct[1]
+    flight["booking_options_checked"] = len(priced)
+
+    baggage = _roundtrip_baggage_estimate(data)
+    base_baggage = dict(flight.get("baggage") or {})
+    carry = dict(base_baggage.get("carry_on_8kg") or {})
+    checked = dict(base_baggage.get("checked_bag_23kg") or {})
+    if baggage["carry_on_roundtrip_ils"] is not None:
+        carry["roundtrip_price_ils"] = baggage["carry_on_roundtrip_ils"]
+        carry["estimated"] = baggage["carry_on_estimated"]
+    if baggage["checked_bag_roundtrip_ils"] is not None:
+        checked["roundtrip_price_ils"] = baggage["checked_bag_roundtrip_ils"]
+        checked["estimated"] = baggage["checked_bag_estimated"]
+    base_baggage["carry_on_8kg"] = carry
+    base_baggage["checked_bag_23kg"] = checked
+    flight["baggage"] = base_baggage
+    return flight, 1
+
+
 def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str) -> dict:
     """Evaluate every outbound/return combination returned by Google Flights.
 
@@ -299,6 +442,13 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
                 if scored_combinations:
                     scored_combinations.sort(key=lambda x: (x[0], x[1]), reverse=True)
                     _, _, flight, analysis, score = scored_combinations[0]
+                    flight, booking_requests = enrich_booking_options(
+                        flight, job["departure"], job["arrival"], job["outbound"], job["return"]
+                    )
+                    api_requests += booking_requests
+                    # Prefer the approved bookable price for what Ariella shows.
+                    if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
+                        flight["price"] = flight["booking_supplier_price_ils"]
                     analysis["combinations_checked"] = result.get("combinations_checked", len(scored_combinations))
                     analysis["outbounds_checked"] = result.get("outbounds_checked")
                     offer = {
@@ -420,6 +570,12 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                 if scored:
                     scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
                     _, _, flight, analysis, score = scored[0]
+                    flight, booking_requests = enrich_booking_options(
+                        flight, job["departure"], job["arrival"], job["outbound"], job["return"]
+                    )
+                    api_requests += booking_requests
+                    if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
+                        flight["price"] = flight["booking_supplier_price_ils"]
                     insert_offer(run_id, {
                         "observed_at": datetime.now(timezone.utc).isoformat(),
                         "route": result["route"], "departure_code": job["departure"], "arrival_code": job["arrival"],
@@ -437,3 +593,73 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     finally:
         finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None)
     return {"status": "success" if errors == 0 else "partial", "scan_run_id": run_id, "searches_completed": completed, "api_requests": api_requests, "offers_found": offers_found, "errors": errors}
+
+
+def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
+    arrival_code = str(arrival_code or "").upper().strip()
+    allowed = {d["code"] for d in DESTINATIONS}
+    if arrival_code not in allowed:
+        return {"status": "error", "message": "Unsupported destination", "arrival_code": arrival_code}
+    jobs = [j for j in _all_search_jobs() if j["arrival"] == arrival_code][:max(1, min(int(max_searches), 8))]
+    run_id = create_scan_run(len(jobs))
+    completed = offers_found = errors = api_requests = 0
+    messages = []
+    try:
+        for job in jobs:
+            try:
+                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
+                api_requests += int(result.get("api_requests") or 0)
+                completed += 1
+                scored = []
+                for flight in result["flights"]:
+                    if not flight.get("return_departure_time") or not flight.get("return_arrival_time"):
+                        continue
+                    analysis = dict(result["deal_analysis"])
+                    price = float(flight["price"])
+                    month = int(job["outbound"][5:7])
+                    history = price_history_reference(job["departure"], job["arrival"], month, price)
+                    analysis.update({
+                        "historical_sample_count": history["sample_count"],
+                        "historical_median": history["median"],
+                        "historical_percentile": history["percentile"],
+                    })
+                    candidates=[]
+                    if isinstance(analysis.get("below_typical_low_percent"), (int,float)):
+                        candidates.append((analysis["below_typical_low_percent"],"serpapi_typical"))
+                    if isinstance(history.get("median"), (int,float)) and history["median"] > 0:
+                        candidates.append(((history["median"]-price)/history["median"]*100,"history"))
+                    if isinstance(analysis.get("search_median"), (int,float)) and analysis["search_median"] > 0:
+                        candidates.append(((analysis["search_median"]-price)/analysis["search_median"]*100,"search_distribution"))
+                    if candidates:
+                        discount, source=max(candidates,key=lambda x:x[0])
+                        analysis["best_discount_percent"]=round(discount,1)
+                        analysis["price_reference_source"]=source
+                    score=calculate_deal_score(analysis,flight)
+                    scored.append((score["score"],-price,flight,analysis,score))
+                if scored:
+                    scored.sort(key=lambda x:(x[0],x[1]),reverse=True)
+                    _,_,flight,analysis,score=scored[0]
+                    flight, booking_requests = enrich_booking_options(
+                        flight, job["departure"], job["arrival"], job["outbound"], job["return"]
+                    )
+                    api_requests += booking_requests
+                    if isinstance(flight.get("booking_supplier_price_ils"), (int,float)):
+                        flight["price"]=flight["booking_supplier_price_ils"]
+                    insert_offer(run_id,{
+                        "observed_at":datetime.now(timezone.utc).isoformat(),
+                        "route":result["route"],"departure_code":job["departure"],"arrival_code":job["arrival"],
+                        "departure_airport_name":result["departure_airport_name"],"arrival_airport_name":result["arrival_airport_name"],
+                        "destination_name":job["destination_name"],"country_flag":job["country_flag"],
+                        "outbound_date":job["outbound"],"return_date":job["return"],
+                        "outbound":result["outbound"],"return":result["return"],
+                        "deal_analysis":analysis,"flight":flight,"deal_score":score,
+                        "booking_url":result["booking_url"],
+                    })
+                    offers_found += 1
+            except Exception as exc:
+                errors += 1
+                messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+    finally:
+        finish_scan_run(run_id,completed,offers_found,errors,"; ".join(messages)[:2000] or None)
+    return {"status":"success" if errors==0 else "partial","scan_run_id":run_id,"destination":arrival_code,
+            "searches_completed":completed,"api_requests":api_requests,"offers_found":offers_found,"errors":errors}
