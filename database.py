@@ -411,6 +411,9 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "return_display": return_trip.get("display_he"),
             "return_departure_time": flight.get("return_departure_time"),
             "return_arrival_time": flight.get("return_arrival_time"),
+            "return_total_duration_minutes": flight.get("return_total_duration_minutes"),
+            "return_stops": flight.get("return_stops"),
+            "return_connections": flight.get("return_connections") or [],
             "has_price_history": has_price_history,
             "connections": connections,
             "baggage": {

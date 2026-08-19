@@ -166,6 +166,14 @@ tbody tr:hover{background:#fafbfe}
     .score-part{width:38px}
     .total-score{width:45px}
 }
+
+/* v9.7.3 — scan history uses the full dashboard width */
+.scans-table-wrap{width:100%!important;max-width:none!important;overflow-x:auto!important;margin:0!important}
+.scans-table-wrap .scans{width:100%!important;min-width:920px!important;table-layout:fixed!important}
+.scans-table-wrap .scans th,.scans-table-wrap .scans td{font-size:16px!important;padding:14px 12px!important;line-height:1.35!important;text-align:center!important;white-space:nowrap!important}
+.scans-table-wrap .scans th{font-size:15px!important}
+.scans-table-wrap .scans .scan-id{width:8%!important}.scans-table-wrap .scans .scan-status{width:15%!important}.scans-table-wrap .scans .scan-date{width:32%!important}.scans-table-wrap .scans .scan-number{width:15%!important}
+
 </style>
 </head>
 <body>
@@ -282,7 +290,7 @@ tbody tr:hover{background:#fafbfe}
 </div>
 
 <h2>סריקות אחרונות</h2>
-<div class="table-wrap">
+<div class="table-wrap scans-table-wrap">
 <table class="scans">
 <thead>
 <tr>
