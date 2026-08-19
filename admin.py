@@ -167,20 +167,16 @@ tbody tr:hover{background:#fafbfe}
     .total-score{width:45px}
 }
 
-/* v9.7.5 — admin tables are intentionally large and readable */
-.wrap{width:calc(100vw - 16px)!important;max-width:none!important;margin:0 auto!important;padding:18px 8px 30px!important}
-.table-wrap{width:100%!important;max-width:none!important;overflow-x:auto!important;border-radius:12px!important}
-table{width:100%!important;table-layout:auto!important}
-/* Main offers table */
-.table-wrap table:not(.scans){min-width:1750px!important}
-.table-wrap table:not(.scans) th{font-size:14px!important;padding:11px 9px!important;white-space:nowrap!important}
-.table-wrap table:not(.scans) td{font-size:15px!important;padding:11px 9px!important;line-height:1.35!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
-.table-wrap table:not(.scans) .reason-col{min-width:330px!important;text-align:right!important;white-space:normal!important}
-/* Recent scans table */
-.scans{width:100%!important;min-width:1050px!important;table-layout:auto!important}
-.scans th{font-size:16px!important;padding:14px 14px!important}.scans td{font-size:17px!important;padding:15px 14px!important;line-height:1.4!important;overflow:visible!important;text-overflow:clip!important}.scans .scan-id{width:8%!important}.scans .scan-status{width:16%!important}.scans .scan-date{width:34%!important}.scans .scan-number{width:14%!important}
-.grid{grid-template-columns:repeat(6,minmax(150px,1fr))!important;gap:12px!important}.card{padding:16px!important}.num{font-size:30px!important}
-@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr)!important}.wrap{width:100%!important;padding:12px 4px 24px!important}}
+/* v9.7.6 dashboard enlargement */
+.wrap{width:calc(100vw - 24px)!important;max-width:none!important;margin:0 auto!important;padding:18px 10px 35px!important}
+.table-wrap{width:100%!important;max-width:none!important;overflow-x:auto!important}
+.table-wrap table{width:100%!important}
+.table-wrap:not(.scans-table-wrap) table{min-width:1650px!important}
+.table-wrap:not(.scans-table-wrap) th{font-size:14px!important;padding:10px 8px!important}
+.table-wrap:not(.scans-table-wrap) td{font-size:15px!important;padding:11px 8px!important;line-height:1.35!important}
+.scans-table-wrap .scans{width:100%!important;min-width:1050px!important}
+.scans-table-wrap .scans th{font-size:17px!important;padding:15px 14px!important}
+.scans-table-wrap .scans td{font-size:18px!important;padding:17px 14px!important;text-align:center!important}
 
 </style>
 </head>
@@ -298,7 +294,7 @@ table{width:100%!important;table-layout:auto!important}
 </div>
 
 <h2>סריקות אחרונות</h2>
-<div class="table-wrap">
+<div class="table-wrap scans-table-wrap">
 <table class="scans">
 <thead>
 <tr>
