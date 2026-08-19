@@ -89,7 +89,7 @@
      {% set _=visible.append(reason_en(reason) if lang=='en' else reason) %}
    {% endif %}
  {% endfor %}
- {% if visible %}<footer class="deal-reasons-footer"><strong>{{ 'Why Ariella selected this deal' if lang=='en' else 'למה אריאלה בחרה את הדיל' }}</strong><div>{% for reason in visible %}<span>{{ reason }}</span>{% if not loop.last %}<i></i>{% endif %}{% endfor %}</div></footer>{% endif %}
+ {% if visible %}<footer class="deal-reasons-footer"><strong class="deal-reasons-title">{{ 'Why Ariella selected this deal' if lang=='en' else 'למה אריאלה בחרה את הדיל' }}</strong><div>{% for reason in visible %}<span>{{ reason }}</span>{% if not loop.last %}<i></i>{% endif %}{% endfor %}</div></footer>{% endif %}
 </article>
 {% endif %}
 {%- endmacro %}

@@ -174,6 +174,49 @@ tbody tr:hover{background:#fafbfe}
 .scans-table-wrap .scans th{font-size:15px!important}
 .scans-table-wrap .scans .scan-id{width:8%!important}.scans-table-wrap .scans .scan-status{width:15%!important}.scans-table-wrap .scans .scan-date{width:32%!important}.scans-table-wrap .scans .scan-number{width:15%!important}
 
+
+/* v9.7.4 — dashboard readability: full browser width */
+body{font-size:16px!important}
+.wrap{
+  width:calc(100vw - 18px)!important;max-width:none!important;
+  margin:0 auto!important;padding:18px 8px 32px!important
+}
+.grid{grid-template-columns:repeat(8,minmax(125px,1fr))!important;gap:12px!important}
+.card{padding:16px!important}
+.num{font-size:30px!important}
+
+.table-wrap{width:100%!important;max-width:none!important;overflow-x:auto!important}
+.table-wrap table{width:100%!important;table-layout:auto!important}
+
+/* Main scan-offers table */
+.table-wrap:not(.scans-table-wrap) table{min-width:1700px!important}
+.table-wrap:not(.scans-table-wrap) th,
+.table-wrap:not(.scans-table-wrap) td{
+  font-size:14px!important;padding:10px 8px!important;line-height:1.35!important
+}
+.table-wrap:not(.scans-table-wrap) th{font-size:13px!important}
+
+/* Recent scans table */
+.scans-table-wrap{
+  width:100%!important;max-width:none!important;overflow-x:auto!important;margin:0!important
+}
+.scans-table-wrap .scans{
+  width:100%!important;min-width:1100px!important;table-layout:auto!important
+}
+.scans-table-wrap .scans th,.scans-table-wrap .scans td{
+  font-size:18px!important;padding:17px 16px!important;line-height:1.4!important;
+  text-align:center!important;white-space:nowrap!important
+}
+.scans-table-wrap .scans th{font-size:17px!important}
+.scans-table-wrap .scans .scan-id{width:8%!important}
+.scans-table-wrap .scans .scan-status{width:16%!important}
+.scans-table-wrap .scans .scan-date{width:32%!important}
+.scans-table-wrap .scans .scan-number{width:14%!important}
+@media(max-width:1200px){
+  .grid{grid-template-columns:repeat(4,1fr)!important}
+  .wrap{width:100%!important;padding:12px 4px 24px!important}
+}
+
 </style>
 </head>
 <body>

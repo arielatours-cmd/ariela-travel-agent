@@ -158,7 +158,7 @@
       if(price.value && Number(c.dataset.price||0)>Number(price.value)) ok=false;
       if(stops.value==='0' && Number(c.dataset.stops)!==0) ok=false;
       if(stops.value==='1' && Number(c.dataset.stops)!==1) ok=false;
-      if(stops.value==='2' && Number(c.dataset.stops)>2) ok=false;
+      if(stops.value==='2' && Number(c.dataset.stops)!==2) ok=false;
       if(baggage.value==='personal' && c.dataset.personal!=='1') ok=false;
       if(baggage.value==='carry' && c.dataset.carry!=='1') ok=false;
       if(baggage.value==='checked' && c.dataset.checked!=='1') ok=false;

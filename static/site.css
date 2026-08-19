@@ -1303,3 +1303,80 @@ html[dir="rtl"] .deal-filters-more{direction:rtl!important}html[dir="ltr"] .deal
 .deal-filters-more label{min-width:0!important}.deal-filters-more select{min-height:46px!important;font-size:15px!important;padding:8px 10px!important}
 @media(max-width:1050px){.deal-card-v973 .deal-main-grid{grid-template-columns:250px minmax(430px,2fr) minmax(210px,1fr) minmax(270px,1.1fr)!important}.deal-filters-more:not([hidden]){grid-template-columns:repeat(3,1fr)!important}}
 @media(max-width:760px){.deal-card-v973 .deal-main-grid{display:block!important}.deal-card-v973 .deal-reasons-footer{display:block!important}.deal-card-v973 .deal-reasons-footer>strong,.deal-card-v973 .deal-reasons-footer>div{border:0!important;padding:14px 18px!important}.deal-filters-more:not([hidden]){grid-template-columns:1fr 1fr!important}}
+
+/* v9.7.4 — complete pass for latest deal-card notes */
+
+.deal-card-v973.deal-he .leg-route-times{direction:rtl!important}
+.deal-card-v973.deal-en .leg-route-times{direction:ltr!important}
+.deal-card-v973 .time-node small{
+  display:block!important;font-size:12px!important;font-weight:800!important;
+  color:#7b756c!important;margin-bottom:4px!important
+}
+.deal-card-v973 .time-node time{
+  display:block!important;direction:ltr!important;unicode-bidi:isolate!important
+}
+
+/* Reasons: heading under image; answers begin exactly after image divider. */
+.deal-card-v973 .deal-reasons-footer{
+  display:grid!important;grid-template-columns:300px minmax(0,1fr)!important;
+  width:100%!important;padding:0!important;margin:0!important;gap:0!important;
+  border-top:1px solid #e5dccd!important;background:#fffdf9!important
+}
+.deal-card-v973 .deal-reasons-title{
+  min-height:58px!important;display:flex!important;align-items:center!important;
+  padding:16px 24px!important;font-size:17px!important;font-weight:800!important;
+  white-space:nowrap!important
+}
+.deal-card-v973.deal-he .deal-reasons-title{
+  direction:rtl!important;text-align:right!important;justify-content:flex-start!important
+}
+.deal-card-v973.deal-en .deal-reasons-title{
+  direction:ltr!important;text-align:left!important;justify-content:flex-start!important
+}
+.deal-card-v973 .deal-reasons-footer>div{
+  min-height:58px!important;display:flex!important;align-items:center!important;
+  gap:18px!important;padding:16px 24px!important;
+  border-inline-start:1px solid #e5dccd!important;flex-wrap:nowrap!important;
+  white-space:nowrap!important;overflow-x:auto!important
+}
+.deal-card-v973.deal-he .deal-reasons-footer>div{
+  direction:rtl!important;text-align:right!important;justify-content:flex-start!important
+}
+.deal-card-v973.deal-en .deal-reasons-footer>div{
+  direction:ltr!important;text-align:left!important;justify-content:flex-start!important
+}
+.deal-card-v973 .deal-reasons-footer i{
+  flex:0 0 1px!important;width:1px!important;height:22px!important;background:#d9cbb6!important
+}
+
+/* Consumer protection + change/cancel centered above separator above price. */
+.deal-card-v973 .important-terms{
+  width:100%!important;text-align:center!important;justify-items:center!important;
+  padding-bottom:16px!important;margin-bottom:2px!important
+}
+.deal-card-v973 .important-terms div{
+  justify-content:center!important;text-align:center!important
+}
+
+/* Extra filters compact in one row on desktop. */
+.deal-filters-more:not([hidden]){
+  display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:10px!important;width:100%!important;align-items:end!important
+}
+.deal-filters-more label{min-width:0!important}
+.deal-filters-more select{
+  width:100%!important;min-height:44px!important;font-size:14px!important;padding:7px 9px!important
+}
+
+@media(max-width:1050px){
+  .deal-card-v973 .deal-reasons-footer{grid-template-columns:250px minmax(0,1fr)!important}
+  .deal-filters-more:not([hidden]){grid-template-columns:repeat(3,1fr)!important}
+}
+@media(max-width:760px){
+  .deal-card-v973 .deal-reasons-footer{display:block!important}
+  .deal-card-v973 .deal-reasons-title,.deal-card-v973 .deal-reasons-footer>div{
+    border:0!important;padding:14px 18px!important
+  }
+  .deal-card-v973 .deal-reasons-footer>div{white-space:normal!important;flex-wrap:wrap!important}
+  .deal-filters-more:not([hidden]){grid-template-columns:1fr 1fr!important}
+}

@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from urllib.parse import quote_plus
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from config import DB_PATH
@@ -17,6 +18,12 @@ DESTINATION_LANDMARK_IMAGES = {
     "LCA": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Church_of_Saint_Lazarus,_Larnaca,_Cyprus.jpg",
     "PFO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Paphos_harbour_castle.jpg",
 }
+
+
+def _full_roundtrip_google_url(departure: str, arrival: str, outbound_date: str, return_date: str) -> str:
+    """Create a fresh Google Flights round-trip search URL, never a return-stage URL."""
+    query = f"round trip flights from {departure} to {arrival} departing {outbound_date} returning {return_date}"
+    return "https://www.google.com/travel/flights?hl=he&curr=ILS&q=" + quote_plus(query)
 
 
 def utc_now_iso() -> str:
@@ -403,7 +410,12 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         item.update({
             "score_reasons": reasons,
             "display_reasons": display_reasons,
-            "booking_url": item.get("booking_url") or payload.get("booking_url"),
+            "booking_url": _full_roundtrip_google_url(
+                item.get("departure_code") or payload.get("departure_code"),
+                item.get("arrival_code") or payload.get("arrival_code"),
+                item.get("outbound_date") or payload.get("outbound_date"),
+                item.get("return_date") or payload.get("return_date"),
+            ),
             "reference_price_ils": reference_price,
             "departure_airport_name": payload.get("departure_airport_name") or flight.get("departure_airport_name"),
             "arrival_airport_name": payload.get("arrival_airport_name") or flight.get("arrival_airport_name"),
