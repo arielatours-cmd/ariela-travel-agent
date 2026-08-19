@@ -43,6 +43,17 @@ def _summarize_flight(item: dict) -> dict:
     actual = _sum_flight_minutes(segments)
     if actual is None and isinstance(total, (int, float)):
         actual = max(0, total - sum(x.get("duration_minutes") or 0 for x in connections))
+    return_summary = None
+    return_segments = item.get("return_flights") or item.get("return_flight") or []
+    if isinstance(return_segments, dict):
+        return_segments = return_segments.get("flights") or []
+    if return_segments:
+        rf = return_segments[0] or {}
+        rdep = rf.get("departure_airport") or {}
+        return_summary = {
+            "departure_time": rdep.get("time"),
+            "departure_airport": rdep.get("id"),
+        }
     return {
         "price": item.get("price"), "airline": first.get("airline"), "flight_number": first.get("flight_number"),
         "departure_airport": dep.get("id"), "departure_airport_name": AIRPORT_NAMES.get(dep.get("id"), dep.get("id")),
@@ -50,6 +61,8 @@ def _summarize_flight(item: dict) -> dict:
         "arrival_airport_name": AIRPORT_NAMES.get(arr.get("id"), arr.get("id")), "arrival_time": arr.get("time"),
         "total_duration_minutes": total, "actual_flight_duration_minutes": actual, "stops": len(layovers),
         "is_direct": len(layovers) == 0, "connections": connections,
+        "return_departure_time": (return_summary or {}).get("departure_time"),
+        "return_departure_airport": (return_summary or {}).get("departure_airport"),
         "baggage": {
             "personal_item": {"included": True, "price_each_way": 0, "estimated": True},
             "carry_on_8kg": {"included": False, "price_each_way": None, "estimated": True},

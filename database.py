@@ -375,6 +375,11 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "arrival_airport_name": payload.get("arrival_airport_name") or flight.get("arrival_airport_name"),
             "outbound_display": outbound.get("display_he"),
             "return_display": return_trip.get("display_he"),
+            "return_departure_time": flight.get("return_departure_time"),
+            "has_price_history": bool(
+                analysis.get("price_reference_source") == "history"
+                and (analysis.get("historical_sample_count") or 0) > 0
+            ),
             "connections": connections,
             "baggage": {
                 "personal_item": baggage.get("personal_item") or {"included": True},

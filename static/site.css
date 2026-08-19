@@ -1144,3 +1144,40 @@ html[lang="en"] .trip-controls .plan-choice b{
   margin-left:0!important;
   margin-right:0!important;
 }
+
+/* v9.6.7 — deal card sales/readability redesign */
+.deal-card-v967{display:block!important;overflow:hidden!important}
+.deal-card-v967 .deal-main-grid{
+  display:grid!important;
+  grid-template-columns:280px minmax(430px,2.15fr) minmax(210px,1fr) minmax(220px,1.1fr) minmax(220px,1fr)!important;
+  align-items:stretch!important;
+}
+.deal-card-v967 .deal-main-grid>section,
+.deal-card-v967 .deal-main-grid>.deal-visual{min-width:0;padding:24px 22px!important}
+.deal-card-v967 .deal-flight h2{font-size:21px!important;line-height:1.45!important;margin:0 0 18px!important}
+.deal-card-v967 .flight-leg{display:grid;grid-template-columns:88px 1fr auto;gap:8px 14px;align-items:center;padding:12px 0;border-top:1px solid #eee;font-size:16px!important;line-height:1.5}
+.deal-card-v967 .flight-leg:first-of-type{border-top:0}
+.deal-card-v967 .flight-leg time{font-size:20px!important;font-weight:800}
+.deal-card-v967 .leg-title{font-size:16px!important}
+.deal-card-v967 .leg-connections{grid-column:2/-1;font-size:14px!important;color:#6c7480}
+.deal-card-v967 .route-line,.deal-card-v967 .plane{display:none!important}
+.deal-card-v967 .duration-line{font-size:14px!important;gap:18px!important;margin-top:12px!important}
+.deal-card-v967 h3{font-size:17px!important}
+.deal-card-v967 .deal-baggage li{font-size:15px!important;line-height:1.65!important}
+.deal-card-v967 .important-terms{font-size:14px!important;line-height:1.6!important}
+.deal-card-v967 .deal-price-box .found-label{font-size:15px!important;line-height:1.45!important}
+.deal-card-v967 .deal-price-box>strong{font-size:38px!important}
+.deal-card-v967 .deal-price-box a{font-size:17px!important}
+.deal-reasons-footer{display:flex;align-items:center;gap:24px;padding:15px 24px;border-top:1px solid #e5dccd;background:#fffdf9;font-size:14px;line-height:1.5}
+.deal-reasons-footer>strong{white-space:nowrap;font-size:15px}
+.deal-reasons-footer>div{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.deal-reasons-footer i{display:inline-block;width:1px;height:18px;background:#d9cbb6}
+@media(max-width:1100px){
+ .deal-card-v967 .deal-main-grid{grid-template-columns:220px 2fr 1fr!important}
+ .deal-card-v967 .deal-terms,.deal-card-v967 .deal-price-box{grid-column:auto}
+}
+@media(max-width:760px){
+ .deal-card-v967 .deal-main-grid{display:block!important}
+ .deal-reasons-footer{display:block}
+ .deal-reasons-footer>div{margin-top:10px}
+}
