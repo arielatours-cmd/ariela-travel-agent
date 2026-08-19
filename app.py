@@ -140,7 +140,10 @@ def scan_now():
     if denied:
         return denied
     try:
-        max_searches = int(request.args.get("max_searches", "0")) or None
+        raw_max = int(request.args.get("max_searches", "1"))
+        # The web/admin scan endpoint is a diagnostic action, not the scheduler.
+        # Keep it deliberately small so a click cannot burn the SerpApi quota.
+        max_searches = max(1, min(raw_max, 1))
         return jsonify(run_hourly_scan(max_searches))
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500

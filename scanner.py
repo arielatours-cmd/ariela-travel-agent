@@ -95,30 +95,116 @@ def _deal_analysis(data: dict, flight_prices: list[float] | None = None) -> dict
     }
 
 
-def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str) -> dict:
-    params = {
-        "engine": "google_flights", "api_key": _api_key(), "departure_id": departure,
-        "arrival_id": arrival, "outbound_date": outbound_date, "return_date": return_date,
-        "type": "1", "hl": "en", "gl": "il", "currency": "ILS", "travel_class": "1",
-        "adults": "1", "children": "0", "bags": "0", "sort_by": "2", "deep_search": "true",
-    }
+def _serpapi_request(params: dict) -> dict:
     response = requests.get(SERPAPI_URL, params=params, timeout=60)
     response.raise_for_status()
     data = response.json()
     if data.get("error"):
         raise RuntimeError(data["error"])
-    flights = (data.get("best_flights") or []) + (data.get("other_flights") or [])
-    flights = [f for f in flights if isinstance(f.get("price"), (int, float))]
-    flights.sort(key=lambda f: f["price"])
-    analysis = _deal_analysis(data, [f["price"] for f in flights])
-    metadata = data.get("search_metadata") or {}
+    return data
+
+
+def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_date: str) -> dict:
     return {
-        "route": f"{departure}-{arrival}", "departure_code": departure, "arrival_code": arrival,
+        "engine": "google_flights",
+        "api_key": _api_key(),
+        "departure_id": departure,
+        "arrival_id": arrival,
+        "outbound_date": outbound_date,
+        "return_date": return_date,
+        "type": "1",
+        "hl": "en",
+        "gl": "il",
+        "currency": "ILS",
+        "travel_class": "1",
+        "adults": "1",
+        "children": "0",
+        "bags": "0",
+        "sort_by": "2",
+        # Keep cache enabled. SerpApi cached searches within its cache window do not
+        # consume the monthly search quota.
+        "no_cache": "false",
+    }
+
+
+def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str) -> dict:
+    """Fetch one complete round-trip deal using the documented two-step flow.
+
+    API request 1 returns outbound choices with departure_token.
+    We pick the cheapest viable outbound only.
+    API request 2 uses that departure_token to retrieve the return choices.
+    Only a result with a real return departure time is returned.
+    """
+    params = _roundtrip_params(departure, arrival, outbound_date, return_date)
+    outbound_data = _serpapi_request(params)
+
+    outbound_items = (outbound_data.get("best_flights") or []) + (outbound_data.get("other_flights") or [])
+    outbound_items = [
+        f for f in outbound_items
+        if isinstance(f.get("price"), (int, float)) and f.get("departure_token")
+    ]
+    outbound_items.sort(key=lambda f: f["price"])
+    if not outbound_items:
+        return {
+            "route": f"{departure}-{arrival}",
+            "departure_code": departure,
+            "arrival_code": arrival,
+            "departure_airport_name": AIRPORT_NAMES.get(departure, departure),
+            "arrival_airport_name": AIRPORT_NAMES.get(arrival, arrival),
+            "outbound": _date_with_weekday(outbound_date),
+            "return": _date_with_weekday(return_date),
+            "deal_analysis": _deal_analysis(outbound_data, []),
+            "flights": [],
+            "booking_url": (outbound_data.get("search_metadata") or {}).get("google_flights_url"),
+            "api_requests": 1,
+        }
+
+    outbound_item = outbound_items[0]
+    outbound_summary = _summarize_flight(outbound_item)
+
+    return_params = dict(params)
+    return_params["departure_token"] = outbound_item["departure_token"]
+    return_data = _serpapi_request(return_params)
+    return_items = (return_data.get("best_flights") or []) + (return_data.get("other_flights") or [])
+    return_items = [f for f in return_items if isinstance(f.get("price"), (int, float))]
+    return_items.sort(key=lambda f: f["price"])
+
+    complete = []
+    if return_items:
+        inbound_item = return_items[0]
+        inbound_summary = _summarize_flight(inbound_item)
+        return_time = inbound_summary.get("departure_time")
+        if return_time:
+            # Price returned after selecting the outbound is the complete itinerary
+            # price when supplied by Google Flights; fall back to the outbound price.
+            combined_price = inbound_item.get("price")
+            if not isinstance(combined_price, (int, float)):
+                combined_price = outbound_item.get("price")
+            outbound_summary["price"] = combined_price
+            outbound_summary["return_departure_time"] = return_time
+            outbound_summary["return_arrival_time"] = inbound_summary.get("arrival_time")
+            outbound_summary["return_airline"] = inbound_summary.get("airline")
+            outbound_summary["return_stops"] = inbound_summary.get("stops")
+            outbound_summary["return_connections"] = inbound_summary.get("connections") or []
+            outbound_summary["return_total_duration_minutes"] = inbound_summary.get("total_duration_minutes")
+            outbound_summary["booking_token"] = inbound_item.get("booking_token")
+            complete.append(outbound_summary)
+
+    all_prices = [f.get("price") for f in outbound_items if isinstance(f.get("price"), (int, float))]
+    analysis = _deal_analysis(outbound_data, all_prices)
+    metadata = return_data.get("search_metadata") or outbound_data.get("search_metadata") or {}
+    return {
+        "route": f"{departure}-{arrival}",
+        "departure_code": departure,
+        "arrival_code": arrival,
         "departure_airport_name": AIRPORT_NAMES.get(departure, departure),
         "arrival_airport_name": AIRPORT_NAMES.get(arrival, arrival),
-        "outbound": _date_with_weekday(outbound_date), "return": _date_with_weekday(return_date),
-        "deal_analysis": analysis, "flights": [_summarize_flight(f) for f in flights[:5]],
+        "outbound": _date_with_weekday(outbound_date),
+        "return": _date_with_weekday(return_date),
+        "deal_analysis": analysis,
+        "flights": complete,
         "booking_url": metadata.get("google_flights_url"),
+        "api_requests": 2,
     }
 
 
@@ -149,56 +235,86 @@ def _next_jobs(limit: int) -> list[dict]:
 def run_hourly_scan(max_searches: int | None = None) -> dict:
     jobs = _next_jobs(max_searches or MAX_SEARCHES_PER_SCAN)
     run_id = create_scan_run(len(jobs))
-    completed = offers_found = errors = 0
+    completed = offers_found = errors = api_requests = 0
     error_messages: list[str] = []
 
-    for job in jobs:
-        try:
-            result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
-            completed += 1
-            for flight in result["flights"]:
-                analysis = dict(result["deal_analysis"])
-                price = float(flight["price"])
-                month = int(job["outbound"][5:7])
-                history = price_history_reference(job["departure"], job["arrival"], month, price)
-                analysis["historical_sample_count"] = history["sample_count"]
-                analysis["historical_median"] = history["median"]
-                analysis["historical_percentile"] = history["percentile"]
+    try:
+        for job in jobs:
+            try:
+                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
+                api_requests += int(result.get("api_requests") or 0)
+                completed += 1
 
-                candidates = []
-                if isinstance(analysis.get("below_typical_low_percent"), (int, float)):
-                    candidates.append((analysis["below_typical_low_percent"], "serpapi_typical"))
-                if isinstance(history.get("median"), (int, float)) and history["median"] > 0:
-                    candidates.append(((history["median"] - price) / history["median"] * 100, "history"))
-                search_median = analysis.get("search_median")
-                if isinstance(search_median, (int, float)) and search_median > 0:
-                    candidates.append(((search_median - price) / search_median * 100, "search_distribution"))
-                if candidates:
-                    best_discount, source = max(candidates, key=lambda item: item[0])
-                    analysis["best_discount_percent"] = round(best_discount, 1)
-                    analysis["price_reference_source"] = source
+                # The two-stage search deliberately keeps only one complete itinerary
+                # per route/date job to avoid spending extra SerpApi calls on returns.
+                for flight in result["flights"]:
+                    if not flight.get("return_departure_time"):
+                        continue
 
-                score = calculate_deal_score(analysis, flight)
-                offer = {
-                    "observed_at": datetime.now(timezone.utc).isoformat(), "route": result["route"],
-                    "departure_code": job["departure"], "arrival_code": job["arrival"],
-                    "departure_airport_name": result["departure_airport_name"],
-                    "arrival_airport_name": result["arrival_airport_name"],
-                    "destination_name": job["destination_name"], "country_flag": job["country_flag"],
-                    "outbound_date": job["outbound"], "return_date": job["return"],
-                    "outbound": result["outbound"], "return": result["return"],
-                    "deal_analysis": analysis, "flight": flight,
-                    "deal_score": score, "booking_url": result["booking_url"],
-                }
-                insert_offer(run_id, offer)
-                offers_found += 1
-        except Exception as exc:
-            errors += 1
-            error_messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+                    analysis = dict(result["deal_analysis"])
+                    price = float(flight["price"])
+                    month = int(job["outbound"][5:7])
+                    history = price_history_reference(job["departure"], job["arrival"], month, price)
+                    analysis["historical_sample_count"] = history["sample_count"]
+                    analysis["historical_median"] = history["median"]
+                    analysis["historical_percentile"] = history["percentile"]
 
-    finish_scan_run(run_id, completed, offers_found, errors, "; ".join(error_messages)[:2000] or None)
+                    candidates = []
+                    if isinstance(analysis.get("below_typical_low_percent"), (int, float)):
+                        candidates.append((analysis["below_typical_low_percent"], "serpapi_typical"))
+                    if isinstance(history.get("median"), (int, float)) and history["median"] > 0:
+                        candidates.append(((history["median"] - price) / history["median"] * 100, "history"))
+                    search_median = analysis.get("search_median")
+                    if isinstance(search_median, (int, float)) and search_median > 0:
+                        candidates.append(((search_median - price) / search_median * 100, "search_distribution"))
+                    if candidates:
+                        best_discount, source = max(candidates, key=lambda item: item[0])
+                        analysis["best_discount_percent"] = round(best_discount, 1)
+                        analysis["price_reference_source"] = source
+
+                    score = calculate_deal_score(analysis, flight)
+                    offer = {
+                        "observed_at": datetime.now(timezone.utc).isoformat(),
+                        "route": result["route"],
+                        "departure_code": job["departure"],
+                        "arrival_code": job["arrival"],
+                        "departure_airport_name": result["departure_airport_name"],
+                        "arrival_airport_name": result["arrival_airport_name"],
+                        "destination_name": job["destination_name"],
+                        "country_flag": job["country_flag"],
+                        "outbound_date": job["outbound"],
+                        "return_date": job["return"],
+                        "outbound": result["outbound"],
+                        "return": result["return"],
+                        "deal_analysis": analysis,
+                        "flight": flight,
+                        "deal_score": score,
+                        "booking_url": result["booking_url"],
+                        "trip_id": job.get("trip_id"),
+                    }
+                    insert_offer(run_id, offer)
+                    offers_found += 1
+            except Exception as exc:
+                errors += 1
+                error_messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+    except BaseException as exc:
+        # Still close the DB scan record if the worker/request fails unexpectedly.
+        errors += 1
+        error_messages.append(f"scan: {exc}")
+        raise
+    finally:
+        finish_scan_run(
+            run_id, completed, offers_found, errors,
+            "; ".join(error_messages)[:2000] or None
+        )
+
     return {
-        "status": "success" if errors == 0 else "partial", "scan_run_id": run_id,
-        "searches_planned": len(jobs), "searches_completed": completed,
-        "offers_found": offers_found, "errors": errors, "error_messages": error_messages,
+        "status": "success" if errors == 0 else "partial",
+        "scan_run_id": run_id,
+        "searches_planned": len(jobs),
+        "searches_completed": completed,
+        "api_requests": api_requests,
+        "offers_found": offers_found,
+        "errors": errors,
+        "error_messages": error_messages,
     }

@@ -325,7 +325,7 @@ async function post(url){
         e.textContent='שגיאה: '+x;
     }
 }
-function runScan(){post('/scan?max_searches=8')}
+function runScan(){if(confirm('סריקת ניסיון תבדוק מסלול אחד בלבד (הלוך + חזור). להמשיך?'))post('/scan?max_searches=1')}
 function buildBatch(){post('/daily-batch?force=true')}
 </script>
 </body>

@@ -1,7 +1,7 @@
 import json
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from config import DB_PATH
 
 
@@ -152,6 +152,10 @@ def init_db() -> None:
         if "has_paid_search" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN has_paid_search INTEGER NOT NULL DEFAULT 0")
 
+        offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
+        if "trip_id" not in offer_columns:
+            conn.execute("ALTER TABLE offers ADD COLUMN trip_id INTEGER")
+
         member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
         if "country" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN country TEXT")
@@ -187,8 +191,8 @@ def insert_offer(scan_run_id: int, offer: dict) -> None:
                 scan_run_id,observed_at,route,departure_code,arrival_code,outbound_date,return_date,
                 price_ils,typical_low_ils,typical_high_ils,discount_percent,score,score_label,airline,
                 stops,total_duration_minutes,actual_flight_duration_minutes,departure_time,arrival_time,
-                booking_url,destination_name,country_flag,payload_json
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                booking_url,destination_name,country_flag,trip_id,payload_json
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 scan_run_id, offer["observed_at"], offer["route"], offer["departure_code"], offer["arrival_code"],
@@ -197,7 +201,7 @@ def insert_offer(scan_run_id: int, offer: dict) -> None:
                 offer["deal_score"]["label"], flight.get("airline"), flight.get("stops"),
                 flight.get("total_duration_minutes"), flight.get("actual_flight_duration_minutes"),
                 flight.get("departure_time"), flight.get("arrival_time"), offer.get("booking_url"),
-                offer.get("destination_name"), offer.get("country_flag"), json.dumps(offer, ensure_ascii=False),
+                offer.get("destination_name"), offer.get("country_flag"), offer.get("trip_id"), json.dumps(offer, ensure_ascii=False),
             ),
         )
 
@@ -274,6 +278,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
     for row in rows:
         item = dict(row)
         payload = json.loads(item.pop("payload_json"))
+        if item.get("trip_id") is not None:
+            payload["trip_id"] = item.get("trip_id")
         deal_score = payload.get("deal_score") or {}
         components = deal_score.get("components") or {}
         analysis = payload.get("deal_analysis") or {}
@@ -351,10 +357,10 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "yes": ("חלה", "applies"),
             "not_applies": ("אינה חלה", "not-applies"),
             "no": ("אינה חלה", "not-applies"),
-            "check": ("בדיקה נדרשת", "check"),
-            "unknown": ("בדיקה נדרשת", "check"),
+            "check": ("יש לבדוק מול הספק", "check"),
+            "unknown": ("יש לבדוק מול הספק", "check"),
         }
-        protection_label, protection_class = protection_map.get(protection_status, ("בדיקה נדרשת", "check"))
+        protection_label, protection_class = protection_map.get(protection_status, ("יש לבדוק מול הספק", "check"))
 
         change_cancel = payload.get("change_cancel") or payload.get("ticket_change") or {}
         if isinstance(change_cancel, str):
@@ -406,7 +412,15 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
 
 
 def recent_scan_runs(limit: int = 20) -> list[dict]:
+    # A web worker can be restarted mid-scan. Do not leave such rows as "running" forever.
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
     with connection() as conn:
+        conn.execute(
+            """UPDATE scan_runs
+               SET status='failed', finished_at=?, error_message=COALESCE(error_message,'Scan interrupted before completion')
+               WHERE status='running' AND started_at < ?""",
+            (utc_now_iso(), cutoff),
+        )
         rows = conn.execute(
             "SELECT * FROM scan_runs ORDER BY id DESC LIMIT ?", (max(1, min(limit, 200)),)
         ).fetchall()

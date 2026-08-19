@@ -175,7 +175,12 @@ def deals():
             conn.commit()
         for row in rows:
             trip = _trip_dict(row)
-            trip["offers"] = [offer for offer in offers if _offer_matches_trip(offer, trip)]
+            # Personal vacations must show only offers produced for that exact trip.
+            # General Ariella deals are intentionally not recycled into "My Vacations".
+            trip["offers"] = [
+                offer for offer in offers
+                if offer.get("trip_id") == trip.get("id") and _offer_matches_trip(offer, trip)
+            ]
             personal_trips.append(trip)
     return render_template("deals.html", offers=offers, personal_trips=personal_trips)
 

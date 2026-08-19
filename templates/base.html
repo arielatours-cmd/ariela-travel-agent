@@ -41,7 +41,7 @@ h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-we
 {% include "_site_header.html" %}
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="shell flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
 <main>{% block content %}{% endblock %}</main>
-{% block site_disclaimer %}<section class="disclaimer"><div class="shell"><strong>{{ 'Important:' if site_lang == 'en' else 'חשוב לדעת:' }}</strong> {% if site_lang == 'en' %}Ariella is not an airline or travel supplier. Prices, availability, baggage, change and cancellation terms are set by travel suppliers and may change at any time.{% else %}אריאלה אינה חברת תעופה ואינה ספקית תיירות. המחירים, הזמינות, תנאי הכבודה, השינוי והביטול נקבעים על ידי ספקי התיירות ועשויים להשתנות בכל עת.{% endif %}</div></section>{% endblock %}
+{% block site_disclaimer %}{% endblock %}
 {% block site_footer %}{% include "_site_footer.html" %}{% endblock %}
 <script>
 document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});
