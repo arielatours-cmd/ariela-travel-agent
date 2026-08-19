@@ -149,6 +149,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN search_period_ends_at TEXT")
         if "renewal_reminder_sent_at" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN renewal_reminder_sent_at TEXT")
+        if "has_paid_search" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN has_paid_search INTEGER NOT NULL DEFAULT 0")
 
         member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
         if "country" not in member_columns:

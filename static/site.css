@@ -998,3 +998,67 @@ html body header.site-header .account-menu-wrap > .account-dropdown{
 .ariella-legal-footer .footer-legal-btn:hover,.ariella-legal-footer .footer-legal-btn:focus{background:#c99a3f;color:#070707!important}
 .footer-copyright{margin-top:17px;text-align:center;color:#aaa;font-size:12px}
 @media(max-width:700px){.ariella-legal-footer{padding:20px 0 15px}.footer-legal-buttons{gap:8px}.ariella-legal-footer .footer-legal-btn{font-size:13px;padding:8px 12px;min-height:38px}}
+
+/* v9.5.6 — exact header geometry for every base-template page, including Deals */
+html body > .site-header{
+  box-sizing:border-box!important;
+  height:126px!important;
+  min-height:126px!important;
+  max-height:126px!important;
+  padding:0!important;
+  margin:0!important;
+  overflow:visible!important;
+}
+html body > .site-header > .header-inner{
+  box-sizing:border-box!important;
+  height:125px!important;
+  min-height:125px!important;
+  max-height:125px!important;
+  padding-top:0!important;
+  padding-bottom:0!important;
+  margin-top:0!important;
+  margin-bottom:0!important;
+}
+html body > main{margin-top:0!important}
+
+/* v9.5.7 — English only: keep Renew/Start search width identical when opened */
+html[lang="en"] .trip-controls{
+  width:300px!important;
+  min-width:300px!important;
+  max-width:300px!important;
+}
+html[lang="en"] .trip-controls .continue-search-box,
+html[lang="en"] .trip-controls .continue-search-title,
+html[lang="en"] .trip-controls .plan-options,
+html[lang="en"] .trip-controls .plan-options form,
+html[lang="en"] .trip-controls .plan-choice{
+  box-sizing:border-box!important;
+  width:300px!important;
+  min-width:300px!important;
+  max-width:300px!important;
+}
+html[lang="en"] .trip-controls .continue-search-box[open]{
+  width:300px!important;
+  min-width:300px!important;
+  max-width:300px!important;
+}
+html[lang="en"] .trip-controls .plan-choice{
+  overflow:hidden!important;
+}
+html[lang="en"] .trip-controls .plan-choice b{
+  max-width:118px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+@media(max-width:700px){
+  html[lang="en"] .trip-controls,
+  html[lang="en"] .trip-controls .continue-search-box,
+  html[lang="en"] .trip-controls .continue-search-title,
+  html[lang="en"] .trip-controls .plan-options,
+  html[lang="en"] .trip-controls .plan-options form,
+  html[lang="en"] .trip-controls .plan-choice{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+}

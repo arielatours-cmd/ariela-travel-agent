@@ -10,3 +10,13 @@
 - If the customer does nothing, search stops at expiry with no charge.
 - Mobile alerts are available only while a paid search period is active.
 - Payment integration must not mark a period active until Isracard confirms payment.
+
+## UI state flow
+1. New vacation submission triggers the initial free scan automatically.
+2. Results from that scan are displayed for the vacation.
+3. Before any paid search purchase, CTA = "התחל חיפוש" / "Start search".
+4. CTA opens the three paid frequency choices.
+5. After confirmed payment, the paid search is active and WhatsApp alerts toggle is available.
+6. If the customer has paid for this vacation before and the paid period is no longer active, CTA = "חדש חיפוש" / "Renew search".
+7. Renewal opens the same three frequency choices.
+8. WhatsApp alerts are never offered for the initial free scan; only for an active paid search.
