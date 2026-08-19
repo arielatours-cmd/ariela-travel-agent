@@ -1181,3 +1181,17 @@ html[lang="en"] .trip-controls .plan-choice b{
  .deal-reasons-footer{display:block}
  .deal-reasons-footer>div{margin-top:10px}
 }
+
+/* v9.6.8 — legal note above the common footer */
+.deals-legal-note{
+  background:#f7f0e4;
+  border-top:1px solid #e1d3ba;
+  padding:12px 0;
+}
+.deals-legal-note p{
+  margin:0;
+  text-align:center;
+  font-size:12px;
+  line-height:1.6;
+  color:#5f6570;
+}

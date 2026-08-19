@@ -102,7 +102,16 @@
 </div></section>
 {% if current_member %}<script>(function(){const tabs=document.querySelectorAll('.deals-tab'),panels=document.querySelectorAll('.deals-tab-panel');function activate(id){tabs.forEach(t=>{const a=t.dataset.tab===id;t.classList.toggle('is-active',a);t.setAttribute('aria-selected',a?'true':'false')});panels.forEach(p=>{const a=p.id===id;p.hidden=!a;p.classList.toggle('is-active',a)})}tabs.forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab)));document.querySelectorAll('.personal-vacation-header').forEach(header=>header.addEventListener('click',()=>{const body=header.nextElementSibling,willOpen=body.hidden;document.querySelectorAll('.personal-vacation-deals').forEach(x=>x.hidden=true);document.querySelectorAll('.personal-vacation-header').forEach(x=>x.setAttribute('aria-expanded','false'));body.hidden=!willOpen;header.setAttribute('aria-expanded',willOpen?'true':'false')}));document.querySelectorAll('.close-vacation-deals').forEach(btn=>btn.addEventListener('click',()=>{const body=btn.closest('.personal-vacation-deals');body.hidden=true;body.previousElementSibling.setAttribute('aria-expanded','false')}));if(location.hash.startsWith('#vacation-')){activate('personalDeals');const card=document.querySelector(location.hash);if(card){document.querySelectorAll('.personal-vacation-deals').forEach(x=>x.hidden=true);card.querySelector('.personal-vacation-deals').hidden=false;card.querySelector('.personal-vacation-header').setAttribute('aria-expanded','true');card.scrollIntoView({behavior:'smooth'})}}})();</script>{% endif %}
 {% endblock %}
-{% block site_disclaimer %}{% endblock %}{% block site_footer %}<footer class="deals-legal-footer"><div class="deals-shell"><p><strong>{{ 'E&OE.' if site_lang == 'en' else 'ט.ל.ח.' }}</strong> {% if site_lang == 'en' %}Prices, availability and ticket terms are set by the supplier and may change at any time. Ariella finds and presents deals and is not the seller of the tickets.{% else %}המחירים, הזמינות ותנאי הכרטיס נקבעים על ידי הספק ועשויים להשתנות בכל עת. אריאלה מאתרת ומציגה דילים ואינה הגורם המוכר את הכרטיסים.{% endif %}</p></div></footer><script>
+{% block site_disclaimer %}{% endblock %}{% block site_footer %}
+<section class="deals-legal-note">
+  <div class="deals-shell">
+    <p><strong>{{ 'E&OE.' if site_lang == 'en' else 'ט.ל.ח.' }}</strong>
+    {% if site_lang == 'en' %}Prices, availability and ticket terms are set by the supplier and may change at any time. Ariella finds and presents deals and is not the seller of the tickets.
+    {% else %}המחירים, הזמינות ותנאי הכרטיס נקבעים על ידי הספק ועשויים להשתנות בכל עת. אריאלה מאתרת ומציגה דילים ואינה הגורם המוכר את הכרטיסים.{% endif %}</p>
+  </div>
+</section>
+{% include "_site_footer.html" %}
+<script>
 (function(){
   const panel = document.getElementById('generalDeals');
   if(!panel) return;
