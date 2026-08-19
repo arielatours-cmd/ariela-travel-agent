@@ -346,3 +346,94 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
         "errors": errors,
         "error_messages": error_messages,
     }
+
+
+def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
+    """Run a targeted fresh search only after the database has no suitable customer deal."""
+    destinations = str(answers.get("destinations") or "").strip().lower()
+    destination_aliases = {
+        "רומא": "FCO", "rome": "FCO", "fco": "FCO",
+        "אתונה": "ATH", "athens": "ATH", "ath": "ATH",
+        "בודפשט": "BUD", "budapest": "BUD", "bud": "BUD",
+        "פראג": "PRG", "prague": "PRG", "prg": "PRG",
+        "וינה": "VIE", "vienna": "VIE", "vie": "VIE",
+        "מילאנו": "MXP", "milan": "MXP", "mxp": "MXP",
+    }
+    arrival = destination_aliases.get(destinations)
+    if not arrival:
+        return {"status": "unsupported_destination", "offers_found": 0, "api_requests": 0}
+
+    origins = [str(x).upper() for x in (answers.get("origin_airports") or DEPARTURE_AIRPORTS)]
+    date_mode = answers.get("date_mode")
+    jobs = []
+    if date_mode == "exact" and answers.get("departure_date") and answers.get("return_date"):
+        for origin in origins:
+            jobs.append({"departure": origin, "arrival": arrival, "outbound": answers["departure_date"], "return": answers["return_date"]})
+    else:
+        # Month search: a few representative windows, deliberately bounded to protect API quota.
+        month = str(answers.get("travel_month") or "")
+        if not month:
+            return {"status": "missing_dates", "offers_found": 0, "api_requests": 0}
+        first = datetime.strptime(month + "-01", "%Y-%m-%d").date()
+        starts = [first + timedelta(days=d) for d in (3, 10, 17, 24)]
+        for origin in origins:
+            for start in starts:
+                if start.month == first.month:
+                    jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": (start + timedelta(days=4)).isoformat()})
+
+    run_id = create_scan_run(len(jobs))
+    completed = offers_found = errors = api_requests = 0
+    messages = []
+    try:
+        for job in jobs:
+            try:
+                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
+                api_requests += int(result.get("api_requests") or 0)
+                completed += 1
+                scored = []
+                for flight in result["flights"]:
+                    if not flight.get("return_departure_time") or not flight.get("return_arrival_time"):
+                        continue
+                    analysis = dict(result["deal_analysis"])
+                    price = float(flight["price"])
+                    month_no = int(job["outbound"][5:7])
+                    history = price_history_reference(job["departure"], job["arrival"], month_no, price)
+                    analysis.update({
+                        "historical_sample_count": history["sample_count"],
+                        "historical_median": history["median"],
+                        "historical_percentile": history["percentile"],
+                    })
+                    candidates = []
+                    if isinstance(analysis.get("below_typical_low_percent"), (int, float)):
+                        candidates.append((analysis["below_typical_low_percent"], "serpapi_typical"))
+                    if isinstance(history.get("median"), (int, float)) and history["median"] > 0:
+                        candidates.append(((history["median"] - price) / history["median"] * 100, "history"))
+                    if isinstance(analysis.get("search_median"), (int, float)) and analysis["search_median"] > 0:
+                        candidates.append(((analysis["search_median"] - price) / analysis["search_median"] * 100, "search_distribution"))
+                    if candidates:
+                        discount, source = max(candidates, key=lambda x: x[0])
+                        analysis["best_discount_percent"] = round(discount, 1)
+                        analysis["price_reference_source"] = source
+                    score = calculate_deal_score(analysis, flight)
+                    if score["score"] >= 65:
+                        scored.append((score["score"], -price, flight, analysis, score))
+                if scored:
+                    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+                    _, _, flight, analysis, score = scored[0]
+                    insert_offer(run_id, {
+                        "observed_at": datetime.now(timezone.utc).isoformat(),
+                        "route": result["route"], "departure_code": job["departure"], "arrival_code": job["arrival"],
+                        "departure_airport_name": result["departure_airport_name"], "arrival_airport_name": result["arrival_airport_name"],
+                        "destination_name": destinations or arrival, "country_flag": "🇮🇹" if arrival == "FCO" else "",
+                        "outbound_date": job["outbound"], "return_date": job["return"],
+                        "outbound": result["outbound"], "return": result["return"],
+                        "deal_analysis": analysis, "flight": flight, "deal_score": score,
+                        "booking_url": result["booking_url"], "trip_id": trip_id,
+                    })
+                    offers_found += 1
+            except Exception as exc:
+                errors += 1
+                messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+    finally:
+        finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None)
+    return {"status": "success" if errors == 0 else "partial", "scan_run_id": run_id, "searches_completed": completed, "api_requests": api_requests, "offers_found": offers_found, "errors": errors}

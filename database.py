@@ -476,7 +476,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "cost_score": components.get("price"),
             "route_score": components.get("route"),
             "baggage_score": components.get("baggage"),
-            "hours_score": components.get("hours"),
+            "hours_score": components.get("time_value", components.get("hours")),
+            "time_value_score": components.get("time_value", components.get("hours", 0)),
             "rarity_score": components.get("rarity"),
             # The current scoring engine reserves one combined field and does not yet
             # calculate seasonality and reliability separately. Show honest zeroes.

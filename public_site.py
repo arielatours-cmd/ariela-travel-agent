@@ -14,6 +14,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH
 from database import recent_offers, save_feedback, utc_now_iso
+from scanner import run_customer_trip_search
 
 
 site = Blueprint("site", __name__)
@@ -105,31 +106,76 @@ def _expire_finished_trips(conn, member_id):
             )
 
 
-def _offer_matches_trip(offer, trip):
-    answers = trip.get("answers", {})
-    destinations = (answers.get("destinations") or "").strip().lower()
-    if destinations:
-        offer_destination = " ".join([
-            str(offer.get("destination_name") or ""),
-            str(offer.get("arrival_code") or ""),
-            str(offer.get("route") or ""),
-        ]).lower()
-        destination_terms = [x.strip() for x in destinations.replace("/", ",").split(",") if x.strip()]
-        if destination_terms and not any(term in offer_destination for term in destination_terms):
-            return False
+def _trip_destination_terms(trip):
+    destinations = str((trip.get("answers") or {}).get("destinations") or "").strip().lower()
+    if not destinations:
+        return []
+    aliases = {
+        "רומא": ["רומא", "rome", "fco", "cia"],
+        "rome": ["רומא", "rome", "fco", "cia"],
+        "אתונה": ["אתונה", "athens", "ath"],
+        "athens": ["אתונה", "athens", "ath"],
+        "בודפשט": ["בודפשט", "budapest", "bud"],
+        "budapest": ["בודפשט", "budapest", "bud"],
+        "פראג": ["פראג", "prague", "prg"],
+        "prague": ["פראג", "prague", "prg"],
+        "וינה": ["וינה", "vienna", "vie"],
+        "vienna": ["וינה", "vienna", "vie"],
+        "מילאנו": ["מילאנו", "milan", "mxp", "bgy", "lin"],
+        "milan": ["מילאנו", "milan", "mxp", "bgy", "lin"],
+    }
+    raw = [x.strip() for x in destinations.replace("/", ",").split(",") if x.strip()]
+    terms = []
+    for term in raw:
+        terms.extend(aliases.get(term, [term]))
+    return list(dict.fromkeys(terms))
 
-    date_mode = answers.get("date_mode")
+
+def _offer_destination_matches(offer, trip):
+    terms = _trip_destination_terms(trip)
+    if not terms:
+        return True
+    haystack = " ".join([
+        str(offer.get("destination_name") or ""),
+        str(offer.get("arrival_code") or ""),
+        str(offer.get("route") or ""),
+        str(offer.get("arrival_city_he") or ""),
+        str(offer.get("arrival_city_en") or ""),
+    ]).lower()
+    return any(term in haystack for term in terms)
+
+
+def _trip_requested_month(trip):
+    answers = trip.get("answers") or {}
+    if answers.get("date_mode") == "month":
+        return str(answers.get("travel_month") or "")[:7]
+    if answers.get("date_mode") == "exact":
+        return str(answers.get("departure_date") or "")[:7]
+    return ""
+
+
+def _offer_matches_trip(offer, trip, *, exact_dates=False, same_month=False):
+    answers = trip.get("answers", {})
+    if not _offer_destination_matches(offer, trip):
+        return False
+
+    origin_airports = [str(x).upper() for x in (answers.get("origin_airports") or []) if x]
+    if origin_airports and str(offer.get("departure_code") or "").upper() not in origin_airports:
+        return False
+
     outbound = str(offer.get("outbound_date") or "")
     inbound = str(offer.get("return_date") or "")
-    if date_mode == "exact":
-        departure_date = answers.get("departure_date") or ""
-        return_date = answers.get("return_date") or ""
-        if departure_date and outbound and outbound < departure_date:
+    if exact_dates and answers.get("date_mode") == "exact":
+        if outbound != str(answers.get("departure_date") or ""):
             return False
-        if return_date and inbound and inbound > return_date:
+        if inbound != str(answers.get("return_date") or ""):
             return False
-    elif date_mode == "month":
-        month = answers.get("travel_month") or ""
+    elif same_month:
+        month = _trip_requested_month(trip)
+        if month and not outbound.startswith(month):
+            return False
+    elif answers.get("date_mode") == "month":
+        month = str(answers.get("travel_month") or "")
         if month and outbound and not outbound.startswith(month):
             return False
 
@@ -137,11 +183,85 @@ def _offer_matches_trip(offer, trip):
     budget_amount = answers.get("budget_amount")
     if budget_mode == "per_person" and budget_amount:
         try:
-            if float(offer.get("price_ils") or 0) > float(budget_amount):
+            # Alternatives may be slightly above the user's target; do not hide a
+            # materially better schedule for a tiny overage. Exact matches stay strict.
+            multiplier = 1.0 if exact_dates else 1.10
+            if float(offer.get("price_ils") or 0) > float(budget_amount) * multiplier:
                 return False
         except (TypeError, ValueError):
             pass
     return True
+
+
+def _offer_signature(offer):
+    return (
+        offer.get("departure_code"), offer.get("arrival_code"),
+        offer.get("outbound_date"), offer.get("return_date"),
+        offer.get("airline"), offer.get("departure_time"),
+        offer.get("return_airline"), offer.get("return_departure_time"),
+    )
+
+
+def _customer_deal_choices(all_offers, trip, limit=5):
+    """Database-first selection: exact request first, then valuable same-month alternatives."""
+    # Never surface weak inventory merely because it exists.
+    qualified = [o for o in all_offers if int(o.get("score") or 0) >= 65]
+
+    exact = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]
+    same_month = [o for o in qualified if _offer_matches_trip(o, trip, same_month=True)]
+
+    exact.sort(key=lambda o: (-int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
+    same_month.sort(key=lambda o: (-int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
+
+    selected = []
+    seen = set()
+
+    def add(offer, label_he, label_en):
+        sig = _offer_signature(offer)
+        if sig in seen or len(selected) >= limit:
+            return
+        copy = dict(offer)
+        copy["customer_choice_label_he"] = label_he
+        copy["customer_choice_label_en"] = label_en
+        selected.append(copy)
+        seen.add(sig)
+
+    # 1. Ariella's best match to the exact request.
+    if exact:
+        add(exact[0], "הבחירה של אריאלה", "Ariella's choice")
+
+    # Candidate pool excludes the exact winner but can include other exact options.
+    pool = [o for o in same_month if _offer_signature(o) not in seen]
+
+    # 2. Cheapest worthwhile option.
+    if pool:
+        cheapest = min(pool, key=lambda o: (float(o.get("price_ils") or 10**9), -int(o.get("score") or 0)))
+        add(cheapest, "הכי משתלם", "Best value")
+
+    # 3. Best usable-time/schedule option using the combined score already calculated.
+    pool2 = [o for o in pool if _offer_signature(o) not in seen]
+    if pool2:
+        best_time = max(pool2, key=lambda o: (int(o.get("time_value_score") or 0), int(o.get("score") or 0)))
+        add(best_time, "הכי הרבה זמן ביעד", "Most time at destination")
+
+    # 4. Strongest different-date option in the same month.
+    pool3 = [o for o in pool2 if _offer_signature(o) not in seen]
+    answers = trip.get("answers") or {}
+    requested_out = str(answers.get("departure_date") or "")
+    different = [o for o in pool3 if not requested_out or str(o.get("outbound_date") or "") != requested_out]
+    if different:
+        add(different[0], "שווה לשקול תאריכים אחרים", "Worth considering different dates")
+
+    # 5. Fill only with other qualified, non-duplicate options.
+    for offer in pool3:
+        add(offer, "אפשרות נוספת ששווה לשקול", "Another option worth considering")
+
+    # If the user chose a month rather than exact dates, the top ranked option is the choice.
+    if not exact and selected:
+        selected[0]["customer_choice_label_he"] = "הבחירה של אריאלה"
+        selected[0]["customer_choice_label_en"] = "Ariella's choice"
+
+    return selected[:limit]
 
 
 @site.app_context_processor
@@ -196,14 +316,13 @@ def deals():
                 (session["member_id"],),
             ).fetchall()
             conn.commit()
+        # Database first: include a deeper recent inventory than the public general-deals list.
+        database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=500, minimum_score=None)]
         for row in rows:
             trip = _trip_dict(row)
-            # Personal vacations must show only offers produced for that exact trip.
-            # General Ariella deals are intentionally not recycled into "My Vacations".
-            trip["offers"] = [
-                offer for offer in offers
-                if offer.get("trip_id") == trip.get("id") and _offer_matches_trip(offer, trip)
-            ]
+            trip["offers"] = _customer_deal_choices(database_offers, trip, limit=5)
+            trip["database_match_found"] = bool(trip["offers"])
+            trip["needs_fresh_search"] = not bool(trip["offers"])
             personal_trips.append(trip)
     return render_template("deals.html", offers=offers, personal_trips=personal_trips)
 
@@ -449,6 +568,32 @@ def toggle_trip_notifications(trip_id):
     return redirect(url_for("site.account"))
 
 
+
+
+@site.post("/trip/<int:trip_id>/search-now")
+@login_required
+def search_trip_now(trip_id):
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=? AND status='active'",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if row is None:
+        return redirect(url_for("site.deals") + "#personalDeals")
+    trip = _trip_dict(row)
+
+    # Check the database again immediately before spending API quota.
+    database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=500, minimum_score=None)]
+    if _customer_deal_choices(database_offers, trip, limit=5):
+        flash(_msg("מצאתי דילים מתאימים במאגר — לא בוצעה סריקת אינטרנט נוספת.", "Suitable database deals were found — no extra web scan was used."), "success")
+        return redirect(url_for("site.deals") + f"#vacation-{trip_id}")
+
+    result = run_customer_trip_search(trip_id, trip.get("answers") or {})
+    if result.get("offers_found"):
+        flash(_msg("הסריקה הסתיימה ונמצאו אפשרויות חדשות לחופשה.", "The scan finished and new vacation options were found."), "success")
+    else:
+        flash(_msg("הסריקה הסתיימה, אך עדיין לא נמצא דיל שעובר את סף האיכות.", "The scan finished, but no deal passed Ariella's quality threshold yet."), "info")
+    return redirect(url_for("site.deals") + f"#vacation-{trip_id}")
 
 
 @site.post("/trip/<int:trip_id>/renew-search")
