@@ -1477,3 +1477,10 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
 .trip-questionnaire-hero .eyebrow{font-size:16px!important;line-height:1.35;font-weight:700;letter-spacing:.08em}
 .account-trip-deals{margin:14px 0 34px}
 .account-trip-deals .ariella-deals-list{margin-top:0}
+
+/* v9.7.18 — personal deals are the content, not a counter */
+.personal-vacation-header.static{cursor:default!important;display:flex!important;justify-content:flex-start!important}
+.personal-vacation-header.static::after{display:none!important}
+.personal-vacation-deals{display:block!important}
+.personal-vacation-deals[hidden]{display:block!important}
+.personal-vacation{padding-bottom:18px}
