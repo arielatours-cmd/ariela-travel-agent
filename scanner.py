@@ -2,7 +2,6 @@ import itertools
 import os
 from datetime import date, datetime, timedelta, timezone
 import requests
-from urllib.parse import quote_plus
 
 from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
@@ -105,14 +104,6 @@ def _serpapi_request(params: dict) -> dict:
     return data
 
 
-def _roundtrip_google_url(departure: str, arrival: str, outbound_date: str, return_date: str) -> str:
-    # Always open a fresh full round-trip Google Flights search.  We deliberately
-    # do not reuse the tokenized second-stage URL because that URL opens at
-    # "Choose return flight".
-    query = f"Flights from {departure} to {arrival} on {outbound_date} return {return_date}"
-    return f"https://www.google.com/travel/flights?hl=he&curr=ILS&q={quote_plus(query)}"
-
-
 def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_date: str) -> dict:
     return {
         "engine": "google_flights",
@@ -164,7 +155,7 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
             "return": _date_with_weekday(return_date),
             "deal_analysis": _deal_analysis(outbound_data, []),
             "flights": [],
-            "booking_url": _roundtrip_google_url(departure, arrival, outbound_date, return_date),
+            "booking_url": (outbound_data.get("search_metadata") or {}).get("google_flights_url"),
             "api_requests": 1,
         }
 
@@ -215,7 +206,7 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
         "return": _date_with_weekday(return_date),
         "deal_analysis": analysis,
         "flights": complete,
-        "booking_url": _roundtrip_google_url(departure, arrival, outbound_date, return_date),
+        "booking_url": outbound_metadata.get("google_flights_url"),
         "api_requests": 2,
     }
 

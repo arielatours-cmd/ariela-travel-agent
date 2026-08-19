@@ -21,7 +21,7 @@ DESTINATION_LANDMARK_IMAGES = {
 
 
 def _full_roundtrip_google_url(departure: str, arrival: str, outbound_date: str, return_date: str) -> str:
-    """Create a fresh Google Flights round-trip search URL, never a return-stage URL."""
+    """Build a fresh Google Flights round-trip search, never a return-stage link."""
     query = f"round trip flights from {departure} to {arrival} departing {outbound_date} returning {return_date}"
     return "https://www.google.com/travel/flights?hl=he&curr=ILS&q=" + quote_plus(query)
 
@@ -338,6 +338,12 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             return replacements.get(text, text)
 
         display_reasons = [_reason_label(reason) for reason in reasons if _reason_label(reason)]
+        display_reasons = [
+            reason for reason in display_reasons
+            if "טרם חושב" not in reason
+            and "not calculated" not in reason.lower()
+            and not ("עונתיות" in reason and ("0+" in reason or "0" == reason.strip()))
+        ]
 
         # Never show history/rarity copy unless there is enough actual stored
         # route history to support it.
@@ -423,9 +429,9 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "return_display": return_trip.get("display_he"),
             "return_departure_time": flight.get("return_departure_time"),
             "return_arrival_time": flight.get("return_arrival_time"),
-            "return_total_duration_minutes": flight.get("return_total_duration_minutes"),
             "return_stops": flight.get("return_stops"),
             "return_connections": flight.get("return_connections") or [],
+            "return_total_duration_minutes": flight.get("return_total_duration_minutes"),
             "has_price_history": has_price_history,
             "connections": connections,
             "baggage": {

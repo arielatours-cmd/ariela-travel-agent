@@ -98,6 +98,7 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
         reasons.append(f"נדירות היסטורית (אחוזון {percentile:.0f}): +{rarity}")
     else:
         rarity = 0
+        reasons.append("עדיין אין מספיק היסטוריה למדד נדירות: +0")
     components["rarity"] = rarity
     score += rarity
 
@@ -127,6 +128,7 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     # 5 נקודות שמורות לעונתיות/איכות חברת תעופה כשיהיו נתונים אמינים.
     quality_points = 0
     components["season_airline"] = quality_points
+    reasons.append("עונתיות ואיכות חברת תעופה: טרם חושב +0")
 
     score = min(100, score)
     label = "דיל חריג במיוחד" if score >= 85 else "דיל מצוין" if score >= 70 else "דיל טוב" if score >= 55 else "לא לשלוח"
