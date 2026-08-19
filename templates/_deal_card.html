@@ -7,7 +7,6 @@
 {%- endmacro %}
 {% macro deal_card(offer, lang='he') -%}
 {% set stops=offer.stops or 0 %}{% set rt=offer.return_departure_time %}
-{% if rt %}
 <article class="ariella-deal-card deal-card-v970 {{ 'deal-he' if lang=='he' else 'deal-en' }}" dir="{{ 'rtl' if lang=='he' else 'ltr' }}"
  data-origin="{{ offer.departure_code or '' }}" data-destination="{{ offer.arrival_code or '' }}"
  data-outbound="{{ offer.outbound_date or '' }}" data-return="{{ offer.return_date or '' }}"
@@ -111,5 +110,4 @@
  {% endfor %}
  {% if visible %}<footer class="deal-reasons-footer"><strong class="deal-reasons-title">{{ 'Why Ariella selected this deal' if lang=='en' else 'למה אריאלה בחרה את הדיל' }}</strong><div>{% for reason in visible %}<span>{{ reason }}</span>{% if not loop.last %}<i></i>{% endif %}{% endfor %}</div></footer>{% endif %}
 </article>
-{% endif %}
 {%- endmacro %}
