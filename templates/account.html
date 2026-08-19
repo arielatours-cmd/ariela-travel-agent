@@ -46,7 +46,9 @@ function confirmSearchToggle(form, status) {
       <div class="trip-main-details">
         <div class="trip-title-line">
           <h3>{% if site_lang == 'en' and trip.request_name == 'הצעות של אריאלה' %}Ariella's Suggestions{% else %}{{ trip.request_name }}{% endif %}</h3>
-          <span class="search-status {{ 'is-active' if trip.status == 'active' else 'is-ended' }}">{{ ('Active' if trip.status == 'active' else 'Ended') if site_lang == 'en' else ('פעיל' if trip.status == 'active' else 'הסתיים') }}</span>
+          {% set paid_before = trip.has_paid_search or trip.subscription_started_at or trip.search_period_started_at %}
+          {% set paid_active = trip.subscription_status == 'active' and paid_before %}
+          <span class="search-status {{ 'is-active' if paid_active else 'is-ended' }}">{% if paid_active %}{{ 'Active' if site_lang == 'en' else 'פעיל' }}{% elif paid_before %}{{ 'Ended' if site_lang == 'en' else 'הסתיים' }}{% else %}{{ 'Initial scan' if site_lang == 'en' else 'סריקה ראשונית' }}{% endif %}</span>
         </div>
         <dl class="trip-details-list">
           <div><dt>{{ 'Vacation dates' if site_lang == 'en' else 'תאריכי החופשה' }}</dt><dd>{{ trip.travel_window or ('Flexible dates' if site_lang == 'en' else 'התאריכים גמישים') }}</dd></div>
@@ -99,7 +101,6 @@ function confirmSearchToggle(form, status) {
             </div>
           </details>
         {% endif %}
-      </div>
       </div>
     </article>
   {% endfor %}

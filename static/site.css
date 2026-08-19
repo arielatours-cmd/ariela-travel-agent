@@ -1123,3 +1123,24 @@ html[lang="en"] .trip-controls .plan-choice b{
 .trip-controls .continue-search-box,
 .trip-controls .plan-options,
 .trip-controls .plan-choice{box-sizing:border-box!important}
+
+/* v9.6.2 — all vacation cards stay inside the same centered account shell */
+.account-trips-section > .shell{
+  width:min(1180px,92%)!important;
+  max-width:1180px!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+.account-trips-section .trip-list{
+  width:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+}
+.account-trips-section .trip-row.trip-management-card{
+  box-sizing:border-box!important;
+  width:100%!important;
+  max-width:100%!important;
+  margin-left:0!important;
+  margin-right:0!important;
+}
