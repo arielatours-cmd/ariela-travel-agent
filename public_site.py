@@ -65,6 +65,19 @@ def _current_member():
         member["preferred_airports_list"] = json.loads(member.get("preferred_airports") or "[]")
     except (TypeError, json.JSONDecodeError):
         member["preferred_airports_list"] = []
+
+    # Country-based defaults for a new vacation. Explicit member preferences win.
+    country_key = str(member.get("country") or "").strip().lower()
+    country_defaults = {
+        "israel": ["TLV", "HFA"],
+        "ישראל": ["TLV", "HFA"],
+        "il": ["TLV", "HFA"],
+    }
+    member["vacation_default_airports"] = (
+        member["preferred_airports_list"]
+        if member["preferred_airports_list"]
+        else country_defaults.get(country_key, [])
+    )
     return member
 
 

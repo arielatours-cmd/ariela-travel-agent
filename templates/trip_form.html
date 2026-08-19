@@ -10,19 +10,17 @@
 
 <form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
   <div class="trip-origin-defaults">
-    <details>
-      <summary>{{ 'Change departure airports for this vacation' if site_lang == 'en' else 'שינוי שדות מוצא לחופשה הזו' }}</summary>
-      <div class="airport-picker origin-airport-picker"
-           data-airport-picker
-           data-origin-picker
-           data-default-airports="{{ (current_member.preferred_airports_list or [])|join(',') }}">
-        <div class="airport-tags"></div>
-        <input class="airport-search" type="text" autocomplete="off"
-               placeholder="{{ 'Search city, country, airport or IATA code…' if site_lang == 'en' else 'חפשו עיר, מדינה, שדה תעופה או קוד IATA…' }}">
-        <div class="airport-suggestions" hidden></div>
-        <input type="hidden" name="origin_airports" class="airport-values">
-      </div>
-    </details>
+    <div class="origin-default-heading">{{ 'Departure airports for this vacation' if site_lang == 'en' else 'שדות מוצא לחופשה הזו' }}</div>
+    <div class="airport-picker origin-airport-picker"
+         data-airport-picker
+         data-origin-picker
+         data-default-airports="{{ (current_member.vacation_default_airports or [])|join(',') }}">
+      <div class="airport-tags"></div>
+      <input class="airport-search" type="text" autocomplete="off"
+             placeholder="{{ 'Add another city, country, airport or IATA code…' if site_lang == 'en' else 'הוסיפו עיר, מדינה, שדה תעופה או קוד IATA…' }}">
+      <div class="airport-suggestions" hidden></div>
+      <input type="hidden" name="origin_airports" class="airport-values">
+    </div>
   </div>
   <div class="wizard-progress" aria-label="{{ 'Questionnaire progress' if site_lang == 'en' else 'התקדמות בשאלון' }}">
     <div class="wizard-progress-bar" id="wizardProgressBar"></div>

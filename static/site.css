@@ -1464,3 +1464,11 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
 .supplier-summary .direct-compare{color:#5e6673;margin-top:3px}
 .supplier-summary .supplier-note{color:#9a6b14;margin-top:4px}
 .bag-price{font-size:11px!important;line-height:1.25;color:#9a6b14;font-weight:700}
+
+/* v9.7.16 — visible country-based departure defaults */
+.trip-origin-defaults{padding:14px 18px!important}
+.origin-default-heading{font-size:13px;font-weight:700;color:#a86f13;margin-bottom:8px}
+.origin-airport-picker .airport-tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.origin-airport-picker .airport-tag{display:inline-flex;align-items:center;gap:8px;border:1px solid #d59b35;border-radius:999px;padding:7px 10px;background:#fff;font-size:13px}
+.origin-airport-picker .airport-tag button{border:0;background:transparent;font-size:17px;line-height:1;cursor:pointer;padding:0 2px}
+.origin-airport-picker .airport-search{max-width:420px}

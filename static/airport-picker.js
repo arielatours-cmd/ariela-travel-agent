@@ -65,12 +65,9 @@
           remove.setAttribute('aria-label',lang==='en'?'Remove airport':'הסרת שדה תעופה');
           remove.onclick=()=>{
             selected=selected.filter(x=>x!==code);
+            /* A manual X means the customer is editing the default set.
+               Never silently restore a removed airport. */
             usingDefaults=false;
-            /* If user removes every custom choice, restore account defaults. */
-            if(isOrigin && selected.length===0 && defaultCodes.length){
-              selected=[...defaultCodes];
-              usingDefaults=true;
-            }
             render();
           };
           tag.appendChild(remove);
