@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.7.6-safe-rebuild-from-9.7.2"
+APP_VERSION = "9.7.7-review-fixes"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
