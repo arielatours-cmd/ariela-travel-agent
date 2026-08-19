@@ -55,7 +55,7 @@ def _summarize_flight(item: dict) -> dict:
             "departure_airport": rdep.get("id"),
         }
     return {
-        "price": item.get("price"), "airline": first.get("airline"), "flight_number": first.get("flight_number"),
+        "price": item.get("price"), "airline": first.get("airline"), "airline_logo": first.get("airline_logo"), "flight_number": first.get("flight_number"),
         "departure_airport": dep.get("id"), "departure_airport_name": AIRPORT_NAMES.get(dep.get("id"), dep.get("id")),
         "departure_time": dep.get("time"), "arrival_airport": arr.get("id"),
         "arrival_airport_name": AIRPORT_NAMES.get(arr.get("id"), arr.get("id")), "arrival_time": arr.get("time"),
@@ -128,74 +128,57 @@ def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_d
 
 
 def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str) -> dict:
-    """Fetch one complete round-trip deal using the documented two-step flow.
+    """Evaluate every outbound/return combination returned by Google Flights.
 
-    API request 1 returns outbound choices with departure_token.
-    We pick the cheapest viable outbound only.
-    API request 2 uses that departure_token to retrieve the return choices.
-    Only a result with a real return departure time is returned.
+    First request gets all outbound choices. Each unique departure_token is then
+    expanded to its return choices. We keep every complete combination so the
+    caller can score the FULL round trip before choosing a winner.
     """
     params = _roundtrip_params(departure, arrival, outbound_date, return_date)
     outbound_data = _serpapi_request(params)
+    api_requests = 1
 
     outbound_items = (outbound_data.get("best_flights") or []) + (outbound_data.get("other_flights") or [])
-    outbound_items = [
-        f for f in outbound_items
-        if isinstance(f.get("price"), (int, float)) and f.get("departure_token")
-    ]
-    outbound_items.sort(key=lambda f: f["price"])
-    if not outbound_items:
-        return {
-            "route": f"{departure}-{arrival}",
-            "departure_code": departure,
-            "arrival_code": arrival,
-            "departure_airport_name": AIRPORT_NAMES.get(departure, departure),
-            "arrival_airport_name": AIRPORT_NAMES.get(arrival, arrival),
-            "outbound": _date_with_weekday(outbound_date),
-            "return": _date_with_weekday(return_date),
-            "deal_analysis": _deal_analysis(outbound_data, []),
-            "flights": [],
-            "booking_url": (outbound_data.get("search_metadata") or {}).get("google_flights_url"),
-            "api_requests": 1,
-        }
+    outbound_items = [f for f in outbound_items if isinstance(f.get("price"), (int, float)) and f.get("departure_token")]
 
-    outbound_item = outbound_items[0]
-    outbound_summary = _summarize_flight(outbound_item)
-
-    return_params = dict(params)
-    return_params["departure_token"] = outbound_item["departure_token"]
-    return_data = _serpapi_request(return_params)
-    return_items = (return_data.get("best_flights") or []) + (return_data.get("other_flights") or [])
-    return_items = [f for f in return_items if isinstance(f.get("price"), (int, float))]
-    return_items.sort(key=lambda f: f["price"])
+    # Deduplicate identical tokens while preserving Google's ranking.
+    seen = set()
+    unique_outbounds = []
+    for item in outbound_items:
+        token = item.get("departure_token")
+        if token in seen:
+            continue
+        seen.add(token)
+        unique_outbounds.append(item)
 
     complete = []
-    if return_items:
-        inbound_item = return_items[0]
-        inbound_summary = _summarize_flight(inbound_item)
-        return_time = inbound_summary.get("departure_time")
-        if return_time:
-            # Price returned after selecting the outbound is the complete itinerary
-            # price when supplied by Google Flights; fall back to the outbound price.
-            combined_price = inbound_item.get("price")
-            if not isinstance(combined_price, (int, float)):
-                combined_price = outbound_item.get("price")
-            outbound_summary["price"] = combined_price
-            outbound_summary["return_departure_time"] = return_time
-            outbound_summary["return_arrival_time"] = inbound_summary.get("arrival_time")
-            outbound_summary["return_airline"] = inbound_summary.get("airline")
-            outbound_summary["return_stops"] = inbound_summary.get("stops")
-            outbound_summary["return_connections"] = inbound_summary.get("connections") or []
-            outbound_summary["return_total_duration_minutes"] = inbound_summary.get("total_duration_minutes")
-            outbound_summary["booking_token"] = inbound_item.get("booking_token")
-            complete.append(outbound_summary)
+    for outbound_item in unique_outbounds:
+        outbound_summary = _summarize_flight(outbound_item)
+        return_params = dict(params)
+        return_params["departure_token"] = outbound_item["departure_token"]
+        return_data = _serpapi_request(return_params)
+        api_requests += 1
+        return_items = (return_data.get("best_flights") or []) + (return_data.get("other_flights") or [])
+        for inbound_item in return_items:
+            if not isinstance(inbound_item.get("price"), (int, float)):
+                continue
+            inbound_summary = _summarize_flight(inbound_item)
+            if not inbound_summary.get("departure_time") or not inbound_summary.get("arrival_time"):
+                continue
+            combo = dict(outbound_summary)
+            combo["price"] = inbound_item.get("price")
+            combo["return_departure_time"] = inbound_summary.get("departure_time")
+            combo["return_arrival_time"] = inbound_summary.get("arrival_time")
+            combo["return_airline"] = inbound_summary.get("airline")
+            combo["return_airline_logo"] = inbound_summary.get("airline_logo")
+            combo["return_stops"] = inbound_summary.get("stops")
+            combo["return_connections"] = inbound_summary.get("connections") or []
+            combo["return_total_duration_minutes"] = inbound_summary.get("total_duration_minutes")
+            combo["booking_token"] = inbound_item.get("booking_token")
+            complete.append(combo)
 
-    all_prices = [f.get("price") for f in outbound_items if isinstance(f.get("price"), (int, float))]
-    analysis = _deal_analysis(outbound_data, all_prices)
-    # IMPORTANT: the return-stage google_flights_url opens Google Flights at
-    # "Choose return flight" and therefore looks like a return-only link.
-    # Keep the original round-trip search URL from the first request instead.
-    outbound_metadata = outbound_data.get("search_metadata") or {}
+    combo_prices = [f.get("price") for f in complete if isinstance(f.get("price"), (int, float))]
+    analysis = _deal_analysis(outbound_data, combo_prices)
     return {
         "route": f"{departure}-{arrival}",
         "departure_code": departure,
@@ -206,10 +189,11 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
         "return": _date_with_weekday(return_date),
         "deal_analysis": analysis,
         "flights": complete,
-        "booking_url": outbound_metadata.get("google_flights_url"),
-        "api_requests": 2,
+        "booking_url": (outbound_data.get("search_metadata") or {}).get("google_flights_url"),
+        "api_requests": api_requests,
+        "combinations_checked": len(complete),
+        "outbounds_checked": len(unique_outbounds),
     }
-
 
 def _all_search_jobs() -> list[dict]:
     today = date.today()
@@ -248,10 +232,10 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
                 api_requests += int(result.get("api_requests") or 0)
                 completed += 1
 
-                # The two-stage search deliberately keeps only one complete itinerary
-                # per route/date job to avoid spending extra SerpApi calls on returns.
+                # Score COMPLETE round-trip combinations first; publish only the winner.
+                scored_combinations = []
                 for flight in result["flights"]:
-                    if not flight.get("return_departure_time"):
+                    if not flight.get("return_departure_time") or not flight.get("return_arrival_time"):
                         continue
 
                     analysis = dict(result["deal_analysis"])
@@ -276,6 +260,13 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
                         analysis["price_reference_source"] = source
 
                     score = calculate_deal_score(analysis, flight)
+                    scored_combinations.append((score["score"], -price, flight, analysis, score))
+
+                if scored_combinations:
+                    scored_combinations.sort(key=lambda x: (x[0], x[1]), reverse=True)
+                    _, _, flight, analysis, score = scored_combinations[0]
+                    analysis["combinations_checked"] = result.get("combinations_checked", len(scored_combinations))
+                    analysis["outbounds_checked"] = result.get("outbounds_checked")
                     offer = {
                         "observed_at": datetime.now(timezone.utc).isoformat(),
                         "route": result["route"],

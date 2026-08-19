@@ -58,10 +58,10 @@
       <span>{{ 'Departure time' if site_lang == 'en' else 'שעת יציאה' }}</span>
       <select id="filterTime">
         <option value="">{{ 'Any' if site_lang == 'en' else 'הכל' }}</option>
-        <option value="morning">{{ 'Morning' if site_lang == 'en' else 'בוקר' }}</option>
-        <option value="afternoon">{{ 'Afternoon' if site_lang == 'en' else 'צהריים' }}</option>
-        <option value="evening">{{ 'Evening' if site_lang == 'en' else 'ערב' }}</option>
-        <option value="night">{{ 'Night' if site_lang == 'en' else 'לילה' }}</option>
+        <option value="morning">{{ 'Morning 05:00–11:59' if site_lang == 'en' else 'בוקר 05:00–11:59' }}</option>
+        <option value="afternoon">{{ 'Afternoon 12:00–16:59' if site_lang == 'en' else 'צהריים 12:00–16:59' }}</option>
+        <option value="evening">{{ 'Evening 17:00–21:59' if site_lang == 'en' else 'ערב 17:00–21:59' }}</option>
+        <option value="night">{{ 'Night 22:00–04:59' if site_lang == 'en' else 'לילה 22:00–04:59' }}</option>
       </select>
     </label>
     <label>

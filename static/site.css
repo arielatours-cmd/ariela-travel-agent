@@ -1392,3 +1392,8 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
   text-align:left!important;
   padding-left:8px!important
 }
+
+/* v9.7.9 airline identity + clearer time labels */
+.deal-card-v970 .leg-airline{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;margin-top:-2px}
+.deal-card-v970 .leg-airline img{width:24px;height:24px;object-fit:contain;border-radius:4px}
+.deal-card-v970 .time-node small{font-size:15px!important;font-weight:800!important;margin-bottom:3px!important}
