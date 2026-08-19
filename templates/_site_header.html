@@ -28,9 +28,11 @@
     </nav>
 
     <div class="account-menu-wrap">
-      <button class="account account-menu-button" id="accountMenuButton" type="button" aria-expanded="false" aria-controls="accountMenu">
-        {{ '✦ My Ariella' if site_lang == 'en' else 'אריאלה שלי ✦' }}
-      </button>
+      <button class="account account-menu-button" id="accountMenuButton" type="button" aria-expanded="false" aria-controls="accountMenu">{% if site_lang == 'he' %}
+          <span class="myariella-label myariella-he"><span class="myariella-star">✦</span><span class="myariella-text">אריאלה שלי</span></span>
+        {% else %}
+          <span class="myariella-label myariella-en"><span class="myariella-text">My Ariella</span><span class="myariella-star">✦</span></span>
+        {% endif %}</button>
       <div class="account-dropdown" id="accountMenu" hidden>
         {% if current_member %}
           <a href="{{ url_for('site.deals', lang=site_lang) }}">{{ 'Deals Ariella Found' if site_lang == 'en' else 'הדילים של אריאלה' }}</a>

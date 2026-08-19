@@ -529,6 +529,22 @@ def privacy():
     return render_template("privacy.html")
 
 
+@site.get("/cookies")
+def cookies():
+    return render_template("cookies.html")
+
+@site.get("/affiliate-disclosure")
+def affiliates():
+    return render_template("affiliates.html")
+
+@site.get("/accessibility")
+def accessibility():
+    return render_template("accessibility.html")
+
+@site.get("/contact")
+def contact():
+    return render_template("contact.html")
+
 @site.get("/terms")
 def terms():
     return render_template("terms.html")
