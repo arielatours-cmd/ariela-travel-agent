@@ -46,6 +46,7 @@
       const defaultCodes=isOrigin ? codesFrom(p.dataset.defaultAirports) : [];
       let selected=codesFrom(hidden.value);
       let usingDefaults=isOrigin && selected.length===0 && defaultCodes.length>0;
+      let replacedDefaults=false;
 
       if(usingDefaults){
         selected=[...defaultCodes];
@@ -64,10 +65,17 @@
           remove.textContent='×';
           remove.setAttribute('aria-label',lang==='en'?'Remove airport':'הסרת שדה תעופה');
           remove.onclick=()=>{
+            const removingReplacement = isOrigin && replacedDefaults && !defaultCodes.includes(code);
             selected=selected.filter(x=>x!==code);
-            /* A manual X means the customer is editing the default set.
-               Never silently restore a removed airport. */
             usingDefaults=false;
+            /* If a manually selected replacement (e.g. Milan) is removed and nothing
+               remains, return to the customer's country defaults. Removing TLV/HFA
+               themselves is still treated as an intentional edit and is not undone. */
+            if(removingReplacement && selected.length===0 && defaultCodes.length){
+              selected=[...defaultCodes];
+              usingDefaults=true;
+              replacedDefaults=false;
+            }
             render();
           };
           tag.appendChild(remove);
@@ -99,6 +107,7 @@
             if(isOrigin && usingDefaults){
               selected=[];
               usingDefaults=false;
+              replacedDefaults=true;
             }
             if(!selected.includes(a.code)) selected.push(a.code);
             search.value='';

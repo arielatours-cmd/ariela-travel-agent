@@ -549,8 +549,12 @@ def account():
         _expire_finished_trips(conn, member_id)
         rows = conn.execute("SELECT * FROM trip_requests WHERE member_id=? ORDER BY id DESC", (member_id,)).fetchall()
         conn.commit()
+    trips = [_trip_dict(row) for row in rows]
+    database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=500, minimum_score=None)]
+    for trip in trips:
+        trip["offers"] = _customer_deal_choices(database_offers, trip, limit=5)
     return render_template(
-        "account.html", member=dict(member_row), trips=[_trip_dict(row) for row in rows],
+        "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
     )
 

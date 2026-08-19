@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% from "_deal_card.html" import deal_card %}
 {% block title %}{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}
 <script>
 function confirmSearchToggle(form, status) {
@@ -64,8 +64,6 @@ function confirmSearchToggle(form, status) {
         </dl>
       </div>
       <div class="trip-controls">
-        <a class="button secondary trip-action" href="{{ url_for('site.deals', lang=site_lang) }}#vacation-{{ trip.id }}">{{ 'View deals' if site_lang == 'en' else 'הצגת הדילים' }}</a>
-
         {% set paid_before = trip.has_paid_search or trip.subscription_started_at or trip.search_period_started_at %}
         {% if trip.subscription_status == 'active' and paid_before %}
           <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}" onsubmit="return confirmSearchToggle(this, 'active');">
@@ -103,6 +101,15 @@ function confirmSearchToggle(form, status) {
         {% endif %}
       </div>
     </article>
+    {% if trip.offers %}
+      <div class="account-trip-deals" aria-label="{{ 'Matching deals' if site_lang == 'en' else 'דילים מתאימים' }}">
+        <div class="ariella-deals-list">
+          {% for offer in trip.offers %}
+            {{ deal_card(offer,site_lang) }}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
   {% endfor %}
   </div>
 </div></section>

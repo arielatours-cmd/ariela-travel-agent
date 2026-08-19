@@ -1472,3 +1472,8 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
 .origin-airport-picker .airport-tag{display:inline-flex;align-items:center;gap:8px;border:1px solid #d59b35;border-radius:999px;padding:7px 10px;background:#fff;font-size:13px}
 .origin-airport-picker .airport-tag button{border:0;background:transparent;font-size:17px;line-height:1;cursor:pointer;padding:0 2px}
 .origin-airport-picker .airport-search{max-width:420px}
+
+/* v9.7.17 — customer vacation deals + questionnaire readability */
+.trip-questionnaire-hero .eyebrow{font-size:16px!important;line-height:1.35;font-weight:700;letter-spacing:.08em}
+.account-trip-deals{margin:14px 0 34px}
+.account-trip-deals .ariella-deals-list{margin-top:0}
