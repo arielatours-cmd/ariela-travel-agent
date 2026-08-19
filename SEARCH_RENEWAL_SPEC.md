@@ -20,3 +20,9 @@
 6. If the customer has paid for this vacation before and the paid period is no longer active, CTA = "חדש חיפוש" / "Renew search".
 7. Renewal opens the same three frequency choices.
 8. WhatsApp alerts are never offered for the initial free scan; only for an active paid search.
+
+## Button state clarification — v9.6.0
+- Never show "Search again" and "End search" at the same time.
+- Before a paid search is active: show "Search again"; opening it reveals the three paid frequency options.
+- After payment is confirmed and the paid search is active: replace "Search again" with "End search".
+- WhatsApp alerts are shown only while a paid search is active.
