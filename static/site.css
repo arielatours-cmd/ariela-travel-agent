@@ -991,3 +991,10 @@ html body header.site-header .account-menu-wrap > .account-dropdown{
   }
 }
 .legal-copy{max-width:900px}.legal-copy h1{margin:0 0 22px;font-size:clamp(30px,4vw,48px)}.legal-copy h2{margin:30px 0 10px;font-size:21px}.legal-copy p{line-height:1.85;margin:0 0 14px}.legal-intro{padding:16px 18px;border-inline-start:3px solid #c99a3f;background:#faf8f3}.legal-note{margin-top:34px!important;padding-top:18px;border-top:1px solid #e2e2e2;font-size:13px;color:#687080}.global-footer a{display:block;margin-top:8px}
+/* v9.5.3 legal footer */
+.ariella-legal-footer{background:#070707;border-top:1px solid #c99a3f;padding:24px 0 18px;margin-top:48px;color:#fff}
+.footer-legal-buttons{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px}
+.ariella-legal-footer .footer-legal-btn{display:inline-flex!important;align-items:center;justify-content:center;min-height:40px;margin:0!important;padding:9px 16px;border:1px solid #c99a3f;border-radius:999px;background:transparent;color:#fff!important;font-size:14px;font-weight:700;line-height:1.2;text-decoration:none!important;white-space:nowrap}
+.ariella-legal-footer .footer-legal-btn:hover,.ariella-legal-footer .footer-legal-btn:focus{background:#c99a3f;color:#070707!important}
+.footer-copyright{margin-top:17px;text-align:center;color:#aaa;font-size:12px}
+@media(max-width:700px){.ariella-legal-footer{padding:20px 0 15px}.footer-legal-buttons{gap:8px}.ariella-legal-footer .footer-legal-btn{font-size:13px;padding:8px 12px;min-height:38px}}

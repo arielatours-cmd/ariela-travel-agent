@@ -423,9 +423,9 @@ def toggle_trip_notifications(trip_id):
 
 
 
-@site.post("/trip/<int:trip_id>/choose-subscription")
+@site.post("/trip/<int:trip_id>/renew-search")
 @login_required
-def choose_trip_subscription(trip_id):
+def renew_trip_search(trip_id):
     plan = request.form.get("plan", "").strip()
     allowed = {"calm", "daily", "intensive"}
     if plan not in allowed:
@@ -437,12 +437,11 @@ def choose_trip_subscription(trip_id):
         ).fetchone()
         if row and row["status"] == "active":
             conn.execute(
-                "UPDATE trip_requests SET subscription_plan=?, subscription_status='pending' WHERE id=?",
+                "UPDATE trip_requests SET subscription_plan=?, subscription_status='pending', renewal_reminder_sent_at=NULL WHERE id=?",
                 (plan, trip_id),
             )
             conn.commit()
-    # The actual Isracard checkout will replace this pending step once merchant/API
-    # credentials are connected. We never mark a subscription paid without payment confirmation.
+    # Isracard checkout will replace this pending step. Each purchase is one-time only.\n    # After confirmed payment, the paid search period will be set to 34 days from payment date\n    # (one month + the 4-day early-renewal window). No automatic renewal or recurring charge.
     return redirect(url_for("site.account", payment="pending", trip_id=trip_id))
 
 

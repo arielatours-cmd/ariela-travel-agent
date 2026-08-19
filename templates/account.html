@@ -77,9 +77,9 @@ function confirmSearchToggle(form, status) {
         </form>
         {% elif trip.status == 'active' %}
         <details class="continue-search-box">
-          <summary class="continue-search-title">{{ 'Would you like Ariella to keep searching?' if site_lang == 'en' else 'אתה רוצה שאריאלה תמשיך לחפש?' }}</summary>
+          <summary class="continue-search-title">{{ 'Renew search' if site_lang == 'en' else 'חדש חיפוש' }}</summary>
           <div class="plan-options">
-            <form method="post" action="{{ url_for('site.choose_trip_subscription', trip_id=trip.id) }}">
+            <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}">
               <input type="hidden" name="plan" value="calm">
               <button type="submit" class="plan-choice">
                 <strong>{{ 'Relaxed' if site_lang == 'en' else 'רגוע' }}</strong>
@@ -87,7 +87,7 @@ function confirmSearchToggle(form, status) {
                 <b>₪4.90 / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
               </button>
             </form>
-            <form method="post" action="{{ url_for('site.choose_trip_subscription', trip_id=trip.id) }}">
+            <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}">
               <input type="hidden" name="plan" value="daily">
               <button type="submit" class="plan-choice recommended">
                 <em>{{ 'Recommended' if site_lang == 'en' else 'מומלץ' }}</em>
@@ -96,7 +96,7 @@ function confirmSearchToggle(form, status) {
                 <b>₪9.90 / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
               </button>
             </form>
-            <form method="post" action="{{ url_for('site.choose_trip_subscription', trip_id=trip.id) }}">
+            <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}">
               <input type="hidden" name="plan" value="intensive">
               <button type="submit" class="plan-choice">
                 <strong>{{ 'Intensive' if site_lang == 'en' else 'אינטנסיבי' }}</strong>
@@ -106,7 +106,7 @@ function confirmSearchToggle(form, status) {
             </form>
           </div>
           {% if trip.subscription_status == 'pending' %}
-          <div class="payment-pending">{{ 'Payment connection is being prepared' if site_lang == 'en' else 'המשך לתשלום יופעל עם חיבור ישראכרט' }}</div>
+          <div class="payment-pending">{{ 'One-time payment for this search period will be enabled with Isracard' if site_lang == 'en' else 'תשלום חד־פעמי לתקופת החיפוש יופעל עם חיבור ישראכרט' }}</div>
           {% endif %}
         </details>
         {% endif %}
