@@ -178,6 +178,17 @@ tbody tr:hover{background:#fafbfe}
 .scans-table-wrap .scans th{font-size:17px!important;padding:15px 14px!important}
 .scans-table-wrap .scans td{font-size:18px!important;padding:17px 14px!important;text-align:center!important}
 
+
+/* v9.7.8 admin maximum-width readability */
+.wrap{width:100vw!important;max-width:none!important;margin:0!important;padding:16px 8px 32px!important;box-sizing:border-box!important}
+.table-wrap{width:100%!important;max-width:none!important;overflow-x:auto!important}
+.table-wrap table{width:100%!important;min-width:1780px!important;table-layout:auto!important}
+.table-wrap th{font-size:15px!important;padding:11px 9px!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
+.table-wrap td{font-size:15px!important;padding:10px 9px!important;white-space:nowrap!important}
+.scans-table-wrap .scans{width:100%!important;min-width:1200px!important}
+.scans-table-wrap .scans th{font-size:18px!important;padding:15px 14px!important;white-space:nowrap!important}
+.scans-table-wrap .scans td{font-size:18px!important;padding:15px 14px!important}
+
 </style>
 </head>
 <body>

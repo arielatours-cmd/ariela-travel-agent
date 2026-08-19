@@ -1338,3 +1338,57 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
   min-height:0!important;
 }
 /* Existing border on important-terms is the requested divider. */
+
+/* v9.7.8 compact card + larger admin */
+
+/* Reduce vertical weight so more deals fit on screen. */
+.deal-card-v970 .deal-visual,
+.deal-card-v970 .deal-flight,
+.deal-card-v970 .deal-baggage,
+.deal-card-v970 .deal-commerce{min-height:390px!important}
+.deal-card-v970 .deal-flight{padding-top:22px!important;padding-bottom:18px!important}
+.deal-card-v970 .flight-leg{padding:9px 0!important;row-gap:5px!important}
+.deal-card-v970 .leg-route-times{margin-top:2px!important;margin-bottom:1px!important}
+.deal-card-v970 .time-node time{font-size:23px!important}
+.deal-card-v970 .leg-duration{font-size:14px!important;margin-top:0!important}
+.deal-card-v970 .deal-baggage{padding-top:28px!important;padding-bottom:24px!important}
+.deal-card-v970 .baggage-row{margin:9px 0!important}
+.deal-card-v970 .deal-reasons-title,
+.deal-card-v970 .deal-reasons-footer>div{min-height:48px!important;padding-top:10px!important;padding-bottom:10px!important}
+
+/* Commerce: true vertical centering above/below divider. */
+.deal-card-v970 .deal-commerce{
+  display:grid!important;
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr)!important;
+  align-items:stretch!important;
+  padding:0 22px!important
+}
+.deal-card-v970 .important-terms{
+  grid-row:1!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  align-items:center!important;
+  height:100%!important;
+  padding:12px 0!important;
+  margin:0!important;
+  border-bottom:1px solid #e5dccd!important
+}
+.deal-card-v970 .deal-price-box{
+  grid-row:2!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  align-items:center!important;
+  height:100%!important;
+  padding:12px 0!important;
+  margin:0!important
+}
+.deal-card-v970 .important-terms div{margin:5px 0!important}
+
+/* Heading at image divider edge. */
+.deal-card-v970.deal-he .deal-reasons-title{
+  justify-content:flex-end!important;
+  text-align:left!important;
+  padding-left:8px!important
+}
