@@ -33,6 +33,37 @@ def _sum_flight_minutes(segments: list[dict]):
     return total or None
 
 
+def _airline_code(segment: dict) -> str | None:
+    code = (segment.get("airline_code") or segment.get("marketing_airline_code") or "").strip().upper()
+    if code:
+        return code
+    flight_number = str(segment.get("flight_number") or "").strip().upper()
+    if flight_number:
+        token = flight_number.split()[0].replace("-", "")
+        if 2 <= len(token) <= 3 and token.isalnum():
+            return token
+    # Fallbacks for common carriers if the API omits the IATA code.
+    airline = str(segment.get("airline") or "").strip().lower()
+    common = {
+        "wizz air": "W6", "arkia": "IZ", "israir": "6H", "israir airlines": "6H",
+        "aegean": "A3", "aegean airlines": "A3", "el al": "LY",
+        "bluebird airways": "BZ", "ryanair": "FR", "easyjet": "U2",
+        "air france": "AF", "klm": "KL", "lufthansa": "LH", "ita airways": "AZ",
+    }
+    return common.get(airline)
+
+
+def _airline_logo_url(segment: dict, item: dict | None = None) -> str | None:
+    # SerpApi/Google may expose the logo either on the segment or itinerary.
+    direct = segment.get("airline_logo") or ((item or {}).get("airline_logo"))
+    if direct:
+        return direct
+    code = _airline_code(segment)
+    if code:
+        return f"https://www.gstatic.com/flights/airline_logos/70px/{code}.png"
+    return None
+
+
 def _summarize_flight(item: dict) -> dict:
     segments = item.get("flights") or []
     first, last = (segments[0] if segments else {}), (segments[-1] if segments else {})
@@ -55,7 +86,10 @@ def _summarize_flight(item: dict) -> dict:
             "departure_airport": rdep.get("id"),
         }
     return {
-        "price": item.get("price"), "airline": first.get("airline"), "airline_logo": first.get("airline_logo"), "flight_number": first.get("flight_number"),
+        "price": item.get("price"), "airline": first.get("airline"),
+        "airline_logo": _airline_logo_url(first, item),
+        "airline_code": _airline_code(first),
+        "flight_number": first.get("flight_number"),
         "departure_airport": dep.get("id"), "departure_airport_name": AIRPORT_NAMES.get(dep.get("id"), dep.get("id")),
         "departure_time": dep.get("time"), "arrival_airport": arr.get("id"),
         "arrival_airport_name": AIRPORT_NAMES.get(arr.get("id"), arr.get("id")), "arrival_time": arr.get("time"),

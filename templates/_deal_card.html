@@ -39,9 +39,14 @@
     </h2>
 
     <div class="flight-leg">
-      <strong>{{ 'Outbound flight' if lang=='en' else 'טיסת הלוך' }}</strong>
-      <span class="leg-date">{{ offer.outbound_display or offer.outbound_date }}</span>
-      <span class="leg-airline">{% if offer.airline_logo %}<img src="{{ offer.airline_logo }}" alt="" loading="lazy">{% endif %}<b>{{ offer.airline or '—' }}</b></span>
+      <div class="leg-heading">
+        <strong class="leg-title">{{ 'Outbound flight' if lang=='en' else 'טיסת הלוך' }}</strong>
+        <span class="leg-date">{{ offer.outbound_display or offer.outbound_date }}</span>
+        <span class="leg-airline">
+          {% if offer.airline_logo %}<img src="{{ offer.airline_logo }}" alt="{{ offer.airline or '' }}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">{% endif %}
+          <b>{{ offer.airline or '—' }}</b>
+        </span>
+      </div>
       <div class="leg-route-times">
         <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ offer.departure_time[-5:] if offer.departure_time else '—' }}</time></div>
         <div class="mini-flight-line"><i></i>{% if stops>0 and offer.connections %}{% for c in offer.connections %}<span class="connection-pill">{{ c.airport }}{% if c.duration_minutes %} · {{ minutes(c.duration_minutes,lang) }}{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
@@ -51,9 +56,14 @@
     </div>
 
     <div class="flight-leg">
-      <strong>{{ 'Return flight' if lang=='en' else 'טיסת חזור' }}</strong>
-      <span class="leg-date">{{ offer.return_display or offer.return_date }}</span>
-      <span class="leg-airline">{% if offer.return_airline_logo %}<img src="{{ offer.return_airline_logo }}" alt="" loading="lazy">{% endif %}<b>{{ offer.return_airline or offer.airline or '—' }}</b></span>
+      <div class="leg-heading">
+        <strong class="leg-title">{{ 'Return flight' if lang=='en' else 'טיסת חזור' }}</strong>
+        <span class="leg-date">{{ offer.return_display or offer.return_date }}</span>
+        <span class="leg-airline">
+          {% if offer.return_airline_logo %}<img src="{{ offer.return_airline_logo }}" alt="{{ offer.return_airline or offer.airline or '' }}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">{% endif %}
+          <b>{{ offer.return_airline or offer.airline or '—' }}</b>
+        </span>
+      </div>
       <div class="leg-route-times">
         <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ rt[-5:] }}</time></div>
         <div class="mini-flight-line"><i></i>{% if offer.return_stops and offer.return_connections %}{% for c in offer.return_connections %}<span class="connection-pill">{{ c.airport }}{% if c.duration_minutes %} · {{ minutes(c.duration_minutes,lang) }}{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>

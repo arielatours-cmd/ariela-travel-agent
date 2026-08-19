@@ -1397,3 +1397,48 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
 .deal-card-v970 .leg-airline{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;margin-top:-2px}
 .deal-card-v970 .leg-airline img{width:24px;height:24px;object-fit:contain;border-radius:4px}
 .deal-card-v970 .time-node small{font-size:15px!important;font-weight:800!important;margin-bottom:3px!important}
+
+/* v9.7.10 — airline logo placement + larger admin table */
+.deal-card-v970 .leg-heading{
+  grid-column:1/-1!important;
+  display:grid!important;
+  align-items:center!important;
+  column-gap:14px!important;
+  width:100%!important;
+}
+.deal-card-v970.deal-he .leg-heading{
+  grid-template-columns:minmax(120px,auto) minmax(170px,1fr) minmax(105px,auto)!important;
+  grid-template-areas:"airline date title"!important;
+  direction:ltr!important;
+}
+.deal-card-v970.deal-en .leg-heading{
+  grid-template-columns:minmax(105px,auto) minmax(170px,1fr) minmax(120px,auto)!important;
+  grid-template-areas:"title date airline"!important;
+  direction:ltr!important;
+}
+.deal-card-v970 .leg-title{grid-area:title!important;font-size:18px!important}
+.deal-card-v970 .leg-date{grid-area:date!important;text-align:center!important;font-size:16px!important}
+.deal-card-v970 .leg-airline{
+  grid-area:airline!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  margin:0!important;
+  font-size:14px!important;
+  white-space:nowrap!important;
+}
+.deal-card-v970.deal-he .leg-airline{justify-content:flex-start!important;direction:ltr!important}
+.deal-card-v970.deal-en .leg-airline{justify-content:flex-end!important;direction:ltr!important}
+.deal-card-v970 .leg-airline img{
+  width:34px!important;height:34px!important;object-fit:contain!important;
+  border-radius:4px!important;background:#fff!important;flex:0 0 34px!important
+}
+.deal-card-v970 .leg-airline b{font-size:14px!important;color:#18263a!important}
+@media(max-width:900px){
+  .deal-card-v970 .leg-heading{
+    grid-template-columns:1fr auto!important;
+    grid-template-areas:"title airline" "date date"!important;
+    row-gap:6px!important
+  }
+  .deal-card-v970 .leg-date{text-align:start!important}
+}

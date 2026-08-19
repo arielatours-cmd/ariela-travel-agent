@@ -189,6 +189,41 @@ tbody tr:hover{background:#fafbfe}
 .scans-table-wrap .scans th{font-size:18px!important;padding:15px 14px!important;white-space:nowrap!important}
 .scans-table-wrap .scans td{font-size:18px!important;padding:15px 14px!important}
 
+
+/* v9.7.10 — larger deal list in internal dashboard */
+.wrap{width:100vw!important;max-width:none!important;padding-inline:4px!important}
+.table-wrap{width:100%!important;max-width:none!important;overflow-x:auto!important}
+.table-wrap:not(.scans-table-wrap) table{
+  min-width:2200px!important;
+  width:100%!important;
+  table-layout:auto!important;
+}
+.table-wrap:not(.scans-table-wrap) th{
+  font-size:18px!important;
+  line-height:1.25!important;
+  padding:15px 14px!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+.table-wrap:not(.scans-table-wrap) td{
+  font-size:17px!important;
+  line-height:1.35!important;
+  padding:14px 13px!important;
+  white-space:nowrap!important;
+}
+.table-wrap:not(.scans-table-wrap) .destination{min-width:130px!important}
+.table-wrap:not(.scans-table-wrap) .price-col,
+.table-wrap:not(.scans-table-wrap) .average-col{min-width:105px!important}
+.table-wrap:not(.scans-table-wrap) .score-part{min-width:105px!important}
+.table-wrap:not(.scans-table-wrap) .total-score{min-width:95px!important}
+.table-wrap:not(.scans-table-wrap) .reason-col{
+  min-width:430px!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important
+}
+
 </style>
 </head>
 <body>
