@@ -26,6 +26,26 @@ def _full_roundtrip_google_url(departure: str, arrival: str, outbound_date: str,
     return "https://www.google.com/travel/flights?hl=en&curr=ILS&q=" + quote_plus(q)
 
 
+def _public_airline_logo(airline: str | None, flight_number: str | None = None, stored_logo: str | None = None) -> str | None:
+    if stored_logo:
+        return stored_logo
+    code = None
+    if flight_number:
+        token = str(flight_number).strip().upper().split()[0].replace("-", "")
+        if 2 <= len(token) <= 3 and token.isalnum():
+            code = token
+    if not code:
+        common = {
+            "wizz air": "W6", "arkia": "IZ", "israir": "6H", "israir airlines": "6H",
+            "aegean": "A3", "aegean airlines": "A3", "el al": "LY", "bluebird airways": "BZ",
+            "ryanair": "FR", "easyjet": "U2", "air france": "AF", "klm": "KL",
+            "lufthansa": "LH", "ita airways": "AZ", "british airways": "BA",
+            "etihad airways": "EY", "emirates": "EK", "turkish airlines": "TK",
+        }
+        code = common.get(str(airline or "").strip().lower())
+    return f"https://www.gstatic.com/flights/airline_logos/70px/{code}.png" if code else None
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -422,8 +442,16 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "arrival_airport_name": payload.get("arrival_airport_name") or flight.get("arrival_airport_name"),
             "outbound_display": outbound.get("display_he"),
             "return_display": return_trip.get("display_he"),
-            "airline_logo": flight.get("airline_logo"),
-            "return_airline_logo": flight.get("return_airline_logo"),
+            "airline_logo": _public_airline_logo(
+                item.get("airline") or flight.get("airline"),
+                flight.get("flight_number"),
+                flight.get("airline_logo"),
+            ),
+            "return_airline_logo": _public_airline_logo(
+                flight.get("return_airline") or item.get("airline") or flight.get("airline"),
+                flight.get("return_flight_number"),
+                flight.get("return_airline_logo"),
+            ),
             "return_airline": flight.get("return_airline"),
             "return_departure_time": flight.get("return_departure_time"),
             "return_arrival_time": flight.get("return_arrival_time"),

@@ -1442,3 +1442,14 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
   }
   .deal-card-v970 .leg-date{text-align:start!important}
 }
+
+/* v9.7.11 */
+.deal-card-v970 .time-node small{
+  font-size:17px!important;
+  font-weight:850!important;
+  line-height:1.15!important;
+  margin-bottom:4px!important;
+}
+.deal-card-v970 .leg-airline img{
+  width:38px!important;height:38px!important;flex-basis:38px!important;
+}
