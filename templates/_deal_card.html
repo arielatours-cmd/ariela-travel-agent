@@ -64,7 +64,7 @@
         </span>
       </div>
       <div class="leg-route-times">
-        <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ rt[-5:] }}</time></div>
+        <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ rt[-5:] if rt else '—' }}</time></div>
         <div class="mini-flight-line"><i></i>{% if offer.return_stops and offer.return_connections %}{% for c in offer.return_connections %}<span class="connection-pill">{{ c.airport }}{% if c.duration_minutes %} · {{ minutes(c.duration_minutes,lang) }}{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
         <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.return_arrival_time[-5:] if offer.return_arrival_time else '—' }}</time></div>
       </div>

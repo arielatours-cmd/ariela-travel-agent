@@ -1484,3 +1484,9 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
 .personal-vacation-deals{display:block!important}
 .personal-vacation-deals[hidden]{display:block!important}
 .personal-vacation{padding-bottom:18px}
+
+/* v9.7.20 — gentle gold baggage icons */
+.deal-card-v970 .bag-svg{
+  filter: sepia(.9) saturate(1.15) hue-rotate(350deg) brightness(.9);
+  opacity:.92;
+}
