@@ -1114,3 +1114,12 @@ html[lang="en"] .trip-controls .plan-choice b{
     max-width:100%!important;
   }
 }
+
+/* v9.6.1 — stable vacation-card/action geometry */
+.trip-card{align-self:start!important;height:auto!important;min-height:0!important}
+.trip-list,.trips-grid{align-items:start!important}
+.trip-controls{align-self:start!important}
+.trip-controls .trip-action,
+.trip-controls .continue-search-box,
+.trip-controls .plan-options,
+.trip-controls .plan-choice{box-sizing:border-box!important}

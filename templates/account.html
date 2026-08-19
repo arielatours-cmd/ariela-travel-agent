@@ -62,53 +62,41 @@ function confirmSearchToggle(form, status) {
         </dl>
       </div>
       <div class="trip-controls">
-        <a class="button secondary" href="{{ url_for('site.deals', lang=site_lang) }}#vacation-{{ trip.id }}">{{ 'View deals' if site_lang == 'en' else 'הצגת הדילים' }}</a>
+        <a class="button secondary trip-action" href="{{ url_for('site.deals', lang=site_lang) }}#vacation-{{ trip.id }}">{{ 'View deals' if site_lang == 'en' else 'הצגת הדילים' }}</a>
 
-        {% if trip.subscription_status == 'active' %}
-          <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}"
-                onsubmit="return confirmSearchToggle(this, 'active');">
-            <button class="button outline" type="submit">{{ 'End search' if site_lang == 'en' else 'סיים חיפוש' }}</button>
+        {% set paid_before = trip.has_paid_search or trip.subscription_started_at or trip.search_period_started_at %}
+        {% if trip.subscription_status == 'active' and paid_before %}
+          <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}" onsubmit="return confirmSearchToggle(this, 'active');">
+            <button class="button outline trip-action" type="submit">{{ 'End search' if site_lang == 'en' else 'סיים חיפוש' }}</button>
           </form>
-
           <form method="post" action="{{ url_for('site.toggle_trip_notifications', trip_id=trip.id) }}">
-            <button class="notification-toggle {{ 'on' if trip.mobile_notifications else 'off' }}" type="submit" aria-pressed="{{ 'true' if trip.mobile_notifications else 'false' }}">
+            <button class="notification-toggle trip-action {{ 'on' if trip.mobile_notifications else 'off' }}" type="submit" aria-pressed="{{ 'true' if trip.mobile_notifications else 'false' }}">
               <span class="toggle-track"><i></i></span>
               <span>{{ 'WhatsApp alerts' if site_lang == 'en' else 'התראות ב־WhatsApp' }}</span>
             </button>
           </form>
         {% else %}
           <details class="continue-search-box">
-            <summary class="continue-search-title">{{ 'Search again' if site_lang == 'en' else 'חפש שוב' }}</summary>
+            <summary class="continue-search-title trip-action">
+              {% if paid_before %}{{ 'Search again' if site_lang == 'en' else 'חפש שוב' }}{% else %}{{ 'Start search' if site_lang == 'en' else 'התחל חיפוש' }}{% endif %}
+            </summary>
             <div class="plan-options">
+              {% for plan, he_name, en_name, he_freq, en_freq, price in [
+                ('calm','רגוע','Relaxed','פעם ב־3 ימים','Every 3 days','₪4.90'),
+                ('daily','יומי','Daily','פעם ביום','Once a day','₪9.90'),
+                ('intensive','אינטנסיבי','Intensive','3 פעמים ביום','3 times a day','₪14.90')
+              ] %}
               <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}">
-                <input type="hidden" name="plan" value="calm">
-                <button type="submit" class="plan-choice">
-                  <strong>{{ 'Relaxed' if site_lang == 'en' else 'רגוע' }}</strong>
-                  <span>{{ 'Every 3 days' if site_lang == 'en' else 'פעם ב־3 ימים' }}</span>
-                  <b>₪4.90 / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
+                <input type="hidden" name="plan" value="{{ plan }}">
+                <button type="submit" class="plan-choice {{ 'recommended' if plan == 'daily' else '' }}">
+                  {% if plan == 'daily' %}<em>{{ 'Recommended' if site_lang == 'en' else 'מומלץ' }}</em>{% endif %}
+                  <strong>{{ en_name if site_lang == 'en' else he_name }}</strong>
+                  <span>{{ en_freq if site_lang == 'en' else he_freq }}</span>
+                  <b>{{ price }} / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
                 </button>
               </form>
-              <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}">
-                <input type="hidden" name="plan" value="daily">
-                <button type="submit" class="plan-choice recommended">
-                  <em>{{ 'Recommended' if site_lang == 'en' else 'מומלץ' }}</em>
-                  <strong>{{ 'Daily' if site_lang == 'en' else 'יומי' }}</strong>
-                  <span>{{ 'Once a day' if site_lang == 'en' else 'פעם ביום' }}</span>
-                  <b>₪9.90 / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
-                </button>
-              </form>
-              <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}">
-                <input type="hidden" name="plan" value="intensive">
-                <button type="submit" class="plan-choice">
-                  <strong>{{ 'Intensive' if site_lang == 'en' else 'אינטנסיבי' }}</strong>
-                  <span>{{ '3 times a day' if site_lang == 'en' else '3 פעמים ביום' }}</span>
-                  <b>₪14.90 / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
-                </button>
-              </form>
+              {% endfor %}
             </div>
-            {% if trip.subscription_status == 'pending' %}
-              <div class="payment-pending">{{ 'One-time payment for this search period will be enabled with Isracard' if site_lang == 'en' else 'תשלום חד־פעמי לתקופת החיפוש יופעל עם חיבור ישראכרט' }}</div>
-            {% endif %}
           </details>
         {% endif %}
       </div>
