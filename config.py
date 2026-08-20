@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.7.47-baggage-import-fix"
+APP_VERSION = "9.7.48-wide-scan"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -32,6 +32,28 @@ DESTINATIONS = [
     {"code": "PRG", "name": "פראג", "country_flag": "🇨🇿"},
     {"code": "FCO", "name": "רומא", "country_flag": "🇮🇹"},
     {"code": "MXP", "name": "מילאנו", "country_flag": "🇮🇹"},
+    {"code": "CDG", "name": "פריז", "country_flag": "🇫🇷"},
+    {"code": "AMS", "name": "אמסטרדם", "country_flag": "🇳🇱"},
+    {"code": "BCN", "name": "ברצלונה", "country_flag": "🇪🇸"},
+    {"code": "MAD", "name": "מדריד", "country_flag": "🇪🇸"},
+    {"code": "LIS", "name": "ליסבון", "country_flag": "🇵🇹"},
+    {"code": "LHR", "name": "לונדון", "country_flag": "🇬🇧"},
+    {"code": "BER", "name": "ברלין", "country_flag": "🇩🇪"},
+    {"code": "MUC", "name": "מינכן", "country_flag": "🇩🇪"},
+    {"code": "ZRH", "name": "ציריך", "country_flag": "🇨🇭"},
+    {"code": "BRU", "name": "בריסל", "country_flag": "🇧🇪"},
+    {"code": "OTP", "name": "בוקרשט", "country_flag": "🇷🇴"},
+    {"code": "KRK", "name": "קרקוב", "country_flag": "🇵🇱"},
+    {"code": "WAW", "name": "ורשה", "country_flag": "🇵🇱"},
+    {"code": "TBS", "name": "טביליסי", "country_flag": "🇬🇪"},
+    {"code": "EVN", "name": "ירוואן", "country_flag": "🇦🇲"},
+    {"code": "BEG", "name": "בלגרד", "country_flag": "🇷🇸"},
+    {"code": "SKP", "name": "סקופיה", "country_flag": "🇲🇰"},
+    {"code": "TGD", "name": "פודגוריצה", "country_flag": "🇲🇪"},
+    {"code": "ZAG", "name": "זאגרב", "country_flag": "🇭🇷"},
+    {"code": "LJU", "name": "לובליאנה", "country_flag": "🇸🇮"},
+    {"code": "BKK", "name": "בנגקוק", "country_flag": "🇹🇭"},
+    {"code": "JFK", "name": "ניו יורק", "country_flag": "🇺🇸"},
 ]
 
 DEPARTURE_AIRPORTS = ["TLV", "HFA"]
@@ -39,9 +61,15 @@ DEPARTURE_OFFSETS_DAYS = [21, 35, 45, 60, 90, 120, 150, 180]
 TRIP_LENGTHS_DAYS = [4, 5, 7]
 
 AIRPORT_NAMES = {
-    "TLV": "נתב״ג", "HFA": "חיפה", "ATH": "אתונה", "LCA": "לרנקה",
-    "BUD": "בודפשט", "VIE": "וינה", "SOF": "סופיה", "PRG": "פראג",
-    "FCO": "רומא", "MXP": "מילאנו",
+    "TLV": "נתב״ג", "HFA": "חיפה",
+    "ATH": "אתונה", "LCA": "לרנקה", "BUD": "בודפשט", "VIE": "וינה",
+    "SOF": "סופיה", "PRG": "פראג", "FCO": "רומא", "MXP": "מילאנו",
+    "CDG": "פריז", "AMS": "אמסטרדם", "BCN": "ברצלונה", "MAD": "מדריד",
+    "LIS": "ליסבון", "LHR": "לונדון", "BER": "ברלין", "MUC": "מינכן",
+    "ZRH": "ציריך", "BRU": "בריסל", "OTP": "בוקרשט", "KRK": "קרקוב",
+    "WAW": "ורשה", "TBS": "טביליסי", "EVN": "ירוואן", "BEG": "בלגרד",
+    "SKP": "סקופיה", "TGD": "פודגוריצה", "ZAG": "זאגרב", "LJU": "לובליאנה",
+    "BKK": "בנגקוק", "JFK": "ניו יורק",
 }
 
 

@@ -474,8 +474,7 @@ def _next_jobs(limit: int) -> list[dict]:
     return selected
 
 
-def run_hourly_scan(max_searches: int | None = None) -> dict:
-    jobs = _next_jobs(max_searches or MAX_SEARCHES_PER_SCAN)
+def _run_jobs_scan(jobs: list[dict]) -> dict:
     run_id = create_scan_run(len(jobs))
     completed = offers_found = errors = api_requests = 0
     error_messages: list[str] = []
@@ -564,6 +563,38 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
         "errors": errors,
         "error_messages": error_messages,
     }
+
+
+
+def run_hourly_scan(max_searches: int | None = None) -> dict:
+    return _run_jobs_scan(_next_jobs(max_searches or MAX_SEARCHES_PER_SCAN))
+
+
+def _wide_search_jobs(limit: int | None = None) -> list[dict]:
+    """Broad coverage: one varied TLV vacation window per destination."""
+    today = date.today()
+    max_items = min(limit or len(DESTINATIONS), len(DESTINATIONS))
+    jobs = []
+    for i, destination in enumerate(DESTINATIONS[:max_items]):
+        offset = DEPARTURE_OFFSETS_DAYS[i % len(DEPARTURE_OFFSETS_DAYS)]
+        trip_length = TRIP_LENGTHS_DAYS[i % len(TRIP_LENGTHS_DAYS)]
+        outbound = today + timedelta(days=offset)
+        ret = outbound + timedelta(days=trip_length)
+        jobs.append({
+            "departure": "TLV",
+            "arrival": destination["code"],
+            "outbound": outbound.isoformat(),
+            "return": ret.isoformat(),
+            "destination_name": destination["name"],
+            "country_flag": destination["country_flag"],
+        })
+    return jobs
+
+
+def run_wide_scan(max_destinations: int | None = None) -> dict:
+    limit = max(1, min(int(max_destinations or len(DESTINATIONS)), len(DESTINATIONS)))
+    return _run_jobs_scan(_wide_search_jobs(limit))
+
 
 
 def run_customer_trip_search(trip_id: int, answers: dict) -> dict:

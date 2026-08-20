@@ -7,7 +7,7 @@ from flask import Flask, jsonify, request
 from admin import render_dashboard, render_feedback_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
-    MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY,
+    MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY, DESTINATIONS,
 )
 from daily import prepare_daily_batch
 from database import (
@@ -15,7 +15,7 @@ from database import (
     recent_feedback, recent_offers, recent_scan_runs, set_setting,
     unread_feedback_count, mark_feedback_seen,
 )
-from scanner import run_hourly_scan, run_destination_scan, search_flights
+from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 from schedule_rules import delivery_status
 from public_site import site
 from whatsapp import (
@@ -159,6 +159,19 @@ def scan_destination():
         raw_max = int(request.args.get("max_searches", "3"))
         max_searches = max(1, min(raw_max, 8))
         return jsonify(run_destination_scan(arrival, max_searches))
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.post("/scan-wide")
+def scan_wide():
+    denied = _require_admin()
+    if denied:
+        return denied
+    try:
+        raw_max = int(request.args.get("max_destinations", "30"))
+        max_destinations = max(1, min(raw_max, len(DESTINATIONS)))
+        return jsonify(run_wide_scan(max_destinations))
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 

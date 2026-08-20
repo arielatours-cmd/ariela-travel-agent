@@ -245,8 +245,31 @@ tbody tr:hover{background:#fafbfe}
       <option value="SOF">סופיה (SOF)</option>
       <option value="PRG">פראג (PRG)</option>
       <option value="MXP">מילאנו (MXP)</option>
+      <option value="CDG">פריז (CDG)</option>
+      <option value="AMS">אמסטרדם (AMS)</option>
+      <option value="BCN">ברצלונה (BCN)</option>
+      <option value="MAD">מדריד (MAD)</option>
+      <option value="LIS">ליסבון (LIS)</option>
+      <option value="LHR">לונדון (LHR)</option>
+      <option value="BER">ברלין (BER)</option>
+      <option value="MUC">מינכן (MUC)</option>
+      <option value="ZRH">ציריך (ZRH)</option>
+      <option value="BRU">בריסל (BRU)</option>
+      <option value="OTP">בוקרשט (OTP)</option>
+      <option value="KRK">קרקוב (KRK)</option>
+      <option value="WAW">ורשה (WAW)</option>
+      <option value="TBS">טביליסי (TBS)</option>
+      <option value="EVN">ירוואן (EVN)</option>
+      <option value="BEG">בלגרד (BEG)</option>
+      <option value="SKP">סקופיה (SKP)</option>
+      <option value="TGD">פודגוריצה (TGD)</option>
+      <option value="ZAG">זאגרב (ZAG)</option>
+      <option value="LJU">לובליאנה (LJU)</option>
+      <option value="BKK">בנגקוק (BKK)</option>
+      <option value="JFK">ניו יורק (JFK)</option>
     </select>
     <button onclick="runDestinationScan()">סריקת יעד</button>
+    <button onclick="runWideScan()">סריקה רחבה</button>
     <button class="secondary" onclick="buildBatch()">בנה רשימה יומית</button>
     <a class="btn secondary" href="/daily-preview" target="_blank">תצוגת WhatsApp</a>
 </div>
@@ -426,6 +449,10 @@ function runDestinationScan(){
   const code=document.getElementById('targetDestination').value;
   if(confirm('לסרוק עכשיו את '+code+' בלבד? הסריקה תבדוק 3 חלונות חופשה ותשמור את הדילים הטובים.'))
     post('/scan-destination?arrival='+encodeURIComponent(code)+'&max_searches=3');
+}
+function runWideScan(){
+  if(confirm('להפעיל סריקה רחבה על 30 יעדים? ייבדק חלון חופשה אחד לכל יעד והפעולה עלולה לקחת כמה דקות.'))
+    post('/scan-wide?max_destinations=30');
 }
 function buildBatch(){post('/daily-batch?force=true')}
 </script>
