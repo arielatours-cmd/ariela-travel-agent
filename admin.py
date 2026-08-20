@@ -413,35 +413,67 @@ function withAdminToken(url){
     const sep = url.includes('?') ? '&' : '?';
     return url + sep + 'token=' + encodeURIComponent(adminToken);
 }
+async function waitForScan(jobId){
+    const e=document.getElementById('actionStatus');
+    const started=Date.now();
+    while(Date.now()-started < 20*60*1000){
+        await new Promise(resolve=>setTimeout(resolve,2500));
+        try{
+            const r=await fetch(withAdminToken('/manual-scan-status/'+encodeURIComponent(jobId)),{cache:'no-store'});
+            const data=await r.json();
+            if(data.status==='starting' || data.status==='running'){
+                e.textContent='הסריקה מתבצעת ברקע... אפשר לעבור לעמוד אחר.';
+                continue;
+            }
+            if(data.status==='finished'){
+                const result=data.result || {};
+                e.textContent='הסריקה הסתיימה: '+(result.searches_completed ?? 0)+' חיפושים, '+(result.offers_found ?? 0)+' הצעות. מרעננת...';
+                setTimeout(()=>location.reload(),900);
+                return;
+            }
+            if(data.status==='failed'){
+                e.textContent='הסריקה נכשלה: '+(data.error || 'שגיאה לא ידועה');
+                return;
+            }
+            if(data.status==='unknown'){
+                e.textContent='השרת הופעל מחדש. מרעננת את לוח הבקרה...';
+                setTimeout(()=>location.reload(),1000);
+                return;
+            }
+        }catch(_){
+            // A temporary status request failure must not cancel the scan.
+            e.textContent='הסריקה ממשיכה ברקע...';
+        }
+    }
+    e.textContent='הסריקה עדיין מתבצעת. אפשר לרענן את לוח הבקרה מאוחר יותר.';
+}
+
 async function post(url){
     const e=document.getElementById('actionStatus');
-    e.textContent='מבצעת...';
+    e.textContent='מתחילה סריקה...';
     try{
         const r=await fetch(withAdminToken(url),{method:'POST'});
         const raw=await r.text();
         let data=null;
         try{ data = raw ? JSON.parse(raw) : null; }catch(_){ data=null; }
-        if(data){
-            if(r.ok){
-                e.textContent='הפעולה הסתיימה בהצלחה. מרעננת נתונים...';
-                setTimeout(()=>location.reload(),1200);
-            }else{
-                e.textContent='שגיאה: '+(data.message || JSON.stringify(data));
-            }
+
+        if(!data){
+            e.textContent='השרת החזיר תשובה לא צפויה.';
             return;
         }
-        // Render may return an HTML timeout/error page even though a long scan
-        // has already started on the server. Avoid exposing a misleading JSON error.
-        if(raw.trim().startsWith('<')){
-            e.textContent='הבקשה נשלחה לשרת. בודקת את תוצאות הסריקה...';
-            setTimeout(()=>location.reload(),3500);
-        }else{
-            e.textContent='השרת החזיר תשובה לא צפויה. מרעננת את לוח הבקרה...';
-            setTimeout(()=>location.reload(),3500);
+        if(r.status===202 && data.job_id){
+            e.textContent=data.message || 'הסריקה התחילה ברקע.';
+            waitForScan(data.job_id);
+            return;
         }
+        if(r.ok){
+            e.textContent='הפעולה הסתיימה בהצלחה. מרעננת נתונים...';
+            setTimeout(()=>location.reload(),900);
+            return;
+        }
+        e.textContent='שגיאה: '+(data.message || JSON.stringify(data));
     }catch(x){
-        e.textContent='לא התקבלה תשובה מהשרת. מרעננת את לוח הבקרה כדי לבדוק אם הסריקה הושלמה...';
-        setTimeout(()=>location.reload(),3500);
+        e.textContent='לא ניתן היה להתחיל את הפעולה: '+x;
     }
 }
 function runScan(){if(confirm('סריקת ניסיון תבדוק מסלול אחד בלבד (הלוך + חזור). להמשיך?'))post('/scan?max_searches=1')}
@@ -451,7 +483,7 @@ function runDestinationScan(){
     post('/scan-destination?arrival='+encodeURIComponent(code)+'&max_searches=3');
 }
 function runWideScan(){
-  if(confirm('להפעיל סריקה רחבה על 30 יעדים? ייבדק חלון חופשה אחד לכל יעד והפעולה עלולה לקחת כמה דקות.'))
+  if(confirm('להפעיל סריקה רחבה על 30 יעדים? הסריקה תמשיך ברקע גם אם תעברי לעמוד אחר.'))
     post('/scan-wide?max_destinations=30');
 }
 function buildBatch(){post('/daily-batch?force=true')}

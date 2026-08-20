@@ -1,5 +1,7 @@
 import os
 import sqlite3
+import threading
+import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request
@@ -26,7 +28,55 @@ from whatsapp import (
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 app.register_blueprint(site)
+
 init_db()
+
+# Manual scans must never run inside the browser request itself: a wide flight
+# search can exceed Gunicorn's request timeout. The request only starts a
+# background worker and returns immediately; the admin page polls job status.
+_manual_scan_lock = threading.Lock()
+_manual_scan_jobs = {}
+
+
+def _background_scan_worker(job_id, label, runner):
+    try:
+        _manual_scan_jobs[job_id]["status"] = "running"
+        result = runner()
+        _manual_scan_jobs[job_id]["result"] = result
+        _manual_scan_jobs[job_id]["status"] = "finished"
+    except BaseException as exc:
+        _manual_scan_jobs[job_id]["status"] = "failed"
+        _manual_scan_jobs[job_id]["error"] = str(exc)
+        app.logger.exception("Background manual scan failed: %s", label)
+    finally:
+        _manual_scan_lock.release()
+
+
+def _start_background_scan(label, runner):
+    # Only one manual scan at a time. This prevents accidental double-clicks
+    # from burning the SerpApi quota.
+    if not _manual_scan_lock.acquire(blocking=False):
+        return None, (jsonify({
+            "status": "busy",
+            "message": "כבר מתבצעת סריקה ידנית. יש להמתין לסיומה."
+        }), 409)
+
+    job_id = uuid.uuid4().hex
+    _manual_scan_jobs[job_id] = {
+        "job_id": job_id,
+        "label": label,
+        "status": "starting",
+        "result": None,
+        "error": None,
+    }
+    thread = threading.Thread(
+        target=_background_scan_worker,
+        args=(job_id, label, runner),
+        daemon=True,
+        name=f"ariella-{label}-{job_id[:8]}",
+    )
+    thread.start()
+    return job_id, None
 
 if SCHEDULER_ENABLED and os.getenv("WERKZEUG_RUN_MAIN") != "true":
     from scheduler import start_scheduler
@@ -141,10 +191,18 @@ def scan_now():
         return denied
     try:
         raw_max = int(request.args.get("max_searches", "1"))
-        # The web/admin scan endpoint is a diagnostic action, not the scheduler.
-        # Keep it deliberately small so a click cannot burn the SerpApi quota.
         max_searches = max(1, min(raw_max, 1))
-        return jsonify(run_hourly_scan(max_searches))
+        job_id, error = _start_background_scan(
+            "trial",
+            lambda: run_hourly_scan(max_searches),
+        )
+        if error:
+            return error
+        return jsonify({
+            "status": "accepted",
+            "job_id": job_id,
+            "message": "סריקת הניסיון התחילה ברקע."
+        }), 202
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
@@ -158,7 +216,17 @@ def scan_destination():
         arrival = request.args.get("arrival", "FCO").upper()
         raw_max = int(request.args.get("max_searches", "3"))
         max_searches = max(1, min(raw_max, 8))
-        return jsonify(run_destination_scan(arrival, max_searches))
+        job_id, error = _start_background_scan(
+            f"destination-{arrival}",
+            lambda: run_destination_scan(arrival, max_searches),
+        )
+        if error:
+            return error
+        return jsonify({
+            "status": "accepted",
+            "job_id": job_id,
+            "message": f"סריקת {arrival} התחילה ברקע."
+        }), 202
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
@@ -171,9 +239,34 @@ def scan_wide():
     try:
         raw_max = int(request.args.get("max_destinations", "30"))
         max_destinations = max(1, min(raw_max, len(DESTINATIONS)))
-        return jsonify(run_wide_scan(max_destinations))
+        job_id, error = _start_background_scan(
+            "wide",
+            lambda: run_wide_scan(max_destinations),
+        )
+        if error:
+            return error
+        return jsonify({
+            "status": "accepted",
+            "job_id": job_id,
+            "destinations": max_destinations,
+            "message": f"סריקה רחבה על {max_destinations} יעדים התחילה ברקע."
+        }), 202
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.get("/manual-scan-status/<job_id>")
+def manual_scan_status(job_id):
+    denied = _require_admin()
+    if denied:
+        return denied
+    job = _manual_scan_jobs.get(job_id)
+    if not job:
+        return jsonify({
+            "status": "unknown",
+            "message": "סטטוס הסריקה אינו זמין. ייתכן שהשרת הופעל מחדש."
+        }), 404
+    return jsonify(job)
 
 
 @app.get("/scan-status")
