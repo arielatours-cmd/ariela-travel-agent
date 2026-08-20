@@ -109,6 +109,20 @@ function confirmSearchToggle(form, status) {
           {% endfor %}
         </div>
       </div>
+    {% else %}
+      <div class="account-trip-deals account-trip-empty">
+        <div class="ariella-deals-empty compact personal-search-needed">
+          <h3>{{ 'No complete matching deal yet' if site_lang == 'en' else 'עדיין אין דיל מלא שמתאים לבקשה שלך' }}</h3>
+          {% if trip.has_incomplete_inventory %}
+          <p>{{ 'Older results exist for this destination, but required round-trip or baggage details are missing.' if site_lang == 'en' else 'יש תוצאות ישנות ליעד הזה, אבל חסרים בהן פרטי הלוך־חזור או כבודה הדרושים להצגה אמינה.' }}</p>
+          {% else %}
+          <p>{{ 'A fresh targeted search can be run for this vacation.' if site_lang == 'en' else 'אפשר לבצע סריקה חדשה וממוקדת לחופשה הזו.' }}</p>
+          {% endif %}
+          <form method="post" action="{{ url_for('site.search_trip_now', trip_id=trip.id) }}">
+            <button class="button primary" type="submit">{{ 'Search this vacation now' if site_lang == 'en' else 'חפשי לי דילים לחופשה הזו' }}</button>
+          </form>
+        </div>
+      </div>
     {% endif %}
   {% endfor %}
   </div>

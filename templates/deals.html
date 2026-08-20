@@ -114,11 +114,17 @@
       {% endfor %}
     </div>
   {% else %}
-    <div class="ariella-deals-empty compact">
+    <div class="ariella-deals-empty compact personal-search-needed">
       <span>A</span>
-      <h2>{{ 'No suitable database deal — a fresh search is needed' if site_lang == 'en' else 'לא נמצא דיל מתאים במאגר — נדרשת סריקה חדשה' }}</h2>
-      <p>{{ 'Ariella will search the web for the customer request instead of showing an irrelevant deal.' if site_lang == 'en' else 'אריאלה לא תציג דיל לא מתאים רק מפני שהוא קיים במאגר; השלב הבא הוא סריקה חדשה לפי בקשת הלקוח.' }}</p>
-      <form method="post" action="{{ url_for('site.search_trip_now', trip_id=trip.id) }}"><button class="button" type="submit">{{ 'Search now' if site_lang == 'en' else 'סריקה עכשיו לפי הבקשה שלי' }}</button></form>
+      <h2>{{ 'No complete matching deal yet' if site_lang == 'en' else 'עדיין אין דיל מלא שמתאים לבקשה שלך' }}</h2>
+      {% if trip.has_incomplete_inventory %}
+      <p>{{ 'Ariella found older matching inventory, but it is missing details required for a reliable offer. It will not be shown as a complete deal.' if site_lang == 'en' else 'יש במאגר תוצאות ישנות ליעד הזה, אבל חסרים בהן פרטים הדרושים להצעה אמינה ולכן הן לא יוצגו כדיל מלא.' }}</p>
+      {% else %}
+      <p>{{ 'No complete matching deal was found in the database. Ariella can run a fresh search for this vacation.' if site_lang == 'en' else 'לא נמצא במאגר דיל מלא שמתאים לבקשה. אפשר לבצע עכשיו סריקה חדשה וממוקדת לחופשה הזו.' }}</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('site.search_trip_now', trip_id=trip.id) }}">
+        <button class="button primary" type="submit">{{ 'Search this vacation now' if site_lang == 'en' else 'חפשי לי דילים לחופשה הזו' }}</button>
+      </form>
     </div>
   {% endif %}
   </div>

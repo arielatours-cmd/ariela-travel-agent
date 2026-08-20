@@ -1500,3 +1500,10 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
   background-size:cover!important;
   background-position:center!important;
 }
+
+/* v9.7.22 — saved vacations never disappear when no complete deal exists */
+.personal-search-needed{display:block!important;min-height:180px!important;padding:26px 22px!important}
+.personal-search-needed form{margin-top:16px!important}
+.account-trip-empty{margin-top:12px!important}
+.personal-vacation{display:block!important}
+#personalDeals{min-height:260px}

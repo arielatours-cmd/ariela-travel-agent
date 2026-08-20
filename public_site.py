@@ -240,6 +240,23 @@ def _offer_signature(offer):
     )
 
 
+def _customer_inventory_status(all_offers, trip):
+    """Describe what already exists in DB without exposing incomplete records as deals."""
+    same_destination = [
+        o for o in all_offers
+        if int(o.get("score") or 0) >= 65 and _offer_destination_matches(o, trip)
+    ]
+    complete = [
+        o for o in same_destination
+        if _offer_has_complete_roundtrip(o) and _offer_has_baggage_pricing_when_needed(o)
+    ]
+    return {
+        "same_destination_count": len(same_destination),
+        "complete_count": len(complete),
+        "has_incomplete_inventory": bool(same_destination) and not bool(complete),
+    }
+
+
 def _customer_deal_choices(all_offers, trip, limit=5):
     """Database-first selection: exact request first, then valuable same-month alternatives."""
     # Never surface weak inventory merely because it exists.
@@ -365,8 +382,10 @@ def deals():
         for row in rows:
             trip = _trip_dict(row)
             trip["offers"] = _customer_deal_choices(database_offers, trip, limit=5)
+            inventory = _customer_inventory_status(database_offers, trip)
             trip["database_match_found"] = bool(trip["offers"])
             trip["needs_fresh_search"] = not bool(trip["offers"])
+            trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
             personal_trips.append(trip)
     return render_template("deals.html", offers=offers, personal_trips=personal_trips)
 
@@ -584,6 +603,9 @@ def account():
     database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=500, minimum_score=None)]
     for trip in trips:
         trip["offers"] = _customer_deal_choices(database_offers, trip, limit=5)
+        inventory = _customer_inventory_status(database_offers, trip)
+        trip["needs_fresh_search"] = not bool(trip["offers"])
+        trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
