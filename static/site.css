@@ -1548,15 +1548,47 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
   justify-content:center!important;
 }
 .continue-search-hint{margin-top:12px;font-size:14px;line-height:1.7;color:var(--muted)}
-/* Shared My Ariella control — identical on every page */
+/* v9.7.27 — Hebrew My Ariella: star is visually on the RIGHT of the Hebrew label */
 .site-header .myariella-he{
   display:inline-flex!important;
   flex-direction:row!important;
-  direction:ltr!important;
+  direction:rtl!important;
   align-items:center!important;
   gap:8px!important;
 }
 .site-header .myariella-he .myariella-text{
   direction:rtl!important;
   unicode-bidi:isolate!important;
+}
+
+/* v9.7.28 — personal vacation deals are opt-in display only */
+.trip-deals-toggle-wrap{margin:14px 0 8px}
+.trip-deals-toggle{min-width:150px}
+.collapsible-trip-deals[hidden]{display:none!important}
+.collapsible-trip-deals{margin-top:10px}
+.trip-no-deals{
+  margin:12px 0 4px;padding:12px 14px;border:1px solid var(--line);
+  background:#fafafa;color:var(--muted);font-size:14px;font-weight:700
+}
+
+/* v9.7.29 — Deals is the single My Ariella visual reference everywhere */
+html body .site-header .account-menu-wrap{
+  position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;
+}
+html body .site-header .account-menu-button{
+  box-sizing:border-box!important;min-width:154px!important;height:56px!important;padding:0 24px!important;
+  border:1px solid #c99a3f!important;border-radius:999px!important;background:transparent!important;color:#fff!important;
+  font-family:Arial,"Noto Sans Hebrew",sans-serif!important;font-size:16px!important;font-weight:700!important;
+  line-height:1!important;letter-spacing:0!important;white-space:nowrap!important;
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+}
+html body .site-header .myariella-label{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;
+  white-space:nowrap!important;line-height:1!important;
+}
+html body .site-header .myariella-he{direction:rtl!important;flex-direction:row!important}
+html body .site-header .myariella-en{direction:ltr!important;flex-direction:row!important}
+html body .site-header .myariella-star{
+  display:inline-block!important;flex:0 0 auto!important;margin:0!important;color:#c99a3f!important;
+  font-size:16px!important;line-height:1!important;
 }

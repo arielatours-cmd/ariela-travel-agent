@@ -102,7 +102,17 @@ function confirmSearchToggle(form, status) {
       </div>
     </article>
     {% if trip.offers %}
-      <div class="account-trip-deals" aria-label="{{ 'Matching deals' if site_lang == 'en' else 'דילים מתאימים' }}">
+      <div class="trip-deals-toggle-wrap">
+        <button type="button" class="button outline trip-deals-toggle"
+                aria-expanded="false"
+                aria-controls="tripDeals{{ trip.id }}"
+                data-show="{{ 'Show deals' if site_lang == 'en' else 'הצגת הדילים' }}"
+                data-hide="{{ 'Close deals' if site_lang == 'en' else 'סגירת הדילים' }}">
+          {{ 'Show deals' if site_lang == 'en' else 'הצגת הדילים' }}
+        </button>
+      </div>
+      <div id="tripDeals{{ trip.id }}" class="account-trip-deals collapsible-trip-deals" hidden
+           aria-label="{{ 'Deals found for this vacation' if site_lang == 'en' else 'דילים שנמצאו לחופשה הזו' }}">
         <div class="ariella-deals-list">
           {% for offer in trip.offers %}
             {{ deal_card(offer,site_lang) }}
@@ -110,24 +120,14 @@ function confirmSearchToggle(form, status) {
         </div>
       </div>
     {% else %}
-      <div class="account-trip-deals account-trip-empty">
-        <div class="ariella-deals-empty compact personal-search-needed">
-          <h3>{{ 'No complete matching deal yet' if site_lang == 'en' else 'עדיין אין דיל מלא שמתאים לבקשה שלך' }}</h3>
-          {% if trip.has_incomplete_inventory %}
-          <p>{{ 'Older results exist for this destination, but required round-trip or baggage details are missing.' if site_lang == 'en' else 'יש תוצאות ישנות ליעד הזה, אבל חסרים בהן פרטי הלוך־חזור או כבודה הדרושים להצגה אמינה.' }}</p>
-          {% else %}
-          <p>{{ 'A fresh targeted search can be run for this vacation.' if site_lang == 'en' else 'אפשר לבצע סריקה חדשה וממוקדת לחופשה הזו.' }}</p>
-          {% endif %}
-          <p class="continue-search-hint">{{ 'Use “Continue search” above to choose a monthly search plan. Scans start only after payment is confirmed.' if site_lang == 'en' else 'כדי להמשיך לחפש, פתחו למעלה את „המשך חיפוש” ובחרו מסלול חודשי. הסריקות יתחילו רק לאחר אישור התשלום.' }}</p>
-        </div>
-      </div>
+      <div class="trip-no-deals">{{ 'No deals found' if site_lang == 'en' else 'לא נמצאו דילים' }}</div>
     {% endif %}
-  {% endfor %}
+{% endfor %}
   </div>
 </div></section>
 {% else %}
 <section class="page-hero account-hero account-hero-new"><div class="shell account-new-content">
-  <span class="eyebrow">{{ 'MY ACCOUNT' if site_lang == 'en' else 'האזור האישי' }}</span>
+  <span class="eyebrow personal-area-eyebrow">{{ 'MY ACCOUNT' if site_lang == 'en' else 'האזור האישי' }}</span>
   <h1>{{ 'Hello' if site_lang == 'en' else 'שלום' }}, {{ member.full_name }}</h1>
   <p class="account-intro">{{ 'Answer a few questions and Ariella will learn what to look for you.' if site_lang == 'en' else 'ענו על כמה שאלות, ואריאלה תלמד מה לחפש עבורכם.' }}</p>
   <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ 'Plan your first vacation' if site_lang == 'en' else 'תכנון החופשה הראשונה' }}</a>
@@ -136,4 +136,19 @@ function confirmSearchToggle(form, status) {
   <div class="empty-state"><h3>{{ "You haven't searched for a vacation yet" if site_lang == 'en' else 'עדיין לא חיפשת חופשה' }}</h3><p>{{ 'After completing the questionnaire, your vacation will appear here and Ariella will start learning what to look for you.' if site_lang == 'en' else 'לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.' }}</p></div>
 </div></section>
 {% endif %}
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+document.querySelectorAll('.trip-deals-toggle').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    const panel = document.getElementById(btn.getAttribute('aria-controls'));
+    if(!panel) return;
+    const opening = panel.hidden;
+    panel.hidden = !opening;
+    btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    btn.textContent = opening ? btn.dataset.hide : btn.dataset.show;
+  });
+});
+</script>
 {% endblock %}

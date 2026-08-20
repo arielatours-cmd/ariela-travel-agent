@@ -3,7 +3,6 @@
 
 {% block content %}
 <section class="deals-page" aria-labelledby="deals-title"><div class="deals-shell"><header class="deals-heading"><h1 id="deals-title">{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}</h1><p>{{ 'The best deals Ariella found' if site_lang == 'en' else 'הדילים הטובים ביותר שאריאלה מצאה' }}</p></header>
-{% if current_member %}<div class="deals-account-back"><a href="{{ url_for('site.account') }}">{{ '← Back to My Vacations' if site_lang == 'en' else '← חזרה לחופשות שלי' }}</a></div><div class="deals-tabs" role="tablist"><button class="deals-tab is-active" type="button" role="tab" aria-selected="true" data-tab="generalDeals">{{ 'Deals Ariella Found' if site_lang == 'en' else 'הדילים שאריאלה מצאה' }}</button><a class="deals-tab deals-tab-link" href="{{ url_for('site.account', lang=site_lang) }}">{{ 'Deals for My Vacations' if site_lang == 'en' else 'הדילים לחופשות שלי' }}</a></div>{% endif %}
 <section id="generalDeals" class="deals-tab-panel is-active" role="tabpanel">
 <div class="deal-filters-wrap" id="dealFiltersWrap">
   <div class="deal-filters-main">
@@ -98,44 +97,6 @@
   </div>
 </div>
 {% if offers %}<div class="ariella-deals-list">{% for offer in offers %}{{ deal_card(offer,site_lang) }}{% endfor %}</div>{% else %}<section class="ariella-deals-empty"><span>A</span><h2>{{ 'No new deals to show right now' if site_lang == 'en' else 'אין כרגע דילים חדשים להצגה' }}</h2><p>{{ 'New deals Ariella finds will appear here after the next scan.' if site_lang == 'en' else 'דילים חדשים שאריאלה תמצא יופיעו כאן לאחר הסריקה הבאה.' }}</p></section>{% endif %}</section>
-{% if current_member %}<section id="personalDeals" class="deals-tab-panel" role="tabpanel" hidden>
-{% if personal_trips %}
-<div class="personal-deals-groups">
-{% for trip in personal_trips %}
-<article class="personal-vacation" id="vacation-{{ trip.id }}">
-  <div class="personal-vacation-header static">
-    <span><strong>{{ trip.request_name }}</strong><small>{{ trip.travel_window or ('Flexible dates' if site_lang == 'en' else 'התאריכים גמישים') }}</small></span>
-  </div>
-  <div class="personal-vacation-deals">
-  {% if trip.offers %}
-    <div class="ariella-deals-list">
-      {% for offer in trip.offers %}
-        {{ deal_card(offer,site_lang) }}
-      {% endfor %}
-    </div>
-  {% else %}
-    <div class="ariella-deals-empty compact personal-search-needed">
-      <span>A</span>
-      <h2>{{ 'No complete up-to-date matching deal yet' if site_lang == 'en' else 'עדיין אין דיל מלא ועדכני שמתאים לבקשה שלך' }}</h2>
-      {% if trip.has_incomplete_inventory %}
-      <p>{{ 'Ariella found older matching inventory, but it is missing details required for a reliable offer. It will not be shown as a complete deal.' if site_lang == 'en' else 'יש במאגר תוצאות ישנות ליעד הזה, אבל חסרים בהן פרטים הדרושים להצעה אמינה ולכן הן לא יוצגו כדיל מלא.' }}</p>
-      {% else %}
-      <p>{{ 'No complete matching deal was found in the database. Ariella can run a fresh search for this vacation.' if site_lang == 'en' else 'לא נמצא במאגר דיל מלא שמתאים לבקשה. אפשר לבצע עכשיו סריקה חדשה וממוקדת לחופשה הזו.' }}</p>
-      {% endif %}
-      <form method="post" action="{{ url_for('site.search_trip_now', trip_id=trip.id) }}">
-        <button class="button primary" type="submit">{{ 'Search this vacation now' if site_lang == 'en' else 'חפשי לי דילים לחופשה הזו' }}</button>
-      </form>
-    </div>
-  {% endif %}
-  </div>
-</article>
-{% endfor %}
-</div>
-{% else %}
-<section class="ariella-deals-empty"><span>A</span><h2>{{ "You haven't searched for a vacation yet" if site_lang == 'en' else 'עדיין לא חיפשת חופשה' }}</h2><p>{{ 'Once you create a vacation search, matching deals will appear here.' if site_lang == 'en' else 'לאחר יצירת חיפוש חופשה, הדילים המתאימים יופיעו כאן.' }}</p></section>
-{% endif %}
-</section>{% endif %}
-</div></section>
 {% if current_member %}<script>
 (function(){
   const tabs=[...document.querySelectorAll('.deals-tab')];
@@ -153,19 +114,14 @@
       p.classList.toggle('is-active',active);
     });
     if(updateHash){
-      const hash=id==='personalDeals' ? '#personalDeals' : '#generalDeals';
       history.replaceState(null,'',location.pathname+location.search+hash);
     }
   }
 
   tabs.forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab,true)));
 
-  if(location.hash.startsWith('#vacation-')){
-    activate('personalDeals',false);
     const card=document.querySelector(location.hash);
     if(card) card.scrollIntoView({behavior:'smooth',block:'start'});
-  }else if(location.hash==='#personalDeals'){
-    activate('personalDeals',false);
   }else{
     activate('generalDeals',false);
   }

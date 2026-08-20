@@ -29,19 +29,17 @@
 
     <div class="account-menu-wrap">
       <button class="account account-menu-button" id="accountMenuButton" type="button" aria-expanded="false" aria-controls="accountMenu">{% if site_lang == 'he' %}
-          <span class="myariella-label myariella-he"><span class="myariella-star" aria-hidden="true">✦</span><span class="myariella-text">אריאלה שלי</span></span>
+          <span class="myariella-label myariella-he"><span class="myariella-text">אריאלה שלי</span><span class="myariella-star" aria-hidden="true">✦</span></span>
         {% else %}
           <span class="myariella-label myariella-en"><span class="myariella-text">My Ariella</span><span class="myariella-star">✦</span></span>
         {% endif %}</button>
       <div class="account-dropdown" id="accountMenu" hidden>
         {% if current_member %}
-          <a href="{{ url_for('site.deals', lang=site_lang) }}">{{ 'Deals Ariella Found' if site_lang == 'en' else 'הדילים של אריאלה' }}</a>
           <a href="{{ url_for('site.account', lang=site_lang) }}">{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</a>
           <a href="{{ url_for('site.account_details', lang=site_lang) }}">{{ 'Account Details' if site_lang == 'en' else 'פרטי החשבון' }}</a>
           <form method="post" action="{{ url_for('site.logout') }}"><button type="submit">{{ 'Sign out' if site_lang == 'en' else 'התנתקות' }}</button></form>
         {% else %}
           <a href="{{ url_for('site.login', lang=site_lang) }}">{{ 'Sign in' if site_lang == 'en' else 'כניסה' }}</a>
-          <a href="{{ url_for('site.deals', lang=site_lang) }}">{{ 'Deals Ariella Found' if site_lang == 'en' else 'הדילים של אריאלה' }}</a>
           <a href="{{ url_for('site.join', lang=site_lang) }}">{{ 'Sign up' if site_lang == 'en' else 'הרשמה' }}</a>
         {% endif %}
       </div>
