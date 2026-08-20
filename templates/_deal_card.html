@@ -8,7 +8,7 @@
 {% macro deal_card(offer, lang='he') -%}
 {% set stops=offer.stops or 0 %}{% set rt=offer.return_departure_time %}
 <article class="ariella-deal-card deal-card-v970 {{ 'deal-he' if lang=='he' else 'deal-en' }}" dir="{{ 'rtl' if lang=='he' else 'ltr' }}"
- data-origin="{{ offer.departure_code or '' }}" data-destination="{{ offer.arrival_code or '' }}"
+ data-origin="{{ offer.departure_code or '' }}" data-destination="{{ offer.arrival_code or '' }}" data-destination-label="{{ (offer.arrival_city_en if lang=='en' else offer.arrival_city_he) or offer.arrival_code or '' }}{% if offer.arrival_code %} ({{ offer.arrival_code }}){% endif %}"
  data-outbound="{{ offer.outbound_date or '' }}" data-return="{{ offer.return_date or '' }}"
  data-price="{{ offer.price_ils or 0 }}" data-stops="{{ stops }}" data-airline="{{ offer.airline or '' }}"
  data-departure-time="{{ offer.departure_time or '' }}" data-protection="{{ offer.consumer_protection_class or '' }}"
@@ -48,7 +48,7 @@
       </div>
       <div class="leg-route-times">
         <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ offer.departure_time[-5:] if offer.departure_time else '—' }}</time></div>
-        <div class="mini-flight-line"><i></i>{% if stops>0 and offer.connections %}{% for c in offer.connections %}<span class="connection-pill">{{ c.airport }}{% if c.duration_minutes %} · {{ minutes(c.duration_minutes,lang) }}{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
+        <div class="mini-flight-line"><i></i>{% if stops>0 and offer.connections %}{% for c in offer.connections %}<span class="connection-pill"><span class="connection-airport">{{ c.airport }}</span>{% if c.duration_minutes %}<span class="connection-wait">{{ 'Wait:' if lang=='en' else 'המתנה:' }} {{ minutes(c.duration_minutes,lang) }}</span>{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
         <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.arrival_time[-5:] if offer.arrival_time else '—' }}</time></div>
       </div>
       {% if offer.total_duration_minutes %}<span class="leg-duration">{{ 'Total flight duration:' if (lang=='en' and stops>0) else ('Flight duration:' if lang=='en' else ('משך טיסה כולל:' if stops>0 else 'משך טיסה:')) }} {{ minutes(offer.total_duration_minutes,lang) }}</span>{% endif %}
@@ -65,7 +65,7 @@
       </div>
       <div class="leg-route-times">
         <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ rt[-5:] if rt else '—' }}</time></div>
-        <div class="mini-flight-line"><i></i>{% if offer.return_stops and offer.return_connections %}{% for c in offer.return_connections %}<span class="connection-pill">{{ c.airport }}{% if c.duration_minutes %} · {{ minutes(c.duration_minutes,lang) }}{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
+        <div class="mini-flight-line"><i></i>{% if offer.return_stops and offer.return_connections %}{% for c in offer.return_connections %}<span class="connection-pill"><span class="connection-airport">{{ c.airport }}</span>{% if c.duration_minutes %}<span class="connection-wait">{{ 'Wait:' if lang=='en' else 'המתנה:' }} {{ minutes(c.duration_minutes,lang) }}</span>{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
         <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.return_arrival_time[-5:] if offer.return_arrival_time else '—' }}</time></div>
       </div>
       {% if offer.return_total_duration_minutes %}<span class="leg-duration">{{ 'Total flight duration:' if (lang=='en' and offer.return_stops) else ('Flight duration:' if lang=='en' else ('משך טיסה כולל:' if offer.return_stops else 'משך טיסה:')) }} {{ minutes(offer.return_total_duration_minutes,lang) }}</span>{% endif %}
