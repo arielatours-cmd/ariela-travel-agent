@@ -1490,3 +1490,13 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
   filter: sepia(.9) saturate(1.15) hue-rotate(350deg) brightness(.9);
   opacity:.92;
 }
+
+/* v9.7.21 — never show a blank destination visual */
+.deal-card-v970 .deal-visual{
+  background-color:#d7c5a2;
+  background-image:
+    radial-gradient(circle at 25% 20%,rgba(255,255,255,.42),transparent 34%),
+    linear-gradient(145deg,#d6bd8d,#9d8057);
+  background-size:cover!important;
+  background-position:center!important;
+}

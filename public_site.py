@@ -119,43 +119,68 @@ def _expire_finished_trips(conn, member_id):
             )
 
 
-def _trip_destination_terms(trip):
-    destinations = str((trip.get("answers") or {}).get("destinations") or "").strip().lower()
-    if not destinations:
-        return []
+def _trip_destination_codes(trip):
+    """Return the exact destination airport codes chosen by the customer."""
+    raw = str((trip.get("answers") or {}).get("destinations") or "").strip()
+    if not raw:
+        return set()
+
+    # The airport picker stores IATA codes. Keep city-name aliases only for
+    # older saved requests created before the airport picker was introduced.
     aliases = {
-        "רומא": ["רומא", "rome", "fco", "cia"],
-        "rome": ["רומא", "rome", "fco", "cia"],
-        "אתונה": ["אתונה", "athens", "ath"],
-        "athens": ["אתונה", "athens", "ath"],
-        "בודפשט": ["בודפשט", "budapest", "bud"],
-        "budapest": ["בודפשט", "budapest", "bud"],
-        "פראג": ["פראג", "prague", "prg"],
-        "prague": ["פראג", "prague", "prg"],
-        "וינה": ["וינה", "vienna", "vie"],
-        "vienna": ["וינה", "vienna", "vie"],
-        "מילאנו": ["מילאנו", "milan", "mxp", "bgy", "lin"],
-        "milan": ["מילאנו", "milan", "mxp", "bgy", "lin"],
+        "רומא": {"FCO", "CIA"}, "rome": {"FCO", "CIA"},
+        "מילאנו": {"MXP", "BGY", "LIN"}, "milan": {"MXP", "BGY", "LIN"},
+        "אתונה": {"ATH"}, "athens": {"ATH"},
+        "בודפשט": {"BUD"}, "budapest": {"BUD"},
+        "פראג": {"PRG"}, "prague": {"PRG"},
+        "וינה": {"VIE"}, "vienna": {"VIE"},
+        "סופיה": {"SOF"}, "sofia": {"SOF"},
+        "לרנקה": {"LCA"}, "larnaca": {"LCA"},
+        "פאפוס": {"PFO"}, "paphos": {"PFO"},
     }
-    raw = [x.strip() for x in destinations.replace("/", ",").split(",") if x.strip()]
-    terms = []
-    for term in raw:
-        terms.extend(aliases.get(term, [term]))
-    return list(dict.fromkeys(terms))
+
+    codes = set()
+    for token in [x.strip() for x in raw.replace("/", ",").replace(";", ",").split(",") if x.strip()]:
+        upper = token.upper()
+        if len(upper) == 3 and upper.isalpha():
+            codes.add(upper)
+        else:
+            codes.update(aliases.get(token.lower(), set()))
+    return codes
 
 
 def _offer_destination_matches(offer, trip):
-    terms = _trip_destination_terms(trip)
-    if not terms:
+    """Personal-vacation results must be for the requested destination only."""
+    requested = _trip_destination_codes(trip)
+    if not requested:
         return True
-    haystack = " ".join([
-        str(offer.get("destination_name") or ""),
-        str(offer.get("arrival_code") or ""),
-        str(offer.get("route") or ""),
-        str(offer.get("arrival_city_he") or ""),
-        str(offer.get("arrival_city_en") or ""),
-    ]).lower()
-    return any(term in haystack for term in terms)
+    return str(offer.get("arrival_code") or "").upper() in requested
+
+
+def _offer_has_complete_roundtrip(offer):
+    """Do not show partial/legacy records as a personal vacation deal."""
+    required = (
+        offer.get("outbound_date"),
+        offer.get("return_date"),
+        offer.get("departure_time"),
+        offer.get("arrival_time"),
+        offer.get("return_departure_time"),
+        offer.get("return_arrival_time"),
+    )
+    return all(bool(v) for v in required)
+
+
+def _offer_has_baggage_pricing_when_needed(offer):
+    """If trolley/checked bag is not included, require a usable round-trip estimate."""
+    baggage = offer.get("baggage") or {}
+
+    def priced_or_included(key):
+        item = baggage.get(key) or {}
+        if item.get("included"):
+            return True
+        return isinstance(item.get("roundtrip_price_ils"), (int, float)) or isinstance(item.get("price_each_way"), (int, float))
+
+    return priced_or_included("carry_on_8kg") and priced_or_included("checked_bag_23kg")
 
 
 def _trip_requested_month(trip):
@@ -218,7 +243,13 @@ def _offer_signature(offer):
 def _customer_deal_choices(all_offers, trip, limit=5):
     """Database-first selection: exact request first, then valuable same-month alternatives."""
     # Never surface weak inventory merely because it exists.
-    qualified = [o for o in all_offers if int(o.get("score") or 0) >= 65]
+    qualified = [
+        o for o in all_offers
+        if int(o.get("score") or 0) >= 65
+        and _offer_destination_matches(o, trip)
+        and _offer_has_complete_roundtrip(o)
+        and _offer_has_baggage_pricing_when_needed(o)
+    ]
 
     exact = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]
     same_month = [o for o in qualified if _offer_matches_trip(o, trip, same_month=True)]

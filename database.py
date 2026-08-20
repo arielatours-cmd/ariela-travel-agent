@@ -19,6 +19,13 @@ DESTINATION_LANDMARK_IMAGES = {
     "PFO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Paphos_harbour_castle.jpg",
 }
 
+# Airports serving the same city reuse the same curated destination photography.
+DESTINATION_LANDMARK_IMAGES.update({
+    "CIA": DESTINATION_LANDMARK_IMAGES["FCO"],
+    "BGY": DESTINATION_LANDMARK_IMAGES["MXP"],
+    "LIN": DESTINATION_LANDMARK_IMAGES["MXP"],
+})
+
 
 def _full_roundtrip_google_url(departure: str, arrival: str, outbound_date: str, return_date: str) -> str:
     """Always open a NEW full round-trip Google Flights search, never a saved return-stage result."""
@@ -476,7 +483,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "destination_image_url": (
                 payload.get("destination_image_url")
                 or payload.get("image_url")
-                or DESTINATION_LANDMARK_IMAGES.get(item.get("arrival_code"))
+                or DESTINATION_LANDMARK_IMAGES.get(str(item.get("arrival_code") or "").upper())
+                or DESTINATION_LANDMARK_IMAGES.get("FCO")
             ),
             "consumer_protection_label": protection_label,
             "consumer_protection_class": protection_class,
