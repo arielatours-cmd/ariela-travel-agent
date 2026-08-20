@@ -150,13 +150,52 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     score += rarity
 
     baggage = flight.get("baggage") or {}
-    if baggage.get("checked_bag_23kg", {}).get("included"): baggage_points = 10
-    elif baggage.get("carry_on_8kg", {}).get("included"): baggage_points = 6
-    elif baggage.get("personal_item", {}).get("included"): baggage_points = 2
-    else: baggage_points = 0
+    checked = baggage.get("checked_bag_23kg", {}) or {}
+    carry = baggage.get("carry_on_8kg", {}) or {}
+    personal = baggage.get("personal_item", {}) or {}
+
+    # Baggage value: reward what is included, but also recognize a reasonably
+    # priced paid add-on. The round-trip add-on price is already conservative.
+    if checked.get("included"):
+        baggage_points = 10
+        baggage_reason = "מזוודה 23 ק״ג כלולה"
+    elif carry.get("included"):
+        baggage_points = 7
+        baggage_reason = "טרולי 8 ק״ג כלול"
+    else:
+        checked_rt = checked.get("roundtrip_price_ils")
+        carry_rt = carry.get("roundtrip_price_ils")
+        if not isinstance(checked_rt, (int, float)):
+            each = checked.get("price_each_way")
+            checked_rt = each * 2 if isinstance(each, (int, float)) else None
+        if not isinstance(carry_rt, (int, float)):
+            each = carry.get("price_each_way")
+            carry_rt = each * 2 if isinstance(each, (int, float)) else None
+
+        # A cheap add-on can make a base-fare deal genuinely better; an
+        # expensive add-on should not receive the same credit.
+        if isinstance(checked_rt, (int, float)):
+            if checked_rt <= 250: baggage_points = 7
+            elif checked_rt <= 400: baggage_points = 5
+            elif checked_rt <= 600: baggage_points = 3
+            else: baggage_points = 1
+            baggage_reason = f"מזוודה בתוספת ₪{checked_rt:.0f} הלוך־חזור"
+        elif isinstance(carry_rt, (int, float)):
+            if carry_rt <= 150: baggage_points = 6
+            elif carry_rt <= 250: baggage_points = 4
+            elif carry_rt <= 400: baggage_points = 3
+            else: baggage_points = 1
+            baggage_reason = f"טרולי בתוספת ₪{carry_rt:.0f} הלוך־חזור"
+        elif personal.get("included"):
+            baggage_points = 2
+            baggage_reason = "תיק אישי בלבד"
+        else:
+            baggage_points = 0
+            baggage_reason = "ללא כבודה כלולה"
+
     components["baggage"] = baggage_points
     score += baggage_points
-    reasons.append(f"כבודה כלולה: +{baggage_points}")
+    reasons.append(f"{baggage_reason}: +{baggage_points}")
 
     time_points, time_reasons = _time_value_points(flight)
     components["time_value"] = time_points
