@@ -123,7 +123,7 @@
           ('balanced','Let Ariella choose the best balance','תנו לאריאלה לבחור את האיזון הטוב ביותר')
         ] %}
         {% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
-        <label class="choice-button priority-with-note">
+        <label class="choice-button priority-with-note{% if value == 'balanced' %} balanced-choice{% endif %}">
           <input type="checkbox" name="deal_priorities" value="{{ value }}">
           <span>{{ label }}
             {% if value == 'maximize' %}
@@ -179,7 +179,7 @@
     <h2>{{ 'Are there any important needs we should consider?' if site_lang == 'en' else 'האם יש צרכים חשובים שנרצה לקחת בחשבון?' }}</h2>
     <p class="helper">{{ 'You can select several options or leave this blank.' if site_lang == 'en' else 'אפשר לבחור כמה אפשרויות, או להשאיר ריק.' }}</p>
     <div class="choice-row compact-options special-needs-row">
-      {% set opts = [('kosher','Kosher food','אוכל כשר'),('shabbat','Shabbat observance','שמירת שבת'),('accessible','Accessibility','נגישות'),('stroller','Traveling with a stroller','טיול עם עגלה'),('walking','Walking limitation','מגבלת הליכה'),('vegetarian','Vegetarian / vegan','צמחוני/טבעוני')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+      {% set opts = [('kosher','Kosher food','אוכל כשר'),('shabbat','Shabbat observance','שמירת שבת'),('accessible','Accessibility','נגישות'),('stroller','Accessibility / stroller','נגישות / עגלה'),('walking','Walking limitation','מגבלת הליכה'),('vegetarian','Vegetarian / vegan','צמחוני/טבעוני')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button small"><input type="checkbox" name="special_needs" value="{{ value }}"><span>{{ label }}</span></label>
       {% endfor %}
     </div>
@@ -209,8 +209,15 @@
     input.addEventListener('change', () => setSelectedState(input));
   });
 
-  function showStep(index) {
-    current = Math.max(0, Math.min(index, steps.length - 1));
+  function showStep(index, direction = 1) {
+    let target = Math.max(0, Math.min(index, steps.length - 1));
+    const destinationMode = form.querySelector('input[name="destination_mode"]:checked')?.value;
+    // Q6 is relevant to destination suitability/trip planning, not to a flight
+    // search for one destination already chosen by the customer.
+    if (steps[target]?.dataset.step === '6' && destinationMode === 'specific') {
+      target = Math.max(0, Math.min(target + direction, steps.length - 1));
+    }
+    current = target;
     steps.forEach((step, i) => {
       step.hidden = i !== current;
       step.classList.toggle('is-active', i === current);
@@ -249,9 +256,9 @@
   }
 
   form.querySelectorAll('.wizard-next').forEach(btn => btn.addEventListener('click', () => {
-    if (validateStep(steps[current])) showStep(current + 1);
+    if (validateStep(steps[current])) showStep(current + 1, 1);
   }));
-  form.querySelectorAll('.wizard-back').forEach(btn => btn.addEventListener('click', () => showStep(current - 1)));
+  form.querySelectorAll('.wizard-back').forEach(btn => btn.addEventListener('click', () => showStep(current - 1, -1)));
 
   form.querySelectorAll('input[name="destination_mode"]').forEach(input => input.addEventListener('change', () => {
     const panel = document.getElementById('destinationDetails');

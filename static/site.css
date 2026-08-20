@@ -1655,3 +1655,11 @@ html body .site-header .myariella-star{
 .priority-with-note small{display:block;font-size:12px;font-weight:400;line-height:1.35;color:var(--muted)}
 .open-flight-focus{margin-top:28px;padding-top:22px;border-top:1px solid var(--line)}
 .open-flight-focus h3{margin:0 0 14px}
+
+/* v9.7.33 — final questionnaire polish */
+.wizard-step .choice-button input:checked + span::before{
+  content:"✓";display:inline-block;margin-inline-end:8px;color:#c58b1b;
+  font-weight:800;vertical-align:middle;
+}
+.wizard-step .balanced-choice{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}
+.wizard-step .balanced-choice>span{width:100%;align-items:center!important;justify-content:center!important;text-align:center!important}

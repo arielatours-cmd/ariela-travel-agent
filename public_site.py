@@ -744,7 +744,7 @@ def new_trip():
             "deal_priorities": form.getlist("deal_priorities"),
             "budget_mode": budget_mode,
             "budget_amount": form.get("budget_amount") if budget_mode == "per_person" else "",
-            "special_needs": form.getlist("special_needs"), "notes": form.get("notes", "").strip(),
+            "special_needs": form.getlist("special_needs") if destination_mode != "specific" else [], "notes": form.get("notes", "").strip(),
         }
         with _db() as conn:
             conn.execute(
