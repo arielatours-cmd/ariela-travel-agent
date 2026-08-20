@@ -1507,3 +1507,30 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
 .account-trip-empty{margin-top:12px!important}
 .personal-vacation{display:block!important}
 #personalDeals{min-height:260px}
+
+/* v9.7.25 — one shared My Ariella button on every page.
+   Deals page is the visual reference. */
+.site-header .account-menu-button .myariella-label,
+.site-header.luxury-header .account-menu-button .myariella-label{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+.site-header .account-menu-button .myariella-he,
+.site-header.luxury-header .account-menu-button .myariella-he{
+  direction:ltr!important; /* lock star physically to the same side as Deals */
+}
+.site-header .account-menu-button .myariella-he .myariella-text,
+.site-header.luxury-header .account-menu-button .myariella-he .myariella-text{
+  direction:rtl!important;
+  unicode-bidi:isolate!important;
+}
+.site-header .account-menu-button .myariella-star,
+.site-header.luxury-header .account-menu-button .myariella-star{
+  display:inline-block!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+}
