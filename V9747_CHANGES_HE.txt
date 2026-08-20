@@ -1,0 +1,4 @@
+Ariella Tours 9.7.47 — baggage import fix
+- תיקון Circular Import בין database.py ל-scanner.py.
+- חישוב הכבודה הועבר ל-baggage_pricing.py עצמאי.
+- נשמרים כל תיקוני 9.7.46: מחיר כבודה שמרני, סכום הלוך-חזור ליד ×, ותיקוני היציבות הקודמים.

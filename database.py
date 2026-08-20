@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from config import DB_PATH
-from scanner import _conservative_rt_bag_fee
+from baggage_pricing import conservative_rt_bag_fee
 
 # Curated destination landmark photography. Wikimedia Commons Special:Redirect/file
 # URLs are stable remote image URLs and require no additional flight/search API calls.
@@ -361,7 +361,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             _item = baggage.get(_key) or {}
             if _item.get("included") is not True and not isinstance(_item.get("roundtrip_price_ils"), (int, float)):
                 _each = _item.get("price_each_way")
-                _total = _conservative_rt_bag_fee(_each, _each, out_airline, ret_airline, _kind)
+                _total = conservative_rt_bag_fee(_each, _each, out_airline, ret_airline, _kind)
                 if _total is not None:
                     _item["roundtrip_price_ils"] = _total
                     _item["price_estimated"] = True
