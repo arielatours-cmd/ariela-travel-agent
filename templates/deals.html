@@ -116,7 +116,7 @@
   {% else %}
     <div class="ariella-deals-empty compact personal-search-needed">
       <span>A</span>
-      <h2>{{ 'No complete matching deal yet' if site_lang == 'en' else 'עדיין אין דיל מלא שמתאים לבקשה שלך' }}</h2>
+      <h2>{{ 'No complete up-to-date matching deal yet' if site_lang == 'en' else 'עדיין אין דיל מלא ועדכני שמתאים לבקשה שלך' }}</h2>
       {% if trip.has_incomplete_inventory %}
       <p>{{ 'Ariella found older matching inventory, but it is missing details required for a reliable offer. It will not be shown as a complete deal.' if site_lang == 'en' else 'יש במאגר תוצאות ישנות ליעד הזה, אבל חסרים בהן פרטים הדרושים להצעה אמינה ולכן הן לא יוצגו כדיל מלא.' }}</p>
       {% else %}
