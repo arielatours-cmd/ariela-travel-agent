@@ -1663,3 +1663,6 @@ html body .site-header .myariella-star{
 }
 .wizard-step .balanced-choice{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}
 .wizard-step .balanced-choice>span{width:100%;align-items:center!important;justify-content:center!important;text-align:center!important}
+
+/* v9.7.34 — destination caption: city + airport code, no decorative star */
+.deal-card-v970 .visual-destination-outside .visual-airport-code{font-size:18px;font-weight:700;letter-spacing:.03em;color:#b57b16}
