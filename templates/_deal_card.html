@@ -21,8 +21,8 @@
    <div class="deal-visual {% if stops==0 %}direct{% elif stops==1 %}one-stop{% else %}two-stops{% endif %}"
     {% if offer.destination_image_url %}style="background-image:linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.48)),url('{{ offer.destination_image_url }}')"{% endif %}>
     <span class="stop-badge">{% if stops==0 %}{{ 'Direct' if lang=='en' else 'ישירה' }}{% elif stops==1 %}{{ '1 connection' if lang=='en' else 'קונקשן 1' }}{% else %}{{ stops }} {{ 'connections' if lang=='en' else 'קונקשנים' }}{% endif %}</span>
-    <div class="visual-destination"><span>{{ offer.country_flag or '✦' }}</span><strong>{{ offer.arrival_city_en if lang=='en' else offer.arrival_city_he }}</strong></div>
    </div>
+   <div class="visual-destination-outside"><span>{{ offer.country_flag or '✦' }}</span><strong>{{ offer.arrival_city_en if lang=='en' else offer.arrival_city_he }}</strong></div>
 
    <section class="deal-flight">
     <h2 class="deal-route-title">

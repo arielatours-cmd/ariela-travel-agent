@@ -1592,3 +1592,60 @@ html body .site-header .myariella-star{
   display:inline-block!important;flex:0 0 auto!important;margin:0!important;color:#c99a3f!important;
   font-size:16px!important;line-height:1!important;
 }
+
+/* v9.7.31 — proportion refinement only. Baggage layout is intentionally untouched. */
+
+/* Tighten only the commerce spacing requested around consumer protection/change-cancel. */
+.deal-card-v970 .deal-commerce{
+  grid-template-rows:minmax(0,.78fr) minmax(0,1fr)!important;
+}
+.deal-card-v970 .important-terms{
+  justify-content:flex-end!important;
+  padding:4px 0 10px!important;
+}
+.deal-card-v970 .important-terms div{margin:3px 0!important}
+.deal-card-v970 .deal-price-box{
+  justify-content:flex-start!important;
+  padding:10px 0 8px!important;
+}
+.deal-card-v970 .deal-price-box>strong{margin:6px 0 12px!important}
+
+/* Image is slightly shorter; destination becomes a separate centered strip below it. */
+.deal-card-v970 .deal-main-grid{
+  grid-template-columns:minmax(250px,1.05fr) minmax(430px,2fr) minmax(210px,1fr) minmax(260px,1.1fr)!important;
+  grid-template-rows:330px auto!important;
+}
+.deal-card-v970 .deal-visual{
+  grid-column:1!important;
+  grid-row:1!important;
+  min-height:0!important;
+  height:330px!important;
+  padding:18px 20px!important;
+}
+.deal-card-v970 .visual-destination-outside{
+  grid-column:1!important;
+  grid-row:2!important;
+  min-height:58px;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:9px!important;
+  padding:10px 14px!important;
+  border-inline-start:1px solid #e8e0d5;
+  background:#fffdf9;
+  color:#111;
+  direction:rtl;
+}
+.deal-card-v970 .visual-destination-outside span{font-size:20px!important}
+.deal-card-v970 .visual-destination-outside strong{font-size:22px!important}
+.deal-card-v970 .deal-flight,
+.deal-card-v970 .deal-baggage,
+.deal-card-v970 .deal-commerce{
+  grid-row:1 / span 2!important;
+  min-height:388px!important;
+}
+@media(max-width:900px){
+  .deal-card-v970 .deal-main-grid{display:block!important}
+  .deal-card-v970 .deal-visual{height:240px!important}
+  .deal-card-v970 .visual-destination-outside{min-height:54px}
+}
