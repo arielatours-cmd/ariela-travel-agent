@@ -3,7 +3,7 @@
 {% macro protection_en(label) -%}{% set m={'חלה':'Applies','אינה חלה':'Does not apply','בדיקה נדרשת':'Check with supplier','יש לבדוק מול הספק':'Check with supplier'} %}{{ m.get(label,'Check with supplier') }}{%- endmacro %}
 {% macro change_en(label) -%}{% set m={'בכפוף לתנאי הספק':'Subject to supplier terms','אפשרי בתשלום':'Available for a fee','אפשרי ללא תשלום':'Available at no charge','לא ניתן לשינוי או ביטול':'Non-changeable / non-refundable'} %}{{ m.get(label,'Subject to supplier terms') }}{%- endmacro %}
 {% macro bag_row(label_he,label_en,item,kind,lang='he') -%}
-<li><span class="bag-svg {{ kind }}" aria-hidden="true">{% if kind=='backpack' %}🎒{% elif kind=='carry' %}🧳{% else %}🧳{% endif %}</span><span>{{ label_en if lang=='en' else label_he }}</span>{% if item and item.included %}<strong class="included">✓</strong>{% elif kind in ['carry','checked'] and item and item.roundtrip_price_ils is number %}<small class="bag-price">{{ 'Round trip' if lang=='en' else 'הלוך+חזור' }}: ₪{{ '%.0f'|format(item.roundtrip_price_ils) }}</small>{% elif kind in ['carry','checked'] and item and item.price_each_way is number %}<small class="bag-price">{{ 'Round trip' if lang=='en' else 'הלוך+חזור' }}: ₪{{ '%.0f'|format(item.price_each_way * 2) }}</small>{% else %}<strong class="not-included">×</strong>{% endif %}</li>
+<li><span class="bag-svg {{ kind }}" aria-hidden="true">{% if kind=='backpack' %}🎒{% elif kind=='carry' %}🧳{% else %}🧳{% endif %}</span><span>{{ label_en if lang=='en' else label_he }}</span>{% if item and item.included is sameas true %}<strong class="included">✓</strong>{% elif kind in ['carry','checked'] and item and item.roundtrip_price_ils is number %}<small class="bag-price">{{ 'Round trip' if lang=='en' else 'הלוך+חזור' }}: ₪{{ '%.0f'|format(item.roundtrip_price_ils) }}</small>{% elif kind in ['carry','checked'] and item and item.price_each_way is number %}<small class="bag-price">{{ 'Round trip' if lang=='en' else 'הלוך+חזור' }}: ₪{{ '%.0f'|format(item.price_each_way * 2) }}</small>{% elif item and item.known is sameas true and item.included is sameas false %}<strong class="not-included">×</strong>{% else %}<small class="baggage-unknown">{{ 'Unknown' if lang=='en' else 'לא ידוע' }}</small>{% endif %}</li>
 {%- endmacro %}
 {% macro deal_card(offer, lang='he') -%}
 {% set stops=offer.stops or 0 %}{% set rt=offer.return_departure_time %}
@@ -83,7 +83,7 @@
       <div><dt>{{ 'Changes / cancellation:' if lang=='en' else 'שינוי / ביטול:' }}</dt><dd>{{ change_en(offer.change_cancel_label) if lang=='en' else offer.change_cancel_label }}</dd></div>
     </dl>
     <div class="deal-price-box">
-      {% if offer.reference_price_ils and offer.discount_percent and offer.discount_percent|float >= 5 %}<span class="average-label">{{ 'Average price for this period' if lang=='en' else 'מחיר ממוצע לתקופה זו' }}</span><del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>{% endif %}
+      {% if offer.price_reference_reliable and offer.reference_price_ils and offer.discount_percent and offer.discount_percent|float >= 5 %}<span class="average-label">{{ 'Average price for this period' if lang=='en' else 'מחיר ממוצע לתקופה זו' }}</span><del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>{% endif %}
       <span class="found-label">{{ 'Price per person found by Ariella' if lang=='en' else 'המחיר לאדם שאריאלה מצאה' }}</span>
       <strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>
       {% if offer.booking_supplier %}
@@ -92,8 +92,8 @@
         {% if offer.direct_supplier and offer.direct_supplier_price_ils is number and offer.direct_supplier != offer.booking_supplier %}
         <div class="direct-compare">{{ 'Direct with airline' if lang=='en' else 'ישירות מחברת התעופה' }}: ₪{{ offer.direct_supplier_price_ils|round|int }}</div>
         {% endif %}
-        {% if offer.cheapest_any_supplier and offer.cheapest_any_price_ils is number and offer.cheapest_any_price_ils < offer.price_ils and not offer.booking_supplier_approved %}
-        <div class="supplier-note">{{ 'A cheaper unverified supplier exists on Google Flights' if lang=='en' else 'קיימת בגוגל אפשרות זולה יותר אצל ספק שטרם אושר על ידינו' }}</div>
+        {% if offer.booking_choice_reason_he %}
+        <div class="supplier-note booking-choice-note">{{ offer.booking_choice_reason_en if lang=='en' else offer.booking_choice_reason_he }}</div>
         {% endif %}
       </div>
       {% endif %}
@@ -103,8 +103,8 @@
  </div>
 
  {% set visible=[] %}
- {% for reason in offer.display_reasons[:5] %}
-   {% if not ('0.0%' in reason or '0%' in reason or 'היסטוריה' in reason or 'נדירות' in reason) %}
+ {% for reason in offer.display_reasons[:6] %}
+   {% if reason != offer.booking_choice_reason_he and not ('0.0%' in reason or '0%' in reason or 'היסטוריה' in reason or 'נדירות' in reason) %}
      {% set _=visible.append(reason_en(reason) if lang=='en' else reason) %}
    {% endif %}
  {% endfor %}

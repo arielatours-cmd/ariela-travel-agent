@@ -339,21 +339,18 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         analysis = payload.get("deal_analysis") or {}
 
         source = analysis.get("price_reference_source")
-        if source == "history":
+        if source == "history" and analysis.get("price_reference_reliable"):
             reference_price = analysis.get("historical_median")
-        elif source == "search_distribution":
-            reference_price = analysis.get("search_median")
-        elif source == "serpapi_typical":
+        elif source == "serpapi_typical" and analysis.get("price_reference_reliable"):
             reference_price = analysis.get("typical_price_low")
         else:
-            reference_price = (
-                analysis.get("historical_median")
-                or analysis.get("search_median")
-                or analysis.get("typical_price_low")
-            )
+            reference_price = None
 
         reasons = deal_score.get("reasons") or []
         flight = payload.get("flight") or {}
+        booking_choice_reason_he = flight.get("booking_choice_reason_he")
+        if booking_choice_reason_he:
+            display_reasons.insert(0, booking_choice_reason_he)
         baggage = flight.get("baggage") or {}
         connections = flight.get("connections") or []
         outbound = payload.get("outbound") or {}
@@ -451,6 +448,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
                 item.get("return_date") or payload.get("return_date"),
             ),
             "reference_price_ils": reference_price,
+            "price_reference_reliable": bool(analysis.get("price_reference_reliable")),
             "departure_airport_name": payload.get("departure_airport_name") or flight.get("departure_airport_name"),
             "arrival_airport_name": payload.get("arrival_airport_name") or flight.get("arrival_airport_name"),
             "outbound_display": outbound.get("display_he"),
@@ -474,17 +472,21 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "booking_supplier": flight.get("booking_supplier"),
             "booking_supplier_price_ils": flight.get("booking_supplier_price_ils"),
             "booking_supplier_approved": flight.get("booking_supplier_approved"),
+            "booking_supplier_is_direct": flight.get("booking_supplier_is_direct"),
+            "booking_choice_reason_he": flight.get("booking_choice_reason_he"),
+            "booking_choice_reason_en": flight.get("booking_choice_reason_en"),
             "cheapest_any_supplier": flight.get("cheapest_any_supplier"),
             "cheapest_any_price_ils": flight.get("cheapest_any_price_ils"),
+            "cheapest_any_is_separate": flight.get("cheapest_any_is_separate"),
             "direct_supplier": flight.get("direct_supplier"),
             "direct_supplier_price_ils": flight.get("direct_supplier_price_ils"),
             "booking_options_checked": flight.get("booking_options_checked"),
             "has_price_history": has_price_history,
             "connections": connections,
             "baggage": {
-                "personal_item": baggage.get("personal_item") or {"included": True},
-                "carry_on_8kg": baggage.get("carry_on_8kg") or {"included": False},
-                "checked_bag_23kg": baggage.get("checked_bag_23kg") or {"included": False},
+                "personal_item": baggage.get("personal_item") or {"included": None, "known": False},
+                "carry_on_8kg": baggage.get("carry_on_8kg") or {"included": None, "known": False},
+                "checked_bag_23kg": baggage.get("checked_bag_23kg") or {"included": None, "known": False},
             },
             "destination_image_url": (
                 payload.get("destination_image_url")
@@ -503,8 +505,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "rarity_score": components.get("rarity"),
             # The current scoring engine reserves one combined field and does not yet
             # calculate seasonality and reliability separately. Show honest zeroes.
-            "seasonality_score": 0,
-            "reliability_score": 0,
+            "seasonality_score": None,
+            "reliability_score": None,
             "send_reason": reasons[0].split(": +")[0] if reasons else deal_score.get("label"),
         })
         result.append(item)

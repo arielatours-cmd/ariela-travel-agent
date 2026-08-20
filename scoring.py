@@ -35,10 +35,15 @@ def _price_points(analysis: dict) -> tuple[int, list[str]]:
             points = 6
         else:
             points = 0
+        if source == "search_distribution":
+            # Same-search median is useful for ranking but too weak for a big
+            # customer-facing "X% below average" claim. Cap its score impact.
+            points = min(points, 20)
+            reasons.append(f"מחיר תחרותי ביחס לאפשרויות בחיפוש הנוכחי: +{points}")
+            return points, reasons
         source_he = {
             "serpapi_typical": "הטווח הרגיל של Google Flights",
             "history": "היסטוריית המחירים של אריאלה",
-            "search_distribution": "מחירי החיפוש הנוכחי",
         }.get(source, "מחיר הייחוס")
         reasons.append(f"מחיר נמוך ב-{discount:.1f}% לעומת {source_he}: +{points}")
         return points, reasons

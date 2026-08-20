@@ -99,9 +99,10 @@ def _summarize_flight(item: dict) -> dict:
         "return_departure_time": (return_summary or {}).get("departure_time"),
         "return_departure_airport": (return_summary or {}).get("departure_airport"),
         "baggage": {
-            "personal_item": {"included": True, "price_each_way": 0, "estimated": True},
-            "carry_on_8kg": {"included": False, "price_each_way": None, "estimated": True},
-            "checked_bag_23kg": {"included": False, "price_each_way": None, "estimated": True},
+            # Do not assume baggage inclusions when Google/SerpApi did not provide them.
+            "personal_item": {"included": None, "known": False, "price_each_way": None, "estimated": True},
+            "carry_on_8kg": {"included": None, "known": False, "price_each_way": None, "estimated": True},
+            "checked_bag_23kg": {"included": None, "known": False, "price_each_way": None, "estimated": True},
         },
     }
 
@@ -127,7 +128,45 @@ def _deal_analysis(data: dict, flight_prices: list[float] | None = None) -> dict
         "typical_price_low": low, "typical_price_high": high,
         "below_typical_low_percent": serp_discount,
         "search_median": search_median,
+        "search_sample_count": len(prices),
     }
+
+
+def _apply_best_price_reference(analysis: dict, price: float) -> dict:
+    """Attach the best defensible reference for THIS itinerary price.
+
+    Customer-facing percentage claims are allowed only for Google Flights typical
+    pricing or Ariella history with >=8 observations. The current search median is
+    a ranking fallback only and is never presented as a period average.
+    """
+    analysis = dict(analysis)
+    trusted = []
+    typical_low = analysis.get("typical_price_low")
+    if isinstance(typical_low, (int, float)) and typical_low > 0:
+        trusted.append(((typical_low - price) / typical_low * 100, "serpapi_typical"))
+
+    hist = analysis.get("historical_median")
+    hist_n = int(analysis.get("historical_sample_count") or 0)
+    if isinstance(hist, (int, float)) and hist > 0 and hist_n >= 8:
+        trusted.append(((hist - price) / hist * 100, "history"))
+
+    fallback = []
+    search_median = analysis.get("search_median")
+    search_n = int(analysis.get("search_sample_count") or 0)
+    if isinstance(search_median, (int, float)) and search_median > 0 and search_n >= 5:
+        fallback.append(((search_median - price) / search_median * 100, "search_distribution"))
+
+    candidates = trusted or fallback
+    analysis.pop("best_discount_percent", None)
+    analysis.pop("price_reference_source", None)
+    if candidates:
+        discount, source = max(candidates, key=lambda x: x[0])
+        analysis["best_discount_percent"] = round(discount, 1)
+        analysis["price_reference_source"] = source
+        analysis["price_reference_reliable"] = source in {"serpapi_typical", "history"}
+    else:
+        analysis["price_reference_reliable"] = False
+    return analysis
 
 
 def _serpapi_request(params: dict) -> dict:
@@ -240,53 +279,83 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     params["booking_token"] = token
     data = _serpapi_request(params)
 
-    flattened = []
+    # Google can return normal round-trip booking options and cheaper
+    # "separate tickets booked together" options. Separate tickets are useful
+    # for comparison, but Ariella never auto-selects them as the primary option.
+    all_priced = []
+    selectable_priced = []
     for group in data.get("booking_options") or []:
         together = group.get("together")
-        if isinstance(together, dict):
-            flattened.append(together)
-        # Separate tickets are not auto-selected as the primary booking option.
-    priced = [(o, _ils_price(o)) for o in flattened]
-    priced = [(o,p) for o,p in priced if p is not None]
-    approved = [(o,p) for o,p in priced if _supplier_is_approved(o)]
-    direct = [(o,p) for o,p in priced if o.get("airline") is True]
+        if not isinstance(together, dict):
+            continue
+        price = _ils_price(together)
+        if price is None:
+            continue
+        row = (together, price, bool(group.get("separate_tickets")))
+        all_priced.append(row)
+        if not row[2]:
+            selectable_priced.append(row)
 
-    cheapest_any = min(priced, key=lambda x:x[1]) if priced else (None,None)
-    cheapest_approved = min(approved, key=lambda x:x[1]) if approved else (None,None)
-    cheapest_direct = min(direct, key=lambda x:x[1]) if direct else (None,None)
+    approved = [(o,p,sep) for o,p,sep in selectable_priced if _supplier_is_approved(o)]
+    direct = [(o,p,sep) for o,p,sep in selectable_priced if o.get("airline") is True]
 
-    # Choose the best booking option, balancing reliability and price:
-    # - Never auto-prefer an unapproved third-party supplier when an approved option exists.
-    # - Prefer direct airline booking when it costs no more than 5% or ₪75 above
-    #   the cheapest approved third-party option.
-    # - Otherwise choose the cheapest approved option.
-    # - Fall back to the cheapest available option only when no approved/direct option exists.
+    cheapest_any = min(all_priced, key=lambda x:x[1]) if all_priced else (None,None,False)
+    cheapest_selectable = min(selectable_priced, key=lambda x:x[1]) if selectable_priced else (None,None,False)
+    cheapest_approved = min(approved, key=lambda x:x[1]) if approved else (None,None,False)
+    cheapest_direct = min(direct, key=lambda x:x[1]) if direct else (None,None,False)
+
+    # Reliability/price balance:
+    # 1) never auto-select separate tickets; 2) prefer direct airline booking
+    # when it is within max(5%, ₪75) of the cheapest approved non-separate option.
     chosen = None
     chosen_price = None
     if cheapest_direct[0] is not None and cheapest_approved[0] is not None:
-        direct_option, direct_price = cheapest_direct
-        approved_option, approved_price = cheapest_approved
+        direct_option, direct_price, _ = cheapest_direct
+        approved_option, approved_price, _ = cheapest_approved
         tolerance = max(75.0, approved_price * 0.05)
         if direct_price <= approved_price + tolerance:
             chosen, chosen_price = direct_option, direct_price
         else:
             chosen, chosen_price = approved_option, approved_price
     elif cheapest_direct[0] is not None:
-        chosen, chosen_price = cheapest_direct
+        chosen, chosen_price, _ = cheapest_direct
     elif cheapest_approved[0] is not None:
-        chosen, chosen_price = cheapest_approved
-    else:
-        chosen, chosen_price = cheapest_any
+        chosen, chosen_price, _ = cheapest_approved
+    elif cheapest_selectable[0] is not None:
+        chosen, chosen_price, _ = cheapest_selectable
 
     flight = dict(flight)
     flight["booking_supplier"] = (chosen or {}).get("book_with")
     flight["booking_supplier_price_ils"] = chosen_price
     flight["booking_supplier_approved"] = bool(chosen and _supplier_is_approved(chosen))
+    flight["booking_supplier_is_direct"] = bool(chosen and chosen.get("airline") is True)
     flight["cheapest_any_supplier"] = (cheapest_any[0] or {}).get("book_with")
     flight["cheapest_any_price_ils"] = cheapest_any[1]
+    flight["cheapest_any_is_separate"] = bool(cheapest_any[2])
     flight["direct_supplier"] = (cheapest_direct[0] or {}).get("book_with")
     flight["direct_supplier_price_ils"] = cheapest_direct[1]
-    flight["booking_options_checked"] = len(priced)
+    flight["booking_options_checked"] = len(all_priced)
+
+    # Explain a deliberate choice not to show the absolute cheapest option.
+    reason_he = None
+    reason_en = None
+    if chosen_price is not None and cheapest_any[1] is not None and cheapest_any[1] < chosen_price:
+        diff = int(round(chosen_price - cheapest_any[1]))
+        if cheapest_any[2]:
+            if flight["booking_supplier_is_direct"]:
+                reason_he = f"נמצאה אפשרות זולה יותר ב־₪{diff}, אך היא כוללת כרטיסים נפרדים. אריאלה העדיפה הזמנה ישירה מחברת התעופה במחיר מעט גבוה יותר."
+                reason_en = f"A cheaper option by ₪{diff} was found, but it uses separate tickets. Ariella preferred direct booking with the airline for a slightly higher price."
+            else:
+                reason_he = f"נמצאה אפשרות זולה יותר ב־₪{diff}, אך היא כוללת כרטיסים נפרדים. אריאלה העדיפה אפשרות הזמנה מאושרת ופשוטה יותר."
+                reason_en = f"A cheaper option by ₪{diff} was found, but it uses separate tickets. Ariella preferred an approved, simpler booking option."
+        elif flight["booking_supplier_is_direct"]:
+            reason_he = f"נמצאה אפשרות זולה יותר ב־₪{diff} דרך ספק אחר. אריאלה העדיפה הזמנה ישירה מחברת התעופה כי פער המחיר קטן."
+            reason_en = f"A cheaper option by ₪{diff} was found through another seller. Ariella preferred direct airline booking because the price difference is small."
+        elif flight["booking_supplier_approved"]:
+            reason_he = f"נמצאה אפשרות זולה יותר ב־₪{diff} אצל ספק שלא אושר. אריאלה העדיפה ספק מאושר במחיר מעט גבוה יותר."
+            reason_en = f"A cheaper option by ₪{diff} was found with an unapproved seller. Ariella preferred an approved seller for a slightly higher price."
+    flight["booking_choice_reason_he"] = reason_he
+    flight["booking_choice_reason_en"] = reason_en
 
     baggage = _roundtrip_baggage_estimate(data)
     base_baggage = dict(flight.get("baggage") or {})
@@ -295,9 +364,13 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     if baggage["carry_on_roundtrip_ils"] is not None:
         carry["roundtrip_price_ils"] = baggage["carry_on_roundtrip_ils"]
         carry["estimated"] = baggage["carry_on_estimated"]
+        carry["known"] = True
+        carry["included"] = baggage["carry_on_roundtrip_ils"] == 0
     if baggage["checked_bag_roundtrip_ils"] is not None:
         checked["roundtrip_price_ils"] = baggage["checked_bag_roundtrip_ils"]
         checked["estimated"] = baggage["checked_bag_estimated"]
+        checked["known"] = True
+        checked["included"] = baggage["checked_bag_roundtrip_ils"] == 0
     base_baggage["carry_on_8kg"] = carry
     base_baggage["checked_bag_23kg"] = checked
     flight["baggage"] = base_baggage
@@ -422,19 +495,7 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
                     analysis["historical_sample_count"] = history["sample_count"]
                     analysis["historical_median"] = history["median"]
                     analysis["historical_percentile"] = history["percentile"]
-
-                    candidates = []
-                    if isinstance(analysis.get("below_typical_low_percent"), (int, float)):
-                        candidates.append((analysis["below_typical_low_percent"], "serpapi_typical"))
-                    if isinstance(history.get("median"), (int, float)) and history["median"] > 0:
-                        candidates.append(((history["median"] - price) / history["median"] * 100, "history"))
-                    search_median = analysis.get("search_median")
-                    if isinstance(search_median, (int, float)) and search_median > 0:
-                        candidates.append(((search_median - price) / search_median * 100, "search_distribution"))
-                    if candidates:
-                        best_discount, source = max(candidates, key=lambda item: item[0])
-                        analysis["best_discount_percent"] = round(best_discount, 1)
-                        analysis["price_reference_source"] = source
+                    analysis = _apply_best_price_reference(analysis, price)
 
                     score = calculate_deal_score(analysis, flight)
                     scored_combinations.append((score["score"], -price, flight, analysis, score))
@@ -449,6 +510,8 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
                     # Prefer the approved bookable price for what Ariella shows.
                     if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
                         flight["price"] = flight["booking_supplier_price_ils"]
+                    analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                    score = calculate_deal_score(analysis, flight)
                     analysis["combinations_checked"] = result.get("combinations_checked", len(scored_combinations))
                     analysis["outbounds_checked"] = result.get("outbounds_checked")
                     offer = {
@@ -553,17 +616,7 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                         "historical_median": history["median"],
                         "historical_percentile": history["percentile"],
                     })
-                    candidates = []
-                    if isinstance(analysis.get("below_typical_low_percent"), (int, float)):
-                        candidates.append((analysis["below_typical_low_percent"], "serpapi_typical"))
-                    if isinstance(history.get("median"), (int, float)) and history["median"] > 0:
-                        candidates.append(((history["median"] - price) / history["median"] * 100, "history"))
-                    if isinstance(analysis.get("search_median"), (int, float)) and analysis["search_median"] > 0:
-                        candidates.append(((analysis["search_median"] - price) / analysis["search_median"] * 100, "search_distribution"))
-                    if candidates:
-                        discount, source = max(candidates, key=lambda x: x[0])
-                        analysis["best_discount_percent"] = round(discount, 1)
-                        analysis["price_reference_source"] = source
+                    analysis = _apply_best_price_reference(analysis, price)
                     score = calculate_deal_score(analysis, flight)
                     if score["score"] >= 65:
                         scored.append((score["score"], -price, flight, analysis, score))
@@ -576,6 +629,8 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                     api_requests += booking_requests
                     if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
                         flight["price"] = flight["booking_supplier_price_ils"]
+                    analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                    score = calculate_deal_score(analysis, flight)
                     insert_offer(run_id, {
                         "observed_at": datetime.now(timezone.utc).isoformat(),
                         "route": result["route"], "departure_code": job["departure"], "arrival_code": job["arrival"],
@@ -623,17 +678,7 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
                         "historical_median": history["median"],
                         "historical_percentile": history["percentile"],
                     })
-                    candidates=[]
-                    if isinstance(analysis.get("below_typical_low_percent"), (int,float)):
-                        candidates.append((analysis["below_typical_low_percent"],"serpapi_typical"))
-                    if isinstance(history.get("median"), (int,float)) and history["median"] > 0:
-                        candidates.append(((history["median"]-price)/history["median"]*100,"history"))
-                    if isinstance(analysis.get("search_median"), (int,float)) and analysis["search_median"] > 0:
-                        candidates.append(((analysis["search_median"]-price)/analysis["search_median"]*100,"search_distribution"))
-                    if candidates:
-                        discount, source=max(candidates,key=lambda x:x[0])
-                        analysis["best_discount_percent"]=round(discount,1)
-                        analysis["price_reference_source"]=source
+                    analysis = _apply_best_price_reference(analysis, price)
                     score=calculate_deal_score(analysis,flight)
                     scored.append((score["score"],-price,flight,analysis,score))
                 if scored:
@@ -645,6 +690,8 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
                     api_requests += booking_requests
                     if isinstance(flight.get("booking_supplier_price_ils"), (int,float)):
                         flight["price"]=flight["booking_supplier_price_ils"]
+                    analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                    score = calculate_deal_score(analysis, flight)
                     insert_offer(run_id,{
                         "observed_at":datetime.now(timezone.utc).isoformat(),
                         "route":result["route"],"departure_code":job["departure"],"arrival_code":job["arrival"],

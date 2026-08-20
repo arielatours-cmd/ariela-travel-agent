@@ -1808,3 +1808,9 @@ html body .site-header .myariella-star{
 }
 html[dir="rtl"] .filter-multi-menu label{direction:rtl!important;text-align:right!important}
 html[dir="ltr"] .filter-multi-menu label{direction:ltr!important;text-align:left!important}
+
+
+/* v9.7.42 — trust/audit fixes */
+.deal-card-v970 .important-terms dd.check{color:#111!important}
+.deal-card-v970 .baggage-unknown{color:#6e6b68!important;font-size:12px!important;font-weight:600}
+.deal-card-v970 .booking-choice-note{color:#4f4b44!important;margin-top:6px!important;line-height:1.45!important;font-size:12px!important}

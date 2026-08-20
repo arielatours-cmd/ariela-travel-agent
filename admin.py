@@ -323,11 +323,11 @@ tbody tr:hover{background:#fafbfe}
         {{ o.rarity_score if o.rarity_score is defined else '—' }}
     </td>
     <td class="score-part" title="ניקוד עונתיות">
-        {{ o.seasonality_score if o.seasonality_score is defined else
-           (o.season_score if o.season_score is defined else '—') }}
+        {{ o.seasonality_score if o.seasonality_score is defined and o.seasonality_score is not none else
+           (o.season_score if o.season_score is defined and o.season_score is not none else '—') }}
     </td>
     <td class="score-part" title="ניקוד אמינות">
-        {{ o.reliability_score if o.reliability_score is defined else '—' }}
+        {{ o.reliability_score if o.reliability_score is defined and o.reliability_score is not none else '—' }}
     </td>
     <td class="total-score">
         <span class="score-badge {% if o.score >= minimum_score %}score-good{% elif o.score >= minimum_score-10 %}score-medium{% else %}score-bad{% endif %}">
