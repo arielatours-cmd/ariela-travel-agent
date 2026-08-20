@@ -12,12 +12,11 @@
         <option value="">{{ 'All' if site_lang == 'en' else 'הכל' }}</option>
       </select>
     </label>
-    <label>
+    <div class="filter-multi filter-multi-main" id="filterDestinationWrap">
       <span>{{ 'Destination' if site_lang == 'en' else 'יעד' }}</span>
-      <select id="filterDestination">
-        <option value="">{{ 'All' if site_lang == 'en' else 'הכל' }}</option>
-      </select>
-    </label>
+      <button type="button" class="filter-multi-button">{{ 'All' if site_lang == 'en' else 'הכל' }} ▾</button>
+      <div class="filter-multi-menu" hidden></div>
+    </div>
     <label>
       <span>{{ 'Month' if site_lang == 'en' else 'חודש' }}</span>
       <input id="filterMonth" type="month">
@@ -104,9 +103,11 @@
 <script>
 (function(){const root=document.getElementById('generalDeals');if(!root)return;const list=root.querySelector('.ariella-deals-list');if(!list)return;
 const q=id=>document.getElementById(id),cards=[...list.querySelectorAll('.ariella-deal-card')],N=v=>String(v??'').trim(),L=v=>N(v).toLowerCase();
-const C={origin:q('filterOrigin'),destination:q('filterDestination'),month:q('filterMonth'),price:q('filterPrice'),stops:q('filterStops'),baggage:q('filterBaggage'),time:q('filterTime'),protection:q('filterProtection'),change:q('filterChange')};
+const C={origin:q('filterOrigin'),month:q('filterMonth'),price:q('filterPrice'),stops:q('filterStops'),baggage:q('filterBaggage'),time:q('filterTime'),protection:q('filterProtection'),change:q('filterChange')};
 function opts(s,p){if(!s)return;const z=new Set();p.filter(x=>x.v).sort((a,b)=>a.l.localeCompare(b.l,document.documentElement.lang||'he')).forEach(x=>{if(z.has(x.v))return;z.add(x.v);const o=document.createElement('option');o.value=x.v;o.textContent=x.l;s.appendChild(o);});}
-opts(C.origin,cards.map(c=>({v:c.dataset.origin,l:c.dataset.origin})));opts(C.destination,cards.map(c=>({v:c.dataset.destination,l:c.dataset.destinationLabel||c.dataset.destination})));
+opts(C.origin,cards.map(c=>({v:c.dataset.origin,l:c.dataset.origin})));
+const dm=q('filterDestinationWrap')?.querySelector('.filter-multi-menu');
+const destinationMap=new Map();cards.forEach(c=>{const v=N(c.dataset.destination),l=N(c.dataset.destinationLabel)||v;if(v&&!destinationMap.has(v))destinationMap.set(v,l);});[...destinationMap.entries()].sort((a,b)=>a[1].localeCompare(b[1],document.documentElement.lang||'he')).forEach(([v,t])=>{const l=document.createElement('label'),i=document.createElement('input'),s=document.createElement('span');i.type='checkbox';i.name='filterDestination';i.value=v;s.textContent=t;l.append(i,s);dm?.appendChild(l);});
 const am=q('filterAirlineWrap')?.querySelector('.filter-multi-menu');[...new Set(cards.map(c=>N(c.dataset.airline)).filter(Boolean))].sort().forEach(v=>{const l=document.createElement('label'),i=document.createElement('input'),s=document.createElement('span');i.type='checkbox';i.name='filterAirline';i.value=v;s.textContent=v;l.append(i,s);am?.appendChild(l);});
 const ck=n=>[...root.querySelectorAll(`input[name="${n}"]:checked`)].map(x=>x.value);
 function days(a,b){if(!a||!b)return null;const x=new Date(a+'T00:00:00'),y=new Date(b+'T00:00:00');return isNaN(x)||isNaN(y)?null:Math.round((y-x)/86400000);}
@@ -114,7 +115,7 @@ function bucket(v){const m=N(v).match(/(\d{1,2}):/);if(!m)return'';const h=+m[1]
 function lm(n,r){return r==='1-3'?n>=1&&n<=3:r==='4-6'?n>=4&&n<=6:r==='7-9'?n>=7&&n<=9:r==='10-14'?n>=10&&n<=14:r==='15+'?n>=15:true;}
 function cm(v,f){v=L(v);return f==='free'?/ללא תשלום|no charge|free/.test(v):f==='paid'?/בתשלום|for a fee|fee/.test(v):f==='none'?/לא ניתן|non-changeable|non-refundable|not changeable|not refundable/.test(v):true;}
 function badge(w,n,a){if(!w)return;const k=ck(n).length,b=w.querySelector('.filter-multi-button');b.textContent=(k?`${k} ${document.documentElement.lang==='en'?'selected':'נבחרו'}`:a)+' ▾';}
-function apply(){const ls=ck('filterLength'),as=ck('filterAirline');let v=0;cards.forEach(c=>{const d=c.dataset;let o=true;if(C.origin?.value&&d.origin!==C.origin.value)o=false;if(C.destination?.value&&d.destination!==C.destination.value)o=false;if(C.month?.value&&!N(d.outbound).startsWith(C.month.value))o=false;const mx=+(C.price?.value||0),p=+(d.price||0);if(mx>0&&(!p||p>mx))o=false;if(C.stops?.value!==''&&+d.stops!==+C.stops.value)o=false;if(C.baggage?.value==='personal'&&d.personal!=='1')o=false;if(C.baggage?.value==='carry'&&d.carry!=='1')o=false;if(C.baggage?.value==='checked'&&d.checked!=='1')o=false;if(C.time?.value&&bucket(d.departureTime)!==C.time.value)o=false;if(ls.length){const n=days(d.outbound,d.return);if(n===null||!ls.some(r=>lm(n,r)))o=false;}if(as.length&&!as.includes(N(d.airline)))o=false;if(C.protection?.value==='applies'&&N(d.protection)!=='applies')o=false;if(C.change?.value&&!cm(d.change,C.change.value))o=false;c.classList.toggle('is-filtered-out',!o);if(o)v++;});let e=root.querySelector('.deal-filter-empty');if(!e){e=document.createElement('div');e.className='deal-filter-empty';e.textContent=document.documentElement.lang==='en'?'No deals match the selected filters.':'אין דילים שמתאימים למסננים שבחרתם.';list.after(e);}e.hidden=v!==0;badge(q('filterLengthWrap'),'filterLength',document.documentElement.lang==='en'?'Any':'הכל');badge(q('filterAirlineWrap'),'filterAirline',document.documentElement.lang==='en'?'All':'הכל');}
+function apply(){const ds=ck('filterDestination'),ls=ck('filterLength'),as=ck('filterAirline');let v=0;cards.forEach(c=>{const d=c.dataset;let o=true;if(C.origin?.value&&d.origin!==C.origin.value)o=false;if(ds.length&&!ds.includes(N(d.destination)))o=false;if(C.month?.value&&!N(d.outbound).startsWith(C.month.value))o=false;const mx=+(C.price?.value||0),p=+(d.price||0);if(mx>0&&(!p||p>mx))o=false;if(C.stops?.value!==''&&+d.stops!==+C.stops.value)o=false;if(C.baggage?.value==='personal'&&d.personal!=='1')o=false;if(C.baggage?.value==='carry'&&d.carry!=='1')o=false;if(C.baggage?.value==='checked'&&d.checked!=='1')o=false;if(C.time?.value&&bucket(d.departureTime)!==C.time.value)o=false;if(ls.length){const n=days(d.outbound,d.return);if(n===null||!ls.some(r=>lm(n,r)))o=false;}if(as.length&&!as.includes(N(d.airline)))o=false;if(C.protection?.value==='applies'&&N(d.protection)!=='applies')o=false;if(C.change?.value&&!cm(d.change,C.change.value))o=false;c.classList.toggle('is-filtered-out',!o);if(o)v++;});let e=root.querySelector('.deal-filter-empty');if(!e){e=document.createElement('div');e.className='deal-filter-empty';e.textContent=document.documentElement.lang==='en'?'No deals match the selected filters.':'אין דילים שמתאימים למסננים שבחרתם.';list.after(e);}e.hidden=v!==0;badge(q('filterDestinationWrap'),'filterDestination',document.documentElement.lang==='en'?'All':'הכל');badge(q('filterLengthWrap'),'filterLength',document.documentElement.lang==='en'?'Any':'הכל');badge(q('filterAirlineWrap'),'filterAirline',document.documentElement.lang==='en'?'All':'הכל');}
 Object.values(C).forEach(e=>e?.addEventListener(e.tagName==='INPUT'?'input':'change',apply));root.querySelectorAll('.filter-multi').forEach(w=>{w.querySelector('.filter-multi-button')?.addEventListener('click',()=>{const m=w.querySelector('.filter-multi-menu');m.hidden=!m.hidden;});w.querySelector('.filter-multi-menu')?.addEventListener('change',apply);});q('moreFiltersToggle')?.addEventListener('click',()=>{const m=q('dealFiltersMore'),b=q('moreFiltersToggle'),o=m.hidden;m.hidden=!o;m.setAttribute('aria-hidden',o?'false':'true');b.setAttribute('aria-expanded',o?'true':'false');b.textContent=o?(document.documentElement.lang==='en'?'Fewer filters ▴':'פחות מסננים ▴'):(document.documentElement.lang==='en'?'More filters ▾':'מסננים נוספים ▾');});q('clearDealFilters')?.addEventListener('click',()=>{Object.values(C).forEach(e=>{if(e)e.value='';});root.querySelectorAll('.filter-multi input:checked').forEach(x=>x.checked=false);apply();});apply();})();
 </script>
 {% endblock %}

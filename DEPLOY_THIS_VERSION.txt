@@ -1,4 +1,2 @@
-ARIella version: 10.1-account-fix
-
-This ZIP is intentionally flat: app.py, public_site.py, templates and static are at the ZIP root.
-After deployment, open /health and verify that "version" is "10.1-account-fix".
+Ariella Tours v9.7.39 — final audit build
+Deploy this ZIP to Render, then run a fresh scan so all displayed deals are regenerated under the current rules and card format.
