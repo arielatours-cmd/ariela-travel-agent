@@ -1,0 +1,5 @@
+Ariella Tours 9.7.41 — Scan response fix
+- תיקון שגיאת JSON בלוח הבקרה בעת סריקה.
+- העברת ADMIN_TOKEN לבקשות POST מתוך לוח הבקרה.
+- אם Render מחזיר HTML/Timeout, הלוח מציג הודעה ברורה ומרענן את הנתונים במקום SyntaxError.
+- אין שינוי באלגוריתם החיפוש או בדילים.

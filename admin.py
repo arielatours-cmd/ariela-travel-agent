@@ -384,16 +384,41 @@ tbody tr:hover{background:#fafbfe}
 </div>
 
 <script>
+const adminToken = {{ token|tojson }};
+function withAdminToken(url){
+    if(!adminToken) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + 'token=' + encodeURIComponent(adminToken);
+}
 async function post(url){
     const e=document.getElementById('actionStatus');
     e.textContent='מבצעת...';
     try{
-        const r=await fetch(url,{method:'POST'});
-        const j=await r.json();
-        e.textContent=JSON.stringify(j);
-        if(r.ok)setTimeout(()=>location.reload(),1200);
+        const r=await fetch(withAdminToken(url),{method:'POST'});
+        const raw=await r.text();
+        let data=null;
+        try{ data = raw ? JSON.parse(raw) : null; }catch(_){ data=null; }
+        if(data){
+            if(r.ok){
+                e.textContent='הפעולה הסתיימה בהצלחה. מרעננת נתונים...';
+                setTimeout(()=>location.reload(),1200);
+            }else{
+                e.textContent='שגיאה: '+(data.message || JSON.stringify(data));
+            }
+            return;
+        }
+        // Render may return an HTML timeout/error page even though a long scan
+        // has already started on the server. Avoid exposing a misleading JSON error.
+        if(raw.trim().startsWith('<')){
+            e.textContent='הבקשה נשלחה לשרת. בודקת את תוצאות הסריקה...';
+            setTimeout(()=>location.reload(),3500);
+        }else{
+            e.textContent='השרת החזיר תשובה לא צפויה. מרעננת את לוח הבקרה...';
+            setTimeout(()=>location.reload(),3500);
+        }
     }catch(x){
-        e.textContent='שגיאה: '+x;
+        e.textContent='לא התקבלה תשובה מהשרת. מרעננת את לוח הבקרה כדי לבדוק אם הסריקה הושלמה...';
+        setTimeout(()=>location.reload(),3500);
     }
 }
 function runScan(){if(confirm('סריקת ניסיון תבדוק מסלול אחד בלבד (הלוך + חזור). להמשיך?'))post('/scan?max_searches=1')}
