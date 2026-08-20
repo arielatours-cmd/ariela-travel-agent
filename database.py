@@ -349,8 +349,6 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         reasons = deal_score.get("reasons") or []
         flight = payload.get("flight") or {}
         booking_choice_reason_he = flight.get("booking_choice_reason_he")
-        if booking_choice_reason_he:
-            display_reasons.insert(0, booking_choice_reason_he)
         baggage = flight.get("baggage") or {}
         connections = flight.get("connections") or []
         outbound = payload.get("outbound") or {}
@@ -369,6 +367,11 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
 
         display_reasons = [_reason_label(reason) for reason in reasons if _reason_label(reason)]
         display_reasons = [r for r in display_reasons if "טרם חושב" not in r and "היסטוריה" not in r and "נדירות" not in r and "0+" not in r]
+        # Add the supplier-choice explanation only after display_reasons exists,
+        # so opening the site cannot raise UnboundLocalError and the explanation
+        # is not overwritten by the list construction above.
+        if booking_choice_reason_he:
+            display_reasons.insert(0, booking_choice_reason_he)
 
         # Never show history/rarity copy unless there is enough actual stored
         # route history to support it.
