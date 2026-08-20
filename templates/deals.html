@@ -97,36 +97,6 @@
   </div>
 </div>
 {% if offers %}<div class="ariella-deals-list">{% for offer in offers %}{{ deal_card(offer,site_lang) }}{% endfor %}</div>{% else %}<section class="ariella-deals-empty"><span>A</span><h2>{{ 'No new deals to show right now' if site_lang == 'en' else 'אין כרגע דילים חדשים להצגה' }}</h2><p>{{ 'New deals Ariella finds will appear here after the next scan.' if site_lang == 'en' else 'דילים חדשים שאריאלה תמצא יופיעו כאן לאחר הסריקה הבאה.' }}</p></section>{% endif %}</section>
-{% if current_member %}<script>
-(function(){
-  const tabs=[...document.querySelectorAll('.deals-tab')];
-  const panels=[...document.querySelectorAll('.deals-tab-panel')];
-
-  function activate(id, updateHash=true){
-    tabs.forEach(t=>{
-      const active=t.dataset.tab===id;
-      t.classList.toggle('is-active',active);
-      t.setAttribute('aria-selected',active?'true':'false');
-    });
-    panels.forEach(p=>{
-      const active=p.id===id;
-      p.hidden=!active;
-      p.classList.toggle('is-active',active);
-    });
-    if(updateHash){
-      history.replaceState(null,'',location.pathname+location.search+hash);
-    }
-  }
-
-  tabs.forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab,true)));
-
-    const card=document.querySelector(location.hash);
-    if(card) card.scrollIntoView({behavior:'smooth',block:'start'});
-  }else{
-    activate('generalDeals',false);
-  }
-})();
-</script>{% endif %}
 {% endblock %}
 {% block site_disclaimer %}{% endblock %}{% block site_footer %}
 <section class="deals-legal-note">
@@ -139,76 +109,130 @@
 {% include "_site_footer.html" %}
 <script>
 (function(){
-  const panel = document.getElementById('generalDeals');
-  if(!panel) return;
-  const list = panel.querySelector('.ariella-deals-list');
+  const root = document.getElementById('generalDeals');
+  if(!root) return;
+
+  const list = root.querySelector('.ariella-deals-list');
   if(!list) return;
 
   const q = id => document.getElementById(id);
-  const origin=q('filterOrigin'), destination=q('filterDestination'), month=q('filterMonth'),
-        price=q('filterPrice'), stops=q('filterStops'), baggage=q('filterBaggage'),
-        time=q('filterTime'), length=q('filterLength'), airline=q('filterAirline'),
-        protection=q('filterProtection'), change=q('filterChange');
-
+  const controls = {
+    origin:q('filterOrigin'),
+    destination:q('filterDestination'),
+    month:q('filterMonth'),
+    price:q('filterPrice'),
+    stops:q('filterStops'),
+    baggage:q('filterBaggage'),
+    time:q('filterTime'),
+    length:q('filterLength'),
+    airline:q('filterAirline'),
+    protection:q('filterProtection'),
+    change:q('filterChange')
+  };
   const cards=[...list.querySelectorAll('.ariella-deal-card')];
 
+  const norm = v => String(v ?? '').trim();
+  const normLower = v => norm(v).toLocaleLowerCase();
+
   function addOptions(select, values){
-    [...new Set(values.filter(Boolean))].sort().forEach(v=>{
-      const o=document.createElement('option'); o.value=v; o.textContent=v; select.appendChild(o);
-    });
+    if(!select) return;
+    const current = select.value;
+    [...new Set(values.map(norm).filter(Boolean))]
+      .sort((a,b)=>a.localeCompare(b, document.documentElement.lang || 'he'))
+      .forEach(v=>{
+        if([...select.options].some(o=>o.value===v)) return;
+        const o=document.createElement('option');
+        o.value=v; o.textContent=v; select.appendChild(o);
+      });
+    select.value=current;
   }
-  addOptions(origin, cards.map(c=>c.dataset.origin));
-  addOptions(destination, cards.map(c=>c.dataset.destination));
-  addOptions(airline, cards.map(c=>c.dataset.airline));
+
+  addOptions(controls.origin, cards.map(c=>c.dataset.origin));
+  addOptions(controls.destination, cards.map(c=>c.dataset.destination));
+  addOptions(controls.airline, cards.map(c=>c.dataset.airline));
 
   function daysBetween(a,b){
     if(!a||!b) return null;
-    const d1=new Date(a+'T00:00:00'), d2=new Date(b+'T00:00:00');
+    const d1=new Date(a+'T00:00:00');
+    const d2=new Date(b+'T00:00:00');
+    if(Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime())) return null;
     return Math.round((d2-d1)/86400000);
   }
+
   function timeBucket(v){
-    if(!v) return '';
-    const h=parseInt(v.slice(0,2),10);
-    if(Number.isNaN(h)) return '';
+    const m=norm(v).match(/(\d{1,2}):(\d{2})/);
+    if(!m) return '';
+    const h=Number(m[1]);
     if(h>=5&&h<12) return 'morning';
     if(h>=12&&h<17) return 'afternoon';
     if(h>=17&&h<22) return 'evening';
     return 'night';
   }
-  function apply(){
-    cards.forEach(c=>{
-      let ok=true;
-      if(origin.value && c.dataset.origin!==origin.value) ok=false;
-      if(destination.value && c.dataset.destination!==destination.value) ok=false;
-      if(month.value && !(c.dataset.outbound||'').startsWith(month.value)) ok=false;
-      if(price.value && Number(c.dataset.price||0)>Number(price.value)) ok=false;
-      if(stops.value==='0' && Number(c.dataset.stops)!==0) ok=false;
-      if(stops.value==='1' && Number(c.dataset.stops)!==1) ok=false;
-      if(stops.value==='2' && Number(c.dataset.stops)!==2) ok=false;
-      if(baggage.value==='personal' && c.dataset.personal!=='1') ok=false;
-      if(baggage.value==='carry' && c.dataset.carry!=='1') ok=false;
-      if(baggage.value==='checked' && c.dataset.checked!=='1') ok=false;
-      if(time.value && timeBucket(c.dataset.departureTime)!==time.value) ok=false;
-      if(length.value){
-        const d=daysBetween(c.dataset.outbound,c.dataset.return);
-        if(d===null) ok=false;
-        if(length.value==='3-5' && !(d>=3&&d<=5)) ok=false;
-        if(length.value==='6-9' && !(d>=6&&d<=9)) ok=false;
-        if(length.value==='10+' && !(d>=10)) ok=false;
-      }
-      if(airline.value && c.dataset.airline!==airline.value) ok=false;
-      if(protection.value==='applies' && c.dataset.protection!=='applies') ok=false;
-      if(change.value){
-        const v=(c.dataset.change||'');
-        if(change.value==='free' && !/ללא תשלום|no charge/i.test(v)) ok=false;
-        if(change.value==='paid' && !/בתשלום|for a fee/i.test(v)) ok=false;
-        if(change.value==='none' && !/לא ניתן|non-changeable|non-refundable/i.test(v)) ok=false;
-      }
-      c.hidden=!ok;
-    });
+
+  function matchesChange(value, filter){
+    const v=normLower(value);
+    if(!filter) return true;
+    if(filter==='free') return /ללא תשלום|no charge|free/.test(v);
+    if(filter==='paid') return /בתשלום|for a fee|fee/.test(v);
+    if(filter==='none') return /לא ניתן|non-changeable|non-refundable|not changeable|not refundable/.test(v);
+    return true;
   }
 
-  [origin,destination,month,price,stops,baggage,time,length,airline,protection,change].forEach(el=>{
+  function apply(){
+    let visible=0;
+    cards.forEach(c=>{
+      let ok=true;
+      const ds=c.dataset;
+
+      if(controls.origin?.value && norm(ds.origin)!==norm(controls.origin.value)) ok=false;
+      if(controls.destination?.value && norm(ds.destination)!==norm(controls.destination.value)) ok=false;
+      if(controls.month?.value && !norm(ds.outbound).startsWith(controls.month.value)) ok=false;
+
+      const maxPrice=Number(controls.price?.value || 0);
+      const cardPrice=Number(ds.price || 0);
+      if(maxPrice>0 && (!cardPrice || cardPrice>maxPrice)) ok=false;
+
+      if(controls.stops?.value!==''){
+        const wanted=Number(controls.stops.value);
+        const actual=Number(ds.stops);
+        if(Number.isNaN(actual) || actual!==wanted) ok=false;
+      }
+
+      if(controls.baggage?.value==='personal' && ds.personal!=='1') ok=false;
+      if(controls.baggage?.value==='carry' && ds.carry!=='1') ok=false;
+      if(controls.baggage?.value==='checked' && ds.checked!=='1') ok=false;
+
+      if(controls.time?.value && timeBucket(ds.departureTime)!==controls.time.value) ok=false;
+
+      if(controls.length?.value){
+        const days=daysBetween(ds.outbound,ds.return);
+        if(days===null) ok=false;
+        else if(controls.length.value==='3-5' && !(days>=3&&days<=5)) ok=false;
+        else if(controls.length.value==='6-9' && !(days>=6&&days<=9)) ok=false;
+        else if(controls.length.value==='10+' && !(days>=10)) ok=false;
+      }
+
+      if(controls.airline?.value && norm(ds.airline)!==norm(controls.airline.value)) ok=false;
+      if(controls.protection?.value==='applies' && norm(ds.protection)!=='applies') ok=false;
+      if(controls.change?.value && !matchesChange(ds.change,controls.change.value)) ok=false;
+
+      c.classList.toggle('is-filtered-out',!ok);
+      if(ok) visible++;
+    });
+
+    let empty=root.querySelector('.deal-filter-empty');
+    if(!empty){
+      empty=document.createElement('div');
+      empty.className='deal-filter-empty';
+      empty.textContent=document.documentElement.lang==='en'
+        ? 'No deals match the selected filters.'
+        : 'אין דילים שמתאימים למסננים שבחרתם.';
+      list.after(empty);
+    }
+    empty.hidden = visible!==0;
+  }
+
+  Object.values(controls).forEach(el=>{
     if(!el) return;
     el.addEventListener(el.tagName==='INPUT'?'input':'change',apply);
   });
@@ -217,20 +241,21 @@
     const more=q('dealFiltersMore');
     const button=q('moreFiltersToggle');
     if(!more || !button) return;
-    const opening = more.hidden;
-    more.hidden = !opening;
-    more.setAttribute('aria-hidden', opening ? 'false' : 'true');
-    button.setAttribute('aria-expanded', opening ? 'true' : 'false');
-    button.innerHTML = opening
-      ? (document.documentElement.lang === 'en' ? 'Fewer filters ▴' : 'פחות מסננים ▴')
-      : (document.documentElement.lang === 'en' ? 'More filters ▾' : 'מסננים נוספים ▾');
+    const opening=more.hidden;
+    more.hidden=!opening;
+    more.setAttribute('aria-hidden',opening?'false':'true');
+    button.setAttribute('aria-expanded',opening?'true':'false');
+    button.innerHTML=opening
+      ? (document.documentElement.lang==='en'?'Fewer filters ▴':'פחות מסננים ▴')
+      : (document.documentElement.lang==='en'?'More filters ▾':'מסננים נוספים ▾');
   });
+
   q('clearDealFilters')?.addEventListener('click',()=>{
-    [origin,destination,month,price,stops,baggage,time,length,airline,protection,change].forEach(el=>{
-      if(el) el.value='';
-    });
+    Object.values(controls).forEach(el=>{ if(el) el.value=''; });
     apply();
   });
+
+  apply();
 })();
 </script>
 {% endblock %}

@@ -1680,3 +1680,27 @@ html body .site-header .myariella-star{
 .ariella-no-deal-state{text-align:center;padding:24px 18px}
 .ariella-no-deal-state>strong{font-size:20px}
 .free-alternative-options{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+
+/* v9.7.36 — compact commerce alignment + reliable deal filters */
+.deal-card-v970 .important-terms{
+  justify-content:center!important;
+  align-items:center!important;
+  padding:0!important;
+  transform:translateY(-7px);
+}
+.deal-card-v970 .important-terms div{
+  margin:3px 0!important;
+  width:100%;
+  justify-content:center!important;
+  text-align:center!important;
+}
+.deal-card-v970 .important-terms dt,
+.deal-card-v970 .important-terms dd{
+  text-align:center!important;
+}
+.ariella-deal-card.is-filtered-out{display:none!important}
+.deal-filter-empty{
+  margin:22px 0;padding:22px;text-align:center;border:1px solid #e5dccd;
+  background:#fff;border-radius:12px;font-weight:700
+}
+.deal-filter-empty[hidden]{display:none!important}
