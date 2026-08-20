@@ -4,6 +4,7 @@ from urllib.parse import quote_plus
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from config import DB_PATH
+from scanner import _conservative_rt_bag_fee
 
 # Curated destination landmark photography. Wikimedia Commons Special:Redirect/file
 # URLs are stable remote image URLs and require no additional flight/search API calls.
@@ -353,6 +354,18 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         flight = payload.get("flight") or {}
         booking_choice_reason_he = flight.get("booking_choice_reason_he")
         baggage = flight.get("baggage") or {}
+        # Complete customer-facing baggage totals conservatively when booking data omitted them.
+        out_airline = flight.get("outbound_airline_code") or flight.get("outbound_airline") or flight.get("airline_code") or flight.get("airline")
+        ret_airline = flight.get("return_airline_code") or flight.get("return_airline") or flight.get("airline_code") or flight.get("airline")
+        for _kind, _key in (("carry", "carry_on"), ("checked", "checked_bag")):
+            _item = baggage.get(_key) or {}
+            if _item.get("included") is not True and not isinstance(_item.get("roundtrip_price_ils"), (int, float)):
+                _each = _item.get("price_each_way")
+                _total = _conservative_rt_bag_fee(_each, _each, out_airline, ret_airline, _kind)
+                if _total is not None:
+                    _item["roundtrip_price_ils"] = _total
+                    _item["price_estimated"] = True
+                    baggage[_key] = _item
         connections = flight.get("connections") or []
         outbound = payload.get("outbound") or {}
         return_trip = payload.get("return") or {}
