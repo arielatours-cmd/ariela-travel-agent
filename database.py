@@ -338,6 +338,9 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         components = deal_score.get("components") or {}
         analysis = payload.get("deal_analysis") or {}
 
+        # Always initialize before any branch can reference it.
+        display_reasons = []
+
         source = analysis.get("price_reference_source")
         if source == "history" and analysis.get("price_reference_reliable"):
             reference_price = analysis.get("historical_median")

@@ -1814,3 +1814,8 @@ html[dir="ltr"] .filter-multi-menu label{direction:ltr!important;text-align:left
 .deal-card-v970 .important-terms dd.check{color:#111!important}
 .deal-card-v970 .baggage-unknown{color:#6e6b68!important;font-size:12px!important;font-weight:600}
 .deal-card-v970 .booking-choice-note{color:#4f4b44!important;margin-top:6px!important;line-height:1.45!important;font-size:12px!important}
+
+/* v9.7.45 baggage: X + conservative round-trip total inline */
+.deal-card-v970 .bag-status-price{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.deal-card-v970 .bag-status-price .bag-price{grid-column:auto!important;margin:0!important;font-size:12px!important;color:#111!important;font-weight:600}
+.deal-card-v970 .bag-status-price .not-included{color:#8a8a8a}

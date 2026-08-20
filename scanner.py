@@ -250,8 +250,12 @@ def _roundtrip_baggage_estimate(booking_data: dict) -> dict:
         ret = find(kind, returning)
         if out is not None or ret is not None:
             if out is not None and ret is not None:
-                return out + ret, False
-            # One directional price only: show a clearly marked round-trip estimate x2.
+                # Conservative customer-facing total: use the higher directional
+                # baggage fee for BOTH directions. This intentionally prefers
+                # over-estimating rather than surprising the customer later.
+                high = max(out, ret)
+                return high * 2, (out != ret)
+            # One directional price only: use it for both directions.
             one = out if out is not None else ret
             return one * 2, True
         both = find(kind, together)

@@ -11,10 +11,13 @@ def _extract_time(value):
 def _baggage_line(label, item):
     if item.get("included"):
         return f"✅ {label}"
-    price = item.get("price_each_way")
-    if isinstance(price, (int, float)):
-        return f"❌ {label} — {price:.0f} ₪ לאדם לכל כיוון"
-    return f"❌ {label} — המחיר יופיע לפני ההזמנה"
+    roundtrip = item.get("roundtrip_price_ils")
+    if isinstance(roundtrip, (int, float)):
+        return f"❌ {label} (₪{roundtrip:.0f})"
+    each_way = item.get("price_each_way")
+    if isinstance(each_way, (int, float)):
+        return f"❌ {label} (₪{each_way * 2:.0f})"
+    return f"❌ {label}"
 
 
 def _format_connections(flight):
