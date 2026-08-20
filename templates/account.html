@@ -34,7 +34,7 @@ function confirmSearchToggle(form, status) {
 
 {% if trips %}
 <section class="page-hero account-hero account-hero-compact"><div class="shell split">
-  <div><span class="eyebrow">{{ 'MY ACCOUNT' if site_lang == 'en' else 'האזור האישי' }}</span><h1>{{ 'Hello' if site_lang == 'en' else 'שלום' }}, {{ member.full_name }}</h1></div>
+  <div><span class="eyebrow personal-area-eyebrow">{{ 'MY ACCOUNT' if site_lang == 'en' else 'האזור האישי' }}</span><h1>{{ 'Hello' if site_lang == 'en' else 'שלום' }}, {{ member.full_name }}</h1></div>
   <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
 </div></section>
 <section class="section account-trips-section"><div class="shell">
@@ -78,7 +78,7 @@ function confirmSearchToggle(form, status) {
         {% else %}
           <details class="continue-search-box">
             <summary class="continue-search-title trip-action">
-              {% if paid_before %}{{ 'Search again' if site_lang == 'en' else 'חפש שוב' }}{% else %}{{ 'Start search' if site_lang == 'en' else 'התחל חיפוש' }}{% endif %}
+              {{ 'Continue search' if site_lang == 'en' else 'המשך חיפוש' }}
             </summary>
             <div class="plan-options">
               {% for plan, he_name, en_name, he_freq, en_freq, price in [
@@ -118,9 +118,7 @@ function confirmSearchToggle(form, status) {
           {% else %}
           <p>{{ 'A fresh targeted search can be run for this vacation.' if site_lang == 'en' else 'אפשר לבצע סריקה חדשה וממוקדת לחופשה הזו.' }}</p>
           {% endif %}
-          <form method="post" action="{{ url_for('site.search_trip_now', trip_id=trip.id) }}">
-            <button class="button primary" type="submit">{{ 'Search this vacation now' if site_lang == 'en' else 'חפשי לי דילים לחופשה הזו' }}</button>
-          </form>
+          <p class="continue-search-hint">{{ 'Use “Continue search” above to choose a monthly search plan. Scans start only after payment is confirmed.' if site_lang == 'en' else 'כדי להמשיך לחפש, פתחו למעלה את „המשך חיפוש” ובחרו מסלול חודשי. הסריקות יתחילו רק לאחר אישור התשלום.' }}</p>
         </div>
       </div>
     {% endif %}

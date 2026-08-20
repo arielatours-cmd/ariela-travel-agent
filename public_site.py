@@ -643,27 +643,12 @@ def toggle_trip_notifications(trip_id):
 @site.post("/trip/<int:trip_id>/search-now")
 @login_required
 def search_trip_now(trip_id):
-    with _db() as conn:
-        row = conn.execute(
-            "SELECT * FROM trip_requests WHERE id=? AND member_id=? AND status='active'",
-            (trip_id, session["member_id"]),
-        ).fetchone()
-    if row is None:
-        return redirect(url_for("site.deals") + "#personalDeals")
-    trip = _trip_dict(row)
-
-    # Check the database again immediately before spending API quota.
-    database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=500, minimum_score=None)]
-    if _customer_deal_choices(database_offers, trip, limit=5):
-        flash(_msg("מצאתי דילים מתאימים במאגר — לא בוצעה סריקת אינטרנט נוספת.", "Suitable database deals were found — no extra web scan was used."), "success")
-        return redirect(url_for("site.deals") + f"#vacation-{trip_id}")
-
-    result = run_customer_trip_search(trip_id, trip.get("answers") or {})
-    if result.get("offers_found"):
-        flash(_msg("הסריקה הסתיימה ונמצאו אפשרויות חדשות לחופשה.", "The scan finished and new vacation options were found."), "success")
-    else:
-        flash(_msg("הסריקה הסתיימה, אך עדיין לא נמצא דיל שעובר את סף האיכות.", "The scan finished, but no deal passed Ariella's quality threshold yet."), "info")
-    return redirect(url_for("site.deals") + f"#vacation-{trip_id}")
+    """Legacy safety route: never spend API quota from an old/stale button."""
+    flash(_msg(
+        "המשך חיפוש מתבצע רק לאחר בחירת מסלול ואישור תשלום.",
+        "Search continuation starts only after choosing a plan and confirmed payment."
+    ), "info")
+    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
 @site.post("/trip/<int:trip_id>/renew-search")
@@ -684,7 +669,10 @@ def renew_trip_search(trip_id):
                 (plan, trip_id),
             )
             conn.commit()
-    # Isracard checkout will replace this pending step. Each purchase is one-time only.\n    # After confirmed payment, the paid search period will be set to 34 days from payment date\n    # (one month + the 4-day early-renewal window). No automatic renewal or recurring charge.
+    # Checkout will replace this pending step. Selecting a plan does NOT start scans.
+    # Only a confirmed payment may activate the paid monthly search period.
+    # Four days before expiry, send a renewal reminder with a link back to My Vacations.
+    # No automatic renewal or recurring charge.
     return redirect(url_for("site.account", payment="pending", trip_id=trip_id))
 
 

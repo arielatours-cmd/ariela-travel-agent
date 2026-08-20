@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Account Details | Ariella' if site_lang == 'en' else 'פרטי החשבון | אריאלה' }}{% endblock %}
 {% block content %}
-<section class="page-hero account-details-hero"><div class="shell"><span class="eyebrow">{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}</span><h1>{{ 'Account Details' if site_lang == 'en' else 'פרטי החשבון' }}</h1></div></section>
+<section class="page-hero account-details-hero"><div class="shell"><span class="eyebrow personal-area-eyebrow">{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}</span><h1>{{ 'Account Details' if site_lang == 'en' else 'פרטי החשבון' }}</h1></div></section>
 <section class="section"><div class="shell narrow"><form class="form-card" method="post">
 <h2>{{ 'My details' if site_lang == 'en' else 'הפרטים שלי' }}</h2>
 <label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}<input name="full_name" autocomplete="name" value="{{ member.full_name or '' }}" required></label>

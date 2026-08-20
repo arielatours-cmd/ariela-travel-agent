@@ -1534,3 +1534,29 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
   flex:0 0 auto!important;
   margin:0!important;
 }
+
+/* v9.7.26 review fixes */
+.personal-area-eyebrow{
+  font-size:15px!important;
+  letter-spacing:.14em!important;
+  padding:6px 10px!important;
+}
+.deals-tab-link{
+  text-decoration:none!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+.continue-search-hint{margin-top:12px;font-size:14px;line-height:1.7;color:var(--muted)}
+/* Shared My Ariella control — identical on every page */
+.site-header .myariella-he{
+  display:inline-flex!important;
+  flex-direction:row!important;
+  direction:ltr!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+.site-header .myariella-he .myariella-text{
+  direction:rtl!important;
+  unicode-bidi:isolate!important;
+}

@@ -3,7 +3,7 @@
 
 {% block content %}
 <section class="deals-page" aria-labelledby="deals-title"><div class="deals-shell"><header class="deals-heading"><h1 id="deals-title">{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}</h1><p>{{ 'The best deals Ariella found' if site_lang == 'en' else 'הדילים הטובים ביותר שאריאלה מצאה' }}</p></header>
-{% if current_member %}<div class="deals-account-back"><a href="{{ url_for('site.account') }}">{{ '← Back to My Vacations' if site_lang == 'en' else '← חזרה לחופשות שלי' }}</a></div><div class="deals-tabs" role="tablist"><button class="deals-tab is-active" type="button" role="tab" aria-selected="true" data-tab="generalDeals">{{ 'Deals Ariella Found' if site_lang == 'en' else 'הדילים שאריאלה מצאה' }}</button><button class="deals-tab" type="button" role="tab" aria-selected="false" data-tab="personalDeals">{{ 'Deals for My Vacations' if site_lang == 'en' else 'הדילים לחופשות שלי' }}</button></div>{% endif %}
+{% if current_member %}<div class="deals-account-back"><a href="{{ url_for('site.account') }}">{{ '← Back to My Vacations' if site_lang == 'en' else '← חזרה לחופשות שלי' }}</a></div><div class="deals-tabs" role="tablist"><button class="deals-tab is-active" type="button" role="tab" aria-selected="true" data-tab="generalDeals">{{ 'Deals Ariella Found' if site_lang == 'en' else 'הדילים שאריאלה מצאה' }}</button><a class="deals-tab deals-tab-link" href="{{ url_for('site.account', lang=site_lang) }}">{{ 'Deals for My Vacations' if site_lang == 'en' else 'הדילים לחופשות שלי' }}</a></div>{% endif %}
 <section id="generalDeals" class="deals-tab-panel is-active" role="tabpanel">
 <div class="deal-filters-wrap" id="dealFiltersWrap">
   <div class="deal-filters-main">
