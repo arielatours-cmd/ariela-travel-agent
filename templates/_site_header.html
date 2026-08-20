@@ -3,6 +3,29 @@
 .site-header .account-menu-wrap{position:relative!important;display:flex!important;align-items:center!important}
 .site-header .account-menu-wrap>.account-dropdown{position:absolute!important;top:calc(100% + 8px)!important;right:0!important;left:auto!important;min-width:200px!important;transform:none!important;z-index:1000!important}
 </style>
+
+<style id="v9730-myariella-final">
+/* Final shared layout — applies identically on Home / About / Deals */
+.site-header .account-menu-button .myariella-label{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  gap:9px!important;white-space:nowrap!important;line-height:1!important;
+}
+.site-header .account-menu-button .myariella-star{
+  color:#fff!important;font-size:16px!important;line-height:1!important;
+  display:inline-block!important;margin:0!important;flex:0 0 auto!important;
+}
+/* Hebrew: white star physically LEFT of אריאלה שלי */
+.site-header .account-menu-button .myariella-he{direction:ltr!important}
+.site-header .account-menu-button .myariella-he .myariella-star{order:1!important}
+.site-header .account-menu-button .myariella-he .myariella-text{
+  order:2!important;direction:rtl!important;unicode-bidi:isolate!important
+}
+/* English: white star physically RIGHT of My Ariella */
+.site-header .account-menu-button .myariella-en{direction:ltr!important}
+.site-header .account-menu-button .myariella-en .myariella-text{order:1!important}
+.site-header .account-menu-button .myariella-en .myariella-star{order:2!important}
+</style>
+
 <header class="site-header luxury-header">
   <div class="header-inner">
     <div class="language-switch" aria-label="Language">

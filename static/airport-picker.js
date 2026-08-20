@@ -42,6 +42,7 @@
       const box=p.querySelector('.airport-suggestions');
       const tags=p.querySelector('.airport-tags');
       const hidden=p.querySelector('.airport-values');
+      const modeInput=p.querySelector('.origin-selection-mode');
       const isOrigin=p.hasAttribute('data-origin-picker');
       const defaultCodes=isOrigin ? codesFrom(p.dataset.defaultAirports) : [];
       let selected=codesFrom(hidden.value);
@@ -82,6 +83,7 @@
           tags.appendChild(tag);
         });
         hidden.value=selected.join(',');
+        if(isOrigin && modeInput) modeInput.value = replacedDefaults ? 'custom' : 'default';
       }
 
       function suggest(){

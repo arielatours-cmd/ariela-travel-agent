@@ -20,6 +20,7 @@
              placeholder="{{ 'Add another city, country, airport or IATA code…' if site_lang == 'en' else 'הוסיפו עיר, מדינה, שדה תעופה או קוד IATA…' }}">
       <div class="airport-suggestions" hidden></div>
       <input type="hidden" name="origin_airports" class="airport-values">
+      <input type="hidden" name="origin_selection_mode" class="origin-selection-mode" value="default">
     </div>
   </div>
   <div class="wizard-progress" aria-label="{{ 'Questionnaire progress' if site_lang == 'en' else 'התקדמות בשאלון' }}">

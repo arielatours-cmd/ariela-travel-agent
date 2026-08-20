@@ -513,7 +513,7 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     if not arrival:
         return {"status": "unsupported_destination", "offers_found": 0, "api_requests": 0}
 
-    origins = [str(x).upper() for x in (answers.get("origin_airports") or DEPARTURE_AIRPORTS)]
+    origins = [str(x).upper() for x in answers.get("origin_airports", []) if x] or list(DEPARTURE_AIRPORTS)
     date_mode = answers.get("date_mode")
     jobs = []
     if date_mode == "exact" and answers.get("departure_date") and answers.get("return_date"):

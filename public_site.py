@@ -728,7 +728,10 @@ def new_trip():
         member = _current_member() or {}
         profile_airports = member.get("preferred_airports_list", [])
         override_airports = [x.strip().upper() for x in form.get("origin_airports", "").replace(";", ",").split(",") if x.strip()]
-        origin_airports = override_airports or profile_airports
+        origin_selection_mode = form.get("origin_selection_mode", "default")
+        # A deliberate vacation-level airport choice ALWAYS wins over account/country defaults.
+        # Defaults are used only when the customer did not replace them for this vacation.
+        origin_airports = override_airports if origin_selection_mode == "custom" else (override_airports or profile_airports)
 
         payload = {
             "origin_airports": origin_airports,
