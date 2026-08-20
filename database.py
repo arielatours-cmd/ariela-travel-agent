@@ -199,6 +199,12 @@ def init_db() -> None:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN renewal_reminder_sent_at TEXT")
         if "has_paid_search" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN has_paid_search INTEGER NOT NULL DEFAULT 0")
+        if "free_scan_count" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN free_scan_count INTEGER NOT NULL DEFAULT 0")
+        if "free_scan_last_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN free_scan_last_at TEXT")
+        if "free_scan_last_status" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN free_scan_last_status TEXT")
 
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:

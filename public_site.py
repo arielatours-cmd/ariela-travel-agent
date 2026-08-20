@@ -651,6 +651,59 @@ def search_trip_now(trip_id):
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
+@site.post("/trip/<int:trip_id>/free-alternative")
+@login_required
+def free_trip_alternative(trip_id):
+    """Exactly one additional complimentary search after an unsuccessful initial search."""
+    choice = request.form.get("alternative", "").strip()
+    if choice not in {"nearby_dates", "other_destination"}:
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+        if not row or int(row["free_scan_count"] or 0) != 1:
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        trip = _trip_dict(row)
+        answers = dict(trip.get("answers") or {})
+
+        if choice == "nearby_dates":
+            # One bounded alternative request: shift the exact window by 3 days.
+            # It remains a single search job per stored origin.
+            try:
+                out = datetime.strptime(answers.get("departure_date"), "%Y-%m-%d").date()
+                ret = datetime.strptime(answers.get("return_date"), "%Y-%m-%d").date()
+                answers["departure_date"] = (out + timedelta(days=3)).isoformat()
+                answers["return_date"] = (ret + timedelta(days=3)).isoformat()
+                answers["date_mode"] = "exact"
+            except Exception:
+                return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        else:
+            # Destination alternatives need the recommendation engine/controlled
+            # destination pool. Do not burn multiple API calls until that engine is wired.
+            conn.execute(
+                "UPDATE trip_requests SET free_scan_count=2, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (utc_now_iso(), "alternative_destination_pending", trip_id),
+            )
+            conn.commit()
+            flash(_msg(
+                "הבחירה נשמרה. חיפוש יעד חלופי יופעל לאחר חיבור מנוע ההמלצות, בלי להפעיל סריקות אקראיות.",
+                "Your choice was saved. The alternative-destination search will run once the recommendation engine is connected, without random scans."
+            ), "info")
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+    scan_result = run_customer_trip_search(trip_id, answers)
+    with _db() as conn:
+        conn.execute(
+            "UPDATE trip_requests SET free_scan_count=2, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+            (utc_now_iso(), str(scan_result.get("status") or "unknown"), trip_id),
+        )
+        conn.commit()
+    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+
 @site.post("/trip/<int:trip_id>/renew-search")
 @login_required
 def renew_trip_search(trip_id):
@@ -747,12 +800,23 @@ def new_trip():
             "special_needs": form.getlist("special_needs") if destination_mode != "specific" else [], "notes": form.get("notes", "").strip(),
         }
         with _db() as conn:
-            conn.execute(
+            cur = conn.execute(
                 "INSERT INTO trip_requests (member_id,request_name,travel_window,status,answers_json,created_at,mobile_notifications) VALUES(?,?,?,?,?,?,?)",
                 (session["member_id"], request_name, travel_window, "active", json.dumps(payload, ensure_ascii=False), utc_now_iso(), 0),
             )
+            trip_id = int(cur.lastrowid)
             conn.commit()
-        return redirect(url_for("site.account"))
+
+        # One complimentary initial live search for every newly-created vacation.
+        # Refreshing/opening My Vacations never triggers this again.
+        scan_result = run_customer_trip_search(trip_id, payload)
+        with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET free_scan_count=1, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (utc_now_iso(), str(scan_result.get("status") or "unknown"), trip_id),
+            )
+            conn.commit()
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
     today = date.today().isoformat()
     return render_template("trip_form.html", today=today, current_month=today[:7])
