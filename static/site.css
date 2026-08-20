@@ -1649,3 +1649,9 @@ html body .site-header .myariella-star{
   .deal-card-v970 .deal-visual{height:240px!important}
   .deal-card-v970 .visual-destination-outside{min-height:54px}
 }
+
+/* v9.7.32 — conditional preference question */
+.priority-with-note span{display:flex;flex-direction:column;gap:5px}
+.priority-with-note small{display:block;font-size:12px;font-weight:400;line-height:1.35;color:var(--muted)}
+.open-flight-focus{margin-top:28px;padding-top:22px;border-top:1px solid var(--line)}
+.open-flight-focus h3{margin:0 0 14px}

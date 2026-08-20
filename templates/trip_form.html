@@ -108,13 +108,53 @@
 
   <section class="wizard-step" data-step="4" hidden>
     <span class="step-number">04</span>
-    <h2>{{ 'What matters most on this vacation?' if site_lang == 'en' else 'מה הכי חשוב בחופשה הזו?' }}</h2>
-    <p class="helper">{{ 'You can select more than one option.' if site_lang == 'en' else 'אפשר לבחור כמה אפשרויות.' }}</p>
-    <div class="choice-grid priority-grid">
-      {% set opts = [('price','Good price','מחיר משתלם'),('beach','Beach & relaxation','בטן־גב'),('nature','Nature & scenery','טבע ונופים'),('hiking','Hiking & touring','מסלולים וטיולים'),('city','Cities & culture','ערים ותרבות'),('family',"Kids' attractions",'אטרקציות לילדים'),('food','Food & cuisine','אוכל וקולינריה'),('shopping','Shopping','קניות'),('quiet','Less crowded destination','יעד פחות עמוס'),('weather','Pleasant weather','מזג אוויר נעים'),('nightlife','Nightlife','חיי לילה'),('relax','Relaxation & pampering','רוגע ופינוק')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
-      <label class="choice-button"><input type="checkbox" name="holiday_priorities" value="{{ value }}"><span>{{ label }}</span></label>
-      {% endfor %}
+
+    <div id="flightPrioritiesQuestion">
+      <h2>{{ 'What should Ariella focus on when choosing your deal?' if site_lang == 'en' else 'על מה חשוב שאריאלה תשים דגש בבחירת הדיל?' }}</h2>
+      <p class="helper">{{ 'You can select more than one option.' if site_lang == 'en' else 'אפשר לבחור כמה אפשרויות.' }}</p>
+      <div class="choice-grid priority-grid">
+        {% set opts = [
+          ('price','Best value','מחיר הכי משתלם'),
+          ('dates','Your selected dates','התאריכים שבחרתם'),
+          ('baggage','Baggage','כבודה'),
+          ('direct','Direct flight','טיסה ישירה'),
+          ('times','Convenient flight times','שעות טיסה נוחות'),
+          ('maximize','Maximize your trip','למקסם את הטיול'),
+          ('balanced','Let Ariella choose the best balance','תנו לאריאלה לבחור את האיזון הטוב ביותר')
+        ] %}
+        {% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+        <label class="choice-button priority-with-note">
+          <input type="checkbox" name="deal_priorities" value="{{ value }}">
+          <span>{{ label }}
+            {% if value == 'maximize' %}
+              <small>{{ 'Prefer flight times that let you enjoy as much time as possible at the destination.' if site_lang == 'en' else 'עדיפות לשעות טיסה שיאפשרו לנצל כמה שיותר זמן ביעד.' }}</small>
+            {% endif %}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
     </div>
+
+    <div id="holidayPrioritiesQuestion" hidden>
+      <h2>{{ 'What are you looking for in your vacation?' if site_lang == 'en' else 'מה אתם מחפשים בחופשה?' }}</h2>
+      <p class="helper">{{ 'Choose what matters to you and Ariella will use it to recommend suitable destinations and deals.' if site_lang == 'en' else 'בחרו מה חשוב לכם ואריאלה תשתמש בזה כדי להמליץ על יעדים ודילים מתאימים.' }}</p>
+      <div class="choice-grid priority-grid">
+        {% set opts = [('price','Good price','מחיר משתלם'),('beach','Beach & relaxation','בטן־גב'),('nature','Nature & scenery','טבע ונופים'),('hiking','Hiking & touring','מסלולים וטיולים'),('city','Cities & culture','ערים ותרבות'),('family',"Kids' attractions",'אטרקציות לילדים'),('food','Food & cuisine','אוכל וקולינריה'),('shopping','Shopping','קניות'),('quiet','Less crowded destination','יעד פחות עמוס'),('weather','Pleasant weather','מזג אוויר נעים'),('nightlife','Nightlife','חיי לילה'),('relax','Relaxation & pampering','רוגע ופינוק')] %}
+        {% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+        <label class="choice-button"><input type="checkbox" name="holiday_priorities" value="{{ value }}"><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+      <div class="open-flight-focus">
+        <h3>{{ 'And what matters most to you about the flight?' if site_lang == 'en' else 'ומה חשוב לכם בטיסה?' }}</h3>
+        <div class="choice-row compact-options">
+          {% set fopts = [('price','Price','מחיר'),('direct','Direct flight','טיסה ישירה'),('baggage','Baggage','כבודה'),('balanced','Let Ariella choose','תנו לאריאלה לבחור')] %}
+          {% for value,en,he in fopts %}{% set label = en if site_lang == 'en' else he %}
+          <label class="choice-button small"><input type="checkbox" name="deal_priorities" value="{{ value }}"><span>{{ label }}</span></label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
   </section>
 
@@ -220,6 +260,14 @@
     panel.hidden = !show;
     if (show) label.childNodes[0].nodeValue = input.value === 'specific' ? {{ ('"Where would you like to fly? "' if site_lang == 'en' else '"לאיזה יעד תרצו לטוס? "')|safe }} : {{ ('"Which destinations interest you? "' if site_lang == 'en' else '"אילו יעדים מעניינים אתכם? "')|safe }};
     if (!show) document.getElementById('destinationsInput').value = '';
+    const openSuggestions = input.checked && input.value === 'open';
+    document.getElementById('flightPrioritiesQuestion').hidden = openSuggestions;
+    document.getElementById('holidayPrioritiesQuestion').hidden = !openSuggestions;
+    if (openSuggestions) {
+      form.querySelectorAll('#flightPrioritiesQuestion input').forEach(el => { el.checked = false; setSelectedState(el); });
+    } else {
+      form.querySelectorAll('#holidayPrioritiesQuestion input').forEach(el => { el.checked = false; setSelectedState(el); });
+    }
   }));
 
   form.querySelectorAll('input[name="date_mode"]').forEach(input => input.addEventListener('change', () => {

@@ -741,6 +741,7 @@ def new_trip():
             "travel_party": travel_party, "adults": adults,
             "children": form.get("children"), "age_groups": form.getlist("age_groups"),
             "holiday_priorities": form.getlist("holiday_priorities"),
+            "deal_priorities": form.getlist("deal_priorities"),
             "budget_mode": budget_mode,
             "budget_amount": form.get("budget_amount") if budget_mode == "per_person" else "",
             "special_needs": form.getlist("special_needs"), "notes": form.get("notes", "").strip(),
