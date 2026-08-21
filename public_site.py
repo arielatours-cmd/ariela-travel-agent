@@ -12,7 +12,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH
+from config import DB_PATH, MIN_DEAL_SCORE
 from database import recent_offers, save_feedback, utc_now_iso
 from scanner import run_customer_trip_search
 
