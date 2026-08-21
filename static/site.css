@@ -1819,3 +1819,6 @@ html[dir="ltr"] .filter-multi-menu label{direction:ltr!important;text-align:left
 .deal-card-v970 .bag-status-price{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .deal-card-v970 .bag-status-price .bag-price{grid-column:auto!important;margin:0!important;font-size:12px!important;color:#111!important;font-weight:600}
 .deal-card-v970 .bag-status-price .not-included{color:#8a8a8a}
+
+/* v9.7.51 next-day arrival */
+.arrival-day-badge{font-size:10px;vertical-align:super;margin-inline-start:3px;font-weight:800;color:#111;cursor:help}

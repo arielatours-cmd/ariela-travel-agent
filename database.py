@@ -4,21 +4,11 @@ from urllib.parse import quote_plus
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from config import DB_PATH
-from baggage_pricing import conservative_rt_bag_fee
+from baggage_pricing import policy_roundtrip_total, policy_personal_item_included
 
 # Curated destination landmark photography. Wikimedia Commons Special:Redirect/file
 # URLs are stable remote image URLs and require no additional flight/search API calls.
-DESTINATION_LANDMARK_IMAGES = {
-    "ATH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Parthenon_from_west.jpg",
-    "FCO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Colosseum_in_Rome,_Italy_-_April_2007.jpg",
-    "MXP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Milan_Cathedral_from_Piazza_del_Duomo.jpg",
-    "VIE": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Schloss_Schoenbrunn_Wien_2014_%28Zuschnitt_1%29.jpg",
-    "BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hungarian_Parliament_Building_from_Fisherman%27s_Bastion.jpg",
-    "PRG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
-    "SOF": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alexander_Nevsky_Cathedral_in_Sofia.jpg",
-    "LCA": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Church_of_Saint_Lazarus,_Larnaca,_Cyprus.jpg",
-    "PFO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Paphos_harbour_castle.jpg",
-}
+DESTINATION_LANDMARK_IMAGES = {"ATH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Parthenon_from_west.jpg", "LCA": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Church_of_Saint_Lazarus,_Larnaca,_Cyprus.jpg", "BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hungarian_Parliament_Building_from_Fisherman%27s_Bastion.jpg", "VIE": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Schloss_Schoenbrunn_Wien_2014_%28Zuschnitt_1%29.jpg", "SOF": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alexander_Nevsky_Cathedral_in_Sofia.jpg", "PRG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg", "FCO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Colosseum_in_Rome,_Italy_-_April_2007.jpg", "MXP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Milan_Cathedral_from_Piazza_del_Duomo.jpg", "CDG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Eiffel_Tower_from_the_Tour_Montparnasse_3,_Paris_May_2014.jpg", "AMS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KeizersgrachtReguliersgrachtAmsterdam.jpg", "BCN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sagrada_Familia_01.jpg", "MAD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Palacio_de_Comunicaciones_-_47.jpg", "LIS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Torre_de_Belem_1.jpg", "LHR": "https://commons.wikimedia.org/wiki/Special:Redirect/file/London_Eye_Twilight_April_2006.jpg", "BER": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brandenburger_Tor_abends.jpg", "MUC": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Neues_Rathaus_Muenchen.jpg", "ZRH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zuerichsee_Zuerich.jpg", "BRU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brussels_Grote_Markt.jpg", "OTP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Palace_of_Parliament_Bucharest.jpg", "KRK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Krakow_-_Main_Market_Square.jpg", "WAW": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Warsaw_Old_Town_Market_Square.jpg", "TBS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tbilisi_view.jpg", "EVN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Yerevan_Opera.jpg", "BEG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Belgrade_skyline.jpg", "SKP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stone_Bridge_Skopje.jpg", "TGD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Podgorica_Millennium_Bridge.jpg", "ZAG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zagreb_Cathedral.jpg", "LJU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ljubljana_from_the_castle.jpg", "BKK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Wat_Arun_Bangkok.jpg", "JFK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Manhattan_from_Weehawken,_NJ.jpg"}
 
 # Airports serving the same city reuse the same curated destination photography.
 DESTINATION_LANDMARK_IMAGES.update({
@@ -52,6 +42,16 @@ def _public_airline_logo(airline: str | None, flight_number: str | None = None, 
         }
         code = common.get(str(airline or "").strip().lower())
     return f"https://www.gstatic.com/flights/airline_logos/70px/{code}.png" if code else None
+
+
+
+def _arrival_days_after(departure_date, arrival_date):
+    try:
+        dep = datetime.fromisoformat(str(departure_date)[:10]).date()
+        arr = datetime.fromisoformat(str(arrival_date)[:10]).date()
+        return max(0, (arr - dep).days)
+    except Exception:
+        return 0
 
 
 def utc_now_iso() -> str:
@@ -354,17 +354,35 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         flight = payload.get("flight") or {}
         booking_choice_reason_he = flight.get("booking_choice_reason_he")
         baggage = flight.get("baggage") or {}
-        # Complete customer-facing baggage totals conservatively when booking data omitted them.
-        out_airline = flight.get("outbound_airline_code") or flight.get("outbound_airline") or flight.get("airline_code") or flight.get("airline")
-        ret_airline = flight.get("return_airline_code") or flight.get("return_airline") or flight.get("airline_code") or flight.get("airline")
-        for _kind, _key in (("carry", "carry_on"), ("checked", "checked_bag")):
+        out_airline = flight.get("outbound_airline_code") or flight.get("outbound_airline") or flight.get("airline_code") or flight.get("airline") or item.get("airline")
+        ret_airline = flight.get("return_airline_code") or flight.get("return_airline") or flight.get("airline_code") or flight.get("airline") or item.get("airline")
+
+        personal = baggage.get("personal_item") or {}
+        if personal.get("included") is not True and policy_personal_item_included(out_airline, ret_airline):
+            personal["included"] = True
+            personal["known"] = True
+            personal["source"] = "airline_policy"
+            baggage["personal_item"] = personal
+
+        for _kind, _key in (("carry", "carry_on_8kg"), ("checked", "checked_bag_23kg")):
             _item = baggage.get(_key) or {}
-            if _item.get("included") is not True and not isinstance(_item.get("roundtrip_price_ils"), (int, float)):
+            if _item.get("included") is not True:
+                _out = _item.get("outbound_price_ils")
+                _ret = _item.get("return_price_ils")
                 _each = _item.get("price_each_way")
-                _total = conservative_rt_bag_fee(_each, _each, out_airline, ret_airline, _kind)
-                if _total is not None:
+                if not isinstance(_out, (int, float)) and isinstance(_each, (int, float)):
+                    _out = _each
+                if not isinstance(_ret, (int, float)) and isinstance(_each, (int, float)):
+                    _ret = _each
+                _total = _item.get("roundtrip_price_ils")
+                if not isinstance(_total, (int, float)):
+                    _total = policy_roundtrip_total(out_airline, ret_airline, _kind, _out, _ret)
+                if isinstance(_total, (int, float)):
                     _item["roundtrip_price_ils"] = _total
-                    _item["price_estimated"] = True
+                    _item["known"] = True
+                    _item["price_estimated"] = not (
+                        isinstance(_out, (int, float)) and isinstance(_ret, (int, float))
+                    )
                     baggage[_key] = _item
         connections = flight.get("connections") or []
         outbound = payload.get("outbound") or {}
@@ -485,6 +503,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
             "return_airline": flight.get("return_airline"),
             "return_departure_time": flight.get("return_departure_time"),
             "return_arrival_time": flight.get("return_arrival_time"),
+            "arrival_days_after": _arrival_days_after(item.get("outbound_date"), flight.get("arrival_date") or item.get("outbound_date")),
+            "return_arrival_days_after": _arrival_days_after(item.get("return_date"), flight.get("return_arrival_date") or item.get("return_date")),
             "return_total_duration_minutes": flight.get("return_total_duration_minutes"),
             "return_connections": flight.get("return_connections") or [],
             "return_stops": flight.get("return_stops") or 0,
@@ -511,7 +531,6 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
                 payload.get("destination_image_url")
                 or payload.get("image_url")
                 or DESTINATION_LANDMARK_IMAGES.get(str(item.get("arrival_code") or "").upper())
-                or DESTINATION_LANDMARK_IMAGES.get("FCO")
             ),
             "consumer_protection_label": protection_label,
             "consumer_protection_class": protection_class,
@@ -530,6 +549,13 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         })
         result.append(item)
     return result
+
+
+
+def latest_scan_cycle_index() -> int:
+    with connection() as conn:
+        row = conn.execute("SELECT COUNT(*) AS n FROM scan_runs").fetchone()
+    return int(row["n"] or 0)
 
 
 def recent_scan_runs(limit: int = 20) -> list[dict]:

@@ -1,3 +1,10 @@
+{% macro arrival_badge(days,lang='he') -%}
+{% if days is number and days > 0 %}
+{% set tip = ('הנחיתה מתבצעת ביום שלמחרת' if days == 1 else 'הנחיתה מתבצעת ' ~ days ~ ' ימים לאחר ההמראה') if lang=='he' else ('Arrival is on the following day' if days == 1 else 'Arrival is ' ~ days ~ ' days after departure') %}
+<sup class="arrival-day-badge" title="{{ tip }}" aria-label="{{ tip }}">+{{ days|int }}</sup>
+{% endif %}
+{%- endmacro %}
+
 {% macro minutes(value, lang='he') -%}{%- if value is number -%}{{ value // 60 }}:{{ '%02d'|format(value % 60) }} {{ 'hours' if lang == 'en' else 'שעות' }}{%- else -%}{{ 'Unknown' if lang == 'en' else 'לא ידוע' }}{%- endif -%}{%- endmacro %}
 {% macro reason_en(reason) -%}{% set m={'מחיר נמוך משמעותית':'Significantly lower price','מסלול טיסה נוח':'Convenient route','תנאי כבודה טובים':'Good baggage terms','שעות טיסה נוחות':'Convenient flight times','הזדמנות נדירה':'Rare opportunity','טיסה ישירה':'Direct flight','קונקשן אחד':'One connection','מסלול משתלם':'Good-value route','נבחר לאחר השוואת אפשרויות':'Selected after comparing options','כבודה כלולה':'Baggage included','איכות מסלול (ישירה)':'Direct itinerary'} %}{{ m.get(reason, 'Selected after comparing options') }}{%- endmacro %}
 {% macro protection_en(label) -%}{% set m={'חלה':'Applies','אינה חלה':'Does not apply','בדיקה נדרשת':'Check with supplier','יש לבדוק מול הספק':'Check with supplier'} %}{{ m.get(label,'Check with supplier') }}{%- endmacro %}
@@ -64,7 +71,7 @@
       <div class="leg-route-times">
         <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ offer.departure_time[-5:] if offer.departure_time else '—' }}</time></div>
         <div class="mini-flight-line"><i></i>{% if stops>0 and offer.connections %}{% for c in offer.connections %}<span class="connection-pill"><span class="connection-airport">{{ c.airport }}</span>{% if c.duration_minutes %}<span class="connection-wait">{{ 'Wait:' if lang=='en' else 'המתנה:' }} {{ minutes(c.duration_minutes,lang) }}</span>{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
-        <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.arrival_time[-5:] if offer.arrival_time else '—' }}</time></div>
+        <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.arrival_time[-5:] if offer.arrival_time else '—' }}</time>{{ arrival_badge(offer.arrival_days_after or 0,lang) }}</div>
       </div>
       {% if offer.total_duration_minutes %}<span class="leg-duration">{{ 'Total flight duration:' if (lang=='en' and stops>0) else ('Flight duration:' if lang=='en' else ('משך טיסה כולל:' if stops>0 else 'משך טיסה:')) }} {{ minutes(offer.total_duration_minutes,lang) }}</span>{% endif %}
     </div>
@@ -81,7 +88,7 @@
       <div class="leg-route-times">
         <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ rt[-5:] if rt else '—' }}</time></div>
         <div class="mini-flight-line"><i></i>{% if offer.return_stops and offer.return_connections %}{% for c in offer.return_connections %}<span class="connection-pill"><span class="connection-airport">{{ c.airport }}</span>{% if c.duration_minutes %}<span class="connection-wait">{{ 'Wait:' if lang=='en' else 'המתנה:' }} {{ minutes(c.duration_minutes,lang) }}</span>{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
-        <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.return_arrival_time[-5:] if offer.return_arrival_time else '—' }}</time></div>
+        <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.return_arrival_time[-5:] if offer.return_arrival_time else '—' }}</time>{{ arrival_badge(offer.return_arrival_days_after or 0,lang) }}</div>
       </div>
       {% if offer.return_total_duration_minutes %}<span class="leg-duration">{{ 'Total flight duration:' if (lang=='en' and offer.return_stops) else ('Flight duration:' if lang=='en' else ('משך טיסה כולל:' if offer.return_stops else 'משך טיסה:')) }} {{ minutes(offer.return_total_duration_minutes,lang) }}</span>{% endif %}
     </div>

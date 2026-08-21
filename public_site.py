@@ -361,13 +361,13 @@ def home():
         # Bare site URL and ?lang=he always open the Hebrew homepage.
         session["lang"] = "he"
 
-    offers = recent_offers(limit=3, minimum_score=None)
+    offers = recent_offers(limit=3, minimum_score=MIN_DEAL_SCORE)
     return render_template("home.html", offers=offers)
 
 
 @site.get("/deals")
 def deals():
-    offers = [_localize_offer_airports(o) for o in recent_offers(limit=60, minimum_score=None)]
+    offers = [_localize_offer_airports(o) for o in recent_offers(limit=60, minimum_score=MIN_DEAL_SCORE)]
     personal_trips = []
     if session.get("member_id") and _current_member() is not None:
         with _db() as conn:

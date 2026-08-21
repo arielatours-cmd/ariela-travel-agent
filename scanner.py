@@ -8,7 +8,7 @@ from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
     MAX_SEARCHES_PER_SCAN, SERPAPI_API_KEY, TRIP_LENGTHS_DAYS,
 )
-from database import create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference, set_setting
+from database import create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference, set_setting, latest_scan_cycle_index
 from scoring import calculate_deal_score
 
 SERPAPI_URL = "https://serpapi.com/search.json"
@@ -571,13 +571,27 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
 
 
 def _wide_search_jobs(limit: int | None = None) -> list[dict]:
-    """Broad coverage: one varied TLV vacation window per destination."""
+    """One rotating vacation window per destination across the full six-month horizon."""
     today = date.today()
     max_items = min(limit or len(DESTINATIONS), len(DESTINATIONS))
+
+    # Dense six-month coverage, not a handful of near-identical dates.
+    offsets = [14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84, 91,
+               105, 119, 133, 147, 161, 175]
+    lengths = [3, 4, 5, 6, 7, 8, 10, 12, 14]
+
+    # Every scan advances the destination/date pairing, so repeated wide scans
+    # progressively cover different periods instead of repeating the same dates.
+    try:
+        cycle = latest_scan_cycle_index()
+    except Exception:
+        cycle = 0
+
     jobs = []
     for i, destination in enumerate(DESTINATIONS[:max_items]):
-        offset = DEPARTURE_OFFSETS_DAYS[i % len(DEPARTURE_OFFSETS_DAYS)]
-        trip_length = TRIP_LENGTHS_DAYS[i % len(TRIP_LENGTHS_DAYS)]
+        j = i + cycle
+        offset = offsets[j % len(offsets)]
+        trip_length = lengths[(j // len(offsets) + i) % len(lengths)]
         outbound = today + timedelta(days=offset)
         ret = outbound + timedelta(days=trip_length)
         jobs.append({
