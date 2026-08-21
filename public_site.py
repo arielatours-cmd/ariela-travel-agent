@@ -1,6 +1,7 @@
 from pathlib import Path
 import hashlib
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 import json
 import sqlite3
@@ -13,11 +14,31 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE
-from database import recent_offers, save_feedback, utc_now_iso
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event
 from scanner import run_customer_trip_search
 
 
+
 site = Blueprint("site", __name__)
+
+@site.before_request
+def _track_public_visit():
+    """Count one unique browser visit per day without storing IP addresses."""
+    if request.method != "GET":
+        return
+    visitor_id = session.get("_ariella_visitor_id")
+    if not visitor_id:
+        visitor_id = uuid.uuid4().hex
+        session["_ariella_visitor_id"] = visitor_id
+    today_key = date.today().isoformat()
+    if session.get("_ariella_visit_day") != today_key:
+        record_site_event(
+            "site_visit",
+            visitor_id=visitor_id,
+            member_id=session.get("member_id"),
+            path=request.path,
+        )
+        session["_ariella_visit_day"] = today_key
 
 _AIRPORTS_FILE = Path(__file__).resolve().parent / "static" / "airports.json"
 try:

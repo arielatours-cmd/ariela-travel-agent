@@ -13,7 +13,7 @@ from config import (
 )
 from daily import prepare_daily_batch
 from database import (
-    all_settings, dashboard_stats, get_daily_batch, init_db, latest_scan_run,
+    all_settings, dashboard_stats, business_analytics, get_daily_batch, init_db, latest_scan_run,
     recent_feedback, recent_offers, recent_scan_runs, set_setting,
     unread_feedback_count, mark_feedback_seen,
 )
@@ -128,6 +128,7 @@ def admin_dashboard():
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(50),
         scans=recent_scan_runs(20),
         feedback_count=unread_feedback_count(),
+        analytics=business_analytics(12),
         token=request.args.get("token", ""),
     )
 

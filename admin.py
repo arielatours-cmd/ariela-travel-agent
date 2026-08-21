@@ -226,6 +226,23 @@ tbody tr:hover{background:#fafbfe}
 
 
 .actions select{padding:10px 12px;border:1px solid #cfd6e2;border-radius:8px;background:white;font-weight:700;font-size:14px}
+
+.biz-title{margin-top:26px}
+.biz-note{background:#fff8e8;border:1px solid #ead8ad;border-radius:9px;padding:9px 12px;font-size:12px;color:#6c582a;margin:8px 0 12px}
+.biz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin:12px 0 18px}
+.biz-card{background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 10px #00000012}
+.biz-card .num{color:var(--gold)}
+.business-table th,.business-table td{font-size:12px;padding:7px 5px}
+.business-table .month-col{width:85px}
+.business-table .money{font-weight:800}
+.biz-summary-btn{padding:5px 9px;font-size:11px;background:#65748b}
+.daily-detail{display:none;background:#fbfcff}
+.daily-detail.open{display:table-row}
+.daily-detail td{padding:10px}
+.daily-inner{width:100%;table-layout:auto}
+.daily-inner th,.daily-inner td{font-size:11px;padding:5px}
+.yoy{font-size:10px;color:var(--muted);display:block;margin-top:2px}
+
 </style>
 </head>
 <body>
@@ -282,6 +299,68 @@ tbody tr:hover{background:#fafbfe}
     <div class="card">ציון ממוצע<div class="num">{{ stats.average_score or 0 }}</div></div>
     <div class="card">ציון גבוה<div class="num">{{ stats.highest_score or 0 }}</div></div>
     <div class="card">שגיאות סריקה<div class="num">{{ stats.scan_errors or 0 }}</div></div>
+</div>
+
+
+<h2 class="biz-title">משתמשים והכנסות</h2>
+<div class="biz-note">{{ analytics.tracking_started_note }}</div>
+<div class="biz-grid">
+  <div class="biz-card">משתמשים רשומים<div class="num">{{ analytics.overview.registered_total }}</div></div>
+  <div class="biz-card">נכנסו לאתר<div class="num">{{ analytics.overview.visitors_total }}</div><span class="muted">מבקרים ייחודיים שנמדדו</span></div>
+  <div class="biz-card">בחרו להשתמש באריאלה שלי<div class="num">{{ analytics.overview.ariella_users_total }}</div></div>
+  <div class="biz-card">הכנסות החודש<div class="num">₪{{ analytics.overview.revenue_current_month|round|int }}</div></div>
+  <div class="biz-card">הכנסות השנה<div class="num">₪{{ analytics.overview.revenue_current_year|round|int }}</div></div>
+</div>
+
+<h2>סיכום חודשי</h2>
+<div class="table-wrap">
+<table class="business-table">
+<thead><tr>
+  <th class="month-col">חודש</th><th>נרשמו</th><th>נכנסו</th><th>אריאלה שלי</th>
+  <th>רגוע</th><th>יומי</th><th>אינטנסיבי</th><th>הכנסות</th><th>פירוט</th>
+</tr></thead>
+<tbody>
+{% for m in analytics.monthly %}
+<tr>
+  <td>{{ m.month }}</td>
+  <td>{{ m.registrations }}<span class="yoy">אשתקד: {{ m.prev_year.registrations }}</span></td>
+  <td>{{ m.visitors }}<span class="yoy">אשתקד: {{ m.prev_year.visitors }}</span></td>
+  <td>{{ m.ariella_users }}<span class="yoy">אשתקד: {{ m.prev_year.ariella_users }}</span></td>
+  <td>{{ m.calm }}</td><td>{{ m.daily }}</td><td>{{ m.intensive }}</td>
+  <td class="money">₪{{ m.revenue|round|int }}<span class="yoy">אשתקד: ₪{{ m.prev_year.revenue|round|int }}</span></td>
+  <td><button class="biz-summary-btn" onclick="toggleDaily('{{ m.month }}')">סיכום</button></td>
+</tr>
+<tr id="daily-{{ m.month }}" class="daily-detail">
+<td colspan="9">
+  <table class="daily-inner">
+    <thead><tr><th>יום</th><th>נרשמו</th><th>נכנסו</th><th>אריאלה שלי</th><th>רגוע</th><th>יומי</th><th>אינטנסיבי</th><th>הכנסות</th></tr></thead>
+    <tbody>
+    {% for day in analytics.daily_by_month.get(m.month, []) %}
+      <tr><td>{{ day.day }}</td><td>{{ day.registrations }}</td><td>{{ day.visitors }}</td><td>{{ day.ariella_users }}</td>
+      <td>{{ day.calm }}</td><td>{{ day.daily }}</td><td>{{ day.intensive }}</td><td>₪{{ day.revenue|round|int }}</td></tr>
+    {% else %}
+      <tr><td colspan="8" class="empty">אין נתונים יומיים בחודש זה.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+<h2>סיכום שנתי</h2>
+<div class="table-wrap">
+<table class="business-table">
+<thead><tr><th>שנה</th><th>נרשמו</th><th>נכנסו</th><th>אריאלה שלי</th><th>רגוע</th><th>יומי</th><th>אינטנסיבי</th><th>הכנסות</th></tr></thead>
+<tbody>
+{% for y in analytics.annual %}
+<tr><td>{{ y.year }}</td><td>{{ y.registrations }}</td><td>{{ y.visitors }}</td><td>{{ y.ariella_users }}</td>
+<td>{{ y.calm }}</td><td>{{ y.daily }}</td><td>{{ y.intensive }}</td><td class="money">₪{{ y.revenue|round|int }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
 </div>
 
 <h2>ההצעות האחרונות</h2>
@@ -407,6 +486,10 @@ tbody tr:hover{background:#fafbfe}
 </div>
 
 <script>
+function toggleDaily(month){
+  const row=document.getElementById('daily-'+month);
+  if(row) row.classList.toggle('open');
+}
 const adminToken = {{ token|tojson }};
 function withAdminToken(url){
     if(!adminToken) return url;
@@ -493,7 +576,7 @@ function buildBatch(){post('/daily-batch?force=true')}
 """
 
 
-def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_count=0, token=""):
+def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_count=0, analytics=None, token=""):
     offers = sorted(
         offers,
         key=lambda offer: float(offer.get("score") or 0),
@@ -507,6 +590,7 @@ def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_c
         offers=offers,
         scans=scans,
         feedback_count=feedback_count,
+        analytics=analytics or {'overview':{},'monthly':[],'daily_by_month':{},'annual':[],'tracking_started_note':''},
         token=token,
     )
 

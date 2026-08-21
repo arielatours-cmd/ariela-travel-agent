@@ -157,6 +157,35 @@ def init_db() -> None:
                 FOREIGN KEY(member_id) REFERENCES members(id)
             );
 
+            CREATE TABLE IF NOT EXISTS site_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL,
+                visitor_id TEXT,
+                member_id INTEGER,
+                path TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_site_events_type_date ON site_events(event_type, created_at);
+            CREATE INDEX IF NOT EXISTS idx_site_events_visitor ON site_events(visitor_id);
+
+            CREATE TABLE IF NOT EXISTS payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER,
+                trip_id INTEGER,
+                plan TEXT,
+                amount_ils REAL NOT NULL,
+                status TEXT NOT NULL DEFAULT 'paid',
+                provider TEXT,
+                provider_reference TEXT,
+                paid_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id),
+                FOREIGN KEY(trip_id) REFERENCES trip_requests(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_payments_paid_at ON payments(paid_at);
+            CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+
             CREATE INDEX IF NOT EXISTS idx_trip_requests_member
             ON trip_requests(member_id, id DESC);
 
@@ -572,6 +601,201 @@ def recent_scan_runs(limit: int = 20) -> list[dict]:
             "SELECT * FROM scan_runs ORDER BY id DESC LIMIT ?", (max(1, min(limit, 200)),)
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+
+def record_site_event(event_type: str, visitor_id: str | None = None, member_id: int | None = None, path: str | None = None) -> None:
+    """Store lightweight first-party analytics. No IP address is stored."""
+    try:
+        with connection() as conn:
+            conn.execute(
+                "INSERT INTO site_events(event_type,visitor_id,member_id,path,created_at) VALUES(?,?,?,?,?)",
+                (event_type, visitor_id, member_id, path, utc_now_iso()),
+            )
+    except Exception:
+        # Analytics must never break the customer site.
+        return
+
+
+def record_payment(member_id: int | None, trip_id: int | None, plan: str | None,
+                   amount_ils: float, provider: str | None = None,
+                   provider_reference: str | None = None, status: str = "paid",
+                   paid_at: str | None = None) -> None:
+    """Payment ledger hook for the future checkout integration."""
+    now = utc_now_iso()
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO payments(member_id,trip_id,plan,amount_ils,status,provider,provider_reference,paid_at,created_at)
+               VALUES(?,?,?,?,?,?,?,?,?)""",
+            (member_id, trip_id, plan, float(amount_ils), status, provider,
+             provider_reference, paid_at or now, now),
+        )
+
+
+def _month_key(value: str | None) -> str:
+    return str(value or "")[:7]
+
+
+def _day_key(value: str | None) -> str:
+    return str(value or "")[:10]
+
+
+def business_analytics(months_back: int = 12) -> dict:
+    """Business dashboard metrics. Registrations/trips can use historic DB data;
+    visits/payments start accumulating from the version that introduced tracking."""
+    today = datetime.now(timezone.utc).date()
+
+    def shift_month(year, month, delta):
+        x = year * 12 + (month - 1) + delta
+        return x // 12, x % 12 + 1
+
+    month_keys = []
+    for delta in range(-(months_back - 1), 1):
+        y, m = shift_month(today.year, today.month, delta)
+        month_keys.append(f"{y:04d}-{m:02d}")
+
+    with connection() as conn:
+        members = [dict(r) for r in conn.execute(
+            "SELECT id,created_at FROM members WHERE status='active'"
+        ).fetchall()]
+        trips = [dict(r) for r in conn.execute(
+            """SELECT id,member_id,created_at,subscription_plan,subscription_status
+               FROM trip_requests"""
+        ).fetchall()]
+        events = [dict(r) for r in conn.execute(
+            """SELECT event_type,visitor_id,member_id,created_at
+               FROM site_events WHERE event_type='site_visit'"""
+        ).fetchall()]
+        payments = [dict(r) for r in conn.execute(
+            """SELECT member_id,trip_id,plan,amount_ils,status,paid_at
+               FROM payments WHERE status='paid'"""
+        ).fetchall()]
+
+    plan_names = ("calm", "daily", "intensive")
+
+    # First trip date per member = first time they actually used Ariella My.
+    first_trip = {}
+    for t in trips:
+        mid = t.get("member_id")
+        day = _day_key(t.get("created_at"))
+        if mid and day and (mid not in first_trip or day < first_trip[mid]):
+            first_trip[mid] = day
+
+    def aggregate_month(month):
+        regs = {m["id"] for m in members if _month_key(m.get("created_at")) == month}
+        visitors = {e.get("visitor_id") for e in events
+                    if _month_key(e.get("created_at")) == month and e.get("visitor_id")}
+        ariella = {mid for mid, day in first_trip.items() if day[:7] == month}
+        plan_counts = {
+            plan: len({t.get("member_id") for t in trips
+                       if _month_key(t.get("created_at")) == month
+                       and t.get("subscription_plan") == plan and t.get("member_id")})
+            for plan in plan_names
+        }
+        revenue = sum(float(p.get("amount_ils") or 0) for p in payments
+                      if _month_key(p.get("paid_at")) == month)
+        return {
+            "month": month,
+            "registrations": len(regs),
+            "visitors": len(visitors),
+            "ariella_users": len(ariella),
+            "calm": plan_counts["calm"],
+            "daily": plan_counts["daily"],
+            "intensive": plan_counts["intensive"],
+            "revenue": round(revenue, 2),
+        }
+
+    monthly = []
+    for month in reversed(month_keys):  # newest first
+        row = aggregate_month(month)
+        prev = aggregate_month(f"{int(month[:4])-1:04d}-{month[5:7]}")
+        row["prev_year"] = prev
+        monthly.append(row)
+
+    # Daily breakdown for every displayed month.
+    daily_by_month = {}
+    for month in month_keys:
+        days = set()
+        for m in members:
+            if _month_key(m.get("created_at")) == month:
+                days.add(_day_key(m.get("created_at")))
+        for e in events:
+            if _month_key(e.get("created_at")) == month:
+                days.add(_day_key(e.get("created_at")))
+        for t in trips:
+            if _month_key(t.get("created_at")) == month:
+                days.add(_day_key(t.get("created_at")))
+        for p in payments:
+            if _month_key(p.get("paid_at")) == month:
+                days.add(_day_key(p.get("paid_at")))
+
+        rows = []
+        for day in sorted(d for d in days if d):
+            regs = {m["id"] for m in members if _day_key(m.get("created_at")) == day}
+            visitors = {e.get("visitor_id") for e in events
+                        if _day_key(e.get("created_at")) == day and e.get("visitor_id")}
+            ariella = {mid for mid, first_day in first_trip.items() if first_day == day}
+            plans = {
+                plan: len({t.get("member_id") for t in trips
+                           if _day_key(t.get("created_at")) == day
+                           and t.get("subscription_plan") == plan and t.get("member_id")})
+                for plan in plan_names
+            }
+            revenue = sum(float(p.get("amount_ils") or 0) for p in payments
+                          if _day_key(p.get("paid_at")) == day)
+            rows.append({
+                "day": day, "registrations": len(regs), "visitors": len(visitors),
+                "ariella_users": len(ariella), "calm": plans["calm"],
+                "daily": plans["daily"], "intensive": plans["intensive"],
+                "revenue": round(revenue, 2),
+            })
+        daily_by_month[month] = rows
+
+    # Annual summary for every year represented in any business data, plus current year.
+    years = {today.year}
+    for rows, key in ((members, "created_at"), (trips, "created_at"), (events, "created_at"), (payments, "paid_at")):
+        for row in rows:
+            try:
+                years.add(int(str(row.get(key) or "")[:4]))
+            except Exception:
+                pass
+
+    annual = []
+    for year in sorted(years, reverse=True):
+        prefix = f"{year:04d}-"
+        regs = {m["id"] for m in members if str(m.get("created_at") or "").startswith(prefix)}
+        visitors = {e.get("visitor_id") for e in events
+                    if str(e.get("created_at") or "").startswith(prefix) and e.get("visitor_id")}
+        ariella = {mid for mid, day in first_trip.items() if day.startswith(prefix)}
+        plans = {
+            plan: len({t.get("member_id") for t in trips
+                       if str(t.get("created_at") or "").startswith(prefix)
+                       and t.get("subscription_plan") == plan and t.get("member_id")})
+            for plan in plan_names
+        }
+        revenue = sum(float(p.get("amount_ils") or 0) for p in payments
+                      if str(p.get("paid_at") or "").startswith(prefix))
+        annual.append({
+            "year": year, "registrations": len(regs), "visitors": len(visitors),
+            "ariella_users": len(ariella), "calm": plans["calm"],
+            "daily": plans["daily"], "intensive": plans["intensive"],
+            "revenue": round(revenue, 2),
+        })
+
+    overview = {
+        "registered_total": len({m["id"] for m in members}),
+        "visitors_total": len({e.get("visitor_id") for e in events if e.get("visitor_id")}),
+        "ariella_users_total": len(first_trip),
+        "revenue_current_month": monthly[0]["revenue"] if monthly else 0,
+        "revenue_current_year": next((r["revenue"] for r in annual if r["year"] == today.year), 0),
+    }
+    return {
+        "overview": overview,
+        "monthly": monthly,
+        "daily_by_month": daily_by_month,
+        "annual": annual,
+        "tracking_started_note": "כניסות לאתר והכנסות נאספות מהגרסה שבה הופעל המעקב; הרשמות ובקשות חופשה משתמשות גם בנתונים הקיימים.",
+    }
 
 
 def dashboard_stats(minimum_score: int) -> dict:

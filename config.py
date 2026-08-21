@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.7.52-min-score-import-fix"
+APP_VERSION = "9.7.53-business-dashboard"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
