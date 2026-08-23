@@ -449,11 +449,20 @@ def deals():
     today_local = datetime.now(ZoneInfo(ISRAEL_TZ)).date()
     offers, previous_offers = [], []
     for offer in all_qualified:
-        try:
-            observed = datetime.fromisoformat(str(offer.get("last_seen_at") or offer.get("observed_at") or "").replace("Z","+00:00"))
-            local_day = observed.astimezone(ZoneInfo(ISRAEL_TZ)).date()
-        except Exception:
-            local_day = None
+        # Prefer the latest scan time; for offers saved before last_seen_at
+        # existed, fall back to their original observed_at.
+        local_day = None
+        for raw_ts in (offer.get("last_seen_at"), offer.get("observed_at")):
+            if not raw_ts:
+                continue
+            try:
+                observed = datetime.fromisoformat(str(raw_ts).replace("Z","+00:00"))
+                if observed.tzinfo is None:
+                    observed = observed.replace(tzinfo=timezone.utc)
+                local_day = observed.astimezone(ZoneInfo(ISRAEL_TZ)).date()
+                break
+            except Exception:
+                continue
         (offers if local_day == today_local else previous_offers).append(offer)
     previous_offers = previous_offers[:30]
     personal_trips = []

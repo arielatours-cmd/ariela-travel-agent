@@ -77,4 +77,4 @@ password reset, member management, and legally reviewed terms/privacy text.
 
 - v9.7.59: fixed selected-choice checkmark position in RTL questionnaire cards; checkmark now sits on the right side of the label instead of above it.
 
-- v9.7.64: questionnaire hero title uses Assistant for a warmer, happier look; baseline version for live testing.
+- v9.7.65: questionnaire hero title uses Assistant for a warmer, happier look; baseline version for live testing.
