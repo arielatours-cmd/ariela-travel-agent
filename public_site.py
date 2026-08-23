@@ -5,6 +5,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 import json
 import sqlite3
+import requests
+from urllib.parse import parse_qsl
 from datetime import date, datetime
 from functools import wraps
 from zoneinfo import ZoneInfo
@@ -14,7 +16,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click
 from scanner import run_customer_trip_search
 
@@ -448,7 +450,7 @@ def deals():
     offers, previous_offers = [], []
     for offer in all_qualified:
         try:
-            observed = datetime.fromisoformat(str(offer.get("observed_at") or "").replace("Z","+00:00"))
+            observed = datetime.fromisoformat(str(offer.get("last_seen_at") or offer.get("observed_at") or "").replace("Z","+00:00"))
             local_day = observed.astimezone(ZoneInfo(ISRAEL_TZ)).date()
         except Exception:
             local_day = None
@@ -709,6 +711,27 @@ def book_offer(offer_id):
         return_date=offer.get("return_date"),
         booking_url=offer.get("booking_url"),
     )
+    token = offer.get("booking_token") or (offer.get("flight") or {}).get("booking_token")
+    if token and SERPAPI_API_KEY:
+        try:
+            data = requests.get("https://serpapi.com/search.json", params={
+                "engine":"google_flights","booking_token":token,"api_key":SERPAPI_API_KEY,
+                "hl":"en","gl":"il","currency":"ILS"
+            }, timeout=45).json()
+            choices=[]
+            for option in data.get("booking_options") or []:
+                part=option.get("together") or {}
+                req=part.get("booking_request") or {}
+                if req.get("url"):
+                    choices.append((0 if part.get("airline") else 1, float(part.get("price") or 10**9), req))
+            if choices:
+                _, _, req = sorted(choices, key=lambda x:(x[0],x[1]))[0]
+                if req.get("post_data"):
+                    return render_template("booking_forward.html", action=req["url"],
+                                           fields=parse_qsl(req["post_data"], keep_blank_values=True))
+                return redirect(req["url"])
+        except Exception:
+            pass
     return redirect(offer.get("booking_url") or url_for("site.deals"))
 
 

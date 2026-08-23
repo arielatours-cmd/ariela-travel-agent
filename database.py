@@ -264,6 +264,9 @@ def init_db() -> None:
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
             conn.execute("ALTER TABLE offers ADD COLUMN trip_id INTEGER")
+        if "last_seen_at" not in offer_columns:
+            conn.execute("ALTER TABLE offers ADD COLUMN last_seen_at TEXT")
+            conn.execute("UPDATE offers SET last_seen_at=observed_at WHERE last_seen_at IS NULL")
 
         member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
         if "country" not in member_columns:
@@ -346,6 +349,13 @@ def insert_offer(scan_run_id: int, offer: dict) -> bool:
                AND price_ils=? AND COALESCE(airline,'')=COALESCE(?, '') LIMIT 1""",
             (offer["route"], offer["outbound_date"], offer["return_date"], flight["price"], flight.get("airline")),
         ).fetchone()
+        if existing:
+            conn.execute(
+                """UPDATE offers SET last_seen_at=?, scan_run_id=?, payload_json=?
+                   WHERE route=? AND outbound_date=? AND return_date=? AND price_ils=? AND COALESCE(airline,'')=COALESCE(?, '')""",
+                (offer["observed_at"], scan_run_id, json.dumps(offer, ensure_ascii=False),
+                 offer["route"], offer["outbound_date"], offer["return_date"], flight["price"], flight.get("airline")),
+            )
         conn.execute(
             """
             INSERT OR IGNORE INTO offers(
@@ -365,6 +375,12 @@ def insert_offer(scan_run_id: int, offer: dict) -> bool:
                 offer.get("destination_name"), offer.get("country_flag"), offer.get("trip_id"), json.dumps(offer, ensure_ascii=False),
             ),
         )
+        if not existing:
+            conn.execute(
+                """UPDATE offers SET last_seen_at=observed_at
+                   WHERE scan_run_id=? AND route=? AND outbound_date=? AND return_date=? AND price_ils=?""",
+                (scan_run_id, offer["route"], offer["outbound_date"], offer["return_date"], flight["price"]),
+            )
         return existing is None
 
 
@@ -443,6 +459,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         payload["offer_id"] = item.get("id")
         payload["scan_run_id"] = item.get("scan_run_id")
         payload["observed_at"] = item.get("observed_at") or payload.get("observed_at")
+        payload["last_seen_at"] = item.get("last_seen_at") or item.get("observed_at") or payload.get("observed_at")
         if item.get("trip_id") is not None:
             payload["trip_id"] = item.get("trip_id")
         deal_score = payload.get("deal_score") or {}
@@ -588,12 +605,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         item.update({
             "score_reasons": reasons,
             "display_reasons": display_reasons,
-                        "booking_url": _full_roundtrip_google_url(
-                item.get("departure_code") or payload.get("departure_code"),
-                item.get("arrival_code") or payload.get("arrival_code"),
-                item.get("outbound_date") or payload.get("outbound_date"),
-                item.get("return_date") or payload.get("return_date"),
-            ),
+                        "booking_url": payload.get("booking_url") or item.get("booking_url"),
+            "booking_token": flight.get("booking_token"),
             "reference_price_ils": reference_price,
             "price_reference_reliable": bool(analysis.get("price_reference_reliable")),
             "departure_airport_name": payload.get("departure_airport_name") or flight.get("departure_airport_name"),

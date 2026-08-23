@@ -1,5 +1,12 @@
 {% extends "base.html" %}{% from "_deal_card.html" import deal_card %}
-{% block title %}{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}{% endblock %}
+{% block title %}{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}<script>
+document.querySelectorAll('.deal-last-updated').forEach(function(el){
+ const raw=el.dataset.ts;if(!raw)return;const dt=new Date(raw);if(isNaN(dt))return;
+ const df=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',day:'2-digit',month:'2-digit',year:'2-digit'});
+ const tf=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit',hour12:false});
+ const now=new Date(), day=df.format(dt); el.querySelector('b').textContent=(day===df.format(now)?'היום':day)+', '+tf.format(dt);
+});
+</script>{% endblock %}
 
 {% block content %}
 <section class="deals-page" aria-labelledby="deals-title"><div class="deals-shell">
@@ -116,8 +123,22 @@
 </section>
 {% endif %}
 </section>
-{% endblock %}
-{% block site_disclaimer %}{% endblock %}{% block site_footer %}
+<script>
+document.querySelectorAll('.deal-last-updated').forEach(function(el){
+ const raw=el.dataset.ts;if(!raw)return;const dt=new Date(raw);if(isNaN(dt))return;
+ const df=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',day:'2-digit',month:'2-digit',year:'2-digit'});
+ const tf=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit',hour12:false});
+ const now=new Date(), day=df.format(dt); el.querySelector('b').textContent=(day===df.format(now)?'היום':day)+', '+tf.format(dt);
+});
+</script>{% endblock %}
+{% block site_disclaimer %}<script>
+document.querySelectorAll('.deal-last-updated').forEach(function(el){
+ const raw=el.dataset.ts;if(!raw)return;const dt=new Date(raw);if(isNaN(dt))return;
+ const df=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',day:'2-digit',month:'2-digit',year:'2-digit'});
+ const tf=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit',hour12:false});
+ const now=new Date(), day=df.format(dt); el.querySelector('b').textContent=(day===df.format(now)?'היום':day)+', '+tf.format(dt);
+});
+</script>{% endblock %}{% block site_footer %}
 <section class="deals-legal-note">
   <div class="deals-shell">
     <p><strong>{{ 'E&OE.' if site_lang == 'en' else 'ט.ל.ח.' }}</strong>
@@ -144,4 +165,11 @@ function badge(w,n,a){if(!w)return;const k=ck(n).length,b=w.querySelector('.filt
 function apply(){const ds=ck('filterDestination'),ls=ck('filterLength'),as=ck('filterAirline');let v=0;cards.forEach(c=>{const d=c.dataset;let o=true;if(C.origin?.value&&d.origin!==C.origin.value)o=false;if(ds.length&&!ds.includes(N(d.destination)))o=false;if(C.month?.value&&!N(d.outbound).startsWith(C.month.value))o=false;const mx=+(C.price?.value||0),p=+(d.price||0);if(mx>0&&(!p||p>mx))o=false;if(C.stops?.value!==''&&+d.stops!==+C.stops.value)o=false;if(C.baggage?.value==='personal'&&d.personal!=='1')o=false;if(C.baggage?.value==='carry'&&d.carry!=='1')o=false;if(C.baggage?.value==='checked'&&d.checked!=='1')o=false;if(C.time?.value&&bucket(d.departureTime)!==C.time.value)o=false;if(ls.length){const n=days(d.outbound,d.return);if(n===null||!ls.some(r=>lm(n,r)))o=false;}if(as.length&&!as.includes(N(d.airline)))o=false;if(C.protection?.value==='applies'&&N(d.protection)!=='applies')o=false;if(C.change?.value&&!cm(d.change,C.change.value))o=false;c.classList.toggle('is-filtered-out',!o);if(o)v++;});let e=root.querySelector('.deal-filter-empty');if(!e){e=document.createElement('div');e.className='deal-filter-empty';e.textContent=document.documentElement.lang==='en'?'No deals match the selected filters.':'אין דילים שמתאימים למסננים שבחרתם.';list.after(e);}e.hidden=v!==0;badge(q('filterDestinationWrap'),'filterDestination',document.documentElement.lang==='en'?'All':'הכל');badge(q('filterLengthWrap'),'filterLength',document.documentElement.lang==='en'?'Any':'הכל');badge(q('filterAirlineWrap'),'filterAirline',document.documentElement.lang==='en'?'All':'הכל');}
 Object.values(C).forEach(e=>e?.addEventListener(e.tagName==='INPUT'?'input':'change',apply));root.querySelectorAll('.filter-multi').forEach(w=>{w.querySelector('.filter-multi-button')?.addEventListener('click',()=>{const m=w.querySelector('.filter-multi-menu');m.hidden=!m.hidden;});w.querySelector('.filter-multi-menu')?.addEventListener('change',apply);});q('moreFiltersToggle')?.addEventListener('click',()=>{const m=q('dealFiltersMore'),b=q('moreFiltersToggle'),o=m.hidden;m.hidden=!o;m.setAttribute('aria-hidden',o?'false':'true');b.setAttribute('aria-expanded',o?'true':'false');b.textContent=o?(document.documentElement.lang==='en'?'Fewer filters ▴':'פחות מסננים ▴'):(document.documentElement.lang==='en'?'More filters ▾':'מסננים נוספים ▾');});q('clearDealFilters')?.addEventListener('click',()=>{Object.values(C).forEach(e=>{if(e)e.value='';});root.querySelectorAll('.filter-multi input:checked').forEach(x=>x.checked=false);apply();});apply();})();
 </script>
-{% endblock %}
+<script>
+document.querySelectorAll('.deal-last-updated').forEach(function(el){
+ const raw=el.dataset.ts;if(!raw)return;const dt=new Date(raw);if(isNaN(dt))return;
+ const df=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',day:'2-digit',month:'2-digit',year:'2-digit'});
+ const tf=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit',hour12:false});
+ const now=new Date(), day=df.format(dt); el.querySelector('b').textContent=(day===df.format(now)?'היום':day)+', '+tf.format(dt);
+});
+</script>{% endblock %}

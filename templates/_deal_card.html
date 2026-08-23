@@ -41,7 +41,7 @@
 
  <div class="deal-main-grid">
    <div class="deal-visual {% if stops==0 %}direct{% elif stops==1 %}one-stop{% else %}two-stops{% endif %}"
-    {% if offer.destination_image_url %}style="background-image:linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.48)),url('{{ offer.destination_image_url }}')"{% endif %}>
+    {% if offer.destination_image_url %}style="background-image:linear-gradient(180deg,rgba(255,255,255,.01),rgba(0,0,0,.18)),url('{{ offer.destination_image_url }}')"{% endif %}>
     <span class="stop-badge">{% if stops==0 %}{{ 'Direct' if lang=='en' else 'ישירה' }}{% elif stops==1 %}{{ '1 connection' if lang=='en' else 'קונקשן 1' }}{% else %}{{ stops }} {{ 'connections' if lang=='en' else 'קונקשנים' }}{% endif %}</span>
    </div>
    <div class="visual-destination-outside"><strong>{{ offer.arrival_city_en if lang=='en' else offer.arrival_city_he }}</strong><span class="visual-airport-code" dir="ltr">{{ offer.arrival_code }}</span></div>
@@ -71,7 +71,7 @@
       <div class="leg-route-times">
         <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ offer.departure_time[-5:] if offer.departure_time else '—' }}</time></div>
         <div class="mini-flight-line"><i></i>{% if stops>0 and offer.connections %}{% for c in offer.connections %}<span class="connection-pill"><span class="connection-airport">{{ c.airport }}</span>{% if c.duration_minutes %}<span class="connection-wait">{{ 'Wait:' if lang=='en' else 'המתנה:' }} {{ minutes(c.duration_minutes,lang) }}</span>{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
-        <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.arrival_time[-5:] if offer.arrival_time else '—' }}</time>{{ arrival_badge(offer.arrival_days_after or 0,lang) }}</div>
+        <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><span class="arrival-time-value"><time>{{ offer.arrival_time[-5:] if offer.arrival_time else '—' }}</time>{{ arrival_badge(offer.arrival_days_after or 0,lang) }}</span></div>
       </div>
       {% if offer.total_duration_minutes %}<span class="leg-duration">{{ 'Total flight duration:' if (lang=='en' and stops>0) else ('Flight duration:' if lang=='en' else ('משך טיסה כולל:' if stops>0 else 'משך טיסה:')) }} {{ minutes(offer.total_duration_minutes,lang) }}</span>{% endif %}
     </div>
@@ -88,7 +88,7 @@
       <div class="leg-route-times">
         <div class="time-node departure-time"><small>{{ 'Departure' if lang=='en' else 'המראה' }}</small><time>{{ rt[-5:] if rt else '—' }}</time></div>
         <div class="mini-flight-line"><i></i>{% if offer.return_stops and offer.return_connections %}{% for c in offer.return_connections %}<span class="connection-pill"><span class="connection-airport">{{ c.airport }}</span>{% if c.duration_minutes %}<span class="connection-wait">{{ 'Wait:' if lang=='en' else 'המתנה:' }} {{ minutes(c.duration_minutes,lang) }}</span>{% endif %}</span><b aria-hidden="true">✈</b>{% endfor %}{% else %}<b aria-hidden="true">✈</b>{% endif %}<i></i></div>
-        <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><time>{{ offer.return_arrival_time[-5:] if offer.return_arrival_time else '—' }}</time>{{ arrival_badge(offer.return_arrival_days_after or 0,lang) }}</div>
+        <div class="time-node arrival-time"><small>{{ 'Arrival' if lang=='en' else 'נחיתה' }}</small><span class="arrival-time-value"><time>{{ offer.return_arrival_time[-5:] if offer.return_arrival_time else '—' }}</time>{{ arrival_badge(offer.return_arrival_days_after or 0,lang) }}</span></div>
       </div>
       {% if offer.return_total_duration_minutes %}<span class="leg-duration">{{ 'Total flight duration:' if (lang=='en' and offer.return_stops) else ('Flight duration:' if lang=='en' else ('משך טיסה כולל:' if offer.return_stops else 'משך טיסה:')) }} {{ minutes(offer.return_total_duration_minutes,lang) }}</span>{% endif %}
     </div>
@@ -131,6 +131,6 @@
      {% set _=visible.append(reason_en(reason) if lang=='en' else reason) %}
    {% endif %}
  {% endfor %}
- {% if visible %}<footer class="deal-reasons-footer"><strong class="deal-reasons-title">{{ 'Why Ariella selected this deal' if lang=='en' else 'למה אריאלה בחרה את הדיל' }}</strong><div>{% for reason in visible %}<span>{{ reason }}</span>{% if not loop.last %}<i></i>{% endif %}{% endfor %}</div></footer>{% endif %}
+ <footer class="deal-reasons-footer"><strong class="deal-reasons-title">{{ 'Why Ariella selected this deal' if lang=='en' else 'למה אריאלה בחרה את הדיל' }}</strong><div>{% for reason in visible %}<span>{{ reason }}</span>{% if not loop.last %}<i></i>{% endif %}{% endfor %}<span class="deal-last-updated" data-ts="{{ offer.last_seen_at or offer.observed_at or '' }}">{{ 'Updated:' if lang=='en' else 'עודכן לאחרונה:' }} <b></b></span></div></footer>
 </article>
 {%- endmacro %}

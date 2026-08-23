@@ -248,6 +248,11 @@ tbody tr:hover{background:#fafbfe}
 .scan-result-grid{display:flex;flex-wrap:wrap;gap:8px}
 .scan-result-chip{border:1px solid #e3d1a8;background:white;border-radius:8px;padding:8px 10px;font-size:14px}
 .scan-link{background:transparent!important;color:#8a651f!important;padding:2px 5px!important;text-decoration:underline}
+.admin-offer-filters{display:flex;gap:10px;align-items:end;flex-wrap:wrap;background:#fff;padding:12px 14px;margin:8px 0 12px;border-radius:10px}
+.admin-offer-filters label{font-size:13px;font-weight:700;display:flex;flex-direction:column;gap:4px}
+.admin-offer-filters input[type=text],.admin-offer-filters input[type=number]{width:125px;padding:8px;border:1px solid #ccd3dc;border-radius:6px}
+.admin-offer-filters .filter-check{flex-direction:row;align-items:center;padding-bottom:8px}
+#filterCount{font-size:13px;font-weight:700;color:#72541d}
 </style>
 </head>
 <body>
@@ -320,8 +325,17 @@ tbody tr:hover{background:#fafbfe}
     {% if offers %}{{ offers|max(attribute='score')|attr('score') }}{% else %}0{% endif %}
 </div>
 
+<div class="admin-offer-filters">
+<label>יעד <input id="filterDestination" type="text" placeholder="FCO / רומא" oninput="filterOffers()"></label>
+<label>סריקה <input id="filterScan" type="number" min="1" placeholder="16" oninput="filterOffers()"></label>
+<label>ציון מינימלי <input id="filterScore" type="number" min="0" max="100" placeholder="70" oninput="filterOffers()"></label>
+<label>מחיר עד <input id="filterPrice" type="number" min="0" placeholder="₪" oninput="filterOffers()"></label>
+<label class="filter-check"><input id="filterQualified" type="checkbox" onchange="filterOffers()"> רק מעל הסף</label>
+<button type="button" class="secondary" onclick="clearOfferFilters()">נקה סינון</button>
+<span id="filterCount"></span>
+</div>
 <div class="table-wrap">
-<table>
+<table id="offersTable">
 <thead>
 <tr>
     <th class="scan-id">סריקה</th>
@@ -341,7 +355,7 @@ tbody tr:hover{background:#fafbfe}
 </thead>
 <tbody>
 {% for o in offers %}
-<tr>
+<tr class="offer-row" data-destination="{{ (o.arrival_code or '')|lower }} {{ (o.destination_name or '')|lower }}" data-scan="{{ o.scan_run_id or '' }}" data-score="{{ o.score or 0 }}" data-price="{{ o.price_ils or 0 }}">
     <td class="scan-id"><button class="scan-link" type="button" onclick="showScan({{ o.scan_run_id or 0 }})">#{{ o.scan_run_id or '—' }}</button></td>
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
@@ -539,6 +553,25 @@ async function showScan(id){
   }catch(_){ if(row)row.querySelector('.scan-details-content').textContent='לא ניתן לטעון את תוצאות הסריקה.'; }
 }
 function buildBatch(){post('/daily-batch?force=true')}
+function filterOffers(){
+ const dest=(document.getElementById('filterDestination').value||'').trim().toLowerCase();
+ const scan=(document.getElementById('filterScan').value||'').trim();
+ const score=parseFloat(document.getElementById('filterScore').value||'-1');
+ const price=parseFloat(document.getElementById('filterPrice').value||'999999999');
+ const qualified=document.getElementById('filterQualified').checked;
+ let shown=0;
+ document.querySelectorAll('#offersTable .offer-row').forEach(r=>{
+   const ok=(!dest||r.dataset.destination.includes(dest))&&(!scan||r.dataset.scan===scan)&&
+     parseFloat(r.dataset.score||0)>=score&&parseFloat(r.dataset.price||0)<=price&&
+     (!qualified||parseFloat(r.dataset.score||0)>={{ minimum_score }});
+   r.style.display=ok?'':'none'; if(ok)shown++;
+ });
+ document.getElementById('filterCount').textContent='מוצגות '+shown+' הצעות';
+}
+function clearOfferFilters(){
+ ['filterDestination','filterScan','filterScore','filterPrice'].forEach(id=>document.getElementById(id).value='');
+ document.getElementById('filterQualified').checked=false; filterOffers();
+}
 </script>
 </body>
 </html>
