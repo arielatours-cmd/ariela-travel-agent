@@ -452,7 +452,7 @@ def deals():
         # Prefer the latest scan time; for offers saved before last_seen_at
         # existed, fall back to their original observed_at.
         local_day = None
-        for raw_ts in (offer.get("last_seen_at"), offer.get("observed_at")):
+        for raw_ts in (offer.get("scan_started_at"), offer.get("last_seen_at"), offer.get("observed_at")):
             if not raw_ts:
                 continue
             try:

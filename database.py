@@ -460,6 +460,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         payload["scan_run_id"] = item.get("scan_run_id")
         payload["observed_at"] = item.get("observed_at") or payload.get("observed_at")
         payload["last_seen_at"] = item.get("last_seen_at") or item.get("observed_at") or payload.get("observed_at")
+        payload["scan_started_at"] = item.get("scan_started_at")
         if item.get("trip_id") is not None:
             payload["trip_id"] = item.get("trip_id")
         deal_score = payload.get("deal_score") or {}

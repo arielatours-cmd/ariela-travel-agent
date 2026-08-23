@@ -249,13 +249,6 @@ tbody tr:hover{background:#fafbfe}
 .scan-result-chip{border:1px solid #e3d1a8;background:white;border-radius:8px;padding:8px 10px;font-size:14px}
 .scan-link{background:transparent!important;color:#8a651f!important;padding:2px 5px!important;text-decoration:underline}
 
-#offersTable thead th{vertical-align:top}
-.th-filter{margin-top:7px}
-.th-filter input{width:92px;max-width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #cfd6df;border-radius:5px;background:#fff;font-size:12px;text-align:center}
-.sortable{cursor:pointer;user-select:none}
-.sortable:hover{background:#e8eef7}
-.sort-mark{font-size:13px;color:#8a651f}
-.clear-table-filters{padding:5px 10px!important;font-size:12px!important;background:#fff!important;color:#18345f!important;border:1px solid #9aa9bc!important}
 </style>
 </head>
 <body>
@@ -331,8 +324,8 @@ tbody tr:hover{background:#fafbfe}
 <div class="table-wrap"><table id="offersTable">
 <thead>
 <tr>
-    <th class="scan-id">סריקה<div class="th-filter"><input id="filterScan" type="number" min="1" placeholder="#" oninput="filterOffers()"></div></th>
-    <th class="destination">יעד<div class="th-filter"><input id="filterDestination" type="text" placeholder="FCO / רומא" oninput="filterOffers()"></div></th>
+    <th class="scan-id">סריקה</th>
+    <th class="destination sortable" onclick="sortDestination()">יעד <span class="sort-mark">↕</span></th>
     <th class="price-col">מחיר</th>
     <th class="average-col">ממוצע</th>
     <th class="score-part">עלות</th>
@@ -546,28 +539,12 @@ async function showScan(id){
   }catch(_){ if(row)row.querySelector('.scan-details-content').textContent='לא ניתן לטעון את תוצאות הסריקה.'; }
 }
 function buildBatch(){post('/daily-batch?force=true')}
-function filterOffers(){
- const dest=(document.getElementById('filterDestination')?.value||'').trim().toLowerCase();
- const scan=(document.getElementById('filterScan')?.value||'').trim();
- const score=parseFloat(document.getElementById('filterScore')?.value||'-1');
- const price=parseFloat(document.getElementById('filterPrice')?.value||'999999999');
- document.querySelectorAll('#offersTable .offer-row').forEach(r=>{
-   const ok=(!dest||r.dataset.destination.includes(dest))&&(!scan||r.dataset.scan===scan)&&
-     parseFloat(r.dataset.score||0)>=score&&parseFloat(r.dataset.price||0)<=price;
-   r.style.display=ok?'':'none';
- });
-}
-function clearOfferFilters(){
- ['filterDestination','filterScan','filterScore','filterPrice'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
- filterOffers();
-}
-let offerSortDir={price:1,score:1};
-function sortOffers(kind){
+let destinationSortDir=1;
+function sortDestination(){
  const tbody=document.querySelector('#offersTable tbody'); if(!tbody)return;
  const rows=[...tbody.querySelectorAll('.offer-row')];
- const key=kind==='price'?'price':'score', dir=offerSortDir[kind]||1;
- rows.sort((x,y)=>(parseFloat(x.dataset[key]||0)-parseFloat(y.dataset[key]||0))*dir);
- rows.forEach(r=>tbody.appendChild(r)); offerSortDir[kind]=dir*-1;
+ rows.sort((x,y)=>(x.dataset.destination||'').localeCompare(y.dataset.destination||'','he')*destinationSortDir);
+ rows.forEach(r=>tbody.appendChild(r)); destinationSortDir*=-1;
 }
 </script>
 </body>
@@ -664,7 +641,7 @@ button{background:#65748b;color:#fff;border:0;border-radius:7px;padding:8px 13px
 <div class="table-wrap"><table><thead><tr><th>יעד</th><th>לחיצות</th></tr></thead><tbody>
 {% for x in analytics.booking_clicks.by_destination %}<tr><td>{{ x.destination }}</td><td>{{ x.clicks }}</td></tr>{% else %}<tr><td colspan="2">אין לחיצות עדיין</td></tr>{% endfor %}
 </tbody></table></div>
-<div class="table-wrap"><table><thead><tr><th>מועד</th><th>יעד</th><th>חברה</th><th>ספק</th><th class="sortable" onclick="sortOffers('price')">מחיר <span class="sort-mark">↕</span><div class="th-filter" onclick="event.stopPropagation()"><input id="filterPrice" type="number" min="0" placeholder="עד ₪" oninput="filterOffers()"></div></th><th class="sortable" onclick="sortOffers('score')">ציון <span class="sort-mark">↕</span><div class="th-filter" onclick="event.stopPropagation()"><input id="filterScore" type="number" min="0" max="100" placeholder="מ־70" oninput="filterOffers()"></div></th></tr></thead><tbody>
+<div class="table-wrap"><table><thead><tr><th>מועד</th><th>יעד</th><th>חברה</th><th>ספק</th><th>מחיר</th><th>ציון</th></tr></thead><tbody>
 {% for x in analytics.booking_clicks.recent %}
 <tr><td>{{ x.clicked_at[:16] if x.clicked_at else '' }}</td><td>{{ x.destination_code or '—' }}</td><td>{{ x.airline or '—' }}</td><td>{{ x.supplier or '—' }}</td><td>{{ x.price_ils|round|int if x.price_ils is not none else '—' }}</td><td>{{ x.score or '—' }}</td></tr>
 {% else %}<tr><td colspan="6">אין לחיצות עדיין</td></tr>{% endfor %}
