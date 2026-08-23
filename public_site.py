@@ -446,25 +446,39 @@ def home():
 @site.get("/deals")
 def deals():
     all_qualified = [_localize_offer_airports(o) for o in recent_offers(limit=120, minimum_score=MIN_DEAL_SCORE)]
+
+    # Current deals = qualified deals from today's scan batch.
+    # We deliberately use the latest scan id instead of timestamp parsing so
+    # older records cannot be misclassified by legacy timestamp formats.
+    scan_ids = [int(o.get("scan_run_id")) for o in all_qualified if o.get("scan_run_id") is not None]
+    latest_scan_id = max(scan_ids) if scan_ids else None
+
+    # Include every qualified offer from scans run in the same current-day batch.
+    # Existing data from the testing session may span several scan IDs, so use
+    # scan_started_at where valid; otherwise keep recent scan IDs together.
     today_local = datetime.now(ZoneInfo(ISRAEL_TZ)).date()
-    offers, previous_offers = [], []
+    today_scan_ids = set()
     for offer in all_qualified:
-        # Prefer the latest scan time; for offers saved before last_seen_at
-        # existed, fall back to their original observed_at.
-        local_day = None
-        for raw_ts in (offer.get("scan_started_at"), offer.get("last_seen_at"), offer.get("observed_at")):
-            if not raw_ts:
-                continue
-            try:
-                observed = datetime.fromisoformat(str(raw_ts).replace("Z","+00:00"))
-                if observed.tzinfo is None:
-                    observed = observed.replace(tzinfo=timezone.utc)
-                local_day = observed.astimezone(ZoneInfo(ISRAEL_TZ)).date()
-                break
-            except Exception:
-                continue
-        (offers if local_day == today_local else previous_offers).append(offer)
-    previous_offers = previous_offers[:30]
+        sid = offer.get("scan_run_id")
+        raw = offer.get("scan_started_at")
+        if sid is None:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(raw).replace("Z","+00:00")) if raw else None
+            if dt and dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt and dt.astimezone(ZoneInfo(ISRAEL_TZ)).date() == today_local:
+                today_scan_ids.add(int(sid))
+        except Exception:
+            pass
+
+    # Legacy fallback: if historical scan timestamps cannot be interpreted,
+    # the latest scan remains current rather than sending everything below the divider.
+    if not today_scan_ids and latest_scan_id is not None:
+        today_scan_ids.add(latest_scan_id)
+
+    offers = [o for o in all_qualified if o.get("scan_run_id") is not None and int(o.get("scan_run_id")) in today_scan_ids]
+    previous_offers = [o for o in all_qualified if o not in offers][:30]
     personal_trips = []
     if session.get("member_id") and _current_member() is not None:
         with _db() as conn:

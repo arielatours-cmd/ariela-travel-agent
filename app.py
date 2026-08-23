@@ -301,6 +301,19 @@ def scan_run_offers(run_id):
     offers = offers_for_scan_run(run_id)
     return jsonify({"status":"success","scan_run_id":run_id,"count":len(offers),"offers":offers})
 
+@app.get("/deal-date-debug")
+def deal_date_debug():
+    denied = _require_admin()
+    if denied:
+        return denied
+    rows = recent_offers(limit=20, minimum_score=MIN_DEAL_SCORE)
+    return jsonify({"offers":[{
+        "offer_id":o.get("offer_id"),"scan_run_id":o.get("scan_run_id"),
+        "observed_at":o.get("observed_at"),"last_seen_at":o.get("last_seen_at"),
+        "scan_started_at":o.get("scan_started_at"),"score":o.get("score"),
+        "arrival_code":o.get("arrival_code")
+    } for o in rows]})
+
 @app.get("/scan-status")
 def scan_status():
     return jsonify({"status": "success", "latest_scan": latest_scan_run()})
