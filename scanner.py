@@ -611,42 +611,100 @@ def run_wide_scan(max_destinations: int | None = None) -> dict:
 
 
 
-def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
-    """Run a targeted fresh search only after the database has no suitable customer deal."""
-    destinations = str(answers.get("destinations") or "").strip().lower()
-    destination_aliases = {
+def _customer_destination_codes(answers: dict) -> list[str]:
+    """Parse one or several destination IATA codes from the customer form."""
+    raw = str(answers.get("destinations") or "").strip()
+    aliases = {
         "רומא": "FCO", "rome": "FCO", "fco": "FCO",
         "אתונה": "ATH", "athens": "ATH", "ath": "ATH",
         "בודפשט": "BUD", "budapest": "BUD", "bud": "BUD",
         "פראג": "PRG", "prague": "PRG", "prg": "PRG",
         "וינה": "VIE", "vienna": "VIE", "vie": "VIE",
         "מילאנו": "MXP", "milan": "MXP", "mxp": "MXP",
+        "לרנקה": "LCA", "larnaca": "LCA", "lca": "LCA",
+        "סופיה": "SOF", "sofia": "SOF", "sof": "SOF",
+        "פריז": "CDG", "paris": "CDG", "cdg": "CDG",
+        "אמסטרדם": "AMS", "amsterdam": "AMS", "ams": "AMS",
+        "ברצלונה": "BCN", "barcelona": "BCN", "bcn": "BCN",
+        "מדריד": "MAD", "madrid": "MAD", "mad": "MAD",
+        "ליסבון": "LIS", "lisbon": "LIS", "lis": "LIS",
+        "לונדון": "LHR", "london": "LHR", "lhr": "LHR",
+        "ברלין": "BER", "berlin": "BER", "ber": "BER",
+        "מינכן": "MUC", "munich": "MUC", "muc": "MUC",
+        "ציריך": "ZRH", "zurich": "ZRH", "zrh": "ZRH",
+        "בוקרשט": "OTP", "bucharest": "OTP", "otp": "OTP",
+        "קרקוב": "KRK", "krakow": "KRK", "krk": "KRK",
+        "ורשה": "WAW", "warsaw": "WAW", "waw": "WAW",
+        "טביליסי": "TBS", "tbilisi": "TBS", "tbs": "TBS",
+        "בנגקוק": "BKK", "bangkok": "BKK", "bkk": "BKK",
+        "ניו יורק": "JFK", "new york": "JFK", "jfk": "JFK",
     }
-    arrival = destination_aliases.get(destinations)
-    if not arrival:
+    supported = {d["code"] for d in DESTINATIONS}
+    codes = []
+    for token in [x.strip() for x in re.split(r"[,;/]+", raw) if x.strip()]:
+        code = aliases.get(token.lower())
+        if not code and len(token) == 3 and token.isalpha():
+            code = token.upper()
+        if code in supported and code not in codes:
+            codes.append(code)
+    return codes
+
+
+def _customer_scan_rank(score: dict, answers: dict) -> float:
+    """Use a destination-fit score when the customer already chose where to go."""
+    if str(answers.get("destination_mode") or "open") not in {"specific", "several"}:
+        return float(score.get("score") or 0)
+    c = score.get("components") or {}
+    return (
+        float(c.get("route") or 0) * 2.0
+        + float(c.get("time_value") or c.get("hours") or 0) * 2.0
+        + float(c.get("baggage") or 0) * 1.5
+        + float(c.get("price") or 0) * 0.5
+        + float(c.get("rarity") or 0) * 0.25
+    )
+
+
+def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
+    """Run a targeted fresh search for the customer's chosen vacation.
+
+    A chosen destination is a relevance search, not a global bargain contest: valid
+    flights are therefore retained even when their global deal score is below 65.
+    """
+    arrivals = _customer_destination_codes(answers)
+    if not arrivals:
         return {"status": "unsupported_destination", "offers_found": 0, "api_requests": 0}
 
     origins = [str(x).upper() for x in answers.get("origin_airports", []) if x] or list(DEPARTURE_AIRPORTS)
     date_mode = answers.get("date_mode")
     jobs = []
     if date_mode == "exact" and answers.get("departure_date") and answers.get("return_date"):
-        for origin in origins:
-            jobs.append({"departure": origin, "arrival": arrival, "outbound": answers["departure_date"], "return": answers["return_date"]})
+        for arrival in arrivals:
+            for origin in origins:
+                jobs.append({"departure": origin, "arrival": arrival, "outbound": answers["departure_date"], "return": answers["return_date"]})
     else:
-        # Month search: a few representative windows, deliberately bounded to protect API quota.
-        month = str(answers.get("travel_month") or "")
-        if not month:
+        outbound_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+        return_month = str(answers.get("return_month") or outbound_month)[:7]
+        if not outbound_month or not return_month:
             return {"status": "missing_dates", "offers_found": 0, "api_requests": 0}
-        first = datetime.strptime(month + "-01", "%Y-%m-%d").date()
-        starts = [first + timedelta(days=d) for d in (3, 10, 17, 24)]
-        for origin in origins:
-            for start in starts:
-                if start.month == first.month:
-                    jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": (start + timedelta(days=4)).isoformat()})
+        out_first = datetime.strptime(outbound_month + "-01", "%Y-%m-%d").date()
+        ret_first = datetime.strptime(return_month + "-01", "%Y-%m-%d").date()
+        out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+        ret_starts = [ret_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+        for arrival in arrivals:
+            for origin in origins:
+                for start in out_starts:
+                    if start.month != out_first.month:
+                        continue
+                    for ret in ret_starts:
+                        if ret <= start or ret.month != ret_first.month:
+                            continue
+                        jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
 
     run_id = create_scan_run(len(jobs))
     completed = offers_found = errors = api_requests = 0
     messages = []
+    destination_led = str(answers.get("destination_mode") or "open") in {"specific", "several"}
+    destination_names = {d["code"]: d for d in DESTINATIONS}
     try:
         for job in jobs:
             try:
@@ -668,11 +726,11 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                     })
                     analysis = _apply_best_price_reference(analysis, price)
                     score = calculate_deal_score(analysis, flight)
-                    if score["score"] >= 65:
-                        scored.append((score["score"], -price, flight, analysis, score))
+                    if destination_led or score["score"] >= 65:
+                        scored.append((_customer_scan_rank(score, answers), score["score"], -price, flight, analysis, score))
                 if scored:
-                    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
-                    _, _, flight, analysis, score = scored[0]
+                    scored.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+                    _, _, _, flight, analysis, score = scored[0]
                     flight, booking_requests = enrich_booking_options(
                         flight, job["departure"], job["arrival"], job["outbound"], job["return"]
                     )
@@ -681,11 +739,12 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                         flight["price"] = flight["booking_supplier_price_ils"]
                     analysis = _apply_best_price_reference(analysis, float(flight["price"]))
                     score = calculate_deal_score(analysis, flight)
+                    dest = destination_names.get(job["arrival"], {})
                     insert_offer(run_id, {
                         "observed_at": datetime.now(timezone.utc).isoformat(),
                         "route": result["route"], "departure_code": job["departure"], "arrival_code": job["arrival"],
                         "departure_airport_name": result["departure_airport_name"], "arrival_airport_name": result["arrival_airport_name"],
-                        "destination_name": destinations or arrival, "country_flag": "🇮🇹" if arrival == "FCO" else "",
+                        "destination_name": dest.get("name") or job["arrival"], "country_flag": dest.get("country_flag") or "",
                         "outbound_date": job["outbound"], "return_date": job["return"],
                         "outbound": result["outbound"], "return": result["return"],
                         "deal_analysis": analysis, "flight": flight, "deal_score": score,

@@ -14,7 +14,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click
 from scanner import run_customer_trip_search
 
 
@@ -207,9 +207,17 @@ def _offer_has_baggage_pricing_when_needed(offer):
 def _trip_requested_month(trip):
     answers = trip.get("answers") or {}
     if answers.get("date_mode") == "month":
-        return str(answers.get("travel_month") or "")[:7]
+        return str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
     if answers.get("date_mode") == "exact":
         return str(answers.get("departure_date") or "")[:7]
+    return ""
+
+def _trip_requested_return_month(trip):
+    answers = trip.get("answers") or {}
+    if answers.get("date_mode") == "month":
+        return str(answers.get("return_month") or answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+    if answers.get("date_mode") == "exact":
+        return str(answers.get("return_date") or "")[:7]
     return ""
 
 
@@ -231,11 +239,17 @@ def _offer_matches_trip(offer, trip, *, exact_dates=False, same_month=False):
             return False
     elif same_month:
         month = _trip_requested_month(trip)
+        return_month = _trip_requested_return_month(trip)
         if month and not outbound.startswith(month):
             return False
+        if return_month and not inbound.startswith(return_month):
+            return False
     elif answers.get("date_mode") == "month":
-        month = str(answers.get("travel_month") or "")
+        month = str(answers.get("outbound_month") or answers.get("travel_month") or "")
+        return_month = str(answers.get("return_month") or month or "")
         if month and outbound and not outbound.startswith(month):
+            return False
+        if return_month and inbound and not inbound.startswith(return_month):
             return False
 
     budget_mode = answers.get("budget_mode")
@@ -261,11 +275,36 @@ def _offer_signature(offer):
     )
 
 
+def _trip_is_destination_led(trip):
+    """True when the customer already chose one or more destinations."""
+    return str((trip.get("answers") or {}).get("destination_mode") or "open") in {"specific", "several"}
+
+
+def _customer_rank_value(offer, trip):
+    """Rank customer results differently from global deal discovery.
+
+    When the customer already chose the destination, schedule/route/baggage fit is
+    more important than whether the fare is an unusually cheap global 'deal'.
+    Open searches keep the original deal score as the main signal.
+    """
+    deal_score = int(offer.get("score") or 0)
+    if not _trip_is_destination_led(trip):
+        return deal_score
+
+    route = int(offer.get("route_score") or 0)
+    time_value = int(offer.get("time_value_score") or offer.get("hours_score") or 0)
+    baggage = int(offer.get("baggage_score") or 0)
+    price = int(offer.get("cost_score") or 0)
+    rarity = int(offer.get("rarity_score") or 0)
+    return (route * 2.0) + (time_value * 2.0) + (baggage * 1.5) + (price * 0.5) + (rarity * 0.25)
+
+
 def _customer_inventory_status(all_offers, trip):
     """Describe what already exists in DB without exposing incomplete records as deals."""
     same_destination = [
         o for o in all_offers
-        if int(o.get("score") or 0) >= 65 and _offer_destination_matches(o, trip)
+        if _offer_destination_matches(o, trip)
+        and (_trip_is_destination_led(trip) or int(o.get("score") or 0) >= 65)
     ]
     complete = [
         o for o in same_destination
@@ -280,10 +319,12 @@ def _customer_inventory_status(all_offers, trip):
 
 def _customer_deal_choices(all_offers, trip, limit=5):
     """Database-first selection: exact request first, then valuable same-month alternatives."""
-    # Never surface weak inventory merely because it exists.
+    # Destination-led searches are not blocked by the global deal-score threshold.
+    # If the customer chose where to fly, relevance to that trip matters first.
+    destination_led = _trip_is_destination_led(trip)
     qualified = [
         o for o in all_offers
-        if int(o.get("score") or 0) >= 65
+        if (destination_led or int(o.get("score") or 0) >= 65)
         and _offer_destination_matches(o, trip)
         and _offer_has_complete_roundtrip(o)
         and _offer_has_baggage_pricing_when_needed(o)
@@ -292,8 +333,8 @@ def _customer_deal_choices(all_offers, trip, limit=5):
     exact = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]
     same_month = [o for o in qualified if _offer_matches_trip(o, trip, same_month=True)]
 
-    exact.sort(key=lambda o: (-int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
-    same_month.sort(key=lambda o: (-int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
+    exact.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
+    same_month.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
 
     selected = []
     seen = set()
@@ -605,6 +646,29 @@ def account_details():
     return render_template("account_details.html", member=member)
 
 
+
+@site.get("/book/<int:offer_id>")
+def book_offer(offer_id):
+    """Track intent-to-book, then redirect to the supplier/booking page."""
+    offer = next((o for o in recent_offers(limit=500, minimum_score=None) if int(o.get("id") or 0) == offer_id), None)
+    if not offer:
+        return redirect(url_for("site.deals"))
+    record_booking_click(
+        visitor_id=session.get("_ariella_visitor_id"),
+        member_id=session.get("member_id"),
+        offer_id=offer_id,
+        destination_code=offer.get("arrival_code"),
+        airline=offer.get("airline"),
+        supplier=offer.get("booking_supplier"),
+        price_ils=offer.get("price_ils"),
+        score=offer.get("score"),
+        outbound_date=offer.get("outbound_date"),
+        return_date=offer.get("return_date"),
+        booking_url=offer.get("booking_url"),
+    )
+    return redirect(offer.get("booking_url") or url_for("site.deals"))
+
+
 @site.get("/account")
 @login_required
 def account():
@@ -758,7 +822,14 @@ def new_trip():
         destination_mode = form.get("destination_mode", "open")
         destinations = form.get("destinations", "").strip()
         date_mode = form.get("date_mode", "anytime")
+        outbound_month = form.get("outbound_month", "").strip()
+        return_month = form.get("return_month", "").strip()
+        # Backward compatibility with older saved forms.
         travel_month = form.get("travel_month", "").strip()
+        if not outbound_month and travel_month:
+            outbound_month = travel_month
+        if not return_month and outbound_month:
+            return_month = outbound_month
         departure_date = form.get("departure_date", "").strip()
         return_date = form.get("return_date", "").strip()
         today = date.today().isoformat()
@@ -767,9 +838,13 @@ def new_trip():
         if destination_mode in {"specific", "several"} and not destinations:
             flash(_msg("יש לכתוב את היעד או היעדים שמעניינים אתכם.", "Please enter the destination or destinations you are interested in."), "error")
             return render_template("trip_form.html", today=today, current_month=current_month)
-        if date_mode == "month" and (not travel_month or travel_month < current_month):
-            flash(_msg("יש לבחור חודש נוכחי או עתידי.", "Please choose the current month or a future month."), "error")
-            return render_template("trip_form.html", today=today, current_month=current_month)
+        if date_mode == "month":
+            if not outbound_month or not return_month or outbound_month < current_month or return_month < current_month:
+                flash(_msg("יש לבחור חודש יציאה וחודש חזרה נוכחיים או עתידיים.", "Please choose a current or future departure month and return month."), "error")
+                return render_template("trip_form.html", today=today, current_month=current_month)
+            if return_month < outbound_month:
+                flash(_msg("חודש החזרה חייב להיות זהה לחודש היציאה או מאוחר ממנו.", "The return month must be the same as or later than the departure month."), "error")
+                return render_template("trip_form.html", today=today, current_month=current_month)
         if date_mode == "exact":
             if not departure_date or not return_date:
                 flash(_msg("יש לבחור תאריך יציאה ותאריך חזרה.", "Please choose a departure date and a return date."), "error")
@@ -783,7 +858,7 @@ def new_trip():
 
         destination_title = destinations if destinations else _msg("הצעות של אריאלה", "Ariella suggestions")
         if date_mode == "month":
-            travel_window = travel_month
+            travel_window = outbound_month if outbound_month == return_month else f"{outbound_month} → {return_month}"
         elif date_mode == "exact":
             travel_window = f"{departure_date} – {return_date}"
         else:
@@ -810,7 +885,8 @@ def new_trip():
         payload = {
             "origin_airports": origin_airports,
             "destination_mode": destination_mode, "destinations": destinations,
-            "date_mode": date_mode, "travel_month": travel_month,
+            "date_mode": date_mode, "travel_month": outbound_month,
+            "outbound_month": outbound_month, "return_month": return_month,
             "departure_date": departure_date, "return_date": return_date,
             "travel_party": travel_party, "adults": adults,
             "children": form.get("children"), "age_groups": form.getlist("age_groups"),

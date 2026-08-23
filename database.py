@@ -183,6 +183,25 @@ def init_db() -> None:
                 FOREIGN KEY(member_id) REFERENCES members(id),
                 FOREIGN KEY(trip_id) REFERENCES trip_requests(id)
             );
+
+            CREATE TABLE IF NOT EXISTS booking_clicks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                visitor_id TEXT,
+                member_id INTEGER,
+                offer_id INTEGER,
+                destination_code TEXT,
+                airline TEXT,
+                supplier TEXT,
+                price_ils REAL,
+                score INTEGER,
+                outbound_date TEXT,
+                return_date TEXT,
+                booking_url TEXT,
+                clicked_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_booking_clicks_clicked_at ON booking_clicks(clicked_at);
+            CREATE INDEX IF NOT EXISTS idx_booking_clicks_destination ON booking_clicks(destination_code);
             CREATE INDEX IF NOT EXISTS idx_payments_paid_at ON payments(paid_at);
             CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 
@@ -640,6 +659,27 @@ def _day_key(value: str | None) -> str:
     return str(value or "")[:10]
 
 
+
+def record_booking_click(visitor_id: str | None = None, member_id: int | None = None,
+                         offer_id: int | None = None, destination_code: str | None = None,
+                         airline: str | None = None, supplier: str | None = None,
+                         price_ils: float | None = None, score: int | None = None,
+                         outbound_date: str | None = None, return_date: str | None = None,
+                         booking_url: str | None = None) -> None:
+    try:
+        with connection() as conn:
+            conn.execute(
+                """INSERT INTO booking_clicks(
+                    visitor_id,member_id,offer_id,destination_code,airline,supplier,
+                    price_ils,score,outbound_date,return_date,booking_url,clicked_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (visitor_id, member_id, offer_id, destination_code, airline, supplier,
+                 price_ils, score, outbound_date, return_date, booking_url, utc_now_iso()),
+            )
+    except Exception:
+        return
+
+
 def business_analytics(months_back: int = 12) -> dict:
     """Business dashboard metrics. Registrations/trips can use historic DB data;
     visits/payments start accumulating from the version that introduced tracking."""
@@ -669,6 +709,11 @@ def business_analytics(months_back: int = 12) -> dict:
         payments = [dict(r) for r in conn.execute(
             """SELECT member_id,trip_id,plan,amount_ils,status,paid_at
                FROM payments WHERE status='paid'"""
+        ).fetchall()]
+        booking_clicks = [dict(r) for r in conn.execute(
+            """SELECT visitor_id,member_id,offer_id,destination_code,airline,supplier,
+                      price_ils,score,outbound_date,return_date,clicked_at
+               FROM booking_clicks"""
         ).fetchall()]
 
     plan_names = ("calm", "daily", "intensive")
@@ -782,6 +827,102 @@ def business_analytics(months_back: int = 12) -> dict:
             "revenue": round(revenue, 2),
         })
 
+
+    # Demand analytics from Ariella trip requests.
+    destination_counts = {}
+    month_counts = {}
+    party_sizes = []
+    composition_counts = {}
+    trip_lengths = []
+
+    with connection() as conn:
+        trip_rows = [dict(r) for r in conn.execute(
+            "SELECT answers_json,created_at FROM trip_requests"
+        ).fetchall()]
+
+    for row in trip_rows:
+        try:
+            answers = json.loads(row.get("answers_json") or "{}")
+        except Exception:
+            answers = {}
+
+        destinations = answers.get("destinations") or answers.get("destination_codes") or []
+        if isinstance(destinations, str):
+            destinations = [x.strip().upper() for x in destinations.replace(";", ",").split(",") if x.strip()]
+        specific = answers.get("destination") or answers.get("destination_code")
+        if specific:
+            destinations = list(destinations) + [str(specific).upper()]
+        for dest in set(str(x).upper() for x in destinations if x):
+            destination_counts[dest] = destination_counts.get(dest, 0) + 1
+
+        travel_month = str(answers.get("travel_month") or "")[:7]
+        departure_date = str(answers.get("departure_date") or "")[:10]
+        if not travel_month and departure_date:
+            travel_month = departure_date[:7]
+        if travel_month:
+            month_counts[travel_month] = month_counts.get(travel_month, 0) + 1
+
+        adults = answers.get("adults")
+        children = answers.get("children")
+        infants = answers.get("infants")
+        try:
+            adults = int(adults or 0); children = int(children or 0); infants = int(infants or 0)
+            size = adults + children + infants
+            if size > 0:
+                party_sizes.append(size)
+                if children or infants:
+                    key = "משפחה"
+                elif adults == 1:
+                    key = "יחיד"
+                elif adults == 2:
+                    key = "זוג"
+                else:
+                    key = "קבוצה"
+                composition_counts[key] = composition_counts.get(key, 0) + 1
+        except Exception:
+            pass
+
+        try:
+            if departure_date and answers.get("return_date"):
+                dep = datetime.fromisoformat(departure_date).date()
+                ret = datetime.fromisoformat(str(answers.get("return_date"))[:10]).date()
+                nights = (ret - dep).days
+                if nights > 0:
+                    trip_lengths.append(nights)
+        except Exception:
+            pass
+
+    demand = {
+        "top_destinations": sorted(
+            [{"destination": k, "count": v} for k, v in destination_counts.items()],
+            key=lambda x: (-x["count"], x["destination"])
+        )[:20],
+        "travel_months": sorted(
+            [{"month": k, "count": v} for k, v in month_counts.items()],
+            key=lambda x: x["month"]
+        ),
+        "average_party_size": round(sum(party_sizes)/len(party_sizes), 1) if party_sizes else 0,
+        "composition": sorted(
+            [{"type": k, "count": v} for k, v in composition_counts.items()],
+            key=lambda x: -x["count"]
+        ),
+        "average_trip_length": round(sum(trip_lengths)/len(trip_lengths), 1) if trip_lengths else 0,
+    }
+
+    booking_click_summary = {
+        "total_clicks": len(booking_clicks),
+        "unique_clickers": len({c.get("member_id") or c.get("visitor_id") for c in booking_clicks if c.get("member_id") or c.get("visitor_id")}),
+        "by_destination": sorted(
+            [
+                {"destination": dest, "clicks": sum(1 for c in booking_clicks if c.get("destination_code") == dest)}
+                for dest in {c.get("destination_code") for c in booking_clicks if c.get("destination_code")}
+            ],
+            key=lambda x: -x["clicks"]
+        )[:20],
+        "recent": sorted(booking_clicks, key=lambda x: x.get("clicked_at") or "", reverse=True)[:100],
+    }
+
+
     overview = {
         "registered_total": len({m["id"] for m in members}),
         "visitors_total": len({e.get("visitor_id") for e in events if e.get("visitor_id")}),
@@ -794,7 +935,9 @@ def business_analytics(months_back: int = 12) -> dict:
         "monthly": monthly,
         "daily_by_month": daily_by_month,
         "annual": annual,
-        "tracking_started_note": "כניסות לאתר והכנסות נאספות מהגרסה שבה הופעל המעקב; הרשמות ובקשות חופשה משתמשות גם בנתונים הקיימים.",
+        "demand": demand,
+        "booking_clicks": booking_click_summary,
+        "tracking_started_note": "כניסות לאתר, לחיצות להזמנה והכנסות נאספות מהגרסה שבה הופעל המעקב; הרשמות ובקשות חופשה משתמשות גם בנתונים הקיימים.",
     }
 
 

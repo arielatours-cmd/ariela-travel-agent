@@ -1,2 +1,4 @@
-Ariella Tours v9.7.39 — final audit build
-Deploy this ZIP to Render, then run a fresh scan so all displayed deals are regenerated under the current rules and card format.
+DEPLOY VERSION: 9.7.56-destination-led-ranking
+
+Based on v9.7.55 separate outbound/return months.
+Adds destination-led customer ranking and true multi-destination targeted search.

@@ -59,10 +59,14 @@
       <label class="choice-button"><input type="radio" name="date_mode" value="{{ value }}" required><span>{{ label }}</span></label>
       {% endfor %}
     </div>
-    <div class="conditional-panel" id="monthPanel" hidden>
-      <label>{{ 'Choose a month' if site_lang == 'en' else 'בחרו חודש' }}
-        <input type="month" name="travel_month" id="travelMonth" min="{{ current_month }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}">
+    <div class="conditional-panel two-cols" id="monthPanel" hidden>
+      <label>{{ 'Departure month' if site_lang == 'en' else 'חודש יציאה' }}
+        <input type="month" name="outbound_month" id="outboundMonth" min="{{ current_month }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}">
       </label>
+      <label>{{ 'Return month' if site_lang == 'en' else 'חודש חזרה' }}
+        <input type="month" name="return_month" id="returnMonth" min="{{ current_month }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}">
+      </label>
+      <p class="helper month-help">{{ 'The return can be in the same month or a later month.' if site_lang == 'en' else 'החזרה יכולה להיות באותו חודש או בחודש מאוחר יותר.' }}</p>
     </div>
     <div class="conditional-panel two-cols" id="exactDatesPanel" hidden>
       <label>{{ 'Departure date' if site_lang == 'en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{ today }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}"></label>
@@ -246,7 +250,13 @@
     }
     if (step.dataset.step === '2') {
       const mode = form.date_mode.value;
-      if (mode === 'month' && !document.getElementById('travelMonth').value) return document.getElementById('travelMonth').focus(), false;
+      if (mode === 'month') {
+        const outMonth = document.getElementById('outboundMonth');
+        const retMonth = document.getElementById('returnMonth');
+        if (!outMonth.value) return outMonth.focus(), false;
+        if (!retMonth.value) return retMonth.focus(), false;
+        if (retMonth.value < outMonth.value) return retMonth.focus(), false;
+      }
       if (mode === 'exact' && (!document.getElementById('departureDate').value || !document.getElementById('returnDate').value)) return document.getElementById('departureDate').focus(), false;
     }
     if (step.dataset.step === '5' && form.budget_mode.value !== 'unlimited' && !document.getElementById('budgetAmount').value) {
@@ -280,7 +290,20 @@
   form.querySelectorAll('input[name="date_mode"]').forEach(input => input.addEventListener('change', () => {
     document.getElementById('monthPanel').hidden = !(input.checked && input.value === 'month');
     document.getElementById('exactDatesPanel').hidden = !(input.checked && input.value === 'exact');
+    if (input.checked && input.value === 'month') {
+      const outMonth = document.getElementById('outboundMonth');
+      const retMonth = document.getElementById('returnMonth');
+      retMonth.min = outMonth.value || {{ current_month|tojson }};
+      if (outMonth.value && retMonth.value && retMonth.value < outMonth.value) retMonth.value = outMonth.value;
+    }
   }));
+
+  const outboundMonth = document.getElementById('outboundMonth');
+  const returnMonth = document.getElementById('returnMonth');
+  outboundMonth.addEventListener('change', () => {
+    returnMonth.min = outboundMonth.value || {{ current_month|tojson }};
+    if (outboundMonth.value && (!returnMonth.value || returnMonth.value < outboundMonth.value)) returnMonth.value = outboundMonth.value;
+  });
 
   const departureDate = document.getElementById('departureDate');
   const returnDate = document.getElementById('returnDate');

@@ -119,7 +119,7 @@
         {% endif %}
       </div>
       {% endif %}
-      {% if offer.booking_url %}<a href="{{ offer.booking_url }}" target="_blank" rel="noopener noreferrer">{{ 'Go to booking' if lang=='en' else 'למעבר להזמנה' }}</a>{% endif %}
+      {% if offer.booking_url %}<a href="{{ url_for('site.book_offer', offer_id=offer.id) }}" target="_blank" rel="noopener noreferrer">{{ 'Go to booking' if lang=='en' else 'למעבר להזמנה' }}</a>{% endif %}
     </div>
    </section>
  </div>

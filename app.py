@@ -6,7 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request
 
-from admin import render_dashboard, render_feedback_dashboard
+from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
     MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY, DESTINATIONS,
@@ -128,6 +128,18 @@ def admin_dashboard():
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(50),
         scans=recent_scan_runs(20),
         feedback_count=unread_feedback_count(),
+        token=request.args.get("token", ""),
+    )
+
+
+
+@app.get("/admin/analytics")
+def admin_analytics():
+    denied = _require_admin()
+    if denied:
+        return denied
+    return render_analytics_dashboard(
+        version=APP_VERSION,
         analytics=business_analytics(12),
         token=request.args.get("token", ""),
     )
