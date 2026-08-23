@@ -611,8 +611,20 @@ def run_wide_scan(max_destinations: int | None = None) -> dict:
 
 
 
+SKI_DESTINATIONS = [
+    {"code": "GVA", "name": "Geneva / Alps", "country_flag": "🇨🇭"},
+    {"code": "ZRH", "name": "Zurich / Swiss Alps", "country_flag": "🇨🇭"},
+    {"code": "MUC", "name": "Munich / Bavarian Alps", "country_flag": "🇩🇪"},
+    {"code": "VIE", "name": "Vienna / Austrian ski regions", "country_flag": "🇦🇹"},
+    {"code": "MXP", "name": "Milan / Italian Alps", "country_flag": "🇮🇹"},
+    {"code": "SOF", "name": "Sofia / Bulgarian ski regions", "country_flag": "🇧🇬"},
+]
+
+
 def _customer_destination_codes(answers: dict) -> list[str]:
-    """Parse one or several destination IATA codes from the customer form."""
+    """Parse one/several IATA codes, or a curated ski-airport set for ski mode."""
+    if str(answers.get("destination_mode") or "") == "ski":
+        return [d["code"] for d in SKI_DESTINATIONS]
     raw = str(answers.get("destinations") or "").strip()
     aliases = {
         "רומא": "FCO", "rome": "FCO", "fco": "FCO",
@@ -677,10 +689,23 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     origins = [str(x).upper() for x in answers.get("origin_airports", []) if x] or list(DEPARTURE_AIRPORTS)
     date_mode = answers.get("date_mode")
     jobs = []
+    ski_mode = str(answers.get("destination_mode") or "") == "ski"
     if date_mode == "exact" and answers.get("departure_date") and answers.get("return_date"):
         for arrival in arrivals:
             for origin in origins:
                 jobs.append({"departure": origin, "arrival": arrival, "outbound": answers["departure_date"], "return": answers["return_date"]})
+    elif ski_mode and date_mode == "ski_flexible":
+        # Use the next core ski season and keep the first live test controlled:
+        # two representative 6-night windows per airport/origin, not a world-wide explosion.
+        today_date = datetime.now(timezone.utc).date()
+        season_year = today_date.year if today_date.month <= 2 else today_date.year + 1
+        candidates = [date(season_year, 1, 11), date(season_year, 2, 8)]
+        for arrival in arrivals:
+            for origin in origins:
+                for start in candidates:
+                    if start <= today_date:
+                        continue
+                    jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": (start + timedelta(days=6)).isoformat()})
     else:
         outbound_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
         return_month = str(answers.get("return_month") or outbound_month)[:7]
@@ -688,23 +713,39 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
             return {"status": "missing_dates", "offers_found": 0, "api_requests": 0}
         out_first = datetime.strptime(outbound_month + "-01", "%Y-%m-%d").date()
         ret_first = datetime.strptime(return_month + "-01", "%Y-%m-%d").date()
-        out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
-        ret_starts = [ret_first + timedelta(days=d) for d in (3, 10, 17, 24)]
-        for arrival in arrivals:
-            for origin in origins:
-                for start in out_starts:
-                    if start.month != out_first.month:
-                        continue
-                    for ret in ret_starts:
+        if ski_mode:
+            # For ski searches, test two representative departure points in the chosen month.
+            # This keeps API consumption predictable while comparing several ski gateways.
+            out_starts = [out_first + timedelta(days=d) for d in (7, 17)]
+            for arrival in arrivals:
+                for origin in origins:
+                    for start in out_starts:
+                        if start.month != out_first.month:
+                            continue
+                        ret = start + timedelta(days=6)
+                        if ret.month != ret_first.month and ret_first.month != out_first.month:
+                            ret = ret_first + timedelta(days=9)
                         if ret <= start or ret.month != ret_first.month:
                             continue
                         jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
+        else:
+            out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+            ret_starts = [ret_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+            for arrival in arrivals:
+                for origin in origins:
+                    for start in out_starts:
+                        if start.month != out_first.month:
+                            continue
+                        for ret in ret_starts:
+                            if ret <= start or ret.month != ret_first.month:
+                                continue
+                            jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
 
     run_id = create_scan_run(len(jobs))
     completed = offers_found = errors = api_requests = 0
     messages = []
     destination_led = str(answers.get("destination_mode") or "open") in {"specific", "several"}
-    destination_names = {d["code"]: d for d in DESTINATIONS}
+    destination_names = {d["code"]: d for d in (list(DESTINATIONS) + list(SKI_DESTINATIONS))}
     try:
         for job in jobs:
             try:

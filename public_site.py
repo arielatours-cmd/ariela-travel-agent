@@ -252,17 +252,8 @@ def _offer_matches_trip(offer, trip, *, exact_dates=False, same_month=False):
         if return_month and inbound and not inbound.startswith(return_month):
             return False
 
-    budget_mode = answers.get("budget_mode")
-    budget_amount = answers.get("budget_amount")
-    if budget_mode == "per_person" and budget_amount:
-        try:
-            # Alternatives may be slightly above the user's target; do not hide a
-            # materially better schedule for a tiny overage. Exact matches stay strict.
-            multiplier = 1.0 if exact_dates else 1.10
-            if float(offer.get("price_ils") or 0) > float(budget_amount) * multiplier:
-                return False
-        except (TypeError, ValueError):
-            pass
+    # Budget is a preference, not a hard exclusion. A strong match may be shown
+    # above the requested amount; ranking and the UI make the overage transparent.
     return True
 
 
@@ -288,15 +279,28 @@ def _customer_rank_value(offer, trip):
     Open searches keep the original deal score as the main signal.
     """
     deal_score = int(offer.get("score") or 0)
+    answers = trip.get("answers") or {}
+    budget_penalty = 0.0
+    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+        try:
+            budget = float(answers.get("budget_amount"))
+            price_now = float(offer.get("price_ils") or 0)
+            if budget > 0 and price_now > budget:
+                # Gentle penalty: enough to prefer an in-budget equivalent, but not
+                # enough to hide a materially better itinerary.
+                budget_penalty = min(18.0, ((price_now - budget) / budget) * 35.0)
+        except (TypeError, ValueError):
+            pass
+
     if not _trip_is_destination_led(trip):
-        return deal_score
+        return deal_score - budget_penalty
 
     route = int(offer.get("route_score") or 0)
     time_value = int(offer.get("time_value_score") or offer.get("hours_score") or 0)
     baggage = int(offer.get("baggage_score") or 0)
     price = int(offer.get("cost_score") or 0)
     rarity = int(offer.get("rarity_score") or 0)
-    return (route * 2.0) + (time_value * 2.0) + (baggage * 1.5) + (price * 0.5) + (rarity * 0.25)
+    return (route * 2.0) + (time_value * 2.0) + (baggage * 1.5) + (price * 0.5) + (rarity * 0.25) - budget_penalty
 
 
 def _customer_inventory_status(all_offers, trip):
@@ -346,6 +350,15 @@ def _customer_deal_choices(all_offers, trip, limit=5):
         copy = dict(offer)
         copy["customer_choice_label_he"] = label_he
         copy["customer_choice_label_en"] = label_en
+        answers = trip.get("answers") or {}
+        if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+            try:
+                budget = float(answers.get("budget_amount"))
+                price_now = float(copy.get("price_ils") or 0)
+                if budget > 0 and price_now > budget:
+                    copy["budget_overage_ils"] = round(price_now - budget)
+            except (TypeError, ValueError):
+                pass
         selected.append(copy)
         seen.add(sig)
 
@@ -856,11 +869,13 @@ def new_trip():
                 flash(_msg("תאריך החזרה חייב להיות אחרי תאריך היציאה.", "The return date must be after the departure date."), "error")
                 return render_template("trip_form.html", today=today, current_month=current_month)
 
-        destination_title = destinations if destinations else _msg("הצעות של אריאלה", "Ariella suggestions")
+        destination_title = destinations if destinations else (_msg("חופשת סקי", "Ski vacation") if destination_mode == "ski" else _msg("הצעות של אריאלה", "Ariella suggestions"))
         if date_mode == "month":
             travel_window = outbound_month if outbound_month == return_month else f"{outbound_month} → {return_month}"
         elif date_mode == "exact":
             travel_window = f"{departure_date} – {return_date}"
+        elif date_mode == "ski_flexible":
+            travel_window = _msg("אריאלה תבחר — עונת סקי", "Ariella chooses — ski season")
         else:
             travel_window = _msg("כל השנה", "Anytime")
         request_name = destination_title
@@ -884,7 +899,7 @@ def new_trip():
 
         payload = {
             "origin_airports": origin_airports,
-            "destination_mode": destination_mode, "destinations": destinations,
+            "destination_mode": destination_mode, "vacation_type": "ski" if destination_mode == "ski" else "standard", "destinations": destinations,
             "date_mode": date_mode, "travel_month": outbound_month,
             "outbound_month": outbound_month, "return_month": return_month,
             "departure_date": departure_date, "return_date": return_date,

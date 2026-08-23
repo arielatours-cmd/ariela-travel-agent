@@ -108,6 +108,7 @@
       {% if offer.price_reference_reliable and offer.reference_price_ils and offer.discount_percent and offer.discount_percent|float >= 5 %}<span class="average-label">{{ 'Average price for this period' if lang=='en' else 'מחיר ממוצע לתקופה זו' }}</span><del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>{% endif %}
       <span class="found-label">{{ 'Price per person found by Ariella' if lang=='en' else 'המחיר לאדם שאריאלה מצאה' }}</span>
       <strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>
+      {% if offer.budget_overage_ils is number and offer.budget_overage_ils > 0 %}<p class="budget-overage-note">{{ ('Above your preferred budget by ₪' ~ (offer.budget_overage_ils|round|int) ~ ', but it is a strong match for the rest of your preferences.') if lang=='en' else ('חורג מהתקציב המועדף ב־' ~ (offer.budget_overage_ils|round|int) ~ ' ₪, אבל מתאים היטב לשאר ההעדפות שלכם.') }}</p>{% endif %}
       {% if offer.booking_supplier %}
       <div class="supplier-summary">
         <div><b>{{ 'Recommended booking option' if lang=='en' else 'אפשרות ההזמנה המומלצת' }}:</b> {{ offer.booking_supplier }}{% if offer.booking_supplier_approved %} ✓{% endif %}</div>
