@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.7.57-ski-flow-and-ui-fixes"
+APP_VERSION = "9.7.60-testing-start"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent

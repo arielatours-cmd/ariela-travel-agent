@@ -138,6 +138,12 @@
           </span>
         </label>
         {% endfor %}
+        <label class="choice-button priority-with-note ski-priority-option" hidden>
+          <input type="checkbox" name="deal_priorities" value="ski_proximity">
+          <span>{{ 'Close to the ski resort' if site_lang == 'en' else 'קרבה לאתר הסקי' }}
+            <small>{{ 'Prefer destinations and flights with a shorter, easier transfer to the ski resort.' if site_lang == 'en' else 'עדיפות ליעד ולטיסה שמאפשרים הגעה קצרה ונוחה יותר לאתר הסקי.' }}</small>
+          </span>
+        </label>
       </div>
     </div>
 
@@ -189,7 +195,6 @@
       {% set opts = [('kosher','Kosher food','אוכל כשר'),('shabbat','Shabbat observance','שמירת שבת'),('accessible','Accessibility','נגישות'),('stroller','Accessibility / stroller','נגישות / עגלה'),('walking','Walking limitation','מגבלת הליכה'),('vegetarian','Vegetarian / vegan','צמחוני/טבעוני')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button small"><input type="checkbox" name="special_needs" value="{{ value }}"><span>{{ label }}</span></label>
       {% endfor %}
-      <label class="choice-button small ski-special-need" hidden><input type="checkbox" name="special_needs" value="ski_in_out"><span>{{ 'Close to slopes / Ski-in Ski-out' if site_lang == 'en' else 'קרבה למסלולים / Ski-in Ski-out' }}</span></label>
     </div>
     <label class="notes-label">{{ 'Anything else we should know?' if site_lang == 'en' else 'משהו נוסף שחשוב שנדע?' }}<textarea name="notes" rows="4"></textarea></label>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button class="button primary" type="submit">{{ 'Save vacation' if site_lang == 'en' else 'שמירת החופשה' }}</button></div>
@@ -278,7 +283,7 @@
     const skiMode = mode === 'ski';
     document.querySelectorAll('.normal-anytime-option').forEach(el => el.hidden = skiMode);
     document.querySelectorAll('.ski-anytime-option').forEach(el => el.hidden = !skiMode);
-    document.querySelectorAll('.ski-special-need').forEach(el => el.hidden = !skiMode);
+    document.querySelectorAll('.ski-priority-option').forEach(el => el.hidden = !skiMode);
     const budgetNote = document.getElementById('budgetSoftNote');
     if (budgetNote) budgetNote.hidden = !skiMode;
 
@@ -288,7 +293,7 @@
       setSelectedState(selectedDate);
     }
     if (!skiMode) {
-      form.querySelectorAll('.ski-special-need input').forEach(el => { el.checked = false; setSelectedState(el); });
+      form.querySelectorAll('.ski-priority-option input').forEach(el => { el.checked = false; setSelectedState(el); });
     }
   }
 

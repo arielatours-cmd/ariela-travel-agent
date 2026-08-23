@@ -74,3 +74,7 @@ Do not use the included development fallback in production.
 The questionnaire is functional and stores each trip request. The next stage is to
 connect stored preferences to the scoring and search engine, add email verification,
 password reset, member management, and legally reviewed terms/privacy text.
+
+- v9.7.59: fixed selected-choice checkmark position in RTL questionnaire cards; checkmark now sits on the right side of the label instead of above it.
+
+- v9.7.60: questionnaire hero title uses Assistant for a warmer, happier look; baseline version for live testing.
