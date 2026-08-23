@@ -489,10 +489,10 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
     try:
         for job in jobs:
             if scan_stop_requested():
-                error_messages.append("הסריקה נעצרה ידנית")
+                messages.append("הסריקה נעצרה ידנית")
                 break
             if max_api_requests is not None and api_requests >= max_api_requests:
-                error_messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
+                messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
                 break
             try:
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=max_outbounds_per_route)
@@ -768,15 +768,16 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     completed = offers_found = errors = api_requests = 0
     new_offers = existing_offers = 0
     messages = []
+    max_api_requests = 40
     destination_led = str(answers.get("destination_mode") or "open") in {"specific", "several"}
     destination_names = {d["code"]: d for d in (list(DESTINATIONS) + list(SKI_DESTINATIONS))}
     try:
         for job in jobs:
             if scan_stop_requested():
-                error_messages.append("הסריקה נעצרה ידנית")
+                messages.append("הסריקה נעצרה ידנית")
                 break
             if max_api_requests is not None and api_requests >= max_api_requests:
-                error_messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
+                messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
                 break
             try:
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
@@ -841,13 +842,14 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
     completed = offers_found = errors = api_requests = 0
     new_offers = existing_offers = 0
     messages = []
+    max_api_requests = 24
     try:
         for job in jobs:
             if scan_stop_requested():
-                error_messages.append("הסריקה נעצרה ידנית")
+                messages.append("הסריקה נעצרה ידנית")
                 break
             if max_api_requests is not None and api_requests >= max_api_requests:
-                error_messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
+                messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
                 break
             try:
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])

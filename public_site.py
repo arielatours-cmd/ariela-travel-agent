@@ -838,7 +838,7 @@ def free_trip_alternative(trip_id):
             "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
             (trip_id, session["member_id"]),
         ).fetchone()
-        if not row or int(row["free_scan_count"] or 0) != 1:
+        if not row or int(row["free_scan_count"] or 0) > 1:
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
         trip = _trip_dict(row)
         answers = dict(trip.get("answers") or {})
