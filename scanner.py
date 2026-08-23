@@ -382,7 +382,7 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     return flight, 1
 
 
-def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str) -> dict:
+def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str, max_outbounds: int | None = None) -> dict:
     """Evaluate every outbound/return combination returned by Google Flights.
 
     First request gets all outbound choices. Each unique departure_token is then
@@ -405,6 +405,10 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
             continue
         seen.add(token)
         unique_outbounds.append(item)
+
+    # Cost control for broad discovery scans. Targeted/customer searches keep full depth.
+    if max_outbounds is not None:
+        unique_outbounds = unique_outbounds[:max(1, int(max_outbounds))]
 
     complete = []
     for outbound_item in unique_outbounds:
@@ -474,7 +478,7 @@ def _next_jobs(limit: int) -> list[dict]:
     return selected
 
 
-def _run_jobs_scan(jobs: list[dict]) -> dict:
+def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None) -> dict:
     run_id = create_scan_run(len(jobs))
     completed = offers_found = errors = api_requests = 0
     error_messages: list[str] = []
@@ -482,7 +486,7 @@ def _run_jobs_scan(jobs: list[dict]) -> dict:
     try:
         for job in jobs:
             try:
-                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
+                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=max_outbounds_per_route)
                 api_requests += int(result.get("api_requests") or 0)
                 completed += 1
 
@@ -607,7 +611,7 @@ def _wide_search_jobs(limit: int | None = None) -> list[dict]:
 
 def run_wide_scan(max_destinations: int | None = None) -> dict:
     limit = max(1, min(int(max_destinations or len(DESTINATIONS)), len(DESTINATIONS)))
-    return _run_jobs_scan(_wide_search_jobs(limit))
+    return _run_jobs_scan(_wide_search_jobs(limit), max_outbounds_per_route=3)
 
 
 

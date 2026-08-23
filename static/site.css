@@ -1852,7 +1852,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 }
 
 
-/* v9.7.61 — warmer, happier questionnaire hero typography */
+/* v9.7.62 — warmer, happier questionnaire hero typography */
 .trip-questionnaire-hero h1{
   font-family:"Assistant",Heebo,Arial,sans-serif!important;
   font-weight:600!important;
@@ -1860,7 +1860,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
   line-height:1.16!important;
 }
 
-/* v9.7.61 — questionnaire title: clean, friendly Hebrew sans-serif */
+/* v9.7.62 — questionnaire title: clean, friendly Hebrew sans-serif */
 .trip-questionnaire-hero h1{
   font-family:Heebo,Arial,sans-serif!important;
   font-weight:700!important;
