@@ -15,7 +15,7 @@ from daily import prepare_daily_batch
 from database import (
     all_settings, dashboard_stats, business_analytics, get_daily_batch, init_db, latest_scan_run,
     recent_feedback, recent_offers, recent_scan_runs, set_setting,
-    unread_feedback_count, mark_feedback_seen,
+    unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 from schedule_rules import delivery_status
@@ -281,6 +281,25 @@ def manual_scan_status(job_id):
         }), 404
     return jsonify(job)
 
+
+
+
+@app.post("/scan-stop")
+def scan_stop():
+    denied = _require_admin()
+    if denied:
+        return denied
+    request_scan_stop()
+    return jsonify({"status":"success","message":"נשלחה בקשת עצירה. הסריקה תיעצר לפני היעד הבא."})
+
+
+@app.get("/scan-run/<int:run_id>/offers")
+def scan_run_offers(run_id):
+    denied = _require_admin()
+    if denied:
+        return denied
+    offers = offers_for_scan_run(run_id)
+    return jsonify({"status":"success","scan_run_id":run_id,"count":len(offers),"offers":offers})
 
 @app.get("/scan-status")
 def scan_status():

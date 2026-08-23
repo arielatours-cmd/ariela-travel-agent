@@ -1852,7 +1852,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 }
 
 
-/* v9.7.62 — warmer, happier questionnaire hero typography */
+/* v9.7.63 — warmer, happier questionnaire hero typography */
 .trip-questionnaire-hero h1{
   font-family:"Assistant",Heebo,Arial,sans-serif!important;
   font-weight:600!important;
@@ -1860,7 +1860,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
   line-height:1.16!important;
 }
 
-/* v9.7.62 — questionnaire title: clean, friendly Hebrew sans-serif */
+/* v9.7.63 — questionnaire title: clean, friendly Hebrew sans-serif */
 .trip-questionnaire-hero h1{
   font-family:Heebo,Arial,sans-serif!important;
   font-weight:700!important;
@@ -1868,3 +1868,17 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
   letter-spacing:-.015em!important;
   line-height:1.15!important;
 }
+
+/* v9.7.63 — deals history + WhatsApp opt-in */
+.deals-heading-with-alert{position:relative;min-height:150px}
+.deals-heading-copy{text-align:center}
+.deals-alert-slot{position:absolute;left:0;top:16px}
+.whatsapp-deals-toggle{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:185px;min-height:66px;padding:10px 16px;border:1px solid var(--gold);background:#fff;color:var(--navy);font:700 15px Heebo;cursor:pointer;box-shadow:0 5px 15px rgba(17,29,44,.08)}
+.whatsapp-deals-toggle:hover,.whatsapp-deals-toggle.is-on{background:#faf5e9}
+.whatsapp-deals-toggle small{font-size:12px;font-weight:500;color:var(--muted);margin-top:2px}
+.previous-deals-section{margin-top:58px}
+.previous-deals-divider{height:2px;background:var(--gold);width:100%;margin-bottom:28px}
+.previous-deals-section>h2{text-align:center;font-size:34px;margin:0 0 6px}
+.previous-deals-note{text-align:center;color:var(--muted);margin:0 0 28px}
+.previous-deals-list{opacity:.94}
+@media(max-width:700px){.deals-heading-with-alert{padding-top:85px}.deals-alert-slot{left:50%;transform:translateX(-50%);top:0}.whatsapp-deals-toggle{min-width:210px}}

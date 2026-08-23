@@ -248,6 +248,12 @@ def init_db() -> None:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN renewal_reminder_sent_at TEXT")
         if "has_paid_search" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN has_paid_search INTEGER NOT NULL DEFAULT 0")
+        member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
+        if "whatsapp_opt_in" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_in INTEGER NOT NULL DEFAULT 0")
+        if "whatsapp_opt_in_at" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_in_at TEXT")
+
         if "free_scan_count" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN free_scan_count INTEGER NOT NULL DEFAULT 0")
         if "free_scan_last_at" not in trip_columns:
@@ -276,18 +282,70 @@ def create_scan_run(searches_planned: int) -> int:
 
 
 def finish_scan_run(run_id: int, completed: int, offers: int, errors: int, error_message: str | None = None) -> None:
-    status = "success" if errors == 0 else "partial" if completed > 0 else "failed"
     with connection() as conn:
+        row = conn.execute("SELECT searches_planned FROM scan_runs WHERE id=?", (run_id,)).fetchone()
+        planned = int(row["searches_planned"] or 0) if row else completed
+        status = "success" if errors == 0 and completed >= planned else "partial" if completed > 0 else "failed"
         conn.execute(
             """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=? WHERE id=?""",
             (utc_now_iso(), status, completed, offers, errors, error_message, run_id),
         )
 
 
-def insert_offer(scan_run_id: int, offer: dict) -> None:
+def update_scan_progress(run_id: int, completed: int, offers: int, errors: int) -> None:
+    with connection() as conn:
+        conn.execute(
+            "UPDATE scan_runs SET searches_completed=?,offers_found=?,errors=? WHERE id=?",
+            (completed, offers, errors, run_id),
+        )
+
+
+def request_scan_stop() -> None:
+    set_setting("manual_scan_stop_requested", "1")
+
+
+def clear_scan_stop() -> None:
+    set_setting("manual_scan_stop_requested", "0")
+
+
+def scan_stop_requested() -> bool:
+    return get_setting("manual_scan_stop_requested", "0") == "1"
+
+
+def offers_for_scan_run(run_id: int, limit: int = 200) -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT id,scan_run_id,observed_at,departure_code,arrival_code,outbound_date,return_date,
+                      price_ils,score,airline,payload_json
+               FROM offers WHERE scan_run_id=? ORDER BY score DESC, observed_at DESC LIMIT ?""",
+            (run_id, max(1, min(limit, 500))),
+        ).fetchall()
+    out=[]
+    for row in rows:
+        item=dict(row)
+        payload=json.loads(item.pop("payload_json"))
+        payload.update(item)
+        with connection() as conn:
+            prior = conn.execute(
+                """SELECT 1 FROM offers WHERE id<>? AND route=? AND outbound_date=? AND return_date=?
+                   AND price_ils=? AND COALESCE(airline,'')=COALESCE(?, '') AND observed_at < ? LIMIT 1""",
+                (item.get("id"), payload.get("route"), item.get("outbound_date"), item.get("return_date"),
+                 item.get("price_ils"), item.get("airline"), item.get("observed_at")),
+            ).fetchone()
+        payload["is_new_in_scan"] = prior is None
+        out.append(payload)
+    return out
+
+
+def insert_offer(scan_run_id: int, offer: dict) -> bool:
     flight = offer["flight"]
     analysis = offer["deal_analysis"]
     with connection() as conn:
+        existing = conn.execute(
+            """SELECT 1 FROM offers WHERE route=? AND outbound_date=? AND return_date=?
+               AND price_ils=? AND COALESCE(airline,'')=COALESCE(?, '') LIMIT 1""",
+            (offer["route"], offer["outbound_date"], offer["return_date"], flight["price"], flight.get("airline")),
+        ).fetchone()
         conn.execute(
             """
             INSERT OR IGNORE INTO offers(
@@ -307,6 +365,7 @@ def insert_offer(scan_run_id: int, offer: dict) -> None:
                 offer.get("destination_name"), offer.get("country_flag"), offer.get("trip_id"), json.dumps(offer, ensure_ascii=False),
             ),
         )
+        return existing is None
 
 
 def latest_scan_run() -> dict | None:
@@ -381,6 +440,9 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
     for row in rows:
         item = dict(row)
         payload = json.loads(item.pop("payload_json"))
+        payload["offer_id"] = item.get("id")
+        payload["scan_run_id"] = item.get("scan_run_id")
+        payload["observed_at"] = item.get("observed_at") or payload.get("observed_at")
         if item.get("trip_id") is not None:
             payload["trip_id"] = item.get("trip_id")
         deal_score = payload.get("deal_score") or {}

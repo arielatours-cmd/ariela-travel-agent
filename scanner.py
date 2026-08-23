@@ -8,7 +8,8 @@ from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
     MAX_SEARCHES_PER_SCAN, SERPAPI_API_KEY, TRIP_LENGTHS_DAYS,
 )
-from database import create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference, set_setting, latest_scan_cycle_index
+from database import (create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference,
+    set_setting, latest_scan_cycle_index, update_scan_progress, clear_scan_stop, scan_stop_requested)
 from scoring import calculate_deal_score
 
 SERPAPI_URL = "https://serpapi.com/search.json"
@@ -478,13 +479,21 @@ def _next_jobs(limit: int) -> list[dict]:
     return selected
 
 
-def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None) -> dict:
+def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None, max_api_requests: int | None = None) -> dict:
     run_id = create_scan_run(len(jobs))
+    clear_scan_stop()
     completed = offers_found = errors = api_requests = 0
+    new_offers = existing_offers = 0
     error_messages: list[str] = []
 
     try:
         for job in jobs:
+            if scan_stop_requested():
+                error_messages.append("הסריקה נעצרה ידנית")
+                break
+            if max_api_requests is not None and api_requests >= max_api_requests:
+                error_messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
+                break
             try:
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=max_outbounds_per_route)
                 api_requests += int(result.get("api_requests") or 0)
@@ -541,11 +550,17 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None)
                         "booking_url": result["booking_url"],
                         "trip_id": job.get("trip_id"),
                     }
-                    insert_offer(run_id, offer)
+                    is_new = insert_offer(run_id, offer)
                     offers_found += 1
+                    if is_new:
+                        new_offers += 1
+                    else:
+                        existing_offers += 1
             except Exception as exc:
                 errors += 1
                 error_messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+            finally:
+                update_scan_progress(run_id, completed, offers_found, errors)
     except BaseException as exc:
         # Still close the DB scan record if the worker/request fails unexpectedly.
         errors += 1
@@ -564,6 +579,9 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None)
         "searches_completed": completed,
         "api_requests": api_requests,
         "offers_found": offers_found,
+        "new_offers": new_offers,
+        "existing_offers": existing_offers,
+        "stopped": completed < len(jobs),
         "errors": errors,
         "error_messages": error_messages,
     }
@@ -611,7 +629,7 @@ def _wide_search_jobs(limit: int | None = None) -> list[dict]:
 
 def run_wide_scan(max_destinations: int | None = None) -> dict:
     limit = max(1, min(int(max_destinations or len(DESTINATIONS)), len(DESTINATIONS)))
-    return _run_jobs_scan(_wide_search_jobs(limit), max_outbounds_per_route=3)
+    return _run_jobs_scan(_wide_search_jobs(limit), max_outbounds_per_route=3, max_api_requests=120)
 
 
 
@@ -746,12 +764,20 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                             jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
 
     run_id = create_scan_run(len(jobs))
+    clear_scan_stop()
     completed = offers_found = errors = api_requests = 0
+    new_offers = existing_offers = 0
     messages = []
     destination_led = str(answers.get("destination_mode") or "open") in {"specific", "several"}
     destination_names = {d["code"]: d for d in (list(DESTINATIONS) + list(SKI_DESTINATIONS))}
     try:
         for job in jobs:
+            if scan_stop_requested():
+                error_messages.append("הסריקה נעצרה ידנית")
+                break
+            if max_api_requests is not None and api_requests >= max_api_requests:
+                error_messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
+                break
             try:
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
                 api_requests += int(result.get("api_requests") or 0)
@@ -811,10 +837,18 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
         return {"status": "error", "message": "Unsupported destination", "arrival_code": arrival_code}
     jobs = [j for j in _all_search_jobs() if j["arrival"] == arrival_code][:max(1, min(int(max_searches), 8))]
     run_id = create_scan_run(len(jobs))
+    clear_scan_stop()
     completed = offers_found = errors = api_requests = 0
+    new_offers = existing_offers = 0
     messages = []
     try:
         for job in jobs:
+            if scan_stop_requested():
+                error_messages.append("הסריקה נעצרה ידנית")
+                break
+            if max_api_requests is not None and api_requests >= max_api_requests:
+                error_messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
+                break
             try:
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
                 api_requests += int(result.get("api_requests") or 0)

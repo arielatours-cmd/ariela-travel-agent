@@ -7,13 +7,14 @@ import json
 import sqlite3
 from datetime import date, datetime
 from functools import wraps
+from zoneinfo import ZoneInfo
 
 from flask import (
     Blueprint, flash, redirect, render_template, request, session, url_for
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click
 from scanner import run_customer_trip_search
 
@@ -75,7 +76,7 @@ def _current_member():
         return None
     with _db() as conn:
         row = conn.execute(
-            "SELECT id, full_name, email, phone, country, preferred_airports, created_at FROM members WHERE id=?",
+            "SELECT id, full_name, email, phone, country, preferred_airports, created_at, whatsapp_opt_in, whatsapp_opt_in_at FROM members WHERE id=?",
             (member_id,),
         ).fetchone()
     
@@ -442,7 +443,17 @@ def home():
 
 @site.get("/deals")
 def deals():
-    offers = [_localize_offer_airports(o) for o in recent_offers(limit=60, minimum_score=MIN_DEAL_SCORE)]
+    all_qualified = [_localize_offer_airports(o) for o in recent_offers(limit=120, minimum_score=MIN_DEAL_SCORE)]
+    today_local = datetime.now(ZoneInfo(ISRAEL_TZ)).date()
+    offers, previous_offers = [], []
+    for offer in all_qualified:
+        try:
+            observed = datetime.fromisoformat(str(offer.get("observed_at") or "").replace("Z","+00:00"))
+            local_day = observed.astimezone(ZoneInfo(ISRAEL_TZ)).date()
+        except Exception:
+            local_day = None
+        (offers if local_day == today_local else previous_offers).append(offer)
+    previous_offers = previous_offers[:30]
     personal_trips = []
     if session.get("member_id") and _current_member() is not None:
         with _db() as conn:
@@ -462,8 +473,27 @@ def deals():
             trip["needs_fresh_search"] = not bool(trip["offers"])
             trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
             personal_trips.append(trip)
-    return render_template("deals.html", offers=offers, personal_trips=personal_trips)
+    member = _current_member() if session.get("member_id") else None
+    return render_template("deals.html", offers=offers, previous_offers=previous_offers,
+                           personal_trips=personal_trips, member=member)
 
+
+
+
+@site.post("/whatsapp-opt-in")
+def whatsapp_opt_in():
+    member = _current_member()
+    if not member:
+        flash(_msg("כדי לקבל את הדילים לפני כולם ב-WhatsApp יש להירשם תחילה.", "Please join Ariella first to receive WhatsApp deal alerts."), "error")
+        return redirect(url_for("site.join"))
+    enabled = request.form.get("enabled", "1") == "1"
+    with _db() as conn:
+        conn.execute("UPDATE members SET whatsapp_opt_in=?, whatsapp_opt_in_at=? WHERE id=?",
+                     (1 if enabled else 0, utc_now_iso() if enabled else None, member["id"]))
+        conn.commit()
+    flash(_msg("התראות WhatsApp הופעלו." if enabled else "התראות WhatsApp כובו.",
+               "WhatsApp alerts enabled." if enabled else "WhatsApp alerts disabled."), "success")
+    return redirect(url_for("site.deals"))
 
 @site.get("/about")
 def about():
@@ -510,8 +540,8 @@ def join():
         preferred_airports = [x.strip().upper() for x in request.form.get("preferred_airports", "").replace(";", ",").split(",") if x.strip()]
         password = request.form.get("password", "")
         consent = request.form.get("consent") == "yes"
-        if not full_name or not email or not password or not preferred_airports:
-            flash(_msg("יש למלא שם, כתובת דוא״ל, סיסמה ולבחור לפחות שדה תעופה אחד.", "Please enter your name, email address, password and select at least one departure airport."), "error")
+        if not full_name or not email or not phone or not password or not preferred_airports:
+            flash(_msg("יש למלא שם, כתובת דוא״ל, מספר נייד, סיסמה ולבחור לפחות שדה תעופה אחד.", "Please enter your name, email address, mobile number, password and select at least one departure airport."), "error")
             return render_template("join.html")
         if len(password) < 8:
             flash(_msg("הסיסמה צריכה להכיל לפחות 8 תווים.", "The password must contain at least 8 characters."), "error")
@@ -688,7 +718,7 @@ def account():
     member_id = session["member_id"]
     with _db() as conn:
         member_row = conn.execute(
-            "SELECT id, full_name, email, phone, country, preferred_airports, created_at FROM members WHERE id=? AND status='active'",
+            "SELECT id, full_name, email, phone, country, preferred_airports, created_at, whatsapp_opt_in, whatsapp_opt_in_at FROM members WHERE id=? AND status='active'",
             (member_id,),
         ).fetchone()
         if member_row is None:

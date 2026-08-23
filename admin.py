@@ -243,6 +243,11 @@ tbody tr:hover{background:#fafbfe}
 .daily-inner th,.daily-inner td{font-size:11px;padding:5px}
 .yoy{font-size:10px;color:var(--muted);display:block;margin-top:2px}
 
+.scan-row{cursor:pointer}.scan-row:hover{background:#fff8e8}
+.scan-details-row td{background:#fffdf7!important;text-align:right!important}
+.scan-result-grid{display:flex;flex-wrap:wrap;gap:8px}
+.scan-result-chip{border:1px solid #e3d1a8;background:white;border-radius:8px;padding:8px 10px;font-size:14px}
+.scan-link{background:transparent!important;color:#8a651f!important;padding:2px 5px!important;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -287,6 +292,7 @@ tbody tr:hover{background:#fafbfe}
     </select>
     <button onclick="runDestinationScan()">סריקת יעד</button>
     <button onclick="runWideScan()">סריקה רחבה</button>
+    <button class="secondary" onclick="stopScan()">עצור סריקה</button>
     <button class="secondary" onclick="buildBatch()">בנה רשימה יומית</button>
     <a class="btn secondary" href="/daily-preview" target="_blank">תצוגת WhatsApp</a>
 </div>
@@ -318,6 +324,7 @@ tbody tr:hover{background:#fafbfe}
 <table>
 <thead>
 <tr>
+    <th class="scan-id">סריקה</th>
     <th class="destination">יעד</th>
     <th class="price-col">מחיר</th>
     <th class="average-col">ממוצע</th>
@@ -335,6 +342,7 @@ tbody tr:hover{background:#fafbfe}
 <tbody>
 {% for o in offers %}
 <tr>
+    <td class="scan-id"><button class="scan-link" type="button" onclick="showScan({{ o.scan_run_id or 0 }})">#{{ o.scan_run_id or '—' }}</button></td>
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
         <span class="destination-name">{{ o.destination_name or o.arrival_code or '—' }}</span>
@@ -387,7 +395,7 @@ tbody tr:hover{background:#fafbfe}
     </td>
 </tr>
 {% else %}
-<tr><td class="empty" colspan="12">עדיין אין הצעות. הפעילי סריקה.</td></tr>
+<tr><td class="empty" colspan="13">עדיין אין הצעות. הפעילי סריקה.</td></tr>
 {% endfor %}
 </tbody>
 </table>
@@ -408,14 +416,15 @@ tbody tr:hover{background:#fafbfe}
 </thead>
 <tbody>
 {% for s in scans %}
-<tr>
-    <td>{{ s.id }}</td>
+<tr class="scan-row" onclick="showScan({{ s.id }})" title="לחצי לצפייה בהצעות שנמצאו בסריקה">
+    <td><strong>#{{ s.id }}</strong></td>
     <td>{{ s.status }}</td>
     <td>{{ s.started_at }}</td>
     <td>{{ s.searches_completed }}/{{ s.searches_planned }}</td>
     <td>{{ s.offers_found }}</td>
     <td>{{ s.errors }}</td>
 </tr>
+<tr id="scan-details-{{ s.id }}" class="scan-details-row" hidden><td colspan="6"><div class="scan-details-content">טוען...</div></td></tr>
 {% else %}
 <tr><td class="empty" colspan="6">עדיין אין סריקות.</td></tr>
 {% endfor %}
@@ -444,7 +453,11 @@ async function waitForScan(jobId){
             const r=await fetch(withAdminToken('/manual-scan-status/'+encodeURIComponent(jobId)),{cache:'no-store'});
             const data=await r.json();
             if(data.status==='starting' || data.status==='running'){
-                e.textContent='הסריקה מתבצעת ברקע... אפשר לעבור לעמוד אחר.';
+                try{
+                    const sr=await fetch(withAdminToken('/scan-status'),{cache:'no-store'});
+                    const sd=await sr.json(), s=sd.latest_scan||{};
+                    e.textContent='הסריקה מתבצעת: '+(s.searches_completed||0)+'/'+(s.searches_planned||0)+' יעדים · '+(s.offers_found||0)+' הצעות';
+                }catch(_){ e.textContent='הסריקה מתבצעת ברקע...'; }
                 continue;
             }
             if(data.status==='finished'){
@@ -505,8 +518,25 @@ function runDestinationScan(){
     post('/scan-destination?arrival='+encodeURIComponent(code)+'&max_searches=3');
 }
 function runWideScan(){
-  if(confirm('להפעיל סריקה רחבה על 30 יעדים? הסריקה מוגבלת לעד 3 אפשרויות הלוך לכל יעד (עד כ-150 בקשות API לכל היותר) ותמשיך ברקע גם אם תעברי לעמוד אחר.'))
+  if(confirm('להפעיל סריקה רחבה על 30 יעדים? הסריקה מוגבלת לעד 3 אפשרויות הלוך לכל יעד (עצירת בטיחות ב-120 בקשות API) ותמשיך ברקע גם אם תעברי לעמוד אחר.'))
     post('/scan-wide?max_destinations=30');
+}
+async function stopScan(){
+  if(!confirm('לעצור את הסריקה הפעילה? היא תיעצר לפני היעד הבא.'))return;
+  const e=document.getElementById('actionStatus');
+  const r=await fetch(withAdminToken('/scan-stop'),{method:'POST'});
+  const d=await r.json(); e.textContent=d.message||'נשלחה בקשת עצירה.';
+}
+async function showScan(id){
+  if(!id)return;
+  const row=document.getElementById('scan-details-'+id);
+  if(row){ row.hidden=!row.hidden; if(row.hidden)return; }
+  try{
+    const r=await fetch(withAdminToken('/scan-run/'+id+'/offers'),{cache:'no-store'}), d=await r.json();
+    const html=(d.offers||[]).map(o=>'<span class="scan-result-chip">'+(o.arrival_code||'—')+' · ₪'+Math.round(o.price_ils||0)+' · ציון '+(o.score||0)+' · '+(o.is_new_in_scan?'חדש':'כבר היה במאגר')+'</span>').join('');
+    const target=row?row.querySelector('.scan-details-content'):null;
+    if(target)target.innerHTML='<strong>תוצאות סריקה #'+id+' ('+(d.count||0)+')</strong><div class="scan-result-grid">'+(html||'לא נשמרו הצעות בסריקה זו')+'</div>';
+  }catch(_){ if(row)row.querySelector('.scan-details-content').textContent='לא ניתן לטעון את תוצאות הסריקה.'; }
 }
 function buildBatch(){post('/daily-batch?force=true')}
 </script>
@@ -521,6 +551,8 @@ def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_c
         key=lambda offer: float(offer.get("score") or 0),
         reverse=True,
     )
+    stats = dict(stats or {})
+    stats["offers_qualified"] = sum(1 for o in offers if float(o.get("score") or 0) >= minimum_score)
     return render_template_string(
         DASHBOARD_HTML,
         version=version,
