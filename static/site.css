@@ -1852,10 +1852,19 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 }
 
 
-/* v9.7.60 — warmer, happier questionnaire hero typography */
+/* v9.7.61 — warmer, happier questionnaire hero typography */
 .trip-questionnaire-hero h1{
   font-family:"Assistant",Heebo,Arial,sans-serif!important;
   font-weight:600!important;
   letter-spacing:-.02em!important;
   line-height:1.16!important;
+}
+
+/* v9.7.61 — questionnaire title: clean, friendly Hebrew sans-serif */
+.trip-questionnaire-hero h1{
+  font-family:Heebo,Arial,sans-serif!important;
+  font-weight:700!important;
+  font-style:normal!important;
+  letter-spacing:-.015em!important;
+  line-height:1.15!important;
 }
