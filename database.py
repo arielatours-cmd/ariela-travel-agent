@@ -451,10 +451,15 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
     params.append(max(1, min(limit, 500)))
     with connection() as conn:
         rows = conn.execute(query, params).fetchall()
+        scan_times = {
+            int(r["id"]): r["started_at"]
+            for r in conn.execute("SELECT id, started_at FROM scan_runs").fetchall()
+        }
 
     result = []
     for row in rows:
         item = dict(row)
+        item["scan_started_at"] = scan_times.get(int(item["scan_run_id"])) if item.get("scan_run_id") is not None else None
         payload = json.loads(item.pop("payload_json"))
         payload["offer_id"] = item.get("id")
         payload["scan_run_id"] = item.get("scan_run_id")
