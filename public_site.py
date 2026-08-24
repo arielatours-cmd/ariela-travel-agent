@@ -275,6 +275,28 @@ def _trip_is_destination_led(trip):
     return str((trip.get("answers") or {}).get("destination_mode") or "open") in {"specific", "several"}
 
 
+def _offer_seen_at(offer):
+    for key in ("last_seen_at", "scan_started_at", "observed_at"):
+        raw = offer.get(key)
+        if not raw:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except Exception:
+            continue
+    return None
+
+
+def _offer_is_recent(offer, max_age_hours=48):
+    seen = _offer_seen_at(offer)
+    if seen is None:
+        return False
+    return seen >= datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+
+
 def _customer_rank_value(offer, trip):
     """Rank customer results differently from global deal discovery.
 
@@ -311,7 +333,8 @@ def _customer_inventory_status(all_offers, trip):
     """Describe what already exists in DB without exposing incomplete records as deals."""
     same_destination = [
         o for o in all_offers
-        if _offer_destination_matches(o, trip)
+        if _offer_is_recent(o, 48)
+        and _offer_destination_matches(o, trip)
         and (_trip_is_destination_led(trip) or int(o.get("score") or 0) >= 65)
     ]
     complete = [
@@ -332,10 +355,11 @@ def _customer_deal_choices(all_offers, trip, limit=5):
     destination_led = _trip_is_destination_led(trip)
     qualified = [
         o for o in all_offers
-        if (destination_led or int(o.get("score") or 0) >= 65)
+        if _offer_is_recent(o, 48)
+        and (destination_led or int(o.get("score") or 0) >= 65)
         and _offer_destination_matches(o, trip)
         and _offer_has_complete_roundtrip(o)
-        and _offer_has_baggage_pricing_when_needed(o)
+        and (destination_led or _offer_has_baggage_pricing_when_needed(o))
     ]
 
     exact = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]

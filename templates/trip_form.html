@@ -59,8 +59,8 @@
       {% set opts = [('exact','Exact dates','בתאריכים מדויקים'),('month','A specific month','בחודש מסוים')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button"><input type="radio" name="date_mode" value="{{ value }}" required><span>{{ label }}</span></label>
       {% endfor %}
-      <label class="choice-button normal-anytime-option"><input type="radio" name="date_mode" value="anytime" required><span>{{ 'Anytime — all year works' if site_lang == 'en' else 'לא משנה — כל השנה מתאימה' }}</span></label>
-      <label class="choice-button ski-anytime-option" hidden><input type="radio" name="date_mode" value="ski_flexible" required><span>{{ 'Let Ariella choose the best ski dates' if site_lang == 'en' else 'תנו לאריאלה לבחור את התקופה המתאימה לסקי' }}</span></label>
+      <label class="choice-button regular-only normal-anytime-option"><input type="radio" name="date_mode" value="anytime" required><span>{{ 'Anytime — all year works' if site_lang == 'en' else 'לא משנה — כל השנה מתאימה' }}</span></label>
+      <label class="choice-button ski-only ski-anytime-option" hidden><input type="radio" name="date_mode" value="ski_flexible" required><span>{{ 'Let Ariella choose the best ski dates' if site_lang == 'en' else 'תנו לאריאלה לבחור את התקופה המתאימה לסקי' }}</span></label>
     </div>
     <div class="conditional-panel two-cols" id="monthPanel" hidden>
       <label>{{ 'Departure month' if site_lang == 'en' else 'חודש יציאה' }}
@@ -138,7 +138,7 @@
           </span>
         </label>
         {% endfor %}
-        <label class="choice-button priority-with-note ski-priority-option" hidden>
+        <label class="choice-button priority-with-note ski-only ski-priority-option" hidden>
           <input type="checkbox" name="deal_priorities" value="ski_proximity">
           <span>{{ 'Close to the ski resort' if site_lang == 'en' else 'קרבה לאתר הסקי' }}
             <small>{{ 'Prefer destinations and flights with a shorter, easier transfer to the ski resort.' if site_lang == 'en' else 'עדיפות ליעד ולטיסה שמאפשרים הגעה קצרה ונוחה יותר לאתר הסקי.' }}</small>
@@ -291,20 +291,38 @@
 
   function syncVacationMode(mode) {
     const skiMode = mode === 'ski';
-    document.querySelectorAll('.normal-anytime-option').forEach(el => el.hidden = skiMode);
-    document.querySelectorAll('.ski-anytime-option').forEach(el => el.hidden = !skiMode);
-    document.querySelectorAll('.ski-priority-option').forEach(el => el.hidden = !skiMode);
+
+    document.querySelectorAll('.regular-only').forEach(el => el.hidden = skiMode);
+    document.querySelectorAll('.ski-only').forEach(el => el.hidden = !skiMode);
+
     const budgetNote = document.getElementById('budgetSoftNote');
     if (budgetNote) budgetNote.hidden = !skiMode;
 
+    // Clear any answer that belongs to the other route so hidden choices cannot
+    // leak into submission.
     const selectedDate = form.querySelector('input[name="date_mode"]:checked');
-    if (selectedDate && ((skiMode && selectedDate.value === 'anytime') || (!skiMode && selectedDate.value === 'ski_flexible'))) {
-      selectedDate.checked = false;
-      setSelectedState(selectedDate);
+    if (selectedDate) {
+      const invalidForSki = skiMode && selectedDate.value === 'anytime';
+      const invalidForRegular = !skiMode && selectedDate.value === 'ski_flexible';
+      if (invalidForSki || invalidForRegular) {
+        selectedDate.checked = false;
+        setSelectedState(selectedDate);
+      }
     }
+
     if (!skiMode) {
-      form.querySelectorAll('.ski-priority-option input').forEach(el => { el.checked = false; setSelectedState(el); });
+      form.querySelectorAll('.ski-only input').forEach(el => {
+        if (el.type === 'radio' || el.type === 'checkbox') el.checked = false;
+        setSelectedState(el);
+      });
     }
+
+    // Q4 follows the route too:
+    // regular/open vacations use the regular preference logic;
+    // ski vacations keep the flight/deal question and add ski proximity.
+    const openSuggestions = mode === 'open';
+    document.getElementById('flightPrioritiesQuestion').hidden = openSuggestions;
+    document.getElementById('holidayPrioritiesQuestion').hidden = !openSuggestions;
   }
 
   form.querySelectorAll('input[name="destination_mode"]').forEach(input => input.addEventListener('change', () => {
@@ -320,8 +338,6 @@
       if (codes.length > 1) hiddenDest.value = codes.slice(0, 1).join(',');
     }
     const openSuggestions = input.checked && input.value === 'open';
-    document.getElementById('flightPrioritiesQuestion').hidden = openSuggestions;
-    document.getElementById('holidayPrioritiesQuestion').hidden = !openSuggestions;
     syncVacationMode(input.value);
     if (openSuggestions) {
       form.querySelectorAll('#flightPrioritiesQuestion input').forEach(el => { el.checked = false; setSelectedState(el); });
