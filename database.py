@@ -441,12 +441,20 @@ def get_daily_batch(batch_date: str) -> dict | None:
         return dict(row) if row else None
 
 
-def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dict]:
+def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: list[int] | None = None) -> list[dict]:
     query = "SELECT * FROM offers"
     params: list = []
+    clauses = []
     if minimum_score is not None:
-        query += " WHERE score >= ?"
+        clauses.append("score >= ?")
         params.append(minimum_score)
+    if offer_ids:
+        clean_ids = [int(x) for x in offer_ids if str(x).isdigit()]
+        if clean_ids:
+            clauses.append("id IN (" + ",".join("?" for _ in clean_ids) + ")")
+            params.extend(clean_ids)
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
     query += " ORDER BY observed_at DESC, score DESC LIMIT ?"
     params.append(max(1, min(limit, 2000)))
     with connection() as conn:

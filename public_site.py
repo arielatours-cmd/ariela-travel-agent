@@ -348,6 +348,78 @@ def _customer_inventory_status(all_offers, trip):
     }
 
 
+def _saved_match_offer_ids(trip):
+    answers = trip.get("answers") or {}
+    raw = answers.get("_matched_offer_ids") or []
+    out = []
+    for value in raw:
+        try:
+            out.append(int(value))
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def _resolved_trip_offers(all_offers, trip, limit=5):
+    """Use the exact DB offers that stopped the initial scan, then fresh dynamic matches.
+
+    This prevents the UI from saying "database match" and then hiding the same offer
+    when My Vacations is rendered again.
+    """
+    selected = []
+    seen = set()
+
+    pinned_ids = _saved_match_offer_ids(trip)
+    if pinned_ids:
+        by_id = {int(o.get("offer_id")): o for o in all_offers if o.get("offer_id") is not None}
+        for oid in pinned_ids:
+            offer = by_id.get(oid)
+            if not offer or not _offer_is_recent(offer, 48):
+                continue
+            copy = dict(offer)
+            copy["customer_choice_label_he"] = "הבחירה של אריאלה"
+            copy["customer_choice_label_en"] = "Ariella's choice"
+            sig = _offer_signature(copy)
+            if sig not in seen:
+                selected.append(copy)
+                seen.add(sig)
+            if len(selected) >= limit:
+                return selected
+
+    # Fresh offers produced specifically for this trip are also authoritative.
+    try:
+        trip_id = int(trip.get("id"))
+    except (TypeError, ValueError):
+        trip_id = None
+    if trip_id is not None:
+        for offer in all_offers:
+            try:
+                belongs = int(offer.get("trip_id")) == trip_id
+            except (TypeError, ValueError):
+                belongs = False
+            if not belongs or not _offer_is_recent(offer, 48) or not _offer_has_complete_roundtrip(offer):
+                continue
+            copy = dict(offer)
+            copy["customer_choice_label_he"] = "הבחירה של אריאלה"
+            copy["customer_choice_label_en"] = "Ariella's choice"
+            sig = _offer_signature(copy)
+            if sig not in seen:
+                selected.append(copy)
+                seen.add(sig)
+            if len(selected) >= limit:
+                return selected
+
+    for offer in _customer_deal_choices(all_offers, trip, limit=limit):
+        sig = _offer_signature(offer)
+        if sig in seen:
+            continue
+        selected.append(offer)
+        seen.add(sig)
+        if len(selected) >= limit:
+            break
+    return selected
+
+
 def _customer_deal_choices(all_offers, trip, limit=5):
     """Database-first selection: exact request first, then valuable same-month alternatives."""
     # Destination-led searches are not blocked by the global deal-score threshold.
@@ -517,7 +589,7 @@ def deals():
         database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
         for row in rows:
             trip = _trip_dict(row)
-            trip["offers"] = _customer_deal_choices(database_offers, trip, limit=5)
+            trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
             inventory = _customer_inventory_status(database_offers, trip)
             trip["database_match_found"] = bool(trip["offers"])
             trip["needs_fresh_search"] = not bool(trip["offers"])
@@ -799,7 +871,7 @@ def account():
     trips = [_trip_dict(row) for row in rows]
     database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
     for trip in trips:
-        trip["offers"] = _customer_deal_choices(database_offers, trip, limit=5)
+        trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
         inventory = _customer_inventory_status(database_offers, trip)
         trip["needs_fresh_search"] = not bool(trip["offers"])
         trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
@@ -1050,11 +1122,37 @@ def new_trip():
 
         scan_status = "database_match" if existing_matches else "not_started"
         scan_count = 0
+        if existing_matches:
+            matched_ids = [int(o["offer_id"]) for o in existing_matches if o.get("offer_id") is not None]
+            payload["_matched_offer_ids"] = matched_ids
+            with _db() as conn:
+                conn.execute(
+                    "UPDATE trip_requests SET answers_json=? WHERE id=?",
+                    (json.dumps(payload, ensure_ascii=False), trip_id),
+                )
+                conn.commit()
         if not existing_matches:
             try:
                 scan_result = run_customer_trip_search(trip_id, payload)
                 scan_status = str(scan_result.get("status") or "unknown")
                 scan_count = 1
+                # Pin any fresh results produced for this vacation.
+                refreshed = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
+                created_for_trip = []
+                for o in refreshed:
+                    try:
+                        if int(o.get("trip_id")) == trip_id and _offer_is_recent(o, 48):
+                            created_for_trip.append(int(o["offer_id"]))
+                    except (TypeError, ValueError, KeyError):
+                        pass
+                if created_for_trip:
+                    payload["_matched_offer_ids"] = created_for_trip[:5]
+                    with _db() as conn:
+                        conn.execute(
+                            "UPDATE trip_requests SET answers_json=? WHERE id=?",
+                            (json.dumps(payload, ensure_ascii=False), trip_id),
+                        )
+                        conn.commit()
             except Exception as exc:
                 # The vacation was committed above. Search errors must never erase it
                 # or send the customer to Flask's Internal Server Error page.

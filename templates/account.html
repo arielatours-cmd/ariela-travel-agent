@@ -105,16 +105,17 @@ function confirmSearchToggle(form, status) {
         {% endif %}
       </div>
     </article>
+    {% set newest_trip = loop.first %}
     <div class="trip-deals-toggle-wrap">
       <button type="button" class="button trip-deals-toggle happy-deals-button"
-              aria-expanded="false"
+              aria-expanded="{{ 'true' if newest_trip else 'false' }}"
               aria-controls="tripDeals{{ trip.id }}"
               data-show="{{ 'Show deals' if site_lang == 'en' else 'הצגת הדילים' }}"
               data-hide="{{ 'Close' if site_lang == 'en' else 'סגירה' }}">
-        {{ 'Show deals' if site_lang == 'en' else 'הצגת הדילים' }}
+        {{ ('Close' if site_lang == 'en' else 'סגירה') if newest_trip else ('Show deals' if site_lang == 'en' else 'הצגת הדילים') }}
       </button>
     </div>
-    <div id="tripDeals{{ trip.id }}" class="account-trip-deals collapsible-trip-deals" hidden>
+    <div id="tripDeals{{ trip.id }}" class="account-trip-deals collapsible-trip-deals"{% if not newest_trip %} hidden{% endif %}>
       {% if trip.offers %}
         <div class="ariella-deals-list">
           {% for offer in trip.offers %}
