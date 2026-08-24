@@ -33,16 +33,20 @@ function confirmSearchToggle(form, status) {
 {% endif %}
 
 {% if trips %}
-<section class="page-hero account-hero account-hero-compact"><div class="shell split">
-  <div><span class="eyebrow personal-area-eyebrow">{{ 'MY ACCOUNT' if site_lang == 'en' else 'האזור האישי' }}</span><h1>{{ 'Hello' if site_lang == 'en' else 'שלום' }}, {{ member.full_name }}</h1></div>
-  <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
-</div></section>
+<section class="account-vacations-hero">
+  <div class="account-vacations-overlay"></div>
+  <div class="shell account-vacations-hero-inner">
+    <h1>{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</h1>
+    <p>{{ 'Your searches, your deals, your next escape' if site_lang == 'en' else 'החיפושים, הדילים והחופשה הבאה שלך במקום אחד' }}</p>
+    <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
+  </div>
+</section>
 <section class="section account-trips-section"><div class="shell">
-  <div class="section-heading"><h2>{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</h2></div>
   <div class="trip-list">
   {% for trip in trips %}
     {% set a = trip.answers %}
-    <article class="trip-row trip-management-card">
+    <article class="trip-row trip-management-card" id="vacation-{{ trip.id }}">
+      <div class="trip-destination-image" style="background-image:url('{{ trip.image_url }}')" role="img" aria-label="{{ trip.request_name }}"></div>
       <div class="trip-main-details">
         <div class="trip-title-line">
           <h3>{% if site_lang == 'en' and trip.request_name == 'הצעות של אריאלה' %}Ariella's Suggestions{% else %}{{ trip.request_name }}{% endif %}</h3>

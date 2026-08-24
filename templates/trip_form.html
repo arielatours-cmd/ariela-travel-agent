@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ 'New Vacation — Ariella' if site_lang == 'en' else 'תכנון חופשה חדשה — אריאלה' }}{% endblock %}
 {% block content %}
+<div class="trip-back-bar shell"><a class="button outline back-to-vacations" href="{{ url_for('site.account') }}">{{ 'Back to My Vacations' if site_lang=='en' else 'חזרה לחופשות שלי' }}</a></div>
 <section class="page-hero trip-questionnaire-hero">
   <div class="shell narrow">
     <span class="eyebrow">{{ 'PERSONAL VACATION SEARCH' if site_lang == 'en' else 'שאלון התאמה אישי' }}</span>

@@ -13,19 +13,23 @@ document.querySelectorAll('.deal-last-updated').forEach(function(el){
 <header class="deals-heading deals-heading-with-alert">
   <div class="deals-alert-slot">
     {% if member %}
-      <form method="post" action="{{ url_for('site.whatsapp_opt_in') }}">
+      <form method="post" action="{{ url_for('site.whatsapp_opt_in') }}" class="deal-alert-form">
         <input type="hidden" name="enabled" value="{{ '0' if member.whatsapp_opt_in else '1' }}">
-        <button class="whatsapp-deals-toggle {{ 'is-on' if member.whatsapp_opt_in else '' }}" type="submit">
-          {{ ('✓ WhatsApp alerts active' if member.whatsapp_opt_in else '🔔 Deals before everyone') if site_lang=='en'
-             else ('✓ התראות WhatsApp פעילות' if member.whatsapp_opt_in else '🔔 הדילים לפני כולם') }}
-          <small>{{ 'WhatsApp alerts' if site_lang=='en' else 'התראות ב-WhatsApp' }}</small>
+        <button class="deal-alert-switch {{ 'is-on' if member.whatsapp_opt_in else 'is-off' }}" type="submit" aria-pressed="{{ 'true' if member.whatsapp_opt_in else 'false' }}">
+          <span class="deal-alert-copy"><strong>{{ 'Deals before everyone' if site_lang=='en' else 'הדילים לפני כולם' }}</strong><small>{{ 'WhatsApp alerts' if site_lang=='en' else 'התראות ב־WhatsApp' }}</small></span>
+          <span class="deal-alert-track" aria-hidden="true"><i></i></span>
         </button>
       </form>
     {% else %}
-      <a class="whatsapp-deals-toggle" href="{{ url_for('site.join') }}">🔔 {{ 'Deals before everyone' if site_lang=='en' else 'הדילים לפני כולם' }}<small>{{ 'Join for WhatsApp alerts' if site_lang=='en' else 'להתראות ב-WhatsApp' }}</small></a>
+      <a class="deal-alert-switch is-off" href="{{ url_for('site.join') }}">
+        <span class="deal-alert-copy"><strong>{{ 'Deals before everyone' if site_lang=='en' else 'הדילים לפני כולם' }}</strong><small>{{ 'Join for WhatsApp alerts' if site_lang=='en' else 'להתראות ב־WhatsApp' }}</small></span>
+        <span class="deal-alert-track" aria-hidden="true"><i></i></span>
+      </a>
     {% endif %}
+    <a class="my-vacations-from-deals" href="{{ url_for('site.account') if member else url_for('site.join') }}">
+      {{ 'My vacations' if site_lang=='en' else 'החופשות שלי' }}
+    </a>
   </div>
-  <div class="deals-heading-copy"><h1 id="deals-title">{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}</h1><p>{{ 'The best deals Ariella found' if site_lang == 'en' else 'הדילים הטובים ביותר שאריאלה מצאה' }}</p></div>
 </header>
 <section id="generalDeals" class="deals-tab-panel is-active" role="tabpanel">
 <div class="deal-filters-wrap" id="dealFiltersWrap">

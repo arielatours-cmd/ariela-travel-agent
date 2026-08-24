@@ -17,7 +17,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES
 from scanner import run_customer_trip_search
 
 
@@ -778,6 +778,14 @@ def account():
         inventory = _customer_inventory_status(database_offers, trip)
         trip["needs_fresh_search"] = not bool(trip["offers"])
         trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
+        answers = trip.get("answers") or {}
+        destination_codes = list(_trip_destination_codes(trip))
+        if str(answers.get("vacation_type") or "") == "ski" or str(answers.get("destination_mode") or "") == "ski":
+            trip["image_url"] = "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=82"
+        elif destination_codes:
+            trip["image_url"] = DESTINATION_LANDMARK_IMAGES.get(destination_codes[0]) or "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=82"
+        else:
+            trip["image_url"] = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=900&q=82"
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
