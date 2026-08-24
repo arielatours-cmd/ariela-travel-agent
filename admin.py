@@ -250,6 +250,9 @@ tbody tr:hover{background:#fafbfe}
 .scan-link{background:transparent!important;color:#8a651f!important;padding:2px 5px!important;text-decoration:underline}
 
 .flight-date-col{white-space:nowrap;min-width:92px;font-size:13px}
+.offers-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 12px}
+.offers-tools input,.offers-tools select{border:1px solid #d9dfe8;border-radius:7px;padding:8px 10px;background:#fff;font:inherit}
+.offers-tools input[type=search]{min-width:210px}.offers-filter-count{font-size:12px;color:#697386;font-weight:700}
 </style>
 </head>
 <body>
@@ -322,6 +325,25 @@ tbody tr:hover{background:#fafbfe}
     {% if offers %}{{ offers|max(attribute='score')|attr('score') }}{% else %}0{% endif %}
 </div>
 
+<div class="offers-tools">
+  <input id="adminOfferDestination" type="search" placeholder="סינון יעד / קוד (למשל OTP)">
+  <input id="adminOfferOutbound" type="month" title="חודש הלוך">
+  <input id="adminOfferReturn" type="month" title="חודש חזור">
+  <select id="adminOfferScore">
+    <option value="">כל הציונים</option>
+    <option value="70">70 ומעלה</option>
+    <option value="60">60 ומעלה</option>
+  </select>
+  <select id="adminOfferSort">
+    <option value="newest">חדש ביותר</option>
+    <option value="destination">יעד א–ת</option>
+    <option value="outbound">תאריך הלוך</option>
+    <option value="score-desc">ציון גבוה</option>
+    <option value="price-asc">מחיר נמוך</option>
+  </select>
+  <button class="secondary" type="button" onclick="clearAdminOfferFilters()">נקה סינון</button>
+  <span id="adminOfferCount" class="offers-filter-count"></span>
+</div>
 <div class="table-wrap"><table id="offersTable">
 <thead>
 <tr>
@@ -344,7 +366,7 @@ tbody tr:hover{background:#fafbfe}
 </thead>
 <tbody>
 {% for o in offers %}
-<tr class="offer-row" data-destination="{{ (o.arrival_code or '')|lower }} {{ (o.destination_name or '')|lower }}" data-scan="{{ o.scan_run_id or '' }}" data-score="{{ o.score or 0 }}" data-price="{{ o.price_ils or 0 }}">
+<tr class="offer-row" data-destination="{{ (o.arrival_code or '')|lower }} {{ (o.destination_name or '')|lower }}" data-scan="{{ o.scan_run_id or '' }}" data-score="{{ o.score or 0 }}" data-price="{{ o.price_ils or 0 }}" data-outbound="{{ o.outbound_date or '' }}" data-return="{{ o.return_date or '' }}" data-order="{{ loop.index0 }}">
     <td class="scan-id"><button class="scan-link" type="button" onclick="showScan({{ o.scan_run_id or 0 }})">#{{ o.scan_run_id or '—' }}</button></td>
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
@@ -545,6 +567,42 @@ async function showScan(id){
 }
 function buildBatch(){post('/daily-batch?force=true')}
 let destinationSortDir=1;
+function applyAdminOfferFilters(){
+ const tbody=document.querySelector('#offersTable tbody'); if(!tbody)return;
+ const rows=[...tbody.querySelectorAll('.offer-row')];
+ const dest=(document.getElementById('adminOfferDestination')?.value||'').trim().toLowerCase();
+ const out=document.getElementById('adminOfferOutbound')?.value||'';
+ const ret=document.getElementById('adminOfferReturn')?.value||'';
+ const min=+(document.getElementById('adminOfferScore')?.value||0);
+ let shown=0;
+ rows.forEach(r=>{
+   const ok=(!dest||(r.dataset.destination||'').includes(dest))
+     &&(!out||(r.dataset.outbound||'').startsWith(out))
+     &&(!ret||(r.dataset.return||'').startsWith(ret))
+     &&(!min||+(r.dataset.score||0)>=min);
+   r.style.display=ok?'':'none'; if(ok)shown++;
+ });
+ const sort=document.getElementById('adminOfferSort')?.value||'newest';
+ rows.sort((x,y)=>{
+   if(sort==='destination')return (x.dataset.destination||'').localeCompare(y.dataset.destination||'','he');
+   if(sort==='outbound')return (x.dataset.outbound||'').localeCompare(y.dataset.outbound||'');
+   if(sort==='score-desc')return +(y.dataset.score||0)-+(x.dataset.score||0);
+   if(sort==='price-asc')return +(x.dataset.price||0)-+(y.dataset.price||0);
+   return +(x.dataset.order||0)-+(y.dataset.order||0);
+ });
+ rows.forEach(r=>tbody.appendChild(r));
+ const count=document.getElementById('adminOfferCount'); if(count)count.textContent=`${shown} מתוך ${rows.length}`;
+}
+function clearAdminOfferFilters(){
+ ['adminOfferDestination','adminOfferOutbound','adminOfferReturn','adminOfferScore'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+ const s=document.getElementById('adminOfferSort');if(s)s.value='newest';applyAdminOfferFilters();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+ ['adminOfferDestination','adminOfferOutbound','adminOfferReturn','adminOfferScore','adminOfferSort'].forEach(id=>{
+   const e=document.getElementById(id);if(e)e.addEventListener(e.tagName==='INPUT'?'input':'change',applyAdminOfferFilters);
+ });
+ applyAdminOfferFilters();
+});
 function sortDestination(){
  const tbody=document.querySelector('#offersTable tbody'); if(!tbody)return;
  const rows=[...tbody.querySelectorAll('.offer-row')];

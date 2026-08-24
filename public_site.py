@@ -514,7 +514,7 @@ def deals():
             ).fetchall()
             conn.commit()
         # Database first: include a deeper recent inventory than the public general-deals list.
-        database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=500, minimum_score=None)]
+        database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
         for row in rows:
             trip = _trip_dict(row)
             trip["offers"] = _customer_deal_choices(database_offers, trip, limit=5)
@@ -741,7 +741,7 @@ def account_details():
 @site.get("/book/<int:offer_id>")
 def book_offer(offer_id):
     """Track intent-to-book, then redirect to the supplier/booking page."""
-    offer = next((o for o in recent_offers(limit=500, minimum_score=None) if int(o.get("id") or 0) == offer_id), None)
+    offer = next((o for o in recent_offers(limit=1500, minimum_score=None) if int(o.get("id") or 0) == offer_id), None)
     if not offer:
         return redirect(url_for("site.deals"))
     record_booking_click(
@@ -797,7 +797,7 @@ def account():
         rows = conn.execute("SELECT * FROM trip_requests WHERE member_id=? ORDER BY id DESC", (member_id,)).fetchall()
         conn.commit()
     trips = [_trip_dict(row) for row in rows]
-    database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=500, minimum_score=None)]
+    database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
     for trip in trips:
         trip["offers"] = _customer_deal_choices(database_offers, trip, limit=5)
         inventory = _customer_inventory_status(database_offers, trip)
@@ -1045,7 +1045,7 @@ def new_trip():
         # DATABASE FIRST. A matching usable offer already paid for in inventory
         # is shown immediately and prevents another SerpAPI search.
         trip_for_match = {"id": trip_id, "answers": payload, "request_name": request_name, "travel_window": travel_window}
-        existing_inventory = [_localize_offer_airports(o) for o in recent_offers(limit=1000, minimum_score=None)]
+        existing_inventory = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
         existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
 
         scan_status = "database_match" if existing_matches else "not_started"

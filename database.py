@@ -448,7 +448,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None) -> list[dic
         query += " WHERE score >= ?"
         params.append(minimum_score)
     query += " ORDER BY observed_at DESC, score DESC LIMIT ?"
-    params.append(max(1, min(limit, 500)))
+    params.append(max(1, min(limit, 2000)))
     with connection() as conn:
         rows = conn.execute(query, params).fetchall()
         scan_times = {
