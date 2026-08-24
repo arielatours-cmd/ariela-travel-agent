@@ -1852,7 +1852,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 }
 
 
-/* v9.7.72 — warmer, happier questionnaire hero typography */
+/* v9.7.73 — warmer, happier questionnaire hero typography */
 .trip-questionnaire-hero h1{
   font-family:"Assistant",Heebo,Arial,sans-serif!important;
   font-weight:600!important;
@@ -1860,7 +1860,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
   line-height:1.16!important;
 }
 
-/* v9.7.72 — questionnaire title: clean, friendly Hebrew sans-serif */
+/* v9.7.73 — questionnaire title: clean, friendly Hebrew sans-serif */
 .trip-questionnaire-hero h1{
   font-family:Heebo,Arial,sans-serif!important;
   font-weight:700!important;
@@ -1869,7 +1869,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
   line-height:1.15!important;
 }
 
-/* v9.7.72 — deals history + WhatsApp opt-in */
+/* v9.7.73 — deals history + WhatsApp opt-in */
 .deals-heading-with-alert{position:relative;min-height:150px}
 .deals-heading-copy{text-align:center}
 .deals-alert-slot{position:absolute;left:0;top:16px}
@@ -1883,7 +1883,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 .previous-deals-list{opacity:.94}
 @media(max-width:700px){.deals-heading-with-alert{padding-top:85px}.deals-alert-slot{left:50%;transform:translateX(-50%);top:0}.whatsapp-deals-toggle{min-width:210px}}
 
-/* v9.7.72 — card clarity */
+/* v9.7.73 — card clarity */
 .deal-card-v970 .deal-baggage h3{text-align:center!important}
 .deal-card-v970 .bag-status-price .not-included{color:#d62828!important;font-weight:900!important}
 .deal-card-v970 .arrival-time-value{display:inline-flex;align-items:flex-start;direction:ltr;gap:4px;justify-content:center}
@@ -1891,7 +1891,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 .deal-card-v970 .arrival-day-badge{font-size:15px!important;line-height:1!important;position:relative;top:-5px;margin:0!important;color:#c58b22!important;font-weight:900!important}
 .deal-card-v970 .deal-last-updated{margin-inline-start:auto!important;font-size:13px!important;color:#69645d!important;white-space:nowrap}
 
-/* v9.7.72 — personal vacation controls */
+/* v9.7.73 — personal vacation controls */
 .notification-toggle{background:transparent!important;border:0!important;box-shadow:none!important}
 .notification-toggle .toggle-track{background:#b9bec5!important;transition:background .18s ease}
 .notification-toggle.on .toggle-track{background:#2f9e44!important}
