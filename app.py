@@ -4,7 +4,7 @@ import threading
 import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect
 
 from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard
 from config import (
@@ -14,7 +14,7 @@ from config import (
 from daily import prepare_daily_batch
 from database import (
     all_settings, dashboard_stats, business_analytics, get_daily_batch, init_db, latest_scan_run,
-    recent_feedback, recent_offers, recent_scan_runs, set_setting,
+    recent_feedback, recent_offers, recent_scan_runs, set_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
@@ -120,9 +120,10 @@ def health():
 
 @app.post("/admin/clear-test-vacations")
 def clear_test_vacations():
-    supplied = request.args.get("token") or request.form.get("token") or request.headers.get("X-Admin-Token")
-    if ADMIN_TOKEN and supplied != ADMIN_TOKEN:
-        return jsonify({"status":"error","message":"unauthorized"}), 403
+    denied = _require_admin()
+    if denied:
+        return denied
+    supplied = request.args.get("token") or request.form.get("token") or request.headers.get("X-Admin-Token") or ""
     with connection() as conn:
         trip_ids = [int(r["id"]) for r in conn.execute("SELECT id FROM trip_requests").fetchall()]
         if trip_ids:
@@ -130,7 +131,7 @@ def clear_test_vacations():
             conn.execute(f"DELETE FROM offers WHERE trip_id IN ({placeholders})", trip_ids)
         conn.execute("DELETE FROM trip_requests")
         conn.commit()
-    return redirect("/admin" + (("?token=" + supplied) if 'supplied' in locals() and supplied else ""))
+    return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
 
 
 @app.get("/admin")

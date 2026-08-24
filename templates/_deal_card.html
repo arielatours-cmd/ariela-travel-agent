@@ -23,6 +23,8 @@
       <small class="bag-price">(₪{{ '%.0f'|format(item.roundtrip_price_ils) }})</small>
     {% elif kind in ['carry','checked'] and item and item.price_each_way is number and item.price_each_way > 0 %}
       <small class="bag-price">(₪{{ '%.0f'|format(item.price_each_way * 2) }})</small>
+    {% elif kind in ['carry','checked'] %}
+      <small class="bag-price bag-price-supplier">{{ '(supplier site)' if lang=='en' else '(באתר הספק)' }}</small>
     {% endif %}
   </span>
 </li>
@@ -95,7 +97,10 @@
    </section>
 
    <section class="deal-baggage">
-    <h3>{{ 'What is included? (additional charge)' if lang=='en' else 'מה כלול בכרטיס? (בתוספת תשלום)' }}</h3>
+    <h3 class="baggage-heading">
+  <span>{{ 'What is included?' if lang=='en' else 'מה כלול בכרטיס?' }}</span>
+  <small>{{ '(additional charge)' if lang=='en' else '(בתוספת תשלום)' }}</small>
+</h3>
     <ul>{{ bag_row('תיק אישי','Personal item',offer.baggage.personal_item,'backpack',lang) }}{{ bag_row('טרולי 8 ק״ג','8 kg carry-on',offer.baggage.carry_on_8kg,'carry',lang) }}{{ bag_row('מזוודה 23 ק״ג','23 kg checked bag',offer.baggage.checked_bag_23kg,'checked',lang) }}</ul>
    </section>
 
