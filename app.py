@@ -118,6 +118,21 @@ def health():
     })
 
 
+@app.post("/admin/clear-test-vacations")
+def clear_test_vacations():
+    supplied = request.args.get("token") or request.form.get("token") or request.headers.get("X-Admin-Token")
+    if ADMIN_TOKEN and supplied != ADMIN_TOKEN:
+        return jsonify({"status":"error","message":"unauthorized"}), 403
+    with connection() as conn:
+        trip_ids = [int(r["id"]) for r in conn.execute("SELECT id FROM trip_requests").fetchall()]
+        if trip_ids:
+            placeholders = ",".join("?" for _ in trip_ids)
+            conn.execute(f"DELETE FROM offers WHERE trip_id IN ({placeholders})", trip_ids)
+        conn.execute("DELETE FROM trip_requests")
+        conn.commit()
+    return redirect("/admin" + (("?token=" + supplied) if 'supplied' in locals() and supplied else ""))
+
+
 @app.get("/admin")
 def admin_dashboard():
     denied = _require_admin()

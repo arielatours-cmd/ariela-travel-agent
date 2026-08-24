@@ -515,7 +515,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             if not isinstance(_ret, (int, float)) and isinstance(_each, (int, float)):
                 _ret = _each
             _total = _item.get("roundtrip_price_ils")
-            if not isinstance(_total, (int, float)):
+            if not isinstance(_total, (int, float)) or _total <= 0:
                 _total = policy_roundtrip_total(out_airline, ret_airline, _kind, _out, _ret)
             if isinstance(_total, (int, float)):
                 _item["roundtrip_price_ils"] = _total

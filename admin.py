@@ -250,9 +250,9 @@ tbody tr:hover{background:#fafbfe}
 .scan-link{background:transparent!important;color:#8a651f!important;padding:2px 5px!important;text-decoration:underline}
 
 .flight-date-col{white-space:nowrap;min-width:92px;font-size:13px}
-.offers-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 12px}
-.offers-tools input,.offers-tools select{border:1px solid #d9dfe8;border-radius:7px;padding:8px 10px;background:#fff;font:inherit}
-.offers-tools input[type=search]{min-width:210px}.offers-filter-count{font-size:12px;color:#697386;font-weight:700}
+.admin-head-filter{vertical-align:top}
+.admin-head-filter .head-sort{background:transparent;color:#182033;padding:0;border:0;font-weight:800;cursor:pointer}
+.admin-head-filter input,.admin-head-filter select{display:block;width:100%;margin-top:6px;border:1px solid #d9dfe8;border-radius:6px;padding:5px 6px;background:#fff;font-size:11px}
 </style>
 </head>
 <body>
@@ -301,7 +301,11 @@ tbody tr:hover{background:#fafbfe}
     <button class="secondary" onclick="buildBatch()">בנה רשימה יומית</button>
     <a class="btn secondary" href="/daily-preview" target="_blank">תצוגת WhatsApp</a>
 </div>
-<div id="actionStatus" class="status"></div>
+<div id="actionStatus" class="status"></div><form method="post" action="/admin/clear-test-vacations{% if token %}?token={{ token }}{% endif %}" onsubmit="return confirm('למחוק את כל חופשות הבדיקה? הדילים הכלליים והסריקות יישארו.');" style="margin:10px 0 14px">
+  <input type="hidden" name="token" value="{{ token }}">
+  <button type="submit" class="secondary">נקה חופשות בדיקה</button>
+</form>
+
 
 <div class="grid">
     <div class="card">סריקות<div class="num">{{ stats.scans_total or 0 }}</div></div>
@@ -325,33 +329,25 @@ tbody tr:hover{background:#fafbfe}
     {% if offers %}{{ offers|max(attribute='score')|attr('score') }}{% else %}0{% endif %}
 </div>
 
-<div class="offers-tools">
-  <input id="adminOfferDestination" type="search" placeholder="סינון יעד / קוד (למשל OTP)">
-  <input id="adminOfferOutbound" type="month" title="חודש הלוך">
-  <input id="adminOfferReturn" type="month" title="חודש חזור">
-  <select id="adminOfferScore">
-    <option value="">כל הציונים</option>
-    <option value="70">70 ומעלה</option>
-    <option value="60">60 ומעלה</option>
-  </select>
-  <select id="adminOfferSort">
-    <option value="newest">חדש ביותר</option>
-    <option value="destination">יעד א–ת</option>
-    <option value="outbound">תאריך הלוך</option>
-    <option value="score-desc">ציון גבוה</option>
-    <option value="price-asc">מחיר נמוך</option>
-  </select>
-  <button class="secondary" type="button" onclick="clearAdminOfferFilters()">נקה סינון</button>
-  <span id="adminOfferCount" class="offers-filter-count"></span>
-</div>
 <div class="table-wrap"><table id="offersTable">
 <thead>
 <tr>
     <th class="scan-id">סריקה</th>
-    <th class="destination sortable" onclick="sortDestination()">יעד <span class="sort-mark">↕</span></th>
-    <th class="flight-date-col">הלוך</th>
-    <th class="flight-date-col">חזור</th>
-    <th class="price-col">מחיר</th>
+    <th class="destination admin-head-filter">
+      <button type="button" class="head-sort" data-sort="destination">יעד ↕</button>
+      <input id="adminOfferDestination" type="search" placeholder="סינון יעד / קוד">
+    </th>
+    <th class="flight-date-col admin-head-filter">
+      <button type="button" class="head-sort" data-sort="outbound">הלוך ↕</button>
+      <input id="adminOfferOutbound" type="month" aria-label="סינון חודש הלוך">
+    </th>
+    <th class="flight-date-col admin-head-filter">
+      <button type="button" class="head-sort" data-sort="return">חזור ↕</button>
+      <input id="adminOfferReturn" type="month" aria-label="סינון חודש חזור">
+    </th>
+    <th class="price-col admin-head-filter">
+      <button type="button" class="head-sort" data-sort="price">מחיר ↕</button>
+    </th>
     <th class="average-col">ממוצע</th>
     <th class="score-part">עלות</th>
     <th class="score-part">מסלול</th>
@@ -360,7 +356,14 @@ tbody tr:hover{background:#fafbfe}
     <th class="score-part">נדירות</th>
     <th class="score-part">עונתיות</th>
     <th class="score-part">אמינות</th>
-    <th class="total-score">ציון</th>
+    <th class="total-score admin-head-filter">
+      <button type="button" class="head-sort" data-sort="score">ציון ↕</button>
+      <select id="adminOfferScore" aria-label="סינון ציון">
+        <option value="">הכל</option>
+        <option value="70">70+</option>
+        <option value="60">60+</option>
+      </select>
+    </th>
     <th class="reason-col">סיבת השליחה</th>
 </tr>
 </thead>
@@ -567,6 +570,7 @@ async function showScan(id){
 }
 function buildBatch(){post('/daily-batch?force=true')}
 let destinationSortDir=1;
+let adminOfferSortKey='newest', adminOfferSortDir=1;
 function applyAdminOfferFilters(){
  const tbody=document.querySelector('#offersTable tbody'); if(!tbody)return;
  const rows=[...tbody.querySelectorAll('.offer-row')];
@@ -574,32 +578,36 @@ function applyAdminOfferFilters(){
  const out=document.getElementById('adminOfferOutbound')?.value||'';
  const ret=document.getElementById('adminOfferReturn')?.value||'';
  const min=+(document.getElementById('adminOfferScore')?.value||0);
- let shown=0;
  rows.forEach(r=>{
    const ok=(!dest||(r.dataset.destination||'').includes(dest))
      &&(!out||(r.dataset.outbound||'').startsWith(out))
      &&(!ret||(r.dataset.return||'').startsWith(ret))
      &&(!min||+(r.dataset.score||0)>=min);
-   r.style.display=ok?'':'none'; if(ok)shown++;
+   r.style.display=ok?'':'none';
  });
- const sort=document.getElementById('adminOfferSort')?.value||'newest';
  rows.sort((x,y)=>{
-   if(sort==='destination')return (x.dataset.destination||'').localeCompare(y.dataset.destination||'','he');
-   if(sort==='outbound')return (x.dataset.outbound||'').localeCompare(y.dataset.outbound||'');
-   if(sort==='score-desc')return +(y.dataset.score||0)-+(x.dataset.score||0);
-   if(sort==='price-asc')return +(x.dataset.price||0)-+(y.dataset.price||0);
-   return +(x.dataset.order||0)-+(y.dataset.order||0);
+   let v=0;
+   if(adminOfferSortKey==='destination') v=(x.dataset.destination||'').localeCompare(y.dataset.destination||'','he');
+   else if(adminOfferSortKey==='outbound') v=(x.dataset.outbound||'').localeCompare(y.dataset.outbound||'');
+   else if(adminOfferSortKey==='return') v=(x.dataset.return||'').localeCompare(y.dataset.return||'');
+   else if(adminOfferSortKey==='score') v=+(x.dataset.score||0)-+(y.dataset.score||0);
+   else if(adminOfferSortKey==='price') v=+(x.dataset.price||0)-+(y.dataset.price||0);
+   else v=+(x.dataset.order||0)-+(y.dataset.order||0);
+   return v*adminOfferSortDir;
  });
  rows.forEach(r=>tbody.appendChild(r));
- const count=document.getElementById('adminOfferCount'); if(count)count.textContent=`${shown} מתוך ${rows.length}`;
-}
-function clearAdminOfferFilters(){
- ['adminOfferDestination','adminOfferOutbound','adminOfferReturn','adminOfferScore'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
- const s=document.getElementById('adminOfferSort');if(s)s.value='newest';applyAdminOfferFilters();
 }
 document.addEventListener('DOMContentLoaded',()=>{
- ['adminOfferDestination','adminOfferOutbound','adminOfferReturn','adminOfferScore','adminOfferSort'].forEach(id=>{
+ ['adminOfferDestination','adminOfferOutbound','adminOfferReturn','adminOfferScore'].forEach(id=>{
    const e=document.getElementById(id);if(e)e.addEventListener(e.tagName==='INPUT'?'input':'change',applyAdminOfferFilters);
+ });
+ document.querySelectorAll('#offersTable .head-sort').forEach(btn=>{
+   btn.addEventListener('click',()=>{
+     const key=btn.dataset.sort;
+     if(adminOfferSortKey===key) adminOfferSortDir*=-1;
+     else {adminOfferSortKey=key; adminOfferSortDir=1;}
+     applyAdminOfferFilters();
+   });
  });
  applyAdminOfferFilters();
 });
