@@ -646,6 +646,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "return_stops": flight.get("return_stops") or 0,
             "booking_supplier": flight.get("booking_supplier"),
             "booking_supplier_price_ils": flight.get("booking_supplier_price_ils"),
+            "booking_request_url": flight.get("booking_request_url"),
+            "booking_request_post_data": flight.get("booking_request_post_data"),
             "booking_supplier_approved": flight.get("booking_supplier_approved"),
             "booking_supplier_is_direct": flight.get("booking_supplier_is_direct"),
             "booking_choice_reason_he": flight.get("booking_choice_reason_he"),

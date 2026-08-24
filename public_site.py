@@ -812,10 +812,15 @@ def account_details():
 
 @site.get("/book/<int:offer_id>")
 def book_offer(offer_id):
-    """Track intent-to-book, then redirect to the supplier/booking page."""
-    offer = next((o for o in recent_offers(limit=1500, minimum_score=None) if int(o.get("id") or 0) == offer_id), None)
+    """Track intent-to-book, then open the exact selected round-trip whenever possible."""
+    offer = next(
+        (o for o in recent_offers(limit=1500, minimum_score=None)
+         if int(o.get("id") or o.get("offer_id") or 0) == offer_id),
+        None,
+    )
     if not offer:
         return redirect(url_for("site.deals"))
+
     record_booking_click(
         visitor_id=session.get("_ariella_visitor_id"),
         member_id=session.get("member_id"),
@@ -829,27 +834,74 @@ def book_offer(offer_id):
         return_date=offer.get("return_date"),
         booking_url=offer.get("booking_url"),
     )
+
+    # 1) Best case: use the exact booking request saved when Ariella selected
+    # this outbound + return combination.
+    exact_url = offer.get("booking_request_url")
+    exact_post = offer.get("booking_request_post_data")
+    if exact_url:
+        if exact_post:
+            return render_template(
+                "booking_forward.html",
+                action=exact_url,
+                fields=parse_qsl(exact_post, keep_blank_values=True),
+            )
+        return redirect(exact_url)
+
+    # 2) Older stored deals may not have the exact request persisted yet.
+    # Refresh booking options from the stored booking token and prefer the SAME
+    # supplier Ariella showed on the card, then direct airline, then cheapest.
     token = offer.get("booking_token") or (offer.get("flight") or {}).get("booking_token")
+    preferred_supplier = str(offer.get("booking_supplier") or "").strip().lower()
+
     if token and SERPAPI_API_KEY:
         try:
-            data = requests.get("https://serpapi.com/search.json", params={
-                "engine":"google_flights","booking_token":token,"api_key":SERPAPI_API_KEY,
-                "hl":"en","gl":"il","currency":"ILS"
-            }, timeout=45).json()
-            choices=[]
+            data = requests.get(
+                "https://serpapi.com/search.json",
+                params={
+                    "engine": "google_flights",
+                    "booking_token": token,
+                    "api_key": SERPAPI_API_KEY,
+                    "hl": "en",
+                    "gl": "il",
+                    "currency": "ILS",
+                },
+                timeout=45,
+            ).json()
+
+            choices = []
             for option in data.get("booking_options") or []:
-                part=option.get("together") or {}
-                req=part.get("booking_request") or {}
-                if req.get("url"):
-                    choices.append((0 if part.get("airline") else 1, float(part.get("price") or 10**9), req))
+                part = option.get("together") or {}
+                req = part.get("booking_request") or {}
+                if not req.get("url"):
+                    continue
+
+                supplier = str(part.get("book_with") or "").strip().lower()
+                same_supplier = bool(preferred_supplier and supplier == preferred_supplier)
+                direct_airline = bool(part.get("airline") is True)
+                try:
+                    price = float(part.get("price") or 10**9)
+                except (TypeError, ValueError):
+                    price = 10**9
+
+                # exact supplier first, then direct airline, then price
+                priority = 0 if same_supplier else (1 if direct_airline else 2)
+                choices.append((priority, price, req))
+
             if choices:
-                _, _, req = sorted(choices, key=lambda x:(x[0],x[1]))[0]
+                _, _, req = sorted(choices, key=lambda x: (x[0], x[1]))[0]
                 if req.get("post_data"):
-                    return render_template("booking_forward.html", action=req["url"],
-                                           fields=parse_qsl(req["post_data"], keep_blank_values=True))
+                    return render_template(
+                        "booking_forward.html",
+                        action=req["url"],
+                        fields=parse_qsl(req["post_data"], keep_blank_values=True),
+                    )
                 return redirect(req["url"])
         except Exception:
             pass
+
+    # 3) Last resort only: the Google Flights/result URL already carries the
+    # route/date context, but may require the user to choose the flights again.
     return redirect(offer.get("booking_url") or url_for("site.deals"))
 
 

@@ -335,6 +335,13 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     flight["booking_supplier_price_ils"] = chosen_price
     flight["booking_supplier_approved"] = bool(chosen and _supplier_is_approved(chosen))
     flight["booking_supplier_is_direct"] = bool(chosen and chosen.get("airline") is True)
+
+    # Persist the exact booking hand-off for the selected round-trip option.
+    # This lets "Go to booking" open the already-selected outbound + return
+    # rather than sending the customer back to a generic search page.
+    chosen_request = (chosen or {}).get("booking_request") or {}
+    flight["booking_request_url"] = chosen_request.get("url")
+    flight["booking_request_post_data"] = chosen_request.get("post_data")
     flight["cheapest_any_supplier"] = (cheapest_any[0] or {}).get("book_with")
     flight["cheapest_any_price_ils"] = cheapest_any[1]
     flight["cheapest_any_is_separate"] = bool(cheapest_any[2])
