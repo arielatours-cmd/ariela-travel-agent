@@ -348,5 +348,15 @@
     "country": "HR",
     "country_en": "Croatia",
     "country_he": "קרואטיה"
+  },
+  {
+    "code": "OTP",
+    "city_en": "Bucharest",
+    "city_he": "בוקרשט",
+    "name_en": "Henri Coandă International Airport",
+    "name_he": "נמל התעופה הבינלאומי הנרי קואנדה",
+    "country": "RO",
+    "country_en": "Romania",
+    "country_he": "רומניה"
   }
 ]

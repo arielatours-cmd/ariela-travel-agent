@@ -72,7 +72,7 @@ function confirmSearchToggle(form, status) {
           <form method="post" action="{{ url_for('site.toggle_trip_notifications', trip_id=trip.id) }}">
             <button class="notification-toggle trip-action {{ 'on' if trip.mobile_notifications else 'off' }}" type="submit" aria-pressed="{{ 'true' if trip.mobile_notifications else 'false' }}">
               <span class="toggle-track"><i></i></span>
-              <span>{{ 'WhatsApp alerts' if site_lang == 'en' else 'התראות ב־WhatsApp' }}</span>
+              <span>{{ 'Deals before everyone' if site_lang == 'en' else 'הדילים לפני כולם' }}</span>
             </button>
           </form>
         {% else %}

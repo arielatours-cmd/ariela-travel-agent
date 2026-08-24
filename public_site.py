@@ -516,8 +516,6 @@ def whatsapp_opt_in():
         conn.execute("UPDATE members SET whatsapp_opt_in=?, whatsapp_opt_in_at=? WHERE id=?",
                      (1 if enabled else 0, utc_now_iso() if enabled else None, member["id"]))
         conn.commit()
-    flash(_msg("התראות WhatsApp הופעלו." if enabled else "התראות WhatsApp כובו.",
-               "WhatsApp alerts enabled." if enabled else "WhatsApp alerts disabled."), "success")
     return redirect(url_for("site.deals"))
 
 @site.get("/about")
