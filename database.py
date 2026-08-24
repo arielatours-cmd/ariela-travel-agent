@@ -507,24 +507,23 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
 
         for _kind, _key in (("carry", "carry_on_8kg"), ("checked", "checked_bag_23kg")):
             _item = baggage.get(_key) or {}
-            if _item.get("included") is not True:
-                _out = _item.get("outbound_price_ils")
-                _ret = _item.get("return_price_ils")
-                _each = _item.get("price_each_way")
-                if not isinstance(_out, (int, float)) and isinstance(_each, (int, float)):
-                    _out = _each
-                if not isinstance(_ret, (int, float)) and isinstance(_each, (int, float)):
-                    _ret = _each
-                _total = _item.get("roundtrip_price_ils")
-                if not isinstance(_total, (int, float)):
-                    _total = policy_roundtrip_total(out_airline, ret_airline, _kind, _out, _ret)
-                if isinstance(_total, (int, float)):
-                    _item["roundtrip_price_ils"] = _total
-                    _item["known"] = True
-                    _item["price_estimated"] = not (
-                        isinstance(_out, (int, float)) and isinstance(_ret, (int, float))
-                    )
-                    baggage[_key] = _item
+            _out = _item.get("outbound_price_ils")
+            _ret = _item.get("return_price_ils")
+            _each = _item.get("price_each_way")
+            if not isinstance(_out, (int, float)) and isinstance(_each, (int, float)):
+                _out = _each
+            if not isinstance(_ret, (int, float)) and isinstance(_each, (int, float)):
+                _ret = _each
+            _total = _item.get("roundtrip_price_ils")
+            if not isinstance(_total, (int, float)):
+                _total = policy_roundtrip_total(out_airline, ret_airline, _kind, _out, _ret)
+            if isinstance(_total, (int, float)):
+                _item["roundtrip_price_ils"] = _total
+                _item["known"] = True
+                _item["price_estimated"] = not (
+                    isinstance(_out, (int, float)) and isinstance(_ret, (int, float))
+                )
+                baggage[_key] = _item
         connections = flight.get("connections") or []
         outbound = payload.get("outbound") or {}
         return_trip = payload.get("return") or {}

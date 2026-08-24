@@ -153,19 +153,25 @@ function confirmSearchToggle(form, status) {
   <div class="empty-state"><h3>{{ "You haven't searched for a vacation yet" if site_lang == 'en' else 'עדיין לא חיפשת חופשה' }}</h3><p>{{ 'After completing the questionnaire, your vacation will appear here and Ariella will start learning what to look for you.' if site_lang == 'en' else 'לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.' }}</p></div>
 </div></section>
 {% endif %}
-{% endblock %}
-
-{% block page_scripts %}
 <script>
-document.querySelectorAll('.trip-deals-toggle').forEach(function(btn){
-  btn.addEventListener('click', function(){
-    const panel = document.getElementById(btn.getAttribute('aria-controls'));
-    if(!panel) return;
-    const opening = panel.hidden;
-    panel.hidden = !opening;
-    btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
-    btn.textContent = opening ? btn.dataset.hide : btn.dataset.show;
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('.trip-deals-toggle').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const panel = document.getElementById(btn.getAttribute('aria-controls'));
+      if(!panel) return;
+      const isOpen = !panel.hasAttribute('hidden');
+      if(isOpen){
+        panel.setAttribute('hidden','');
+        btn.setAttribute('aria-expanded','false');
+        btn.textContent = btn.dataset.show;
+      }else{
+        panel.removeAttribute('hidden');
+        btn.setAttribute('aria-expanded','true');
+        btn.textContent = btn.dataset.hide;
+      }
+    });
   });
 });
 </script>
 {% endblock %}
+

@@ -103,4 +103,10 @@ def policy_roundtrip_total(out_airline, ret_airline, kind, out_fee=None, ret_fee
             v = airline_policy(a).get(kind)
             if isinstance(v, (int, float)) and v > 0:
                 vals.append(float(v))
+    # If the airline/supplier does not expose an add-on fee, show the conservative
+    # fallback agreed for Ariella rather than leaving the customer with only an X/V.
+    if not vals:
+        conservative_one_way = {"carry": 250.0, "checked": 500.0}.get(kind)
+        if conservative_one_way:
+            vals.append(conservative_one_way)
     return max(vals) * 2 if vals else None

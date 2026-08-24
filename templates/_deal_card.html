@@ -13,18 +13,18 @@
 <li>
   <span class="bag-svg {{ kind }}" aria-hidden="true">{% if kind=='backpack' %}🎒{% elif kind=='carry' %}🧳{% else %}🧳{% endif %}</span>
   <span>{{ label_en if lang=='en' else label_he }}</span>
-  {% if item and item.included is sameas true %}
-    <strong class="included">✓</strong>
-  {% else %}
-    <span class="bag-status-price">
+  <span class="bag-status-price">
+    {% if item and item.included is sameas true %}
+      <strong class="included">✓</strong>
+    {% else %}
       <strong class="not-included">×</strong>
-      {% if kind in ['carry','checked'] and item and item.roundtrip_price_ils is number %}
-        <small class="bag-price">({{ '₪' if lang=='he' else '₪' }}{{ '%.0f'|format(item.roundtrip_price_ils) }})</small>
-      {% elif kind in ['carry','checked'] and item and item.price_each_way is number %}
-        <small class="bag-price">(₪{{ '%.0f'|format(item.price_each_way * 2) }})</small>
-      {% endif %}
-    </span>
-  {% endif %}
+    {% endif %}
+    {% if kind in ['carry','checked'] and item and item.roundtrip_price_ils is number %}
+      <small class="bag-price">(₪{{ '%.0f'|format(item.roundtrip_price_ils) }})</small>
+    {% elif kind in ['carry','checked'] and item and item.price_each_way is number %}
+      <small class="bag-price">(₪{{ '%.0f'|format(item.price_each_way * 2) }})</small>
+    {% endif %}
+  </span>
 </li>
 {%- endmacro %}
 {% macro deal_card(offer, lang='he') -%}
@@ -95,7 +95,7 @@
    </section>
 
    <section class="deal-baggage">
-    <h3>{{ 'What is included' if lang=='en' else 'מה כלול בכרטיס' }}</h3>
+    <h3>{{ 'What is included? (additional charge)' if lang=='en' else 'מה כלול בכרטיס? (בתוספת תשלום)' }}</h3>
     <ul>{{ bag_row('תיק אישי','Personal item',offer.baggage.personal_item,'backpack',lang) }}{{ bag_row('טרולי 8 ק״ג','8 kg carry-on',offer.baggage.carry_on_8kg,'carry',lang) }}{{ bag_row('מזוודה 23 ק״ג','23 kg checked bag',offer.baggage.checked_bag_23kg,'checked',lang) }}</ul>
    </section>
 
