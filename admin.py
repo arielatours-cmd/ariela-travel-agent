@@ -249,6 +249,7 @@ tbody tr:hover{background:#fafbfe}
 .scan-result-chip{border:1px solid #e3d1a8;background:white;border-radius:8px;padding:8px 10px;font-size:14px}
 .scan-link{background:transparent!important;color:#8a651f!important;padding:2px 5px!important;text-decoration:underline}
 
+.flight-date-col{white-space:nowrap;min-width:92px;font-size:13px}
 </style>
 </head>
 <body>
@@ -326,6 +327,8 @@ tbody tr:hover{background:#fafbfe}
 <tr>
     <th class="scan-id">סריקה</th>
     <th class="destination sortable" onclick="sortDestination()">יעד <span class="sort-mark">↕</span></th>
+    <th class="flight-date-col">הלוך</th>
+    <th class="flight-date-col">חזור</th>
     <th class="price-col">מחיר</th>
     <th class="average-col">ממוצע</th>
     <th class="score-part">עלות</th>
@@ -347,6 +350,8 @@ tbody tr:hover{background:#fafbfe}
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
         <span class="destination-name">{{ o.destination_name or o.arrival_code or '—' }}</span>
     </td>
+    <td class="flight-date-col">{{ o.outbound_date or '—' }}</td>
+    <td class="flight-date-col">{{ o.return_date or '—' }}</td>
     <td class="price-col" title="מחיר נוכחי בש״ח">
         {{ o.price_ils|round|int if o.price_ils is not none else '—' }}
     </td>
@@ -395,7 +400,7 @@ tbody tr:hover{background:#fafbfe}
     </td>
 </tr>
 {% else %}
-<tr><td class="empty" colspan="13">עדיין אין הצעות. הפעילי סריקה.</td></tr>
+<tr><td class="empty" colspan="15">עדיין אין הצעות. הפעילי סריקה.</td></tr>
 {% endfor %}
 </tbody>
 </table>

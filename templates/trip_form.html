@@ -333,9 +333,8 @@
     if (show) label.childNodes[0].nodeValue = input.value === 'specific' ? {{ ('"Where would you like to fly? "' if site_lang == 'en' else '"לאיזה יעד תרצו לטוס? "')|safe }} : {{ ('"Which destinations interest you? "' if site_lang == 'en' else '"אילו יעדים מעניינים אתכם? "')|safe }};
     if (!show) document.getElementById('destinationsInput').value = '';
     if (input.checked && input.value === 'specific') {
-      const hiddenDest = document.getElementById('destinationsInput');
-      const codes = (hiddenDest.value || '').split(',').map(x => x.trim()).filter(Boolean);
-      if (codes.length > 1) hiddenDest.value = codes.slice(0, 1).join(',');
+      const picker = document.querySelector('[data-destination-picker]');
+      picker?.dispatchEvent(new CustomEvent('ariella-clear-destinations'));
     }
     const openSuggestions = input.checked && input.value === 'open';
     syncVacationMode(input.value);

@@ -11,7 +11,7 @@ document.querySelectorAll('.deal-last-updated').forEach(function(el){
 {% block content %}
 <section class="deals-page" aria-labelledby="deals-title"><div class="deals-shell">
 <header class="deals-heading deals-heading-with-alert">
-  <div class="deals-alert-slot">
+  <div class="deals-alert-left">
     {% if member %}
       <form method="post" action="{{ url_for('site.whatsapp_opt_in') }}" class="deal-alert-form">
         <input type="hidden" name="enabled" value="{{ '0' if member.whatsapp_opt_in else '1' }}">
@@ -26,6 +26,14 @@ document.querySelectorAll('.deal-last-updated').forEach(function(el){
         <span class="deal-alert-track" aria-hidden="true"><i></i></span>
       </a>
     {% endif %}
+  </div>
+
+  <div class="deals-heading-copy">
+    <h1 id="deals-title">{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}</h1>
+    <p>{{ 'The best deals Ariella found' if site_lang == 'en' else 'הדילים הטובים ביותר שאריאלה מצאה' }}</p>
+  </div>
+
+  <div class="deals-vacations-right">
     <a class="my-vacations-from-deals" href="{{ url_for('site.account') if member else url_for('site.join') }}">
       {{ 'My vacations' if site_lang=='en' else 'החופשות שלי' }}
     </a>

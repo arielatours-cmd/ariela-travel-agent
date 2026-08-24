@@ -131,6 +131,14 @@
       search.addEventListener('input',suggest);
       search.addEventListener('focus',suggest);
       document.addEventListener('click',e=>{ if(!p.contains(e.target)) box.hidden=true; });
+      if(isDestination){
+        p.addEventListener('ariella-clear-destinations',()=>{
+          selected=[];
+          search.value='';
+          box.hidden=true;
+          render();
+        });
+      }
       render();
     });
   }
