@@ -69,7 +69,6 @@
       <label>{{ 'Return month' if site_lang == 'en' else 'חודש חזרה' }}
         <input type="month" name="return_month" id="returnMonth" min="{{ current_month }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}">
       </label>
-      <p class="helper month-help">{{ 'The return can be in the same month or a later month.' if site_lang == 'en' else 'החזרה יכולה להיות באותו חודש או בחודש מאוחר יותר.' }}</p>
     </div>
     <div class="conditional-panel two-cols" id="exactDatesPanel" hidden>
       <label>{{ 'Departure date' if site_lang == 'en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{ today }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}"></label>
@@ -200,6 +199,16 @@
     <label class="notes-label">{{ 'Anything else we should know?' if site_lang == 'en' else 'משהו נוסף שחשוב שנדע?' }}<textarea name="notes" rows="4"></textarea></label>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button class="button primary" type="submit">{{ 'Save vacation' if site_lang == 'en' else 'שמירת החופשה' }}</button></div>
   </section>
+  <div class="ariella-search-overlay" id="ariellaSearchOverlay" hidden aria-live="polite">
+    <div class="ariella-search-card">
+      <div class="coconut-scene" aria-hidden="true">
+        <div class="palm">🌴</div><div class="monkey">🐒</div><div class="coconut">🥥</div>
+      </div>
+      <h3>{{ 'Ariella is looking for your vacation…' if site_lang == 'en' else 'אריאלה מחפשת את החופשה שלך…' }}</h3>
+      <p>{{ 'This can take a little while. We will return you to My Vacations as soon as the search is ready.' if site_lang == 'en' else 'זה יכול לקחת קצת זמן. מיד כשהחיפוש יסתיים נחזיר אותך לחופשות שלי.' }}</p>
+      <div class="search-dots"><i></i><i></i><i></i></div>
+    </div>
+  </div>
 </form>
 
 <script>
@@ -305,6 +314,11 @@
     panel.hidden = !show;
     if (show) label.childNodes[0].nodeValue = input.value === 'specific' ? {{ ('"Where would you like to fly? "' if site_lang == 'en' else '"לאיזה יעד תרצו לטוס? "')|safe }} : {{ ('"Which destinations interest you? "' if site_lang == 'en' else '"אילו יעדים מעניינים אתכם? "')|safe }};
     if (!show) document.getElementById('destinationsInput').value = '';
+    if (input.checked && input.value === 'specific') {
+      const hiddenDest = document.getElementById('destinationsInput');
+      const codes = (hiddenDest.value || '').split(',').map(x => x.trim()).filter(Boolean);
+      if (codes.length > 1) hiddenDest.value = codes.slice(0, 1).join(',');
+    }
     const openSuggestions = input.checked && input.value === 'open';
     document.getElementById('flightPrioritiesQuestion').hidden = openSuggestions;
     document.getElementById('holidayPrioritiesQuestion').hidden = !openSuggestions;
@@ -360,6 +374,11 @@
     document.getElementById('budgetAmountLabel').childNodes[0].nodeValue = {{ ('"What is the maximum budget per person? (₪) "' if site_lang == 'en' else '"מה התקציב המרבי לאדם? (₪) "')|safe }};
     if (input.value === 'unlimited') document.getElementById('budgetAmount').value = '';
   }));
+
+  form.addEventListener('submit', function(){
+    const overlay = document.getElementById('ariellaSearchOverlay');
+    if (overlay) overlay.hidden = false;
+  });
 
   syncVacationMode(form.querySelector('input[name="destination_mode"]:checked')?.value || 'open');
   showStep(0);

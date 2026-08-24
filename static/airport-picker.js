@@ -44,6 +44,7 @@
       const hidden=p.querySelector('.airport-values');
       const modeInput=p.querySelector('.origin-selection-mode');
       const isOrigin=p.hasAttribute('data-origin-picker');
+      const isDestination=p.hasAttribute('data-destination-picker');
       const defaultCodes=isOrigin ? codesFrom(p.dataset.defaultAirports) : [];
       let selected=codesFrom(hidden.value);
       let usingDefaults=isOrigin && selected.length===0 && defaultCodes.length>0;
@@ -110,6 +111,12 @@
               selected=[];
               usingDefaults=false;
               replacedDefaults=true;
+            }
+            // "Specific destination" means exactly one destination. "Several"
+            // keeps multi-select behavior.
+            if(isDestination){
+              const mode=document.querySelector('input[name="destination_mode"]:checked')?.value;
+              if(mode==='specific') selected=[];
             }
             if(!selected.includes(a.code)) selected.push(a.code);
             search.value='';

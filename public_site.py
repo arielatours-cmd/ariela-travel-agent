@@ -161,6 +161,7 @@ def _trip_destination_codes(trip):
         "סופיה": {"SOF"}, "sofia": {"SOF"},
         "לרנקה": {"LCA"}, "larnaca": {"LCA"},
         "פאפוס": {"PFO"}, "paphos": {"PFO"},
+        "בוקרשט": {"OTP"}, "bucharest": {"OTP"},
     }
 
     codes = set()
@@ -779,11 +780,27 @@ def account():
         trip["needs_fresh_search"] = not bool(trip["offers"])
         trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
         answers = trip.get("answers") or {}
-        destination_codes = list(_trip_destination_codes(trip))
+        destination_codes = sorted(_trip_destination_codes(trip))
+        destination_info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {}) if destination_codes else {}
+        if destination_codes:
+            code = destination_codes[0]
+            city_he = destination_info.get("city_he") or code
+            city_en = destination_info.get("city_en") or code
+            trip["destination_display"] = f"{city_en} ({code})" if _lang() == "en" else f"{city_he} ({code})"
+        elif str(answers.get("destination_mode") or "") == "ski":
+            trip["destination_display"] = _msg("חופשת סקי", "Ski vacation")
+        else:
+            trip["destination_display"] = _msg("אריאלה תמליץ", "Ariella recommends")
+
         if str(answers.get("vacation_type") or "") == "ski" or str(answers.get("destination_mode") or "") == "ski":
             trip["image_url"] = "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=82"
         elif destination_codes:
-            trip["image_url"] = DESTINATION_LANDMARK_IMAGES.get(destination_codes[0]) or "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=82"
+            # OTP/Bucharest gets a dedicated recognizable city image; other known
+            # destinations keep the curated landmark map.
+            dedicated = {
+                "OTP": "https://images.unsplash.com/photo-1584646098378-0874589d76b1?auto=format&fit=crop&w=900&q=82",
+            }
+            trip["image_url"] = dedicated.get(destination_codes[0]) or DESTINATION_LANDMARK_IMAGES.get(destination_codes[0]) or "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=82"
         else:
             trip["image_url"] = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=900&q=82"
     return render_template(
@@ -1001,13 +1018,29 @@ def new_trip():
             trip_id = int(cur.lastrowid)
             conn.commit()
 
-        # One complimentary initial live search for every newly-created vacation.
-        # Refreshing/opening My Vacations never triggers this again.
-        scan_result = run_customer_trip_search(trip_id, payload)
+        # DATABASE FIRST. A matching usable offer already paid for in inventory
+        # is shown immediately and prevents another SerpAPI search.
+        trip_for_match = {"id": trip_id, "answers": payload, "request_name": request_name, "travel_window": travel_window}
+        existing_inventory = [_localize_offer_airports(o) for o in recent_offers(limit=1000, minimum_score=None)]
+        existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
+
+        scan_status = "database_match" if existing_matches else "not_started"
+        scan_count = 0
+        if not existing_matches:
+            try:
+                scan_result = run_customer_trip_search(trip_id, payload)
+                scan_status = str(scan_result.get("status") or "unknown")
+                scan_count = 1
+            except Exception as exc:
+                # The vacation was committed above. Search errors must never erase it
+                # or send the customer to Flask's Internal Server Error page.
+                scan_status = "search_error"
+                scan_count = 1
+
         with _db() as conn:
             conn.execute(
-                "UPDATE trip_requests SET free_scan_count=1, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-                (utc_now_iso(), str(scan_result.get("status") or "unknown"), trip_id),
+                "UPDATE trip_requests SET free_scan_count=?, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (scan_count, utc_now_iso(), scan_status, trip_id),
             )
             conn.commit()
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")

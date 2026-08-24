@@ -49,7 +49,7 @@ function confirmSearchToggle(form, status) {
       <div class="trip-destination-image" style="background-image:url('{{ trip.image_url }}')" role="img" aria-label="{{ trip.request_name }}"></div>
       <div class="trip-main-details">
         <div class="trip-title-line">
-          <h3>{% if site_lang == 'en' and trip.request_name == 'הצעות של אריאלה' %}Ariella's Suggestions{% else %}{{ trip.request_name }}{% endif %}</h3>
+          <h3>{{ trip.destination_display }}</h3>
           {% set paid_before = trip.has_paid_search or trip.subscription_started_at or trip.search_period_started_at %}
           {% set paid_active = trip.subscription_status == 'active' and paid_before %}
           <span class="search-status {{ 'is-active' if paid_active else 'is-ended' }}">{% if paid_active %}{{ 'Active' if site_lang == 'en' else 'פעיל' }}{% elif paid_before %}{{ 'Ended' if site_lang == 'en' else 'הסתיים' }}{% else %}{{ 'Initial scan' if site_lang == 'en' else 'סריקה ראשונית' }}{% endif %}</span>
@@ -106,7 +106,7 @@ function confirmSearchToggle(form, status) {
       </div>
     </article>
     <div class="trip-deals-toggle-wrap">
-      <button type="button" class="button outline trip-deals-toggle"
+      <button type="button" class="button trip-deals-toggle happy-deals-button"
               aria-expanded="false"
               aria-controls="tripDeals{{ trip.id }}"
               data-show="{{ 'Show deals' if site_lang == 'en' else 'הצגת הדילים' }}"
