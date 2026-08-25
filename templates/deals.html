@@ -131,7 +131,7 @@ document.querySelectorAll('.deal-last-updated').forEach(function(el){
   <div class="previous-deals-divider"></div>
   <h2>{{ 'Previous deals Ariella found' if site_lang=='en' else 'דילים קודמים שאריאלה מצאה' }}</h2>
   <p class="previous-deals-note">{{ 'Historical finds — prices and availability may have changed.' if site_lang=='en' else 'דילים שנמצאו בעבר — המחיר והזמינות עשויים להשתנות.' }}</p>
-  <div class="ariella-deals-list previous-deals-list">{% for offer in previous_offers if offer.departure_time and offer.arrival_time and offer.return_departure_time and offer.return_arrival_time %}{{ deal_card(offer,site_lang) }}{% endfor %}</div>
+  <div class="ariella-deals-list previous-deals-list">{% for offer in previous_offers %}{{ deal_card(offer,site_lang) }}{% endfor %}</div>
 </section>
 {% endif %}
 </section>
