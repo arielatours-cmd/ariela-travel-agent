@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.96
+# Ariella QA — v9.7.97
 
 ## Retroactive +1/+2
 Arrival-day badges no longer require a fresh scan.

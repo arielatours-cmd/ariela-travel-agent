@@ -201,14 +201,25 @@ def _offer_has_complete_roundtrip(offer):
     return all(bool(v) for v in required)
 
 
+
+
+def _strict_public_offer(offer):
+    """Final public rendering gate for current AND previous deal cards."""
+    def present(value):
+        if value is None:
+            return False
+        s = str(value).strip()
+        return bool(s and s not in {"—", "-", "None", "null"})
+    required = (
+        "outbound_date", "return_date",
+        "departure_time", "arrival_time",
+        "return_departure_time", "return_arrival_time",
+    )
+    return all(present(offer.get(k)) for k in required)
+
 def _offer_is_publicly_bookable(offer):
-    """Public deal cards must be complete and have an actionable BOOKER handoff."""
-    if not _offer_has_complete_roundtrip(offer):
-        return False
-    # Legacy rows without a recommended-supplier booking request must not look
-    # bookable. New scanner rows persist this when BOOKER can hand off.
-    return bool(offer.get("booking_request_url") and
-                (offer.get("booking_supplier") or offer.get("airline")))
+    """Public deal cards must contain a complete round trip."""
+    return _strict_public_offer(offer)
 
 
 def _offer_has_baggage_pricing_when_needed(offer):
@@ -630,6 +641,9 @@ def deals():
             trip["needs_fresh_search"] = not bool(trip["offers"])
             trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
             personal_trips.append(trip)
+    # FINAL QA GATE: sanitize both lists immediately before rendering.
+    offers = [o for o in offers if _strict_public_offer(o)]
+    previous_offers = [o for o in previous_offers if _strict_public_offer(o)]
     member = _current_member() if session.get("member_id") else None
     return render_template("deals.html", offers=offers, previous_offers=previous_offers,
                            personal_trips=personal_trips, member=member)
