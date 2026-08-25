@@ -94,8 +94,8 @@ def _summarize_flight(item: dict) -> dict:
         "airline_code": _airline_code(first),
         "flight_number": first.get("flight_number"),
         "departure_airport": dep.get("id"), "departure_airport_name": AIRPORT_NAMES.get(dep.get("id"), dep.get("id")),
-        "departure_time": dep.get("time"), "arrival_airport": arr.get("id"),
-        "arrival_airport_name": AIRPORT_NAMES.get(arr.get("id"), arr.get("id")), "arrival_time": arr.get("time"),
+        "departure_time": dep.get("time"), "departure_date": str(dep.get("time") or "")[:10] or None, "arrival_airport": arr.get("id"),
+        "arrival_airport_name": AIRPORT_NAMES.get(arr.get("id"), arr.get("id")), "arrival_time": arr.get("time"), "arrival_date": str(arr.get("time") or "")[:10] or None,
         "total_duration_minutes": total, "actual_flight_duration_minutes": actual, "stops": len(layovers),
         "is_direct": len(layovers) == 0, "connections": connections,
         "return_departure_time": (return_summary or {}).get("departure_time"),
@@ -436,6 +436,7 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
             combo["price"] = inbound_item.get("price")
             combo["return_departure_time"] = inbound_summary.get("departure_time")
             combo["return_arrival_time"] = inbound_summary.get("arrival_time")
+            combo["return_arrival_date"] = inbound_summary.get("arrival_date")
             combo["return_airline"] = inbound_summary.get("airline")
             combo["return_airline_logo"] = inbound_summary.get("airline_logo")
             combo["return_stops"] = inbound_summary.get("stops")

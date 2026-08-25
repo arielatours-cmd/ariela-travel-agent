@@ -76,68 +76,63 @@ def _priority(part: dict, preferred_supplier: str) -> tuple[int, float]:
 
 
 def resolve_booking_target(offer: dict) -> BookerTarget:
-    """Resolve the most actionable target for this exact deal.
+    """Open Ariella's recommended supplier, not a marketplace of alternatives.
 
-    Priority:
-    1. exact stored actionable supplier handoff
-    2. refreshed booking-token options, avoiding known broken direct flows
-    3. Google Flights/result context fallback
+    BOOKER's responsibility ends when the customer reaches the recommended
+    supplier with the correct route/dates and can choose the supplier's offered
+    flight time/fare family. The customer then controls fare upgrades and payment.
     """
-    preferred = _norm(offer.get("booking_supplier"))
+    recommended = str(offer.get("booking_supplier") or offer.get("airline") or "").strip()
+    preferred = _norm(recommended)
     stored_url = offer.get("booking_request_url")
     stored_post = offer.get("booking_request_post_data")
-    stored_supplier = _norm(offer.get("booking_supplier"))
 
-    if stored_url and stored_supplier not in UNRELIABLE_DIRECT_SUPPLIERS:
+    # The booking_request saved when Ariella selected the supplier is the primary
+    # path. For airline sites (including EL AL), route/date handoff is acceptable:
+    # the airline may offer a small set of same-day flight times and fare families.
+    if stored_url:
         return BookerTarget(
             url=stored_url,
             fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
-            supplier=offer.get("booking_supplier") or offer.get("airline") or "",
-            mode="stored_exact",
+            supplier=recommended,
+            mode="recommended_supplier",
             exact=True,
         )
 
+    # Refresh the exact round-trip token, but ONLY accept Ariella's recommended
+    # supplier. Never replace it with a cheaper marketplace seller.
     token = offer.get("booking_token") or (offer.get("flight") or {}).get("booking_token")
     if token and SERPAPI_API_KEY:
         try:
             data = requests.get(
                 "https://serpapi.com/search.json",
-                params={
-                    "engine": "google_flights",
-                    "booking_token": token,
-                    "api_key": SERPAPI_API_KEY,
-                    "hl": "en", "gl": "il", "currency": "ILS",
-                },
+                params={"engine":"google_flights","booking_token":token,
+                        "api_key":SERPAPI_API_KEY,"hl":"en","gl":"il","currency":"ILS"},
                 timeout=45,
             ).json()
-            rows = []
             for group in data.get("booking_options") or []:
                 if group.get("separate_tickets"):
                     continue
                 part = group.get("together") or {}
-                req = part.get("booking_request") or {}
-                if not req.get("url"):
+                if preferred and _norm(part.get("book_with")) != preferred:
                     continue
-                rows.append((_priority(part, preferred), part, req))
-            if rows:
-                rows.sort(key=lambda x: x[0])
-                _, part, req = rows[0]
-                if not _is_unreliable_direct(part):
+                req = part.get("booking_request") or {}
+                if req.get("url"):
                     return BookerTarget(
                         url=req.get("url"),
                         fields=_request_fields(req),
-                        supplier=part.get("book_with") or offer.get("booking_supplier") or "",
-                        mode="refreshed_exact",
+                        supplier=part.get("book_with") or recommended,
+                        mode="recommended_supplier_refreshed",
                         exact=True,
                     )
         except Exception:
             pass
 
+    # Do not expose competing booking suppliers. If the recommended supplier
+    # handoff is unavailable, fail closed back to Ariella rather than showing a
+    # marketplace that can confuse the customer.
     return BookerTarget(
-        url=offer.get("booking_url"),
-        fields=[],
-        supplier="Google Flights",
-        mode="results_fallback",
-        exact=False,
-        note="הספק הישיר לא מאפשר כרגע מעבר אמין לטיסות שנבחרו מראש.",
+        url=None, fields=[], supplier=recommended,
+        mode="recommended_supplier_unavailable", exact=False,
+        note="מסלול ההזמנה אצל הספק המומלץ אינו זמין כרגע.",
     )
