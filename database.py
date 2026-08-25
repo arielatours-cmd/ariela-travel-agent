@@ -83,7 +83,8 @@ def init_db() -> None:
                 searches_completed INTEGER NOT NULL DEFAULT 0,
                 offers_found INTEGER NOT NULL DEFAULT 0,
                 errors INTEGER NOT NULL DEFAULT 0,
-                error_message TEXT
+                error_message TEXT,
+                last_progress_at TEXT
             );
 
             CREATE TABLE IF NOT EXISTS offers (
@@ -261,6 +262,11 @@ def init_db() -> None:
         if "free_scan_last_status" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN free_scan_last_status TEXT")
 
+        scan_columns = {row["name"] for row in conn.execute("PRAGMA table_info(scan_runs)").fetchall()}
+        if "last_progress_at" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN last_progress_at TEXT")
+            conn.execute("UPDATE scan_runs SET last_progress_at=started_at WHERE last_progress_at IS NULL")
+
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
             conn.execute("ALTER TABLE offers ADD COLUMN trip_id INTEGER")
@@ -278,8 +284,8 @@ def init_db() -> None:
 def create_scan_run(searches_planned: int) -> int:
     with connection() as conn:
         cur = conn.execute(
-            "INSERT INTO scan_runs(started_at,status,searches_planned) VALUES(?,?,?)",
-            (utc_now_iso(), "running", searches_planned),
+            "INSERT INTO scan_runs(started_at,status,searches_planned,last_progress_at) VALUES(?,?,?,?)",
+            (utc_now_iso(), "running", searches_planned, utc_now_iso()),
         )
         return int(cur.lastrowid)
 
@@ -290,16 +296,16 @@ def finish_scan_run(run_id: int, completed: int, offers: int, errors: int, error
         planned = int(row["searches_planned"] or 0) if row else completed
         status = "success" if errors == 0 and completed >= planned else "partial" if completed > 0 else "failed"
         conn.execute(
-            """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=? WHERE id=?""",
-            (utc_now_iso(), status, completed, offers, errors, error_message, run_id),
+            """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=?,last_progress_at=? WHERE id=?""",
+            (utc_now_iso(), status, completed, offers, errors, error_message, utc_now_iso(), run_id),
         )
 
 
 def update_scan_progress(run_id: int, completed: int, offers: int, errors: int) -> None:
     with connection() as conn:
         conn.execute(
-            "UPDATE scan_runs SET searches_completed=?,offers_found=?,errors=? WHERE id=?",
-            (completed, offers, errors, run_id),
+            "UPDATE scan_runs SET searches_completed=?,offers_found=?,errors=?,last_progress_at=? WHERE id=?",
+            (completed, offers, errors, utc_now_iso(), run_id),
         )
 
 
@@ -697,13 +703,15 @@ def latest_scan_cycle_index() -> int:
 
 
 def recent_scan_runs(limit: int = 20) -> list[dict]:
-    # A web worker can be restarted mid-scan. Do not leave such rows as "running" forever.
-    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
+    # A genuinely interrupted worker should not stay "running" forever.
+    # Use progress heartbeat, not the original start time: a healthy 25-minute
+    # wide scan must remain running while it continues making progress.
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=8)).isoformat()
     with connection() as conn:
         conn.execute(
             """UPDATE scan_runs
                SET status='failed', finished_at=?, error_message=COALESCE(error_message,'Scan interrupted before completion')
-               WHERE status='running' AND started_at < ?""",
+               WHERE status='running' AND COALESCE(last_progress_at, started_at) < ?""",
             (utc_now_iso(), cutoff),
         )
         rows = conn.execute(

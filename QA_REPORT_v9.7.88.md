@@ -1,4 +1,4 @@
-# Ariella QA Report — v9.7.88
+# Ariella QA Report — v9.7.89
 
 ## QA scope
 Code audit + deterministic integration tests for scan robustness, scoring, DB-first flow, My Vacations display logic, no-result alternatives, filters, admin controls, baggage fallback, and direct booking handoff.

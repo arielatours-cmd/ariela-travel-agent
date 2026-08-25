@@ -253,6 +253,8 @@ tbody tr:hover{background:#fafbfe}
 .admin-head-filter{vertical-align:top}
 .admin-head-filter .head-sort{background:transparent;color:#182033;padding:0;border:0;font-weight:800;cursor:pointer}
 .admin-head-filter input,.admin-head-filter select{display:block;width:100%;margin-top:6px;border:1px solid #d9dfe8;border-radius:6px;padding:5px 6px;background:#fff;font-size:11px}
+.qa-test-mode{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 14px;padding:10px 12px;border:1px solid #d9dfe8;border-radius:9px;background:#fff}
+.qa-test-mode.active{border-color:#c48a1b;background:#fff8e8}.qa-test-mode form{margin:0}
 </style>
 </head>
 <body>
@@ -301,7 +303,15 @@ tbody tr:hover{background:#fafbfe}
     <button class="secondary" onclick="buildBatch()">בנה רשימה יומית</button>
     <a class="btn secondary" href="/daily-preview" target="_blank">תצוגת WhatsApp</a>
 </div>
-<div id="actionStatus" class="status"></div><form method="post" action="/admin/clear-test-vacations{% if token %}?token={{ token }}{% endif %}" onsubmit="return confirm('למחוק את כל חופשות הבדיקה? הדילים הכלליים והסריקות יישארו.');" style="margin:10px 0 14px">
+<div id="actionStatus" class="status"></div><div class="qa-test-mode {% if test_mode %}active{% endif %}">
+  <strong>מצב בדיקות: {{ 'פעיל — דילים 65+ מוצגים באתר' if test_mode else 'כבוי — סף הייצור 70' }}</strong>
+  <form method="post" action="/admin/toggle-test-mode{% if token %}?token={{ token }}{% endif %}">
+    <button type="submit" class="{{ 'secondary' if test_mode else '' }}">
+      {{ 'כבה מצב בדיקות' if test_mode else 'הפעל מצב בדיקות (65+)' }}
+    </button>
+  </form>
+</div>
+<form method="post" action="/admin/clear-test-vacations{% if token %}?token={{ token }}{% endif %}" onsubmit="return confirm('למחוק את כל חופשות הבדיקה? הדילים הכלליים והסריקות יישארו.');" style="margin:10px 0 14px">
   <input type="hidden" name="token" value="{{ token }}">
   <button type="submit" class="secondary">נקה חופשות בדיקה</button>
 </form>
@@ -623,7 +633,7 @@ function sortDestination(){
 """
 
 
-def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_count=0, analytics=None, token=""):
+def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_count=0, analytics=None, test_mode=False, token=""):
     offers = sorted(
         offers,
         key=lambda offer: float(offer.get("score") or 0),

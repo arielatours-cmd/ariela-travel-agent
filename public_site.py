@@ -17,12 +17,17 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting
 from scanner import run_customer_trip_search
 
 
 
 site = Blueprint("site", __name__)
+
+def _public_deal_threshold():
+    """Production stays at MIN_DEAL_SCORE; QA test mode can temporarily expose 65+."""
+    enabled = str(get_setting("qa_test_mode", "0") or "0") == "1"
+    return 65 if enabled else MIN_DEAL_SCORE
 
 @site.before_request
 def _track_public_visit():
@@ -536,13 +541,13 @@ def home():
         # Bare site URL and ?lang=he always open the Hebrew homepage.
         session["lang"] = "he"
 
-    offers = recent_offers(limit=3, minimum_score=MIN_DEAL_SCORE)
+    offers = recent_offers(limit=3, minimum_score=_public_deal_threshold())
     return render_template("home.html", offers=offers)
 
 
 @site.get("/deals")
 def deals():
-    all_qualified = [_localize_offer_airports(o) for o in recent_offers(limit=120, minimum_score=MIN_DEAL_SCORE)]
+    all_qualified = [_localize_offer_airports(o) for o in recent_offers(limit=120, minimum_score=_public_deal_threshold())]
 
     # Current deals = qualified deals from today's scan batch.
     # We deliberately use the latest scan id instead of timestamp parsing so

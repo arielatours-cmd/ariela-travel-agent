@@ -14,7 +14,7 @@ from config import (
 from daily import prepare_daily_batch
 from database import (
     all_settings, dashboard_stats, business_analytics, get_daily_batch, init_db, latest_scan_run,
-    recent_feedback, recent_offers, recent_scan_runs, set_setting, connection,
+    recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
@@ -134,6 +134,17 @@ def clear_test_vacations():
     return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
 
 
+@app.post("/admin/toggle-test-mode")
+def toggle_test_mode():
+    denied = _require_admin()
+    if denied:
+        return denied
+    current = str(get_setting("qa_test_mode", "0") or "0") == "1"
+    set_setting("qa_test_mode", "0" if current else "1")
+    supplied = request.args.get("token") or ""
+    return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
+
+
 @app.get("/admin")
 def admin_dashboard():
     denied = _require_admin()
@@ -144,6 +155,7 @@ def admin_dashboard():
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(50),
         scans=recent_scan_runs(20),
         feedback_count=unread_feedback_count(),
+        test_mode=str(get_setting("qa_test_mode", "0") or "0") == "1",
         token=request.args.get("token", ""),
     )
 
