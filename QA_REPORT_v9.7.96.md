@@ -1,9 +1,9 @@
-# Ariella QA — v9.7.103
+# Ariella QA — v9.7.104
 
 ## Previous-deals leak fixed
 Live QA on v9.7.95 showed incomplete legacy Wizz offers still rendering under "Previous deals".
 
-v9.7.103 hardens the gate at three levels:
+v9.7.104 hardens the gate at three levels:
 1. Candidate offers are localized/mapped first, then filtered through the public-bookability rule.
 2. Both `offers` and `previous_offers` independently re-check the same rule at the split point.
 3. The previous-deals template loop also refuses rows without return departure/arrival times.

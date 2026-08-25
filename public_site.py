@@ -415,7 +415,11 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
 
     pinned_ids = _saved_match_offer_ids(trip)
     if pinned_ids:
-        by_id = {int(o.get("offer_id")): o for o in all_offers if o.get("offer_id") is not None}
+        by_id = {
+            int(o.get("offer_id") or o.get("id")): o
+            for o in all_offers
+            if (o.get("offer_id") or o.get("id")) is not None
+        }
         for oid in pinned_ids:
             offer = by_id.get(oid)
             if not offer or not _offer_is_recent(offer, 48):
@@ -1086,7 +1090,11 @@ def _month_shift(month_value, delta):
 
 
 def _pin_offer_ids_to_trip(trip_id, answers, offers):
-    ids = [int(o["offer_id"]) for o in offers if o.get("offer_id") is not None][:5]
+    ids = [
+        int(o.get("offer_id") or o.get("id"))
+        for o in offers
+        if (o.get("offer_id") or o.get("id")) is not None
+    ][:5]
     if ids:
         answers["_matched_offer_ids"] = ids
     with _db() as conn:
@@ -1373,7 +1381,11 @@ def new_trip():
         scan_status = "database_match" if existing_matches else "no_database_match"
         scan_count = 0
         if existing_matches:
-            matched_ids = [int(o["offer_id"]) for o in existing_matches if o.get("offer_id") is not None]
+            matched_ids = [
+                int(o.get("offer_id") or o.get("id"))
+                for o in existing_matches
+                if (o.get("offer_id") or o.get("id")) is not None
+            ]
             payload["_matched_offer_ids"] = matched_ids
             with _db() as conn:
                 conn.execute(

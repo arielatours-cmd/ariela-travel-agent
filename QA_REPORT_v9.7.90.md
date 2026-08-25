@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.103
+# Ariella QA — v9.7.104
 
 - Expanded destination airport catalogue from 36 to 124 airports.
 - Added Tbilisi (TBS) and Batumi (BUS), both currently served nonstop from TLV.

@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.103
+# Ariella QA — v9.7.104
 
 PASS:
 - BOTH alternative buttons perform a 48-hour DB inventory lookup before any API search.
