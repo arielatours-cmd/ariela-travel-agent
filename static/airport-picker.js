@@ -1,4 +1,13 @@
 
+  const AIRPORT_ALIASES = {
+    TBS: ['georgia','georgian','tiflis','גאורגיה','גיאורגיה','טביליסי','תביליסי'],
+    BUS: ['georgia','georgian','גאורגיה','גיאורגיה','בטומי','באטומי'],
+    RMO: ['chisinau','kishinev','קישינב','קישינאו'],
+    EVN: ['yerevan','erevan','ירוואן','ירבן'],
+    SKG: ['thessaloniki','saloniki','סלוניקי'],
+    ATH: ['athens','אתונה'],
+    OTP: ['bucharest','בוקרשט']
+  };
 (function(){
   const lang=document.documentElement.lang==='en'?'en':'he';
   let data=[];
@@ -93,7 +102,7 @@
 
         const hits=data.filter(a=>
           !selected.includes(a.code) &&
-          [a.code,a.city_en,a.city_he,a.name_en,a.name_he,a.country,a.country_en,a.country_he]
+          [a.code,a.city_en,a.city_he,a.name_en,a.name_he,a.country,a.country_en,a.country_he,...(AIRPORT_ALIASES[a.code]||[])]
             .some(v=>(v||'').toLowerCase().includes(q))
         ).slice(0,10);
 

@@ -20,6 +20,186 @@
     "country_he": "ישראל"
   },
   {
+    "code": "TIA",
+    "city_en": "Tirana",
+    "city_he": "טירנה",
+    "name_en": "Tirana International Airport",
+    "name_he": "נמל התעופה הבינלאומי טירנה",
+    "country": "AL",
+    "country_en": "Albania",
+    "country_he": "אלבניה"
+  },
+  {
+    "code": "EZE",
+    "city_en": "Buenos Aires",
+    "city_he": "בואנוס איירס",
+    "name_en": "Ministro Pistarini International Airport",
+    "name_he": "נמל התעופה הבינלאומי בואנוס איירס",
+    "country": "AR",
+    "country_en": "Argentina",
+    "country_he": "ארגנטינה"
+  },
+  {
+    "code": "EVN",
+    "city_en": "Yerevan",
+    "city_he": "ירוואן",
+    "name_en": "Zvartnots International Airport",
+    "name_he": "נמל התעופה הבינלאומי זווארטנוץ",
+    "country": "AM",
+    "country_en": "Armenia",
+    "country_he": "ארמניה"
+  },
+  {
+    "code": "SZG",
+    "city_en": "Salzburg",
+    "city_he": "זלצבורג",
+    "name_en": "Salzburg Airport",
+    "name_he": "נמל התעופה זלצבורג",
+    "country": "AT",
+    "country_en": "Austria",
+    "country_he": "אוסטריה"
+  },
+  {
+    "code": "VIE",
+    "city_en": "Vienna",
+    "city_he": "וינה",
+    "name_en": "Vienna International Airport",
+    "name_he": "נמל התעופה הבינלאומי וינה",
+    "country": "AT",
+    "country_en": "Austria",
+    "country_he": "אוסטריה"
+  },
+  {
+    "code": "GYD",
+    "city_en": "Baku",
+    "city_he": "באקו",
+    "name_en": "Heydar Aliyev International Airport",
+    "name_he": "נמל התעופה הבינלאומי היידר אלייב",
+    "country": "AZ",
+    "country_en": "Azerbaijan",
+    "country_he": "אזרבייג'ן"
+  },
+  {
+    "code": "BRU",
+    "city_en": "Brussels",
+    "city_he": "בריסל",
+    "name_en": "Brussels Airport",
+    "name_he": "נמל התעופה בריסל",
+    "country": "BE",
+    "country_en": "Belgium",
+    "country_he": "בלגיה"
+  },
+  {
+    "code": "GRU",
+    "city_en": "Sao Paulo",
+    "city_he": "סאו פאולו",
+    "name_en": "Sao Paulo Guarulhos International Airport",
+    "name_he": "נמל התעופה הבינלאומי סאו פאולו גוארוליוס",
+    "country": "BR",
+    "country_en": "Brazil",
+    "country_he": "ברזיל"
+  },
+  {
+    "code": "BOJ",
+    "city_en": "Burgas",
+    "city_he": "בורגס",
+    "name_en": "Burgas Airport",
+    "name_he": "נמל התעופה בורגס",
+    "country": "BG",
+    "country_en": "Bulgaria",
+    "country_he": "בולגריה"
+  },
+  {
+    "code": "SOF",
+    "city_en": "Sofia",
+    "city_he": "סופיה",
+    "name_en": "Sofia Airport",
+    "name_he": "נמל התעופה סופיה",
+    "country": "BG",
+    "country_en": "Bulgaria",
+    "country_he": "בולגריה"
+  },
+  {
+    "code": "VAR",
+    "city_en": "Varna",
+    "city_he": "ורנה",
+    "name_en": "Varna Airport",
+    "name_he": "נמל התעופה ורנה",
+    "country": "BG",
+    "country_en": "Bulgaria",
+    "country_he": "בולגריה"
+  },
+  {
+    "code": "YUL",
+    "city_en": "Montreal",
+    "city_he": "מונטריאול",
+    "name_en": "Montreal Trudeau International Airport",
+    "name_he": "נמל התעופה הבינלאומי מונטריאול טרודו",
+    "country": "CA",
+    "country_en": "Canada",
+    "country_he": "קנדה"
+  },
+  {
+    "code": "YYZ",
+    "city_en": "Toronto",
+    "city_he": "טורונטו",
+    "name_en": "Toronto Pearson International Airport",
+    "name_he": "נמל התעופה הבינלאומי טורונטו פירסון",
+    "country": "CA",
+    "country_en": "Canada",
+    "country_he": "קנדה"
+  },
+  {
+    "code": "PEK",
+    "city_en": "Beijing",
+    "city_he": "בייג'ינג",
+    "name_en": "Beijing Capital International Airport",
+    "name_he": "נמל התעופה הבינלאומי בייג'ינג קפיטל",
+    "country": "CN",
+    "country_en": "China",
+    "country_he": "סין"
+  },
+  {
+    "code": "SZX",
+    "city_en": "Shenzhen",
+    "city_he": "שנזן",
+    "name_en": "Shenzhen Bao'an International Airport",
+    "name_he": "נמל התעופה הבינלאומי שנזן",
+    "country": "CN",
+    "country_en": "China",
+    "country_he": "סין"
+  },
+  {
+    "code": "DBV",
+    "city_en": "Dubrovnik",
+    "city_he": "דוברובניק",
+    "name_en": "Dubrovnik Airport",
+    "name_he": "נמל התעופה דוברובניק",
+    "country": "HR",
+    "country_en": "Croatia",
+    "country_he": "קרואטיה"
+  },
+  {
+    "code": "SPU",
+    "city_en": "Split",
+    "city_he": "ספליט",
+    "name_en": "Split Airport",
+    "name_he": "נמל התעופה ספליט",
+    "country": "HR",
+    "country_en": "Croatia",
+    "country_he": "קרואטיה"
+  },
+  {
+    "code": "ZAG",
+    "city_en": "Zagreb",
+    "city_he": "זאגרב",
+    "name_en": "Zagreb Airport",
+    "name_he": "נמל התעופה זאגרב",
+    "country": "HR",
+    "country_en": "Croatia",
+    "country_he": "קרואטיה"
+  },
+  {
     "code": "LCA",
     "city_en": "Larnaca",
     "city_he": "לרנקה",
@@ -40,74 +220,94 @@
     "country_he": "קפריסין"
   },
   {
-    "code": "LHR",
-    "city_en": "London",
-    "city_he": "לונדון",
-    "name_en": "Heathrow Airport",
-    "name_he": "נמל התעופה הית'רו",
-    "country": "GB",
-    "country_en": "United Kingdom",
-    "country_he": "בריטניה"
+    "code": "PRG",
+    "city_en": "Prague",
+    "city_he": "פראג",
+    "name_en": "Václav Havel Airport Prague",
+    "name_he": "נמל התעופה ואצלב האוול פראג",
+    "country": "CZ",
+    "country_en": "Czech Republic",
+    "country_he": "צ׳כיה"
   },
   {
-    "code": "LGW",
-    "city_en": "London",
-    "city_he": "לונדון",
-    "name_en": "Gatwick Airport",
-    "name_he": "נמל התעופה גטוויק",
-    "country": "GB",
-    "country_en": "United Kingdom",
-    "country_he": "בריטניה"
+    "code": "CPH",
+    "city_en": "Copenhagen",
+    "city_he": "קופנהגן",
+    "name_en": "Copenhagen Airport",
+    "name_he": "נמל התעופה קופנהגן",
+    "country": "DK",
+    "country_en": "Denmark",
+    "country_he": "דנמרק"
   },
   {
-    "code": "STN",
-    "city_en": "London",
-    "city_he": "לונדון",
-    "name_en": "Stansted Airport",
-    "name_he": "נמל התעופה סטנסטד",
-    "country": "GB",
-    "country_en": "United Kingdom",
-    "country_he": "בריטניה"
+    "code": "CAI",
+    "city_en": "Cairo",
+    "city_he": "קהיר",
+    "name_en": "Cairo International Airport",
+    "name_he": "נמל התעופה הבינלאומי קהיר",
+    "country": "EG",
+    "country_en": "Egypt",
+    "country_he": "מצרים"
   },
   {
-    "code": "LTN",
-    "city_en": "London",
-    "city_he": "לונדון",
-    "name_en": "Luton Airport",
-    "name_he": "נמל התעופה לוטון",
-    "country": "GB",
-    "country_en": "United Kingdom",
-    "country_he": "בריטניה"
+    "code": "SSH",
+    "city_en": "Sharm el-Sheikh",
+    "city_he": "שארם א-שייח'",
+    "name_en": "Sharm El Sheikh International Airport",
+    "name_he": "נמל התעופה הבינלאומי שארם א-שייח'",
+    "country": "EG",
+    "country_en": "Egypt",
+    "country_he": "מצרים"
   },
   {
-    "code": "JFK",
-    "city_en": "New York",
-    "city_he": "ניו יורק",
-    "name_en": "John F. Kennedy International Airport",
-    "name_he": "נמל התעופה ג'ון פ. קנדי",
-    "country": "US",
-    "country_en": "United States",
-    "country_he": "ארצות הברית"
+    "code": "ADD",
+    "city_en": "Addis Ababa",
+    "city_he": "אדיס אבבה",
+    "name_en": "Addis Ababa Bole International Airport",
+    "name_he": "נמל התעופה הבינלאומי אדיס אבבה בולה",
+    "country": "ET",
+    "country_en": "Ethiopia",
+    "country_he": "אתיופיה"
   },
   {
-    "code": "EWR",
-    "city_en": "Newark",
-    "city_he": "ניוארק",
-    "name_en": "Newark Liberty International Airport",
-    "name_he": "נמל התעופה ניוארק ליברטי",
-    "country": "US",
-    "country_en": "United States",
-    "country_he": "ארצות הברית"
+    "code": "HEL",
+    "city_en": "Helsinki",
+    "city_he": "הלסינקי",
+    "name_en": "Helsinki Airport",
+    "name_he": "נמל התעופה הלסינקי",
+    "country": "FI",
+    "country_en": "Finland",
+    "country_he": "פינלנד"
   },
   {
-    "code": "LGA",
-    "city_en": "New York",
-    "city_he": "ניו יורק",
-    "name_en": "LaGuardia Airport",
-    "name_he": "נמל התעופה לה גוארדיה",
-    "country": "US",
-    "country_en": "United States",
-    "country_he": "ארצות הברית"
+    "code": "LYS",
+    "city_en": "Lyon",
+    "city_he": "ליון",
+    "name_en": "Lyon Saint-Exupery Airport",
+    "name_he": "נמל התעופה ליון סנט אקזופרי",
+    "country": "FR",
+    "country_en": "France",
+    "country_he": "צרפת"
+  },
+  {
+    "code": "MRS",
+    "city_en": "Marseille",
+    "city_he": "מרסיי",
+    "name_en": "Marseille Provence Airport",
+    "name_he": "נמל התעופה מרסיי פרובאנס",
+    "country": "FR",
+    "country_en": "France",
+    "country_he": "צרפת"
+  },
+  {
+    "code": "NCE",
+    "city_en": "Nice",
+    "city_he": "ניס",
+    "name_en": "Nice Cote d'Azur Airport",
+    "name_he": "נמל התעופה ניס קוט ד'אזור",
+    "country": "FR",
+    "country_en": "France",
+    "country_he": "צרפת"
   },
   {
     "code": "CDG",
@@ -130,154 +330,54 @@
     "country_he": "צרפת"
   },
   {
-    "code": "FCO",
-    "city_en": "Rome",
-    "city_he": "רומא",
-    "name_en": "Leonardo da Vinci–Fiumicino Airport",
-    "name_he": "נמל התעופה פיומיצ'ינו",
-    "country": "IT",
-    "country_en": "Italy",
-    "country_he": "איטליה"
+    "code": "TLS",
+    "city_en": "Toulouse",
+    "city_he": "טולוז",
+    "name_en": "Toulouse Blagnac Airport",
+    "name_he": "נמל התעופה טולוז בלניאק",
+    "country": "FR",
+    "country_en": "France",
+    "country_he": "צרפת"
   },
   {
-    "code": "MXP",
-    "city_en": "Milan",
-    "city_he": "מילאנו",
-    "name_en": "Milan Malpensa Airport",
-    "name_he": "נמל התעופה מלפנסה",
-    "country": "IT",
-    "country_en": "Italy",
-    "country_he": "איטליה"
+    "code": "BUS",
+    "city_en": "Batumi",
+    "city_he": "בטומי",
+    "name_en": "Batumi International Airport",
+    "name_he": "נמל התעופה הבינלאומי בטומי",
+    "country": "GE",
+    "country_en": "Georgia",
+    "country_he": "גאורגיה"
   },
   {
-    "code": "ATH",
-    "city_en": "Athens",
-    "city_he": "אתונה",
-    "name_en": "Athens International Airport",
-    "name_he": "נמל התעופה הבינלאומי אתונה",
-    "country": "GR",
-    "country_en": "Greece",
-    "country_he": "יוון"
+    "code": "TBS",
+    "city_en": "Tbilisi",
+    "city_he": "טביליסי",
+    "name_en": "Tbilisi International Airport",
+    "name_he": "נמל התעופה הבינלאומי טביליסי",
+    "country": "GE",
+    "country_en": "Georgia",
+    "country_he": "גאורגיה"
   },
   {
-    "code": "SKG",
-    "city_en": "Thessaloniki",
-    "city_he": "סלוניקי",
-    "name_en": "Thessaloniki Airport",
-    "name_he": "נמל התעופה סלוניקי",
-    "country": "GR",
-    "country_en": "Greece",
-    "country_he": "יוון"
+    "code": "BER",
+    "city_en": "Berlin",
+    "city_he": "ברלין",
+    "name_en": "Berlin Brandenburg Airport",
+    "name_he": "נמל התעופה ברלין ברנדנבורג",
+    "country": "DE",
+    "country_en": "Germany",
+    "country_he": "גרמניה"
   },
   {
-    "code": "IST",
-    "city_en": "Istanbul",
-    "city_he": "איסטנבול",
-    "name_en": "Istanbul Airport",
-    "name_he": "נמל התעופה איסטנבול",
-    "country": "TR",
-    "country_en": "Turkey",
-    "country_he": "טורקיה"
-  },
-  {
-    "code": "SAW",
-    "city_en": "Istanbul",
-    "city_he": "איסטנבול",
-    "name_en": "Sabiha Gökçen International Airport",
-    "name_he": "נמל התעופה סביהה גקצ'ן",
-    "country": "TR",
-    "country_en": "Turkey",
-    "country_he": "טורקיה"
-  },
-  {
-    "code": "DXB",
-    "city_en": "Dubai",
-    "city_he": "דובאי",
-    "name_en": "Dubai International Airport",
-    "name_he": "נמל התעופה הבינלאומי דובאי",
-    "country": "AE",
-    "country_en": "United Arab Emirates",
-    "country_he": "איחוד האמירויות"
-  },
-  {
-    "code": "AUH",
-    "city_en": "Abu Dhabi",
-    "city_he": "אבו דאבי",
-    "name_en": "Zayed International Airport",
-    "name_he": "נמל התעופה הבינלאומי זאיד",
-    "country": "AE",
-    "country_en": "United Arab Emirates",
-    "country_he": "איחוד האמירויות"
-  },
-  {
-    "code": "BKK",
-    "city_en": "Bangkok",
-    "city_he": "בנגקוק",
-    "name_en": "Suvarnabhumi Airport",
-    "name_he": "נמל התעופה סוברנבהומי",
-    "country": "TH",
-    "country_en": "Thailand",
-    "country_he": "תאילנד"
-  },
-  {
-    "code": "HKT",
-    "city_en": "Phuket",
-    "city_he": "פוקט",
-    "name_en": "Phuket International Airport",
-    "name_he": "נמל התעופה הבינלאומי פוקט",
-    "country": "TH",
-    "country_en": "Thailand",
-    "country_he": "תאילנד"
-  },
-  {
-    "code": "CNX",
-    "city_en": "Chiang Mai",
-    "city_he": "צ'יאנג מאי",
-    "name_en": "Chiang Mai International Airport",
-    "name_he": "נמל התעופה הבינלאומי צ'יאנג מאי",
-    "country": "TH",
-    "country_en": "Thailand",
-    "country_he": "תאילנד"
-  },
-  {
-    "code": "PRG",
-    "city_en": "Prague",
-    "city_he": "פראג",
-    "name_en": "Václav Havel Airport Prague",
-    "name_he": "נמל התעופה ואצלב האוול פראג",
-    "country": "CZ",
-    "country_en": "Czech Republic",
-    "country_he": "צ׳כיה"
-  },
-  {
-    "code": "VIE",
-    "city_en": "Vienna",
-    "city_he": "וינה",
-    "name_en": "Vienna International Airport",
-    "name_he": "נמל התעופה הבינלאומי וינה",
-    "country": "AT",
-    "country_en": "Austria",
-    "country_he": "אוסטריה"
-  },
-  {
-    "code": "BUD",
-    "city_en": "Budapest",
-    "city_he": "בודפשט",
-    "name_en": "Budapest Ferenc Liszt International Airport",
-    "name_he": "נמל התעופה פרנץ ליסט בודפשט",
-    "country": "HU",
-    "country_en": "Hungary",
-    "country_he": "הונגריה"
-  },
-  {
-    "code": "AMS",
-    "city_en": "Amsterdam",
-    "city_he": "אמסטרדם",
-    "name_en": "Amsterdam Airport Schiphol",
-    "name_he": "נמל התעופה סכיפהול",
-    "country": "NL",
-    "country_en": "Netherlands",
-    "country_he": "הולנד"
+    "code": "DUS",
+    "city_en": "Dusseldorf",
+    "city_he": "דיסלדורף",
+    "name_en": "Dusseldorf Airport",
+    "name_he": "נמל התעופה דיסלדורף",
+    "country": "DE",
+    "country_en": "Germany",
+    "country_he": "גרמניה"
   },
   {
     "code": "FRA",
@@ -300,24 +400,434 @@
     "country_he": "גרמניה"
   },
   {
-    "code": "MAD",
-    "city_en": "Madrid",
-    "city_he": "מדריד",
-    "name_en": "Adolfo Suárez Madrid–Barajas Airport",
-    "name_he": "נמל התעופה מדריד-בראחס",
-    "country": "ES",
-    "country_en": "Spain",
-    "country_he": "ספרד"
+    "code": "ATH",
+    "city_en": "Athens",
+    "city_he": "אתונה",
+    "name_en": "Athens International Airport",
+    "name_he": "נמל התעופה הבינלאומי אתונה",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
   },
   {
-    "code": "BCN",
-    "city_en": "Barcelona",
-    "city_he": "ברצלונה",
-    "name_en": "Barcelona–El Prat Airport",
-    "name_he": "נמל התעופה ברצלונה אל פראט",
-    "country": "ES",
-    "country_en": "Spain",
-    "country_he": "ספרד"
+    "code": "CHQ",
+    "city_en": "Chania",
+    "city_he": "חאניה",
+    "name_en": "Chania International Airport",
+    "name_he": "נמל התעופה הבינלאומי חאניה",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "CFU",
+    "city_en": "Corfu",
+    "city_he": "קורפו",
+    "name_en": "Corfu International Airport",
+    "name_he": "נמל התעופה הבינלאומי קורפו",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "HER",
+    "city_en": "Heraklion",
+    "city_he": "הרקליון",
+    "name_en": "Heraklion International Airport",
+    "name_he": "נמל התעופה הבינלאומי הרקליון",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "EFL",
+    "city_en": "Kefalonia",
+    "city_he": "קפלוניה",
+    "name_en": "Kefalonia Airport",
+    "name_he": "נמל התעופה קפלוניה",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "KGS",
+    "city_en": "Kos",
+    "city_he": "קוס",
+    "name_en": "Kos International Airport",
+    "name_he": "נמל התעופה הבינלאומי קוס",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "JMK",
+    "city_en": "Mykonos",
+    "city_he": "מיקונוס",
+    "name_en": "Mykonos Airport",
+    "name_he": "נמל התעופה מיקונוס",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "RHO",
+    "city_en": "Rhodes",
+    "city_he": "רודוס",
+    "name_en": "Rhodes International Airport",
+    "name_he": "נמל התעופה הבינלאומי רודוס",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "JTR",
+    "city_en": "Santorini",
+    "city_he": "סנטוריני",
+    "name_en": "Santorini Airport",
+    "name_he": "נמל התעופה סנטוריני",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "SKG",
+    "city_en": "Thessaloniki",
+    "city_he": "סלוניקי",
+    "name_en": "Thessaloniki Airport",
+    "name_he": "נמל התעופה סלוניקי",
+    "country": "GR",
+    "country_en": "Greece",
+    "country_he": "יוון"
+  },
+  {
+    "code": "HKG",
+    "city_en": "Hong Kong",
+    "city_he": "הונג קונג",
+    "name_en": "Hong Kong International Airport",
+    "name_he": "נמל התעופה הבינלאומי הונג קונג",
+    "country": "HK",
+    "country_en": "Hong Kong",
+    "country_he": "הונג קונג"
+  },
+  {
+    "code": "BUD",
+    "city_en": "Budapest",
+    "city_he": "בודפשט",
+    "name_en": "Budapest Ferenc Liszt International Airport",
+    "name_he": "נמל התעופה פרנץ ליסט בודפשט",
+    "country": "HU",
+    "country_en": "Hungary",
+    "country_he": "הונגריה"
+  },
+  {
+    "code": "DEL",
+    "city_en": "Delhi",
+    "city_he": "דלהי",
+    "name_en": "Indira Gandhi International Airport",
+    "name_he": "נמל התעופה הבינלאומי אינדירה גנדי",
+    "country": "IN",
+    "country_en": "India",
+    "country_he": "הודו"
+  },
+  {
+    "code": "GOI",
+    "city_en": "Goa",
+    "city_he": "גואה",
+    "name_en": "Goa Dabolim Airport",
+    "name_he": "נמל התעופה גואה דבולים",
+    "country": "IN",
+    "country_en": "India",
+    "country_he": "הודו"
+  },
+  {
+    "code": "BOM",
+    "city_en": "Mumbai",
+    "city_he": "מומבאי",
+    "name_en": "Chhatrapati Shivaji Maharaj International Airport",
+    "name_he": "נמל התעופה הבינלאומי מומבאי",
+    "country": "IN",
+    "country_en": "India",
+    "country_he": "הודו"
+  },
+  {
+    "code": "BGY",
+    "city_en": "Bergamo",
+    "city_he": "ברגמו",
+    "name_en": "Milan Bergamo Airport",
+    "name_he": "נמל התעופה מילאנו ברגמו",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "BLQ",
+    "city_en": "Bologna",
+    "city_he": "בולוניה",
+    "name_en": "Bologna Guglielmo Marconi Airport",
+    "name_he": "נמל התעופה בולוניה",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "CAG",
+    "city_en": "Cagliari",
+    "city_he": "קליארי",
+    "name_en": "Cagliari Elmas Airport",
+    "name_he": "נמל התעופה קליארי",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "CTA",
+    "city_en": "Catania",
+    "city_he": "קטניה",
+    "name_en": "Catania Fontanarossa Airport",
+    "name_he": "נמל התעופה קטניה",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "MXP",
+    "city_en": "Milan",
+    "city_he": "מילאנו",
+    "name_en": "Milan Malpensa Airport",
+    "name_he": "נמל התעופה מלפנסה",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "NAP",
+    "city_en": "Naples",
+    "city_he": "נאפולי",
+    "name_en": "Naples International Airport",
+    "name_he": "נמל התעופה הבינלאומי נאפולי",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "PMO",
+    "city_en": "Palermo",
+    "city_he": "פלרמו",
+    "name_en": "Palermo Airport",
+    "name_he": "נמל התעופה פלרמו",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "FCO",
+    "city_en": "Rome",
+    "city_he": "רומא",
+    "name_en": "Leonardo da Vinci–Fiumicino Airport",
+    "name_he": "נמל התעופה פיומיצ'ינו",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "VCE",
+    "city_en": "Venice",
+    "city_he": "ונציה",
+    "name_en": "Venice Marco Polo Airport",
+    "name_he": "נמל התעופה ונציה מרקו פולו",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "VRN",
+    "city_en": "Verona",
+    "city_he": "ורונה",
+    "name_en": "Verona Airport",
+    "name_he": "נמל התעופה ורונה",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "HND",
+    "city_en": "Tokyo",
+    "city_he": "טוקיו",
+    "name_en": "Haneda Airport",
+    "name_he": "נמל התעופה האנדה",
+    "country": "JP",
+    "country_en": "Japan",
+    "country_he": "יפן"
+  },
+  {
+    "code": "NRT",
+    "city_en": "Tokyo",
+    "city_he": "טוקיו",
+    "name_en": "Narita International Airport",
+    "name_he": "נמל התעופה הבינלאומי נריטה",
+    "country": "JP",
+    "country_en": "Japan",
+    "country_he": "יפן"
+  },
+  {
+    "code": "AMM",
+    "city_en": "Amman",
+    "city_he": "עמאן",
+    "name_en": "Queen Alia International Airport",
+    "name_he": "נמל התעופה הבינלאומי המלכה עאליה",
+    "country": "JO",
+    "country_en": "Jordan",
+    "country_he": "ירדן"
+  },
+  {
+    "code": "ALA",
+    "city_en": "Almaty",
+    "city_he": "אלמטי",
+    "name_en": "Almaty International Airport",
+    "name_he": "נמל התעופה הבינלאומי אלמטי",
+    "country": "KZ",
+    "country_en": "Kazakhstan",
+    "country_he": "קזחסטן"
+  },
+  {
+    "code": "NBO",
+    "city_en": "Nairobi",
+    "city_he": "ניירובי",
+    "name_en": "Jomo Kenyatta International Airport",
+    "name_he": "נמל התעופה הבינלאומי ג'ומו קניאטה",
+    "country": "KE",
+    "country_en": "Kenya",
+    "country_he": "קניה"
+  },
+  {
+    "code": "RIX",
+    "city_en": "Riga",
+    "city_he": "ריגה",
+    "name_en": "Riga International Airport",
+    "name_he": "נמל התעופה הבינלאומי ריגה",
+    "country": "LV",
+    "country_en": "Latvia",
+    "country_he": "לטביה"
+  },
+  {
+    "code": "VNO",
+    "city_en": "Vilnius",
+    "city_he": "וילנה",
+    "name_en": "Vilnius Airport",
+    "name_he": "נמל התעופה וילנה",
+    "country": "LT",
+    "country_en": "Lithuania",
+    "country_he": "ליטא"
+  },
+  {
+    "code": "MLE",
+    "city_en": "Male",
+    "city_he": "מאלה",
+    "name_en": "Velana International Airport",
+    "name_he": "נמל התעופה הבינלאומי ולנה",
+    "country": "MV",
+    "country_en": "Maldives",
+    "country_he": "המלדיביים"
+  },
+  {
+    "code": "MRU",
+    "city_en": "Mauritius",
+    "city_he": "מאוריציוס",
+    "name_en": "Sir Seewoosagur Ramgoolam International Airport",
+    "name_he": "נמל התעופה הבינלאומי מאוריציוס",
+    "country": "MU",
+    "country_en": "Mauritius",
+    "country_he": "מאוריציוס"
+  },
+  {
+    "code": "MEX",
+    "city_en": "Mexico City",
+    "city_he": "מקסיקו סיטי",
+    "name_en": "Mexico City International Airport",
+    "name_he": "נמל התעופה הבינלאומי מקסיקו סיטי",
+    "country": "MX",
+    "country_en": "Mexico",
+    "country_he": "מקסיקו"
+  },
+  {
+    "code": "RMO",
+    "city_en": "Chisinau",
+    "city_he": "קישינב",
+    "name_en": "Chisinau International Airport",
+    "name_he": "נמל התעופה הבינלאומי קישינב",
+    "country": "MD",
+    "country_en": "Moldova",
+    "country_he": "מולדובה"
+  },
+  {
+    "code": "TGD",
+    "city_en": "Podgorica",
+    "city_he": "פודגוריצה",
+    "name_en": "Podgorica Airport",
+    "name_he": "נמל התעופה פודגוריצה",
+    "country": "ME",
+    "country_en": "Montenegro",
+    "country_he": "מונטנגרו"
+  },
+  {
+    "code": "TIV",
+    "city_en": "Tivat",
+    "city_he": "טיווט",
+    "name_en": "Tivat Airport",
+    "name_he": "נמל התעופה טיווט",
+    "country": "ME",
+    "country_en": "Montenegro",
+    "country_he": "מונטנגרו"
+  },
+  {
+    "code": "AMS",
+    "city_en": "Amsterdam",
+    "city_he": "אמסטרדם",
+    "name_en": "Amsterdam Airport Schiphol",
+    "name_he": "נמל התעופה סכיפהול",
+    "country": "NL",
+    "country_en": "Netherlands",
+    "country_he": "הולנד"
+  },
+  {
+    "code": "OSL",
+    "city_en": "Oslo",
+    "city_he": "אוסלו",
+    "name_en": "Oslo Airport",
+    "name_he": "נמל התעופה אוסלו",
+    "country": "NO",
+    "country_en": "Norway",
+    "country_he": "נורווגיה"
+  },
+  {
+    "code": "KTW",
+    "city_en": "Katowice",
+    "city_he": "קטוביץ",
+    "name_en": "Katowice Airport",
+    "name_he": "נמל התעופה קטוביץ",
+    "country": "PL",
+    "country_en": "Poland",
+    "country_he": "פולין"
+  },
+  {
+    "code": "KRK",
+    "city_en": "Krakow",
+    "city_he": "קרקוב",
+    "name_en": "Krakow Airport",
+    "name_he": "נמל התעופה קרקוב",
+    "country": "PL",
+    "country_en": "Poland",
+    "country_he": "פולין"
+  },
+  {
+    "code": "WAW",
+    "city_en": "Warsaw",
+    "city_he": "ורשה",
+    "name_en": "Warsaw Chopin Airport",
+    "name_he": "נמל התעופה ורשה שופן",
+    "country": "PL",
+    "country_en": "Poland",
+    "country_he": "פולין"
   },
   {
     "code": "LIS",
@@ -330,24 +840,14 @@
     "country_he": "פורטוגל"
   },
   {
-    "code": "ZAG",
-    "city_en": "Zagreb",
-    "city_he": "זאגרב",
-    "name_en": "Zagreb Airport",
-    "name_he": "נמל התעופה זאגרב",
-    "country": "HR",
-    "country_en": "Croatia",
-    "country_he": "קרואטיה"
-  },
-  {
-    "code": "DBV",
-    "city_en": "Dubrovnik",
-    "city_he": "דוברובניק",
-    "name_en": "Dubrovnik Airport",
-    "name_he": "נמל התעופה דוברובניק",
-    "country": "HR",
-    "country_en": "Croatia",
-    "country_he": "קרואטיה"
+    "code": "OPO",
+    "city_en": "Porto",
+    "city_he": "פורטו",
+    "name_en": "Porto Airport",
+    "name_he": "נמל התעופה פורטו",
+    "country": "PT",
+    "country_en": "Portugal",
+    "country_he": "פורטוגל"
   },
   {
     "code": "OTP",
@@ -358,5 +858,385 @@
     "country": "RO",
     "country_en": "Romania",
     "country_he": "רומניה"
+  },
+  {
+    "code": "BEG",
+    "city_en": "Belgrade",
+    "city_he": "בלגרד",
+    "name_en": "Belgrade Nikola Tesla Airport",
+    "name_he": "נמל התעופה בלגרד ניקולה טסלה",
+    "country": "RS",
+    "country_en": "Serbia",
+    "country_he": "סרביה"
+  },
+  {
+    "code": "SEZ",
+    "city_en": "Mahe",
+    "city_he": "מאאה",
+    "name_en": "Seychelles International Airport",
+    "name_he": "נמל התעופה הבינלאומי סיישל",
+    "country": "SC",
+    "country_en": "Seychelles",
+    "country_he": "סיישל"
+  },
+  {
+    "code": "SIN",
+    "city_en": "Singapore",
+    "city_he": "סינגפור",
+    "name_en": "Singapore Changi Airport",
+    "name_he": "נמל התעופה סינגפור צ'אנגי",
+    "country": "SG",
+    "country_en": "Singapore",
+    "country_he": "סינגפור"
+  },
+  {
+    "code": "LJU",
+    "city_en": "Ljubljana",
+    "city_he": "לובליאנה",
+    "name_en": "Ljubljana Joze Pucnik Airport",
+    "name_he": "נמל התעופה לובליאנה",
+    "country": "SI",
+    "country_en": "Slovenia",
+    "country_he": "סלובניה"
+  },
+  {
+    "code": "JNB",
+    "city_en": "Johannesburg",
+    "city_he": "יוהנסבורג",
+    "name_en": "O.R. Tambo International Airport",
+    "name_he": "נמל התעופה הבינלאומי או.אר. טמבו",
+    "country": "ZA",
+    "country_en": "South Africa",
+    "country_he": "דרום אפריקה"
+  },
+  {
+    "code": "ICN",
+    "city_en": "Seoul",
+    "city_he": "סיאול",
+    "name_en": "Incheon International Airport",
+    "name_he": "נמל התעופה הבינלאומי אינצ'ון",
+    "country": "KR",
+    "country_en": "South Korea",
+    "country_he": "קוריאה הדרומית"
+  },
+  {
+    "code": "BCN",
+    "city_en": "Barcelona",
+    "city_he": "ברצלונה",
+    "name_en": "Barcelona–El Prat Airport",
+    "name_he": "נמל התעופה ברצלונה אל פראט",
+    "country": "ES",
+    "country_en": "Spain",
+    "country_he": "ספרד"
+  },
+  {
+    "code": "IBZ",
+    "city_en": "Ibiza",
+    "city_he": "איביזה",
+    "name_en": "Ibiza Airport",
+    "name_he": "נמל התעופה איביזה",
+    "country": "ES",
+    "country_en": "Spain",
+    "country_he": "ספרד"
+  },
+  {
+    "code": "MAD",
+    "city_en": "Madrid",
+    "city_he": "מדריד",
+    "name_en": "Adolfo Suárez Madrid–Barajas Airport",
+    "name_he": "נמל התעופה מדריד-בראחס",
+    "country": "ES",
+    "country_en": "Spain",
+    "country_he": "ספרד"
+  },
+  {
+    "code": "AGP",
+    "city_en": "Malaga",
+    "city_he": "מלאגה",
+    "name_en": "Malaga Airport",
+    "name_he": "נמל התעופה מלאגה",
+    "country": "ES",
+    "country_en": "Spain",
+    "country_he": "ספרד"
+  },
+  {
+    "code": "CMB",
+    "city_en": "Colombo",
+    "city_he": "קולומבו",
+    "name_en": "Bandaranaike International Airport",
+    "name_he": "נמל התעופה הבינלאומי בנדרנאיקה",
+    "country": "LK",
+    "country_en": "Sri Lanka",
+    "country_he": "סרי לנקה"
+  },
+  {
+    "code": "ARN",
+    "city_en": "Stockholm",
+    "city_he": "סטוקהולם",
+    "name_en": "Stockholm Arlanda Airport",
+    "name_he": "נמל התעופה סטוקהולם ארלנדה",
+    "country": "SE",
+    "country_en": "Sweden",
+    "country_he": "שוודיה"
+  },
+  {
+    "code": "GVA",
+    "city_en": "Geneva",
+    "city_he": "ז'נבה",
+    "name_en": "Geneva Airport",
+    "name_he": "נמל התעופה ז'נבה",
+    "country": "CH",
+    "country_en": "Switzerland",
+    "country_he": "שווייץ"
+  },
+  {
+    "code": "ZRH",
+    "city_en": "Zurich",
+    "city_he": "ציריך",
+    "name_en": "Zurich Airport",
+    "name_he": "נמל התעופה ציריך",
+    "country": "CH",
+    "country_en": "Switzerland",
+    "country_he": "שווייץ"
+  },
+  {
+    "code": "BKK",
+    "city_en": "Bangkok",
+    "city_he": "בנגקוק",
+    "name_en": "Suvarnabhumi Airport",
+    "name_he": "נמל התעופה סוברנבהומי",
+    "country": "TH",
+    "country_en": "Thailand",
+    "country_he": "תאילנד"
+  },
+  {
+    "code": "CNX",
+    "city_en": "Chiang Mai",
+    "city_he": "צ'יאנג מאי",
+    "name_en": "Chiang Mai International Airport",
+    "name_he": "נמל התעופה הבינלאומי צ'יאנג מאי",
+    "country": "TH",
+    "country_en": "Thailand",
+    "country_he": "תאילנד"
+  },
+  {
+    "code": "HKT",
+    "city_en": "Phuket",
+    "city_he": "פוקט",
+    "name_en": "Phuket International Airport",
+    "name_he": "נמל התעופה הבינלאומי פוקט",
+    "country": "TH",
+    "country_en": "Thailand",
+    "country_he": "תאילנד"
+  },
+  {
+    "code": "AYT",
+    "city_en": "Antalya",
+    "city_he": "אנטליה",
+    "name_en": "Antalya Airport",
+    "name_he": "נמל התעופה אנטליה",
+    "country": "TR",
+    "country_en": "Turkey",
+    "country_he": "טורקיה"
+  },
+  {
+    "code": "DLM",
+    "city_en": "Dalaman",
+    "city_he": "דלמאן",
+    "name_en": "Dalaman Airport",
+    "name_he": "נמל התעופה דלמאן",
+    "country": "TR",
+    "country_en": "Turkey",
+    "country_he": "טורקיה"
+  },
+  {
+    "code": "IST",
+    "city_en": "Istanbul",
+    "city_he": "איסטנבול",
+    "name_en": "Istanbul Airport",
+    "name_he": "נמל התעופה איסטנבול",
+    "country": "TR",
+    "country_en": "Turkey",
+    "country_he": "טורקיה"
+  },
+  {
+    "code": "SAW",
+    "city_en": "Istanbul",
+    "city_he": "איסטנבול",
+    "name_en": "Sabiha Gökçen International Airport",
+    "name_he": "נמל התעופה סביהה גקצ'ן",
+    "country": "TR",
+    "country_en": "Turkey",
+    "country_he": "טורקיה"
+  },
+  {
+    "code": "ADB",
+    "city_en": "Izmir",
+    "city_he": "איזמיר",
+    "name_en": "Izmir Adnan Menderes Airport",
+    "name_he": "נמל התעופה איזמיר",
+    "country": "TR",
+    "country_en": "Turkey",
+    "country_he": "טורקיה"
+  },
+  {
+    "code": "AUH",
+    "city_en": "Abu Dhabi",
+    "city_he": "אבו דאבי",
+    "name_en": "Zayed International Airport",
+    "name_he": "נמל התעופה הבינלאומי זאיד",
+    "country": "AE",
+    "country_en": "United Arab Emirates",
+    "country_he": "איחוד האמירויות"
+  },
+  {
+    "code": "DXB",
+    "city_en": "Dubai",
+    "city_he": "דובאי",
+    "name_en": "Dubai International Airport",
+    "name_he": "נמל התעופה הבינלאומי דובאי",
+    "country": "AE",
+    "country_en": "United Arab Emirates",
+    "country_he": "איחוד האמירויות"
+  },
+  {
+    "code": "LGW",
+    "city_en": "London",
+    "city_he": "לונדון",
+    "name_en": "Gatwick Airport",
+    "name_he": "נמל התעופה גטוויק",
+    "country": "GB",
+    "country_en": "United Kingdom",
+    "country_he": "בריטניה"
+  },
+  {
+    "code": "LHR",
+    "city_en": "London",
+    "city_he": "לונדון",
+    "name_en": "Heathrow Airport",
+    "name_he": "נמל התעופה הית'רו",
+    "country": "GB",
+    "country_en": "United Kingdom",
+    "country_he": "בריטניה"
+  },
+  {
+    "code": "LTN",
+    "city_en": "London",
+    "city_he": "לונדון",
+    "name_en": "Luton Airport",
+    "name_he": "נמל התעופה לוטון",
+    "country": "GB",
+    "country_en": "United Kingdom",
+    "country_he": "בריטניה"
+  },
+  {
+    "code": "STN",
+    "city_en": "London",
+    "city_he": "לונדון",
+    "name_en": "Stansted Airport",
+    "name_he": "נמל התעופה סטנסטד",
+    "country": "GB",
+    "country_en": "United Kingdom",
+    "country_he": "בריטניה"
+  },
+  {
+    "code": "BOS",
+    "city_en": "Boston",
+    "city_he": "בוסטון",
+    "name_en": "Boston Logan International Airport",
+    "name_he": "נמל התעופה הבינלאומי בוסטון לוגן",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "ORD",
+    "city_en": "Chicago",
+    "city_he": "שיקגו",
+    "name_en": "Chicago O'Hare International Airport",
+    "name_he": "נמל התעופה הבינלאומי שיקגו או'הייר",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "LAX",
+    "city_en": "Los Angeles",
+    "city_he": "לוס אנג'לס",
+    "name_en": "Los Angeles International Airport",
+    "name_he": "נמל התעופה הבינלאומי לוס אנג'לס",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "MIA",
+    "city_en": "Miami",
+    "city_he": "מיאמי",
+    "name_en": "Miami International Airport",
+    "name_he": "נמל התעופה הבינלאומי מיאמי",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "JFK",
+    "city_en": "New York",
+    "city_he": "ניו יורק",
+    "name_en": "John F. Kennedy International Airport",
+    "name_he": "נמל התעופה ג'ון פ. קנדי",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "LGA",
+    "city_en": "New York",
+    "city_he": "ניו יורק",
+    "name_en": "LaGuardia Airport",
+    "name_he": "נמל התעופה לה גוארדיה",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "EWR",
+    "city_en": "Newark",
+    "city_he": "ניוארק",
+    "name_en": "Newark Liberty International Airport",
+    "name_he": "נמל התעופה ניוארק ליברטי",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "SFO",
+    "city_en": "San Francisco",
+    "city_he": "סן פרנסיסקו",
+    "name_en": "San Francisco International Airport",
+    "name_he": "נמל התעופה הבינלאומי סן פרנסיסקו",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "IAD",
+    "city_en": "Washington",
+    "city_he": "וושינגטון",
+    "name_en": "Washington Dulles International Airport",
+    "name_he": "נמל התעופה הבינלאומי וושינגטון דאלס",
+    "country": "US",
+    "country_en": "United States",
+    "country_he": "ארצות הברית"
+  },
+  {
+    "code": "TAS",
+    "city_en": "Tashkent",
+    "city_he": "טשקנט",
+    "name_en": "Tashkent International Airport",
+    "name_he": "נמל התעופה הבינלאומי טשקנט",
+    "country": "UZ",
+    "country_en": "Uzbekistan",
+    "country_he": "אוזבקיסטן"
   }
 ]
