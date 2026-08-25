@@ -562,11 +562,14 @@ def home():
 
 @site.get("/deals")
 def deals():
-    all_qualified = [
+    candidates = [
         _localize_offer_airports(o)
         for o in recent_offers(limit=120, minimum_score=_public_deal_threshold())
-        if _offer_is_publicly_bookable(o)
     ]
+    # Single source of truth for BOTH current and previous public deals.
+    # Filter after localization/mapping so no legacy partial offer can leak into
+    # "previous deals" through a later list split.
+    all_qualified = [o for o in candidates if _offer_is_publicly_bookable(o)]
 
     # Current deals = qualified deals from today's scan batch.
     # We deliberately use the latest scan id instead of timestamp parsing so
@@ -598,8 +601,16 @@ def deals():
     if not today_scan_ids and latest_scan_id is not None:
         today_scan_ids.add(latest_scan_id)
 
-    offers = [o for o in all_qualified if o.get("scan_run_id") is not None and int(o.get("scan_run_id")) in today_scan_ids]
-    previous_offers = [o for o in all_qualified if o not in offers][:30]
+    offers = [
+        o for o in all_qualified
+        if _offer_is_publicly_bookable(o)
+        and o.get("scan_run_id") is not None
+        and int(o.get("scan_run_id")) in today_scan_ids
+    ]
+    previous_offers = [
+        o for o in all_qualified
+        if _offer_is_publicly_bookable(o) and o not in offers
+    ][:30]
     personal_trips = []
     if session.get("member_id") and _current_member() is not None:
         with _db() as conn:

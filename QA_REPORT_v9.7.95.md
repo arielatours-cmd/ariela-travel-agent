@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.95
+# Ariella QA — v9.7.96
 
 ## Critical legacy-deal blocker fixed
 QA found legacy Wizz records with missing return departure/arrival times while the public site still presented them as bookable.
