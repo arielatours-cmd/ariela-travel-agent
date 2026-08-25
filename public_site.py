@@ -201,6 +201,16 @@ def _offer_has_complete_roundtrip(offer):
     return all(bool(v) for v in required)
 
 
+def _offer_is_publicly_bookable(offer):
+    """Public deal cards must be complete and have an actionable BOOKER handoff."""
+    if not _offer_has_complete_roundtrip(offer):
+        return False
+    # Legacy rows without a recommended-supplier booking request must not look
+    # bookable. New scanner rows persist this when BOOKER can hand off.
+    return bool(offer.get("booking_request_url") and
+                (offer.get("booking_supplier") or offer.get("airline")))
+
+
 def _offer_has_baggage_pricing_when_needed(offer):
     """If trolley/checked bag is not included, require a usable round-trip estimate."""
     baggage = offer.get("baggage") or {}
@@ -542,13 +552,21 @@ def home():
         # Bare site URL and ?lang=he always open the Hebrew homepage.
         session["lang"] = "he"
 
-    offers = recent_offers(limit=3, minimum_score=_public_deal_threshold())
+    offers = [
+        _localize_offer_airports(o)
+        for o in recent_offers(limit=30, minimum_score=_public_deal_threshold())
+        if _offer_is_publicly_bookable(o)
+    ][:3]
     return render_template("home.html", offers=offers)
 
 
 @site.get("/deals")
 def deals():
-    all_qualified = [_localize_offer_airports(o) for o in recent_offers(limit=120, minimum_score=_public_deal_threshold())]
+    all_qualified = [
+        _localize_offer_airports(o)
+        for o in recent_offers(limit=120, minimum_score=_public_deal_threshold())
+        if _offer_is_publicly_bookable(o)
+    ]
 
     # Current deals = qualified deals from today's scan batch.
     # We deliberately use the latest scan id instead of timestamp parsing so
@@ -824,7 +842,7 @@ def book_offer(offer_id):
          if int(o.get("id") or o.get("offer_id") or 0) == offer_id),
         None,
     )
-    if not offer:
+    if not offer or not _offer_is_publicly_bookable(offer):
         return redirect(url_for("site.deals"))
 
     target = resolve_booking_target(offer)
