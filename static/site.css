@@ -1852,7 +1852,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 }
 
 
-/* v9.7.87 — warmer, happier questionnaire hero typography */
+/* v9.7.88 — warmer, happier questionnaire hero typography */
 .trip-questionnaire-hero h1{
   font-family:"Assistant",Heebo,Arial,sans-serif!important;
   font-weight:600!important;
@@ -1860,7 +1860,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
   line-height:1.16!important;
 }
 
-/* v9.7.87 — questionnaire title: clean, friendly Hebrew sans-serif */
+/* v9.7.88 — questionnaire title: clean, friendly Hebrew sans-serif */
 .trip-questionnaire-hero h1{
   font-family:Heebo,Arial,sans-serif!important;
   font-weight:700!important;
@@ -1869,7 +1869,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
   line-height:1.15!important;
 }
 
-/* v9.7.87 — deals history + WhatsApp opt-in */
+/* v9.7.88 — deals history + WhatsApp opt-in */
 .deals-heading-with-alert{position:relative;min-height:150px}
 .deals-heading-copy{text-align:center}
 .deals-alert-slot{position:absolute;left:0;top:16px}
@@ -1883,7 +1883,7 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 .previous-deals-list{opacity:.94}
 @media(max-width:700px){.deals-heading-with-alert{padding-top:85px}.deals-alert-slot{left:50%;transform:translateX(-50%);top:0}.whatsapp-deals-toggle{min-width:210px}}
 
-/* v9.7.87 — card clarity */
+/* v9.7.88 — card clarity */
 .deal-card-v970 .deal-baggage h3{text-align:center!important}
 .deal-card-v970 .bag-status-price .not-included{color:#d62828!important;font-weight:900!important}
 .deal-card-v970 .arrival-time-value{display:inline-flex;align-items:flex-start;direction:ltr;gap:4px;justify-content:center}
@@ -1891,14 +1891,14 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 .deal-card-v970 .arrival-day-badge{font-size:15px!important;line-height:1!important;position:relative;top:-5px;margin:0!important;color:#c58b22!important;font-weight:900!important}
 .deal-card-v970 .deal-last-updated{margin-inline-start:auto!important;font-size:13px!important;color:#69645d!important;white-space:nowrap}
 
-/* v9.7.87 — personal vacation controls */
+/* v9.7.88 — personal vacation controls */
 .notification-toggle{background:transparent!important;border:0!important;box-shadow:none!important}
 .notification-toggle .toggle-track{background:#b9bec5!important;transition:background .18s ease}
 .notification-toggle.on .toggle-track{background:#2f9e44!important}
 .notification-toggle.off .toggle-track{background:#b9bec5!important}
 .notification-toggle .toggle-track i{transition:transform .18s ease}
 
-/* v9.7.87 — verified My Vacations redesign + real WhatsApp switch */
+/* v9.7.88 — verified My Vacations redesign + real WhatsApp switch */
 .deals-alert-slot{
   position:absolute!important;left:0!important;top:8px!important;
   display:flex!important;flex-direction:column!important;gap:9px!important;align-items:stretch!important;
@@ -1973,7 +1973,7 @@ html[dir="rtl"] .trip-destination-image{grid-column:1!important}
   .deals-alert-slot{position:static!important;align-items:center!important;margin-bottom:18px!important}
 }
 
-/* v9.7.87 — consolidated fixes 1–14 */
+/* v9.7.88 — consolidated fixes 1–14 */
 .trip-management-card{
   grid-template-columns:280px minmax(360px,1fr) 330px!important;
   overflow:visible!important;
@@ -2048,10 +2048,10 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
   .trip-destination-image{border-radius:16px 16px 0 0!important}
 }
 
-/* v9.7.87 — hard split regular/ski questionnaire routes */
+/* v9.7.88 — hard split regular/ski questionnaire routes */
 .regular-only[hidden],.ski-only[hidden]{display:none!important}
 
-/* v9.7.87 — deals header + origin picker + test-support table */
+/* v9.7.88 — deals header + origin picker + test-support table */
 .deals-heading-with-alert{
   position:relative!important;min-height:168px!important;
   display:flex!important;align-items:flex-start!important;justify-content:center!important;
@@ -2100,7 +2100,7 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
   .deals-heading-copy{width:100%!important}
 }
 
-/* v9.7.87 — final visual corrections before Bucharest retest */
+/* v9.7.88 — final visual corrections before Bucharest retest */
 
 /* Header title must be geometrically centered in the viewport, independent
    of the left/right controls. */
@@ -2187,7 +2187,7 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
   }
 }
 
-/* v9.7.87 — only the four remaining UI fixes */
+/* v9.7.88 — only the four remaining UI fixes */
 
 /* 4+5: My Vacations = exact same teal as View deals, smaller/compact. */
 .my-vacations-from-deals{
@@ -2249,7 +2249,7 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
   transform:none!important;
 }
 
-/* v9.7.87 — final two fixes */
+/* v9.7.88 — final two fixes */
 
 /* My Vacations uses the SAME declared palette as .happy-deals-button. */
 .my-vacations-from-deals{
@@ -2270,10 +2270,10 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 /* Filtered historical section disappears only when none of its cards match. */
 .previous-deals-section.is-filtered-out{display:none!important}
 
-/* v9.7.87 — final My Vacations label sizing */
+/* v9.7.88 — final My Vacations label sizing */
 .my-vacations-from-deals{font-size:16px!important;box-shadow:none!important}
 
-/* v9.7.87 — My Vacations wide deal display, keeping the exact deal-card design */
+/* v9.7.88 — My Vacations wide deal display, keeping the exact deal-card design */
 .account-trips-section > .shell{
   width:min(1480px,96%)!important;
   max-width:1480px!important;
@@ -2292,7 +2292,7 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 /* Included baggage now also shows the round-trip add-on price in parentheses. */
 .deal-card-v970 .bag-status-price .included{color:#20883c!important;font-weight:900!important}
 
-/* v9.7.87 — baggage heading: only the add-on note is smaller */
+/* v9.7.88 — baggage heading: only the add-on note is smaller */
 .deal-card-v970 .deal-baggage .baggage-heading > span{display:block}
 .deal-card-v970 .deal-baggage .baggage-heading > small{
   display:block;

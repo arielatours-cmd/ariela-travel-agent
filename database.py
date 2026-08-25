@@ -681,8 +681,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "rarity_score": components.get("rarity"),
             # The current scoring engine reserves one combined field and does not yet
             # calculate seasonality and reliability separately. Show honest zeroes.
-            "seasonality_score": None,
-            "reliability_score": None,
+            "seasonality_score": components.get("seasonality"),
+            "reliability_score": components.get("reliability"),
             "send_reason": reasons[0].split(": +")[0] if reasons else deal_score.get("label"),
         })
         result.append(item)

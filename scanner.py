@@ -172,7 +172,7 @@ def _apply_best_price_reference(analysis: dict, price: float) -> dict:
 
 
 def _serpapi_request(params: dict) -> dict:
-    response = requests.get(SERPAPI_URL, params=params, timeout=60)
+    response = requests.get(SERPAPI_URL, params=params, timeout=45)
     response.raise_for_status()
     data = response.json()
     if data.get("error"):
@@ -492,19 +492,23 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
     completed = offers_found = errors = api_requests = 0
     new_offers = existing_offers = 0
     error_messages: list[str] = []
+    status_messages: list[str] = []
 
     try:
         for job in jobs:
             if scan_stop_requested():
-                messages.append("הסריקה נעצרה ידנית")
+                status_messages.append("הסריקה נעצרה ידנית")
                 break
             if max_api_requests is not None and api_requests >= max_api_requests:
-                messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
+                status_messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
                 break
             try:
+                # Count every attempted destination. A timeout/error is still a completed
+                # test slot, so a 30-destination scan can finish as 30/30 with errors
+                # instead of appearing stuck at 24/30.
+                completed += 1
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=max_outbounds_per_route)
                 api_requests += int(result.get("api_requests") or 0)
-                completed += 1
 
                 # Score COMPLETE round-trip combinations first; publish only the winner.
                 scored_combinations = []
@@ -576,7 +580,7 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
     finally:
         finish_scan_run(
             run_id, completed, offers_found, errors,
-            "; ".join(error_messages)[:2000] or None
+            "; ".join(status_messages + error_messages)[:2000] or None
         )
 
     return {
@@ -591,6 +595,7 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
         "stopped": completed < len(jobs),
         "errors": errors,
         "error_messages": error_messages,
+        "status_messages": status_messages,
     }
 
 
@@ -636,7 +641,7 @@ def _wide_search_jobs(limit: int | None = None) -> list[dict]:
 
 def run_wide_scan(max_destinations: int | None = None) -> dict:
     limit = max(1, min(int(max_destinations or len(DESTINATIONS)), len(DESTINATIONS)))
-    return _run_jobs_scan(_wide_search_jobs(limit), max_outbounds_per_route=3, max_api_requests=120)
+    return _run_jobs_scan(_wide_search_jobs(limit), max_outbounds_per_route=3, max_api_requests=220)
 
 
 

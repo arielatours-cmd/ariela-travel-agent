@@ -395,8 +395,8 @@ tbody tr:hover{background:#fafbfe}
         {{ o.baggage_score if o.baggage_score is defined else '—' }}
     </td>
     <td class="score-part" title="ניקוד שעות">
-        {{ o.time_score if o.time_score is defined else
-           (o.schedule_score if o.schedule_score is defined else '—') }}
+        {{ o.time_value_score if o.time_value_score is defined and o.time_value_score is not none else
+           (o.hours_score if o.hours_score is defined and o.hours_score is not none else '—') }}
     </td>
     <td class="score-part" title="ניקוד נדירות">
         {{ o.rarity_score if o.rarity_score is defined else '—' }}

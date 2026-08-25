@@ -203,6 +203,26 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     reasons.append(f"נוחות וזמן ביעד: +{time_points}")
     reasons.extend(time_reasons)
 
+    # Booking reliability (0..8). This is deliberately small: it cannot turn a
+    # mediocre fare into a deal, but it lets a strong, directly bookable result
+    # cross the 70 threshold during the bootstrap period before price history is deep.
+    if flight.get("booking_supplier_is_direct") is True:
+        reliability = 8
+        reliability_reason = "הזמנה ישירה מחברת התעופה"
+    elif flight.get("booking_supplier_approved") is True:
+        reliability = 6
+        reliability_reason = "ספק הזמנה מאושר"
+    elif int(flight.get("booking_options_checked") or 0) > 0:
+        reliability = 3
+        reliability_reason = "נמצאו אפשרויות הזמנה"
+    else:
+        reliability = 0
+        reliability_reason = None
+    components["reliability"] = reliability
+    score += reliability
+    if reliability_reason:
+        reasons.append(f"אמינות הזמנה — {reliability_reason}: +{reliability}")
+
     score = min(100, score)
     label = "דיל חריג במיוחד" if score >= 85 else "דיל מצוין" if score >= 70 else "דיל טוב" if score >= 55 else "לא לשלוח"
     return {"score": score, "label": label, "send_alert": score >= 70, "reasons": reasons, "components": components}
