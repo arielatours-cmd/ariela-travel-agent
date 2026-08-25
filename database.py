@@ -45,13 +45,53 @@ def _public_airline_logo(airline: str | None, flight_number: str | None = None, 
 
 
 
-def _arrival_days_after(departure_date, arrival_date):
+def _clock_minutes(value):
+    """Return minutes after midnight from HH:MM or an ISO-like timestamp."""
     try:
-        dep = datetime.fromisoformat(str(departure_date)[:10]).date()
-        arr = datetime.fromisoformat(str(arrival_date)[:10]).date()
-        return max(0, (arr - dep).days)
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        clock = raw[11:16] if len(raw) >= 16 and raw[10] in ("T", " ") else raw[:5]
+        hh, mm = clock.split(":")[:2]
+        return int(hh) * 60 + int(mm)
     except Exception:
-        return 0
+        return None
+
+
+def _arrival_days_after(departure_date, arrival_date, departure_time=None,
+                        arrival_time=None, duration_minutes=None):
+    """Calculate +N arrival day, including legacy offers without arrival_date.
+
+    Preferred source is explicit departure/arrival dates. For old stored deals
+    that predate arrival_date persistence, infer the day rollover from the
+    departure/arrival clocks and total duration. This makes +1/+2 retroactive.
+    """
+    # Explicit dates are authoritative when both are genuinely available.
+    if departure_date and arrival_date:
+        try:
+            dep = datetime.fromisoformat(str(departure_date)[:10]).date()
+            arr = datetime.fromisoformat(str(arrival_date)[:10]).date()
+            delta = (arr - dep).days
+            if delta > 0:
+                return delta
+        except Exception:
+            pass
+
+    dep_min = _clock_minutes(departure_time)
+    arr_min = _clock_minutes(arrival_time)
+    try:
+        duration = int(duration_minutes) if duration_minutes is not None else None
+    except (TypeError, ValueError):
+        duration = None
+
+    # Duration gives the strongest fallback and also supports +2 long-haul legs.
+    if dep_min is not None and duration is not None and duration >= 0:
+        return max(0, (dep_min + duration) // (24 * 60))
+
+    # Last-resort legacy inference: an earlier arrival clock means next day.
+    if dep_min is not None and arr_min is not None and arr_min < dep_min:
+        return 1
+    return 0
 
 
 def utc_now_iso() -> str:
@@ -645,8 +685,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "return_airline": flight.get("return_airline"),
             "return_departure_time": flight.get("return_departure_time"),
             "return_arrival_time": flight.get("return_arrival_time"),
-            "arrival_days_after": _arrival_days_after(item.get("outbound_date"), flight.get("arrival_date") or item.get("outbound_date")),
-            "return_arrival_days_after": _arrival_days_after(item.get("return_date"), flight.get("return_arrival_date") or item.get("return_date")),
+            "arrival_days_after": _arrival_days_after(item.get("outbound_date"), flight.get("arrival_date"), flight.get("departure_time"), flight.get("arrival_time"), flight.get("total_duration_minutes")),
+            "return_arrival_days_after": _arrival_days_after(item.get("return_date"), flight.get("return_arrival_date"), flight.get("return_departure_time"), flight.get("return_arrival_time"), flight.get("return_total_duration_minutes")),
             "return_total_duration_minutes": flight.get("return_total_duration_minutes"),
             "return_connections": flight.get("return_connections") or [],
             "return_stops": flight.get("return_stops") or 0,

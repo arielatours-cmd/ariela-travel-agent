@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.93
+# Ariella QA — v9.7.94
 
 ## BOOKER contract corrected
 - BOOKER sends the customer only to Ariella's recommended supplier.
