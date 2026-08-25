@@ -19,6 +19,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting
 from scanner import run_customer_trip_search
+from booker import resolve_booking_target
 
 
 
@@ -817,7 +818,7 @@ def account_details():
 
 @site.get("/book/<int:offer_id>")
 def book_offer(offer_id):
-    """Track intent-to-book and show a safe Ariella handoff before leaving the site."""
+    """BOOKER: send the customer to the safest actionable booking flow."""
     offer = next(
         (o for o in recent_offers(limit=1500, minimum_score=None)
          if int(o.get("id") or o.get("offer_id") or 0) == offer_id),
@@ -826,94 +827,31 @@ def book_offer(offer_id):
     if not offer:
         return redirect(url_for("site.deals"))
 
+    target = resolve_booking_target(offer)
+
     record_booking_click(
         visitor_id=session.get("_ariella_visitor_id"),
         member_id=session.get("member_id"),
         offer_id=offer_id,
         destination_code=offer.get("arrival_code"),
         airline=offer.get("airline"),
-        supplier=offer.get("booking_supplier"),
+        supplier=target.supplier or offer.get("booking_supplier"),
         price_ils=offer.get("price_ils"),
         score=offer.get("score"),
         outbound_date=offer.get("outbound_date"),
         return_date=offer.get("return_date"),
-        booking_url=offer.get("booking_url"),
+        booking_url=target.url or offer.get("booking_url"),
     )
 
-    # Never auto-submit a third-party airline form. Live QA showed that some
-    # airline booking_request payloads can render a search/summary page with no
-    # usable Continue button. Instead, resolve the best available booking target
-    # and let the customer leave Ariella deliberately from a clear handoff page.
-    target_url = None
-    target_fields = []
-    target_supplier = offer.get("booking_supplier") or offer.get("airline") or ""
-
-    exact_url = offer.get("booking_request_url")
-    exact_post = offer.get("booking_request_post_data")
-    if exact_url:
-        target_url = exact_url
-        if exact_post:
-            target_fields = parse_qsl(exact_post, keep_blank_values=True)
-
-    token = offer.get("booking_token") or (offer.get("flight") or {}).get("booking_token")
-    preferred_supplier = str(offer.get("booking_supplier") or "").strip().lower()
-
-    # If the stored target is missing, refresh booking options for this exact
-    # outbound+return token. Prefer the supplier displayed by Ariella, then a
-    # direct airline, then price.
-    if not target_url and token and SERPAPI_API_KEY:
-        try:
-            data = requests.get(
-                "https://serpapi.com/search.json",
-                params={
-                    "engine": "google_flights",
-                    "booking_token": token,
-                    "api_key": SERPAPI_API_KEY,
-                    "hl": "en",
-                    "gl": "il",
-                    "currency": "ILS",
-                },
-                timeout=45,
-            ).json()
-            choices = []
-            for option in data.get("booking_options") or []:
-                part = option.get("together") or {}
-                req = part.get("booking_request") or {}
-                if not req.get("url"):
-                    continue
-                supplier = str(part.get("book_with") or "").strip()
-                same_supplier = bool(preferred_supplier and supplier.lower() == preferred_supplier)
-                direct_airline = bool(part.get("airline") is True)
-                try:
-                    price = float(part.get("price") or 10**9)
-                except (TypeError, ValueError):
-                    price = 10**9
-                priority = 0 if same_supplier else (1 if direct_airline else 2)
-                choices.append((priority, price, supplier, req))
-            if choices:
-                _, _, supplier, req = sorted(choices, key=lambda x: (x[0], x[1]))[0]
-                target_supplier = supplier or target_supplier
-                target_url = req.get("url")
-                if req.get("post_data"):
-                    target_fields = parse_qsl(req["post_data"], keep_blank_values=True)
-        except Exception:
-            pass
-
-    # Reliable fallback: Google Flights/result context. It may require a final
-    # flight selection, but it does not strand the customer on an unusable
-    # airline page.
-    fallback_url = offer.get("booking_url")
-    if not target_url:
-        target_url = fallback_url
-
-    return render_template(
-        "booking_handoff.html",
-        offer=offer,
-        target_url=target_url,
-        target_fields=target_fields,
-        target_supplier=target_supplier,
-        fallback_url=fallback_url,
-    )
+    if target.url and target.fields:
+        return render_template(
+            "booking_forward.html",
+            action=target.url,
+            fields=target.fields,
+        )
+    if target.url:
+        return redirect(target.url)
+    return redirect(url_for("site.deals"))
 
 
 @site.get("/account")
