@@ -764,17 +764,33 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                             continue
                         jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
         else:
-            out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
-            ret_starts = [ret_first + timedelta(days=d) for d in (3, 10, 17, 24)]
-            for arrival in arrivals:
-                for origin in origins:
-                    for start in out_starts:
-                        if start.month != out_first.month:
-                            continue
-                        for ret in ret_starts:
+            if answers.get("_alternative_nearby_dates"):
+                # Explicit "same destination, other dates" from a month request:
+                # search a controlled sample of 7-night windows in that month.
+                out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+                for arrival in arrivals:
+                    for origin in origins:
+                        for start in out_starts:
+                            if start.month != out_first.month:
+                                continue
+                            ret = start + timedelta(days=7)
+                            if return_month != outbound_month and ret.month != ret_first.month:
+                                ret = ret_first + timedelta(days=min(start.day, 20))
                             if ret <= start or ret.month != ret_first.month:
                                 continue
                             jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
+            else:
+                out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+                ret_starts = [ret_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+                for arrival in arrivals:
+                    for origin in origins:
+                        for start in out_starts:
+                            if start.month != out_first.month:
+                                continue
+                            for ret in ret_starts:
+                                if ret <= start or ret.month != ret_first.month:
+                                    continue
+                                jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
 
     run_id = create_scan_run(len(jobs))
     clear_scan_stop()

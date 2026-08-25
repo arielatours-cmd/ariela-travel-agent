@@ -117,7 +117,7 @@ tbody tr:hover{background:#fafbfe}
     font-size:12px;
     font-weight:800;
 }
-.destination-name{
+.destination-name{font-size:1.08em;
     display:block;
     margin-top:2px;
     font-size:11px;
@@ -343,6 +343,7 @@ tbody tr:hover{background:#fafbfe}
 <thead>
 <tr>
     <th class="scan-id">סריקה</th>
+    <th class="scan-time">מועד סריקה / גיל</th>
     <th class="destination admin-head-filter">
       <button type="button" class="head-sort" data-sort="destination">יעד ↕</button>
       <input id="adminOfferDestination" type="search" placeholder="סינון יעד / קוד">
@@ -381,6 +382,12 @@ tbody tr:hover{background:#fafbfe}
 {% for o in offers %}
 <tr class="offer-row" data-destination="{{ (o.arrival_code or '')|lower }} {{ (o.destination_name or '')|lower }}" data-scan="{{ o.scan_run_id or '' }}" data-score="{{ o.score or 0 }}" data-price="{{ o.price_ils or 0 }}" data-outbound="{{ o.outbound_date or '' }}" data-return="{{ o.return_date or '' }}" data-order="{{ loop.index0 }}">
     <td class="scan-id"><button class="scan-link" type="button" onclick="showScan({{ o.scan_run_id or 0 }})">#{{ o.scan_run_id or '—' }}</button></td>
+    <td class="scan-time" title="דילים מעל 48 שעות אינם משמשים לחיפוש אישי">
+      {% if o.observed_at %}
+        {{ o.observed_at[:16]|replace('T',' ') }}<br>
+        <small data-observed="{{ o.observed_at }}">48h window</small>
+      {% else %}—{% endif %}
+    </td>
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
         <span class="destination-name">{{ o.destination_name or o.arrival_code or '—' }}</span>
@@ -627,6 +634,19 @@ function sortDestination(){
  rows.sort((x,y)=>(x.dataset.destination||'').localeCompare(y.dataset.destination||'','he')*destinationSortDir);
  rows.forEach(r=>tbody.appendChild(r)); destinationSortDir*=-1;
 }
+
+function refreshOfferAges(){
+  document.querySelectorAll('[data-observed]').forEach(function(el){
+    const raw=el.getAttribute('data-observed');
+    const d=new Date(raw);
+    if(isNaN(d.getTime())) return;
+    const hours=Math.max(0,(Date.now()-d.getTime())/3600000);
+    el.textContent = hours < 1 ? 'פחות משעה' : (Math.floor(hours)+' שעות');
+    if(hours >= 48) el.textContent += ' · היסטורי';
+  });
+}
+refreshOfferAges();
+
 </script>
 </body>
 </html>

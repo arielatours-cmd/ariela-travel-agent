@@ -1,9 +1,9 @@
-# Ariella QA — v9.7.98
+# Ariella QA — v9.7.101
 
 ## Critical booking-flow fix
 Live QA found that an EL AL booking-request deep link could open the airline with the selected search context but no usable Continue button.
 
-v9.7.98 changes the contract:
+v9.7.101 changes the contract:
 - Ariella no longer silently auto-submits/redirects the customer to a third-party booking form.
 - `/book/<offer>` now opens an Ariella booking handoff page first.
 - The page clearly repeats outbound, return, airline and price.
