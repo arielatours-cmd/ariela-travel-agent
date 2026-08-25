@@ -1005,10 +1005,92 @@ def search_trip_now(trip_id):
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
+
+def _recent_inventory_48h():
+    return [
+        _localize_offer_airports(o)
+        for o in recent_offers(limit=1500, minimum_score=None)
+        if _offer_is_recent(o, 48)
+    ]
+
+
+def _same_destination_other_dates_db_matches(inventory, trip, limit=5):
+    answers = trip.get("answers") or {}
+    requested = _trip_destination_codes(trip)
+    if not requested:
+        return []
+    matches = []
+    for o in inventory:
+        if str(o.get("arrival_code") or "").upper() not in requested:
+            continue
+        if not _offer_has_complete_roundtrip(o):
+            continue
+        # Same destination but deliberately NOT the original requested dates/month.
+        if answers.get("date_mode") == "exact":
+            same_original = (
+                str(o.get("outbound_date") or "") == str(answers.get("departure_date") or "")
+                and str(o.get("return_date") or "") == str(answers.get("return_date") or "")
+            )
+            if same_original:
+                continue
+        elif answers.get("date_mode") == "month":
+            out_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+            ret_month = str(answers.get("return_month") or out_month)[:7]
+            same_original = (
+                str(o.get("outbound_date") or "").startswith(out_month)
+                and str(o.get("return_date") or "").startswith(ret_month)
+            )
+            if same_original:
+                continue
+        matches.append(o)
+    matches.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
+    return matches[:limit]
+
+
+def _same_dates_other_destination_db_matches(inventory, trip, limit=5):
+    answers = trip.get("answers") or {}
+    requested = _trip_destination_codes(trip)
+    matches = []
+    for o in inventory:
+        code = str(o.get("arrival_code") or "").upper()
+        if not code or code in requested:
+            continue
+        if not _offer_has_complete_roundtrip(o):
+            continue
+        if answers.get("date_mode") == "exact":
+            if str(o.get("outbound_date") or "") != str(answers.get("departure_date") or ""):
+                continue
+            if str(o.get("return_date") or "") != str(answers.get("return_date") or ""):
+                continue
+        elif answers.get("date_mode") == "month":
+            out_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+            ret_month = str(answers.get("return_month") or out_month)[:7]
+            if out_month and not str(o.get("outbound_date") or "").startswith(out_month):
+                continue
+            if ret_month and not str(o.get("return_date") or "").startswith(ret_month):
+                continue
+        matches.append(o)
+    matches.sort(key=lambda o: (-int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
+    return matches[:limit]
+
+
+def _pin_offer_ids_to_trip(trip_id, answers, offers):
+    ids = [int(o["offer_id"]) for o in offers if o.get("offer_id") is not None][:5]
+    if ids:
+        answers["_matched_offer_ids"] = ids
+    with _db() as conn:
+        conn.execute(
+            "UPDATE trip_requests SET answers_json=? WHERE id=?",
+            (json.dumps(answers, ensure_ascii=False), trip_id),
+        )
+        conn.commit()
+    return ids
+
+
 @site.post("/trip/<int:trip_id>/free-alternative")
 @login_required
 def free_trip_alternative(trip_id):
-    """Start an additional search only after the customer explicitly chooses an alternative."""
+    """DB-first alternative search. API is used only when 48h inventory has no match."""
     choice = request.form.get("alternative", "").strip()
     if choice not in {"nearby_dates", "other_destination"}:
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
@@ -1018,66 +1100,114 @@ def free_trip_alternative(trip_id):
             "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
             (trip_id, session["member_id"]),
         ).fetchone()
-        if not row or int(row["free_scan_count"] or 0) > 1:
-            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        if not row:
+            return redirect(url_for("site.account"))
         trip = _trip_dict(row)
         answers = dict(trip.get("answers") or {})
 
-        if choice == "nearby_dates":
-            # The request can be exact dates OR a whole month.
-            # Exact dates: shift the requested window by 3 days.
-            # Month mode: keep the requested month and run a bounded set of
-            # representative alternative windows inside that month.
-            if answers.get("date_mode") == "exact":
-                try:
-                    out = datetime.strptime(answers.get("departure_date"), "%Y-%m-%d").date()
-                    ret = datetime.strptime(answers.get("return_date"), "%Y-%m-%d").date()
-                    answers["departure_date"] = (out + timedelta(days=3)).isoformat()
-                    answers["return_date"] = (ret + timedelta(days=3)).isoformat()
-                    answers["date_mode"] = "exact"
-                except Exception:
-                    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-            elif answers.get("date_mode") == "month":
-                if not (answers.get("outbound_month") or answers.get("travel_month")):
-                    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-                answers["_alternative_nearby_dates"] = True
-            else:
-                return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-        else:
-            # Destination alternatives need the recommendation engine/controlled
-            # destination pool. Do not burn multiple API calls until that engine is wired.
-            conn.execute(
-                "UPDATE trip_requests SET free_scan_count=2, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-                (utc_now_iso(), "alternative_destination_pending", trip_id),
-            )
-            conn.commit()
-            flash(_msg(
-                "הבחירה נשמרה. חיפוש יעד חלופי יופעל לאחר חיבור מנוע ההמלצות, בלי להפעיל סריקות אקראיות.",
-                "Your choice was saved. The alternative-destination search will run once the recommendation engine is connected, without random scans."
-            ), "info")
+    inventory = _recent_inventory_48h()
+
+    # 1) SAME DESTINATION, OTHER DATES: first mine the 48h DB.
+    if choice == "nearby_dates":
+        db_matches = _same_destination_other_dates_db_matches(inventory, trip, limit=5)
+        if db_matches:
+            _pin_offer_ids_to_trip(trip_id, answers, db_matches)
+            with _db() as conn:
+                conn.execute(
+                    "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (utc_now_iso(), "database_alternative_match", trip_id),
+                )
+                conn.commit()
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-    scan_result = run_customer_trip_search(trip_id, answers)
+        # No DB match: now, and only now, run a bounded wider scan.
+        if answers.get("date_mode") == "exact":
+            try:
+                out = datetime.strptime(answers.get("departure_date"), "%Y-%m-%d").date()
+                ret = datetime.strptime(answers.get("return_date"), "%Y-%m-%d").date()
+                span = max(1, (ret - out).days)
+                # Search nearby windows around the requested dates.
+                answers["date_mode"] = "month"
+                answers["outbound_month"] = out.strftime("%Y-%m")
+                answers["return_month"] = ret.strftime("%Y-%m")
+                answers["travel_month"] = answers["outbound_month"]
+                answers["_alternative_nearby_dates"] = True
+                answers["_requested_trip_length_days"] = span
+            except Exception:
+                return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        elif answers.get("date_mode") == "month":
+            answers["_alternative_nearby_dates"] = True
+        else:
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-    # Pin fresh offers created for this vacation so the result is shown
-    # immediately after redirect instead of relying on a second matching pass.
-    refreshed = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
+    # 2) SAME DATES, OTHER DESTINATION: first mine the 48h DB.
+    else:
+        db_matches = _same_dates_other_destination_db_matches(inventory, trip, limit=5)
+        if db_matches:
+            _pin_offer_ids_to_trip(trip_id, answers, db_matches)
+            with _db() as conn:
+                conn.execute(
+                    "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (utc_now_iso(), "database_other_destination_match", trip_id),
+                )
+                conn.commit()
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+        # No DB match: widen to a controlled recommendation pool.
+        # Keep the user's dates, but let Ariella search several popular gateways.
+        original = {str(x).upper() for x in _customer_destination_codes(answers)}
+        pool = []
+        for d in list(DESTINATIONS):
+            code = str(d.get("code") or "").upper()
+            if code and code not in original:
+                pool.append(code)
+            if len(pool) >= 10:
+                break
+        if not pool:
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        answers["destination_mode"] = "several"
+        answers["destinations"] = ",".join(pool)
+        answers["_alternative_other_destination"] = True
+
+    try:
+        scan_result = run_customer_trip_search(trip_id, answers)
+    except Exception:
+        # Never return a raw Flask 500 to the customer.
+        with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (utc_now_iso(), "search_error", trip_id),
+            )
+            conn.commit()
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+    refreshed = _recent_inventory_48h()
     created_for_trip = []
     for o in refreshed:
         try:
-            if int(o.get("trip_id")) == trip_id and _offer_is_recent(o, 48) and _offer_has_complete_roundtrip(o):
-                created_for_trip.append(int(o["offer_id"]))
-        except (TypeError, ValueError, KeyError):
+            if int(o.get("trip_id")) == trip_id and _offer_has_complete_roundtrip(o):
+                created_for_trip.append(o)
+        except (TypeError, ValueError):
             pass
+
     if created_for_trip:
-        answers["_matched_offer_ids"] = created_for_trip[:5]
+        _pin_offer_ids_to_trip(trip_id, answers, created_for_trip)
+    else:
+        # Persist the altered answers/status even with no result.
+        with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET answers_json=? WHERE id=?",
+                (json.dumps(answers, ensure_ascii=False), trip_id),
+            )
+            conn.commit()
 
     with _db() as conn:
         conn.execute(
-            "UPDATE trip_requests SET answers_json=?, free_scan_count=2, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-            (json.dumps(answers, ensure_ascii=False), utc_now_iso(), str(scan_result.get("status") or "unknown"), trip_id),
+            "UPDATE trip_requests SET free_scan_count=COALESCE(free_scan_count,0)+1, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+            (utc_now_iso(), str(scan_result.get("status") or "unknown"), trip_id),
         )
         conn.commit()
+
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 

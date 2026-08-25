@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.101
+# Ariella QA — v9.7.102
 
 Root cause corrected:
 `recent_offers()` normalized return times to top-level fields but did not normalize
@@ -10,6 +10,6 @@ Fix:
 - Keep the final strict public gate immediately before rendering both lists.
 - Reject missing, blank, '-' and '—' values.
 - Remove Jinja filtered-loop dependency; Python provides sanitized lists.
-- Add HTML build marker ARIELA_BUILD:9.7.101 so live deployment can be verified.
+- Add HTML build marker ARIELA_BUILD:9.7.102 so live deployment can be verified.
 
 QA: Python compile PASS; all Jinja templates parse PASS; canonical field mapping PASS.

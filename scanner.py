@@ -765,15 +765,19 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                         jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
         else:
             if answers.get("_alternative_nearby_dates"):
-                # Explicit "same destination, other dates" from a month request:
-                # search a controlled sample of 7-night windows in that month.
+                # Explicit "same destination, other dates":
+                # search a controlled sample in the requested month only.
                 out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+                try:
+                    trip_len = max(2, min(21, int(answers.get("_requested_trip_length_days") or 7)))
+                except (TypeError, ValueError):
+                    trip_len = 7
                 for arrival in arrivals:
                     for origin in origins:
                         for start in out_starts:
                             if start.month != out_first.month:
                                 continue
-                            ret = start + timedelta(days=7)
+                            ret = start + timedelta(days=trip_len)
                             if return_month != outbound_month and ret.month != ret_first.month:
                                 ret = ret_first + timedelta(days=min(start.day, 20))
                             if ret <= start or ret.month != ret_first.month:

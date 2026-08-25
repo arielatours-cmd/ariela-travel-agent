@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.101
+# Ariella QA — v9.7.102
 
 PASS:
 - Month-mode "same destination, other dates" now performs a bounded search instead of silently returning.

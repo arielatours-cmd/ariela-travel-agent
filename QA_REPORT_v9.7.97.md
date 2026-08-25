@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.101
+# Ariella QA — v9.7.102
 
 ## Root-cause hardening: partial legacy deals
 Live production on v96 still rendered legacy Wizz cards with em-dash return times.

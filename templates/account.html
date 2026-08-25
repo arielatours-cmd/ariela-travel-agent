@@ -18,6 +18,22 @@ function confirmSearchToggle(form, status) {
 }
 </script>
 
+
+<div id="ariellaSearchWait" class="ariella-search-wait" hidden>
+  <div class="ariella-search-wait-card">
+    <div class="ariella-search-monkey">🐒🥥</div>
+    <h3>{{ 'Ariella is searching for a better option…' if site_lang=='en' else 'אריאלה מחפשת לך אפשרות טובה יותר…' }}</h3>
+    <p>{{ 'This can take a little while.' if site_lang=='en' else 'זה יכול לקחת קצת זמן, מיד נחזור עם התוצאה.' }}</p>
+  </div>
+</div>
+<script>
+function showAriellaSearchWait(){
+  const box=document.getElementById('ariellaSearchWait');
+  if(box){ box.hidden=false; document.body.style.overflow='hidden'; }
+  return true;
+}
+</script>
+
 {% endblock %}
 {% block content %}
 {% if welcome %}
@@ -127,11 +143,11 @@ function confirmSearchToggle(form, status) {
           <strong>{{ "Ariella didn't find a suitable vacation for your request right now." if site_lang == 'en' else 'אריאלה לא מצאה כרגע חופשה שמתאימה לבקשה שלך' }}</strong>
           <p>{{ 'Would you like Ariella to try one more complimentary alternative?' if site_lang == 'en' else 'רוצים לתת לאריאלה עוד ניסיון אחד על חשבוננו?' }}</p>
           <div class="free-alternative-options">
-            <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}">
+            <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
               <input type="hidden" name="alternative" value="nearby_dates">
               <button class="button outline" type="submit">{{ 'Same destination — other dates' if site_lang == 'en' else 'אותו יעד — תאריכים אחרים' }}</button>
             </form>
-            <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}">
+            <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
               <input type="hidden" name="alternative" value="other_destination">
               <button class="button outline" type="submit">{{ 'Same dates — another destination' if site_lang == 'en' else 'אותם תאריכים — יעד אחר' }}</button>
             </form>
