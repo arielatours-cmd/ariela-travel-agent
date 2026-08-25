@@ -1,0 +1,21 @@
+קבצים להחלפה:
+1. app.py
+2. config.py
+3. database.py
+4. public_site.py
+5. templates/about.html
+
+אחרי העלאת הקבצים ל-GitHub, הגדירי ב-Render תחת Environment:
+
+FEEDBACK_TO_EMAIL = arielatours@gmail.com
+MAIL_USERNAME = כתובת ה-Gmail שממנה יישלחו ההודעות
+MAIL_APP_PASSWORD = סיסמת אפליקציה של Google (16 תווים, לא הסיסמה הרגילה)
+
+MAIL_SMTP_HOST ו-MAIL_SMTP_PORT כבר מקבלים ברירת מחדל של Gmail.
+
+מה עובד:
+- כל ארבעת השדות הם חובה.
+- הפנייה נשמרת במסד הנתונים תמיד.
+- אם פרטי Gmail הוגדרו, היא גם נשלחת מיד ל-arielatours@gmail.com.
+- אפשר לראות את הפניות בכתובת /feedback-preview?token=ADMIN_TOKEN
+- אחרי השליחה מופיעה הודעת התודה שסוכמה.

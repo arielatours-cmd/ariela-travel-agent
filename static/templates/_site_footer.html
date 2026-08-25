@@ -1,0 +1,73 @@
+
+<style id="ariella-footer-self-contained">
+.ariella-legal-footer{
+  box-sizing:border-box;
+  width:100%;
+  margin:0;
+  padding:26px 20px 18px;
+  background:#070707;
+  border-top:1px solid #c99a3f;
+  color:#fff;
+  font-family:Arial,"Segoe UI",sans-serif;
+}
+.ariella-legal-footer *{box-sizing:border-box}
+.ariella-legal-footer .footer-inner{
+  width:min(1180px,92%);
+  margin:0 auto;
+}
+.ariella-legal-footer .footer-legal-buttons{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+}
+.ariella-legal-footer .footer-legal-btn,
+.ariella-legal-footer .footer-legal-btn:link,
+.ariella-legal-footer .footer-legal-btn:visited{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:42px;
+  margin:0;
+  padding:10px 18px;
+  border:1px solid #c99a3f;
+  border-radius:999px;
+  background:transparent;
+  color:#fff;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.2;
+  text-decoration:none;
+  white-space:nowrap;
+}
+.ariella-legal-footer .footer-legal-btn:hover,
+.ariella-legal-footer .footer-legal-btn:focus-visible{
+  background:#c99a3f;
+  color:#070707;
+}
+.ariella-legal-footer .footer-copyright{
+  margin-top:18px;
+  text-align:center;
+  color:#aaa;
+  font-size:12px;
+  line-height:1.5;
+}
+@media(max-width:700px){
+  .ariella-legal-footer{padding:20px 12px 15px}
+  .ariella-legal-footer .footer-legal-buttons{gap:8px}
+  .ariella-legal-footer .footer-legal-btn{padding:9px 12px;font-size:13px}
+}
+</style>
+<footer class="ariella-legal-footer">
+  <div class="footer-inner">
+    <nav class="footer-legal-buttons" aria-label="{{ 'Legal information' if site_lang == 'en' else 'מידע משפטי' }}">
+      <a class="footer-legal-btn" href="{{ url_for('site.terms', lang=site_lang) }}">{{ 'Terms of Use' if site_lang == 'en' else 'תנאי שימוש' }}</a>
+      <a class="footer-legal-btn" href="{{ url_for('site.privacy', lang=site_lang) }}">{{ 'Privacy Policy' if site_lang == 'en' else 'מדיניות פרטיות' }}</a>
+      <a class="footer-legal-btn" href="{{ url_for('site.cookies', lang=site_lang) }}">{{ 'Cookie Policy' if site_lang == 'en' else 'מדיניות Cookies' }}</a>
+      <a class="footer-legal-btn" href="{{ url_for('site.affiliates', lang=site_lang) }}">{{ 'Affiliate Disclosure' if site_lang == 'en' else 'גילוי נאות וקישורי שותפים' }}</a>
+      <a class="footer-legal-btn" href="{{ url_for('site.accessibility', lang=site_lang) }}">{{ 'Accessibility' if site_lang == 'en' else 'הצהרת נגישות' }}</a>
+    </nav>
+    <div class="footer-copyright">{{ '© Ariella. All rights reserved.' if site_lang == 'en' else '© אריאלה. כל הזכויות שמורות.' }}</div>
+  </div>
+</footer>

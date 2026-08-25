@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Continue to booking' if site_lang == 'en' else 'המשך להזמנה' }}{% endblock %}
+{% block content %}
+<section class="booking-handoff" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">
+  <div class="booking-handoff-card">
+    <p class="eyebrow">{{ 'Ariella selected these flights' if site_lang == 'en' else 'אריאלה בחרה עבורך את הטיסות האלה' }}</p>
+    <h1>{{ offer.departure_code }} → {{ offer.arrival_code }}</h1>
+    <div class="booking-flight-summary">
+      <div><strong>{{ 'Outbound' if site_lang == 'en' else 'הלוך' }}</strong><br>{{ offer.outbound_date }}{% if offer.departure_time %} · {{ offer.departure_time }}{% endif %}</div>
+      <div><strong>{{ 'Return' if site_lang == 'en' else 'חזור' }}</strong><br>{{ offer.return_date }}{% if offer.return_departure_time %} · {{ offer.return_departure_time }}{% endif %}</div>
+      <div><strong>{{ 'Airline' if site_lang == 'en' else 'חברת תעופה' }}</strong><br>{{ offer.airline or '—' }}</div>
+      <div><strong>{{ 'Price found' if site_lang == 'en' else 'המחיר שנמצא' }}</strong><br>₪{{ '%.0f'|format(offer.price_ils or 0) }}</div>
+    </div>
+
+    <p class="handoff-note">
+      {{ 'The booking is completed on the supplier website. Ariella will take you to the best available booking path for the selected outbound and return flights.' if site_lang == 'en'
+      else 'ההזמנה עצמה מתבצעת באתר הספק. אריאלה תעביר אותך למסלול ההזמנה הטוב ביותר הזמין עבור טיסות ההלוך והחזור שנבחרו.' }}
+    </p>
+
+    {% if target_url %}
+      {% if target_fields %}
+      <form method="post" action="{{ target_url }}" class="handoff-actions">
+        {% for name, value in target_fields %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+        <button type="submit" class="primary-btn">{{ 'Continue to booking' if site_lang == 'en' else 'המשך להזמנה' }}{% if target_supplier %} · {{ target_supplier }}{% endif %}</button>
+      </form>
+      {% else %}
+      <div class="handoff-actions">
+        <a class="primary-btn" href="{{ target_url }}" rel="noopener">{{ 'Continue to booking' if site_lang == 'en' else 'המשך להזמנה' }}{% if target_supplier %} · {{ target_supplier }}{% endif %}</a>
+      </div>
+      {% endif %}
+    {% else %}
+      <p class="handoff-error">{{ 'A reliable booking path is not available for this deal right now.' if site_lang == 'en' else 'כרגע אין מסלול הזמנה אמין לדיל הזה.' }}</p>
+    {% endif %}
+
+    {% if fallback_url and fallback_url != target_url %}
+      <p class="handoff-fallback">
+        {{ 'If the supplier does not let you continue:' if site_lang == 'en' else 'אם אתר הספק לא מאפשר להמשיך:' }}
+        <a href="{{ fallback_url }}" rel="noopener">{{ 'open the flight results' if site_lang == 'en' else 'פתחי את תוצאות הטיסה' }}</a>
+      </p>
+    {% endif %}
+    <p><a href="{{ url_for('site.deals') }}">{{ 'Back to Ariella deals' if site_lang == 'en' else 'חזרה לדילים של אריאלה' }}</a></p>
+  </div>
+</section>
+{% endblock %}

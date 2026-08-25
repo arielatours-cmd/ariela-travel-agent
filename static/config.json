@@ -1,0 +1,20 @@
+{
+  "agent_name": "Ariella Tours",
+  "departure_airports": [
+    {
+      "code": "TLV",
+      "name": "Ben Gurion Airport",
+      "scope": "all destinations"
+    },
+    {
+      "code": "HFA",
+      "name": "Haifa Airport",
+      "scope": "nearby destinations only"
+    }
+  ],
+  "checked_bag_required": true,
+  "alert_rule": "Send an alert only when the total fare is significantly lower than the usual price for the route and dates.",
+  "hotels_enabled": false,
+  "car_rental_enabled": false,
+  "whatsapp_enabled": false
+}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Account Details | Ariella' if site_lang == 'en' else 'פרטי החשבון | אריאלה' }}{% endblock %}
+{% block content %}
+<section class="page-hero account-details-hero"><div class="shell"><span class="eyebrow personal-area-eyebrow">{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}</span><h1>{{ 'Account Details' if site_lang == 'en' else 'פרטי החשבון' }}</h1></div></section>
+<section class="section"><div class="shell narrow"><form class="form-card" method="post">
+<h2>{{ 'My details' if site_lang == 'en' else 'הפרטים שלי' }}</h2>
+<label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}<input name="full_name" autocomplete="name" value="{{ member.full_name or '' }}" required></label>
+<label>{{ 'Email address' if site_lang == 'en' else 'כתובת דוא״ל' }}<input type="email" name="email" autocomplete="email" value="{{ member.email or '' }}" required></label>
+<label>{{ 'Phone number' if site_lang == 'en' else 'מספר טלפון' }}<input name="phone" autocomplete="tel" value="{{ member.phone or '' }}"></label>
+<label>{{ "Country" if site_lang == "en" else "מדינה" }}
+      <select name="country" required>
+        <option value="" disabled>{{ "Select a country" if site_lang == "en" else "בחרו מדינה" }}</option>
+        <option value="IL" {% if member.country == "IL" %}selected{% endif %}>{{ "Israel" if site_lang == "en" else "ישראל" }}</option>
+<option value="US" {% if member.country == "US" %}selected{% endif %}>{{ "United States" if site_lang == "en" else "ארצות הברית" }}</option>
+<option value="CA" {% if member.country == "CA" %}selected{% endif %}>{{ "Canada" if site_lang == "en" else "קנדה" }}</option>
+<option value="GB" {% if member.country == "GB" %}selected{% endif %}>{{ "United Kingdom" if site_lang == "en" else "בריטניה" }}</option>
+<option value="FR" {% if member.country == "FR" %}selected{% endif %}>{{ "France" if site_lang == "en" else "צרפת" }}</option>
+<option value="DE" {% if member.country == "DE" %}selected{% endif %}>{{ "Germany" if site_lang == "en" else "גרמניה" }}</option>
+<option value="IT" {% if member.country == "IT" %}selected{% endif %}>{{ "Italy" if site_lang == "en" else "איטליה" }}</option>
+<option value="ES" {% if member.country == "ES" %}selected{% endif %}>{{ "Spain" if site_lang == "en" else "ספרד" }}</option>
+<option value="PT" {% if member.country == "PT" %}selected{% endif %}>{{ "Portugal" if site_lang == "en" else "פורטוגל" }}</option>
+<option value="NL" {% if member.country == "NL" %}selected{% endif %}>{{ "Netherlands" if site_lang == "en" else "הולנד" }}</option>
+<option value="BE" {% if member.country == "BE" %}selected{% endif %}>{{ "Belgium" if site_lang == "en" else "בלגיה" }}</option>
+<option value="CH" {% if member.country == "CH" %}selected{% endif %}>{{ "Switzerland" if site_lang == "en" else "שווייץ" }}</option>
+<option value="AT" {% if member.country == "AT" %}selected{% endif %}>{{ "Austria" if site_lang == "en" else "אוסטריה" }}</option>
+<option value="GR" {% if member.country == "GR" %}selected{% endif %}>{{ "Greece" if site_lang == "en" else "יוון" }}</option>
+<option value="CY" {% if member.country == "CY" %}selected{% endif %}>{{ "Cyprus" if site_lang == "en" else "קפריסין" }}</option>
+<option value="HR" {% if member.country == "HR" %}selected{% endif %}>{{ "Croatia" if site_lang == "en" else "קרואטיה" }}</option>
+<option value="SI" {% if member.country == "SI" %}selected{% endif %}>{{ "Slovenia" if site_lang == "en" else "סלובניה" }}</option>
+<option value="ME" {% if member.country == "ME" %}selected{% endif %}>{{ "Montenegro" if site_lang == "en" else "מונטנגרו" }}</option>
+<option value="AL" {% if member.country == "AL" %}selected{% endif %}>{{ "Albania" if site_lang == "en" else "אלבניה" }}</option>
+<option value="MK" {% if member.country == "MK" %}selected{% endif %}>{{ "North Macedonia" if site_lang == "en" else "צפון מקדוניה" }}</option>
+<option value="RO" {% if member.country == "RO" %}selected{% endif %}>{{ "Romania" if site_lang == "en" else "רומניה" }}</option>
+<option value="BG" {% if member.country == "BG" %}selected{% endif %}>{{ "Bulgaria" if site_lang == "en" else "בולגריה" }}</option>
+<option value="HU" {% if member.country == "HU" %}selected{% endif %}>{{ "Hungary" if site_lang == "en" else "הונגריה" }}</option>
+<option value="CZ" {% if member.country == "CZ" %}selected{% endif %}>{{ "Czechia" if site_lang == "en" else "צ'כיה" }}</option>
+<option value="PL" {% if member.country == "PL" %}selected{% endif %}>{{ "Poland" if site_lang == "en" else "פולין" }}</option>
+<option value="SK" {% if member.country == "SK" %}selected{% endif %}>{{ "Slovakia" if site_lang == "en" else "סלובקיה" }}</option>
+<option value="RS" {% if member.country == "RS" %}selected{% endif %}>{{ "Serbia" if site_lang == "en" else "סרביה" }}</option>
+<option value="BA" {% if member.country == "BA" %}selected{% endif %}>{{ "Bosnia and Herzegovina" if site_lang == "en" else "בוסניה והרצגובינה" }}</option>
+<option value="TR" {% if member.country == "TR" %}selected{% endif %}>{{ "Türkiye" if site_lang == "en" else "טורקיה" }}</option>
+<option value="GE" {% if member.country == "GE" %}selected{% endif %}>{{ "Georgia" if site_lang == "en" else "גאורגיה" }}</option>
+<option value="AE" {% if member.country == "AE" %}selected{% endif %}>{{ "United Arab Emirates" if site_lang == "en" else "איחוד האמירויות הערביות" }}</option>
+<option value="TH" {% if member.country == "TH" %}selected{% endif %}>{{ "Thailand" if site_lang == "en" else "תאילנד" }}</option>
+<option value="JP" {% if member.country == "JP" %}selected{% endif %}>{{ "Japan" if site_lang == "en" else "יפן" }}</option>
+<option value="CN" {% if member.country == "CN" %}selected{% endif %}>{{ "China" if site_lang == "en" else "סין" }}</option>
+<option value="IN" {% if member.country == "IN" %}selected{% endif %}>{{ "India" if site_lang == "en" else "הודו" }}</option>
+<option value="SG" {% if member.country == "SG" %}selected{% endif %}>{{ "Singapore" if site_lang == "en" else "סינגפור" }}</option>
+<option value="AU" {% if member.country == "AU" %}selected{% endif %}>{{ "Australia" if site_lang == "en" else "אוסטרליה" }}</option>
+<option value="NZ" {% if member.country == "NZ" %}selected{% endif %}>{{ "New Zealand" if site_lang == "en" else "ניו זילנד" }}</option>
+<option value="ZA" {% if member.country == "ZA" %}selected{% endif %}>{{ "South Africa" if site_lang == "en" else "דרום אפריקה" }}</option>
+<option value="BR" {% if member.country == "BR" %}selected{% endif %}>{{ "Brazil" if site_lang == "en" else "ברזיל" }}</option>
+<option value="AR" {% if member.country == "AR" %}selected{% endif %}>{{ "Argentina" if site_lang == "en" else "ארגנטינה" }}</option>
+<option value="MX" {% if member.country == "MX" %}selected{% endif %}>{{ "Mexico" if site_lang == "en" else "מקסיקו" }}</option>
+<option value="NO" {% if member.country == "NO" %}selected{% endif %}>{{ "Norway" if site_lang == "en" else "נורווגיה" }}</option>
+<option value="SE" {% if member.country == "SE" %}selected{% endif %}>{{ "Sweden" if site_lang == "en" else "שוודיה" }}</option>
+<option value="DK" {% if member.country == "DK" %}selected{% endif %}>{{ "Denmark" if site_lang == "en" else "דנמרק" }}</option>
+<option value="FI" {% if member.country == "FI" %}selected{% endif %}>{{ "Finland" if site_lang == "en" else "פינלנד" }}</option>
+<option value="IS" {% if member.country == "IS" %}selected{% endif %}>{{ "Iceland" if site_lang == "en" else "איסלנד" }}</option>
+<option value="IE" {% if member.country == "IE" %}selected{% endif %}>{{ "Ireland" if site_lang == "en" else "אירלנד" }}</option>
+<option value="LU" {% if member.country == "LU" %}selected{% endif %}>{{ "Luxembourg" if site_lang == "en" else "לוקסמבורג" }}</option>
+<option value="MT" {% if member.country == "MT" %}selected{% endif %}>{{ "Malta" if site_lang == "en" else "מלטה" }}</option>
+<option value="EE" {% if member.country == "EE" %}selected{% endif %}>{{ "Estonia" if site_lang == "en" else "אסטוניה" }}</option>
+<option value="LV" {% if member.country == "LV" %}selected{% endif %}>{{ "Latvia" if site_lang == "en" else "לטביה" }}</option>
+<option value="LT" {% if member.country == "LT" %}selected{% endif %}>{{ "Lithuania" if site_lang == "en" else "ליטא" }}</option>
+<option value="MA" {% if member.country == "MA" %}selected{% endif %}>{{ "Morocco" if site_lang == "en" else "מרוקו" }}</option>
+<option value="EG" {% if member.country == "EG" %}selected{% endif %}>{{ "Egypt" if site_lang == "en" else "מצרים" }}</option>
+      </select>
+    </label>
+<label>{{ 'Which airports would you like to depart from?' if site_lang == 'en' else 'מאילו שדות תעופה תרצו לצאת?' }}
+<div class="airport-picker" data-airport-picker><div class="airport-tags"></div><input class="airport-search" type="text" autocomplete="off" placeholder="{{ 'Search city, airport, country or IATA code…' if site_lang == 'en' else 'חפשו עיר, שדה תעופה, מדינה או קוד IATA…' }}"><div class="airport-suggestions" hidden></div><input type="hidden" name="preferred_airports" class="airport-values" required value="{{ (member.preferred_airports_list or [])|join(',') }}"></div>
+<small>{{ 'You can select more than one airport. These will be the default for every new vacation.' if site_lang == 'en' else 'אפשר לבחור כמה שדות תעופה. אלה יהיו ברירת המחדל לכל חופשה חדשה.' }}</small></label>
+<button class="button primary" type="submit">{{ 'Save details' if site_lang == 'en' else 'שמירת פרטים' }}</button>
+</form></div></section>{% endblock %}

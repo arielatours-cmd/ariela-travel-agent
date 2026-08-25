@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="{{ site_lang }}" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% if site_lang == 'en' %}About | Ariella{% else %}קצת עלינו | אריאלה{% endif %}</title>
+<style>
+:root{--black:#070707;--cream:#f7f0e4;--cream2:#fffaf2;--gold:#c99a3f;--gold2:#e7c778}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);color:#111}
+.site-header{min-height:126px;background:linear-gradient(#030303,#090909);border-bottom:1px solid var(--gold);display:flex;align-items:center;direction:ltr}.header-inner{width:min(1440px,92%);margin:auto;display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:28px}.brand{display:flex;align-items:center;gap:16px;justify-self:start;direction:ltr;cursor:default;user-select:none}.logo-a{width:72px;height:72px;display:block;object-fit:contain}.brand-name{display:block;font:30px/1 Georgia,"Times New Roman",serif;letter-spacing:9px;color:var(--gold2)}.brand-tag{display:block;margin-top:11px;font-size:12px;letter-spacing:5px;color:var(--gold);text-align:center}.main-nav{direction:{{ 'ltr' if site_lang == 'en' else 'rtl' }};display:flex;gap:42px;justify-self:center}.main-nav a{color:#f5f1e8;text-decoration:none;font-size:18px;padding:18px 4px;position:relative;white-space:nowrap}.main-nav a::after{content:"";position:absolute;right:50%;left:50%;bottom:5px;height:1px;background:var(--gold);transition:right .28s ease,left .28s ease}.main-nav a:hover,.main-nav a.active{color:var(--gold2)}.main-nav a:hover::after,.main-nav a.active::after{right:15%;left:15%}.language-switch{display:flex;align-items:center;gap:7px;font-size:14px;white-space:nowrap;direction:ltr}.language-switch a{color:#bda66f;text-decoration:none;padding:7px 2px}.language-switch a.active{color:var(--gold2);font-weight:700}.language-switch span{color:#665a42}.account{justify-self:end;color:#fff;border:1px solid var(--gold2);border-radius:999px;padding:15px 28px;text-decoration:none;font-size:17px;white-space:nowrap}.account:hover{background:var(--gold2);color:#111}
+.about-page{min-height:calc(100vh - 126px);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.9),transparent 32%),linear-gradient(135deg,var(--cream2),var(--cream))}.about-wrap{width:min(980px,90%);margin:auto;padding:70px 0 72px;text-align:center}.about-wrap h1{margin:0 0 38px;font:700 clamp(48px,6vw,72px)/1.1 Georgia,"Times New Roman",serif}.title-gold{background:linear-gradient(90deg,#a87523,#e1bf69 48%,#af7c25);-webkit-background-clip:text;background-clip:text;color:transparent}.about-wrap p{margin:28px auto;font-size:clamp(19px,1.65vw,24px);line-height:1.95}.questions{font-weight:700}.focus{margin:42px auto 48px;font:700 clamp(31px,3.6vw,46px)/1.35 Georgia,"Times New Roman",serif;color:var(--gold)}.brand-word{color:#111}.mission{margin-top:64px;color:var(--gold);font-weight:700}.mission-first{font-size:clamp(28px,3vw,38px);line-height:1.5}.mission-last{margin-top:12px;font:700 clamp(42px,5vw,62px)/1.2 Georgia,"Times New Roman",serif}.site-footer{background:#050505;color:#eee;text-align:center;padding:54px 20px 58px;border-top:1px solid #242424}.footer-lead{margin:0 0 10px;font-size:22px}.footer-sub{margin:0 0 28px;color:#c9c2b5;font-size:18px}.contact-open{display:inline-block;min-width:170px;border:1px solid var(--gold2);background:transparent;color:var(--gold2);padding:14px 30px;font-size:18px;text-decoration:none}.contact-open:hover{background:var(--gold2);color:#111}
+@media(max-width:1050px){.header-inner{grid-template-columns:1fr auto auto}.main-nav{display:none}}@media(max-width:700px){.site-header{padding:14px 0;min-height:auto}.header-inner{width:94%;grid-template-columns:1fr auto;gap:12px}.language-switch{grid-row:2;justify-self:start}.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:50px}.account{font-size:14px;padding:11px 14px}.about-wrap{width:89%;padding:52px 0 58px}.about-wrap p{line-height:1.75}.mission{margin-top:48px}}
+</style>
+
+
+
+<style id="ariella-unified-header">
+.site-header,.site-header.luxury-header{
+  min-height:116px!important;background:linear-gradient(#030303,#090909)!important;
+  border-bottom:1px solid #c99a3f!important;display:flex!important;align-items:center!important;direction:ltr!important;
+}
+.site-header .header-inner{
+  width:min(1500px,88%)!important;margin:0 auto!important;min-height:116px!important;
+  position:relative!important;display:flex!important;align-items:center!important;direction:ltr!important;
+}
+.site-header .language-switch{
+  position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;
+  margin:0!important;padding:0!important;white-space:nowrap!important;z-index:5!important;
+}
+.site-header .language-switch a{color:#c99a3f!important;text-decoration:none!important;font-weight:700!important;font-size:14px!important}
+.site-header .brand{
+  position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;
+  display:flex!important;align-items:center!important;gap:16px!important;margin:0!important;direction:ltr!important;
+}
+.site-header .logo-a{width:72px!important;height:72px!important;object-fit:contain!important;display:block!important}
+.site-header .brand-name{display:block!important;font:30px/1 Georgia,"Times New Roman",serif!important;letter-spacing:9px!important;color:#e7c778!important}
+.site-header .brand-tag{display:block!important;margin-top:11px!important;font-size:12px!important;letter-spacing:5px!important;color:#c99a3f!important;text-align:center!important}
+.site-header .main-nav{
+  position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
+  display:flex!important;gap:42px!important;align-items:center!important;margin:0!important;width:max-content!important;white-space:nowrap!important;
+}
+html[dir="rtl"] .site-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
+.site-header .main-nav a{color:#f5f1e8!important;text-decoration:none!important;font-size:18px!important;padding:18px 4px!important;position:relative!important}
+.site-header .main-nav a.active{color:#e7c778!important}
+.site-header .main-nav a.active:after{content:""!important;position:absolute!important;left:15%!important;right:15%!important;bottom:5px!important;height:1px!important;background:#c99a3f!important}
+.site-header .account-menu-wrap{
+  position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;z-index:10!important;
+}
+.site-header .account{
+  position:static!important;transform:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  color:#fff!important;border:1px solid #e7c778!important;border-radius:999px!important;padding:15px 28px!important;background:transparent!important;
+  text-decoration:none!important;font-size:17px!important;cursor:pointer!important;white-space:nowrap!important;
+}
+.site-header .account-dropdown{
+  position:absolute!important;top:calc(100% + 10px)!important;right:0!important;min-width:220px!important;background:#0b0b0b!important;
+  border:1px solid #c99a3f!important;box-shadow:0 18px 45px rgba(0,0,0,.28)!important;padding:8px!important;z-index:100!important;
+}
+.site-header .account-dropdown[hidden]{display:none!important}
+.site-header .account-dropdown a,.site-header .account-dropdown button{
+  display:block!important;width:100%!important;padding:11px 13px!important;color:#fff!important;text-decoration:none!important;background:transparent!important;
+  border:0!important;text-align:start!important;font:inherit!important;cursor:pointer!important;
+}
+.site-header .account-dropdown a:hover,.site-header .account-dropdown button:hover{color:#e7c778!important;background:#17130b!important}
+@media(max-width:900px){
+  .site-header .header-inner{width:94%!important}
+  .site-header .language-switch{left:0!important}
+  .site-header .brand{left:65px!important}
+  .site-header .main-nav{display:none!important}
+  .site-header .account-menu-wrap{right:0!important}
+  .site-header .logo-a{width:50px!important;height:50px!important}
+  .site-header .brand-name{font-size:20px!important;letter-spacing:5px!important}
+  .site-header .brand-tag{font-size:9px!important;letter-spacing:3px!important}
+}
+</style>
+<style id="v934-shared-header">
+
+/* v9.3.4 authoritative shared header */
+.site-header.luxury-header{min-height:116px!important;display:flex!important;align-items:center!important;direction:ltr!important}
+.site-header.luxury-header .header-inner{width:min(1500px,88%)!important;min-height:116px!important;margin:0 auto!important;padding:0!important;position:relative!important;display:block!important;direction:ltr!important}
+.site-header.luxury-header .language-switch{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
+.site-header.luxury-header .brand{position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;display:flex!important;align-items:center!important;gap:16px!important;direction:ltr!important}
+.site-header.luxury-header .main-nav{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important;width:max-content!important;white-space:nowrap!important}
+.site-header.luxury-header .account-menu-wrap{position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
+html[dir="rtl"] .site-header.luxury-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header.luxury-header .main-nav{direction:ltr!important}
+
+</style>
+<style>
+/* v9.4.1: same language-switch color as Home on every page */
+.site-header .language-switch a,
+.site-header.luxury-header .language-switch a{
+  color:#c99a3f!important;
+  text-decoration:none!important;
+  font-weight:700!important;
+  font-size:14px!important;
+}
+.site-header .language-switch a:visited,
+.site-header.luxury-header .language-switch a:visited{color:#c99a3f!important}
+</style>
+<style id="v942-account-button">
+.site-header .account,
+.site-header .account-menu-button,
+.site-header.luxury-header .account,
+.site-header.luxury-header .account-menu-button{
+  min-height:56px!important;min-width:154px!important;padding:0 26px!important;
+  border:1px solid #e7c778!important;border-radius:999px!important;
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  font-size:17px!important;font-weight:700!important;line-height:1!important;
+  white-space:nowrap!important;background:transparent!important;color:#fff!important;box-sizing:border-box!important;
+}
+</style>
+
+
+<style id="v945-exact-language-gold">
+html body .site-header .language-switch,
+html body .site-header .language-switch a,
+html body .site-header .language-switch a:link,
+html body .site-header .language-switch a:visited,
+html body .site-header.luxury-header .language-switch a,
+html body .site-header.luxury-header .language-switch a:link,
+html body .site-header.luxury-header .language-switch a:visited{color:#c99a3f!important;opacity:1!important}
+html body .site-header .language-switch a:hover,
+html body .site-header.luxury-header .language-switch a:hover{color:#d8ad57!important}
+</style>
+
+</head>
+<body>
+{% include "_site_header.html" %}
+<main class="about-page"><section class="about-wrap">
+{% if site_lang == 'en' %}
+  <h1>About <span class="title-gold">Us</span></h1>
+  <p>We all know that moment.<br>We decide it is time for a vacation, and then the questions begin...</p>
+  <p class="questions">Where should we fly?<br>Which country suits us best?<br>And which area should we actually explore?</p>
+  <p>We may be a family, a couple, or a group of friends – but each of us is looking for a different kind of vacation.<br>Some look for nature and quiet, others prefer beaches, attractions, or a city break.<br>Budget, season, and children's ages can completely change the destination that fits.</p>
+  <p>The more we searched, the more we realized that the most important question was still unanswered:</p>
+  <div class="focus">What is the vacation that truly suits us best?</div>
+  <p>That need is what <strong class="brand-word">Ariella</strong> was born from.<br><br>We built a system that understands who we are, what we like, and how we like to travel, and uses artificial intelligence to help us find the vacation that fits us best.</p>
+  <div class="mission"><div class="mission-first">Because we believe a great vacation does not start with a flight ticket.</div><div class="mission-last">It starts with the right choice.</div></div>
+{% else %}
+  <h1>קצת <span class="title-gold">עלינו</span></h1>
+  <p>כולנו מכירים את הרגע הזה.<br>מחליטים שיוצאים לחופשה, ואז מתחילות השאלות...</p>
+  <p class="questions">לאן כדאי לנו לטוס?<br>איזו מדינה הכי מתאימה לנו?<br>ובאיזה אזור באמת כדאי לנו לטייל?</p>
+  <p>אנחנו משפחה, זוג או קבוצת חברים – אבל כל אחד מאיתנו מחפש חופשה אחרת.<br>יש מי שמחפש טבע ושקט, אחרים מעדיפים חופים, אטרקציות או חופשה עירונית.<br>גם התקציב, העונה בשנה וגילאי הילדים יכולים לשנות לגמרי את היעד המתאים.</p>
+  <p>ככל שחיפשנו יותר, גילינו שדווקא השאלה החשובה ביותר נשארת בלי תשובה:</p>
+  <div class="focus">מהי באמת החופשה שהכי מתאימה לנו?</div>
+  <p>מתוך הצורך הזה נולדה <strong class="brand-word">אריאלה</strong>.<br><br>בנינו מערכת שמבינה מי אנחנו, מה אנחנו אוהבים ואיך אנחנו אוהבים לטייל, ומשלבת בינה מלאכותית כדי לעזור לנו למצוא את החופשה המתאימה ביותר.</p>
+  <div class="mission"><div class="mission-first">כי אנחנו מאמינים שחופשה טובה לא מתחילה בכרטיס טיסה.</div><div class="mission-last">היא מתחילה בבחירה הנכונה.</div></div>
+{% endif %}
+</section></main>
+<footer class="site-footer">
+{% if site_lang == 'en' %}<p class="footer-lead">We are constantly improving Ariella.</p><p class="footer-sub">Have an idea or suggestion? We'd love to hear it.</p><a class="contact-open" href="{{ url_for('site.feedback_form') }}">Write to us</a>
+{% else %}<p class="footer-lead">אנחנו ממשיכים לפתח את אריאלה כל הזמן.</p><p class="footer-sub">יש לכם רעיון או הצעה? נשמח לשמוע.</p><a class="contact-open" href="{{ url_for('site.feedback_form') }}">כתבו לנו</a>{% endif %}
+</footer>
+
+<script>
+(function(){
+ const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');
+ if(!button||!menu)return;
+ const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};
+ button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});
+ document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+})();
+</script>
+{% include "_site_footer.html" %}</body></html>

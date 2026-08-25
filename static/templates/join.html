@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Join Ariella' if site_lang == 'en' else 'הצטרפות לאריאלה' }}{% endblock %}
+{% block content %}
+<section class="auth-section"><div class="shell auth-grid">
+  <div class="auth-copy"><span class="eyebrow">{{ 'ARIella membership' if site_lang == 'en' else 'חברות באריאלה' }}</span><h1>{% if site_lang == 'en' %}Create an account.<br>Start finding better.{% else %}פותחים חשבון.<br>מתחילים לדייק.{% endif %}</h1><p>{{ 'Create separate vacation searches and let Ariella learn what to look for.' if site_lang == 'en' else 'לאחר ההתחברות תוכלו ליצור חיפוש נפרד לכל חופשה.' }}</p><div class="trial-note"><strong>{{ 'Free during the launch period' if site_lang == 'en' else 'ללא תשלום בתקופת ההרצה' }}</strong><span>{{ 'Personal matching may become a paid membership service in the future, with advance notice.' if site_lang == 'en' else 'שירות ההתאמה האישית מיועד בעתיד לפעול במסגרת חברות בתשלום, בכפוף להודעה מראש.' }}</span></div></div>
+  <form class="form-card" method="post">
+    <h2>{{ 'Create account' if site_lang == 'en' else 'יצירת חשבון' }}</h2>
+    <label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}<input name="full_name" autocomplete="name" required></label>
+    <label>{{ 'Email address' if site_lang == 'en' else 'כתובת דוא״ל' }}<input type="email" name="email" autocomplete="email" required></label>
+    <label>{{ 'Phone number' if site_lang == 'en' else 'מספר טלפון' }}<input name="phone" autocomplete="tel" required></label>
+    <label>{{ "Country" if site_lang == "en" else "מדינה" }}
+      <select name="country" required>
+        <option value="" disabled>{{ "Select a country" if site_lang == "en" else "בחרו מדינה" }}</option>
+        <option value="IL" selected>{{ "Israel" if site_lang == "en" else "ישראל" }}</option>
+<option value="US" >{{ "United States" if site_lang == "en" else "ארצות הברית" }}</option>
+<option value="CA" >{{ "Canada" if site_lang == "en" else "קנדה" }}</option>
+<option value="GB" >{{ "United Kingdom" if site_lang == "en" else "בריטניה" }}</option>
+<option value="FR" >{{ "France" if site_lang == "en" else "צרפת" }}</option>
+<option value="DE" >{{ "Germany" if site_lang == "en" else "גרמניה" }}</option>
+<option value="IT" >{{ "Italy" if site_lang == "en" else "איטליה" }}</option>
+<option value="ES" >{{ "Spain" if site_lang == "en" else "ספרד" }}</option>
+<option value="PT" >{{ "Portugal" if site_lang == "en" else "פורטוגל" }}</option>
+<option value="NL" >{{ "Netherlands" if site_lang == "en" else "הולנד" }}</option>
+<option value="BE" >{{ "Belgium" if site_lang == "en" else "בלגיה" }}</option>
+<option value="CH" >{{ "Switzerland" if site_lang == "en" else "שווייץ" }}</option>
+<option value="AT" >{{ "Austria" if site_lang == "en" else "אוסטריה" }}</option>
+<option value="GR" >{{ "Greece" if site_lang == "en" else "יוון" }}</option>
+<option value="CY" >{{ "Cyprus" if site_lang == "en" else "קפריסין" }}</option>
+<option value="HR" >{{ "Croatia" if site_lang == "en" else "קרואטיה" }}</option>
+<option value="SI" >{{ "Slovenia" if site_lang == "en" else "סלובניה" }}</option>
+<option value="ME" >{{ "Montenegro" if site_lang == "en" else "מונטנגרו" }}</option>
+<option value="AL" >{{ "Albania" if site_lang == "en" else "אלבניה" }}</option>
+<option value="MK" >{{ "North Macedonia" if site_lang == "en" else "צפון מקדוניה" }}</option>
+<option value="RO" >{{ "Romania" if site_lang == "en" else "רומניה" }}</option>
+<option value="BG" >{{ "Bulgaria" if site_lang == "en" else "בולגריה" }}</option>
+<option value="HU" >{{ "Hungary" if site_lang == "en" else "הונגריה" }}</option>
+<option value="CZ" >{{ "Czechia" if site_lang == "en" else "צ'כיה" }}</option>
+<option value="PL" >{{ "Poland" if site_lang == "en" else "פולין" }}</option>
+<option value="SK" >{{ "Slovakia" if site_lang == "en" else "סלובקיה" }}</option>
+<option value="RS" >{{ "Serbia" if site_lang == "en" else "סרביה" }}</option>
+<option value="BA" >{{ "Bosnia and Herzegovina" if site_lang == "en" else "בוסניה והרצגובינה" }}</option>
+<option value="TR" >{{ "Türkiye" if site_lang == "en" else "טורקיה" }}</option>
+<option value="GE" >{{ "Georgia" if site_lang == "en" else "גאורגיה" }}</option>
+<option value="AE" >{{ "United Arab Emirates" if site_lang == "en" else "איחוד האמירויות הערביות" }}</option>
+<option value="TH" >{{ "Thailand" if site_lang == "en" else "תאילנד" }}</option>
+<option value="JP" >{{ "Japan" if site_lang == "en" else "יפן" }}</option>
+<option value="CN" >{{ "China" if site_lang == "en" else "סין" }}</option>
+<option value="IN" >{{ "India" if site_lang == "en" else "הודו" }}</option>
+<option value="SG" >{{ "Singapore" if site_lang == "en" else "סינגפור" }}</option>
+<option value="AU" >{{ "Australia" if site_lang == "en" else "אוסטרליה" }}</option>
+<option value="NZ" >{{ "New Zealand" if site_lang == "en" else "ניו זילנד" }}</option>
+<option value="ZA" >{{ "South Africa" if site_lang == "en" else "דרום אפריקה" }}</option>
+<option value="BR" >{{ "Brazil" if site_lang == "en" else "ברזיל" }}</option>
+<option value="AR" >{{ "Argentina" if site_lang == "en" else "ארגנטינה" }}</option>
+<option value="MX" >{{ "Mexico" if site_lang == "en" else "מקסיקו" }}</option>
+<option value="NO" >{{ "Norway" if site_lang == "en" else "נורווגיה" }}</option>
+<option value="SE" >{{ "Sweden" if site_lang == "en" else "שוודיה" }}</option>
+<option value="DK" >{{ "Denmark" if site_lang == "en" else "דנמרק" }}</option>
+<option value="FI" >{{ "Finland" if site_lang == "en" else "פינלנד" }}</option>
+<option value="IS" >{{ "Iceland" if site_lang == "en" else "איסלנד" }}</option>
+<option value="IE" >{{ "Ireland" if site_lang == "en" else "אירלנד" }}</option>
+<option value="LU" >{{ "Luxembourg" if site_lang == "en" else "לוקסמבורג" }}</option>
+<option value="MT" >{{ "Malta" if site_lang == "en" else "מלטה" }}</option>
+<option value="EE" >{{ "Estonia" if site_lang == "en" else "אסטוניה" }}</option>
+<option value="LV" >{{ "Latvia" if site_lang == "en" else "לטביה" }}</option>
+<option value="LT" >{{ "Lithuania" if site_lang == "en" else "ליטא" }}</option>
+<option value="MA" >{{ "Morocco" if site_lang == "en" else "מרוקו" }}</option>
+<option value="EG" >{{ "Egypt" if site_lang == "en" else "מצרים" }}</option>
+      </select>
+    </label>
+    <label>{{ 'Which airports would you like to depart from?' if site_lang == 'en' else 'מאילו שדות תעופה תרצו לצאת?' }}
+      <div class="airport-picker" data-airport-picker>
+        <div class="airport-tags"></div>
+        <input class="airport-search" type="text" autocomplete="off" placeholder="{{ 'Search city, airport, country or IATA code…' if site_lang == 'en' else 'חפשו עיר, שדה תעופה, מדינה או קוד IATA…' }}">
+        <div class="airport-suggestions" hidden></div>
+        <input type="hidden" name="preferred_airports" class="airport-values" required>
+      </div>
+      <small>{{ 'You can select more than one airport.' if site_lang == 'en' else 'אפשר לבחור כמה שדות תעופה.' }}</small>
+    </label>
+    <label>{{ 'Password' if site_lang == 'en' else 'סיסמה' }}<div class="password-field"><input type="password" name="password" minlength="8" autocomplete="new-password" required><button class="password-eye" type="button" onclick="togglePassword(this)" aria-label="{{ 'Show password' if site_lang == 'en' else 'הצגת סיסמה' }}"><svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.7"/></svg><svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 6.1A10.7 10.7 0 0 1 12 6c6.5 0 10 6 10 6a17.4 17.4 0 0 1-3.1 3.7M6.2 6.2C3.5 8 2 12 2 12s3.5 6 10 6a10.4 10.4 0 0 0 3-.4"/></svg></button></div><small>{{ 'At least 8 characters' if site_lang == 'en' else 'לפחות 8 תווים' }}</small></label>
+    <label class="consent"><input type="checkbox" name="consent" value="yes" required><span>{% if site_lang == 'en' %}I have read and agree to the <a href="{{ url_for('site.terms', lang=site_lang) }}">Terms of Use</a> and <a href="{{ url_for('site.privacy', lang=site_lang) }}">Privacy Policy</a>.{% else %}קראתי ואני מאשר/ת את <a href="{{ url_for('site.terms', lang=site_lang) }}">תנאי השימוש</a> ואת <a href="{{ url_for('site.privacy', lang=site_lang) }}">מדיניות הפרטיות</a>.{% endif %}</span></label>
+    <button class="button primary full" type="submit">{{ 'Create account' if site_lang == 'en' else 'פתיחת חשבון' }}</button>
+    <p class="form-footer">{{ 'Already have an account?' if site_lang == 'en' else 'כבר יש לך חשבון?' }} <a href="{{ url_for('site.login', lang=site_lang) }}">{{ 'Sign in' if site_lang == 'en' else 'להתחברות' }}</a></p>
+  </form>
+{% if duplicate_account %}<div class="duplicate-account-actions"><a class="button secondary" href="{{ url_for('site.login', lang=site_lang) }}">{{ 'Sign in' if site_lang == 'en' else 'התחברות' }}</a><a class="text-link" href="{{ url_for('site.login', lang=site_lang) }}">{{ 'Forgot password?' if site_lang == 'en' else 'שכחתי סיסמה' }}</a></div>{% endif %}
+</div></section>
+{% endblock %}

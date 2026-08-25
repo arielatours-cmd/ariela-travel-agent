@@ -1,0 +1,4 @@
+Ariella Tours 9.7.43 — Display reasons hotfix
+- תיקון קריסת האתר עם UnboundLocalError: display_reasons.
+- הסבר בחירת הספק מוכנס רק לאחר יצירת רשימת הסיבות.
+- כל תיקוני 9.7.42 נשמרו ללא שינוי.

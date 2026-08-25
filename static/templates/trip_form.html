@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}{{ 'New Vacation — Ariella' if site_lang == 'en' else 'תכנון חופשה חדשה — אריאלה' }}{% endblock %}
+{% block content %}
+<div class="trip-back-bar shell"><a class="button outline back-to-vacations" href="{{ url_for('site.account') }}">{{ 'Back to My Vacations' if site_lang=='en' else 'חזרה לחופשות שלי' }}</a></div>
+<section class="page-hero trip-questionnaire-hero">
+  <div class="shell narrow">
+    <span class="eyebrow">{{ 'PERSONAL VACATION SEARCH' if site_lang == 'en' else 'שאלון התאמה אישי' }}</span>
+    <h1>{{ "Let's plan your next vacation" if site_lang == 'en' else 'בואו נתכנן את החופשה הבאה' }}</h1>
+  </div>
+</section>
+
+<form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
+  <div class="trip-origin-defaults">
+    <div class="origin-default-heading">{{ 'Departure airports for this vacation' if site_lang == 'en' else 'שדות מוצא לחופשה הזו' }}</div>
+    <div class="airport-picker origin-airport-picker"
+         data-airport-picker
+         data-origin-picker
+         data-default-airports="{{ (current_member.vacation_default_airports or [])|join(',') }}">
+      <div class="airport-tags"></div>
+      <input class="airport-search" type="text" autocomplete="off"
+             placeholder="{{ 'Add another city, country, airport or IATA code…' if site_lang == 'en' else 'הוסיפו עיר, מדינה, שדה תעופה או קוד IATA…' }}">
+      <div class="airport-suggestions" hidden></div>
+      <input type="hidden" name="origin_airports" class="airport-values">
+      <input type="hidden" name="origin_selection_mode" class="origin-selection-mode" value="default">
+    </div>
+  </div>
+  <div class="wizard-progress" aria-label="{{ 'Questionnaire progress' if site_lang == 'en' else 'התקדמות בשאלון' }}">
+    <div class="wizard-progress-bar" id="wizardProgressBar"></div>
+  </div>
+  <p class="wizard-counter" id="wizardCounter">{{ 'Question 1 of 6' if site_lang == 'en' else 'שאלה 1 מתוך 6' }}</p>
+
+  <section class="wizard-step is-active" data-step="1">
+    <span class="step-number">01</span>
+    <h2>{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאן תרצו לטוס?' }}</h2>
+    <p class="helper">{{ 'Choose the option that suits you best.' if site_lang == 'en' else 'בחרו את האפשרות שהכי מתאימה לכם.' }}</p>
+    <div class="choice-row destination-options">
+      {% set opts = [('specific','I have a specific destination','יש לי יעד מסוים'),('several','I have several possible destinations','יש לי כמה יעדים אפשריים'),('open',"I'm open to Ariella's suggestions",'אני פתוח/ה להצעות של אריאלה'),('ski','Ski vacation','חופשת סקי')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+      <label class="choice-button"><input type="radio" name="destination_mode" value="{{ value }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <div class="conditional-panel" id="destinationDetails" hidden>
+      <label id="destinationLabel">{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאיזה יעד תרצו לטוס?' }}
+        <div class="airport-picker destination-airport-picker" data-airport-picker data-destination-picker>
+          <div class="airport-tags"></div>
+          <input class="airport-search" id="destinationsSearch" type="text" autocomplete="off"
+                 placeholder="{{ 'Search city, country, airport or IATA code…' if site_lang == 'en' else 'חפשו עיר, מדינה, שדה תעופה או קוד IATA…' }}">
+          <div class="airport-suggestions" hidden></div>
+          <input type="hidden" name="destinations" id="destinationsInput" class="airport-values">
+        </div>
+      </label>
+    </div>
+    <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="2" hidden>
+    <span class="step-number">02</span>
+    <h2>{{ 'When would you like to travel?' if site_lang == 'en' else 'מתי תרצו לטוס?' }}</h2>
+    <div class="choice-row">
+      {% set opts = [('exact','Exact dates','בתאריכים מדויקים'),('month','A specific month','בחודש מסוים')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+      <label class="choice-button"><input type="radio" name="date_mode" value="{{ value }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+      <label class="choice-button regular-only normal-anytime-option"><input type="radio" name="date_mode" value="anytime" required><span>{{ 'Anytime — all year works' if site_lang == 'en' else 'לא משנה — כל השנה מתאימה' }}</span></label>
+      <label class="choice-button ski-only ski-anytime-option" hidden><input type="radio" name="date_mode" value="ski_flexible" required><span>{{ 'Let Ariella choose the best ski dates' if site_lang == 'en' else 'תנו לאריאלה לבחור את התקופה המתאימה לסקי' }}</span></label>
+    </div>
+    <div class="conditional-panel two-cols" id="monthPanel" hidden>
+      <label>{{ 'Departure month' if site_lang == 'en' else 'חודש יציאה' }}
+        <input type="month" name="outbound_month" id="outboundMonth" min="{{ current_month }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}">
+      </label>
+      <label>{{ 'Return month' if site_lang == 'en' else 'חודש חזרה' }}
+        <input type="month" name="return_month" id="returnMonth" min="{{ current_month }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}">
+      </label>
+    </div>
+    <div class="conditional-panel two-cols" id="exactDatesPanel" hidden>
+      <label>{{ 'Departure date' if site_lang == 'en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{ today }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}"></label>
+      <label>{{ 'Return date' if site_lang == 'en' else 'תאריך חזרה' }}<input type="date" name="return_date" id="returnDate" min="{{ today }}" lang="{{ 'en' if site_lang == 'en' else 'he' }}"></label>
+    </div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="3" hidden>
+    <span class="step-number">03</span>
+    <h2>{{ 'Who is traveling?' if site_lang == 'en' else 'מי משתתף בחופשה?' }}</h2>
+    <div class="choice-row compact-options">
+      {% set opts = [('solo','Solo','לבד'),('couple','Couple','זוג'),('friends','Friends','חברים'),('family','Family with children','משפחה עם ילדים'),('extended','Extended family','משפחה מורחבת'),('adults_only','Adults only','מבוגרים בלבד')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+      <label class="choice-button small"><input type="radio" name="travel_party" value="{{ value }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+
+    <div class="conditional-panel" id="adultCountPanel" hidden>
+      <label>{{ 'Number of adults' if site_lang == 'en' else 'מספר מבוגרים' }}<input type="number" name="adults" min="1" value="2"></label>
+    </div>
+    <div class="conditional-panel" id="familyDetails" hidden>
+      <div class="two-cols">
+        <label>{{ 'Number of adults' if site_lang == 'en' else 'מספר מבוגרים' }}<input type="number" name="family_adults" min="1" value="2"></label>
+        <label>{{ 'Number of children' if site_lang == 'en' else 'מספר ילדים' }}<input type="number" name="children" min="1" value="1"></label>
+      </div>
+      <h3>{{ 'Which age groups are traveling?' if site_lang == 'en' else 'אילו קבוצות גיל משתתפות?' }}</h3>
+      <div class="choice-row compact-options">
+        {% set opts = [('infants','Infants 0–2','תינוקות 0–2'),('children','Children 3–12','ילדים 3–12'),('teens','Teens 13–17','בני נוער 13–17'),('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+        <label class="choice-button small"><input type="checkbox" name="age_groups" value="{{ value }}"><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="conditional-panel" id="adultAgeGroups" hidden>
+      <h3>{{ 'Which age group applies?' if site_lang == 'en' else 'איזו קבוצת גיל מתאימה?' }}</h3>
+      <div class="choice-row compact-options">
+        {% set opts = [('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+        <label class="choice-button small"><input type="checkbox" name="age_groups" value="{{ value }}"><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="4" hidden>
+    <span class="step-number">04</span>
+
+    <div id="flightPrioritiesQuestion">
+      <h2>{{ 'What should Ariella focus on when choosing your deal?' if site_lang == 'en' else 'על מה חשוב שאריאלה תשים דגש בבחירת הדיל?' }}</h2>
+      <p class="helper">{{ 'You can select more than one option.' if site_lang == 'en' else 'אפשר לבחור כמה אפשרויות.' }}</p>
+      <div class="choice-grid priority-grid">
+        {% set opts = [
+          ('price','Best value','מחיר הכי משתלם'),
+          ('dates','Your selected dates','התאריכים שבחרתם'),
+          ('baggage','Baggage','כבודה'),
+          ('direct','Direct flight','טיסה ישירה'),
+          ('times','Convenient flight times','שעות טיסה נוחות'),
+          ('maximize','Maximize your trip','למקסם את הטיול'),
+          ('balanced','Let Ariella choose the best balance','תנו לאריאלה לבחור את האיזון הטוב ביותר')
+        ] %}
+        {% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+        <label class="choice-button priority-with-note{% if value == 'balanced' %} balanced-choice{% endif %}">
+          <input type="checkbox" name="deal_priorities" value="{{ value }}">
+          <span>{{ label }}
+            {% if value == 'maximize' %}
+              <small>{{ 'Prefer flight times that let you enjoy as much time as possible at the destination.' if site_lang == 'en' else 'עדיפות לשעות טיסה שיאפשרו לנצל כמה שיותר זמן ביעד.' }}</small>
+            {% endif %}
+          </span>
+        </label>
+        {% endfor %}
+        <label class="choice-button priority-with-note ski-only ski-priority-option" hidden>
+          <input type="checkbox" name="deal_priorities" value="ski_proximity">
+          <span>{{ 'Close to the ski resort' if site_lang == 'en' else 'קרבה לאתר הסקי' }}
+            <small>{{ 'Prefer destinations and flights with a shorter, easier transfer to the ski resort.' if site_lang == 'en' else 'עדיפות ליעד ולטיסה שמאפשרים הגעה קצרה ונוחה יותר לאתר הסקי.' }}</small>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div id="holidayPrioritiesQuestion" hidden>
+      <h2>{{ 'What are you looking for in your vacation?' if site_lang == 'en' else 'מה אתם מחפשים בחופשה?' }}</h2>
+      <p class="helper">{{ 'Choose what matters to you and Ariella will use it to recommend suitable destinations and deals.' if site_lang == 'en' else 'בחרו מה חשוב לכם ואריאלה תשתמש בזה כדי להמליץ על יעדים ודילים מתאימים.' }}</p>
+      <div class="choice-grid priority-grid">
+        {% set opts = [('price','Good price','מחיר משתלם'),('beach','Beach & relaxation','בטן־גב'),('nature','Nature & scenery','טבע ונופים'),('hiking','Hiking & touring','מסלולים וטיולים'),('city','Cities & culture','ערים ותרבות'),('family',"Kids' attractions",'אטרקציות לילדים'),('food','Food & cuisine','אוכל וקולינריה'),('shopping','Shopping','קניות'),('quiet','Less crowded destination','יעד פחות עמוס'),('weather','Pleasant weather','מזג אוויר נעים'),('nightlife','Nightlife','חיי לילה'),('relax','Relaxation & pampering','רוגע ופינוק')] %}
+        {% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+        <label class="choice-button"><input type="checkbox" name="holiday_priorities" value="{{ value }}"><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+      <div class="open-flight-focus">
+        <h3>{{ 'And what matters most to you about the flight?' if site_lang == 'en' else 'ומה חשוב לכם בטיסה?' }}</h3>
+        <div class="choice-row compact-options">
+          {% set fopts = [('price','Price','מחיר'),('direct','Direct flight','טיסה ישירה'),('baggage','Baggage','כבודה'),('balanced','Let Ariella choose','תנו לאריאלה לבחור')] %}
+          {% for value,en,he in fopts %}{% set label = en if site_lang == 'en' else he %}
+          <label class="choice-button small"><input type="checkbox" name="deal_priorities" value="{{ value }}"><span>{{ label }}</span></label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="5" hidden>
+    <span class="step-number">05</span>
+    <h2>{{ 'Would you like to set a budget?' if site_lang == 'en' else 'האם תרצו להגביל את התקציב?' }}</h2>
+    <div class="choice-row budget-options">
+      {% set opts = [('per_person','Budget per person','תקציב לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+      <label class="choice-button"><input type="radio" name="budget_mode" value="{{ value }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <div class="conditional-panel" id="budgetAmountPanel" hidden>
+      <label id="budgetAmountLabel">{{ 'What is the maximum budget? (₪)' if site_lang == 'en' else 'מה התקציב המרבי? (₪)' }}
+        <input type="number" name="budget_amount" id="budgetAmount" min="0" step="100" placeholder="{{ 'For example: 5000' if site_lang == 'en' else 'לדוגמה: 5000' }}">
+      </label>
+      <p class="helper budget-soft-note" id="budgetSoftNote" hidden>{{ 'For ski vacations this is a preferred budget, not a hard cutoff. Ariella may still show a particularly good match slightly above it.' if site_lang == 'en' else 'בחופשת סקי זהו תקציב מועדף ולא תקרת פסילה. אריאלה עשויה להציג התאמה טובה במיוחד גם אם היא חורגת מעט.' }}</p>
+    </div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang == 'en' else 'המשך' }}</button></div>
+  </section>
+
+  <section class="wizard-step" data-step="6" hidden>
+    <span class="step-number">06</span>
+    <h2>{{ 'Are there any important needs we should consider?' if site_lang == 'en' else 'האם יש צרכים חשובים שנרצה לקחת בחשבון?' }}</h2>
+    <p class="helper">{{ 'You can select several options or leave this blank.' if site_lang == 'en' else 'אפשר לבחור כמה אפשרויות, או להשאיר ריק.' }}</p>
+    <div class="choice-row compact-options special-needs-row">
+      {% set opts = [('kosher','Kosher food','אוכל כשר'),('shabbat','Shabbat observance','שמירת שבת'),('accessible','Accessibility','נגישות'),('stroller','Accessibility / stroller','נגישות / עגלה'),('walking','Walking limitation','מגבלת הליכה'),('vegetarian','Vegetarian / vegan','צמחוני/טבעוני')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+      <label class="choice-button small"><input type="checkbox" name="special_needs" value="{{ value }}"><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <label class="notes-label">{{ 'Anything else we should know?' if site_lang == 'en' else 'משהו נוסף שחשוב שנדע?' }}<textarea name="notes" rows="4"></textarea></label>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{ 'Back' if site_lang == 'en' else 'חזרה' }}</button><button class="button primary" type="submit">{{ 'Save vacation' if site_lang == 'en' else 'שמירת החופשה' }}</button></div>
+  </section>
+  <div class="ariella-search-overlay" id="ariellaSearchOverlay" hidden aria-live="polite">
+    <div class="ariella-search-card">
+      <div class="coconut-scene" aria-hidden="true">
+        <div class="palm">🌴</div><div class="monkey">🐒</div><div class="coconut">🥥</div>
+      </div>
+      <h3>{{ 'Ariella is looking for your vacation…' if site_lang == 'en' else 'אריאלה מחפשת את החופשה שלך…' }}</h3>
+      <p>{{ 'This can take a little while. We will return you to My Vacations as soon as the search is ready.' if site_lang == 'en' else 'זה יכול לקחת קצת זמן. מיד כשהחיפוש יסתיים נחזיר אותך לחופשות שלי.' }}</p>
+      <div class="search-dots"><i></i><i></i><i></i></div>
+    </div>
+  </div>
+</form>
+
+<script>
+(function () {
+  const form = document.getElementById('tripWizard');
+  const steps = Array.from(form.querySelectorAll('.wizard-step'));
+  const counter = document.getElementById('wizardCounter');
+  const progress = document.getElementById('wizardProgressBar');
+  let current = 0;
+
+  function setSelectedState(input) {
+    const name = input.name;
+    if (input.type === 'radio') {
+      form.querySelectorAll(`input[name="${name}"]`).forEach(el => el.closest('.choice-button')?.classList.toggle('selected', el.checked));
+    } else {
+      input.closest('.choice-button')?.classList.toggle('selected', input.checked);
+    }
+  }
+
+  form.querySelectorAll('.choice-button input').forEach(input => {
+    input.addEventListener('change', () => setSelectedState(input));
+  });
+
+  function showStep(index, direction = 1) {
+    let target = Math.max(0, Math.min(index, steps.length - 1));
+    const destinationMode = form.querySelector('input[name="destination_mode"]:checked')?.value;
+    // Q6 is relevant to destination suitability/trip planning, not to a flight
+    // search for one destination already chosen by the customer.
+    if (steps[target]?.dataset.step === '6' && destinationMode === 'specific') {
+      target = Math.max(0, Math.min(target + direction, steps.length - 1));
+    }
+    current = target;
+    steps.forEach((step, i) => {
+      step.hidden = i !== current;
+      step.classList.toggle('is-active', i === current);
+    });
+    counter.textContent = {{ ('`Question ${current + 1} of ${steps.length}`' if site_lang == 'en' else '`שאלה ${current + 1} מתוך ${steps.length}`')|safe }};
+    progress.style.width = `${((current + 1) / steps.length) * 100}%`;
+    window.scrollTo({ top: form.offsetTop - 105, behavior: 'smooth' });
+  }
+
+  function validateStep(step) {
+    const requiredGroups = new Set(Array.from(step.querySelectorAll('[required]')).map(el => el.name));
+    for (const name of requiredGroups) {
+      const fields = Array.from(step.querySelectorAll(`[name="${name}"]`)).filter(el => !el.closest('[hidden]'));
+      if (!fields.some(el => (el.type === 'radio' || el.type === 'checkbox') ? el.checked : el.value.trim())) {
+        fields[0]?.focus();
+        step.classList.add('validation-shake');
+        setTimeout(() => step.classList.remove('validation-shake'), 350);
+        return false;
+      }
+    }
+    if (step.dataset.step === '1') {
+      const mode = form.destination_mode.value;
+      if ((mode === 'specific' || mode === 'several') && !document.getElementById('destinationsInput').value.trim()) {
+        (document.getElementById('destinationsSearch') || document.getElementById('destinationsInput')).focus(); return false;
+      }
+    }
+    if (step.dataset.step === '2') {
+      const mode = form.date_mode.value;
+      if (mode === 'month') {
+        const outMonth = document.getElementById('outboundMonth');
+        const retMonth = document.getElementById('returnMonth');
+        if (!outMonth.value) return outMonth.focus(), false;
+        if (!retMonth.value) return retMonth.focus(), false;
+        if (retMonth.value < outMonth.value) return retMonth.focus(), false;
+      }
+      if (mode === 'exact' && (!document.getElementById('departureDate').value || !document.getElementById('returnDate').value)) return document.getElementById('departureDate').focus(), false;
+    }
+    if (step.dataset.step === '5' && form.budget_mode.value !== 'unlimited' && !document.getElementById('budgetAmount').value) {
+      document.getElementById('budgetAmount').focus(); return false;
+    }
+    return true;
+  }
+
+  form.querySelectorAll('.wizard-next').forEach(btn => btn.addEventListener('click', () => {
+    if (validateStep(steps[current])) showStep(current + 1, 1);
+  }));
+  form.querySelectorAll('.wizard-back').forEach(btn => btn.addEventListener('click', () => showStep(current - 1, -1)));
+
+  function syncVacationMode(mode) {
+    const skiMode = mode === 'ski';
+
+    document.querySelectorAll('.regular-only').forEach(el => el.hidden = skiMode);
+    document.querySelectorAll('.ski-only').forEach(el => el.hidden = !skiMode);
+
+    const budgetNote = document.getElementById('budgetSoftNote');
+    if (budgetNote) budgetNote.hidden = !skiMode;
+
+    // Clear any answer that belongs to the other route so hidden choices cannot
+    // leak into submission.
+    const selectedDate = form.querySelector('input[name="date_mode"]:checked');
+    if (selectedDate) {
+      const invalidForSki = skiMode && selectedDate.value === 'anytime';
+      const invalidForRegular = !skiMode && selectedDate.value === 'ski_flexible';
+      if (invalidForSki || invalidForRegular) {
+        selectedDate.checked = false;
+        setSelectedState(selectedDate);
+      }
+    }
+
+    if (!skiMode) {
+      form.querySelectorAll('.ski-only input').forEach(el => {
+        if (el.type === 'radio' || el.type === 'checkbox') el.checked = false;
+        setSelectedState(el);
+      });
+    }
+
+    // Q4 follows the route too:
+    // regular/open vacations use the regular preference logic;
+    // ski vacations keep the flight/deal question and add ski proximity.
+    const openSuggestions = mode === 'open';
+    document.getElementById('flightPrioritiesQuestion').hidden = openSuggestions;
+    document.getElementById('holidayPrioritiesQuestion').hidden = !openSuggestions;
+  }
+
+  form.querySelectorAll('input[name="destination_mode"]').forEach(input => input.addEventListener('change', () => {
+    const panel = document.getElementById('destinationDetails');
+    const label = document.getElementById('destinationLabel');
+    const show = input.checked && (input.value === 'specific' || input.value === 'several');
+    panel.hidden = !show;
+    if (show) label.childNodes[0].nodeValue = input.value === 'specific' ? {{ ('"Where would you like to fly? "' if site_lang == 'en' else '"לאיזה יעד תרצו לטוס? "')|safe }} : {{ ('"Which destinations interest you? "' if site_lang == 'en' else '"אילו יעדים מעניינים אתכם? "')|safe }};
+    if (!show) document.getElementById('destinationsInput').value = '';
+    if (input.checked && input.value === 'specific') {
+      const picker = document.querySelector('[data-destination-picker]');
+      picker?.dispatchEvent(new CustomEvent('ariella-clear-destinations'));
+    }
+    const openSuggestions = input.checked && input.value === 'open';
+    syncVacationMode(input.value);
+    if (openSuggestions) {
+      form.querySelectorAll('#flightPrioritiesQuestion input').forEach(el => { el.checked = false; setSelectedState(el); });
+    } else {
+      form.querySelectorAll('#holidayPrioritiesQuestion input').forEach(el => { el.checked = false; setSelectedState(el); });
+    }
+  }));
+
+  form.querySelectorAll('input[name="date_mode"]').forEach(input => input.addEventListener('change', () => {
+    document.getElementById('monthPanel').hidden = !(input.checked && input.value === 'month');
+    document.getElementById('exactDatesPanel').hidden = !(input.checked && input.value === 'exact');
+    if (input.checked && input.value === 'month') {
+      const outMonth = document.getElementById('outboundMonth');
+      const retMonth = document.getElementById('returnMonth');
+      retMonth.min = outMonth.value || {{ current_month|tojson }};
+      if (outMonth.value && retMonth.value && retMonth.value < outMonth.value) retMonth.value = outMonth.value;
+    }
+  }));
+
+  const outboundMonth = document.getElementById('outboundMonth');
+  const returnMonth = document.getElementById('returnMonth');
+  outboundMonth.addEventListener('change', () => {
+    returnMonth.min = outboundMonth.value || {{ current_month|tojson }};
+    if (outboundMonth.value && (!returnMonth.value || returnMonth.value < outboundMonth.value)) returnMonth.value = outboundMonth.value;
+  });
+
+  const departureDate = document.getElementById('departureDate');
+  const returnDate = document.getElementById('returnDate');
+  departureDate.addEventListener('change', () => {
+    if (!departureDate.value) return;
+    const nextDay = new Date(departureDate.value + 'T00:00:00');
+    nextDay.setDate(nextDay.getDate() + 1);
+    const minReturn = nextDay.toISOString().slice(0, 10);
+    returnDate.min = minReturn;
+    if (returnDate.value && returnDate.value < minReturn) returnDate.value = '';
+  });
+
+  form.querySelectorAll('input[name="travel_party"]').forEach(input => input.addEventListener('change', () => {
+    const family = input.checked && ['family','extended'].includes(input.value);
+    const adultOnly = input.checked && input.value === 'adults_only';
+    const counts = input.checked && input.value === 'friends';
+    document.getElementById('familyDetails').hidden = !family;
+    document.getElementById('adultAgeGroups').hidden = !adultOnly;
+    document.getElementById('adultCountPanel').hidden = !counts;
+  }));
+
+  form.querySelectorAll('input[name="budget_mode"]').forEach(input => input.addEventListener('change', () => {
+    const panel = document.getElementById('budgetAmountPanel');
+    panel.hidden = input.value === 'unlimited';
+    document.getElementById('budgetAmountLabel').childNodes[0].nodeValue = {{ ('"What is the maximum budget per person? (₪) "' if site_lang == 'en' else '"מה התקציב המרבי לאדם? (₪) "')|safe }};
+    if (input.value === 'unlimited') document.getElementById('budgetAmount').value = '';
+  }));
+
+  form.addEventListener('submit', function(){
+    const overlay = document.getElementById('ariellaSearchOverlay');
+    if (overlay) overlay.hidden = false;
+  });
+
+  syncVacationMode(form.querySelector('input[name="destination_mode"]:checked')?.value || 'open');
+  showStep(0);
+})();
+</script>
+{% endblock %}

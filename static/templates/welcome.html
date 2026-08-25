@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Welcome to Ariella' if site_lang == 'en' else 'ברוכים הבאים לאריאלה' }}{% endblock %}
+{% block content %}
+<section class="welcome-success" aria-live="polite"><div class="welcome-success-card"><div class="welcome-check" aria-hidden="true">✓</div><h1>{{ 'Welcome to Ariella!' if site_lang == 'en' else 'ברוכים הבאים לאריאלה!' }}</h1><p>{{ 'Your account was created successfully.' if site_lang == 'en' else 'החשבון שלך נוצר בהצלחה.' }}</p><span>{{ 'We are preparing your personal area…' if site_lang == 'en' else 'אנחנו מכינים עבורך את האזור האישי...' }}</span></div></section>
+<script>window.setTimeout(function(){window.location.replace({{ url_for('site.account', lang=site_lang)|tojson }});},2200);</script>
+{% endblock %}{% block site_disclaimer %}{% endblock %}{% block site_footer %}{% endblock %}

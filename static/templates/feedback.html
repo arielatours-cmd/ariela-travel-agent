@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="{{ site_lang }}" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ 'Write to us | Ariella' if site_lang == 'en' else 'כתבו לנו | אריאלה' }}</title>
+{% if request.args.get("sent") == "1" %}<meta http-equiv="refresh" content="4;url={{ url_for('site.about', lang=site_lang) }}">{% endif %}
+<style>
+:root{--black:#070707;--cream:#f7f0e4;--cream2:#fffaf2;--gold:#c99a3f;--gold2:#e7c778}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient(135deg,var(--cream2),var(--cream));color:#111}
+.site-header{min-height:126px;background:linear-gradient(#030303,#090909);border-bottom:1px solid var(--gold);display:flex;align-items:center;direction:ltr}
+.header-inner{width:min(1440px,92%);margin:auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:28px}
+.brand{display:flex;align-items:center;gap:16px;justify-self:start;direction:ltr;cursor:default;user-select:none}
+.logo-a{width:72px;height:72px;display:block;flex:0 0 auto;object-fit:contain}
+.brand-name{display:block;font:30px/1 Georgia,"Times New Roman",serif;letter-spacing:9px;color:var(--gold2)}
+.brand-tag{display:block;margin-top:11px;font-size:12px;letter-spacing:5px;color:var(--gold);text-align:center}
+.main-nav{direction:rtl;display:flex;gap:42px;justify-self:center}
+.main-nav a{color:#f5f1e8;text-decoration:none;font-size:18px;padding:18px 4px;position:relative}
+.main-nav a::after{content:"";position:absolute;right:50%;left:50%;bottom:5px;height:1px;background:var(--gold);transition:right .28s ease,left .28s ease}
+.main-nav a:hover{color:var(--gold2)}
+.main-nav a:hover::after{right:15%;left:15%}
+.account{justify-self:end;direction:rtl;color:#fff;border:1px solid var(--gold2);border-radius:999px;padding:15px 28px;text-decoration:none;font-size:17px}
+.feedback-page{min-height:calc(100vh - 126px);padding:70px 20px 90px}
+.feedback-thankyou{width:min(820px,100%);margin:110px auto 40px;text-align:center}
+.feedback-thankyou p{margin:0;font:700 clamp(27px,3.2vw,42px)/1.7 Georgia,"Times New Roman",serif;color:#9b6b1d}.feedback-thankyou p+p{margin-top:12px;font-size:clamp(20px,2.3vw,30px)}
+.feedback-card{width:min(760px,100%);margin:auto;padding:46px;border:1px solid rgba(201,154,63,.72);background:#0b0b0b;color:#fff;box-shadow:0 24px 70px rgba(0,0,0,.18)}
+.feedback-card h1{margin:0;text-align:center;font:700 clamp(36px,4vw,52px)/1.2 Georgia,"Times New Roman",serif;color:var(--gold2)}
+.feedback-intro{max-width:650px;margin:18px auto 32px;text-align:center;color:#eee;font-size:19px;line-height:1.8}
+.feedback-form{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.feedback-form label{display:block;text-align:right;color:#f6f0e5;font-size:15px}
+.feedback-form label.full{grid-column:1/-1}
+.feedback-form input,.feedback-form textarea{width:100%;margin-top:8px;border:1px solid #74623d;background:#151515;color:#fff;padding:14px 15px;border-radius:4px;font:inherit;outline:none}
+.feedback-form input:focus,.feedback-form textarea:focus{border-color:var(--gold2);box-shadow:0 0 0 3px rgba(231,199,120,.12)}
+.feedback-form textarea{min-height:160px;resize:vertical}
+.feedback-submit{grid-column:1/-1;border:1px solid var(--gold2);background:linear-gradient(100deg,#b98229,#e5c26f,#b98229);color:#111;padding:15px 25px;font-size:19px;font-weight:700;cursor:pointer}
+.honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.flash-stack{margin:0 auto 22px}
+.flash{padding:15px 18px;border:1px solid var(--gold);background:#17130b;color:#fff;text-align:center;line-height:1.6}
+.flash.error{border-color:#d16b6b;background:#2b1010}
+@media(max-width:900px){.site-header{padding:18px 0;min-height:auto}.header-inner{grid-template-columns:1fr auto}.main-nav{display:none}}
+@media(max-width:600px){.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:50px}.account{font-size:14px;padding:11px 13px}.feedback-card{padding:36px 20px}.feedback-form{grid-template-columns:1fr}.feedback-form label.full,.feedback-submit{grid-column:auto}}
+</style>
+
+
+
+<style>
+.thankyou-first-line,.thankyou-second-line{display:block}
+</style>
+
+<style id="ariella-unified-header">
+.site-header,.site-header.luxury-header{
+  min-height:116px!important;background:linear-gradient(#030303,#090909)!important;
+  border-bottom:1px solid #c99a3f!important;display:flex!important;align-items:center!important;direction:ltr!important;
+}
+.site-header .header-inner{
+  width:min(1500px,88%)!important;margin:0 auto!important;min-height:116px!important;
+  position:relative!important;display:flex!important;align-items:center!important;direction:ltr!important;
+}
+.site-header .language-switch{
+  position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;
+  margin:0!important;padding:0!important;white-space:nowrap!important;z-index:5!important;
+}
+.site-header .language-switch a{color:#c99a3f!important;text-decoration:none!important;font-weight:700!important;font-size:14px!important}
+.site-header .brand{
+  position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;
+  display:flex!important;align-items:center!important;gap:16px!important;margin:0!important;direction:ltr!important;
+}
+.site-header .logo-a{width:72px!important;height:72px!important;object-fit:contain!important;display:block!important}
+.site-header .brand-name{display:block!important;font:30px/1 Georgia,"Times New Roman",serif!important;letter-spacing:9px!important;color:#e7c778!important}
+.site-header .brand-tag{display:block!important;margin-top:11px!important;font-size:12px!important;letter-spacing:5px!important;color:#c99a3f!important;text-align:center!important}
+.site-header .main-nav{
+  position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
+  display:flex!important;gap:42px!important;align-items:center!important;margin:0!important;width:max-content!important;white-space:nowrap!important;
+}
+html[dir="rtl"] .site-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
+.site-header .main-nav a{color:#f5f1e8!important;text-decoration:none!important;font-size:18px!important;padding:18px 4px!important;position:relative!important}
+.site-header .main-nav a.active{color:#e7c778!important}
+.site-header .main-nav a.active:after{content:""!important;position:absolute!important;left:15%!important;right:15%!important;bottom:5px!important;height:1px!important;background:#c99a3f!important}
+.site-header .account-menu-wrap{
+  position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;z-index:10!important;
+}
+.site-header .account{
+  position:static!important;transform:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  color:#fff!important;border:1px solid #e7c778!important;border-radius:999px!important;padding:15px 28px!important;background:transparent!important;
+  text-decoration:none!important;font-size:17px!important;cursor:pointer!important;white-space:nowrap!important;
+}
+.site-header .account-dropdown{
+  position:absolute!important;top:calc(100% + 10px)!important;right:0!important;min-width:220px!important;background:#0b0b0b!important;
+  border:1px solid #c99a3f!important;box-shadow:0 18px 45px rgba(0,0,0,.28)!important;padding:8px!important;z-index:100!important;
+}
+.site-header .account-dropdown[hidden]{display:none!important}
+.site-header .account-dropdown a,.site-header .account-dropdown button{
+  display:block!important;width:100%!important;padding:11px 13px!important;color:#fff!important;text-decoration:none!important;background:transparent!important;
+  border:0!important;text-align:start!important;font:inherit!important;cursor:pointer!important;
+}
+.site-header .account-dropdown a:hover,.site-header .account-dropdown button:hover{color:#e7c778!important;background:#17130b!important}
+@media(max-width:900px){
+  .site-header .header-inner{width:94%!important}
+  .site-header .language-switch{left:0!important}
+  .site-header .brand{left:65px!important}
+  .site-header .main-nav{display:none!important}
+  .site-header .account-menu-wrap{right:0!important}
+  .site-header .logo-a{width:50px!important;height:50px!important}
+  .site-header .brand-name{font-size:20px!important;letter-spacing:5px!important}
+  .site-header .brand-tag{font-size:9px!important;letter-spacing:3px!important}
+}
+</style>
+<style id="v934-shared-header">
+
+/* v9.3.4 authoritative shared header */
+.site-header.luxury-header{min-height:116px!important;display:flex!important;align-items:center!important;direction:ltr!important}
+.site-header.luxury-header .header-inner{width:min(1500px,88%)!important;min-height:116px!important;margin:0 auto!important;padding:0!important;position:relative!important;display:block!important;direction:ltr!important}
+.site-header.luxury-header .language-switch{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
+.site-header.luxury-header .brand{position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;display:flex!important;align-items:center!important;gap:16px!important;direction:ltr!important}
+.site-header.luxury-header .main-nav{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important;width:max-content!important;white-space:nowrap!important}
+.site-header.luxury-header .account-menu-wrap{position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
+html[dir="rtl"] .site-header.luxury-header .main-nav{direction:rtl!important}
+html[dir="ltr"] .site-header.luxury-header .main-nav{direction:ltr!important}
+
+</style>
+<style>
+/* v9.4.1: same language-switch color as Home on every page */
+.site-header .language-switch a,
+.site-header.luxury-header .language-switch a{
+  color:#c99a3f!important;
+  text-decoration:none!important;
+  font-weight:700!important;
+  font-size:14px!important;
+}
+.site-header .language-switch a:visited,
+.site-header.luxury-header .language-switch a:visited{color:#c99a3f!important}
+</style>
+<style id="v942-account-button">
+.site-header .account,
+.site-header .account-menu-button,
+.site-header.luxury-header .account,
+.site-header.luxury-header .account-menu-button{
+  min-height:56px!important;min-width:154px!important;padding:0 26px!important;
+  border:1px solid #e7c778!important;border-radius:999px!important;
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  font-size:17px!important;font-weight:700!important;line-height:1!important;
+  white-space:nowrap!important;background:transparent!important;color:#fff!important;box-sizing:border-box!important;
+}
+</style>
+
+
+<style id="v945-exact-language-gold">
+html body .site-header .language-switch,
+html body .site-header .language-switch a,
+html body .site-header .language-switch a:link,
+html body .site-header .language-switch a:visited,
+html body .site-header.luxury-header .language-switch a,
+html body .site-header.luxury-header .language-switch a:link,
+html body .site-header.luxury-header .language-switch a:visited{color:#c99a3f!important;opacity:1!important}
+html body .site-header .language-switch a:hover,
+html body .site-header.luxury-header .language-switch a:hover{color:#d8ad57!important}
+</style>
+
+</head>
+<body>
+{% include "_site_header.html" %}
+
+<main class="feedback-page">
+  {% if request.args.get("sent") == "1" %}
+    <section class="feedback-thankyou" aria-live="polite">
+      <p>{% if site_lang == 'en' %}<span class="thankyou-first-line">Thank you!</span><span class="thankyou-second-line">We received your suggestion.</span>{% else %}תודה! קיבלנו את ההצעה שלכם.{% endif %}</p>
+      <p>{{ 'Every idea is read and helps us keep improving Ariella.' if site_lang == 'en' else 'כל רעיון נקרא ועוזר לנו להמשיך לשפר את אריאלה.' }}</p>
+    </section>
+  {% else %}
+    <section class="feedback-card">
+      <h1>{{ 'Think something is missing?' if site_lang == 'en' else 'חושבים שחסר משהו?' }}</h1>
+      <p class="feedback-intro">{{ "We'd love to hear your ideas, suggestions for improvement, or anything you think would make Ariella more useful." if site_lang == 'en' else 'נשמח לשמוע על רעיונות, הצעות לשיפור או כל דבר שלדעתכם יהפוך את אריאלה לשימושית יותר.' }}</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-stack">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form class="feedback-form" method="post" action="{{ url_for('site.feedback') }}">
+        <label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}
+          <input type="text" name="full_name" maxlength="120" autocomplete="name" required>
+        </label>
+        <label>{{ 'Email address' if site_lang == 'en' else 'כתובת אימייל' }}
+          <input type="email" name="email" maxlength="254" autocomplete="email" required>
+        </label>
+        <label class="full">{{ 'Phone' if site_lang == 'en' else 'טלפון' }}
+          <input type="tel" name="phone" maxlength="40" autocomplete="tel" required>
+        </label>
+        <label class="full">{{ 'Message' if site_lang == 'en' else 'הודעה' }}
+          <textarea name="message" minlength="5" maxlength="5000" placeholder="{{ 'Write your comment, suggestion or idea here…' if site_lang == 'en' else 'כתבו כאן את ההערה, ההצעה או הרעיון שלכם...' }}" required></textarea>
+        </label>
+        <label class="honeypot" aria-hidden="true">אתר
+          <input type="text" name="website" tabindex="-1" autocomplete="off">
+        </label>
+        <button class="feedback-submit" type="submit">{{ 'Send us your idea' if site_lang == 'en' else 'שלחו לנו את הרעיון' }}</button>
+      </form>
+    </section>
+  {% endif %}
+
+</main>
+
+<script>
+(function(){
+ const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');
+ if(!button||!menu)return;
+ const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};
+ button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});
+ document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+})();
+</script>
+{% include "_site_footer.html" %}</body>
+</html>

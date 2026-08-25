@@ -1,0 +1,87 @@
+<style id="canonical-my-ariella-v948">
+.site-header .account-menu-button.account{box-sizing:border-box!important;min-width:154px!important;height:56px!important;padding:0 24px!important;border:1px solid #c99a3f!important;border-radius:999px!important;background:transparent!important;color:#fff!important;font-family:Arial,"Noto Sans Hebrew",sans-serif!important;font-size:16px!important;font-weight:700!important;line-height:54px!important;letter-spacing:0!important;white-space:nowrap!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;margin:0!important}
+.site-header .account-menu-wrap{position:relative!important;display:flex!important;align-items:center!important}
+.site-header .account-menu-wrap>.account-dropdown{position:absolute!important;top:calc(100% + 8px)!important;right:0!important;left:auto!important;min-width:200px!important;transform:none!important;z-index:1000!important}
+</style>
+
+<style id="v9730-myariella-final">
+/* Final shared layout — applies identically on Home / About / Deals */
+.site-header .account-menu-button .myariella-label{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  gap:9px!important;white-space:nowrap!important;line-height:1!important;
+}
+.site-header .account-menu-button .myariella-star{
+  color:#fff!important;font-size:16px!important;line-height:1!important;
+  display:inline-block!important;margin:0!important;flex:0 0 auto!important;
+}
+/* Hebrew: white star physically LEFT of אריאלה שלי */
+.site-header .account-menu-button .myariella-he{direction:ltr!important}
+.site-header .account-menu-button .myariella-he .myariella-star{order:1!important}
+.site-header .account-menu-button .myariella-he .myariella-text{
+  order:2!important;direction:rtl!important;unicode-bidi:isolate!important
+}
+/* English: white star physically RIGHT of My Ariella */
+.site-header .account-menu-button .myariella-en{direction:ltr!important}
+.site-header .account-menu-button .myariella-en .myariella-text{order:1!important}
+.site-header .account-menu-button .myariella-en .myariella-star{order:2!important}
+</style>
+
+<header class="site-header luxury-header">
+  <div class="header-inner">
+    <div class="language-switch" aria-label="Language">
+      {% if site_lang == 'en' %}
+        <a href="#" class="language-current-page" data-lang="he">עברית</a>
+      {% else %}
+        <a href="#" class="language-current-page" data-lang="en">English</a>
+      {% endif %}
+    </div>
+
+    <div class="brand brand-static" aria-label="Ariella">
+      <img class="logo-a" src="{{ url_for('static', filename='ariella-a-logo.png') }}" alt="Ariella">
+      <span class="brand-copy">
+        <span class="brand-name">ARIELA</span>
+        <span class="brand-tag">AI TRAVEL</span>
+      </span>
+    </div>
+
+    <nav class="main-nav" aria-label="{{ 'Main navigation' if site_lang == 'en' else 'תפריט ראשי' }}">
+      <a class="{% if request.endpoint == 'site.home' %}active{% endif %}" href="{{ url_for('site.home', lang=site_lang) }}">{{ 'Home' if site_lang == 'en' else 'ראשי' }}</a>
+      <a class="{% if request.endpoint == 'site.about' %}active{% endif %}" href="{{ url_for('site.about', lang=site_lang) }}">{{ 'About' if site_lang == 'en' else 'קצת עלינו' }}</a>
+      <a class="{% if request.endpoint == 'site.deals' %}active{% endif %}" href="{{ url_for('site.deals', lang=site_lang) }}">{{ 'Deals' if site_lang == 'en' else 'דילים' }}</a>
+    </nav>
+
+    <div class="account-menu-wrap">
+      <button class="account account-menu-button" id="accountMenuButton" type="button" aria-expanded="false" aria-controls="accountMenu">{% if site_lang == 'he' %}
+          <span class="myariella-label myariella-he"><span class="myariella-text">אריאלה שלי</span><span class="myariella-star" aria-hidden="true">✦</span></span>
+        {% else %}
+          <span class="myariella-label myariella-en"><span class="myariella-text">My Ariella</span><span class="myariella-star">✦</span></span>
+        {% endif %}</button>
+      <div class="account-dropdown" id="accountMenu" hidden>
+        {% if current_member %}
+          <a href="{{ url_for('site.account', lang=site_lang) }}">{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</a>
+          <a href="{{ url_for('site.account_details', lang=site_lang) }}">{{ 'Account Details' if site_lang == 'en' else 'פרטי החשבון' }}</a>
+          <form method="post" action="{{ url_for('site.logout') }}"><button type="submit">{{ 'Sign out' if site_lang == 'en' else 'התנתקות' }}</button></form>
+        {% else %}
+          <a href="{{ url_for('site.login', lang=site_lang) }}">{{ 'Sign in' if site_lang == 'en' else 'כניסה' }}</a>
+          <a href="{{ url_for('site.join', lang=site_lang) }}">{{ 'Sign up' if site_lang == 'en' else 'הרשמה' }}</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</header>
+
+
+<script id="language-switch-current-page">
+(function(){
+  document.querySelectorAll('.language-current-page').forEach(function(link){
+    link.addEventListener('click', function(e){
+      e.preventDefault();
+      const target = link.dataset.lang;
+      const url = new URL(window.location.href);
+      url.searchParams.set('lang', target);
+      // Keep the exact current path and hash (#personalDeals / #vacation-ID included).
+      window.location.assign(url.pathname + '?' + url.searchParams.toString() + url.hash);
+    });
+  });
+})();
+</script>

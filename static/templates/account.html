@@ -1,0 +1,177 @@
+{% extends "base.html" %}{% from "_deal_card.html" import deal_card %}
+{% block title %}{{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}
+<script>
+function confirmSearchToggle(form, status) {
+  const isEnglish = document.documentElement.lang === 'en';
+  if (status === 'active') {
+    return window.confirm(
+      isEnglish
+        ? 'Are you sure you want to end the search for this vacation?'
+        : 'האם אתם בטוחים שברצונכם לסיים את החיפוש עבור החופשה הזו?'
+    );
+  }
+  return window.confirm(
+    isEnglish
+      ? 'Are you sure you want to reactivate the search for this vacation?'
+      : 'האם אתם בטוחים שברצונכם להפעיל שוב את החיפוש עבור החופשה הזו?'
+  );
+}
+</script>
+
+{% endblock %}
+{% block content %}
+{% if welcome %}
+<div class="welcome-overlay" id="welcomeOverlay" role="status" aria-live="polite">
+  <div class="welcome-card">
+    <span class="welcome-check">✓</span>
+    <h1>{{ 'Welcome to Ariella!' if site_lang == 'en' else 'ברוכים הבאים לאריאלה!' }}</h1>
+    <p>{{ 'Your account was created successfully.' if site_lang == 'en' else 'החשבון שלך נוצר בהצלחה.' }}</p>
+    <small>{{ 'We are preparing your personal area…' if site_lang == 'en' else 'אנחנו מכינים עבורך את האזור האישי...' }}</small>
+  </div>
+</div>
+<script>setTimeout(function(){ document.getElementById('welcomeOverlay')?.classList.add('fade-out'); history.replaceState({}, '', '{{ url_for("site.account", lang=site_lang) }}'); }, 2100); setTimeout(function(){ document.getElementById('welcomeOverlay')?.remove(); }, 2700);</script>
+{% endif %}
+
+{% if trips %}
+<section class="account-vacations-hero">
+  <div class="account-vacations-overlay"></div>
+  <div class="shell account-vacations-hero-inner">
+    <h1>{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</h1>
+    <p>{{ 'Your searches, your deals, your next escape' if site_lang == 'en' else 'החיפושים, הדילים והחופשה הבאה שלך במקום אחד' }}</p>
+    <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
+  </div>
+</section>
+<section class="section account-trips-section"><div class="shell">
+  <div class="trip-list">
+  {% for trip in trips %}
+    {% set a = trip.answers %}
+    <article class="trip-row trip-management-card" id="vacation-{{ trip.id }}">
+      <div class="trip-destination-image" style="background-image:url('{{ trip.image_url }}')" role="img" aria-label="{{ trip.request_name }}"></div>
+      <div class="trip-main-details">
+        <div class="trip-title-line">
+          <h3>{{ trip.destination_display }}</h3>
+          {% set paid_before = trip.has_paid_search or trip.subscription_started_at or trip.search_period_started_at %}
+          {% set paid_active = trip.subscription_status == 'active' and paid_before %}
+          <span class="search-status {{ 'is-active' if paid_active else 'is-ended' }}">{% if paid_active %}{{ 'Active' if site_lang == 'en' else 'פעיל' }}{% elif paid_before %}{{ 'Ended' if site_lang == 'en' else 'הסתיים' }}{% else %}{{ 'Initial scan' if site_lang == 'en' else 'סריקה ראשונית' }}{% endif %}</span>
+        </div>
+        <dl class="trip-details-list">
+          <div><dt>{{ 'Vacation dates' if site_lang == 'en' else 'תאריכי החופשה' }}</dt><dd>{{ trip.travel_window or ('Flexible dates' if site_lang == 'en' else 'התאריכים גמישים') }}</dd></div>
+          <div><dt>{{ 'Who is traveling' if site_lang == 'en' else 'מי טס' }}</dt><dd>
+            {% if a.travel_party == 'solo' %}{{ 'Solo' if site_lang == 'en' else 'יחיד' }}
+            {% elif a.travel_party == 'couple' %}{{ 'Couple' if site_lang == 'en' else 'זוג' }}
+            {% elif a.travel_party == 'friends' %}{{ 'Friends' if site_lang == 'en' else 'חברים' }}{% if a.adults %} · {{ a.adults }} {{ 'travelers' if site_lang == 'en' else 'נוסעים' }}{% endif %}
+            {% elif a.travel_party in ['family','extended'] %}{{ 'Family' if site_lang == 'en' else 'משפחה' }}{% if a.adults %} · {{ a.adults }} {{ 'adults' if site_lang == 'en' else 'מבוגרים' }}{% endif %}{% if a.children %} · {{ a.children }} {{ 'children' if site_lang == 'en' else 'ילדים' }}{% endif %}
+            {% elif a.travel_party == 'adults_only' %}{{ 'Adults only' if site_lang == 'en' else 'מבוגרים בלבד' }}{% if a.adults %} · {{ a.adults }} {{ 'travelers' if site_lang == 'en' else 'נוסעים' }}{% endif %}
+            {% else %}{{ 'Not specified' if site_lang == 'en' else 'לא צוין' }}{% endif %}
+          </dd></div>
+          <div><dt>{{ 'Budget' if site_lang == 'en' else 'תקציב' }}</dt><dd>{% if a.budget_mode == 'per_person' and a.budget_amount %}{{ 'Up to ₪' if site_lang == 'en' else 'עד ₪' }}{{ a.budget_amount }} {{ 'per person' if site_lang == 'en' else 'לאדם' }}{% else %}{{ 'No budget limit' if site_lang == 'en' else 'ללא הגבלת תקציב' }}{% endif %}</dd></div>
+        </dl>
+      </div>
+      <div class="trip-controls">
+        {% set paid_before = trip.has_paid_search or trip.subscription_started_at or trip.search_period_started_at %}
+        {% if trip.subscription_status == 'active' and paid_before %}
+          <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}" onsubmit="return confirmSearchToggle(this, 'active');">
+            <button class="button outline trip-action" type="submit">{{ 'End search' if site_lang == 'en' else 'סיים חיפוש' }}</button>
+          </form>
+          <form method="post" action="{{ url_for('site.toggle_trip_notifications', trip_id=trip.id) }}">
+            <button class="notification-toggle trip-action {{ 'on' if trip.mobile_notifications else 'off' }}" type="submit" aria-pressed="{{ 'true' if trip.mobile_notifications else 'false' }}">
+              <span class="toggle-track"><i></i></span>
+              <span>{{ 'Deals before everyone' if site_lang == 'en' else 'הדילים לפני כולם' }}</span>
+            </button>
+          </form>
+        {% else %}
+          <details class="continue-search-box">
+            <summary class="continue-search-title trip-action">
+              {{ 'Continue search' if site_lang == 'en' else 'המשך חיפוש' }}
+            </summary>
+            <div class="plan-options">
+              {% for plan, he_name, en_name, he_freq, en_freq, price in [
+                ('calm','רגוע','Relaxed','פעם ב־3 ימים','Every 3 days','₪4.90'),
+                ('daily','יומי','Daily','פעם ביום','Once a day','₪9.90'),
+                ('intensive','אינטנסיבי','Intensive','3 פעמים ביום','3 times a day','₪14.90')
+              ] %}
+              <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}">
+                <input type="hidden" name="plan" value="{{ plan }}">
+                <button type="submit" class="plan-choice {{ 'recommended' if plan == 'daily' else '' }}">
+                  {% if plan == 'daily' %}<em>{{ 'Recommended' if site_lang == 'en' else 'מומלץ' }}</em>{% endif %}
+                  <strong>{{ en_name if site_lang == 'en' else he_name }}</strong>
+                  <span>{{ en_freq if site_lang == 'en' else he_freq }}</span>
+                  <b>{{ price }} / {{ 'month' if site_lang == 'en' else 'חודש' }}</b>
+                </button>
+              </form>
+              {% endfor %}
+            </div>
+          </details>
+        {% endif %}
+      </div>
+    </article>
+    {% set newest_trip = loop.first %}
+    <div class="trip-deals-toggle-wrap">
+      <button type="button" class="button trip-deals-toggle happy-deals-button"
+              aria-expanded="{{ 'true' if newest_trip else 'false' }}"
+              aria-controls="tripDeals{{ trip.id }}"
+              data-show="{{ 'Show deals' if site_lang == 'en' else 'הצגת הדילים' }}"
+              data-hide="{{ 'Close' if site_lang == 'en' else 'סגירה' }}">
+        {{ ('Close' if site_lang == 'en' else 'סגירה') if newest_trip else ('Show deals' if site_lang == 'en' else 'הצגת הדילים') }}
+      </button>
+    </div>
+    <div id="tripDeals{{ trip.id }}" class="account-trip-deals collapsible-trip-deals"{% if not newest_trip %} hidden{% endif %}>
+      {% if trip.offers %}
+        <div class="ariella-deals-list">
+          {% for offer in trip.offers %}
+            {{ deal_card(offer,site_lang) }}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="trip-no-deals ariella-no-deal-state">
+          <strong>{{ "Ariella didn't find a suitable vacation for your request right now." if site_lang == 'en' else 'אריאלה לא מצאה כרגע חופשה שמתאימה לבקשה שלך' }}</strong>
+          <p>{{ 'Would you like Ariella to try one more complimentary alternative?' if site_lang == 'en' else 'רוצים לתת לאריאלה עוד ניסיון אחד על חשבוננו?' }}</p>
+          <div class="free-alternative-options">
+            <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}">
+              <input type="hidden" name="alternative" value="nearby_dates">
+              <button class="button outline" type="submit">{{ 'Same destination — other dates' if site_lang == 'en' else 'אותו יעד — תאריכים אחרים' }}</button>
+            </form>
+            <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}">
+              <input type="hidden" name="alternative" value="other_destination">
+              <button class="button outline" type="submit">{{ 'Same dates — another destination' if site_lang == 'en' else 'אותם תאריכים — יעד אחר' }}</button>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</div></section>
+{% else %}
+<section class="page-hero account-hero account-hero-new"><div class="shell account-new-content">
+  <span class="eyebrow personal-area-eyebrow">{{ 'MY ACCOUNT' if site_lang == 'en' else 'האזור האישי' }}</span>
+  <h1>{{ 'Hello' if site_lang == 'en' else 'שלום' }}, {{ member.full_name }}</h1>
+  <p class="account-intro">{{ 'Answer a few questions and Ariella will learn what to look for you.' if site_lang == 'en' else 'ענו על כמה שאלות, ואריאלה תלמד מה לחפש עבורכם.' }}</p>
+  <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ 'Plan your first vacation' if site_lang == 'en' else 'תכנון החופשה הראשונה' }}</a>
+</div></section>
+<section class="section account-empty-section"><div class="shell">
+  <div class="empty-state"><h3>{{ "You haven't searched for a vacation yet" if site_lang == 'en' else 'עדיין לא חיפשת חופשה' }}</h3><p>{{ 'After completing the questionnaire, your vacation will appear here and Ariella will start learning what to look for you.' if site_lang == 'en' else 'לאחר מילוי השאלון, החופשה תופיע כאן ואריאלה תתחיל ללמוד מה לחפש עבורך.' }}</p></div>
+</div></section>
+{% endif %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('.trip-deals-toggle').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const panel = document.getElementById(btn.getAttribute('aria-controls'));
+      if(!panel) return;
+      const isOpen = !panel.hasAttribute('hidden');
+      if(isOpen){
+        panel.setAttribute('hidden','');
+        btn.setAttribute('aria-expanded','false');
+        btn.textContent = btn.dataset.show;
+      }else{
+        panel.removeAttribute('hidden');
+        btn.setAttribute('aria-expanded','true');
+        btn.textContent = btn.dataset.hide;
+      }
+    });
+  });
+});
+</script>
+{% endblock %}
+
