@@ -1007,11 +1007,13 @@ def search_trip_now(trip_id):
 
 
 def _recent_inventory_48h():
-    return [
+    offers = [
         _localize_offer_airports(o)
-        for o in recent_offers(limit=1500, minimum_score=None)
+        for o in recent_offers(limit=2000, minimum_score=None)
         if _offer_is_recent(o, 48)
     ]
+    offers.sort(key=lambda o: _offer_seen_at(o) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return offers
 
 
 def _same_destination_other_dates_db_matches(inventory, trip, limit=5):
@@ -1074,6 +1076,15 @@ def _same_dates_other_destination_db_matches(inventory, trip, limit=5):
     return matches[:limit]
 
 
+def _month_shift(month_value, delta):
+    try:
+        y, m = [int(x) for x in str(month_value)[:7].split("-")]
+        total = y * 12 + (m - 1) + int(delta)
+        return f"{total // 12:04d}-{total % 12 + 1:02d}"
+    except Exception:
+        return ""
+
+
 def _pin_offer_ids_to_trip(trip_id, answers, offers):
     ids = [int(o["offer_id"]) for o in offers if o.get("offer_id") is not None][:5]
     if ids:
@@ -1120,23 +1131,35 @@ def free_trip_alternative(trip_id):
                 conn.commit()
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-        # No DB match: now, and only now, run a bounded wider scan.
+        # No DB match: record that DB-first completed, then widen the scan.
+        with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (utc_now_iso(), "db_checked_48h_no_nearby_match", trip_id),
+            )
+            conn.commit()
+
         if answers.get("date_mode") == "exact":
             try:
                 out = datetime.strptime(answers.get("departure_date"), "%Y-%m-%d").date()
                 ret = datetime.strptime(answers.get("return_date"), "%Y-%m-%d").date()
                 span = max(1, (ret - out).days)
-                # Search nearby windows around the requested dates.
+                base_month = out.strftime("%Y-%m")
                 answers["date_mode"] = "month"
-                answers["outbound_month"] = out.strftime("%Y-%m")
-                answers["return_month"] = ret.strftime("%Y-%m")
-                answers["travel_month"] = answers["outbound_month"]
+                answers["outbound_month"] = base_month
+                answers["return_month"] = base_month
+                answers["travel_month"] = base_month
                 answers["_alternative_nearby_dates"] = True
+                answers["_alternative_months"] = [base_month, _month_shift(base_month, 1)]
                 answers["_requested_trip_length_days"] = span
             except Exception:
                 return redirect(url_for("site.account") + f"#vacation-{trip_id}")
         elif answers.get("date_mode") == "month":
+            base_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+            if not base_month:
+                return redirect(url_for("site.account") + f"#vacation-{trip_id}")
             answers["_alternative_nearby_dates"] = True
+            answers["_alternative_months"] = [base_month, _month_shift(base_month, 1)]
         else:
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
@@ -1153,7 +1176,14 @@ def free_trip_alternative(trip_id):
                 conn.commit()
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-        # No DB match: widen to a controlled recommendation pool.
+        # No DB match: record that DB-first completed, then widen to a controlled pool.
+        with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (utc_now_iso(), "db_checked_48h_no_other_destination_match", trip_id),
+            )
+            conn.commit()
+
         # Keep the user's dates, but let Ariella search several popular gateways.
         original = {str(x).upper() for x in _customer_destination_codes(answers)}
         pool = []

@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.102
+# Ariella QA — v9.7.103
 
 PASS:
 - Both alternative buttons now query only 48-hour DB inventory first.
