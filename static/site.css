@@ -2395,3 +2395,11 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 .nova-link-status{font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
 .nova-link-status.is-linked{color:#25724a}
 @media(max-width:600px){.nova-mobile-row{padding:10px 12px}.nova-mobile-label{font-size:13px;gap:6px}.nova-link-status{display:none}.nova-mobile-button{min-height:32px;padding:5px 12px;font-size:12px}}
+
+/* NOVA N2 — clean WhatsApp entry beside "Plan your next vacation" */
+.nova-mobile-entry{display:none!important}
+.account-hero-actions{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.account-hero-actions form{margin:0}
+.account-hero-actions .nova-mobile-button{min-height:40px;padding:9px 18px;border-radius:10px;background:#0b8f9c;border-color:#0b8f9c;color:#fff;box-shadow:none;font-size:14px}
+.account-hero-actions .nova-mobile-button:hover{background:#087985;border-color:#087985;color:#fff}
+@media(max-width:640px){.account-hero-actions{flex-direction:column}.account-hero-actions>a,.account-hero-actions form,.account-hero-actions button{width:100%}}

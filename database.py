@@ -276,6 +276,21 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_whatsapp_handoffs_expiry
             ON whatsapp_handoffs(expires_at, used_at);
 
+            CREATE TABLE IF NOT EXISTS whatsapp_conversation_state (
+                member_id INTEGER PRIMARY KEY,
+                active_trip_id INTEGER,
+                current_intent TEXT,
+                last_message_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id),
+                FOREIGN KEY(active_trip_id) REFERENCES trip_requests(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS whatsapp_inbound_messages (
+                message_id TEXT PRIMARY KEY,
+                received_at TEXT NOT NULL
+            );
+
             -- Columns below are also added by the migration block for existing databases.
 
             CREATE TABLE IF NOT EXISTS feedback_messages (

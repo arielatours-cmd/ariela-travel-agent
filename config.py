@@ -92,3 +92,6 @@ MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
 MAIL_APP_PASSWORD = os.getenv("MAIL_APP_PASSWORD", "").strip()
 MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
 MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
+
+# NOVA N2 — Meta webhook verification token. Set securely in Render.
+WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "").strip()

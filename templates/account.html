@@ -48,34 +48,18 @@ function showAriellaSearchWait(){
 <script>setTimeout(function(){ document.getElementById('welcomeOverlay')?.classList.add('fade-out'); history.replaceState({}, '', '{{ url_for("site.account", lang=site_lang) }}'); }, 2100); setTimeout(function(){ document.getElementById('welcomeOverlay')?.remove(); }, 2700);</script>
 {% endif %}
 
-<section class="nova-mobile-entry">
-  <div class="shell">
-    <div class="nova-mobile-row">
-      <div class="nova-mobile-label">
-        <span class="nova-mobile-dot" aria-hidden="true"></span>
-        <span>{{ 'Ariella on WhatsApp' if site_lang == 'en' else 'אריאלה ב-WhatsApp' }}</span>
-        {% if whatsapp_link and whatsapp_link.linked %}
-          <small class="nova-link-status is-linked">{{ 'Connected' if site_lang == 'en' else 'מחובר' }}</small>
-        {% else %}
-          <small class="nova-link-status">{{ 'Not connected' if site_lang == 'en' else 'לא מחובר' }}</small>
-        {% endif %}
-      </div>
-      <form method="post" action="{{ url_for('site.account_whatsapp_handoff') }}">
-        <button class="button primary nova-mobile-button" type="submit">
-          {{ 'Open on mobile' if site_lang == 'en' else 'אריאלה בנייד' }}
-        </button>
-      </form>
-    </div>
-  </div>
-</section>
-
 {% if trips %}
 <section class="account-vacations-hero">
   <div class="account-vacations-overlay"></div>
   <div class="shell account-vacations-hero-inner">
     <h1>{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</h1>
     <p>{{ 'Your searches, your deals, your next escape' if site_lang == 'en' else 'החיפושים, הדילים והחופשה הבאה שלך במקום אחד' }}</p>
-    <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
+    <div class="account-hero-actions">
+      <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
+      <form method="post" action="{{ url_for('site.account_whatsapp_handoff') }}">
+        <button class="button primary nova-mobile-button" type="submit">{{ 'Ariella on mobile' if site_lang == 'en' else 'אריאלה בנייד' }}</button>
+      </form>
+    </div>
   </div>
 </section>
 <section class="section account-trips-section"><div class="shell">
