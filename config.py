@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.7.108-testing"
+APP_VERSION = "9.7.109-nova-n1"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -77,7 +77,9 @@ AIRPORT_NAMES = {
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
 WHATSAPP_RECIPIENT = os.getenv("WHATSAPP_RECIPIENT", "").strip()
+WHATSAPP_BUSINESS_NUMBER = os.getenv("WHATSAPP_BUSINESS_NUMBER", "").strip()
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
+NOVA_HANDOFF_TTL_MINUTES = int(os.getenv("NOVA_HANDOFF_TTL_MINUTES", "10"))
 
 # Public website sessions. Set a long random value in Render.
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "change-this-before-production")

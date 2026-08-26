@@ -20,6 +20,7 @@ from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
+from nova_whatsapp import NovaHandoffError, create_member_handoff, member_whatsapp_link_status
 
 
 
@@ -1561,7 +1562,20 @@ def account():
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
+        whatsapp_link=member_whatsapp_link_status(member_id),
     )
+
+
+@site.post("/account/whatsapp-handoff")
+@login_required
+def account_whatsapp_handoff():
+    """NOVA N1: securely hand the logged-in Ariella member to WhatsApp."""
+    try:
+        handoff = create_member_handoff(session["member_id"])
+    except NovaHandoffError as exc:
+        flash(_msg(str(exc), "WhatsApp mobile connection is not configured yet."), "error")
+        return redirect(url_for("site.account"))
+    return redirect(handoff["url"], code=303)
 
 
 @site.post("/trip/<int:trip_id>/toggle-search")
