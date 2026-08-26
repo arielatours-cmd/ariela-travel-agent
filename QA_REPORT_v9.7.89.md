@@ -1,4 +1,4 @@
-# Ariella QA Report — v9.7.105
+# Ariella QA Report — v9.7.106
 
 ## Fixes added after live v9.7.88 test
 - Fixed false `failed` status on long healthy scans: stale-scan detection now uses a progress heartbeat instead of scan start time.

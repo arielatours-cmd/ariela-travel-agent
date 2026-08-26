@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.105
+# Ariella QA — v9.7.106
 
 PASS:
 - Initial personal-vacation request checks database only.

@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.105 / BOOKER
+# Ariella QA — v9.7.106 / BOOKER
 
 ## BOOKER introduced
 BOOKER is now a supplier-aware booking orchestrator.
@@ -14,7 +14,7 @@ BOOKER is now a supplier-aware booking orchestrator.
 - BOOKER never purchases or submits payment.
 
 ### Important limitation
-A public/stable EL AL deep link that preselects the exact outbound and return flights was not found in the current booking flow. Therefore v9.7.105 does not claim to automate EL AL flight selection when the airline itself does not expose an actionable handoff.
+A public/stable EL AL deep link that preselects the exact outbound and return flights was not found in the current booking flow. Therefore v9.7.106 does not claim to automate EL AL flight selection when the airline itself does not expose an actionable handoff.
 
 ### QA
 - Python compilation passed

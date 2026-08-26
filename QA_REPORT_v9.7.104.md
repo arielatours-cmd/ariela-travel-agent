@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.105
+# Ariella QA — v9.7.106
 PASS:
 - DB match pinning accepts both `offer_id` and database `id`.
 - Fix covers initial DB match, alternative buttons, fresh trip results, and account rendering.

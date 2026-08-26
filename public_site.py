@@ -54,8 +54,159 @@ try:
     _AIRPORT_LOCALIZATION = {
         row["code"]: row for row in json.loads(_AIRPORTS_FILE.read_text(encoding="utf-8"))
     }
+
 except Exception:
     _AIRPORT_LOCALIZATION = {}
+
+_SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
+try:
+    _SKI_RESORTS = json.loads(_SKI_DB_FILE.read_text(encoding="utf-8")).get("resorts", [])
+except Exception:
+    _SKI_RESORTS = []
+
+
+def _ski_picker_options():
+    countries = {}
+    resorts = []
+    for row in _SKI_RESORTS:
+        country = str(row.get("country") or "").strip()
+        country_he = str(row.get("country_he") or country).strip()
+        if country:
+            countries[country] = country_he
+        resorts.append({
+            "value": f"resort:{row.get('resort')}",
+            "label_he": f"{row.get('resort')} — {country_he}",
+            "label_en": f"{row.get('resort')} — {country}",
+            "country": country,
+        })
+    country_opts = [
+        {"value": f"country:{country}", "label_he": f"{he} — כל אתרי הסקי", "label_en": f"{country} — any ski resort"}
+        for country, he in sorted(countries.items(), key=lambda kv: kv[1])
+    ]
+    resorts.sort(key=lambda x: (x["country"], x["label_en"]))
+    return country_opts + resorts
+
+
+def _resolve_ski_targets(raw_values, mode, skill_level=None, max_transfer_minutes=None):
+    """Resolve resort/country choices into a curated resort subset + gateway airports."""
+    selected = [str(x).strip() for x in (raw_values or []) if str(x).strip()]
+    rows = list(_SKI_RESORTS)
+
+    if mode in {"specific", "several"} and selected:
+        resort_names = {x.split(":", 1)[1] for x in selected if x.startswith("resort:")}
+        countries = {x.split(":", 1)[1] for x in selected if x.startswith("country:")}
+        rows = [
+            r for r in rows
+            if str(r.get("resort")) in resort_names or str(r.get("country")) in countries
+        ]
+
+    if skill_level:
+        rows = [
+            r for r in rows
+            if skill_level == "mixed" or skill_level in set(r.get("levels") or [])
+        ]
+
+    if max_transfer_minutes:
+        try:
+            cap = int(max_transfer_minutes)
+            rows = [
+                r for r in rows
+                if int(r.get("transfer_minutes_estimate") or 9999) <= cap
+            ]
+        except (TypeError, ValueError):
+            pass
+
+    airports, names, countries = [], [], []
+    for r in rows:
+        names.append(str(r.get("resort")))
+        countries.append(str(r.get("country")))
+        for code in r.get("gateway_airports") or []:
+            code = str(code).upper()
+            if code and code not in airports:
+                airports.append(code)
+    return {
+        "resorts": rows,
+        "resort_names": names,
+        "countries": sorted(set(countries)),
+        "gateway_airports": airports,
+    }
+
+
+def _ski_row_for_offer(offer, trip):
+    answers = trip.get("answers") or {}
+    if str(answers.get("vacation_type") or "standard") != "ski":
+        return None
+    allowed_names = set(answers.get("ski_resort_names") or [])
+    arrival = str(offer.get("arrival_code") or "").upper()
+    candidates = []
+    for row in _SKI_RESORTS:
+        if allowed_names and str(row.get("resort")) not in allowed_names:
+            continue
+        if arrival in {str(x).upper() for x in (row.get("gateway_airports") or [])}:
+            candidates.append(row)
+    if not candidates:
+        return None
+    candidates.sort(key=lambda r: int(r.get("transfer_minutes_estimate") or 9999))
+    return candidates[0]
+
+
+def _decorate_ski_offer(offer, trip):
+    if str((trip.get("answers") or {}).get("vacation_type") or "standard") != "ski":
+        return offer
+    copy = dict(offer)
+    row = _ski_row_for_offer(copy, trip)
+    if row:
+        copy["ski_resort"] = row.get("resort")
+        copy["ski_country"] = row.get("country")
+        copy["ski_transfer_minutes"] = row.get("transfer_minutes_estimate")
+        copy["ski_resort_scores"] = row.get("scores") or {}
+        copy["ski_resort_levels"] = row.get("levels") or []
+    return copy
+
+
+def _ski_offer_constraints_ok(offer, trip):
+    answers = trip.get("answers") or {}
+    if str(answers.get("vacation_type") or "standard") != "ski":
+        return True
+    if not offer.get("ski_resort"):
+        return False
+
+    level = str(answers.get("ski_skill_level") or "")
+    if level and level != "mixed":
+        if level not in set(offer.get("ski_resort_levels") or []):
+            return False
+
+    try:
+        cap = int(answers.get("ski_max_transfer_minutes") or 0)
+    except (TypeError, ValueError):
+        cap = 0
+    if cap and int(offer.get("ski_transfer_minutes") or 9999) > cap:
+        return False
+    return True
+
+
+def _ski_preference_score(offer, trip):
+    answers = trip.get("answers") or {}
+    if str(answers.get("vacation_type") or "standard") != "ski":
+        return 0.0
+    scores = offer.get("ski_resort_scores") or {}
+    priorities = set(answers.get("ski_priorities") or [])
+    mapping = {
+        "snow": "snow", "family": "family", "large": "size",
+        "value": "value", "atmosphere": "atmosphere",
+        "nightlife": "nightlife", "spa": "spa",
+    }
+    total = 0.0
+    for pref, key in mapping.items():
+        if pref in priorities:
+            total += float(scores.get(key) or 0) * 10.0
+    if "proximity" in priorities:
+        mins = float(offer.get("ski_transfer_minutes") or 999)
+        total += max(0.0, 50.0 - mins / 5.0)
+    if "level" in priorities:
+        total += 25.0
+    return total
+
 
 def _localize_offer_airports(offer: dict) -> dict:
     dep = _AIRPORT_LOCALIZATION.get(offer.get("departure_code"), {})
@@ -304,7 +455,8 @@ def _qa_fixture_offers():
     These rows never enter the offers table and therefore never contaminate price
     history, Radar statistics or production deal discovery.
     """
-    if str(get_setting("qa_test_mode", "0") or "0") != "1":
+    # Testing build: fixtures are active by default, but can be disabled from settings.
+    if str(get_setting("qa_test_mode", "1") or "1") == "0":
         return []
 
     now = datetime.now(timezone.utc).isoformat()
@@ -443,11 +595,6 @@ def _offer_meets_selected_conditions(offer, trip):
         if out_m is None or ret_m is None or not (360 <= out_m <= 1320 and 360 <= ret_m <= 1350):
             return False
 
-    if "ski_proximity" in priorities and str(answers.get("vacation_type") or "") == "ski":
-        minutes = offer.get("ski_transfer_minutes")
-        if not isinstance(minutes, (int, float)) or minutes > 120:
-            return False
-
     return True
 
 
@@ -466,6 +613,8 @@ def _priority_sort_key(offer, trip):
         maximize = (1440 - dep) + ret
 
     key = []
+    if str(answers.get("vacation_type") or "standard") == "ski":
+        key.append(-_ski_preference_score(offer, trip))
     if "price" in priorities:
         key.append(price)
     if "maximize" in priorities:
@@ -649,26 +798,29 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
 
 
 def _customer_deal_choices(all_offers, trip, limit=5):
-    """Database-first selection: exact request first, then valuable same-month alternatives."""
-    # Destination-led searches are not blocked by the global deal-score threshold.
-    # If the customer chose where to fly, relevance to that trip matters first.
-    destination_led = _trip_is_destination_led(trip)
+    """DB-first selection. Initial exact-date requests never leak date alternatives."""
+    prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
     qualified = [
-        o for o in all_offers
+        o for o in prepared
         if _offer_is_recent(o, 48)
         and _offer_destination_matches(o, trip)
         and _offer_has_complete_roundtrip(o)
         and _offer_matches_vacation_type(o, trip)
         and _offer_within_budget(o, trip)
         and _offer_meets_selected_conditions(o, trip)
+        and _ski_offer_constraints_ok(o, trip)
     ]
 
-    exact = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]
-    same_month = [o for o in qualified if _offer_matches_trip(o, trip, same_month=True)]
+    answers = trip.get("answers") or {}
+    date_mode = str(answers.get("date_mode") or "anytime")
+    if date_mode == "exact":
+        candidates = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]
+    elif date_mode == "month":
+        candidates = [o for o in qualified if _offer_matches_trip(o, trip, same_month=True)]
+    else:
+        candidates = list(qualified)
 
-    exact.sort(key=lambda o: _priority_sort_key(o, trip))
-    same_month.sort(key=lambda o: _priority_sort_key(o, trip))
-
+    candidates.sort(key=lambda o: _priority_sort_key(o, trip))
     selected = []
     seen = set()
 
@@ -679,7 +831,6 @@ def _customer_deal_choices(all_offers, trip, limit=5):
         copy = dict(offer)
         copy["customer_choice_label_he"] = label_he
         copy["customer_choice_label_en"] = label_en
-        answers = trip.get("answers") or {}
         if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
             try:
                 budget = float(answers.get("budget_amount"))
@@ -691,40 +842,28 @@ def _customer_deal_choices(all_offers, trip, limit=5):
         selected.append(copy)
         seen.add(sig)
 
-    # 1. Ariella's best match to the exact request.
-    if exact:
-        add(exact[0], "הבחירה של אריאלה", "Ariella's choice")
+    if not candidates:
+        return []
 
-    # Candidate pool excludes the exact winner but can include other exact options.
-    pool = [o for o in same_month if _offer_signature(o) not in seen]
+    # 1. Best overall for the customer's selected constraints.
+    add(candidates[0], "הבחירה של אריאלה", "Ariella's choice")
 
-    # 2. Cheapest worthwhile option.
-    if pool:
-        cheapest = min(pool, key=lambda o: (float(o.get("price_ils") or 10**9), -int(o.get("score") or 0)))
+    remaining = [o for o in candidates if _offer_signature(o) not in seen]
+
+    # 2. Cheapest qualifying option.
+    if remaining:
+        cheapest = min(remaining, key=lambda o: (float(o.get("price_ils") or 10**9), -int(o.get("score") or 0)))
         add(cheapest, "הכי משתלם", "Best value")
 
-    # 3. Best usable-time/schedule option using the combined score already calculated.
-    pool2 = [o for o in pool if _offer_signature(o) not in seen]
-    if pool2:
-        best_time = max(pool2, key=lambda o: (int(o.get("time_value_score") or 0), int(o.get("score") or 0)))
+    # 3. Best usable-time option.
+    remaining = [o for o in remaining if _offer_signature(o) not in seen]
+    if remaining:
+        best_time = max(remaining, key=lambda o: (int(o.get("time_value_score") or 0), int(o.get("score") or 0)))
         add(best_time, "הכי הרבה זמן ביעד", "Most time at destination")
 
-    # 4. Strongest different-date option in the same month.
-    pool3 = [o for o in pool2 if _offer_signature(o) not in seen]
-    answers = trip.get("answers") or {}
-    requested_out = str(answers.get("departure_date") or "")
-    different = [o for o in pool3 if not requested_out or str(o.get("outbound_date") or "") != requested_out]
-    if different:
-        add(different[0], "שווה לשקול תאריכים אחרים", "Worth considering different dates")
-
-    # 5. Fill only with other qualified, non-duplicate options.
-    for offer in pool3:
+    # 4–5. Fill only with candidates that satisfy the SAME requested date mode.
+    for offer in candidates:
         add(offer, "אפשרות נוספת ששווה לשקול", "Another option worth considering")
-
-    # If the user chose a month rather than exact dates, the top ranked option is the choice.
-    if not exact and selected:
-        selected[0]["customer_choice_label_he"] = "הבחירה של אריאלה"
-        selected[0]["customer_choice_label_en"] = "Ariella's choice"
 
     return selected[:limit]
 
@@ -1124,7 +1263,10 @@ def account():
         answers = trip.get("answers") or {}
         destination_codes = sorted(_trip_destination_codes(trip))
         destination_info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {}) if destination_codes else {}
-        if destination_codes:
+        if str(answers.get("vacation_type") or "") == "ski":
+            ski_labels = answers.get("ski_target_labels") or []
+            trip["destination_display"] = " • ".join(ski_labels) if ski_labels else _msg("אריאלה תבחר אתר סקי", "Ariella chooses a ski resort")
+        elif destination_codes:
             labels = []
             for code in destination_codes:
                 info = _AIRPORT_LOCALIZATION.get(code, {})
@@ -1460,50 +1602,148 @@ def renew_trip_search(trip_id):
 @site.route("/trip/new", methods=["GET", "POST"])
 @login_required
 def new_trip():
+    def form_context():
+        today_value = date.today().isoformat()
+        return {
+            "today": today_value,
+            "current_month": today_value[:7],
+            "ski_options": _ski_picker_options(),
+        }
+
     if request.method == "POST":
         form = request.form
-        destination_mode = form.get("destination_mode", "open")
-        vacation_type = "ski" if form.get("vacation_type") == "ski" else "standard"
-        # Backward compatibility with the former mutually-exclusive ski destination option.
-        if destination_mode == "ski":
-            destination_mode, vacation_type = "open", "ski"
-        destinations = form.get("destinations", "").strip()
-        date_mode = form.get("date_mode", "anytime")
-        outbound_month = form.get("outbound_month", "").strip()
-        return_month = form.get("return_month", "").strip()
-        # Backward compatibility with older saved forms.
-        travel_month = form.get("travel_month", "").strip()
-        if not outbound_month and travel_month:
-            outbound_month = travel_month
-        if not return_month and outbound_month:
-            return_month = outbound_month
-        departure_date = form.get("departure_date", "").strip()
-        return_date = form.get("return_date", "").strip()
-        today = date.today().isoformat()
-        current_month = today[:7]
+        ctx = form_context()
+        today = ctx["today"]
+        current_month = ctx["current_month"]
 
-        if destination_mode in {"specific", "several"} and not destinations:
-            flash(_msg("יש לכתוב את היעד או היעדים שמעניינים אתכם.", "Please enter the destination or destinations you are interested in."), "error")
-            return render_template("trip_form.html", today=today, current_month=current_month)
+        vacation_type = "ski" if form.get("vacation_type") == "ski" else "standard"
+
+        # ---------------- Separate REGULAR and SKI questionnaires ----------------
+        if vacation_type == "ski":
+            destination_mode = form.get("ski_destination_mode", "open")
+            ski_targets = form.getlist("ski_targets")
+            ski_skill_level = form.get("ski_skill_level", "").strip()
+            ski_transfer_choice = form.get("ski_transfer_choice", "any").strip()
+            ski_max_transfer_minutes = {"90": 90, "180": 180}.get(ski_transfer_choice)
+            resolved = _resolve_ski_targets(
+                ski_targets, destination_mode,
+                skill_level=ski_skill_level or None,
+                max_transfer_minutes=ski_max_transfer_minutes,
+            )
+
+            if destination_mode in {"specific", "several"} and not ski_targets:
+                flash(_msg("יש לבחור אתר סקי, אזור או מדינה.", "Please choose a ski resort, region or country."), "error")
+                return render_template("trip_form.html", **ctx)
+            if not resolved["resorts"]:
+                flash(_msg("לא נמצאו אתרי סקי שמתאימים לבחירה. נסו להרחיב את ההגדרות.", "No ski resorts match these choices. Please widen the criteria."), "error")
+                return render_template("trip_form.html", **ctx)
+
+            # The flight engine works with airport codes; Ski DB narrows the resort search first.
+            destinations = ",".join(resolved["gateway_airports"])
+            ski_target_labels = []
+            for raw in ski_targets:
+                if raw.startswith("resort:"):
+                    ski_target_labels.append(raw.split(":",1)[1])
+                elif raw.startswith("country:"):
+                    country = raw.split(":",1)[1]
+                    row = next((r for r in _SKI_RESORTS if r.get("country")==country), None)
+                    ski_target_labels.append((row or {}).get("country_he") or country)
+
+            date_mode = form.get("ski_date_mode", "ski_flexible")
+            outbound_month = form.get("ski_outbound_month", "").strip()
+            return_month = form.get("ski_return_month", "").strip()
+            departure_date = form.get("ski_departure_date", "").strip()
+            return_date = form.get("ski_return_date", "").strip()
+
+            travel_party = form.get("ski_travel_party")
+            adults = form.get("ski_family_adults") if travel_party in {"family", "extended"} else form.get("ski_adults")
+            if travel_party == "solo":
+                adults = "1"
+            elif travel_party == "couple":
+                adults = "2"
+
+            children = form.get("ski_children")
+            age_groups = form.getlist("ski_age_groups")
+            holiday_priorities = []
+            deal_priorities = []
+            ski_priorities = form.getlist("ski_priorities")
+
+            budget_mode = form.get("ski_budget_mode", "unlimited")
+            budget_amount = form.get("ski_budget_amount", "").strip()
+            # "all_flights" is normalized to a per-person ceiling for the flight engine.
+            if budget_mode == "all_flights":
+                try:
+                    pax = max(1, int(adults or 1) + int(children or 0))
+                    budget_amount = str(round(float(budget_amount) / pax, 2))
+                    budget_mode = "per_person"
+                except (TypeError, ValueError):
+                    budget_mode = "unlimited"
+                    budget_amount = ""
+            elif budget_mode not in {"per_person", "unlimited"}:
+                budget_mode = "unlimited"
+                budget_amount = ""
+
+            special_needs = []
+            notes = form.get("ski_notes", "").strip()
+        else:
+            destination_mode = form.get("destination_mode", "open")
+            destinations = form.get("destinations", "").strip()
+            ski_targets = []
+            ski_target_labels = []
+            ski_skill_level = ""
+            ski_max_transfer_minutes = None
+            ski_priorities = []
+
+            date_mode = form.get("date_mode", "anytime")
+            outbound_month = form.get("outbound_month", "").strip()
+            return_month = form.get("return_month", "").strip()
+            departure_date = form.get("departure_date", "").strip()
+            return_date = form.get("return_date", "").strip()
+
+            travel_party = form.get("travel_party")
+            adults = form.get("family_adults") if travel_party in {"family", "extended"} else form.get("adults")
+            if travel_party == "solo":
+                adults = "1"
+            elif travel_party == "couple":
+                adults = "2"
+
+            children = form.get("children")
+            age_groups = form.getlist("age_groups")
+            holiday_priorities = form.getlist("holiday_priorities")
+            deal_priorities = form.getlist("deal_priorities")
+            budget_mode = form.get("budget_mode", "unlimited")
+            budget_amount = form.get("budget_amount", "").strip() if budget_mode == "per_person" else ""
+            special_needs = form.getlist("special_needs") if destination_mode != "specific" else []
+            notes = form.get("notes", "").strip()
+
+            if destination_mode in {"specific", "several"} and not destinations:
+                flash(_msg("יש לכתוב את היעד או היעדים שמעניינים אתכם.", "Please enter the destination or destinations you are interested in."), "error")
+                return render_template("trip_form.html", **ctx)
+
+        # ---------------- Shared date validation ----------------
         if date_mode == "month":
             if not outbound_month or not return_month or outbound_month < current_month or return_month < current_month:
                 flash(_msg("יש לבחור חודש יציאה וחודש חזרה נוכחיים או עתידיים.", "Please choose a current or future departure month and return month."), "error")
-                return render_template("trip_form.html", today=today, current_month=current_month)
+                return render_template("trip_form.html", **ctx)
             if return_month < outbound_month:
                 flash(_msg("חודש החזרה חייב להיות זהה לחודש היציאה או מאוחר ממנו.", "The return month must be the same as or later than the departure month."), "error")
-                return render_template("trip_form.html", today=today, current_month=current_month)
-        if date_mode == "exact":
+                return render_template("trip_form.html", **ctx)
+        elif date_mode == "exact":
             if not departure_date or not return_date:
                 flash(_msg("יש לבחור תאריך יציאה ותאריך חזרה.", "Please choose a departure date and a return date."), "error")
-                return render_template("trip_form.html", today=today, current_month=current_month)
-            if departure_date < today:
-                flash(_msg("ניתן לבחור תאריכים מהיום והלאה בלבד.", "You can only choose dates from today onward."), "error")
-                return render_template("trip_form.html", today=today, current_month=current_month)
-            if return_date <= departure_date:
-                flash(_msg("תאריך החזרה חייב להיות אחרי תאריך היציאה.", "The return date must be after the departure date."), "error")
-                return render_template("trip_form.html", today=today, current_month=current_month)
+                return render_template("trip_form.html", **ctx)
+            if departure_date < today or return_date <= departure_date:
+                flash(_msg("יש לבחור תאריכים עתידיים כאשר החזרה אחרי היציאה.", "Please choose future dates with return after departure."), "error")
+                return render_template("trip_form.html", **ctx)
 
-        destination_title = destinations if destinations else (_msg("הצעות סקי של אריאלה", "Ariella ski suggestions") if vacation_type == "ski" else _msg("הצעות של אריאלה", "Ariella suggestions"))
+        destination_title = destinations if destinations else (
+            _msg("הצעות סקי של אריאלה", "Ariella ski suggestions")
+            if vacation_type == "ski"
+            else _msg("הצעות של אריאלה", "Ariella suggestions")
+        )
+        if vacation_type == "ski" and ski_target_labels:
+            destination_title = " • ".join(ski_target_labels)
+
         if date_mode == "month":
             travel_window = outbound_month if outbound_month == return_month else f"{outbound_month} → {return_month}"
         elif date_mode == "exact":
@@ -1512,61 +1752,65 @@ def new_trip():
             travel_window = _msg("אריאלה תבחר — עונת סקי", "Ariella chooses — ski season")
         else:
             travel_window = _msg("כל השנה", "Anytime")
-        request_name = destination_title
-
-        travel_party = form.get("travel_party")
-        adults = form.get("family_adults") if travel_party in {"family", "extended"} else form.get("adults")
-        if travel_party == "solo": adults = "1"
-        elif travel_party == "couple": adults = "2"
-
-        budget_mode = form.get("budget_mode")
-        if budget_mode not in {"per_person", "unlimited"}:
-            budget_mode = "unlimited"
 
         member = _current_member() or {}
         profile_airports = member.get("preferred_airports_list", [])
         override_airports = [x.strip().upper() for x in form.get("origin_airports", "").replace(";", ",").split(",") if x.strip()]
         origin_selection_mode = form.get("origin_selection_mode", "default")
-        # A deliberate vacation-level airport choice ALWAYS wins over account/country defaults.
-        # Defaults are used only when the customer did not replace them for this vacation.
         origin_airports = override_airports if origin_selection_mode == "custom" else (override_airports or profile_airports)
 
         payload = {
             "origin_airports": origin_airports,
-            "destination_mode": destination_mode, "vacation_type": vacation_type, "destinations": destinations,
-            "date_mode": date_mode, "travel_month": outbound_month,
-            "outbound_month": outbound_month, "return_month": return_month,
-            "departure_date": departure_date, "return_date": return_date,
-            "travel_party": travel_party, "adults": adults,
-            "children": form.get("children"), "age_groups": form.getlist("age_groups"),
-            "holiday_priorities": form.getlist("holiday_priorities"),
-            "deal_priorities": form.getlist("deal_priorities"),
+            "destination_mode": destination_mode,
+            "vacation_type": vacation_type,
+            "destinations": destinations,
+            "date_mode": date_mode,
+            "travel_month": outbound_month,
+            "outbound_month": outbound_month,
+            "return_month": return_month,
+            "departure_date": departure_date,
+            "return_date": return_date,
+            "travel_party": travel_party,
+            "adults": adults,
+            "children": children,
+            "age_groups": age_groups,
+            "holiday_priorities": holiday_priorities,
+            "deal_priorities": deal_priorities,
             "budget_mode": budget_mode,
-            "budget_amount": form.get("budget_amount") if budget_mode == "per_person" else "",
-            "special_needs": form.getlist("special_needs") if destination_mode != "specific" else [], "notes": form.get("notes", "").strip(),
+            "budget_amount": budget_amount,
+            "special_needs": special_needs,
+            "notes": notes,
+            # Ski-only fields remain empty for regular vacations.
+            "ski_targets": ski_targets,
+            "ski_target_labels": ski_target_labels,
+            "ski_skill_level": ski_skill_level,
+            "ski_max_transfer_minutes": ski_max_transfer_minutes,
+            "ski_priorities": ski_priorities,
         }
+        if vacation_type == "ski":
+            payload["ski_resort_names"] = resolved["resort_names"]
+            payload["ski_countries"] = resolved["countries"]
+
         with _db() as conn:
             cur = conn.execute(
                 "INSERT INTO trip_requests (member_id,request_name,travel_window,status,answers_json,created_at,mobile_notifications) VALUES(?,?,?,?,?,?,?)",
-                (session["member_id"], request_name, travel_window, "active", json.dumps(payload, ensure_ascii=False), utc_now_iso(), 0),
+                (session["member_id"], destination_title, travel_window, "active", json.dumps(payload, ensure_ascii=False), utc_now_iso(), 0),
             )
             trip_id = int(cur.lastrowid)
             conn.commit()
 
-        # DATABASE FIRST. A matching usable offer already paid for in inventory
-        # is shown immediately and prevents another SerpAPI search.
-        trip_for_match = {"id": trip_id, "answers": payload, "request_name": request_name, "travel_window": travel_window}
-        # CUSTOMER SEARCH RULE: only inventory verified/seen in the last 48 hours
-        # may satisfy a personal request. Older rows remain historical data for Radar.
+        trip_for_match = {"id": trip_id, "answers": payload, "request_name": destination_title, "travel_window": travel_window}
         existing_inventory = [
             _localize_offer_airports(o)
             for o in recent_offers(limit=1500, minimum_score=None)
             if _offer_is_recent(o, 48)
         ] + _qa_fixture_offers()
-        existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
 
+        # Initial DB match obeys the user's exact date mode. No hidden date alternatives.
+        existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
         scan_status = "database_match" if existing_matches else "no_database_match"
         scan_count = 0
+
         if existing_matches:
             matched_ids = [
                 int(o.get("offer_id") or o.get("id"))
@@ -1581,12 +1825,6 @@ def new_trip():
                 )
                 conn.commit()
 
-        # IMPORTANT: Database first means database ONLY on the initial request.
-        # If there is no usable DB match, do not spend SerpAPI quota automatically.
-        # The customer first sees the two agreed alternatives in My Vacations:
-        #   1) same destination, different dates
-        #   2) same dates, different destination
-        # A new API search can start only after the customer explicitly chooses.
         with _db() as conn:
             conn.execute(
                 "UPDATE trip_requests SET free_scan_count=?, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
@@ -1595,8 +1833,7 @@ def new_trip():
             conn.commit()
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-    today = date.today().isoformat()
-    return render_template("trip_form.html", today=today, current_month=today[:7])
+    return render_template("trip_form.html", **form_context())
 
 
 @site.get("/privacy")
