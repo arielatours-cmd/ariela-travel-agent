@@ -54,6 +54,7 @@
       const modeInput=p.querySelector('.origin-selection-mode');
       const isOrigin=p.hasAttribute('data-origin-picker');
       const isDestination=p.hasAttribute('data-destination-picker');
+      const isBusinessDestination=p.hasAttribute('data-business-destination-picker');
       const defaultCodes=isOrigin ? codesFrom(p.dataset.defaultAirports) : [];
       let selected=codesFrom(hidden.value);
       let usingDefaults=isOrigin && selected.length===0 && defaultCodes.length>0;
@@ -123,8 +124,10 @@
             }
             // "Specific destination" means exactly one destination. "Several"
             // keeps multi-select behavior.
-            if(isDestination){
-              const mode=document.querySelector('input[name="destination_mode"]:checked')?.value;
+            if(isDestination || isBusinessDestination){
+              const mode = isBusinessDestination
+                ? document.querySelector('input[name="business_destination_mode"]:checked')?.value
+                : document.querySelector('input[name="destination_mode"]:checked')?.value;
               if(mode==='specific') selected=[];
             }
             if(!selected.includes(a.code)) selected.push(a.code);
@@ -140,7 +143,7 @@
       search.addEventListener('input',suggest);
       search.addEventListener('focus',suggest);
       document.addEventListener('click',e=>{ if(!p.contains(e.target)) box.hidden=true; });
-      if(isDestination){
+      if(isDestination || isBusinessDestination){
         p.addEventListener('ariella-clear-destinations',()=>{
           selected=[];
           search.value='';

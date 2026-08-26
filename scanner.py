@@ -658,9 +658,9 @@ SKI_DESTINATIONS = [
 
 def _customer_destination_codes(answers: dict) -> list[str]:
     """Parse one/several IATA codes, or a curated ski-airport set for ski mode."""
-    if str(answers.get("destination_mode") or "") == "ski":
-        return [d["code"] for d in SKI_DESTINATIONS]
     raw = str(answers.get("destinations") or "").strip()
+    if str(answers.get("vacation_type") or "") == "ski" and not raw:
+        return [d["code"] for d in SKI_DESTINATIONS]
     aliases = {
         "רומא": "FCO", "rome": "FCO", "fco": "FCO",
         "אתונה": "ATH", "athens": "ATH", "ath": "ATH",
@@ -686,14 +686,16 @@ def _customer_destination_codes(answers: dict) -> list[str]:
         "בנגקוק": "BKK", "bangkok": "BKK", "bkk": "BKK",
         "ניו יורק": "JFK", "new york": "JFK", "jfk": "JFK",
     }
-    supported = {d["code"] for d in DESTINATIONS}
+    supported = {d["code"] for d in DESTINATIONS} | {d["code"] for d in SKI_DESTINATIONS}
     codes = []
     for token in [x.strip() for x in re.split(r"[,;/]+", raw) if x.strip()]:
         code = aliases.get(token.lower())
         if not code and len(token) == 3 and token.isalpha():
             code = token.upper()
-        if code in supported and code not in codes:
-            codes.append(code)
+        if code and len(code) == 3 and code.isalpha() and code not in codes:
+            # Airport picker already resolves valid IATA codes. Do not limit customer
+            # searches to Ariella's curated discovery list.
+            codes.append(code.upper())
     return codes
 
 
@@ -724,11 +726,26 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     origins = [str(x).upper() for x in answers.get("origin_airports", []) if x] or list(DEPARTURE_AIRPORTS)
     date_mode = answers.get("date_mode")
     jobs = []
-    ski_mode = str(answers.get("destination_mode") or "") == "ski"
+    ski_mode = str(answers.get("vacation_type") or "") == "ski"
     if date_mode == "exact" and answers.get("departure_date") and answers.get("return_date"):
+        business_mode = str(answers.get("vacation_type") or "") == "business"
+        try:
+            flex_days = max(0, min(3, int(answers.get("business_flex_days") or 0))) if business_mode else 0
+        except (TypeError, ValueError):
+            flex_days = 0
+        base_out = datetime.strptime(answers["departure_date"], "%Y-%m-%d").date()
+        base_ret = datetime.strptime(answers["return_date"], "%Y-%m-%d").date()
+        offsets = range(-flex_days, flex_days + 1) if flex_days else [0]
+        if business_mode and not flex_days and answers.get("business_arrive_by_time"):
+            offsets = [-1, 0]
         for arrival in arrivals:
             for origin in origins:
-                jobs.append({"departure": origin, "arrival": arrival, "outbound": answers["departure_date"], "return": answers["return_date"]})
+                for offset in offsets:
+                    out_date = base_out + timedelta(days=offset)
+                    ret_date = base_ret + timedelta(days=offset if flex_days else 0)
+                    if ret_date <= out_date:
+                        continue
+                    jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat()})
     elif ski_mode and date_mode == "ski_flexible":
         # Use the next core ski season and keep the first live test controlled:
         # two representative 6-night windows per airport/origin, not a world-wide explosion.

@@ -645,13 +645,6 @@ def _offer_meets_selected_conditions(offer, trip):
             if not _offer_matches_trip(offer, trip, same_month=True):
                 return False
 
-    if "times" in priorities:
-        # QA/product rule: outbound departure 06:00–22:00 and return departure 06:00–22:30.
-        out_m = _time_minutes(offer.get("departure_time"))
-        ret_m = _time_minutes(offer.get("return_departure_time"))
-        if out_m is None or ret_m is None or not (360 <= out_m <= 1320 and 360 <= ret_m <= 1350):
-            return False
-
     return True
 
 
@@ -662,12 +655,15 @@ def _priority_sort_key(offer, trip):
     price = float(offer.get("price_ils") or 10**9)
     rank = float(_customer_rank_value(offer, trip))
 
-    dep = _time_minutes(offer.get("departure_time"))
+    arrival = _time_minutes(offer.get("arrival_time"))
     ret = _time_minutes(offer.get("return_departure_time"))
+    # "Maximize the trip" is a strong preference, never a hard filter:
+    # arrival by 10:00 and return departure from 20:00 receive the strongest score.
     maximize = 0
-    if dep is not None and ret is not None:
-        # Earlier outbound + later return = more usable time.
-        maximize = (1440 - dep) + ret
+    if arrival is not None:
+        maximize += 2 if arrival <= 600 else max(0, 1 - (arrival - 600) / 360)
+    if ret is not None:
+        maximize += 2 if ret >= 1200 else max(0, 1 - (1200 - ret) / 360)
 
     key = []
     if str(answers.get("vacation_type") or "standard") == "ski":
@@ -682,6 +678,208 @@ def _priority_sort_key(offer, trip):
         key.append(-rank)
     key.extend([-rank, price])
     return tuple(key)
+
+
+def _date_from_iso(value):
+    try:
+        return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _business_offer_date_relevant(offer, trip):
+    answers = trip.get("answers") or {}
+    if str(answers.get("vacation_type") or "") != "business":
+        return True
+    req_out = _date_from_iso(answers.get("departure_date"))
+    req_ret = _date_from_iso(answers.get("return_date"))
+    off_out = _date_from_iso(offer.get("outbound_date"))
+    off_ret = _date_from_iso(offer.get("return_date"))
+    if not all([req_out, req_ret, off_out, off_ret]):
+        return False
+
+    try:
+        flex = max(0, min(3, int(answers.get("business_flex_days") or 0)))
+    except (TypeError, ValueError):
+        flex = 0
+
+    if flex:
+        return abs((off_out - req_out).days) <= flex and abs((off_ret - req_ret).days) <= flex
+
+    # No customer flexibility: exact dates, with one operational exception.
+    # If an arrival deadline was supplied, allow departure one day earlier so
+    # Ariella can actually meet an early-morning business commitment.
+    earliest_out = req_out - timedelta(days=1) if answers.get("business_arrive_by_time") else req_out
+    return earliest_out <= off_out <= req_out and off_ret == req_ret
+
+
+def _business_deadline_ok(offer, trip):
+    answers = trip.get("answers") or {}
+    target_time = _time_minutes(answers.get("business_arrive_by_time"))
+    if target_time is None:
+        return None
+    target_date = _date_from_iso(answers.get("business_arrive_by_date") or answers.get("departure_date"))
+    out_date = _date_from_iso(offer.get("outbound_date"))
+    if not target_date or not out_date:
+        return False
+    arrival_date = out_date + timedelta(days=int(offer.get("arrival_days_after") or 0))
+    if arrival_date < target_date:
+        return True
+    if arrival_date > target_date:
+        return False
+    arrival_time = _time_minutes(offer.get("arrival_time"))
+    return arrival_time is not None and arrival_time <= target_time
+
+
+def _business_return_time_ok(offer, trip):
+    answers = trip.get("answers") or {}
+    target_time = _time_minutes(answers.get("business_return_after_time"))
+    if target_time is None:
+        return None
+    target_date = _date_from_iso(answers.get("business_return_after_date") or answers.get("return_date"))
+    off_ret = _date_from_iso(offer.get("return_date"))
+    if not target_date or not off_ret:
+        return False
+    if off_ret > target_date:
+        return True
+    if off_ret < target_date:
+        return False
+    ret_time = _time_minutes(offer.get("return_departure_time"))
+    return ret_time is not None and ret_time >= target_time
+
+
+def _business_match_details(offer, trip):
+    """One point per customer condition met. No business preference hard-filters an offer."""
+    answers = trip.get("answers") or {}
+    selected = set(answers.get("business_priorities") or [])
+    points, possible, reasons = 0, 0, []
+
+    def add(condition, he, en):
+        nonlocal points, possible
+        possible += 1
+        if condition:
+            points += 1
+            reasons.append(en if _lang() == "en" else he)
+
+    if "direct" in selected:
+        add(int(offer.get("stops") or 0) == 0, "טיסה ישירה", "Direct flight")
+    if "max_one_connection" in selected:
+        add(int(offer.get("stops") or 0) <= 1, "עד קונקשן אחד", "Up to one connection")
+    if "baggage" in selected:
+        baggage = offer.get("baggage") or {}
+        carry = (baggage.get("carry_on_8kg") or {}).get("included") is True
+        checked = (baggage.get("checked_bag_23kg") or {}).get("included") is True
+        add(carry or checked, "כולל כבודה", "Baggage included")
+    if "flexible_ticket" in selected:
+        label = str(offer.get("change_cancel_label") or "").lower()
+        add(
+            ("ללא תשלום" in label) or ("no charge" in label) or ("free" in label),
+            "כרטיס גמיש",
+            "Flexible ticket",
+        )
+    if "short_duration" in selected:
+        duration = offer.get("total_duration_minutes")
+        route = int(offer.get("route_score") or 0)
+        add(
+            (isinstance(duration, (int, float)) and duration <= 480) or route >= 80,
+            "זמן נסיעה כולל קצר",
+            "Short total travel time",
+        )
+
+    deadline = _business_deadline_ok(offer, trip)
+    if deadline is not None:
+        add(deadline, "עומדת בזמן ההגעה שביקשת", "Meets your arrival deadline")
+    ret_ok = _business_return_time_ok(offer, trip)
+    if ret_ok is not None:
+        add(ret_ok, "מתאימה לשעת החזרה שביקשת", "Fits your requested return time")
+
+    cabin = str(answers.get("business_cabin_class") or "any")
+    if cabin != "any":
+        offer_cabin = str(offer.get("cabin_class") or offer.get("travel_class") or "").lower()
+        names = {
+            "economy": {"economy", "תיירים"},
+            "premium": {"premium", "premium economy", "פרימיום"},
+            "business": {"business", "עסקים"},
+            "first": {"first", "first class", "ראשונה"},
+        }
+        add(any(x in offer_cabin for x in names.get(cabin, {cabin})), "מחלקה מבוקשת", "Requested cabin")
+
+    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+        try:
+            add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10,
+                "בתקציב שביקשת", "Within your budget")
+        except (TypeError, ValueError):
+            pass
+
+    return points, possible, reasons
+
+
+def _decorate_business_offer(offer, trip):
+    if str((trip.get("answers") or {}).get("vacation_type") or "") != "business":
+        return offer
+    copy = dict(offer)
+    points, possible, reasons = _business_match_details(copy, trip)
+    copy["business_match_points"] = points
+    copy["business_match_possible"] = possible
+    existing = [r for r in (copy.get("display_reasons") or []) if r]
+    copy["display_reasons"] = reasons + [r for r in existing if r not in reasons]
+    copy["customer_choice_label_he"] = "התאמה גבוהה לבקשה העסקית"
+    copy["customer_choice_label_en"] = "Strong business-trip match"
+    return copy
+
+
+def _business_sort_key(offer, trip):
+    offer = _decorate_business_offer(offer, trip)
+    points = int(offer.get("business_match_points") or 0)
+    duration = float(offer.get("total_duration_minutes") or 10**9)
+    price = float(offer.get("price_ils") or 10**9)
+    return (-points, duration, price)
+
+
+def _closest_condition_matches(all_offers, trip, limit=3):
+    """Last-resort DB fallback: rank recent offers by how many customer conditions they satisfy."""
+    answers = trip.get("answers") or {}
+    original = {str(x).upper() for x in _customer_destination_codes(answers)}
+    candidates = []
+    for raw in all_offers:
+        o = _localize_offer_airports(raw)
+        if not _offer_is_recent(o, 48) or not _offer_has_complete_roundtrip(o):
+            continue
+        if str(o.get("arrival_code") or "").upper() in original:
+            continue
+        points, reasons = 0, []
+        if answers.get("date_mode") == "exact" and _offer_matches_trip(o, trip, exact_dates=True):
+            points += 1; reasons.append(_msg("מתאים לתאריכים שביקשת", "Matches your requested dates"))
+        elif answers.get("date_mode") == "month" and _offer_matches_trip(o, trip, same_month=True):
+            points += 1; reasons.append(_msg("מתאים לחודשים שביקשת", "Matches your requested months"))
+        priorities = set(answers.get("deal_priorities") or [])
+        if "direct" in priorities and int(o.get("stops") or 0) == 0:
+            points += 1; reasons.append(_msg("טיסה ישירה", "Direct flight"))
+        if "baggage" in priorities:
+            bag = o.get("baggage") or {}
+            if (bag.get("carry_on_8kg") or {}).get("included") is True or (bag.get("checked_bag_23kg") or {}).get("included") is True:
+                points += 1; reasons.append(_msg("כולל כבודה", "Baggage included"))
+        if "maximize" in priorities:
+            arr = _time_minutes(o.get("arrival_time"))
+            ret = _time_minutes(o.get("return_departure_time"))
+            if arr is not None and ret is not None and arr <= 600 and ret >= 1200:
+                points += 1; reasons.append(_msg("ממקסמת את זמן החופשה", "Maximizes usable trip time"))
+        if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+            try:
+                if float(o.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10:
+                    points += 1; reasons.append(_msg("בתקציב", "Within budget"))
+            except (TypeError, ValueError):
+                pass
+        if points <= 0:
+            continue
+        copy = dict(o)
+        copy["closest_match_points"] = points
+        copy["display_reasons"] = reasons + list(copy.get("display_reasons") or [])
+        copy["customer_choice_label_he"] = "אפשרות קרובה לבקשה שלך"
+        copy["customer_choice_label_en"] = "A close match to your request"
+        candidates.append(copy)
+    candidates.sort(key=lambda o: (-int(o.get("closest_match_points") or 0), -int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
+    return candidates[:limit]
 
 def _trip_is_destination_led(trip):
     """True when the customer already chose one or more destinations."""
@@ -855,20 +1053,40 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
 
 
 def _customer_deal_choices(all_offers, trip, limit=5):
-    """DB-first selection. Initial exact-date requests never leak date alternatives."""
-    prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
-    qualified = [
-        o for o in prepared
-        if _offer_is_recent(o, 48)
-        and _offer_destination_matches(o, trip)
-        and _offer_has_complete_roundtrip(o)
-        and _offer_matches_vacation_type(o, trip)
-        and _offer_within_budget(o, trip)
-        and _offer_meets_selected_conditions(o, trip)
-        and _ski_offer_constraints_ok(o, trip)
-    ]
-
+    """DB-first selection. Exact regular requests stay exact; business requests are ranked by points."""
     answers = trip.get("answers") or {}
+    vacation_type = str(answers.get("vacation_type") or "standard")
+    prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
+    if vacation_type == "business":
+        prepared = [_decorate_business_offer(o, trip) for o in prepared]
+
+    qualified = []
+    for o in prepared:
+        if not _offer_is_recent(o, 48):
+            continue
+        if not _offer_destination_matches(o, trip):
+            continue
+        if not _offer_has_complete_roundtrip(o):
+            continue
+        if not _offer_matches_vacation_type(o, trip):
+            continue
+        if vacation_type == "business":
+            if not _business_offer_date_relevant(o, trip):
+                continue
+            qualified.append(o)
+            continue
+        if not _offer_within_budget(o, trip):
+            continue
+        if not _offer_meets_selected_conditions(o, trip):
+            continue
+        if not _ski_offer_constraints_ok(o, trip):
+            continue
+        qualified.append(o)
+
+    if vacation_type == "business":
+        qualified.sort(key=lambda o: _business_sort_key(o, trip))
+        return [_decorate_business_offer(o, trip) for o in qualified[:limit]]
+
     date_mode = str(answers.get("date_mode") or "anytime")
     if date_mode == "exact":
         candidates = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]
@@ -878,8 +1096,7 @@ def _customer_deal_choices(all_offers, trip, limit=5):
         candidates = list(qualified)
 
     candidates.sort(key=lambda o: _priority_sort_key(o, trip))
-    selected = []
-    seen = set()
+    selected, seen = [], set()
 
     def add(offer, label_he, label_en):
         sig = _offer_signature(offer)
@@ -888,40 +1105,22 @@ def _customer_deal_choices(all_offers, trip, limit=5):
         copy = dict(offer)
         copy["customer_choice_label_he"] = label_he
         copy["customer_choice_label_en"] = label_en
-        if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
-            try:
-                budget = float(answers.get("budget_amount"))
-                price_now = float(copy.get("price_ils") or 0)
-                if budget > 0 and price_now > budget:
-                    copy["budget_overage_ils"] = round(price_now - budget)
-            except (TypeError, ValueError):
-                pass
-        selected.append(copy)
-        seen.add(sig)
+        selected.append(copy); seen.add(sig)
 
     if not candidates:
         return []
 
-    # 1. Best overall for the customer's selected constraints.
     add(candidates[0], "הבחירה של אריאלה", "Ariella's choice")
-
     remaining = [o for o in candidates if _offer_signature(o) not in seen]
-
-    # 2. Cheapest qualifying option.
     if remaining:
         cheapest = min(remaining, key=lambda o: (float(o.get("price_ils") or 10**9), -int(o.get("score") or 0)))
-        add(cheapest, "הכי משתלם", "Best value")
-
-    # 3. Best usable-time option.
+        add(cheapest, "אפשרות משתלמת", "Good value option")
     remaining = [o for o in remaining if _offer_signature(o) not in seen]
     if remaining:
         best_time = max(remaining, key=lambda o: (int(o.get("time_value_score") or 0), int(o.get("score") or 0)))
         add(best_time, "הכי הרבה זמן ביעד", "Most time at destination")
-
-    # 4–5. Fill only with candidates that satisfy the SAME requested date mode.
     for offer in candidates:
         add(offer, "אפשרות נוספת ששווה לשקול", "Another option worth considering")
-
     return selected[:limit]
 
 
@@ -1316,9 +1515,13 @@ def account():
         trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
         trip["over_budget_offers"] = []
         trip["budget_fallback"] = False
+        trip["closest_fallback_offers"] = []
+        trip["nearby_dates_exhausted"] = bool((trip.get("answers") or {}).get("_nearby_dates_exhausted"))
         if not trip["offers"] and (trip.get("answers") or {}).get("budget_mode") == "per_person":
             trip["over_budget_offers"] = _over_budget_alternatives(database_offers + _qa_fixture_offers(), trip, limit=3)
             trip["budget_fallback"] = bool(trip["over_budget_offers"])
+        if not trip["offers"] and not trip["budget_fallback"] and (trip.get("answers") or {}).get("_show_closest_fallback"):
+            trip["closest_fallback_offers"] = _closest_condition_matches(database_offers + _qa_fixture_offers(), trip, limit=3)
         inventory = _customer_inventory_status(database_offers, trip)
         trip["needs_fresh_search"] = not bool(trip["offers"])
         trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
@@ -1347,6 +1550,10 @@ def account():
         elif destination_codes:
             dedicated = {
                 "OTP": "https://images.unsplash.com/photo-1584646098378-0874589d76b1?auto=format&fit=crop&w=900&q=82",
+                "ZRH": "https://images.unsplash.com/photo-1527668752968-14dc70a27c95?auto=format&fit=crop&w=900&q=82",
+                "KRK": "https://images.unsplash.com/photo-1519197924294-4ba991a11128?auto=format&fit=crop&w=900&q=82",
+                "LCA": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=82",
+                "ATH": "https://images.unsplash.com/photo-1555993539-1732b0258235?auto=format&fit=crop&w=900&q=82",
             }
             trip["image_url"] = dedicated.get(destination_codes[0]) or DESTINATION_LANDMARK_IMAGES.get(destination_codes[0]) or "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=82"
         else:
@@ -1536,6 +1743,11 @@ def free_trip_alternative(trip_id):
 
         if answers.get("date_mode") == "exact":
             try:
+                answers["_original_date_mode"] = answers.get("date_mode")
+                answers["_original_departure_date"] = answers.get("departure_date")
+                answers["_original_return_date"] = answers.get("return_date")
+                answers["_original_outbound_month"] = answers.get("outbound_month")
+                answers["_original_return_month"] = answers.get("return_month")
                 out = datetime.strptime(answers.get("departure_date"), "%Y-%m-%d").date()
                 ret = datetime.strptime(answers.get("return_date"), "%Y-%m-%d").date()
                 span = max(1, (ret - out).days)
@@ -1550,6 +1762,11 @@ def free_trip_alternative(trip_id):
             except Exception:
                 return redirect(url_for("site.account") + f"#vacation-{trip_id}")
         elif answers.get("date_mode") == "month":
+            answers["_original_date_mode"] = answers.get("date_mode")
+            answers["_original_departure_date"] = answers.get("departure_date")
+            answers["_original_return_date"] = answers.get("return_date")
+            answers["_original_outbound_month"] = answers.get("outbound_month")
+            answers["_original_return_month"] = answers.get("return_month")
             base_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
             if not base_month:
                 return redirect(url_for("site.account") + f"#vacation-{trip_id}")
@@ -1571,28 +1788,17 @@ def free_trip_alternative(trip_id):
                 conn.commit()
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-        # No DB match: record that DB-first completed, then widen to a controlled pool.
+        # No exact DB match for another destination. Before spending API quota,
+        # show the closest existing 48h options ranked by how many customer conditions they meet.
+        answers["_show_closest_fallback"] = True
+        answers["_alternative_other_destination"] = True
         with _db() as conn:
             conn.execute(
-                "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-                (utc_now_iso(), "db_checked_48h_no_other_destination_match", trip_id),
+                "UPDATE trip_requests SET answers_json=?, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (json.dumps(answers, ensure_ascii=False), utc_now_iso(), "closest_db_fallback", trip_id),
             )
             conn.commit()
-
-        # Keep the user's dates, but let Ariella search several popular gateways.
-        original = {str(x).upper() for x in _customer_destination_codes(answers)}
-        pool = []
-        for d in list(DESTINATIONS):
-            code = str(d.get("code") or "").upper()
-            if code and code not in original:
-                pool.append(code)
-            if len(pool) >= 10:
-                break
-        if not pool:
-            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-        answers["destination_mode"] = "several"
-        answers["destinations"] = ",".join(pool)
-        answers["_alternative_other_destination"] = True
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
     try:
         scan_result = run_customer_trip_search(trip_id, answers)
@@ -1615,10 +1821,24 @@ def free_trip_alternative(trip_id):
         except (TypeError, ValueError):
             pass
 
+    if choice == "nearby_dates" and answers.get("_original_date_mode"):
+        answers["date_mode"] = answers.pop("_original_date_mode", answers.get("date_mode"))
+        answers["departure_date"] = answers.pop("_original_departure_date", answers.get("departure_date"))
+        answers["return_date"] = answers.pop("_original_return_date", answers.get("return_date"))
+        answers["outbound_month"] = answers.pop("_original_outbound_month", answers.get("outbound_month"))
+        answers["return_month"] = answers.pop("_original_return_month", answers.get("return_month"))
+        answers["travel_month"] = answers.get("outbound_month") or answers.get("travel_month")
+        answers.pop("_alternative_nearby_dates", None)
+        answers.pop("_alternative_months", None)
+        answers.pop("_requested_trip_length_days", None)
+
     if created_for_trip:
         _pin_offer_ids_to_trip(trip_id, answers, created_for_trip)
     else:
-        # Persist the altered answers/status even with no result.
+        # If "same destination / other dates" was exhausted, do not show that
+        # same question again. The next useful step is "other destination / same dates".
+        if choice == "nearby_dates":
+            answers["_nearby_dates_exhausted"] = True
         with _db() as conn:
             conn.execute(
                 "UPDATE trip_requests SET answers_json=? WHERE id=?",
@@ -1678,9 +1898,11 @@ def new_trip():
         today = ctx["today"]
         current_month = ctx["current_month"]
 
-        vacation_type = "ski" if form.get("vacation_type") == "ski" else "standard"
+        raw_vacation_type = form.get("vacation_type")
+        vacation_type = raw_vacation_type if raw_vacation_type in {"standard","ski","business"} else "standard"
+        business_extra = {}
 
-        # ---------------- Separate REGULAR and SKI questionnaires ----------------
+        # ---------------- Separate REGULAR / SKI / BUSINESS questionnaires ----------------
         if vacation_type == "ski":
             destination_mode = form.get("ski_destination_mode", "open")
             ski_targets = form.getlist("ski_targets")
@@ -1747,6 +1969,51 @@ def new_trip():
 
             special_needs = []
             notes = form.get("ski_notes", "").strip()
+        elif vacation_type == "business":
+            destination_mode = form.get("business_destination_mode", "specific")
+            destinations = form.get("business_destinations", "").strip()
+            if destination_mode in {"specific", "several"} and not destinations:
+                flash(_msg("יש לבחור יעד או יעדים לטיסת העסקים.", "Please choose one or more business-trip destinations."), "error")
+                return render_template("trip_form.html", **ctx)
+
+            ski_targets = []
+            ski_target_labels = []
+            ski_skill_level = ""
+            ski_max_transfer_minutes = None
+            ski_priorities = []
+            holiday_priorities = []
+            deal_priorities = []
+
+            date_mode = "exact"
+            outbound_month = return_month = ""
+            departure_date = form.get("business_departure_date", "").strip()
+            return_date = form.get("business_return_date", "").strip()
+
+            travel_party = "business"
+            adults = form.get("business_travelers", "1").strip() or "1"
+            children = "0"
+            age_groups = []
+
+            budget_mode = form.get("business_budget_mode", "unlimited")
+            if budget_mode not in {"per_person", "unlimited"}:
+                budget_mode = "unlimited"
+            budget_amount = form.get("business_budget_amount", "").strip() if budget_mode == "per_person" else ""
+            special_needs = []
+            notes = form.get("business_notes", "").strip()
+
+            try:
+                flex_days = max(0, min(3, int(form.get("business_flex_days") or 0))) if form.get("business_flexible_dates") == "1" else 0
+            except (TypeError, ValueError):
+                flex_days = 0
+            business_extra = {
+                "business_flex_days": flex_days,
+                "business_arrive_by_date": form.get("business_arrive_by_date", "").strip() if not flex_days else "",
+                "business_arrive_by_time": form.get("business_arrive_by_time", "").strip() if not flex_days else "",
+                "business_return_after_date": form.get("business_return_after_date", "").strip() if not flex_days else "",
+                "business_return_after_time": form.get("business_return_after_time", "").strip() if not flex_days else "",
+                "business_cabin_class": form.get("business_cabin_class", "any"),
+                "business_priorities": form.getlist("business_priorities"),
+            }
         else:
             destination_mode = form.get("destination_mode", "open")
             destinations = form.get("destinations", "").strip()
@@ -1849,6 +2116,7 @@ def new_trip():
             "ski_max_transfer_minutes": ski_max_transfer_minutes,
             "ski_priorities": ski_priorities,
         }
+        payload.update(business_extra)
         if vacation_type == "ski":
             payload["ski_resort_names"] = resolved["resort_names"]
             payload["ski_countries"] = resolved["countries"]

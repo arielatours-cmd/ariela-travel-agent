@@ -1,43 +1,58 @@
-# Ariella QA Master — v9.7.107
+# Ariella QA Master — v9.7.108
 
-Testing order agreed: finish Regular Vacation first; only then test Ski Vacation.
+## Regular vacation
 
-| Route | Question | Option / condition | Expected behavior | Status |
-|---|---:|---|---|---|
-| Entry | — | Regular vacation | Opens only regular questionnaire | ⬜ |
-| Entry | — | Ski vacation | Opens only ski questionnaire | ⬜ |
-| Regular | 01 | One destination | Only selected destination(s) may match | ⬜ |
-| Regular | 01 | Several destinations | Search all selected; display all selections | ⬜ |
-| Regular | 01 | Ariella chooses | Search qualifying 48h DB inventory before API | ⬜ |
-| Regular | 02 | Exact dates | Exact dates only; alternatives must NOT appear automatically | 🟡 fixed in 106, needs live test |
-| Regular | 02 | Month(s) | Outbound/return months respected independently | ⬜ |
-| Regular | 02 | Anytime | No date restriction | ⬜ |
-| Regular | 03 | Solo / couple / friends / family / extended / adults only | Passenger composition saved correctly | ⬜ |
-| Regular | 04 | Direct flight | Any connecting deal fails | ⬜ |
-| Regular | 04 | Baggage | Deal must satisfy baggage rule | ⬜ |
-| Regular | 04 | Selected dates | Date condition is hard | ⬜ |
-| Regular | 04 | Best price | Cheapest qualifying deal ranks first | ⬜ |
-| Regular | 04 | Convenient times | Non-convenient QA deal is rejected | ⬜ |
-| Regular | 04 | Maximize trip | Earlier outbound/later return ranks first | ⬜ |
-| Regular | 04 | Best balance | Highest combined fit ranks first | ⬜ |
-| Regular | 05 | Per-person budget | Max 10% tolerance | ⬜ |
-| Regular | 05 | Unlimited | No price ceiling | ⬜ |
-| Regular | 06 | Special needs | Saved and later usable for destination ranking | ⬜ |
-| Ski | S1 | One resort/country | Ski DB resolves only selected scope | ⬜ |
-| Ski | S1 | Several resorts/countries | Ski DB resolves union of selected scopes | ⬜ |
-| Ski | S1 | Ariella chooses | Ski DB opens to all qualifying resorts | ⬜ |
-| Ski | S2 | Exact / month(s) / flexible | Correct ski date mode | ⬜ |
-| Ski | S3 | Travelers | Passenger composition saved | ⬜ |
-| Ski | S4 | Skill level | Resort must support requested level | ⬜ |
-| Ski | S5 | ≤1.5h / ≤3h / any | Ski DB filters by transfer estimate | ⬜ |
-| Ski | S6 | Level / snow / family / large / value / proximity / atmosphere / nightlife / spa | Resort ranking reacts to selected priorities | ⬜ |
-| Ski | S7 | Per person / all passengers / unlimited | Flight budget normalized and 10% tolerance applied | ⬜ |
+| # | Test | Status before 108 | 108 action | Live status |
+|---|---|---:|---|---:|
+| 0.1 | Regular route opens | ✅ | Regression only | ⬜ RETEST |
+| 1.1 | One destination | ✅ | Regression only | ⬜ RETEST |
+| 1.2 | Several destinations display all choices | ✅ | Regression only | ⬜ RETEST |
+| 1.3 | Several destinations finds one DB match | ✅ | Regression only | ⬜ RETEST |
+| 1.4A | Several destinations, no DB match detected | ✅ | Regression only | ⬜ RETEST |
+| 1.4B | Same dates -> another destination | ✅ | New closest-DB fallback added after no full match | ⬜ RETEST |
+| 1.4C | Same destinations -> other dates | ❌ | Fix: any IATA + DB->scan + state flow | ⬜ RETEST |
+| 1.5 | Ariella chooses from 48h DB | ✅ | Regression only | ⬜ RETEST |
+| 2.1 | Exact dates only | ✅ | Regression only | ⬜ RETEST |
+| 2.2 | One destination -> other dates | ✅ | Original dates now restored after scan | ⬜ RETEST |
+| 2.3 | Same dates -> another destination | ✅ | Regression + closest fallback | ⬜ RETEST |
+| 2.4 | Outbound / return in different months | ✅ | Regression only | ⬜ RETEST |
+| 2.5 | Ariella chooses when | ✅ | Regression only | ⬜ RETEST |
+| 3A | Family composition saved/displayed | ✅ | Regression only | ⬜ RETEST |
+| 3B | Enough live seats for full party | ⬜ | Future supplier/API validation | ⬜ FUTURE |
+| 4.1 | Direct flight rejects connection | ✅ | Regression only | ⬜ RETEST |
+| 4.2 | Baggage with trolley passes | ✅ | Regression only | ⬜ RETEST |
+| 4.3 | No trolley rejected when baggage selected | ⬜ | QA fixture still required | ⬜ |
+| 4.4 | Convenient hours | 🗑️ | Removed | — |
+| 4.5 | Maximize trip | 🔧 | New preference: arrival <=10, return dep >=20 | ⬜ TEST |
+| 4.6 | Best price Q04 | 🗑️ | Removed for selected destination | — |
+| 4.7 | Best balance Q04 | 🗑️ | Removed for selected destination | — |
+| 5.1 | Per-person budget +10% | ✅ | Regression only | ⬜ RETEST |
+| 5.2 | Over-budget alternatives displayed | ✅ | Regression only | ⬜ RETEST |
+| 5.3 | No arithmetic vs budget shown | ✅ | Regression only | ⬜ RETEST |
+| 5.4 | Continue searching within budget opens paid plans | ✅ | Regression only | ⬜ RETEST |
+| 5.5 | Unlimited budget | ✅ | Regression only | ⬜ RETEST |
+| 6 | Special needs | ⬜ | Not changed | ⬜ |
+| 7 | Multiple selected conditions together | 🟡 | Final regular-route test after individual filters | ⬜ |
+| 8 | Fallback hierarchy | 🔧 | Updated in 108 | ⬜ TEST |
+| 9 | Zurich/Krakow/Larnaca images | ❌ | Image mappings + fallback | ⬜ RETEST |
 
-## v9.7.107 — תרחיש תקציב
-| מסלול | בדיקה | תוצאה צפויה | סטטוס |
-|---|---|---|---|
-| רגיל | תקציב לאדם + דיל בתוך 10% | הדיל מוצג כהתאמה | ⬜ |
-| רגיל | אין דיל בתוך 10%, יש דיל שעומד בכל יתר התנאים | מוצגים עד 3 דילים כחלופות מעל התקציב | ⬜ |
-| רגיל | חלופות מעל התקציב | אין הצגת הפרש מהתקציב | ⬜ |
-| רגיל | כפתור "תמשיכי לחפש בתקציב שלי" | פותח וגולל אוטומטית לבחירת מסלול החיפוש בתשלום | ⬜ |
-| רגיל | לחיצה על הכפתור | אינה מפעילה סריקה לפני בחירת מסלול/תשלום | ⬜ |
+## Business flight
+
+| # | Test | Expected | Status |
+|---|---|---|---:|
+| B0 | Business card | Opens business questionnaire immediately | ⬜ |
+| B1 | One destination | Saves destination | ⬜ |
+| B1b | Multiple destinations / airports | Multiple selections saved | ⬜ |
+| B2 | Fixed dates | Searches fixed dates | ⬜ |
+| B2a | Flex ±1/2/3 | Time question hides; search expands only selected number of days | ⬜ |
+| B2b | No flex + arrival deadline | Arrival condition is scored; previous-day departure may be considered | ⬜ |
+| B2c | Return-after time | Condition is scored, not hard filtered | ⬜ |
+| B3 | Traveler count | Saved/displayed correctly | ⬜ |
+| B4 | Cabin class | Selected class becomes a scoring condition when supplier data exists | ⬜ |
+| B5 | Each selected condition | +1 when met, 0 when not met; no offer hidden | ⬜ |
+| B5b | Deal reasons | Show only conditions the offer meets | ⬜ |
+| B5c | Sorting | Highest points first; duration then price break ties | ⬜ |
+| B6 | Budget | Budget is another scoring condition, not hard filter | ⬜ |
+
+## Ski
+Testing remains deferred until the regular vacation route is green.

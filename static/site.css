@@ -2374,3 +2374,13 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 .trip-wizard input[type="date"],.trip-wizard input[type="month"]{min-height:54px;min-width:230px;font-size:17px;padding:10px 14px}
 .budget-fallback-message{max-width:760px;margin:0 auto 24px;padding:20px 22px;border-radius:18px;background:#fff;box-shadow:0 8px 26px rgba(65,52,32,.08);text-align:center}
 .budget-fallback-message strong{display:block;font-size:20px;margin-bottom:8px}.budget-fallback-message p{line-height:1.65;margin:0 0 16px}
+
+/* v9.7.108 — business route + regular QA fixes */
+.vacation-type-grid{grid-template-columns:repeat(3,minmax(220px,1fr));max-width:1120px}
+.business-visual i{animation:ariellaFly 2.8s ease-in-out infinite}
+.business-flex-toggle{display:flex;align-items:center;justify-content:center;gap:10px;margin:18px auto;font-weight:700}
+.business-flex-toggle input{width:20px;height:20px}
+.business-date-panel input,.business-question input[type="date"],.business-question input[type="time"]{min-height:48px;font-size:16px}
+.business-question select{min-height:46px;border-radius:12px;padding:8px 12px}
+.business-results-note{margin-top:16px}
+@media(max-width:900px){.vacation-type-grid{grid-template-columns:1fr}}
