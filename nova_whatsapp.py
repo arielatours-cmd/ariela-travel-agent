@@ -42,36 +42,22 @@ def _token_hash(token: str) -> str:
 
 
 def create_member_handoff(member_id: int) -> dict:
-    """Create a single-use, short-lived handoff and return its WhatsApp URL."""
+    """Open WhatsApp from My Ariella without binding identity to browser session.
+
+    NOVA identifies the sender by the verified WhatsApp number on the inbound
+    webhook. The logged-in browser account is intentionally not used as the
+    identity source, so a shared computer/session cannot attach the wrong phone.
+    """
     business_number = _digits_only(WHATSAPP_BUSINESS_NUMBER)
     if not business_number:
         raise NovaHandoffError("WHATSAPP_BUSINESS_NUMBER עדיין לא מוגדר ב-Render.")
 
-    nonce = secrets.token_urlsafe(9).rstrip("=")
-    token = f"{nonce}.{_sign(nonce)}"
-    now = datetime.now(timezone.utc)
-    expires = now + timedelta(minutes=max(1, int(NOVA_HANDOFF_TTL_MINUTES)))
-
-    with connection() as conn:
-        # Keep the table small and make previous unused handoffs for this member invalid.
-        conn.execute(
-            "UPDATE whatsapp_handoffs SET used_at=? WHERE member_id=? AND used_at IS NULL",
-            (utc_now_iso(), int(member_id)),
-        )
-        conn.execute(
-            """INSERT INTO whatsapp_handoffs(token_hash,member_id,expires_at,used_at,created_at)
-               VALUES(?,?,?,?,?)""",
-            (_token_hash(token), int(member_id), expires.isoformat(), None, now.isoformat()),
-        )
-        conn.commit()
-
-    message = f"היי אריאלה 👋 אני רוצה להתחבר לנייד. קוד חיבור: {token}"
+    message = "היי אריאלה 👋"
     return {
-        "token": token,
-        "expires_at": expires.isoformat(),
+        "token": None,
+        "expires_at": None,
         "url": f"https://wa.me/{business_number}?text={quote(message)}",
     }
-
 
 def consume_member_handoff(token: str, wa_phone: str) -> int:
     """Verify and consume a handoff, linking the confirmed WhatsApp identity.

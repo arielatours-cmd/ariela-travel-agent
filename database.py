@@ -291,6 +291,14 @@ def init_db() -> None:
                 received_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS whatsapp_onboarding_state (
+                wa_phone_hash TEXT PRIMARY KEY,
+                current_step TEXT NOT NULL,
+                data_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             -- Columns below are also added by the migration block for existing databases.
 
             CREATE TABLE IF NOT EXISTS feedback_messages (

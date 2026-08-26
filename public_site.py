@@ -1601,7 +1601,12 @@ def nova_whatsapp_webhook():
                             continue
                         conn.execute("INSERT INTO whatsapp_inbound_messages(message_id,received_at) VALUES(?,?)", (message_id, utc_now_iso()))
                         conn.commit()
-                    reply = route_inbound(sender, text)
+                    profile_name = ""
+                    for contact in value.get("contacts") or []:
+                        if str(contact.get("wa_id") or "").strip() == sender:
+                            profile_name = str(((contact.get("profile") or {}).get("name") or "")).strip()
+                            break
+                    reply = route_inbound(sender, text, profile_name=profile_name)
                     if reply:
                         send_text_message(reply, recipient=sender)
     except (WhatsAppConfigurationError, WhatsAppSendError):
