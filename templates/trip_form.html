@@ -34,9 +34,12 @@
     <h2>{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאן תרצו לטוס?' }}</h2>
     <p class="helper">{{ 'Choose the option that suits you best.' if site_lang == 'en' else 'בחרו את האפשרות שהכי מתאימה לכם.' }}</p>
     <div class="choice-row destination-options">
-      {% set opts = [('specific','I have a specific destination','יש לי יעד מסוים'),('several','I have several possible destinations','יש לי כמה יעדים אפשריים'),('open',"I'm open to Ariella's suggestions",'אני פתוח/ה להצעות של אריאלה'),('ski','Ski vacation','חופשת סקי')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
+      {% set opts = [('specific','I have a specific destination','יש לי יעד מסוים'),('several','I have several possible destinations','יש לי כמה יעדים אפשריים'),('open',"I'm open to Ariella's suggestions",'אני פתוח/ה להצעות של אריאלה')] %}{% for value,en,he in opts %}{% set label = en if site_lang == 'en' else he %}
       <label class="choice-button"><input type="radio" name="destination_mode" value="{{ value }}" required><span>{{ label }}</span></label>
       {% endfor %}
+    </div>
+    <div class="ski-add-on-row">
+      <label class="choice-button ski-add-on"><input type="checkbox" name="vacation_type" value="ski"><span>{{ 'Ski vacation' if site_lang == 'en' else 'חופשת סקי' }}</span></label>
     </div>
     <div class="conditional-panel" id="destinationDetails" hidden>
       <label id="destinationLabel">{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאיזה יעד תרצו לטוס?' }}
@@ -289,8 +292,9 @@
   }));
   form.querySelectorAll('.wizard-back').forEach(btn => btn.addEventListener('click', () => showStep(current - 1, -1)));
 
-  function syncVacationMode(mode) {
-    const skiMode = mode === 'ski';
+  function syncVacationMode() {
+    const mode = form.querySelector('input[name="destination_mode"]:checked')?.value || 'open';
+    const skiMode = form.querySelector('input[name="vacation_type"][value="ski"]')?.checked === true;
 
     document.querySelectorAll('.regular-only').forEach(el => el.hidden = skiMode);
     document.querySelectorAll('.ski-only').forEach(el => el.hidden = !skiMode);
@@ -337,12 +341,17 @@
       picker?.dispatchEvent(new CustomEvent('ariella-clear-destinations'));
     }
     const openSuggestions = input.checked && input.value === 'open';
-    syncVacationMode(input.value);
+    syncVacationMode();
     if (openSuggestions) {
       form.querySelectorAll('#flightPrioritiesQuestion input').forEach(el => { el.checked = false; setSelectedState(el); });
     } else {
       form.querySelectorAll('#holidayPrioritiesQuestion input').forEach(el => { el.checked = false; setSelectedState(el); });
     }
+  }));
+
+  form.querySelectorAll('input[name="vacation_type"]').forEach(input => input.addEventListener('change', () => {
+    setSelectedState(input);
+    syncVacationMode();
   }));
 
   form.querySelectorAll('input[name="date_mode"]').forEach(input => input.addEventListener('change', () => {
@@ -395,7 +404,7 @@
     if (overlay) overlay.hidden = false;
   });
 
-  syncVacationMode(form.querySelector('input[name="destination_mode"]:checked')?.value || 'open');
+  syncVacationMode();
   showStep(0);
 })();
 </script>

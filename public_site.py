@@ -297,6 +297,186 @@ def _offer_signature(offer):
     )
 
 
+
+def _qa_fixture_offers():
+    """Deterministic fake inventory used only when admin QA test mode is enabled.
+
+    These rows never enter the offers table and therefore never contaminate price
+    history, Radar statistics or production deal discovery.
+    """
+    if str(get_setting("qa_test_mode", "0") or "0") != "1":
+        return []
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    def bag(personal=True, carry=False, checked=False):
+        return {
+            "personal_item": {"included": bool(personal), "known": True},
+            "carry_on_8kg": {
+                "included": bool(carry), "known": True,
+                "roundtrip_price_ils": 0 if carry else 180,
+            },
+            "checked_bag_23kg": {
+                "included": bool(checked), "known": True,
+                "roundtrip_price_ils": 0 if checked else 320,
+            },
+        }
+
+    def offer(oid, code, city_he, city_en, out_date, ret_date, price,
+              dep_time, arr_time, ret_dep, ret_arr, stops=0,
+              carry=False, checked=False, score=80, qa_type="standard",
+              resort=None, ski_transfer_minutes=None, image=None):
+        duration = 165 if code in {"SOF","MXP"} else 285 if code == "GVA" else 155
+        return {
+            "id": oid, "offer_id": oid, "qa_test_deal": True,
+            "qa_vacation_type": qa_type,
+            "last_seen_at": now, "observed_at": now, "scan_started_at": now,
+            "departure_code": "TLV", "arrival_code": code,
+            "departure_city_he": "תל אביב", "departure_city_en": "Tel Aviv",
+            "arrival_city_he": city_he, "arrival_city_en": city_en,
+            "outbound_date": out_date, "return_date": ret_date,
+            "departure_time": dep_time, "arrival_time": arr_time,
+            "return_departure_time": ret_dep, "return_arrival_time": ret_arr,
+            "airline": "QA AIR", "return_airline": "QA AIR",
+            "price_ils": float(price), "score": int(score),
+            "discount_percent": 15, "reference_price_ils": float(price) * 1.18,
+            "price_reference_reliable": True,
+            "stops": int(stops), "return_stops": int(stops),
+            "connections": [] if stops == 0 else [{"airport": "QA1", "duration_minutes": 75}],
+            "return_connections": [] if stops == 0 else [{"airport": "QA1", "duration_minutes": 70}],
+            "total_duration_minutes": duration + stops * 95,
+            "return_total_duration_minutes": duration + stops * 90,
+            "arrival_days_after": 0, "return_arrival_days_after": 0,
+            "baggage": bag(True, carry, checked),
+            "route_score": 100 if stops == 0 else 72 if stops == 1 else 50,
+            "time_value_score": 90 if dep_time[:2] in {"07","08","09","10"} and ret_dep[:2] in {"18","19","20","21"} else 55,
+            "hours_score": 90 if dep_time[:2] in {"07","08","09","10"} and ret_dep[:2] in {"18","19","20","21"} else 55,
+            "baggage_score": 100 if checked else 82 if carry else 45,
+            "cost_score": max(20, 100 - int(price/15)),
+            "rarity_score": 50,
+            "consumer_protection_label": "יש לבדוק מול הספק",
+            "consumer_protection_class": "check",
+            "change_cancel_label": "בכפוף לתנאי הספק",
+            "display_reasons": ["דיל בדיקה QA"],
+            "destination_image_url": image or "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=82",
+            "ski_resort": resort,
+            "ski_transfer_minutes": ski_transfer_minutes,
+            "booking_url": None,
+        }
+
+    # REGULAR QA: Sofia, November 2026. Five deliberately different offers.
+    regular = [
+        offer(-910501, "SOF", "סופיה", "Sofia", "2026-11-10", "2026-11-18", 620, "08:00", "10:45", "19:30", "22:15", 0, False, False, 82),
+        offer(-910502, "SOF", "סופיה", "Sofia", "2026-11-10", "2026-11-18", 690, "22:30", "01:15", "06:00", "08:45", 0, True, False, 79),
+        offer(-910503, "SOF", "סופיה", "Sofia", "2026-11-10", "2026-11-18", 650, "09:30", "13:45", "18:30", "22:40", 1, False, True, 77),
+        offer(-910504, "SOF", "סופיה", "Sofia", "2026-11-12", "2026-11-20", 520, "02:30", "08:30", "03:30", "09:20", 2, False, False, 70),
+        offer(-910505, "SOF", "סופיה", "Sofia", "2026-11-10", "2026-11-18", 760, "10:00", "12:45", "20:30", "23:15", 0, False, True, 88),
+    ]
+
+    ski_img = "https://images.unsplash.com/photo-1486911278844-a81c5267e227?auto=format&fit=crop&w=900&q=82"
+    ski = [
+        offer(-910551, "SOF", "סופיה", "Sofia", "2027-01-10", "2027-01-17", 700, "07:30", "10:15", "20:00", "22:45", 0, False, True, 86, "ski", "Bansko", 120, ski_img),
+        offer(-910552, "TBS", "טביליסי", "Tbilisi", "2027-01-10", "2027-01-17", 600, "06:30", "11:05", "18:30", "21:15", 0, True, False, 81, "ski", "Gudauri", 145, ski_img),
+        offer(-910553, "GVA", "ז׳נבה", "Geneva", "2027-01-10", "2027-01-17", 900, "08:00", "12:05", "20:30", "00:35", 0, False, True, 90, "ski", "Chamonix", 75, ski_img),
+        offer(-910554, "MXP", "מילאנו", "Milan", "2027-01-10", "2027-01-17", 780, "09:00", "12:20", "19:30", "22:50", 0, False, True, 87, "ski", "Cervinia", 130, ski_img),
+        offer(-910555, "GVA", "ז׳נבה", "Geneva", "2027-01-10", "2027-01-17", 740, "11:30", "17:20", "16:00", "21:45", 1, True, False, 78, "ski", "Les Gets", 65, ski_img),
+    ]
+    return regular + ski
+
+
+def _offer_matches_vacation_type(offer, trip):
+    qa_type = str(offer.get("qa_vacation_type") or "").strip()
+    if not qa_type:
+        return True
+    requested = str((trip.get("answers") or {}).get("vacation_type") or "standard")
+    return qa_type == requested
+
+
+def _offer_within_budget(offer, trip):
+    """Per-person budget is a hard ceiling with the agreed 10% tolerance."""
+    answers = trip.get("answers") or {}
+    if answers.get("budget_mode") != "per_person":
+        return True
+    try:
+        budget = float(answers.get("budget_amount") or 0)
+        price = float(offer.get("price_ils") or 0)
+    except (TypeError, ValueError):
+        return False
+    return budget <= 0 or price <= budget * 1.10
+
+
+def _time_minutes(value):
+    try:
+        hh, mm = str(value)[-5:].split(":")
+        return int(hh) * 60 + int(mm)
+    except Exception:
+        return None
+
+
+def _offer_meets_selected_conditions(offer, trip):
+    """Selected Q04 conditions are AND filters where a clear pass/fail exists."""
+    answers = trip.get("answers") or {}
+    priorities = {str(x) for x in (answers.get("deal_priorities") or [])}
+
+    if "direct" in priorities and int(offer.get("stops") or 0) != 0:
+        return False
+
+    if "baggage" in priorities:
+        baggage = offer.get("baggage") or {}
+        carry = (baggage.get("carry_on_8kg") or {}).get("included") is True
+        checked = (baggage.get("checked_bag_23kg") or {}).get("included") is True
+        if not (carry or checked):
+            return False
+
+    if "dates" in priorities:
+        if answers.get("date_mode") == "exact":
+            if not _offer_matches_trip(offer, trip, exact_dates=True):
+                return False
+        elif answers.get("date_mode") == "month":
+            if not _offer_matches_trip(offer, trip, same_month=True):
+                return False
+
+    if "times" in priorities:
+        # QA/product rule: outbound departure 06:00–22:00 and return departure 06:00–22:30.
+        out_m = _time_minutes(offer.get("departure_time"))
+        ret_m = _time_minutes(offer.get("return_departure_time"))
+        if out_m is None or ret_m is None or not (360 <= out_m <= 1320 and 360 <= ret_m <= 1350):
+            return False
+
+    if "ski_proximity" in priorities and str(answers.get("vacation_type") or "") == "ski":
+        minutes = offer.get("ski_transfer_minutes")
+        if not isinstance(minutes, (int, float)) or minutes > 120:
+            return False
+
+    return True
+
+
+def _priority_sort_key(offer, trip):
+    """Rank after hard filtering; selected preference order is deterministic."""
+    answers = trip.get("answers") or {}
+    priorities = {str(x) for x in (answers.get("deal_priorities") or [])}
+    price = float(offer.get("price_ils") or 10**9)
+    rank = float(_customer_rank_value(offer, trip))
+
+    dep = _time_minutes(offer.get("departure_time"))
+    ret = _time_minutes(offer.get("return_departure_time"))
+    maximize = 0
+    if dep is not None and ret is not None:
+        # Earlier outbound + later return = more usable time.
+        maximize = (1440 - dep) + ret
+
+    key = []
+    if "price" in priorities:
+        key.append(price)
+    if "maximize" in priorities:
+        key.append(-maximize)
+    if "ski_proximity" in priorities and isinstance(offer.get("ski_transfer_minutes"), (int, float)):
+        key.append(float(offer.get("ski_transfer_minutes")))
+    if "balanced" in priorities or not priorities:
+        key.append(-rank)
+    key.extend([-rank, price])
+    return tuple(key)
+
 def _trip_is_destination_led(trip):
     """True when the customer already chose one or more destinations."""
     return str((trip.get("answers") or {}).get("destination_mode") or "open") in {"specific", "several"}
@@ -476,17 +656,18 @@ def _customer_deal_choices(all_offers, trip, limit=5):
     qualified = [
         o for o in all_offers
         if _offer_is_recent(o, 48)
-        and (destination_led or int(o.get("score") or 0) >= 65)
         and _offer_destination_matches(o, trip)
         and _offer_has_complete_roundtrip(o)
-        and (destination_led or _offer_has_baggage_pricing_when_needed(o))
+        and _offer_matches_vacation_type(o, trip)
+        and _offer_within_budget(o, trip)
+        and _offer_meets_selected_conditions(o, trip)
     ]
 
     exact = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]
     same_month = [o for o in qualified if _offer_matches_trip(o, trip, same_month=True)]
 
-    exact.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
-    same_month.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
+    exact.sort(key=lambda o: _priority_sort_key(o, trip))
+    same_month.sort(key=lambda o: _priority_sort_key(o, trip))
 
     selected = []
     seen = set()
@@ -653,7 +834,7 @@ def deals():
             ).fetchall()
             conn.commit()
         # Database first: include a deeper recent inventory than the public general-deals list.
-        database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
+        database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)] + _qa_fixture_offers()
         for row in rows:
             trip = _trip_dict(row)
             trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
@@ -944,20 +1125,22 @@ def account():
         destination_codes = sorted(_trip_destination_codes(trip))
         destination_info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {}) if destination_codes else {}
         if destination_codes:
-            code = destination_codes[0]
-            city_he = destination_info.get("city_he") or code
-            city_en = destination_info.get("city_en") or code
-            trip["destination_display"] = f"{city_en} ({code})" if _lang() == "en" else f"{city_he} ({code})"
-        elif str(answers.get("destination_mode") or "") == "ski":
-            trip["destination_display"] = _msg("חופשת סקי", "Ski vacation")
+            labels = []
+            for code in destination_codes:
+                info = _AIRPORT_LOCALIZATION.get(code, {})
+                city_he = info.get("city_he") or code
+                city_en = info.get("city_en") or code
+                labels.append(f"{city_en} ({code})" if _lang() == "en" else f"{city_he} ({code})")
+            trip["destination_display"] = " • ".join(labels)
         else:
             trip["destination_display"] = _msg("אריאלה תמליץ", "Ariella recommends")
 
-        if str(answers.get("vacation_type") or "") == "ski" or str(answers.get("destination_mode") or "") == "ski":
+        if str(answers.get("vacation_type") or "") == "ski":
             trip["image_url"] = "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=82"
+        elif len(destination_codes) > 1:
+            # Multiple destinations: neutral green mountain/nature image. Snow is reserved for ski.
+            trip["image_url"] = "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=82"
         elif destination_codes:
-            # OTP/Bucharest gets a dedicated recognizable city image; other known
-            # destinations keep the curated landmark map.
             dedicated = {
                 "OTP": "https://images.unsplash.com/photo-1584646098378-0874589d76b1?auto=format&fit=crop&w=900&q=82",
             }
@@ -1015,7 +1198,7 @@ def _recent_inventory_48h():
         _localize_offer_airports(o)
         for o in recent_offers(limit=2000, minimum_score=None)
         if _offer_is_recent(o, 48)
-    ]
+    ] + _qa_fixture_offers()
     offers.sort(key=lambda o: _offer_seen_at(o) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     return offers
 
@@ -1280,6 +1463,10 @@ def new_trip():
     if request.method == "POST":
         form = request.form
         destination_mode = form.get("destination_mode", "open")
+        vacation_type = "ski" if form.get("vacation_type") == "ski" else "standard"
+        # Backward compatibility with the former mutually-exclusive ski destination option.
+        if destination_mode == "ski":
+            destination_mode, vacation_type = "open", "ski"
         destinations = form.get("destinations", "").strip()
         date_mode = form.get("date_mode", "anytime")
         outbound_month = form.get("outbound_month", "").strip()
@@ -1316,7 +1503,7 @@ def new_trip():
                 flash(_msg("תאריך החזרה חייב להיות אחרי תאריך היציאה.", "The return date must be after the departure date."), "error")
                 return render_template("trip_form.html", today=today, current_month=current_month)
 
-        destination_title = destinations if destinations else (_msg("חופשת סקי", "Ski vacation") if destination_mode == "ski" else _msg("הצעות של אריאלה", "Ariella suggestions"))
+        destination_title = destinations if destinations else (_msg("הצעות סקי של אריאלה", "Ariella ski suggestions") if vacation_type == "ski" else _msg("הצעות של אריאלה", "Ariella suggestions"))
         if date_mode == "month":
             travel_window = outbound_month if outbound_month == return_month else f"{outbound_month} → {return_month}"
         elif date_mode == "exact":
@@ -1346,7 +1533,7 @@ def new_trip():
 
         payload = {
             "origin_airports": origin_airports,
-            "destination_mode": destination_mode, "vacation_type": "ski" if destination_mode == "ski" else "standard", "destinations": destinations,
+            "destination_mode": destination_mode, "vacation_type": vacation_type, "destinations": destinations,
             "date_mode": date_mode, "travel_month": outbound_month,
             "outbound_month": outbound_month, "return_month": return_month,
             "departure_date": departure_date, "return_date": return_date,
@@ -1375,7 +1562,7 @@ def new_trip():
             _localize_offer_airports(o)
             for o in recent_offers(limit=1500, minimum_score=None)
             if _offer_is_recent(o, 48)
-        ]
+        ] + _qa_fixture_offers()
         existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
 
         scan_status = "database_match" if existing_matches else "no_database_match"

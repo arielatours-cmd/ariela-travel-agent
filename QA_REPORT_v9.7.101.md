@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.104
+# Ariella QA — v9.7.105
 PASS:
 - Personal requests consult only offers seen/verified in the last 48 hours.
 - Older offers remain historical/Radar data and cannot satisfy a customer request.
