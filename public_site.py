@@ -557,6 +557,63 @@ def _offer_within_budget(offer, trip):
     return budget <= 0 or price <= budget * 1.10
 
 
+def _over_budget_alternatives(all_offers, trip, limit=3):
+    """Offers that satisfy every requested hard condition except budget.
+
+    Used only as a transparent fallback: these offers are NOT treated as budget matches.
+    """
+    answers = trip.get("answers") or {}
+    if answers.get("budget_mode") != "per_person" or not answers.get("budget_amount"):
+        return []
+    try:
+        ceiling = float(answers.get("budget_amount") or 0) * 1.10
+    except (TypeError, ValueError):
+        return []
+    if ceiling <= 0:
+        return []
+
+    prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
+    candidates = []
+    for o in prepared:
+        if not _offer_is_recent(o, 48):
+            continue
+        if not _offer_destination_matches(o, trip):
+            continue
+        if not _offer_has_complete_roundtrip(o):
+            continue
+        if not _offer_matches_vacation_type(o, trip):
+            continue
+        if not _offer_meets_selected_conditions(o, trip):
+            continue
+        if not _ski_offer_constraints_ok(o, trip):
+            continue
+        if answers.get("date_mode") == "exact" and not _offer_matches_trip(o, trip, exact_dates=True):
+            continue
+        if answers.get("date_mode") == "month" and not _offer_matches_trip(o, trip, same_month=True):
+            continue
+        try:
+            if float(o.get("price_ils") or 0) <= ceiling:
+                continue
+        except (TypeError, ValueError):
+            continue
+        candidates.append(o)
+
+    candidates.sort(key=lambda o: (float(o.get("price_ils") or 10**9), -int(o.get("score") or 0)))
+    out, seen = [], set()
+    for offer in candidates:
+        sig = _offer_signature(offer)
+        if sig in seen:
+            continue
+        copy = dict(offer)
+        copy["customer_choice_label_he"] = "אפשרות שכדאי להכיר"
+        copy["customer_choice_label_en"] = "An option worth seeing"
+        out.append(copy)
+        seen.add(sig)
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _time_minutes(value):
     try:
         hh, mm = str(value)[-5:].split(":")
@@ -1257,6 +1314,11 @@ def account():
     database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
     for trip in trips:
         trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
+        trip["over_budget_offers"] = []
+        trip["budget_fallback"] = False
+        if not trip["offers"] and (trip.get("answers") or {}).get("budget_mode") == "per_person":
+            trip["over_budget_offers"] = _over_budget_alternatives(database_offers + _qa_fixture_offers(), trip, limit=3)
+            trip["budget_fallback"] = bool(trip["over_budget_offers"])
         inventory = _customer_inventory_status(database_offers, trip)
         trip["needs_fresh_search"] = not bool(trip["offers"])
         trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]

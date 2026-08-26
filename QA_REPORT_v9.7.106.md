@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.106
+# Ariella QA — v9.7.107
 
 ## Architecture
 - PASS: First screen fully separates Regular Vacation and Ski Vacation.

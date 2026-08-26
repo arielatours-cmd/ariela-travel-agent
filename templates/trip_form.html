@@ -13,7 +13,6 @@
 <form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
   <section class="vacation-type-gate" id="vacationTypeGate">
     <h2>{{ 'What kind of vacation are you looking for?' if site_lang=='en' else 'איזו חופשה מחפשים?' }}</h2>
-    <p class="helper">{{ 'Choose a path and Ariella will ask only the relevant questions.' if site_lang=='en' else 'בחרו מסלול ואריאלה תשאל רק את השאלות הרלוונטיות.' }}</p>
     <div class="vacation-type-grid">
       <label class="vacation-type-card">
         <input type="radio" name="vacation_type" value="standard" required>
@@ -28,7 +27,6 @@
         <small>{{ 'A dedicated search through Ariella’s ski resort database' if site_lang=='en' else 'חיפוש ייעודי דרך מאגר אתרי הסקי של אריאלה' }}</small>
       </label>
     </div>
-    <div class="wizard-actions"><button type="button" class="button primary" id="chooseVacationType">{{ 'Continue' if site_lang=='en' else 'המשך' }}</button></div>
   </section>
 
   <div class="trip-origin-defaults" id="originPanel" hidden>
@@ -69,7 +67,7 @@
         </div>
       </label>
     </div>
-    <div class="wizard-actions"><button type="button" class="button secondary route-back">{{ 'Change vacation type' if site_lang=='en' else 'שינוי סוג חופשה' }}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang=='en' else 'המשך' }}</button></div>
+    <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang=='en' else 'המשך' }}</button></div>
   </section>
 
   <section class="wizard-step" data-route="standard" data-step="2" hidden>
@@ -161,7 +159,7 @@
       </label>
       <p class="helper">{{'You can choose a country even if you do not know a resort name.' if site_lang=='en' else 'לא מכירים שם של אתר? אפשר לבחור מדינה, למשל בולגריה / צרפת / שוויץ.'}}</p>
     </div>
-    <div class="wizard-actions"><button type="button" class="button secondary route-back">{{'Change vacation type' if site_lang=='en' else 'שינוי סוג חופשה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
+    <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
 
   <section class="wizard-step ski-question" data-route="ski" data-step="2" hidden>
@@ -274,12 +272,12 @@
     form.querySelectorAll('.wizard-step input,.wizard-step select,.wizard-step textarea').forEach(el=>el.disabled=true);
     window.scrollTo({top:form.offsetTop-105,behavior:'smooth'});
   }
-  document.getElementById('chooseVacationType').addEventListener('click',()=>{
-    const chosen=form.querySelector('input[name="vacation_type"]:checked');
-    if(!chosen){gate.classList.add('validation-shake');setTimeout(()=>gate.classList.remove('validation-shake'),350);return}
-    route=chosen.value; setRouteEnabled(); syncAll(); showStep(0);
-  });
-  form.querySelectorAll('.route-back').forEach(b=>b.addEventListener('click',backToGate));
+  form.querySelectorAll('input[name="vacation_type"]').forEach(input=>input.addEventListener('change',()=>{
+    setSelectedState(input);
+    route=input.value;
+    setRouteEnabled(); syncAll();
+    setTimeout(()=>showStep(0),120);
+  }));
   form.querySelectorAll('.wizard-next').forEach(b=>b.addEventListener('click',()=>{const s=routeSteps()[current]; if(validateStep(s))showStep(current+1)}));
   form.querySelectorAll('.wizard-back').forEach(b=>b.addEventListener('click',()=>showStep(current-1)));
 

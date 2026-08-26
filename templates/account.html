@@ -96,7 +96,7 @@ function showAriellaSearchWait(){
             </button>
           </form>
         {% else %}
-          <details class="continue-search-box">
+          <details class="continue-search-box" id="paidSearch{{ trip.id }}">
             <summary class="continue-search-title trip-action">
               {{ 'Continue search' if site_lang == 'en' else 'המשך חיפוש' }}
             </summary>
@@ -137,6 +137,17 @@ function showAriellaSearchWait(){
           {% for offer in trip.offers %}
             {{ deal_card(offer,site_lang) }}
           {% endfor %}
+        </div>
+      {% elif trip.budget_fallback %}
+        <div class="budget-fallback-state">
+          <div class="budget-fallback-message">
+            <strong>{{ "I couldn't find a deal within the budget you set right now." if site_lang=='en' else 'לא מצאתי כרגע דיל שמתאים לתקציב שהגדרת' }}</strong>
+            <p>{{ "I did find a few options that match your other preferences and thought they were worth showing you. Want me to keep searching for a deal that also fits your budget?" if site_lang=='en' else 'אבל מצאתי כמה אפשרויות שעומדות בשאר התנאים שלך וחשבתי שכדאי להראות לך. רוצה שאמשיך לחפש עבורך דיל שמתאים גם לתקציב?' }}</p>
+            <button type="button" class="button primary continue-budget-search" data-trip-id="{{trip.id}}">{{ 'Keep searching within my budget' if site_lang=='en' else 'תמשיכי לחפש בתקציב שלי' }}</button>
+          </div>
+          <div class="ariella-deals-list">
+            {% for offer in trip.over_budget_offers %}{{ deal_card(offer,site_lang) }}{% endfor %}
+          </div>
         </div>
       {% else %}
         <div class="trip-no-deals ariella-no-deal-state">
@@ -184,6 +195,17 @@ document.addEventListener('DOMContentLoaded', function(){
         panel.removeAttribute('hidden');
         btn.setAttribute('aria-expanded','true');
         btn.textContent = btn.dataset.hide;
+      }
+    });
+  });
+
+  document.querySelectorAll('.continue-budget-search').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const details=document.getElementById('paidSearch'+btn.dataset.tripId);
+      if(details){
+        details.open=true;
+        details.scrollIntoView({behavior:'smooth',block:'center'});
+        setTimeout(()=>details.querySelector('.plan-choice')?.focus(),450);
       }
     });
   });

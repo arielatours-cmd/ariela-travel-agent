@@ -1,4 +1,4 @@
-# Ariella QA — v9.7.106
+# Ariella QA — v9.7.107
 
 Included:
 - Isolated deterministic QA inventory: regular + ski. Fixtures never enter persistent offers/history.

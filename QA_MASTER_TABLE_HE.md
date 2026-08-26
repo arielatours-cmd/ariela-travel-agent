@@ -1,4 +1,4 @@
-# Ariella QA Master — v9.7.106
+# Ariella QA Master — v9.7.107
 
 Testing order agreed: finish Regular Vacation first; only then test Ski Vacation.
 
@@ -32,3 +32,12 @@ Testing order agreed: finish Regular Vacation first; only then test Ski Vacation
 | Ski | S5 | ≤1.5h / ≤3h / any | Ski DB filters by transfer estimate | ⬜ |
 | Ski | S6 | Level / snow / family / large / value / proximity / atmosphere / nightlife / spa | Resort ranking reacts to selected priorities | ⬜ |
 | Ski | S7 | Per person / all passengers / unlimited | Flight budget normalized and 10% tolerance applied | ⬜ |
+
+## v9.7.107 — תרחיש תקציב
+| מסלול | בדיקה | תוצאה צפויה | סטטוס |
+|---|---|---|---|
+| רגיל | תקציב לאדם + דיל בתוך 10% | הדיל מוצג כהתאמה | ⬜ |
+| רגיל | אין דיל בתוך 10%, יש דיל שעומד בכל יתר התנאים | מוצגים עד 3 דילים כחלופות מעל התקציב | ⬜ |
+| רגיל | חלופות מעל התקציב | אין הצגת הפרש מהתקציב | ⬜ |
+| רגיל | כפתור "תמשיכי לחפש בתקציב שלי" | פותח וגולל אוטומטית לבחירת מסלול החיפוש בתשלום | ⬜ |
+| רגיל | לחיצה על הכפתור | אינה מפעילה סריקה לפני בחירת מסלול/תשלום | ⬜ |
