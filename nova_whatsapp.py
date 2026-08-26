@@ -65,7 +65,7 @@ def create_member_handoff(member_id: int) -> dict:
         )
         conn.commit()
 
-    message = f"היי נובה, אני רוצה לחבר את אריאלה שלי לנייד. קוד חיבור: {token}"
+    message = f"היי אריאלה 👋 אני רוצה להתחבר לנייד. קוד חיבור: {token}"
     return {
         "token": token,
         "expires_at": expires.isoformat(),

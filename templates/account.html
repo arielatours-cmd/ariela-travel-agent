@@ -50,20 +50,19 @@ function showAriellaSearchWait(){
 
 <section class="nova-mobile-entry">
   <div class="shell">
-    <div class="nova-mobile-card">
-      <div>
-        <span class="eyebrow">NOVA · WhatsApp</span>
-        <h2>{{ 'My Ariella on mobile' if site_lang == 'en' else 'אריאלה שלי בנייד' }}</h2>
-        <p>{{ 'Continue your Ariella experience from WhatsApp. The connection code is short-lived and does not expose your account ID.' if site_lang == 'en' else 'ממשיכים את אריאלה גם ב-WhatsApp. קוד החיבור זמני ומאובטח ואינו חושף את מזהה החשבון שלך.' }}</p>
+    <div class="nova-mobile-row">
+      <div class="nova-mobile-label">
+        <span class="nova-mobile-dot" aria-hidden="true"></span>
+        <span>{{ 'Ariella on WhatsApp' if site_lang == 'en' else 'אריאלה ב-WhatsApp' }}</span>
         {% if whatsapp_link and whatsapp_link.linked %}
-          <span class="nova-link-status is-linked">✓ {{ 'WhatsApp connected' if site_lang == 'en' else 'ה-WhatsApp מחובר לחשבון' }}</span>
+          <small class="nova-link-status is-linked">{{ 'Connected' if site_lang == 'en' else 'מחובר' }}</small>
         {% else %}
-          <span class="nova-link-status">{{ 'Not connected yet' if site_lang == 'en' else 'עדיין לא מחובר' }}</span>
+          <small class="nova-link-status">{{ 'Not connected' if site_lang == 'en' else 'לא מחובר' }}</small>
         {% endif %}
       </div>
       <form method="post" action="{{ url_for('site.account_whatsapp_handoff') }}">
         <button class="button primary nova-mobile-button" type="submit">
-          {{ 'Open Ariella in WhatsApp' if site_lang == 'en' else 'אריאלה שלי בנייד' }}
+          {{ 'Open on mobile' if site_lang == 'en' else 'אריאלה בנייד' }}
         </button>
       </form>
     </div>
