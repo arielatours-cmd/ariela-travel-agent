@@ -166,17 +166,22 @@ function showAriellaSearchWait(){
         <div class="trip-no-deals ariella-no-deal-state">
           <strong>{{ "Ariella didn't find a suitable vacation for your request right now." if site_lang == 'en' else 'אריאלה לא מצאה כרגע חופשה שמתאימה לבקשה שלך' }}</strong>
           <p>{{ 'Would you like Ariella to try another complimentary option?' if site_lang == 'en' else 'רוצים לתת לאריאלה לבדוק אפשרות נוספת?' }}</p>
+          {% set has_specific_dates = (trip.answers.date_mode in ['exact','month'] and not trip.answers.date_flex_days) if trip.answers else false %}
           <div class="free-alternative-options">
-            {% if not trip.nearby_dates_exhausted %}
+            {% if has_specific_dates and not trip.nearby_dates_exhausted %}
             <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
               <input type="hidden" name="alternative" value="nearby_dates">
               <button class="button outline" type="submit">{{ 'Same destination — other dates' if site_lang == 'en' else 'אותו יעד — תאריכים אחרים' }}</button>
             </form>
             {% endif %}
+            {% if has_specific_dates %}
             <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
               <input type="hidden" name="alternative" value="other_destination">
               <button class="button outline" type="submit">{{ 'Same dates — another destination' if site_lang == 'en' else 'אותם תאריכים — יעד אחר' }}</button>
             </form>
+            {% else %}
+              <div class="alternative-deals-message">{{ 'Ariella will keep looking across destinations and dates based on your preferences.' if site_lang=='en' else 'אריאלה תמשיך לחפש יעדים ותאריכים נוספים לפי ההעדפות שבחרתם.' }}</div>
+            {% endif %}
           </div>
         </div>
       {% endif %}
