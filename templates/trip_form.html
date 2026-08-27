@@ -57,7 +57,7 @@
     <span class="step-number">01</span>
     <h2>{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאן תרצו לטוס?' }}</h2>
     <div class="choice-row destination-options">
-      {% set opts=[('specific','I have a specific destination','יש לי יעד מסוים'),('several','I have several possible destinations','יש לי כמה יעדים אפשריים'),('open',"I'm open to Ariella's suggestions",'אני פתוח/ה להצעות של אריאלה')] %}
+      {% set opts=[('specific','I have a destination in mind','יש לי יעד/ים מסוימים'),('open',"I'm open to Ariella's suggestions",'אני פתוח/ה להצעות של אריאלה')] %}
       {% for value,en,he in opts %}
       <label class="choice-button"><input type="radio" name="destination_mode" value="{{value}}" required><span>{{ en if site_lang=='en' else he }}</span></label>
       {% endfor %}
@@ -71,6 +71,7 @@
           <div class="airport-suggestions" hidden></div>
           <input type="hidden" name="destinations" id="destinationsInput" class="airport-values">
         </div>
+        <small class="destination-multi-helper">{{ 'You can choose several different destinations' if site_lang=='en' else 'ניתן לבחור כמה יעדים שונים' }}</small>
       </label>
     </div>
     <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang=='en' else 'המשך' }}</button></div>
@@ -124,7 +125,7 @@
       <p class="helper">{{'You can select more than one option.' if site_lang=='en' else 'אפשר לבחור כמה אפשרויות.'}}</p>
       <div class="choice-grid priority-grid">
       {% set opts=[('dates','Your selected dates','התאריכים שבחרתם'),('baggage','Baggage','כבודה'),('direct','Direct flight','טיסה ישירה'),('maximize','Maximize your trip','למקסם את הטיול')] %}
-      {% for value,en,he in opts %}<label class="choice-button priority-with-note"><input type="checkbox" name="deal_priorities" value="{{value}}"><span>{{en if site_lang=='en' else he}}{% if value=='maximize' %}<small>{{'Prefer arrival by 10:00 and return departure from 20:00. This is a preference, not a hard filter.' if site_lang=='en' else 'עדיפות לנחיתה עד 10:00 וליציאה חזרה החל מ־20:00. זו העדפה, לא תנאי פוסל.'}}</small>{% endif %}</span></label>{% endfor %}
+      {% for value,en,he in opts %}<label class="choice-button priority-with-note"{% if value=='dates' %} data-date-priority{% endif %}><input type="checkbox" name="deal_priorities" value="{{value}}"><span>{{en if site_lang=='en' else he}}{% if value=='maximize' %}<small>{{'Prefer arrival by 10:00 and return departure from 20:00. This is a preference, not a hard filter.' if site_lang=='en' else 'עדיפות לנחיתה עד 10:00 וליציאה חזרה החל מ־20:00. זו העדפה, לא תנאי פוסל.'}}</small>{% endif %}</span></label>{% endfor %}
       </div>
     </div>
     <div id="regularOpenPriorities" hidden>
@@ -425,11 +426,15 @@
     const rdate=form.querySelector('input[name="date_mode"]:checked')?.value;
     document.getElementById('regularMonthPanel').hidden=rdate!=='month';
     document.getElementById('regularExactPanel').hidden=rdate!=='exact';
-    const datePriority=form.querySelector('input[name="deal_priorities"][value="dates"]')?.closest('.choice-button');
-    if(datePriority){
-      datePriority.hidden=rdate==='anytime';
-      if(rdate==='anytime'){const i=datePriority.querySelector('input'); if(i){i.checked=false;setSelectedState(i);}}
-    }
+    const hideDatePriority=!['exact','month'].includes(rdate);
+    form.querySelectorAll('[data-date-priority], input[name="deal_priorities"][value="dates"]').forEach(node=>{
+      const label=node.matches?.('.choice-button')?node:node.closest('.choice-button');
+      if(!label)return;
+      label.hidden=hideDatePriority;
+      label.classList.toggle('force-hidden',hideDatePriority);
+      const i=label.querySelector('input[name="deal_priorities"][value="dates"]');
+      if(i){i.disabled=hideDatePriority;if(hideDatePriority){i.checked=false;setSelectedState(i);}}
+    });
     const regFlex=document.getElementById('regularFlexibleDates')?.checked===true;
     document.getElementById('regularFlexPanel').hidden=!(rdate==='exact'&&regFlex);
     const sdate=form.querySelector('input[name="ski_date_mode"]:checked')?.value;
