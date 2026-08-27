@@ -672,6 +672,8 @@ def _priority_sort_key(offer, trip):
         maximize += 2 if ret >= 1200 else max(0, 1 - (1200 - ret) / 360)
 
     key = []
+    if str(answers.get("destination_mode") or "") == "open":
+        key.append(-_holiday_preference_score(offer, trip))
     if str(answers.get("vacation_type") or "standard") == "ski":
         key.append(-_ski_preference_score(offer, trip))
     if "price" in priorities:
@@ -931,6 +933,174 @@ def _offer_is_recent(offer, max_age_hours=48):
     return seen >= datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
 
 
+
+# Customer-facing vacation-style preferences for open-destination searches.
+# These are intentionally broad tags: they guide ranking, never hard-filter a destination.
+_DESTINATION_STYLE_TAGS = {
+    "ATH": {"beach","city","food","shopping","nightlife","weather"},
+    "LCA": {"beach","relax","family","weather","quiet"},
+    "BUD": {"city","food","shopping","nightlife"},
+    "VIE": {"city","food","shopping","family"},
+    "SOF": {"city","nature","food","quiet"},
+    "PRG": {"city","food","shopping","nightlife"},
+    "FCO": {"city","food","shopping","family"},
+    "MXP": {"city","shopping","food","nightlife"},
+    "CDG": {"city","food","shopping","family"},
+    "AMS": {"city","food","nightlife","family"},
+    "BCN": {"beach","city","food","shopping","nightlife","weather"},
+    "MAD": {"city","food","shopping","nightlife"},
+    "LIS": {"city","food","weather","relax"},
+    "LHR": {"city","shopping","family","food"},
+    "BER": {"city","nightlife","food","shopping"},
+    "MUC": {"city","nature","food","family"},
+    "ZRH": {"nature","hiking","quiet","city"},
+    "BRU": {"city","food","shopping"},
+    "OTP": {"city","food","shopping","nightlife"},
+    "KRK": {"city","food","quiet"},
+    "WAW": {"city","food","shopping"},
+    "TBS": {"nature","hiking","food","city","quiet"},
+    "EVN": {"nature","food","city","quiet"},
+    "BEG": {"city","food","nightlife"},
+    "SKP": {"nature","city","quiet","food"},
+    "TGD": {"nature","hiking","quiet","relax"},
+    "ZAG": {"city","food","nature","quiet"},
+    "LJU": {"nature","hiking","quiet","city"},
+    "BKK": {"beach","relax","food","shopping","nightlife","city","weather"},
+    "JFK": {"city","shopping","food","nightlife","family"},
+}
+
+# Seasonal fit is deliberately a scoring signal, never a hard filter.
+# It answers: "is this destination suitable for this vacation style *at the requested time*?"
+# Codes not listed remain neutral rather than being guessed.
+_SEASONAL_DESTINATION_PROFILES = {
+    # Mediterranean / southern Europe: strongest for beach in late spring through early autumn.
+    "ATH": {"beach_months": {5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10,11}},
+    "LCA": {"beach_months": {4,5,6,7,8,9,10,11}, "pleasant_months": {3,4,5,6,9,10,11}},
+    "BCN": {"beach_months": {5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10}},
+    "LIS": {"beach_months": {5,6,7,8,9,10}, "pleasant_months": {3,4,5,6,9,10,11}},
+    "TGD": {"beach_months": {5,6,7,8,9}, "pleasant_months": {4,5,6,9,10}},
+    # Thailand is a strong warm-weather / beach alternative through the Israeli winter.
+    "BKK": {"beach_months": {1,2,3,4,11,12}, "pleasant_months": {1,2,3,11,12}},
+    # Mountain / hiking destinations: shoulder and summer months are generally the best fit.
+    "ZRH": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
+    "TBS": {"hiking_months": {4,5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10}},
+    "LJU": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
+    "ZAG": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10}},
+    "MUC": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
+}
+
+def _requested_travel_month(trip, offer=None):
+    """Return the customer's requested outbound month when one exists.
+
+    If Ariella chose the dates, use the offer month only for season-aware ranking;
+    if the customer supplied a month/date, that requested month is authoritative.
+    """
+    answers = trip.get("answers") or {}
+    mode = str(answers.get("date_mode") or "anytime")
+    raw = ""
+    if mode == "month":
+        raw = str(answers.get("outbound_month") or answers.get("travel_month") or "")
+    elif mode == "exact":
+        raw = str(answers.get("departure_date") or "")
+    elif offer is not None:
+        raw = str(offer.get("outbound_date") or "")
+    try:
+        return int(raw[5:7]) if len(raw) >= 7 else None
+    except (TypeError, ValueError):
+        return None
+
+def _seasonal_vacation_fit_score(offer, trip, selected):
+    """Score destination × vacation style × travel month.
+
+    Positive values reward a seasonally strong match; negative values demote a
+    destination that is normally associated with the requested style but is out
+    of season. This remains soft so Ariella can still show the best alternatives.
+    """
+    month = _requested_travel_month(trip, offer)
+    if month is None:
+        return 0
+    code = str(offer.get("arrival_code") or "").upper()
+    profile = _SEASONAL_DESTINATION_PROFILES.get(code)
+    if not profile:
+        return 0
+    tags = _DESTINATION_STYLE_TAGS.get(code, set())
+    score = 0
+
+    if "beach" in selected and "beach" in tags:
+        if month in profile.get("beach_months", set()):
+            score += 14
+        else:
+            # Strong demotion: Greece/Med in winter should not outrank a genuinely
+            # warm destination merely because it is a good beach destination in July.
+            score -= 18
+
+    if "hiking" in selected and ("hiking" in tags or "nature" in tags):
+        months = profile.get("hiking_months")
+        if months:
+            score += 8 if month in months else -7
+
+    if "weather" in selected:
+        months = profile.get("pleasant_months")
+        if months:
+            score += 8 if month in months else -6
+
+    # Nature is less season-sensitive than beach/hiking; only a modest bonus is used.
+    if "nature" in selected and "nature" in tags and month in profile.get("hiking_months", set()):
+        score += 4
+    return score
+
+def _holiday_preference_score(offer, trip):
+    """How well an open-search destination fits Q04 choices, including season."""
+    answers = trip.get("answers") or {}
+    if str(answers.get("destination_mode") or "") != "open":
+        return 0
+    selected = {str(x) for x in (answers.get("holiday_priorities") or []) if x}
+    if not selected:
+        return 0
+    code = str(offer.get("arrival_code") or "").upper()
+    tags = _DESTINATION_STYLE_TAGS.get(code, set())
+    # Price is judged from the actual fare rather than a static destination tag.
+    non_price = selected - {"price"}
+    score = len(non_price & tags) * 10
+    score += _seasonal_vacation_fit_score(offer, trip, selected)
+    if "price" in selected:
+        score += int(offer.get("cost_score") or 0) / 10
+    return score
+
+
+def _month_distance(a, b):
+    try:
+        ay, am = [int(x) for x in str(a)[:7].split("-")]
+        by, bm = [int(x) for x in str(b)[:7].split("-")]
+        return abs((ay * 12 + am) - (by * 12 + bm))
+    except Exception:
+        return 999
+
+
+def _within_primary_date_window(offer, trip):
+    """Initial alternatives stay within one month of each requested leg.
+
+    Wider dates are only exposed after the customer explicitly chooses
+    'same destination / other dates'.
+    """
+    answers = trip.get("answers") or {}
+    if answers.get("_alternative_nearby_dates"):
+        return True
+    mode = str(answers.get("date_mode") or "anytime")
+    if mode == "anytime":
+        return True
+    out = str(offer.get("outbound_date") or "")[:7]
+    ret = str(offer.get("return_date") or "")[:7]
+    if mode == "month":
+        req_out = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+        req_ret = str(answers.get("return_month") or req_out)[:7]
+    elif mode == "exact":
+        req_out = str(answers.get("departure_date") or "")[:7]
+        req_ret = str(answers.get("return_date") or "")[:7]
+    else:
+        return True
+    return _month_distance(out, req_out) <= 1 and _month_distance(ret, req_ret) <= 1
+
 def _customer_rank_value(offer, trip):
     """Rank customer results differently from global deal discovery.
 
@@ -953,7 +1123,9 @@ def _customer_rank_value(offer, trip):
             pass
 
     if not _trip_is_destination_led(trip):
-        return deal_score - budget_penalty
+        # In open searches the customer's vacation-style choices are the first
+        # signal for *where* Ariella should send them; deal quality then breaks ties.
+        return deal_score + (_holiday_preference_score(offer, trip) * 2.5) - budget_penalty
 
     route = int(offer.get("route_score") or 0)
     time_value = int(offer.get("time_value_score") or offer.get("hours_score") or 0)
@@ -1089,11 +1261,12 @@ def _standard_match_details(offer, trip):
     answers = trip.get("answers") or {}
     points = possible = 0
     matched, missed = [], []
-    def add(ok, he, en):
+    def add(ok, he, en, weight=1):
         nonlocal points, possible
-        possible += 1
+        weight=max(1,int(weight))
+        possible += weight
         (matched if ok else missed).append(en if _lang()=="en" else he)
-        if ok: points += 1
+        if ok: points += weight
 
     date_mode = str(answers.get("date_mode") or "anytime")
     if date_mode == "exact":
@@ -1101,13 +1274,15 @@ def _standard_match_details(offer, trip):
         off_out=_date_from_iso(offer.get("outbound_date")); off_ret=_date_from_iso(offer.get("return_date"))
         try: flex=max(0,min(3,int(answers.get("date_flex_days") or 0)))
         except (TypeError,ValueError): flex=0
-        add(bool(req_out and off_out and abs((off_out-req_out).days)<=flex), "תאריך יציאה", "Departure date")
-        add(bool(req_ret and off_ret and abs((off_ret-req_ret).days)<=flex), "תאריך חזרה", "Return date")
+        date_weight = 3 if "dates" in {str(x) for x in (answers.get("deal_priorities") or [])} else 1
+        add(bool(req_out and off_out and abs((off_out-req_out).days)<=flex), "תאריך יציאה", "Departure date", date_weight)
+        add(bool(req_ret and off_ret and abs((off_ret-req_ret).days)<=flex), "תאריך חזרה", "Return date", date_weight)
     elif date_mode == "month":
         om=str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
         rm=str(answers.get("return_month") or om)[:7]
-        add(bool(om and str(offer.get("outbound_date") or "").startswith(om)), "חודש יציאה", "Departure month")
-        add(bool(rm and str(offer.get("return_date") or "").startswith(rm)), "חודש חזרה", "Return month")
+        date_weight = 3 if "dates" in {str(x) for x in (answers.get("deal_priorities") or [])} else 1
+        add(bool(om and str(offer.get("outbound_date") or "").startswith(om)), "חודש יציאה", "Departure month", date_weight)
+        add(bool(rm and str(offer.get("return_date") or "").startswith(rm)), "חודש חזרה", "Return month", date_weight)
 
     if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
         try: add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount"))*1.10, "תקציב", "Budget")
@@ -1129,6 +1304,7 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
     ranked=[]
     for o in prepared:
         if not _offer_is_recent(o,48) or not _offer_destination_matches(o,trip) or not _offer_has_complete_roundtrip(o): continue
+        if not _within_primary_date_window(o, trip): continue
         if not _offer_matches_vacation_type(o,trip) or not _ski_offer_constraints_ok(o,trip): continue
         sig=_offer_signature(o)
         if sig in exclude: continue
@@ -1146,31 +1322,86 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
 
 
 def _trip_constraints_summary(trip):
+    """Extra customer selections for My Vacations.
+
+    Dates, travelers and budget are already rendered immediately above this block,
+    so they are deliberately not repeated here.
+    """
     a=trip.get("answers") or {}; out=[]; en=_lang()=="en"
+
+    # Destination/search mode (the destination itself is already the card title).
+    destination_mode=str(a.get("destination_mode") or "")
+    destination_labels={
+        "single":("One destination","יעד אחד"),
+        "multiple":("Several destinations","כמה יעדים"),
+        "ariella":("Let Ariella choose","אריאלה תבחר"),
+        "anywhere":("Let Ariella choose","אריאלה תבחר"),
+    }
+    if destination_mode in destination_labels:
+        out.append(("Destination search" if en else "חיפוש יעד", destination_labels[destination_mode][0 if en else 1]))
+
+    # Date flexibility is useful context, without repeating the actual dates/months.
     dm=str(a.get("date_mode") or "")
-    if dm=="exact":
-        text=f"{a.get('departure_date','')} – {a.get('return_date','')}"
-        if a.get("date_flex_days"): text += f" (±{a.get('date_flex_days')} {'days' if en else 'ימים'})"
-        out.append(("Dates" if en else "תאריכים",text))
-    elif dm=="month": out.append(("Months" if en else "חודשים",f"{a.get('outbound_month','')} → {a.get('return_month','')}"))
-    elif dm in {"anytime","ski_flexible"}: out.append(("Dates" if en else "תאריכים","Flexible" if en else "גמישים / לא משנה"))
-    try:
-        adults_n=max(0,int(a.get("adults") or 0)); children_n=max(0,int(a.get("children") or 0))
-    except (TypeError,ValueError):
-        adults_n=children_n=0
-    if adults_n or children_n:
-        pax=[]
-        if adults_n: pax.append(f"{adults_n} {'adults' if en else 'מבוגרים'}")
-        if children_n: pax.append(f"{children_n} {'children' if en else 'ילדים'}")
-        out.append(("Travelers" if en else "נוסעים"," · ".join(pax)))
-    if a.get("budget_mode")=="per_person" and a.get("budget_amount"): out.append(("Budget" if en else "תקציב",f"₪{a.get('budget_amount')} {'per person' if en else 'לאדם'}"))
-    priorities=set(a.get("deal_priorities") or [])
-    labels={"direct":("Direct flight","טיסה ישירה"),"baggage":("Baggage","כבודה"),"price":("Price","מחיר"),"maximize":("Maximize trip","למקסם את הטיול"),"balanced":("Ariella chooses","אריאלה תבחר")}
-    for key in ("direct","baggage","price","maximize","balanced"):
-        if key in priorities: out.append(("Preference" if en else "העדפה",labels[key][0 if en else 1]))
-    if a.get("special_needs"):
-        special={"kosher":"כשר","shabbat":"שמירת שבת","accessible":"נגישות","stroller":"עגלה","walking":"מגבלת הליכה","vegetarian":"צמחוני/טבעוני"}
-        out.append(("Needs" if en else "צרכים",", ".join(special.get(x,x) for x in a.get("special_needs") or [])))
+    flex=a.get("date_flex_days")
+    if dm=="exact" and flex:
+        out.append(("Date flexibility" if en else "גמישות בתאריכים", f"±{flex} {'days' if en else 'ימים'}"))
+    elif dm in {"anytime","ski_flexible"}:
+        out.append(("Date flexibility" if en else "גמישות בתאריכים", "Any time" if en else "לא משנה / אריאלה תבחר"))
+
+    if a.get("travel_party")=="friends" and a.get("friends_age_group"):
+        m={"youth":("Youth / young adults","נוער / צעירים"),"adults":("Adults","מבוגרים"),"seniors":("Seniors","הגיל השלישי")}
+        v=m.get(str(a.get("friends_age_group")))
+        if v: out.append(("Group" if en else "סוג קבוצה",v[0 if en else 1]))
+
+    holiday=list(a.get("holiday_priorities") or [])
+    if holiday:
+        holiday_labels={
+            "price":("Good price","מחיר משתלם"),"beach":("Beach & relaxation","בטן־גב"),
+            "nature":("Nature & scenery","טבע ונופים"),"hiking":("Hiking & touring","מסלולים וטיולים"),
+            "city":("Cities & culture","ערים ותרבות"),"family":("Kids' attractions","אטרקציות לילדים"),
+            "food":("Food & cuisine","אוכל וקולינריה"),"shopping":("Shopping","קניות"),
+            "quiet":("Less crowded","יעד פחות עמוס"),"weather":("Pleasant weather","מזג אוויר נעים"),
+            "nightlife":("Nightlife","חיי לילה"),"relax":("Relaxation","רוגע ופינוק"),
+        }
+        vals=[]
+        for x in holiday:
+            pair=holiday_labels.get(str(x),(str(x),str(x))); vals.append(pair[0 if en else 1])
+        out.append(("Vacation preferences" if en else "מה מחפשים בחופשה", " · ".join(vals)))
+
+    priorities=list(a.get("deal_priorities") or [])
+    labels={
+        "dates":("Selected dates","התאריכים שנבחרו"),
+        "direct":("Direct flight","טיסה ישירה"),
+        "baggage":("Baggage","כבודה"),
+        "price":("Price","מחיר"),
+        "maximize":("Maximize the vacation","למקסם את החופשה"),
+        "balanced":("Let Ariella choose","תנו לאריאלה לבחור"),
+    }
+    chosen=[]
+    for key in ("dates","direct","baggage","price","maximize","balanced"):
+        if key in priorities: chosen.append(labels[key][0 if en else 1])
+    if chosen:
+        out.append(("What matters" if en else "מה חשוב", " · ".join(chosen)))
+
+    origins=list(a.get("origin_airports") or [])
+    if origins:
+        out.append(("Departure airports" if en else "שדות יציאה", " · ".join(map(str,origins))))
+
+    needs=list(a.get("special_needs") or [])
+    if needs:
+        special={
+            "kosher":("Kosher","אוכל כשר"),"shabbat":("Shabbat observance","שמירת שבת"),
+            "accessible":("Accessibility","נגישות"),"stroller":("Stroller","עגלה"),
+            "walking":("Walking limitation","מגבלת הליכה"),"vegetarian":("Vegetarian / vegan","צמחוני/טבעוני"),
+        }
+        vals=[]
+        for x in needs:
+            pair=special.get(x,(str(x),str(x))); vals.append(pair[0 if en else 1])
+        out.append(("Needs" if en else "צרכים", " · ".join(vals)))
+
+    notes=str(a.get("notes") or "").strip()
+    if notes:
+        out.append(("Notes" if en else "הערות",notes))
     return out
 
 def _customer_deal_choices(all_offers, trip, limit=5):
@@ -1917,12 +2148,15 @@ def free_trip_alternative(trip_id):
                 ret = datetime.strptime(answers.get("return_date"), "%Y-%m-%d").date()
                 span = max(1, (ret - out).days)
                 base_month = out.strftime("%Y-%m")
+                requested_ret_month = ret.strftime("%Y-%m")
                 answers["date_mode"] = "month"
                 answers["outbound_month"] = base_month
-                answers["return_month"] = base_month
+                answers["return_month"] = requested_ret_month
                 answers["travel_month"] = base_month
                 answers["_alternative_nearby_dates"] = True
-                answers["_alternative_months"] = [base_month, _month_shift(base_month, 1)]
+                answers["_alternative_outbound_months"] = [_month_shift(base_month,-1), base_month, _month_shift(base_month,1)]
+                answers["_alternative_return_months"] = [_month_shift(requested_ret_month,-1), requested_ret_month, _month_shift(requested_ret_month,1)]
+                answers["_alternative_months"] = sorted(set(answers["_alternative_outbound_months"] + answers["_alternative_return_months"]))
                 answers["_requested_trip_length_days"] = span
             except Exception:
                 return redirect(url_for("site.account") + f"#vacation-{trip_id}")
@@ -1936,7 +2170,10 @@ def free_trip_alternative(trip_id):
             if not base_month:
                 return redirect(url_for("site.account") + f"#vacation-{trip_id}")
             answers["_alternative_nearby_dates"] = True
-            answers["_alternative_months"] = [base_month, _month_shift(base_month, 1)]
+            ret_month = str(answers.get("return_month") or base_month)[:7]
+            answers["_alternative_outbound_months"] = [_month_shift(base_month,-1), base_month, _month_shift(base_month,1)]
+            answers["_alternative_return_months"] = [_month_shift(ret_month,-1), ret_month, _month_shift(ret_month,1)]
+            answers["_alternative_months"] = sorted(set(answers["_alternative_outbound_months"] + answers["_alternative_return_months"]))
         else:
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
@@ -1995,6 +2232,8 @@ def free_trip_alternative(trip_id):
         answers["travel_month"] = answers.get("outbound_month") or answers.get("travel_month")
         answers.pop("_alternative_nearby_dates", None)
         answers.pop("_alternative_months", None)
+        answers.pop("_alternative_outbound_months", None)
+        answers.pop("_alternative_return_months", None)
         answers.pop("_requested_trip_length_days", None)
 
     if created_for_trip:

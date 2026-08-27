@@ -803,14 +803,16 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                         jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
         else:
             if answers.get("_alternative_nearby_dates"):
-                # Explicit "same destination, other dates":
-                # search a controlled sample in the requested month AND the next month.
-                alt_months = [m for m in (answers.get("_alternative_months") or [outbound_month]) if m]
+                # Explicit "same destination, other dates": widen beyond the initial
+                # ±1-month display cap, while preserving the requested trip shape.
+                out_months = [m for m in (answers.get("_alternative_outbound_months") or answers.get("_alternative_months") or [outbound_month]) if m]
+                ret_months = [m for m in (answers.get("_alternative_return_months") or answers.get("_alternative_months") or [return_month]) if m]
                 try:
                     trip_len = max(2, min(21, int(answers.get("_requested_trip_length_days") or 7)))
                 except (TypeError, ValueError):
                     trip_len = 7
-                for month_value in alt_months[:2]:
+                allowed_ret = set(str(m)[:7] for m in ret_months)
+                for month_value in out_months[:3]:
                     try:
                         month_first = datetime.strptime(str(month_value)[:7] + "-01", "%Y-%m-%d").date()
                     except Exception:
@@ -822,7 +824,7 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                                 if start.month != month_first.month:
                                     continue
                                 ret = start + timedelta(days=trip_len)
-                                if ret.month != start.month:
+                                if ret.strftime("%Y-%m") not in allowed_ret:
                                     continue
                                 jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
             else:

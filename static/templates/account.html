@@ -81,10 +81,10 @@ function showAriellaSearchWait(){
           </dd></div>
           <div><dt>{{ 'Budget' if site_lang == 'en' else 'תקציב' }}</dt><dd>{% if a.budget_mode == 'per_person' and a.budget_amount %}{{ 'Up to ₪' if site_lang == 'en' else 'עד ₪' }}{{ a.budget_amount }} {{ 'per person' if site_lang == 'en' else 'לאדם' }}{% else %}{{ 'No budget limit' if site_lang == 'en' else 'ללא הגבלת תקציב' }}{% endif %}</dd></div>
         </dl>
+        {% if trip.constraints_summary %}
+        <div class="trip-request-summary"><strong>{{ 'Additional choices' if site_lang=='en' else 'הבחירות הנוספות שלך' }}</strong><div class="trip-request-chips">{% for label,value in trip.constraints_summary %}<span><b>{{label}}:</b> {{value}}</span>{% endfor %}</div></div>
+        {% endif %}
       </div>
-      {% if trip.constraints_summary %}
-      <div class="trip-request-summary"><strong>{{ 'Your search' if site_lang=='en' else 'הבקשה שלך' }}</strong><div class="trip-request-chips">{% for label,value in trip.constraints_summary %}<span><b>{{label}}:</b> {{value}}</span>{% endfor %}</div></div>
-      {% endif %}
       <div class="trip-controls">
         {% set paid_before = trip.has_paid_search or trip.subscription_started_at or trip.search_period_started_at %}
         {% if trip.subscription_status == 'active' and paid_before %}
