@@ -249,56 +249,6 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_trip_requests_member
             ON trip_requests(member_id, id DESC);
 
-            CREATE TABLE IF NOT EXISTS whatsapp_member_links (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                member_id INTEGER NOT NULL UNIQUE,
-                wa_phone_hash TEXT NOT NULL UNIQUE,
-                verified_at TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'active',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY(member_id) REFERENCES members(id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_whatsapp_member_links_status
-            ON whatsapp_member_links(status, member_id);
-
-            CREATE TABLE IF NOT EXISTS whatsapp_handoffs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                token_hash TEXT NOT NULL UNIQUE,
-                member_id INTEGER NOT NULL,
-                expires_at TEXT NOT NULL,
-                used_at TEXT,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY(member_id) REFERENCES members(id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_whatsapp_handoffs_member
-            ON whatsapp_handoffs(member_id, created_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_whatsapp_handoffs_expiry
-            ON whatsapp_handoffs(expires_at, used_at);
-
-            CREATE TABLE IF NOT EXISTS whatsapp_conversation_state (
-                member_id INTEGER PRIMARY KEY,
-                active_trip_id INTEGER,
-                current_intent TEXT,
-                last_message_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY(member_id) REFERENCES members(id),
-                FOREIGN KEY(active_trip_id) REFERENCES trip_requests(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS whatsapp_inbound_messages (
-                message_id TEXT PRIMARY KEY,
-                received_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS whatsapp_onboarding_state (
-                wa_phone_hash TEXT PRIMARY KEY,
-                current_step TEXT NOT NULL,
-                data_json TEXT NOT NULL DEFAULT '{}',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
             -- Columns below are also added by the migration block for existing databases.
 
             CREATE TABLE IF NOT EXISTS feedback_messages (

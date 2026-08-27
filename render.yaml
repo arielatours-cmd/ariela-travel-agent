@@ -32,8 +32,6 @@ services:
 # WHATSAPP_ACCESS_TOKEN
 # WHATSAPP_PHONE_NUMBER_ID
 # WHATSAPP_RECIPIENT
-# WHATSAPP_BUSINESS_NUMBER  # digits only, e.g. 9725XXXXXXXX
-# NOVA_HANDOFF_TTL_MINUTES  # optional, default 10
 # Optional: WHATSAPP_API_VERSION
 
 # Public website login sessions:

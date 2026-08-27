@@ -2384,101 +2384,53 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 .business-question select{min-height:46px;border-radius:12px;padding:8px 12px}
 .business-results-note{margin-top:16px}
 @media(max-width:900px){.vacation-type-grid{grid-template-columns:1fr}}
-/* NOVA N1 — compact My Ariella -> WhatsApp handoff */
-.nova-mobile-entry{padding:14px 0 4px;background:#fff}
-.nova-mobile-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border:1px solid rgba(21,34,54,.12);border-radius:12px;background:#fff}
-.nova-mobile-label{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px;font-weight:600;color:var(--ink)}
-.nova-mobile-dot{width:8px;height:8px;border-radius:50%;background:#25d366;box-shadow:0 0 0 3px rgba(37,211,102,.10);flex:0 0 auto}
-.nova-mobile-row form{margin:0;flex:0 0 auto}
-.nova-mobile-button{border-radius:999px;min-height:34px;padding:6px 14px;font-size:13px;line-height:1}
-.nova-mobile-button:hover{border-color:var(--gold)}
-.nova-link-status{font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
-.nova-link-status.is-linked{color:#25724a}
-@media(max-width:600px){.nova-mobile-row{padding:10px 12px}.nova-mobile-label{font-size:13px;gap:6px}.nova-link-status{display:none}.nova-mobile-button{min-height:32px;padding:5px 12px;font-size:12px}}
 
-/* NOVA N2 — clean WhatsApp entry beside "Plan your next vacation" */
-.nova-mobile-entry{display:none!important}
-.account-hero-actions{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
-.account-hero-actions form{margin:0}
-.account-hero-actions .nova-mobile-button{min-height:40px;padding:9px 18px;border-radius:10px;background:#0b8f9c;border-color:#0b8f9c;color:#fff;box-shadow:none;font-size:14px}
-.account-hero-actions .nova-mobile-button:hover{background:#087985;border-color:#087985;color:#fff}
-@media(max-width:640px){.account-hero-actions{flex-direction:column}.account-hero-actions>a,.account-hero-actions form,.account-hero-actions button{width:100%}}
 
-/* NOVA N2.1 — mobile stabilization for My Ariella */
-@media(max-width:760px){
-  html,body{max-width:100%;overflow-x:hidden}
-  .shell{width:min(100% - 24px,1180px)!important}
-
-  .account-vacations-hero{min-height:250px!important;background-position:center!important}
-  .account-vacations-hero-inner{padding:34px 0 30px!important}
-  .account-vacations-hero h1{font-size:36px!important;line-height:1.08!important}
-  .account-vacations-hero p{font-size:15px!important;line-height:1.45!important;margin:8px 0 16px!important;max-width:92%!important}
-  .account-hero-actions{width:100%!important;max-width:340px!important;gap:8px!important}
-  .account-hero-actions>a,
-  .account-hero-actions form,
-  .account-hero-actions button{width:100%!important;max-width:100%!important}
-  .account-hero-actions .button{min-height:44px!important;padding:9px 14px!important;font-size:14px!important}
-
-  .account-trips-section{padding:24px 0 48px!important}
-  .account-trips-section>.shell{width:calc(100% - 20px)!important;max-width:none!important}
-  .account-trips-section .trip-list{gap:18px!important}
-
-  .trip-management-card{
-    display:flex!important;
-    flex-direction:column!important;
-    width:100%!important;
-    min-width:0!important;
-    gap:0!important;
-    overflow:hidden!important;
-    border-radius:14px!important;
-  }
-  .trip-destination-image{
-    width:100%!important;
-    min-height:180px!important;
-    border:0!important;
-    border-radius:14px 14px 0 0!important;
-  }
-  .trip-main-details,
-  .trip-controls{
-    width:100%!important;
-    min-width:0!important;
-    max-width:100%!important;
-    padding:18px 16px!important;
-  }
-  .trip-main-details{overflow-wrap:anywhere!important}
-  .trip-title-line{align-items:flex-start!important;gap:8px!important}
-  .trip-title-line h3{font-size:24px!important;line-height:1.2!important;max-width:100%!important;overflow-wrap:anywhere!important}
-  .search-status{flex:0 0 auto!important;font-size:11px!important;padding:4px 9px!important}
-
-  .trip-details-list{font-size:14px!important;gap:10px!important;margin-top:14px!important}
-  .trip-details-list div{display:grid!important;grid-template-columns:1fr!important;gap:2px!important}
-  .trip-details-list dt,.trip-details-list dd{width:100%!important;max-width:100%!important;overflow-wrap:anywhere!important}
-
-  .trip-controls{padding-top:4px!important;border-top:1px solid #ece7df!important}
-  .trip-controls form,
-  .trip-controls .button,
-  .trip-controls button,
-  .trip-controls details,
-  .trip-controls summary,
-  .trip-controls .notification-toggle{width:100%!important;min-width:0!important;max-width:100%!important}
-  .trip-controls .notification-toggle{min-height:46px!important;gap:8px!important;font-size:13px!important;padding:9px 10px!important;white-space:normal!important}
-  .trip-controls .notification-toggle>span:last-child{min-width:0!important;white-space:normal!important;line-height:1.3!important;text-align:start!important}
-  .trip-controls .continue-search-title{min-height:46px!important;align-items:center!important;justify-content:center!important;font-size:14px!important}
-  .trip-controls .plan-options{gap:8px!important}
-  .trip-controls .plan-choice{grid-template-columns:minmax(0,1fr)!important;gap:3px!important;padding:12px!important;text-align:center!important}
-  .trip-controls .plan-choice b{justify-self:center!important}
-
-  .trip-deals-toggle-wrap{margin:10px auto 12px!important;padding:0 10px!important}
-  .happy-deals-button{width:100%!important;min-width:0!important;max-width:340px!important}
-  .account-trip-deals{width:100%!important;max-width:100%!important;margin:10px 0 26px!important;overflow:hidden!important}
-  .account-trip-deals .ariella-deals-list{width:100%!important;max-width:100%!important;overflow:hidden!important}
-  .account-trip-deals .ariella-deal-card{width:100%!important;max-width:100%!important;min-width:0!important}
+/* v9.7.109 — final Ariella readability pass before QA closeout */
+/* Destination picker: comfortably readable on laptop in both single and multi-destination modes. */
+.destination-airport-picker{
+  min-height:64px!important;
+  padding:8px 10px!important;
+  border-radius:12px!important;
+}
+.destination-airport-picker .airport-search,
+#destinationsSearch{
+  min-height:58px!important;
+  font-size:18px!important;
+  line-height:1.35!important;
+  padding:14px 16px!important;
+}
+.destination-airport-picker .airport-tags{
+  gap:9px!important;
+  flex-wrap:wrap!important;
+}
+.destination-airport-picker .airport-tag{
+  font-size:15px!important;
+  padding:8px 11px!important;
 }
 
-@media(max-width:420px){
-  .shell{width:calc(100% - 18px)!important}
-  .account-vacations-hero h1{font-size:32px!important}
-  .account-vacations-hero p{font-size:14px!important}
-  .trip-main-details,.trip-controls{padding-left:13px!important;padding-right:13px!important}
-  .trip-title-line h3{font-size:22px!important}
+/* Destination name on found-deal cards: make the place name clearly readable on laptop. */
+.deal-card-v970 .visual-destination-outside strong{
+  font-size:28px!important;
+  line-height:1.15!important;
+  font-weight:900!important;
+}
+.deal-card-v970 .route-destination .route-city{
+  font-size:24px!important;
+  font-weight:900!important;
+}
+
+/* Keep the existing gentle-gold baggage language explicit in the final cascade. */
+.deal-card-v970 .bag-svg{
+  filter:sepia(.9) saturate(1.15) hue-rotate(350deg) brightness(.9)!important;
+  opacity:.92!important;
+}
+
+@media(max-width:760px){
+  .destination-airport-picker .airport-search,#destinationsSearch{
+    min-height:54px!important;
+    font-size:17px!important;
+  }
+  .deal-card-v970 .visual-destination-outside strong{font-size:25px!important}
+  .deal-card-v970 .route-destination .route-city{font-size:21px!important}
 }

@@ -43,20 +43,16 @@ def whatsapp_status() -> dict[str, Any]:
     }
 
 
-def _require_configuration(recipient: str | None = None) -> None:
-    missing = []
-    if not WHATSAPP_ACCESS_TOKEN:
-        missing.append("WHATSAPP_ACCESS_TOKEN")
-    if not WHATSAPP_PHONE_NUMBER_ID:
-        missing.append("WHATSAPP_PHONE_NUMBER_ID")
-    if not _digits_only(recipient or WHATSAPP_RECIPIENT):
-        missing.append("WHATSAPP_RECIPIENT")
-    if missing:
-        raise WhatsAppConfigurationError("חסרים משתני סביבה ב-Render: " + ", ".join(missing))
+def _require_configuration() -> None:
+    status = whatsapp_status()
+    if not status["configured"]:
+        raise WhatsAppConfigurationError(
+            "חסרים משתני סביבה ב-Render: " + ", ".join(status["missing"])
+        )
 
 
 def send_text_message(message: str, recipient: str | None = None) -> dict[str, Any]:
-    _require_configuration(recipient)
+    _require_configuration()
 
     text = (message or "").strip()
     if not text:

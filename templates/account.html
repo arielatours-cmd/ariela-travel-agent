@@ -54,12 +54,7 @@ function showAriellaSearchWait(){
   <div class="shell account-vacations-hero-inner">
     <h1>{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</h1>
     <p>{{ 'Your searches, your deals, your next escape' if site_lang == 'en' else 'החיפושים, הדילים והחופשה הבאה שלך במקום אחד' }}</p>
-    <div class="account-hero-actions">
-      <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
-      <form method="post" action="{{ url_for('site.account_whatsapp_handoff') }}">
-        <button class="button primary nova-mobile-button" type="submit">{{ 'Ariella on mobile' if site_lang == 'en' else 'אריאלה בנייד' }}</button>
-      </form>
-    </div>
+    <a class="button primary" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ '+ Plan your next vacation' if site_lang == 'en' else '+ תכנון החופשה הבאה' }}</a>
   </div>
 </section>
 <section class="section account-trips-section"><div class="shell">

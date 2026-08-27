@@ -20,10 +20,6 @@ from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
-from nova_whatsapp import NovaHandoffError, create_member_handoff, member_whatsapp_link_status
-from nova_conversation import route_inbound
-from whatsapp import WhatsAppConfigurationError, WhatsAppSendError, send_text_message
-from config import WHATSAPP_WEBHOOK_VERIFY_TOKEN
 
 
 
@@ -1565,68 +1561,7 @@ def account():
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
-        whatsapp_link=member_whatsapp_link_status(member_id),
     )
-
-
-@site.get("/whatsapp/webhook")
-def nova_whatsapp_verify():
-    """Meta webhook verification for NOVA N2."""
-    mode = request.args.get("hub.mode", "")
-    token = request.args.get("hub.verify_token", "")
-    challenge = request.args.get("hub.challenge", "")
-    if mode == "subscribe" and WHATSAPP_WEBHOOK_VERIFY_TOKEN and secrets.compare_digest(token, WHATSAPP_WEBHOOK_VERIFY_TOKEN):
-        return challenge, 200, {"Content-Type": "text/plain; charset=utf-8"}
-    return "forbidden", 403
-
-
-@site.post("/whatsapp/webhook")
-def nova_whatsapp_webhook():
-    """Receive inbound WhatsApp text messages and route them through NOVA."""
-    payload = request.get_json(silent=True) or {}
-    try:
-        entries = payload.get("entry") or []
-        for entry in entries:
-            for change in entry.get("changes") or []:
-                value = change.get("value") or {}
-                for msg in value.get("messages") or []:
-                    message_id = str(msg.get("id") or "").strip()
-                    sender = str(msg.get("from") or "").strip()
-                    text = ((msg.get("text") or {}).get("body") or "").strip()
-                    if not message_id or not sender or not text:
-                        continue
-                    with _db() as conn:
-                        exists = conn.execute("SELECT 1 FROM whatsapp_inbound_messages WHERE message_id=?", (message_id,)).fetchone()
-                        if exists:
-                            continue
-                        conn.execute("INSERT INTO whatsapp_inbound_messages(message_id,received_at) VALUES(?,?)", (message_id, utc_now_iso()))
-                        conn.commit()
-                    profile_name = ""
-                    for contact in value.get("contacts") or []:
-                        if str(contact.get("wa_id") or "").strip() == sender:
-                            profile_name = str(((contact.get("profile") or {}).get("name") or "")).strip()
-                            break
-                    reply = route_inbound(sender, text, profile_name=profile_name)
-                    if reply:
-                        send_text_message(reply, recipient=sender)
-    except (WhatsAppConfigurationError, WhatsAppSendError):
-        # Return 200 so Meta does not retry the same inbound message endlessly.
-        return "ok", 200
-    except Exception:
-        return "ok", 200
-    return "ok", 200
-
-
-@site.post("/account/whatsapp-handoff")
-@login_required
-def account_whatsapp_handoff():
-    """NOVA N1: securely hand the logged-in Ariella member to WhatsApp."""
-    try:
-        handoff = create_member_handoff(session["member_id"])
-    except NovaHandoffError as exc:
-        flash(_msg(str(exc), "WhatsApp mobile connection is not configured yet."), "error")
-        return redirect(url_for("site.account"))
-    return redirect(handoff["url"], code=303)
 
 
 @site.post("/trip/<int:trip_id>/toggle-search")
