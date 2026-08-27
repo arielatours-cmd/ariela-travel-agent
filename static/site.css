@@ -2439,3 +2439,13 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 .trip-request-summary{margin:14px 0 4px;padding:12px 14px;border-top:1px solid rgba(139,111,57,.18);border-bottom:1px solid rgba(139,111,57,.18)}
 .trip-request-summary>strong{display:block;margin-bottom:8px;color:#7d5b25;font-size:17px}.trip-request-chips{display:flex;gap:8px 16px;flex-wrap:wrap}.trip-request-chips span{font-size:15px;padding:2px 0;border-radius:0;background:transparent;color:#414b56}.trip-request-chips b{color:#5b4930;font-size:15px}.alternative-deals-message{margin:24px auto 14px;max-width:850px;text-align:center;font-weight:700;color:#65553b}.deal-availability-note,.deal-soft-mismatch{margin:10px 0;padding:9px 11px;border-radius:10px;background:#fff8e7;color:#65502d;font-size:13px;line-height:1.55}.deal-soft-mismatch{background:#f7f5ef;color:#625f59}.friends-age-groups{margin-top:12px}
 @media(max-width:700px){.trip-request-chips{display:grid;grid-template-columns:1fr}.trip-request-chips span{border-radius:10px}.alternative-deals-message{padding-inline:10px}}
+
+/* v9.7.115 final QA readability / questionnaire overrides */
+.force-hidden,[hidden].force-hidden{display:none!important}
+.destination-multi-helper{display:block;margin-top:7px;font-size:14px;color:#66717f;font-weight:500}
+.trip-details-list{font-size:18px!important;line-height:1.7!important}
+.trip-details-list dt,.trip-details-list dd{font-size:18px!important}
+.trip-request-summary{background:transparent!important;border-top:1px solid rgba(139,111,57,.16)!important;border-bottom:0!important;padding:14px 0 0!important}
+.trip-request-summary>strong{font-size:18px!important;color:#334252!important}
+.trip-request-chips span,.trip-request-chips b{font-size:17px!important;background:transparent!important}
+@media(max-width:700px){.trip-details-list,.trip-details-list dt,.trip-details-list dd{font-size:17px!important}.trip-request-chips span,.trip-request-chips b{font-size:16px!important}}

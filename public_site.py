@@ -673,7 +673,7 @@ def _priority_sort_key(offer, trip):
 
     key = []
     if str(answers.get("destination_mode") or "") == "open":
-        key.append(-_holiday_preference_score(offer, trip))
+        key.append(-_customer_rank_value(offer, trip))
     if str(answers.get("vacation_type") or "standard") == "ski":
         key.append(-_ski_preference_score(offer, trip))
     if "price" in priorities:
@@ -973,22 +973,41 @@ _DESTINATION_STYLE_TAGS = {
 # It answers: "is this destination suitable for this vacation style *at the requested time*?"
 # Codes not listed remain neutral rather than being guessed.
 _SEASONAL_DESTINATION_PROFILES = {
-    # Mediterranean / southern Europe: strongest for beach in late spring through early autumn.
+    # Mediterranean / warm south
     "ATH": {"beach_months": {5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10,11}},
     "LCA": {"beach_months": {4,5,6,7,8,9,10,11}, "pleasant_months": {3,4,5,6,9,10,11}},
     "BCN": {"beach_months": {5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10}},
     "LIS": {"beach_months": {5,6,7,8,9,10}, "pleasant_months": {3,4,5,6,9,10,11}},
+    "MAD": {"pleasant_months": {3,4,5,6,9,10,11}},
+    "FCO": {"pleasant_months": {3,4,5,6,9,10,11}},
     "TGD": {"beach_months": {5,6,7,8,9}, "pleasant_months": {4,5,6,9,10}},
-    # Thailand is a strong warm-weather / beach alternative through the Israeli winter.
-    "BKK": {"beach_months": {1,2,3,4,11,12}, "pleasant_months": {1,2,3,11,12}},
-    # Mountain / hiking destinations: shoulder and summer months are generally the best fit.
-    "ZRH": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
-    "TBS": {"hiking_months": {4,5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10}},
-    "LJU": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
     "ZAG": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10}},
+    "LJU": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
+    "SKP": {"hiking_months": {4,5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10}},
+    "BEG": {"pleasant_months": {4,5,6,9,10}},
+    "SOF": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
+    # Central / western Europe — pleasant-weather preference should demote deep winter.
+    "BUD": {"pleasant_months": {4,5,6,9,10}},
+    "VIE": {"pleasant_months": {4,5,6,9,10}},
+    "PRG": {"pleasant_months": {4,5,6,9,10}},
+    "MXP": {"pleasant_months": {4,5,6,9,10}},
+    "CDG": {"pleasant_months": {4,5,6,9,10}},
+    "AMS": {"pleasant_months": {4,5,6,7,8,9}},
+    "LHR": {"pleasant_months": {5,6,7,8,9}},
+    "BER": {"pleasant_months": {5,6,7,8,9}},
     "MUC": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
+    "ZRH": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,7,8,9}},
+    "BRU": {"pleasant_months": {5,6,7,8,9}},
+    "OTP": {"pleasant_months": {4,5,6,9,10}},
+    "KRK": {"pleasant_months": {5,6,7,8,9}},
+    "WAW": {"pleasant_months": {5,6,7,8,9}},
+    # Caucasus / mountains
+    "TBS": {"hiking_months": {4,5,6,7,8,9,10}, "pleasant_months": {4,5,6,9,10}},
+    "EVN": {"hiking_months": {5,6,7,8,9,10}, "pleasant_months": {5,6,9,10}},
+    # Warm long-haul
+    "BKK": {"beach_months": {1,2,3,4,11,12}, "pleasant_months": {1,2,3,11,12}},
+    "JFK": {"pleasant_months": {4,5,6,9,10}},
 }
-
 def _requested_travel_month(trip, offer=None):
     """Return the customer's requested outbound month when one exists.
 
@@ -1101,6 +1120,30 @@ def _within_primary_date_window(offer, trip):
         return True
     return _month_distance(out, req_out) <= 1 and _month_distance(ret, req_ret) <= 1
 
+def _open_flight_preference_score(offer, trip):
+    """Explicit flight-condition score for open-destination ranking.
+
+    These are preferences, not hard filters. They must still influence ordering
+    when Ariella chooses the destination/date, so a direct flight that satisfies
+    the request ranks above an otherwise similar connection itinerary.
+    """
+    answers = trip.get("answers") or {}
+    priorities = {str(x) for x in (answers.get("deal_priorities") or [])}
+    score = 0.0
+    if "direct" in priorities:
+        score += 16.0 if int(offer.get("stops") or 0) == 0 else -12.0
+    if "baggage" in priorities:
+        baggage = offer.get("baggage") or {}
+        included = ((baggage.get("carry_on_8kg") or {}).get("included") is True or
+                    (baggage.get("checked_bag_23kg") or {}).get("included") is True)
+        score += 10.0 if included else -7.0
+    if "price" in priorities:
+        # cost_score is already normalized by the deal engine; use it as an
+        # explicit preference signal rather than relying on the final deal score.
+        score += float(offer.get("cost_score") or 0) / 4.0
+    return score
+
+
 def _customer_rank_value(offer, trip):
     """Rank customer results differently from global deal discovery.
 
@@ -1125,7 +1168,7 @@ def _customer_rank_value(offer, trip):
     if not _trip_is_destination_led(trip):
         # In open searches the customer's vacation-style choices are the first
         # signal for *where* Ariella should send them; deal quality then breaks ties.
-        return deal_score + (_holiday_preference_score(offer, trip) * 2.5) - budget_penalty
+        return deal_score + (_holiday_preference_score(offer, trip) * 2.5) + (_open_flight_preference_score(offer, trip) * 2.0) - budget_penalty
 
     route = int(offer.get("route_score") or 0)
     time_value = int(offer.get("time_value_score") or offer.get("hours_score") or 0)
@@ -1289,10 +1332,10 @@ def _standard_match_details(offer, trip):
         except (TypeError,ValueError): pass
 
     priorities={str(x) for x in (answers.get("deal_priorities") or [])}
-    if "direct" in priorities: add(int(offer.get("stops") or 0)==0, "טיסה ישירה", "Direct flight")
+    if "direct" in priorities: add(int(offer.get("stops") or 0)==0, "טיסה ישירה", "Direct flight", 2)
     if "baggage" in priorities:
         b=offer.get("baggage") or {}; carry=(b.get("carry_on_8kg") or {}).get("included") is True; checked=(b.get("checked_bag_23kg") or {}).get("included") is True
-        add(carry or checked, "כבודה", "Baggage")
+        add(carry or checked, "כבודה", "Baggage", 2)
     return points, possible, matched, missed
 
 
@@ -1329,16 +1372,7 @@ def _trip_constraints_summary(trip):
     """
     a=trip.get("answers") or {}; out=[]; en=_lang()=="en"
 
-    # Destination/search mode (the destination itself is already the card title).
-    destination_mode=str(a.get("destination_mode") or "")
-    destination_labels={
-        "single":("One destination","יעד אחד"),
-        "multiple":("Several destinations","כמה יעדים"),
-        "ariella":("Let Ariella choose","אריאלה תבחר"),
-        "anywhere":("Let Ariella choose","אריאלה תבחר"),
-    }
-    if destination_mode in destination_labels:
-        out.append(("Destination search" if en else "חיפוש יעד", destination_labels[destination_mode][0 if en else 1]))
+    # Destination/search mode is intentionally omitted here: the card title already shows it.
 
     # Date flexibility is useful context, without repeating the actual dates/months.
     dm=str(a.get("date_mode") or "")
@@ -1945,9 +1979,9 @@ def account():
             trip["image_url"] = "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=82"
         elif destination_codes:
             dedicated = {
-                "OTP": "https://images.unsplash.com/photo-1584646098378-0874589d76b1?auto=format&fit=crop&w=900&q=82",
+                "OTP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bucharest%2C_Romania_%28Unsplash%29.jpg",
                 "ZRH": "https://images.unsplash.com/photo-1527668752968-14dc70a27c95?auto=format&fit=crop&w=900&q=82",
-                "KRK": "https://images.unsplash.com/photo-1519197924294-4ba991a11128?auto=format&fit=crop&w=900&q=82",
+                "KRK": "https://images.unsplash.com/photo-1636903364559-0dfc358abd94?auto=format&fit=crop&w=900&q=82",
                 "LCA": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=82",
                 "ATH": "https://images.unsplash.com/photo-1555993539-1732b0258235?auto=format&fit=crop&w=900&q=82",
             }
