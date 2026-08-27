@@ -1364,11 +1364,24 @@ def deals():
         database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)] + _qa_fixture_offers()
         for row in rows:
             trip = _trip_dict(row)
-            trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
-            inventory = _customer_inventory_status(database_offers, trip)
+            try:
+                trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
+            except Exception:
+                trip["offers"] = []
+            exact_sigs = {_offer_signature(o) for o in trip["offers"]}
+            try:
+                trip["alternative_offers"] = _customer_alternative_choices(
+                    database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=5
+                )
+            except Exception:
+                trip["alternative_offers"] = []
+            try:
+                inventory = _customer_inventory_status(database_offers, trip)
+            except Exception:
+                inventory = {"has_incomplete_inventory": False}
             trip["database_match_found"] = bool(trip["offers"])
             trip["needs_fresh_search"] = not bool(trip["offers"] or trip["alternative_offers"])
-            trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
+            trip["has_incomplete_inventory"] = inventory.get("has_incomplete_inventory", False)
             personal_trips.append(trip)
     # FINAL QA GATE: sanitize both lists immediately before rendering.
     offers = [o for o in offers if _strict_public_offer(o)]

@@ -1146,31 +1146,71 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
 
 
 def _trip_constraints_summary(trip):
+    """Extra customer selections for My Vacations.
+
+    Dates, travelers and budget are already rendered immediately above this block,
+    so they are deliberately not repeated here.
+    """
     a=trip.get("answers") or {}; out=[]; en=_lang()=="en"
+
+    # Destination/search mode (the destination itself is already the card title).
+    destination_mode=str(a.get("destination_mode") or "")
+    destination_labels={
+        "single":("One destination","יעד אחד"),
+        "multiple":("Several destinations","כמה יעדים"),
+        "ariella":("Let Ariella choose","אריאלה תבחר"),
+        "anywhere":("Let Ariella choose","אריאלה תבחר"),
+    }
+    if destination_mode in destination_labels:
+        out.append(("Destination search" if en else "חיפוש יעד", destination_labels[destination_mode][0 if en else 1]))
+
+    # Date flexibility is useful context, without repeating the actual dates/months.
     dm=str(a.get("date_mode") or "")
-    if dm=="exact":
-        text=f"{a.get('departure_date','')} – {a.get('return_date','')}"
-        if a.get("date_flex_days"): text += f" (±{a.get('date_flex_days')} {'days' if en else 'ימים'})"
-        out.append(("Dates" if en else "תאריכים",text))
-    elif dm=="month": out.append(("Months" if en else "חודשים",f"{a.get('outbound_month','')} → {a.get('return_month','')}"))
-    elif dm in {"anytime","ski_flexible"}: out.append(("Dates" if en else "תאריכים","Flexible" if en else "גמישים / לא משנה"))
-    try:
-        adults_n=max(0,int(a.get("adults") or 0)); children_n=max(0,int(a.get("children") or 0))
-    except (TypeError,ValueError):
-        adults_n=children_n=0
-    if adults_n or children_n:
-        pax=[]
-        if adults_n: pax.append(f"{adults_n} {'adults' if en else 'מבוגרים'}")
-        if children_n: pax.append(f"{children_n} {'children' if en else 'ילדים'}")
-        out.append(("Travelers" if en else "נוסעים"," · ".join(pax)))
-    if a.get("budget_mode")=="per_person" and a.get("budget_amount"): out.append(("Budget" if en else "תקציב",f"₪{a.get('budget_amount')} {'per person' if en else 'לאדם'}"))
-    priorities=set(a.get("deal_priorities") or [])
-    labels={"direct":("Direct flight","טיסה ישירה"),"baggage":("Baggage","כבודה"),"price":("Price","מחיר"),"maximize":("Maximize trip","למקסם את הטיול"),"balanced":("Ariella chooses","אריאלה תבחר")}
-    for key in ("direct","baggage","price","maximize","balanced"):
-        if key in priorities: out.append(("Preference" if en else "העדפה",labels[key][0 if en else 1]))
-    if a.get("special_needs"):
-        special={"kosher":"כשר","shabbat":"שמירת שבת","accessible":"נגישות","stroller":"עגלה","walking":"מגבלת הליכה","vegetarian":"צמחוני/טבעוני"}
-        out.append(("Needs" if en else "צרכים",", ".join(special.get(x,x) for x in a.get("special_needs") or [])))
+    flex=a.get("date_flex_days")
+    if dm=="exact" and flex:
+        out.append(("Date flexibility" if en else "גמישות בתאריכים", f"±{flex} {'days' if en else 'ימים'}"))
+    elif dm in {"anytime","ski_flexible"}:
+        out.append(("Date flexibility" if en else "גמישות בתאריכים", "Any time" if en else "לא משנה / אריאלה תבחר"))
+
+    if a.get("travel_party")=="friends" and a.get("friends_age_group"):
+        m={"youth":("Youth / young adults","נוער / צעירים"),"adults":("Adults","מבוגרים"),"seniors":("Seniors","הגיל השלישי")}
+        v=m.get(str(a.get("friends_age_group")))
+        if v: out.append(("Group" if en else "סוג קבוצה",v[0 if en else 1]))
+
+    priorities=list(a.get("deal_priorities") or [])
+    labels={
+        "dates":("Selected dates","התאריכים שנבחרו"),
+        "direct":("Direct flight","טיסה ישירה"),
+        "baggage":("Baggage","כבודה"),
+        "price":("Price","מחיר"),
+        "maximize":("Maximize the vacation","למקסם את החופשה"),
+        "balanced":("Let Ariella choose","תנו לאריאלה לבחור"),
+    }
+    chosen=[]
+    for key in ("dates","direct","baggage","price","maximize","balanced"):
+        if key in priorities: chosen.append(labels[key][0 if en else 1])
+    if chosen:
+        out.append(("What matters" if en else "מה חשוב", " · ".join(chosen)))
+
+    origins=list(a.get("origin_airports") or [])
+    if origins:
+        out.append(("Departure airports" if en else "שדות יציאה", " · ".join(map(str,origins))))
+
+    needs=list(a.get("special_needs") or [])
+    if needs:
+        special={
+            "kosher":("Kosher","אוכל כשר"),"shabbat":("Shabbat observance","שמירת שבת"),
+            "accessible":("Accessibility","נגישות"),"stroller":("Stroller","עגלה"),
+            "walking":("Walking limitation","מגבלת הליכה"),"vegetarian":("Vegetarian / vegan","צמחוני/טבעוני"),
+        }
+        vals=[]
+        for x in needs:
+            pair=special.get(x,(str(x),str(x))); vals.append(pair[0 if en else 1])
+        out.append(("Needs" if en else "צרכים", " · ".join(vals)))
+
+    notes=str(a.get("notes") or "").strip()
+    if notes:
+        out.append(("Notes" if en else "הערות",notes))
     return out
 
 def _customer_deal_choices(all_offers, trip, limit=5):
@@ -1364,11 +1404,24 @@ def deals():
         database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)] + _qa_fixture_offers()
         for row in rows:
             trip = _trip_dict(row)
-            trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
-            inventory = _customer_inventory_status(database_offers, trip)
+            try:
+                trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
+            except Exception:
+                trip["offers"] = []
+            exact_sigs = {_offer_signature(o) for o in trip["offers"]}
+            try:
+                trip["alternative_offers"] = _customer_alternative_choices(
+                    database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=5
+                )
+            except Exception:
+                trip["alternative_offers"] = []
+            try:
+                inventory = _customer_inventory_status(database_offers, trip)
+            except Exception:
+                inventory = {"has_incomplete_inventory": False}
             trip["database_match_found"] = bool(trip["offers"])
             trip["needs_fresh_search"] = not bool(trip["offers"] or trip["alternative_offers"])
-            trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
+            trip["has_incomplete_inventory"] = inventory.get("has_incomplete_inventory", False)
             personal_trips.append(trip)
     # FINAL QA GATE: sanitize both lists immediately before rendering.
     offers = [o for o in offers if _strict_public_offer(o)]
