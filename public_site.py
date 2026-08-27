@@ -1145,10 +1145,11 @@ def _open_flight_preference_score(offer, trip):
 
 
 def _open_customer_points(offer, trip):
-    """Transparent open-search ranking: one point for every requested condition met.
+    """Transparent open-search ranking.
 
-    Seasonality is one additional point. Deal score is used only as a tie-breaker
-    by _customer_rank_value, so no hidden multipliers can outrank customer wishes.
+    Every customer condition that is met is worth exactly one point. Seasonal fit
+    is one additional point. The global deal score is *only* a tie-breaker in
+    _customer_rank_value.
     """
     answers = trip.get("answers") or {}
     selected = {str(x) for x in (answers.get("holiday_priorities") or []) if x}
@@ -1157,19 +1158,35 @@ def _open_customer_points(offer, trip):
     tags = _DESTINATION_STYLE_TAGS.get(code, set())
     points = 0
 
+    # One point for every requested vacation characteristic that fits the destination.
     for pref in selected - {"price", "weather"}:
         if pref in tags:
             points += 1
+
+    # "Good price" is one condition, not a multiplier.
     if "price" in selected and float(offer.get("cost_score") or 0) >= 70:
         points += 1
-    # Weather/seasonality is deliberately a single point, never a hidden weight.
-    if (selected & {"beach", "nature", "hiking", "weather", "relax"}) and _seasonal_vacation_fit_score(offer, trip, selected) > 0:
+
+    # Pleasant weather is itself a requested condition.
+    month = _requested_travel_month(trip, offer)
+    profile = _SEASONAL_DESTINATION_PROFILES.get(code) or {}
+    if "weather" in selected and month in profile.get("pleasant_months", set()):
+        points += 1
+
+    # Seasonality is always one extra point when the proposed month is suitable.
+    seasonal_ok = False
+    if month is not None:
+        if "beach" in selected and "beach" in tags:
+            seasonal_ok = month in profile.get("beach_months", set())
+        elif "hiking" in selected and ("hiking" in tags or "nature" in tags):
+            seasonal_ok = month in profile.get("hiking_months", set())
+        else:
+            seasonal_ok = month in profile.get("pleasant_months", set())
+    if seasonal_ok:
         points += 1
 
     if "direct" in priorities and int(offer.get("stops") or 0) == 0:
         points += 1
-    if "connections_ok" in priorities:
-        points += 1  # every itinerary is acceptable when the customer explicitly allows connections
     if "baggage" in priorities:
         bag = offer.get("baggage") or {}
         if ((bag.get("carry_on_8kg") or {}).get("included") is True or
@@ -1187,22 +1204,6 @@ def _open_customer_points(offer, trip):
                 points += 1
         except (TypeError, ValueError):
             pass
-
-    cabin = str(answers.get("cabin_class") or "any")
-    if cabin != "any":
-        offer_cabin = str(offer.get("cabin_class") or offer.get("travel_class") or "").lower()
-        names = {"economy":{"economy","תיירים"}, "premium":{"premium","premium economy","פרימיום"}, "business":{"business","עסקים"}}
-        if any(x in offer_cabin for x in names.get(cabin,{cabin})):
-            points += 1
-
-    flex = str(answers.get("ticket_flexibility") or "any")
-    if flex != "any":
-        label = str(offer.get("change_cancel_label") or "").lower()
-        can_change = any(x in label for x in ("change", "שינוי", "ניתן לשינוי", "free"))
-        can_cancel = any(x in label for x in ("cancel", "refund", "ביטול", "החזר"))
-        ok = (flex == "regular") or (flex == "change" and can_change) or (flex == "cancel" and can_cancel) or (flex == "change_cancel" and can_change and can_cancel)
-        if ok:
-            points += 1
     return points
 
 
@@ -1387,7 +1388,6 @@ def _standard_match_details(offer, trip):
 
     priorities={str(x) for x in (answers.get("deal_priorities") or [])}
     if "direct" in priorities: add(int(offer.get("stops") or 0)==0, "טיסה ישירה", "Direct flight")
-    if "connections_ok" in priorities: add(True, "קונקשן אפשרי", "Connections allowed")
     if "baggage" in priorities:
         b=offer.get("baggage") or {}; carry=(b.get("carry_on_8kg") or {}).get("included") is True; checked=(b.get("checked_bag_23kg") or {}).get("included") is True
         add(carry or checked, "כבודה", "Baggage")
@@ -1395,17 +1395,6 @@ def _standard_match_details(offer, trip):
         arr=_time_minutes(offer.get("arrival_time")); ret=_time_minutes(offer.get("return_departure_time"))
         add(arr is not None and ret is not None and arr<=600 and ret>=1200, "למקסם את החופשה", "Maximize vacation time")
 
-    cabin=str(answers.get("cabin_class") or "any")
-    if cabin!="any":
-        offer_cabin=str(offer.get("cabin_class") or offer.get("travel_class") or "").lower()
-        names={"economy":{"economy","תיירים"},"premium":{"premium","premium economy","פרימיום"},"business":{"business","עסקים"}}
-        add(any(x in offer_cabin for x in names.get(cabin,{cabin})), "מחלקת הטיסה", "Cabin class")
-    flex=str(answers.get("ticket_flexibility") or "any")
-    if flex!="any":
-        label=str(offer.get("change_cancel_label") or "").lower()
-        can_change=any(x in label for x in ("change","שינוי","ניתן לשינוי","free")); can_cancel=any(x in label for x in ("cancel","refund","ביטול","החזר"))
-        ok=(flex=="regular") or (flex=="change" and can_change) or (flex=="cancel" and can_cancel) or (flex=="change_cancel" and can_change and can_cancel)
-        add(ok, "גמישות הכרטיס", "Ticket flexibility")
     return points, possible, matched, missed
 
 
@@ -1444,13 +1433,12 @@ def _trip_constraints_summary(trip):
 
     # Destination/search mode is intentionally omitted here: the card title already shows it.
 
-    # Date flexibility is useful context, without repeating the actual dates/months.
+    # The main card already renders the date window/flexibility. Only an explicit
+    # +/- day tolerance is additional information worth showing here.
     dm=str(a.get("date_mode") or "")
     flex=a.get("date_flex_days")
     if dm=="exact" and flex:
         out.append(("Date flexibility" if en else "גמישות בתאריכים", f"±{flex} {'days' if en else 'ימים'}"))
-    elif dm in {"anytime","ski_flexible"}:
-        out.append(("Date flexibility" if en else "גמישות בתאריכים", "Any time" if en else "לא משנה / אריאלה תבחר"))
 
     if a.get("travel_party")=="friends" and a.get("friends_age_group"):
         m={"youth":("Youth / young adults","נוער / צעירים"),"adults":("Adults","מבוגרים"),"seniors":("Seniors","הגיל השלישי")}
@@ -1476,14 +1464,13 @@ def _trip_constraints_summary(trip):
     labels={
         "dates":("Selected dates","התאריכים שנבחרו"),
         "direct":("Direct flight","טיסה ישירה"),
-        "connections_ok":("Connections are OK","קונקשן אפשרי"),
         "baggage":("Baggage","כבודה"),
         "price":("Price","מחיר"),
         "maximize":("Maximize the vacation","למקסם את החופשה"),
         "balanced":("Let Ariella choose","תנו לאריאלה לבחור"),
     }
     chosen=[]
-    for key in ("direct","baggage","connections_ok","maximize","balanced"):
+    for key in ("direct","baggage","maximize","balanced"):
         if key in priorities: chosen.append(labels[key][0 if en else 1])
     if chosen:
         out.append(("What matters" if en else "מה חשוב", " · ".join(chosen)))

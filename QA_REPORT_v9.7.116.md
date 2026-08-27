@@ -1,4 +1,4 @@
-# QA REPORT — Ariella v9.7.116
+# QA REPORT — Ariella v9.7.117
 
 ## Changes closed in this build
 - Open-destination ranking changed to transparent points: each selected condition met = +1; seasonality = +1; deal score is tie-breaker only.

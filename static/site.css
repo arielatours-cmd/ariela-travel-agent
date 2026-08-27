@@ -2449,3 +2449,8 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 .trip-request-summary>strong{font-size:18px!important;color:#334252!important}
 .trip-request-chips span,.trip-request-chips b{font-size:17px!important;background:transparent!important}
 @media(max-width:700px){.trip-details-list,.trip-details-list dt,.trip-details-list dd{font-size:17px!important}.trip-request-chips span,.trip-request-chips b{font-size:16px!important}}
+
+/* v9.7.117 approved subtle ornament for alternative deals */
+.alternative-deals-message{position:relative;padding-top:30px;font-size:18px;line-height:1.6}
+.alternative-deals-message::before{content:"✿";position:absolute;top:0;left:50%;transform:translateX(-50%);color:#c89a3d;font-size:20px;line-height:1;background:#fff;padding:0 12px;z-index:2}
+.alternative-deals-message::after{content:"";position:absolute;top:9px;left:12%;right:12%;border-top:1px solid #d5b16a;z-index:1}

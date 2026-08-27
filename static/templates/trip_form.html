@@ -135,7 +135,7 @@
       {% for value,en,he in opts %}<label class="choice-button"><input type="checkbox" name="holiday_priorities" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}
       </div>
       <h3>{{'And what matters most about the flight?' if site_lang=='en' else 'ומה חשוב לכם בטיסה?'}}</h3>
-      <div class="choice-row compact-options">{% for value,en,he in [('direct','Direct only','טיסה ישירה'),('connections_ok','Connections are OK','קונקשן אפשרי'),('baggage','Baggage','כבודה'),('balanced','Let Ariella choose','תנו לאריאלה לבחור')] %}<label class="choice-button small"><input type="checkbox" name="deal_priorities" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
+      <div class="choice-row compact-options">{% for value,en,he in [('direct','Direct only','טיסה ישירה'),('baggage','Baggage','כבודה'),('balanced','Let Ariella choose','תנו לאריאלה לבחור')] %}<label class="choice-button small"><input type="checkbox" name="deal_priorities" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
     </div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
@@ -144,12 +144,6 @@
     <span class="step-number">05</span><h2>{{'Would you like to set a budget?' if site_lang=='en' else 'האם תרצו להגביל את התקציב?'}}</h2>
     <div class="choice-row">{% for value,en,he in [('per_person','Budget per person','תקציב לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}<label class="choice-button"><input type="radio" name="budget_mode" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
     <div class="conditional-panel" id="regularBudgetPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב מרבי לאדם (₪)'}}<input type="number" name="budget_amount" id="budgetAmount" min="0" step="50"></label><p class="helper">{{'Ariella allows up to 10% tolerance.' if site_lang=='en' else 'אריאלה מאפשרת סטייה של עד 10% מהתקציב.'}}</p></div>
-    <div class="conditional-panel regular-ticket-options">
-      <h3>{{'Cabin class' if site_lang=='en' else 'מחלקת טיסה'}}</h3>
-      <div class="choice-row compact-options">{% for value,en,he in [('economy','Economy','אקונומי'),('premium','Premium economy','פרימיום אקונומי'),('business','Business','ביזנס'),('any','Doesn’t matter','לא משנה')] %}<label class="choice-button small"><input type="radio" name="cabin_class" value="{{value}}" {% if value=='any' %}checked{% endif %}><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
-      <h3>{{'Ticket flexibility' if site_lang=='en' else 'גמישות הכרטיס'}}</h3>
-      <div class="choice-row compact-options">{% for value,en,he in [('regular','Regular ticket','כרטיס רגיל'),('change','Changeable','ניתן לשינוי'),('cancel','Refundable','ניתן לביטול'),('change_cancel','Changeable & refundable','ניתן לשינוי וביטול'),('any','Doesn’t matter','לא משנה')] %}<label class="choice-button small"><input type="radio" name="ticket_flexibility" value="{{value}}" {% if value=='any' %}checked{% endif %}><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
-    </div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
 
@@ -435,6 +429,13 @@
     const destPanel=document.getElementById('destinationDetails');
     if(destPanel) destPanel.hidden=!['specific','several'].includes(dm);
     const open=dm==='open';
+    if(open){
+      const destInput=document.getElementById('destinationsInput');
+      const destSearch=document.getElementById('destinationsSearch');
+      if(destInput && destInput.value){ destInput.value=''; }
+      if(destSearch){ destSearch.value=''; }
+      document.querySelectorAll('[data-destination-picker] .airport-tags').forEach(x=>x.innerHTML='');
+    }
     document.getElementById('regularFlightPriorities').hidden=open;
     document.getElementById('regularOpenPriorities').hidden=!open;
 
@@ -448,6 +449,7 @@
       if(!label)return;
       label.hidden=hideDatePriority;
       label.classList.toggle('force-hidden',hideDatePriority);
+      label.style.setProperty('display', hideDatePriority ? 'none' : '', hideDatePriority ? 'important' : '');
       const i=label.querySelector('input[name="deal_priorities"][value="dates"]');
       if(i){i.disabled=hideDatePriority;if(hideDatePriority){i.checked=false;setSelectedState(i);}}
     });
@@ -463,6 +465,8 @@
     const rp=form.querySelector('input[name="travel_party"]:checked')?.value;
     document.getElementById('regularFamily').hidden=rp!=='family';
     document.getElementById('regularAdultCount').hidden=rp!=='friends';
+    if(rp==='friends'){ const n=form.querySelector('input[name="adults"]'); if(n && !String(n.value||'').trim()) n.value='2'; }
+    if(rp==='family'){ const a=form.querySelector('input[name="family_adults"]'); const c=form.querySelector('input[name="children"]'); if(a && !String(a.value||'').trim()) a.value='2'; if(c && !String(c.value||'').trim()) c.value='1'; }
     const sp=form.querySelector('input[name="ski_travel_party"]:checked')?.value;
     document.getElementById('skiFamily').hidden=sp!=='family';
     document.getElementById('skiAdultCount').hidden=sp!=='friends';
