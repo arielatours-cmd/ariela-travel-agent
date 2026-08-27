@@ -144,10 +144,10 @@
     <span class="step-number">05</span><h2>{{'Would you like to set a budget?' if site_lang=='en' else 'האם תרצו להגביל את התקציב?'}}</h2>
     <div class="choice-row">{% for value,en,he in [('per_person','Budget per person','תקציב לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}<label class="choice-button"><input type="radio" name="budget_mode" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
     <div class="conditional-panel" id="regularBudgetPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב מרבי לאדם (₪)'}}<input type="number" name="budget_amount" id="budgetAmount" min="0" step="50"></label><p class="helper">{{'Ariella allows up to 10% tolerance.' if site_lang=='en' else 'אריאלה מאפשרת סטייה של עד 10% מהתקציב.'}}</p></div>
-    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="submit" class="button primary">{{'Find me the best-value flight' if site_lang=='en' else 'מצא לי את הטיסה המשתלמת'}}</button></div>
   </section>
 
-  <section class="wizard-step" data-route="standard" data-step="6" hidden>
+  <section class="wizard-step removed-standard-step" data-route="standard-removed" data-step="6" hidden>
     <span class="step-number">06</span><h2>{{'Any important needs?' if site_lang=='en' else 'האם יש צרכים חשובים שנרצה לקחת בחשבון?'}}</h2>
     <div class="choice-row compact-options">{% for value,en,he in [('kosher','Kosher','אוכל כשר'),('shabbat','Shabbat observance','שמירת שבת'),('accessible','Accessibility','נגישות'),('stroller','Stroller','עגלה'),('walking','Walking limitation','מגבלת הליכה'),('vegetarian','Vegetarian / vegan','צמחוני/טבעוני')] %}<label class="choice-button small"><input type="checkbox" name="special_needs" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
     <label class="notes-label">{{'Anything else?' if site_lang=='en' else 'משהו נוסף שחשוב שנדע?'}}<textarea name="notes" rows="4"></textarea></label>
