@@ -2434,3 +2434,8 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
   .deal-card-v970 .visual-destination-outside strong{font-size:25px!important}
   .deal-card-v970 .route-destination .route-city{font-size:21px!important}
 }
+
+/* v9.7.110 QA fixes */
+.trip-request-summary{margin:14px 0 4px;padding:12px 14px;border-top:1px solid rgba(139,111,57,.18);border-bottom:1px solid rgba(139,111,57,.18)}
+.trip-request-summary>strong{display:block;margin-bottom:8px;color:#7d5b25}.trip-request-chips{display:flex;gap:7px;flex-wrap:wrap}.trip-request-chips span{font-size:13px;padding:5px 9px;border-radius:999px;background:#f7f3e9;color:#514a40}.trip-request-chips b{color:#8b6b34}.alternative-deals-message{margin:24px auto 14px;max-width:850px;text-align:center;font-weight:700;color:#65553b}.deal-availability-note,.deal-soft-mismatch{margin:10px 0;padding:9px 11px;border-radius:10px;background:#fff8e7;color:#65502d;font-size:13px;line-height:1.55}.deal-soft-mismatch{background:#f7f5ef;color:#625f59}.friends-age-groups{margin-top:12px}
+@media(max-width:700px){.trip-request-chips{display:grid;grid-template-columns:1fr}.trip-request-chips span{border-radius:10px}.alternative-deals-message{padding-inline:10px}}

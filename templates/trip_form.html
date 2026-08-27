@@ -87,9 +87,11 @@
       <label>{{ 'Departure month' if site_lang=='en' else 'חודש יציאה' }}<input type="month" name="outbound_month" id="outboundMonth" min="{{current_month}}"></label>
       <label>{{ 'Return month' if site_lang=='en' else 'חודש חזרה' }}<input type="month" name="return_month" id="returnMonth" min="{{current_month}}"></label>
     </div>
-    <div class="conditional-panel two-cols" id="regularExactPanel" hidden>
-      <label>{{ 'Departure date' if site_lang=='en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{today}}"></label>
-      <label>{{ 'Return date' if site_lang=='en' else 'תאריך חזרה' }}<input type="date" name="return_date" id="returnDate" min="{{today}}"></label>
+    <div class="conditional-panel" id="regularExactPanel" hidden>
+      <div class="two-cols"><label>{{ 'Departure date' if site_lang=='en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{today}}"></label>
+      <label>{{ 'Return date' if site_lang=='en' else 'תאריך חזרה' }}<input type="date" name="return_date" id="returnDate" min="{{today}}"></label></div>
+      <label class="business-flex-toggle"><input type="checkbox" name="date_flexible" value="1" id="regularFlexibleDates"><span>{{'I have date flexibility' if site_lang=='en' else 'יש לי גמישות בתאריכים'}}</span></label>
+      <div class="conditional-panel" id="regularFlexPanel" hidden><label>{{'How many days can the dates move?' if site_lang=='en' else 'כמה ימים אפשר להזיז?'}}<select name="date_flex_days"><option value="1">± 1</option><option value="2">± 2</option><option value="3">± 3</option></select></label></div>
     </div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
@@ -97,10 +99,13 @@
   <section class="wizard-step" data-route="standard" data-step="3" hidden>
     <span class="step-number">03</span><h2>{{'Who is traveling?' if site_lang=='en' else 'מי משתתף בחופשה?'}}</h2>
     <div class="choice-row compact-options">
-      {% set opts=[('solo','Solo','לבד'),('couple','Couple','זוג'),('friends','Friends','חברים'),('family','Family with children','משפחה עם ילדים'),('extended','Extended family','משפחה מורחבת'),('adults_only','Adults only','מבוגרים בלבד')] %}
+      {% set opts=[('solo','Solo','לבד'),('couple','Couple','זוג'),('friends','Friends','חברים'),('family','Family with children','משפחה עם ילדים')] %}
       {% for value,en,he in opts %}<label class="choice-button small"><input type="radio" name="travel_party" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}
     </div>
-    <div class="conditional-panel" id="regularAdultCount" hidden><label>{{'Number of adults' if site_lang=='en' else 'מספר מבוגרים'}}<input type="number" name="adults" min="1" value="2"></label></div>
+    <div class="conditional-panel" id="regularAdultCount" hidden>
+      <label>{{'Number of travelers' if site_lang=='en' else 'מספר נוסעים'}}<input type="number" name="adults" min="1" value="2"></label>
+      <div class="choice-row compact-options friends-age-groups">{% for value,en,he in [('youth','Youth / young adults','נוער / צעירים'),('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}<label class="choice-button small"><input type="radio" name="friends_age_group" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
+    </div>
     <div class="conditional-panel" id="regularFamily" hidden>
       <div class="two-cols"><label>{{'Adults' if site_lang=='en' else 'מבוגרים'}}<input type="number" name="family_adults" min="1" value="2"></label><label>{{'Children' if site_lang=='en' else 'ילדים'}}<input type="number" name="children" min="1" value="1"></label></div>
       <div class="choice-row compact-options">
@@ -108,9 +113,7 @@
         {% for value,en,he in ages %}<label class="choice-button small"><input type="checkbox" name="age_groups" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}
       </div>
     </div>
-    <div class="conditional-panel" id="regularAdultAges" hidden>
-      <div class="choice-row compact-options">{% for value,en,he in [('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}<label class="choice-button small"><input type="checkbox" name="age_groups" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
-    </div>
+
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
 
@@ -261,9 +264,11 @@
       <label>{{'Departure month' if site_lang=='en' else 'חודש יציאה'}}<input type="month" name="ski_outbound_month" id="skiOutboundMonth" min="{{current_month}}"></label>
       <label>{{'Return month' if site_lang=='en' else 'חודש חזרה'}}<input type="month" name="ski_return_month" id="skiReturnMonth" min="{{current_month}}"></label>
     </div>
-    <div class="conditional-panel two-cols" id="skiExactPanel" hidden>
-      <label>{{'Departure date' if site_lang=='en' else 'תאריך יציאה'}}<input type="date" name="ski_departure_date" id="skiDepartureDate" min="{{today}}"></label>
-      <label>{{'Return date' if site_lang=='en' else 'תאריך חזרה'}}<input type="date" name="ski_return_date" id="skiReturnDate" min="{{today}}"></label>
+    <div class="conditional-panel" id="skiExactPanel" hidden>
+      <div class="two-cols"><label>{{'Departure date' if site_lang=='en' else 'תאריך יציאה'}}<input type="date" name="ski_departure_date" id="skiDepartureDate" min="{{today}}"></label>
+      <label>{{'Return date' if site_lang=='en' else 'תאריך חזרה'}}<input type="date" name="ski_return_date" id="skiReturnDate" min="{{today}}"></label></div>
+      <label class="business-flex-toggle"><input type="checkbox" name="ski_date_flexible" value="1" id="skiFlexibleDates"><span>{{'I have date flexibility' if site_lang=='en' else 'יש לי גמישות בתאריכים'}}</span></label>
+      <div class="conditional-panel" id="skiFlexPanel" hidden><label>{{'How many days can the dates move?' if site_lang=='en' else 'כמה ימים אפשר להזיז?'}}<select name="ski_date_flex_days"><option value="1">± 1</option><option value="2">± 2</option><option value="3">± 3</option></select></label></div>
     </div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
@@ -271,10 +276,10 @@
   <section class="wizard-step ski-question" data-route="ski" data-step="3" hidden>
     <span class="step-number">S3</span><h2>{{'Who is traveling?' if site_lang=='en' else 'מי נוסע לחופשת הסקי?'}}</h2>
     <div class="choice-row compact-options">
-      {% for value,en,he in [('solo','Solo','לבד'),('couple','Couple','זוג'),('friends','Friends','חברים'),('family','Family with children','משפחה עם ילדים'),('extended','Extended family','משפחה מורחבת')] %}
+      {% for value,en,he in [('solo','Solo','לבד'),('couple','Couple','זוג'),('friends','Friends','חברים'),('family','Family with children','משפחה עם ילדים')] %}
       <label class="choice-button small"><input type="radio" name="ski_travel_party" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}
     </div>
-    <div class="conditional-panel" id="skiAdultCount" hidden><label>{{'Number of adults' if site_lang=='en' else 'מספר מבוגרים'}}<input type="number" name="ski_adults" min="1" value="2"></label></div>
+    <div class="conditional-panel" id="skiAdultCount" hidden><label>{{'Number of travelers' if site_lang=='en' else 'מספר נוסעים'}}<input type="number" name="ski_adults" min="1" value="2"></label><div class="choice-row compact-options friends-age-groups">{% for value,en,he in [('youth','Youth / young adults','נוער / צעירים'),('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}<label class="choice-button small"><input type="radio" name="ski_friends_age_group" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div></div>
     <div class="conditional-panel" id="skiFamily" hidden>
       <div class="two-cols"><label>{{'Adults' if site_lang=='en' else 'מבוגרים'}}<input type="number" name="ski_family_adults" min="1" value="2"></label><label>{{'Children' if site_lang=='en' else 'ילדים'}}<input type="number" name="ski_children" min="1" value="1"></label></div>
       <div class="choice-row compact-options">{% for value,en,he in [('infants','0–2','0–2'),('children','3–12','3–12'),('teens','13–17','13–17')] %}<label class="choice-button small"><input type="checkbox" name="ski_age_groups" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
@@ -319,7 +324,7 @@
   </section>
 
   <div class="ariella-search-overlay" id="ariellaSearchOverlay" hidden aria-live="polite">
-    <div class="ariella-search-card"><div class="coconut-scene" aria-hidden="true"><div class="palm">🌴</div><div class="monkey">🐒</div><div class="coconut">🥥</div></div><h3>{{'Ariella is checking the database…' if site_lang=='en' else 'אריאלה בודקת קודם את בסיס הנתונים…'}}</h3><div class="search-dots"><i></i><i></i><i></i></div></div>
+    <div class="ariella-search-card"><div class="coconut-scene" aria-hidden="true"><div class="palm">🌴</div><div class="monkey">🐒</div><div class="coconut">🥥</div></div><h3>{{'Ariella is looking for the best deal for you…' if site_lang=='en' else 'אריאלה מחפשת לך את העסקה הטובה ביותר…'}}</h3><div class="search-dots"><i></i><i></i><i></i></div></div>
   </div>
 </form>
 
@@ -420,17 +425,25 @@
     const rdate=form.querySelector('input[name="date_mode"]:checked')?.value;
     document.getElementById('regularMonthPanel').hidden=rdate!=='month';
     document.getElementById('regularExactPanel').hidden=rdate!=='exact';
+    const datePriority=form.querySelector('input[name="deal_priorities"][value="dates"]')?.closest('.choice-button');
+    if(datePriority){
+      datePriority.hidden=rdate==='anytime';
+      if(rdate==='anytime'){const i=datePriority.querySelector('input'); if(i){i.checked=false;setSelectedState(i);}}
+    }
+    const regFlex=document.getElementById('regularFlexibleDates')?.checked===true;
+    document.getElementById('regularFlexPanel').hidden=!(rdate==='exact'&&regFlex);
     const sdate=form.querySelector('input[name="ski_date_mode"]:checked')?.value;
     document.getElementById('skiMonthPanel').hidden=sdate!=='month';
     document.getElementById('skiExactPanel').hidden=sdate!=='exact';
+    const skiFlex=document.getElementById('skiFlexibleDates')?.checked===true;
+    document.getElementById('skiFlexPanel').hidden=!(sdate==='exact'&&skiFlex);
 
     // party
     const rp=form.querySelector('input[name="travel_party"]:checked')?.value;
-    document.getElementById('regularFamily').hidden=!['family','extended'].includes(rp);
+    document.getElementById('regularFamily').hidden=rp!=='family';
     document.getElementById('regularAdultCount').hidden=rp!=='friends';
-    document.getElementById('regularAdultAges').hidden=rp!=='adults_only';
     const sp=form.querySelector('input[name="ski_travel_party"]:checked')?.value;
-    document.getElementById('skiFamily').hidden=!['family','extended'].includes(sp);
+    document.getElementById('skiFamily').hidden=sp!=='family';
     document.getElementById('skiAdultCount').hidden=sp!=='friends';
 
     // budgets
@@ -453,6 +466,17 @@
     document.getElementById('businessBudgetPanel').hidden=bbm!=='per_person';
   }
   form.addEventListener('change',syncAll);
+  // "Let Ariella choose" is exclusive: selecting it clears the other flight priorities,
+  // and selecting a specific priority clears "balanced".
+  form.querySelectorAll('input[name="deal_priorities"]').forEach(input=>input.addEventListener('change',()=>{
+    const scope=input.closest('#regularOpenPriorities');
+    if(!scope) return;
+    const balanced=scope.querySelector('input[value="balanced"]');
+    const peers=Array.from(scope.querySelectorAll('input[name="deal_priorities"]')).filter(x=>x!==balanced);
+    if(input===balanced && input.checked){peers.forEach(x=>{x.checked=false;setSelectedState(x);});}
+    else if(input!==balanced && input.checked && balanced){balanced.checked=false;setSelectedState(balanced);}
+  }));
+
 
   function wireMonth(outId,retId){
     const out=document.getElementById(outId),ret=document.getElementById(retId);

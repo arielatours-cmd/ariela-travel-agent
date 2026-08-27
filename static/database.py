@@ -45,13 +45,53 @@ def _public_airline_logo(airline: str | None, flight_number: str | None = None, 
 
 
 
-def _arrival_days_after(departure_date, arrival_date):
+def _clock_minutes(value):
+    """Return minutes after midnight from HH:MM or an ISO-like timestamp."""
     try:
-        dep = datetime.fromisoformat(str(departure_date)[:10]).date()
-        arr = datetime.fromisoformat(str(arrival_date)[:10]).date()
-        return max(0, (arr - dep).days)
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        clock = raw[11:16] if len(raw) >= 16 and raw[10] in ("T", " ") else raw[:5]
+        hh, mm = clock.split(":")[:2]
+        return int(hh) * 60 + int(mm)
     except Exception:
-        return 0
+        return None
+
+
+def _arrival_days_after(departure_date, arrival_date, departure_time=None,
+                        arrival_time=None, duration_minutes=None):
+    """Calculate +N arrival day, including legacy offers without arrival_date.
+
+    Preferred source is explicit departure/arrival dates. For old stored deals
+    that predate arrival_date persistence, infer the day rollover from the
+    departure/arrival clocks and total duration. This makes +1/+2 retroactive.
+    """
+    # Explicit dates are authoritative when both are genuinely available.
+    if departure_date and arrival_date:
+        try:
+            dep = datetime.fromisoformat(str(departure_date)[:10]).date()
+            arr = datetime.fromisoformat(str(arrival_date)[:10]).date()
+            delta = (arr - dep).days
+            if delta > 0:
+                return delta
+        except Exception:
+            pass
+
+    dep_min = _clock_minutes(departure_time)
+    arr_min = _clock_minutes(arrival_time)
+    try:
+        duration = int(duration_minutes) if duration_minutes is not None else None
+    except (TypeError, ValueError):
+        duration = None
+
+    # Duration gives the strongest fallback and also supports +2 long-haul legs.
+    if dep_min is not None and duration is not None and duration >= 0:
+        return max(0, (dep_min + duration) // (24 * 60))
+
+    # Last-resort legacy inference: an earlier arrival clock means next day.
+    if dep_min is not None and arr_min is not None and arr_min < dep_min:
+        return 1
+    return 0
 
 
 def utc_now_iso() -> str:
@@ -84,7 +124,10 @@ def init_db() -> None:
                 offers_found INTEGER NOT NULL DEFAULT 0,
                 errors INTEGER NOT NULL DEFAULT 0,
                 error_message TEXT,
-                last_progress_at TEXT
+                last_progress_at TEXT,
+                scan_type TEXT NOT NULL DEFAULT 'general',
+                trip_id INTEGER,
+                api_requests INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS offers (
@@ -266,6 +309,12 @@ def init_db() -> None:
         if "last_progress_at" not in scan_columns:
             conn.execute("ALTER TABLE scan_runs ADD COLUMN last_progress_at TEXT")
             conn.execute("UPDATE scan_runs SET last_progress_at=started_at WHERE last_progress_at IS NULL")
+        if "scan_type" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN scan_type TEXT NOT NULL DEFAULT 'general'")
+        if "trip_id" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN trip_id INTEGER")
+        if "api_requests" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN api_requests INTEGER NOT NULL DEFAULT 0")
 
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
@@ -281,31 +330,31 @@ def init_db() -> None:
             conn.execute("ALTER TABLE members ADD COLUMN preferred_airports TEXT NOT NULL DEFAULT '[]'")
 
 
-def create_scan_run(searches_planned: int) -> int:
+def create_scan_run(searches_planned: int, scan_type: str = "general", trip_id: int | None = None) -> int:
     with connection() as conn:
         cur = conn.execute(
-            "INSERT INTO scan_runs(started_at,status,searches_planned,last_progress_at) VALUES(?,?,?,?)",
-            (utc_now_iso(), "running", searches_planned, utc_now_iso()),
+            "INSERT INTO scan_runs(started_at,status,searches_planned,last_progress_at,scan_type,trip_id) VALUES(?,?,?,?,?,?)",
+            (utc_now_iso(), "running", searches_planned, utc_now_iso(), scan_type or "general", trip_id),
         )
         return int(cur.lastrowid)
 
 
-def finish_scan_run(run_id: int, completed: int, offers: int, errors: int, error_message: str | None = None) -> None:
+def finish_scan_run(run_id: int, completed: int, offers: int, errors: int, error_message: str | None = None, api_requests: int | None = None) -> None:
     with connection() as conn:
         row = conn.execute("SELECT searches_planned FROM scan_runs WHERE id=?", (run_id,)).fetchone()
         planned = int(row["searches_planned"] or 0) if row else completed
         status = "success" if errors == 0 and completed >= planned else "partial" if completed > 0 else "failed"
         conn.execute(
-            """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=?,last_progress_at=? WHERE id=?""",
-            (utc_now_iso(), status, completed, offers, errors, error_message, utc_now_iso(), run_id),
+            """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=?,last_progress_at=?,api_requests=COALESCE(?,api_requests) WHERE id=?""",
+            (utc_now_iso(), status, completed, offers, errors, error_message, utc_now_iso(), api_requests, run_id),
         )
 
 
-def update_scan_progress(run_id: int, completed: int, offers: int, errors: int) -> None:
+def update_scan_progress(run_id: int, completed: int, offers: int, errors: int, api_requests: int | None = None) -> None:
     with connection() as conn:
         conn.execute(
-            "UPDATE scan_runs SET searches_completed=?,offers_found=?,errors=?,last_progress_at=? WHERE id=?",
-            (completed, offers, errors, utc_now_iso(), run_id),
+            "UPDATE scan_runs SET searches_completed=?,offers_found=?,errors=?,last_progress_at=?,api_requests=COALESCE(?,api_requests) WHERE id=?",
+            (completed, offers, errors, utc_now_iso(), api_requests, run_id),
         )
 
 
@@ -642,11 +691,14 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
                 flight.get("return_flight_number"),
                 flight.get("return_airline_logo"),
             ),
+            "departure_time": flight.get("departure_time"),
+            "arrival_time": flight.get("arrival_time"),
+            "total_duration_minutes": flight.get("total_duration_minutes"),
             "return_airline": flight.get("return_airline"),
             "return_departure_time": flight.get("return_departure_time"),
             "return_arrival_time": flight.get("return_arrival_time"),
-            "arrival_days_after": _arrival_days_after(item.get("outbound_date"), flight.get("arrival_date") or item.get("outbound_date")),
-            "return_arrival_days_after": _arrival_days_after(item.get("return_date"), flight.get("return_arrival_date") or item.get("return_date")),
+            "arrival_days_after": _arrival_days_after(item.get("outbound_date"), flight.get("arrival_date"), flight.get("departure_time"), flight.get("arrival_time"), flight.get("total_duration_minutes")),
+            "return_arrival_days_after": _arrival_days_after(item.get("return_date"), flight.get("return_arrival_date"), flight.get("return_departure_time"), flight.get("return_arrival_time"), flight.get("return_total_duration_minutes")),
             "return_total_duration_minutes": flight.get("return_total_duration_minutes"),
             "return_connections": flight.get("return_connections") or [],
             "return_stops": flight.get("return_stops") or 0,

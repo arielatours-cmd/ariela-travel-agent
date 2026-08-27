@@ -117,7 +117,7 @@ tbody tr:hover{background:#fafbfe}
     font-size:12px;
     font-weight:800;
 }
-.destination-name{
+.destination-name{font-size:1.08em;
     display:block;
     margin-top:2px;
     font-size:11px;
@@ -343,6 +343,7 @@ tbody tr:hover{background:#fafbfe}
 <thead>
 <tr>
     <th class="scan-id">סריקה</th>
+    <th class="scan-time">מועד סריקה / גיל</th>
     <th class="destination admin-head-filter">
       <button type="button" class="head-sort" data-sort="destination">יעד ↕</button>
       <input id="adminOfferDestination" type="search" placeholder="סינון יעד / קוד">
@@ -381,6 +382,12 @@ tbody tr:hover{background:#fafbfe}
 {% for o in offers %}
 <tr class="offer-row" data-destination="{{ (o.arrival_code or '')|lower }} {{ (o.destination_name or '')|lower }}" data-scan="{{ o.scan_run_id or '' }}" data-score="{{ o.score or 0 }}" data-price="{{ o.price_ils or 0 }}" data-outbound="{{ o.outbound_date or '' }}" data-return="{{ o.return_date or '' }}" data-order="{{ loop.index0 }}">
     <td class="scan-id"><button class="scan-link" type="button" onclick="showScan({{ o.scan_run_id or 0 }})">#{{ o.scan_run_id or '—' }}</button></td>
+    <td class="scan-time" title="דילים מעל 48 שעות אינם משמשים לחיפוש אישי">
+      {% if o.observed_at %}
+        {{ o.observed_at[:16]|replace('T',' ') }}<br>
+        <small data-observed="{{ o.observed_at }}">48h window</small>
+      {% else %}—{% endif %}
+    </td>
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
         <span class="destination-name">{{ o.destination_name or o.arrival_code or '—' }}</span>
@@ -450,6 +457,8 @@ tbody tr:hover{background:#fafbfe}
     <th class="scan-status">סטטוס</th>
     <th class="scan-date">התחלה</th>
     <th class="scan-number">חיפושים</th>
+    <th>סוג</th>
+    <th class="scan-number">קריאות API</th>
     <th class="scan-number">הצעות</th>
     <th class="scan-number">שגיאות</th>
 </tr>
@@ -461,12 +470,14 @@ tbody tr:hover{background:#fafbfe}
     <td>{{ s.status }}</td>
     <td>{{ s.started_at }}</td>
     <td>{{ s.searches_completed }}/{{ s.searches_planned }}</td>
+    <td>{{ s.scan_type or 'general' }}{% if s.trip_id %} · חופשה #{{s.trip_id}}{% endif %}</td>
+    <td>{{ s.api_requests or 0 }}</td>
     <td>{{ s.offers_found }}</td>
-    <td>{{ s.errors }}</td>
+    <td>{{ s.errors }}{% if s.error_message %}<br><small title="{{s.error_message}}">{{ s.error_message[:90] }}</small>{% endif %}</td>
 </tr>
-<tr id="scan-details-{{ s.id }}" class="scan-details-row" hidden><td colspan="6"><div class="scan-details-content">טוען...</div></td></tr>
+<tr id="scan-details-{{ s.id }}" class="scan-details-row" hidden><td colspan="8"><div class="scan-details-content">טוען...</div></td></tr>
 {% else %}
-<tr><td class="empty" colspan="6">עדיין אין סריקות.</td></tr>
+<tr><td class="empty" colspan="8">עדיין אין סריקות.</td></tr>
 {% endfor %}
 </tbody>
 </table>
@@ -627,6 +638,19 @@ function sortDestination(){
  rows.sort((x,y)=>(x.dataset.destination||'').localeCompare(y.dataset.destination||'','he')*destinationSortDir);
  rows.forEach(r=>tbody.appendChild(r)); destinationSortDir*=-1;
 }
+
+function refreshOfferAges(){
+  document.querySelectorAll('[data-observed]').forEach(function(el){
+    const raw=el.getAttribute('data-observed');
+    const d=new Date(raw);
+    if(isNaN(d.getTime())) return;
+    const hours=Math.max(0,(Date.now()-d.getTime())/3600000);
+    el.textContent = hours < 1 ? 'פחות משעה' : (Math.floor(hours)+' שעות');
+    if(hours >= 48) el.textContent += ' · היסטורי';
+  });
+}
+refreshOfferAges();
+
 </script>
 </body>
 </html>
@@ -725,7 +749,7 @@ button{background:#65748b;color:#fff;border:0;border-radius:7px;padding:8px 13px
 <div class="table-wrap"><table><thead><tr><th>מועד</th><th>יעד</th><th>חברה</th><th>ספק</th><th>מחיר</th><th>ציון</th></tr></thead><tbody>
 {% for x in analytics.booking_clicks.recent %}
 <tr><td>{{ x.clicked_at[:16] if x.clicked_at else '' }}</td><td>{{ x.destination_code or '—' }}</td><td>{{ x.airline or '—' }}</td><td>{{ x.supplier or '—' }}</td><td>{{ x.price_ils|round|int if x.price_ils is not none else '—' }}</td><td>{{ x.score or '—' }}</td></tr>
-{% else %}<tr><td colspan="6">אין לחיצות עדיין</td></tr>{% endfor %}
+{% else %}<tr><td colspan="8">אין לחיצות עדיין</td></tr>{% endfor %}
 </tbody></table></div>
 </div>
 

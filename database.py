@@ -124,7 +124,10 @@ def init_db() -> None:
                 offers_found INTEGER NOT NULL DEFAULT 0,
                 errors INTEGER NOT NULL DEFAULT 0,
                 error_message TEXT,
-                last_progress_at TEXT
+                last_progress_at TEXT,
+                scan_type TEXT NOT NULL DEFAULT 'general',
+                trip_id INTEGER,
+                api_requests INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS offers (
@@ -306,6 +309,12 @@ def init_db() -> None:
         if "last_progress_at" not in scan_columns:
             conn.execute("ALTER TABLE scan_runs ADD COLUMN last_progress_at TEXT")
             conn.execute("UPDATE scan_runs SET last_progress_at=started_at WHERE last_progress_at IS NULL")
+        if "scan_type" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN scan_type TEXT NOT NULL DEFAULT 'general'")
+        if "trip_id" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN trip_id INTEGER")
+        if "api_requests" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN api_requests INTEGER NOT NULL DEFAULT 0")
 
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
@@ -321,31 +330,31 @@ def init_db() -> None:
             conn.execute("ALTER TABLE members ADD COLUMN preferred_airports TEXT NOT NULL DEFAULT '[]'")
 
 
-def create_scan_run(searches_planned: int) -> int:
+def create_scan_run(searches_planned: int, scan_type: str = "general", trip_id: int | None = None) -> int:
     with connection() as conn:
         cur = conn.execute(
-            "INSERT INTO scan_runs(started_at,status,searches_planned,last_progress_at) VALUES(?,?,?,?)",
-            (utc_now_iso(), "running", searches_planned, utc_now_iso()),
+            "INSERT INTO scan_runs(started_at,status,searches_planned,last_progress_at,scan_type,trip_id) VALUES(?,?,?,?,?,?)",
+            (utc_now_iso(), "running", searches_planned, utc_now_iso(), scan_type or "general", trip_id),
         )
         return int(cur.lastrowid)
 
 
-def finish_scan_run(run_id: int, completed: int, offers: int, errors: int, error_message: str | None = None) -> None:
+def finish_scan_run(run_id: int, completed: int, offers: int, errors: int, error_message: str | None = None, api_requests: int | None = None) -> None:
     with connection() as conn:
         row = conn.execute("SELECT searches_planned FROM scan_runs WHERE id=?", (run_id,)).fetchone()
         planned = int(row["searches_planned"] or 0) if row else completed
         status = "success" if errors == 0 and completed >= planned else "partial" if completed > 0 else "failed"
         conn.execute(
-            """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=?,last_progress_at=? WHERE id=?""",
-            (utc_now_iso(), status, completed, offers, errors, error_message, utc_now_iso(), run_id),
+            """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=?,last_progress_at=?,api_requests=COALESCE(?,api_requests) WHERE id=?""",
+            (utc_now_iso(), status, completed, offers, errors, error_message, utc_now_iso(), api_requests, run_id),
         )
 
 
-def update_scan_progress(run_id: int, completed: int, offers: int, errors: int) -> None:
+def update_scan_progress(run_id: int, completed: int, offers: int, errors: int, api_requests: int | None = None) -> None:
     with connection() as conn:
         conn.execute(
-            "UPDATE scan_runs SET searches_completed=?,offers_found=?,errors=?,last_progress_at=? WHERE id=?",
-            (completed, offers, errors, utc_now_iso(), run_id),
+            "UPDATE scan_runs SET searches_completed=?,offers_found=?,errors=?,last_progress_at=?,api_requests=COALESCE(?,api_requests) WHERE id=?",
+            (completed, offers, errors, utc_now_iso(), api_requests, run_id),
         )
 
 

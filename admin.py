@@ -457,6 +457,8 @@ tbody tr:hover{background:#fafbfe}
     <th class="scan-status">סטטוס</th>
     <th class="scan-date">התחלה</th>
     <th class="scan-number">חיפושים</th>
+    <th>סוג</th>
+    <th class="scan-number">קריאות API</th>
     <th class="scan-number">הצעות</th>
     <th class="scan-number">שגיאות</th>
 </tr>
@@ -468,12 +470,14 @@ tbody tr:hover{background:#fafbfe}
     <td>{{ s.status }}</td>
     <td>{{ s.started_at }}</td>
     <td>{{ s.searches_completed }}/{{ s.searches_planned }}</td>
+    <td>{{ s.scan_type or 'general' }}{% if s.trip_id %} · חופשה #{{s.trip_id}}{% endif %}</td>
+    <td>{{ s.api_requests or 0 }}</td>
     <td>{{ s.offers_found }}</td>
-    <td>{{ s.errors }}</td>
+    <td>{{ s.errors }}{% if s.error_message %}<br><small title="{{s.error_message}}">{{ s.error_message[:90] }}</small>{% endif %}</td>
 </tr>
-<tr id="scan-details-{{ s.id }}" class="scan-details-row" hidden><td colspan="6"><div class="scan-details-content">טוען...</div></td></tr>
+<tr id="scan-details-{{ s.id }}" class="scan-details-row" hidden><td colspan="8"><div class="scan-details-content">טוען...</div></td></tr>
 {% else %}
-<tr><td class="empty" colspan="6">עדיין אין סריקות.</td></tr>
+<tr><td class="empty" colspan="8">עדיין אין סריקות.</td></tr>
 {% endfor %}
 </tbody>
 </table>
@@ -745,7 +749,7 @@ button{background:#65748b;color:#fff;border:0;border-radius:7px;padding:8px 13px
 <div class="table-wrap"><table><thead><tr><th>מועד</th><th>יעד</th><th>חברה</th><th>ספק</th><th>מחיר</th><th>ציון</th></tr></thead><tbody>
 {% for x in analytics.booking_clicks.recent %}
 <tr><td>{{ x.clicked_at[:16] if x.clicked_at else '' }}</td><td>{{ x.destination_code or '—' }}</td><td>{{ x.airline or '—' }}</td><td>{{ x.supplier or '—' }}</td><td>{{ x.price_ils|round|int if x.price_ils is not none else '—' }}</td><td>{{ x.score or '—' }}</td></tr>
-{% else %}<tr><td colspan="6">אין לחיצות עדיין</td></tr>{% endfor %}
+{% else %}<tr><td colspan="8">אין לחיצות עדיין</td></tr>{% endfor %}
 </tbody></table></div>
 </div>
 

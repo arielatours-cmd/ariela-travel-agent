@@ -415,9 +415,15 @@ def _offer_matches_trip(offer, trip, *, exact_dates=False, same_month=False):
     outbound = str(offer.get("outbound_date") or "")
     inbound = str(offer.get("return_date") or "")
     if exact_dates and answers.get("date_mode") == "exact":
-        if outbound != str(answers.get("departure_date") or ""):
+        try:
+            flex = max(0, min(3, int(answers.get("date_flex_days") or 0)))
+        except (TypeError, ValueError):
+            flex = 0
+        req_out = _date_from_iso(answers.get("departure_date")); req_ret = _date_from_iso(answers.get("return_date"))
+        off_out = _date_from_iso(outbound); off_ret = _date_from_iso(inbound)
+        if not all([req_out, req_ret, off_out, off_ret]):
             return False
-        if inbound != str(answers.get("return_date") or ""):
+        if abs((off_out - req_out).days) > flex or abs((off_ret - req_ret).days) > flex:
             return False
     elif same_month:
         month = _trip_requested_month(trip)
@@ -1008,7 +1014,7 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
             offer = by_id.get(oid)
             if not offer or not _offer_is_recent(offer, 48):
                 continue
-            copy = dict(offer)
+            copy = _decorate_availability_note(offer, trip)
             copy["customer_choice_label_he"] = "הבחירה של אריאלה"
             copy["customer_choice_label_en"] = "Ariella's choice"
             sig = _offer_signature(copy)
@@ -1031,7 +1037,7 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
                 belongs = False
             if not belongs or not _offer_is_recent(offer, 48) or not _offer_has_complete_roundtrip(offer):
                 continue
-            copy = dict(offer)
+            copy = _decorate_availability_note(offer, trip)
             copy["customer_choice_label_he"] = "הבחירה של אריאלה"
             copy["customer_choice_label_en"] = "Ariella's choice"
             sig = _offer_signature(copy)
@@ -1051,6 +1057,121 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
             break
     return selected
 
+
+def _requested_passenger_count(trip):
+    answers = trip.get("answers") or {}
+    try:
+        return max(1, int(answers.get("adults") or 1) + int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _decorate_availability_note(offer, trip):
+    """Never promise group inventory unless the supplier explicitly confirmed it."""
+    copy = dict(offer)
+    pax = _requested_passenger_count(trip)
+    available = copy.get("available_seats")
+    verified = copy.get("availability_verified") is True
+    copy["requested_passengers"] = pax
+    if pax > 1 and (not verified or not isinstance(available, (int, float)) or int(available) < pax):
+        copy["availability_note_he"] = "יש לוודא מול ספק ההזמנה שיש מספיק מקומות לכל הנוסעים לפני השלמת ההזמנה."
+        copy["availability_note_en"] = "Please confirm with the booking provider that enough seats remain for all travelers before completing the booking."
+    return copy
+
+
+def _standard_match_details(offer, trip):
+    """Return transparent match points for a regular/ski personal request.
+
+    Destination and freshness are handled before this function. Dates, budget,
+    direct/baggage preferences are deliberately soft so Ariella can rank the
+    closest useful alternatives rather than returning an empty page.
+    """
+    answers = trip.get("answers") or {}
+    points = possible = 0
+    matched, missed = [], []
+    def add(ok, he, en):
+        nonlocal points, possible
+        possible += 1
+        (matched if ok else missed).append(en if _lang()=="en" else he)
+        if ok: points += 1
+
+    date_mode = str(answers.get("date_mode") or "anytime")
+    if date_mode == "exact":
+        req_out=_date_from_iso(answers.get("departure_date")); req_ret=_date_from_iso(answers.get("return_date"))
+        off_out=_date_from_iso(offer.get("outbound_date")); off_ret=_date_from_iso(offer.get("return_date"))
+        try: flex=max(0,min(3,int(answers.get("date_flex_days") or 0)))
+        except (TypeError,ValueError): flex=0
+        add(bool(req_out and off_out and abs((off_out-req_out).days)<=flex), "תאריך יציאה", "Departure date")
+        add(bool(req_ret and off_ret and abs((off_ret-req_ret).days)<=flex), "תאריך חזרה", "Return date")
+    elif date_mode == "month":
+        om=str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+        rm=str(answers.get("return_month") or om)[:7]
+        add(bool(om and str(offer.get("outbound_date") or "").startswith(om)), "חודש יציאה", "Departure month")
+        add(bool(rm and str(offer.get("return_date") or "").startswith(rm)), "חודש חזרה", "Return month")
+
+    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+        try: add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount"))*1.10, "תקציב", "Budget")
+        except (TypeError,ValueError): pass
+
+    priorities={str(x) for x in (answers.get("deal_priorities") or [])}
+    if "direct" in priorities: add(int(offer.get("stops") or 0)==0, "טיסה ישירה", "Direct flight")
+    if "baggage" in priorities:
+        b=offer.get("baggage") or {}; carry=(b.get("carry_on_8kg") or {}).get("included") is True; checked=(b.get("checked_bag_23kg") or {}).get("included") is True
+        add(carry or checked, "כבודה", "Baggage")
+    return points, possible, matched, missed
+
+
+def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
+    """Closest same-destination offers in the 48h inventory, ranked by request fit."""
+    exclude=set(exclude or [])
+    answers=trip.get("answers") or {}; vacation_type=str(answers.get("vacation_type") or "standard")
+    prepared=[_decorate_ski_offer(o,trip) for o in all_offers]
+    ranked=[]
+    for o in prepared:
+        if not _offer_is_recent(o,48) or not _offer_destination_matches(o,trip) or not _offer_has_complete_roundtrip(o): continue
+        if not _offer_matches_vacation_type(o,trip) or not _ski_offer_constraints_ok(o,trip): continue
+        sig=_offer_signature(o)
+        if sig in exclude: continue
+        points, possible, matched, missed=_standard_match_details(o,trip)
+        ratio=(points/possible) if possible else 1.0
+        ranked.append((-ratio,-points,-_customer_rank_value(o,trip),float(o.get("price_ils") or 10**9),o,matched,missed))
+    ranked.sort(key=lambda x:x[:4])
+    out=[]
+    for _,_,_,_,o,matched,missed in ranked[:limit]:
+        c=_decorate_availability_note(o,trip)
+        c["request_match_reasons"]=matched; c["request_missed_reasons"]=missed
+        c["customer_choice_label_he"]="אפשרות קרובה לבקשה שלך"; c["customer_choice_label_en"]="A close match to your request"
+        out.append(c)
+    return out
+
+
+def _trip_constraints_summary(trip):
+    a=trip.get("answers") or {}; out=[]; en=_lang()=="en"
+    dm=str(a.get("date_mode") or "")
+    if dm=="exact":
+        text=f"{a.get('departure_date','')} – {a.get('return_date','')}"
+        if a.get("date_flex_days"): text += f" (±{a.get('date_flex_days')} {'days' if en else 'ימים'})"
+        out.append(("Dates" if en else "תאריכים",text))
+    elif dm=="month": out.append(("Months" if en else "חודשים",f"{a.get('outbound_month','')} → {a.get('return_month','')}"))
+    elif dm in {"anytime","ski_flexible"}: out.append(("Dates" if en else "תאריכים","Flexible" if en else "גמישים / לא משנה"))
+    try:
+        adults_n=max(0,int(a.get("adults") or 0)); children_n=max(0,int(a.get("children") or 0))
+    except (TypeError,ValueError):
+        adults_n=children_n=0
+    if adults_n or children_n:
+        pax=[]
+        if adults_n: pax.append(f"{adults_n} {'adults' if en else 'מבוגרים'}")
+        if children_n: pax.append(f"{children_n} {'children' if en else 'ילדים'}")
+        out.append(("Travelers" if en else "נוסעים"," · ".join(pax)))
+    if a.get("budget_mode")=="per_person" and a.get("budget_amount"): out.append(("Budget" if en else "תקציב",f"₪{a.get('budget_amount')} {'per person' if en else 'לאדם'}"))
+    priorities=set(a.get("deal_priorities") or [])
+    labels={"direct":("Direct flight","טיסה ישירה"),"baggage":("Baggage","כבודה"),"price":("Price","מחיר"),"maximize":("Maximize trip","למקסם את הטיול"),"balanced":("Ariella chooses","אריאלה תבחר")}
+    for key in ("direct","baggage","price","maximize","balanced"):
+        if key in priorities: out.append(("Preference" if en else "העדפה",labels[key][0 if en else 1]))
+    if a.get("special_needs"):
+        special={"kosher":"כשר","shabbat":"שמירת שבת","accessible":"נגישות","stroller":"עגלה","walking":"מגבלת הליכה","vegetarian":"צמחוני/טבעוני"}
+        out.append(("Needs" if en else "צרכים",", ".join(special.get(x,x) for x in a.get("special_needs") or [])))
+    return out
 
 def _customer_deal_choices(all_offers, trip, limit=5):
     """DB-first selection. Exact regular requests stay exact; business requests are ranked by points."""
@@ -1102,7 +1223,7 @@ def _customer_deal_choices(all_offers, trip, limit=5):
         sig = _offer_signature(offer)
         if sig in seen or len(selected) >= limit:
             return
-        copy = dict(offer)
+        copy = _decorate_availability_note(offer, trip)
         copy["customer_choice_label_he"] = label_he
         copy["customer_choice_label_en"] = label_en
         selected.append(copy); seen.add(sig)
@@ -1122,6 +1243,24 @@ def _customer_deal_choices(all_offers, trip, limit=5):
     for offer in candidates:
         add(offer, "אפשרות נוספת ששווה לשקול", "Another option worth considering")
     return selected[:limit]
+
+
+def _public_best_available(limit=30):
+    """Public feed: target 70+, but always keep up to five useful deals down to 60."""
+    recent=[_localize_offer_airports(o) for o in recent_offers(limit=300,minimum_score=60) if _offer_is_publicly_bookable(o) and _offer_is_recent(o,48)]
+    recent.sort(key=lambda o:(-int(o.get("score") or 0),float(o.get("price_ils") or 10**9)))
+    strong=[o for o in recent if int(o.get("score") or 0)>=MIN_DEAL_SCORE]
+    if len(strong)>=5: chosen=strong
+    else:
+        chosen=list(strong)
+        for floor in (65,60):
+            for o in recent:
+                if o in chosen: continue
+                sc=int(o.get("score") or 0)
+                if floor <= sc < (70 if floor==65 else 65): chosen.append(o)
+                if len(chosen)>=5: break
+            if len(chosen)>=5: break
+    return chosen[:limit]
 
 
 @site.app_context_processor
@@ -1160,20 +1299,13 @@ def home():
         # Bare site URL and ?lang=he always open the Hebrew homepage.
         session["lang"] = "he"
 
-    offers = [
-        _localize_offer_airports(o)
-        for o in recent_offers(limit=30, minimum_score=_public_deal_threshold())
-        if _offer_is_publicly_bookable(o)
-    ][:3]
+    offers = _public_best_available(limit=3)
     return render_template("home.html", offers=offers)
 
 
 @site.get("/deals")
 def deals():
-    candidates = [
-        _localize_offer_airports(o)
-        for o in recent_offers(limit=120, minimum_score=_public_deal_threshold())
-    ]
+    candidates = _public_best_available(limit=120)
     # Single source of truth for BOTH current and previous public deals.
     # Filter after localization/mapping so no legacy partial offer can leak into
     # "previous deals" through a later list split.
@@ -1235,7 +1367,7 @@ def deals():
             trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
             inventory = _customer_inventory_status(database_offers, trip)
             trip["database_match_found"] = bool(trip["offers"])
-            trip["needs_fresh_search"] = not bool(trip["offers"])
+            trip["needs_fresh_search"] = not bool(trip["offers"] or trip["alternative_offers"])
             trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
             personal_trips.append(trip)
     # FINAL QA GATE: sanitize both lists immediately before rendering.
@@ -1512,21 +1644,41 @@ def account():
     trips = [_trip_dict(row) for row in rows]
     database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
     for trip in trips:
-        trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
+        try:
+            trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
+        except Exception:
+            # One malformed/legacy vacation must never take down "My Vacations".
+            trip["offers"] = []
+        exact_sigs={_offer_signature(o) for o in trip["offers"]}
+        try:
+            trip["alternative_offers"] = _customer_alternative_choices(database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=5)
+        except Exception:
+            trip["alternative_offers"] = []
+        trip["no_exact_matches"] = not bool(trip["offers"]) and bool(trip["alternative_offers"])
+        try:
+            trip["constraints_summary"] = _trip_constraints_summary(trip)
+        except Exception:
+            trip["constraints_summary"] = []
         trip["over_budget_offers"] = []
         trip["budget_fallback"] = False
         trip["closest_fallback_offers"] = []
         trip["nearby_dates_exhausted"] = bool((trip.get("answers") or {}).get("_nearby_dates_exhausted"))
-        if not trip["offers"] and (trip.get("answers") or {}).get("budget_mode") == "per_person":
+        if not trip["offers"] and not trip["alternative_offers"] and (trip.get("answers") or {}).get("budget_mode") == "per_person":
             trip["over_budget_offers"] = _over_budget_alternatives(database_offers + _qa_fixture_offers(), trip, limit=3)
             trip["budget_fallback"] = bool(trip["over_budget_offers"])
-        if not trip["offers"] and not trip["budget_fallback"] and (trip.get("answers") or {}).get("_show_closest_fallback"):
+        if not trip["offers"] and not trip["alternative_offers"] and not trip["budget_fallback"] and (trip.get("answers") or {}).get("_show_closest_fallback"):
             trip["closest_fallback_offers"] = _closest_condition_matches(database_offers + _qa_fixture_offers(), trip, limit=3)
-        inventory = _customer_inventory_status(database_offers, trip)
-        trip["needs_fresh_search"] = not bool(trip["offers"])
-        trip["has_incomplete_inventory"] = inventory["has_incomplete_inventory"]
+        try:
+            inventory = _customer_inventory_status(database_offers, trip)
+        except Exception:
+            inventory = {"has_incomplete_inventory": False}
+        trip["needs_fresh_search"] = not bool(trip["offers"] or trip["alternative_offers"])
+        trip["has_incomplete_inventory"] = inventory.get("has_incomplete_inventory", False)
         answers = trip.get("answers") or {}
-        destination_codes = sorted(_trip_destination_codes(trip))
+        try:
+            destination_codes = sorted(_trip_destination_codes(trip))
+        except Exception:
+            destination_codes = []
         destination_info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {}) if destination_codes else {}
         if str(answers.get("vacation_type") or "") == "ski":
             ski_labels = answers.get("ski_target_labels") or []
@@ -1940,7 +2092,7 @@ def new_trip():
             return_date = form.get("ski_return_date", "").strip()
 
             travel_party = form.get("ski_travel_party")
-            adults = form.get("ski_family_adults") if travel_party in {"family", "extended"} else form.get("ski_adults")
+            adults = form.get("ski_family_adults") if travel_party == "family" else form.get("ski_adults")
             if travel_party == "solo":
                 adults = "1"
             elif travel_party == "couple":
@@ -1948,6 +2100,8 @@ def new_trip():
 
             children = form.get("ski_children")
             age_groups = form.getlist("ski_age_groups")
+            if travel_party == "friends" and form.get("ski_friends_age_group"):
+                age_groups = [form.get("ski_friends_age_group")]
             holiday_priorities = []
             deal_priorities = []
             ski_priorities = form.getlist("ski_priorities")
@@ -1969,6 +2123,10 @@ def new_trip():
 
             special_needs = []
             notes = form.get("ski_notes", "").strip()
+            try:
+                date_flex_days = max(0, min(3, int(form.get("ski_date_flex_days") or 0))) if form.get("ski_date_flexible") == "1" else 0
+            except (TypeError, ValueError):
+                date_flex_days = 0
         elif vacation_type == "business":
             destination_mode = form.get("business_destination_mode", "specific")
             destinations = form.get("business_destinations", "").strip()
@@ -2005,6 +2163,7 @@ def new_trip():
                 flex_days = max(0, min(3, int(form.get("business_flex_days") or 0))) if form.get("business_flexible_dates") == "1" else 0
             except (TypeError, ValueError):
                 flex_days = 0
+            date_flex_days = flex_days
             business_extra = {
                 "business_flex_days": flex_days,
                 "business_arrive_by_date": form.get("business_arrive_by_date", "").strip() if not flex_days else "",
@@ -2030,7 +2189,7 @@ def new_trip():
             return_date = form.get("return_date", "").strip()
 
             travel_party = form.get("travel_party")
-            adults = form.get("family_adults") if travel_party in {"family", "extended"} else form.get("adults")
+            adults = form.get("family_adults") if travel_party == "family" else form.get("adults")
             if travel_party == "solo":
                 adults = "1"
             elif travel_party == "couple":
@@ -2038,12 +2197,18 @@ def new_trip():
 
             children = form.get("children")
             age_groups = form.getlist("age_groups")
+            if travel_party == "friends" and form.get("friends_age_group"):
+                age_groups = [form.get("friends_age_group")]
             holiday_priorities = form.getlist("holiday_priorities")
             deal_priorities = form.getlist("deal_priorities")
             budget_mode = form.get("budget_mode", "unlimited")
             budget_amount = form.get("budget_amount", "").strip() if budget_mode == "per_person" else ""
             special_needs = form.getlist("special_needs") if destination_mode != "specific" else []
             notes = form.get("notes", "").strip()
+            try:
+                date_flex_days = max(0, min(3, int(form.get("date_flex_days") or 0))) if form.get("date_flexible") == "1" else 0
+            except (TypeError, ValueError):
+                date_flex_days = 0
 
             if destination_mode in {"specific", "several"} and not destinations:
                 flash(_msg("יש לכתוב את היעד או היעדים שמעניינים אתכם.", "Please enter the destination or destinations you are interested in."), "error")
@@ -2099,6 +2264,7 @@ def new_trip():
             "return_month": return_month,
             "departure_date": departure_date,
             "return_date": return_date,
+            "date_flex_days": date_flex_days,
             "travel_party": travel_party,
             "adults": adults,
             "children": children,

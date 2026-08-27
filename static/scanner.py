@@ -3,6 +3,7 @@ import os
 from datetime import date, datetime, timedelta, timezone
 import requests
 import re
+import time
 
 from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
@@ -94,8 +95,8 @@ def _summarize_flight(item: dict) -> dict:
         "airline_code": _airline_code(first),
         "flight_number": first.get("flight_number"),
         "departure_airport": dep.get("id"), "departure_airport_name": AIRPORT_NAMES.get(dep.get("id"), dep.get("id")),
-        "departure_time": dep.get("time"), "arrival_airport": arr.get("id"),
-        "arrival_airport_name": AIRPORT_NAMES.get(arr.get("id"), arr.get("id")), "arrival_time": arr.get("time"),
+        "departure_time": dep.get("time"), "departure_date": str(dep.get("time") or "")[:10] or None, "arrival_airport": arr.get("id"),
+        "arrival_airport_name": AIRPORT_NAMES.get(arr.get("id"), arr.get("id")), "arrival_time": arr.get("time"), "arrival_date": str(arr.get("time") or "")[:10] or None,
         "total_duration_minutes": total, "actual_flight_duration_minutes": actual, "stops": len(layovers),
         "is_direct": len(layovers) == 0, "connections": connections,
         "return_departure_time": (return_summary or {}).get("departure_time"),
@@ -172,15 +173,34 @@ def _apply_best_price_reference(analysis: dict, price: float) -> dict:
 
 
 def _serpapi_request(params: dict) -> dict:
-    response = requests.get(SERPAPI_URL, params=params, timeout=45)
-    response.raise_for_status()
-    data = response.json()
-    if data.get("error"):
-        raise RuntimeError(data["error"])
-    return data
+    """SerpAPI request with bounded retry/backoff for transient 429/5xx errors."""
+    last_error = None
+    for attempt, delay in enumerate((0, 2, 5, 10), start=1):
+        if delay:
+            time.sleep(delay)
+        try:
+            response = requests.get(SERPAPI_URL, params=params, timeout=45)
+            if response.status_code == 429 or 500 <= response.status_code < 600:
+                last_error = RuntimeError(f"SerpAPI HTTP {response.status_code}")
+                if attempt < 4:
+                    continue
+            response.raise_for_status()
+            data = response.json()
+            if data.get("error"):
+                message = str(data["error"])
+                if ("too many" in message.lower() or "rate" in message.lower()) and attempt < 4:
+                    last_error = RuntimeError(message)
+                    continue
+                raise RuntimeError(message)
+            return data
+        except requests.RequestException as exc:
+            last_error = exc
+            if attempt >= 4:
+                raise
+    raise last_error or RuntimeError("SerpAPI request failed")
 
 
-def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_date: str) -> dict:
+def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_date: str, adults: int = 1, children: int = 0) -> dict:
     return {
         "engine": "google_flights",
         "api_key": _api_key(),
@@ -193,8 +213,8 @@ def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_d
         "gl": "il",
         "currency": "ILS",
         "travel_class": "1",
-        "adults": "1",
-        "children": "0",
+        "adults": str(max(1, int(adults or 1))),
+        "children": str(max(0, int(children or 0))),
         "bags": "0",
         "sort_by": "2",
         # Keep cache enabled. SerpApi cached searches within its cache window do not
@@ -280,7 +300,7 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     token = flight.get("booking_token")
     if not token:
         return flight, 0
-    params = _roundtrip_params(departure, arrival, outbound_date, return_date)
+    params = _roundtrip_params(departure, arrival, outbound_date, return_date, adults=adults, children=children)
     params.pop("departure_token", None)
     params["booking_token"] = token
     data = _serpapi_request(params)
@@ -390,14 +410,14 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     return flight, 1
 
 
-def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str, max_outbounds: int | None = None) -> dict:
+def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str, max_outbounds: int | None = None, adults: int = 1, children: int = 0) -> dict:
     """Evaluate every outbound/return combination returned by Google Flights.
 
     First request gets all outbound choices. Each unique departure_token is then
     expanded to its return choices. We keep every complete combination so the
     caller can score the FULL round trip before choosing a winner.
     """
-    params = _roundtrip_params(departure, arrival, outbound_date, return_date)
+    params = _roundtrip_params(departure, arrival, outbound_date, return_date, adults=adults, children=children)
     outbound_data = _serpapi_request(params)
     api_requests = 1
 
@@ -436,6 +456,7 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
             combo["price"] = inbound_item.get("price")
             combo["return_departure_time"] = inbound_summary.get("departure_time")
             combo["return_arrival_time"] = inbound_summary.get("arrival_time")
+            combo["return_arrival_date"] = inbound_summary.get("arrival_date")
             combo["return_airline"] = inbound_summary.get("airline")
             combo["return_airline_logo"] = inbound_summary.get("airline_logo")
             combo["return_stops"] = inbound_summary.get("stops")
@@ -486,8 +507,8 @@ def _next_jobs(limit: int) -> list[dict]:
     return selected
 
 
-def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None, max_api_requests: int | None = None) -> dict:
-    run_id = create_scan_run(len(jobs))
+def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None, max_api_requests: int | None = None, scan_type: str = "general") -> dict:
+    run_id = create_scan_run(len(jobs), scan_type=scan_type)
     clear_scan_stop()
     completed = offers_found = errors = api_requests = 0
     new_offers = existing_offers = 0
@@ -571,7 +592,7 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                 errors += 1
                 error_messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
             finally:
-                update_scan_progress(run_id, completed, offers_found, errors)
+                update_scan_progress(run_id, completed, offers_found, errors, api_requests)
     except BaseException as exc:
         # Still close the DB scan record if the worker/request fails unexpectedly.
         errors += 1
@@ -580,7 +601,7 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
     finally:
         finish_scan_run(
             run_id, completed, offers_found, errors,
-            "; ".join(status_messages + error_messages)[:2000] or None
+            "; ".join(status_messages + error_messages)[:2000] or None, api_requests=api_requests
         )
 
     return {
@@ -601,7 +622,7 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
 
 
 def run_hourly_scan(max_searches: int | None = None) -> dict:
-    return _run_jobs_scan(_next_jobs(max_searches or MAX_SEARCHES_PER_SCAN))
+    return _run_jobs_scan(_next_jobs(max_searches or MAX_SEARCHES_PER_SCAN), scan_type="hourly")
 
 
 def _wide_search_jobs(limit: int | None = None) -> list[dict]:
@@ -641,7 +662,7 @@ def _wide_search_jobs(limit: int | None = None) -> list[dict]:
 
 def run_wide_scan(max_destinations: int | None = None) -> dict:
     limit = max(1, min(int(max_destinations or len(DESTINATIONS)), len(DESTINATIONS)))
-    return _run_jobs_scan(_wide_search_jobs(limit), max_outbounds_per_route=3, max_api_requests=220)
+    return _run_jobs_scan(_wide_search_jobs(limit), max_outbounds_per_route=3, max_api_requests=220, scan_type="wide")
 
 
 
@@ -657,9 +678,9 @@ SKI_DESTINATIONS = [
 
 def _customer_destination_codes(answers: dict) -> list[str]:
     """Parse one/several IATA codes, or a curated ski-airport set for ski mode."""
-    if str(answers.get("destination_mode") or "") == "ski":
-        return [d["code"] for d in SKI_DESTINATIONS]
     raw = str(answers.get("destinations") or "").strip()
+    if str(answers.get("vacation_type") or "") == "ski" and not raw:
+        return [d["code"] for d in SKI_DESTINATIONS]
     aliases = {
         "רומא": "FCO", "rome": "FCO", "fco": "FCO",
         "אתונה": "ATH", "athens": "ATH", "ath": "ATH",
@@ -685,14 +706,16 @@ def _customer_destination_codes(answers: dict) -> list[str]:
         "בנגקוק": "BKK", "bangkok": "BKK", "bkk": "BKK",
         "ניו יורק": "JFK", "new york": "JFK", "jfk": "JFK",
     }
-    supported = {d["code"] for d in DESTINATIONS}
+    supported = {d["code"] for d in DESTINATIONS} | {d["code"] for d in SKI_DESTINATIONS}
     codes = []
     for token in [x.strip() for x in re.split(r"[,;/]+", raw) if x.strip()]:
         code = aliases.get(token.lower())
         if not code and len(token) == 3 and token.isalpha():
             code = token.upper()
-        if code in supported and code not in codes:
-            codes.append(code)
+        if code and len(code) == 3 and code.isalpha() and code not in codes:
+            # Airport picker already resolves valid IATA codes. Do not limit customer
+            # searches to Ariella's curated discovery list.
+            codes.append(code.upper())
     return codes
 
 
@@ -723,11 +746,27 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     origins = [str(x).upper() for x in answers.get("origin_airports", []) if x] or list(DEPARTURE_AIRPORTS)
     date_mode = answers.get("date_mode")
     jobs = []
-    ski_mode = str(answers.get("destination_mode") or "") == "ski"
+    ski_mode = str(answers.get("vacation_type") or "") == "ski"
     if date_mode == "exact" and answers.get("departure_date") and answers.get("return_date"):
+        business_mode = str(answers.get("vacation_type") or "") == "business"
+        try:
+            flex_key = "business_flex_days" if business_mode else "date_flex_days"
+            flex_days = max(0, min(3, int(answers.get(flex_key) or 0)))
+        except (TypeError, ValueError):
+            flex_days = 0
+        base_out = datetime.strptime(answers["departure_date"], "%Y-%m-%d").date()
+        base_ret = datetime.strptime(answers["return_date"], "%Y-%m-%d").date()
+        offsets = range(-flex_days, flex_days + 1) if flex_days else [0]
+        if business_mode and not flex_days and answers.get("business_arrive_by_time"):
+            offsets = [-1, 0]
         for arrival in arrivals:
             for origin in origins:
-                jobs.append({"departure": origin, "arrival": arrival, "outbound": answers["departure_date"], "return": answers["return_date"]})
+                for offset in offsets:
+                    out_date = base_out + timedelta(days=offset)
+                    ret_date = base_ret + timedelta(days=offset if flex_days else 0)
+                    if ret_date <= out_date:
+                        continue
+                    jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat()})
     elif ski_mode and date_mode == "ski_flexible":
         # Use the next core ski season and keep the first live test controlled:
         # two representative 6-night windows per airport/origin, not a world-wide explosion.
@@ -763,19 +802,43 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                             continue
                         jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
         else:
-            out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
-            ret_starts = [ret_first + timedelta(days=d) for d in (3, 10, 17, 24)]
-            for arrival in arrivals:
-                for origin in origins:
-                    for start in out_starts:
-                        if start.month != out_first.month:
-                            continue
-                        for ret in ret_starts:
-                            if ret <= start or ret.month != ret_first.month:
+            if answers.get("_alternative_nearby_dates"):
+                # Explicit "same destination, other dates":
+                # search a controlled sample in the requested month AND the next month.
+                alt_months = [m for m in (answers.get("_alternative_months") or [outbound_month]) if m]
+                try:
+                    trip_len = max(2, min(21, int(answers.get("_requested_trip_length_days") or 7)))
+                except (TypeError, ValueError):
+                    trip_len = 7
+                for month_value in alt_months[:2]:
+                    try:
+                        month_first = datetime.strptime(str(month_value)[:7] + "-01", "%Y-%m-%d").date()
+                    except Exception:
+                        continue
+                    out_starts = [month_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+                    for arrival in arrivals:
+                        for origin in origins:
+                            for start in out_starts:
+                                if start.month != month_first.month:
+                                    continue
+                                ret = start + timedelta(days=trip_len)
+                                if ret.month != start.month:
+                                    continue
+                                jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
+            else:
+                out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+                ret_starts = [ret_first + timedelta(days=d) for d in (3, 10, 17, 24)]
+                for arrival in arrivals:
+                    for origin in origins:
+                        for start in out_starts:
+                            if start.month != out_first.month:
                                 continue
-                            jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
+                            for ret in ret_starts:
+                                if ret <= start or ret.month != ret_first.month:
+                                    continue
+                                jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
 
-    run_id = create_scan_run(len(jobs))
+    run_id = create_scan_run(len(jobs), scan_type=f"personal_{str(answers.get('vacation_type') or 'standard')}", trip_id=trip_id)
     clear_scan_stop()
     completed = offers_found = errors = api_requests = 0
     new_offers = existing_offers = 0
@@ -792,6 +855,9 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                 messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
                 break
             try:
+                # Price cards remain strictly per person. Group-seat availability is not
+                # promised by Google Flights/SerpAPI, so the UI carries a supplier
+                # verification notice for multi-passenger requests instead.
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
                 api_requests += int(result.get("api_requests") or 0)
                 completed += 1
@@ -838,8 +904,10 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
             except Exception as exc:
                 errors += 1
                 messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+            finally:
+                update_scan_progress(run_id, completed, offers_found, errors, api_requests)
     finally:
-        finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None)
+        finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None, api_requests=api_requests)
     return {"status": "success" if errors == 0 else "partial", "scan_run_id": run_id, "searches_completed": completed, "api_requests": api_requests, "offers_found": offers_found, "errors": errors}
 
 
@@ -849,7 +917,7 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
     if arrival_code not in allowed:
         return {"status": "error", "message": "Unsupported destination", "arrival_code": arrival_code}
     jobs = [j for j in _all_search_jobs() if j["arrival"] == arrival_code][:max(1, min(int(max_searches), 8))]
-    run_id = create_scan_run(len(jobs))
+    run_id = create_scan_run(len(jobs), scan_type="destination")
     clear_scan_stop()
     completed = offers_found = errors = api_requests = 0
     new_offers = existing_offers = 0
@@ -909,6 +977,6 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
                 errors += 1
                 messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
     finally:
-        finish_scan_run(run_id,completed,offers_found,errors,"; ".join(messages)[:2000] or None)
+        finish_scan_run(run_id,completed,offers_found,errors,"; ".join(messages)[:2000] or None, api_requests=api_requests)
     return {"status":"success" if errors==0 else "partial","scan_run_id":run_id,"destination":arrival_code,
             "searches_completed":completed,"api_requests":api_requests,"offers_found":offers_found,"errors":errors}
