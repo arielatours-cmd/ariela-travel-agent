@@ -776,7 +776,7 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
         # request and grows fresh shared inventory. The explicit "other destination,
         # same dates" second chance remains exact and never changes the dates.
         scan_whole_month = (
-            vacation_type == "standard"
+            vacation_type in {"standard", "ski"}
             and not answers.get("_alternative_other_destination")
         )
         if scan_whole_month:

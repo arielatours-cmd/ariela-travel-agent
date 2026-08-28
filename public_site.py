@@ -1512,6 +1512,119 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
         out.append(c)
     return out
 
+
+def _is_open_ski_request(trip):
+    answers = trip.get("answers") or {}
+    return (
+        str(answers.get("vacation_type") or "") == "ski"
+        and str(answers.get("destination_mode") or "open") == "open"
+    )
+
+
+def _ski_offer_in_requested_month(offer, trip):
+    """The broad ski scan stocks the requested month, even for exact dates."""
+    answers = trip.get("answers") or {}
+    mode = str(answers.get("date_mode") or "")
+    if mode == "exact":
+        req_out = str(answers.get("departure_date") or "")[:7]
+        req_ret = str(answers.get("return_date") or "")[:7]
+    elif mode == "month":
+        req_out = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+        req_ret = str(answers.get("return_month") or req_out)[:7]
+    else:
+        return True
+    return (
+        str(offer.get("outbound_date") or "")[:7] == req_out
+        and str(offer.get("return_date") or "")[:7] == req_ret
+    )
+
+
+def _ski_open_closest_same_month(all_offers, trip, exclude=None, limit=5):
+    """Closest stocked-month results after an open ski search found no full match."""
+    exclude = set(exclude or [])
+    ranked = []
+    for raw in all_offers:
+        offer = _decorate_ski_offer(raw, trip)
+        if not _offer_is_recent(offer, 48) or not _offer_has_complete_roundtrip(offer):
+            continue
+        if not _offer_destination_matches(offer, trip) or not _offer_matches_vacation_type(offer, trip):
+            continue
+        if not offer.get("ski_resort") or not _ski_offer_in_requested_month(offer, trip):
+            continue
+        if _offer_signature(offer) in exclude:
+            continue
+        points, possible, matched, missed = _objective_match_details(offer, trip)
+        if possible and not missed:
+            continue
+        distance = 0
+        answers = trip.get("answers") or {}
+        if str(answers.get("date_mode") or "") == "exact":
+            req_out = _date_from_iso(answers.get("departure_date"))
+            req_ret = _date_from_iso(answers.get("return_date"))
+            off_out = _date_from_iso(offer.get("outbound_date"))
+            off_ret = _date_from_iso(offer.get("return_date"))
+            if all((req_out, req_ret, off_out, off_ret)):
+                distance = abs((off_out - req_out).days) + abs((off_ret - req_ret).days)
+            else:
+                distance = 9999
+        ranked.append((-points, distance, -_ski_preference_score(offer, trip),
+                       -int(offer.get("score") or 0), float(offer.get("price_ils") or 10**9),
+                       offer, matched, missed, points))
+    ranked.sort(key=lambda row: row[:5])
+    out = []
+    for row in ranked[:limit]:
+        offer, matched, missed, points = row[-4:]
+        copy = _decorate_availability_note(offer, trip)
+        copy["request_match_reasons"] = matched
+        copy["request_missed_reasons"] = missed
+        copy["customer_match_points"] = points
+        copy["customer_choice_label_he"] = "האפשרות הקרובה ביותר שמצאנו"
+        copy["customer_choice_label_en"] = "The closest option we found"
+        out.append(copy)
+    return out
+
+
+def _ski_open_other_dates_db_matches(all_offers, trip, limit=5):
+    """One DB-only continuation: any future date, all original non-date conditions."""
+    answers = trip.get("answers") or {}
+    ranked = []
+    today = date.today()
+    date_labels = {"התאריכים שביקשת", "Requested dates", "החודשים שביקשת", "Requested months"}
+    for raw in all_offers:
+        offer = _decorate_ski_offer(raw, trip)
+        if not _offer_is_recent(offer, 48) or not _offer_has_complete_roundtrip(offer):
+            continue
+        if not _offer_destination_matches(offer, trip) or not _offer_matches_vacation_type(offer, trip):
+            continue
+        if not _ski_offer_constraints_ok(offer, trip):
+            continue
+        out_date = _date_from_iso(offer.get("outbound_date"))
+        if not out_date or out_date < today:
+            continue
+        _, _, matched, missed = _objective_match_details(offer, trip)
+        if any(reason not in date_labels for reason in missed):
+            continue
+        requested = _date_from_iso(answers.get("departure_date"))
+        if requested:
+            distance = abs((out_date - requested).days)
+        else:
+            requested_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+            distance = _month_distance(out_date.strftime("%Y-%m"), requested_month)
+        ranked.append((distance, -_ski_preference_score(offer, trip),
+                       -int(offer.get("score") or 0), float(offer.get("price_ils") or 10**9),
+                       offer, matched, missed))
+    ranked.sort(key=lambda row: row[:4])
+    out = []
+    for row in ranked[:limit]:
+        offer, matched, missed = row[-3:]
+        copy = _decorate_availability_note(offer, trip)
+        copy["request_match_reasons"] = matched
+        copy["request_missed_reasons"] = missed
+        copy["customer_choice_label_he"] = "מתאים לתנאים שלך בתאריך אחר"
+        copy["customer_choice_label_en"] = "Matches your conditions on other dates"
+        out.append(copy)
+    return out
+
 def _trip_constraints_summary(trip):
     """Extra customer selections for My Vacations.
 
@@ -1806,7 +1919,12 @@ def deals():
             except Exception:
                 trip["offers"] = []
             exact_sigs = {_offer_signature(o) for o in trip["offers"]}
-            if (trip.get("answers") or {}).get("_second_chance_choice") == "nearby_dates":
+            if _is_open_ski_request(trip) and not trip["offers"] and int(trip.get("free_scan_count") or 0) > 0:
+                if (trip.get("answers") or {}).get("_ski_open_all_dates_db_search"):
+                    trip["alternative_offers"] = _ski_open_other_dates_db_matches(database_offers, trip, limit=5)
+                else:
+                    trip["alternative_offers"] = _ski_open_closest_same_month(database_offers, trip, exclude=exact_sigs, limit=5)
+            elif (trip.get("answers") or {}).get("_second_chance_choice") == "nearby_dates":
                 try:
                     trip["alternative_offers"] = _customer_alternative_choices(
                         database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=max(0, 6-len(trip["offers"]))
@@ -2129,7 +2247,12 @@ def account():
             # One malformed/legacy vacation must never take down "My Vacations".
             trip["offers"] = []
         exact_sigs={_offer_signature(o) for o in trip["offers"]}
-        if (trip.get("answers") or {}).get("_second_chance_choice") == "nearby_dates":
+        if _is_open_ski_request(trip) and not trip["offers"] and int(trip.get("free_scan_count") or 0) > 0:
+            if (trip.get("answers") or {}).get("_ski_open_all_dates_db_search"):
+                trip["alternative_offers"] = _ski_open_other_dates_db_matches(database_offers, trip, limit=5)
+            else:
+                trip["alternative_offers"] = _ski_open_closest_same_month(database_offers, trip, exclude=exact_sigs, limit=5)
+        elif (trip.get("answers") or {}).get("_second_chance_choice") == "nearby_dates":
             try:
                 trip["alternative_offers"] = _customer_alternative_choices(database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=max(0, 6-len(trip["offers"])))
             except Exception:
@@ -2421,6 +2544,32 @@ def free_trip_alternative(trip_id):
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
     inventory = _recent_inventory_48h()
+    # The broad initial open-ski scan already stocked the requested month. This
+    # continuation is DB-only across future dates and never spends another scan.
+    if _is_open_ski_request(trip):
+        if choice != "nearby_dates":
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        matches = _ski_open_other_dates_db_matches(inventory, trip, limit=5)
+        answers["_ski_open_all_dates_db_search"] = True
+        answers["_second_chance_used"] = True
+        answers["_second_chance_choice"] = "nearby_dates"
+        if matches:
+            _pin_offer_ids_to_trip(trip_id, answers, matches)
+            status = "database_ski_other_dates_match"
+        else:
+            answers["_second_chance_exhausted"] = True
+            with _db() as conn:
+                conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
+                conn.commit()
+            status = "database_ski_other_dates_exhausted"
+        with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (utc_now_iso(), status, trip_id),
+            )
+            conn.commit()
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
     if choice == "nearby_dates":
         db_matches = _same_destination_other_dates_db_matches(inventory, trip, limit=5)
         if db_matches:
