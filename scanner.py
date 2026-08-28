@@ -643,20 +643,24 @@ def _wide_search_jobs(limit: int | None = None) -> list[dict]:
         cycle = 0
 
     jobs = []
+    origins = [str(x).upper() for x in DEPARTURE_AIRPORTS if x] or ["TLV"]
     for i, destination in enumerate(DESTINATIONS[:max_items]):
         j = i + cycle
         offset = offsets[j % len(offsets)]
         trip_length = lengths[(j // len(offsets) + i) % len(lengths)]
         outbound = today + timedelta(days=offset)
         ret = outbound + timedelta(days=trip_length)
-        jobs.append({
-            "departure": "TLV",
-            "arrival": destination["code"],
-            "outbound": outbound.isoformat(),
-            "return": ret.isoformat(),
-            "destination_name": destination["name"],
-            "country_flag": destination["country_flag"],
-        })
+        # Wide discovery must cover every configured Israeli departure airport.
+        # This includes HFA as well as TLV; otherwise Haifa can never enter the DB.
+        for origin in origins:
+            jobs.append({
+                "departure": origin,
+                "arrival": destination["code"],
+                "outbound": outbound.isoformat(),
+                "return": ret.isoformat(),
+                "destination_name": destination["name"],
+                "country_flag": destination["country_flag"],
+            })
     return jobs
 
 

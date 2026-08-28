@@ -2454,3 +2454,10 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 .alternative-deals-message{position:relative;padding-top:30px;font-size:18px;line-height:1.6}
 .alternative-deals-message::before{content:"✿";position:absolute;top:0;left:50%;transform:translateX(-50%);color:#c89a3d;font-size:20px;line-height:1;background:#fff;padding:0 12px;z-index:2}
 .alternative-deals-message::after{content:"";position:absolute;top:9px;left:12%;right:12%;border-top:1px solid #d5b16a;z-index:1}
+
+/* v9.7.120 — regression core UI polish */
+#regularFamily input[type="number"],#regularAdultCount input[type="number"]{min-height:54px;font-size:18px;padding:10px 14px;min-width:110px}
+#regularFamily .two-cols label,#regularAdultCount label{font-size:16px}
+.ariella-no-deal-state>strong{font-size:24px;line-height:1.35;display:block}
+.ariella-no-deal-state>p{font-size:17px;line-height:1.6}
+.alternative-deals-block,.alternative-deals-message{background:transparent!important}

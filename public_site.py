@@ -1121,35 +1121,64 @@ def _within_primary_date_window(offer, trip):
     return _month_distance(out, req_out) <= 1 and _month_distance(ret, req_ret) <= 1
 
 def _open_flight_preference_score(offer, trip):
-    """Explicit flight-condition score for open-destination ranking.
+    """Legacy compatibility helper.
 
-    These are preferences, not hard filters. They must still influence ordering
-    when Ariella chooses the destination/date, so a direct flight that satisfies
-    the request ranks above an otherwise similar connection itinerary.
+    Regular-vacation ordering no longer uses weighted preference math.  The
+    authoritative customer score is _open_customer_points: one point per met
+    condition, plus one seasonal-fit point.  Keep this function for callers in
+    older routes, but make it equivalent to the transparent points model.
     """
-    answers = trip.get("answers") or {}
-    priorities = {str(x) for x in (answers.get("deal_priorities") or [])}
-    score = 0.0
-    if "direct" in priorities:
-        score += 16.0 if int(offer.get("stops") or 0) == 0 else -12.0
-    if "baggage" in priorities:
-        baggage = offer.get("baggage") or {}
-        included = ((baggage.get("carry_on_8kg") or {}).get("included") is True or
-                    (baggage.get("checked_bag_23kg") or {}).get("included") is True)
-        score += 10.0 if included else -7.0
-    if "price" in priorities:
-        # cost_score is already normalized by the deal engine; use it as an
-        # explicit preference signal rather than relying on the final deal score.
-        score += float(offer.get("cost_score") or 0) / 4.0
-    return score
+    return float(_open_customer_points(offer, trip))
+
+
+def _good_price_condition(offer):
+    """Return True when the fare genuinely qualifies as a good-price signal.
+
+    Use the normalized cost score when present, and fall back to a reliable
+    reference-price saving.  The condition is deliberately boolean because the
+    customer requested a simple +1 / 0 scoring model.
+    """
+    try:
+        if float(offer.get("cost_score") or 0) >= 65:
+            return True
+    except (TypeError, ValueError):
+        pass
+    try:
+        discount = float(offer.get("discount_percent") or 0)
+        if offer.get("price_reference_reliable") is True and discount >= 10:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return False
+
+
+def _seasonal_condition_met(offer, trip, selected):
+    """One seasonal-fit point at most, never a multiplier or hard filter."""
+    month = _requested_travel_month(trip, offer)
+    if month is None:
+        return False
+    code = str(offer.get("arrival_code") or "").upper()
+    tags = _DESTINATION_STYLE_TAGS.get(code, set())
+    profile = _SEASONAL_DESTINATION_PROFILES.get(code) or {}
+
+    # If the customer explicitly asked for a season-sensitive vacation type,
+    # test that first. Otherwise use pleasant-weather fit as the generic signal.
+    if "beach" in selected and "beach" in tags:
+        return month in profile.get("beach_months", set())
+    if "hiking" in selected and ("hiking" in tags or "nature" in tags):
+        months = profile.get("hiking_months")
+        return bool(months and month in months)
+    if "weather" in selected:
+        return month in profile.get("pleasant_months", set())
+    return month in profile.get("pleasant_months", set())
 
 
 def _open_customer_points(offer, trip):
-    """Transparent open-search ranking.
+    """Transparent Ariella ranking for an open-destination vacation.
 
-    Every customer condition that is met is worth exactly one point. Seasonal fit
-    is one additional point. The global deal score is *only* a tie-breaker in
-    _customer_rank_value.
+    Exactly one point is awarded for every customer condition that is met.
+    Seasonal suitability contributes one additional point.  No preference is
+    multiplied.  The global deal score is used only as a tie-breaker.
     """
     answers = trip.get("answers") or {}
     selected = {str(x) for x in (answers.get("holiday_priorities") or []) if x}
@@ -1158,31 +1187,19 @@ def _open_customer_points(offer, trip):
     tags = _DESTINATION_STYLE_TAGS.get(code, set())
     points = 0
 
-    # One point for every requested vacation characteristic that fits the destination.
     for pref in selected - {"price", "weather"}:
         if pref in tags:
             points += 1
 
-    # "Good price" is one condition, not a multiplier.
-    if "price" in selected and float(offer.get("cost_score") or 0) >= 70:
+    if "price" in selected and _good_price_condition(offer):
         points += 1
 
-    # Pleasant weather is itself a requested condition.
     month = _requested_travel_month(trip, offer)
     profile = _SEASONAL_DESTINATION_PROFILES.get(code) or {}
     if "weather" in selected and month in profile.get("pleasant_months", set()):
         points += 1
 
-    # Seasonality is always one extra point when the proposed month is suitable.
-    seasonal_ok = False
-    if month is not None:
-        if "beach" in selected and "beach" in tags:
-            seasonal_ok = month in profile.get("beach_months", set())
-        elif "hiking" in selected and ("hiking" in tags or "nature" in tags):
-            seasonal_ok = month in profile.get("hiking_months", set())
-        else:
-            seasonal_ok = month in profile.get("pleasant_months", set())
-    if seasonal_ok:
+    if _seasonal_condition_met(offer, trip, selected):
         points += 1
 
     if "direct" in priorities and int(offer.get("stops") or 0) == 0:
@@ -1204,42 +1221,80 @@ def _open_customer_points(offer, trip):
                 points += 1
         except (TypeError, ValueError):
             pass
+
+    # Family composition is relevant to destination suitability when Ariella is
+    # choosing the destination. It is a soft ranking condition, not a reason to
+    # hide a flight.
+    try:
+        is_family = str(answers.get("travel_party") or "") == "family" or int(answers.get("children") or 0) > 0
+    except (TypeError, ValueError):
+        is_family = str(answers.get("travel_party") or "") == "family"
+    if is_family and "family" in tags:
+        points += 1
+
     return points
 
 
 def _customer_rank_value(offer, trip):
-    """Rank customer results differently from global deal discovery.
+    """Customer ranking value.
 
-    When the customer already chose the destination, schedule/route/baggage fit is
-    more important than whether the fare is an unusually cheap global 'deal'.
-    Open searches keep the original deal score as the main signal.
+    Open-destination vacations are ordered strictly by transparent points first;
+    deal score only breaks ties. Destination-led searches retain route/time
+    quality ordering because the customer has already fixed the destination.
     """
     deal_score = int(offer.get("score") or 0)
     answers = trip.get("answers") or {}
-    budget_penalty = 0.0
-    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
-        try:
-            budget = float(answers.get("budget_amount"))
-            price_now = float(offer.get("price_ils") or 0)
-            if budget > 0 and price_now > budget:
-                # Gentle penalty: enough to prefer an in-budget equivalent, but not
-                # enough to hide a materially better itinerary.
-                budget_penalty = min(18.0, ((price_now - budget) / budget) * 35.0)
-        except (TypeError, ValueError):
-            pass
-
     if not _trip_is_destination_led(trip):
-        # In open searches the customer's vacation-style choices are the first
-        # signal for *where* Ariella should send them; deal quality then breaks ties.
-        return (_open_customer_points(offer, trip) * 1000.0) + deal_score - (budget_penalty * 0.01)
+        return (_open_customer_points(offer, trip) * 1000.0) + deal_score
 
     route = int(offer.get("route_score") or 0)
     time_value = int(offer.get("time_value_score") or offer.get("hours_score") or 0)
     baggage = int(offer.get("baggage_score") or 0)
     price = int(offer.get("cost_score") or 0)
     rarity = int(offer.get("rarity_score") or 0)
-    return (route * 2.0) + (time_value * 2.0) + (baggage * 1.5) + (price * 0.5) + (rarity * 0.25) - budget_penalty
+    return (route * 2.0) + (time_value * 2.0) + (baggage * 1.5) + (price * 0.5) + (rarity * 0.25)
 
+
+def _objective_match_details(offer, trip):
+    """Conditions that define the 'matches your request' group.
+
+    Vacation-style choices (nature, food, quiet, family suitability, seasonality,
+    good-price signal) rank results but do not push an otherwise valid flight below
+    the alternatives divider. Objective customer restrictions do.
+    """
+    answers = trip.get("answers") or {}
+    points = possible = 0
+    matched, missed = [], []
+
+    def add(ok, he, en):
+        nonlocal points, possible
+        possible += 1
+        (matched if ok else missed).append(en if _lang() == "en" else he)
+        if ok:
+            points += 1
+
+    mode = str(answers.get("date_mode") or "anytime")
+    if mode == "exact":
+        add(_offer_matches_trip(offer, trip, exact_dates=True), "התאריכים שביקשת", "Requested dates")
+    elif mode == "month":
+        add(_offer_matches_trip(offer, trip, same_month=True), "החודשים שביקשת", "Requested months")
+
+    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+        try:
+            add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10, "תקציב", "Budget")
+        except (TypeError, ValueError):
+            pass
+
+    priorities = {str(x) for x in (answers.get("deal_priorities") or [])}
+    if "direct" in priorities:
+        add(int(offer.get("stops") or 0) == 0, "טיסה ישירה", "Direct flight")
+    if "baggage" in priorities:
+        b = offer.get("baggage") or {}
+        carry = (b.get("carry_on_8kg") or {}).get("included") is True
+        checked = (b.get("checked_bag_23kg") or {}).get("included") is True
+        add(carry or checked, "כבודה", "Baggage")
+
+    return points, possible, matched, missed
 
 def _customer_inventory_status(all_offers, trip):
     """Describe what already exists in DB without exposing incomplete records as deals."""
@@ -1358,70 +1413,49 @@ def _decorate_availability_note(offer, trip):
 
 
 def _standard_match_details(offer, trip):
-    """Transparent regular-vacation score: one point per requested condition met."""
-    answers = trip.get("answers") or {}
-    points = possible = 0
-    matched, missed = [], []
-    def add(ok, he, en):
-        nonlocal points, possible
-        possible += 1
-        (matched if ok else missed).append(en if _lang()=="en" else he)
-        if ok: points += 1
-
-    date_mode = str(answers.get("date_mode") or "anytime")
-    if date_mode == "exact":
-        req_out=_date_from_iso(answers.get("departure_date")); req_ret=_date_from_iso(answers.get("return_date"))
-        off_out=_date_from_iso(offer.get("outbound_date")); off_ret=_date_from_iso(offer.get("return_date"))
-        try: flex=max(0,min(3,int(answers.get("date_flex_days") or 0)))
-        except (TypeError,ValueError): flex=0
-        dates_ok=bool(req_out and req_ret and off_out and off_ret and abs((off_out-req_out).days)<=flex and abs((off_ret-req_ret).days)<=flex)
-        add(dates_ok, "התאריכים שביקשת", "Requested dates")
-    elif date_mode == "month":
-        om=str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
-        rm=str(answers.get("return_month") or om)[:7]
-        dates_ok=bool(om and rm and str(offer.get("outbound_date") or "").startswith(om) and str(offer.get("return_date") or "").startswith(rm))
-        add(dates_ok, "החודשים שביקשת", "Requested months")
-
-    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
-        try: add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount"))*1.10, "תקציב", "Budget")
-        except (TypeError,ValueError): pass
-
-    priorities={str(x) for x in (answers.get("deal_priorities") or [])}
-    if "direct" in priorities: add(int(offer.get("stops") or 0)==0, "טיסה ישירה", "Direct flight")
-    if "baggage" in priorities:
-        b=offer.get("baggage") or {}; carry=(b.get("carry_on_8kg") or {}).get("included") is True; checked=(b.get("checked_bag_23kg") or {}).get("included") is True
-        add(carry or checked, "כבודה", "Baggage")
-    if "maximize" in priorities:
-        arr=_time_minutes(offer.get("arrival_time")); ret=_time_minutes(offer.get("return_departure_time"))
-        add(arr is not None and ret is not None and arr<=600 and ret>=1200, "למקסם את החופשה", "Maximize vacation time")
-
+    """Return transparent match information for a regular vacation."""
+    points, possible, matched, missed = _objective_match_details(offer, trip)
+    if not _trip_is_destination_led(trip):
+        pref_points = _open_customer_points(offer, trip)
+        points += pref_points
+        possible += pref_points  # informational ratio is secondary; ordering uses points.
     return points, possible, matched, missed
 
-
 def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
-    """Closest same-destination offers in the 48h inventory, ranked by request fit."""
-    exclude=set(exclude or [])
-    answers=trip.get("answers") or {}; vacation_type=str(answers.get("vacation_type") or "standard")
-    prepared=[_decorate_ski_offer(o,trip) for o in all_offers]
-    ranked=[]
+    """Rank closest alternatives after primary matches.
+
+    Alternatives may miss one or more objective conditions, but are never hidden.
+    They are ordered by total customer points first, then by objective match count,
+    then by deal score/price. Initial date alternatives remain within ±1 month.
+    """
+    exclude = set(exclude or [])
+    prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
+    ranked = []
     for o in prepared:
-        if not _offer_is_recent(o,48) or not _offer_destination_matches(o,trip) or not _offer_has_complete_roundtrip(o): continue
-        if not _within_primary_date_window(o, trip): continue
-        if not _offer_matches_vacation_type(o,trip) or not _ski_offer_constraints_ok(o,trip): continue
-        sig=_offer_signature(o)
-        if sig in exclude: continue
-        points, possible, matched, missed=_standard_match_details(o,trip)
-        ratio=(points/possible) if possible else 1.0
-        ranked.append((-ratio,-points,-_customer_rank_value(o,trip),float(o.get("price_ils") or 10**9),o,matched,missed))
-    ranked.sort(key=lambda x:x[:4])
-    out=[]
-    for _,_,_,_,o,matched,missed in ranked[:limit]:
-        c=_decorate_availability_note(o,trip)
-        c["request_match_reasons"]=matched; c["request_missed_reasons"]=missed
-        c["customer_choice_label_he"]="אפשרות קרובה לבקשה שלך"; c["customer_choice_label_en"]="A close match to your request"
+        if not _offer_is_recent(o, 48) or not _offer_destination_matches(o, trip) or not _offer_has_complete_roundtrip(o):
+            continue
+        if not _within_primary_date_window(o, trip):
+            continue
+        if not _offer_matches_vacation_type(o, trip) or not _ski_offer_constraints_ok(o, trip):
+            continue
+        sig = _offer_signature(o)
+        if sig in exclude:
+            continue
+        obj_points, obj_possible, matched, missed = _objective_match_details(o, trip)
+        pref_points = _open_customer_points(o, trip) if not _trip_is_destination_led(trip) else 0
+        total_points = obj_points + pref_points
+        ranked.append((-total_points, -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, total_points))
+    ranked.sort(key=lambda x: x[:4])
+    out = []
+    for _, _, _, _, o, matched, missed, total_points in ranked[:limit]:
+        c = _decorate_availability_note(o, trip)
+        c["request_match_reasons"] = matched
+        c["request_missed_reasons"] = missed
+        c["customer_match_points"] = total_points
+        c["customer_choice_label_he"] = "אפשרות קרובה לבקשה שלך"
+        c["customer_choice_label_en"] = "A close match to your request"
         out.append(c)
     return out
-
 
 def _trip_constraints_summary(trip):
     """Extra customer selections for My Vacations.
@@ -1497,7 +1531,12 @@ def _trip_constraints_summary(trip):
     return out
 
 def _customer_deal_choices(all_offers, trip, limit=5):
-    """DB-first selection. Exact regular requests stay exact; business requests are ranked by points."""
+    """Select the primary customer results without hidden hard preference filters.
+
+    Primary results are flights that satisfy all objective restrictions the user
+    explicitly set (dates/month, budget when set, direct flight, baggage).  Open
+    destination/style preferences determine ordering by one-point-per-condition.
+    """
     answers = trip.get("answers") or {}
     vacation_type = str(answers.get("vacation_type") or "standard")
     prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
@@ -1514,16 +1553,15 @@ def _customer_deal_choices(all_offers, trip, limit=5):
             continue
         if not _offer_matches_vacation_type(o, trip):
             continue
-        if vacation_type == "business":
-            if not _business_offer_date_relevant(o, trip):
-                continue
-            qualified.append(o)
-            continue
-        if not _offer_within_budget(o, trip):
-            continue
-        if not _offer_meets_selected_conditions(o, trip):
-            continue
         if not _ski_offer_constraints_ok(o, trip):
+            continue
+        if vacation_type == "business":
+            if _business_offer_date_relevant(o, trip):
+                qualified.append(o)
+            continue
+
+        _, possible, _, missed = _objective_match_details(o, trip)
+        if possible and missed:
             continue
         qualified.append(o)
 
@@ -1531,42 +1569,21 @@ def _customer_deal_choices(all_offers, trip, limit=5):
         qualified.sort(key=lambda o: _business_sort_key(o, trip))
         return [_decorate_business_offer(o, trip) for o in qualified[:limit]]
 
-    date_mode = str(answers.get("date_mode") or "anytime")
-    if date_mode == "exact":
-        candidates = [o for o in qualified if _offer_matches_trip(o, trip, exact_dates=True)]
-    elif date_mode == "month":
-        candidates = [o for o in qualified if _offer_matches_trip(o, trip, same_month=True)]
+    # Ariella-open searches: points first, deal score only as a tie-breaker.
+    # Destination-led searches: the existing route/time quality value remains useful.
+    if _trip_is_destination_led(trip):
+        qualified.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
     else:
-        candidates = list(qualified)
+        qualified.sort(key=lambda o: (-_open_customer_points(o, trip), -int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
 
-    candidates.sort(key=lambda o: _priority_sort_key(o, trip))
-    selected, seen = [], set()
-
-    def add(offer, label_he, label_en):
-        sig = _offer_signature(offer)
-        if sig in seen or len(selected) >= limit:
-            return
+    out = []
+    for idx, offer in enumerate(qualified[:limit]):
         copy = _decorate_availability_note(offer, trip)
-        copy["customer_choice_label_he"] = label_he
-        copy["customer_choice_label_en"] = label_en
-        selected.append(copy); seen.add(sig)
-
-    if not candidates:
-        return []
-
-    add(candidates[0], "הבחירה של אריאלה", "Ariella's choice")
-    remaining = [o for o in candidates if _offer_signature(o) not in seen]
-    if remaining:
-        cheapest = min(remaining, key=lambda o: (float(o.get("price_ils") or 10**9), -int(o.get("score") or 0)))
-        add(cheapest, "אפשרות משתלמת", "Good value option")
-    remaining = [o for o in remaining if _offer_signature(o) not in seen]
-    if remaining:
-        best_time = max(remaining, key=lambda o: (int(o.get("time_value_score") or 0), int(o.get("score") or 0)))
-        add(best_time, "הכי הרבה זמן ביעד", "Most time at destination")
-    for offer in candidates:
-        add(offer, "אפשרות נוספת ששווה לשקול", "Another option worth considering")
-    return selected[:limit]
-
+        copy["customer_match_points"] = _open_customer_points(offer, trip) if not _trip_is_destination_led(trip) else None
+        copy["customer_choice_label_he"] = "הבחירה של אריאלה" if idx == 0 else "מתאים לבקשה שלך"
+        copy["customer_choice_label_en"] = "Ariella's choice" if idx == 0 else "Matches your request"
+        out.append(copy)
+    return out
 
 def _public_best_available(limit=30):
     """Public feed: target 70+, but always keep up to five useful deals down to 60."""
@@ -2039,7 +2056,8 @@ def account():
             dedicated = {
                 "OTP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bucharest%2C_Romania_%28Unsplash%29.jpg",
                 "ZRH": "https://images.unsplash.com/photo-1527668752968-14dc70a27c95?auto=format&fit=crop&w=900&q=82",
-                "KRK": "https://images.unsplash.com/photo-1636903364559-0dfc358abd94?auto=format&fit=crop&w=900&q=82",
+                "OTP": "https://cdn.xplorer.co.il/xImages/site/image%2859%29.jpeg",
+                "KRK": "https://plikimpi.krakow.pl/zalacznik/563964/4.jpg",
                 "LCA": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=82",
                 "ATH": "https://images.unsplash.com/photo-1555993539-1732b0258235?auto=format&fit=crop&w=900&q=82",
             }
@@ -2655,6 +2673,24 @@ def new_trip():
         existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
         scan_status = "database_match" if existing_matches else "no_database_match"
         scan_count = 0
+
+        # A customer who chose a specific destination must not be stranded just
+        # because our 48h DB is empty. Run one focused external search automatically.
+        # Open-destination searches remain DB-first to avoid wasting broad API quota.
+        if not existing_matches and destination_mode in {"specific", "several"}:
+            try:
+                scan_result = run_customer_trip_search(trip_id, payload)
+                scan_count = 1
+                scan_status = str(scan_result.get("status") or "external_search")
+                refreshed_inventory = [
+                    _localize_offer_airports(o)
+                    for o in recent_offers(limit=1500, minimum_score=None)
+                    if _offer_is_recent(o, 48)
+                ]
+                existing_matches = _customer_deal_choices(refreshed_inventory, trip_for_match, limit=5)
+            except Exception:
+                scan_count = 1
+                scan_status = "external_search_error"
 
         if existing_matches:
             matched_ids = [
