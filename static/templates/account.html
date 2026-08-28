@@ -180,7 +180,7 @@ function showAriellaSearchWait(){
               <button class="button outline" type="submit">{{ 'Same dates — another destination' if site_lang == 'en' else 'אותם תאריכים — יעד אחר' }}</button>
             </form>
             {% else %}
-              <div class="alternative-deals-message">{{ 'Ariella will keep looking across destinations and dates based on your preferences.' if site_lang=='en' else 'אריאלה תמשיך לחפש יעדים ותאריכים נוספים לפי ההעדפות שבחרתם.' }}</div>
+              <a class="button outline" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ 'Choose another destination' if site_lang=='en' else 'לבחור יעד אחר' }}</a>
             {% endif %}
           </div>
         </div>
