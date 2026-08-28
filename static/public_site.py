@@ -1141,28 +1141,69 @@ def _customer_rank_value(offer, trip):
     return (route * 2.0) + (time_value * 2.0) + (baggage * 1.5) + (price * 0.5) + (rarity * 0.25)
 
 
-def _offer_is_direct(offer):
-    """Robustly decide whether an offer is nonstop/direct.
-
-    Providers may encode stops as 0, "0", "direct", or "nonstop".
-    Unknown/missing stop data is NOT treated as direct.
-    """
-    raw = offer.get("stops")
-    if raw is None:
-        raw = offer.get("stop_count")
-    if raw is None:
-        raw = offer.get("stops_count")
-    if isinstance(raw, bool):
-        return False
-    if isinstance(raw, (int, float)):
-        return int(raw) == 0
-    text = str(raw or "").strip().lower()
-    if text in {"0", "direct", "nonstop", "non-stop", "non stop", "ישירה", "ללא עצירות"}:
-        return True
+def _normalized_stop_count(value):
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    if text in {"direct", "nonstop", "non-stop", "non stop", "ישירה", "ללא עצירות"}:
+        return 0
     try:
-        return int(float(text)) == 0
+        return int(float(text))
     except (TypeError, ValueError):
+        return None
+
+
+def _offer_leg_stops(offer, *, return_leg=False):
+    """Resolve one authoritative stop count for ranking and rendering logic."""
+    if return_leg:
+        keys = ("return_stops", "return_stop_count", "return_stops_count")
+        connection_key = "return_connections"
+        explicit_direct_keys = ("return_direct", "return_is_direct", "return_nonstop")
+    else:
+        keys = ("stops", "stop_count", "stops_count")
+        connection_key = "connections"
+        explicit_direct_keys = ("direct", "is_direct", "nonstop")
+
+    for key in keys:
+        if key in offer:
+            resolved = _normalized_stop_count(offer.get(key))
+            if resolved is not None:
+                return resolved
+    if connection_key in offer and offer.get(connection_key) is not None:
+        try:
+            return len(offer.get(connection_key) or [])
+        except TypeError:
+            pass
+    for key in explicit_direct_keys:
+        if offer.get(key) is True:
+            return 0
+    return None
+
+
+def _offer_is_direct(offer):
+    """A round trip is direct only when both legs are known to be nonstop.
+
+    The same resolver handles numeric/string stop counts and connection arrays,
+    preventing a deal card from looking direct while matching classifies it
+    differently. For legacy records with a known outbound direct leg but no
+    return stop metadata, fall back to the outbound value only when return flight
+    metadata itself exists and no return-connection evidence is present.
+    """
+    outbound = _offer_leg_stops(offer, return_leg=False)
+    inbound = _offer_leg_stops(offer, return_leg=True)
+    if outbound != 0:
         return False
+    if inbound is None:
+        # Legacy DB rows often omitted return_stops while still carrying a full
+        # return leg. They were previously shown as direct by the card; preserve
+        # that interpretation only when there is no evidence of a connection.
+        has_return_leg = bool(offer.get("return_departure_time") and offer.get("return_arrival_time"))
+        return has_return_leg and not bool(offer.get("return_connections"))
+    return inbound == 0
 
 
 def _objective_match_details(offer, trip):
