@@ -9,8 +9,6 @@ def _extract_time(value):
 
 
 def _baggage_line(label, item):
-    # v9.7.121: fare-family upgrades will carry pricing later.
-    # Deal cards/messages show inclusion only, never a standalone baggage estimate.
     return f"✅ {label}" if item.get("included") else f"❌ {label}"
 
 

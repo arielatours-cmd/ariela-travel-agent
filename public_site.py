@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 import json
 import sqlite3
+import random
 import requests
 from urllib.parse import parse_qsl
 from datetime import date, datetime
@@ -18,6 +19,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting
+from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
 
@@ -456,91 +458,8 @@ def _offer_signature(offer):
 
 
 def _qa_fixture_offers():
-    """Deterministic fake inventory used only when admin QA test mode is enabled.
-
-    These rows never enter the offers table and therefore never contaminate price
-    history, Radar statistics or production deal discovery.
-    """
-    # Testing build: fixtures are active by default, but can be disabled from settings.
-    if str(get_setting("qa_test_mode", "0") or "0") == "0":
-        return []
-
-    now = datetime.now(timezone.utc).isoformat()
-
-    def bag(personal=True, carry=False, checked=False):
-        return {
-            "personal_item": {"included": bool(personal), "known": True},
-            "carry_on_8kg": {
-                "included": bool(carry), "known": True,
-                "roundtrip_price_ils": 0 if carry else 180,
-            },
-            "checked_bag_23kg": {
-                "included": bool(checked), "known": True,
-                "roundtrip_price_ils": 0 if checked else 320,
-            },
-        }
-
-    def offer(oid, code, city_he, city_en, out_date, ret_date, price,
-              dep_time, arr_time, ret_dep, ret_arr, stops=0,
-              carry=False, checked=False, score=80, qa_type="standard",
-              resort=None, ski_transfer_minutes=None, image=None):
-        duration = 165 if code in {"SOF","MXP"} else 285 if code == "GVA" else 155
-        return {
-            "id": oid, "offer_id": oid, "qa_test_deal": True,
-            "qa_vacation_type": qa_type,
-            "last_seen_at": now, "observed_at": now, "scan_started_at": now,
-            "departure_code": "TLV", "arrival_code": code,
-            "departure_city_he": "תל אביב", "departure_city_en": "Tel Aviv",
-            "arrival_city_he": city_he, "arrival_city_en": city_en,
-            "outbound_date": out_date, "return_date": ret_date,
-            "departure_time": dep_time, "arrival_time": arr_time,
-            "return_departure_time": ret_dep, "return_arrival_time": ret_arr,
-            "airline": "QA AIR", "return_airline": "QA AIR",
-            "price_ils": float(price), "score": int(score),
-            "discount_percent": 15, "reference_price_ils": float(price) * 1.18,
-            "price_reference_reliable": True,
-            "stops": int(stops), "return_stops": int(stops),
-            "connections": [] if stops == 0 else [{"airport": "QA1", "duration_minutes": 75}],
-            "return_connections": [] if stops == 0 else [{"airport": "QA1", "duration_minutes": 70}],
-            "total_duration_minutes": duration + stops * 95,
-            "return_total_duration_minutes": duration + stops * 90,
-            "arrival_days_after": 0, "return_arrival_days_after": 0,
-            "baggage": bag(True, carry, checked),
-            "route_score": 100 if stops == 0 else 72 if stops == 1 else 50,
-            "time_value_score": 90 if dep_time[:2] in {"07","08","09","10"} and ret_dep[:2] in {"18","19","20","21"} else 55,
-            "hours_score": 90 if dep_time[:2] in {"07","08","09","10"} and ret_dep[:2] in {"18","19","20","21"} else 55,
-            "baggage_score": 100 if checked else 82 if carry else 45,
-            "cost_score": max(20, 100 - int(price/15)),
-            "rarity_score": 50,
-            "consumer_protection_label": "יש לבדוק מול הספק",
-            "consumer_protection_class": "check",
-            "change_cancel_label": "בכפוף לתנאי הספק",
-            "display_reasons": ["דיל בדיקה QA"],
-            "destination_image_url": image or "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=82",
-            "ski_resort": resort,
-            "ski_transfer_minutes": ski_transfer_minutes,
-            "booking_url": None,
-        }
-
-    # REGULAR QA: Sofia, November 2026. Five deliberately different offers.
-    regular = [
-        offer(-910501, "SOF", "סופיה", "Sofia", "2026-11-10", "2026-11-18", 620, "08:00", "10:45", "19:30", "22:15", 0, False, False, 82),
-        offer(-910502, "SOF", "סופיה", "Sofia", "2026-11-10", "2026-11-18", 690, "22:30", "01:15", "06:00", "08:45", 0, True, False, 79),
-        offer(-910503, "SOF", "סופיה", "Sofia", "2026-11-10", "2026-11-18", 650, "09:30", "13:45", "18:30", "22:40", 1, False, True, 77),
-        offer(-910504, "SOF", "סופיה", "Sofia", "2026-11-12", "2026-11-20", 520, "02:30", "08:30", "03:30", "09:20", 2, False, False, 70),
-        offer(-910505, "SOF", "סופיה", "Sofia", "2026-11-10", "2026-11-18", 760, "10:00", "12:45", "20:30", "23:15", 0, False, True, 88),
-    ]
-
-    ski_img = "https://images.unsplash.com/photo-1486911278844-a81c5267e227?auto=format&fit=crop&w=900&q=82"
-    ski = [
-        offer(-910551, "SOF", "סופיה", "Sofia", "2027-01-10", "2027-01-17", 700, "07:30", "10:15", "20:00", "22:45", 0, False, True, 86, "ski", "Bansko", 120, ski_img),
-        offer(-910552, "TBS", "טביליסי", "Tbilisi", "2027-01-10", "2027-01-17", 600, "06:30", "11:05", "18:30", "21:15", 0, True, False, 81, "ski", "Gudauri", 145, ski_img),
-        offer(-910553, "GVA", "ז׳נבה", "Geneva", "2027-01-10", "2027-01-17", 900, "08:00", "12:05", "20:30", "00:35", 0, False, True, 90, "ski", "Chamonix", 75, ski_img),
-        offer(-910554, "MXP", "מילאנו", "Milan", "2027-01-10", "2027-01-17", 780, "09:00", "12:20", "19:30", "22:50", 0, False, True, 87, "ski", "Cervinia", 130, ski_img),
-        offer(-910555, "GVA", "ז׳נבה", "Geneva", "2027-01-10", "2027-01-17", 740, "11:30", "17:20", "16:00", "21:45", 1, True, False, 78, "ski", "Les Gets", 65, ski_img),
-    ]
-    return regular + ski
-
+    """QA inventory was retired in v9.7.122. Production/customer results use real DB offers only."""
+    return []
 
 def _offer_matches_vacation_type(offer, trip):
     qa_type = str(offer.get("qa_vacation_type") or "").strip()
@@ -1153,100 +1072,64 @@ def _good_price_condition(offer):
 
 
 def _seasonal_condition_met(offer, trip, selected):
-    """One seasonal-fit point at most, never a multiplier or hard filter."""
+    """One explicit seasonality point from the destination matrix."""
     month = _requested_travel_month(trip, offer)
-    if month is None:
-        return False
-    code = str(offer.get("arrival_code") or "").upper()
-    tags = _DESTINATION_STYLE_TAGS.get(code, set())
-    profile = _SEASONAL_DESTINATION_PROFILES.get(code) or {}
+    return _destination_seasonality_met(str(offer.get("arrival_code") or ""), month)
 
-    # If the customer explicitly asked for a season-sensitive vacation type,
-    # test that first. Otherwise use pleasant-weather fit as the generic signal.
-    if "beach" in selected and "beach" in tags:
-        return month in profile.get("beach_months", set())
-    if "hiking" in selected and ("hiking" in tags or "nature" in tags):
-        months = profile.get("hiking_months")
-        return bool(months and month in months)
-    if "weather" in selected:
-        return month in profile.get("pleasant_months", set())
-    return month in profile.get("pleasant_months", set())
-
-
-def _open_customer_points(offer, trip):
-    """Transparent Ariella ranking for an open-destination vacation.
-
-    Exactly one point is awarded for every customer condition that is met.
-    Seasonal suitability contributes one additional point.  No preference is
-    multiplied.  The global deal score is used only as a tie-breaker.
-    """
+def _open_customer_point_details(offer, trip):
+    """Return transparent +1/0 details for every customer condition."""
     answers = trip.get("answers") or {}
-    selected = {str(x) for x in (answers.get("holiday_priorities") or []) if x}
+    selected = [str(x) for x in (answers.get("holiday_priorities") or []) if x]
     priorities = {str(x) for x in (answers.get("deal_priorities") or []) if x}
     code = str(offer.get("arrival_code") or "").upper()
-    tags = _DESTINATION_STYLE_TAGS.get(code, set())
-    points = 0
-
-    for pref in selected - {"price", "weather"}:
-        if pref in tags:
-            points += 1
-
-    if "price" in selected and _good_price_condition(offer):
-        points += 1
-
     month = _requested_travel_month(trip, offer)
-    profile = _SEASONAL_DESTINATION_PROFILES.get(code) or {}
-    if "weather" in selected and month in profile.get("pleasant_months", set()):
-        points += 1
+    detail = {}
 
-    if _seasonal_condition_met(offer, trip, selected):
-        points += 1
+    for pref in selected:
+        if pref == "price":
+            detail[pref] = bool(_good_price_condition(offer))
+        else:
+            detail[pref] = bool(_destination_condition_met(code, pref, month))
 
-    if "direct" in priorities and int(offer.get("stops") or 0) == 0:
-        points += 1
+    if "direct" in priorities:
+        detail["direct"] = int(offer.get("stops") or 0) == 0
     if "baggage" in priorities:
         bag = offer.get("baggage") or {}
-        if ((bag.get("carry_on_8kg") or {}).get("included") is True or
-            (bag.get("checked_bag_23kg") or {}).get("included") is True):
-            points += 1
+        detail["baggage"] = ((bag.get("carry_on_8kg") or {}).get("included") is True or
+                             (bag.get("checked_bag_23kg") or {}).get("included") is True)
     if "maximize" in priorities:
         arr = _time_minutes(offer.get("arrival_time"))
         ret = _time_minutes(offer.get("return_departure_time"))
-        if arr is not None and ret is not None and arr <= 600 and ret >= 1200:
-            points += 1
+        detail["maximize"] = arr is not None and ret is not None and arr <= 600 and ret >= 1200
 
     if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
         try:
-            if float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10:
-                points += 1
+            detail["budget"] = float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10
         except (TypeError, ValueError):
-            pass
+            detail["budget"] = False
 
-    # Family composition is relevant to destination suitability when Ariella is
-    # choosing the destination. It is a soft ranking condition, not a reason to
-    # hide a flight.
     try:
         is_family = str(answers.get("travel_party") or "") == "family" or int(answers.get("children") or 0) > 0
     except (TypeError, ValueError):
         is_family = str(answers.get("travel_party") or "") == "family"
-    if is_family and "family" in tags:
-        points += 1
+    if is_family:
+        detail["family_party"] = bool(_destination_condition_met(code, "family", month))
 
-    return points
+    # Exactly one extra point for overall seasonal suitability.
+    detail["seasonality"] = bool(_destination_seasonality_met(code, month))
+    return detail
+
+
+def _open_customer_points(offer, trip):
+    """One point for each met customer condition; no hidden weights."""
+    return sum(1 for met in _open_customer_point_details(offer, trip).values() if met)
 
 
 def _customer_rank_value(offer, trip):
-    """Customer ranking value.
-
-    Open-destination vacations are ordered strictly by transparent points first;
-    deal score only breaks ties. Destination-led searches retain route/time
-    quality ordering because the customer has already fixed the destination.
-    """
+    """Customer ranking value. Open searches use points; fixed destinations use flight quality."""
     deal_score = int(offer.get("score") or 0)
-    answers = trip.get("answers") or {}
     if not _trip_is_destination_led(trip):
         return (_open_customer_points(offer, trip) * 1000.0) + deal_score
-
     route = int(offer.get("route_score") or 0)
     time_value = int(offer.get("time_value_score") or offer.get("hours_score") or 0)
     baggage = int(offer.get("baggage_score") or 0)
@@ -1256,12 +1139,7 @@ def _customer_rank_value(offer, trip):
 
 
 def _objective_match_details(offer, trip):
-    """Conditions that define the 'matches your request' group.
-
-    Vacation-style choices (nature, food, quiet, family suitability, seasonality,
-    good-price signal) rank results but do not push an otherwise valid flight below
-    the alternatives divider. Objective customer restrictions do.
-    """
+    """Objective restrictions define the full-match group above the divider."""
     answers = trip.get("answers") or {}
     points = possible = 0
     matched, missed = [], []
@@ -1283,9 +1161,9 @@ def _objective_match_details(offer, trip):
         try:
             add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10, "תקציב", "Budget")
         except (TypeError, ValueError):
-            pass
+            add(False, "תקציב", "Budget")
 
-    priorities = {str(x) for x in (answers.get("deal_priorities") or [])}
+    priorities = {str(x) for x in (answers.get("deal_priorities") or []) if x}
     if "direct" in priorities:
         add(int(offer.get("stops") or 0) == 0, "טיסה ישירה", "Direct flight")
     if "baggage" in priorities:
@@ -1296,18 +1174,16 @@ def _objective_match_details(offer, trip):
 
     return points, possible, matched, missed
 
+
 def _customer_inventory_status(all_offers, trip):
-    """Describe what already exists in DB without exposing incomplete records as deals."""
+    """Describe DB inventory without exposing incomplete records as deals."""
     same_destination = [
         o for o in all_offers
         if _offer_is_recent(o, 48)
         and _offer_destination_matches(o, trip)
         and (_trip_is_destination_led(trip) or int(o.get("score") or 0) >= 65)
     ]
-    complete = [
-        o for o in same_destination
-        if _offer_has_complete_roundtrip(o) and _offer_has_baggage_pricing_when_needed(o)
-    ]
+    complete = [o for o in same_destination if _offer_has_complete_roundtrip(o) and _offer_has_baggage_pricing_when_needed(o)]
     return {
         "same_destination_count": len(same_destination),
         "complete_count": len(complete),
@@ -1328,79 +1204,12 @@ def _saved_match_offer_ids(trip):
 
 
 def _resolved_trip_offers(all_offers, trip, limit=5):
-    """Use the exact DB offers that stopped the initial scan, then fresh dynamic matches.
+    """Always resolve through the current customer-condition ranking.
 
-    This prevents the UI from saying "database match" and then hiding the same offer
-    when My Vacations is rendered again.
+    Saved IDs and trip-produced offers must never bypass the latest request
+    conditions; otherwise stale QA/customer selections can outrank valid deals.
     """
-    selected = []
-    seen = set()
-
-    pinned_ids = _saved_match_offer_ids(trip)
-    if pinned_ids:
-        by_id = {
-            int(o.get("offer_id") or o.get("id")): o
-            for o in all_offers
-            if (o.get("offer_id") or o.get("id")) is not None
-        }
-        for oid in pinned_ids:
-            offer = by_id.get(oid)
-            if not offer or not _offer_is_recent(offer, 48):
-                continue
-            # v9.7.121 regression fix: saved/pinned offers are not authoritative
-            # matches. They must pass the same objective requirements as every
-            # other offer before they can appear above the alternatives divider.
-            _, possible, _, missed = _objective_match_details(offer, trip)
-            if possible and missed:
-                continue
-            copy = _decorate_availability_note(offer, trip)
-            copy["customer_choice_label_he"] = "הבחירה של אריאלה"
-            copy["customer_choice_label_en"] = "Ariella's choice"
-            sig = _offer_signature(copy)
-            if sig not in seen:
-                selected.append(copy)
-                seen.add(sig)
-            if len(selected) >= limit:
-                return selected
-
-    # Fresh offers produced specifically for this trip are also authoritative.
-    try:
-        trip_id = int(trip.get("id"))
-    except (TypeError, ValueError):
-        trip_id = None
-    if trip_id is not None:
-        for offer in all_offers:
-            try:
-                belongs = int(offer.get("trip_id")) == trip_id
-            except (TypeError, ValueError):
-                belongs = False
-            if not belongs or not _offer_is_recent(offer, 48) or not _offer_has_complete_roundtrip(offer):
-                continue
-            # Fresh trip-specific results use the same divider rules too; being
-            # created for this trip must never bypass a requested condition.
-            _, possible, _, missed = _objective_match_details(offer, trip)
-            if possible and missed:
-                continue
-            copy = _decorate_availability_note(offer, trip)
-            copy["customer_choice_label_he"] = "הבחירה של אריאלה"
-            copy["customer_choice_label_en"] = "Ariella's choice"
-            sig = _offer_signature(copy)
-            if sig not in seen:
-                selected.append(copy)
-                seen.add(sig)
-            if len(selected) >= limit:
-                return selected
-
-    for offer in _customer_deal_choices(all_offers, trip, limit=limit):
-        sig = _offer_signature(offer)
-        if sig in seen:
-            continue
-        selected.append(offer)
-        seen.add(sig)
-        if len(selected) >= limit:
-            break
-    return selected
-
+    return _customer_deal_choices(all_offers, trip, limit=limit)
 
 def _requested_passenger_count(trip):
     answers = trip.get("answers") or {}
@@ -1463,6 +1272,7 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
         c["request_match_reasons"] = matched
         c["request_missed_reasons"] = missed
         c["customer_match_points"] = total_points
+        c["customer_match_detail"] = _open_customer_point_details(o, trip) if not _trip_is_destination_led(trip) else {}
         c["customer_choice_label_he"] = "אפשרות קרובה לבקשה שלך"
         c["customer_choice_label_en"] = "A close match to your request"
         out.append(c)
@@ -1591,6 +1401,7 @@ def _customer_deal_choices(all_offers, trip, limit=5):
     for idx, offer in enumerate(qualified[:limit]):
         copy = _decorate_availability_note(offer, trip)
         copy["customer_match_points"] = _open_customer_points(offer, trip) if not _trip_is_destination_led(trip) else None
+        copy["customer_match_detail"] = _open_customer_point_details(offer, trip) if not _trip_is_destination_led(trip) else {}
         copy["customer_choice_label_he"] = "הבחירה של אריאלה" if idx == 0 else "מתאים לבקשה שלך"
         copy["customer_choice_label_en"] = "Ariella's choice" if idx == 0 else "Matches your request"
         out.append(copy)
@@ -2074,7 +1885,16 @@ def account():
             }
             trip["image_url"] = dedicated.get(destination_codes[0]) or DESTINATION_LANDMARK_IMAGES.get(destination_codes[0]) or "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=82"
         else:
-            trip["image_url"] = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=900&q=82"
+            # Ariella-chooses-destination uses a curated vacation image pool.
+            # Selection changes between renders but never pulls an arbitrary web image.
+            open_destination_images = [
+                "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=82",
+                "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=82",
+                "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=900&q=82",
+                "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=82",
+                "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=82",
+            ]
+            trip["image_url"] = random.choice(open_destination_images)
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",

@@ -329,6 +329,12 @@ def init_db() -> None:
         if "preferred_airports" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN preferred_airports TEXT NOT NULL DEFAULT '[]'")
 
+        # v9.7.122: permanently retire QA fixture inventory and purge any QA rows
+        # that may have been persisted by older builds. Real scan history/deals stay intact.
+        conn.execute("DELETE FROM offers WHERE UPPER(COALESCE(airline,'')) LIKE 'QA %' OR payload_json LIKE '%\"qa_test_deal\": true%' OR payload_json LIKE '%דיל בדיקה QA%'")
+        conn.execute("DELETE FROM scan_runs WHERE LOWER(COALESCE(scan_type,'')) LIKE 'qa%' AND id NOT IN (SELECT DISTINCT scan_run_id FROM offers)")
+        conn.execute("INSERT INTO settings(key,value) VALUES('qa_test_mode','0') ON CONFLICT(key) DO UPDATE SET value='0'")
+
 
 def create_scan_run(searches_planned: int, scan_type: str = "general", trip_id: int | None = None) -> int:
     with connection() as conn:
@@ -767,7 +773,10 @@ def recent_scan_runs(limit: int = 20) -> list[dict]:
             (utc_now_iso(), cutoff),
         )
         rows = conn.execute(
-            "SELECT * FROM scan_runs ORDER BY id DESC LIMIT ?", (max(1, min(limit, 200)),)
+            """SELECT s.*,
+                      COALESCE((SELECT GROUP_CONCAT(DISTINCT o.departure_code) FROM offers o WHERE o.scan_run_id=s.id),'') AS origins
+               FROM scan_runs s ORDER BY s.id DESC LIMIT ?""",
+            (max(1, min(limit, 200)),)
         ).fetchall()
     return [dict(row) for row in rows]
 

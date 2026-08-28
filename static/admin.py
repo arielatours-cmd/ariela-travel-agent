@@ -255,6 +255,16 @@ tbody tr:hover{background:#fafbfe}
 .admin-head-filter input,.admin-head-filter select{display:block;width:100%;margin-top:6px;border:1px solid #d9dfe8;border-radius:6px;padding:5px 6px;background:#fff;font-size:11px}
 .qa-test-mode{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 14px;padding:10px 12px;border:1px solid #d9dfe8;border-radius:9px;background:#fff}
 .qa-test-mode.active{border-color:#c48a1b;background:#fff8e8}.qa-test-mode form{margin:0}
+
+/* v9.7.122 — clearer dashboard headings and filter/sort controls */
+h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!important}
+.admin-head-filter .head-sort{font-size:18px!important;line-height:1.25!important}
+.admin-head-filter input,.admin-head-filter select{font-size:15px!important;padding:8px 9px!important;min-height:38px!important;font-weight:700!important}
+.scan-filter-bar{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:10px 0 12px;padding:12px 14px;background:#fff;border:1px solid #dfe4ed;border-radius:10px}
+.scan-filter-bar label{font-size:16px;font-weight:800;color:#263a70}
+.scan-filter-bar select{display:block;margin-top:5px;min-width:180px;font-size:15px;font-weight:700;padding:9px 10px;border:1px solid #cfd6e2;border-radius:8px;background:#fff}
+.scan-origin-col{min-width:105px}.scan-type-col{min-width:150px}
+
 </style>
 </head>
 <body>
@@ -342,9 +352,20 @@ tbody tr:hover{background:#fafbfe}
 <div class="table-wrap"><table id="offersTable">
 <thead>
 <tr>
-    <th class="scan-id">סריקה</th>
+    <th class="scan-id admin-head-filter">
+      <button type="button" class="head-sort" data-sort="scan">סריקה ↕</button>
+      <select id="adminOfferScan" aria-label="סינון לפי סריקה">
+        <option value="">הכל</option>
+        {% for sid in offers|map(attribute='scan_run_id')|unique|list %}{% if sid %}<option value="{{ sid }}">#{{ sid }}</option>{% endif %}{% endfor %}
+      </select>
+    </th>
+    <th class="scan-origin-col admin-head-filter">
+      <button type="button" class="head-sort" data-sort="origin">מוצא ↕</button>
+      <select id="adminOfferOrigin" aria-label="סינון לפי מוצא">
+        <option value="">הכל</option><option value="TLV">TLV – נתב״ג</option><option value="HFA">HFA – חיפה</option>
+      </select>
+    </th>
     <th class="scan-time">מועד סריקה / גיל</th>
-    <th class="origin-col">מוצא</th>
     <th class="destination admin-head-filter">
       <button type="button" class="head-sort" data-sort="destination">יעד ↕</button>
       <input id="adminOfferDestination" type="search" placeholder="סינון יעד / קוד">
@@ -381,17 +402,14 @@ tbody tr:hover{background:#fafbfe}
 </thead>
 <tbody>
 {% for o in offers %}
-<tr class="offer-row" data-destination="{{ (o.arrival_code or '')|lower }} {{ (o.destination_name or '')|lower }}" data-scan="{{ o.scan_run_id or '' }}" data-score="{{ o.score or 0 }}" data-price="{{ o.price_ils or 0 }}" data-outbound="{{ o.outbound_date or '' }}" data-return="{{ o.return_date or '' }}" data-order="{{ loop.index0 }}">
+<tr class="offer-row" data-destination="{{ (o.arrival_code or '')|lower }} {{ (o.destination_name or '')|lower }}" data-scan="{{ o.scan_run_id or '' }}" data-origin="{{ (o.departure_code or '')|upper }}" data-score="{{ o.score or 0 }}" data-price="{{ o.price_ils or 0 }}" data-outbound="{{ o.outbound_date or '' }}" data-return="{{ o.return_date or '' }}" data-order="{{ loop.index0 }}">
     <td class="scan-id"><button class="scan-link" type="button" onclick="showScan({{ o.scan_run_id or 0 }})">#{{ o.scan_run_id or '—' }}</button></td>
+    <td class="scan-origin-col"><strong>{{ o.departure_code or '—' }}</strong>{% if o.departure_code == 'TLV' %}<br><small>נתב״ג</small>{% elif o.departure_code == 'HFA' %}<br><small>חיפה</small>{% endif %}</td>
     <td class="scan-time" title="דילים מעל 48 שעות אינם משמשים לחיפוש אישי">
       {% if o.observed_at %}
         {{ o.observed_at[:16]|replace('T',' ') }}<br>
         <small data-observed="{{ o.observed_at }}">48h window</small>
       {% else %}—{% endif %}
-    </td>
-    <td class="origin-col" title="שדה מוצא">
-        <strong>{{ o.departure_code or '—' }}</strong>
-        {% if o.departure_code == 'HFA' %}<br><small>חיפה</small>{% elif o.departure_code == 'TLV' %}<br><small>נתב״ג</small>{% endif %}
     </td>
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
@@ -454,15 +472,24 @@ tbody tr:hover{background:#fafbfe}
 </div>
 
 <h2>סריקות אחרונות</h2>
+<div class="scan-filter-bar">
+  <label>סוג סריקה
+    <select id="adminScanType"><option value="">הכל</option><option value="personal">אישית</option><option value="wide">רחבה</option><option value="hourly">שעתית</option><option value="destination">יעד</option><option value="general">כללית</option></select>
+  </label>
+  <label>מוצא
+    <select id="adminScanOrigin"><option value="">הכל</option><option value="TLV">TLV – נתב״ג</option><option value="HFA">HFA – חיפה</option></select>
+  </label>
+</div>
 <div class="table-wrap scans-table-wrap">
 <table class="scans">
 <thead>
 <tr>
-    <th class="scan-id">מס׳</th>
+    <th class="scan-id"><button type="button" class="head-sort scan-table-sort" data-scan-sort="id">מס׳ ↕</button></th>
     <th class="scan-status">סטטוס</th>
     <th class="scan-date">התחלה</th>
     <th class="scan-number">חיפושים</th>
-    <th>סוג</th>
+    <th class="scan-type-col"><button type="button" class="head-sort scan-table-sort" data-scan-sort="type">סוג ↕</button></th>
+    <th class="scan-origin-col"><button type="button" class="head-sort scan-table-sort" data-scan-sort="origin">מוצא ↕</button></th>
     <th class="scan-number">קריאות API</th>
     <th class="scan-number">הצעות</th>
     <th class="scan-number">שגיאות</th>
@@ -470,19 +497,20 @@ tbody tr:hover{background:#fafbfe}
 </thead>
 <tbody>
 {% for s in scans %}
-<tr class="scan-row" onclick="showScan({{ s.id }})" title="לחצי לצפייה בהצעות שנמצאו בסריקה">
+<tr class="scan-row" data-scan-id="{{ s.id }}" data-scan-type="{{ (s.scan_type or 'general')|lower }}" data-origin="{{ (s.origins or '')|upper }}" onclick="showScan({{ s.id }})" title="לחצי לצפייה בהצעות שנמצאו בסריקה">
     <td><strong>#{{ s.id }}</strong></td>
     <td>{{ s.status }}</td>
     <td>{{ s.started_at }}</td>
     <td>{{ s.searches_completed }}/{{ s.searches_planned }}</td>
     <td>{{ s.scan_type or 'general' }}{% if s.trip_id %} · חופשה #{{s.trip_id}}{% endif %}</td>
+    <td class="scan-origin-col">{{ (s.origins or '—')|replace(',', ' · ') }}</td>
     <td>{{ s.api_requests or 0 }}</td>
     <td>{{ s.offers_found }}</td>
     <td>{{ s.errors }}{% if s.error_message %}<br><small title="{{s.error_message}}">{{ s.error_message[:90] }}</small>{% endif %}</td>
 </tr>
-<tr id="scan-details-{{ s.id }}" class="scan-details-row" hidden><td colspan="8"><div class="scan-details-content">טוען...</div></td></tr>
+<tr id="scan-details-{{ s.id }}" class="scan-details-row" hidden><td colspan="9"><div class="scan-details-content">טוען...</div></td></tr>
 {% else %}
-<tr><td class="empty" colspan="8">עדיין אין סריקות.</td></tr>
+<tr><td class="empty" colspan="9">עדיין אין סריקות.</td></tr>
 {% endfor %}
 </tbody>
 </table>
@@ -589,7 +617,7 @@ async function showScan(id){
   if(row){ row.hidden=!row.hidden; if(row.hidden)return; }
   try{
     const r=await fetch(withAdminToken('/scan-run/'+id+'/offers'),{cache:'no-store'}), d=await r.json();
-    const html=(d.offers||[]).map(o=>'<span class="scan-result-chip">'+(o.arrival_code||'—')+' · ₪'+Math.round(o.price_ils||0)+' · ציון '+(o.score||0)+' · '+(o.is_new_in_scan?'חדש':'כבר היה במאגר')+'</span>').join('');
+    const html=(d.offers||[]).map(o=>'<span class="scan-result-chip"><strong>'+(o.departure_code||'—')+' → '+(o.arrival_code||'—')+'</strong> · ₪'+Math.round(o.price_ils||0)+' · ציון '+(o.score||0)+' · '+(o.is_new_in_scan?'חדש':'כבר היה במאגר')+'</span>').join('');
     const target=row?row.querySelector('.scan-details-content'):null;
     if(target)target.innerHTML='<strong>תוצאות סריקה #'+id+' ('+(d.count||0)+')</strong><div class="scan-result-grid">'+(html||'לא נשמרו הצעות בסריקה זו')+'</div>';
   }catch(_){ if(row)row.querySelector('.scan-details-content').textContent='לא ניתן לטעון את תוצאות הסריקה.'; }
@@ -601,11 +629,15 @@ function applyAdminOfferFilters(){
  const tbody=document.querySelector('#offersTable tbody'); if(!tbody)return;
  const rows=[...tbody.querySelectorAll('.offer-row')];
  const dest=(document.getElementById('adminOfferDestination')?.value||'').trim().toLowerCase();
+ const scan=document.getElementById('adminOfferScan')?.value||'';
+ const origin=document.getElementById('adminOfferOrigin')?.value||'';
  const out=document.getElementById('adminOfferOutbound')?.value||'';
  const ret=document.getElementById('adminOfferReturn')?.value||'';
  const min=+(document.getElementById('adminOfferScore')?.value||0);
  rows.forEach(r=>{
    const ok=(!dest||(r.dataset.destination||'').includes(dest))
+     &&(!scan||(r.dataset.scan||'')===scan)
+     &&(!origin||(r.dataset.origin||'')===origin)
      &&(!out||(r.dataset.outbound||'').startsWith(out))
      &&(!ret||(r.dataset.return||'').startsWith(ret))
      &&(!min||+(r.dataset.score||0)>=min);
@@ -613,7 +645,9 @@ function applyAdminOfferFilters(){
  });
  rows.sort((x,y)=>{
    let v=0;
-   if(adminOfferSortKey==='destination') v=(x.dataset.destination||'').localeCompare(y.dataset.destination||'','he');
+   if(adminOfferSortKey==='scan') v=+(x.dataset.scan||0)-+(y.dataset.scan||0);
+   else if(adminOfferSortKey==='origin') v=(x.dataset.origin||'').localeCompare(y.dataset.origin||'');
+   else if(adminOfferSortKey==='destination') v=(x.dataset.destination||'').localeCompare(y.dataset.destination||'','he');
    else if(adminOfferSortKey==='outbound') v=(x.dataset.outbound||'').localeCompare(y.dataset.outbound||'');
    else if(adminOfferSortKey==='return') v=(x.dataset.return||'').localeCompare(y.dataset.return||'');
    else if(adminOfferSortKey==='score') v=+(x.dataset.score||0)-+(y.dataset.score||0);
@@ -624,7 +658,7 @@ function applyAdminOfferFilters(){
  rows.forEach(r=>tbody.appendChild(r));
 }
 document.addEventListener('DOMContentLoaded',()=>{
- ['adminOfferDestination','adminOfferOutbound','adminOfferReturn','adminOfferScore'].forEach(id=>{
+ ['adminOfferDestination','adminOfferScan','adminOfferOrigin','adminOfferOutbound','adminOfferReturn','adminOfferScore'].forEach(id=>{
    const e=document.getElementById(id);if(e)e.addEventListener(e.tagName==='INPUT'?'input':'change',applyAdminOfferFilters);
  });
  document.querySelectorAll('#offersTable .head-sort').forEach(btn=>{
@@ -643,6 +677,34 @@ function sortDestination(){
  rows.sort((x,y)=>(x.dataset.destination||'').localeCompare(y.dataset.destination||'','he')*destinationSortDir);
  rows.forEach(r=>tbody.appendChild(r)); destinationSortDir*=-1;
 }
+
+let adminScanSortKey='id', adminScanSortDir=-1;
+function applyScanFilters(){
+ const tbody=document.querySelector('.scans-table-wrap .scans tbody'); if(!tbody)return;
+ const type=(document.getElementById('adminScanType')?.value||'').toLowerCase();
+ const origin=(document.getElementById('adminScanOrigin')?.value||'').toUpperCase();
+ const rows=[...tbody.querySelectorAll('.scan-row')];
+ rows.forEach(r=>{
+   const ok=(!type||(r.dataset.scanType||'').includes(type)) && (!origin||(r.dataset.origin||'').split(',').includes(origin));
+   r.style.display=ok?'':'none';
+   const detail=r.nextElementSibling; if(detail&&detail.classList.contains('scan-details-row')&&!ok) detail.hidden=true;
+ });
+ rows.sort((a,b)=>{
+   let v=0;
+   if(adminScanSortKey==='type') v=(a.dataset.scanType||'').localeCompare(b.dataset.scanType||'');
+   else if(adminScanSortKey==='origin') v=(a.dataset.origin||'').localeCompare(b.dataset.origin||'');
+   else v=+(a.dataset.scanId||0)-+(b.dataset.scanId||0);
+   return v*adminScanSortDir;
+ });
+ rows.forEach(r=>{ const d=r.nextElementSibling; tbody.appendChild(r); if(d&&d.classList.contains('scan-details-row'))tbody.appendChild(d); });
+}
+document.addEventListener('DOMContentLoaded',()=>{
+ ['adminScanType','adminScanOrigin'].forEach(id=>document.getElementById(id)?.addEventListener('change',applyScanFilters));
+ document.querySelectorAll('.scan-table-sort').forEach(btn=>btn.addEventListener('click',()=>{
+   const key=btn.dataset.scanSort; if(adminScanSortKey===key)adminScanSortDir*=-1; else {adminScanSortKey=key;adminScanSortDir=1;} applyScanFilters();
+ }));
+ applyScanFilters();
+});
 
 function refreshOfferAges(){
   document.querySelectorAll('[data-observed]').forEach(function(el){
