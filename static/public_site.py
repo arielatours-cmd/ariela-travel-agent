@@ -1347,6 +1347,12 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
             offer = by_id.get(oid)
             if not offer or not _offer_is_recent(offer, 48):
                 continue
+            # v9.7.121 regression fix: saved/pinned offers are not authoritative
+            # matches. They must pass the same objective requirements as every
+            # other offer before they can appear above the alternatives divider.
+            _, possible, _, missed = _objective_match_details(offer, trip)
+            if possible and missed:
+                continue
             copy = _decorate_availability_note(offer, trip)
             copy["customer_choice_label_he"] = "הבחירה של אריאלה"
             copy["customer_choice_label_en"] = "Ariella's choice"
@@ -1369,6 +1375,11 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
             except (TypeError, ValueError):
                 belongs = False
             if not belongs or not _offer_is_recent(offer, 48) or not _offer_has_complete_roundtrip(offer):
+                continue
+            # Fresh trip-specific results use the same divider rules too; being
+            # created for this trip must never bypass a requested condition.
+            _, possible, _, missed = _objective_match_details(offer, trip)
+            if possible and missed:
                 continue
             copy = _decorate_availability_note(offer, trip)
             copy["customer_choice_label_he"] = "הבחירה של אריאלה"

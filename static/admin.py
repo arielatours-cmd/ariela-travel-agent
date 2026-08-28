@@ -344,6 +344,7 @@ tbody tr:hover{background:#fafbfe}
 <tr>
     <th class="scan-id">סריקה</th>
     <th class="scan-time">מועד סריקה / גיל</th>
+    <th class="origin-col">מוצא</th>
     <th class="destination admin-head-filter">
       <button type="button" class="head-sort" data-sort="destination">יעד ↕</button>
       <input id="adminOfferDestination" type="search" placeholder="סינון יעד / קוד">
@@ -387,6 +388,10 @@ tbody tr:hover{background:#fafbfe}
         {{ o.observed_at[:16]|replace('T',' ') }}<br>
         <small data-observed="{{ o.observed_at }}">48h window</small>
       {% else %}—{% endif %}
+    </td>
+    <td class="origin-col" title="שדה מוצא">
+        <strong>{{ o.departure_code or '—' }}</strong>
+        {% if o.departure_code == 'HFA' %}<br><small>חיפה</small>{% elif o.departure_code == 'TLV' %}<br><small>נתב״ג</small>{% endif %}
     </td>
     <td class="destination">
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
@@ -442,7 +447,7 @@ tbody tr:hover{background:#fafbfe}
     </td>
 </tr>
 {% else %}
-<tr><td class="empty" colspan="15">עדיין אין הצעות. הפעילי סריקה.</td></tr>
+<tr><td class="empty" colspan="17">עדיין אין הצעות. הפעילי סריקה.</td></tr>
 {% endfor %}
 </tbody>
 </table>

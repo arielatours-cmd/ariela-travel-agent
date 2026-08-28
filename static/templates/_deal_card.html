@@ -19,13 +19,6 @@
     {% else %}
       <strong class="not-included">×</strong>
     {% endif %}
-    {% if kind in ['carry','checked'] and item and item.roundtrip_price_ils is number and item.roundtrip_price_ils > 0 %}
-      <small class="bag-price">(₪{{ '%.0f'|format(item.roundtrip_price_ils) }})</small>
-    {% elif kind in ['carry','checked'] and item and item.price_each_way is number and item.price_each_way > 0 %}
-      <small class="bag-price">(₪{{ '%.0f'|format(item.price_each_way * 2) }})</small>
-    {% elif kind in ['carry','checked'] %}
-      <small class="bag-price bag-price-supplier">{{ '(supplier site)' if lang=='en' else '(באתר הספק)' }}</small>
-    {% endif %}
   </span>
 </li>
 {%- endmacro %}

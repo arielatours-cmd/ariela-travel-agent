@@ -9,15 +9,9 @@ def _extract_time(value):
 
 
 def _baggage_line(label, item):
-    if item.get("included"):
-        return f"✅ {label}"
-    roundtrip = item.get("roundtrip_price_ils")
-    if isinstance(roundtrip, (int, float)):
-        return f"❌ {label} (₪{roundtrip:.0f})"
-    each_way = item.get("price_each_way")
-    if isinstance(each_way, (int, float)):
-        return f"❌ {label} (₪{each_way * 2:.0f})"
-    return f"❌ {label}"
+    # v9.7.121: fare-family upgrades will carry pricing later.
+    # Deal cards/messages show inclusion only, never a standalone baggage estimate.
+    return f"✅ {label}" if item.get("included") else f"❌ {label}"
 
 
 def _format_connections(flight):
