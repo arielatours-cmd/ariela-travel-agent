@@ -900,30 +900,37 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                         scored.append((_customer_scan_rank(score, answers), score["score"], -price, flight, analysis, score))
                 if scored:
                     scored.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-                    _, _, _, flight, analysis, score = scored[0]
-                    flight, booking_requests = enrich_booking_options(
-                        flight, job["departure"], job["arrival"], job["outbound"], job["return"]
-                    )
-                    api_requests += booking_requests
-                    if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
-                        flight["price"] = flight["booking_supplier_price_ils"]
-                    analysis = _apply_best_price_reference(analysis, float(flight["price"]))
-                    score = calculate_deal_score(analysis, flight)
                     dest = destination_names.get(job["arrival"], {})
-                    insert_offer(run_id, {
-                        "observed_at": datetime.now(timezone.utc).isoformat(),
-                        "route": result["route"], "departure_code": job["departure"], "arrival_code": job["arrival"],
-                        "departure_airport_name": result["departure_airport_name"], "arrival_airport_name": result["arrival_airport_name"],
-                        "destination_name": dest.get("name") or job["arrival"], "country_flag": dest.get("country_flag") or "",
-                        "outbound_date": job["outbound"], "return_date": job["return"],
-                        "outbound": result["outbound"], "return": result["return"],
-                        "deal_analysis": analysis, "flight": flight, "deal_score": score,
-                        "booking_url": result["booking_url"], "trip_id": trip_id,
-                        # Personal scans are a source of shared inventory: later
-                        # customers may reuse the same fresh offer from the DB.
-                        "inventory_scope": "shared", "source_trip_id": trip_id,
-                    })
-                    offers_found += 1
+                    # Persist every valid round-trip found by an external personal
+                    # scan.  The first candidate is enriched for immediate display;
+                    # the remaining candidates still expand the shared 48h DB and
+                    # can match another customer's dates, budget or preferences.
+                    for candidate_index, (_, _, _, flight, analysis, score) in enumerate(scored):
+                        flight = dict(flight)
+                        analysis = dict(analysis)
+                        score = dict(score)
+                        if candidate_index == 0:
+                            flight, booking_requests = enrich_booking_options(
+                                flight, job["departure"], job["arrival"], job["outbound"], job["return"]
+                            )
+                            api_requests += booking_requests
+                            if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
+                                flight["price"] = flight["booking_supplier_price_ils"]
+                            analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                            score = calculate_deal_score(analysis, flight)
+                        insert_offer(run_id, {
+                            "observed_at": datetime.now(timezone.utc).isoformat(),
+                            "route": result["route"], "departure_code": job["departure"], "arrival_code": job["arrival"],
+                            "departure_airport_name": result["departure_airport_name"], "arrival_airport_name": result["arrival_airport_name"],
+                            "destination_name": dest.get("name") or job["arrival"], "country_flag": dest.get("country_flag") or "",
+                            "outbound_date": job["outbound"], "return_date": job["return"],
+                            "outbound": result["outbound"], "return": result["return"],
+                            "deal_analysis": analysis, "flight": flight, "deal_score": score,
+                            "booking_url": result["booking_url"], "trip_id": trip_id,
+                            "inventory_scope": "shared", "source_trip_id": trip_id,
+                            "candidate_rank": candidate_index + 1,
+                        })
+                        offers_found += 1
             except Exception as exc:
                 errors += 1
                 messages.append(f"{job['departure']}-{job['arrival']}: {exc}")

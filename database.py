@@ -163,6 +163,15 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_offers_score ON offers(score DESC);
             CREATE INDEX IF NOT EXISTS idx_offers_route_dates ON offers(route, outbound_date, return_date);
 
+            CREATE TABLE IF NOT EXISTS scan_run_offers (
+                scan_run_id INTEGER NOT NULL,
+                offer_id INTEGER NOT NULL,
+                observed_at TEXT NOT NULL,
+                PRIMARY KEY (scan_run_id, offer_id),
+                FOREIGN KEY(scan_run_id) REFERENCES scan_runs(id),
+                FOREIGN KEY(offer_id) REFERENCES offers(id)
+            );
+
             CREATE TABLE IF NOT EXISTS daily_batches (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 batch_date TEXT NOT NULL UNIQUE,
@@ -322,6 +331,10 @@ def init_db() -> None:
         if "last_seen_at" not in offer_columns:
             conn.execute("ALTER TABLE offers ADD COLUMN last_seen_at TEXT")
             conn.execute("UPDATE offers SET last_seen_at=observed_at WHERE last_seen_at IS NULL")
+        conn.execute(
+            """INSERT OR IGNORE INTO scan_run_offers(scan_run_id,offer_id,observed_at)
+               SELECT scan_run_id,id,COALESCE(last_seen_at,observed_at) FROM offers"""
+        )
 
         member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
         if "country" not in member_columns:
@@ -379,10 +392,12 @@ def scan_stop_requested() -> bool:
 def offers_for_scan_run(run_id: int, limit: int = 200) -> list[dict]:
     with connection() as conn:
         rows = conn.execute(
-            """SELECT id,scan_run_id,observed_at,departure_code,arrival_code,outbound_date,return_date,
-                      price_ils,score,airline,payload_json
-               FROM offers WHERE scan_run_id=? ORDER BY score DESC, observed_at DESC LIMIT ?""",
-            (run_id, max(1, min(limit, 500))),
+            """SELECT o.id,? AS scan_run_id,sro.observed_at AS scan_observed_at,
+                      o.observed_at,o.departure_code,o.arrival_code,o.outbound_date,o.return_date,
+                      o.price_ils,o.score,o.airline,o.payload_json
+               FROM scan_run_offers sro JOIN offers o ON o.id=sro.offer_id
+               WHERE sro.scan_run_id=? ORDER BY o.score DESC, sro.observed_at DESC LIMIT ?""",
+            (run_id, run_id, max(1, min(limit, 500))),
         ).fetchall()
     out=[]
     for row in rows:
@@ -441,6 +456,17 @@ def insert_offer(scan_run_id: int, offer: dict) -> bool:
                 """UPDATE offers SET last_seen_at=observed_at
                    WHERE scan_run_id=? AND route=? AND outbound_date=? AND return_date=? AND price_ils=?""",
                 (scan_run_id, offer["route"], offer["outbound_date"], offer["return_date"], flight["price"]),
+            )
+        stored = conn.execute(
+            """SELECT id FROM offers WHERE route=? AND outbound_date=? AND return_date=?
+               AND price_ils=? AND COALESCE(airline,'')=COALESCE(?, '') LIMIT 1""",
+            (offer["route"], offer["outbound_date"], offer["return_date"], flight["price"], flight.get("airline")),
+        ).fetchone()
+        if stored:
+            conn.execute(
+                """INSERT INTO scan_run_offers(scan_run_id,offer_id,observed_at) VALUES(?,?,?)
+                   ON CONFLICT(scan_run_id,offer_id) DO UPDATE SET observed_at=excluded.observed_at""",
+                (scan_run_id, int(stored["id"]), offer["observed_at"]),
             )
         return existing is None
 
@@ -791,7 +817,9 @@ def recent_scan_runs(limit: int = 20) -> list[dict]:
         )
         rows = conn.execute(
             """SELECT s.*,
-                      COALESCE((SELECT GROUP_CONCAT(DISTINCT o.departure_code) FROM offers o WHERE o.scan_run_id=s.id),'') AS origins
+                      COALESCE((SELECT GROUP_CONCAT(DISTINCT o.departure_code)
+                                FROM scan_run_offers sro JOIN offers o ON o.id=sro.offer_id
+                                WHERE sro.scan_run_id=s.id),'') AS origins
                FROM scan_runs s ORDER BY s.id DESC LIMIT ?""",
             (max(1, min(limit, 200)),)
         ).fetchall()
