@@ -1419,20 +1419,51 @@ def _standard_match_details(offer, trip):
         possible += pref_points  # informational ratio is secondary; ordering uses points.
     return points, possible, matched, missed
 
-def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
-    """Rank closest alternatives after primary matches.
+def _alternative_date_tier(offer, trip):
+    """Classify useful alternative dates without weakening the full-match rule."""
+    answers = trip.get("answers") or {}
+    if answers.get("_alternative_nearby_dates"):
+        return 0
+    mode = str(answers.get("date_mode") or "anytime")
+    if mode in {"anytime", "ski_flexible"}:
+        return 0
+    if mode == "exact":
+        try:
+            req_out = datetime.strptime(str(answers.get("departure_date")), "%Y-%m-%d").date()
+            req_ret = datetime.strptime(str(answers.get("return_date")), "%Y-%m-%d").date()
+            off_out = datetime.strptime(str(offer.get("outbound_date"))[:10], "%Y-%m-%d").date()
+            off_ret = datetime.strptime(str(offer.get("return_date"))[:10], "%Y-%m-%d").date()
+            flex = max(0, min(3, int(answers.get("date_flex_days") or 0)))
+        except Exception:
+            return None
+        if abs((off_out-req_out).days) <= flex and abs((off_ret-req_ret).days) <= flex:
+            return 0
+        if (off_out.year, off_out.month) == (req_out.year, req_out.month) and (off_ret.year, off_ret.month) == (req_ret.year, req_ret.month):
+            return 1
+        return None
+    if mode == "month":
+        out = str(offer.get("outbound_date") or "")[:7]
+        ret = str(offer.get("return_date") or "")[:7]
+        req_out = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+        req_ret = str(answers.get("return_month") or req_out)[:7]
+        if out == req_out and ret == req_ret:
+            return 0
+        if _month_distance(out, req_out) <= 1 and _month_distance(ret, req_ret) <= 1:
+            return 2
+        return None
+    return 0
 
-    Alternatives may miss one or more objective conditions, but are never hidden.
-    They are ordered by total customer points first, then by objective match count,
-    then by deal score/price. Initial date alternatives remain within ±1 month.
-    """
+
+def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
+    """Rank below-divider DB alternatives: flex-window partials, then same-month date misses."""
     exclude = set(exclude or [])
     prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
     ranked = []
     for o in prepared:
         if not _offer_is_recent(o, 48) or not _offer_destination_matches(o, trip) or not _offer_has_complete_roundtrip(o):
             continue
-        if not _within_primary_date_window(o, trip):
+        date_tier = _alternative_date_tier(o, trip)
+        if date_tier is None:
             continue
         if not _offer_matches_vacation_type(o, trip) or not _ski_offer_constraints_ok(o, trip):
             continue
@@ -1440,8 +1471,9 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
         if sig in exclude:
             continue
         obj_points, obj_possible, matched, missed = _objective_match_details(o, trip)
-        total_points = obj_points
-        ranked.append((-total_points, -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, total_points))
+        if obj_possible and not missed:
+            continue
+        ranked.append((date_tier, -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, obj_points))
     ranked.sort(key=lambda x: x[:4])
     out = []
     for _, _, _, _, o, matched, missed, total_points in ranked[:limit]:
