@@ -127,8 +127,10 @@ def clear_test_vacations():
     with connection() as conn:
         trip_ids = [int(r["id"]) for r in conn.execute("SELECT id FROM trip_requests").fetchall()]
         if trip_ids:
+            # Personal external scans expand the shared deal inventory. Clearing test
+            # vacations must never delete valid deals discovered for those trips.
             placeholders = ",".join("?" for _ in trip_ids)
-            conn.execute(f"DELETE FROM offers WHERE trip_id IN ({placeholders})", trip_ids)
+            conn.execute(f"UPDATE offers SET trip_id=NULL WHERE trip_id IN ({placeholders})", trip_ids)
         conn.execute("DELETE FROM trip_requests")
         conn.commit()
     return redirect("/admin" + (("?token=" + supplied) if supplied else ""))

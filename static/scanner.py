@@ -763,11 +763,25 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
         offsets = range(-flex_days, flex_days + 1) if flex_days else [0]
         if business_mode and not flex_days and answers.get("business_arrive_by_time"):
             offsets = [-1, 0]
-        for arrival in arrivals:
-            for origin in origins:
-                for offset in offsets:
-                    out_date = base_out + timedelta(days=offset)
-                    ret_date = base_ret + timedelta(days=offset if flex_days else 0)
+        if flex_days:
+            # A flexible request means each requested date may move within the chosen
+            # tolerance. Interleave origins so TLV/HFA both get searched before the
+            # safety cap is reached, and prioritize the smallest changes first.
+            pairs = [(a, b) for a in offsets for b in offsets]
+            pairs.sort(key=lambda pair: (abs(pair[0]) + abs(pair[1]), abs(pair[0] - pair[1]), abs(pair[0]), abs(pair[1])))
+            for out_offset, ret_offset in pairs:
+                out_date = base_out + timedelta(days=out_offset)
+                ret_date = base_ret + timedelta(days=ret_offset)
+                if ret_date <= out_date:
+                    continue
+                for arrival in arrivals:
+                    for origin in origins:
+                        jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat()})
+        else:
+            for arrival in arrivals:
+                for origin in origins:
+                    out_date = base_out
+                    ret_date = base_ret
                     if ret_date <= out_date:
                         continue
                     jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat()})
@@ -905,6 +919,9 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                         "outbound": result["outbound"], "return": result["return"],
                         "deal_analysis": analysis, "flight": flight, "deal_score": score,
                         "booking_url": result["booking_url"], "trip_id": trip_id,
+                        # Personal scans are a source of shared inventory: later
+                        # customers may reuse the same fresh offer from the DB.
+                        "inventory_scope": "shared", "source_trip_id": trip_id,
                     })
                     offers_found += 1
             except Exception as exc:

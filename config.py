@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.7.122-ranking-matrix-admin-cleanup"
+APP_VERSION = "9.7.124-regular-vacation-final"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -22,6 +22,8 @@ MIN_DEAL_SCORE = int(os.getenv("MIN_DEAL_SCORE", "70"))
 MAX_DAILY_DEALS = int(os.getenv("MAX_DAILY_DEALS", "5"))
 DAILY_SEND_HOUR = int(os.getenv("DAILY_SEND_HOUR", "17"))
 DAILY_SEND_MINUTE = int(os.getenv("DAILY_SEND_MINUTE", "0"))
+WIDE_SCAN_HOUR = int(os.getenv("WIDE_SCAN_HOUR", "6"))
+WIDE_SCAN_MINUTE = int(os.getenv("WIDE_SCAN_MINUTE", "15"))
 
 DESTINATIONS = [
     {"code": "ATH", "name": "אתונה", "country_flag": "🇬🇷"},

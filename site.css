@@ -12,3 +12,12 @@
 .trip-request-summary>strong{font-size:18px!important;color:#334252!important}
 .trip-request-chips span,.trip-request-chips b{font-size:17px!important;background:transparent!important}
 @media(max-width:700px){.trip-details-list,.trip-details-list dt,.trip-details-list dd{font-size:17px!important}.trip-request-chips span,.trip-request-chips b{font-size:16px!important}}
+
+/* v9.7.123 — exact-date flexibility follows the question in one readable line */
+.regular-flex-line{display:flex;align-items:center;flex-wrap:wrap;gap:18px;margin-top:18px}
+.regular-flex-line .regular-flex-toggle{margin:0;font-size:16px;justify-content:flex-start}
+.regular-flex-days{margin:0;padding:0;background:transparent;border:0}
+.regular-flex-days[hidden]{display:none!important}
+.regular-flex-days label{display:flex;align-items:center;gap:10px;margin:0;font-size:16px;font-weight:700}
+.regular-flex-days select{min-height:48px;padding:9px 14px;font-size:16px;font-weight:700;border:1px solid #cfd3d8;background:#fff}
+@media(max-width:700px){.regular-flex-line{align-items:flex-start}.regular-flex-days label{font-size:15px}}

@@ -91,8 +91,10 @@
     <div class="conditional-panel" id="regularExactPanel" hidden>
       <div class="two-cols"><label>{{ 'Departure date' if site_lang=='en' else 'תאריך יציאה' }}<input type="date" name="departure_date" id="departureDate" min="{{today}}"></label>
       <label>{{ 'Return date' if site_lang=='en' else 'תאריך חזרה' }}<input type="date" name="return_date" id="returnDate" min="{{today}}"></label></div>
-      <label class="business-flex-toggle"><input type="checkbox" name="date_flexible" value="1" id="regularFlexibleDates"><span>{{'I have date flexibility' if site_lang=='en' else 'יש לי גמישות בתאריכים'}}</span></label>
-      <div class="conditional-panel" id="regularFlexPanel" hidden><label>{{'How many days can the dates move?' if site_lang=='en' else 'כמה ימים אפשר להזיז?'}}<select name="date_flex_days"><option value="1">± 1</option><option value="2">± 2</option><option value="3">± 3</option></select></label></div>
+      <div class="regular-flex-line">
+        <label class="business-flex-toggle regular-flex-toggle"><input type="checkbox" name="date_flexible" value="1" id="regularFlexibleDates"><span>{{'I have date flexibility' if site_lang=='en' else 'יש לי גמישות בתאריכים'}}</span></label>
+        <div class="regular-flex-days" id="regularFlexPanel" hidden><label><span>{{'How many days?' if site_lang=='en' else 'כמה ימים גמישים?'}}</span><select name="date_flex_days"><option value="1">± 1</option><option value="2">± 2</option><option value="3">± 3</option></select></label></div>
+      </div>
     </div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
@@ -443,7 +445,8 @@
     const rdate=form.querySelector('input[name="date_mode"]:checked')?.value;
     document.getElementById('regularMonthPanel').hidden=rdate!=='month';
     document.getElementById('regularExactPanel').hidden=rdate!=='exact';
-    const hideDatePriority=!['exact','month'].includes(rdate);
+    const regFlex=document.getElementById('regularFlexibleDates')?.checked===true;
+    const hideDatePriority=!['exact','month'].includes(rdate) || (rdate==='exact' && regFlex);
     form.querySelectorAll('[data-date-priority], input[name="deal_priorities"][value="dates"]').forEach(node=>{
       const label=node.matches?.('.choice-button')?node:node.closest('.choice-button');
       if(!label)return;
@@ -453,7 +456,6 @@
       const i=label.querySelector('input[name="deal_priorities"][value="dates"]');
       if(i){i.disabled=hideDatePriority;if(hideDatePriority){i.checked=false;setSelectedState(i);}}
     });
-    const regFlex=document.getElementById('regularFlexibleDates')?.checked===true;
     document.getElementById('regularFlexPanel').hidden=!(rdate==='exact'&&regFlex);
     const sdate=form.querySelector('input[name="ski_date_mode"]:checked')?.value;
     document.getElementById('skiMonthPanel').hidden=sdate!=='month';

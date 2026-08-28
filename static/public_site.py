@@ -18,7 +18,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
@@ -1422,7 +1422,32 @@ def _public_best_available(limit=30):
                 if floor <= sc < (70 if floor==65 else 65): chosen.append(o)
                 if len(chosen)>=5: break
             if len(chosen)>=5: break
-    return chosen[:limit]
+    selected = chosen[:limit]
+    return selected
+
+
+def refresh_public_deal_feed(limit=30):
+    """Re-evaluate the public deal feed from the shared 48h DB only.
+
+    This job does not call any external API. Personal-scan offers live in the
+    same offers table, so every qualifying customer-found deal can immediately
+    compete for the public Top Deals feed. The hourly scheduler records the
+    resulting snapshot for observability/admin QA; page rendering still derives
+    from the live DB so a strong new deal can surface even before the next hour.
+    """
+    selected = _public_best_available(limit=limit)
+    snapshot = {
+        "refreshed_at": utc_now_iso(),
+        "offer_ids": [int(o.get("offer_id")) for o in selected if o.get("offer_id") is not None],
+        "scores": [int(o.get("score") or 0) for o in selected],
+        "count": len(selected),
+    }
+    try:
+        set_setting("public_deal_feed_snapshot", json.dumps(snapshot, ensure_ascii=False))
+        set_setting("public_deal_feed_refreshed_at", snapshot["refreshed_at"])
+    except Exception:
+        pass
+    return snapshot
 
 
 @site.app_context_processor
@@ -2405,6 +2430,11 @@ def new_trip():
                 date_flex_days = max(0, min(3, int(form.get("date_flex_days") or 0))) if form.get("date_flexible") == "1" else 0
             except (TypeError, ValueError):
                 date_flex_days = 0
+            # If the customer explicitly allowed date flexibility, the separate
+            # "selected dates are important" preference is contradictory and must
+            # not survive as hidden form state from a previous step.
+            if date_mode == "exact" and date_flex_days > 0:
+                deal_priorities = [x for x in deal_priorities if str(x) != "dates"]
 
             if destination_mode in {"specific", "several"} and not destinations:
                 flash(_msg("יש לכתוב את היעד או היעדים שמעניינים אתכם.", "Please enter the destination or destinations you are interested in."), "error")
