@@ -22,6 +22,7 @@ from database import recent_offers, save_feedback, utc_now_iso, record_site_even
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
+from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 
 
 
@@ -62,9 +63,12 @@ except Exception:
 
 _SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
 try:
-    _SKI_RESORTS = json.loads(_SKI_DB_FILE.read_text(encoding="utf-8")).get("resorts", [])
+    _loaded_ski = json.loads(_SKI_DB_FILE.read_text(encoding="utf-8")).get("resorts", [])
 except Exception:
-    _SKI_RESORTS = []
+    _loaded_ski = []
+# Never let the ski questionnaire collapse because a deployment omitted/failed to
+# read the JSON data file. The embedded catalog is shipped as normal Python code.
+_SKI_RESORTS = _loaded_ski if _loaded_ski else list(_EMBEDDED_SKI_RESORTS)
 
 
 def _ski_picker_options():
@@ -116,14 +120,24 @@ def _resolve_ski_targets(raw_values, mode, skill_level=None, max_transfer_minute
             if str(r.get("resort")) in resort_names or str(r.get("country")) in countries
         ]
 
-    airports, names, countries = [], [], []
+    names, countries = [], []
+    gateway_stats = {}
     for r in rows:
         names.append(str(r.get("resort")))
         countries.append(str(r.get("country")))
+        transfer = int(r.get("transfer_minutes_estimate") or 9999)
         for code in r.get("gateway_airports") or []:
             code = str(code).upper()
-            if code and code not in airports:
-                airports.append(code)
+            if not code:
+                continue
+            stat = gateway_stats.setdefault(code, {"count": 0, "best_transfer": 9999})
+            stat["count"] += 1
+            stat["best_transfer"] = min(stat["best_transfer"], transfer)
+    # In open ski searches the scanner has an API safety cap. Put gateways that
+    # serve the most resorts (then the shortest transfers) first, so the first
+    # controlled scan covers the broadest useful ski inventory rather than the
+    # arbitrary JSON row order. Manual resort selection still keeps every gateway.
+    airports = sorted(gateway_stats, key=lambda c: (-gateway_stats[c]["count"], gateway_stats[c]["best_transfer"], c))
     return {
         "resorts": rows,
         "resort_names": names,

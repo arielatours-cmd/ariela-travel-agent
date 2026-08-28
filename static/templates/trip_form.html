@@ -325,10 +325,10 @@
   <section class="wizard-step ski-question" data-route="ski" data-step="7" hidden>
     <span class="step-number">S7</span><h2>{{'What is your flight budget?' if site_lang=='en' else 'מה התקציב לטיסות?'}}</h2>
     <div class="choice-row">
-      {% for value,en,he in [('per_person','Per person','לאדם'),('all_flights','All passengers','לכל הנוסעים'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}
+      {% for value,en,he in [('per_person','Per person','לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}
       <label class="choice-button"><input type="radio" name="ski_budget_mode" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}
     </div>
-    <div class="conditional-panel" id="skiBudgetPanel" hidden><label>{{'Maximum budget (₪)' if site_lang=='en' else 'תקציב מרבי (₪)'}}<input type="number" name="ski_budget_amount" id="skiBudgetAmount" min="0" step="50"></label><p class="helper">{{'Flight budget only at this stage. Ariella allows up to 10% tolerance.' if site_lang=='en' else 'בשלב הזה התקציב מתייחס לטיסות בלבד. אריאלה מאפשרת סטייה של עד 10%.'}}</p></div>
+    <div class="conditional-panel" id="skiBudgetPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב מרבי לאדם (₪)'}}<input type="number" name="ski_budget_amount" id="skiBudgetAmount" min="0" step="50"></label><p class="helper">{{'Flight budget only at this stage. Ariella allows up to 10% tolerance.' if site_lang=='en' else 'בשלב הזה התקציב מתייחס לטיסות בלבד. אריאלה מאפשרת סטייה של עד 10%.'}}</p></div>
     <label class="notes-label">{{'Anything else Ariella should know?' if site_lang=='en' else 'משהו נוסף שחשוב שאריאלה תדע?'}}<textarea name="ski_notes" rows="3"></textarea></label>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="submit" class="button primary">{{'Recommend a ski vacation' if site_lang=='en' else 'תמליץ לי על חופשת סקי'}}</button></div>
   </section>
@@ -522,7 +522,8 @@
   }));
 
 
-  const skiOptions=Array.isArray({{ ski_options|tojson }}) ? {{ ski_options|tojson }} : [];
+  const skiOptionsRaw={{ ski_options|tojson }};
+  const skiOptions=Array.isArray(skiOptionsRaw)?skiOptionsRaw:[];
   const skiUiLang={{ site_lang|tojson }};
   const skiSearch=document.getElementById('skiTargetSearch');
   const skiSuggestions=document.getElementById('skiTargetSuggestions');
@@ -597,6 +598,9 @@
     box.hidden=true;box.className='ski-season-warning';box.textContent='';box.dataset.block='0';
     const mode=form.querySelector('input[name="ski_destination_mode"]:checked')?.value;
     const months=skiRequestedMonths();if(!months.length)return true;
+    // A missing catalog is a data-loading fault, not proof that every ski resort
+    // is closed. Never show a false out-of-season warning in that situation.
+    if(!skiOptions.length){box.hidden=true;box.dataset.block='0';return true;}
     const values=selectedSkiValues();
     const selected=mode==='several'?skiOptions.filter(x=>values.includes(x.value)):skiOptions;
     if(mode==='several'&&!selected.length)return true;

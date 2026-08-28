@@ -22,6 +22,7 @@ from database import recent_offers, save_feedback, utc_now_iso, record_site_even
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
+from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 
 
 
@@ -62,9 +63,12 @@ except Exception:
 
 _SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
 try:
-    _SKI_RESORTS = json.loads(_SKI_DB_FILE.read_text(encoding="utf-8")).get("resorts", [])
+    _loaded_ski = json.loads(_SKI_DB_FILE.read_text(encoding="utf-8")).get("resorts", [])
 except Exception:
-    _SKI_RESORTS = []
+    _loaded_ski = []
+# Never let the ski questionnaire collapse because a deployment omitted/failed to
+# read the JSON data file. The embedded catalog is shipped as normal Python code.
+_SKI_RESORTS = _loaded_ski if _loaded_ski else list(_EMBEDDED_SKI_RESORTS)
 
 
 def _ski_picker_options():
@@ -116,14 +120,24 @@ def _resolve_ski_targets(raw_values, mode, skill_level=None, max_transfer_minute
             if str(r.get("resort")) in resort_names or str(r.get("country")) in countries
         ]
 
-    airports, names, countries = [], [], []
+    names, countries = [], []
+    gateway_stats = {}
     for r in rows:
         names.append(str(r.get("resort")))
         countries.append(str(r.get("country")))
+        transfer = int(r.get("transfer_minutes_estimate") or 9999)
         for code in r.get("gateway_airports") or []:
             code = str(code).upper()
-            if code and code not in airports:
-                airports.append(code)
+            if not code:
+                continue
+            stat = gateway_stats.setdefault(code, {"count": 0, "best_transfer": 9999})
+            stat["count"] += 1
+            stat["best_transfer"] = min(stat["best_transfer"], transfer)
+    # In open ski searches the scanner has an API safety cap. Put gateways that
+    # serve the most resorts (then the shortest transfers) first, so the first
+    # controlled scan covers the broadest useful ski inventory rather than the
+    # arbitrary JSON row order. Manual resort selection still keeps every gateway.
+    airports = sorted(gateway_stats, key=lambda c: (-gateway_stats[c]["count"], gateway_stats[c]["best_transfer"], c))
     return {
         "resorts": rows,
         "resort_names": names,
@@ -1419,20 +1433,51 @@ def _standard_match_details(offer, trip):
         possible += pref_points  # informational ratio is secondary; ordering uses points.
     return points, possible, matched, missed
 
-def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
-    """Rank closest alternatives after primary matches.
+def _alternative_date_tier(offer, trip):
+    """Classify useful alternative dates without weakening the full-match rule."""
+    answers = trip.get("answers") or {}
+    if answers.get("_alternative_nearby_dates"):
+        return 0
+    mode = str(answers.get("date_mode") or "anytime")
+    if mode in {"anytime", "ski_flexible"}:
+        return 0
+    if mode == "exact":
+        try:
+            req_out = datetime.strptime(str(answers.get("departure_date")), "%Y-%m-%d").date()
+            req_ret = datetime.strptime(str(answers.get("return_date")), "%Y-%m-%d").date()
+            off_out = datetime.strptime(str(offer.get("outbound_date"))[:10], "%Y-%m-%d").date()
+            off_ret = datetime.strptime(str(offer.get("return_date"))[:10], "%Y-%m-%d").date()
+            flex = max(0, min(3, int(answers.get("date_flex_days") or 0)))
+        except Exception:
+            return None
+        if abs((off_out-req_out).days) <= flex and abs((off_ret-req_ret).days) <= flex:
+            return 0
+        if (off_out.year, off_out.month) == (req_out.year, req_out.month) and (off_ret.year, off_ret.month) == (req_ret.year, req_ret.month):
+            return 1
+        return None
+    if mode == "month":
+        out = str(offer.get("outbound_date") or "")[:7]
+        ret = str(offer.get("return_date") or "")[:7]
+        req_out = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+        req_ret = str(answers.get("return_month") or req_out)[:7]
+        if out == req_out and ret == req_ret:
+            return 0
+        if _month_distance(out, req_out) <= 1 and _month_distance(ret, req_ret) <= 1:
+            return 2
+        return None
+    return 0
 
-    Alternatives may miss one or more objective conditions, but are never hidden.
-    They are ordered by total customer points first, then by objective match count,
-    then by deal score/price. Initial date alternatives remain within ±1 month.
-    """
+
+def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
+    """Rank below-divider DB alternatives: flex-window partials, then same-month date misses."""
     exclude = set(exclude or [])
     prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
     ranked = []
     for o in prepared:
         if not _offer_is_recent(o, 48) or not _offer_destination_matches(o, trip) or not _offer_has_complete_roundtrip(o):
             continue
-        if not _within_primary_date_window(o, trip):
+        date_tier = _alternative_date_tier(o, trip)
+        if date_tier is None:
             continue
         if not _offer_matches_vacation_type(o, trip) or not _ski_offer_constraints_ok(o, trip):
             continue
@@ -1440,8 +1485,9 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
         if sig in exclude:
             continue
         obj_points, obj_possible, matched, missed = _objective_match_details(o, trip)
-        total_points = obj_points
-        ranked.append((-total_points, -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, total_points))
+        if obj_possible and not missed:
+            continue
+        ranked.append((date_tier, -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, obj_points))
     ranked.sort(key=lambda x: x[:4])
     out = []
     for _, _, _, _, o, matched, missed, total_points in ranked[:limit]:
