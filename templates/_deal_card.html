@@ -23,7 +23,7 @@
 </li>
 {%- endmacro %}
 {% macro deal_card(offer, lang='he') -%}
-{% set stops=offer.stops or 0 %}{% set rt=offer.return_departure_time %}
+{% set stops=offer.stops %}{% set rt=offer.return_departure_time %}
 <article class="ariella-deal-card deal-card-v970 {{ 'deal-he' if lang=='he' else 'deal-en' }}" dir="{{ 'rtl' if lang=='he' else 'ltr' }}"
  data-origin="{{ offer.departure_code or '' }}" data-destination="{{ offer.arrival_code or '' }}" data-destination-label="{{ (offer.arrival_city_en if lang=='en' else offer.arrival_city_he) or offer.arrival_code or '' }}{% if offer.arrival_code %} ({{ offer.arrival_code }}){% endif %}"
  data-outbound="{{ offer.outbound_date or '' }}" data-return="{{ offer.return_date or '' }}"
@@ -35,9 +35,9 @@
  data-checked="{{ 1 if offer.baggage.checked_bag_23kg and offer.baggage.checked_bag_23kg.included else 0 }}">
 
  <div class="deal-main-grid">
-   <div class="deal-visual {% if stops==0 %}direct{% elif stops==1 %}one-stop{% else %}two-stops{% endif %}"
+   <div class="deal-visual {% if stops==0 %}direct{% elif stops==1 %}one-stop{% elif stops is not none %}two-stops{% endif %}"
     {% if offer.destination_image_url %}style="background-image:linear-gradient(180deg,rgba(255,255,255,.01),rgba(0,0,0,.18)),url('{{ offer.destination_image_url }}')"{% endif %}>
-    <span class="stop-badge">{% if stops==0 %}{{ 'Direct' if lang=='en' else 'ישירה' }}{% elif stops==1 %}{{ '1 connection' if lang=='en' else 'קונקשן 1' }}{% else %}{{ stops }} {{ 'connections' if lang=='en' else 'קונקשנים' }}{% endif %}</span>
+    <span class="stop-badge">{% if stops==0 %}{{ 'Direct' if lang=='en' else 'ישירה' }}{% elif stops==1 %}{{ '1 connection' if lang=='en' else 'קונקשן 1' }}{% elif stops is not none %}{{ stops }} {{ 'connections' if lang=='en' else 'קונקשנים' }}{% else %}{{ 'Route not verified' if lang=='en' else 'מסלול לא אומת' }}{% endif %}</span>
    </div>
    <div class="visual-destination-outside"><strong>{{ offer.arrival_city_en if lang=='en' else offer.arrival_city_he }}</strong><span class="visual-airport-code" dir="ltr">{{ offer.arrival_code }}</span></div>
 

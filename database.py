@@ -585,7 +585,24 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
                     isinstance(_out, (int, float)) and isinstance(_ret, (int, float))
                 )
                 baggage[_key] = _item
-        connections = flight.get("connections") or []
+        # Normalize stop counts once when loading an offer. Older/provider-specific
+        # records may have a NULL DB column even though the payload contains an
+        # explicit empty connections list. The deal card historically rendered
+        # NULL as 0 (direct), while matching treated NULL as unknown; that split
+        # could place a visually-direct deal below the divider.
+        raw_connections = flight.get("connections")
+        connections = raw_connections or []
+        outbound_stops = item.get("stops")
+        if outbound_stops is None:
+            outbound_stops = flight.get("stops")
+        if outbound_stops is None and "connections" in flight:
+            outbound_stops = len(connections)
+        return_connections_raw = flight.get("return_connections")
+        return_connections = return_connections_raw or []
+        return_stops = flight.get("return_stops")
+        if return_stops is None and "return_connections" in flight:
+            return_stops = len(return_connections)
+        item["stops"] = outbound_stops
         outbound = payload.get("outbound") or {}
         return_trip = payload.get("return") or {}
 
@@ -706,8 +723,8 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "arrival_days_after": _arrival_days_after(item.get("outbound_date"), flight.get("arrival_date"), flight.get("departure_time"), flight.get("arrival_time"), flight.get("total_duration_minutes")),
             "return_arrival_days_after": _arrival_days_after(item.get("return_date"), flight.get("return_arrival_date"), flight.get("return_departure_time"), flight.get("return_arrival_time"), flight.get("return_total_duration_minutes")),
             "return_total_duration_minutes": flight.get("return_total_duration_minutes"),
-            "return_connections": flight.get("return_connections") or [],
-            "return_stops": flight.get("return_stops") or 0,
+            "return_connections": return_connections,
+            "return_stops": return_stops,
             "booking_supplier": flight.get("booking_supplier"),
             "booking_supplier_price_ils": flight.get("booking_supplier_price_ils"),
             "booking_request_url": flight.get("booking_request_url"),

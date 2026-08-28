@@ -16,7 +16,7 @@
     <span>החל מ־</span><strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong><small>לאדם</small>
   </div>
   <div class="deal-meta">
-    <span>{{ 'ישירה' if offer.stops == 0 else (offer.stops|string + ' עצירות') }}</span>
+    <span>{{ 'ישירה' if offer.stops == 0 else ((offer.stops|string + ' עצירות') if offer.stops is not none else 'מסלול לא אומת') }}</span>
     {% if offer.airline %}<span>{{ offer.airline }}</span>{% endif %}
     {% if offer.total_duration_minutes %}<span>{{ (offer.total_duration_minutes // 60) }} ש׳ {{ offer.total_duration_minutes % 60 }} דק׳</span>{% endif %}
   </div>
