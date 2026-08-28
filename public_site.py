@@ -80,9 +80,12 @@ def _ski_picker_options():
             "label_he": f"{row.get('resort')} — {country_he}",
             "label_en": f"{row.get('resort')} — {country}",
             "country": country,
+            "season_months": list(row.get("season_months") or []),
         })
     country_opts = [
-        {"value": f"country:{country}", "label_he": f"{he} — כל אתרי הסקי", "label_en": f"{country} — any ski resort"}
+        {"value": f"country:{country}", "label_he": f"{he} — כל אתרי הסקי", "label_en": f"{country} — any ski resort",
+         "country": country,
+         "season_months": sorted({m for r in _SKI_RESORTS if str(r.get("country")) == country for m in (r.get("season_months") or [])})}
         for country, he in sorted(countries.items(), key=lambda kv: kv[1])
     ]
     resorts.sort(key=lambda x: (x["country"], x["label_en"]))
@@ -689,7 +692,7 @@ def _business_match_details(offer, trip):
             reasons.append(en if _lang() == "en" else he)
 
     if "direct" in selected:
-        add(int(offer.get("stops") or 0) == 0, "טיסה ישירה", "Direct flight")
+        add(_offer_is_direct(offer), "טיסה ישירה", "Direct flight")
     if "max_one_connection" in selected:
         add(int(offer.get("stops") or 0) <= 1, "עד קונקשן אחד", "Up to one connection")
     if "baggage" in selected:
@@ -1092,7 +1095,7 @@ def _open_customer_point_details(offer, trip):
             detail[pref] = bool(_destination_condition_met(code, pref, month))
 
     if "direct" in priorities:
-        detail["direct"] = int(offer.get("stops") or 0) == 0
+        detail["direct"] = _offer_is_direct(offer)
     if "baggage" in priorities:
         bag = offer.get("baggage") or {}
         detail["baggage"] = ((bag.get("carry_on_8kg") or {}).get("included") is True or
@@ -1138,6 +1141,30 @@ def _customer_rank_value(offer, trip):
     return (route * 2.0) + (time_value * 2.0) + (baggage * 1.5) + (price * 0.5) + (rarity * 0.25)
 
 
+def _offer_is_direct(offer):
+    """Robustly decide whether an offer is nonstop/direct.
+
+    Providers may encode stops as 0, "0", "direct", or "nonstop".
+    Unknown/missing stop data is NOT treated as direct.
+    """
+    raw = offer.get("stops")
+    if raw is None:
+        raw = offer.get("stop_count")
+    if raw is None:
+        raw = offer.get("stops_count")
+    if isinstance(raw, bool):
+        return False
+    if isinstance(raw, (int, float)):
+        return int(raw) == 0
+    text = str(raw or "").strip().lower()
+    if text in {"0", "direct", "nonstop", "non-stop", "non stop", "ישירה", "ללא עצירות"}:
+        return True
+    try:
+        return int(float(text)) == 0
+    except (TypeError, ValueError):
+        return False
+
+
 def _objective_match_details(offer, trip):
     """Objective restrictions define the full-match group above the divider."""
     answers = trip.get("answers") or {}
@@ -1165,7 +1192,7 @@ def _objective_match_details(offer, trip):
 
     priorities = {str(x) for x in (answers.get("deal_priorities") or []) if x}
     if "direct" in priorities:
-        add(int(offer.get("stops") or 0) == 0, "טיסה ישירה", "Direct flight")
+        add(_offer_is_direct(offer), "טיסה ישירה", "Direct flight")
     if "baggage" in priorities:
         b = offer.get("baggage") or {}
         carry = (b.get("carry_on_8kg") or {}).get("included") is True
@@ -1396,6 +1423,17 @@ def _customer_deal_choices(all_offers, trip, limit=5):
         qualified.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
     else:
         qualified.sort(key=lambda o: (-_open_customer_points(o, trip), -int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
+        # For an open-destination request, show the best qualifying deal from
+        # different destinations first.  Otherwise several near-identical offers
+        # for one city can hide other valid September/direct matches.
+        diverse, overflow, seen_destinations = [], [], set()
+        for offer in qualified:
+            code = str(offer.get("arrival_code") or "").upper()
+            if code and code not in seen_destinations:
+                diverse.append(offer); seen_destinations.add(code)
+            else:
+                overflow.append(offer)
+        qualified = diverse + overflow
 
     out = []
     for idx, offer in enumerate(qualified[:limit]):

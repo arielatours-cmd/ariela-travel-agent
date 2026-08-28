@@ -242,17 +242,23 @@
   {# =========================== SKI ROUTE =========================== #}
   <section class="wizard-step ski-question" data-route="ski" data-step="1" hidden>
     <span class="step-number">S1</span><h2>{{'Which ski resort interests you?' if site_lang=='en' else 'איזה אתר סקי מעניין אתכם?'}}</h2>
-    <div class="choice-row">
-      {% for value,en,he in [('specific','One ski resort / country','יש לי אתר סקי / מדינה מסוימים'),('several','Several ski resorts / countries','יש לי כמה אתרי סקי אפשריים'),('open','Let Ariella choose','אריאלה תבחר עבורי')] %}
+    <div class="choice-row destination-options">
+      {% for value,en,he in [('several','Choose ski resort / country','לבחירת אתר סקי / מדינה'),('open','Let Ariella choose','אריאלה תבחר עבורי')] %}
       <label class="choice-button"><input type="radio" name="ski_destination_mode" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}
     </div>
     <div class="conditional-panel ski-target-panel" id="skiTargetPanel" hidden>
-      <label>{{'Choose resort(s) or country' if site_lang=='en' else 'בחרו אתר/י סקי או מדינה'}}
-        <select name="ski_targets" id="skiTargets" multiple size="10">
-          {% for item in ski_options %}<option value="{{item.value}}">{{item.label_en if site_lang=='en' else item.label_he}}</option>{% endfor %}
-        </select>
+      <label>{{'Ski resort / country' if site_lang=='en' else 'אתר סקי / מדינה'}}
+        <div class="airport-picker destination-airport-picker ski-typeahead" id="skiTargetPicker">
+          <div class="airport-tags" id="skiTargetTags"></div>
+          <input class="airport-search" id="skiTargetSearch" type="text" autocomplete="off"
+                 placeholder="{{'Type a ski resort or country…' if site_lang=='en' else 'הקלידו אתר סקי או מדינה…'}}">
+          <div class="airport-suggestions" id="skiTargetSuggestions" hidden></div>
+          <select name="ski_targets" id="skiTargets" multiple hidden>
+            {% for item in ski_options %}<option value="{{item.value}}">{{item.label_en if site_lang=='en' else item.label_he}}</option>{% endfor %}
+          </select>
+        </div>
+        <small class="destination-multi-helper">{{'You can choose more than one option' if site_lang=='en' else 'ניתן לבצע בחירה מרובה'}}</small>
       </label>
-      <p class="helper">{{'You can choose a country even if you do not know a resort name.' if site_lang=='en' else 'לא מכירים שם של אתר? אפשר לבחור מדינה, למשל בולגריה / צרפת / שוויץ.'}}</p>
     </div>
     <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
@@ -273,6 +279,7 @@
       <label class="business-flex-toggle"><input type="checkbox" name="ski_date_flexible" value="1" id="skiFlexibleDates"><span>{{'I have date flexibility' if site_lang=='en' else 'יש לי גמישות בתאריכים'}}</span></label>
       <div class="conditional-panel" id="skiFlexPanel" hidden><label>{{'How many days can the dates move?' if site_lang=='en' else 'כמה ימים אפשר להזיז?'}}<select name="ski_date_flex_days"><option value="1">± 1</option><option value="2">± 2</option><option value="3">± 3</option></select></label></div>
     </div>
+    <div id="skiSeasonWarning" class="ski-season-warning" hidden></div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
 
@@ -285,7 +292,7 @@
     <div class="conditional-panel" id="skiAdultCount" hidden><label>{{'Number of travelers' if site_lang=='en' else 'מספר נוסעים'}}<input type="number" name="ski_adults" min="1" value="2"></label><div class="choice-row compact-options friends-age-groups">{% for value,en,he in [('youth','Youth / young adults','נוער / צעירים'),('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}<label class="choice-button small"><input type="radio" name="ski_friends_age_group" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div></div>
     <div class="conditional-panel" id="skiFamily" hidden>
       <div class="two-cols"><label>{{'Adults' if site_lang=='en' else 'מבוגרים'}}<input type="number" name="ski_family_adults" min="1" value="2"></label><label>{{'Children' if site_lang=='en' else 'ילדים'}}<input type="number" name="ski_children" min="1" value="1"></label></div>
-      <div class="choice-row compact-options">{% for value,en,he in [('infants','0–2','0–2'),('children','3–12','3–12'),('teens','13–17','13–17')] %}<label class="choice-button small"><input type="checkbox" name="ski_age_groups" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
+      <div class="choice-row compact-options">{% for value,en,he in [('infants','Infants 0–2','תינוקות 0–2'),('children','Children 3–12','ילדים 3–12'),('teens','Teens 13–17','בני נוער 13–17'),('adults','Adults','מבוגרים'),('seniors','Seniors','הגיל השלישי')] %}<label class="choice-button small"><input type="checkbox" name="ski_age_groups" value="{{value}}"><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
     </div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
@@ -408,8 +415,7 @@
     if(route==='business'&&step.dataset.step==='6'&&form.querySelector('input[name="business_budget_mode"]:checked')?.value==='per_person'&&!document.getElementById('businessBudgetAmount').value)return false;
     if(route==='ski'&&step.dataset.step==='1'){
       const mode=form.querySelector('input[name="ski_destination_mode"]:checked')?.value;
-      if(['specific','several'].includes(mode)&&document.getElementById('skiTargets').selectedOptions.length===0)return document.getElementById('skiTargets').focus(),false;
-      if(mode==='specific'&&document.getElementById('skiTargets').selectedOptions.length>1)return document.getElementById('skiTargets').focus(),false;
+      if(mode==='several'&&document.getElementById('skiTargets').selectedOptions.length===0)return document.getElementById('skiTargetSearch').focus(),false;
     }
     const dm=route==='ski'?form.querySelector('input[name="ski_date_mode"]:checked')?.value:form.querySelector('input[name="date_mode"]:checked')?.value;
     if(step.dataset.step==='2'&&dm==='month'){
@@ -420,6 +426,7 @@
       const out=document.getElementById(route==='ski'?'skiDepartureDate':'departureDate'), ret=document.getElementById(route==='ski'?'skiReturnDate':'returnDate');
       if(!out.value||!ret.value||ret.value<=out.value)return false;
     }
+    if(route==='ski'&&step.dataset.step==='2'&&!updateSkiSeasonWarning())return false;
     if(route==='standard'&&step.dataset.step==='5'&&form.querySelector('input[name="budget_mode"]:checked')?.value==='per_person'&&!document.getElementById('budgetAmount').value)return false;
     if(route==='ski'&&step.dataset.step==='7'&&form.querySelector('input[name="ski_budget_mode"]:checked')?.value!=='unlimited'&&!document.getElementById('skiBudgetAmount').value)return false;
     return true;
@@ -479,8 +486,9 @@
 
     // ski destination
     const sdm=form.querySelector('input[name="ski_destination_mode"]:checked')?.value;
-    document.getElementById('skiTargetPanel').hidden=!['specific','several'].includes(sdm);
-    document.getElementById('skiTargets').multiple=sdm!=='specific';
+    document.getElementById('skiTargetPanel').hidden=sdm!=='several';
+    if(sdm==='open') clearSkiTargets();
+    updateSkiSeasonWarning();
 
     const bdm=form.querySelector('input[name="business_destination_mode"]:checked')?.value;
     document.getElementById('businessDestinationPanel').hidden=!['specific','several'].includes(bdm);
@@ -504,6 +512,75 @@
     else if(input!==balanced && input.checked && balanced){balanced.checked=false;setSelectedState(balanced);}
   }));
 
+
+  const skiOptions={{ ski_options|tojson }};
+  const skiUiLang={{ site_lang|tojson }};
+  const skiSearch=document.getElementById('skiTargetSearch');
+  const skiSuggestions=document.getElementById('skiTargetSuggestions');
+  const skiSelect=document.getElementById('skiTargets');
+  const skiTags=document.getElementById('skiTargetTags');
+  function selectedSkiValues(){return Array.from(skiSelect?.selectedOptions||[]).map(o=>o.value);}
+  function renderSkiTags(){
+    if(!skiTags||!skiSelect)return;
+    skiTags.innerHTML='';
+    Array.from(skiSelect.selectedOptions).forEach(o=>{
+      const tag=document.createElement('span');tag.className='airport-tag';tag.textContent=o.textContent+' ×';
+      tag.tabIndex=0;tag.addEventListener('click',()=>{o.selected=false;renderSkiTags();updateSkiSeasonWarning();});
+      skiTags.appendChild(tag);
+    });
+  }
+  function clearSkiTargets(){
+    if(skiSelect)Array.from(skiSelect.options).forEach(o=>o.selected=false);
+    if(skiSearch)skiSearch.value='';
+    if(skiSuggestions){skiSuggestions.innerHTML='';skiSuggestions.hidden=true;}
+    renderSkiTags();
+  }
+  function chooseSkiTarget(value){
+    const option=Array.from(skiSelect.options).find(o=>o.value===value);if(!option)return;
+    option.selected=true;if(skiSearch)skiSearch.value='';renderSkiTags();
+    if(skiSuggestions)skiSuggestions.hidden=true;updateSkiSeasonWarning();
+  }
+  function showSkiSuggestions(){
+    if(!skiSearch||!skiSuggestions)return;
+    const q=skiSearch.value.trim().toLowerCase();skiSuggestions.innerHTML='';
+    if(!q){skiSuggestions.hidden=true;return;}
+    const picked=new Set(selectedSkiValues());
+    skiOptions.filter(x=>!picked.has(x.value)&&((x.label_he||'').toLowerCase().includes(q)||(x.label_en||'').toLowerCase().includes(q)||(x.country||'').toLowerCase().includes(q))).slice(0,10).forEach(x=>{
+      const b=document.createElement('button');b.type='button';b.textContent=(skiUiLang==='en'?x.label_en:x.label_he);
+      b.addEventListener('click',()=>chooseSkiTarget(x.value));skiSuggestions.appendChild(b);
+    });
+    skiSuggestions.hidden=!skiSuggestions.children.length;
+  }
+  skiSearch?.addEventListener('input',showSkiSuggestions);
+  skiSearch?.addEventListener('focus',showSkiSuggestions);
+  document.addEventListener('click',e=>{if(skiSuggestions&&!document.getElementById('skiTargetPicker')?.contains(e.target))skiSuggestions.hidden=true;});
+
+  function skiRequestedMonths(){
+    const mode=form.querySelector('input[name="ski_date_mode"]:checked')?.value;
+    const months=[];
+    if(mode==='month'){
+      [document.getElementById('skiOutboundMonth')?.value,document.getElementById('skiReturnMonth')?.value].forEach(v=>{if(v){const m=Number(v.slice(5,7));if(m&&!months.includes(m))months.push(m);}});
+    }else if(mode==='exact'){
+      [document.getElementById('skiDepartureDate')?.value,document.getElementById('skiReturnDate')?.value].forEach(v=>{if(v){const m=Number(v.slice(5,7));if(m&&!months.includes(m))months.push(m);}});
+    }
+    return months;
+  }
+  function updateSkiSeasonWarning(){
+    const box=document.getElementById('skiSeasonWarning');if(!box)return true;
+    box.hidden=true;box.className='ski-season-warning';box.textContent='';
+    if(form.querySelector('input[name="ski_destination_mode"]:checked')?.value!=='several')return true;
+    const values=selectedSkiValues(), months=skiRequestedMonths();if(!values.length||!months.length)return true;
+    const selected=skiOptions.filter(x=>values.includes(x.value));
+    const incompatible=selected.filter(x=>months.some(m=>!(x.season_months||[]).includes(m)));
+    if(!incompatible.length)return true;
+    const allBad=incompatible.length===selected.length;
+    box.hidden=false;box.classList.add(allBad?'is-danger':'is-warning');
+    box.textContent=allBad
+      ? (skiUiLang==='en'?'The selected period is outside the typical ski season for the chosen resort/country. Please choose different dates before continuing.':'התקופה שבחרתם נמצאת מחוץ לעונת הסקי הטיפוסית של האתר/המדינה שבחרתם. יש לבחור תאריכים אחרים לפני שממשיכים.')
+      : (skiUiLang==='en'?'Some of the selected ski options may be closed or have poor snow conditions in this period. Consider changing the dates or removing those options.':'חלק מאתרי הסקי שבחרתם עלולים להיות סגורים או עם תנאי שלג לא מתאימים בתקופה הזו. מומלץ לשנות תאריכים או להסיר את האפשרויות האלה.');
+    box.dataset.block=allBad?'1':'0';return !allBad;
+  }
+  ['skiOutboundMonth','skiReturnMonth','skiDepartureDate','skiReturnDate'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateSkiSeasonWarning));
 
   function wireMonth(outId,retId){
     const out=document.getElementById(outId),ret=document.getElementById(retId);
