@@ -166,21 +166,50 @@ function showAriellaSearchWait(){
         <div class="trip-no-deals ariella-no-deal-state">
           <strong>{{ "Ariella didn't find a suitable vacation for your request right now." if site_lang == 'en' else 'אריאלה לא מצאה כרגע חופשה שמתאימה לבקשה שלך' }}</strong>
           <p>{{ 'Would you like Ariella to try another complimentary option?' if site_lang == 'en' else 'רוצים לתת לאריאלה לבדוק אפשרות נוספת?' }}</p>
-          {% set has_specific_dates = (trip.answers.date_mode in ['exact','month'] and not trip.answers.date_flex_days) if trip.answers else false %}
+          {% set has_fixed_destination = (trip.answers.destination_mode in ['specific','several']) if trip.answers else false %}
+          {% set has_fixed_dates = (trip.answers.date_mode in ['exact','month']) if trip.answers else false %}
           <div class="free-alternative-options">
-            {% if has_specific_dates and not trip.nearby_dates_exhausted %}
-            <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
-              <input type="hidden" name="alternative" value="nearby_dates">
-              <button class="button outline" type="submit">{{ 'Same destination — other dates' if site_lang == 'en' else 'אותו יעד — תאריכים אחרים' }}</button>
-            </form>
-            {% endif %}
-            {% if has_specific_dates %}
-            <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
-              <input type="hidden" name="alternative" value="other_destination">
-              <button class="button outline" type="submit">{{ 'Same dates — another destination' if site_lang == 'en' else 'אותם תאריכים — יעד אחר' }}</button>
-            </form>
-            {% else %}
+            {# Fixed destination + exact/month (with OR without flex): offer both axes. #}
+            {% if has_fixed_destination and has_fixed_dates %}
+              {% if not trip.nearby_dates_exhausted %}
+              <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
+                <input type="hidden" name="alternative" value="nearby_dates">
+                <button class="button outline" type="submit">
+                  {% if trip.answers.date_mode == 'month' %}
+                    {{ 'Same destination — another month' if site_lang == 'en' else 'אותו יעד — חודש אחר' }}
+                  {% else %}
+                    {{ 'Same destination — other dates' if site_lang == 'en' else 'אותו יעד — תאריכים אחרים' }}
+                  {% endif %}
+                </button>
+              </form>
+              {% endif %}
+              <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
+                <input type="hidden" name="alternative" value="other_destination">
+                <button class="button outline" type="submit">
+                  {% if trip.answers.date_mode == 'month' %}
+                    {{ 'Another destination — same month' if site_lang == 'en' else 'יעד אחר — באותו חודש' }}
+                  {% else %}
+                    {{ 'Another destination — same dates' if site_lang == 'en' else 'יעד אחר — באותם תאריכים' }}
+                  {% endif %}
+                </button>
+              </form>
+            {# Fixed destination + anytime: only change destination. #}
+            {% elif has_fixed_destination %}
               <a class="button outline" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ 'Choose another destination' if site_lang=='en' else 'לבחור יעד אחר' }}</a>
+            {# Open destination + fixed exact/month: only change time. #}
+            {% elif has_fixed_dates %}
+              <form method="post" action="{{ url_for('site.free_trip_alternative', trip_id=trip.id) }}" onsubmit="showAriellaSearchWait(this)">
+                <input type="hidden" name="alternative" value="nearby_dates">
+                <button class="button outline" type="submit">
+                  {% if trip.answers.date_mode == 'month' %}
+                    {{ 'Try another month' if site_lang == 'en' else 'לנסות חודש אחר' }}
+                  {% else %}
+                    {{ 'Try other dates' if site_lang == 'en' else 'לנסות תאריכים אחרים' }}
+                  {% endif %}
+                </button>
+              </form>
+            {% else %}
+              <a class="button outline" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ 'Start a new search' if site_lang=='en' else 'להתחיל חיפוש חדש' }}</a>
             {% endif %}
           </div>
         </div>

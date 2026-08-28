@@ -2077,7 +2077,26 @@ def account():
         _expire_finished_trips(conn, member_id)
         rows = conn.execute("SELECT * FROM trip_requests WHERE member_id=? ORDER BY id DESC", (member_id,)).fetchall()
         conn.commit()
-    trips = [_trip_dict(row) for row in rows]
+    trips = []
+    for row in rows:
+        try:
+            trips.append(_trip_dict(row))
+        except Exception:
+            # A damaged/legacy vacation row must never take down "My Vacations".
+            trips.append({
+                "id": row["id"],
+                "request_name": row["request_name"] or _msg("חופשה", "Vacation"),
+                "travel_window": row["travel_window"] or "",
+                "status": row["status"] or "active",
+                "answers": {},
+                "offers": [],
+                "alternative_offers": [],
+                "no_exact_matches": False,
+                "constraints_summary": [],
+                "needs_fresh_search": False,
+                "has_incomplete_inventory": False,
+                "data_error": True,
+            })
     database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
     for trip in trips:
         try:
@@ -2265,9 +2284,15 @@ def _same_dates_other_destination_db_matches(inventory, trip, limit=5):
         if not _offer_has_complete_roundtrip(o):
             continue
         if answers.get("date_mode") == "exact":
-            if str(o.get("outbound_date") or "") != str(answers.get("departure_date") or ""):
+            try:
+                req_out = datetime.strptime(str(answers.get("departure_date") or "")[:10], "%Y-%m-%d").date()
+                req_ret = datetime.strptime(str(answers.get("return_date") or "")[:10], "%Y-%m-%d").date()
+                off_out = datetime.strptime(str(o.get("outbound_date") or "")[:10], "%Y-%m-%d").date()
+                off_ret = datetime.strptime(str(o.get("return_date") or "")[:10], "%Y-%m-%d").date()
+                flex = max(0, min(3, int(answers.get("date_flex_days") or 0)))
+            except Exception:
                 continue
-            if str(o.get("return_date") or "") != str(answers.get("return_date") or ""):
+            if abs((off_out - req_out).days) > flex or abs((off_ret - req_ret).days) > flex:
                 continue
         elif answers.get("date_mode") == "month":
             out_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
@@ -2325,8 +2350,11 @@ def free_trip_alternative(trip_id):
         ).fetchone()
         if not row:
             return redirect(url_for("site.account"))
-        trip = _trip_dict(row)
-        answers = dict(trip.get("answers") or {})
+        try:
+            trip = _trip_dict(row)
+            answers = dict(trip.get("answers") or {})
+        except Exception:
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
     inventory = _recent_inventory_48h()
 
@@ -2391,8 +2419,10 @@ def free_trip_alternative(trip_id):
         else:
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-    # 2) SAME DATES, OTHER DESTINATION: first mine the 48h DB.
+    # 2) SAME DATES, OTHER DESTINATION: only meaningful when the customer fixed a destination.
     else:
+        if str(answers.get("destination_mode") or "open") not in {"specific", "several"}:
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
         db_matches = _same_dates_other_destination_db_matches(inventory, trip, limit=5)
         if db_matches:
             _pin_offer_ids_to_trip(trip_id, answers, db_matches)
