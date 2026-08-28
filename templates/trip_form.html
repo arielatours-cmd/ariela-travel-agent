@@ -387,7 +387,7 @@
     if(!step) return;
     step.querySelectorAll('input,select,textarea').forEach(el=>{
       if(el.type==='radio'||el.type==='checkbox'){ el.checked=false; setSelectedState(el); }
-      else if(el.tagName==='SELECT'){ el.selectedIndex=0; }
+      else if(el.tagName==='SELECT'){ if(el.multiple){Array.from(el.options).forEach(o=>o.selected=false);}else{el.selectedIndex=0;} }
       else { el.value=''; }
     });
     step.querySelectorAll('.airport-tags').forEach(x=>x.innerHTML='');
@@ -522,7 +522,7 @@
   }));
 
 
-  const skiOptions={{ ski_options|tojson }};
+  const skiOptions=Array.isArray({{ ski_options|tojson }}) ? {{ ski_options|tojson }} : [];
   const skiUiLang={{ site_lang|tojson }};
   const skiSearch=document.getElementById('skiTargetSearch');
   const skiSuggestions=document.getElementById('skiTargetSuggestions');
@@ -553,16 +553,30 @@
     skiSelect.dispatchEvent(new Event('change',{bubbles:true}));
     if(skiSuggestions)skiSuggestions.hidden=true;updateSkiSeasonWarning();
   }
+  function normalizeSkiText(value){return String(value||'').normalize('NFKD').toLowerCase().trim();}
   function showSkiSuggestions(){
-    if(!skiSearch||!skiSuggestions)return;
-    const q=skiSearch.value.trim().toLowerCase();skiSuggestions.innerHTML='';
+    if(!skiSearch||!skiSuggestions||!skiSelect)return;
+    const q=normalizeSkiText(skiSearch.value);skiSuggestions.innerHTML='';
     if(!q){skiSuggestions.hidden=true;return;}
     const picked=new Set(selectedSkiValues());
-    skiOptions.filter(x=>!picked.has(x.value)&&[x.resort,x.label_he,x.label_en,x.country,x.country_he,x.region,x.region_he].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,50).forEach(x=>{
-      const b=document.createElement('button');b.type='button';b.textContent=(skiUiLang==='en'?x.label_en:x.label_he);
-      b.addEventListener('click',()=>chooseSkiTarget(x.value));skiSuggestions.appendChild(b);
+    const matches=skiOptions.filter(x=>{
+      if(picked.has(x.value))return false;
+      const hay=[x.resort,x.label_he,x.label_en,x.country,x.country_he,x.region,x.region_he].map(normalizeSkiText).join(' | ');
+      return hay.includes(q);
+    }).slice(0,60);
+    matches.forEach(x=>{
+      const b=document.createElement('button');b.type='button';b.className='ski-suggestion-option';
+      b.textContent=(skiUiLang==='en'?x.label_en:x.label_he);
+      b.addEventListener('mousedown',e=>e.preventDefault());
+      b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();chooseSkiTarget(x.value);});
+      skiSuggestions.appendChild(b);
     });
-    skiSuggestions.hidden=!skiSuggestions.children.length;
+    if(!matches.length){
+      const empty=document.createElement('div');empty.className='ski-suggestion-empty';
+      empty.textContent=skiUiLang==='en'?'No matching ski resorts':'לא נמצאו אתרי סקי מתאימים לחיפוש';
+      skiSuggestions.appendChild(empty);
+    }
+    skiSuggestions.hidden=false;
   }
   skiSearch?.addEventListener('input',showSkiSuggestions);
   skiSearch?.addEventListener('focus',showSkiSuggestions);
@@ -586,40 +600,34 @@
     const values=selectedSkiValues();
     const selected=mode==='several'?skiOptions.filter(x=>values.includes(x.value)):skiOptions;
     if(mode==='several'&&!selected.length)return true;
-
     const fullyOpen=selected.filter(x=>months.every(m=>(x.season_months||[]).includes(m)));
-    const coreMonths=new Set([12,1,2,3]);
-    const shoulderMonths=new Set([4,11]);
-    const lateMonths=new Set([5,10]);
-    const hasLate=months.some(m=>lateMonths.has(m));
-    const hasShoulder=months.some(m=>shoulderMonths.has(m));
-
     if(!fullyOpen.length){
       box.hidden=false;box.classList.add('is-danger');box.dataset.block='1';
       box.textContent=skiUiLang==='en'
-        ? 'The selected period is outside the ski season for the available resorts. Please choose different dates before continuing.'
-        : 'בתקופה שבחרתם אין במאגר אתרי סקי פעילים ומתאימים. יש לבחור תאריכים אחרים לפני שממשיכים.';
+        ? 'The selected period is outside the ski season for the available resorts. Please choose different dates.'
+        : 'בתקופה שבחרתם אין במאגר אתרי סקי פעילים ומתאימים. יש לבחור תאריכים אחרים.';
       return false;
     }
-
-    if(hasLate || hasShoulder || fullyOpen.length<selected.length){
+    const ratio=fullyOpen.length/Math.max(1,selected.length);
+    const veryLate=months.some(m=>m===5||m===10);
+    const shoulder=months.some(m=>m===4||m===11);
+    // When Ariella chooses the resort, warn only when the month materially limits
+    // the available world-wide resort pool. Core ski months stay quiet.
+    if(mode==='open' && (veryLate || ratio<0.35 || (shoulder&&ratio<0.60))){
       box.hidden=false;box.classList.add('is-warning');
-      if(mode==='open'){
-        box.textContent=skiUiLang==='en'
-          ? `This is a limited ski period. Ariella found ${fullyOpen.length} resorts in the database whose season includes the selected month(s), and will search only those.`
-          : `זו תקופת סקי מוגבלת. אריאלה מצאה במאגר ${fullyOpen.length} אתרים שעונת הסקי שלהם כוללת את החודש שבחרתם, ותחפש רק בהם.`;
-      }else{
-        box.textContent=skiUiLang==='en'
-          ? 'Some of your selected resorts are outside their usual season or this is a marginal ski month. Ariella will search only resorts that are in season.'
-          : 'חלק מהאתרים שבחרתם מחוץ לעונה הרגילה או שמדובר בחודש גבולי לסקי. אריאלה תחפש רק באתרים שעונתם כוללת את התקופה שבחרתם.';
-      }
+      box.textContent=skiUiLang==='en'
+        ? `This is a limited ski period. Ariella found ${fullyOpen.length} suitable resorts in season and will search only those.`
+        : `זו תקופת סקי מוגבלת. אריאלה מצאה ${fullyOpen.length} אתרים מתאימים שעונתם כוללת את התקופה שבחרתם, ותחפש רק בהם.`;
       return true;
     }
-
-    box.hidden=false;box.classList.add('is-good');
-    box.textContent=skiUiLang==='en'
-      ? 'The selected period is within the ski season for the available resorts.'
-      : 'התקופה שבחרתם מתאימה לעונת הסקי של האתרים הזמינים.';
+    // Manual selection: warn only when some chosen resorts are out of season.
+    if(mode==='several' && fullyOpen.length<selected.length){
+      box.hidden=false;box.classList.add('is-warning');
+      box.textContent=skiUiLang==='en'
+        ? 'Some selected resorts are outside their usual season. Ariella will search only the resorts that are in season.'
+        : 'חלק מהאתרים שבחרתם מחוץ לעונה בתקופה הזו. אריאלה תחפש רק באתרים שעונתם מתאימה.';
+      return true;
+    }
     return true;
   }
 

@@ -2495,3 +2495,9 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 [data-ski-proximity-priority][hidden]{display:none!important;}
 
 .ski-target-panel .airport-tag>button{border:0;background:transparent;color:#7d5e24;font-size:20px;line-height:1;cursor:pointer;padding:0 2px;font-weight:800;}
+
+/* v9.7.128 unified ski QA */
+.ski-question h2,.ski-question .choice-button>span{text-align:center!important;}
+.ski-target-panel .airport-suggestions{z-index:120!important;background:#fff!important;}
+.ski-suggestion-empty{padding:12px 14px;color:#667085;background:#fff;}
+.ski-target-panel .airport-tag{direction:auto;}

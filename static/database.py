@@ -1143,13 +1143,14 @@ def all_settings() -> dict:
 
 
 def price_history_reference(departure_code: str, arrival_code: str, outbound_month: int, current_price: float) -> dict:
-    """Return robust historical price context for a route and travel month."""
+    """Return route/month price context from the last 24 months only."""
     with connection() as conn:
         rows = conn.execute(
             """
             SELECT price_ils FROM offers
             WHERE departure_code=? AND arrival_code=?
               AND CAST(strftime('%m', outbound_date) AS INTEGER)=?
+              AND datetime(observed_at) >= datetime('now','-24 months')
             ORDER BY price_ils ASC
             LIMIT 500
             """,

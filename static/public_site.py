@@ -204,47 +204,52 @@ def _ski_offer_constraints_ok(offer, trip):
     return True
 
 
+def _ski_selected_condition_details(offer, trip):
+    """Selected ski questionnaire conditions, each worth one transparent point."""
+    answers = trip.get("answers") or {}
+    scores = offer.get("ski_resort_scores") or {}
+    priorities = set(answers.get("ski_priorities") or [])
+    level = str(answers.get("ski_skill_level") or "")
+    levels = set(offer.get("ski_resort_levels") or [])
+    mins = float(offer.get("ski_transfer_minutes") or 9999)
+    out = []
+
+    if level:
+        out.append((level == "mixed" or level in levels, "מתאים לרמת הגלישה", "Matches ski level"))
+    transfer_choice = str(answers.get("ski_transfer_choice") or "any")
+    if transfer_choice in {"90", "180"}:
+        cap = 90 if transfer_choice == "90" else 180
+        out.append((mins <= cap, "מרחק מתאים משדה התעופה", "Airport transfer distance"))
+
+    labels = {
+        "snow": ("snow", "סיכוי גבוה לשלג טוב", "Snow reliability"),
+        "family": ("family", "מתאים למשפחות", "Family friendly"),
+        "large": ("size", "אתר גדול ומגוון", "Large & varied resort"),
+        "value": ("value", "מחיר משתלם", "Good value"),
+        "atmosphere": ("atmosphere", "מסעדות ואווירה", "Restaurants & atmosphere"),
+        "nightlife": ("nightlife", "Après-ski וחיי לילה", "Après-ski & nightlife"),
+        "spa": ("spa", "ספא ופינוקים", "Spa & pampering"),
+    }
+    for pref in priorities:
+        if pref in {"level", "proximity"}:
+            continue
+        if pref in labels:
+            key, he, en = labels[pref]
+            out.append((float(scores.get(key) or 0) >= 0.6, he, en))
+    if "level" in priorities and not level:
+        out.append((False, "אתר שמתאים לרמת הגלישה", "Resort fits ski level"))
+    if "proximity" in priorities and transfer_choice != "any":
+        cap = 90 if transfer_choice == "90" else 180
+        out.append((mins <= cap, "הגעה קצרה ונוחה משדה התעופה", "Short/easy airport transfer"))
+    return out
+
+
 def _ski_preference_score(offer, trip):
-    """Transparent ski matching: more satisfied ski conditions = higher rank."""
+    """Transparent ski ranking from the resort table: +1 per met condition."""
     answers = trip.get("answers") or {}
     if str(answers.get("vacation_type") or "standard") != "ski":
         return 0.0
-    scores = offer.get("ski_resort_scores") or {}
-    priorities = set(answers.get("ski_priorities") or [])
-    total = 0.0
-
-    # Core questionnaire conditions.
-    level = str(answers.get("ski_skill_level") or "")
-    levels = set(offer.get("ski_resort_levels") or [])
-    if level == "mixed" or (level and level in levels):
-        total += 1.0
-
-    transfer_choice = str(answers.get("ski_transfer_choice") or "any")
-    mins = float(offer.get("ski_transfer_minutes") or 9999)
-    if transfer_choice == "90" and mins <= 90:
-        total += 1.0
-    elif transfer_choice == "180" and mins <= 180:
-        total += 1.0
-
-    # Resort-table preferences. When explicit table scores exist, one satisfied
-    # condition earns one point; no invented hidden weights are used.
-    mapping = {
-        "snow": "snow", "family": "family", "large": "size",
-        "value": "value", "atmosphere": "atmosphere",
-        "nightlife": "nightlife", "spa": "spa",
-    }
-    for pref, key in mapping.items():
-        if pref in priorities and float(scores.get(key) or 0) >= 0.6:
-            total += 1.0
-
-    if "proximity" in priorities and transfer_choice != "any":
-        cap = 90 if transfer_choice == "90" else 180
-        if mins <= cap:
-            total += 1.0
-    if "level" in priorities and (level == "mixed" or (level and level in levels)):
-        total += 1.0
-
-    # Season suitability is always relevant to a ski vacation.
+    total = float(sum(1 for ok, _, _ in _ski_selected_condition_details(offer, trip) if ok))
     requested_months = _ski_months_for_request(
         answers.get("date_mode"), answers.get("outbound_month", ""),
         answers.get("return_month", ""), answers.get("departure_date", ""),
@@ -1062,28 +1067,33 @@ def _month_distance(a, b):
 
 
 def _within_primary_date_window(offer, trip):
-    """Initial alternatives stay within one month of each requested leg.
-
-    Wider dates are only exposed after the customer explicitly chooses
-    'same destination / other dates'.
-    """
+    """Keep initial alternatives inside the customer's actual date tolerance."""
     answers = trip.get("answers") or {}
     if answers.get("_alternative_nearby_dates"):
         return True
     mode = str(answers.get("date_mode") or "anytime")
-    if mode == "anytime":
+    if mode in {"anytime", "ski_flexible"}:
         return True
-    out = str(offer.get("outbound_date") or "")[:7]
-    ret = str(offer.get("return_date") or "")[:7]
+    if mode == "exact":
+        try:
+            req_out = datetime.strptime(str(answers.get("departure_date")), "%Y-%m-%d").date()
+            req_ret = datetime.strptime(str(answers.get("return_date")), "%Y-%m-%d").date()
+            off_out = datetime.strptime(str(offer.get("outbound_date"))[:10], "%Y-%m-%d").date()
+            off_ret = datetime.strptime(str(offer.get("return_date"))[:10], "%Y-%m-%d").date()
+            flex = max(0, min(3, int(answers.get("date_flex_days") or 0)))
+        except Exception:
+            return False
+        if flex:
+            return abs((off_out-req_out).days) <= flex and abs((off_ret-req_ret).days) <= flex
+        return off_out == req_out and off_ret == req_ret
     if mode == "month":
+        out = str(offer.get("outbound_date") or "")[:7]
+        ret = str(offer.get("return_date") or "")[:7]
         req_out = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
         req_ret = str(answers.get("return_month") or req_out)[:7]
-    elif mode == "exact":
-        req_out = str(answers.get("departure_date") or "")[:7]
-        req_ret = str(answers.get("return_date") or "")[:7]
-    else:
-        return True
-    return _month_distance(out, req_out) <= 1 and _month_distance(ret, req_ret) <= 1
+        return _month_distance(out, req_out) <= 1 and _month_distance(ret, req_ret) <= 1
+    return True
+
 
 def _open_flight_preference_score(offer, trip):
     """Legacy compatibility helper.
@@ -1097,24 +1107,39 @@ def _open_flight_preference_score(offer, trip):
 
 
 def _good_price_condition(offer):
-    """Return True when the fare genuinely qualifies as a good-price signal.
+    """Customer-facing 'good price' condition.
 
-    Use the normalized cost score when present, and fall back to a reliable
-    reference-price saving.  The condition is deliberately boolean because the
-    customer requested a simple +1 / 0 scoring model.
+    Prefer a trustworthy historical/Google reference.  Historical observations are
+    now limited to the same travel month in the last 24 months (see database.py).
+    If a trustworthy reference explicitly says the fare is not good, return False.
+    If no trustworthy reference exists at all, do not punish the customer for our
+    missing history: treat the price condition as satisfied for full-match purposes.
+    This implements the agreed fallback until Ariella accumulates enough history.
     """
+    reliable = offer.get("price_reference_reliable") is True
+    try:
+        discount = float(offer.get("discount_percent"))
+    except (TypeError, ValueError):
+        discount = None
+    if reliable and discount is not None:
+        return discount >= 10.0
+
+    try:
+        typical_low = float(offer.get("typical_low_ils"))
+        price = float(offer.get("price_ils"))
+        if typical_low > 0 and price > 0:
+            return price <= typical_low * 0.90
+    except (TypeError, ValueError):
+        pass
+
+    # A strong normalized cost score remains a positive signal, but a low/empty
+    # cost score without a reliable reference is not evidence that the fare is bad.
     try:
         if float(offer.get("cost_score") or 0) >= 65:
             return True
     except (TypeError, ValueError):
         pass
-    try:
-        discount = float(offer.get("discount_percent") or 0)
-        if offer.get("price_reference_reliable") is True and discount >= 10:
-            return True
-    except (TypeError, ValueError):
-        pass
-    return False
+    return True
 
 
 def _seasonal_condition_met(offer, trip, selected):
@@ -1250,7 +1275,13 @@ def _offer_is_direct(offer):
 
 
 def _objective_match_details(offer, trip):
-    """Objective restrictions define the full-match group above the divider."""
+    """Return the complete set of conditions the customer actually selected.
+
+    Above the divider means 100% match.  Direct flight and baggage are evaluated
+    first because they are fundamental flight conditions, but every selected
+    vacation preference receives the same +1.  Unselected preferences never affect
+    membership above/below the divider.
+    """
     answers = trip.get("answers") or {}
     points = possible = 0
     matched, missed = [], []
@@ -1261,6 +1292,16 @@ def _objective_match_details(offer, trip):
         (matched if ok else missed).append(en if _lang() == "en" else he)
         if ok:
             points += 1
+
+    priorities = {str(x) for x in (answers.get("deal_priorities") or []) if x}
+    # Fundamental flight conditions first.
+    if "direct" in priorities:
+        add(_offer_is_direct(offer), "טיסה ישירה", "Direct flight")
+    if "baggage" in priorities:
+        b = offer.get("baggage") or {}
+        carry = (b.get("carry_on_8kg") or {}).get("included") is True
+        checked = (b.get("checked_bag_23kg") or {}).get("included") is True
+        add(carry or checked, "כבודה", "Baggage")
 
     mode = str(answers.get("date_mode") or "anytime")
     if mode == "exact":
@@ -1274,14 +1315,40 @@ def _objective_match_details(offer, trip):
         except (TypeError, ValueError):
             add(False, "תקציב", "Budget")
 
-    priorities = {str(x) for x in (answers.get("deal_priorities") or []) if x}
-    if "direct" in priorities:
-        add(_offer_is_direct(offer), "טיסה ישירה", "Direct flight")
-    if "baggage" in priorities:
-        b = offer.get("baggage") or {}
-        carry = (b.get("carry_on_8kg") or {}).get("included") is True
-        checked = (b.get("checked_bag_23kg") or {}).get("included") is True
-        add(carry or checked, "כבודה", "Baggage")
+    # Regular-vacation preferences: every selected item is part of the 100% match.
+    if str(answers.get("vacation_type") or "standard") == "standard":
+        code = str(offer.get("arrival_code") or "").upper()
+        month = _requested_travel_month(trip, offer)
+        labels = {
+            "price": ("מחיר משתלם", "Good price"),
+            "beach": ("בטן־גב", "Beach & relaxation"),
+            "nature": ("טבע ונופים", "Nature & scenery"),
+            "hiking": ("מסלולים וטיולים", "Hiking & touring"),
+            "city": ("ערים ותרבות", "Cities & culture"),
+            "family": ("אטרקציות לילדים", "Kids' attractions"),
+            "food": ("אוכל וקולינריה", "Food & cuisine"),
+            "shopping": ("קניות", "Shopping"),
+            "quiet": ("יעד פחות עמוס", "Less crowded"),
+            "weather": ("מזג אוויר נעים", "Pleasant weather"),
+            "nightlife": ("חיי לילה", "Nightlife"),
+            "relax": ("רוגע ופינוק", "Relaxation"),
+        }
+        for pref in [str(x) for x in (answers.get("holiday_priorities") or []) if x]:
+            he, en = labels.get(pref, (pref, pref))
+            ok = _good_price_condition(offer) if pref == "price" else _destination_condition_met(code, pref, month)
+            add(bool(ok), he, en)
+
+        if "maximize" in priorities:
+            arr = _time_minutes(offer.get("arrival_time"))
+            ret = _time_minutes(offer.get("return_departure_time"))
+            add(arr is not None and ret is not None and arr <= 600 and ret >= 1200,
+                "למקסם את החופשה", "Maximize the vacation")
+
+    # Ski preferences are evaluated from the ski-resort table, not the generic
+    # destination matrix.
+    if str(answers.get("vacation_type") or "standard") == "ski":
+        for ok, he, en in _ski_selected_condition_details(offer, trip):
+            add(ok, he, en)
 
     return points, possible, matched, missed
 
@@ -1373,8 +1440,7 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
         if sig in exclude:
             continue
         obj_points, obj_possible, matched, missed = _objective_match_details(o, trip)
-        pref_points = _open_customer_points(o, trip) if not _trip_is_destination_led(trip) else 0
-        total_points = obj_points + pref_points
+        total_points = obj_points
         ranked.append((-total_points, -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, total_points))
     ranked.sort(key=lambda x: x[:4])
     out = []
@@ -1503,7 +1569,9 @@ def _customer_deal_choices(all_offers, trip, limit=5):
 
     # Ariella-open searches: points first, deal score only as a tie-breaker.
     # Destination-led searches: the existing route/time quality value remains useful.
-    if _trip_is_destination_led(trip):
+    if vacation_type == "ski":
+        qualified.sort(key=lambda o: (-_ski_preference_score(o, trip), -int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
+    elif _trip_is_destination_led(trip):
         qualified.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
     else:
         qualified.sort(key=lambda o: (-_open_customer_points(o, trip), -int(o.get("score") or 0), float(o.get("price_ils") or 10**9)))
