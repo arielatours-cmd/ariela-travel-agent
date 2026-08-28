@@ -27,3 +27,13 @@
 .ski-season-warning{margin:16px 0 0;padding:13px 15px;border-radius:9px;font-size:16px;font-weight:700;line-height:1.55}
 .ski-season-warning.is-warning{background:#fff8e6;border:1px solid #d7ab52;color:#71520d}
 .ski-season-warning.is-danger{background:#fff0f0;border:1px solid #c95858;color:#8a1f1f}
+
+/* v9.7.127 — ski questionnaire QA */
+.wizard-step .choice-button>span{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;line-height:1.45;width:100%;}
+.ski-season-warning.is-good{background:#eef8ef;border:1px solid #68a66d;color:#2d6d33;}
+.ski-target-panel .airport-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+.ski-target-panel .airport-tag{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;border:1px solid #d6bd87;border-radius:999px;background:#fffaf0;cursor:pointer;font-weight:700;}
+.ski-target-panel .airport-suggestions{max-height:330px;overflow:auto;z-index:30;}
+[data-ski-proximity-priority][hidden]{display:none!important;}
+
+.ski-target-panel .airport-tag>button{border:0;background:transparent;color:#7d5e24;font-size:20px;line-height:1;cursor:pointer;padding:0 2px;font-weight:800;}

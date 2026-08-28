@@ -61,7 +61,7 @@ function showAriellaSearchWait(){
   <div class="trip-list">
   {% for trip in trips %}
     {% set a = trip.answers %}
-    <article class="trip-row trip-management-card" id="vacation-{{ trip.id }}">
+    <article class="trip-row trip-management-card{% if a.vacation_type == 'ski' %} is-ski-vacation{% endif %}" id="vacation-{{ trip.id }}">
       <div class="trip-destination-image" style="background-image:url('{{ trip.image_url }}')" role="img" aria-label="{{ trip.request_name }}"></div>
       <div class="trip-main-details">
         <div class="trip-title-line">

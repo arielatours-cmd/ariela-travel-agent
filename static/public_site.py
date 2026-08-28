@@ -68,58 +68,53 @@ except Exception:
 
 
 def _ski_picker_options():
-    countries = {}
+    """Autocomplete rows: every selectable item is a real ski resort + its country.
+
+    Searching a country therefore returns all resorts in that country instead of a
+    synthetic country-only choice that cannot be shown as a vacation later.
+    """
     resorts = []
     for row in _SKI_RESORTS:
         country = str(row.get("country") or "").strip()
         country_he = str(row.get("country_he") or country).strip()
-        if country:
-            countries[country] = country_he
+        region = str(row.get("region") or "").strip()
+        region_he = str(row.get("region_he") or region).strip()
+        resort = str(row.get("resort") or "").strip()
+        if not resort:
+            continue
         resorts.append({
-            "value": f"resort:{row.get('resort')}",
-            "label_he": f"{row.get('resort')} — {country_he}",
-            "label_en": f"{row.get('resort')} — {country}",
+            "value": f"resort:{resort}",
+            "label_he": f"{resort} — {country_he}",
+            "label_en": f"{resort} — {country}",
+            "resort": resort,
             "country": country,
+            "country_he": country_he,
+            "region": region,
+            "region_he": region_he,
             "season_months": list(row.get("season_months") or []),
         })
-    country_opts = [
-        {"value": f"country:{country}", "label_he": f"{he} — כל אתרי הסקי", "label_en": f"{country} — any ski resort",
-         "country": country,
-         "season_months": sorted({m for r in _SKI_RESORTS if str(r.get("country")) == country for m in (r.get("season_months") or [])})}
-        for country, he in sorted(countries.items(), key=lambda kv: kv[1])
-    ]
-    resorts.sort(key=lambda x: (x["country"], x["label_en"]))
-    return country_opts + resorts
+    resorts.sort(key=lambda x: (x["country_he"], x["resort"]))
+    return resorts
 
 
 def _resolve_ski_targets(raw_values, mode, skill_level=None, max_transfer_minutes=None):
-    """Resolve resort/country choices into a curated resort subset + gateway airports."""
+    """Resolve manual/open ski choices to resort rows and gateway airports.
+
+    Skill level and transfer distance are ranking conditions, not reasons to erase a
+    resort before ranking. Season availability is filtered separately once the dates
+    are known.
+    """
     selected = [str(x).strip() for x in (raw_values or []) if str(x).strip()]
     rows = list(_SKI_RESORTS)
 
     if mode in {"specific", "several"} and selected:
         resort_names = {x.split(":", 1)[1] for x in selected if x.startswith("resort:")}
+        # Backward compatibility for older saved country selections.
         countries = {x.split(":", 1)[1] for x in selected if x.startswith("country:")}
         rows = [
             r for r in rows
             if str(r.get("resort")) in resort_names or str(r.get("country")) in countries
         ]
-
-    if skill_level:
-        rows = [
-            r for r in rows
-            if skill_level == "mixed" or skill_level in set(r.get("levels") or [])
-        ]
-
-    if max_transfer_minutes:
-        try:
-            cap = int(max_transfer_minutes)
-            rows = [
-                r for r in rows
-                if int(r.get("transfer_minutes_estimate") or 9999) <= cap
-            ]
-        except (TypeError, ValueError):
-            pass
 
     airports, names, countries = [], [], []
     for r in rows:
@@ -135,6 +130,29 @@ def _resolve_ski_targets(raw_values, mode, skill_level=None, max_transfer_minute
         "countries": sorted(set(countries)),
         "gateway_airports": airports,
     }
+
+
+def _ski_months_for_request(date_mode, outbound_month="", return_month="", departure_date="", return_date=""):
+    values = []
+    raw_values = []
+    if date_mode == "month":
+        raw_values = [outbound_month, return_month]
+    elif date_mode == "exact":
+        raw_values = [departure_date, return_date]
+    for raw in raw_values:
+        try:
+            month = int(str(raw).strip()[5:7])
+        except Exception:
+            continue
+        if 1 <= month <= 12 and month not in values:
+            values.append(month)
+    return values
+
+
+def _ski_resorts_in_season(rows, months):
+    if not months:
+        return list(rows)
+    return [r for r in rows if all(m in set(r.get("season_months") or []) for m in months)]
 
 
 def _ski_row_for_offer(offer, trip):
@@ -181,35 +199,60 @@ def _ski_offer_constraints_ok(offer, trip):
         if level not in set(offer.get("ski_resort_levels") or []):
             return False
 
-    try:
-        cap = int(answers.get("ski_max_transfer_minutes") or 0)
-    except (TypeError, ValueError):
-        cap = 0
-    if cap and int(offer.get("ski_transfer_minutes") or 9999) > cap:
-        return False
+    # Transfer distance is a ranking condition. A farther resort may still be the
+    # best overall match when it satisfies more of the customer's ski preferences.
     return True
 
 
 def _ski_preference_score(offer, trip):
+    """Transparent ski matching: more satisfied ski conditions = higher rank."""
     answers = trip.get("answers") or {}
     if str(answers.get("vacation_type") or "standard") != "ski":
         return 0.0
     scores = offer.get("ski_resort_scores") or {}
     priorities = set(answers.get("ski_priorities") or [])
+    total = 0.0
+
+    # Core questionnaire conditions.
+    level = str(answers.get("ski_skill_level") or "")
+    levels = set(offer.get("ski_resort_levels") or [])
+    if level == "mixed" or (level and level in levels):
+        total += 1.0
+
+    transfer_choice = str(answers.get("ski_transfer_choice") or "any")
+    mins = float(offer.get("ski_transfer_minutes") or 9999)
+    if transfer_choice == "90" and mins <= 90:
+        total += 1.0
+    elif transfer_choice == "180" and mins <= 180:
+        total += 1.0
+
+    # Resort-table preferences. When explicit table scores exist, one satisfied
+    # condition earns one point; no invented hidden weights are used.
     mapping = {
         "snow": "snow", "family": "family", "large": "size",
         "value": "value", "atmosphere": "atmosphere",
         "nightlife": "nightlife", "spa": "spa",
     }
-    total = 0.0
     for pref, key in mapping.items():
-        if pref in priorities:
-            total += float(scores.get(key) or 0) * 10.0
-    if "proximity" in priorities:
-        mins = float(offer.get("ski_transfer_minutes") or 999)
-        total += max(0.0, 50.0 - mins / 5.0)
-    if "level" in priorities:
-        total += 25.0
+        if pref in priorities and float(scores.get(key) or 0) >= 0.6:
+            total += 1.0
+
+    if "proximity" in priorities and transfer_choice != "any":
+        cap = 90 if transfer_choice == "90" else 180
+        if mins <= cap:
+            total += 1.0
+    if "level" in priorities and (level == "mixed" or (level and level in levels)):
+        total += 1.0
+
+    # Season suitability is always relevant to a ski vacation.
+    requested_months = _ski_months_for_request(
+        answers.get("date_mode"), answers.get("outbound_month", ""),
+        answers.get("return_month", ""), answers.get("departure_date", ""),
+        answers.get("return_date", ""),
+    )
+    row = _ski_row_for_offer(offer, trip)
+    if row and requested_months and all(m in set(row.get("season_months") or []) for m in requested_months):
+        total += 1.0
     return total
 
 
@@ -1961,7 +2004,16 @@ def account():
         destination_info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {}) if destination_codes else {}
         if str(answers.get("vacation_type") or "") == "ski":
             ski_labels = answers.get("ski_target_labels") or []
-            trip["destination_display"] = " • ".join(ski_labels) if ski_labels else _msg("אריאלה תבחר אתר סקי", "Ariella chooses a ski resort")
+            if ski_labels:
+                trip["destination_display"] = _msg(
+                    "חופשת סקי — " + " • ".join(ski_labels),
+                    "Ski vacation — " + " • ".join(ski_labels),
+                )
+            else:
+                trip["destination_display"] = _msg(
+                    "חופשת סקי — אריאלה תבחר אתר סקי",
+                    "Ski vacation — Ariella chooses a ski resort",
+                )
         elif destination_codes:
             labels = []
             for code in destination_codes:
@@ -2364,7 +2416,7 @@ def new_trip():
             resolved = _resolve_ski_targets(
                 ski_targets, destination_mode,
                 skill_level=ski_skill_level or None,
-                max_transfer_minutes=ski_max_transfer_minutes,
+                max_transfer_minutes=None,
             )
 
             if destination_mode in {"specific", "several"} and not ski_targets:
@@ -2390,6 +2442,23 @@ def new_trip():
             return_month = form.get("ski_return_month", "").strip()
             departure_date = form.get("ski_departure_date", "").strip()
             return_date = form.get("ski_return_date", "").strip()
+
+            ski_months = _ski_months_for_request(
+                date_mode, outbound_month, return_month, departure_date, return_date
+            )
+            if ski_months:
+                in_season_rows = _ski_resorts_in_season(resolved["resorts"], ski_months)
+                if not in_season_rows:
+                    flash(_msg(
+                        "לא נמצאו אתרי סקי פתוחים/מתאימים לתקופה שבחרתם. יש לבחור תאריכים אחרים.",
+                        "No selected ski resorts are in season for these dates. Please choose different dates.",
+                    ), "error")
+                    return render_template("trip_form.html", **ctx)
+                # Search flights only to gateways serving resorts that are actually in season.
+                resolved = _resolve_ski_targets(
+                    [f"resort:{r.get('resort')}" for r in in_season_rows], "several"
+                )
+                destinations = ",".join(resolved["gateway_airports"])
 
             travel_party = form.get("ski_travel_party")
             adults = form.get("ski_family_adults") if travel_party == "family" else form.get("ski_adults")
@@ -2438,6 +2507,7 @@ def new_trip():
             ski_target_labels = []
             ski_skill_level = ""
             ski_max_transfer_minutes = None
+            ski_transfer_choice = "any"
             ski_priorities = []
             holiday_priorities = []
             deal_priorities = []
@@ -2480,6 +2550,7 @@ def new_trip():
             ski_target_labels = []
             ski_skill_level = ""
             ski_max_transfer_minutes = None
+            ski_transfer_choice = "any"
             ski_priorities = []
 
             date_mode = form.get("date_mode", "anytime")
@@ -2540,8 +2611,17 @@ def new_trip():
             if vacation_type == "ski"
             else _msg("הצעות של אריאלה", "Ariella suggestions")
         )
-        if vacation_type == "ski" and ski_target_labels:
-            destination_title = " • ".join(ski_target_labels)
+        if vacation_type == "ski":
+            if ski_target_labels:
+                destination_title = _msg(
+                    "חופשת סקי — " + " • ".join(ski_target_labels),
+                    "Ski vacation — " + " • ".join(ski_target_labels),
+                )
+            else:
+                destination_title = _msg(
+                    "חופשת סקי — אריאלה תבחר אתר סקי",
+                    "Ski vacation — Ariella chooses the resort",
+                )
 
         if date_mode == "month":
             travel_window = outbound_month if outbound_month == return_month else f"{outbound_month} → {return_month}"
@@ -2587,6 +2667,7 @@ def new_trip():
             "ski_target_labels": ski_target_labels,
             "ski_skill_level": ski_skill_level,
             "ski_max_transfer_minutes": ski_max_transfer_minutes,
+            "ski_transfer_choice": ski_transfer_choice,
             "ski_priorities": ski_priorities,
         }
         payload.update(business_extra)
@@ -2617,7 +2698,7 @@ def new_trip():
         # A customer who chose a specific destination must not be stranded just
         # because our 48h DB is empty. Run one focused external search automatically.
         # Open-destination searches remain DB-first to avoid wasting broad API quota.
-        if not existing_matches and destination_mode in {"specific", "several"}:
+        if not existing_matches and (destination_mode in {"specific", "several"} or vacation_type == "ski"):
             try:
                 scan_result = run_customer_trip_search(trip_id, payload)
                 scan_count = 1
