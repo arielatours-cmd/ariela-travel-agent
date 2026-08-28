@@ -13,7 +13,7 @@ from functools import wraps
 from zoneinfo import ZoneInfo
 
 from flask import (
-    Blueprint, flash, redirect, render_template, request, session, url_for
+    Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -401,6 +401,9 @@ def _trip_destination_codes(trip):
 def _offer_destination_matches(offer, trip):
     """Personal-vacation results must be for the requested destination only."""
     requested = _trip_destination_codes(trip)
+    answers = trip.get("answers") or {}
+    if answers.get("_alternative_other_destination"):
+        return bool(requested) and str(offer.get("arrival_code") or "").upper() not in requested
     if not requested:
         return True
     return str(offer.get("arrival_code") or "").upper() in requested
@@ -1454,6 +1457,11 @@ def _alternative_date_tier(offer, trip):
             return 0
         if (off_out.year, off_out.month) == (req_out.year, req_out.month) and (off_ret.year, off_ret.month) == (req_ret.year, req_ret.month):
             return 1
+        if answers.get("_second_chance_choice") == "nearby_dates":
+            out_distance = _month_distance(off_out.strftime("%Y-%m"), req_out.strftime("%Y-%m"))
+            ret_distance = _month_distance(off_ret.strftime("%Y-%m"), req_ret.strftime("%Y-%m"))
+            if out_distance <= 1 and ret_distance <= 1:
+                return 2
         return None
     if mode == "month":
         out = str(offer.get("outbound_date") or "")[:7]
@@ -1486,6 +1494,9 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
             continue
         obj_points, obj_possible, matched, missed = _objective_match_details(o, trip)
         if obj_possible and not missed:
+            continue
+        non_date_misses = [m for m in missed if m not in {"התאריכים שביקשת", "Requested dates", "החודשים שביקשת", "Requested months"}]
+        if non_date_misses or not _offer_within_budget(o, trip):
             continue
         ranked.append((date_tier, -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, obj_points))
     ranked.sort(key=lambda x: x[:4])
@@ -1644,22 +1655,25 @@ def _customer_deal_choices(all_offers, trip, limit=5):
     return out
 
 def _public_best_available(limit=30):
-    """Public feed: target 70+, but always keep up to five useful deals down to 60."""
-    recent=[_localize_offer_airports(o) for o in recent_offers(limit=300,minimum_score=60) if _offer_is_publicly_bookable(o) and _offer_is_recent(o,48)]
-    recent.sort(key=lambda o:(-int(o.get("score") or 0),float(o.get("price_ils") or 10**9)))
-    strong=[o for o in recent if int(o.get("score") or 0)>=MIN_DEAL_SCORE]
-    if len(strong)>=5: chosen=strong
-    else:
-        chosen=list(strong)
-        for floor in (65,60):
-            for o in recent:
-                if o in chosen: continue
-                sc=int(o.get("score") or 0)
-                if floor <= sc < (70 if floor==65 else 65): chosen.append(o)
-                if len(chosen)>=5: break
-            if len(chosen)>=5: break
-    selected = chosen[:limit]
-    return selected
+    """Live public feed: fresh, bookable deals at the approved 70+ threshold."""
+    recent = [
+        _localize_offer_airports(o)
+        for o in recent_offers(limit=500, minimum_score=MIN_DEAL_SCORE)
+        if _offer_is_publicly_bookable(o) and _offer_is_recent(o, 48)
+        and int(o.get("score") or 0) >= MIN_DEAL_SCORE
+    ]
+    floor = datetime.min.replace(tzinfo=timezone.utc)
+    recent.sort(key=lambda o: (_offer_seen_at(o) or floor, int(o.get("score") or 0), -float(o.get("price_ils") or 10**9)), reverse=True)
+    return recent[:limit]
+
+
+def _public_feed_version():
+    offers = _public_best_available(limit=120)
+    raw = "|".join(
+        f"{o.get('offer_id')}:{o.get('observed_at')}:{o.get('score')}:{o.get('price_ils')}"
+        for o in offers
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
 
 
 def refresh_public_deal_feed(limit=30):
@@ -1792,11 +1806,14 @@ def deals():
             except Exception:
                 trip["offers"] = []
             exact_sigs = {_offer_signature(o) for o in trip["offers"]}
-            try:
-                trip["alternative_offers"] = _customer_alternative_choices(
-                    database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=max(0, 6-len(trip["offers"]))
-                )
-            except Exception:
+            if (trip.get("answers") or {}).get("_second_chance_choice") == "nearby_dates":
+                try:
+                    trip["alternative_offers"] = _customer_alternative_choices(
+                        database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=max(0, 6-len(trip["offers"]))
+                    )
+                except Exception:
+                    trip["alternative_offers"] = []
+            else:
                 trip["alternative_offers"] = []
             try:
                 inventory = _customer_inventory_status(database_offers, trip)
@@ -1812,6 +1829,13 @@ def deals():
     member = _current_member() if session.get("member_id") else None
     return render_template("deals.html", offers=offers, previous_offers=previous_offers,
                            personal_trips=personal_trips, member=member)
+
+
+@site.get("/api/deals-version")
+def deals_version():
+    response = jsonify({"version": _public_feed_version(), "minimum_score": MIN_DEAL_SCORE})
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
 
 
 
@@ -2105,9 +2129,12 @@ def account():
             # One malformed/legacy vacation must never take down "My Vacations".
             trip["offers"] = []
         exact_sigs={_offer_signature(o) for o in trip["offers"]}
-        try:
-            trip["alternative_offers"] = _customer_alternative_choices(database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=max(0, 6-len(trip["offers"])))
-        except Exception:
+        if (trip.get("answers") or {}).get("_second_chance_choice") == "nearby_dates":
+            try:
+                trip["alternative_offers"] = _customer_alternative_choices(database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=max(0, 6-len(trip["offers"])))
+            except Exception:
+                trip["alternative_offers"] = []
+        else:
             trip["alternative_offers"] = []
         trip["no_exact_matches"] = not bool(trip["offers"]) and bool(trip["alternative_offers"])
         try:
@@ -2118,15 +2145,8 @@ def account():
         trip["budget_fallback"] = False
         trip["closest_fallback_offers"] = []
         trip["nearby_dates_exhausted"] = bool((trip.get("answers") or {}).get("_nearby_dates_exhausted"))
-        if not trip["offers"] and not trip["alternative_offers"] and (trip.get("answers") or {}).get("budget_mode") == "per_person":
-            trip["over_budget_offers"] = _over_budget_alternatives(database_offers + _qa_fixture_offers(), trip, limit=3)
-            trip["budget_fallback"] = bool(trip["over_budget_offers"])
-        if not trip["offers"] and not trip["alternative_offers"] and not trip["budget_fallback"] and (trip.get("answers") or {}).get("_show_closest_fallback"):
-            try:
-                trip["closest_fallback_offers"] = _closest_condition_matches(database_offers + _qa_fixture_offers(), trip, limit=3)
-            except Exception:
-                # No fallback calculation is allowed to take down My Vacations.
-                trip["closest_fallback_offers"] = []
+        trip["second_chance_used"] = bool((trip.get("answers") or {}).get("_second_chance_used"))
+        trip["second_chance_exhausted"] = bool((trip.get("answers") or {}).get("_second_chance_exhausted"))
         try:
             inventory = _customer_inventory_status(database_offers, trip)
         except Exception:
@@ -2263,6 +2283,12 @@ def _same_destination_other_dates_db_matches(inventory, trip, limit=5):
             )
             if same_original:
                 continue
+            # The initial external search already stocked the requested month.
+            # The second chance checks that month before spending more API quota.
+            if str(o.get("outbound_date") or "")[:7] != str(answers.get("departure_date") or "")[:7]:
+                continue
+            if str(o.get("return_date") or "")[:7] != str(answers.get("return_date") or "")[:7]:
+                continue
         elif answers.get("date_mode") == "month":
             out_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
             ret_month = str(answers.get("return_month") or out_month)[:7]
@@ -2272,14 +2298,40 @@ def _same_destination_other_dates_db_matches(inventory, trip, limit=5):
             )
             if same_original:
                 continue
+            allowed_out = {_month_shift(out_month, -1), _month_shift(out_month, 1)}
+            allowed_ret = {_month_shift(ret_month, -1), _month_shift(ret_month, 1)}
+            if str(o.get("outbound_date") or "")[:7] not in allowed_out:
+                continue
+            if str(o.get("return_date") or "")[:7] not in allowed_ret:
+                continue
+        _, possible, _, missed = _objective_match_details(o, trip)
+        # Ignore only the deliberately changed date/month condition; every other
+        # selected hard condition must still pass.
+        non_date_misses = [m for m in missed if m not in {"התאריכים שביקשת", "Requested dates", "החודשים שביקשת", "Requested months"}]
+        if non_date_misses:
+            continue
+        if not _offer_within_budget(o, trip):
+            continue
         matches.append(o)
-    matches.sort(key=lambda o: (-_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9)))
+    def nearby_key(o):
+        if answers.get("date_mode") == "exact":
+            req_out = _date_from_iso(answers.get("departure_date")); req_ret = _date_from_iso(answers.get("return_date"))
+            off_out = _date_from_iso(o.get("outbound_date")); off_ret = _date_from_iso(o.get("return_date"))
+            distance = abs((off_out-req_out).days) + abs((off_ret-req_ret).days) if all((req_out,req_ret,off_out,off_ret)) else 9999
+        else:
+            distance = 0
+        return (distance, -_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9))
+    matches.sort(key=nearby_key)
     return matches[:limit]
 
 
 def _same_dates_other_destination_db_matches(inventory, trip, limit=5):
     answers = trip.get("answers") or {}
     requested = _trip_destination_codes(trip)
+    alt_trip = dict(trip)
+    alt_answers = dict(answers)
+    alt_answers["_alternative_other_destination"] = True
+    alt_trip["answers"] = alt_answers
     matches = []
     for o in inventory:
         code = str(o.get("arrival_code") or "").upper()
@@ -2305,10 +2357,15 @@ def _same_dates_other_destination_db_matches(inventory, trip, limit=5):
                 continue
             if ret_month and not str(o.get("return_date") or "").startswith(ret_month):
                 continue
+        # Direct flight, baggage and budget remain hard conditions in the
+        # customer's one allowed "other destination / same time" second chance.
+        _, possible, _, missed = _objective_match_details(o, alt_trip)
+        if possible and missed:
+            continue
         matches.append(o)
     def _alt_key(o):
-        pts, possible, _, _ = _standard_match_details(o, trip)
-        return (-pts, -_customer_rank_value(o, trip), float(o.get("price_ils") or 10**9))
+        pts, possible, _, _ = _standard_match_details(o, alt_trip)
+        return (-pts, -_customer_rank_value(o, alt_trip), float(o.get("price_ils") or 10**9))
     matches.sort(key=_alt_key)
     return matches[:limit]
 
@@ -2342,7 +2399,7 @@ def _pin_offer_ids_to_trip(trip_id, answers, offers):
 @site.post("/trip/<int:trip_id>/free-alternative")
 @login_required
 def free_trip_alternative(trip_id):
-    """DB-first alternative search. API is used only when 48h inventory has no match."""
+    """Run the customer's single, explicit second-chance branch."""
     choice = request.form.get("alternative", "").strip()
     if choice not in {"nearby_dates", "other_destination"}:
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
@@ -2360,12 +2417,15 @@ def free_trip_alternative(trip_id):
         except Exception:
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-    inventory = _recent_inventory_48h()
+    if answers.get("_second_chance_used"):
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
-    # 1) SAME DESTINATION, OTHER DATES: first mine the 48h DB.
+    inventory = _recent_inventory_48h()
     if choice == "nearby_dates":
         db_matches = _same_destination_other_dates_db_matches(inventory, trip, limit=5)
         if db_matches:
+            answers["_second_chance_used"] = True
+            answers["_second_chance_choice"] = choice
             _pin_offer_ids_to_trip(trip_id, answers, db_matches)
             with _db() as conn:
                 conn.execute(
@@ -2374,61 +2434,44 @@ def free_trip_alternative(trip_id):
                 )
                 conn.commit()
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-
-        # No DB match: record that DB-first completed, then widen the scan.
-        with _db() as conn:
-            conn.execute(
-                "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-                (utc_now_iso(), "db_checked_48h_no_nearby_match", trip_id),
-            )
-            conn.commit()
-
+        scan_answers = dict(answers)
         if answers.get("date_mode") == "exact":
             try:
-                answers["_original_date_mode"] = answers.get("date_mode")
-                answers["_original_departure_date"] = answers.get("departure_date")
-                answers["_original_return_date"] = answers.get("return_date")
-                answers["_original_outbound_month"] = answers.get("outbound_month")
-                answers["_original_return_month"] = answers.get("return_month")
                 out = datetime.strptime(answers.get("departure_date"), "%Y-%m-%d").date()
                 ret = datetime.strptime(answers.get("return_date"), "%Y-%m-%d").date()
                 span = max(1, (ret - out).days)
                 base_month = out.strftime("%Y-%m")
                 requested_ret_month = ret.strftime("%Y-%m")
-                answers["date_mode"] = "month"
-                answers["outbound_month"] = base_month
-                answers["return_month"] = requested_ret_month
-                answers["travel_month"] = base_month
-                answers["_alternative_nearby_dates"] = True
-                answers["_alternative_outbound_months"] = [_month_shift(base_month,-1), base_month, _month_shift(base_month,1)]
-                answers["_alternative_return_months"] = [_month_shift(requested_ret_month,-1), requested_ret_month, _month_shift(requested_ret_month,1)]
-                answers["_alternative_months"] = sorted(set(answers["_alternative_outbound_months"] + answers["_alternative_return_months"]))
-                answers["_requested_trip_length_days"] = span
+                scan_answers.update({
+                    "date_mode": "month", "outbound_month": base_month,
+                    "return_month": requested_ret_month, "travel_month": base_month,
+                    "_alternative_nearby_dates": True,
+                    "_alternative_outbound_months": [_month_shift(base_month,-1), _month_shift(base_month,1)],
+                    "_alternative_return_months": [_month_shift(requested_ret_month,-1), _month_shift(requested_ret_month,1)],
+                    "_requested_trip_length_days": span,
+                })
             except Exception:
                 return redirect(url_for("site.account") + f"#vacation-{trip_id}")
         elif answers.get("date_mode") == "month":
-            answers["_original_date_mode"] = answers.get("date_mode")
-            answers["_original_departure_date"] = answers.get("departure_date")
-            answers["_original_return_date"] = answers.get("return_date")
-            answers["_original_outbound_month"] = answers.get("outbound_month")
-            answers["_original_return_month"] = answers.get("return_month")
             base_month = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
             if not base_month:
                 return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-            answers["_alternative_nearby_dates"] = True
             ret_month = str(answers.get("return_month") or base_month)[:7]
-            answers["_alternative_outbound_months"] = [_month_shift(base_month,-1), base_month, _month_shift(base_month,1)]
-            answers["_alternative_return_months"] = [_month_shift(ret_month,-1), ret_month, _month_shift(ret_month,1)]
-            answers["_alternative_months"] = sorted(set(answers["_alternative_outbound_months"] + answers["_alternative_return_months"]))
+            scan_answers.update({
+                "_alternative_nearby_dates": True,
+                "_alternative_outbound_months": [_month_shift(base_month,-1), _month_shift(base_month,1)],
+                "_alternative_return_months": [_month_shift(ret_month,-1), _month_shift(ret_month,1)],
+            })
         else:
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-
-    # 2) SAME DATES, OTHER DESTINATION: only meaningful when the customer fixed a destination.
     else:
         if str(answers.get("destination_mode") or "open") not in {"specific", "several"}:
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
         db_matches = _same_dates_other_destination_db_matches(inventory, trip, limit=5)
         if db_matches:
+            answers["_alternative_other_destination"] = True
+            answers["_second_chance_used"] = True
+            answers["_second_chance_choice"] = choice
             _pin_offer_ids_to_trip(trip_id, answers, db_matches)
             with _db() as conn:
                 conn.execute(
@@ -2437,21 +2480,11 @@ def free_trip_alternative(trip_id):
                 )
                 conn.commit()
             return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-
-        # No exact DB match for another destination. Before spending API quota,
-        # show the closest existing 48h options ranked by how many customer conditions they meet.
-        answers["_show_closest_fallback"] = True
-        answers["_alternative_other_destination"] = True
-        with _db() as conn:
-            conn.execute(
-                "UPDATE trip_requests SET answers_json=?, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-                (json.dumps(answers, ensure_ascii=False), utc_now_iso(), "closest_db_fallback", trip_id),
-            )
-            conn.commit()
-        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        scan_answers = dict(answers)
+        scan_answers["_alternative_other_destination"] = True
 
     try:
-        scan_result = run_customer_trip_search(trip_id, answers)
+        scan_result = run_customer_trip_search(trip_id, scan_answers)
     except Exception:
         # Never return a raw Flask 500 to the customer.
         with _db() as conn:
@@ -2463,39 +2496,21 @@ def free_trip_alternative(trip_id):
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
     refreshed = _recent_inventory_48h()
-    created_for_trip = []
-    for o in refreshed:
-        try:
-            if int(o.get("trip_id")) == trip_id and _offer_has_complete_roundtrip(o):
-                created_for_trip.append(o)
-        except (TypeError, ValueError):
-            pass
-
-    if choice == "nearby_dates" and answers.get("_original_date_mode"):
-        answers["date_mode"] = answers.pop("_original_date_mode", answers.get("date_mode"))
-        answers["departure_date"] = answers.pop("_original_departure_date", answers.get("departure_date"))
-        answers["return_date"] = answers.pop("_original_return_date", answers.get("return_date"))
-        answers["outbound_month"] = answers.pop("_original_outbound_month", answers.get("outbound_month"))
-        answers["return_month"] = answers.pop("_original_return_month", answers.get("return_month"))
-        answers["travel_month"] = answers.get("outbound_month") or answers.get("travel_month")
-        answers.pop("_alternative_nearby_dates", None)
-        answers.pop("_alternative_months", None)
-        answers.pop("_alternative_outbound_months", None)
-        answers.pop("_alternative_return_months", None)
-        answers.pop("_requested_trip_length_days", None)
-
-    if created_for_trip:
-        _pin_offer_ids_to_trip(trip_id, answers, created_for_trip)
+    answers["_second_chance_used"] = True
+    answers["_second_chance_choice"] = choice
+    if choice == "other_destination":
+        answers["_alternative_other_destination"] = True
+        check_trip = dict(trip); check_trip["answers"] = answers
+        matches = _same_dates_other_destination_db_matches(refreshed, check_trip, limit=5)
     else:
-        # If "same destination / other dates" was exhausted, do not show that
-        # same question again. The next useful step is "other destination / same dates".
-        if choice == "nearby_dates":
-            answers["_nearby_dates_exhausted"] = True
+        check_trip = dict(trip); check_trip["answers"] = answers
+        matches = _customer_alternative_choices(refreshed, check_trip, limit=5)
+    if matches:
+        _pin_offer_ids_to_trip(trip_id, answers, matches)
+    else:
+        answers["_second_chance_exhausted"] = True
         with _db() as conn:
-            conn.execute(
-                "UPDATE trip_requests SET answers_json=? WHERE id=?",
-                (json.dumps(answers, ensure_ascii=False), trip_id),
-            )
+            conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
             conn.commit()
 
     with _db() as conn:
@@ -2843,10 +2858,10 @@ def new_trip():
         scan_status = "database_match" if existing_matches else "no_database_match"
         scan_count = 0
 
-        # A customer who chose a specific destination must not be stranded just
-        # because our 48h DB is empty. Run one focused external search automatically.
-        # Open-destination searches remain DB-first to avoid wasting broad API quota.
-        if not existing_matches and (destination_mode in {"specific", "several"} or vacation_type == "ski"):
+        # The customer's exact request has priority. If the fresh shared DB has no
+        # full match, every route (including "Ariella chooses") gets an external
+        # search before any alternative is offered.
+        if not existing_matches:
             try:
                 scan_result = run_customer_trip_search(trip_id, payload)
                 scan_count = 1

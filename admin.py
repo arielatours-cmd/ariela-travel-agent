@@ -378,6 +378,8 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
       <button type="button" class="head-sort" data-sort="return">חזור ↕</button>
       <input id="adminOfferReturn" type="month" aria-label="סינון חודש חזור">
     </th>
+    <th class="flight-facts">טיסה בפועל</th>
+    <th class="flight-facts">כבודה בפועל</th>
     <th class="price-col admin-head-filter">
       <button type="button" class="head-sort" data-sort="price">מחיר ↕</button>
     </th>
@@ -417,6 +419,16 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     </td>
     <td class="flight-date-col">{{ o.outbound_date or '—' }}</td>
     <td class="flight-date-col">{{ o.return_date or '—' }}</td>
+    <td class="flight-facts" title="מספר עצירות בכל כיוון">
+      הלוך: {% if o.stops is none %}לא ידוע{% elif o.stops == 0 %}ישירה{% else %}{{o.stops}} קונקשן{% endif %}<br>
+      חזור: {% if o.return_stops is none %}לא ידוע{% elif o.return_stops == 0 %}ישירה{% else %}{{o.return_stops}} קונקשן{% endif %}
+    </td>
+    <td class="flight-facts" title="הכללה ומחיר הלוך־חזור">
+      {% set bag=o.baggage or {} %}{% set pi=bag.personal_item or {} %}{% set co=bag.carry_on_8kg or {} %}{% set cb=bag.checked_bag_23kg or {} %}
+      תיק: {{'✓' if pi.included is true else ('✗' if pi.included is false else 'לא ידוע')}}<br>
+      טרולי: {{'✓' if co.included is true else ('₪' ~ (co.roundtrip_price_ils|round|int) if co.roundtrip_price_ils is number else 'לא ידוע')}}<br>
+      מזוודה: {{'✓' if cb.included is true else ('₪' ~ (cb.roundtrip_price_ils|round|int) if cb.roundtrip_price_ils is number else 'לא ידוע')}}
+    </td>
     <td class="price-col" title="מחיר נוכחי בש״ח">
         {{ o.price_ils|round|int if o.price_ils is not none else '—' }}
     </td>
@@ -465,7 +477,7 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     </td>
 </tr>
 {% else %}
-<tr><td class="empty" colspan="17">עדיין אין הצעות. הפעילי סריקה.</td></tr>
+<tr><td class="empty" colspan="19">עדיין אין הצעות. הפעילי סריקה.</td></tr>
 {% endfor %}
 </tbody>
 </table>

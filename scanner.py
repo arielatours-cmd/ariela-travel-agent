@@ -7,7 +7,7 @@ import time
 
 from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
-    MAX_SEARCHES_PER_SCAN, SERPAPI_API_KEY, TRIP_LENGTHS_DAYS,
+    MAX_SEARCHES_PER_SCAN, CUSTOMER_SCAN_MAX_API_REQUESTS, SERPAPI_API_KEY, TRIP_LENGTHS_DAYS,
 )
 from database import (create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference,
     set_setting, latest_scan_cycle_index, update_scan_progress, clear_scan_stop, scan_stop_requested)
@@ -744,13 +744,21 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     flights are therefore retained even when their global deal score is below 65.
     """
     arrivals = _customer_destination_codes(answers)
+    vacation_type = str(answers.get("vacation_type") or "standard")
+    if answers.get("_alternative_other_destination"):
+        original = set(arrivals)
+        arrivals = [d["code"] for d in DESTINATIONS if d["code"] not in original]
+    elif not arrivals and vacation_type == "standard" and str(answers.get("destination_mode") or "open") == "open":
+        # Ariella chooses: search the curated discovery universe instead of
+        # returning unsupported_destination when the shared DB has no match.
+        arrivals = [d["code"] for d in DESTINATIONS]
     if not arrivals:
         return {"status": "unsupported_destination", "offers_found": 0, "api_requests": 0}
 
     origins = [str(x).upper() for x in answers.get("origin_airports", []) if x] or list(DEPARTURE_AIRPORTS)
     date_mode = answers.get("date_mode")
     jobs = []
-    ski_mode = str(answers.get("vacation_type") or "") == "ski"
+    ski_mode = vacation_type == "ski"
     if date_mode == "exact" and answers.get("departure_date") and answers.get("return_date"):
         business_mode = str(answers.get("vacation_type") or "") == "business"
         try:
@@ -763,7 +771,29 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
         offsets = range(-flex_days, flex_days + 1) if flex_days else [0]
         if business_mode and not flex_days and answers.get("business_arrive_by_time"):
             offsets = [-1, 0]
-        if flex_days:
+        # Regular initial exact-date searches deliberately scan representative
+        # windows across the entire requested month. This both serves the exact
+        # request and grows fresh shared inventory. The explicit "other destination,
+        # same dates" second chance remains exact and never changes the dates.
+        scan_whole_month = (
+            vacation_type == "standard"
+            and not answers.get("_alternative_other_destination")
+        )
+        if scan_whole_month:
+            trip_len = max(1, (base_ret - base_out).days)
+            month_first = base_out.replace(day=1)
+            candidate_starts = [base_out]
+            for day_offset in (2, 9, 16, 23):
+                candidate = month_first + timedelta(days=day_offset)
+                if candidate.month == month_first.month and candidate not in candidate_starts:
+                    candidate_starts.append(candidate)
+            candidate_starts.sort(key=lambda d: (0 if d == base_out else 1, abs((d - base_out).days)))
+            for arrival in arrivals:
+                for origin in origins:
+                    for start in candidate_starts:
+                        ret_date = start + timedelta(days=trip_len)
+                        jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret_date.isoformat()})
+        elif flex_days:
             # A flexible request means each requested date may move within the chosen
             # tolerance. Interleave origins so TLV/HFA both get searched before the
             # safety cap is reached, and prioritize the smallest changes first.
@@ -863,7 +893,7 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     completed = offers_found = errors = api_requests = 0
     new_offers = existing_offers = 0
     messages = []
-    max_api_requests = 40
+    max_api_requests = max(1, CUSTOMER_SCAN_MAX_API_REQUESTS)
     destination_led = str(answers.get("destination_mode") or "open") in {"specific", "several"} or ski_mode
     destination_names = {d["code"]: d for d in (list(DESTINATIONS) + list(SKI_DESTINATIONS))}
     try:
@@ -896,8 +926,9 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                     })
                     analysis = _apply_best_price_reference(analysis, price)
                     score = calculate_deal_score(analysis, flight)
-                    if destination_led or score["score"] >= 65:
-                        scored.append((_customer_scan_rank(score, answers), score["score"], -price, flight, analysis, score))
+                    # Every complete valid result expands the shared DB. The 70+
+                    # rule belongs only to the public Deals page, not persistence.
+                    scored.append((_customer_scan_rank(score, answers), score["score"], -price, flight, analysis, score))
                 if scored:
                     scored.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
                     dest = destination_names.get(job["arrival"], {})

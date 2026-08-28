@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.7.133-external-inventory-history"
+APP_VERSION = "9.7.134-final-regular-search-logic"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -18,6 +18,7 @@ ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "").strip()
 SCANNER_ENABLED = os.getenv("SCANNER_ENABLED", "true").lower() == "true"
 SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
 MAX_SEARCHES_PER_SCAN = int(os.getenv("MAX_SEARCHES_PER_SCAN", "8"))
+CUSTOMER_SCAN_MAX_API_REQUESTS = int(os.getenv("CUSTOMER_SCAN_MAX_API_REQUESTS", "120"))
 MIN_DEAL_SCORE = int(os.getenv("MIN_DEAL_SCORE", "70"))
 MAX_DAILY_DEALS = int(os.getenv("MAX_DAILY_DEALS", "5"))
 DAILY_SEND_HOUR = int(os.getenv("DAILY_SEND_HOUR", "17"))

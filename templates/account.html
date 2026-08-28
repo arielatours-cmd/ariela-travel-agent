@@ -165,6 +165,9 @@ function showAriellaSearchWait(){
       {% else %}
         <div class="trip-no-deals ariella-no-deal-state">
           <strong>{{ "Ariella didn't find a suitable vacation for your request right now." if site_lang == 'en' else 'אריאלה לא מצאה כרגע חופשה שמתאימה לבקשה שלך' }}</strong>
+          {% if trip.second_chance_exhausted %}
+          <p>{{ 'Unfortunately, no suitable vacation was found after the additional search.' if site_lang == 'en' else 'לצערנו לא נמצאה חופשה מתאימה גם לאחר החיפוש הנוסף.' }}</p>
+          {% elif not trip.second_chance_used %}
           <p>{{ 'Would you like Ariella to try another complimentary option?' if site_lang == 'en' else 'רוצים לתת לאריאלה לבדוק אפשרות נוספת?' }}</p>
           {% set has_fixed_destination = (trip.answers.destination_mode in ['specific','several']) if trip.answers else false %}
           {% set has_fixed_dates = (trip.answers.date_mode in ['exact','month']) if trip.answers else false %}
@@ -212,6 +215,7 @@ function showAriellaSearchWait(){
               <a class="button outline" href="{{ url_for('site.new_trip', lang=site_lang) }}">{{ 'Start a new search' if site_lang=='en' else 'להתחיל חיפוש חדש' }}</a>
             {% endif %}
           </div>
+          {% endif %}
         </div>
       {% endif %}
     </div>
@@ -261,4 +265,3 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 {% endblock %}
-

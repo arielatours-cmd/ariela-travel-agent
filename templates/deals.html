@@ -1,12 +1,5 @@
 {% extends "base.html" %}{% from "_deal_card.html" import deal_card %}
-{% block title %}{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}<script>
-document.querySelectorAll('.deal-last-updated').forEach(function(el){
- const raw=el.dataset.ts;if(!raw)return;const dt=new Date(raw);if(isNaN(dt))return;
- const df=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',day:'2-digit',month:'2-digit',year:'2-digit'});
- const tf=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit',hour12:false});
- const now=new Date(), day=df.format(dt); el.querySelector('b').textContent=(day===df.format(now)?'היום':day)+', '+tf.format(dt);
-});
-</script>{% endblock %}
+{% block title %}{{ "Ariella's Deals" if site_lang == 'en' else 'הדילים של אריאלה' }}{% endblock %}
 
 {% block content %}
 <section class="deals-page" aria-labelledby="deals-title"><div class="deals-shell">
@@ -142,6 +135,18 @@ document.querySelectorAll('.deal-last-updated').forEach(function(el){
  const tf=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit',hour12:false});
  const now=new Date(), day=df.format(dt); el.querySelector('b').textContent=(day===df.format(now)?'היום':day)+', '+tf.format(dt);
 });
+(function(){
+ let baseline=null;
+ async function check(){
+  try{
+   const r=await fetch('{{ url_for("site.deals_version") }}',{cache:'no-store'});
+   if(!r.ok)return;const v=(await r.json()).version;
+   if(baseline===null){baseline=v;return;}
+   if(v&&v!==baseline)location.reload();
+  }catch(_e){}
+ }
+ check();setInterval(check,30000);
+})();
 </script>{% endblock %}
 {% block site_disclaimer %}<script>
 document.querySelectorAll('.deal-last-updated').forEach(function(el){
