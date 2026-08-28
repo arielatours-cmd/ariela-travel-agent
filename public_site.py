@@ -831,7 +831,7 @@ def _business_sort_key(offer, trip):
 def _closest_condition_matches(all_offers, trip, limit=3):
     """Last-resort DB fallback: rank recent offers by how many customer conditions they satisfy."""
     answers = trip.get("answers") or {}
-    original = {str(x).upper() for x in _customer_destination_codes(answers)}
+    original = {str(x).upper() for x in _trip_destination_codes(trip)}
     candidates = []
     for raw in all_offers:
         o = _localize_offer_airports(raw)
@@ -2122,7 +2122,11 @@ def account():
             trip["over_budget_offers"] = _over_budget_alternatives(database_offers + _qa_fixture_offers(), trip, limit=3)
             trip["budget_fallback"] = bool(trip["over_budget_offers"])
         if not trip["offers"] and not trip["alternative_offers"] and not trip["budget_fallback"] and (trip.get("answers") or {}).get("_show_closest_fallback"):
-            trip["closest_fallback_offers"] = _closest_condition_matches(database_offers + _qa_fixture_offers(), trip, limit=3)
+            try:
+                trip["closest_fallback_offers"] = _closest_condition_matches(database_offers + _qa_fixture_offers(), trip, limit=3)
+            except Exception:
+                # No fallback calculation is allowed to take down My Vacations.
+                trip["closest_fallback_offers"] = []
         try:
             inventory = _customer_inventory_status(database_offers, trip)
         except Exception:
