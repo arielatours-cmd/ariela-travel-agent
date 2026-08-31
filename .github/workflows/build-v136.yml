@@ -1,0 +1,35 @@
+name: Build Ariella 9.7.136
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [release/9.7.136]
+
+jobs:
+  qa-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply 9.7.136 patch
+        run: python tools/apply_v136.py
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+      - name: Compile
+        run: python -m compileall -q .
+      - name: Tests
+        env:
+          SCHEDULER_ENABLED: 'false'
+          DB_PATH: /tmp/ariella-v136-test.db
+        run: pytest -q
+      - name: Package full source
+        run: |
+          rm -rf .git .pytest_cache '**/__pycache__'
+          rm -f data/*.db data/*.db-shm data/*.db-wal
+          zip -r ariella_v9_7_136_full.zip . -x '*.pyc' '.git/*' '.pytest_cache/*' 'ariella_v9_7_136_full.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ariella_v9_7_136_full
+          path: ariella_v9_7_136_full.zip
