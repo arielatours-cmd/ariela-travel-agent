@@ -1,0 +1,133 @@
+name: Apply v9.7.136 monthly scan reuse
+
+on:
+  push:
+    branches:
+      - feature/monthly-scan-reuse-v9.7.136
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/monthly-scan-reuse-v9.7.136
+      - name: Patch scanner and version
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          scanner = Path('scanner.py')
+          text = scanner.read_text(encoding='utf-8')
+
+          marker = '''def run_customer_trip_search(trip_id: int, answers: dict) -> dict:\n'''
+          if marker not in text:
+              raise SystemExit('run_customer_trip_search marker not found')
+
+          helper = r'''CUSTOMER_MONTH_SCAN_REUSE_HOURS = 12
+
+
+def _customer_requested_month_pair(answers: dict) -> tuple[str, str]:
+    """Return the requested outbound/return YYYY-MM pair for reusable monthly coverage."""
+    date_mode = str(answers.get("date_mode") or "")
+    if date_mode == "exact":
+        outbound = str(answers.get("departure_date") or "")[:7]
+        returning = str(answers.get("return_date") or outbound)[:7]
+    elif date_mode == "month":
+        outbound = str(answers.get("outbound_month") or answers.get("travel_month") or "")[:7]
+        returning = str(answers.get("return_month") or outbound)[:7]
+    else:
+        return "", ""
+    return outbound, returning
+
+
+def _customer_month_coverage_key(origin: str, arrival: str, outbound_month: str, return_month: str) -> str:
+    # Coverage follows the external flight query, not customer-side filters such as
+    # budget, baggage or ski preferences. Those are applied later to shared DB data.
+    return f"customer_month_scan_coverage:{origin.upper()}:{arrival.upper()}:{outbound_month}:{return_month}"
+
+
+def _customer_month_coverage_is_fresh(origin: str, arrival: str, outbound_month: str, return_month: str) -> bool:
+    raw = str(get_setting(_customer_month_coverage_key(origin, arrival, outbound_month, return_month), "") or "").strip()
+    if not raw:
+        return False
+    try:
+        observed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if observed.tzinfo is None:
+            observed = observed.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return False
+    age = datetime.now(timezone.utc) - observed.astimezone(timezone.utc)
+    return timedelta(0) <= age <= timedelta(hours=CUSTOMER_MONTH_SCAN_REUSE_HOURS)
+
+
+def _mark_customer_month_coverage(origin: str, arrival: str, outbound_month: str, return_month: str) -> None:
+    set_setting(
+        _customer_month_coverage_key(origin, arrival, outbound_month, return_month),
+        datetime.now(timezone.utc).isoformat(),
+    )
+
+
+'''
+          if 'CUSTOMER_MONTH_SCAN_REUSE_HOURS = 12' not in text:
+              text = text.replace(marker, helper + marker, 1)
+
+          old = '''    run_id = create_scan_run(len(jobs), scan_type=f"personal_{str(answers.get('vacation_type') or 'standard')}", trip_id=trip_id)\n    clear_scan_stop()\n    completed = offers_found = errors = api_requests = 0\n'''
+          new = '''    # Reuse recent broad monthly coverage before spending another external API call.\n    # Coverage is deliberately granular by origin + destination + requested month\n    # pair, so a later request can reuse TLV while still scanning HFA if HFA is new.\n    coverage_out_month, coverage_return_month = _customer_requested_month_pair(answers)\n    monthly_reuse_enabled = (\n        vacation_type in {"standard", "ski"}\n        and not answers.get("_alternative_other_destination")\n        and bool(coverage_out_month and coverage_return_month)\n    )\n    reused_routes = set()\n    if monthly_reuse_enabled:\n        planned_routes = {(job["departure"], job["arrival"]) for job in jobs}\n        reused_routes = {\n            route for route in planned_routes\n            if _customer_month_coverage_is_fresh(\n                route[0], route[1], coverage_out_month, coverage_return_month\n            )\n        }\n        if reused_routes:\n            jobs = [job for job in jobs if (job["departure"], job["arrival"]) not in reused_routes]\n        if not jobs:\n            return {\n                "status": "recent_month_coverage",\n                "scan_run_id": None,\n                "searches_completed": 0,\n                "api_requests": 0,\n                "offers_found": 0,\n                "errors": 0,\n                "coverage_reused": len(reused_routes),\n                "coverage_window_hours": CUSTOMER_MONTH_SCAN_REUSE_HOURS,\n            }\n\n    run_id = create_scan_run(len(jobs), scan_type=f"personal_{str(answers.get('vacation_type') or 'standard')}", trip_id=trip_id)\n    clear_scan_stop()\n    completed = offers_found = errors = api_requests = 0\n'''
+          if old not in text:
+              raise SystemExit('scan run marker not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    destination_led = str(answers.get("destination_mode") or "open") in {"specific", "several"} or ski_mode\n    destination_names = {d["code"]: d for d in (list(DESTINATIONS) + list(SKI_DESTINATIONS))}\n    try:\n        for job in jobs:\n'''
+          new = '''    destination_led = str(answers.get("destination_mode") or "open") in {"specific", "several"} or ski_mode\n    destination_names = {d["code"]: d for d in (list(DESTINATIONS) + list(SKI_DESTINATIONS))}\n    route_planned = {}\n    route_completed = {}\n    route_errors = set()\n    if monthly_reuse_enabled:\n        for job in jobs:\n            route = (job["departure"], job["arrival"])\n            route_planned[route] = route_planned.get(route, 0) + 1\n    try:\n        for job in jobs:\n'''
+          if old not in text:
+              raise SystemExit('route tracking marker not found')
+          text = text.replace(old, new, 1)
+
+          old = '''                api_requests += int(result.get("api_requests") or 0)\n                completed += 1\n                scored = []\n'''
+          new = '''                api_requests += int(result.get("api_requests") or 0)\n                completed += 1\n                if monthly_reuse_enabled:\n                    route = (job["departure"], job["arrival"])\n                    route_completed[route] = route_completed.get(route, 0) + 1\n                scored = []\n'''
+          if old not in text:
+              raise SystemExit('completed marker not found')
+          text = text.replace(old, new, 1)
+
+          old = '''            except Exception as exc:\n                errors += 1\n                messages.append(f"{job['departure']}-{job['arrival']}: {exc}")\n            finally:\n'''
+          new = '''            except Exception as exc:\n                errors += 1\n                if monthly_reuse_enabled:\n                    route_errors.add((job["departure"], job["arrival"]))\n                messages.append(f"{job['departure']}-{job['arrival']}: {exc}")\n            finally:\n'''
+          if old not in text:
+              raise SystemExit('error marker not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    finally:\n        finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None, api_requests=api_requests)\n    return {"status": "success" if errors == 0 else "partial", "scan_run_id": run_id, "searches_completed": completed, "api_requests": api_requests, "offers_found": offers_found, "errors": errors}\n\n\ndef run_destination_scan'''
+          new = '''    finally:\n        finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None, api_requests=api_requests)\n\n    # A route/month is reusable only when every representative monthly job for\n    # that route completed successfully. Zero offers is still valid fresh coverage;\n    # a stopped/capped/failed partial scan is never advertised as full coverage.\n    newly_covered_routes = []\n    if monthly_reuse_enabled:\n        for route, planned_count in route_planned.items():\n            if route in route_errors:\n                continue\n            if route_completed.get(route, 0) != planned_count:\n                continue\n            _mark_customer_month_coverage(\n                route[0], route[1], coverage_out_month, coverage_return_month\n            )\n            newly_covered_routes.append(route)\n\n    return {\n        "status": "success" if errors == 0 else "partial",\n        "scan_run_id": run_id,\n        "searches_completed": completed,\n        "api_requests": api_requests,\n        "offers_found": offers_found,\n        "errors": errors,\n        "coverage_reused": len(reused_routes),\n        "coverage_recorded": len(newly_covered_routes),\n        "coverage_window_hours": CUSTOMER_MONTH_SCAN_REUSE_HOURS,\n    }\n\n\ndef run_destination_scan'''
+          if old not in text:
+              raise SystemExit('return marker not found')
+          text = text.replace(old, new, 1)
+
+          scanner.write_text(text, encoding='utf-8')
+
+          config = Path('config.py')
+          c = config.read_text(encoding='utf-8')
+          old_version = 'APP_VERSION = "9.7.135-open-ski-search-logic"'
+          if old_version not in c:
+              raise SystemExit('APP_VERSION marker not found')
+          c = c.replace(old_version, 'APP_VERSION = "9.7.136-monthly-scan-reuse"', 1)
+          config.write_text(c, encoding='utf-8')
+
+          Path('V97136_CHANGES_HE.txt').write_text('''אריאלה v9.7.136 — שימוש חוזר בסריקות חודשיות\n\n- לפני סריקה חיצונית אישית אריאלה בודקת כיסוי טרי מ-12 השעות האחרונות.\n- הכיסוי נשמר לפי שדה יציאה + יעד + חודש הלוך + חודש חזור.\n- בקשה חדשה לאותו יעד/חודש משתמשת ב-DB ולא צורכת שוב API עבור נתיב שכבר נסרק.\n- אם לקוח חדש מוסיף שדה יציאה שלא נסרק, נסרק רק החלק החסר.\n- גם סריקה תקינה שהחזירה 0 דילים נחשבת כיסוי טרי ל-12 שעות.\n- סריקה חלקית/שנקטעה/נכשלה אינה מסומנת ככיסוי מלא.\n- כל הדילים התקינים שנמצאים בסריקה ממשיכים להישמר ב-DB המשותף.\n''', encoding='utf-8')
+          PY
+
+          python -m py_compile scanner.py config.py
+
+      - name: Commit patched files and remove one-time workflow
+        shell: bash
+        run: |
+          git config user.name "Ariella QA Bot"
+          git config user.email "actions@users.noreply.github.com"
+          rm -f .github/workflows/apply-v97136-monthly-scan-reuse.yml
+          git add scanner.py config.py V97136_CHANGES_HE.txt .github/workflows/apply-v97136-monthly-scan-reuse.yml
+          git commit -m "9.7.136 reuse fresh monthly customer scans"
+          git push origin HEAD:feature/monthly-scan-reuse-v9.7.136
