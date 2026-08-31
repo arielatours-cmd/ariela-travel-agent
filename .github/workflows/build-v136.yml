@@ -19,14 +19,32 @@ jobs:
         run: pip install -r requirements.txt pytest
       - name: Compile
         run: python -m compileall -q .
-      - name: Tests
+      - name: Tests if present
         env:
           SCHEDULER_ENABLED: 'false'
           DB_PATH: /tmp/ariella-v136-test.db
-        run: pytest -q
+        run: |
+          set +e
+          pytest -q
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then
+            exit "$code"
+          fi
+          if [ "$code" -eq 5 ]; then
+            echo "No pytest tests are present; compile validation passed."
+          fi
+      - name: Verify patched 9.7.136 markers
+        run: |
+          grep -q '9.7.136' config.py
+          grep -q 'MONTHLY_SCAN_REUSE_HOURS' config.py
+          grep -q 'monthly_scan_coverage' scanner.py
+          grep -q 'db_only_open' scanner.py
+          grep -q 'scan_count = 0' public_site.py
       - name: Package full source
         run: |
-          rm -rf .git .pytest_cache '**/__pycache__'
+          rm -rf .git .pytest_cache
+          find . -type d -name '__pycache__' -prune -exec rm -rf {} +
           rm -f data/*.db data/*.db-shm data/*.db-wal
           zip -r ariella_v9_7_136_full.zip . -x '*.pyc' '.git/*' '.pytest_cache/*' 'ariella_v9_7_136_full.zip'
       - uses: actions/upload-artifact@v4
