@@ -5,10 +5,6 @@ APP_VERSION = "9.7.136-monthly-reuse-open-db-only"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
-
-# Persistent database:
-# - Render production: DB_PATH is set to /var/data/ariella.db by render.yaml.
-# - Local development: falls back to ./data/ariella.db.
 _default_db_path = BASE_DIR / "data" / "ariella.db"
 DB_PATH = Path(os.getenv("DB_PATH", str(_default_db_path))).expanduser()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -62,6 +58,7 @@ WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
 WHATSAPP_RECIPIENT = os.getenv("WHATSAPP_RECIPIENT", "").strip()
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "change-this-before-production")
 FEEDBACK_TO_EMAIL = os.getenv("FEEDBACK_TO_EMAIL", "arielatours@gmail.com").strip()
 MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
