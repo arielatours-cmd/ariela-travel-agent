@@ -1,0 +1,30 @@
+name: Build Ariella 9.7.137
+on:
+  push:
+    branches: [release/9.7.137-whatsapp-paid-search]
+  pull_request:
+    branches: [main]
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply v9.7.136 baseline patch
+        run: python tools/apply_v136.py
+      - name: Apply v9.7.137 patch
+        run: python tools/apply_v137.py
+      - name: Install
+        run: pip install -r requirements.txt pytest
+      - name: Compile
+        run: python -m compileall -q .
+      - name: Verify paid-search markers
+        run: |
+          grep -q "('monitor','מעקב אישי'" templates/account.html
+          grep -q "('daily_scan','מעקב + סריקה יומית'" templates/account.html
+          grep -q 'activate_paid_search_after_payment' public_site.py
+          grep -q 'mobile_notifications=1' public_site.py
+          grep -q 'allowed = {"monitor", "daily_scan"}' public_site.py
