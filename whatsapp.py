@@ -2,13 +2,16 @@ import re
 from typing import Any
 
 import requests
+from flask import Response, jsonify, request
 
 from config import (
     WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_API_VERSION,
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_RECIPIENT,
+    WHATSAPP_VERIFY_TOKEN,
 )
+from public_site import site
 
 
 class WhatsAppConfigurationError(RuntimeError):
@@ -40,6 +43,7 @@ def whatsapp_status() -> dict[str, Any]:
         "recipient_configured": bool(WHATSAPP_RECIPIENT),
         "recipient_ending": _digits_only(WHATSAPP_RECIPIENT)[-4:] if WHATSAPP_RECIPIENT else None,
         "access_token_configured": bool(WHATSAPP_ACCESS_TOKEN),
+        "verify_token_configured": bool(WHATSAPP_VERIFY_TOKEN),
     }
 
 
@@ -49,6 +53,28 @@ def _require_configuration() -> None:
         raise WhatsAppConfigurationError(
             "חסרים משתני סביבה ב-Render: " + ", ".join(status["missing"])
         )
+
+
+@site.route("/whatsapp-webhook", methods=["GET", "POST"])
+def whatsapp_webhook():
+    if request.method == "GET":
+        mode = request.args.get("hub.mode", "")
+        token = request.args.get("hub.verify_token", "")
+        challenge = request.args.get("hub.challenge", "")
+
+        if (
+            mode == "subscribe"
+            and WHATSAPP_VERIFY_TOKEN
+            and token == WHATSAPP_VERIFY_TOKEN
+        ):
+            return Response(challenge, status=200, mimetype="text/plain")
+
+        return Response("Forbidden", status=403, mimetype="text/plain")
+
+    # Meta expects a fast HTTP 200 acknowledgement for webhook deliveries.
+    # Inbound message routing will be handled in the next WhatsApp integration phase.
+    payload = request.get_json(silent=True) or {}
+    return jsonify({"status": "received", "object": payload.get("object")}), 200
 
 
 def send_text_message(message: str, recipient: str | None = None) -> dict[str, Any]:
