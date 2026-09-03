@@ -14,18 +14,19 @@ new_func = '''def resolve_booking_target(offer: dict, *, adults: int | None = No
     """Resolve an actionable supplier handoff for the selected round trip.
 
     Personal clicks always refresh Booking Options with the requested passenger
-    counts. We prefer the exact saved supplier name, then a direct-airline option
-    for the same itinerary even when SerpApi labels the airline slightly
-    differently (for example a group/operating-airline naming variant).
+    counts. A booking request captured for another party size must never be reused
+    for a personal vacation.
     """
     recommended = str(offer.get("booking_supplier") or offer.get("airline") or "").strip()
     preferred = _norm(recommended)
     stored_url = offer.get("booking_request_url")
     stored_post = offer.get("booking_request_post_data")
+    personal = adults is not None or children is not None
 
-    # General/public cards may safely reuse the booking request captured with the
-    # original offer. Personal cards refresh because party size can differ.
-    if stored_url and adults is None and children is None:
+    # Public/general cards may reuse the booking request captured with the offer.
+    # Personal cards must refresh because that request can be bound to a different
+    # passenger composition.
+    if stored_url and not personal:
         return BookerTarget(
             url=stored_url,
             fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
@@ -70,28 +71,23 @@ new_func = '''def resolve_booking_target(offer: dict, *, adults: int | None = No
                 elif supplier_norm in ACTIONABLE_BOOKING_SUPPLIERS:
                     approved_supplier.append(candidate)
 
-            # Personal flight booking should reach the airline/supplier rather than
-            # bounce back to Ariella merely because the provider label changed.
             pool = exact_supplier or direct_airline or approved_supplier
             if pool:
-                part, req = min(
-                    pool,
-                    key=lambda x: float(x[0].get("price") or 10**9),
-                )
+                part, req = min(pool, key=lambda x: float(x[0].get("price") or 10**9))
                 return BookerTarget(
                     url=req.get("url"),
                     fields=_request_fields(req),
                     supplier=part.get("book_with") or recommended,
-                    mode="personal_supplier_refreshed" if adults is not None or children is not None else "recommended_supplier_refreshed",
+                    mode="personal_supplier_refreshed" if personal else "recommended_supplier_refreshed",
                     exact=True,
                 )
         except Exception:
             pass
 
-    # If this personal offer was itself discovered using the same party size, its
-    # captured request is still preferable to bouncing the customer back to the
-    # vacation page. The supplier page remains the final authority on availability.
-    if stored_url:
+    # For a public/general card, the stored supplier request remains a useful
+    # fallback. For a personal vacation it can contain the wrong passenger count,
+    # so fail closed instead of opening a stale booking.
+    if stored_url and not personal:
         return BookerTarget(
             url=stored_url,
             fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
@@ -105,12 +101,13 @@ new_func = '''def resolve_booking_target(offer: dict, *, adults: int | None = No
         url=None,
         fields=[],
         supplier=recommended,
-        mode="recommended_supplier_unavailable",
+        mode="personal_exact_booking_unavailable" if personal else "recommended_supplier_unavailable",
         exact=False,
-        note="מסלול ההזמנה אצל הספק המומלץ אינו זמין כרגע.",
+        note=("לא נמצא כרגע קישור הזמנה ששומר את מספר הנוסעים שבחרתם."
+              if personal else "מסלול ההזמנה אצל הספק המומלץ אינו זמין כרגע."),
     )
 '''
 
 text = text[:start] + new_func.rstrip() + "\n" + text[end:]
 BOOKER.write_text(text, encoding="utf-8")
-print("9.7.136 booking target resolver fixed: exact passengers + supplier/direct-airline fallback")
+print("9.7.136 booking target resolver fixed: personal passenger count is exact and stale booking requests are blocked")
