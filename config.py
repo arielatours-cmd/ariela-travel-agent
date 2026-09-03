@@ -72,3 +72,4 @@ MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 import tools.fare_options_v136  # noqa: E402,F401
 import tools.async_customer_scans_v136  # noqa: E402,F401
 import tools.ui_cleanup_v136  # noqa: E402,F401
+import tools.wizard_origin_step_v136  # noqa: E402,F401
