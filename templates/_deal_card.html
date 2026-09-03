@@ -125,7 +125,8 @@
 
  {% set visible=[] %}
  {% for reason in offer.display_reasons[:6] %}
-   {% if reason != offer.booking_choice_reason_he and not ('0.0%' in reason or '0%' in reason or 'היסטוריה' in reason or 'נדירות' in reason) %}
+   {% set reason_lower = reason|lower %}
+   {% if reason != offer.booking_choice_reason_he and not ('0.0%' in reason or '0%' in reason or 'היסטוריה' in reason or 'נדירות' in reason or 'ללא כבודה' in reason or 'no baggage' in reason_lower or 'baggage not included' in reason_lower) %}
      {% set _=visible.append(reason_en(reason) if lang=='en' else reason) %}
    {% endif %}
  {% endfor %}
