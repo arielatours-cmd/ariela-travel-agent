@@ -6,6 +6,11 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect
 
+# Apply and validate the 9.7.136 core patch before any project module imports
+# scanner/public_site. This is independent of Render dashboard build settings.
+from tools.runtime_prepare_v136 import prepare as _prepare_v136
+_prepare_v136()
+
 from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
@@ -241,7 +246,7 @@ def scan_wide():
         max_destinations = max(1, min(int(request.args.get("max_destinations", "30")), len(DESTINATIONS)))
         job_id, error = _start_background_scan("wide", lambda: run_wide_scan(max_destinations))
         if error: return error
-        return jsonify({"status": "accepted", "job_id": job_id, "destinations": max_destinations}), 202
+        return jsonify({"status": "accepted", "job_id": job_id,"destinations": max_destinations}), 202
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
