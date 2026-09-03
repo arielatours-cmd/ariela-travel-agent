@@ -95,8 +95,8 @@ DATABASE.write_text(db_text, encoding="utf-8")
 # bundles only on demand. Native <details> gives keyboard/mobile accessibility
 # without JavaScript and does not make another API request when opened.
 card = DEAL_CARD.read_text(encoding="utf-8")
-price_marker = '      <strong>₪{{ \'%.0f\'|format(offer.price_ils) }}</strong>\n'
-fare_ui = r'''      <strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>
+price_marker = "<strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>"
+fare_ui = r'''<strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>
       {% if offer.fare_options %}
       <details class="fare-options">
         <summary>{{ 'More options' if lang=='en' else 'אפשרויות נוספות' }}</summary>
