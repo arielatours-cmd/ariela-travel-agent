@@ -9,8 +9,6 @@ BOOKER = ROOT / "booker.py"
 def patch_public_site():
     text = PUBLIC.read_text(encoding="utf-8")
 
-    # Every personal result card must carry the CURRENT vacation context, not the
-    # trip_id of whichever shared scan originally discovered the offer.
     needle = '        copy = _decorate_availability_note(offer, trip)\n        copy["customer_match_points"] = '
     replacement = '        copy = _decorate_availability_note(offer, trip)\n        copy["booking_trip_id"] = trip.get("id")\n        copy["customer_match_points"] = '
     if needle in text and 'copy["booking_trip_id"] = trip.get("id")' not in text:
@@ -63,8 +61,14 @@ def book_offer(offer_id):
     record_booking_click(
         visitor_id=session.get("_ariella_visitor_id"),
         member_id=session.get("member_id"),
-        offer=offer,
+        offer_id=int(offer.get("offer_id") or offer.get("id") or offer_id),
+        destination_code=offer.get("arrival_code"),
+        airline=offer.get("airline") or (offer.get("flight") or {}).get("airline"),
         supplier=target.supplier,
+        price_ils=offer.get("price_ils"),
+        score=offer.get("score"),
+        outbound_date=offer.get("outbound_date"),
+        return_date=offer.get("return_date"),
         booking_url=target.url,
     )
 
@@ -79,17 +83,15 @@ def book_offer(offer_id):
     return redirect(url_for("site.deals"))
 '''
 
-    # Runtime preparation may already have changed this route. Replace it by
-    # decorator boundaries instead of depending on one historical body.
     start = text.find('@site.get("/book/<int:offer_id>")')
     if start >= 0:
         next_route = text.find('\n@site.', start + 1)
         if next_route < 0:
             next_route = len(text)
         current = text[start:next_route]
-        if 'exact personal context first; never fall through to general deals' not in current:
-            text = text[:start] + new_route.rstrip() + '\n' + text[next_route:]
-    elif 'exact personal context first; never fall through to general deals' not in text:
+        # Always replace this route so runtime gets the latest booking-click fix.
+        text = text[:start] + new_route.rstrip() + '\n' + text[next_route:]
+    else:
         raise RuntimeError("personal booking route decorator not found")
 
     PUBLIC.write_text(text, encoding="utf-8")
@@ -106,52 +108,14 @@ def patch_card():
 
 def patch_booker():
     text = BOOKER.read_text(encoding="utf-8")
-
     old_sig = 'def resolve_booking_target(offer: dict) -> BookerTarget:'
     new_sig = 'def resolve_booking_target(offer: dict, *, adults: int | None = None, children: int | None = None) -> BookerTarget:'
     if old_sig in text:
         text = text.replace(old_sig, new_sig, 1)
-
-    old_stored = '''    stored_url = offer.get("booking_request_url")
-    stored_post = offer.get("booking_request_post_data")
-    if stored_url:
-        return BookerTarget(
-            url=stored_url,
-            fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
-            supplier=recommended,
-            mode="recommended_supplier",
-            exact=True,
-        )
-'''
-    new_stored = '''    stored_url = offer.get("booking_request_url")
-    stored_post = offer.get("booking_request_post_data")
-    if stored_url and adults is None and children is None:
-        return BookerTarget(
-            url=stored_url,
-            fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
-            supplier=recommended,
-            mode="recommended_supplier",
-            exact=True,
-        )
-'''
-    if old_stored in text:
-        text = text.replace(old_stored, new_stored, 1)
-
-    old_params = '''        params={"engine":"google_flights","booking_token":token,
-                "api_key":SERPAPI_API_KEY,"hl":"en","gl":"il","currency":"ILS"}'''
-    new_params = '''        params={"engine":"google_flights","booking_token":token,
-                "api_key":SERPAPI_API_KEY,"hl":"en","gl":"il","currency":"ILS"}
-        if adults is not None:
-            params["adults"] = str(max(1, int(adults)))
-        if children is not None:
-            params["children"] = str(max(0, int(children)))'''
-    if old_params in text:
-        text = text.replace(old_params, new_params, 1)
-
     BOOKER.write_text(text, encoding="utf-8")
 
 
 patch_public_site()
 patch_card()
 patch_booker()
-print("9.7.136 personal booking context + exact passenger handoff active")
+print("9.7.136 personal booking route fixed: valid analytics args + supplier redirect")
