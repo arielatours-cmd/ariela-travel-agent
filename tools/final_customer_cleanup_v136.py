@@ -13,10 +13,13 @@ for fragment in [
 ]:
     a = a.replace(fragment, '')
 anchor = '        <dl class="trip-details-list">'
-opened = '''        {% if trip.search_opened_at %}<div class="trip-search-opened" style="margin:14px 0 24px;padding-bottom:14px;border-bottom:1px solid rgba(180,145,70,.24);"><strong>{{ 'Search opened' if site_lang == 'en' else 'החיפוש נפתח' }}:</strong> {{ trip.search_opened_at }}{% if trip.search_valid_until %}<span> · {{ 'Valid until' if site_lang == 'en' else 'בתוקף עד' }}: {{ trip.search_valid_until }}</span>{% endif %}</div>{% endif %}
+opened = '''        {% if trip.search_opened_at %}<div class="trip-search-opened" style="margin:14px 0 24px;padding-bottom:14px;border-bottom:1px solid rgba(180,145,70,.24);"><strong>{{ 'Search opened' if site_lang == 'en' else 'החיפוש נפתח' }}:</strong> <span dir="ltr" style="unicode-bidi:isolate;display:inline-block;">{{ trip.search_opened_at }}</span>{% if trip.search_valid_until %}<span> · {{ 'Valid until' if site_lang == 'en' else 'בתוקף עד' }}: <span dir="ltr" style="unicode-bidi:isolate;display:inline-block;">{{ trip.search_valid_until }}</span></span>{% endif %}</div>{% endif %}
         <dl class="trip-details-list">'''
 if anchor in a and 'class="trip-search-opened"' not in a:
     a = a.replace(anchor, opened, 1)
+elif 'class="trip-search-opened"' in a:
+    a = a.replace('{{ trip.search_opened_at }}', '<span dir="ltr" style="unicode-bidi:isolate;display:inline-block;">{{ trip.search_opened_at }}</span>', 1)
+    a = a.replace('{{ trip.search_valid_until }}', '<span dir="ltr" style="unicode-bidi:isolate;display:inline-block;">{{ trip.search_valid_until }}</span>', 1)
 ACCOUNT.write_text(a, encoding="utf-8")
 
 # Logout should silently return to the public site; no stale logout banner on Deals.
