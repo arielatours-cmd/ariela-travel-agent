@@ -66,9 +66,6 @@ MAIL_APP_PASSWORD = os.getenv("MAIL_APP_PASSWORD", "").strip()
 MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
 MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 
-# Runtime preparation has already materialized the 9.7.136 core by the time config
-# is imported from app.py. Apply the customer-request async layer, the real airline
-# fare-family layer and small UI cleanups before scanner/public_site are imported.
 import tools.fare_options_v136  # noqa: E402,F401
 import tools.async_customer_scans_v136  # noqa: E402,F401
 import tools.ui_cleanup_v136  # noqa: E402,F401
@@ -78,3 +75,4 @@ import tools.booking_target_resolver_v136  # noqa: E402,F401
 import tools.remove_initial_scan_badge_v136  # noqa: E402,F401
 import tools.customer_rules_cleanup_v136  # noqa: E402,F401
 import tools.whatsapp_9_payment_v136  # noqa: E402,F401
+import tools.final_customer_cleanup_v136  # noqa: E402,F401
