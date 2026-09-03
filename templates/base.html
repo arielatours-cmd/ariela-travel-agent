@@ -35,9 +35,23 @@ h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-we
 .actions{margin-top:38px;display:flex;justify-content:center;gap:20px;flex-wrap:wrap}.btn{min-width:240px;padding:17px 26px;border-radius:10px;text-decoration:none;font-size:19px;font-weight:700;transition:transform .2s ease,box-shadow .2s ease}.btn:hover,.btn:focus-visible{transform:translateY(-2px);box-shadow:0 9px 22px rgba(0,0,0,.14)}.goldbtn{color:#111;background:linear-gradient(135deg,#eed28a,#c99234)}.darkbtn{color:#fff;background:#050505}
 @media(max-width:1050px){.header-inner{grid-template-columns:1fr auto auto}.language-switch{grid-column:2}.main-nav{display:none}}
 @media(max-width:700px){.site-header{padding:14px 0;min-height:auto}.header-inner{width:94%;grid-template-columns:1fr auto;gap:12px}.language-switch{grid-column:auto;grid-row:2;justify-self:start}.account{font-size:14px;padding:11px 14px}.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:50px}.inner{width:91%;padding:58px 0 70px}.btn{width:100%}.hero{min-height:calc(100vh - 110px)}}
+
+/* Personal-search deal cards: the vacation card already carries the destination image. */
+.account-trip-deals .deal-card-v970 .deal-visual,
+.account-trip-deals .deal-card-v970 .visual-destination-outside{display:none!important}
+.account-trip-deals .deal-card-v970 .deal-main-grid{
+  grid-template-columns:minmax(430px,2fr) minmax(210px,1fr) minmax(260px,1.1fr)!important;
+  grid-template-rows:auto!important;
+}
+.account-trip-deals .deal-card-v970 .deal-flight,
+.account-trip-deals .deal-card-v970 .deal-baggage,
+.account-trip-deals .deal-card-v970 .deal-commerce{grid-row:1!important;min-height:0!important}
+.account-trip-deals .personal-additional-options-title{display:block;margin-bottom:5px;font-size:20px;font-weight:800;color:#17283f}
+.account-trip-deals .personal-additional-options-note{display:block;color:#667180;font-size:14px}
+@media(max-width:900px){.account-trip-deals .deal-card-v970 .deal-main-grid{display:block!important}}
 </style>
 </head>
-<!-- ARIELA_BUILD:9.7.108 -->
+<!-- ARIELLA_BUILD:9.7.108 -->
 <body>
 {% include "_site_header.html" %}
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="shell flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
@@ -47,7 +61,23 @@ h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-we
 <script>
 document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});
 (function(){const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');if(!button||!menu)return;const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});})();
-function togglePassword(button){const input=button.closest('.password-field').querySelector('input');const show=input.type==='password';input.type=show?'text':'password';button.classList.toggle('is-visible',show);button.setAttribute('aria-label',show?'{{ 'Hide password' if site_lang == 'en' else 'הסתרת סיסמה' }}':'{{ 'Show password' if site_lang == 'en' else 'הצגת סיסמה' }}');}
+function togglePassword(button){const input=button.closest('.password-field').querySelector('input');const show=input.type==='password';button.classList.toggle('is-visible',show);button.setAttribute('aria-label',show?'{{ 'Hide password' if site_lang == 'en' else 'הסתרת סיסמה' }}':'{{ 'Show password' if site_lang == 'en' else 'הצגת סיסמה' }}');input.type=show?'text':'password';}
+
+document.addEventListener('DOMContentLoaded',function(){
+  document.querySelectorAll('.account-trip-deals .alternative-deals-block .alternative-deals-message').forEach(function(el){
+    if(el.querySelector('.personal-additional-options-title')) return;
+    const title=document.createElement('strong');
+    title.className='personal-additional-options-title';
+    title.textContent=document.documentElement.lang==='en'?'Additional options':'אפשרויות נוספות';
+    const note=document.createElement('span');
+    note.className='personal-additional-options-note';
+    note.textContent=document.documentElement.lang==='en'
+      ? 'Ariella’s pick, best value, longest stay, and worthwhile date changes — when suitable options exist.'
+      : 'בחירת אריאלה, הכי משתלם, הכי הרבה זמן ביעד ושינויי תאריכים שכדאי לשקול — כשיש אפשרויות מתאימות.';
+    el.textContent='';
+    el.appendChild(title);el.appendChild(note);
+  });
+});
 </script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
 </body></html>
