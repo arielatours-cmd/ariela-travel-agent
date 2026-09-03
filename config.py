@@ -78,3 +78,4 @@ import tools.remove_initial_scan_badge_v136  # noqa: E402,F401
 import tools.customer_rules_cleanup_v136  # noqa: E402,F401
 import tools.whatsapp_9_payment_v136  # noqa: E402,F401
 import tools.final_customer_cleanup_v136  # noqa: E402,F401
+import tools.budapest_image_fix_v136  # noqa: E402,F401
