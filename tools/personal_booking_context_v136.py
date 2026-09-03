@@ -16,38 +16,6 @@ def patch_public_site():
     if needle in text and 'copy["booking_trip_id"] = trip.get("id")' not in text:
         text = text.replace(needle, replacement, 1)
 
-    old_route = '''@site.get("/book/<int:offer_id>")
-def book_offer(offer_id):
-    """BOOKER: send the customer to the safest actionable booking flow."""
-    offer = next(
-        (o for o in recent_offers(limit=1500, minimum_score=None)
-         if int(o.get("id") or o.get("offer_id") or 0) == offer_id),
-        None,
-    )
-    if not offer or not _offer_is_publicly_bookable(offer):
-        return redirect(url_for("site.deals"))
-
-    target = resolve_booking_target(offer)
-
-    record_booking_click(
-        visitor_id=session.get("_ariella_visitor_id"),
-        member_id=session.get("member_id"),
-        offer=offer,
-        supplier=target.supplier,
-        booking_url=target.url,
-    )
-
-    if target.url and target.fields:
-        return render_template(
-            "booking_forward.html",
-            action=target.url,
-            fields=target.fields,
-        )
-    if target.url:
-        return redirect(target.url)
-    return redirect(url_for("site.deals"))
-'''
-
     new_route = '''@site.get("/book/<int:offer_id>")
 def book_offer(offer_id):
     """BOOKER: exact personal context first; never fall through to general deals."""
@@ -70,9 +38,6 @@ def book_offer(offer_id):
         None,
     )
 
-    # Personal cards are allowed to use an offer already selected for that vacation
-    # even when the stricter PUBLIC-card gate would reject it. Missing/invalid
-    # personal context never redirects customers to unrelated general deals.
     if not offer:
         if trip_id:
             flash("הקישור להזמנה אינו זמין כרגע. החופשה נשמרה וניתן לנסות דיל אחר.", "warning")
@@ -113,10 +78,19 @@ def book_offer(offer_id):
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
     return redirect(url_for("site.deals"))
 '''
-    if old_route in text:
-        text = text.replace(old_route, new_route, 1)
+
+    # Runtime preparation may already have changed this route. Replace it by
+    # decorator boundaries instead of depending on one historical body.
+    start = text.find('@site.get("/book/<int:offer_id>")')
+    if start >= 0:
+        next_route = text.find('\n@site.', start + 1)
+        if next_route < 0:
+            next_route = len(text)
+        current = text[start:next_route]
+        if 'exact personal context first; never fall through to general deals' not in current:
+            text = text[:start] + new_route.rstrip() + '\n' + text[next_route:]
     elif 'exact personal context first; never fall through to general deals' not in text:
-        raise RuntimeError("personal booking route anchor not found")
+        raise RuntimeError("personal booking route decorator not found")
 
     PUBLIC.write_text(text, encoding="utf-8")
 
@@ -138,9 +112,6 @@ def patch_booker():
     if old_sig in text:
         text = text.replace(old_sig, new_sig, 1)
 
-    # A stored booking_request belongs to the passenger composition used when it
-    # was created. Reuse it only for public/general cards where no personal party
-    # count was supplied. Personal clicks must refresh using exact counts.
     old_stored = '''    stored_url = offer.get("booking_request_url")
     stored_post = offer.get("booking_request_post_data")
     if stored_url:
