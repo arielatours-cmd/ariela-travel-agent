@@ -65,3 +65,8 @@ MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
 MAIL_APP_PASSWORD = os.getenv("MAIL_APP_PASSWORD", "").strip()
 MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
 MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
+
+# Runtime preparation has already materialized the 9.7.136 core by the time config
+# is imported from app.py. Apply the customer-request async layer before
+# public_site.py itself is imported, so external scans can never hold /trip/new.
+import tools.async_customer_scans_v136  # noqa: E402,F401
