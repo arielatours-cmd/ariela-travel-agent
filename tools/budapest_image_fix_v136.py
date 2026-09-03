@@ -9,7 +9,7 @@ PUBLIC = ROOT / "public_site.py"
 BUDAPEST_IMAGE = "https://commons.wikimedia.org/wiki/Special:Redirect/file/Budapest%2C_view_from_the_Fisherman%27s_Bastion_to_the_Hungarian_Parliament_Building.jpg"
 
 # 1) Replace the broken/obsolete Budapest image mapping used by old and new offers.
-db = DATABASE.read_text(encoding="utf-8")n
+db = DATABASE.read_text(encoding="utf-8")
 old = '"BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hungarian_Parliament_Building_from_Fisherman%27s_Bastion.jpg"'
 new = f'"BUD": "{BUDAPEST_IMAGE}"'
 if old in db:
