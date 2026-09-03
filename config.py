@@ -73,6 +73,7 @@ import tools.wizard_origin_step_v136  # noqa: E402,F401
 import tools.personal_booking_context_v136  # noqa: E402,F401
 import tools.booking_target_resolver_v136  # noqa: E402,F401
 import tools.supplier_site_fallback_v136  # noqa: E402,F401
+import tools.personal_trip_booking_id_v136  # noqa: E402,F401
 import tools.remove_initial_scan_badge_v136  # noqa: E402,F401
 import tools.customer_rules_cleanup_v136  # noqa: E402,F401
 import tools.whatsapp_9_payment_v136  # noqa: E402,F401
