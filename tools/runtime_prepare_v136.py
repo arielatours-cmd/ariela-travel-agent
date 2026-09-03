@@ -43,8 +43,31 @@ def prepare():
         enrich_block = enrich_block.replace(default_params, passenger_params, 1)
         scanner_text = scanner_text[:enrich_pos] + enrich_block + scanner_text[search_pos:]
 
-    # Personal/ski searches must pass the requested passenger counts to both the
-    # flight search and the booking-token enrichment. General discovery remains 1 adult.
+    # Count actual HTTP calls, including calls made before an exception/timeout is
+    # returned to the caller. This prevents the admin from showing API=0 after
+    # SerpApi quota was actually consumed.
+    serp_marker = '\ndef _serpapi_request(params: dict) -> dict:\n'
+    counter_decl = '\n_SERPAPI_HTTP_REQUESTS = 0\n'
+    if counter_decl not in scanner_text:
+        if serp_marker not in scanner_text:
+            raise RuntimeError("QA: _serpapi_request marker not found")
+        scanner_text = scanner_text.replace(serp_marker, counter_decl + serp_marker, 1)
+    serp_sig = 'def _serpapi_request(params: dict) -> dict:\n    """SerpAPI request with bounded retry/backoff for transient 429/5xx errors."""\n'
+    serp_sig_counted = 'def _serpapi_request(params: dict) -> dict:\n    """SerpAPI request with bounded retry/backoff for transient 429/5xx errors."""\n    global _SERPAPI_HTTP_REQUESTS\n'
+    if serp_sig_counted not in scanner_text:
+        if serp_sig not in scanner_text:
+            raise RuntimeError("QA: _serpapi_request signature body not found")
+        scanner_text = scanner_text.replace(serp_sig, serp_sig_counted, 1)
+    request_line = '            response = requests.get(SERPAPI_URL, params=params, timeout=45)\n'
+    counted_request_line = '            _SERPAPI_HTTP_REQUESTS += 1\n            response = requests.get(SERPAPI_URL, params=params, timeout=45)\n'
+    if counted_request_line not in scanner_text:
+        if request_line not in scanner_text:
+            raise RuntimeError("QA: SerpApi requests.get pattern not found")
+        scanner_text = scanner_text.replace(request_line, counted_request_line, 1)
+
+    # Personal/ski searches must pass requested passenger counts. They also use a
+    # bounded outbound depth so a single route cannot burn ~10 API calls and hit
+    # the web-request timeout before the scan progress is persisted.
     customer_pos = scanner_text.find("def run_customer_trip_search")
     destination_pos = scanner_text.find("def run_destination_scan", customer_pos)
     if customer_pos < 0 or destination_pos <= customer_pos:
@@ -59,11 +82,15 @@ def prepare():
         customer_block = customer_block.replace(origins_line, origins_line + passenger_parse, 1)
 
     old_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])'
-    new_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], adults=adults, children=children)'
-    if new_search not in customer_block:
-        if old_search not in customer_block:
+    passenger_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], adults=adults, children=children)'
+    bounded_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, adults=adults, children=children)'
+    if bounded_search not in customer_block:
+        if passenger_search in customer_block:
+            customer_block = customer_block.replace(passenger_search, bounded_search, 1)
+        elif old_search in customer_block:
+            customer_block = customer_block.replace(old_search, bounded_search, 1)
+        else:
             raise RuntimeError("QA: customer search_flights call not found")
-        customer_block = customer_block.replace(old_search, new_search, 1)
 
     old_enrich = '''enrich_booking_options(\n                                flight, job["departure"], job["arrival"], job["outbound"], job["return"]\n                            )'''
     new_enrich = '''enrich_booking_options(\n                                flight, job["departure"], job["arrival"], job["outbound"], job["return"],\n                                adults=adults, children=children\n                            )'''
@@ -72,8 +99,44 @@ def prepare():
             raise RuntimeError("QA: customer enrich_booking_options call not found")
         customer_block = customer_block.replace(old_enrich, new_enrich, 1)
 
+    # Track actual HTTP calls from the moment this personal scan starts. The value
+    # is reconciled in every job-finally and again before finish_scan_run, so a
+    # failed search is still visible in Admin and the safety cap can stop the scan.
+    counters_line = '    completed = offers_found = errors = api_requests = 0\n'
+    counters_with_http = '    completed = offers_found = errors = api_requests = 0\n    api_counter_start = _SERPAPI_HTTP_REQUESTS\n'
+    if counters_with_http not in customer_block:
+        if counters_line not in customer_block:
+            raise RuntimeError("QA: customer counters pattern not found")
+        customer_block = customer_block.replace(counters_line, counters_with_http, 1)
+
+    job_finally = '            finally:\n                update_scan_progress(run_id, completed, offers_found, errors, api_requests)\n'
+    job_finally_counted = '            finally:\n                api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)\n                update_scan_progress(run_id, completed, offers_found, errors, api_requests)\n'
+    if job_finally_counted not in customer_block:
+        if job_finally not in customer_block:
+            raise RuntimeError("QA: customer job finally pattern not found")
+        customer_block = customer_block.replace(job_finally, job_finally_counted, 1)
+
+    outer_finally = '    finally:\n        finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None, api_requests=api_requests)\n'
+    outer_finally_counted = '    finally:\n        api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)\n        finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None, api_requests=api_requests)\n'
+    if outer_finally_counted not in customer_block:
+        if outer_finally not in customer_block:
+            raise RuntimeError("QA: customer outer finally pattern not found")
+        customer_block = customer_block.replace(outer_finally, outer_finally_counted, 1)
+
     scanner_text = scanner_text[:customer_pos] + customer_block + scanner_text[destination_pos:]
     scanner.write_text(scanner_text, encoding="utf-8")
+
+    # Public-site safety: once a vacation has been saved, a later scan/render error
+    # must never strand the customer on a raw Internal Server Error page. Redirect
+    # authenticated customers back to My Vacations while keeping the error logged.
+    public_text = public_site.read_text(encoding="utf-8")
+    fallback_marker = '\n_AIRPORTS_FILE = Path(__file__).resolve().parent / "static" / "airports.json"\n'
+    fallback_code = '''\n@site.app_errorhandler(500)\ndef _customer_500_fallback(error):\n    if session.get("member_id"):\n        return redirect(url_for("site.account"))\n    return "Internal Server Error", 500\n\n'''
+    if '_customer_500_fallback' not in public_text:
+        if fallback_marker not in public_text:
+            raise RuntimeError("QA: public_site fallback insertion marker not found")
+        public_text = public_text.replace(fallback_marker, fallback_code + fallback_marker, 1)
+        public_site.write_text(public_text, encoding="utf-8")
 
     # Keep the admin scan-number selector sourced from scan_runs, including scans
     # that produced zero offers.
@@ -99,11 +162,14 @@ def prepare():
     assert new_sig in scanner_text
     assert passenger_params in enrich_block
     assert passenger_parse in customer_block
-    assert new_search in customer_block
+    assert bounded_search in customer_block
     assert new_enrich in customer_block
+    assert '_SERPAPI_HTTP_REQUESTS += 1' in scanner_text
+    assert 'api_counter_start = _SERPAPI_HTTP_REQUESTS' in customer_block
+    assert '_customer_500_fallback' in public_text
 
     compile(scanner_text, str(scanner), "exec")
     compile(public_text, str(public_site), "exec")
     compile(admin.read_text(encoding="utf-8"), str(admin), "exec")
 
-    print("Ariella 9.7.136 QA runtime preparation verified: passenger chain + core + admin")
+    print("Ariella 9.7.136 QA runtime preparation verified: bounded personal scan + API accounting + customer fallback + core + admin")
