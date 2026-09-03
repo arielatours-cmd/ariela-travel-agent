@@ -75,3 +75,4 @@ import tools.ui_cleanup_v136  # noqa: E402,F401
 import tools.wizard_origin_step_v136  # noqa: E402,F401
 import tools.personal_booking_context_v136  # noqa: E402,F401
 import tools.remove_initial_scan_badge_v136  # noqa: E402,F401
+import tools.customer_rules_cleanup_v136  # noqa: E402,F401
