@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [release/9.7.136]
+    branches: [main, release/9.7.136]
 
 jobs:
   qa-package:
@@ -13,16 +13,36 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply 9.7.136 patch
+      - name: Apply 9.7.136 core patch
         run: python tools/apply_v136.py
       - name: Install dependencies
         run: pip install -r requirements.txt pytest
-      - name: Compile
+      - name: Compile source
         run: python -m compileall -q .
+      - name: Import production app and materialize runtime QA patches
+        env:
+          SCHEDULER_ENABLED: 'false'
+          DB_PATH: /tmp/ariella-v136-import.db
+          SERPAPI_API_KEY: dummy-not-used-during-import
+        run: python -c "import app; print('APP_IMPORT_OK')"
+      - name: Verify 9.7.136 markers
+        run: |
+          grep -q '9.7.136' config.py
+          grep -q 'MONTHLY_SCAN_REUSE_HOURS' config.py
+          grep -q 'monthly_scan_coverage' scanner.py
+          grep -q 'db_only_open' scanner.py
+          grep -q '_SERPAPI_HTTP_REQUESTS += 1' scanner.py
+          grep -q 'max_outbounds=1' scanner.py
+          grep -q 'def _queue_customer_scan' public_site.py
+          grep -q 'external_search_queued' public_site.py
+          grep -q 'alternative_search_queued' public_site.py
+          grep -q 'open_db_only' public_site.py
+          grep -q "for scan in scans" admin.py
       - name: Tests if present
         env:
           SCHEDULER_ENABLED: 'false'
           DB_PATH: /tmp/ariella-v136-test.db
+          SERPAPI_API_KEY: dummy-not-used-by-unit-tests
         run: |
           set +e
           pytest -q
@@ -32,15 +52,8 @@ jobs:
             exit "$code"
           fi
           if [ "$code" -eq 5 ]; then
-            echo "No pytest tests are present; compile validation passed."
+            echo "No pytest tests are present; compile/import validation passed."
           fi
-      - name: Verify patched 9.7.136 markers
-        run: |
-          grep -q '9.7.136' config.py
-          grep -q 'MONTHLY_SCAN_REUSE_HOURS' config.py
-          grep -q 'monthly_scan_coverage' scanner.py
-          grep -q 'db_only_open' scanner.py
-          grep -q 'scan_count = 0' public_site.py
       - name: Package full source
         run: |
           rm -rf .git .pytest_cache
