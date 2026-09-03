@@ -20,6 +20,7 @@ from database import (
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 from schedule_rules import delivery_status
 from public_site import site
+from whatsapp_coexistence import whatsapp_coexistence
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -28,6 +29,7 @@ from whatsapp import (
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 app.register_blueprint(site)
+app.register_blueprint(whatsapp_coexistence)
 
 init_db()
 
@@ -127,8 +129,6 @@ def clear_test_vacations():
     with connection() as conn:
         trip_ids = [int(r["id"]) for r in conn.execute("SELECT id FROM trip_requests").fetchall()]
         if trip_ids:
-            # Personal external scans expand the shared deal inventory. Clearing test
-            # vacations must never delete valid deals discovered for those trips.
             placeholders = ",".join("?" for _ in trip_ids)
             conn.execute(f"UPDATE offers SET trip_id=NULL WHERE trip_id IN ({placeholders})", trip_ids)
         conn.execute("DELETE FROM trip_requests")
@@ -155,12 +155,10 @@ def admin_dashboard():
     return render_dashboard(
         version=APP_VERSION, minimum_score=MIN_DEAL_SCORE,
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(50),
-        scans=recent_scan_runs(20),
-        feedback_count=unread_feedback_count(),
+        scans=recent_scan_runs(20), feedback_count=unread_feedback_count(),
         test_mode=str(get_setting("qa_test_mode", "0") or "0") == "1",
         token=request.args.get("token", ""),
     )
-
 
 
 @app.get("/admin/analytics")
@@ -168,11 +166,7 @@ def admin_analytics():
     denied = _require_admin()
     if denied:
         return denied
-    return render_analytics_dashboard(
-        version=APP_VERSION,
-        analytics=business_analytics(12),
-        token=request.args.get("token", ""),
-    )
+    return render_analytics_dashboard(version=APP_VERSION, analytics=business_analytics(12), token=request.args.get("token", ""))
 
 
 @app.get("/admin/feedback")
@@ -180,14 +174,9 @@ def admin_feedback():
     denied = _require_admin()
     if denied:
         return denied
-    # Newest messages are returned first. Opening this tab marks all currently
-    # available messages as read; only messages arriving afterwards count as new.
     feedback = recent_feedback(500)
     mark_feedback_seen()
-    return render_feedback_dashboard(
-        feedback=feedback,
-        token=request.args.get("token", ""),
-    )
+    return render_feedback_dashboard(feedback=feedback, token=request.args.get("token", ""))
 
 
 @app.get("/offers-preview")
@@ -198,10 +187,7 @@ def offers_preview():
     limit = request.args.get("limit", 50, type=int)
     minimum_score = request.args.get("minimum_score", type=int)
     offers = recent_offers(limit=limit, minimum_score=minimum_score)
-    return jsonify({
-        "status": "success", "count": len(offers), "minimum_deal_score": MIN_DEAL_SCORE,
-        "offers": offers,
-    })
+    return jsonify({"status": "success", "count": len(offers), "minimum_deal_score": MIN_DEAL_SCORE, "offers": offers})
 
 
 @app.get("/feedback-preview")
@@ -209,13 +195,8 @@ def feedback_preview():
     denied = _require_admin()
     if denied:
         return denied
-    limit = request.args.get("limit", 100, type=int)
-    messages = recent_feedback(limit)
-    return jsonify({
-        "status": "success",
-        "count": len(messages),
-        "messages": messages,
-    })
+    messages = recent_feedback(request.args.get("limit", 100, type=int))
+    return jsonify({"status": "success", "count": len(messages), "messages": messages})
 
 
 @app.get("/scan-history")
@@ -223,29 +204,17 @@ def scan_history():
     denied = _require_admin()
     if denied:
         return denied
-    limit = request.args.get("limit", 20, type=int)
-    return jsonify({"status": "success", "scans": recent_scan_runs(limit)})
+    return jsonify({"status": "success", "scans": recent_scan_runs(request.args.get("limit", 20, type=int))})
 
 
 @app.post("/scan")
 def scan_now():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     try:
-        raw_max = int(request.args.get("max_searches", "1"))
-        max_searches = max(1, min(raw_max, 1))
-        job_id, error = _start_background_scan(
-            "trial",
-            lambda: run_hourly_scan(max_searches),
-        )
-        if error:
-            return error
-        return jsonify({
-            "status": "accepted",
-            "job_id": job_id,
-            "message": "סריקת הניסיון התחילה ברקע."
-        }), 202
+        job_id, error = _start_background_scan("trial", lambda: run_hourly_scan(1))
+        if error: return error
+        return jsonify({"status": "accepted", "job_id": job_id, "message": "סריקת הניסיון התחילה ברקע."}), 202
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
@@ -253,23 +222,13 @@ def scan_now():
 @app.post("/scan-destination")
 def scan_destination():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     try:
         arrival = request.args.get("arrival", "FCO").upper()
-        raw_max = int(request.args.get("max_searches", "3"))
-        max_searches = max(1, min(raw_max, 8))
-        job_id, error = _start_background_scan(
-            f"destination-{arrival}",
-            lambda: run_destination_scan(arrival, max_searches),
-        )
-        if error:
-            return error
-        return jsonify({
-            "status": "accepted",
-            "job_id": job_id,
-            "message": f"סריקת {arrival} התחילה ברקע."
-        }), 202
+        max_searches = max(1, min(int(request.args.get("max_searches", "3")), 8))
+        job_id, error = _start_background_scan(f"destination-{arrival}", lambda: run_destination_scan(arrival, max_searches))
+        if error: return error
+        return jsonify({"status": "accepted", "job_id": job_id, "message": f"סריקת {arrival} התחילה ברקע."}), 202
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
@@ -277,23 +236,12 @@ def scan_destination():
 @app.post("/scan-wide")
 def scan_wide():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     try:
-        raw_max = int(request.args.get("max_destinations", "30"))
-        max_destinations = max(1, min(raw_max, len(DESTINATIONS)))
-        job_id, error = _start_background_scan(
-            "wide",
-            lambda: run_wide_scan(max_destinations),
-        )
-        if error:
-            return error
-        return jsonify({
-            "status": "accepted",
-            "job_id": job_id,
-            "destinations": max_destinations,
-            "message": f"סריקה רחבה על {max_destinations} יעדים התחילה ברקע."
-        }), 202
+        max_destinations = max(1, min(int(request.args.get("max_destinations", "30")), len(DESTINATIONS)))
+        job_id, error = _start_background_scan("wide", lambda: run_wide_scan(max_destinations))
+        if error: return error
+        return jsonify({"status": "accepted", "job_id": job_id, "destinations": max_destinations}), 202
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
@@ -301,48 +249,27 @@ def scan_wide():
 @app.get("/manual-scan-status/<job_id>")
 def manual_scan_status(job_id):
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     job = _manual_scan_jobs.get(job_id)
-    if not job:
-        return jsonify({
-            "status": "unknown",
-            "message": "סטטוס הסריקה אינו זמין. ייתכן שהשרת הופעל מחדש."
-        }), 404
+    if not job: return jsonify({"status": "unknown"}), 404
     return jsonify(job)
-
-
 
 
 @app.post("/scan-stop")
 def scan_stop():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     request_scan_stop()
-    return jsonify({"status":"success","message":"נשלחה בקשת עצירה. הסריקה תיעצר לפני היעד הבא."})
+    return jsonify({"status":"success","message":"נשלחה בקשת עצירה."})
 
 
 @app.get("/scan-run/<int:run_id>/offers")
 def scan_run_offers(run_id):
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     offers = offers_for_scan_run(run_id)
     return jsonify({"status":"success","scan_run_id":run_id,"count":len(offers),"offers":offers})
 
-@app.get("/deal-date-debug")
-def deal_date_debug():
-    denied = _require_admin()
-    if denied:
-        return denied
-    rows = recent_offers(limit=20, minimum_score=MIN_DEAL_SCORE)
-    return jsonify({"offers":[{
-        "offer_id":o.get("offer_id"),"scan_run_id":o.get("scan_run_id"),
-        "observed_at":o.get("observed_at"),"last_seen_at":o.get("last_seen_at"),
-        "scan_started_at":o.get("scan_started_at"),"score":o.get("score"),
-        "arrival_code":o.get("arrival_code")
-    } for o in rows]})
 
 @app.get("/scan-status")
 def scan_status():
@@ -352,17 +279,12 @@ def scan_status():
 @app.get("/search")
 def manual_search():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     required = ["departure", "arrival", "outbound", "return_date"]
     missing = [key for key in required if not request.args.get(key)]
-    if missing:
-        return jsonify({"status": "error", "message": f"Missing: {', '.join(missing)}"}), 400
+    if missing: return jsonify({"status": "error", "message": f"Missing: {', '.join(missing)}"}), 400
     try:
-        result = search_flights(
-            request.args["departure"].upper(), request.args["arrival"].upper(),
-            request.args["outbound"], request.args["return_date"],
-        )
+        result = search_flights(request.args["departure"].upper(), request.args["arrival"].upper(), request.args["outbound"], request.args["return_date"])
         return jsonify({"status": "success", **result})
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
@@ -371,11 +293,9 @@ def manual_search():
 @app.post("/daily-batch")
 def create_daily_batch():
     denied = _require_admin()
-    if denied:
-        return denied
-    force = request.args.get("force", "false").lower() == "true"
+    if denied: return denied
     try:
-        return jsonify({"status": "success", **prepare_daily_batch(force=force)})
+        return jsonify({"status": "success", **prepare_daily_batch(force=request.args.get("force", "false").lower() == "true")})
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
@@ -385,8 +305,7 @@ def daily_preview():
     today = datetime.now(ZoneInfo(ISRAEL_TZ)).date().isoformat()
     batch = get_daily_batch(today)
     if not batch:
-        result = prepare_daily_batch(force=True)
-        batch = result["batch"]
+        batch = prepare_daily_batch(force=True)["batch"]
     return jsonify({"status": "success", "batch": batch})
 
 
@@ -395,74 +314,51 @@ def delivery_status_route():
     return jsonify(delivery_status())
 
 
-
 @app.get("/whatsapp-status")
 def whatsapp_status_route():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     return jsonify({"status": "success", **whatsapp_status()})
 
 
 @app.post("/whatsapp-send-test")
 def whatsapp_send_test():
     denied = _require_admin()
-    if denied:
-        return denied
-
+    if denied: return denied
     try:
         result = prepare_daily_batch(force=True)
         message = (result.get("message") or "").strip()
         deals = result.get("deals") or []
         if not deals or not message:
-            return jsonify({
-                "status": "error",
-                "message": "אין כרגע דילים מתאימים לשליחה. הפעילי סריקה ובני רשימה יומית.",
-            }), 400
-
+            return jsonify({"status": "error", "message": "אין כרגע דילים מתאימים לשליחה."}), 400
         send_result = send_text_message(message)
-        return jsonify({
-            "status": "success",
-            "message": f"הודעת ניסיון נשלחה בהצלחה עם {len(deals)} דילים.",
-            "deal_count": len(deals),
-            "recipient_ending": send_result.get("recipient_ending"),
-            "message_id": send_result.get("message_id"),
-        })
-    except WhatsAppConfigurationError as exc:
+        return jsonify({"status": "success", "deal_count": len(deals), "recipient_ending": send_result.get("recipient_ending"), "message_id": send_result.get("message_id")})
+    except (WhatsAppConfigurationError, WhatsAppSendError) as exc:
         return jsonify({"status": "error", "message": str(exc)}), 400
-    except WhatsAppSendError as exc:
-        return jsonify({
-            "status": "error",
-            "message": str(exc),
-            "hint": (
-                "אם Meta חסמה הודעת טקסט חופשית, שלחי הודעה ממספר הבדיקה "
-                "אל מספר ה-WhatsApp של Meta ונסי שוב בתוך חלון השיחה."
-            ),
-        }), 502
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
-@app.route("/settings", methods=["GET", "POST"])
-def settings_route():
+@app.get("/settings")
+def settings():
     denied = _require_admin()
-    if denied:
-        return denied
-    if request.method == "GET":
-        return jsonify({
-            "status": "success", "runtime_settings": all_settings(),
-            "environment_settings": {
-                "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
-            },
-        })
-    data = request.get_json(silent=True) or {}
-    allowed = {"scan_cursor"}
-    invalid = [key for key in data if key not in allowed]
-    if invalid:
-        return jsonify({"status": "error", "message": f"Unsupported settings: {', '.join(invalid)}"}), 400
-    for key, value in data.items():
-        set_setting(key, str(value))
-    return jsonify({"status": "success", "runtime_settings": all_settings()})
+    if denied: return denied
+    return jsonify({"status": "success", "settings": all_settings()})
+
+
+@app.get("/whatsapp-webhook")
+def whatsapp_webhook_verify():
+    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
+    if request.args.get("hub.mode") == "subscribe" and request.args.get("hub.verify_token") == verify_token and verify_token:
+        return request.args.get("hub.challenge", ""), 200
+    return "Verification failed", 403
+
+
+@app.post("/whatsapp-webhook")
+def whatsapp_webhook_receive():
+    payload = request.get_json(silent=True) or {}
+    app.logger.info("WhatsApp webhook event received: object=%s entries=%s", payload.get("object"), len(payload.get("entry") or []))
+    return jsonify({"status": "received"}), 200
 
 
 if __name__ == "__main__":
