@@ -16,13 +16,22 @@ if old in db:
     db = db.replace(old, new, 1)
 elif new not in db:
     raise RuntimeError("Budapest destination-image mapping anchor not found")
+
+# Images are render-time metadata. Decorate offers whenever they are loaded so
+# historical DB deals get the corrected image without another flight scan.
+needle_db = '''        payload["scan_started_at"] = item.get("scan_started_at")\n        if item.get("trip_id") is not None:\n'''
+replacement_db = '''        payload["scan_started_at"] = item.get("scan_started_at")\n        mapped_image = DESTINATION_LANDMARK_IMAGES.get(str(payload.get("arrival_code") or item.get("arrival_code") or "").upper())\n        if mapped_image:\n            payload["destination_image_url"] = mapped_image\n        if item.get("trip_id") is not None:\n'''
+if replacement_db not in db:
+    if needle_db not in db:
+        raise RuntimeError("recent_offers destination-image anchor not found")
+    db = db.replace(needle_db, replacement_db, 1)
 DATABASE.write_text(db, encoding="utf-8")
 
-# 2) Decorate every rendered offer from the current destination mapping. This makes
-# existing DB deals get the image immediately; no new scan is required.
+# 2) Keep public-site localization defensive as well. This also protects future
+# callers that decorate offers outside recent_offers.
 public = PUBLIC.read_text(encoding="utf-8")
 needle = '''def _localize_offer_airports(offer: dict) -> dict:\n    dep = _AIRPORT_LOCALIZATION.get(offer.get("departure_code"), {})\n    arr = _AIRPORT_LOCALIZATION.get(offer.get("arrival_code"), {})\n'''
-replacement = '''def _localize_offer_airports(offer: dict) -> dict:\n    dep = _AIRPORT_LOCALIZATION.get(offer.get("departure_code"), {})\n    arr = _AIRPORT_LOCALIZATION.get(offer.get("arrival_code"), {})\n    # Destination imagery is render-time data, not scan-time data. This ensures\n    # historical offers also receive newly fixed destination photos immediately.\n    mapped_image = DESTINATION_LANDMARK_IMAGES.get(str(offer.get("arrival_code") or "").upper())\n    if mapped_image:\n        offer["destination_image_url"] = mapped_image\n'''
+replacement = '''def _localize_offer_airports(offer: dict) -> dict:\n    dep = _AIRPORT_LOCALIZATION.get(offer.get("departure_code"), {})\n    arr = _AIRPORT_LOCALIZATION.get(offer.get("arrival_code"), {})\n    mapped_image = DESTINATION_LANDMARK_IMAGES.get(str(offer.get("arrival_code") or "").upper())\n    if mapped_image:\n        offer["destination_image_url"] = mapped_image\n'''
 if replacement not in public:
     if needle not in public:
         raise RuntimeError("offer localization anchor not found")
