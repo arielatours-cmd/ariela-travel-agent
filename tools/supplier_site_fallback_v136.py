@@ -15,14 +15,27 @@ needle = '''    return BookerTarget(
         url=None,
         fields=[],
         supplier=recommended,
-        mode="recommended_supplier_unavailable",
+        mode="personal_exact_booking_unavailable" if personal else "recommended_supplier_unavailable",
         exact=False,
-        note="מסלול ההזמנה אצל הספק המומלץ אינו זמין כרגע.",
+        note=("לא נמצא כרגע קישור הזמנה ששומר את מספר הנוסעים שבחרתם."
+              if personal else "מסלול ההזמנה אצל הספק המומלץ אינו זמין כרגע."),
     )
 '''
-replacement = '''    # Historical/shared offers can predate persisted Booking Options. Do not bounce
-    # a customer back to Ariella when we still know the operating airline. In that
-    # case open the airline's official booking site as the final safe fallback.
+replacement = '''    # Personal vacation cards must never degrade to the airline homepage. That
+    # loses the selected itinerary and can also reset the passenger count. If an
+    # exact booking request is unavailable, return to Ariella instead.
+    if personal:
+        return BookerTarget(
+            url=None,
+            fields=[],
+            supplier=recommended,
+            mode="personal_exact_booking_unavailable",
+            exact=False,
+            note="לא נמצא כרגע קישור הזמנה ששומר את הטיסה ומספר הנוסעים שבחרתם.",
+        )
+
+    # Historical/shared PUBLIC offers can predate persisted Booking Options. For
+    # general deal cards only, an official airline site is an acceptable fallback.
     official_sites = {
         "wizz air": "https://wizzair.com/",
         "wizzair": "https://wizzair.com/",
@@ -77,7 +90,6 @@ replacement = '''    # Historical/shared offers can predate persisted Booking Op
                 note="יש לבחור באתר חברת התעופה את התאריכים והטיסות המוצגים בדיל.",
             )
 
-    # If the stored booking_url is already a non-Google supplier URL, use it.
     raw_booking_url = str(offer.get("booking_url") or "").strip()
     if raw_booking_url and "google.com/travel/flights" not in raw_booking_url.lower():
         return BookerTarget(
@@ -102,4 +114,4 @@ if needle not in current:
 current = current.replace(needle, replacement, 1)
 text = text[:start] + current + text[end:]
 BOOKER.write_text(text, encoding="utf-8")
-print("9.7.136 official supplier site fallback active")
+print("9.7.136 supplier fallback fixed: personal deals never lose itinerary/passenger context")
