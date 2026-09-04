@@ -11,7 +11,7 @@ t += r'''
 
 /* 2026-09-04 final mobile review */
 @media(max-width:760px){
-  /* Shared header: hamburger only, exactly level with the logo. */
+  /* Shared header: hamburger visually aligned with the logo. */
   html body .site-header{height:78px!important;min-height:78px!important;padding:0!important}
   html body .site-header .header-inner{width:calc(100% - 22px)!important;height:78px!important;min-height:78px!important;display:grid!important;grid-template-columns:64px minmax(0,1fr) 46px!important;grid-template-areas:'lang brand controls'!important;align-items:center!important;gap:4px!important;direction:ltr!important}
   html body .site-header .language-switch{grid-area:lang!important;position:static!important;transform:none!important;justify-self:start!important;align-self:center!important;margin:0!important;font-size:12px!important}
@@ -21,8 +21,8 @@ t += r'''
   html body .site-header .brand-tag{font-size:6.5px!important;letter-spacing:1.8px!important;margin-top:4px!important}
   html body .site-header .main-nav,html body .site-header .desktop-account{display:none!important}
   html body .site-header .mobile-header-controls{grid-area:controls!important;position:static!important;transform:none!important;display:flex!important;width:46px!important;height:46px!important;min-width:46px!important;justify-self:end!important;align-self:center!important;align-items:center!important;justify-content:center!important;margin:0!important}
-  html body .site-header .mobile-nav-toggle{position:static!important;transform:none!important;top:auto!important;display:flex!important;width:42px!important;height:42px!important;min-width:42px!important;flex:0 0 42px!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#fff!important;font-size:31px!important;line-height:1!important;align-items:center!important;justify-content:center!important}
-  html body .site-header .mobile-nav-menu{top:52px!important;right:0!important;left:auto!important;background:#050505!important;color:#fff!important}
+  html body .site-header .mobile-nav-toggle{position:relative!important;top:6px!important;transform:none!important;display:flex!important;width:42px!important;height:42px!important;min-width:42px!important;flex:0 0 42px!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#fff!important;font-size:31px!important;line-height:1!important;align-items:center!important;justify-content:center!important}
+  html body .site-header .mobile-nav-menu{top:58px!important;right:0!important;left:auto!important;background:#050505!important;color:#fff!important}
   html body .site-header .mobile-myariella-toggle,html body .site-header .mobile-myariella-submenu,html body .site-header .mobile-myariella-submenu a,html body .site-header .mobile-myariella-submenu button{background:#0b0b0b!important;color:#fff!important}
 
   /* Home: balanced breathing room; the two CTAs stay side by side near viewport bottom. */
