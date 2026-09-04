@@ -19,15 +19,11 @@ def setup():
 
 @whatsapp_coexistence.post("/whatsapp-coexistence/exchange-code")
 def exchange_code():
-    """Exchange the Embedded Signup authorization code on the server.
-
-    The app secret is read only from Render environment variables and is never
-    sent to the browser. The access token returned by Meta is deliberately not
-    returned to the client.
-    """
+    """Exchange the Embedded Signup authorization code on the server."""
     payload = request.get_json(silent=True) or {}
     code = payload.get("code")
     session_info = payload.get("session_info") or {}
+    redirect_uri = payload.get("redirect_uri")
 
     if not code:
         return jsonify({"ok": False, "error": "missing_code"}), 400
@@ -40,14 +36,18 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server."
         }), 500
 
+    exchange_data = {
+        "client_id": META_APP_ID,
+        "client_secret": app_secret,
+        "code": code,
+    }
+    if redirect_uri:
+        exchange_data["redirect_uri"] = redirect_uri
+
     try:
         response = requests.post(
             f"https://graph.facebook.com/{META_GRAPH_VERSION}/oauth/access_token",
-            data={
-                "client_id": META_APP_ID,
-                "client_secret": app_secret,
-                "code": code,
-            },
+            data=exchange_data,
             timeout=20,
         )
         data = response.json()
@@ -72,8 +72,6 @@ def exchange_code():
             "meta": safe_error,
         }), 400
 
-    # Never expose the access token to the browser.  For now we verify that the
-    # server-side exchange succeeds and return only non-secret onboarding data.
     return jsonify({
         "ok": True,
         "connected": True,
