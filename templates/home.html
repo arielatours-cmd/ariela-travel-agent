@@ -35,150 +35,44 @@ h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-we
 @media(max-width:1050px){.header-inner{grid-template-columns:1fr auto auto}.language-switch{grid-column:2}.main-nav{display:none}}
 @media(max-width:700px){.site-header{padding:14px 0;min-height:auto}.header-inner{width:94%;grid-template-columns:1fr auto;gap:12px}.language-switch{grid-column:auto;grid-row:2;justify-self:start}.account{font-size:14px;padding:11px 14px}.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:50px}.inner{width:91%;padding:58px 0 70px}.btn{width:100%}.hero{min-height:calc(100vh - 110px)}}
 </style>
-
-
-
 <style id="ariella-unified-header">
-.site-header,.site-header.luxury-header{
-  min-height:116px!important;background:linear-gradient(#030303,#090909)!important;
-  border-bottom:1px solid #c99a3f!important;display:flex!important;align-items:center!important;direction:ltr!important;
-}
-.site-header .header-inner{
-  width:min(1500px,88%)!important;margin:0 auto!important;min-height:116px!important;
-  position:relative!important;display:flex!important;align-items:center!important;direction:ltr!important;
-}
-.site-header .language-switch{
-  position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;
-  margin:0!important;padding:0!important;white-space:nowrap!important;z-index:5!important;
-}
+.site-header,.site-header.luxury-header{min-height:116px!important;background:linear-gradient(#030303,#090909)!important;border-bottom:1px solid #c99a3f!important;display:flex!important;align-items:center!important;direction:ltr!important}
+.site-header .header-inner{width:min(1500px,88%)!important;margin:0 auto!important;min-height:116px!important;position:relative!important;display:flex!important;align-items:center!important;direction:ltr!important}
+.site-header .language-switch{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;padding:0!important;white-space:nowrap!important;z-index:5!important}
 .site-header .language-switch a{color:#c99a3f!important;text-decoration:none!important;font-weight:700!important;font-size:14px!important}
-.site-header .brand{
-  position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;
-  display:flex!important;align-items:center!important;gap:16px!important;margin:0!important;direction:ltr!important;
-}
+.site-header .brand{position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;display:flex!important;align-items:center!important;gap:16px!important;margin:0!important;direction:ltr!important}
 .site-header .logo-a{width:72px!important;height:72px!important;object-fit:contain!important;display:block!important}
 .site-header .brand-name{display:block!important;font:30px/1 Georgia,"Times New Roman",serif!important;letter-spacing:9px!important;color:#e7c778!important}
 .site-header .brand-tag{display:block!important;margin-top:11px!important;font-size:12px!important;letter-spacing:5px!important;color:#c99a3f!important;text-align:center!important}
-.site-header .main-nav{
-  position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
-  display:flex!important;gap:42px!important;align-items:center!important;margin:0!important;width:max-content!important;white-space:nowrap!important;
-}
-html[dir="rtl"] .site-header .main-nav{direction:rtl!important}
-html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
-.site-header .main-nav a{color:#f5f1e8!important;text-decoration:none!important;font-size:18px!important;padding:18px 4px!important;position:relative!important}
-.site-header .main-nav a.active{color:#e7c778!important}
-.site-header .main-nav a.active:after{content:""!important;position:absolute!important;left:15%!important;right:15%!important;bottom:5px!important;height:1px!important;background:#c99a3f!important}
-.site-header .account-menu-wrap{
-  position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;z-index:10!important;
-}
-.site-header .account{
-  position:static!important;transform:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
-  color:#fff!important;border:1px solid #e7c778!important;border-radius:999px!important;padding:15px 28px!important;background:transparent!important;
-  text-decoration:none!important;font-size:17px!important;cursor:pointer!important;white-space:nowrap!important;
-}
-.site-header .account-dropdown{
-  position:absolute!important;top:calc(100% + 10px)!important;right:0!important;min-width:220px!important;background:#0b0b0b!important;
-  border:1px solid #c99a3f!important;box-shadow:0 18px 45px rgba(0,0,0,.28)!important;padding:8px!important;z-index:100!important;
-}
-.site-header .account-dropdown[hidden]{display:none!important}
-.site-header .account-dropdown a,.site-header .account-dropdown button{
-  display:block!important;width:100%!important;padding:11px 13px!important;color:#fff!important;text-decoration:none!important;background:transparent!important;
-  border:0!important;text-align:start!important;font:inherit!important;cursor:pointer!important;
-}
-.site-header .account-dropdown a:hover,.site-header .account-dropdown button:hover{color:#e7c778!important;background:#17130b!important}
-@media(max-width:900px){
-  .site-header .header-inner{width:94%!important}
-  .site-header .language-switch{left:0!important}
-  .site-header .brand{left:65px!important}
-  .site-header .main-nav{display:none!important}
-  .site-header .account-menu-wrap{right:0!important}
-  .site-header .logo-a{width:50px!important;height:50px!important}
-  .site-header .brand-name{font-size:20px!important;letter-spacing:5px!important}
-  .site-header .brand-tag{font-size:9px!important;letter-spacing:3px!important}
+.site-header .main-nav{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;display:flex!important;gap:42px!important;align-items:center!important;margin:0!important;width:max-content!important;white-space:nowrap!important}
+html[dir="rtl"] .site-header .main-nav{direction:rtl!important}html[dir="ltr"] .site-header .main-nav{direction:ltr!important}
+.site-header .main-nav a{color:#f5f1e8!important;text-decoration:none!important;font-size:18px!important;padding:18px 4px!important;position:relative!important}.site-header .main-nav a.active{color:#e7c778!important}.site-header .main-nav a.active:after{content:""!important;position:absolute!important;left:15%!important;right:15%!important;bottom:5px!important;height:1px!important;background:#c99a3f!important}
+.site-header .account-menu-wrap{position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;z-index:10!important}.site-header .account{position:static!important;transform:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;border:1px solid #e7c778!important;border-radius:999px!important;padding:15px 28px!important;background:transparent!important;text-decoration:none!important;font-size:17px!important;cursor:pointer!important;white-space:nowrap!important}
+.site-header .account-dropdown{position:absolute!important;top:calc(100% + 10px)!important;right:0!important;min-width:220px!important;background:#0b0b0b!important;border:1px solid #c99a3f!important;box-shadow:0 18px 45px rgba(0,0,0,.28)!important;padding:8px!important;z-index:100!important}.site-header .account-dropdown[hidden]{display:none!important}.site-header .account-dropdown a,.site-header .account-dropdown button{display:block!important;width:100%!important;padding:11px 13px!important;color:#fff!important;text-decoration:none!important;background:transparent!important;border:0!important;text-align:start!important;font:inherit!important;cursor:pointer!important}.site-header .account-dropdown a:hover,.site-header .account-dropdown button:hover{color:#e7c778!important;background:#17130b!important}
+@media(max-width:900px){.site-header .header-inner{width:94%!important}.site-header .language-switch{left:0!important}.site-header .brand{left:65px!important}.site-header .main-nav{display:none!important}.site-header .account-menu-wrap{right:0!important}.site-header .logo-a{width:50px!important;height:50px!important}.site-header .brand-name{font-size:20px!important;letter-spacing:5px!important}.site-header .brand-tag{font-size:9px!important;letter-spacing:3px!important}}
+</style>
+<style id="v934-shared-header">.site-header.luxury-header{min-height:116px!important;display:flex!important;align-items:center!important;direction:ltr!important}.site-header.luxury-header .header-inner{width:min(1500px,88%)!important;min-height:116px!important;margin:0 auto!important;padding:0!important;position:relative!important;display:block!important;direction:ltr!important}.site-header.luxury-header .language-switch{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}.site-header.luxury-header .brand{position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;display:flex!important;align-items:center!important;gap:16px!important;direction:ltr!important}.site-header.luxury-header .main-nav{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important;width:max-content!important;white-space:nowrap!important}.site-header.luxury-header .account-menu-wrap{position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}html[dir="rtl"] .site-header.luxury-header .main-nav{direction:rtl!important}html[dir="ltr"] .site-header.luxury-header .main-nav{direction:ltr!important}</style>
+<style>.site-header .language-switch a,.site-header.luxury-header .language-switch a{color:#c99a3f!important;text-decoration:none!important;font-weight:700!important;font-size:14px!important}.site-header .language-switch a:visited,.site-header.luxury-header .language-switch a:visited{color:#c99a3f!important}</style>
+<style id="v942-account-button">.site-header .account,.site-header .account-menu-button,.site-header.luxury-header .account,.site-header.luxury-header .account-menu-button{min-height:56px!important;min-width:154px!important;padding:0 26px!important;border:1px solid #e7c778!important;border-radius:999px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:17px!important;font-weight:700!important;line-height:1!important;white-space:nowrap!important;background:transparent!important;color:#fff!important;box-sizing:border-box!important}</style>
+<style id="v945-exact-language-gold">html body .site-header .language-switch,html body .site-header .language-switch a,html body .site-header .language-switch a:link,html body .site-header .language-switch a:visited,html body .site-header.luxury-header .language-switch a,html body .site-header.luxury-header .language-switch a:link,html body .site-header.luxury-header .language-switch a:visited{color:#c99a3f!important;opacity:1!important}html body .site-header .language-switch a:hover,html body .site-header.luxury-header .language-switch a:hover{color:#d8ad57!important}</style>
+<style id="mobile-home-compact-v1">
+@media(max-width:760px){
+  html body .hero{min-height:calc(100vh - 78px)!important;align-items:flex-start!important}
+  html body .hero .inner{width:92%!important;padding:26px 0 28px!important;margin:0 auto!important}
+  html body .hero .dark{font-size:44px!important;line-height:1.02!important}
+  html body .hero .gold{font-size:41px!important;line-height:1.02!important;margin-top:4px!important}
+  html body .hero .subtitle{margin-top:18px!important;font-size:22px!important}
+  html body .hero .story{margin-top:24px!important;font-size:17px!important;line-height:1.65!important}
+  html body .hero .story strong{margin-top:5px!important}
+  html body .hero .actions{margin-top:24px!important;display:flex!important;flex-wrap:nowrap!important;gap:10px!important;width:100%!important}
+  html body .hero .actions .btn{width:calc(50% - 5px)!important;min-width:0!important;padding:13px 8px!important;font-size:15px!important;line-height:1.25!important;white-space:normal!important}
 }
 </style>
-<style id="v934-shared-header">
-
-/* v9.3.4 authoritative shared header */
-.site-header.luxury-header{min-height:116px!important;display:flex!important;align-items:center!important;direction:ltr!important}
-.site-header.luxury-header .header-inner{width:min(1500px,88%)!important;min-height:116px!important;margin:0 auto!important;padding:0!important;position:relative!important;display:block!important;direction:ltr!important}
-.site-header.luxury-header .language-switch{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
-.site-header.luxury-header .brand{position:absolute!important;left:80px!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;display:flex!important;align-items:center!important;gap:16px!important;direction:ltr!important}
-.site-header.luxury-header .main-nav{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important;width:max-content!important;white-space:nowrap!important}
-.site-header.luxury-header .account-menu-wrap{position:absolute!important;right:0!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important}
-html[dir="rtl"] .site-header.luxury-header .main-nav{direction:rtl!important}
-html[dir="ltr"] .site-header.luxury-header .main-nav{direction:ltr!important}
-
-</style>
-<style>
-/* v9.4.1: same language-switch color as Home on every page */
-.site-header .language-switch a,
-.site-header.luxury-header .language-switch a{
-  color:#c99a3f!important;
-  text-decoration:none!important;
-  font-weight:700!important;
-  font-size:14px!important;
-}
-.site-header .language-switch a:visited,
-.site-header.luxury-header .language-switch a:visited{color:#c99a3f!important}
-</style>
-<style id="v942-account-button">
-.site-header .account,
-.site-header .account-menu-button,
-.site-header.luxury-header .account,
-.site-header.luxury-header .account-menu-button{
-  min-height:56px!important;min-width:154px!important;padding:0 26px!important;
-  border:1px solid #e7c778!important;border-radius:999px!important;
-  display:inline-flex!important;align-items:center!important;justify-content:center!important;
-  font-size:17px!important;font-weight:700!important;line-height:1!important;
-  white-space:nowrap!important;background:transparent!important;color:#fff!important;box-sizing:border-box!important;
-}
-</style>
-
-
-<style id="v945-exact-language-gold">
-html body .site-header .language-switch,
-html body .site-header .language-switch a,
-html body .site-header .language-switch a:link,
-html body .site-header .language-switch a:visited,
-html body .site-header.luxury-header .language-switch a,
-html body .site-header.luxury-header .language-switch a:link,
-html body .site-header.luxury-header .language-switch a:visited{color:#c99a3f!important;opacity:1!important}
-html body .site-header .language-switch a:hover,
-html body .site-header.luxury-header .language-switch a:hover{color:#d8ad57!important}
-</style>
-
 </head>
 <body>
 {% include "_site_header.html" %}
-<main>
-  <section class="hero">
-    <div class="plane" aria-hidden="true">✈</div><div class="trail" aria-hidden="true"></div>
-    <div class="inner">
-      {% if site_lang == 'en' %}
-      <h1><span class="dark">Find the vacation</span><span class="gold">that fits you</span></h1>
-      <p class="subtitle">Smarter vacation search</p>
-      <div class="story">How do you know where to fly, which country suits you, and which area is worth exploring & visiting?<br>Not every place fits every person, budget, or vacation style.<strong>That is exactly why we built Ariella.</strong></div>
-      <div class="actions"><a class="btn goldbtn" href="{{ url_for('site.deals', lang='en') }}">View deals</a><a class="btn darkbtn" href="{{ url_for('site.account') }}">Start with Ariella ✦</a></div>
-      {% else %}
-      <h1><span class="dark">למצוא את החופשה</span><span class="gold">שמתאימה לך</span></h1>
-      <p class="subtitle">חיפוש חופשה בצורה חכמה</p>
-      <div class="story">איך יודעים לאן לטוס, איזו מדינה מתאימה לנו ובאיזה אזור כדאי לטייל?<br>לא כל מקום מתאים לכל הרכב, תקציב או סגנון חופשה.<strong>בדיוק בשביל זה בנינו את אריאלה.</strong></div>
-      <div class="actions"><a class="btn goldbtn" href="{{ url_for('site.deals', lang='he') }}">לצפייה בדילים</a><a class="btn darkbtn" href="{{ url_for('site.account') }}">התחילו עם אריאלה ✦</a></div>
-      {% endif %}
-    </div>
-  </section>
-</main>
-
-<script>
-(function(){
- const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');
- if(!button||!menu)return;
- const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};
- button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});
- document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});
- document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
-})();
-</script>
-{% include "_site_footer.html" %}</body>
-</html>
+<main><section class="hero"><div class="plane" aria-hidden="true">✈</div><div class="trail" aria-hidden="true"></div><div class="inner">
+{% if site_lang == 'en' %}<h1><span class="dark">Find the vacation</span><span class="gold">that fits you</span></h1><p class="subtitle">Smarter vacation search</p><div class="story">How do you know where to fly, which country suits you, and which area is worth exploring & visiting?<br>Not every place fits every person, budget, or vacation style.<strong>That is exactly why we built Ariella.</strong></div><div class="actions"><a class="btn goldbtn" href="{{ url_for('site.deals', lang='en') }}">View deals</a><a class="btn darkbtn" href="{{ url_for('site.account') }}">Start with Ariella ✦</a></div>{% else %}<h1><span class="dark">למצוא את החופשה</span><span class="gold">שמתאימה לך</span></h1><p class="subtitle">חיפוש חופשה בצורה חכמה</p><div class="story">איך יודעים לאן לטוס, איזו מדינה מתאימה לנו ובאיזה אזור כדאי לטייל?<br>לא כל מקום מתאים לכל הרכב, תקציב או סגנון חופשה.<strong>בדיוק בשביל זה בנינו את אריאלה.</strong></div><div class="actions"><a class="btn goldbtn" href="{{ url_for('site.deals', lang='he') }}">לצפייה בדילים</a><a class="btn darkbtn" href="{{ url_for('site.account') }}">התחילו עם אריאלה ✦</a></div>{% endif %}
+</div></section></main>
+<script>(function(){const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');if(!button||!menu)return;const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});})();</script>
+{% include "_site_footer.html" %}</body></html>
