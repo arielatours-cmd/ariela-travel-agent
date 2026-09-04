@@ -7,6 +7,7 @@ whatsapp_coexistence = Blueprint("whatsapp_coexistence", __name__)
 
 META_APP_ID = "919805650390657"
 META_GRAPH_VERSION = "v24.0"
+FB_JS_SDK_REDIRECT_URI = "https://www.facebook.com/connect/login_success.html"
 
 
 @whatsapp_coexistence.get("/whatsapp-coexistence-setup")
@@ -23,7 +24,6 @@ def exchange_code():
     payload = request.get_json(silent=True) or {}
     code = payload.get("code")
     session_info = payload.get("session_info") or {}
-    redirect_uri = payload.get("redirect_uri")
 
     if not code:
         return jsonify({"ok": False, "error": "missing_code"}), 400
@@ -40,9 +40,8 @@ def exchange_code():
         "client_id": META_APP_ID,
         "client_secret": app_secret,
         "code": code,
+        "redirect_uri": FB_JS_SDK_REDIRECT_URI,
     }
-    if redirect_uri:
-        exchange_data["redirect_uri"] = redirect_uri
 
     try:
         response = requests.post(
