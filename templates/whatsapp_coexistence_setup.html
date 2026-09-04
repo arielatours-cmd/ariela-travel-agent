@@ -37,10 +37,11 @@
   async function exchangeCode(code){
     showStatus('Meta connected. Finishing secure server connection...');
     try{
+      const redirectUri = window.location.origin + window.location.pathname;
       const response = await fetch('/whatsapp-coexistence/exchange-code', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({code:code, session_info:sessionInfo})
+        body:JSON.stringify({code:code, session_info:sessionInfo, redirect_uri:redirectUri})
       });
       const data = await response.json();
       if(data.ok){
