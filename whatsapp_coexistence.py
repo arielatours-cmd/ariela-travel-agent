@@ -7,7 +7,6 @@ whatsapp_coexistence = Blueprint("whatsapp_coexistence", __name__)
 
 META_APP_ID = "919805650390657"
 META_GRAPH_VERSION = "v24.0"
-FB_JS_SDK_REDIRECT_URI = "https://www.facebook.com/connect/login_success.html"
 
 
 @whatsapp_coexistence.get("/whatsapp-coexistence-setup")
@@ -36,17 +35,20 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server."
         }), 500
 
-    exchange_data = {
+    # WhatsApp Embedded Signup returns a one-time code via FB.login().
+    # Exchange that code directly for the business token. Do not send a
+    # redirect_uri here: Embedded Signup's token exchange only requires the
+    # app ID, app secret and authorization code.
+    exchange_params = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
         "code": code,
-        "redirect_uri": FB_JS_SDK_REDIRECT_URI,
     }
 
     try:
-        response = requests.post(
+        response = requests.get(
             f"https://graph.facebook.com/{META_GRAPH_VERSION}/oauth/access_token",
-            data=exchange_data,
+            params=exchange_params,
             timeout=20,
         )
         data = response.json()
@@ -71,6 +73,7 @@ def exchange_code():
             "meta": safe_error,
         }), 400
 
+    # Never return the access token to the browser.
     return jsonify({
         "ok": True,
         "connected": True,
