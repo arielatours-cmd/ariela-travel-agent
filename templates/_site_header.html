@@ -3,25 +3,30 @@
 .site-header .account-menu-wrap{position:relative!important;display:flex!important;align-items:center!important}
 .site-header .account-menu-wrap>.account-dropdown{position:absolute!important;top:calc(100% + 8px)!important;right:0!important;left:auto!important;min-width:200px!important;transform:none!important;z-index:1000!important}
 .mobile-header-controls{display:contents}.mobile-nav-toggle,.mobile-nav-menu{display:none}
+
 @media(max-width:760px){
-  html body .site-header{min-height:92px!important;padding:8px 0!important}
-  html body .site-header .header-inner{width:96%!important;margin:auto!important;display:grid!important;grid-template-columns:72px minmax(0,1fr) 156px!important;grid-template-areas:'lang brand controls'!important;align-items:center!important;gap:4px!important;direction:ltr!important}
-  html body .site-header .language-switch{grid-area:lang!important;justify-self:start!important;font-size:14px!important;margin:0!important}
-  html body .site-header .brand{grid-area:brand!important;justify-self:center!important;min-width:0!important;gap:5px!important}
-  html body .site-header .logo-a{width:42px!important;height:42px!important}
-  html body .site-header .brand-name{font-size:17px!important;letter-spacing:3.5px!important}
-  html body .site-header .brand-tag{font-size:7px!important;letter-spacing:1.8px!important;margin-top:4px!important}
+  html body .site-header{min-height:78px!important;height:78px!important;padding:0!important;display:flex!important;align-items:center!important}
+  html body .site-header .header-inner{width:calc(100% - 20px)!important;height:78px!important;margin:0 auto!important;display:grid!important;grid-template-columns:58px minmax(0,1fr) 124px!important;grid-template-areas:'lang brand controls'!important;align-items:center!important;gap:2px!important;direction:ltr!important}
+  html body .site-header .language-switch{grid-area:lang!important;justify-self:start!important;align-self:center!important;font-size:12px!important;line-height:1!important;margin:0!important;white-space:nowrap!important}
+  html body .site-header .brand{grid-area:brand!important;justify-self:center!important;align-self:center!important;display:flex!important;align-items:center!important;gap:5px!important;min-width:0!important;margin:0!important;transform:none!important}
+  html body .site-header .logo-a{width:36px!important;height:36px!important;flex:0 0 36px!important}
+  html body .site-header .brand-copy{display:block!important;min-width:0!important}
+  html body .site-header .brand-name{font-size:15px!important;line-height:1!important;letter-spacing:3px!important;white-space:nowrap!important}
+  html body .site-header .brand-tag{font-size:6px!important;line-height:1!important;letter-spacing:1.5px!important;margin-top:4px!important;white-space:nowrap!important}
   html body .site-header .main-nav{display:none!important}
-  html body .site-header .mobile-header-controls{grid-area:controls!important;display:flex!important;justify-content:flex-end!important;align-items:center!important;gap:5px!important;position:relative!important;direction:ltr!important}
-  html body .site-header .mobile-nav-toggle{display:inline-flex!important;width:38px!important;height:38px!important;align-items:center!important;justify-content:center!important;border:1px solid #c99a3f!important;border-radius:9px!important;background:transparent!important;color:#fff!important;font-size:21px!important;padding:0!important;flex:0 0 38px!important}
-  html body .site-header .account-menu-wrap{width:112px!important;min-width:112px!important;margin:0!important;justify-content:flex-end!important}
-  html body .site-header .account-menu-button.account{width:112px!important;min-width:112px!important;max-width:112px!important;height:38px!important;min-height:38px!important;padding:0 6px!important;font-size:12.5px!important;line-height:36px!important;overflow:hidden!important}
+
+  html body .site-header .mobile-header-controls{grid-area:controls!important;justify-self:end!important;align-self:center!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;width:124px!important;min-width:124px!important;position:relative!important;margin:0!important;direction:ltr!important}
+  html body .site-header .mobile-nav-toggle{display:inline-flex!important;position:static!important;width:30px!important;height:34px!important;min-width:30px!important;flex:0 0 30px!important;align-items:center!important;justify-content:center!important;border:0!important;border-radius:0!important;background:transparent!important;color:#fff!important;font-size:25px!important;line-height:1!important;padding:0!important;margin:0!important;box-shadow:none!important}
+  html body .site-header .account-menu-wrap{width:90px!important;min-width:90px!important;max-width:90px!important;margin:0!important;justify-content:flex-end!important;position:relative!important}
+  html body .site-header .account-menu-button.account{width:90px!important;min-width:90px!important;max-width:90px!important;height:34px!important;min-height:34px!important;padding:0 5px!important;font-size:11.5px!important;line-height:32px!important;border-radius:999px!important;overflow:hidden!important;white-space:nowrap!important}
+  html body .site-header .myariella-label{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:0!important;max-width:100%!important;white-space:nowrap!important}
   html body .site-header .myariella-star{display:none!important}
-  html body .site-header .myariella-label{gap:0!important;max-width:100%!important}
-  html body .site-header .mobile-nav-menu{position:absolute!important;top:46px!important;right:0!important;min-width:180px!important;background:#050505!important;border:1px solid #c99a3f!important;border-radius:10px!important;padding:6px!important;z-index:2500!important;box-shadow:0 10px 28px rgba(0,0,0,.3)!important}
+
+  html body .site-header .mobile-nav-menu{position:absolute!important;top:42px!important;right:0!important;left:auto!important;min-width:176px!important;background:#050505!important;border:1px solid #c99a3f!important;border-radius:10px!important;padding:6px!important;z-index:2500!important;box-shadow:0 10px 28px rgba(0,0,0,.3)!important}
   html body .site-header .mobile-nav-menu:not([hidden]){display:grid!important}
   html body .site-header .mobile-nav-menu a{color:#fff!important;padding:10px 12px!important;text-decoration:none!important;border-bottom:1px solid rgba(201,154,63,.2)!important;font-size:14px!important;font-weight:700!important}
   html body .site-header .mobile-nav-menu a:last-child{border-bottom:0!important}
+  html body .site-header .account-menu-wrap>.account-dropdown{top:42px!important;right:0!important;left:auto!important;min-width:176px!important}
 }
 </style>
 
