@@ -2,7 +2,7 @@ services:
   - type: web
     name: ariela-travel-agent-v6
     runtime: python
-    buildCommand: python tools/apply_v136.py && python tools/fix_admin_scan_filter.py && python tools/fix_scanner_adults.py && python tools/fix_admin_offer_fields.py && python tools/personal_trip_booking_id_v136.py && python tools/personal_offer_dedup_v136.py && python tools/personal_booking_context_v136.py && python tools/booking_target_resolver_v136.py && python tools/mobile_ux_batch_20260904.py && python -m compileall -q scanner.py public_site.py admin.py database.py booker.py && pip install -r requirements.txt
+    buildCommand: python tools/apply_v136.py && python tools/fix_admin_scan_filter.py && python tools/fix_scanner_adults.py && python tools/fix_admin_offer_fields.py && python tools/personal_trip_booking_id_v136.py && python tools/personal_offer_dedup_v136.py && python tools/personal_booking_context_v136.py && python tools/booking_target_resolver_v136.py && python tools/mobile_ux_batch_20260904.py && python tools/business_class_and_party_20260904.py && python -m compileall -q scanner.py public_site.py admin.py database.py booker.py && pip install -r requirements.txt
     # One worker is intentional because the in-process scheduler must run only once.
     startCommand: gunicorn --workers 1 --threads 4 app:app
     healthCheckPath: /health
