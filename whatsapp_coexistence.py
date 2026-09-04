@@ -7,6 +7,7 @@ whatsapp_coexistence = Blueprint("whatsapp_coexistence", __name__)
 
 META_APP_ID = "919805650390657"
 META_GRAPH_VERSION = "v24.0"
+EMBEDDED_SIGNUP_REDIRECT_URI = "https://ariela-travel-agent.onrender.com/whatsapp-coexistence-setup"
 
 
 @whatsapp_coexistence.get("/whatsapp-coexistence-setup")
@@ -35,14 +36,13 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server."
         }), 500
 
-    # WhatsApp Embedded Signup returns a one-time code via FB.login().
-    # Exchange that code directly for the business token. Do not send a
-    # redirect_uri here: Embedded Signup's token exchange only requires the
-    # app ID, app secret and authorization code.
+    # The Render origin is now registered in Meta as both App Domain and
+    # Website platform. Use the setup-page URI consistently for code exchange.
     exchange_params = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
         "code": code,
+        "redirect_uri": EMBEDDED_SIGNUP_REDIRECT_URI,
     }
 
     try:
