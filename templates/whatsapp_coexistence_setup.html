@@ -21,6 +21,8 @@
 <script>
   const CONFIG_ID = '1767405781046590';
   const statusBox = document.getElementById('status');
+  let sessionInfo = {};
+
   function showStatus(value){
     statusBox.style.display='block';
     statusBox.textContent=typeof value==='string'?value:JSON.stringify(value,null,2);
@@ -30,6 +32,25 @@
     try { rendered = typeof value==='string' ? value : JSON.stringify(value,null,2); }
     catch(e) { rendered = String(value); }
     showStatus(label + '\n' + rendered);
+  }
+
+  async function exchangeCode(code){
+    showStatus('Meta connected. Finishing secure server connection...');
+    try{
+      const response = await fetch('/whatsapp-coexistence/exchange-code', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({code:code, session_info:sessionInfo})
+      });
+      const data = await response.json();
+      if(data.ok){
+        diagnostic('WHATSAPP_CONNECTION_OK', data);
+      }else{
+        diagnostic('WHATSAPP_CONNECTION_ERROR', data);
+      }
+    }catch(e){
+      diagnostic('BACKEND_CONNECTION_ERROR', {name:e.name, message:e.message});
+    }
   }
 
   window.addEventListener('error', function(event){
@@ -59,6 +80,7 @@
     try{
       const data=typeof event.data==='string'?JSON.parse(event.data):event.data;
       if(data && data.type==='WA_EMBEDDED_SIGNUP'){
+        if(data.data){ sessionInfo = data.data; }
         diagnostic('WA_EMBEDDED_SIGNUP_EVENT', data);
       }
     }catch(e){
@@ -71,6 +93,10 @@
     showStatus('Opening Meta Embedded Signup...');
     try {
       FB.login(function(response){
+        if(response && response.authResponse && response.authResponse.code){
+          exchangeCode(response.authResponse.code);
+          return;
+        }
         diagnostic('FB_LOGIN_CALLBACK', response || {empty_response:true});
       },{
         config_id:CONFIG_ID,
