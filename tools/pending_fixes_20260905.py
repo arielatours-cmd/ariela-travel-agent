@@ -19,8 +19,11 @@ def _patch_deals_template():
     before = path.read_text(encoding="utf-8")
     text = before
 
-    icon = '<span class="deal-alert-whatsapp-icon" aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:#25D366;color:#fff;font:700 13px Arial,sans-serif">☎</span>'
-    if "deal-alert-whatsapp-icon" not in text:
+    old_icon = '<span class="deal-alert-whatsapp-icon" aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:#25D366;color:#fff;font:700 13px Arial,sans-serif">☎</span>'
+    icon = '<span class="deal-alert-whatsapp-icon" aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;flex:0 0 24px;border-radius:50%;background:#25D366;color:#fff"><svg viewBox="0 0 32 32" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M19.11 17.21c-.26-.13-1.55-.76-1.79-.85-.24-.09-.41-.13-.59.13-.17.26-.67.85-.82 1.02-.15.17-.3.2-.56.07-.26-.13-1.09-.4-2.08-1.28-.77-.68-1.29-1.53-1.44-1.79-.15-.26-.02-.4.11-.53.12-.12.26-.3.39-.46.13-.15.17-.26.26-.44.09-.17.04-.33-.02-.46-.07-.13-.59-1.42-.8-1.94-.21-.51-.43-.44-.59-.45h-.5c-.17 0-.46.07-.7.33-.24.26-.91.89-.91 2.17 0 1.28.94 2.52 1.07 2.69.13.17 1.84 2.81 4.46 3.94.62.27 1.11.43 1.49.55.63.2 1.2.17 1.65.1.5-.07 1.55-.63 1.77-1.24.22-.61.22-1.13.15-1.24-.07-.11-.24-.17-.5-.3z"/><path d="M16.03 3C8.84 3 3 8.69 3 15.7c0 2.43.71 4.7 1.94 6.63L3.06 29l6.88-1.79a13.2 13.2 0 0 0 6.09 1.49C23.22 28.7 29 23.01 29 16S23.22 3 16.03 3zm0 23.52c-2.14 0-4.13-.62-5.82-1.69l-.42-.26-4.08 1.06 1.09-3.97-.27-.41a10.3 10.3 0 0 1-1.71-5.55c0-5.8 4.96-10.52 11.21-10.52 6.25 0 11.15 4.72 11.15 10.52 0 5.8-4.9 10.82-11.15 10.82z"/></svg></span>'
+    if old_icon in text:
+        text = text.replace(old_icon, icon)
+    elif "deal-alert-whatsapp-icon" not in text:
         text = text.replace('<span class="deal-alert-copy"><strong>', icon + '<span class="deal-alert-copy"><strong>')
 
     text = _once(
