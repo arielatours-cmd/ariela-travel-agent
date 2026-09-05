@@ -29,10 +29,10 @@
   .deal-card-v970 .route-arrow{font-size:15px!important;flex:0 0 auto!important}
 
   .deal-card-v970 .flight-leg{padding:9px 0!important;margin:0!important}
-  /* Put 'Outbound' / 'Return' on the physical left, date on the right. */
-  .deal-card-v970 .leg-heading{display:grid!important;grid-template-columns:auto 1fr!important;gap:4px 8px!important;align-items:center!important;margin-bottom:7px!important;direction:ltr!important}
-  .deal-card-v970 .leg-title{font-size:13px!important;grid-column:1!important;grid-row:1!important;justify-self:start!important;text-align:left!important;direction:rtl!important;white-space:nowrap!important}
-  .deal-card-v970 .leg-date{font-size:12px!important;grid-column:2!important;grid-row:1!important;justify-self:end!important;text-align:right!important;direction:rtl!important;white-space:nowrap!important}
+  /* Put date on the physical left and 'Outbound' / 'Return' on the physical right. */
+  .deal-card-v970 .leg-heading{display:grid!important;grid-template-columns:1fr auto!important;gap:4px 8px!important;align-items:center!important;margin-bottom:7px!important;direction:ltr!important}
+  .deal-card-v970 .leg-date{font-size:12px!important;grid-column:1!important;grid-row:1!important;justify-self:start!important;text-align:left!important;direction:rtl!important;white-space:nowrap!important}
+  .deal-card-v970 .leg-title{font-size:13px!important;grid-column:2!important;grid-row:1!important;justify-self:end!important;text-align:right!important;direction:rtl!important;white-space:nowrap!important}
   .deal-card-v970 .leg-airline{grid-column:1/-1!important;grid-row:2!important;font-size:11px!important;display:flex!important;align-items:center!important;gap:5px!important;direction:ltr!important;justify-self:start!important}
   .deal-card-v970 .leg-airline img{width:22px!important;height:22px!important;object-fit:contain!important}
   .deal-card-v970 .leg-route-times{grid-template-columns:64px minmax(0,1fr) 64px!important;gap:6px!important;align-items:center!important}
