@@ -78,8 +78,8 @@ def patch_account():
                 ('intensive','אינטנסיבי','Intensive','3 פעמים ביום','3 times a day','₪14.90')
               ] %}'''
     new_plans = '''              {% for plan, he_name, en_name, he_freq, en_freq, price in [
-                ('shared','חיפוש אישי','Personal search','בדיקה מול מאגר הדילים המשותף','Shared deal database monitoring','₪19'),
-                ('intensive','חיפוש אינטנסיבי','Intensive search','כולל סריקות חיצוניות כשצריך','Includes external scans when needed','₪39')
+                ('shared','חיפוש אישי','Personal search','בדיקה מול מאגר הדילים המשותף וקבלת עדכונים ב־WhatsApp','Shared deal database monitoring with WhatsApp updates','₪19'),
+                ('intensive','חיפוש אינטנסיבי','Intensive search','חיפוש מורחב עם סריקות חיצוניות לפי הצורך ועדכונים ב־WhatsApp','Expanded search with external scans when needed and WhatsApp updates','₪39')
               ] %}'''
     text = text.replace(old_plans, new_plans)
     text = text.replace("{% if plan == 'daily' %}<em>{{ 'Recommended' if site_lang == 'en' else 'מומלץ' }}</em>{% endif %}", "{% if plan == 'shared' %}<em>{{ 'Recommended' if site_lang == 'en' else 'מומלץ' }}</em>{% endif %}")
