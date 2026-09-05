@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-trip-regular.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='questionnaire-fixes-20260906.css') }}">
 <style id="canonical-home-header-css">
 :root{--black:#070707;--cream:#f7f0e4;--cream2:#fffaf2;--gold:#c99a3f;--gold2:#e7c778}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
@@ -42,17 +43,11 @@ h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-we
 /* Personal-search deal cards: the vacation card already carries the destination image. */
 .account-trip-deals .deal-card-v970 .deal-visual,
 .account-trip-deals .deal-card-v970 .visual-destination-outside{display:none!important}
-.account-trip-deals .deal-card-v970 .deal-main-grid{
-  grid-template-columns:minmax(430px,2fr) minmax(210px,1fr) minmax(260px,1.1fr)!important;
-  grid-template-rows:auto!important;
-}
-.account-trip-deals .deal-card-v970 .deal-flight,
-.account-trip-deals .deal-card-v970 .deal-baggage,
-.account-trip-deals .deal-card-v970 .deal-commerce{grid-row:1!important;min-height:0!important}
+.account-trip-deals .deal-card-v970 .deal-main-grid{grid-template-columns:minmax(430px,2fr) minmax(210px,1fr) minmax(260px,1.1fr)!important;grid-template-rows:auto!important}
+.account-trip-deals .deal-card-v970 .deal-flight,.account-trip-deals .deal-card-v970 .deal-baggage,.account-trip-deals .deal-card-v970 .deal-commerce{grid-row:1!important;min-height:0!important}
 .account-trip-deals .personal-additional-options-title{display:block;margin-bottom:5px;font-size:20px;font-weight:800;color:#17283f}
 .account-trip-deals .personal-additional-options-note{display:block;color:#667180;font-size:14px}
 @media(max-width:900px){.account-trip-deals .deal-card-v970 .deal-main-grid{display:block!important}}
-
 .login-error-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.48);backdrop-filter:blur(2px)}
 .login-error-popup{width:min(430px,calc(100vw - 40px));background:#fffaf2;border:1px solid var(--gold2);box-shadow:0 18px 55px rgba(0,0,0,.28);border-radius:16px;padding:26px 24px;text-align:center;color:#17283f}
 .login-error-popup strong{display:block;font-size:22px;line-height:1.3;margin-bottom:8px}.login-error-popup p{margin:0;font-size:16px;line-height:1.5}.login-error-popup small{display:block;margin-top:14px;color:#7b6b4d;font-size:12px}
@@ -69,22 +64,8 @@ h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-we
 document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});
 (function(){const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');if(!button||!menu)return;const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});})();
 function togglePassword(button){const input=button.closest('.password-field').querySelector('input');const show=input.type==='password';button.classList.toggle('is-visible',show);button.setAttribute('aria-label',show?'{{ 'Hide password' if site_lang == 'en' else 'הסתרת סיסמה' }}':'{{ 'Show password' if site_lang == 'en' else 'הצגת סיסמה' }}');input.type=show?'text':'password';}
-
-document.addEventListener('DOMContentLoaded',function(){
-  document.querySelectorAll('.account-trip-deals .alternative-deals-block .alternative-deals-message').forEach(function(el){
-    if(el.querySelector('.personal-additional-options-title')) return;
-    const title=document.createElement('strong');
-    title.className='personal-additional-options-title';
-    title.textContent=document.documentElement.lang==='en'?'Additional options':'אפשרויות נוספות';
-    const note=document.createElement('span');
-    note.className='personal-additional-options-note';
-    note.textContent=document.documentElement.lang==='en'
-      ? 'Ariella’s pick, best value, longest stay, and worthwhile date changes — when suitable options exist.'
-      : 'בחירת אריאלה, הכי משתלם, הכי הרבה זמן ביעד ושינויי תאריכים שכדאי לשקול — כשיש אפשרויות מתאימות.';
-    el.textContent='';
-    el.appendChild(title);el.appendChild(note);
-  });
-});
+document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.account-trip-deals .alternative-deals-block .alternative-deals-message').forEach(function(el){if(el.querySelector('.personal-additional-options-title')) return;const title=document.createElement('strong');title.className='personal-additional-options-title';title.textContent=document.documentElement.lang==='en'?'Additional options':'אפשרויות נוספות';const note=document.createElement('span');note.className='personal-additional-options-note';note.textContent=document.documentElement.lang==='en'?'Ariella’s pick, best value, longest stay, and worthwhile date changes — when suitable options exist.':'בחירת אריאלה, הכי משתלם, הכי הרבה זמן ביעד ושינויי תאריכים שכדאי לשקול — כשיש אפשרויות מתאימות.';el.textContent='';el.appendChild(title);el.appendChild(note);});});
 </script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
+<script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}"></script>
 </body></html>
