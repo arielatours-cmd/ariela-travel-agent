@@ -28,19 +28,20 @@
   .deal-card-v970 .route-code{font-size:10px!important;white-space:nowrap!important}
   .deal-card-v970 .route-arrow{font-size:15px!important;flex:0 0 auto!important}
 
-  .deal-card-v970 .flight-leg{padding:9px 0!important;margin:0!important}
+  .deal-card-v970 .flight-leg{padding:9px 0 28px!important;margin:0!important;position:relative!important}
   /* Put date on the physical left and 'Outbound' / 'Return' on the physical right. */
   .deal-card-v970 .leg-heading{display:grid!important;grid-template-columns:1fr auto!important;gap:4px 8px!important;align-items:center!important;margin-bottom:7px!important;direction:ltr!important}
   .deal-card-v970 .leg-date{font-size:12px!important;grid-column:1!important;grid-row:1!important;justify-self:start!important;text-align:left!important;direction:rtl!important;white-space:nowrap!important}
   .deal-card-v970 .leg-title{font-size:13px!important;grid-column:2!important;grid-row:1!important;justify-self:end!important;text-align:right!important;direction:rtl!important;white-space:nowrap!important}
-  .deal-card-v970 .leg-airline{grid-column:1/-1!important;grid-row:2!important;font-size:11px!important;display:flex!important;align-items:center!important;gap:5px!important;direction:ltr!important;justify-self:start!important}
-  .deal-card-v970 .leg-airline img{width:22px!important;height:22px!important;object-fit:contain!important}
+  /* Airline sits below the times, on the left, parallel to the duration line. */
+  .deal-card-v970 .leg-airline{position:absolute!important;left:0!important;bottom:5px!important;grid-column:auto!important;grid-row:auto!important;font-size:11px!important;display:flex!important;align-items:center!important;gap:5px!important;direction:ltr!important;justify-self:auto!important;margin:0!important;line-height:1!important}
+  .deal-card-v970 .leg-airline img{width:20px!important;height:20px!important;object-fit:contain!important}
   .deal-card-v970 .leg-route-times{grid-template-columns:64px minmax(0,1fr) 64px!important;gap:6px!important;align-items:center!important}
   .deal-card-v970 .time-node small{font-size:10px!important}
   .deal-card-v970 .time-node time{font-size:18px!important}
   .deal-card-v970 .mini-flight-line{min-width:0!important}
   .deal-card-v970 .connection-pill{font-size:9px!important;padding:3px 5px!important}
-  .deal-card-v970 .leg-duration{font-size:10.5px!important;margin-top:4px!important}
+  .deal-card-v970 .leg-duration{display:block!important;font-size:10.5px!important;margin-top:4px!important;text-align:right!important;padding-left:92px!important}
 
   .deal-card-v970 .baggage-heading{font-size:15px!important;margin:0 0 8px!important}
   .deal-card-v970 .baggage-heading small{font-size:9.5px!important}
