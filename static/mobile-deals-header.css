@@ -1,0 +1,75 @@
+/* Mobile-only compact Deals header actions: WhatsApp alerts + My Vacations side by side. */
+@media (max-width:760px){
+  .deals-page .deals-heading-with-alert{
+    padding-top:96px!important;
+    min-height:236px!important;
+  }
+  .deals-page .deals-alert-left,
+  .deals-page .deals-vacations-right{
+    top:12px!important;
+    width:calc(50% - 18px)!important;
+    display:flex!important;
+    align-items:stretch!important;
+    justify-content:stretch!important;
+  }
+  .deals-page .deals-alert-left{
+    left:12px!important;
+    right:auto!important;
+  }
+  .deals-page .deals-vacations-right{
+    right:12px!important;
+    left:auto!important;
+  }
+  .deals-page .deal-alert-form{
+    width:100%!important;
+    display:flex!important;
+    margin:0!important;
+  }
+  .deals-page .deal-alert-switch,
+  .deals-page .my-vacations-from-deals{
+    width:100%!important;
+    min-width:0!important;
+    min-height:62px!important;
+    height:62px!important;
+    margin:0!important;
+    border-radius:10px!important;
+  }
+  .deals-page .deal-alert-switch{
+    padding:7px 9px!important;
+    gap:7px!important;
+  }
+  .deals-page .deal-alert-copy{
+    min-width:0!important;
+  }
+  .deals-page .deal-alert-copy strong{
+    font-size:12px!important;
+    line-height:1.15!important;
+    white-space:nowrap!important;
+  }
+  .deals-page .deal-alert-copy small{
+    font-size:9.5px!important;
+    line-height:1.15!important;
+    white-space:nowrap!important;
+  }
+  .deals-page .deal-alert-track{
+    width:38px!important;
+    height:22px!important;
+    flex:0 0 38px!important;
+  }
+  .deals-page .deal-alert-track i{
+    width:16px!important;
+    height:16px!important;
+    top:3px!important;
+    left:3px!important;
+  }
+  .deals-page .deal-alert-switch.is-on .deal-alert-track i{
+    left:19px!important;
+  }
+  .deals-page .my-vacations-from-deals{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:8px 10px!important;
+    font-size:14px!important;
+  }
+}
