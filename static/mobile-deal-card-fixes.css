@@ -1,0 +1,70 @@
+/* Mobile-only deal-card and filter fixes. Desktop stays unchanged. */
+@media (max-width:760px){
+  /* Closing the master filters button must really close the panel. */
+  .deals-page .deal-filters-wrap:not(.filters-open) .deal-filters-main,
+  .deals-page .deal-filters-wrap:not(.filters-open) .deal-filters-more{
+    display:none!important;
+  }
+
+  /* Deal cards: compact, readable mobile flow. */
+  .deals-page .ariella-deals-list,
+  .account-trip-deals .ariella-deals-list{display:grid!important;grid-template-columns:1fr!important;gap:14px!important}
+  .deal-card-v970{border-radius:14px!important;overflow:hidden!important;margin:0!important}
+  .deal-card-v970 .deal-main-grid{display:block!important;grid-template-columns:1fr!important;grid-template-rows:auto!important}
+  .deal-card-v970 .deal-visual{min-height:150px!important;height:150px!important;background-size:cover!important;background-position:center!important;position:relative!important}
+  .deal-card-v970 .stop-badge{top:10px!important;right:10px!important;font-size:12px!important;padding:5px 9px!important}
+  .deal-card-v970 .visual-destination-outside{padding:8px 12px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;min-height:0!important}
+  .deal-card-v970 .visual-destination-outside strong{font-size:21px!important;line-height:1.1!important}
+  .deal-card-v970 .visual-airport-code{font-size:14px!important}
+
+  .deal-card-v970 .deal-flight,
+  .deal-card-v970 .deal-baggage,
+  .deal-card-v970 .deal-commerce{padding:12px!important;margin:0!important;border-top:1px solid #ece5d9!important;min-height:0!important}
+  .deal-card-v970 .deal-route-title{font-size:20px!important;line-height:1.2!important;margin:0 0 10px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;flex-wrap:wrap!important}
+  .deal-card-v970 .route-city{font-size:20px!important}
+  .deal-card-v970 .route-code{font-size:12px!important}
+  .deal-card-v970 .route-arrow{font-size:18px!important}
+
+  .deal-card-v970 .flight-leg{padding:9px 0!important;margin:0!important}
+  .deal-card-v970 .leg-heading{display:grid!important;grid-template-columns:auto 1fr!important;gap:4px 8px!important;align-items:center!important;margin-bottom:7px!important}
+  .deal-card-v970 .leg-title{font-size:14px!important}
+  .deal-card-v970 .leg-date{font-size:12px!important;text-align:left!important}
+  .deal-card-v970 .leg-airline{grid-column:1/-1!important;font-size:11px!important;display:flex!important;align-items:center!important;gap:5px!important}
+  .deal-card-v970 .leg-airline img{width:22px!important;height:22px!important;object-fit:contain!important}
+  .deal-card-v970 .leg-route-times{grid-template-columns:64px minmax(0,1fr) 64px!important;gap:6px!important;align-items:center!important}
+  .deal-card-v970 .time-node small{font-size:10px!important}
+  .deal-card-v970 .time-node time{font-size:18px!important}
+  .deal-card-v970 .mini-flight-line{min-width:0!important}
+  .deal-card-v970 .connection-pill{font-size:9px!important;padding:3px 5px!important}
+  .deal-card-v970 .leg-duration{font-size:10.5px!important;margin-top:4px!important}
+
+  .deal-card-v970 .baggage-heading{font-size:15px!important;margin:0 0 8px!important}
+  .deal-card-v970 .baggage-heading small{font-size:9.5px!important}
+  .deal-card-v970 .deal-baggage ul{margin:0!important;padding:0!important}
+  .deal-card-v970 .deal-baggage li{min-height:34px!important;padding:5px 0!important;font-size:12px!important}
+  .deal-card-v970 .bag-svg{font-size:18px!important}
+
+  .deal-card-v970 .important-terms{margin:0 0 8px!important}
+  .deal-card-v970 .important-terms>div{display:flex!important;justify-content:space-between!important;gap:8px!important;padding:4px 0!important;font-size:11px!important}
+  .deal-card-v970 .deal-price-box{padding:10px!important;text-align:center!important}
+  .deal-card-v970 .found-label,.deal-card-v970 .average-label{font-size:10px!important}
+  .deal-card-v970 .deal-price-box>strong{font-size:28px!important;line-height:1!important}
+  .deal-card-v970 .supplier-summary{font-size:10px!important;line-height:1.35!important;margin-top:7px!important}
+  .deal-card-v970 .deal-price-box>a{min-height:40px!important;padding:8px 12px!important;font-size:13px!important;margin-top:8px!important}
+
+  /* Reasons for choosing the deal: clean chips, no oversized stacked text. */
+  .deal-card-v970 .deal-reasons-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;padding:9px 10px!important;margin:0!important;background:#fbf7ef!important;border-top:1px solid #eadfc9!important}
+  .deal-card-v970 .deal-reasons-row span{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;min-height:32px!important;padding:5px 7px!important;border:1px solid #dec89b!important;border-radius:999px!important;background:#fff!important;color:#5d4b2b!important;font-size:10.5px!important;line-height:1.15!important;font-weight:700!important;white-space:normal!important}
+  .deal-card-v970 .deal-footer{padding:7px 10px!important;font-size:9.5px!important;line-height:1.2!important}
+  .deal-card-v970 .deal-stale-warning{font-size:10.5px!important;line-height:1.3!important;margin:7px 10px 10px!important;padding:7px 8px!important}
+
+  /* Personal vacation results already have the destination image in the vacation card. */
+  .account-trip-deals .deal-card-v970 .deal-visual,
+  .account-trip-deals .deal-card-v970 .visual-destination-outside{display:none!important}
+}
+
+@media (max-width:390px){
+  .deal-card-v970 .deal-route-title,.deal-card-v970 .route-city{font-size:18px!important}
+  .deal-card-v970 .deal-reasons-row{gap:5px!important;padding:7px 8px!important}
+  .deal-card-v970 .deal-reasons-row span{font-size:9.8px!important;padding-inline:5px!important}
+}
