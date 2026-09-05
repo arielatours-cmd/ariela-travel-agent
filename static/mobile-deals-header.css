@@ -162,6 +162,62 @@
   body:has(.auth-section .airport-picker) .form-footer{
     font-size:9.5px!important;margin:0!important;
   }
+
+  /* First join screen only: make the full question/form visible without scrolling. */
+  html body:has(.auth-section .airport-picker) .auth-section .shell{width:96%!important}
+  html body:has(.auth-section .airport-picker) .auth-copy{display:none!important}
+  html body:has(.auth-section .airport-picker) .form-card{
+    margin:0!important;
+    padding:7px 8px!important;
+    gap:4px 6px!important;
+    border-radius:10px!important;
+  }
+  html body:has(.auth-section .airport-picker) .form-card h2{
+    font-size:17px!important;
+    line-height:1!important;
+    margin:0!important;
+  }
+  html body:has(.auth-section .airport-picker) .form-card label{
+    font-size:9.5px!important;
+    line-height:1!important;
+  }
+  html body:has(.auth-section .airport-picker) .form-card input,
+  html body:has(.auth-section .airport-picker) .form-card select{
+    height:29px!important;
+    min-height:29px!important;
+    font-size:11px!important;
+    padding:3px 6px!important;
+    margin-top:1px!important;
+  }
+  html body:has(.auth-section .airport-picker) .airport-picker{
+    min-height:29px!important;
+    margin-top:1px!important;
+    padding:1px 3px!important;
+  }
+  html body:has(.auth-section .airport-picker) .airport-search{
+    height:25px!important;
+    min-height:25px!important;
+    font-size:9.5px!important;
+  }
+  html body:has(.auth-section .airport-picker) .form-card small{
+    font-size:7.5px!important;
+    margin:0!important;
+  }
+  html body:has(.auth-section .airport-picker) .consent{
+    font-size:8px!important;
+    line-height:1.05!important;
+    margin:0!important;
+  }
+  html body:has(.auth-section .airport-picker) .button.full{
+    height:31px!important;
+    min-height:31px!important;
+    font-size:11.5px!important;
+    padding:3px 8px!important;
+  }
+  html body:has(.auth-section .airport-picker) .form-footer{
+    font-size:8.5px!important;
+    line-height:1!important;
+  }
 }
 
 @media (max-width:390px){
