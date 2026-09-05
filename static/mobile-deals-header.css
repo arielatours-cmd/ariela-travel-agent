@@ -44,6 +44,46 @@
   .deals-page .deal-filters-wrap select,.deals-page .deal-filters-wrap input,.deals-page .filter-multi-button{width:100%!important;min-width:0!important;min-height:36px!important;height:36px!important;margin:0!important;padding:4px 7px!important;border-radius:7px!important;font-size:12.5px!important}
   .deals-page .filter-multi-button{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
   .deals-page .filter-multi-menu{width:min(280px,calc(100vw - 34px))!important;min-width:0!important;max-width:calc(100vw - 34px)!important}
+  .deals-page #filterDestinationWrap .filter-multi-menu[hidden]{display:none!important}
+  .deals-page #filterDestinationWrap .filter-multi-menu:not([hidden]){
+    display:block!important;
+    position:fixed!important;
+    top:50%!important;
+    left:50%!important;
+    right:auto!important;
+    bottom:auto!important;
+    transform:translate(-50%,-50%)!important;
+    width:calc(100vw - 32px)!important;
+    max-width:420px!important;
+    max-height:60vh!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    margin:0!important;
+    padding:12px!important;
+    background:#fff!important;
+    border:1px solid #d9d3c8!important;
+    border-radius:12px!important;
+    box-shadow:0 18px 45px rgba(0,0,0,.28)!important;
+    z-index:10000!important;
+    direction:rtl!important;
+  }
+  .deals-page #filterDestinationWrap .filter-multi-menu label{
+    width:100%!important;
+    min-height:38px!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:8px!important;
+    padding:7px 8px!important;
+    margin:0!important;
+    white-space:normal!important;
+  }
+  .deals-page #filterDestinationWrap .filter-multi-menu input[type='checkbox']{
+    width:18px!important;
+    height:18px!important;
+    min-height:18px!important;
+    flex:0 0 18px!important;
+    margin:0!important;
+  }
   .deals-page .deal-clear-filters{width:100%!important;min-width:0!important;min-height:36px!important;height:36px!important;margin:0!important;padding:4px 7px!important;font-size:12px!important}
 
   /* First questionnaire screen: all vacation types side by side on mobile. */
