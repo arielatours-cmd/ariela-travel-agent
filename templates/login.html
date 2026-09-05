@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Sign in to Ariella' if site_lang == 'en' else 'התחברות לאריאלה' }}{% endblock %}
 {% block content %}
+<style id="mobile-login-compact-20260905">
+@media (max-width:760px){
+  html body .auth-section{padding:18px 0 24px!important}
+  html body .auth-section .auth-grid.compact{min-height:0!important;gap:10px!important;align-items:start!important}
+  html body .auth-section .auth-copy h1{margin:6px 0 10px!important;line-height:1.04!important}
+  html body .auth-section .auth-copy p{margin:0 0 6px!important;line-height:1.35!important}
+  html body .auth-section .form-card{padding:22px 24px!important}
+  html body .auth-section .form-card h2{margin:0 0 14px!important}
+  html body .auth-section .form-card label{margin:10px 0!important}
+  html body .auth-section .form-card input{padding:10px 12px!important;margin-top:4px!important}
+  html body .auth-section .forgot-password-link{margin-top:2px!important;margin-bottom:8px!important}
+  html body .auth-section .button.full{min-height:44px!important}
+  html body .auth-section .form-footer{margin:10px 0 0!important}
+}
+</style>
 <section class="auth-section"><div class="shell auth-grid compact">
   <div class="auth-copy"><h1>{% if site_lang == 'en' %}Your next vacation<br>starts here.{% else %}החופשה הבאה<br>מתחילה כאן.{% endif %}</h1><p>{{ 'Sign in to manage your vacations.' if site_lang == 'en' else 'התחברו כדי לנהל את החופשות שלכם.' }}</p></div>
   <form class="form-card" method="post">
