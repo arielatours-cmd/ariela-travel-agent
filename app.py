@@ -11,6 +11,11 @@ from flask import Flask, jsonify, request, redirect
 from tools.runtime_prepare_v136 import prepare as _prepare_v136
 _prepare_v136()
 
+# Apply the approved 2026-09-05 UI + deal-persistence corrections before
+# public_site/templates are imported by the running service.
+from tools.pending_fixes_20260905 import prepare as _prepare_pending_20260905
+_prepare_pending_20260905()
+
 from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
@@ -169,16 +174,14 @@ def admin_dashboard():
 @app.get("/admin/analytics")
 def admin_analytics():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     return render_analytics_dashboard(version=APP_VERSION, analytics=business_analytics(12), token=request.args.get("token", ""))
 
 
 @app.get("/admin/feedback")
 def admin_feedback():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     feedback = recent_feedback(500)
     mark_feedback_seen()
     return render_feedback_dashboard(feedback=feedback, token=request.args.get("token", ""))
@@ -187,8 +190,7 @@ def admin_feedback():
 @app.get("/offers-preview")
 def offers_preview():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     limit = request.args.get("limit", 50, type=int)
     minimum_score = request.args.get("minimum_score", type=int)
     offers = recent_offers(limit=limit, minimum_score=minimum_score)
@@ -198,8 +200,7 @@ def offers_preview():
 @app.get("/feedback-preview")
 def feedback_preview():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     messages = recent_feedback(request.args.get("limit", 100, type=int))
     return jsonify({"status": "success", "count": len(messages), "messages": messages})
 
@@ -207,8 +208,7 @@ def feedback_preview():
 @app.get("/scan-history")
 def scan_history():
     denied = _require_admin()
-    if denied:
-        return denied
+    if denied: return denied
     return jsonify({"status": "success", "scans": recent_scan_runs(request.args.get("limit", 20, type=int))})
 
 
