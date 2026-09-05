@@ -1,8 +1,47 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Join Ariella' if site_lang == 'en' else 'הצטרפות לאריאלה' }}{% endblock %}
 {% block content %}
+<style id="mobile-join-compact-20260905">
+@media (max-width:760px){
+  html body .auth-section{padding:14px 0 20px!important}
+  html body .auth-section .auth-grid{display:block!important;min-height:0!important}
+  html body .auth-section .auth-copy{margin:0 auto 10px!important;text-align:center!important}
+  html body .auth-section .auth-copy .eyebrow{font-size:11px!important;letter-spacing:3px!important;margin-bottom:4px!important}
+  html body .auth-section .auth-copy h1{font-size:36px!important;line-height:1.02!important;margin:4px 0 8px!important}
+  html body .auth-section .auth-copy p{font-size:15px!important;line-height:1.3!important;margin:0!important}
+  html body .auth-section .form-card{
+    padding:16px 16px 14px!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    gap:8px 10px!important;
+  }
+  html body .auth-section .form-card h2{grid-column:1/-1;margin:0 0 4px!important;font-size:22px!important}
+  html body .auth-section .form-card label{margin:0!important;font-size:12px!important;line-height:1.2!important;min-width:0!important}
+  html body .auth-section .form-card label:nth-of-type(5),
+  html body .auth-section .form-card label:nth-of-type(6),
+  html body .auth-section .form-card .consent,
+  html body .auth-section .form-card .button.full,
+  html body .auth-section .form-card .form-footer{grid-column:1/-1!important}
+  html body .auth-section .form-card input,
+  html body .auth-section .form-card select{height:38px!important;min-height:38px!important;padding:6px 9px!important;margin-top:3px!important;font-size:13px!important}
+  html body .auth-section .airport-picker{min-height:38px!important;padding:3px 6px!important;margin-top:3px!important}
+  html body .auth-section .airport-search{height:32px!important;min-height:32px!important;margin:0!important;padding:4px 6px!important}
+  html body .auth-section .form-card small{font-size:10px!important;line-height:1.15!important;margin-top:2px!important}
+  html body .auth-section .password-field{margin-top:3px!important}
+  html body .auth-section .password-field input{margin-top:0!important}
+  html body .auth-section .consent{display:flex!important;align-items:flex-start!important;gap:6px!important;font-size:10.5px!important;line-height:1.25!important}
+  html body .auth-section .consent input{width:16px!important;height:16px!important;min-height:16px!important;margin:0!important;flex:0 0 16px!important}
+  html body .auth-section .button.full{min-height:40px!important;height:40px!important;padding:6px 12px!important;font-size:14px!important;margin:0!important}
+  html body .auth-section .form-footer{font-size:11px!important;margin:2px 0 0!important;text-align:center!important}
+}
+@media (max-width:390px){
+  html body .auth-section .auth-copy h1{font-size:32px!important}
+  html body .auth-section .auth-copy p{font-size:13px!important}
+  html body .auth-section .form-card{padding:13px!important;gap:7px 8px!important}
+}
+</style>
 <section class="auth-section"><div class="shell auth-grid">
-  <div class="auth-copy"><span class="eyebrow">{{ 'ARIella membership' if site_lang == 'en' else 'חברות באריאלה' }}</span><h1>{% if site_lang == 'en' %}Create an account.<br>Start finding better.{% else %}פותחים חשבון.<br>מתחילים לדייק.{% endif %}</h1><p>{{ 'Create separate vacation searches and let Ariella learn what to look for.' if site_lang == 'en' else 'לאחר ההתחברות תוכלו ליצור חיפוש נפרד לכל חופשה.' }}</p><div class="trial-note"><strong>{{ 'Free during the launch period' if site_lang == 'en' else 'ללא תשלום בתקופת ההרצה' }}</strong><span>{{ 'Personal matching may become a paid membership service in the future, with advance notice.' if site_lang == 'en' else 'שירות ההתאמה האישית מיועד בעתיד לפעול במסגרת חברות בתשלום, בכפוף להודעה מראש.' }}</span></div></div>
+  <div class="auth-copy"><span class="eyebrow">{{ 'ARIella membership' if site_lang == 'en' else 'חברות באריאלה' }}</span><h1>{% if site_lang == 'en' %}Create an account.<br>Start finding better.{% else %}פותחים חשבון.<br>מתחילים לדייק.{% endif %}</h1><p>{{ 'Create separate vacation searches and let Ariella learn what to look for.' if site_lang == 'en' else 'לאחר ההתחברות תוכלו ליצור חיפוש נפרד לכל חופשה.' }}</p></div>
   <form class="form-card" method="post">
     <h2>{{ 'Create account' if site_lang == 'en' else 'יצירת חשבון' }}</h2>
     <label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}<input name="full_name" autocomplete="name" required></label>
