@@ -166,3 +166,26 @@
       initializePickers();
     });
 })();
+
+/* Mobile questionnaire: place the “Back to My Vacations” button centered below
+   the vacation-type cards instead of above the questionnaire. */
+document.addEventListener('DOMContentLoaded',()=>{
+  if(!window.matchMedia('(max-width:760px)').matches) return;
+  const gate=document.getElementById('vacationTypeGate');
+  const backBar=document.querySelector('.trip-back-bar');
+  const backButton=backBar?.querySelector('.back-to-vacations');
+  if(!gate || !backBar || !backButton) return;
+  gate.insertAdjacentElement('afterend',backBar);
+  backBar.style.width='100%';
+  backBar.style.maxWidth='100%';
+  backBar.style.display='flex';
+  backBar.style.justifyContent='center';
+  backBar.style.padding='8px 16px 28px';
+  backBar.style.margin='0 auto';
+  backButton.style.width='min(300px,82vw)';
+  backButton.style.minHeight='50px';
+  backButton.style.display='inline-flex';
+  backButton.style.alignItems='center';
+  backButton.style.justifyContent='center';
+  backButton.style.margin='0 auto';
+});
