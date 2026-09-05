@@ -20,16 +20,20 @@
   .deal-card-v970 .deal-flight,
   .deal-card-v970 .deal-baggage,
   .deal-card-v970 .deal-commerce{padding:12px!important;margin:0!important;border-top:1px solid #ece5d9!important;min-height:0!important}
-  .deal-card-v970 .deal-route-title{font-size:20px!important;line-height:1.2!important;margin:0 0 10px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;flex-wrap:wrap!important}
-  .deal-card-v970 .route-city{font-size:20px!important}
-  .deal-card-v970 .route-code{font-size:12px!important}
-  .deal-card-v970 .route-arrow{font-size:18px!important}
+
+  /* Keep origin + destination on one line on mobile. */
+  .deal-card-v970 .deal-route-title{font-size:16px!important;line-height:1.15!important;margin:0 0 10px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;flex-wrap:nowrap!important;white-space:nowrap!important;min-width:0!important}
+  .deal-card-v970 .route-point{display:inline-flex!important;align-items:center!important;gap:3px!important;min-width:0!important;white-space:nowrap!important}
+  .deal-card-v970 .route-city{font-size:16px!important;line-height:1.1!important;white-space:nowrap!important}
+  .deal-card-v970 .route-code{font-size:10px!important;white-space:nowrap!important}
+  .deal-card-v970 .route-arrow{font-size:15px!important;flex:0 0 auto!important}
 
   .deal-card-v970 .flight-leg{padding:9px 0!important;margin:0!important}
-  .deal-card-v970 .leg-heading{display:grid!important;grid-template-columns:auto 1fr!important;gap:4px 8px!important;align-items:center!important;margin-bottom:7px!important}
-  .deal-card-v970 .leg-title{font-size:14px!important}
-  .deal-card-v970 .leg-date{font-size:12px!important;text-align:left!important}
-  .deal-card-v970 .leg-airline{grid-column:1/-1!important;font-size:11px!important;display:flex!important;align-items:center!important;gap:5px!important}
+  /* Put 'Outbound' / 'Return' on the physical left, date on the right. */
+  .deal-card-v970 .leg-heading{display:grid!important;grid-template-columns:auto 1fr!important;gap:4px 8px!important;align-items:center!important;margin-bottom:7px!important;direction:ltr!important}
+  .deal-card-v970 .leg-title{font-size:13px!important;grid-column:1!important;grid-row:1!important;justify-self:start!important;text-align:left!important;direction:rtl!important;white-space:nowrap!important}
+  .deal-card-v970 .leg-date{font-size:12px!important;grid-column:2!important;grid-row:1!important;justify-self:end!important;text-align:right!important;direction:rtl!important;white-space:nowrap!important}
+  .deal-card-v970 .leg-airline{grid-column:1/-1!important;grid-row:2!important;font-size:11px!important;display:flex!important;align-items:center!important;gap:5px!important;direction:ltr!important;justify-self:start!important}
   .deal-card-v970 .leg-airline img{width:22px!important;height:22px!important;object-fit:contain!important}
   .deal-card-v970 .leg-route-times{grid-template-columns:64px minmax(0,1fr) 64px!important;gap:6px!important;align-items:center!important}
   .deal-card-v970 .time-node small{font-size:10px!important}
@@ -64,7 +68,8 @@
 }
 
 @media (max-width:390px){
-  .deal-card-v970 .deal-route-title,.deal-card-v970 .route-city{font-size:18px!important}
+  .deal-card-v970 .deal-route-title,.deal-card-v970 .route-city{font-size:14px!important}
+  .deal-card-v970 .route-code{font-size:9px!important}
   .deal-card-v970 .deal-reasons-row{gap:5px!important;padding:7px 8px!important}
   .deal-card-v970 .deal-reasons-row span{font-size:9.8px!important;padding-inline:5px!important}
 }
