@@ -1,0 +1,82 @@
+/* Questionnaire fixes requested 2026-09-06. */
+
+/* Ski logic applies on desktop and mobile. Seniors are not offered as a ski age group. */
+.trip-wizard label:has(input[name="ski_friends_age_group"][value="seniors"]),
+.trip-wizard label:has(input[name="ski_age_groups"][value="seniors"]){display:none!important}
+/* A solo skier cannot have mixed levels in a group. */
+.trip-wizard:has(input[name="ski_travel_party"][value="solo"]:checked) label:has(input[name="ski_skill_level"][value="mixed"]){display:none!important}
+
+@media(max-width:760px){
+  /* Prevent the back button flashing at the old top-right location. JS moves it first. */
+  .trip-back-bar:not(.mobile-ready){visibility:hidden!important}
+  .trip-back-bar.mobile-ready{visibility:visible!important;width:100%!important;display:flex!important;justify-content:center!important;margin:12px auto 18px!important;padding:0 16px!important}
+  .trip-back-bar.mobile-ready .back-to-vacations{width:min(330px,88vw)!important;min-height:48px!important;margin:0 auto!important;display:flex!important;align-items:center!important;justify-content:center!important}
+
+  /* The common departure-airport panel was taking most of the first screen. */
+  .trip-wizard .trip-origin-defaults{padding:10px 12px!important;margin:8px auto 10px!important;border-radius:14px!important}
+  .trip-wizard .origin-default-heading{font-size:16px!important;line-height:1.15!important;margin:0 0 7px!important}
+  .trip-wizard .origin-airport-picker{min-height:0!important;padding:7px 8px!important;gap:5px!important}
+  .trip-wizard .origin-airport-picker .airport-tags{display:flex!important;flex-wrap:wrap!important;gap:5px!important}
+  .trip-wizard .origin-airport-picker .airport-tag{min-height:31px!important;padding:4px 8px!important;font-size:12px!important;line-height:1.1!important}
+  .trip-wizard .origin-airport-picker .airport-tag button{width:22px!important;height:22px!important;font-size:16px!important}
+  .trip-wizard .origin-airport-picker .airport-search{height:34px!important;min-height:34px!important;padding:5px 7px!important;font-size:12px!important;margin-top:3px!important}
+  .trip-wizard .wizard-progress{margin-top:7px!important}
+  .trip-wizard .wizard-counter{margin:6px 0 10px!important;font-size:14px!important}
+
+  /* First question in ski/business follows the compact regular-question layout. */
+  .trip-wizard .wizard-step[data-step="1"].ski-question,
+  .trip-wizard .wizard-step[data-step="1"].business-question{padding:18px 16px!important;min-height:0!important}
+  .trip-wizard .wizard-step[data-step="1"].ski-question .step-number,
+  .trip-wizard .wizard-step[data-step="1"].business-question .step-number{display:none!important}
+  .trip-wizard .wizard-step[data-step="1"].ski-question h2,
+  .trip-wizard .wizard-step[data-step="1"].business-question h2{font-size:29px!important;line-height:1.12!important;margin:0 0 14px!important}
+  .trip-wizard .wizard-step[data-step="1"].ski-question .choice-button,
+  .trip-wizard .wizard-step[data-step="1"].business-question .choice-button{min-height:62px!important;padding:10px 8px!important;font-size:17px!important}
+  .trip-wizard .wizard-step[data-step="1"] .conditional-panel{margin-top:10px!important;padding:10px!important}
+  .trip-wizard .wizard-step[data-step="1"] .destination-airport-picker{min-height:42px!important;padding:5px 7px!important}
+  .trip-wizard .wizard-step[data-step="1"] .airport-search{height:34px!important;min-height:34px!important;font-size:12px!important}
+
+  /* Ski question 6: all nine choices fit without a long scroll. */
+  .trip-wizard .ski-question[data-step="6"]{padding:14px 12px!important;min-height:0!important}
+  .trip-wizard .ski-question[data-step="6"] .step-number{display:none!important}
+  .trip-wizard .ski-question[data-step="6"] h2{font-size:27px!important;line-height:1.1!important;margin:0 0 5px!important}
+  .trip-wizard .ski-question[data-step="6"] .helper{font-size:13px!important;margin:0 0 8px!important}
+  .trip-wizard .ski-question[data-step="6"] .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+  .trip-wizard .ski-question[data-step="6"] .choice-button{min-height:52px!important;padding:6px 7px!important;font-size:14px!important;line-height:1.15!important}
+  .trip-wizard .ski-question[data-step="6"] .wizard-actions{margin-top:9px!important;gap:7px!important}
+  .trip-wizard .ski-question[data-step="6"] .wizard-actions .button{min-height:43px!important;padding:7px 10px!important}
+
+  /* Business questions 5 and 6: compact enough for one mobile screen. */
+  .trip-wizard .business-question[data-step="5"],
+  .trip-wizard .business-question[data-step="6"]{padding:14px 12px!important;min-height:0!important}
+  .trip-wizard .business-question[data-step="5"] .step-number,
+  .trip-wizard .business-question[data-step="6"] .step-number{display:none!important}
+  .trip-wizard .business-question[data-step="5"] h2,
+  .trip-wizard .business-question[data-step="6"] h2{font-size:28px!important;line-height:1.1!important;margin:0 0 7px!important}
+  .trip-wizard .business-question[data-step="5"] .helper,
+  .trip-wizard .business-question[data-step="6"] .helper{font-size:12px!important;line-height:1.25!important;margin:4px 0 7px!important}
+  .trip-wizard .business-question[data-step="5"] .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+  .trip-wizard .business-question[data-step="5"] .choice-button,
+  .trip-wizard .business-question[data-step="6"] .choice-button{min-height:52px!important;padding:7px!important;font-size:14px!important}
+  .trip-wizard .business-question[data-step="6"] .notes-label{font-size:13px!important;margin-top:7px!important}
+  .trip-wizard .business-question[data-step="6"] textarea{height:55px!important;min-height:55px!important;padding:6px!important}
+  .trip-wizard .business-question[data-step="5"] .wizard-actions,
+  .trip-wizard .business-question[data-step="6"] .wizard-actions{margin-top:8px!important}
+
+  /* Business question 2: dates stay compact and yes/no flexibility is explicit. */
+  .trip-wizard .business-question[data-step="2"]{padding:14px 12px!important}
+  .trip-wizard .business-question[data-step="2"] .step-number{display:none!important}
+  .trip-wizard .business-question[data-step="2"] h2{font-size:28px!important;margin:0 0 9px!important}
+  .trip-wizard .business-date-panel{padding:9px!important;margin:0 0 8px!important;gap:7px!important}
+  .trip-wizard .business-date-panel input{height:40px!important;min-height:40px!important}
+  .business-flex-choice{display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important;margin:7px 0!important}
+  .business-flex-choice button{min-height:44px!important;border:1px solid #d8d3ca;background:#fff;font:inherit;font-weight:700;cursor:pointer}
+  .business-flex-choice button.selected{border-color:#c99a3f;background:#fff8e9}
+  .trip-wizard .business-question[data-step="2"] #businessTimePanel{padding:9px!important;margin-top:7px!important}
+  .trip-wizard .business-question[data-step="2"] #businessTimePanel h3{font-size:20px!important;margin:0 0 7px!important}
+  .trip-wizard .business-question[data-step="2"] #businessTimePanel input{height:38px!important;min-height:38px!important}
+  .trip-wizard .business-question[data-step="2"] #businessTimePanel .helper{font-size:11px!important;line-height:1.2!important;margin:6px 0 0!important}
+
+  /* Origin and destination names must use the same typography in deal cards. */
+  .deal-card-v970 .deal-route-title .route-city{font-size:16px!important;font-weight:700!important;line-height:1.1!important}
+}
