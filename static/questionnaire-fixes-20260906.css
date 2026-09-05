@@ -28,8 +28,8 @@
   .trip-wizard .wizard-step[data-step="1"].business-question{padding:18px 16px!important;min-height:0!important}
   .trip-wizard .wizard-step[data-step="1"].ski-question .step-number,
   .trip-wizard .wizard-step[data-step="1"].business-question .step-number{display:none!important}
-  .trip-wizard .wizard-step[data-step="1"].ski-question h2,
   .trip-wizard .wizard-step[data-step="1"].business-question h2{font-size:29px!important;line-height:1.12!important;margin:0 0 14px!important}
+  .trip-wizard .wizard-step[data-step="1"].ski-question h2{font-size:24px!important;line-height:1.08!important;margin:0 0 10px!important}
   .trip-wizard .wizard-step[data-step="1"].ski-question .choice-button,
   .trip-wizard .wizard-step[data-step="1"].business-question .choice-button{min-height:62px!important;padding:10px 8px!important;font-size:17px!important}
   .trip-wizard .wizard-step[data-step="1"] .conditional-panel{margin-top:10px!important;padding:10px!important}
