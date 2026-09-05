@@ -112,6 +112,56 @@
     padding:7px 8px!important;
     font-size:13px!important;
   }
+
+  /* Join page: fit all required fields in the first mobile screen. */
+  body:has(.auth-section .airport-picker) .auth-section{padding:6px 0 10px!important}
+  body:has(.auth-section .airport-picker) .auth-copy{margin:0 0 5px!important}
+  body:has(.auth-section .airport-picker) .auth-copy .eyebrow,
+  body:has(.auth-section .airport-picker) .auth-copy p{display:none!important}
+  body:has(.auth-section .airport-picker) .auth-copy h1{
+    font-size:26px!important;line-height:1!important;margin:0 0 5px!important;
+  }
+  body:has(.auth-section .airport-picker) .auth-copy h1 br{display:none!important}
+  body:has(.auth-section .airport-picker) .form-card{
+    padding:9px 10px!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    gap:5px 7px!important;
+  }
+  body:has(.auth-section .airport-picker) .form-card h2{
+    font-size:18px!important;margin:0 0 1px!important;
+  }
+  body:has(.auth-section .airport-picker) .form-card label{
+    grid-column:auto!important;font-size:10.5px!important;line-height:1.05!important;
+  }
+  body:has(.auth-section .airport-picker) .form-card input,
+  body:has(.auth-section .airport-picker) .form-card select{
+    height:32px!important;min-height:32px!important;padding:4px 7px!important;margin-top:2px!important;font-size:12px!important;
+  }
+  body:has(.auth-section .airport-picker) .airport-picker{
+    min-height:32px!important;padding:2px 4px!important;margin-top:2px!important;
+  }
+  body:has(.auth-section .airport-picker) .airport-search{
+    height:27px!important;min-height:27px!important;padding:3px 4px!important;font-size:10.5px!important;
+  }
+  body:has(.auth-section .airport-picker) .form-card small{
+    font-size:8.5px!important;line-height:1!important;margin-top:1px!important;
+  }
+  body:has(.auth-section .airport-picker) .password-field{margin-top:2px!important}
+  body:has(.auth-section .airport-picker) .consent,
+  body:has(.auth-section .airport-picker) .button.full,
+  body:has(.auth-section .airport-picker) .form-footer{grid-column:1/-1!important}
+  body:has(.auth-section .airport-picker) .consent{
+    gap:4px!important;font-size:9px!important;line-height:1.1!important;
+  }
+  body:has(.auth-section .airport-picker) .consent input{
+    width:14px!important;height:14px!important;min-height:14px!important;flex-basis:14px!important;
+  }
+  body:has(.auth-section .airport-picker) .button.full{
+    height:34px!important;min-height:34px!important;padding:4px 10px!important;font-size:12.5px!important;
+  }
+  body:has(.auth-section .airport-picker) .form-footer{
+    font-size:9.5px!important;margin:0!important;
+  }
 }
 
 @media (max-width:390px){
@@ -121,4 +171,7 @@
   .deals-page .deal-filters-wrap select,
   .deals-page .deal-filters-wrap input,
   .deals-page .filter-multi-button{font-size:13px!important;padding-inline:7px!important}
+
+  body:has(.auth-section .airport-picker) .auth-copy h1{font-size:23px!important}
+  body:has(.auth-section .airport-picker) .form-card{padding:7px 8px!important;gap:4px 6px!important}
 }
