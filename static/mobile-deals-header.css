@@ -33,23 +33,38 @@
   .deals-page .deal-alert-switch.is-on .deal-alert-track i{left:19px!important}
   .deals-page .my-vacations-from-deals{display:flex!important;align-items:center!important;justify-content:center!important;padding:8px 10px!important;font-size:14px!important}
 
-  /* Filters: compact two-column mobile grid instead of one long oversized column. */
+  /* Mobile: filters start collapsed so deals are visible immediately. */
   .deals-page .deal-filters-wrap{
-    margin:12px 10px 18px!important;
-    padding:14px 12px!important;
-    border-radius:12px!important;
+    margin:8px 10px 12px!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
   }
   .deals-page .deal-filters-main,
   .deals-page .deal-filters-more{
+    display:none!important;
+  }
+  .deals-page .deal-filters-wrap:focus-within .deal-filters-main,
+  .deals-page .deal-filters-wrap.filters-open .deal-filters-main,
+  .deals-page .deal-filters-wrap.is-open .deal-filters-main,
+  .deals-page .deal-filters-wrap.open .deal-filters-main{
     display:grid!important;
     grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
     gap:11px 10px!important;
     align-items:end!important;
     width:100%!important;
+    padding:14px 12px!important;
   }
-  .deals-page .deal-filters-more{
-    margin-top:12px!important;
-    padding-top:12px!important;
+  .deals-page .deal-filters-wrap.filters-open .deal-filters-more,
+  .deals-page .deal-filters-wrap.is-open .deal-filters-more,
+  .deals-page .deal-filters-wrap.open .deal-filters-more{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    gap:11px 10px!important;
+    align-items:end!important;
+    width:100%!important;
+    padding:12px!important;
   }
   .deals-page .deal-filters-wrap label,
   .deals-page .filter-multi{
@@ -102,7 +117,7 @@
 @media (max-width:390px){
   .deals-page .deal-filters-main,
   .deals-page .deal-filters-more{gap:9px 7px!important}
-  .deals-page .deal-filters-wrap{margin-inline:6px!important;padding-inline:9px!important}
+  .deals-page .deal-filters-wrap{margin-inline:6px!important}
   .deals-page .deal-filters-wrap select,
   .deals-page .deal-filters-wrap input,
   .deals-page .filter-multi-button{font-size:13px!important;padding-inline:7px!important}
