@@ -8,6 +8,10 @@
 /* Family-specific ski priority only when family with children was selected. */
 .trip-wizard:not(:has(input[name="ski_travel_party"][value="family"]:checked)) label:has(input[name="ski_priorities"][value="family"]){display:none!important}
 
+/* Business route: these fields are not relevant to the streamlined questionnaire. */
+.trip-wizard .business-question[data-step="5"] label:has(input[name="business_priorities"][value="max_one_connection"]){display:none!important}
+.trip-wizard .business-question[data-step="6"] .notes-label{display:none!important}
+
 .business-flex-question{grid-column:1/-1;font-weight:700;text-align:center}
 .business-time-field-headings{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:7px 0 2px;font-size:12px;font-weight:700;color:#5d6570;direction:rtl}
 .business-time-field-headings span:first-child{text-align:right}
@@ -67,7 +71,6 @@
   .trip-wizard .business-question[data-step="5"] .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
   .trip-wizard .business-question[data-step="5"] .choice-button,
   .trip-wizard .business-question[data-step="6"] .choice-button{min-height:52px!important;padding:7px!important;font-size:14px!important}
-  .trip-wizard .business-question[data-step="6"] .notes-label{font-size:13px!important;margin-top:7px!important}
   .trip-wizard .business-question[data-step="6"] textarea{height:55px!important;min-height:55px!important;padding:6px!important}
   .trip-wizard .business-question[data-step="5"] .wizard-actions,
   .trip-wizard .business-question[data-step="6"] .wizard-actions{margin-top:8px!important}
