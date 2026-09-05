@@ -53,7 +53,7 @@
  </div>
 
  {% set visible=[] %}
- {% for reason in offer.display_reasons[:6] %}{% set reason_lower = reason|lower %}{% if reason and ('ציון' not in reason) and ('score' not in reason_lower) and ('חיסכון' not in reason) and ('savings' not in reason_lower) %}{% if reason not in visible %}{% set _=visible.append(reason) %}{% endif %}{% endif %}{% endfor %}
+ {% for reason in offer.display_reasons[:6] %}{% set reason_lower = reason|lower %}{% if reason and reason != offer.booking_choice_reason_he and ('ציון' not in reason) and ('score' not in reason_lower) and ('חיסכון' not in reason) and ('savings' not in reason_lower) %}{% if reason not in visible %}{% set _=visible.append(reason) %}{% endif %}{% endif %}{% endfor %}
  {% if visible %}<div class="deal-reasons-row">{% for reason in visible[:4] %}<span>{{ reason_en(reason) if lang=='en' else reason }}</span>{% endfor %}</div>{% endif %}
  <div class="deal-footer"><span>{{ 'Last updated:' if lang=='en' else 'עודכן לאחרונה:' }} {{ offer.updated_ago_en if lang=='en' else offer.updated_ago_he }}</span></div>
 </article>
