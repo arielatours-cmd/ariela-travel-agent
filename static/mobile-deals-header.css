@@ -1,5 +1,10 @@
 /* Mobile-only Deals page layout. Desktop is intentionally untouched. */
 @media (max-width:760px){
+  /* Header hamburger: lower it further so it aligns visually with the logo. */
+  .luxury-header .nav-toggle{
+    transform:translateY(22px)!important;
+  }
+
   .deals-page .deals-heading-with-alert{
     padding-top:96px!important;
     min-height:236px!important;
