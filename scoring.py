@@ -14,47 +14,53 @@ def _hour(value: str | None):
 
 
 def _price_points(analysis: dict) -> tuple[int, list[str]]:
+    """Price is the main deal signal (0..55).
+
+    When no historical/typical comparison exists, the best currently found
+    price receives the full price component. This lets a new route/period enter
+    the deal pool without inventing a negative reason for missing history.
+    """
     reasons: list[str] = []
     discount = analysis.get("best_discount_percent")
     source = analysis.get("price_reference_source")
 
     if isinstance(discount, (int, float)):
         if discount >= 30:
-            points = 45
+            points = 55
         elif discount >= 25:
-            points = 41
+            points = 50
         elif discount >= 20:
-            points = 36
+            points = 44
         elif discount >= 15:
-            points = 30
+            points = 37
         elif discount >= 10:
-            points = 23
+            points = 28
         elif discount >= 5:
-            points = 14
+            points = 17
         elif discount > 0:
-            points = 7
+            points = 9
         else:
             points = 0
         if source == "search_distribution":
-            # Same-search median helps ranking, but is weaker evidence than
-            # Google Flights typical pricing or Ariella price history.
-            points = min(points, 23)
-            reasons.append(f"מחיר תחרותי ביחס לאפשרויות בחיפוש הנוכחי: +{points}")
+            points = min(points, 28)
+            if points:
+                reasons.append(f"מחיר תחרותי ביחס לאפשרויות בחיפוש הנוכחי: +{points}")
             return points, reasons
         source_he = {
             "serpapi_typical": "הטווח הרגיל של Google Flights",
             "history": "היסטוריית המחירים של אריאלה",
         }.get(source, "מחיר הייחוס")
-        reasons.append(f"מחיר נמוך ב-{discount:.1f}% לעומת {source_he}: +{points}")
+        if points:
+            reasons.append(f"מחיר נמוך ב-{discount:.1f}% לעומת {source_he}: +{points}")
         return points, reasons
 
     if analysis.get("price_level") == "low":
-        reasons.append("Google Flights מסמן את המחיר כנמוך: +34")
-        return 34, reasons
+        reasons.append("Google Flights מסמן את המחיר כנמוך: +42")
+        return 42, reasons
 
-    # Missing comparison data contributes no points and is not a reason for
-    # choosing the deal, so it is deliberately omitted from customer reasons.
-    return 0, reasons
+    # No historical/typical comparison exists yet: treat the current best found
+    # price as the benchmark. Do not expose missing comparison data as a reason.
+    return 55, reasons
 
 
 def _minutes_of_day(value: str | None):
@@ -95,7 +101,6 @@ def _time_value_points(flight: dict) -> tuple[int, list[str]]:
 
     comfort = sum(comfortable(x) for x in (out_dep, out_arr, ret_dep, ret_arr)) / 4
     points = round(15 * (0.65 * usable + 0.35 * comfort))
-
     reasons = []
     if usable >= 0.78 and comfort >= 0.65:
         reasons.append("ימים מלאים ביעד ושעות טיסה נוחות")
@@ -107,12 +112,12 @@ def _time_value_points(flight: dict) -> tuple[int, list[str]]:
 
 
 def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
-    """Ariella public-deal quality score, exactly 0..100.
+    """Ariella public-deal score, exactly 0..100.
 
-    Weights: price 45, route 20, time/value 15, baggage 10, rarity 10.
-    Booking reliability is validation metadata, not deal quality, and therefore
-    never adds score. Personal searches may use this score for ranking but must
-    not use the public 70-point threshold to hide a matching requested flight.
+    Weights: price 55, route 20, time/value 15, baggage 10.
+    Reliability and historical rarity are not scoring components. Personal
+    searches use score for ranking only; the public 70 threshold must not hide
+    a flight that matches the customer's explicit request.
     """
     score = 0
     reasons: list[str] = []
@@ -146,43 +151,18 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     if route_points > 0:
         reasons.append(f"איכות מסלול ({'ישירה' if worst_stops == 0 else str(worst_stops) + ' עצירות'}): +{route_points}")
 
-    percentile = deal_analysis.get("historical_percentile")
-    if isinstance(percentile, (int, float)):
-        if percentile <= 5:
-            rarity = 10
-        elif percentile <= 10:
-            rarity = 8
-        elif percentile <= 20:
-            rarity = 6
-        elif percentile <= 35:
-            rarity = 3
-        else:
-            rarity = 0
-        if rarity:
-            reasons.append(f"נדירות היסטורית (אחוזון {percentile:.0f}): +{rarity}")
-    else:
-        rarity = 0
-    components["rarity"] = rarity
-    score += rarity
-
     baggage = flight.get("baggage") or {}
     checked = baggage.get("checked_bag_23kg", {}) or {}
     carry = baggage.get("carry_on_8kg", {}) or {}
     personal = baggage.get("personal_item", {}) or {}
-
     if checked.get("included"):
-        baggage_points = 10
-        baggage_reason = "מזוודה 23 ק״ג כלולה"
+        baggage_points, baggage_reason = 10, "מזוודה 23 ק״ג כלולה"
     elif carry.get("included"):
-        baggage_points = 7
-        baggage_reason = "טרולי 8 ק״ג כלול"
+        baggage_points, baggage_reason = 7, "טרולי 8 ק״ג כלול"
     elif personal.get("included"):
-        baggage_points = 2
-        baggage_reason = "תיק אישי כלול"
+        baggage_points, baggage_reason = 2, "תיק אישי כלול"
     else:
-        baggage_points = 0
-        baggage_reason = None
-
+        baggage_points, baggage_reason = 0, None
     components["baggage"] = baggage_points
     score += baggage_points
     if baggage_reason:
@@ -195,8 +175,7 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
         reasons.append(f"נוחות וזמן ביעד: +{time_points}")
     reasons.extend(time_reasons)
 
-    # Reliability remains available as metadata for admin/validation, but is
-    # intentionally excluded from the deal score.
+    # Keep reliability visible to admin/validation without affecting score.
     if flight.get("booking_supplier_is_direct") is True:
         reliability = 8
     elif flight.get("booking_supplier_approved") is True:
@@ -207,7 +186,6 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
         reliability = 0
     components["reliability"] = reliability
 
-    # The five scoring components above total exactly 100 maximum.
     score = min(100, score)
     label = "דיל חריג במיוחד" if score >= 85 else "דיל מצוין" if score >= 70 else "דיל טוב" if score >= 55 else "לא לשלוח"
     return {"score": score, "label": label, "send_alert": score >= 70, "reasons": reasons, "components": components}
