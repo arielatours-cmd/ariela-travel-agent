@@ -58,7 +58,9 @@
         exchanged=false;
         connectBtn.disabled=false;
         const details=safeMetaError(data.meta);
-        showStatus('Meta החזירה שגיאה בהשלמת החיבור. לא ללחוץ שוב כרגע — שלחי לי צילום מסך של ההודעה הזו.\n'+(data.error||'unknown_error')+(details?'\n\n'+details:''));
+        const message=data.message && (!data.meta || data.message!==data.meta.message) ? '\n'+data.message : '';
+        const httpStatus=data.http_status ? '\nHTTP: '+data.http_status : '';
+        showStatus('Meta החזירה שגיאה בהשלמת החיבור. לא ללחוץ שוב כרגע — שלחי לי צילום מסך של ההודעה הזו.\n'+(data.error||'unknown_error')+message+httpStatus+(details?'\n\n'+details:''));
       }
     }catch(e){
       exchanged=false;
