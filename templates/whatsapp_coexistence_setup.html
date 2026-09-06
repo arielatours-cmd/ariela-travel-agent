@@ -20,7 +20,7 @@
   <div id="status"></div>
 </div>
 <script>
-  const CONFIG_ID = '1767405781046590';
+  const CONFIG_ID = '4639464019658421';
   const statusBox = document.getElementById('status');
   const connectBtn = document.getElementById('connectBtn');
   let sessionInfo = {};
@@ -28,130 +28,33 @@
   let pendingCode = null;
   let exchanged = false;
 
-  function showStatus(value){
-    statusBox.style.display='block';
-    statusBox.textContent=value;
-  }
-
+  function showStatus(value){ statusBox.style.display='block'; statusBox.textContent=value; }
   function safeSession(data){
     if(!data || typeof data !== 'object') return {};
-    return {
-      waba_id: data.waba_id || null,
-      phone_number_id: data.phone_number_id || null
-    };
+    return {waba_id:data.waba_id||null, phone_number_id:data.phone_number_id||null};
   }
-
   async function exchangeCode(code){
     if(exchanged || !code) return;
-    exchanged = true;
-    connectBtn.disabled = true;
+    exchanged=true; connectBtn.disabled=true;
     showStatus('Meta אישרה את החיבור. משלימה את ההגדרה מול WhatsApp...');
     try{
-      const response = await fetch('/whatsapp-coexistence/exchange-code', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({code:code, session_info:safeSession(sessionInfo)})
-      });
-      const data = await response.json();
-      if(data.ok){
-        const phone = data.phone && data.phone.display_phone_number ? ' (' + data.phone.display_phone_number + ')' : '';
-        showStatus('החיבור הושלם בהצלחה ✅' + phone);
-      }else{
-        exchanged = false;
-        connectBtn.disabled = false;
-        showStatus('Meta החזירה שגיאה בהשלמת החיבור. לא ללחוץ שוב כרגע — שלחי לי צילום מסך של ההודעה הזו.\n' + (data.error || 'unknown_error'));
-      }
-    }catch(e){
-      exchanged = false;
-      connectBtn.disabled = false;
-      showStatus('לא הצלחתי להשלים את החיבור מול השרת. לא ללחוץ שוב כרגע — שלחי לי צילום מסך.');
-    }
+      const response=await fetch('/whatsapp-coexistence/exchange-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code,session_info:safeSession(sessionInfo)})});
+      const data=await response.json();
+      if(data.ok){const phone=data.phone&&data.phone.display_phone_number?' ('+data.phone.display_phone_number+')':'';showStatus('החיבור הושלם בהצלחה ✅'+phone);}
+      else{exchanged=false;connectBtn.disabled=false;showStatus('Meta החזירה שגיאה בהשלמת החיבור. לא ללחוץ שוב כרגע — שלחי לי צילום מסך של ההודעה הזו.\n'+(data.error||'unknown_error'));}
+    }catch(e){exchanged=false;connectBtn.disabled=false;showStatus('לא הצלחתי להשלים את החיבור מול השרת. לא ללחוץ שוב כרגע — שלחי לי צילום מסך.');}
   }
-
-  function maybeFinish(){
-    if(pendingCode && finishReceived){
-      exchangeCode(pendingCode);
-    }
-  }
-
-  window.fbAsyncInit = function(){
-    FB.init({appId:'{{ meta_app_id }}', cookie:true, xfbml:false, version:'v24.0'});
-  };
-
-  (function(d,s,id){
-    var js,fjs=d.getElementsByTagName(s)[0];
-    if(d.getElementById(id)) return;
-    js=d.createElement(s); js.id=id; js.async=true; js.defer=true;
-    js.onerror=function(){ showStatus('לא ניתן לטעון כרגע את החיבור של Meta. נסי שוב מאוחר יותר.'); };
-    js.src='https://connect.facebook.net/en_US/sdk.js';
-    fjs.parentNode.insertBefore(js,fjs);
-  }(document,'script','facebook-jssdk'));
-
-  window.addEventListener('message', function(event){
-    if(event.origin!=='https://www.facebook.com' && event.origin!=='https://web.facebook.com') return;
-    try{
-      const data = typeof event.data==='string' ? JSON.parse(event.data) : event.data;
-      if(!data || data.type!=='WA_EMBEDDED_SIGNUP') return;
-      if(data.data) sessionInfo = data.data;
-      if(data.event==='FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' || data.event==='FINISH'){
-        finishReceived = true;
-        showStatus('WhatsApp אישרה את המספר. משלימה את החיבור...');
-        maybeFinish();
-      }else if(data.event==='CANCEL'){
-        connectBtn.disabled = false;
-        showStatus('תהליך החיבור בוטל.');
-      }else if(data.event==='ERROR'){
-        connectBtn.disabled = false;
-        showStatus('Meta עצרה את תהליך החיבור. שלחי לי צילום מסך של המסך שהופיע.');
-      }
-    }catch(e){
-      // Ignore unrelated postMessage traffic from Meta.
-    }
+  function maybeFinish(){if(pendingCode&&finishReceived) exchangeCode(pendingCode);}
+  window.fbAsyncInit=function(){FB.init({appId:'{{ meta_app_id }}',cookie:true,xfbml:false,version:'v24.0'});};
+  (function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(d.getElementById(id))return;js=d.createElement(s);js.id=id;js.async=true;js.defer=true;js.onerror=function(){showStatus('לא ניתן לטעון כרגע את החיבור של Meta. נסי שוב מאוחר יותר.');};js.src='https://connect.facebook.net/en_US/sdk.js';fjs.parentNode.insertBefore(js,fjs);}(document,'script','facebook-jssdk'));
+  window.addEventListener('message',function(event){
+    if(event.origin!=='https://www.facebook.com'&&event.origin!=='https://web.facebook.com')return;
+    try{const data=typeof event.data==='string'?JSON.parse(event.data):event.data;if(!data||data.type!=='WA_EMBEDDED_SIGNUP')return;if(data.data)sessionInfo=data.data;if(data.event==='FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'||data.event==='FINISH'){finishReceived=true;showStatus('WhatsApp אישרה את המספר. משלימה את החיבור...');maybeFinish();}else if(data.event==='CANCEL'){connectBtn.disabled=false;showStatus('תהליך החיבור בוטל.');}else if(data.event==='ERROR'){connectBtn.disabled=false;showStatus('Meta עצרה את תהליך החיבור. שלחי לי צילום מסך של המסך שהופיע.');}}catch(e){}
   });
-
-  connectBtn.addEventListener('click', function(){
-    if(!window.FB){
-      showStatus('Meta עדיין נטענת. נסי שוב בעוד כמה שניות.');
-      return;
-    }
-    connectBtn.disabled = true;
-    showStatus('פותחת את תהליך החיבור של Meta...');
-    try {
-      FB.login(function(response){
-        const code = response && response.authResponse && response.authResponse.code;
-        if(code){
-          pendingCode = code;
-          if(finishReceived){
-            maybeFinish();
-          }else{
-            showStatus('ההתחברות לפייסבוק אושרה. השלימי עכשיו את שלבי WhatsApp בחלון של Meta.');
-            // Some mobile browsers deliver the auth callback after Meta has already
-            // completed the flow but do not preserve the FINISH postMessage. In that
-            // case we still exchange the one-time code after a short grace period.
-            setTimeout(function(){
-              if(!finishReceived && pendingCode && !exchanged){
-                exchangeCode(pendingCode);
-              }
-            }, 2500);
-          }
-          return;
-        }
-        connectBtn.disabled = false;
-        showStatus('החיבור לא הושלם. אם Meta הציגה הודעה אחרת, שלחי לי צילום מסך.');
-      },{
-        config_id:CONFIG_ID,
-        response_type:'code',
-        override_default_response_type:true,
-        extras:{
-          setup:{},
-          featureType:'whatsapp_business_app_onboarding',
-          sessionInfoVersion:'3'
-        }
-      });
-    } catch(e) {
-      connectBtn.disabled = false;
-      showStatus('לא ניתן לפתוח את תהליך Meta כרגע.');
-    }
+  connectBtn.addEventListener('click',function(){
+    if(!window.FB){showStatus('Meta עדיין נטענת. נסי שוב בעוד כמה שניות.');return;}
+    connectBtn.disabled=true;showStatus('פותחת את תהליך החיבור של Meta...');
+    try{FB.login(function(response){const code=response&&response.authResponse&&response.authResponse.code;if(code){pendingCode=code;if(finishReceived){maybeFinish();}else{showStatus('ההתחברות לפייסבוק אושרה. השלימי עכשיו את שלבי WhatsApp בחלון של Meta.');setTimeout(function(){if(!finishReceived&&pendingCode&&!exchanged)exchangeCode(pendingCode);},2500);}return;}connectBtn.disabled=false;showStatus('החיבור לא הושלם. אם Meta הציגה הודעה אחרת, שלחי לי צילום מסך.');},{config_id:CONFIG_ID,response_type:'code',override_default_response_type:true,extras:{setup:{},featureType:'whatsapp_business_app_onboarding',sessionInfoVersion:'3'}});}catch(e){connectBtn.disabled=false;showStatus('לא ניתן לפתוח את תהליך Meta כרגע.');}
   });
 </script>
 </body>
