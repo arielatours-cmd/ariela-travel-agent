@@ -18,9 +18,20 @@ def setup():
     )
 
 
+def _meta_json(response):
+    try:
+        return response.json()
+    except ValueError:
+        return {"error": {"message": "Meta returned a non-JSON response"}}
+
+
 @whatsapp_coexistence.post("/whatsapp-coexistence/exchange-code")
 def exchange_code():
-    """Exchange the Embedded Signup authorization code on the server."""
+    """Exchange the Embedded Signup code and finish safe server-side setup.
+
+    Coexistence numbers are already registered in the WhatsApp Business app, so
+    this endpoint deliberately does not call the phone-number /register endpoint.
+    """
     payload = request.get_json(silent=True) or {}
     code = payload.get("code")
     session_info = payload.get("session_info") or {}
@@ -36,8 +47,6 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server."
         }), 500
 
-    # The Render origin is now registered in Meta as both App Domain and
-    # Website platform. Use the setup-page URI consistently for code exchange.
     exchange_params = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
@@ -51,21 +60,16 @@ def exchange_code():
             params=exchange_params,
             timeout=20,
         )
-        data = response.json()
     except requests.RequestException as exc:
         return jsonify({
             "ok": False,
             "error": "meta_request_failed",
             "message": str(exc),
         }), 502
-    except ValueError:
-        return jsonify({
-            "ok": False,
-            "error": "meta_invalid_response",
-            "status_code": response.status_code,
-        }), 502
 
-    if not response.ok or not data.get("access_token"):
+    data = _meta_json(response)
+    access_token = data.get("access_token")
+    if not response.ok or not access_token:
         safe_error = data.get("error", data)
         return jsonify({
             "ok": False,
@@ -73,13 +77,61 @@ def exchange_code():
             "meta": safe_error,
         }), 400
 
-    # Never return the access token to the browser.
+    waba_id = session_info.get("waba_id")
+    phone_number_id = session_info.get("phone_number_id")
+    phone = None
+    subscribed = False
+
+    # If Meta supplied the WABA in the FINISH event, subscribe this app to its
+    # webhooks and discover the actual phone-number object. No token is ever
+    # returned to the browser.
+    if waba_id:
+        try:
+            sub_response = requests.post(
+                f"https://graph.facebook.com/{META_GRAPH_VERSION}/{waba_id}/subscribed_apps",
+                data={"access_token": access_token},
+                timeout=20,
+            )
+            subscribed = sub_response.ok
+
+            phone_response = requests.get(
+                f"https://graph.facebook.com/{META_GRAPH_VERSION}/{waba_id}/phone_numbers",
+                params={
+                    "access_token": access_token,
+                    "fields": "id,display_phone_number,verified_name",
+                },
+                timeout=20,
+            )
+            phone_data = _meta_json(phone_response)
+            phones = phone_data.get("data") or []
+            if phones:
+                if phone_number_id:
+                    phone = next(
+                        (item for item in phones if str(item.get("id")) == str(phone_number_id)),
+                        phones[0],
+                    )
+                else:
+                    phone = phones[0]
+                    phone_number_id = phone.get("id")
+        except requests.RequestException:
+            # The OAuth exchange itself succeeded. Discovery/subscription can be
+            # retried separately, so do not expose the access token or fail the
+            # entire onboarding response here.
+            pass
+
     return jsonify({
         "ok": True,
         "connected": True,
         "token_received": True,
         "expires_in": data.get("expires_in"),
-        "session_info": session_info,
+        "waba_id": waba_id,
+        "phone_number_id": phone_number_id,
+        "webhooks_subscribed": subscribed,
+        "phone": {
+            "id": phone.get("id"),
+            "display_phone_number": phone.get("display_phone_number"),
+            "verified_name": phone.get("verified_name"),
+        } if phone else None,
     })
 
 
