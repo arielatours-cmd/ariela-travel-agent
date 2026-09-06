@@ -25,6 +25,26 @@ def _meta_json(response):
         return {"error": {"message": "Meta returned a non-JSON response"}}
 
 
+def _safe_meta_error(data):
+    """Return only non-secret Meta error fields safe to show in the browser/logs."""
+    raw = data.get("error", data) if isinstance(data, dict) else {}
+    if not isinstance(raw, dict):
+        return {"message": str(raw)[:500]}
+
+    allowed = (
+        "message",
+        "type",
+        "code",
+        "error_subcode",
+        "error_user_title",
+        "error_user_msg",
+    )
+    safe = {key: raw.get(key) for key in allowed if raw.get(key) is not None}
+    if not safe:
+        safe["message"] = "Meta returned an OAuth error without readable details."
+    return safe
+
+
 @whatsapp_coexistence.post("/whatsapp-coexistence/exchange-code")
 def exchange_code():
     """Exchange the Embedded Signup code and finish safe server-side setup.
@@ -68,13 +88,19 @@ def exchange_code():
         }), 502
 
     data = _meta_json(response)
-    access_token = data.get("access_token")
+    access_token = data.get("access_token") if isinstance(data, dict) else None
     if not response.ok or not access_token:
-        safe_error = data.get("error", data)
+        safe_error = _safe_meta_error(data)
+        print(
+            "WhatsApp coexistence token exchange failed: "
+            f"status={response.status_code} meta={safe_error}"
+        )
         return jsonify({
             "ok": False,
             "error": "meta_code_exchange_failed",
+            "message": safe_error.get("message"),
             "meta": safe_error,
+            "http_status": response.status_code,
         }), 400
 
     waba_id = session_info.get("waba_id")
@@ -82,9 +108,6 @@ def exchange_code():
     phone = None
     subscribed = False
 
-    # If Meta supplied the WABA in the FINISH event, subscribe this app to its
-    # webhooks and discover the actual phone-number object. No token is ever
-    # returned to the browser.
     if waba_id:
         try:
             sub_response = requests.post(
@@ -114,9 +137,6 @@ def exchange_code():
                     phone = phones[0]
                     phone_number_id = phone.get("id")
         except requests.RequestException:
-            # The OAuth exchange itself succeeded. Discovery/subscription can be
-            # retried separately, so do not expose the access token or fail the
-            # entire onboarding response here.
             pass
 
     return jsonify({
