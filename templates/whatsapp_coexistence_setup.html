@@ -27,18 +27,18 @@
   let pendingCode=null;
   let finishReceived=false;
   let exchanged=false;
-  let fallbackTimer=null;
+  let diagnosticTimer=null;
 
   function showStatus(v){statusBox.style.display='block';statusBox.textContent=v;}
   function safeSession(d){if(!d||typeof d!=='object')return {};return {waba_id:d.waba_id||null,phone_number_id:d.phone_number_id||null};}
   function safeMetaError(m){if(!m||typeof m!=='object')return '';const p=[];if(m.message)p.push('Meta: '+m.message);if(m.type)p.push('Type: '+m.type);if(m.code!=null)p.push('Code: '+m.code);if(m.error_subcode!=null)p.push('Subcode: '+m.error_subcode);return p.join('\n');}
 
   async function exchangeCode(code){
-    if(exchanged||!code)return;
+    if(exchanged||!code||!finishReceived)return;
     exchanged=true;
-    if(fallbackTimer){clearTimeout(fallbackTimer);fallbackTimer=null;}
+    if(diagnosticTimer){clearTimeout(diagnosticTimer);diagnosticTimer=null;}
     connectBtn.disabled=true;
-    showStatus('Meta אישרה. משלימה עכשיו את חיבור WhatsApp...');
+    showStatus('WhatsApp אישרה את החיבור. משלימה עכשיו את ההגדרה...');
     try{
       const response=await fetch('/whatsapp-coexistence/exchange-code',{
         method:'POST',
@@ -88,8 +88,8 @@
         maybeExchange();
       }else if(data.event==='FINISH_ONLY_WABA'||data.event==='FINISH_OBO_MIGRATION'||data.event==='FINISH_GRANT_ONLY_API_ACCESS'){
         connectBtn.disabled=false;
-        showStatus('Meta סיימה תהליך חלקי ולא החזירה מספר WhatsApp מלא. שלחי לי צילום מסך.');
-      }else if(data.event==='ERROR'||String(data.event||'').toUpperCase()==='ERROR'){
+        showStatus('Meta סיימה תהליך חלקי ולא השלימה את חיבור WhatsApp Business. שלחי לי צילום מסך.');
+      }else if(String(data.event||'').toUpperCase()==='ERROR'){
         connectBtn.disabled=false;
         showStatus('Meta עצרה את תהליך החיבור'+(data.error_message?'\n'+data.error_message:'')+'.');
       }else if(data.event==='CANCEL'){
@@ -103,20 +103,24 @@
     if(!window.FB){showStatus('Meta עדיין נטענת. נסי שוב בעוד כמה שניות.');return;}
     connectBtn.disabled=true;
     sessionInfo={};pendingCode=null;finishReceived=false;exchanged=false;
-    if(fallbackTimer){clearTimeout(fallbackTimer);fallbackTimer=null;}
+    if(diagnosticTimer){clearTimeout(diagnosticTimer);diagnosticTimer=null;}
     showStatus('פותחת את תהליך החיבור של Meta...');
 
     FB.login(function(response){
       const code=response&&response.authResponse&&response.authResponse.code;
       if(code){
         pendingCode=code;
-        showStatus('פייסבוק אושרה. ממשיכה לחיבור WhatsApp...');
+        // Do not exchange the code until Meta has actually completed the
+        // WhatsApp Business App onboarding flow. An OAuth code returned after
+        // "Continue as ..." alone is not proof that Coexistence finished.
+        showStatus('פייסבוק אושרה. ממתינה להשלמת חיבור WhatsApp בחלון של Meta...');
         maybeExchange();
-        // Working implementations note that FINISH can arrive after FB.login.
-        // Wait briefly for session info, then exchange the code so the UI never hangs.
-        fallbackTimer=setTimeout(function(){
-          if(pendingCode&&!exchanged)exchangeCode(pendingCode);
-        },3000);
+        diagnosticTimer=setTimeout(function(){
+          if(pendingCode&&!finishReceived&&!exchanged){
+            connectBtn.disabled=false;
+            showStatus('Meta אישרה את פייסבוק אבל לא פתחה/סיימה את מסך WhatsApp Business. זה מצביע על הגדרת Embedded Signup/Coexistence ב‑Meta, לא על החלפת הקוד.');
+          }
+        },12000);
         return;
       }
       connectBtn.disabled=false;
@@ -128,7 +132,8 @@
       extras:{
         setup:{},
         featureType:'whatsapp_business_app_onboarding',
-        sessionInfoVersion:'3'
+        sessionInfoVersion:'3',
+        version:'v4'
       }
     });
   });
