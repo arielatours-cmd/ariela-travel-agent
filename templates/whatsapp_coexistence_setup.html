@@ -20,36 +20,82 @@
   <div id="status"></div>
 </div>
 <script>
+  const APP_ID='{{ meta_app_id }}';
   const CONFIG_ID='4639464019658421';
+  const REDIRECT_URI='{{ meta_redirect_uri }}';
   const statusBox=document.getElementById('status');
   const connectBtn=document.getElementById('connectBtn');
-  let sessionInfo={},finishReceived=false,pendingCode=null,exchanged=false;
+  let sessionInfo={},pendingCode=null,finishReceived=false,exchanged=false;
+
   function showStatus(v){statusBox.style.display='block';statusBox.textContent=v;}
   function safeSession(d){if(!d||typeof d!=='object')return {};return {waba_id:d.waba_id||null,phone_number_id:d.phone_number_id||null};}
   function safeMetaError(m){if(!m||typeof m!=='object')return '';const p=[];if(m.message)p.push('Meta: '+m.message);if(m.type)p.push('Type: '+m.type);if(m.code!=null)p.push('Code: '+m.code);if(m.error_subcode!=null)p.push('Subcode: '+m.error_subcode);return p.join('\n');}
+
   async function exchangeCode(code){
-    if(exchanged||!code)return;exchanged=true;connectBtn.disabled=true;showStatus('Meta אישרה את החיבור. משלימה את ההגדרה מול WhatsApp...');
+    if(exchanged||!code)return;
+    exchanged=true;connectBtn.disabled=true;
+    showStatus('Meta אישרה את החיבור. משלימה את ההגדרה מול WhatsApp...');
     try{
-      // FB.login uses the page URL as its OAuth redirect target. Send the exact
-      // URL (including any query string) back so Meta can validate the code.
-      const redirectUri=window.location.href;
-      const response=await fetch('/whatsapp-coexistence/exchange-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code,session_info:safeSession(sessionInfo),redirect_uri:redirectUri})});
+      const response=await fetch('/whatsapp-coexistence/exchange-code',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({code:code,session_info:safeSession(sessionInfo)})
+      });
       const data=await response.json();
-      if(data.ok){const phone=data.phone&&data.phone.display_phone_number?' ('+data.phone.display_phone_number+')':'';showStatus('החיבור הושלם בהצלחה ✅'+phone);}
-      else{exchanged=false;connectBtn.disabled=false;const details=safeMetaError(data.meta);const http=data.http_status?'\nHTTP: '+data.http_status:'';showStatus('Meta החזירה שגיאה בהשלמת החיבור. לא ללחוץ שוב כרגע — שלחי לי צילום מסך של ההודעה הזו.\n'+(data.error||'unknown_error')+http+(details?'\n\n'+details:''));}
-    }catch(e){exchanged=false;connectBtn.disabled=false;showStatus('לא הצלחתי להשלים את החיבור מול השרת. לא ללחוץ שוב כרגע — שלחי לי צילום מסך.');}
+      if(data.ok){
+        const phone=data.phone&&data.phone.display_phone_number?' ('+data.phone.display_phone_number+')':'';
+        showStatus('החיבור הושלם בהצלחה ✅'+phone);
+      }else{
+        exchanged=false;connectBtn.disabled=false;
+        const details=safeMetaError(data.meta);const http=data.http_status?'\nHTTP: '+data.http_status:'';
+        showStatus('Meta החזירה שגיאה בהשלמת החיבור. לא ללחוץ שוב כרגע — שלחי לי צילום מסך.\n'+(data.error||'unknown_error')+http+(details?'\n\n'+details:''));
+      }
+    }catch(e){
+      exchanged=false;connectBtn.disabled=false;
+      showStatus('לא הצלחתי להשלים את החיבור מול השרת. לא ללחוץ שוב כרגע — שלחי לי צילום מסך.');
+    }
   }
-  function maybeFinish(){if(pendingCode&&finishReceived)exchangeCode(pendingCode);}
-  window.fbAsyncInit=function(){FB.init({appId:'{{ meta_app_id }}',cookie:true,xfbml:false,version:'v24.0'});};
-  (function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(d.getElementById(id))return;js=d.createElement(s);js.id=id;js.async=true;js.defer=true;js.src='https://connect.facebook.net/en_US/sdk.js';fjs.parentNode.insertBefore(js,fjs);}(document,'script','facebook-jssdk'));
+
+  function maybeExchange(){if(pendingCode&&!exchanged)exchangeCode(pendingCode);}
+
   window.addEventListener('message',function(event){
+    if(event.origin===window.location.origin){
+      const data=event.data;
+      if(data&&data.type==='ARIELA_META_OAUTH_CALLBACK'){
+        if(data.error){connectBtn.disabled=false;showStatus('Meta עצרה את תהליך החיבור.');return;}
+        if(data.code){pendingCode=data.code;showStatus('Meta אישרה את ההתחברות. משלימה את החיבור...');setTimeout(maybeExchange,300);}
+      }
+      return;
+    }
     if(event.origin!=='https://www.facebook.com'&&event.origin!=='https://web.facebook.com')return;
-    try{const data=typeof event.data==='string'?JSON.parse(event.data):event.data;if(!data||data.type!=='WA_EMBEDDED_SIGNUP')return;if(data.data)sessionInfo=data.data;if(data.event==='FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'||data.event==='FINISH'){finishReceived=true;showStatus('WhatsApp אישרה את המספר. משלימה את החיבור...');maybeFinish();}else if(data.event==='CANCEL'){connectBtn.disabled=false;showStatus('תהליך החיבור בוטל.');}}catch(e){}
+    try{
+      const data=typeof event.data==='string'?JSON.parse(event.data):event.data;
+      if(!data||data.type!=='WA_EMBEDDED_SIGNUP')return;
+      if(data.data)sessionInfo=data.data;
+      if(data.event==='FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'||data.event==='FINISH'){
+        finishReceived=true;
+        showStatus('WhatsApp אישרה את המספר. משלימה את החיבור...');
+        maybeExchange();
+      }else if(data.event==='CANCEL'){
+        connectBtn.disabled=false;showStatus('תהליך החיבור בוטל.');
+      }else if(data.event==='ERROR'){
+        connectBtn.disabled=false;showStatus('Meta עצרה את תהליך החיבור. שלחי לי צילום מסך של המסך שהופיע.');
+      }
+    }catch(e){}
   });
+
   connectBtn.addEventListener('click',function(){
-    if(!window.FB){showStatus('Meta עדיין נטענת. נסי שוב בעוד כמה שניות.');return;}
-    connectBtn.disabled=true;showStatus('פותחת את תהליך החיבור של Meta...');
-    FB.login(function(response){const code=response&&response.authResponse&&response.authResponse.code;if(code){pendingCode=code;if(finishReceived)maybeFinish();else{showStatus('ההתחברות לפייסבוק אושרה. השלימי עכשיו את שלבי WhatsApp בחלון של Meta.');setTimeout(function(){if(!finishReceived&&pendingCode&&!exchanged)exchangeCode(pendingCode);},2500);}return;}connectBtn.disabled=false;showStatus('החיבור לא הושלם. אם Meta הציגה הודעה אחרת, שלחי לי צילום מסך.');},{config_id:CONFIG_ID,response_type:'code',override_default_response_type:true,extras:{setup:{},featureType:'whatsapp_business_app_onboarding',sessionInfoVersion:'3'}});
+    connectBtn.disabled=true;
+    showStatus('פותחת את תהליך החיבור של Meta...');
+    const extras=JSON.stringify({setup:{},featureType:'whatsapp_business_app_onboarding',sessionInfoVersion:'3'});
+    const params=new URLSearchParams({
+      client_id:APP_ID,
+      redirect_uri:REDIRECT_URI,
+      response_type:'code',
+      config_id:CONFIG_ID,
+      extras:extras
+    });
+    const popup=window.open('https://www.facebook.com/v24.0/dialog/oauth?'+params.toString(),'arielaMetaSignup','width=720,height=800');
+    if(!popup){connectBtn.disabled=false;showStatus('הדפדפן חסם את חלון Meta. אשרי פתיחת חלונות קופצים ונסי שוב.');}
   });
 </script>
 </body>
