@@ -55,7 +55,10 @@ def _track_public_visit():
 
 @site.app_errorhandler(500)
 def _customer_500_fallback(error):
-    if session.get("member_id"):
+    # Never disguise a public Deals-page failure as a successful navigation to
+    # "My Vacations".  That made the desktop Deals link appear to point at the
+    # account page whenever a signed-in member hit an error while Deals loaded.
+    if session.get("member_id") and request.endpoint != "site.deals":
         return redirect(url_for("site.account"))
     return "Internal Server Error", 500
 
@@ -1981,48 +1984,10 @@ def deals():
         o for o in all_qualified
         if _offer_is_publicly_bookable(o) and o not in offers
     ]
+    # Personal trips belong exclusively to /account ("My Vacations").  Loading
+    # them here made the public Deals route dependent on member-specific rows
+    # that the template does not use, and could redirect signed-in users away.
     personal_trips = []
-    if session.get("member_id") and _current_member() is not None:
-        with _db() as conn:
-            _expire_finished_trips(conn, session["member_id"])
-            rows = conn.execute(
-                "SELECT * FROM trip_requests WHERE member_id=? ORDER BY id DESC",
-                (session["member_id"],),
-            ).fetchall()
-            conn.commit()
-        # Database first: include a deeper recent inventory than the public general-deals list.
-        database_offers = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)] + _qa_fixture_offers()
-        for row in rows:
-            trip = _trip_dict(row)
-            try:
-                trip["offers"] = _resolved_trip_offers(database_offers, trip, limit=5)
-            except Exception:
-                trip["offers"] = []
-            exact_sigs = {_offer_signature(o) for o in trip["offers"]}
-            if _is_open_ski_request(trip) and not trip["offers"] and int(trip.get("free_scan_count") or 0) > 0:
-                if (trip.get("answers") or {}).get("_ski_open_all_dates_db_search"):
-                    trip["alternative_offers"] = _ski_open_other_dates_db_matches(database_offers, trip, limit=5)
-                else:
-                    trip["alternative_offers"] = _ski_open_closest_same_month(database_offers, trip, exclude=exact_sigs, limit=5)
-            elif (trip.get("answers") or {}).get("_second_chance_choice") == "nearby_dates":
-                try:
-                    trip["alternative_offers"] = _customer_alternative_choices(
-                        database_offers + _qa_fixture_offers(), trip, exclude=exact_sigs, limit=max(0, 6-len(trip["offers"]))
-                    )
-                except Exception:
-                    trip["alternative_offers"] = []
-            else:
-                trip["alternative_offers"] = []
-            try:
-                inventory = _customer_inventory_status(database_offers, trip)
-            except Exception:
-                inventory = {"has_incomplete_inventory": False}
-            trip["database_match_found"] = bool(trip["offers"])
-            trip["needs_fresh_search"] = not bool(trip["offers"] or trip["alternative_offers"])
-            trip["has_incomplete_inventory"] = inventory.get("has_incomplete_inventory", False)
-            _dedupe_personal_offer_lists(trip)
-            _dedupe_personal_offer_lists(trip)
-        personal_trips.append(trip)
     # FINAL QA GATE: sanitize both lists immediately before rendering.
     offers = [o for o in offers if _strict_public_offer(o)]
     previous_offers = [o for o in previous_offers if _strict_public_offer(o)]
