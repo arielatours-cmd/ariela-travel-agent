@@ -1,13 +1,12 @@
 import os
 
 import requests
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template
 
 whatsapp_coexistence = Blueprint("whatsapp_coexistence", __name__)
 
 META_APP_ID = "919805650390657"
 META_GRAPH_VERSION = "v24.0"
-META_OAUTH_REDIRECT_URI = "https://ariela-travel-agent.onrender.com/facebook/callback"
 
 
 @whatsapp_coexistence.get("/whatsapp-coexistence-setup")
@@ -15,7 +14,6 @@ def setup():
     return render_template(
         "whatsapp_coexistence_setup.html",
         meta_app_id=META_APP_ID,
-        meta_redirect_uri=META_OAUTH_REDIRECT_URI,
     )
 
 
@@ -42,6 +40,8 @@ def _safe_meta_error(data):
 
 @whatsapp_coexistence.post("/whatsapp-coexistence/exchange-code")
 def exchange_code():
+    from flask import request
+
     payload = request.get_json(silent=True) or {}
     code = payload.get("code")
     session_info = payload.get("session_info") or {}
@@ -57,18 +57,20 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server."
         }), 500
 
-    exchange_data = {
+    # Meta's current Embedded Signup business-token exchange uses only
+    # client_id, client_secret and the exchangeable code returned by FB.login.
+    # Do not add redirect_uri or grant_type here; doing so binds the code to a
+    # different OAuth redirect and causes OAuthException 100 / subcode 36008.
+    exchange_params = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
         "code": code,
-        "grant_type": "authorization_code",
-        "redirect_uri": META_OAUTH_REDIRECT_URI,
     }
 
     try:
-        response = requests.post(
+        response = requests.get(
             f"https://graph.facebook.com/{META_GRAPH_VERSION}/oauth/access_token",
-            data=exchange_data,
+            params=exchange_params,
             timeout=20,
         )
     except requests.RequestException as exc:
@@ -144,8 +146,3 @@ def exchange_code():
             "verified_name": phone.get("verified_name"),
         } if phone else None,
     })
-
-
-@whatsapp_coexistence.get("/facebook/callback")
-def facebook_callback():
-    return "Meta callback ready", 200
