@@ -25,18 +25,12 @@ def _meta_json(response):
 
 
 def _safe_meta_error(data):
-    """Return only non-secret Meta error fields safe to show in the browser/logs."""
     raw = data.get("error", data) if isinstance(data, dict) else {}
     if not isinstance(raw, dict):
         return {"message": str(raw)[:500]}
-
     allowed = (
-        "message",
-        "type",
-        "code",
-        "error_subcode",
-        "error_user_title",
-        "error_user_msg",
+        "message", "type", "code", "error_subcode",
+        "error_user_title", "error_user_msg",
     )
     safe = {key: raw.get(key) for key in allowed if raw.get(key) is not None}
     if not safe:
@@ -46,14 +40,10 @@ def _safe_meta_error(data):
 
 @whatsapp_coexistence.post("/whatsapp-coexistence/exchange-code")
 def exchange_code():
-    """Exchange the Embedded Signup code and finish safe server-side setup.
-
-    Coexistence numbers are already registered in the WhatsApp Business app, so
-    this endpoint deliberately does not call the phone-number /register endpoint.
-    """
     payload = request.get_json(silent=True) or {}
     code = payload.get("code")
     session_info = payload.get("session_info") or {}
+    redirect_uri = payload.get("redirect_uri")
 
     if not code:
         return jsonify({"ok": False, "error": "missing_code"}), 400
@@ -66,15 +56,15 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server."
         }), 500
 
-    # Embedded Signup via the Facebook JS SDK returns a short-lived OAuth code.
-    # For this flow Meta expects the server-side code exchange without a custom
-    # redirect_uri. Supplying one can trigger OAuth error 191 even when the app
-    # domain itself is configured correctly.
     exchange_params = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
         "code": code,
     }
+    # The authorization code is bound to the exact redirect URI used by the
+    # browser OAuth request. Echo that same URI during the server exchange.
+    if redirect_uri:
+        exchange_params["redirect_uri"] = redirect_uri
 
     try:
         response = requests.get(
@@ -83,20 +73,13 @@ def exchange_code():
             timeout=20,
         )
     except requests.RequestException as exc:
-        return jsonify({
-            "ok": False,
-            "error": "meta_request_failed",
-            "message": str(exc),
-        }), 502
+        return jsonify({"ok": False, "error": "meta_request_failed", "message": str(exc)}), 502
 
     data = _meta_json(response)
     access_token = data.get("access_token") if isinstance(data, dict) else None
     if not response.ok or not access_token:
         safe_error = _safe_meta_error(data)
-        print(
-            "WhatsApp coexistence token exchange failed: "
-            f"status={response.status_code} meta={safe_error}"
-        )
+        print("WhatsApp coexistence token exchange failed: " f"status={response.status_code} meta={safe_error}")
         return jsonify({
             "ok": False,
             "error": "meta_code_exchange_failed",
@@ -114,27 +97,19 @@ def exchange_code():
         try:
             sub_response = requests.post(
                 f"https://graph.facebook.com/{META_GRAPH_VERSION}/{waba_id}/subscribed_apps",
-                data={"access_token": access_token},
-                timeout=20,
+                data={"access_token": access_token}, timeout=20,
             )
             subscribed = sub_response.ok
-
             phone_response = requests.get(
                 f"https://graph.facebook.com/{META_GRAPH_VERSION}/{waba_id}/phone_numbers",
-                params={
-                    "access_token": access_token,
-                    "fields": "id,display_phone_number,verified_name",
-                },
+                params={"access_token": access_token, "fields": "id,display_phone_number,verified_name"},
                 timeout=20,
             )
             phone_data = _meta_json(phone_response)
             phones = phone_data.get("data") or []
             if phones:
                 if phone_number_id:
-                    phone = next(
-                        (item for item in phones if str(item.get("id")) == str(phone_number_id)),
-                        phones[0],
-                    )
+                    phone = next((item for item in phones if str(item.get("id")) == str(phone_number_id)), phones[0])
                 else:
                     phone = phones[0]
                     phone_number_id = phone.get("id")
@@ -142,16 +117,11 @@ def exchange_code():
             pass
 
     return jsonify({
-        "ok": True,
-        "connected": True,
-        "token_received": True,
-        "expires_in": data.get("expires_in"),
-        "waba_id": waba_id,
-        "phone_number_id": phone_number_id,
-        "webhooks_subscribed": subscribed,
+        "ok": True, "connected": True, "token_received": True,
+        "expires_in": data.get("expires_in"), "waba_id": waba_id,
+        "phone_number_id": phone_number_id, "webhooks_subscribed": subscribed,
         "phone": {
-            "id": phone.get("id"),
-            "display_phone_number": phone.get("display_phone_number"),
+            "id": phone.get("id"), "display_phone_number": phone.get("display_phone_number"),
             "verified_name": phone.get("verified_name"),
         } if phone else None,
     })
@@ -159,14 +129,11 @@ def exchange_code():
 
 @whatsapp_coexistence.get("/facebook/callback")
 def facebook_callback():
-    """OAuth return endpoint for Meta/Facebook Login for Business."""
     error = request.args.get("error") or request.args.get("error_reason")
     code = request.args.get("code")
     state = request.args.get("state")
-
     if error:
         return redirect(url_for("whatsapp_coexistence.setup", meta_error=error))
-
     params = {}
     if code:
         params["meta_code"] = code
