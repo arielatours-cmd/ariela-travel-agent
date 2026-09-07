@@ -652,7 +652,15 @@ function applyAdminOfferFilters(){
    else if(adminOfferSortKey==='return') v=(x.dataset.return||'').localeCompare(y.dataset.return||'');
    else if(adminOfferSortKey==='score') v=+(x.dataset.score||0)-+(y.dataset.score||0);
    else if(adminOfferSortKey==='price') v=+(x.dataset.price||0)-+(y.dataset.price||0);
-   else v=+(x.dataset.order||0)-+(y.dataset.order||0);
+   else {
+     // Default order: newest scan first, then highest score inside that scan.
+     // Saving rows a few milliseconds apart must not outrank deal quality.
+     const scanDiff=+(y.dataset.scan||0)-+(x.dataset.scan||0);
+     if(scanDiff)return scanDiff;
+     const scoreDiff=+(y.dataset.score||0)-+(x.dataset.score||0);
+     if(scoreDiff)return scoreDiff;
+     return +(x.dataset.order||0)-+(y.dataset.order||0);
+   }
    return v*adminOfferSortDir;
  });
  rows.forEach(r=>tbody.appendChild(r));
