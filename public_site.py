@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 import json
 import sqlite3
+import threading
 import random
 import requests
 from urllib.parse import parse_qsl
@@ -51,6 +52,13 @@ def _track_public_visit():
             path=request.path,
         )
         session["_ariella_visit_day"] = today_key
+
+@site.app_errorhandler(500)
+def _customer_500_fallback(error):
+    if session.get("member_id"):
+        return redirect(url_for("site.account"))
+    return "Internal Server Error", 500
+
 
 _AIRPORTS_FILE = Path(__file__).resolve().parent / "static" / "airports.json"
 try:
@@ -196,6 +204,7 @@ def _decorate_ski_offer(offer, trip):
         copy["ski_resort"] = row.get("resort")
         copy["ski_country"] = row.get("country")
         copy["ski_transfer_minutes"] = row.get("transfer_minutes_estimate")
+        copy["ski_distance_km"] = row.get("distance_km_estimate")
         copy["ski_resort_scores"] = row.get("scores") or {}
         copy["ski_resort_levels"] = row.get("levels") or []
     return copy
@@ -317,9 +326,9 @@ def _current_member():
     # Country-based defaults for a new vacation. Explicit member preferences win.
     country_key = str(member.get("country") or "").strip().lower()
     country_defaults = {
-        "israel": ["TLV", "HFA"],
-        "ישראל": ["TLV", "HFA"],
-        "il": ["TLV", "HFA"],
+        "israel": ["TLV"],
+        "ישראל": ["TLV"],
+        "il": ["TLV"],
     }
     member["vacation_default_airports"] = (
         member["preferred_airports_list"]
@@ -513,6 +522,50 @@ def _offer_matches_trip(offer, trip, *, exact_dates=False, same_month=False):
     # Budget is a preference, not a hard exclusion. A strong match may be shown
     # above the requested amount; ranking and the UI make the overage transparent.
     return True
+
+
+
+def _personal_offer_visual_signature(offer):
+    """Signature for what the customer actually sees as one flight deal.
+
+    Ignore DB ids, scan ids, booking tokens and refresh metadata. If route, dates,
+    flight times, airlines and stop pattern are the same, it is the same displayed
+    itinerary and must appear only once in a personal vacation.
+    """
+    return (
+        str(offer.get("departure_code") or "").upper(),
+        str(offer.get("arrival_code") or "").upper(),
+        str(offer.get("outbound_date") or ""),
+        str(offer.get("return_date") or ""),
+        str(offer.get("airline") or "").strip().casefold(),
+        str(offer.get("departure_time") or ""),
+        str(offer.get("arrival_time") or ""),
+        str(offer.get("return_airline") or offer.get("airline") or "").strip().casefold(),
+        str(offer.get("return_departure_time") or ""),
+        str(offer.get("return_arrival_time") or ""),
+        offer.get("stops"),
+        offer.get("return_stops"),
+    )
+
+
+def _dedupe_personal_offer_lists(trip):
+    seen = set()
+
+    def clean(rows):
+        out = []
+        for offer in rows or []:
+            sig = _personal_offer_visual_signature(offer)
+            if sig in seen:
+                continue
+            seen.add(sig)
+            out.append(offer)
+        return out
+
+    trip["offers"] = clean(trip.get("offers"))
+    trip["alternative_offers"] = clean(trip.get("alternative_offers"))
+    if "over_budget_offers" in trip:
+        trip["over_budget_offers"] = clean(trip.get("over_budget_offers"))
+    return trip
 
 
 def _offer_signature(offer):
@@ -1399,12 +1452,31 @@ def _saved_match_offer_ids(trip):
 
 
 def _resolved_trip_offers(all_offers, trip, limit=5):
-    """Always resolve through the current customer-condition ranking.
-
-    Saved IDs and trip-produced offers must never bypass the latest request
-    conditions; otherwise stale QA/customer selections can outrank valid deals.
-    """
-    return _customer_deal_choices(all_offers, trip, limit=limit)
+    """Show fresh matches plus every deal already published to this vacation."""
+    fresh = _customer_deal_choices(all_offers, trip, limit=limit)
+    saved_ids = _saved_match_offer_ids(trip)
+    try:
+        trip_id = int(trip.get("id") or 0)
+    except (TypeError, ValueError):
+        trip_id = 0
+    trip_owned = [o for o in all_offers if trip_id and int(o.get("trip_id") or 0) == trip_id]
+    try:
+        pinned = [_localize_offer_airports(o) for o in recent_offers(limit=2000, minimum_score=None, offer_ids=saved_ids)] if saved_ids else []
+    except Exception:
+        pinned = []
+    historical = pinned + trip_owned
+    merged, seen = [], set()
+    for offer in fresh + historical:
+        oid = int(offer.get("id") or offer.get("offer_id") or 0)
+        sig = ("id", oid) if oid else ("sig", _offer_signature(offer))
+        if sig in seen:
+            continue
+        seen.add(sig)
+        copy = _decorate_availability_note(offer, trip)
+        copy["is_stale_48h"] = not _offer_is_recent(copy, 48)
+        copy["booking_trip_id"] = trip_id or None
+        merged.append(copy)
+    return merged[:limit + len(historical)]
 
 def _requested_passenger_count(trip):
     answers = trip.get("answers") or {}
@@ -1415,8 +1487,14 @@ def _requested_passenger_count(trip):
 
 
 def _decorate_availability_note(offer, trip):
-    """Never promise group inventory unless the supplier explicitly confirmed it."""
+    """Never promise group inventory unless the supplier explicitly confirmed it.
+
+    Every personal-card copy also carries the current trip id. Without this,
+    alternative/second-result cards can fall back to the shared offer's stored
+    booking request and therefore open the right flight with the wrong party size.
+    """
     copy = dict(offer)
+    copy["booking_trip_id"] = trip.get("id")
     pax = _requested_passenger_count(trip)
     available = copy.get("available_seats")
     verified = copy.get("availability_verified") is True
@@ -1768,13 +1846,15 @@ def _customer_deal_choices(all_offers, trip, limit=5):
     return out
 
 def _public_best_available(limit=30):
-    """Live public feed: fresh, bookable deals at the approved 70+ threshold."""
+    """Published public deals stay visible; age changes the warning, not visibility."""
     recent = [
         _localize_offer_airports(o)
-        for o in recent_offers(limit=500, minimum_score=MIN_DEAL_SCORE)
-        if _offer_is_publicly_bookable(o) and _offer_is_recent(o, 48)
+        for o in recent_offers(limit=2000, minimum_score=MIN_DEAL_SCORE)
+        if _offer_is_publicly_bookable(o)
         and int(o.get("score") or 0) >= MIN_DEAL_SCORE
     ]
+    for offer in recent:
+        offer["is_stale_48h"] = not _offer_is_recent(offer, 48)
     floor = datetime.min.replace(tzinfo=timezone.utc)
     recent.sort(key=lambda o: (_offer_seen_at(o) or floor, int(o.get("score") or 0), -float(o.get("price_ils") or 10**9)), reverse=True)
     return recent[:limit]
@@ -1855,7 +1935,7 @@ def home():
 
 @site.get("/deals")
 def deals():
-    candidates = _public_best_available(limit=120)
+    candidates = _public_best_available(limit=2000)
     # Single source of truth for BOTH current and previous public deals.
     # Filter after localization/mapping so no legacy partial offer can leak into
     # "previous deals" through a later list split.
@@ -1900,7 +1980,7 @@ def deals():
     previous_offers = [
         o for o in all_qualified
         if _offer_is_publicly_bookable(o) and o not in offers
-    ][:30]
+    ]
     personal_trips = []
     if session.get("member_id") and _current_member() is not None:
         with _db() as conn:
@@ -1940,7 +2020,9 @@ def deals():
             trip["database_match_found"] = bool(trip["offers"])
             trip["needs_fresh_search"] = not bool(trip["offers"] or trip["alternative_offers"])
             trip["has_incomplete_inventory"] = inventory.get("has_incomplete_inventory", False)
-            personal_trips.append(trip)
+            _dedupe_personal_offer_lists(trip)
+            _dedupe_personal_offer_lists(trip)
+        personal_trips.append(trip)
     # FINAL QA GATE: sanitize both lists immediately before rendering.
     offers = [o for o in offers if _strict_public_offer(o)]
     previous_offers = [o for o in previous_offers if _strict_public_offer(o)]
@@ -2168,41 +2250,71 @@ def account_details():
 
 @site.get("/book/<int:offer_id>")
 def book_offer(offer_id):
-    """BOOKER: send the customer to the safest actionable booking flow."""
+    """BOOKER: exact personal context first; never fall through to general deals."""
+    trip_id = request.args.get("trip_id", type=int)
+    personal_trip = None
+    if trip_id:
+        member_id = session.get("member_id")
+        if member_id:
+            with _db() as conn:
+                row = conn.execute(
+                    "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+                    (trip_id, member_id),
+                ).fetchone()
+            if row:
+                personal_trip = _trip_dict(row)
+
     offer = next(
         (o for o in recent_offers(limit=1500, minimum_score=None)
          if int(o.get("id") or o.get("offer_id") or 0) == offer_id),
         None,
     )
-    if not offer or not _offer_is_publicly_bookable(offer):
+
+    if not offer:
+        if trip_id:
+            flash("הקישור להזמנה אינו זמין כרגע. החופשה נשמרה וניתן לנסות דיל אחר.", "warning")
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        return redirect(url_for("site.deals"))
+    if personal_trip is None and not _offer_is_publicly_bookable(offer):
         return redirect(url_for("site.deals"))
 
-    target = resolve_booking_target(offer)
+    adults = children = None
+    if personal_trip is not None:
+        answers = personal_trip.get("answers") or {}
+        try:
+            adults = max(1, int(answers.get("adults") or 1))
+        except (TypeError, ValueError):
+            adults = 1
+        try:
+            children = max(0, int(answers.get("children") or 0))
+        except (TypeError, ValueError):
+            children = 0
+
+    target = resolve_booking_target(offer, adults=adults, children=children)
 
     record_booking_click(
         visitor_id=session.get("_ariella_visitor_id"),
         member_id=session.get("member_id"),
-        offer_id=offer_id,
+        offer_id=int(offer.get("offer_id") or offer.get("id") or offer_id),
         destination_code=offer.get("arrival_code"),
-        airline=offer.get("airline"),
-        supplier=target.supplier or offer.get("booking_supplier"),
+        airline=offer.get("airline") or (offer.get("flight") or {}).get("airline"),
+        supplier=target.supplier,
         price_ils=offer.get("price_ils"),
         score=offer.get("score"),
         outbound_date=offer.get("outbound_date"),
         return_date=offer.get("return_date"),
-        booking_url=target.url or offer.get("booking_url"),
+        booking_url=target.url,
     )
 
     if target.url and target.fields:
-        return render_template(
-            "booking_forward.html",
-            action=target.url,
-            fields=target.fields,
-        )
+        return render_template("booking_forward.html", action=target.url, fields=target.fields)
     if target.url:
         return redirect(target.url)
-    return redirect(url_for("site.deals"))
 
+    if personal_trip is not None:
+        flash("לא ניתן לפתוח כרגע הזמנה מדויקת אצל הספק לדיל הזה. לא העברנו אותך להזמנה כללית או עם מספר נוסעים שגוי.", "warning")
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+    return redirect(url_for("site.deals"))
 
 @site.get("/account")
 @login_required
@@ -2519,6 +2631,96 @@ def _pin_offer_ids_to_trip(trip_id, answers, offers):
     return ids
 
 
+
+_customer_scan_threads = {}
+_customer_scan_threads_lock = threading.Lock()
+
+
+def _customer_scan_worker(trip_id: int, scan_answers: dict, mode: str = "initial", choice: str = ""):
+    """Run one bounded personal scan outside the HTTP request and persist results."""
+    try:
+        result = run_customer_trip_search(trip_id, dict(scan_answers))
+        status = str(result.get("status") or "unknown")
+        api_used = int(result.get("api_requests") or 0)
+    except Exception:
+        result = {}
+        status = "search_error"
+        api_used = 0
+
+    try:
+        with _db() as conn:
+            row = conn.execute("SELECT * FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+        if not row:
+            return
+        trip = _trip_dict(row)
+        answers = dict(trip.get("answers") or {})
+        refreshed = _recent_inventory_48h()
+
+        if mode == "initial":
+            matches = _customer_deal_choices(refreshed, trip, limit=5)
+            if matches:
+                _pin_offer_ids_to_trip(trip_id, answers, matches)
+        elif mode == "other_destination":
+            answers["_alternative_other_destination"] = True
+            answers["_second_chance_used"] = True
+            answers["_second_chance_choice"] = "other_destination"
+            check_trip = dict(trip)
+            check_trip["answers"] = answers
+            matches = _same_dates_other_destination_db_matches(refreshed, check_trip, limit=5)
+            if matches:
+                _pin_offer_ids_to_trip(trip_id, answers, matches)
+            else:
+                answers["_second_chance_exhausted"] = True
+                with _db() as conn:
+                    conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
+                    conn.commit()
+        elif mode == "nearby_dates":
+            answers["_second_chance_used"] = True
+            answers["_second_chance_choice"] = "nearby_dates"
+            check_trip = dict(trip)
+            check_trip["answers"] = answers
+            matches = _customer_alternative_choices(refreshed, check_trip, limit=5)
+            if matches:
+                _pin_offer_ids_to_trip(trip_id, answers, matches)
+            else:
+                answers["_second_chance_exhausted"] = True
+                with _db() as conn:
+                    conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
+                    conn.commit()
+
+        with _db() as conn:
+            if api_used > 0:
+                conn.execute(
+                    "UPDATE trip_requests SET free_scan_count=COALESCE(free_scan_count,0)+1, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (utc_now_iso(), status, trip_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (utc_now_iso(), status, trip_id),
+                )
+            conn.commit()
+    finally:
+        with _customer_scan_threads_lock:
+            _customer_scan_threads.pop(trip_id, None)
+
+
+def _queue_customer_scan(trip_id: int, scan_answers: dict, mode: str = "initial", choice: str = "") -> bool:
+    """Queue at most one live customer scan per vacation in this web process."""
+    with _customer_scan_threads_lock:
+        current = _customer_scan_threads.get(trip_id)
+        if current and current.is_alive():
+            return False
+        thread = threading.Thread(
+            target=_customer_scan_worker,
+            args=(trip_id, dict(scan_answers), mode, choice),
+            daemon=True,
+            name=f"ariella-customer-{trip_id}-{mode}",
+        )
+        _customer_scan_threads[trip_id] = thread
+        thread.start()
+        return True
+
 @site.post("/trip/<int:trip_id>/free-alternative")
 @login_required
 def free_trip_alternative(trip_id):
@@ -2632,43 +2834,19 @@ def free_trip_alternative(trip_id):
         scan_answers = dict(answers)
         scan_answers["_alternative_other_destination"] = True
 
-    try:
-        scan_result = run_customer_trip_search(trip_id, scan_answers)
-    except Exception:
-        # Never return a raw Flask 500 to the customer.
-        with _db() as conn:
-            conn.execute(
-                "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-                (utc_now_iso(), "search_error", trip_id),
-            )
-            conn.commit()
-        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-
-    refreshed = _recent_inventory_48h()
+    # No DB match: queue the one allowed external second-chance branch and return
+    # immediately. Mark it used now so repeated clicks cannot launch duplicates.
     answers["_second_chance_used"] = True
     answers["_second_chance_choice"] = choice
     if choice == "other_destination":
         answers["_alternative_other_destination"] = True
-        check_trip = dict(trip); check_trip["answers"] = answers
-        matches = _same_dates_other_destination_db_matches(refreshed, check_trip, limit=5)
-    else:
-        check_trip = dict(trip); check_trip["answers"] = answers
-        matches = _customer_alternative_choices(refreshed, check_trip, limit=5)
-    if matches:
-        _pin_offer_ids_to_trip(trip_id, answers, matches)
-    else:
-        answers["_second_chance_exhausted"] = True
-        with _db() as conn:
-            conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
-            conn.commit()
-
     with _db() as conn:
         conn.execute(
-            "UPDATE trip_requests SET free_scan_count=COALESCE(free_scan_count,0)+1, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-            (utc_now_iso(), str(scan_result.get("status") or "unknown"), trip_id),
+            "UPDATE trip_requests SET answers_json=?, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+            (json.dumps(answers, ensure_ascii=False), utc_now_iso(), "alternative_search_queued", trip_id),
         )
         conn.commit()
-
+    _queue_customer_scan(trip_id, scan_answers, mode=choice, choice=choice)
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
@@ -3002,28 +3180,13 @@ def new_trip():
             if _offer_is_recent(o, 48)
         ] + _qa_fixture_offers()
 
-        # Initial DB match obeys the user's exact date mode. No hidden date alternatives.
+        # Initial DB-first match. External work is queued only for a bounded,
+        # destination-led request; the browser is never held open for SerpApi.
         existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
-        scan_status = "database_match" if existing_matches else "no_database_match"
-        scan_count = 0
-
-        # The customer's exact request has priority. If the fresh shared DB has no
-        # full match, every route (including "Ariella chooses") gets an external
-        # search before any alternative is offered.
-        if not existing_matches:
-            try:
-                scan_result = run_customer_trip_search(trip_id, payload)
-                scan_count = 1
-                scan_status = str(scan_result.get("status") or "external_search")
-                refreshed_inventory = [
-                    _localize_offer_airports(o)
-                    for o in recent_offers(limit=1500, minimum_score=None)
-                    if _offer_is_recent(o, 48)
-                ]
-                existing_matches = _customer_deal_choices(refreshed_inventory, trip_for_match, limit=5)
-            except Exception:
-                scan_count = 1
-                scan_status = "external_search_error"
+        open_db_only = (
+            vacation_type == "standard"
+            and str(payload.get("destination_mode") or "open") == "open"
+        )
 
         if existing_matches:
             matched_ids = [
@@ -3034,17 +3197,26 @@ def new_trip():
             payload["_matched_offer_ids"] = matched_ids
             with _db() as conn:
                 conn.execute(
-                    "UPDATE trip_requests SET answers_json=? WHERE id=?",
-                    (json.dumps(payload, ensure_ascii=False), trip_id),
+                    "UPDATE trip_requests SET answers_json=?, free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (json.dumps(payload, ensure_ascii=False), utc_now_iso(), "database_match", trip_id),
                 )
                 conn.commit()
+        elif open_db_only:
+            with _db() as conn:
+                conn.execute(
+                    "UPDATE trip_requests SET free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (utc_now_iso(), "db_only_open", trip_id),
+                )
+                conn.commit()
+        else:
+            with _db() as conn:
+                conn.execute(
+                    "UPDATE trip_requests SET free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (utc_now_iso(), "external_search_queued", trip_id),
+                )
+                conn.commit()
+            _queue_customer_scan(trip_id, payload, mode="initial")
 
-        with _db() as conn:
-            conn.execute(
-                "UPDATE trip_requests SET free_scan_count=?, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-                (scan_count, utc_now_iso(), scan_status, trip_id),
-            )
-            conn.commit()
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
     return render_template("trip_form.html", **form_context())

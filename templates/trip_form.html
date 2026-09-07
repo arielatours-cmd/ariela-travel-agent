@@ -1,14 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ 'New Vacation — Ariella' if site_lang == 'en' else 'תכנון חופשה חדשה — אריאלה' }}{% endblock %}
 {% block content %}
+<style id="mobile-questionnaire-no-hero-20260905">
+@media(max-width:760px){.trip-questionnaire-hero{display:none!important}.trip-back-bar{padding-top:6px!important;padding-bottom:4px!important;margin-bottom:0!important}.trip-wizard{margin-top:6px!important}}
+</style>
 <div class="trip-back-bar shell"><a class="button outline back-to-vacations" href="{{ url_for('site.account') }}">{{ 'Back to My Vacations' if site_lang=='en' else 'חזרה לחופשות שלי' }}</a></div>
 
-<section class="page-hero trip-questionnaire-hero">
-  <div class="shell narrow">
-    <span class="eyebrow">{{ 'PERSONAL VACATION SEARCH' if site_lang == 'en' else 'שאלון התאמה אישי' }}</span>
-    <h1>{{ "Let's plan your next vacation" if site_lang == 'en' else 'בואו נתכנן את החופשה הבאה' }}</h1>
-  </div>
-</section>
 
 <form method="post" class="trip-wizard shell" id="tripWizard" novalidate>
   <section class="vacation-type-gate" id="vacationTypeGate">
@@ -74,7 +71,7 @@
         <small class="destination-multi-helper">{{ 'You can choose several different destinations' if site_lang=='en' else 'ניתן לבחור כמה יעדים שונים' }}</small>
       </label>
     </div>
-    <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang=='en' else 'המשך' }}</button></div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-type-back">{{'Back to vacation type' if site_lang=='en' else 'חזרה לבחירת סוג חופשה'}}</button><button type="button" class="button primary wizard-next">{{ 'Continue' if site_lang=='en' else 'המשך' }}</button></div>
   </section>
 
   <section class="wizard-step" data-route="standard" data-step="2" hidden>
@@ -143,9 +140,9 @@
   </section>
 
   <section class="wizard-step" data-route="standard" data-step="5" hidden>
-    <span class="step-number">05</span><h2>{{'Would you like to set a budget?' if site_lang=='en' else 'האם תרצו להגביל את התקציב?'}}</h2>
-    <div class="choice-row">{% for value,en,he in [('per_person','Budget per person','תקציב לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}<label class="choice-button"><input type="radio" name="budget_mode" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
-    <div class="conditional-panel" id="regularBudgetPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב מרבי לאדם (₪)'}}<input type="number" name="budget_amount" id="budgetAmount" min="0" step="50"></label><p class="helper">{{'Ariella allows up to 10% tolerance.' if site_lang=='en' else 'אריאלה מאפשרת סטייה של עד 10% מהתקציב.'}}</p></div>
+    <span class="step-number">05</span><h2>{{'Would you like to set a budget?' if site_lang=='en' else 'האם תרצו להגביל את התקציב לאדם?'}}</h2>
+    <div class="choice-row">{% for value,en,he in [('per_person','Budget per person per person','תקציב לאדם לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב לאדם')] %}<label class="choice-button"><input type="radio" name="budget_mode" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}</div>
+    <div class="conditional-panel" id="regularBudget per personPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב לאדם מרבי לאדם (₪)'}}<input type="number" name="budget_amount" id="budgetAmount" min="0" step="50"></label><p class="helper">{{'Ariella allows up to 10% tolerance.' if site_lang=='en' else 'אריאלה מאפשרת סטייה של עד 10% מהתקציב לאדם.'}}</p></div>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="submit" class="button primary">{{'Find me the best-value flight' if site_lang=='en' else 'מצא לי את הטיסה המשתלמת'}}</button></div>
   </section>
 
@@ -176,26 +173,38 @@
       </label>
       <p class="helper">{{'You can choose one airport or several airports.' if site_lang=='en' else 'אפשר לבחור שדה תעופה אחד או כמה שדות.'}}</p>
     </div>
-    <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-type-back">{{'Back to vacation type' if site_lang=='en' else 'חזרה לבחירת סוג חופשה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
 
   <section class="wizard-step business-question" data-route="business" data-step="2" hidden>
     <span class="step-number">B2</span><h2>{{'When do you need to travel?' if site_lang=='en' else 'מתי צריך לטוס?'}}</h2>
-    <div class="conditional-panel two-cols business-date-panel">
+    <div class="conditional-panel two-cols business-date-panel compact-date-panel">
       <label>{{'Departure date' if site_lang=='en' else 'תאריך יציאה'}}<input type="date" name="business_departure_date" id="businessDepartureDate" min="{{today}}" required></label>
       <label>{{'Return date' if site_lang=='en' else 'תאריך חזרה'}}<input type="date" name="business_return_date" id="businessReturnDate" min="{{today}}" required></label>
     </div>
-    <label class="business-flex-toggle"><input type="checkbox" name="business_flexible_dates" value="1" id="businessFlexibleDates"><span>{{'I have date flexibility' if site_lang=='en' else 'יש לי גמישות בתאריכים'}}</span></label>
+    <div class="business-flex-choice">
+      <h3>{{'Do you have flexibility in the dates?' if site_lang=='en' else 'האם יש לך גמישות בתאריכים?'}}</h3>
+      <div class="choice-row compact-options">
+        <label class="choice-button small"><input type="radio" name="business_flexible_dates" value="1" required><span>{{'Yes' if site_lang=='en' else 'כן'}}</span></label>
+        <label class="choice-button small"><input type="radio" name="business_flexible_dates" value="0" required><span>{{'No' if site_lang=='en' else 'לא'}}</span></label>
+      </div>
+    </div>
     <div class="conditional-panel" id="businessFlexPanel" hidden>
-      <label>{{'How many days of flexibility?' if site_lang=='en' else 'כמה ימים אפשר להזיז?'}}
+      <label class="inline-compact-field"><span>{{'How many days can the dates move?' if site_lang=='en' else 'כמה ימים אפשר להזיז?'}}</span>
         <select name="business_flex_days" id="businessFlexDays"><option value="1">± 1</option><option value="2">± 2</option><option value="3">± 3</option></select>
       </label>
     </div>
-    <div class="conditional-panel" id="businessTimePanel">
+    <div class="conditional-panel" id="businessTimePanel" hidden>
       <h3>{{'Are there times you need to meet?' if site_lang=='en' else 'יש זמנים שחשוב לעמוד בהם?'}}</h3>
-      <div class="two-cols">
-        <label>{{'I need to arrive by' if site_lang=='en' else 'אני צריך/ה להגיע ליעד עד'}}<input type="date" name="business_arrive_by_date" id="businessArriveByDate" min="{{today}}"><input type="time" name="business_arrive_by_time"></label>
-        <label>{{'I can leave the destination from' if site_lang=='en' else 'אני יכול/ה לצאת מהיעד החל מ'}}<input type="date" name="business_return_after_date" id="businessReturnAfterDate" min="{{today}}"><input type="time" name="business_return_after_time"></label>
+      <div class="business-time-rows">
+        <div class="business-time-block"><strong>{{'I need to arrive by' if site_lang=='en' else 'אני צריך/ה להגיע ליעד עד'}}</strong>
+          <label class="labeled-inline"><span>{{'Date' if site_lang=='en' else 'תאריך'}}</span><input type="date" name="business_arrive_by_date" id="businessArriveByDate" min="{{today}}"></label>
+          <label class="labeled-inline"><span>{{'Time' if site_lang=='en' else 'שעה'}}</span><input type="time" name="business_arrive_by_time"></label>
+        </div>
+        <div class="business-time-block"><strong>{{'I can leave the destination from' if site_lang=='en' else 'אני יכול/ה לצאת מהיעד החל מ'}}</strong>
+          <label class="labeled-inline"><span>{{'Date' if site_lang=='en' else 'תאריך'}}</span><input type="date" name="business_return_after_date" id="businessReturnAfterDate" min="{{today}}"></label>
+          <label class="labeled-inline"><span>{{'Time' if site_lang=='en' else 'שעה'}}</span><input type="time" name="business_return_after_time"></label>
+        </div>
       </div>
       <p class="helper">{{'If an early arrival is required, Ariella may also consider departure the previous day.' if site_lang=='en' else 'אם נדרשת הגעה מוקדמת, אריאלה יכולה לבדוק גם יציאה ביום הקודם כדי לעמוד בזמן.'}}</p>
     </div>
@@ -228,12 +237,12 @@
   </section>
 
   <section class="wizard-step business-question" data-route="business" data-step="6" hidden>
-    <span class="step-number">B6</span><h2>{{'Would you like to set a budget?' if site_lang=='en' else 'האם תרצו להגביל את התקציב?'}}</h2>
+    <span class="step-number">B6</span><h2>{{'Would you like to set a budget?' if site_lang=='en' else 'האם תרצו להגביל את התקציב לאדם?'}}</h2>
     <div class="choice-row">
-      {% for value,en,he in [('per_person','Budget per person','תקציב לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}
+      {% for value,en,he in [('per_person','Budget per person per person','תקציב לאדם לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב לאדם')] %}
       <label class="choice-button"><input type="radio" name="business_budget_mode" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}
     </div>
-    <div class="conditional-panel" id="businessBudgetPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב מרבי לאדם (₪)'}}<input type="number" name="business_budget_amount" id="businessBudgetAmount" min="0" step="50"></label></div>
+    <div class="conditional-panel" id="businessBudget per personPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב לאדם מרבי לאדם (₪)'}}<input type="number" name="business_budget_amount" id="businessBudget per personAmount" min="0" step="50"></label></div>
     <label class="notes-label">{{'Anything else Ariella should know?' if site_lang=='en' else 'משהו נוסף שחשוב שאריאלה תדע?'}}<textarea name="business_notes" rows="3"></textarea></label>
     <p class="helper business-results-note">{{'Ariella will show the available flights from the highest match to the lowest and explain which of your conditions each flight meets.' if site_lang=='en' else 'אריאלה תציג את הטיסות הזמינות מההתאמה הגבוהה ביותר ומטה, ומתחת לכל דיל תציין באילו תנאים הוא עומד.'}}</p>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="submit" class="button primary">{{'Save business flight' if site_lang=='en' else 'שמירת טיסת העסקים'}}</button></div>
@@ -260,7 +269,7 @@
         <small class="destination-multi-helper">{{'You can choose multiple ski resorts' if site_lang=='en' else 'ניתן לבחור כמה אתרי סקי'}}</small>
       </label>
     </div>
-    <div class="wizard-actions"><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
+    <div class="wizard-actions"><button type="button" class="button secondary wizard-type-back">{{'Back to vacation type' if site_lang=='en' else 'חזרה לבחירת סוג חופשה'}}</button><button type="button" class="button primary wizard-next">{{'Continue' if site_lang=='en' else 'המשך'}}</button></div>
   </section>
 
   <section class="wizard-step ski-question" data-route="ski" data-step="2" hidden>
@@ -323,12 +332,12 @@
   </section>
 
   <section class="wizard-step ski-question" data-route="ski" data-step="7" hidden>
-    <span class="step-number">S7</span><h2>{{'What is your flight budget?' if site_lang=='en' else 'מה התקציב לטיסות?'}}</h2>
+    <span class="step-number">S7</span><h2>{{'What is your flight budget?' if site_lang=='en' else 'מה התקציב לאדם לטיסות?'}}</h2>
     <div class="choice-row">
-      {% for value,en,he in [('per_person','Per person','לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב')] %}
+      {% for value,en,he in [('per_person','Per person','לאדם'),('unlimited','No budget limit','ללא הגבלת תקציב לאדם')] %}
       <label class="choice-button"><input type="radio" name="ski_budget_mode" value="{{value}}" required><span>{{en if site_lang=='en' else he}}</span></label>{% endfor %}
     </div>
-    <div class="conditional-panel" id="skiBudgetPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב מרבי לאדם (₪)'}}<input type="number" name="ski_budget_amount" id="skiBudgetAmount" min="0" step="50"></label><p class="helper">{{'Flight budget only at this stage. Ariella allows up to 10% tolerance.' if site_lang=='en' else 'בשלב הזה התקציב מתייחס לטיסות בלבד. אריאלה מאפשרת סטייה של עד 10%.'}}</p></div>
+    <div class="conditional-panel" id="skiBudget per personPanel" hidden><label>{{'Maximum per person (₪)' if site_lang=='en' else 'תקציב לאדם מרבי לאדם (₪)'}}<input type="number" name="ski_budget_amount" id="skiBudget per personAmount" min="0" step="50"></label><p class="helper">{{'Flight budget only at this stage. Ariella allows up to 10% tolerance.' if site_lang=='en' else 'בשלב הזה התקציב לאדם מתייחס לטיסות בלבד. אריאלה מאפשרת סטייה של עד 10%.'}}</p></div>
     <label class="notes-label">{{'Anything else Ariella should know?' if site_lang=='en' else 'משהו נוסף שחשוב שאריאלה תדע?'}}<textarea name="ski_notes" rows="3"></textarea></label>
     <div class="wizard-actions"><button type="button" class="button secondary wizard-back">{{'Back' if site_lang=='en' else 'חזרה'}}</button><button type="submit" class="button primary">{{'Recommend a ski vacation' if site_lang=='en' else 'תמליץ לי על חופשת סקי'}}</button></div>
   </section>
@@ -365,7 +374,7 @@
     const steps=routeSteps(); current=Math.max(0,Math.min(index,steps.length-1));
     form.querySelectorAll('.wizard-step').forEach(s=>{s.hidden=true;s.classList.remove('is-active')});
     const step=steps[current]; step.hidden=false; step.classList.add('is-active');
-    gate.hidden=true; origin.hidden=false; progressWrap.hidden=false; counter.hidden=false;
+    gate.hidden=true; origin.hidden=(current !== 0); progressWrap.hidden=false; counter.hidden=false;
     counter.textContent={{ ('`Question ${current+1} of ${steps.length}`' if site_lang=='en' else '`שאלה ${current+1} מתוך ${steps.length}`')|safe }};
     progress.style.width=`${((current+1)/steps.length)*100}%`;
     window.scrollTo({top:form.offsetTop-105,behavior:'smooth'});
@@ -383,6 +392,7 @@
     setTimeout(()=>showStep(0),120);
   }));
   form.querySelectorAll('.wizard-next').forEach(b=>b.addEventListener('click',()=>{const s=routeSteps()[current]; if(validateStep(s))showStep(current+1)}));
+  form.querySelectorAll('.wizard-type-back').forEach(b=>b.addEventListener('click',backToGate));
   function clearStep(step){
     if(!step) return;
     step.querySelectorAll('input,select,textarea').forEach(el=>{
@@ -412,7 +422,7 @@
       const mode=form.querySelector('input[name="business_destination_mode"]:checked')?.value;
       if(['specific','several'].includes(mode)&&!document.getElementById('businessDestinationsInput').value.trim())return document.getElementById('businessDestinationsSearch').focus(),false;
     }
-    if(route==='business'&&step.dataset.step==='6'&&form.querySelector('input[name="business_budget_mode"]:checked')?.value==='per_person'&&!document.getElementById('businessBudgetAmount').value)return false;
+    if(route==='business'&&step.dataset.step==='6'&&form.querySelector('input[name="business_budget_mode"]:checked')?.value==='per_person'&&!document.getElementById('businessBudget per personAmount').value)return false;
     if(route==='ski'&&step.dataset.step==='1'){
       const mode=form.querySelector('input[name="ski_destination_mode"]:checked')?.value;
       if(mode==='several'&&document.getElementById('skiTargets').selectedOptions.length===0)return document.getElementById('skiTargetSearch').focus(),false;
@@ -428,7 +438,7 @@
     }
     if(route==='ski'&&step.dataset.step==='2'&&!updateSkiSeasonWarning())return false;
     if(route==='standard'&&step.dataset.step==='5'&&form.querySelector('input[name="budget_mode"]:checked')?.value==='per_person'&&!document.getElementById('budgetAmount').value)return false;
-    if(route==='ski'&&step.dataset.step==='7'&&form.querySelector('input[name="ski_budget_mode"]:checked')?.value!=='unlimited'&&!document.getElementById('skiBudgetAmount').value)return false;
+    if(route==='ski'&&step.dataset.step==='7'&&form.querySelector('input[name="ski_budget_mode"]:checked')?.value!=='unlimited'&&!document.getElementById('skiBudget per personAmount').value)return false;
     return true;
   }
 
@@ -481,8 +491,8 @@
     document.getElementById('skiAdultCount').hidden=sp!=='friends';
 
     // budgets
-    document.getElementById('regularBudgetPanel').hidden=form.querySelector('input[name="budget_mode"]:checked')?.value!=='per_person';
-    document.getElementById('skiBudgetPanel').hidden=['unlimited',undefined].includes(form.querySelector('input[name="ski_budget_mode"]:checked')?.value);
+    document.getElementById('regularBudget per personPanel').hidden=form.querySelector('input[name="budget_mode"]:checked')?.value!=='per_person';
+    document.getElementById('skiBudget per personPanel').hidden=['unlimited',undefined].includes(form.querySelector('input[name="ski_budget_mode"]:checked')?.value);
 
     // ski destination
     const sdm=form.querySelector('input[name="ski_destination_mode"]:checked')?.value;
@@ -502,14 +512,27 @@
     const bdm=form.querySelector('input[name="business_destination_mode"]:checked')?.value;
     document.getElementById('businessDestinationPanel').hidden=!['specific','several'].includes(bdm);
 
-    const bflex=document.getElementById('businessFlexibleDates')?.checked===true;
-    document.getElementById('businessFlexPanel').hidden=!bflex;
-    document.getElementById('businessTimePanel').hidden=bflex;
+    const bflex=form.querySelector('input[name="business_flexible_dates"]:checked')?.value;
+    document.getElementById('businessFlexPanel').hidden=bflex!=='1';
+    document.getElementById('businessTimePanel').hidden=bflex!=='0';
 
     const bbm=form.querySelector('input[name="business_budget_mode"]:checked')?.value;
-    document.getElementById('businessBudgetPanel').hidden=bbm!=='per_person';
+    document.getElementById('businessBudget per personPanel').hidden=bbm!=='per_person';
   }
-  form.addEventListener('change',syncAll);
+  function syncSelectedStates(){
+    form.querySelectorAll('.choice-button input,.vacation-type-card input').forEach(i=>{
+      i.closest('.choice-button,.vacation-type-card')?.classList.toggle('selected',!!i.checked);
+    });
+  }
+  function revealNewFields(){
+    if(!window.matchMedia('(max-width: 760px)').matches)return;
+    const step=routeSteps()[current]; if(!step)return;
+    const visible=Array.from(step.querySelectorAll('.conditional-panel:not([hidden]),.ski-season-warning:not([hidden])')).filter(el=>el.offsetParent!==null);
+    const target=visible[visible.length-1]; if(!target)return;
+    const r=target.getBoundingClientRect();
+    if(r.bottom>window.innerHeight-80){setTimeout(()=>target.scrollIntoView({behavior:'smooth',block:'center'}),60);}
+  }
+  form.addEventListener('change',()=>{syncAll();syncSelectedStates();setTimeout(revealNewFields,80);});
   // "Let Ariella choose" is exclusive: selecting it clears the other flight priorities,
   // and selecting a specific priority clears "balanced".
   form.querySelectorAll('input[name="deal_priorities"]').forEach(input=>input.addEventListener('change',()=>{

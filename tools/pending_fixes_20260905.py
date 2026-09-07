@@ -80,11 +80,12 @@ def _patch_admin_score_table():
     path = ROOT / "admin.py"
     before = path.read_text(encoding="utf-8")
     text = before
-    text = text.replace('<th class="score-part">עלות</th>', '<th class="score-part" title="מקסימום 45">מחיר / חיסכון<br><small>עד 45</small></th>')
+    text = text.replace('<th class="score-part">עלות</th>', '<th class="score-part" title="מקסימום 55">מחיר<br><small>עד 55</small></th>')
     text = text.replace('<th class="score-part">מסלול</th>', '<th class="score-part" title="מקסימום 20">איכות טיסה<br><small>עד 20</small></th>')
     text = text.replace('<th class="score-part">כבודה</th>', '<th class="score-part" title="מקסימום 10">כבודה<br><small>עד 10</small></th>')
     text = text.replace('<th class="score-part">שעות</th>', '<th class="score-part" title="מקסימום 15">שעות וניצול<br><small>עד 15</small></th>')
-    text = text.replace('<th class="score-part">נדירות</th>', '<th class="score-part" title="מקסימום 10">נדירות מחיר<br><small>עד 10</small></th>')
+    text = text.replace('    <th class="score-part">נדירות</th>\n', '')
+    text = text.replace('    <th class="score-part" title="מקסימום 10">נדירות מחיר<br><small>עד 10</small></th>\n', '')
     # Seasonality and supplier reliability are not scoring components anymore.
     text = text.replace('    <th class="score-part">עונתיות</th>\n', '')
     text = text.replace('    <th class="score-part">אמינות</th>\n', '')
@@ -92,7 +93,9 @@ def _patch_admin_score_table():
     reliability_cell = '''    <td class="score-part" title="ניקוד אמינות">\n        {{ o.reliability_score if o.reliability_score is defined and o.reliability_score is not none else '—' }}\n    </td>\n'''
     text = text.replace(season_cell, '')
     text = text.replace(reliability_cell, '')
-    text = text.replace('<div class="muted">גרסה {{ version }} · סף דיל: {{ minimum_score }}</div>', '<div class="muted">גרסה {{ version }} · סף דיל כללי: {{ minimum_score }} · ניקוד: מחיר 45 + איכות טיסה 20 + שעות וניצול 15 + כבודה 10 + נדירות 10 = 100</div>')
+    rarity_cell = '''    <td class="score-part" title="ניקוד נדירות">\n        {{ o.rarity_score if o.rarity_score is defined else '—' }}\n    </td>\n'''
+    text = text.replace(rarity_cell, '')
+    text = text.replace('<div class="muted">גרסה {{ version }} · סף דיל: {{ minimum_score }}</div>', '<div class="muted">גרסה {{ version }} · סף דיל כללי: {{ minimum_score }} · ניקוד: מחיר 55 + איכות טיסה 20 + שעות וניצול 15 + כבודה 10 = 100</div>')
     _save(path, before, text)
 
 

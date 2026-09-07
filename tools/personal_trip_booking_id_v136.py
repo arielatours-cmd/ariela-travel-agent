@@ -18,8 +18,11 @@ new = '''def _decorate_availability_note(offer, trip):
     copy = dict(offer)
     copy["booking_trip_id"] = trip.get("id")
     pax = _requested_passenger_count(trip)'''
-if old not in text:
+if old in text:
+    text = text.replace(old, new, 1)
+    PUBLIC.write_text(text, encoding="utf-8")
+    print("9.7.136 every personal deal carries current trip id for exact passenger booking")
+elif 'copy["booking_trip_id"] = trip.get("id")' in text:
+    print("9.7.136 personal trip booking id already present")
+else:
     raise RuntimeError("availability decorator anchor not found")
-text = text.replace(old, new, 1)
-PUBLIC.write_text(text, encoding="utf-8")
-print("9.7.136 every personal deal carries current trip id for exact passenger booking")

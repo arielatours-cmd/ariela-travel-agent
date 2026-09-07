@@ -49,7 +49,21 @@
 
    <section class="deal-baggage"><h3 class="baggage-heading"><span>{{ 'What is included?' if lang=='en' else 'מה כלול בכרטיס?' }}</span></h3><ul>{{ bag_row('תיק אישי','Personal item',offer.baggage.personal_item,'backpack',lang) }}{{ bag_row('טרולי 8 ק״ג','8 kg carry-on',offer.baggage.carry_on_8kg,'carry',lang) }}{{ bag_row('מזוודה 23 ק״ג','23 kg checked bag',offer.baggage.checked_bag_23kg,'checked',lang) }}</ul></section>
 
-   <section class="deal-commerce"><dl class="important-terms"><div><dt>{{ 'Consumer protection:' if lang=='en' else 'הגנת הצרכן:' }}</dt><dd class="{{ offer.consumer_protection_class }}">{{ protection_en(offer.consumer_protection_label) if lang=='en' else offer.consumer_protection_label }}</dd></div><div><dt>{{ 'Changes / cancellation:' if lang=='en' else 'שינוי / ביטול:' }}</dt><dd>{{ change_en(offer.change_cancel_label) if lang=='en' else offer.change_cancel_label }}</dd></div></dl><div class="deal-price-box">{% if offer.price_reference_reliable and offer.reference_price_ils and offer.discount_percent and offer.discount_percent|float >= 5 %}<span class="average-label">{{ 'Average price for this period' if lang=='en' else 'מחיר ממוצע לתקופה זו' }}</span><del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>{% endif %}<span class="found-label">{{ 'Price per person found by Ariella' if lang=='en' else 'המחיר לאדם שאריאלה מצאה' }}</span><strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>{% if offer.budget_overage_ils is number and offer.budget_overage_ils > 0 %}<p class="budget-overage-note">{{ ('Above your preferred budget by ₪' ~ (offer.budget_overage_ils|round|int) ~ ', but it is a strong match for the rest of your preferences.') if lang=='en' else ('חורג מהתקציב המועדף ב־' ~ (offer.budget_overage_ils|round|int) ~ ' ₪, אבל מתאים היטב לשאר ההעדפות שלכם.') }}</p>{% endif %}{% if offer.booking_supplier %}<div class="supplier-summary"><div><b>{{ 'Recommended booking option' if lang=='en' else 'אפשרות ההזמנה המומלצת' }}:</b> {{ offer.booking_supplier }}{% if offer.booking_supplier_approved %} ✓{% endif %}</div>{% if offer.direct_supplier and offer.direct_supplier_price_ils is number and offer.direct_supplier != offer.booking_supplier %}<div class="direct-compare">{{ 'Direct with airline' if lang=='en' else 'ישירות מחברת התעופה' }}: ₪{{ offer.direct_supplier_price_ils|round|int }}</div>{% endif %}{% if offer.booking_choice_reason_he %}<div class="supplier-note booking-choice-note">{{ offer.booking_choice_reason_en if lang=='en' else offer.booking_choice_reason_he }}</div>{% endif %}</div>{% endif %}{% if offer.booking_url %}<a href="{{ url_for('site.book_offer', offer_id=offer.id, trip_id=offer.booking_trip_id) if offer.booking_trip_id else url_for('site.book_offer', offer_id=offer.id) }}" target="_blank" rel="noopener noreferrer">{{ 'Go to booking' if lang=='en' else 'למעבר להזמנה' }}</a>{% endif %}</div></section>
+   <section class="deal-commerce"><dl class="important-terms"><div><dt>{{ 'Consumer protection:' if lang=='en' else 'הגנת הצרכן:' }}</dt><dd class="{{ offer.consumer_protection_class }}">{{ protection_en(offer.consumer_protection_label) if lang=='en' else offer.consumer_protection_label }}</dd></div><div><dt>{{ 'Changes / cancellation:' if lang=='en' else 'שינוי / ביטול:' }}</dt><dd>{{ change_en(offer.change_cancel_label) if lang=='en' else offer.change_cancel_label }}</dd></div></dl><div class="deal-price-box">{% if offer.price_reference_reliable and offer.reference_price_ils and offer.discount_percent and offer.discount_percent|float >= 5 %}<span class="average-label">{{ 'Average price for this period' if lang=='en' else 'מחיר ממוצע לתקופה זו' }}</span><del>₪{{ '%.0f'|format(offer.reference_price_ils) }}</del>{% endif %}<span class="found-label">{{ 'Price per person found by Ariella' if lang=='en' else 'המחיר לאדם שאריאלה מצאה' }}</span><strong>₪{{ '%.0f'|format(offer.price_ils) }}</strong>
+      {% if offer.fare_options %}
+      <details class="fare-options">
+        <summary>{{ 'More options' if lang=='en' else 'אפשרויות נוספות' }}</summary>
+        <div class="fare-options-list">
+          {% for fare in offer.fare_options %}
+          <div class="fare-option">
+            <div class="fare-option-head"><b>{{ fare.name }}</b><strong>₪{{ fare.price_ils|round|int }}</strong></div>
+            {% if fare.features %}<ul>{% for feature in fare.features %}<li>{{ feature }}</li>{% endfor %}</ul>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+{% if offer.budget_overage_ils is number and offer.budget_overage_ils > 0 %}<p class="budget-overage-note">{{ ('Above your preferred budget by ₪' ~ (offer.budget_overage_ils|round|int) ~ ', but it is a strong match for the rest of your preferences.') if lang=='en' else ('חורג מהתקציב המועדף ב־' ~ (offer.budget_overage_ils|round|int) ~ ' ₪, אבל מתאים היטב לשאר ההעדפות שלכם.') }}</p>{% endif %}{% if offer.booking_supplier %}<div class="supplier-summary"><div><b>{{ 'Recommended booking option' if lang=='en' else 'אפשרות ההזמנה המומלצת' }}:</b> {{ offer.booking_supplier }}{% if offer.booking_supplier_approved %} ✓{% endif %}</div>{% if offer.direct_supplier and offer.direct_supplier_price_ils is number and offer.direct_supplier != offer.booking_supplier %}<div class="direct-compare">{{ 'Direct with airline' if lang=='en' else 'ישירות מחברת התעופה' }}: ₪{{ offer.direct_supplier_price_ils|round|int }}</div>{% endif %}{% if offer.booking_choice_reason_he %}<div class="supplier-note booking-choice-note">{{ offer.booking_choice_reason_en if lang=='en' else offer.booking_choice_reason_he }}</div>{% endif %}</div>{% endif %}{% if offer.booking_url %}<a href="{{ url_for('site.book_offer', offer_id=offer.id, trip_id=offer.booking_trip_id) if offer.booking_trip_id else url_for('site.book_offer', offer_id=offer.id) }}" target="_blank" rel="noopener noreferrer">{{ 'Go to booking' if lang=='en' else 'למעבר להזמנה' }}</a>{% endif %}</div></section>
  </div>
 
  {% set visible=[] %}
@@ -61,9 +75,14 @@
      {% if visible.append(reason) %}{% endif %}
    {% endif %}
  {% endfor %}
- {% if visible %}<div class="deal-reasons-row">{% for reason in visible[:4] %}<span>{{ reason_en(reason) if lang=='en' else reason }}</span>{% endfor %}</div>{% endif %}
-
+ {% if visible %}
+ <footer class="deal-reasons-footer">
+   <strong class="deal-reasons-title">{{ 'Ariella selection' if lang=='en' else 'בחירת אריאלה' }}</strong>
+   <div>{% for reason in visible[:4] %}<span>{{ reason_en(reason) if lang=='en' else reason }}</span>{% if not loop.last %}<i aria-hidden="true"></i>{% endif %}{% endfor %}<span class="deal-last-updated">{{ 'Last updated:' if lang=='en' else 'עודכן לאחרונה:' }} {{ offer.updated_ago_en if lang=='en' else offer.updated_ago_he }}</span></div>
+ </footer>
+ {% else %}
  <div class="deal-footer"><span>{{ 'Last updated:' if lang=='en' else 'עודכן לאחרונה:' }} {{ offer.updated_ago_en if lang=='en' else offer.updated_ago_he }}</span></div>
+ {% endif %}
 {% if offer.is_stale_48h %}<div class="deal-stale-warning" style="margin:8px 14px 12px;padding:9px 12px;border:1px solid #d7b46a;border-radius:8px;background:#fff9ec;color:#72531c;font-size:13px;font-weight:700;text-align:center">{{ 'This deal was found more than 48 hours ago. Price and availability may have changed; Ariella will recheck availability when you continue to booking.' if lang=='en' else 'הדיל נמצא לפני יותר מ־48 שעות. המחיר והזמינות עשויים להשתנות; במעבר להזמנה אריאלה תבדוק מחדש את זמינות הדיל.' }}</div>{% endif %}
 </article>
 {%- endmacro %}

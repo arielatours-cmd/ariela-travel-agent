@@ -12,7 +12,7 @@ if old8 in text:
     text = text.replace(old8, new, 1)
 elif old18 in text:
     text = text.replace(old18, new, 1)
-elif "top:24px!important" not in text:
+elif "mobile-header-controls" not in text:
     raise SystemExit("mobile header controls rule not found")
 
 # Also force the glyph itself lower so later CSS cannot pull it back up.

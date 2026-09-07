@@ -94,6 +94,30 @@ def _arrival_days_after(departure_date, arrival_date, departure_time=None,
     return 0
 
 
+def _admin_price_component(components, analysis):
+    existing = (components or {}).get("price")
+    discount = (analysis or {}).get("best_discount_percent")
+    source = (analysis or {}).get("price_reference_source")
+    # Reconstruct legacy/missing admin values from the exact 55-point scale in scoring.py.
+    if isinstance(discount, (int, float)) and discount > 0:
+        if discount >= 30: points = 55
+        elif discount >= 25: points = 50
+        elif discount >= 20: points = 44
+        elif discount >= 15: points = 37
+        elif discount >= 10: points = 28
+        elif discount >= 5: points = 17
+        else: points = 9
+        if source == "search_distribution":
+            points = min(points, 28)
+        if existing is None or (isinstance(existing, (int, float)) and existing == 0):
+            return points
+    if existing is not None:
+        return existing
+    if (analysis or {}).get("price_level") == "low":
+        return 42
+    return 55
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -726,6 +750,12 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "booking_token": flight.get("booking_token"),
             "reference_price_ils": reference_price,
             "price_reference_reliable": bool(analysis.get("price_reference_reliable")),
+            "price_reference_source": analysis.get("price_reference_source"),
+            "search_median_ils": analysis.get("search_median"),
+            "search_sample_count": int(analysis.get("search_sample_count") or 0),
+            "historical_median_ils": analysis.get("historical_median"),
+            "historical_sample_count": int(analysis.get("historical_sample_count") or 0),
+            "typical_price_low_ils": analysis.get("typical_price_low"),
             "departure_airport_name": payload.get("departure_airport_name") or flight.get("departure_airport_name"),
             "arrival_airport_name": payload.get("arrival_airport_name") or flight.get("arrival_airport_name"),
             "outbound_display": outbound.get("display_he"),
@@ -765,6 +795,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "direct_supplier": flight.get("direct_supplier"),
             "direct_supplier_price_ils": flight.get("direct_supplier_price_ils"),
             "booking_options_checked": flight.get("booking_options_checked"),
+            "fare_options": flight.get("fare_options") or [],
             "has_price_history": has_price_history,
             "connections": connections,
             "baggage": {
@@ -780,7 +811,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "consumer_protection_label": protection_label,
             "consumer_protection_class": protection_class,
             "change_cancel_label": change_cancel_label,
-            "cost_score": components.get("price"),
+            "cost_score": _admin_price_component(components, analysis),
             "route_score": components.get("route"),
             "baggage_score": components.get("baggage"),
             "hours_score": components.get("time_value", components.get("hours")),

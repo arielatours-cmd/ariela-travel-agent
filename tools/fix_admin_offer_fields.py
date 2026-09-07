@@ -16,7 +16,7 @@ if old_bag in s:
 
 # Feedback page must have the same three fixed-width tabs as the other admin pages.
 old_feedback_css = '.admin-nav{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:24px 0 24px;border-bottom:2px solid #d8c49a}'
-new_feedback_css = '.admin-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:24px 0 24px;border-bottom:2px solid #d8c49a}'
+new_feedback_css = '.admin-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;width:100%;margin:24px 0 20px;border-bottom:2px solid #d8c49a}'
 if old_feedback_css in s:
     s = s.replace(old_feedback_css, new_feedback_css, 1)
 old_feedback_nav = '''<div class="admin-nav"><a href="/admin{% if token %}?token={{ token }}{% endif %}">✦ סריקות ודילים</a><a class="active" href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">✦ הערות והצעות</a></div>'''
@@ -31,7 +31,19 @@ p.write_text(s, encoding="utf-8")
 p = ROOT / "database.py"
 s = p.read_text(encoding="utf-8")
 helper_marker = '\ndef utc_now_iso() -> str:\n'
-helper = '''\ndef _admin_price_component(components, analysis):\n    existing = (components or {}).get("price")\n    discount = (analysis or {}).get("best_discount_percent")\n    source = (analysis or {}).get("price_reference_source")\n    # A positive, supported reference must receive the same price points used by scoring.py.\n    if isinstance(discount, (int, float)) and discount > 0:\n        if discount >= 30: points = 40\n        elif discount >= 25: points = 36\n        elif discount >= 20: points = 32\n        elif discount >= 15: points = 27\n        elif discount >= 10: points = 20\n        elif discount >= 5: points = 12\n        else: points = 6\n        if source == "search_distribution":\n            points = min(points, 20)\n        # Prefer a valid positive recomputation over legacy zero/missing components.\n        if existing is None or (isinstance(existing, (int, float)) and existing == 0):\n            return points\n    if existing is not None:\n        return existing\n    if (analysis or {}).get("price_level") == "low":\n        return 30\n    return 0\n\n'''
+helper = '''\ndef _admin_price_component(components, analysis):\n    existing = (components or {}).get("price")\n    discount = (analysis or {}).get("best_discount_percent")\n    source = (analysis or {}).get("price_reference_source")\n    # Reconstruct legacy/missing admin values from the exact 55-point scale in scoring.py.\n    if isinstance(discount, (int, float)) and discount > 0:\n        if discount >= 30: points = 55\n        elif discount >= 25: points = 50\n        elif discount >= 20: points = 44\n        elif discount >= 15: points = 37\n        elif discount >= 10: points = 28\n        elif discount >= 5: points = 17\n        else: points = 9\n        if source == "search_distribution":\n            points = min(points, 28)\n        if existing is None or (isinstance(existing, (int, float)) and existing == 0):\n            return points\n    if existing is not None:\n        return existing\n    if (analysis or {}).get("price_level") == "low":\n        return 42\n    return 55\n\n'''
+# Keep the deployment-time compatibility helper on the approved 55-point scale.
+helper = (helper
+          .replace('points = 40', 'points = 55')
+          .replace('points = 36', 'points = 50')
+          .replace('points = 32', 'points = 44')
+          .replace('points = 27', 'points = 37')
+          .replace('points = 20', 'points = 28')
+          .replace('points = 12', 'points = 17')
+          .replace('points = 6', 'points = 9')
+          .replace('min(points, 20)', 'min(points, 28)')
+          .replace('return 30', 'return 42')
+          .replace('return 0', 'return 55'))
 if '_admin_price_component' not in s:
     if helper_marker not in s:
         raise RuntimeError("database helper insertion marker not found")

@@ -41,7 +41,9 @@ DESTINATIONS = [
     {"code": "BKK", "name": "בנגקוק", "country_flag": "🇹🇭"}, {"code": "JFK", "name": "ניו יורק", "country_flag": "🇺🇸"},
 ]
 
-DEPARTURE_AIRPORTS = ["TLV", "HFA"]
+# The automatic/wide-search default is Ben Gurion.  Haifa remains available
+# when a customer explicitly selects it, but is not searched implicitly.
+DEPARTURE_AIRPORTS = ["TLV"]
 DEPARTURE_OFFSETS_DAYS = [21, 35, 45, 60, 90, 120, 150, 180]
 TRIP_LENGTHS_DAYS = [4, 5, 7]
 
@@ -66,17 +68,6 @@ MAIL_APP_PASSWORD = os.getenv("MAIL_APP_PASSWORD", "").strip()
 MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
 MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 
-import tools.fare_options_v136  # noqa: E402,F401
-import tools.async_customer_scans_v136  # noqa: E402,F401
-import tools.ui_cleanup_v136  # noqa: E402,F401
-import tools.wizard_origin_step_v136  # noqa: E402,F401
-import tools.personal_booking_context_v136  # noqa: E402,F401
-import tools.booking_target_resolver_v136  # noqa: E402,F401
-import tools.supplier_site_fallback_v136  # noqa: E402,F401
-import tools.personal_trip_booking_id_v136  # noqa: E402,F401
-import tools.remove_initial_scan_badge_v136  # noqa: E402,F401
-import tools.customer_rules_cleanup_v136  # noqa: E402,F401
-import tools.whatsapp_9_payment_v136  # noqa: E402,F401
-import tools.final_customer_cleanup_v136  # noqa: E402,F401
-import tools.budapest_image_fix_v136  # noqa: E402,F401
-import tools.personal_offer_dedup_v136  # noqa: E402,F401
+# Deployment helpers materialize source changes during the build. Importing those
+# mutation scripts at application startup made a second process try to patch the
+# same files again and could prevent the Deals page/app from starting.

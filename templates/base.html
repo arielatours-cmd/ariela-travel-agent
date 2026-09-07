@@ -68,4 +68,17 @@ document.addEventListener('DOMContentLoaded',function(){document.querySelectorAl
 </script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}"></script>
+<script id="login-error-modal-runtime">
+document.addEventListener('DOMContentLoaded',function(){
+  const login=document.querySelector('.auth-section .form-card');
+  const stack=document.querySelector('.flash-stack');
+  if(!login||!stack)return;
+  const err=stack.querySelector('.flash.error,.flash.danger'); if(!err)return;
+  err.textContent=document.documentElement.lang==='en'?'The email address or password is incorrect.':'כתובת המייל או הסיסמה אינם נכונים';
+  stack.classList.add('login-error-modal');
+  const b=document.createElement('button'); b.type='button'; b.className='login-error-close'; b.textContent=document.documentElement.lang==='en'?'OK':'אישור';
+  b.addEventListener('click',()=>{stack.remove();login.scrollIntoView({behavior:'smooth',block:'center'});login.querySelector('input[name="email"]')?.focus();});
+  err.appendChild(b);
+});
+</script>
 </body></html>

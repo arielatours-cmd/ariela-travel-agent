@@ -39,8 +39,11 @@ new = '''{% with messages = get_flashed_messages(with_categories=true) %}
   {% endif %}
 {% endif %}
 {% endwith %}'''
-if old not in t:
+if old in t:
+    t = t.replace(old, new, 1)
+    p.write_text(t, encoding='utf-8')
+    print('login error modal applied')
+elif 'loginErrorOverlay' in t or 'loginFlashModal' in t:
+    print('login error modal already present')
+else:
     raise SystemExit('flash block not found')
-t = t.replace(old, new, 1)
-p.write_text(t, encoding='utf-8')
-print('login error modal applied')

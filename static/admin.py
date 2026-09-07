@@ -382,11 +382,10 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
       <button type="button" class="head-sort" data-sort="price">מחיר ↕</button>
     </th>
     <th class="average-col">ממוצע</th>
-    <th class="score-part">עלות</th>
+    <th class="score-part" title="מקסימום 55">מחיר<br><small>עד 55</small></th>
     <th class="score-part">מסלול</th>
     <th class="score-part">כבודה</th>
     <th class="score-part">שעות</th>
-    <th class="score-part">נדירות</th>
     <th class="score-part">עונתיות</th>
     <th class="score-part">אמינות</th>
     <th class="total-score admin-head-filter">
@@ -437,9 +436,6 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     <td class="score-part" title="ניקוד שעות">
         {{ o.time_value_score if o.time_value_score is defined and o.time_value_score is not none else
            (o.hours_score if o.hours_score is defined and o.hours_score is not none else '—') }}
-    </td>
-    <td class="score-part" title="ניקוד נדירות">
-        {{ o.rarity_score if o.rarity_score is defined else '—' }}
     </td>
     <td class="score-part" title="ניקוד עונתיות">
         {{ o.seasonality_score if o.seasonality_score is defined and o.seasonality_score is not none else

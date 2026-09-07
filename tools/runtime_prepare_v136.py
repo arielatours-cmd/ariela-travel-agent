@@ -84,11 +84,17 @@ def prepare():
     old_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])'
     passenger_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], adults=adults, children=children)'
     bounded_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, adults=adults, children=children)'
-    if bounded_search not in customer_block:
+    class_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], travel_class=requested_class)'
+    final_search = 'result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=adults, children=children)'
+    if final_search not in customer_block:
         if passenger_search in customer_block:
-            customer_block = customer_block.replace(passenger_search, bounded_search, 1)
+            customer_block = customer_block.replace(passenger_search, final_search, 1)
+        elif class_search in customer_block:
+            customer_block = customer_block.replace(class_search, final_search, 1)
+        elif bounded_search in customer_block:
+            customer_block = customer_block.replace(bounded_search, final_search, 1)
         elif old_search in customer_block:
-            customer_block = customer_block.replace(old_search, bounded_search, 1)
+            customer_block = customer_block.replace(old_search, final_search, 1)
         else:
             raise RuntimeError("QA: customer search_flights call not found")
 
@@ -162,7 +168,7 @@ def prepare():
     assert new_sig in scanner_text
     assert passenger_params in enrich_block
     assert passenger_parse in customer_block
-    assert bounded_search in customer_block
+    assert final_search in customer_block
     assert new_enrich in customer_block
     assert '_SERPAPI_HTTP_REQUESTS += 1' in scanner_text
     assert 'api_counter_start = _SERPAPI_HTTP_REQUESTS' in customer_block

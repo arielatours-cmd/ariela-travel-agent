@@ -2496,8 +2496,306 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 
 .ski-target-panel .airport-tag>button{border:0;background:transparent;color:#7d5e24;font-size:20px;line-height:1;cursor:pointer;padding:0 2px;font-weight:800;}
 
+/* Deal-card reasons regression fix. Desktop follows the four-column card: the
+   title occupies the image width and the reasons fill the remaining card. The
+   existing mobile rules remain unchanged. */
+@media(min-width:901px){
+  .deal-card-v970 .deal-reasons-footer{
+    display:grid!important;
+    grid-template-columns:300px minmax(0,1fr)!important;
+    width:100%!important;
+    border-top:1px solid #e5dccd!important;
+    border-bottom:1px solid #e5dccd!important;
+  }
+  .deal-card-v970 .deal-reasons-title{
+    justify-content:flex-start!important;
+    text-align:right!important;
+    padding:12px 18px!important;
+    border-inline-end:1px solid #e5dccd!important;
+  }
+  .deal-card-v970 .deal-reasons-footer>div{
+    justify-content:flex-start!important;
+    text-align:right!important;
+    padding:12px 18px!important;
+    border-inline-start:0!important;
+    white-space:normal!important;
+    overflow:visible!important;
+  }
+}
+
 /* v9.7.128 unified ski QA */
 .ski-question h2,.ski-question .choice-button>span{text-align:center!important;}
 .ski-target-panel .airport-suggestions{z-index:120!important;background:#fff!important;}
 .ski-suggestion-empty{padding:12px 14px;color:#667085;background:#fff;}
 .ski-target-panel .airport-tag{direction:auto;}
+
+
+/* 2026-09-04 mobile UX batch */
+.trip-questionnaire-hero{display:none!important}
+.mobile-nav-wrap,.mobile-nav-toggle,.mobile-nav-menu{display:none}
+.login-error-modal{position:fixed!important;inset:0!important;z-index:99999!important;width:100%!important;max-width:none!important;margin:0!important;background:rgba(0,0,0,.42)!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:22px!important}
+.login-error-modal .flash{width:min(440px,92vw)!important;background:#fff!important;color:#181818!important;border:1px solid #c99a3f!important;border-radius:16px!important;padding:28px 24px!important;text-align:center!important;font-size:20px!important;box-shadow:0 18px 60px rgba(0,0,0,.25)!important}
+.login-error-close{display:block;margin:22px auto 0;padding:11px 34px;border:0;background:#17283f;color:#fff;font-weight:700;cursor:pointer}
+.business-time-rows{display:grid;grid-template-columns:1fr 1fr;gap:18px}.business-time-block{display:grid;gap:10px}.labeled-inline{display:grid!important;grid-template-columns:auto 1fr;align-items:center;gap:10px}.labeled-inline span{font-weight:700;min-width:48px}.inline-compact-field{display:flex!important;align-items:center;justify-content:center;gap:14px}.inline-compact-field select{width:auto!important;min-width:90px!important}
+
+@media(max-width:760px){
+  .site-header{min-height:92px!important;padding:8px 0!important}.site-header .header-inner{width:96%!important;display:grid!important;grid-template-columns:minmax(72px,1fr) auto minmax(128px,1fr)!important;grid-template-areas:'lang brand controls'!important;gap:6px!important;direction:ltr!important;position:relative!important}
+  .site-header .language-switch{grid-area:lang!important;justify-self:start!important;grid-column:auto!important;grid-row:auto!important;font-size:14px!important}
+  .site-header .brand{grid-area:brand!important;justify-self:center!important;gap:7px!important}.site-header .logo-a{width:48px!important;height:48px!important}.site-header .brand-name{font-size:19px!important;letter-spacing:5px!important}.site-header .brand-tag{font-size:8px!important;letter-spacing:2.5px!important;margin-top:6px!important}
+  .site-header .main-nav{display:none!important}.site-header .account-menu-wrap{grid-area:controls!important;justify-self:end!important;display:flex!important;gap:5px!important;align-items:center!important}
+  .site-header .account-menu-button.account{min-width:0!important;width:auto!important;height:42px!important;line-height:40px!important;padding:0 10px!important;font-size:13px!important}.site-header .myariella-star{display:none!important}
+  .mobile-nav-wrap{display:block!important;grid-area:controls!important;justify-self:start!important;z-index:1001!important;margin-right:92px!important}.mobile-nav-toggle{display:inline-flex!important;width:42px;height:42px;align-items:center;justify-content:center;border:1px solid #c99a3f;border-radius:10px;background:transparent;color:#fff;font-size:24px;line-height:1}.mobile-nav-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:190px;background:#080808;border:1px solid #c99a3f;border-radius:12px;padding:7px;box-shadow:0 12px 32px rgba(0,0,0,.28);z-index:2000}.mobile-nav-menu:not([hidden]){display:grid!important}.mobile-nav-menu a{color:#fff;text-decoration:none;padding:12px 14px;border-bottom:1px solid rgba(201,154,63,.2);font-weight:700}.mobile-nav-menu a:last-child{border-bottom:0}
+
+  .trip-back-bar{padding-top:10px!important;padding-bottom:6px!important}.back-to-vacations{padding:10px 14px!important;font-size:14px!important}
+  .trip-wizard{padding-top:4px!important}.trip-origin-defaults{margin:8px auto 12px!important;padding:10px 12px!important;max-width:96%!important;background:rgba(255,255,255,.55)!important}.origin-default-heading{font-size:15px!important;margin-bottom:6px!important;color:#586473!important}.origin-airport-picker{padding:7px!important}.origin-airport-picker .airport-tag{font-size:13px!important;padding:6px 9px!important}.origin-airport-picker .airport-search{min-height:42px!important;font-size:14px!important;padding:8px 10px!important}
+  .wizard-progress{margin:10px 3.5% 4px!important}.wizard-counter{margin:5px 0 8px!important;font-size:14px!important}.wizard-step{width:94%!important;margin:0 auto 10px!important;padding:18px 16px 16px!important;min-height:0!important}.wizard-step .step-number{font-size:30px!important;margin-bottom:2px!important}.wizard-step h2{font-size:clamp(27px,7vw,36px)!important;line-height:1.12!important;margin:2px 0 14px!important}.wizard-step h3{font-size:18px!important;margin:8px 0!important}.wizard-step .helper{font-size:14px!important;line-height:1.45!important;margin:7px 0 10px!important}
+  .choice-row,.choice-grid{gap:8px!important}.choice-button{min-height:58px!important;padding:10px 8px!important;font-size:16px!important}.choice-button.small{min-height:52px!important}.choice-button span{line-height:1.25!important}.choice-button small{font-size:12px!important;line-height:1.3!important;margin-top:4px!important}
+  .conditional-panel{padding:12px!important;margin:10px 0!important}.conditional-panel.two-cols{gap:9px!important}.conditional-panel label{font-size:15px!important;gap:5px!important}.conditional-panel input,.conditional-panel select,.conditional-panel textarea,.notes-label textarea{min-height:44px!important;padding:8px 10px!important;font-size:16px!important}.conditional-panel textarea,.notes-label textarea{min-height:72px!important;height:72px!important}.compact-date-panel input{min-height:44px!important}
+  .wizard-actions{margin-top:14px!important;gap:9px!important}.wizard-actions .button{min-height:48px!important;padding:10px 9px!important;font-size:16px!important}.wizard-actions .wizard-type-back{font-size:13px!important}
+  .business-time-rows{grid-template-columns:1fr!important;gap:10px!important}.business-time-block{gap:7px!important}.labeled-inline{grid-template-columns:58px 1fr!important;gap:7px!important}.business-flex-choice{margin-top:8px!important}.inline-compact-field{justify-content:space-between!important}
+  .ski-season-warning{padding:10px 12px!important;margin:8px 0!important;font-size:14px!important;line-height:1.4!important}
+  .notes-label{font-size:15px!important}.notes-label textarea{margin-top:6px!important}
+
+  .vacation-type-gate{padding:12px 8px!important}.vacation-type-gate h2{font-size:25px!important;margin:8px 0 14px!important}.vacation-type-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}.vacation-type-card{min-height:150px!important;padding:12px 6px!important;border-radius:14px!important}.vacation-type-card .vacation-type-visual{font-size:34px!important;margin-bottom:5px!important}.vacation-type-card strong{font-size:16px!important;line-height:1.15!important}.vacation-type-card small{font-size:11px!important;line-height:1.25!important;margin-top:5px!important}
+
+  .auth-section{padding:24px 0!important}.auth-grid{gap:18px!important}.auth-copy h1{font-size:42px!important;line-height:1.05!important}.auth-copy p{font-size:17px!important}.form-card{padding:24px 20px!important}.form-card h2{font-size:34px!important;margin-bottom:18px!important}.form-card label{margin-bottom:12px!important}.form-card input,.form-card select{min-height:48px!important;padding:10px 12px!important}.form-card .button{min-height:50px!important}.form-footer{margin-top:16px!important}
+
+  .account-trip-deals .deal-card-v970{overflow:hidden!important}.account-trip-deals .deal-main-grid{display:flex!important;flex-direction:column!important}.account-trip-deals .deal-flight,.account-trip-deals .deal-baggage,.account-trip-deals .deal-commerce{width:100%!important;padding:14px!important}.account-trip-deals .deal-flight *{max-width:100%!important}.account-trip-deals .deal-commerce{border-top:1px solid #e7dfd2!important}.account-trip-deals .deal-why,.account-trip-deals .deal-reasons{font-size:14px!important;line-height:1.5!important;white-space:normal!important}.account-trip-deals .deal-card-v970{font-size:15px!important}
+}
+
+
+/* 2026-09-04 mobile header overlap hotfix */
+@media(max-width:760px){
+  html body .site-header{
+    min-height:94px!important;
+    padding:8px 0!important;
+  }
+  html body .site-header .header-inner{
+    width:96%!important;
+    display:grid!important;
+    grid-template-columns:78px minmax(150px,1fr) 168px!important;
+    grid-template-areas:'lang brand controls'!important;
+    align-items:center!important;
+    gap:4px!important;
+    direction:ltr!important;
+  }
+  html body .site-header .language-switch{
+    grid-area:lang!important;
+    justify-self:start!important;
+    align-self:center!important;
+    margin:0!important;
+    font-size:14px!important;
+  }
+  html body .site-header .brand{
+    grid-area:brand!important;
+    justify-self:center!important;
+    align-self:center!important;
+    min-width:0!important;
+    gap:6px!important;
+    margin:0!important;
+  }
+  html body .site-header .logo-a{width:44px!important;height:44px!important}
+  html body .site-header .brand-name{font-size:18px!important;letter-spacing:4px!important}
+  html body .site-header .brand-tag{font-size:7px!important;letter-spacing:2px!important;margin-top:5px!important}
+
+  html body .site-header .mobile-header-controls{
+    grid-area:controls!important;
+    justify-self:end!important;
+    align-self:center!important;
+    display:flex!important;
+    flex-direction:row-reverse!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:6px!important;
+    width:168px!important;
+    min-width:168px!important;
+    margin:0!important;
+    position:relative!important;
+    direction:ltr!important;
+  }
+  html body .site-header .account-menu-wrap{
+    display:flex!important;
+    align-items:center!important;
+    width:120px!important;
+    min-width:120px!important;
+    margin:0!important;
+    position:relative!important;
+  }
+  html body .site-header .account-menu-button.account{
+    width:120px!important;
+    min-width:120px!important;
+    max-width:120px!important;
+    height:40px!important;
+    min-height:40px!important;
+    padding:0 8px!important;
+    font-size:13px!important;
+    line-height:38px!important;
+    overflow:hidden!important;
+    border-radius:999px!important;
+  }
+  html body .site-header .myariella-label{gap:0!important;max-width:100%!important}
+  html body .site-header .myariella-star{display:none!important}
+  html body .site-header .mobile-nav-toggle{
+    display:inline-flex!important;
+    position:static!important;
+    flex:0 0 40px!important;
+    width:40px!important;
+    height:40px!important;
+    margin:0!important;
+    align-items:center!important;
+    justify-content:center!important;
+    border:1px solid #c99a3f!important;
+    border-radius:10px!important;
+    background:transparent!important;
+    color:#fff!important;
+    font-size:22px!important;
+    line-height:1!important;
+    padding:0!important;
+  }
+  html body .site-header .mobile-nav-menu{
+    top:calc(100% + 8px)!important;
+    right:0!important;
+    left:auto!important;
+  }
+}
+
+
+/* 2026-09-04 final mobile review */
+@media(max-width:760px){
+  /* Shared header: hamburger visually aligned with the logo. */
+  html body .site-header{height:78px!important;min-height:78px!important;padding:0!important}
+  html body .site-header .header-inner{width:calc(100% - 22px)!important;height:78px!important;min-height:78px!important;display:grid!important;grid-template-columns:64px minmax(0,1fr) 46px!important;grid-template-areas:'lang brand controls'!important;align-items:center!important;gap:4px!important;direction:ltr!important}
+  html body .site-header .language-switch{grid-area:lang!important;position:static!important;transform:none!important;justify-self:start!important;align-self:center!important;margin:0!important;font-size:12px!important}
+  html body .site-header .brand{grid-area:brand!important;position:static!important;transform:none!important;justify-self:center!important;align-self:center!important;margin:0!important;gap:7px!important}
+  html body .site-header .logo-a{width:40px!important;height:40px!important}
+  html body .site-header .brand-name{font-size:17px!important;letter-spacing:3.5px!important}
+  html body .site-header .brand-tag{font-size:6.5px!important;letter-spacing:1.8px!important;margin-top:4px!important}
+  html body .site-header .main-nav,html body .site-header .desktop-account{display:none!important}
+  html body .site-header .mobile-header-controls{grid-area:controls!important;position:static!important;transform:none!important;display:flex!important;width:46px!important;height:46px!important;min-width:46px!important;justify-self:end!important;align-self:center!important;align-items:center!important;justify-content:center!important;margin:0!important}
+  html body .site-header .mobile-nav-toggle{position:relative!important;top:6px!important;transform:none!important;display:flex!important;width:42px!important;height:42px!important;min-width:42px!important;flex:0 0 42px!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#fff!important;font-size:31px!important;line-height:1!important;align-items:center!important;justify-content:center!important}
+  html body .site-header .mobile-nav-menu{top:58px!important;right:0!important;left:auto!important;background:#050505!important;color:#fff!important}
+  html body .site-header .mobile-myariella-toggle,html body .site-header .mobile-myariella-submenu,html body .site-header .mobile-myariella-submenu a,html body .site-header .mobile-myariella-submenu button{background:#0b0b0b!important;color:#fff!important}
+
+  /* Home: balanced breathing room; the two CTAs stay side by side near viewport bottom. */
+  html body .hero{min-height:calc(100svh - 78px)!important;align-items:stretch!important}
+  html body .hero .inner{width:92%!important;min-height:calc(100svh - 78px)!important;padding:42px 0 24px!important;margin:0 auto!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important}
+  html body .hero .dark{font-size:44px!important;line-height:1.04!important}
+  html body .hero .gold{font-size:41px!important;line-height:1.04!important;margin-top:5px!important}
+  html body .hero .subtitle{margin-top:24px!important;font-size:22px!important}
+  html body .hero .story{margin-top:34px!important;font-size:17px!important;line-height:1.7!important}
+  html body .hero .actions{margin-top:auto!important;padding-top:24px!important;padding-bottom:8px!important;display:flex!important;flex-wrap:nowrap!important;gap:10px!important;width:100%!important}
+  html body .hero .actions .btn{width:calc(50% - 5px)!important;min-width:0!important;padding:13px 7px!important;font-size:15px!important;line-height:1.25!important;white-space:normal!important}
+
+  /* Deals filters: mobile controls must not look like desktop-sized fields. */
+  html body .deals-page .deal-filters,html body .deals-page .filters-card{padding:16px!important;gap:12px!important}
+  html body .deal-filters-main,html body .deal-filters-more{gap:11px!important}
+  html body .deal-filters-main label,html body .deal-filters-more label,html body .filter-multi{gap:5px!important;margin:0!important;font-size:14px!important}
+  html body .deal-filters-main select,html body .deal-filters-main input,html body .deal-filters-main .filter-multi-button,html body .deal-filters-more select,html body .deal-filters-more input,html body .deal-filters-more .filter-multi-button{min-height:42px!important;height:42px!important;padding:7px 10px!important;font-size:15px!important;border-radius:8px!important}
+  html body .deal-filters-more summary{min-height:42px!important;padding:9px 12px!important;font-size:15px!important}
+
+  /* Questionnaire: no repeated upper hero, compact fields/cards on phone. */
+  html body .trip-questionnaire-hero{display:none!important}
+  html body .trip-wizard{padding-top:12px!important}
+  html body .wizard-progress{margin-top:8px!important;margin-bottom:14px!important}
+  html body .wizard-step{padding:20px 18px!important}
+  html body .wizard-step h2{font-size:29px!important;margin:4px 0 18px!important;line-height:1.2!important}
+  html body .wizard-step .conditional-panel{padding:14px!important;margin:12px 0!important}
+  html body .wizard-step input:not([type='radio']):not([type='checkbox']),html body .wizard-step select,html body .trip-wizard input[type='date'],html body .trip-wizard input[type='month']{min-height:44px!important;height:44px!important;min-width:0!important;padding:7px 10px!important;font-size:15px!important}
+  html body .wizard-step textarea{min-height:76px!important;padding:9px 10px!important;font-size:15px!important}
+  html body .wizard-step .choice-button>span{min-height:54px!important;padding:10px 12px!important;font-size:16px!important}
+  html body .business-date-panel{gap:12px!important}
+  html body .business-time-block{gap:8px!important}
+  html body .labeled-inline{display:grid!important;grid-template-columns:62px minmax(0,1fr)!important;align-items:center!important;gap:8px!important}
+  html body .labeled-inline>span{text-align:right!important;font-weight:700!important;font-size:14px!important}
+
+  /* Join screen: first phone viewport is compact and immediately actionable. */
+  html body .auth-section{padding:22px 0 30px!important}
+  html body .auth-grid{gap:18px!important}
+  html body .auth-copy h1{font-size:38px!important;line-height:1.08!important;margin:6px 0 12px!important}
+  html body .auth-copy p{margin:8px 0!important;font-size:16px!important;line-height:1.45!important}
+  html body .auth-copy .trial-note{padding:12px 14px!important;margin-top:12px!important}
+  html body .form-card{padding:20px 16px!important}
+  html body .form-card h2{font-size:30px!important;margin:0 0 14px!important}
+  html body .form-card label{gap:5px!important;margin-bottom:10px!important;font-size:14px!important}
+  html body .form-card input,html body .form-card select,html body .form-card .airport-search{min-height:43px!important;height:43px!important;padding:7px 10px!important;font-size:15px!important}
+}
+
+
+/* 2026-09-04 compact mobile deals filters */
+@media(max-width:760px){
+  html body .deals-page .deal-filters-wrap{
+    margin:10px 0 14px!important;
+    padding:8px!important;
+    border-radius:10px!important;
+  }
+
+  html body .deals-page .deal-filters-main,
+  html body .deals-page .deal-filters-more{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:7px!important;
+    width:100%!important;
+    align-items:end!important;
+  }
+
+  /* Keep the last main field full width so the two action buttons sit side by side. */
+  html body .deals-page .deal-filters-main > label:nth-of-type(4){grid-column:1/-1!important}
+
+  html body .deals-page .deal-filters-wrap label,
+  html body .deals-page .filter-multi{
+    min-width:0!important;
+    width:100%!important;
+    gap:2px!important;
+    margin:0!important;
+    font-size:11px!important;
+    line-height:1.1!important;
+  }
+
+  html body .deals-page .deal-filters-wrap select,
+  html body .deals-page .deal-filters-wrap input,
+  html body .deals-page .filter-multi-button{
+    width:100%!important;
+    min-height:32px!important;
+    height:32px!important;
+    padding:3px 7px!important;
+    font-size:12px!important;
+    line-height:1!important;
+    border-radius:6px!important;
+  }
+
+  html body .deals-page .deal-more-filters-toggle,
+  html body .deals-page .deal-clear-filters{
+    min-height:32px!important;
+    height:32px!important;
+    width:100%!important;
+    padding:3px 7px!important;
+    font-size:12px!important;
+    line-height:1!important;
+    border-radius:6px!important;
+  }
+
+  html body .deals-page .deal-filters-more{
+    margin-top:7px!important;
+    padding-top:7px!important;
+  }
+}
+
+
+/* 2026-09-04 mobile login fit */
+@media(max-width:760px){
+  /* Login/auth page only: fit the complete form in the first phone viewport. */
+  html body .auth-section{padding:14px 0 18px!important;min-height:calc(100svh - 78px)!important}
+  html body .auth-grid{gap:12px!important}
+  html body .auth-copy{margin:0!important;padding:0!important}
+  html body .auth-copy h1{font-size:34px!important;line-height:1.03!important;margin:0 0 8px!important}
+  html body .auth-copy p{font-size:15px!important;line-height:1.35!important;margin:4px 0!important}
+  html body .auth-copy .trial-note{padding:8px 10px!important;margin-top:8px!important}
+  html body .form-card{padding:15px 14px!important;margin-top:4px!important}
+  html body .form-card h2{font-size:27px!important;line-height:1.1!important;margin:0 0 10px!important}
+  html body .form-card label{gap:4px!important;margin-bottom:7px!important;font-size:13px!important}
+  html body .form-card input,html body .form-card select,html body .form-card .airport-search{min-height:39px!important;height:39px!important;padding:5px 9px!important;font-size:14px!important}
+  html body .form-card .password-wrap{margin:0!important}
+  html body .form-card .forgot-password,html body .form-card .forgot-link{margin:3px 0 7px!important;font-size:13px!important}
+  html body .form-card button[type='submit'],html body .form-card .btn{min-height:41px!important;padding:8px 12px!important;font-size:15px!important}
+  html body .form-card .auth-switch,html body .form-card .form-footer{margin-top:9px!important;font-size:14px!important;line-height:1.25!important}
+}

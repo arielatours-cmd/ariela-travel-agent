@@ -317,9 +317,9 @@ def _current_member():
     # Country-based defaults for a new vacation. Explicit member preferences win.
     country_key = str(member.get("country") or "").strip().lower()
     country_defaults = {
-        "israel": ["TLV", "HFA"],
-        "ישראל": ["TLV", "HFA"],
-        "il": ["TLV", "HFA"],
+        "israel": ["TLV"],
+        "ישראל": ["TLV"],
+        "il": ["TLV"],
     }
     member["vacation_default_airports"] = (
         member["preferred_airports_list"]

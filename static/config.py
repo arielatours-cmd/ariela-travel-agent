@@ -58,7 +58,7 @@ DESTINATIONS = [
     {"code": "JFK", "name": "ניו יורק", "country_flag": "🇺🇸"},
 ]
 
-DEPARTURE_AIRPORTS = ["TLV", "HFA"]
+DEPARTURE_AIRPORTS = ["TLV"]
 DEPARTURE_OFFSETS_DAYS = [21, 35, 45, 60, 90, 120, 150, 180]
 TRIP_LENGTHS_DAYS = [4, 5, 7]
 

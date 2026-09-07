@@ -157,7 +157,7 @@ tbody tr:hover{background:#fafbfe}
 .feedback-table .feedback-message{width:auto}
 .feedback-count{color:var(--gold);font-weight:800}
 .admin-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:24px 0 20px;border-bottom:2px solid #d8c49a}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-bottom:0;padding:16px 22px;text-decoration:none;font-weight:800;font-size:17px;text-align:center;position:relative}.admin-nav a:first-child{border-radius:0 12px 0 0}.admin-nav a:last-child{border-radius:12px 0 0 0}.admin-nav a.active{background:#fff;color:#182033}.admin-nav a.active:after{content:'';position:absolute;right:12%;left:12%;bottom:-2px;height:4px;background:var(--gold);border-radius:4px 4px 0 0}.admin-nav a:hover{background:#fbf8f1}.unread-count{color:#b8892e;font-weight:900;margin-inline-start:5px}.feedback-card-admin{background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px #0000000d}.feedback-card-admin .meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-bottom:10px}.feedback-card-admin .message{white-space:pre-wrap;line-height:1.65}.feedback-card-admin a{color:#263a70}
-@media(max-width:900px){.admin-nav{grid-template-columns:1fr 1fr}.admin-nav a{font-size:14px;padding:13px 8px}
+@media(max-width:900px){.admin-nav{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-nav a{font-size:14px;padding:13px 8px}
     .wrap{width:100%;padding:12px 4px 22px}
     th,td{font-size:11px;padding:4px 2px}
     th{font-size:10px}
@@ -270,7 +270,7 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
 <body>
 <div class="wrap">
 <h1>אריאלה — לוח בקרה פנימי</h1>
-<div class="muted">גרסה {{ version }} · סף דיל: {{ minimum_score }}</div>
+<div class="muted">גרסה {{ version }} · סף דיל כללי: {{ minimum_score }} · ניקוד: מחיר 55 + איכות טיסה 20 + שעות וניצול 15 + כבודה 10 = 100</div>
 <div class="admin-nav"><a class="active" href="/admin{% if token %}?token={{ token }}{% endif %}">✦ סריקות ודילים</a><a href="/admin/analytics{% if token %}?token={{ token }}{% endif %}">✦ משתמשים ונתונים</a><a href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">✦ הערות והצעות {% if feedback_count %}<span class="unread-count">({{ feedback_count }})</span>{% endif %}</a></div>
 
 <div class="actions">
@@ -356,7 +356,7 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
       <button type="button" class="head-sort" data-sort="scan">סריקה ↕</button>
       <select id="adminOfferScan" aria-label="סינון לפי סריקה">
         <option value="">הכל</option>
-        {% for sid in offers|map(attribute='scan_run_id')|unique|list %}{% if sid %}<option value="{{ sid }}">#{{ sid }}</option>{% endif %}{% endfor %}
+        {% for scan in scans %}{% if scan.id %}<option value="{{ scan.id }}">#{{ scan.id }}{% if scan.status %} · {{ scan.status }}{% endif %}</option>{% endif %}{% endfor %}
       </select>
     </th>
     <th class="scan-origin-col admin-head-filter">
@@ -384,13 +384,10 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
       <button type="button" class="head-sort" data-sort="price">מחיר ↕</button>
     </th>
     <th class="average-col">ממוצע</th>
-    <th class="score-part">עלות</th>
-    <th class="score-part">מסלול</th>
-    <th class="score-part">כבודה</th>
-    <th class="score-part">שעות</th>
-    <th class="score-part">נדירות</th>
-    <th class="score-part">עונתיות</th>
-    <th class="score-part">אמינות</th>
+    <th class="score-part" title="מקסימום 55">מחיר<br><small>עד 55</small></th>
+    <th class="score-part" title="מקסימום 20">איכות טיסה<br><small>עד 20</small></th>
+    <th class="score-part" title="מקסימום 10">כבודה<br><small>עד 10</small></th>
+    <th class="score-part" title="מקסימום 15">שעות וניצול<br><small>עד 15</small></th>
     <th class="total-score admin-head-filter">
       <button type="button" class="head-sort" data-sort="score">ציון ↕</button>
       <select id="adminOfferScore" aria-label="סינון ציון">
@@ -426,15 +423,20 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     <td class="flight-facts" title="הכללה ומחיר הלוך־חזור">
       {% set bag=o.baggage or {} %}{% set pi=bag.personal_item or {} %}{% set co=bag.carry_on_8kg or {} %}{% set cb=bag.checked_bag_23kg or {} %}
       תיק: {{'✓' if pi.included is true else ('✗' if pi.included is false else 'לא ידוע')}}<br>
-      טרולי: {{'✓' if co.included is true else ('₪' ~ (co.roundtrip_price_ils|round|int) if co.roundtrip_price_ils is number else 'לא ידוע')}}<br>
-      מזוודה: {{'✓' if cb.included is true else ('₪' ~ (cb.roundtrip_price_ils|round|int) if cb.roundtrip_price_ils is number else 'לא ידוע')}}
+      טרולי: {{'✓' if co.included is true else ('₪' ~ (co.roundtrip_price_ils|round|int) if co.roundtrip_price_ils is number and not co.price_estimated and not co.estimated else 'לא ידוע')}}<br>
+      מזוודה: {{'✓' if cb.included is true else ('₪' ~ (cb.roundtrip_price_ils|round|int) if cb.roundtrip_price_ils is number and not cb.price_estimated and not cb.estimated else 'לא ידוע')}}
     </td>
     <td class="price-col" title="מחיר נוכחי בש״ח">
         {{ o.price_ils|round|int if o.price_ils is not none else '—' }}
     </td>
-    <td class="average-col" title="מחיר ממוצע בש״ח">
-        {{ o.average_price_ils|round|int if o.average_price_ils is defined and o.average_price_ils is not none else
-           (o.avg_price_ils|round|int if o.avg_price_ils is defined and o.avg_price_ils is not none else '—') }}
+    <td class="average-col" title="מחיר הייחוס ומקור ההשוואה">
+        {% if o.price_reference_source == 'history' and o.historical_median_ils is number %}
+          ₪{{ o.historical_median_ils|round|int }}<br><small>היסטוריית אריאלה · {{ o.historical_sample_count }} דגימות</small>
+        {% elif o.price_reference_source == 'serpapi_typical' and o.typical_price_low_ils is number %}
+          ₪{{ o.typical_price_low_ils|round|int }}<br><small>טווח רגיל ב-Google Flights</small>
+        {% elif o.price_reference_source == 'search_distribution' and o.search_median_ils is number %}
+          ₪{{ o.search_median_ils|round|int }}<br><small>חציון החיפוש הנוכחי · {{ o.search_sample_count }} אפשרויות</small>
+        {% else %}—<br><small>אין בסיס השוואה</small>{% endif %}
     </td>
     <td class="score-part" title="ניקוד עלות">
         {{ o.cost_score if o.cost_score is defined else
@@ -449,16 +451,6 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     <td class="score-part" title="ניקוד שעות">
         {{ o.time_value_score if o.time_value_score is defined and o.time_value_score is not none else
            (o.hours_score if o.hours_score is defined and o.hours_score is not none else '—') }}
-    </td>
-    <td class="score-part" title="ניקוד נדירות">
-        {{ o.rarity_score if o.rarity_score is defined else '—' }}
-    </td>
-    <td class="score-part" title="ניקוד עונתיות">
-        {{ o.seasonality_score if o.seasonality_score is defined and o.seasonality_score is not none else
-           (o.season_score if o.season_score is defined and o.season_score is not none else '—') }}
-    </td>
-    <td class="score-part" title="ניקוד אמינות">
-        {{ o.reliability_score if o.reliability_score is defined and o.reliability_score is not none else '—' }}
     </td>
     <td class="total-score">
         <span class="score-badge {% if o.score >= minimum_score %}score-good{% elif o.score >= minimum_score-10 %}score-medium{% else %}score-bad{% endif %}">
@@ -768,8 +760,8 @@ ANALYTICS_DASHBOARD_HTML = r"""
 :root{--bg:#f5f7fb;--text:#182033;--muted:#697386;--line:#e7eaf0;--gold:#b8892e}
 *{box-sizing:border-box}body{font-family:Arial,sans-serif;background:var(--bg);margin:0;color:var(--text)}
 .wrap{width:min(1600px,98%);margin:auto;padding:24px 10px 40px}h1{margin:0 0 6px;font-size:34px}h2{margin:30px 0 12px;font-size:25px}.muted{color:var(--muted);font-size:15px}
-.admin-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:24px 0;border-bottom:2px solid #d8c49a}
-.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-bottom:0;padding:18px 24px;text-decoration:none;font-weight:800;font-size:18px;text-align:center;position:relative}
+.admin-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;width:100%;margin:24px 0 20px;border-bottom:2px solid #d8c49a}
+.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-bottom:0;padding:16px 22px;text-decoration:none;font-weight:800;font-size:17px;text-align:center;position:relative}
 .admin-nav a.active{color:#182033}.admin-nav a.active:after{content:'';position:absolute;right:12%;left:12%;bottom:-2px;height:4px;background:var(--gold)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin:18px 0}
 .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 10px #00000012;font-size:17px;line-height:1.45}.num{font-size:31px;font-weight:800;color:var(--gold);margin-top:7px}
@@ -879,14 +871,14 @@ FEEDBACK_DASHBOARD_HTML = r"""
 :root{--bg:#f5f7fb;--text:#182033;--muted:#697386;--line:#e7eaf0;--gold:#b8892e}
 *{box-sizing:border-box}body{font-family:Arial,sans-serif;background:var(--bg);margin:0;color:var(--text)}
 .wrap{width:min(1250px,96%);margin:auto;padding:20px 8px 35px}h1{margin:0 0 6px}.muted{color:var(--muted)}
-.admin-nav{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:24px 0 24px;border-bottom:2px solid #d8c49a}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-bottom:0;padding:16px 22px;text-decoration:none;font-weight:800;font-size:17px;text-align:center;position:relative}.admin-nav a:first-child{border-radius:0 12px 0 0}.admin-nav a:last-child{border-radius:12px 0 0 0}.admin-nav a.active{background:#fff;color:#182033}.admin-nav a.active:after{content:'';position:absolute;right:12%;left:12%;bottom:-2px;height:4px;background:var(--gold);border-radius:4px 4px 0 0}.admin-nav a:hover{background:#fbf8f1}.unread-count{color:#b8892e;font-weight:900;margin-inline-start:5px}
+.admin-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;width:100%;margin:24px 0 20px;border-bottom:2px solid #d8c49a}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-bottom:0;padding:16px 22px;text-decoration:none;font-weight:800;font-size:17px;text-align:center;position:relative}.admin-nav a:first-child{border-radius:0 12px 0 0}.admin-nav a:last-child{border-radius:12px 0 0 0}.admin-nav a.active{background:#fff;color:#182033}.admin-nav a.active:after{content:'';position:absolute;right:12%;left:12%;bottom:-2px;height:4px;background:var(--gold);border-radius:4px 4px 0 0}.admin-nav a:hover{background:#fbf8f1}.unread-count{color:#b8892e;font-weight:900;margin-inline-start:5px}
 .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:22px}.summary .box{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 10px #0000000d}.summary strong{display:block;font-size:28px;color:var(--gold);margin-top:5px}
 .feedback-list{display:grid;gap:13px}.feedback-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 2px 10px #0000000d;border-right:4px solid var(--gold)}.feedback-card .top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.feedback-card h2{font-size:18px;margin:0}.date{direction:ltr;color:var(--muted);font-size:13px}.contacts{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 13px;color:var(--muted);font-size:14px}.contacts a{color:#263a70;text-decoration:none}.message{border-top:1px solid var(--line);padding-top:13px;white-space:pre-wrap;line-height:1.7}.empty{background:#fff;text-align:center;padding:45px;border-radius:12px;color:var(--muted)}
 @media(max-width:650px){.admin-nav a{font-size:14px;padding:13px 8px}.feedback-card .top{flex-direction:column;gap:5px}}
 </style></head>
 <body><div class="wrap">
 <h1>הערות והצעות</h1><div class="muted">כל ההודעות שנשלחו מטופס המשוב באתר נשמרות כאן במסד הנתונים.</div>
-<div class="admin-nav"><a href="/admin{% if token %}?token={{ token }}{% endif %}">✦ סריקות ודילים</a><a class="active" href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">✦ הערות והצעות</a></div>
+<div class="admin-nav"><a href="/admin{% if token %}?token={{ token }}{% endif %}">✦ סריקות ודילים</a><a href="/admin/analytics{% if token %}?token={{ token }}{% endif %}">✦ משתמשים ונתונים</a><a class="active" href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">✦ הערות והצעות</a></div>
 <div class="summary"><div class="box">סה״כ הודעות<strong>{{ feedback|length }}</strong></div><div class="box">הודעה אחרונה<strong style="font-size:16px">{% if feedback %}{{ feedback[0].created_at|replace('T',' ')|truncate(19, True, '') }}{% else %}—{% endif %}</strong></div></div>
 <div class="feedback-list">
 {% for f in feedback %}<article class="feedback-card"><div class="top"><h2>{{ f.full_name }}</h2><span class="date">{{ f.created_at|replace('T',' ')|truncate(19, True, '') }}</span></div><div class="contacts"><a href="tel:{{ f.phone }}">{{ f.phone }}</a><a href="mailto:{{ f.email }}">{{ f.email }}</a></div><div class="message">{{ f.message }}</div></article>{% else %}<div class="empty">עדיין לא התקבלו הערות או הצעות.</div>{% endfor %}

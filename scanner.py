@@ -1,5 +1,7 @@
 import itertools
 import os
+import sqlite3
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 import requests
 import re
@@ -8,6 +10,7 @@ import time
 from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
     MAX_SEARCHES_PER_SCAN, CUSTOMER_SCAN_MAX_API_REQUESTS, SERPAPI_API_KEY, TRIP_LENGTHS_DAYS,
+    DB_PATH, MONTHLY_SCAN_REUSE_HOURS,
 )
 from database import (create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference,
     set_setting, latest_scan_cycle_index, update_scan_progress, clear_scan_stop, scan_stop_requested)
@@ -172,13 +175,17 @@ def _apply_best_price_reference(analysis: dict, price: float) -> dict:
     return analysis
 
 
+_SERPAPI_HTTP_REQUESTS = 0
+
 def _serpapi_request(params: dict) -> dict:
     """SerpAPI request with bounded retry/backoff for transient 429/5xx errors."""
+    global _SERPAPI_HTTP_REQUESTS
     last_error = None
     for attempt, delay in enumerate((0, 2, 5, 10), start=1):
         if delay:
             time.sleep(delay)
         try:
+            _SERPAPI_HTTP_REQUESTS += 1
             response = requests.get(SERPAPI_URL, params=params, timeout=45)
             if response.status_code == 429 or 500 <= response.status_code < 600:
                 last_error = RuntimeError(f"SerpAPI HTTP {response.status_code}")
@@ -200,7 +207,7 @@ def _serpapi_request(params: dict) -> dict:
     raise last_error or RuntimeError("SerpAPI request failed")
 
 
-def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_date: str, adults: int = 1, children: int = 0) -> dict:
+def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_date: str, adults: int = 1, children: int = 0, travel_class: str = "1") -> dict:
     return {
         "engine": "google_flights",
         "api_key": _api_key(),
@@ -212,7 +219,7 @@ def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_d
         "hl": "en",
         "gl": "il",
         "currency": "ILS",
-        "travel_class": "1",
+        "travel_class": str(travel_class or "1"),
         "adults": str(max(1, int(adults or 1))),
         "children": str(max(0, int(children or 0))),
         "bags": "0",
@@ -241,6 +248,59 @@ def _ils_price(option: dict):
         if str(local.get("currency") or "").upper() == "ILS" and isinstance(local.get("price"), (int, float)):
             return float(local["price"])
     return float(option["price"]) if isinstance(option.get("price"), (int, float)) else None
+
+
+def _fare_family_options_from_booking_data(data: dict, base_price=None) -> list[dict]:
+    """Return real airline fare-family alternatives from Google/SerpApi booking data.
+
+    We intentionally do not invent bundle names or inclusions. Only direct-airline,
+    non-separate booking options that carry a provider-supplied option_title are shown.
+    The existing booking-options request is reused, so this adds zero SerpApi calls.
+    """
+    rows = []
+    seen = set()
+    try:
+        base = float(base_price) if isinstance(base_price, (int, float)) else None
+    except (TypeError, ValueError):
+        base = None
+
+    for group in data.get("booking_options") or []:
+        if not isinstance(group, dict) or group.get("separate_tickets"):
+            continue
+        option = group.get("together")
+        if not isinstance(option, dict) or option.get("airline") is not True:
+            continue
+        title = str(option.get("option_title") or "").strip()
+        price = _ils_price(option)
+        if not title or price is None:
+            continue
+
+        features = []
+        for value in (option.get("extensions") or []):
+            value = str(value or "").strip()
+            if value and value not in features:
+                features.append(value)
+        for value in (option.get("baggage_prices") or []):
+            value = str(value or "").strip()
+            if value and value not in features:
+                features.append(value)
+
+        key = (title.casefold(), round(float(price), 2))
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({
+            "name": title,
+            "price_ils": float(price),
+            "additional_ils": max(0.0, float(price) - base) if base is not None else None,
+            "features": features[:8],
+            "supplier": str(option.get("book_with") or "").strip() or None,
+            "source": "serpapi_booking_options",
+        })
+
+    rows.sort(key=lambda x: x["price_ils"])
+    return rows
+
 
 def _extract_bag_number(text: str):
     # Google/SerpApi returns baggage policy strings such as "1st checked bag: 99-187".
@@ -296,7 +356,7 @@ def _roundtrip_baggage_estimate(booking_data: dict) -> dict:
         "raw": bp,
     }
 
-def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_date: str, return_date: str) -> tuple[dict, int]:
+def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_date: str, return_date: str, adults: int = 1, children: int = 0) -> tuple[dict, int]:
     token = flight.get("booking_token")
     if not token:
         return flight, 0
@@ -368,6 +428,7 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     flight["direct_supplier"] = (cheapest_direct[0] or {}).get("book_with")
     flight["direct_supplier_price_ils"] = cheapest_direct[1]
     flight["booking_options_checked"] = len(all_priced)
+    flight["fare_options"] = _fare_family_options_from_booking_data(data, flight.get("price"))
 
     # Explain a deliberate choice not to show the absolute cheapest option.
     reason_he = None
@@ -410,14 +471,14 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     return flight, 1
 
 
-def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str, max_outbounds: int | None = None, adults: int = 1, children: int = 0) -> dict:
+def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str, max_outbounds: int | None = None, adults: int = 1, children: int = 0, travel_class: str = "1") -> dict:
     """Evaluate every outbound/return combination returned by Google Flights.
 
     First request gets all outbound choices. Each unique departure_token is then
     expanded to its return choices. We keep every complete combination so the
     caller can score the FULL round trip before choosing a winner.
     """
-    params = _roundtrip_params(departure, arrival, outbound_date, return_date, adults=adults, children=children)
+    params = _roundtrip_params(departure, arrival, outbound_date, return_date, adults=adults, children=children, travel_class=travel_class)
     outbound_data = _serpapi_request(params)
     api_requests = 1
 
@@ -531,7 +592,9 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=max_outbounds_per_route)
                 api_requests += int(result.get("api_requests") or 0)
 
-                # Score COMPLETE round-trip combinations first; publish only the winner.
+                # Score every complete round-trip combination. Persistence and
+                # publication are separate: all valid inventory expands the DB,
+                # while the public page still applies its quality threshold.
                 scored_combinations = []
                 for flight in result["flights"]:
                     if not flight.get("return_departure_time") or not flight.get("return_arrival_time"):
@@ -551,19 +614,24 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
 
                 if scored_combinations:
                     scored_combinations.sort(key=lambda x: (x[0], x[1]), reverse=True)
-                    _, _, flight, analysis, score = scored_combinations[0]
-                    flight, booking_requests = enrich_booking_options(
-                        flight, job["departure"], job["arrival"], job["outbound"], job["return"]
-                    )
-                    api_requests += booking_requests
-                    # Prefer the approved bookable price for what Ariella shows.
-                    if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
-                        flight["price"] = flight["booking_supplier_price_ils"]
-                    analysis = _apply_best_price_reference(analysis, float(flight["price"]))
-                    score = calculate_deal_score(analysis, flight)
-                    analysis["combinations_checked"] = result.get("combinations_checked", len(scored_combinations))
-                    analysis["outbounds_checked"] = result.get("outbounds_checked")
-                    offer = {
+                    for candidate_index, (_, _, flight, analysis, score) in enumerate(scored_combinations):
+                        flight = dict(flight)
+                        analysis = dict(analysis)
+                        score = dict(score)
+                        # Only the leading candidate needs the extra booking-provider
+                        # request now. Other candidates are enriched on demand.
+                        if candidate_index == 0:
+                            flight, booking_requests = enrich_booking_options(
+                                flight, job["departure"], job["arrival"], job["outbound"], job["return"]
+                            )
+                            api_requests += booking_requests
+                            if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
+                                flight["price"] = flight["booking_supplier_price_ils"]
+                            analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                            score = calculate_deal_score(analysis, flight)
+                        analysis["combinations_checked"] = result.get("combinations_checked", len(scored_combinations))
+                        analysis["outbounds_checked"] = result.get("outbounds_checked")
+                        offer = {
                         "observed_at": datetime.now(timezone.utc).isoformat(),
                         "route": result["route"],
                         "departure_code": job["departure"],
@@ -580,14 +648,16 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                         "flight": flight,
                         "deal_score": score,
                         "booking_url": result["booking_url"],
-                        "trip_id": job.get("trip_id"),
-                    }
-                    is_new = insert_offer(run_id, offer)
-                    offers_found += 1
-                    if is_new:
-                        new_offers += 1
-                    else:
-                        existing_offers += 1
+                            "trip_id": job.get("trip_id"),
+                            "inventory_scope": "shared",
+                            "candidate_rank": candidate_index + 1,
+                        }
+                        is_new = insert_offer(run_id, offer)
+                        offers_found += 1
+                        if is_new:
+                            new_offers += 1
+                        else:
+                            existing_offers += 1
             except Exception as exc:
                 errors += 1
                 error_messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
@@ -737,6 +807,66 @@ def _customer_scan_rank(score: dict, answers: dict) -> float:
     )
 
 
+
+def _coverage_key(job: dict) -> tuple[str, str, str, str]:
+    return (
+        str(job.get("departure") or "").upper(),
+        str(job.get("arrival") or "").upper(),
+        str(job.get("outbound") or "")[:7],
+        str(job.get("return") or "")[:7],
+    )
+
+
+def _coverage_connection():
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.row_factory = sqlite3.Row
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS monthly_scan_coverage (
+            departure_code TEXT NOT NULL,
+            arrival_code TEXT NOT NULL,
+            outbound_month TEXT NOT NULL,
+            return_month TEXT NOT NULL,
+            scanned_at TEXT NOT NULL,
+            status TEXT NOT NULL,
+            offers_found INTEGER NOT NULL DEFAULT 0,
+            api_requests INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (departure_code, arrival_code, outbound_month, return_month)
+        )
+    """)
+    conn.commit()
+    return conn
+
+
+def _coverage_is_fresh(key, now=None) -> bool:
+    now = now or datetime.now(timezone.utc)
+    with _coverage_connection() as conn:
+        row = conn.execute(
+            "SELECT scanned_at,status FROM monthly_scan_coverage WHERE departure_code=? AND arrival_code=? AND outbound_month=? AND return_month=?",
+            key,
+        ).fetchone()
+    if not row or str(row["status"]) != "success":
+        return False
+    try:
+        scanned = datetime.fromisoformat(str(row["scanned_at"]).replace("Z", "+00:00"))
+        if scanned.tzinfo is None:
+            scanned = scanned.replace(tzinfo=timezone.utc)
+    except Exception:
+        return False
+    return now - scanned <= timedelta(hours=max(1, int(MONTHLY_SCAN_REUSE_HOURS)))
+
+
+def _mark_coverage_success(key, offers_found=0, api_requests=0):
+    with _coverage_connection() as conn:
+        conn.execute("""
+            INSERT INTO monthly_scan_coverage
+            (departure_code,arrival_code,outbound_month,return_month,scanned_at,status,offers_found,api_requests)
+            VALUES(?,?,?,?,?,'success',?,?)
+            ON CONFLICT(departure_code,arrival_code,outbound_month,return_month)
+            DO UPDATE SET scanned_at=excluded.scanned_at,status='success',offers_found=excluded.offers_found,api_requests=excluded.api_requests
+        """, (*key, datetime.now(timezone.utc).isoformat(), int(offers_found or 0), int(api_requests or 0)))
+        conn.commit()
+
+
 def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     """Run a targeted fresh search for the customer's chosen vacation.
 
@@ -745,6 +875,8 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     """
     arrivals = _customer_destination_codes(answers)
     vacation_type = str(answers.get("vacation_type") or "standard")
+    if vacation_type == "standard" and str(answers.get("destination_mode") or "open") == "open" and not answers.get("_alternative_other_destination"):
+        return {"status": "db_only_open", "offers_found": 0, "api_requests": 0, "searches_completed": 0, "errors": 0}
     if answers.get("_alternative_other_destination"):
         original = set(arrivals)
         arrivals = [d["code"] for d in DESTINATIONS if d["code"] not in original]
@@ -756,6 +888,14 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
         return {"status": "unsupported_destination", "offers_found": 0, "api_requests": 0}
 
     origins = [str(x).upper() for x in answers.get("origin_airports", []) if x] or list(DEPARTURE_AIRPORTS)
+    try:
+        adults = max(1, int(answers.get("adults") or 1))
+    except (TypeError, ValueError):
+        adults = 1
+    try:
+        children = max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        children = 0
     date_mode = answers.get("date_mode")
     jobs = []
     ski_mode = vacation_type == "ski"
@@ -888,9 +1028,24 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                                     continue
                                 jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
 
+    # 9.7.136 monthly reuse: a successful route-month scan (even with zero offers)
+    # is reusable for 12 hours. Failed/partial/stopped coverage is never marked.
+    coverage_expected_all = Counter(_coverage_key(j) for j in jobs)
+    fresh_keys = {key for key in coverage_expected_all if _coverage_is_fresh(key)}
+    if fresh_keys:
+        jobs = [j for j in jobs if _coverage_key(j) not in fresh_keys]
+    if not jobs:
+        return {"status": "monthly_coverage_reused", "offers_found": 0, "api_requests": 0, "searches_completed": 0, "errors": 0, "reused_coverage": len(fresh_keys)}
+    coverage_expected = Counter(_coverage_key(j) for j in jobs)
+    coverage_completed = Counter()
+    coverage_errors = Counter()
+    coverage_offers = Counter()
+    coverage_api = Counter()
+
     run_id = create_scan_run(len(jobs), scan_type=f"personal_{str(answers.get('vacation_type') or 'standard')}", trip_id=trip_id)
     clear_scan_stop()
     completed = offers_found = errors = api_requests = 0
+    api_counter_start = _SERPAPI_HTTP_REQUESTS
     new_offers = existing_offers = 0
     messages = []
     max_api_requests = max(1, CUSTOMER_SCAN_MAX_API_REQUESTS)
@@ -905,10 +1060,15 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                 messages.append(f"עצירת בטיחות: הגעה למגבלת {max_api_requests} בקשות API")
                 break
             try:
+                coverage_key = _coverage_key(job)
+                api_before_job = api_requests
+                offers_before_job = offers_found
                 # Price cards remain strictly per person. Group-seat availability is not
                 # promised by Google Flights/SerpAPI, so the UI carries a supplier
                 # verification notice for multi-passenger requests instead.
-                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
+                cabin_map = {"economy":"1", "premium":"2", "business":"3", "first":"4", "any":"1"}
+                requested_class = cabin_map.get(str(answers.get("business_cabin_class") or "economy").lower(), "1") if str(answers.get("vacation_type") or "standard") == "business" else "1"
+                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=adults, children=children)
                 api_requests += int(result.get("api_requests") or 0)
                 completed += 1
                 scored = []
@@ -942,7 +1102,8 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                         score = dict(score)
                         if candidate_index == 0:
                             flight, booking_requests = enrich_booking_options(
-                                flight, job["departure"], job["arrival"], job["outbound"], job["return"]
+                                flight, job["departure"], job["arrival"], job["outbound"], job["return"],
+                                adults=adults, children=children
                             )
                             api_requests += booking_requests
                             if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
@@ -962,14 +1123,26 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                             "candidate_rank": candidate_index + 1,
                         })
                         offers_found += 1
+                coverage_completed[coverage_key] += 1
+                coverage_offers[coverage_key] += max(0, offers_found - offers_before_job)
+                coverage_api[coverage_key] += max(0, api_requests - api_before_job)
             except Exception as exc:
                 errors += 1
+                key = _coverage_key(job)
+                coverage_errors[key] += 1
                 messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
             finally:
+                api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 update_scan_progress(run_id, completed, offers_found, errors, api_requests)
     finally:
+        api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
         finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None, api_requests=api_requests)
-    return {"status": "success" if errors == 0 else "partial", "scan_run_id": run_id, "searches_completed": completed, "api_requests": api_requests, "offers_found": offers_found, "errors": errors}
+    # Only complete, error-free route-month groups become fresh coverage. A successful
+    # zero-result group is valid coverage; a stopped/capped/partial group is not.
+    for key, expected in coverage_expected.items():
+        if coverage_completed[key] == expected and coverage_errors[key] == 0:
+            _mark_coverage_success(key, coverage_offers[key], coverage_api[key])
+    return {"status": "success" if errors == 0 else "partial", "scan_run_id": run_id, "searches_completed": completed, "api_requests": api_requests, "offers_found": offers_found, "errors": errors, "reused_coverage": len(fresh_keys)}
 
 
 def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
