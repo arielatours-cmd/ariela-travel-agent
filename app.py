@@ -154,7 +154,7 @@ def admin_dashboard():
         return denied
     return render_dashboard(
         version=APP_VERSION, minimum_score=MIN_DEAL_SCORE,
-        stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(50),
+        stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(500),
         scans=recent_scan_runs(20), feedback_count=unread_feedback_count(),
         test_mode=str(get_setting("qa_test_mode", "0") or "0") == "1",
         token=request.args.get("token", ""),
