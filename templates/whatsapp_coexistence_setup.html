@@ -20,7 +20,7 @@
   <div id="status"></div>
 </div>
 <script>
-  const CONFIG_ID='4639464019658421';
+  const CONFIG_ID='1061988840083981';
   const statusBox=document.getElementById('status');
   const connectBtn=document.getElementById('connectBtn');
   let sessionInfo={};
@@ -41,8 +41,7 @@
     showStatus('WhatsApp אישרה את החיבור. משלימה עכשיו את ההגדרה...');
     try{
       const response=await fetch('/whatsapp-coexistence/exchange-code',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({code:code,session_info:safeSession(sessionInfo)})
       });
       const data=await response.json();
@@ -54,27 +53,11 @@
         const details=safeMetaError(data.meta),http=data.http_status?'\nHTTP: '+data.http_status:'';
         showStatus('Meta החזירה שגיאה בהשלמת החיבור. שלחי לי צילום מסך.\n'+(data.error||'unknown_error')+http+(details?'\n\n'+details:''));
       }
-    }catch(e){
-      exchanged=false;connectBtn.disabled=false;
-      showStatus('לא הצלחתי להשלים את החיבור מול השרת. שלחי לי צילום מסך.');
-    }
+    }catch(e){exchanged=false;connectBtn.disabled=false;showStatus('לא הצלחתי להשלים את החיבור מול השרת. שלחי לי צילום מסך.');}
   }
-
-  function maybeExchange(){
-    if(pendingCode&&finishReceived&&!exchanged)exchangeCode(pendingCode);
-  }
-
-  window.fbAsyncInit=function(){
-    FB.init({appId:'{{ meta_app_id }}',cookie:true,xfbml:true,version:'v24.0'});
-  };
-  (function(d,s,id){
-    var js,fjs=d.getElementsByTagName(s)[0];
-    if(d.getElementById(id))return;
-    js=d.createElement(s);js.id=id;js.async=true;js.defer=true;js.crossOrigin='anonymous';
-    js.onerror=function(){showStatus('לא ניתן לטעון כרגע את החיבור של Meta.');};
-    js.src='https://connect.facebook.net/en_US/sdk.js';
-    fjs.parentNode.insertBefore(js,fjs);
-  }(document,'script','facebook-jssdk'));
+  function maybeExchange(){if(pendingCode&&finishReceived&&!exchanged)exchangeCode(pendingCode);}
+  window.fbAsyncInit=function(){FB.init({appId:'{{ meta_app_id }}',cookie:true,xfbml:true,version:'v24.0'});};
+  (function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(d.getElementById(id))return;js=d.createElement(s);js.id=id;js.async=true;js.defer=true;js.crossOrigin='anonymous';js.onerror=function(){showStatus('לא ניתן לטעון כרגע את החיבור של Meta.');};js.src='https://connect.facebook.net/en_US/sdk.js';fjs.parentNode.insertBefore(js,fjs);}(document,'script','facebook-jssdk'));
 
   window.addEventListener('message',function(event){
     if(!event.origin.endsWith('facebook.com'))return;
@@ -83,58 +66,35 @@
       if(!data||data.type!=='WA_EMBEDDED_SIGNUP')return;
       if(data.data)sessionInfo=data.data;
       if(data.event==='FINISH'||data.event==='FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'){
-        finishReceived=true;
-        showStatus('WhatsApp אישרה את המספר. משלימה את החיבור...');
-        maybeExchange();
+        finishReceived=true;showStatus('WhatsApp אישרה את המספר. משלימה את החיבור...');maybeExchange();
       }else if(data.event==='FINISH_ONLY_WABA'||data.event==='FINISH_OBO_MIGRATION'||data.event==='FINISH_GRANT_ONLY_API_ACCESS'){
-        connectBtn.disabled=false;
-        showStatus('Meta סיימה תהליך חלקי ולא השלימה את חיבור WhatsApp Business. שלחי לי צילום מסך.');
+        connectBtn.disabled=false;showStatus('Meta סיימה תהליך חלקי ולא השלימה את חיבור WhatsApp Business. שלחי לי צילום מסך.');
       }else if(String(data.event||'').toUpperCase()==='ERROR'){
-        connectBtn.disabled=false;
-        showStatus('Meta עצרה את תהליך החיבור'+(data.error_message?'\n'+data.error_message:'')+'.');
+        connectBtn.disabled=false;showStatus('Meta עצרה את תהליך החיבור'+(data.error_message?'\n'+data.error_message:'')+'.');
       }else if(data.event==='CANCEL'){
-        connectBtn.disabled=false;
-        showStatus(data.error_message?'Meta עצרה את תהליך החיבור:\n'+data.error_message:'תהליך החיבור בוטל.');
+        connectBtn.disabled=false;showStatus(data.error_message?'Meta עצרה את תהליך החיבור:\n'+data.error_message:'תהליך החיבור בוטל.');
       }
     }catch(e){}
   });
 
   connectBtn.addEventListener('click',function(){
     if(!window.FB){showStatus('Meta עדיין נטענת. נסי שוב בעוד כמה שניות.');return;}
-    connectBtn.disabled=true;
-    sessionInfo={};pendingCode=null;finishReceived=false;exchanged=false;
+    connectBtn.disabled=true;sessionInfo={};pendingCode=null;finishReceived=false;exchanged=false;
     if(diagnosticTimer){clearTimeout(diagnosticTimer);diagnosticTimer=null;}
     showStatus('פותחת את תהליך החיבור של Meta...');
-
     FB.login(function(response){
       const code=response&&response.authResponse&&response.authResponse.code;
       if(code){
-        pendingCode=code;
-        // Do not exchange the code until Meta has actually completed the
-        // WhatsApp Business App onboarding flow. An OAuth code returned after
-        // "Continue as ..." alone is not proof that Coexistence finished.
-        showStatus('פייסבוק אושרה. ממתינה להשלמת חיבור WhatsApp בחלון של Meta...');
-        maybeExchange();
-        diagnosticTimer=setTimeout(function(){
-          if(pendingCode&&!finishReceived&&!exchanged){
-            connectBtn.disabled=false;
-            showStatus('Meta אישרה את פייסבוק אבל לא פתחה/סיימה את מסך WhatsApp Business. זה מצביע על הגדרת Embedded Signup/Coexistence ב‑Meta, לא על החלפת הקוד.');
-          }
-        },12000);
+        pendingCode=code;showStatus('פייסבוק אושרה. ממתינה להשלמת חיבור WhatsApp בחלון של Meta...');maybeExchange();
+        diagnosticTimer=setTimeout(function(){if(pendingCode&&!finishReceived&&!exchanged){connectBtn.disabled=false;showStatus('Meta אישרה את פייסבוק אבל תהליך WhatsApp עדיין לא הסתיים. שלחי לי צילום מסך של החלון האחרון שהוצג.');}},12000);
         return;
       }
-      connectBtn.disabled=false;
-      showStatus('החיבור לא הושלם. אם Meta הציגה הודעה אחרת, שלחי לי צילום מסך.');
+      connectBtn.disabled=false;showStatus('החיבור לא הושלם. אם Meta הציגה הודעה אחרת, שלחי לי צילום מסך.');
     },{
       config_id:CONFIG_ID,
       response_type:'code',
       override_default_response_type:true,
-      extras:{
-        setup:{},
-        featureType:'whatsapp_business_app_onboarding',
-        sessionInfoVersion:'3',
-        version:'v4'
-      }
+      extras:{setup:{},featureType:'whatsapp_business_app_onboarding',sessionInfoVersion:'3',version:'v4'}
     });
   });
 </script>
