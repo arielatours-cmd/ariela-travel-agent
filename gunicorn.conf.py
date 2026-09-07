@@ -1,3 +1,6 @@
-def post_fork(server, worker):
-    from tools.runtime_prepare_v136 import prepare
-    prepare()
+"""Gunicorn configuration.
+
+Historical source-rewrite hooks were removed because the corrections are now
+part of the repository. Re-running them after every worker fork can reject a
+valid newer code shape and prevent the service from booting.
+"""
