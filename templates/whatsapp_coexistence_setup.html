@@ -21,7 +21,6 @@
 </div>
 <script>
   const CONFIG_ID='4639464019658421';
-  const FALLBACK_REDIRECT_URI='{{ meta_redirect_uri }}';
   const statusBox=document.getElementById('status');
   const connectBtn=document.getElementById('connectBtn');
   let sessionInfo={};
@@ -61,7 +60,7 @@
   function maybeExchange(){if(pendingCode&&finishReceived&&!exchanged)exchangeCode(pendingCode);}
 
   window.fbAsyncInit=function(){
-    FB.init({appId:'{{ meta_app_id }}',cookie:true,xfbml:false,version:'v24.0'});
+    FB.init({appId:'{{ meta_app_id }}',cookie:true,xfbml:true,version:'v24.0'});
   };
   (function(d,s,id){
     var js,fjs=d.getElementsByTagName(s)[0];
@@ -107,10 +106,10 @@
       showStatus('החיבור לא הושלם. אם Meta הציגה הודעה אחרת, שלחי לי צילום מסך.');
     },{
       config_id:CONFIG_ID,
+      auth_type:'rerequest',
       response_type:'code',
       override_default_response_type:true,
-      fallback_redirect_uri:FALLBACK_REDIRECT_URI,
-      extras:{setup:{},featureType:'whatsapp_business_app_onboarding',sessionInfoVersion:'3'}
+      extras:{setup:{},featureType:'whatsapp_business_app_onboarding'}
     });
   });
 </script>
