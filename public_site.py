@@ -2267,7 +2267,10 @@ def book_offer(offer_id):
         adults = max(1, min(request.args.get("adults", 1, type=int) or 1, 9))
         children = max(0, min(request.args.get("children", 0, type=int) or 0, 9))
 
-    target = resolve_booking_target(offer, adults=adults, children=children)
+    target = resolve_booking_target(
+        offer, adults=adults, children=children,
+        regenerate_itinerary=personal_trip is not None,
+    )
 
     record_booking_click(
         visitor_id=session.get("_ariella_visitor_id"),

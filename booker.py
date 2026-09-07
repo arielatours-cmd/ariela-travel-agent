@@ -77,7 +77,8 @@ def _priority(part: dict, preferred_supplier: str) -> tuple[int, float]:
     return (4, price)
 
 
-def resolve_booking_target(offer: dict, *, adults: int | None = None, children: int | None = None) -> BookerTarget:
+def resolve_booking_target(offer: dict, *, adults: int | None = None, children: int | None = None,
+                           regenerate_itinerary: bool = True) -> BookerTarget:
     """Resolve a supplier handoff for the exact itinerary and passenger party.
 
     A Google Flights booking_token belongs to the search that created it. For a
@@ -126,7 +127,7 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         return ranked[0][1] if ranked and ranked[0][0] >= 8 else None
 
     token = None
-    if personal and SERPAPI_API_KEY:
+    if personal and regenerate_itinerary and SERPAPI_API_KEY:
         # Fresh exact-party search: select the same outbound, expand its returns,
         # then select the same inbound. The resulting booking_token is now tied to
         # the requested passenger composition rather than the shared DB search.
@@ -170,7 +171,7 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                       "api_key":SERPAPI_API_KEY, "hl":"en", "gl":"il",
                       "currency":"ILS", "adults":str(pax_adults),
                       "children":str(pax_children)}
-            data = requests.get("https://serpapi.com/search.json", params=params, timeout=45).json()
+            data = requests.get("https://serpapi.com/search.json", params=params, timeout=15).json()
             exact_supplier, direct_airline, approved_supplier = [], [], []
             for group in data.get("booking_options") or []:
                 if group.get("separate_tickets"):
