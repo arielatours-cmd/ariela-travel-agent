@@ -566,7 +566,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             params.extend(clean_ids)
     if clauses:
         query += " WHERE " + " AND ".join(clauses)
-    query += " ORDER BY COALESCE(last_seen_at,observed_at) DESC, score DESC LIMIT ?"
+    query += " ORDER BY scan_run_id DESC, score DESC, price_ils ASC, COALESCE(last_seen_at,observed_at) DESC LIMIT ?"
     params.append(max(1, min(limit, 2000)))
     with connection() as conn:
         rows = conn.execute(query, params).fetchall()
