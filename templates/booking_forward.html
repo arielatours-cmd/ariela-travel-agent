@@ -1,1 +1,26 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>מעבירים להזמנה…</title></head><body><p>מעבירים אותך לאפשרות ההזמנה של הטיסה שבחרת…</p><form id="booking-forward" method="post" action="{{ action }}">{% for k,v in fields %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}</form><script>document.getElementById('booking-forward').submit();</script></body></html>
+<!doctype html>
+<html lang="{{ site_lang }}" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ 'Continuing to booking…' if site_lang == 'en' else 'עוברים להזמנה…' }}</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:rgba(7,7,7,.82);font-family:Arial,"Segoe UI",sans-serif;color:#17283f}
+    .booking-message{width:min(470px,100%);padding:34px 26px;text-align:center;background:#fffaf2;border:1px solid #d8b466;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+    .mark{width:58px;height:58px;margin:0 auto 18px;display:grid;place-items:center;border:1px solid #c99a3f;border-radius:50%;font:700 28px Georgia,serif;color:#b27b24}
+    h1{margin:0 0 12px;font-size:24px;line-height:1.4}p{margin:0;font-size:17px;line-height:1.65;color:#554d42}.thanks{display:block;margin-top:10px;font-weight:800;color:#b27b24}
+    .progress{height:3px;margin-top:24px;overflow:hidden;border-radius:3px;background:#eadfca}.progress i{display:block;width:100%;height:100%;background:#c99a3f;transform-origin:right;animation:wait 3s linear forwards}
+    [dir="ltr"] .progress i{transform-origin:left}@keyframes wait{to{transform:scaleX(0)}}
+  </style>
+</head>
+<body>
+  <section class="booking-message" role="status" aria-live="polite">
+    <div class="mark">A</div>
+    <h1>{{ 'You are continuing to book directly on the provider website.' if site_lang == 'en' else 'אתם עוברים להזמנת הטיסה ישירות באתר הספק.' }}</h1>
+    <p><span class="thanks">{{ 'Thank you for choosing Ariella' if site_lang == 'en' else 'תודה שבחרתם באריאלה' }}</span></p>
+    <div class="progress" aria-hidden="true"><i></i></div>
+  </section>
+  <form id="booking-forward" method="{{ method }}" action="{{ action }}">{% for k,v in fields %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}</form>
+  <script>setTimeout(function(){document.getElementById('booking-forward').submit();},3000);</script>
+</body>
+</html>

@@ -2275,10 +2275,13 @@ def book_offer(offer_id):
         booking_url=target.url,
     )
 
-    if target.url and target.fields:
-        return render_template("booking_forward.html", action=target.url, fields=target.fields)
     if target.url:
-        return redirect(target.url)
+        return render_template(
+            "booking_forward.html",
+            action=target.url,
+            fields=target.fields or [],
+            method="post" if target.fields else "get",
+        )
 
     if personal_trip is not None:
         flash("לא ניתן לפתוח כרגע הזמנה מדויקת אצל הספק לדיל הזה. לא העברנו אותך להזמנה כללית או עם מספר נוסעים שגוי.", "warning")
