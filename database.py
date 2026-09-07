@@ -1,10 +1,12 @@
 import json
 import sqlite3
+from statistics import median
 from urllib.parse import quote_plus
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from config import DB_PATH
 from baggage_pricing import policy_roundtrip_total, policy_personal_item_included
+from scoring import calculate_deal_score
 
 # Curated destination landmark photography. Wikimedia Commons Special:Redirect/file
 # URLs are stable remote image URLs and require no additional flight/search API calls.
@@ -382,7 +384,68 @@ def create_scan_run(searches_planned: int, scan_type: str = "general", trip_id: 
         return int(cur.lastrowid)
 
 
+def normalize_scan_run_price_groups(run_id: int) -> dict:
+    """Give every unique route/date group one median, one lowest price and fresh scores."""
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT o.id,o.route,o.outbound_date,o.return_date,o.price_ils,o.payload_json
+               FROM scan_run_offers sro JOIN offers o ON o.id=sro.offer_id
+               WHERE sro.scan_run_id=?""",
+            (run_id,),
+        ).fetchall()
+        parsed = []
+        unique_by_group = {}
+        for row in rows:
+            payload = json.loads(row["payload_json"])
+            flight = payload.get("flight") or {}
+            group_key = (row["route"], row["outbound_date"], row["return_date"])
+            token = flight.get("booking_token")
+            identity = token or (
+                flight.get("departure_time"), flight.get("arrival_time"),
+                flight.get("return_departure_time"), flight.get("return_arrival_time"),
+                flight.get("airline"), flight.get("return_airline"),
+                flight.get("stops"), flight.get("return_stops"), float(row["price_ils"]),
+            )
+            unique_by_group.setdefault(group_key, {})[identity] = float(row["price_ils"])
+            parsed.append((row, payload, flight, group_key))
+
+        references = {}
+        for group_key, identities in unique_by_group.items():
+            prices = sorted(identities.values())
+            if prices:
+                references[group_key] = {
+                    "median": float(median(prices)),
+                    "lowest": float(prices[0]),
+                    "count": len(prices),
+                }
+
+        updated = 0
+        for row, payload, flight, group_key in parsed:
+            ref = references.get(group_key)
+            if not ref:
+                continue
+            analysis = dict(payload.get("deal_analysis") or {})
+            analysis["search_median"] = ref["median"]
+            analysis["search_lowest"] = ref["lowest"]
+            analysis["search_sample_count"] = ref["count"]
+            analysis["current_search_price_gap_percent"] = round(
+                max(0.0, (float(row["price_ils"]) - ref["lowest"]) / ref["lowest"] * 100), 1
+            )
+            analysis["price_reference_source"] = "search_lowest"
+            analysis["price_reference_reliable"] = True
+            score = calculate_deal_score(analysis, flight)
+            payload["deal_analysis"] = analysis
+            payload["deal_score"] = score
+            conn.execute(
+                "UPDATE offers SET score=?,score_label=?,payload_json=? WHERE id=?",
+                (score["score"], score["label"], json.dumps(payload, ensure_ascii=False), row["id"]),
+            )
+            updated += 1
+    return {"run_id": run_id, "updated": updated, "groups": len(references)}
+
+
 def finish_scan_run(run_id: int, completed: int, offers: int, errors: int, error_message: str | None = None, api_requests: int | None = None) -> None:
+    normalize_scan_run_price_groups(run_id)
     with connection() as conn:
         row = conn.execute("SELECT searches_planned FROM scan_runs WHERE id=?", (run_id,)).fetchone()
         planned = int(row["searches_planned"] or 0) if row else completed
@@ -567,7 +630,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
     if clauses:
         query += " WHERE " + " AND ".join(clauses)
     query += " ORDER BY scan_run_id DESC, score DESC, price_ils ASC, COALESCE(last_seen_at,observed_at) DESC LIMIT ?"
-    params.append(max(1, min(limit, 2000)))
+    params.append(max(1, min(limit * 4, 2000)))
     with connection() as conn:
         rows = conn.execute(query, params).fetchall()
         scan_times = {
@@ -576,6 +639,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
         }
 
     result = []
+    seen_itineraries = set()
     for row in rows:
         item = dict(row)
         item["scan_started_at"] = scan_times.get(int(item["scan_run_id"])) if item.get("scan_run_id") is not None else None
@@ -824,7 +888,20 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "reliability_score": components.get("reliability"),
             "send_reason": reasons[0].split(": +")[0] if reasons else deal_score.get("label"),
         })
+        token = item.get("booking_token")
+        itinerary_key = ("token", token) if token else (
+            "details", item.get("route"), item.get("outbound_date"), item.get("return_date"),
+            item.get("departure_time"), item.get("arrival_time"),
+            item.get("return_departure_time"), item.get("return_arrival_time"),
+            item.get("airline"), item.get("return_airline"),
+            item.get("stops"), item.get("return_stops"), item.get("price_ils"),
+        )
+        if itinerary_key in seen_itineraries:
+            continue
+        seen_itineraries.add(itinerary_key)
         result.append(item)
+        if len(result) >= limit:
+            break
     return result
 
 
