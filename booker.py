@@ -149,7 +149,10 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         except Exception:
             token = None
 
-    if not personal:
+    # If regenerating the exact passenger search did not return a token, retain
+    # the original itinerary token instead of dropping a valid supplier path.
+    # The supplier will still confirm the selected passenger count before pay.
+    if not token:
         token = offer.get("booking_token") or (offer.get("flight") or {}).get("booking_token")
 
     if token and SERPAPI_API_KEY:
@@ -185,11 +188,11 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         except Exception:
             pass
 
-    if stored_url and not personal:
+    if stored_url:
         return BookerTarget(url=stored_url,
             fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
             supplier=recommended, mode="stored_supplier_fallback", exact=False,
-            note="יש לוודא את מספר הנוסעים והזמינות אצל הספק.")
+            note="יש לוודא באתר הספק את מספר הנוסעים והזמינות לפני התשלום.")
 
     return BookerTarget(url=None, fields=[], supplier=recommended,
         mode="personal_exact_booking_unavailable" if personal else "recommended_supplier_unavailable",
