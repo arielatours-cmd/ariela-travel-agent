@@ -16,6 +16,7 @@ from database import (
     all_settings, dashboard_stats, business_analytics, get_daily_batch, init_db, latest_scan_run,
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
+    normalize_scan_run_price_groups,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 from schedule_rules import delivery_status
@@ -32,6 +33,9 @@ app.register_blueprint(site)
 app.register_blueprint(whatsapp_coexistence)
 
 init_db()
+_latest_for_normalization = latest_scan_run()
+if _latest_for_normalization and _latest_for_normalization.get("status") != "running":
+    normalize_scan_run_price_groups(int(_latest_for_normalization["id"]))
 
 # Manual scans must never run inside the browser request itself: a wide flight
 # search can exceed Gunicorn's request timeout. The request only starts a
