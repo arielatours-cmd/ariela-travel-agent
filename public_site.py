@@ -1998,7 +1998,11 @@ def deals():
 
 @site.get("/api/deals-version")
 def deals_version():
-    response = jsonify({"version": _public_feed_version(), "minimum_score": MIN_DEAL_SCORE})
+    response = jsonify({
+        "version": _public_feed_version(),
+        "minimum_score": MIN_DEAL_SCORE,
+        "desktop_deals_fix": "2026-09-07",
+    })
     response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 
