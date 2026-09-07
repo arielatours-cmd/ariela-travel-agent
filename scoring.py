@@ -92,12 +92,13 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     return_stops = int(flight.get("return_stops") or 0)
     worst_stops = max(stops, return_stops)
     duration = max(flight.get("total_duration_minutes") or 0, flight.get("return_total_duration_minutes") or 0)
-    minimum_stops = int(deal_analysis.get("search_min_stops") or 0)
-    route_points = max(0, 3 - max(0, worst_stops - minimum_stops))
+    # Flight quality is absolute, not relative to the weakest search pool:
+    # full points only when BOTH outbound and return are direct.
+    route_points = 3 if worst_stops == 0 else 0
     components["route"] = route_points
     score += route_points
-    if route_points > 0:
-        reasons.append(f"איכות מסלול ({'ישירה' if worst_stops == 0 else str(worst_stops) + ' עצירות'}): +{route_points}")
+    if route_points:
+        reasons.append("איכות מסלול (ישירה): +3")
 
     baggage = flight.get("baggage") or {}
     checked = baggage.get("checked_bag_23kg", {}) or {}
