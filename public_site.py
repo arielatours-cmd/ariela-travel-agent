@@ -1859,7 +1859,7 @@ def _public_best_available(limit=30):
     for offer in recent:
         offer["is_stale_48h"] = not _offer_is_recent(offer, 48)
     floor = datetime.min.replace(tzinfo=timezone.utc)
-    recent.sort(key=lambda o: (_offer_seen_at(o) or floor, int(o.get("score") or 0), -float(o.get("price_ils") or 10**9)), reverse=True)
+    recent.sort(key=lambda o: (int(o.get("scan_run_id") or 0), int(o.get("score") or 0), -float(o.get("price_ils") or 10**9), _offer_seen_at(o) or floor), reverse=True)
     return recent[:limit]
 
 
