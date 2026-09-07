@@ -30,7 +30,7 @@ def _price_points(analysis: dict) -> tuple[int, list[str]]:
     elif gap <= 40: points = 45
     elif gap <= 50: points = 35
     else: points = 25
-    reasons.append(f"מחיר ביחס להצעה הזולה בחיפוש הנוכחי: +{points}")
+    reasons.append(f"מחיר נמוך לעומת טיסות דומות: +{points}")
     return points, reasons
 
 
