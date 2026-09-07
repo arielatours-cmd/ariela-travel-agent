@@ -7,7 +7,6 @@ whatsapp_coexistence = Blueprint("whatsapp_coexistence", __name__)
 
 META_APP_ID = "919805650390657"
 META_GRAPH_VERSION = "v24.0"
-META_JS_SDK_REDIRECT_URI = "https://www.facebook.com/connect/login_success.html"
 
 
 @whatsapp_coexistence.get("/whatsapp-coexistence-setup")
@@ -55,14 +54,12 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server.",
         }), 500
 
-    # FB.login() from the JavaScript SDK binds the returned authorization code
-    # to Facebook's SDK callback URL. Meta requires the exact same redirect_uri
-    # when exchanging that code for an access token.
+    # Match working Embedded Signup implementations: exchange the code with
+    # client_id, client_secret and code only. Do not send redirect_uri.
     exchange_params = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
         "code": code,
-        "redirect_uri": META_JS_SDK_REDIRECT_URI,
     }
 
     try:
