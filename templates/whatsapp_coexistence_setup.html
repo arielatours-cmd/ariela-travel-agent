@@ -40,19 +40,10 @@
     connectBtn.disabled=true;
     showStatus('WhatsApp אישרה את החיבור. משלימה עכשיו את ההגדרה...');
     try{
-      const response=await fetch('/whatsapp-coexistence/exchange-code',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({code:code,session_info:safeSession(sessionInfo)})
-      });
+      const response=await fetch('/whatsapp-coexistence/exchange-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code,session_info:safeSession(sessionInfo)})});
       const data=await response.json();
-      if(data.ok){
-        const phone=data.phone&&data.phone.display_phone_number?' ('+data.phone.display_phone_number+')':'';
-        showStatus('החיבור הושלם בהצלחה ✅'+phone);
-      }else{
-        exchanged=false;connectBtn.disabled=false;
-        const details=safeMetaError(data.meta),http=data.http_status?'\nHTTP: '+data.http_status:'';
-        showStatus('Meta החזירה שגיאה בהשלמת החיבור. שלחי לי צילום מסך.\n'+(data.error||'unknown_error')+http+(details?'\n\n'+details:''));
-      }
+      if(data.ok){const phone=data.phone&&data.phone.display_phone_number?' ('+data.phone.display_phone_number+')':'';showStatus('החיבור הושלם בהצלחה ✅'+phone);}
+      else{exchanged=false;connectBtn.disabled=false;const details=safeMetaError(data.meta),http=data.http_status?'\nHTTP: '+data.http_status:'';showStatus('Meta החזירה שגיאה בהשלמת החיבור. שלחי לי צילום מסך.\n'+(data.error||'unknown_error')+http+(details?'\n\n'+details:''));}
     }catch(e){exchanged=false;connectBtn.disabled=false;showStatus('לא הצלחתי להשלים את החיבור מול השרת. שלחי לי צילום מסך.');}
   }
   function maybeExchange(){if(pendingCode&&finishReceived&&!exchanged)exchangeCode(pendingCode);}
@@ -84,17 +75,13 @@
     showStatus('פותחת את תהליך החיבור של Meta...');
     FB.login(function(response){
       const code=response&&response.authResponse&&response.authResponse.code;
-      if(code){
-        pendingCode=code;showStatus('פייסבוק אושרה. ממתינה להשלמת חיבור WhatsApp בחלון של Meta...');maybeExchange();
-        diagnosticTimer=setTimeout(function(){if(pendingCode&&!finishReceived&&!exchanged){connectBtn.disabled=false;showStatus('Meta אישרה את פייסבוק אבל תהליך WhatsApp עדיין לא הסתיים. שלחי לי צילום מסך של החלון האחרון שהוצג.');}},12000);
-        return;
-      }
+      if(code){pendingCode=code;showStatus('פייסבוק אושרה. ממתינה להשלמת חיבור WhatsApp בחלון של Meta...');maybeExchange();diagnosticTimer=setTimeout(function(){if(pendingCode&&!finishReceived&&!exchanged){connectBtn.disabled=false;showStatus('Meta אישרה את פייסבוק אבל תהליך WhatsApp עדיין לא הסתיים. שלחי לי צילום מסך של החלון האחרון שהוצג.');}},12000);return;}
       connectBtn.disabled=false;showStatus('החיבור לא הושלם. אם Meta הציגה הודעה אחרת, שלחי לי צילום מסך.');
     },{
       config_id:CONFIG_ID,
       response_type:'code',
       override_default_response_type:true,
-      extras:{setup:{},featureType:'whatsapp_business_app_onboarding',sessionInfoVersion:'3',version:'v4'}
+      extras:{setup:{},featureType:'whatsapp_business_app_onboarding'}
     });
   });
 </script>
