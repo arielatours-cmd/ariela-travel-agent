@@ -78,10 +78,10 @@
  {% if visible %}
  <footer class="deal-reasons-footer">
    <strong class="deal-reasons-title">{{ 'Ariella selection' if lang=='en' else 'בחירת אריאלה' }}</strong>
-   <div>{% for reason in visible[:4] %}<span>{{ reason_en(reason) if lang=='en' else reason }}</span>{% if not loop.last %}<i aria-hidden="true"></i>{% endif %}{% endfor %}<span class="deal-last-updated">{{ 'Last updated:' if lang=='en' else 'עודכן לאחרונה:' }} {{ offer.updated_ago_en if lang=='en' else offer.updated_ago_he }}</span></div>
+   <div>{% for reason in visible[:4] %}<span>{{ reason_en(reason) if lang=='en' else reason }}</span>{% if not loop.last %}<i aria-hidden="true"></i>{% endif %}{% endfor %}<span class="deal-last-updated" data-ts="{{ offer.last_seen_at or offer.scan_started_at or offer.observed_at or '' }}">{{ 'Last updated:' if lang=='en' else 'עודכן לאחרונה:' }} <b>{{ 'Today' if lang=='en' else 'היום' }}</b></span></div>
  </footer>
  {% else %}
- <div class="deal-footer"><span>{{ 'Last updated:' if lang=='en' else 'עודכן לאחרונה:' }} {{ offer.updated_ago_en if lang=='en' else offer.updated_ago_he }}</span></div>
+ <div class="deal-footer"><span class="deal-last-updated" data-ts="{{ offer.last_seen_at or offer.scan_started_at or offer.observed_at or '' }}">{{ 'Last updated:' if lang=='en' else 'עודכן לאחרונה:' }} <b>{{ 'Today' if lang=='en' else 'היום' }}</b></span></div>
  {% endif %}
 {% if offer.is_stale_48h %}<div class="deal-stale-warning" style="margin:8px 14px 12px;padding:9px 12px;border:1px solid #d7b46a;border-radius:8px;background:#fff9ec;color:#72531c;font-size:13px;font-weight:700;text-align:center">{{ 'This deal was found more than 48 hours ago. Price and availability may have changed; Ariella will recheck availability when you continue to booking.' if lang=='en' else 'הדיל נמצא לפני יותר מ־48 שעות. המחיר והזמינות עשויים להשתנות; במעבר להזמנה אריאלה תבדוק מחדש את זמינות הדיל.' }}</div>{% endif %}
 </article>
