@@ -1,8 +1,7 @@
 import os
-import json
 
 import requests
-from flask import Blueprint, jsonify, render_template, request, Response
+from flask import Blueprint, jsonify, render_template, request
 
 whatsapp_coexistence = Blueprint("whatsapp_coexistence", __name__)
 
@@ -58,19 +57,18 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server."
         }), 500
 
-    # Manual OAuth launch and token exchange deliberately share one exact,
-    # explicit callback URI. This removes FB.login's hidden redirect URI.
-    exchange_params = {
+    exchange_data = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
         "code": code,
+        "grant_type": "authorization_code",
         "redirect_uri": META_OAUTH_REDIRECT_URI,
     }
 
     try:
-        response = requests.get(
+        response = requests.post(
             f"https://graph.facebook.com/{META_GRAPH_VERSION}/oauth/access_token",
-            params=exchange_params,
+            data=exchange_data,
             timeout=20,
         )
     except requests.RequestException as exc:
@@ -150,28 +148,4 @@ def exchange_code():
 
 @whatsapp_coexistence.get("/facebook/callback")
 def facebook_callback():
-    """Return the OAuth code to the opener without exposing secrets."""
-    code = request.args.get("code")
-    error = request.args.get("error") or request.args.get("error_reason")
-    error_description = request.args.get("error_description") or ""
-
-    payload = {
-        "type": "ARIELA_META_OAUTH_CALLBACK",
-        "code": code,
-        "error": error,
-        "error_description": error_description,
-    }
-    payload_json = json.dumps(payload).replace("</", "<\\/")
-    html = f"""<!doctype html><html><head><meta charset='utf-8'><title>Meta</title></head>
-<body><script>
-(function() {{
-  var payload = {payload_json};
-  if (window.opener) {{
-    window.opener.postMessage(payload, 'https://ariela-travel-agent.onrender.com');
-    window.close();
-  }} else {{
-    document.body.textContent = payload.error ? 'Meta לא השלימה את החיבור.' : 'Meta אישרה. אפשר לסגור את החלון.';
-  }}
-}})();
-</script></body></html>"""
-    return Response(html, mimetype="text/html")
+    return "Meta callback ready", 200
