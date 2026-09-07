@@ -98,6 +98,26 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
             fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
             supplier=recommended, mode="recommended_supplier", exact=True)
 
+    # Public-deal passenger selection must stay fast enough for the web request.
+    # Reuse a stored supplier handoff immediately; otherwise direct-booking
+    # airlines with known official sites should not wait on a fresh API lookup.
+    if not regenerate_itinerary:
+        if stored_url:
+            return BookerTarget(url=stored_url,
+                fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
+                supplier=recommended, mode="stored_supplier_selected_party", exact=False,
+                note="יש לוודא באתר הספק את מספר הנוסעים לפני התשלום.")
+        public_airline_names = (
+            recommended, offer.get("airline"), offer.get("return_airline"),
+            (offer.get("flight") or {}).get("airline"),
+        )
+        for airline_name in public_airline_names:
+            official_url = OFFICIAL_AIRLINE_BOOKING_FALLBACKS.get(_norm(airline_name))
+            if official_url:
+                return BookerTarget(url=official_url, fields=[],
+                    supplier=str(airline_name or recommended), mode="official_airline_selected_party",
+                    exact=False, note="יש לבחור באתר חברת התעופה את הטיסה ומספר הנוסעים.")
+
     def _time5(value):
         value = str(value or "")
         return value[-5:] if len(value) >= 5 else value
