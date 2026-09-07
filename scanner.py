@@ -146,6 +146,11 @@ def _apply_best_price_reference(analysis: dict, price: float) -> dict:
     analysis.pop("price_reference_source", None)
     lowest = analysis.get("search_lowest")
     if isinstance(lowest, (int, float)) and lowest > 0:
+        # The cheapest comparable result can never cost more than this
+        # persisted itinerary. This guards against mixed/partial SerpApi price
+        # pools and keeps the displayed reference consistent with scoring.
+        lowest = min(float(lowest), float(price))
+        analysis["search_lowest"] = lowest
         analysis["current_search_price_gap_percent"] = round(max(0, (price - lowest) / lowest * 100), 1)
         analysis["price_reference_source"] = "search_lowest"
         analysis["price_reference_reliable"] = True
