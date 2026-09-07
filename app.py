@@ -6,16 +6,6 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect
 
-# Apply and validate the 9.7.136 core patch before any project module imports
-# scanner/public_site. This is independent of Render dashboard build settings.
-from tools.runtime_prepare_v136 import prepare as _prepare_v136
-_prepare_v136()
-
-# Apply the approved 2026-09-05 UI + deal-persistence corrections before
-# public_site/templates are imported by the running service.
-from tools.pending_fixes_20260905 import prepare as _prepare_pending_20260905
-_prepare_pending_20260905()
-
 from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
