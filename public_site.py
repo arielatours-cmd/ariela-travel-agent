@@ -2258,6 +2258,14 @@ def book_offer(offer_id):
             children = max(0, int(answers.get("children") or 0))
         except (TypeError, ValueError):
             children = 0
+    else:
+        # Public deals do not yet have a passenger context. Ask once before
+        # resolving the supplier URL so the booking search opens for the right
+        # number of tickets. Personal vacations already carry these values.
+        if request.args.get("passengers") != "1":
+            return render_template("booking_passengers.html", offer=offer)
+        adults = max(1, min(request.args.get("adults", 1, type=int) or 1, 9))
+        children = max(0, min(request.args.get("children", 0, type=int) or 0, 9))
 
     target = resolve_booking_target(offer, adults=adults, children=children)
 
