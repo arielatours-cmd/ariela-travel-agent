@@ -608,10 +608,14 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
 
                 if scored_combinations:
                     scored_combinations.sort(key=lambda x: (x[0], x[1]), reverse=True)
+                    effective_search_lowest = result["deal_analysis"].get("search_lowest")
                     for candidate_index, (_, _, flight, analysis, score) in enumerate(scored_combinations):
                         flight = dict(flight)
                         analysis = dict(analysis)
                         score = dict(score)
+                        analysis["search_lowest"] = effective_search_lowest
+                        analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                        score = calculate_deal_score(analysis, flight)
                         # Only the leading candidate needs the extra booking-provider
                         # request now. Other candidates are enriched on demand.
                         if candidate_index == 0:
@@ -620,7 +624,14 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                                     flight, job["departure"], job["arrival"], job["outbound"], job["return"]
                                 )
                                 if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
+                                    original_search_price = float(flight["price"])
                                     flight["price"] = flight["booking_supplier_price_ils"]
+                                    displayed_price = float(flight["price"])
+                                    if (isinstance(effective_search_lowest, (int, float))
+                                            and original_search_price <= float(effective_search_lowest)
+                                            and displayed_price > original_search_price):
+                                        effective_search_lowest = displayed_price
+                                        analysis["search_lowest"] = effective_search_lowest
                                 analysis = _apply_best_price_reference(analysis, float(flight["price"]))
                                 score = calculate_deal_score(analysis, flight)
                             except Exception as exc:
@@ -1101,10 +1112,14 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                     # scan.  The first candidate is enriched for immediate display;
                     # the remaining candidates still expand the shared 48h DB and
                     # can match another customer's dates, budget or preferences.
+                    effective_search_lowest = result["deal_analysis"].get("search_lowest")
                     for candidate_index, (_, _, _, flight, analysis, score) in enumerate(scored):
                         flight = dict(flight)
                         analysis = dict(analysis)
                         score = dict(score)
+                        analysis["search_lowest"] = effective_search_lowest
+                        analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                        score = calculate_deal_score(analysis, flight)
                         if candidate_index == 0:
                             try:
                                 flight, _ = enrich_booking_options(
@@ -1112,7 +1127,14 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                                     adults=adults, children=children
                                 )
                                 if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
+                                    original_search_price = float(flight["price"])
                                     flight["price"] = flight["booking_supplier_price_ils"]
+                                    displayed_price = float(flight["price"])
+                                    if (isinstance(effective_search_lowest, (int, float))
+                                            and original_search_price <= float(effective_search_lowest)
+                                            and displayed_price > original_search_price):
+                                        effective_search_lowest = displayed_price
+                                        analysis["search_lowest"] = effective_search_lowest
                                 analysis = _apply_best_price_reference(analysis, float(flight["price"]))
                                 score = calculate_deal_score(analysis, flight)
                             except Exception as exc:
@@ -1200,15 +1222,26 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
                     scored.append((score["score"],-price,flight,analysis,score))
                 if scored:
                     scored.sort(key=lambda x:(x[0],x[1]),reverse=True)
+                    effective_search_lowest = result["deal_analysis"].get("search_lowest")
                     for candidate_index, (_,_,flight,analysis,score) in enumerate(scored):
                         flight, analysis, score = dict(flight), dict(analysis), dict(score)
+                        analysis["search_lowest"] = effective_search_lowest
+                        analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                        score = calculate_deal_score(analysis, flight)
                         if candidate_index == 0:
                             try:
                                 flight, _ = enrich_booking_options(
                                     flight, job["departure"], job["arrival"], job["outbound"], job["return"]
                                 )
                                 if isinstance(flight.get("booking_supplier_price_ils"), (int,float)):
+                                    original_search_price = float(flight["price"])
                                     flight["price"]=flight["booking_supplier_price_ils"]
+                                    displayed_price = float(flight["price"])
+                                    if (isinstance(effective_search_lowest, (int, float))
+                                            and original_search_price <= float(effective_search_lowest)
+                                            and displayed_price > original_search_price):
+                                        effective_search_lowest = displayed_price
+                                        analysis["search_lowest"] = effective_search_lowest
                                 analysis = _apply_best_price_reference(analysis, float(flight["price"]))
                                 score = calculate_deal_score(analysis, flight)
                             except Exception as exc:
