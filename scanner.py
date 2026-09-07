@@ -500,12 +500,19 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
         unique_outbounds = unique_outbounds[:max(1, int(max_outbounds))]
 
     complete = []
+    expansion_errors = []
     for outbound_item in unique_outbounds:
         outbound_summary = _summarize_flight(outbound_item)
         return_params = dict(params)
         return_params["departure_token"] = outbound_item["departure_token"]
-        return_data = _serpapi_request(return_params)
-        api_requests += 1
+        try:
+            return_data = _serpapi_request(return_params)
+            api_requests += 1
+        except Exception as exc:
+            # A single bad/expired departure token must not discard complete
+            # round trips already collected from the other outbound choices.
+            expansion_errors.append(str(exc))
+            continue
         return_items = (return_data.get("best_flights") or []) + (return_data.get("other_flights") or [])
         for inbound_item in return_items:
             if not isinstance(inbound_item.get("price"), (int, float)):
@@ -542,6 +549,7 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
         "api_requests": api_requests,
         "combinations_checked": len(complete),
         "outbounds_checked": len(unique_outbounds),
+        "expansion_errors": expansion_errors,
     }
 
 def _all_search_jobs() -> list[dict]:
@@ -575,6 +583,7 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
     new_offers = existing_offers = 0
     error_messages: list[str] = []
     status_messages: list[str] = []
+    api_counter_start = _SERPAPI_HTTP_REQUESTS
 
     try:
         for job in jobs:
@@ -590,7 +599,10 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                 # instead of appearing stuck at 24/30.
                 completed += 1
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=max_outbounds_per_route)
-                api_requests += int(result.get("api_requests") or 0)
+                api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
+                for message in result.get("expansion_errors") or []:
+                    errors += 1
+                    error_messages.append(f"{job['departure']}-{job['arrival']} return option: {message}")
 
                 # Score every complete round-trip combination. Persistence and
                 # publication are separate: all valid inventory expands the DB,
@@ -621,14 +633,19 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                         # Only the leading candidate needs the extra booking-provider
                         # request now. Other candidates are enriched on demand.
                         if candidate_index == 0:
-                            flight, booking_requests = enrich_booking_options(
-                                flight, job["departure"], job["arrival"], job["outbound"], job["return"]
-                            )
-                            api_requests += booking_requests
-                            if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
-                                flight["price"] = flight["booking_supplier_price_ils"]
-                            analysis = _apply_best_price_reference(analysis, float(flight["price"]))
-                            score = calculate_deal_score(analysis, flight)
+                            try:
+                                flight, _ = enrich_booking_options(
+                                    flight, job["departure"], job["arrival"], job["outbound"], job["return"]
+                                )
+                                if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
+                                    flight["price"] = flight["booking_supplier_price_ils"]
+                                analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                                score = calculate_deal_score(analysis, flight)
+                            except Exception as exc:
+                                # Booking metadata is optional enrichment. Keep the
+                                # valid itinerary and every remaining candidate.
+                                errors += 1
+                                error_messages.append(f"{job['departure']}-{job['arrival']} booking option: {exc}")
                         analysis["combinations_checked"] = result.get("combinations_checked", len(scored_combinations))
                         analysis["outbounds_checked"] = result.get("outbounds_checked")
                         offer = {
@@ -662,6 +679,7 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                 errors += 1
                 error_messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
             finally:
+                api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 update_scan_progress(run_id, completed, offers_found, errors, api_requests)
     except BaseException as exc:
         # Still close the DB scan record if the worker/request fails unexpectedly.
@@ -669,6 +687,7 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
         error_messages.append(f"scan: {exc}")
         raise
     finally:
+        api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
         finish_scan_run(
             run_id, completed, offers_found, errors,
             "; ".join(status_messages + error_messages)[:2000] or None, api_requests=api_requests
@@ -1069,8 +1088,12 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                 cabin_map = {"economy":"1", "premium":"2", "business":"3", "first":"4", "any":"1"}
                 requested_class = cabin_map.get(str(answers.get("business_cabin_class") or "economy").lower(), "1") if str(answers.get("vacation_type") or "standard") == "business" else "1"
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=adults, children=children)
-                api_requests += int(result.get("api_requests") or 0)
+                api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 completed += 1
+                for message in result.get("expansion_errors") or []:
+                    errors += 1
+                    coverage_errors[coverage_key] += 1
+                    messages.append(f"{job['departure']}-{job['arrival']} return option: {message}")
                 scored = []
                 for flight in result["flights"]:
                     if not flight.get("return_departure_time") or not flight.get("return_arrival_time"):
@@ -1101,15 +1124,19 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                         analysis = dict(analysis)
                         score = dict(score)
                         if candidate_index == 0:
-                            flight, booking_requests = enrich_booking_options(
-                                flight, job["departure"], job["arrival"], job["outbound"], job["return"],
-                                adults=adults, children=children
-                            )
-                            api_requests += booking_requests
-                            if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
-                                flight["price"] = flight["booking_supplier_price_ils"]
-                            analysis = _apply_best_price_reference(analysis, float(flight["price"]))
-                            score = calculate_deal_score(analysis, flight)
+                            try:
+                                flight, _ = enrich_booking_options(
+                                    flight, job["departure"], job["arrival"], job["outbound"], job["return"],
+                                    adults=adults, children=children
+                                )
+                                if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
+                                    flight["price"] = flight["booking_supplier_price_ils"]
+                                analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                                score = calculate_deal_score(analysis, flight)
+                            except Exception as exc:
+                                errors += 1
+                                coverage_errors[coverage_key] += 1
+                                messages.append(f"{job['departure']}-{job['arrival']} booking option: {exc}")
                         insert_offer(run_id, {
                             "observed_at": datetime.now(timezone.utc).isoformat(),
                             "route": result["route"], "departure_code": job["departure"], "arrival_code": job["arrival"],
@@ -1157,6 +1184,7 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
     new_offers = existing_offers = 0
     messages = []
     max_api_requests = 24
+    api_counter_start = _SERPAPI_HTTP_REQUESTS
     try:
         for job in jobs:
             if scan_stop_requested():
@@ -1167,8 +1195,11 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
                 break
             try:
                 result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"])
-                api_requests += int(result.get("api_requests") or 0)
+                api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 completed += 1
+                for message in result.get("expansion_errors") or []:
+                    errors += 1
+                    messages.append(f"{job['departure']}-{job['arrival']} return option: {message}")
                 scored = []
                 for flight in result["flights"]:
                     if not flight.get("return_departure_time") or not flight.get("return_arrival_time"):
@@ -1187,30 +1218,40 @@ def run_destination_scan(arrival_code: str, max_searches: int = 3) -> dict:
                     scored.append((score["score"],-price,flight,analysis,score))
                 if scored:
                     scored.sort(key=lambda x:(x[0],x[1]),reverse=True)
-                    _,_,flight,analysis,score=scored[0]
-                    flight, booking_requests = enrich_booking_options(
-                        flight, job["departure"], job["arrival"], job["outbound"], job["return"]
-                    )
-                    api_requests += booking_requests
-                    if isinstance(flight.get("booking_supplier_price_ils"), (int,float)):
-                        flight["price"]=flight["booking_supplier_price_ils"]
-                    analysis = _apply_best_price_reference(analysis, float(flight["price"]))
-                    score = calculate_deal_score(analysis, flight)
-                    insert_offer(run_id,{
-                        "observed_at":datetime.now(timezone.utc).isoformat(),
-                        "route":result["route"],"departure_code":job["departure"],"arrival_code":job["arrival"],
-                        "departure_airport_name":result["departure_airport_name"],"arrival_airport_name":result["arrival_airport_name"],
-                        "destination_name":job["destination_name"],"country_flag":job["country_flag"],
-                        "outbound_date":job["outbound"],"return_date":job["return"],
-                        "outbound":result["outbound"],"return":result["return"],
-                        "deal_analysis":analysis,"flight":flight,"deal_score":score,
-                        "booking_url":result["booking_url"],
-                    })
-                    offers_found += 1
+                    for candidate_index, (_,_,flight,analysis,score) in enumerate(scored):
+                        flight, analysis, score = dict(flight), dict(analysis), dict(score)
+                        if candidate_index == 0:
+                            try:
+                                flight, _ = enrich_booking_options(
+                                    flight, job["departure"], job["arrival"], job["outbound"], job["return"]
+                                )
+                                if isinstance(flight.get("booking_supplier_price_ils"), (int,float)):
+                                    flight["price"]=flight["booking_supplier_price_ils"]
+                                analysis = _apply_best_price_reference(analysis, float(flight["price"]))
+                                score = calculate_deal_score(analysis, flight)
+                            except Exception as exc:
+                                errors += 1
+                                messages.append(f"{job['departure']}-{job['arrival']} booking option: {exc}")
+                        insert_offer(run_id,{
+                            "observed_at":datetime.now(timezone.utc).isoformat(),
+                            "route":result["route"],"departure_code":job["departure"],"arrival_code":job["arrival"],
+                            "departure_airport_name":result["departure_airport_name"],"arrival_airport_name":result["arrival_airport_name"],
+                            "destination_name":job["destination_name"],"country_flag":job["country_flag"],
+                            "outbound_date":job["outbound"],"return_date":job["return"],
+                            "outbound":result["outbound"],"return":result["return"],
+                            "deal_analysis":analysis,"flight":flight,"deal_score":score,
+                            "booking_url":result["booking_url"], "inventory_scope":"shared",
+                            "candidate_rank":candidate_index + 1,
+                        })
+                        offers_found += 1
             except Exception as exc:
                 errors += 1
                 messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+            finally:
+                api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
+                update_scan_progress(run_id, completed, offers_found, errors, api_requests)
     finally:
+        api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
         finish_scan_run(run_id,completed,offers_found,errors,"; ".join(messages)[:2000] or None, api_requests=api_requests)
     return {"status":"success" if errors==0 else "partial","scan_run_id":run_id,"destination":arrival_code,
             "searches_completed":completed,"api_requests":api_requests,"offers_found":offers_found,"errors":errors}
