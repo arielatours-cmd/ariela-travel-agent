@@ -7,7 +7,6 @@ whatsapp_coexistence = Blueprint("whatsapp_coexistence", __name__)
 
 META_APP_ID = "919805650390657"
 META_GRAPH_VERSION = "v24.0"
-EMBEDDED_SIGNUP_REDIRECT_URI = "https://ariela-travel-agent.onrender.com/whatsapp-coexistence-setup"
 
 
 @whatsapp_coexistence.get("/whatsapp-coexistence-setup")
@@ -67,11 +66,14 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server."
         }), 500
 
+    # Embedded Signup via the Facebook JS SDK returns a short-lived OAuth code.
+    # For this flow Meta expects the server-side code exchange without a custom
+    # redirect_uri. Supplying one can trigger OAuth error 191 even when the app
+    # domain itself is configured correctly.
     exchange_params = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
         "code": code,
-        "redirect_uri": EMBEDDED_SIGNUP_REDIRECT_URI,
     }
 
     try:
