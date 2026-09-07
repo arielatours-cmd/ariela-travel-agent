@@ -2294,7 +2294,10 @@ def book_offer(offer_id):
     if personal_trip is not None:
         flash("לא ניתן לפתוח כרגע הזמנה מדויקת אצל הספק לדיל הזה. לא העברנו אותך להזמנה כללית או עם מספר נוסעים שגוי.", "warning")
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-    return redirect(url_for("site.deals"))
+    return render_template(
+        "booking_handoff.html", offer=offer, target_url=None, target_fields=[],
+        target_supplier=target.supplier, fallback_url=None,
+    ), 503
 
 @site.get("/account")
 @login_required

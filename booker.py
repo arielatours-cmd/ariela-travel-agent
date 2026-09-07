@@ -30,6 +30,15 @@ ACTIONABLE_BOOKING_SUPPLIERS = {
     "trip.com", "expedia", "lastminute.com", "booking.com",
 }
 
+OFFICIAL_AIRLINE_BOOKING_FALLBACKS = {
+    "bluebird airways": "https://www.bluebirdair.com/",
+    "blue bird airways": "https://www.bluebirdair.com/",
+    "bluebird": "https://www.bluebirdair.com/",
+    "air haifa": "https://www.airhaifa.com/",
+    "airhaifa": "https://www.airhaifa.com/",
+    "אייר חיפה": "https://www.airhaifa.com/",
+}
+
 
 def _norm(value) -> str:
     return str(value or "").strip().lower()
@@ -193,6 +202,31 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
             fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
             supplier=recommended, mode="stored_supplier_fallback", exact=False,
             note="יש לוודא באתר הספק את מספר הנוסעים והזמינות לפני התשלום.")
+
+    # Some airlines do not expose an actionable booking request through Google
+    # Flights. Never bounce the customer back to Ariella after a booking click;
+    # continue to the airline's official booking homepage as the final fallback.
+    airline_names = (
+        recommended,
+        offer.get("airline"),
+        offer.get("return_airline"),
+        (offer.get("flight") or {}).get("airline"),
+    )
+    for airline_name in airline_names:
+        official_url = OFFICIAL_AIRLINE_BOOKING_FALLBACKS.get(_norm(airline_name))
+        if official_url:
+            return BookerTarget(url=official_url, fields=[],
+                supplier=str(airline_name or recommended), mode="official_airline_fallback",
+                exact=False, note="יש לבחור באתר חברת התעופה את הטיסה ומספר הנוסעים.")
+
+    # Every scanned offer normally carries the original Google Flights result
+    # URL. It is less precise than a supplier deep-link, but remains actionable
+    # and is preferable to silently returning the customer to the Deals page.
+    search_url = offer.get("booking_url")
+    if search_url:
+        return BookerTarget(url=search_url, fields=[], supplier=recommended or "Google Flights",
+            mode="search_results_fallback", exact=False,
+            note="יש לבחור בתוצאות את הטיסה ולאשר את מספר הנוסעים.")
 
     return BookerTarget(url=None, fields=[], supplier=recommended,
         mode="personal_exact_booking_unavailable" if personal else "recommended_supplier_unavailable",
