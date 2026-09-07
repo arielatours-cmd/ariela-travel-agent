@@ -16,7 +16,7 @@ SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
 MAX_SEARCHES_PER_SCAN = int(os.getenv("MAX_SEARCHES_PER_SCAN", "8"))
 CUSTOMER_SCAN_MAX_API_REQUESTS = int(os.getenv("CUSTOMER_SCAN_MAX_API_REQUESTS", "120"))
 MONTHLY_SCAN_REUSE_HOURS = int(os.getenv("MONTHLY_SCAN_REUSE_HOURS", "12"))
-MIN_DEAL_SCORE = int(os.getenv("MIN_DEAL_SCORE", "70"))
+MIN_DEAL_SCORE = max(80, int(os.getenv("MIN_DEAL_SCORE", "80")))
 MAX_DAILY_DEALS = int(os.getenv("MAX_DAILY_DEALS", "5"))
 DAILY_SEND_HOUR = int(os.getenv("DAILY_SEND_HOUR", "17"))
 DAILY_SEND_MINUTE = int(os.getenv("DAILY_SEND_MINUTE", "0"))

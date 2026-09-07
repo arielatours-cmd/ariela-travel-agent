@@ -752,6 +752,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "price_reference_reliable": bool(analysis.get("price_reference_reliable")),
             "price_reference_source": analysis.get("price_reference_source"),
             "search_median_ils": analysis.get("search_median"),
+            "search_lowest_ils": analysis.get("search_lowest"),
             "search_sample_count": int(analysis.get("search_sample_count") or 0),
             "historical_median_ils": analysis.get("historical_median"),
             "historical_sample_count": int(analysis.get("historical_sample_count") or 0),

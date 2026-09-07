@@ -134,43 +134,23 @@ def _deal_analysis(data: dict, flight_prices: list[float] | None = None) -> dict
         "typical_price_low": low, "typical_price_high": high,
         "below_typical_low_percent": serp_discount,
         "search_median": search_median,
+        "search_lowest": prices[0] if prices else None,
         "search_sample_count": len(prices),
     }
 
 
 def _apply_best_price_reference(analysis: dict, price: float) -> dict:
-    """Attach the best defensible reference for THIS itinerary price.
-
-    Customer-facing percentage claims are allowed only for Google Flights typical
-    pricing or Ariella history with >=8 observations. The current search median is
-    a ranking fallback only and is never presented as a period average.
-    """
+    """Compare this itinerary only with the cheapest current-search result."""
     analysis = dict(analysis)
-    trusted = []
-    typical_low = analysis.get("typical_price_low")
-    if isinstance(typical_low, (int, float)) and typical_low > 0:
-        trusted.append(((typical_low - price) / typical_low * 100, "serpapi_typical"))
-
-    hist = analysis.get("historical_median")
-    hist_n = int(analysis.get("historical_sample_count") or 0)
-    if isinstance(hist, (int, float)) and hist > 0 and hist_n >= 8:
-        trusted.append(((hist - price) / hist * 100, "history"))
-
-    fallback = []
-    search_median = analysis.get("search_median")
-    search_n = int(analysis.get("search_sample_count") or 0)
-    if isinstance(search_median, (int, float)) and search_median > 0 and search_n >= 5:
-        fallback.append(((search_median - price) / search_median * 100, "search_distribution"))
-
-    candidates = trusted or fallback
     analysis.pop("best_discount_percent", None)
     analysis.pop("price_reference_source", None)
-    if candidates:
-        discount, source = max(candidates, key=lambda x: x[0])
-        analysis["best_discount_percent"] = round(discount, 1)
-        analysis["price_reference_source"] = source
-        analysis["price_reference_reliable"] = source in {"serpapi_typical", "history"}
+    lowest = analysis.get("search_lowest")
+    if isinstance(lowest, (int, float)) and lowest > 0:
+        analysis["current_search_price_gap_percent"] = round(max(0, (price - lowest) / lowest * 100), 1)
+        analysis["price_reference_source"] = "search_lowest"
+        analysis["price_reference_reliable"] = True
     else:
+        analysis.pop("current_search_price_gap_percent", None)
         analysis["price_reference_reliable"] = False
     return analysis
 
@@ -535,6 +515,8 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
 
     combo_prices = [f.get("price") for f in complete if isinstance(f.get("price"), (int, float))]
     analysis = _deal_analysis(outbound_data, combo_prices)
+    stop_counts = [max(int(f.get("stops") or 0), int(f.get("return_stops") or 0)) for f in complete]
+    analysis["search_min_stops"] = min(stop_counts) if stop_counts else 0
     return {
         "route": f"{departure}-{arrival}",
         "departure_code": departure,

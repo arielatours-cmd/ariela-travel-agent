@@ -314,7 +314,7 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     <a class="btn secondary" href="/daily-preview" target="_blank">תצוגת WhatsApp</a>
 </div>
 <div id="actionStatus" class="status"></div><div class="qa-test-mode {% if test_mode %}active{% endif %}">
-  <strong>מצב בדיקות: {{ 'פעיל — דילים 65+ מוצגים באתר' if test_mode else 'כבוי — סף הייצור 70' }}</strong>
+  <strong>מצב בדיקות: {{ 'פעיל — דילים 65+ מוצגים באתר' if test_mode else 'כבוי — סף הייצור 80' }}</strong>
   <form method="post" action="/admin/toggle-test-mode{% if token %}?token={{ token }}{% endif %}">
     <button type="submit" class="{{ 'secondary' if test_mode else '' }}">
       {{ 'כבה מצב בדיקות' if test_mode else 'הפעל מצב בדיקות (65+)' }}
@@ -383,11 +383,11 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     <th class="price-col admin-head-filter">
       <button type="button" class="head-sort" data-sort="price">מחיר ↕</button>
     </th>
-    <th class="average-col">ממוצע</th>
-    <th class="score-part" title="מקסימום 55">מחיר<br><small>עד 55</small></th>
-    <th class="score-part" title="מקסימום 20">איכות טיסה<br><small>עד 20</small></th>
-    <th class="score-part" title="מקסימום 10">כבודה<br><small>עד 10</small></th>
-    <th class="score-part" title="מקסימום 15">שעות וניצול<br><small>עד 15</small></th>
+    <th class="average-col">מחיר השוואה</th>
+    <th class="score-part" title="מקסימום 85">מחיר<br><small>עד 85</small></th>
+    <th class="score-part" title="מקסימום 3">איכות טיסה<br><small>עד 3</small></th>
+    <th class="score-part" title="מקסימום 3">כבודה<br><small>עד 3</small></th>
+    <th class="score-part" title="מקסימום 9">שעות וניצול<br><small>עד 9</small></th>
     <th class="total-score admin-head-filter">
       <button type="button" class="head-sort" data-sort="score">ציון ↕</button>
       <select id="adminOfferScore" aria-label="סינון ציון">
@@ -430,12 +430,8 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
         {{ o.price_ils|round|int if o.price_ils is not none else '—' }}
     </td>
     <td class="average-col" title="מחיר הייחוס ומקור ההשוואה">
-        {% if o.price_reference_source == 'history' and o.historical_median_ils is number %}
-          ₪{{ o.historical_median_ils|round|int }}<br><small>היסטוריית אריאלה · {{ o.historical_sample_count }} דגימות</small>
-        {% elif o.price_reference_source == 'serpapi_typical' and o.typical_price_low_ils is number %}
-          ₪{{ o.typical_price_low_ils|round|int }}<br><small>טווח רגיל ב-Google Flights</small>
-        {% elif o.price_reference_source == 'search_distribution' and o.search_median_ils is number %}
-          ₪{{ o.search_median_ils|round|int }}<br><small>חציון החיפוש הנוכחי · {{ o.search_sample_count }} אפשרויות</small>
+        {% if o.price_reference_source == 'search_lowest' and o.search_lowest_ils is number %}
+          ₪{{ o.search_lowest_ils|round|int }}<br><small>הזול בחיפוש הנוכחי · {{ o.search_sample_count }} אפשרויות</small>
         {% else %}—<br><small>אין בסיס השוואה</small>{% endif %}
     </td>
     <td class="score-part" title="ניקוד עלות">

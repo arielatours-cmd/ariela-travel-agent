@@ -14,53 +14,24 @@ def _hour(value: str | None):
 
 
 def _price_points(analysis: dict) -> tuple[int, list[str]]:
-    """Price is the main deal signal (0..55).
-
-    When no historical/typical comparison exists, the best currently found
-    price receives the full price component. This lets a new route/period enter
-    the deal pool without inventing a negative reason for missing history.
-    """
+    """Score price (0..85) against the cheapest comparable current result."""
     reasons: list[str] = []
-    discount = analysis.get("best_discount_percent")
-    source = analysis.get("price_reference_source")
-
-    if isinstance(discount, (int, float)):
-        if discount >= 30:
-            points = 55
-        elif discount >= 25:
-            points = 50
-        elif discount >= 20:
-            points = 44
-        elif discount >= 15:
-            points = 37
-        elif discount >= 10:
-            points = 28
-        elif discount >= 5:
-            points = 17
-        elif discount > 0:
-            points = 9
-        else:
-            points = 0
-        if source == "search_distribution":
-            points = min(points, 28)
-            if points:
-                reasons.append(f"מחיר תחרותי ביחס לאפשרויות בחיפוש הנוכחי: +{points}")
-            return points, reasons
-        source_he = {
-            "serpapi_typical": "הטווח הרגיל של Google Flights",
-            "history": "היסטוריית המחירים של אריאלה",
-        }.get(source, "מחיר הייחוס")
-        if points:
-            reasons.append(f"מחיר נמוך ב-{discount:.1f}% לעומת {source_he}: +{points}")
-        return points, reasons
-
-    if analysis.get("price_level") == "low":
-        reasons.append("Google Flights מסמן את המחיר כנמוך: +42")
-        return 42, reasons
-
-    # No historical/typical comparison exists yet: treat the current best found
-    # price as the benchmark. Do not expose missing comparison data as a reason.
-    return 55, reasons
+    gap = analysis.get("current_search_price_gap_percent")
+    if not isinstance(gap, (int, float)):
+        return 0, reasons
+    if gap <= 0: points = 85
+    elif gap <= 5: points = 80
+    elif gap <= 10: points = 75
+    elif gap <= 15: points = 70
+    elif gap <= 20: points = 65
+    elif gap <= 25: points = 60
+    elif gap <= 30: points = 55
+    elif gap <= 35: points = 50
+    elif gap <= 40: points = 45
+    elif gap <= 50: points = 35
+    else: points = 25
+    reasons.append(f"מחיר ביחס להצעה הזולה בחיפוש הנוכחי: +{points}")
+    return points, reasons
 
 
 def _minutes_of_day(value: str | None):
@@ -77,44 +48,33 @@ def _minutes_of_day(value: str | None):
 
 
 def _time_value_points(flight: dict) -> tuple[int, list[str]]:
-    """Combined score for comfort + usable time at destination (0..15)."""
+    """Usable stay score (1..9), based on outbound and return departure bands."""
     out_dep = _minutes_of_day(flight.get("departure_time"))
-    out_arr = _minutes_of_day(flight.get("arrival_time"))
     ret_dep = _minutes_of_day(flight.get("return_departure_time"))
-    ret_arr = _minutes_of_day(flight.get("return_arrival_time"))
-    if None in (out_dep, out_arr, ret_dep, ret_arr):
+    if None in (out_dep, ret_dep):
         return 0, []
 
-    first_day = max(0, 20 * 60 - out_arr) / (14 * 60)
-    last_day = max(0, ret_dep - 6 * 60) / (16 * 60)
-    usable = max(0.0, min(1.0, (first_day + last_day) / 2))
+    def band(minutes):
+        if 6 * 60 <= minutes < 12 * 60:
+            return "morning"
+        if 12 * 60 <= minutes < 18 * 60:
+            return "afternoon"
+        return "evening"
 
-    def comfortable(m):
-        h = m / 60
-        if 6 <= h < 22:
-            return 1.0
-        if 5 <= h < 6 or 22 <= h < 24:
-            return 0.65
-        if 0 <= h < 2:
-            return 0.45
-        return 0.2
-
-    comfort = sum(comfortable(x) for x in (out_dep, out_arr, ret_dep, ret_arr)) / 4
-    points = round(15 * (0.65 * usable + 0.35 * comfort))
-    reasons = []
-    if usable >= 0.78 and comfort >= 0.65:
-        reasons.append("ימים מלאים ביעד ושעות טיסה נוחות")
-    elif usable >= 0.78:
-        reasons.append("ניצול מצוין של היום הראשון והאחרון")
-    elif comfort >= 0.85:
-        reasons.append("שעות טיסה נוחות")
-    return points, reasons
+    points = {
+        ("morning", "evening"): 9, ("morning", "afternoon"): 8,
+        ("afternoon", "evening"): 7, ("morning", "morning"): 6,
+        ("afternoon", "afternoon"): 5, ("evening", "evening"): 4,
+        ("afternoon", "morning"): 3, ("evening", "afternoon"): 2,
+        ("evening", "morning"): 1,
+    }[(band(out_dep), band(ret_dep))]
+    return points, []
 
 
 def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     """Ariella public-deal score, exactly 0..100.
 
-    Weights: price 55, route 20, time/value 15, baggage 10.
+    Weights: price 85, time/value 9, baggage 3, route 3.
     Reliability and historical rarity are not scoring components. Personal
     searches use score for ranking only; the public 70 threshold must not hide
     a flight that matches the customer's explicit request.
@@ -132,20 +92,8 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     return_stops = int(flight.get("return_stops") or 0)
     worst_stops = max(stops, return_stops)
     duration = max(flight.get("total_duration_minutes") or 0, flight.get("return_total_duration_minutes") or 0)
-    if worst_stops == 0:
-        route_points = 14
-    elif worst_stops == 1:
-        route_points = 7
-    else:
-        route_points = 0
-    if duration:
-        if duration <= 180:
-            route_points += 6
-        elif duration <= 300:
-            route_points += 4
-        elif duration <= 480:
-            route_points += 2
-    route_points = min(20, route_points)
+    minimum_stops = int(deal_analysis.get("search_min_stops") or 0)
+    route_points = max(0, 3 - max(0, worst_stops - minimum_stops))
     components["route"] = route_points
     score += route_points
     if route_points > 0:
@@ -156,11 +104,11 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     carry = baggage.get("carry_on_8kg", {}) or {}
     personal = baggage.get("personal_item", {}) or {}
     if checked.get("included"):
-        baggage_points, baggage_reason = 10, "מזוודה 23 ק״ג כלולה"
+        baggage_points, baggage_reason = 3, "מזוודה 20 ק״ג ומעלה כלולה"
     elif carry.get("included"):
-        baggage_points, baggage_reason = 7, "טרולי 8 ק״ג כלול"
+        baggage_points, baggage_reason = 2, "טרולי כלול"
     elif personal.get("included"):
-        baggage_points, baggage_reason = 2, "תיק אישי כלול"
+        baggage_points, baggage_reason = 1, "תיק גב כלול"
     else:
         baggage_points, baggage_reason = 0, None
     components["baggage"] = baggage_points
@@ -188,4 +136,4 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
 
     score = min(100, score)
     label = "דיל חריג במיוחד" if score >= 85 else "דיל מצוין" if score >= 70 else "דיל טוב" if score >= 55 else "לא לשלוח"
-    return {"score": score, "label": label, "send_alert": score >= 70, "reasons": reasons, "components": components}
+    return {"score": score, "label": label, "send_alert": score >= 80, "reasons": reasons, "components": components}
