@@ -21,7 +21,8 @@
   /* Prevent the back button flashing at the old top-right location. JS moves it first. */
   .trip-back-bar:not(.mobile-ready){visibility:hidden!important}
   .trip-back-bar.mobile-ready{visibility:visible!important;width:100%!important;display:flex!important;justify-content:center!important;margin:12px auto 18px!important;padding:0 16px!important}
-  .trip-back-bar.mobile-ready .back-to-vacations{width:min(330px,88vw)!important;min-height:48px!important;margin:0 auto!important;display:flex!important;align-items:center!important;justify-content:center!important}
+  .trip-back-bar.mobile-ready .back-to-vacations{width:min(330px,88vw)!important;min-height:48px!important;margin:0 auto!important;display:flex!important;align-items:center!important;justify-content:center!important;background:#0b8f9c!important;border-color:#0b8f9c!important;color:#fff!important;font-weight:800!important}
+  .trip-back-bar.mobile-ready .back-to-vacations:hover,.trip-back-bar.mobile-ready .back-to-vacations:focus-visible{background:#087a86!important;border-color:#087a86!important;color:#fff!important}
 
   /* The common departure-airport panel was taking most of the first screen. */
   .trip-wizard .trip-origin-defaults{padding:10px 12px!important;margin:8px auto 10px!important;border-radius:14px!important}
