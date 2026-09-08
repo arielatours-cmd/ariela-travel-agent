@@ -6,7 +6,7 @@ It does not purchase or submit payment for the customer.
 
 from __future__ import annotations
 from dataclasses import dataclass
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlsplit
 import requests
 
 from config import SERPAPI_API_KEY
@@ -42,6 +42,17 @@ OFFICIAL_AIRLINE_BOOKING_FALLBACKS = {
 
 def _norm(value) -> str:
     return str(value or "").strip().lower()
+
+
+def _homepage(value: str | None) -> str | None:
+    """Return a safe supplier homepage without stale itinerary/passenger data."""
+    try:
+        parsed = urlsplit(str(value or ""))
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}/"
+    except Exception:
+        pass
+    return None
 
 
 def _request_fields(req: dict) -> list[tuple[str, str]]:
@@ -213,12 +224,20 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         offer.get("return_airline"),
         (offer.get("flight") or {}).get("airline"),
     )
-    for airline_name in airline_names if not personal else ():
+    for airline_name in airline_names:
         official_url = OFFICIAL_AIRLINE_BOOKING_FALLBACKS.get(_norm(airline_name))
         if official_url:
             return BookerTarget(url=official_url, fields=[],
                 supplier=str(airline_name or recommended), mode="official_airline_fallback",
-                exact=False, note="יש לבחור באתר חברת התעופה את הטיסה ומספר הנוסעים.")
+                exact=False, note="הספק לא מאפשר לאריאלה ליצור עבורכם את ההזמנה. יש להזין את הטיסה ומספר הנוסעים בעצמכם באתר הספק.")
+
+    # For other suppliers, use only the clean site root. Never submit the stale
+    # one-passenger POST data from the scan as though it matched this customer.
+    supplier_homepage = _homepage(stored_url)
+    if personal and supplier_homepage:
+        return BookerTarget(url=supplier_homepage, fields=[], supplier=recommended,
+            mode="supplier_homepage_manual_entry", exact=False,
+            note="הספק לא מאפשר לאריאלה ליצור עבורכם את ההזמנה. יש להזין את הטיסה ומספר הנוסעים בעצמכם באתר הספק.")
 
     # Every scanned offer normally carries the original Google Flights result
     # URL. It is less precise than a supplier deep-link, but remains actionable

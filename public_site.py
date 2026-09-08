@@ -38,15 +38,19 @@ def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_co
             offer, adults=adults, children=children, travel_class=travel_class,
             regenerate_itinerary=True,
         )
-        if not target.url or not target.exact:
-            raise RuntimeError(target.note or "לא נמצא קישור הזמנה מדויק אצל הספק.")
+        if not target.url:
+            raise RuntimeError(target.note or "לא נמצא כרגע קישור לאתר הספק.")
         record_booking_click(booking_url=target.url, supplier=target.supplier, **click_context)
         result = {
             "url": target.url, "fields": target.fields or [],
             "method": "post" if target.fields else "get",
+            "exact": target.exact, "note": target.note,
         }
         with _booking_jobs_lock:
-            _booking_jobs[job_id].update(status="finished", result=result)
+            _booking_jobs[job_id].update(
+                status="finished" if target.exact else "manual",
+                result=result,
+            )
     except Exception as exc:
         with _booking_jobs_lock:
             _booking_jobs[job_id].update(status="failed", error=str(exc))

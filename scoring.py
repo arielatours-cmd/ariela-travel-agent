@@ -120,8 +120,8 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     time_points, time_reasons = _time_value_points(flight)
     components["time_value"] = time_points
     score += time_points
-    if time_points:
-        reasons.append(f"נוחות וזמן ביעד: +{time_points}")
+    if time_points >= 8:
+        reasons.append(f"מקסימום ניצול זמן חופשה: +{time_points}")
     reasons.extend(time_reasons)
 
     # Keep reliability visible to admin/validation without affecting score.

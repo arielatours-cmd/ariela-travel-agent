@@ -35,6 +35,12 @@
     try{
       const r=await fetch(statusUrl,{cache:'no-store'}), d=await r.json();
       if(d.status==='finished') return submitTarget(d.result);
+      if(d.status==='manual'){
+        document.getElementById('booking-title').textContent={{ ('The provider does not allow Ariella to create this booking.' if site_lang == 'en' else 'הספק לא מאפשר לאריאלה ליצור עבורכם את ההזמנה.')|tojson }};
+        document.getElementById('booking-note').textContent=d.result.note||{{ ('Please enter the flight and passenger details on the provider website.' if site_lang == 'en' else 'יש להזין את הטיסה ומספר הנוסעים בעצמכם באתר הספק.')|tojson }};
+        document.querySelector('.progress i').style.animationDuration='4s';
+        return setTimeout(()=>{location.href=d.result.url},4000);
+      }
       if(d.status==='failed'){
         document.getElementById('booking-title').textContent={{ ('The provider could not prepare an exact booking.' if site_lang == 'en' else 'לא ניתן להכין כרגע הזמנה מדויקת.')|tojson }};
         document.getElementById('booking-note').textContent=d.error||{{ ('Please try another deal.' if site_lang == 'en' else 'אפשר לנסות דיל אחר.')|tojson }};
