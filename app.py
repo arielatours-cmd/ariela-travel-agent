@@ -165,6 +165,20 @@ def admin_dashboard():
     )
 
 
+@app.get("/admin/scans")
+def admin_scans():
+    denied = _require_admin()
+    if denied:
+        return denied
+    return render_dashboard(
+        version=APP_VERSION, minimum_score=MIN_DEAL_SCORE,
+        stats=dashboard_stats(MIN_DEAL_SCORE), offers=[],
+        scans=recent_scan_runs(100), feedback_count=unread_feedback_count(),
+        test_mode=str(get_setting("qa_test_mode", "0") or "0") == "1",
+        token=request.args.get("token", ""), page="scans",
+    )
+
+
 @app.get("/admin/analytics")
 def admin_analytics():
     denied = _require_admin()

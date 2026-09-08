@@ -16,11 +16,34 @@
 <body>
   <section class="booking-message" role="status" aria-live="polite">
     <div class="mark">A</div>
-    <h1>{{ 'You are continuing to book directly on the provider website.' if site_lang == 'en' else 'אתם עוברים להזמנת הטיסה ישירות באתר הספק.' }}</h1>
-    <p>{% if booking_note %}<span>{{ booking_note }}</span>{% endif %}<span class="thanks">{{ 'Thank you for choosing Ariella' if site_lang == 'en' else 'תודה שבחרתם באריאלה' }}</span></p>
+    <h1 id="booking-title">{{ 'Ariella is preparing your exact booking…' if site_lang == 'en' else 'אריאלה מכינה את ההזמנה המדויקת שלכם…' }}</h1>
+    <p><span id="booking-note">{{ 'The flight and passenger details are being filled in.' if site_lang == 'en' else 'פרטי הטיסה ומספר הנוסעים מתמלאים כעת.' }}</span><span class="thanks">{{ 'Thank you for choosing Ariella' if site_lang == 'en' else 'תודה שבחרתם באריאלה' }}</span></p>
     <div class="progress" aria-hidden="true"><i></i></div>
   </section>
   <form id="booking-forward" method="{{ method }}" action="{{ action }}">{% for k,v in fields %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}</form>
-  <script>setTimeout(function(){document.getElementById('booking-forward').submit();},3000);</script>
+  <script>
+  const started=Date.now(), statusUrl={{ status_url|default('', true)|tojson }};
+  function submitTarget(target){
+    const form=document.getElementById('booking-forward');
+    form.method=target.method||'get'; form.action=target.url;
+    (target.fields||[]).forEach(([k,v])=>{const i=document.createElement('input');i.type='hidden';i.name=k;i.value=v;form.appendChild(i)});
+    document.getElementById('booking-title').textContent={{ ('You are continuing to your completed booking.' if site_lang == 'en' else 'ההזמנה מוכנה — עוברים לאתר הספק.')|tojson }};
+    document.getElementById('booking-note').textContent={{ ('The flight and passenger details have been filled in.' if site_lang == 'en' else 'פרטי הטיסה ומספר הנוסעים מולאו.')|tojson }};
+    setTimeout(()=>form.submit(),Math.max(0,3000-(Date.now()-started)));
+  }
+  async function poll(){
+    try{
+      const r=await fetch(statusUrl,{cache:'no-store'}), d=await r.json();
+      if(d.status==='finished') return submitTarget(d.result);
+      if(d.status==='failed'){
+        document.getElementById('booking-title').textContent={{ ('The provider could not prepare an exact booking.' if site_lang == 'en' else 'לא ניתן להכין כרגע הזמנה מדויקת.')|tojson }};
+        document.getElementById('booking-note').textContent=d.error||{{ ('Please try another deal.' if site_lang == 'en' else 'אפשר לנסות דיל אחר.')|tojson }};
+        document.querySelector('.progress').style.display='none'; return;
+      }
+    }catch(_){ }
+    setTimeout(poll,1500);
+  }
+  if(statusUrl) poll(); else setTimeout(()=>document.getElementById('booking-forward').submit(),3000);
+  </script>
 </body>
 </html>

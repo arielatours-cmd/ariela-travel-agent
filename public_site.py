@@ -28,6 +28,28 @@ from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 
 
 site = Blueprint("site", __name__)
+_booking_jobs = {}
+_booking_jobs_lock = threading.Lock()
+
+
+def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_context):
+    try:
+        target = resolve_booking_target(
+            offer, adults=adults, children=children, travel_class=travel_class,
+            regenerate_itinerary=True,
+        )
+        if not target.url or not target.exact:
+            raise RuntimeError(target.note or "לא נמצא קישור הזמנה מדויק אצל הספק.")
+        record_booking_click(booking_url=target.url, supplier=target.supplier, **click_context)
+        result = {
+            "url": target.url, "fields": target.fields or [],
+            "method": "post" if target.fields else "get",
+        }
+        with _booking_jobs_lock:
+            _booking_jobs[job_id].update(status="finished", result=result)
+    except Exception as exc:
+        with _booking_jobs_lock:
+            _booking_jobs[job_id].update(status="failed", error=str(exc))
 
 def _public_deal_threshold():
     """Production stays at MIN_DEAL_SCORE; QA test mode can temporarily expose 65+."""
@@ -2275,41 +2297,39 @@ def book_offer(offer_id):
         adults = max(1, min(request.args.get("adults", 1, type=int) or 1, 9))
         children = max(0, min(request.args.get("children", 0, type=int) or 0, 9))
 
-    target = resolve_booking_target(
-        offer, adults=adults, children=children, travel_class=travel_class,
-        regenerate_itinerary=True,
-    )
-
-    record_booking_click(
+    click_context = dict(
         visitor_id=session.get("_ariella_visitor_id"),
         member_id=session.get("member_id"),
         offer_id=int(offer.get("offer_id") or offer.get("id") or offer_id),
         destination_code=offer.get("arrival_code"),
         airline=offer.get("airline") or (offer.get("flight") or {}).get("airline"),
-        supplier=target.supplier,
         price_ils=offer.get("price_ils"),
         score=offer.get("score"),
         outbound_date=offer.get("outbound_date"),
         return_date=offer.get("return_date"),
-        booking_url=target.url,
+    )
+    job_id = uuid.uuid4().hex
+    with _booking_jobs_lock:
+        _booking_jobs[job_id] = {"status": "running", "created_at": datetime.now(timezone.utc)}
+    threading.Thread(
+        target=_prepare_booking_job,
+        args=(job_id, dict(offer), adults, children, travel_class, click_context),
+        daemon=True,
+    ).start()
+    return render_template(
+        "booking_forward.html", action=None, fields=[], method="post",
+        status_url=url_for("site.booking_job_status", job_id=job_id),
     )
 
-    if target.url:
-        return render_template(
-            "booking_forward.html",
-            action=target.url,
-            fields=target.fields or [],
-            method="post" if target.fields else "get",
-            booking_note=target.note,
-        )
 
-    if personal_trip is not None:
-        flash("לא ניתן לפתוח כרגע הזמנה מדויקת אצל הספק לדיל הזה. לא העברנו אותך להזמנה כללית או עם מספר נוסעים שגוי.", "warning")
-        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-    return render_template(
-        "booking_handoff.html", offer=offer, target_url=None, target_fields=[],
-        target_supplier=target.supplier, fallback_url=None,
-    ), 503
+@site.get("/booking-status/<job_id>")
+def booking_job_status(job_id):
+    with _booking_jobs_lock:
+        job = _booking_jobs.get(job_id)
+        if not job:
+            return jsonify({"status": "failed", "error": "בקשת ההזמנה אינה זמינה עוד."}), 404
+        payload = {k: v for k, v in job.items() if k != "created_at"}
+    return jsonify(payload)
 
 @site.get("/account")
 @login_required

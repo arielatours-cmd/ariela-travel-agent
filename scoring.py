@@ -48,8 +48,8 @@ def _minutes_of_day(value: str | None):
 
 
 def _time_value_points(flight: dict) -> tuple[int, list[str]]:
-    """Usable stay score (1..9), based on outbound and return departure bands."""
-    out_dep = _minutes_of_day(flight.get("departure_time"))
+    """Usable stay score (1..9), based on arrival at destination and return departure."""
+    out_dep = _minutes_of_day(flight.get("arrival_time"))
     ret_dep = _minutes_of_day(flight.get("return_departure_time"))
     if None in (out_dep, ret_dep):
         return 0, []
