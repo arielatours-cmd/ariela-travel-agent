@@ -23,7 +23,7 @@
 .trip-wizard .choice-button.selected,
 .trip-wizard .choice-button:has(input:checked){border-color:#c99a3f!important;background:var(--ariella-turquoise-soft)!important;box-shadow:0 0 0 1px rgba(201,154,63,.15)!important}
 
-/* Origin/destination separation. Desktop uses two visually distinct zones; mobile stacks them clearly. */
+/* Origin/destination separation. */
 .trip-wizard .trip-origin-defaults{background:#f4fbfa!important;border:1px solid rgba(40,170,163,.35)!important}
 .trip-wizard .origin-default-heading{font-weight:900!important;color:#176f6a!important;letter-spacing:.01em!important}
 .trip-wizard .wizard-step[data-step="1"]>h2{font-weight:900!important;color:#17283f!important}
@@ -52,19 +52,18 @@
 .plan-options[data-two-plans="1"] .plan-choice{height:100%!important}
 @media(max-width:600px){.plan-options[data-two-plans="1"]{grid-template-columns:1fr!important}}
 
-/* Mobile vacation-type gate: all three choices fit naturally on the first screen. */
+/* Mobile vacation-type gate: restore the approved side-by-side layout. */
 @media(max-width:760px){
   .trip-wizard{margin-top:4px!important}
   .trip-wizard .vacation-type-gate{padding:0 8px 14px!important;margin:0!important}
   .trip-wizard .vacation-type-gate h2{font-size:28px!important;line-height:1.12!important;margin:6px 0 12px!important;text-align:center!important}
-  .trip-wizard .vacation-type-grid{display:grid!important;grid-template-columns:1fr!important;gap:9px!important}
-  .trip-wizard .vacation-type-card{min-height:112px!important;height:auto!important;padding:10px 14px!important;margin:0!important;display:grid!important;grid-template-columns:76px minmax(0,1fr)!important;grid-template-rows:auto auto!important;column-gap:12px!important;align-items:center!important;text-align:right!important;border-radius:14px!important}
-  html[dir="ltr"] .trip-wizard .vacation-type-card{text-align:left!important}
-  .trip-wizard .vacation-type-card .vacation-type-visual{grid-row:1/3!important;grid-column:1!important;width:70px!important;height:70px!important;min-height:70px!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:2px!important;font-size:30px!important}
+  .trip-wizard .vacation-type-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important}
+  .trip-wizard .vacation-type-card{min-width:0!important;min-height:150px!important;height:auto!important;padding:10px 5px!important;margin:0!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;border-radius:12px!important}
+  .trip-wizard .vacation-type-card .vacation-type-visual{width:52px!important;height:52px!important;min-height:52px!important;margin:0 0 7px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:1px!important;font-size:25px!important}
   .trip-wizard .vacation-type-card .vacation-type-visual b,
-  .trip-wizard .vacation-type-card .vacation-type-visual i{font-size:30px!important;line-height:1!important}
-  .trip-wizard .vacation-type-card>strong{grid-column:2!important;align-self:end!important;font-size:21px!important;line-height:1.15!important;margin:0 0 3px!important}
-  .trip-wizard .vacation-type-card>small{grid-column:2!important;align-self:start!important;font-size:13px!important;line-height:1.25!important;margin:0!important;color:#626d78!important}
+  .trip-wizard .vacation-type-card .vacation-type-visual i{font-size:25px!important;line-height:1!important}
+  .trip-wizard .vacation-type-card>strong{font-size:16px!important;line-height:1.15!important;margin:0 0 4px!important;text-align:center!important}
+  .trip-wizard .vacation-type-card>small{font-size:11px!important;line-height:1.2!important;margin:0!important;color:#626d78!important;text-align:center!important}
 }
 
 /* Mobile-only deal-card refinements. */
