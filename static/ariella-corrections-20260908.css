@@ -1,0 +1,61 @@
+/* Approved Ariella corrections — 2026-09-08 */
+:root{--ariella-turquoise:#28aaa3;--ariella-turquoise-dark:#208e88;--ariella-turquoise-soft:#eefaf8}
+
+/* Back-to-vacations buttons use the Ariella turquoise CTA language. */
+.back-to-vacations{background:var(--ariella-turquoise)!important;border-color:var(--ariella-turquoise)!important;color:#fff!important;font-weight:800!important}
+.back-to-vacations:hover,.back-to-vacations:focus-visible{background:var(--ariella-turquoise-dark)!important;border-color:var(--ariella-turquoise-dark)!important;color:#fff!important}
+
+/* My Ariella nested menu should clearly read as a submenu. */
+@media(max-width:760px){
+  html body .site-header .mobile-nav-menu .mobile-myariella-submenu{background:#20282a!important;border:1px solid rgba(40,170,163,.5)!important;border-radius:8px!important;margin:4px 5px 6px!important;padding:5px!important}
+  html body .site-header .mobile-myariella-submenu a,
+  html body .site-header .mobile-myariella-submenu button{background:#20282a!important;color:#fff!important;border-bottom:1px solid rgba(255,255,255,.09)!important}
+}
+
+/* Desktop: the next-vacation CTA is intentionally prominent. */
+@media(min-width:761px){
+  .account-vacations-hero-inner>.button.primary{min-height:66px!important;padding:0 42px!important;font-size:21px!important;border-radius:12px!important;box-shadow:0 10px 28px rgba(0,0,0,.18)!important}
+}
+
+/* Questionnaire answer cards: subtle icons and selected treatment. */
+.trip-wizard .choice-button>span{gap:9px!important}
+.trip-wizard .choice-icon{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:26px!important;height:26px!important;font-style:normal!important;font-weight:900!important;color:#9a742f!important;font-size:18px!important}
+.trip-wizard .choice-button.selected,
+.trip-wizard .choice-button:has(input:checked){border-color:#c99a3f!important;background:var(--ariella-turquoise-soft)!important;box-shadow:0 0 0 1px rgba(201,154,63,.15)!important}
+
+/* Origin/destination separation. Desktop uses two visually distinct zones; mobile stacks them clearly. */
+.trip-wizard .trip-origin-defaults{background:#f4fbfa!important;border:1px solid rgba(40,170,163,.35)!important}
+.trip-wizard .origin-default-heading{font-weight:900!important;color:#176f6a!important;letter-spacing:.01em!important}
+.trip-wizard .wizard-step[data-step="1"]>h2{font-weight:900!important;color:#17283f!important}
+@media(min-width:761px){
+  .trip-wizard .trip-origin-defaults{width:calc(50% - 10px)!important;margin-right:0!important;margin-left:auto!important;padding:22px!important;border-radius:14px!important}
+  .trip-wizard .trip-origin-defaults+.wizard-progress{clear:both!important}
+  .trip-wizard .origin-default-heading{font-size:22px!important;margin-bottom:12px!important}
+  .trip-wizard .wizard-step[data-step="1"]{position:relative!important}
+  .trip-wizard .wizard-step[data-step="1"]>h2{font-size:26px!important}
+}
+@media(max-width:760px){
+  .trip-wizard .origin-default-heading{font-size:18px!important;text-align:right!important}
+  html[dir="ltr"] .trip-wizard .origin-default-heading{text-align:left!important}
+  .trip-wizard .origin-airport-picker .airport-tags{flex-wrap:nowrap!important;display:flex!important;gap:6px!important;overflow:visible!important}
+  .trip-wizard .origin-airport-picker .airport-tag{flex:0 1 auto!important;white-space:nowrap!important}
+}
+
+/* WhatsApp toggle: price line is separate so the switch never covers the text. */
+.notification-toggle{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;column-gap:12px!important;align-items:center!important}
+.notification-toggle>.toggle-track{grid-row:1/3!important;align-self:center!important}
+.notification-toggle>span:not(.toggle-track){display:flex!important;flex-direction:column!important;align-items:flex-start!important;min-width:0!important}
+.notification-toggle .whatsapp-one-time-price{display:block!important;margin-top:2px!important;font-size:12px!important;font-weight:700!important;line-height:1.25!important;color:#667180!important;white-space:normal!important}
+
+/* Two paid-search plans. */
+.plan-options[data-two-plans="1"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.plan-options[data-two-plans="1"] .plan-choice{height:100%!important}
+@media(max-width:600px){.plan-options[data-two-plans="1"]{grid-template-columns:1fr!important}}
+
+/* Mobile-only deal-card refinements. */
+@media(max-width:760px){
+  .deal-reasons-title{display:block!important;text-align:right!important;width:100%!important}
+  html[dir="ltr"] .deal-reasons-title{text-align:left!important}
+  .deal-card-v970 .deal-commerce .important-terms{border-bottom:0!important;margin-bottom:0!important;padding-bottom:0!important}
+  .deal-card-v970 .deal-commerce .deal-price-box{border-top:0!important;margin-top:0!important;padding-top:10px!important}
+}
