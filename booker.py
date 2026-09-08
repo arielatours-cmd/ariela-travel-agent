@@ -39,9 +39,28 @@ OFFICIAL_AIRLINE_BOOKING_FALLBACKS = {
     "bluebird airways": "https://booking.bluebirdair.com/he",
     "blue bird airways": "https://booking.bluebirdair.com/he",
     "bluebird": "https://booking.bluebirdair.com/he",
+    "sky express": "https://www.skyexpress.com/",
+    "skyexpress": "https://www.skyexpress.com/",
     "air haifa": "https://www.airhaifa.com/",
     "airhaifa": "https://www.airhaifa.com/",
     "אייר חיפה": "https://www.airhaifa.com/",
+    "aegean": "https://en.aegeanair.com/",
+    "aegean airlines": "https://en.aegeanair.com/",
+    "wizz air": "https://wizzair.com/",
+    "ryanair": "https://www.ryanair.com/",
+    "easyjet": "https://www.easyjet.com/",
+    "arkia": "https://www.arkia.com/",
+    "ארקיע": "https://www.arkia.com/",
+    "israir": "https://www.israir.co.il/",
+    "israir airlines": "https://www.israir.co.il/",
+    "ישראייר": "https://www.israir.co.il/",
+    "el al": "https://www.elal.com/",
+    "elal": "https://www.elal.com/",
+    "אל על": "https://www.elal.com/",
+    "lufthansa": "https://www.lufthansa.com/",
+    "air france": "https://www.airfrance.com/",
+    "klm": "https://www.klm.com/",
+    "ita airways": "https://www.ita-airways.com/",
 }
 
 
@@ -50,10 +69,17 @@ def _norm(value) -> str:
 
 
 def _homepage(value: str | None) -> str | None:
-    """Return a safe supplier homepage without stale itinerary/passenger data."""
+    """Return a real supplier homepage; never send a booking fallback to Google/SerpApi."""
     try:
         parsed = urlsplit(str(value or ""))
-        if parsed.scheme in {"http", "https"} and parsed.netloc:
+        host = (parsed.netloc or "").lower().split(":", 1)[0]
+        blocked = (
+            host == "google.com" or host.endswith(".google.com") or
+            host == "google.co.il" or host.endswith(".google.co.il") or
+            host == "gstatic.com" or host.endswith(".gstatic.com") or
+            host == "serpapi.com" or host.endswith(".serpapi.com")
+        )
+        if parsed.scheme in {"http", "https"} and host and not blocked:
             return f"{parsed.scheme}://{parsed.netloc}/"
     except Exception:
         pass
@@ -324,7 +350,7 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         if bluebird_url:
             return BookerTarget(
                 url=bluebird_url, fields=[], supplier="Bluebird Airways",
-                mode="bluebird_aerocrs_deeplink", exact=False,
+                mode="bluebird_aerocrs_deeplink", exact=True,
                 note="היעד, התאריכים ומספר הנוסעים מולאו מראש באתר בלו בירד.",
             )
 
@@ -334,7 +360,7 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
             note = (
                 "אריאלה פתחה עבורכם את מסך ההזמנה של בלו בירד."
                 if _norm(airline_name) in BLUEBIRD_NAMES
-                else "יש להמשיך באתר הספק עם פרטי הטיסה."
+                else "הספק לא מאפשר כרגע העברה מלאה של פרטי ההזמנה. אריאלה פתחה את אתר הספק עצמו — לא את Google."
             )
             return BookerTarget(url=official_url, fields=[],
                 supplier=str(airline_name or recommended), mode="official_airline_fallback",
@@ -344,14 +370,11 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
     if personal and supplier_homepage:
         return BookerTarget(url=supplier_homepage, fields=[], supplier=recommended,
             mode="supplier_homepage_manual_entry", exact=False,
-            note="יש להמשיך באתר הספק עם פרטי הטיסה.")
+            note="הספק לא מאפשר כרגע העברה מלאה של פרטי ההזמנה. אריאלה פתחה את אתר הספק עצמו — לא את Google.")
 
-    search_url = offer.get("booking_url")
-    if search_url and not personal:
-        return BookerTarget(url=search_url, fields=[], supplier=recommended or "Google Flights",
-            mode="search_results_fallback", exact=False,
-            note="יש לבחור בתוצאות את הטיסה ולאשר את מספר הנוסעים.")
-
+    # Never use the original Google Flights result URL as a customer booking fallback.
+    # If we cannot identify the supplier itself, keep the customer on Ariella instead
+    # of pretending that a Google page is the supplier booking page.
     return BookerTarget(url=None, fields=[], supplier=recommended,
         mode="personal_exact_booking_unavailable" if personal else "recommended_supplier_unavailable",
         exact=False,
