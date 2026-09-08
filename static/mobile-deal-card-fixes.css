@@ -42,6 +42,10 @@
   .deal-card-v970 .mini-flight-line{min-width:0!important}
   .deal-card-v970 .connection-pill{font-size:9px!important;padding:3px 5px!important}
   .deal-card-v970 .leg-duration{display:block!important;font-size:10.5px!important;margin-top:4px!important;text-align:right!important;padding-left:92px!important}
+  /* Outbound row: airline and duration must share one baseline. */
+  .deal-card-v970 .deal-flight>.flight-leg:first-of-type{padding-bottom:31px!important}
+  .deal-card-v970 .deal-flight>.flight-leg:first-of-type .leg-airline{bottom:7px!important}
+  .deal-card-v970 .deal-flight>.flight-leg:first-of-type .leg-duration{position:absolute!important;right:0!important;bottom:8px!important;margin:0!important;padding-left:120px!important;line-height:20px!important}
 
   .deal-card-v970 .baggage-heading{font-size:15px!important;margin:0 0 8px!important}
   .deal-card-v970 .baggage-heading small{font-size:9.5px!important}
