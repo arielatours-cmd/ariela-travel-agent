@@ -19,6 +19,8 @@ from database import (
     normalize_scan_run_price_groups,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
+import scanner as _scanner
+from din_agent import enrich_offer_legal_terms
 from schedule_rules import delivery_status
 from public_site import site
 from whatsapp_coexistence import whatsapp_coexistence
@@ -31,6 +33,29 @@ app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 app.register_blueprint(site)
 app.register_blueprint(whatsapp_coexistence)
+
+# Din is Ariella's legal/terms verification layer. Scanner functions resolve
+# `insert_offer` from their module globals at runtime, so wrapping it here makes
+# every deal pass through Din before it is persisted or refreshed in the DB.
+_original_scanner_insert_offer = _scanner.insert_offer
+
+def _insert_offer_with_din(scan_run_id, offer):
+    try:
+        offer = enrich_offer_legal_terms(offer)
+    except Exception as exc:
+        # Legal verification must never make a flight scan fail. When Din cannot
+        # verify a rule clearly, Ariella displays the conservative supplier-check
+        # fallback requested for the customer card.
+        app.logger.warning("Din verification failed for deal: %s", exc)
+        offer.setdefault("consumer_protection", {
+            "status": "check", "label": "יש לבדוק באתר הספק", "checked_by": "Din"
+        })
+        offer.setdefault("change_cancel", {
+            "status": "check", "label": "יש לבדוק באתר הספק", "checked_by": "Din"
+        })
+    return _original_scanner_insert_offer(scan_run_id, offer)
+
+_scanner.insert_offer = _insert_offer_with_din
 
 init_db()
 _latest_for_normalization = latest_scan_run()
