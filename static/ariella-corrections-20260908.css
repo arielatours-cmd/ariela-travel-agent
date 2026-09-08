@@ -1,7 +1,7 @@
 /* Approved Ariella corrections — 2026-09-08 */
-:root{--ariella-turquoise:#28aaa3;--ariella-turquoise-dark:#208e88;--ariella-turquoise-soft:#eefaf8}
+:root{--ariella-turquoise:#0b8f9c;--ariella-turquoise-dark:#087a86;--ariella-turquoise-soft:#eefaf8}
 
-/* Back-to-vacations buttons use the Ariella turquoise CTA language. */
+/* Back-to-vacations buttons use EXACTLY the same turquoise as the Close deals button. */
 .back-to-vacations{background:var(--ariella-turquoise)!important;border-color:var(--ariella-turquoise)!important;color:#fff!important;font-weight:800!important}
 .back-to-vacations:hover,.back-to-vacations:focus-visible{background:var(--ariella-turquoise-dark)!important;border-color:var(--ariella-turquoise-dark)!important;color:#fff!important}
 
