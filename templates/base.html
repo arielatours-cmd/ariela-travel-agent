@@ -23,7 +23,7 @@ body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);co
 .main-nav a{color:#f5f1e8;text-decoration:none;font-size:18px;padding:18px 4px;position:relative;transition:color .25s ease;white-space:nowrap}
 .main-nav a::after{content:"";position:absolute;right:50%;left:50%;bottom:5px;height:1px;background:var(--gold);transition:right .28s ease,left .28s ease}
 .main-nav a:hover,.main-nav a:focus-visible,.main-nav a.active{color:var(--gold2)}
-.main-nav a:hover::after,.main-nav a:focus-visible::after,.main-nav a.active::after{right:15%;left:15%}
+.main-nav a:hover::after,.main-nav a:focus-visible,.main-nav a.active::after{right:15%;left:15%}
 .language-switch{display:flex;align-items:center;gap:7px;font-size:14px;white-space:nowrap;direction:ltr}
 .language-switch a{color:#bda66f;text-decoration:none;padding:7px 2px}.language-switch a.active{color:var(--gold2);font-weight:700}.language-switch span{color:#665a42}
 .account{justify-self:end;direction:{{ 'ltr' if site_lang == 'en' else 'rtl' }};color:#fff;border:1px solid var(--gold2);border-radius:999px;padding:15px 28px;text-decoration:none;font-size:17px;transition:background .25s ease,color .25s ease;white-space:nowrap}
@@ -67,7 +67,7 @@ function togglePassword(button){const input=button.closest('.password-field').qu
 document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.account-trip-deals .alternative-deals-block .alternative-deals-message').forEach(function(el){if(el.querySelector('.personal-additional-options-title')) return;const title=document.createElement('strong');title.className='personal-additional-options-title';title.textContent=document.documentElement.lang==='en'?'Additional options':'אפשרויות נוספות';const note=document.createElement('span');note.className='personal-additional-options-note';note.textContent=document.documentElement.lang==='en'?'Ariella’s pick, best value, longest stay, and worthwhile date changes — when suitable options exist.':'בחירת אריאלה, הכי משתלם, הכי הרבה זמן ביעד ושינויי תאריכים שכדאי לשקול — כשיש אפשרויות מתאימות.';el.textContent='';el.appendChild(title);el.appendChild(note);});});
 </script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
-<script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}"></script>
+<script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260908m"></script>
 <script id="login-error-modal-runtime">
 document.addEventListener('DOMContentLoaded',function(){
   const login=document.querySelector('.auth-section .form-card');
