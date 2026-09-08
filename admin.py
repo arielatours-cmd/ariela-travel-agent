@@ -270,7 +270,7 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
 <body>
 <div class="wrap">
 <h1>אריאלה — לוח בקרה פנימי</h1>
-<div class="muted">גרסה {{ version }} · סף דיל כללי: {{ minimum_score }} · ניקוד: מחיר 55 + איכות טיסה 20 + שעות וניצול 15 + כבודה 10 = 100</div>
+<div class="muted">גרסה {{ version }} · סף דיל כללי: {{ minimum_score }} · ניקוד: מחיר 85 + איכות טיסה 3 + שעות וניצול 9 + כבודה 3 = 100</div>
 <div class="admin-nav"><a class="active" href="/admin{% if token %}?token={{ token }}{% endif %}">✦ סריקות ודילים</a><a href="/admin/analytics{% if token %}?token={{ token }}{% endif %}">✦ משתמשים ונתונים</a><a href="/admin/feedback{% if token %}?token={{ token }}{% endif %}">✦ הערות והצעות {% if feedback_count %}<span class="unread-count">({{ feedback_count }})</span>{% endif %}</a></div>
 
 <div class="actions">
