@@ -24,8 +24,16 @@
       setChoiceText('ski_budget_mode','unlimited','ללא הגבלת תקציב','No budget limit');
       [form.querySelector('.wizard-step[data-route="standard"][data-step="5"]'),form.querySelector('.business-question[data-step="6"]'),form.querySelector('.ski-question[data-step="7"]')].forEach(step=>{const h=step?.querySelector('h2');if(h)h.textContent=isEn?'Would you like to set a budget?':'האם תרצו להגביל את התקציב?';});
 
-      /* Choice icons were removed by request; keep questionnaire buttons text-only. */
+      /* Keep questionnaire text-only except the requested travel-party people indicators. */
       form.querySelectorAll('.choice-icon').forEach(icon=>icon.remove());
+      const partyIcons={solo:'👤',couple:'👤👤',friends:'👤👤👤',family:'👨👩🧒🧒🧒'};
+      Object.entries(partyIcons).forEach(([value,icon])=>{
+        const input=form.querySelector(`input[name="travel_party"][value="${value}"]`);
+        const span=input?.closest('.choice-button')?.querySelector(':scope > span');
+        if(span&&!span.querySelector('.party-people-icon')){
+          const i=document.createElement('i');i.className='party-people-icon';i.setAttribute('aria-hidden','true');i.textContent=icon;span.prepend(i);
+        }
+      });
 
       form.querySelectorAll('.wizard-type-back').forEach(button=>button.addEventListener('click',()=>{form.querySelectorAll('input[name="vacation_type"]').forEach(input=>{input.checked=false;input.closest('.vacation-type-card')?.classList.remove('selected');});},true));
 
