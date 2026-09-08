@@ -1080,12 +1080,13 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                 coverage_key = _coverage_key(job)
                 api_before_job = api_requests
                 offers_before_job = offers_found
-                # Price cards remain strictly per person. Group-seat availability is not
-                # promised by Google Flights/SerpAPI, so the UI carries a supplier
-                # verification notice for multi-passenger requests instead.
+                # Price cards and scoring are strictly per person. Google Flights returns
+                # party totals when adults/children are included, so discovery must always
+                # use one adult. The exact passenger party is applied later by booker.py
+                # when the customer continues to the supplier.
                 cabin_map = {"economy":"1", "premium":"2", "business":"3", "first":"4", "any":"1"}
                 requested_class = cabin_map.get(str(answers.get("business_cabin_class") or "economy").lower(), "1") if str(answers.get("vacation_type") or "standard") == "business" else "1"
-                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=adults, children=children)
+                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=1, children=0)
                 api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 completed += 1
                 for message in result.get("expansion_errors") or []:
@@ -1129,7 +1130,7 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                             try:
                                 flight, _ = enrich_booking_options(
                                     flight, job["departure"], job["arrival"], job["outbound"], job["return"],
-                                    adults=adults, children=children
+                                    adults=1, children=0
                                 )
                                 if isinstance(flight.get("booking_supplier_price_ils"), (int, float)):
                                     original_search_price = float(flight["price"])
