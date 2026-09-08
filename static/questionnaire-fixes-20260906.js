@@ -1,6 +1,6 @@
 (function(){
   function init(){
-    if(!document.getElementById('ariella-corrections-20260908')){const link=document.createElement('link');link.id='ariella-corrections-20260908';link.rel='stylesheet';link.href='/static/ariella-corrections-20260908.css?v=20260908i';document.head.appendChild(link);}
+    if(!document.getElementById('ariella-corrections-20260908')){const link=document.createElement('link');link.id='ariella-corrections-20260908';link.rel='stylesheet';link.href='/static/ariella-corrections-20260908.css?v=20260908j';document.head.appendChild(link);}
     const form=document.getElementById('tripWizard');const isEn=document.documentElement.lang==='en';
     if(form){
       const bar=document.querySelector('.trip-back-bar'),gate=document.getElementById('vacationTypeGate');if(bar&&gate&&window.matchMedia('(max-width:760px)').matches){gate.insertAdjacentElement('afterend',bar);bar.classList.add('mobile-ready');}else if(bar){bar.classList.add('mobile-ready');}
@@ -10,32 +10,18 @@
       [form.querySelector('.wizard-step[data-route="standard"][data-step="5"]'),form.querySelector('.business-question[data-step="6"]'),form.querySelector('.ski-question[data-step="7"]')].forEach(step=>{const h=step?.querySelector('h2');if(h)h.textContent=isEn?'Would you like to set a budget?':'האם תרצו להגביל את התקציב?';});
       form.querySelectorAll('.choice-icon,.party-people-icon,.budget-choice-icon,.direct-flight-icon,.answer-visual-icon').forEach(icon=>icon.remove());
       form.querySelectorAll('.choice-button.has-answer-visual').forEach(label=>label.classList.remove('has-answer-visual'));
-
       const party={solo:['👤'],couple:['👤','👤'],friends:['👤','👤','👤'],family:['👤','👤','👤','👤','👤']};Object.entries(party).forEach(([value,people])=>{const span=form.querySelector(`input[name="travel_party"][value="${value}"]`)?.closest('.choice-button')?.querySelector(':scope > span');if(!span)return;const wrap=document.createElement('i');wrap.className='party-people-icon '+(value==='family'?'family-people-icon':'');wrap.setAttribute('aria-hidden','true');people.forEach((person,index)=>{const p=document.createElement('b');p.textContent=person;if(value==='family'&&index>=2)p.className='child-person';wrap.appendChild(p);});span.prepend(wrap);});
-
       addVisual(form.querySelector('input[name="destination_mode"][value="specific"]'),'📍','destination-pin-icon');
       addVisual(form.querySelector('input[name="destination_mode"][value="open"]'),'🌍','destination-globe-icon');
       addVisual(form.querySelector('input[name="date_mode"][value="exact"]'),'📅','date-choice-icon');
       addVisual(form.querySelector('input[name="date_mode"][value="month"]'),'🗓️','date-choice-icon');
-
       const flightPriorities=document.getElementById('regularFlightPriorities');
       addVisual(flightPriorities?.querySelector('input[name="deal_priorities"][value="baggage"]'),'🧳','priority-choice-icon');
       addVisual(flightPriorities?.querySelector('input[name="deal_priorities"][value="direct"]'),'✈️','priority-choice-icon');
       addVisual(flightPriorities?.querySelector('input[name="deal_priorities"][value="maximize"]'),'⏰','priority-choice-icon');
-
       addVisual(form.querySelector('input[name="budget_mode"][value="per_person"]'),'💵','budget-choice-icon');
       addVisual(form.querySelector('input[name="budget_mode"][value="unlimited"]'),'💵💵💵','budget-choice-icon budget-many-bills');
-
-      const skiDeparture=document.getElementById('skiDepartureDate');
-      const skiReturn=document.getElementById('skiReturnDate');
-      function syncSkiReturnMin(){
-        if(!skiDeparture||!skiReturn)return;
-        const minDate=skiDeparture.value||skiDeparture.min||'';
-        if(minDate)skiReturn.min=minDate;
-        if(skiDeparture.value&&skiReturn.value&&skiReturn.value<skiDeparture.value)skiReturn.value='';
-      }
-      if(skiDeparture&&skiReturn){skiDeparture.addEventListener('change',syncSkiReturnMin);skiDeparture.addEventListener('input',syncSkiReturnMin);syncSkiReturnMin();}
-
+      const skiDeparture=document.getElementById('skiDepartureDate'),skiReturn=document.getElementById('skiReturnDate');function syncSkiReturnMin(){if(!skiDeparture||!skiReturn)return;const minDate=skiDeparture.value||skiDeparture.min||'';if(minDate)skiReturn.min=minDate;if(skiDeparture.value&&skiReturn.value&&skiReturn.value<skiDeparture.value)skiReturn.value='';}if(skiDeparture&&skiReturn){skiDeparture.addEventListener('change',syncSkiReturnMin);skiDeparture.addEventListener('input',syncSkiReturnMin);syncSkiReturnMin();}
       form.querySelectorAll('.wizard-type-back').forEach(button=>button.addEventListener('click',()=>{form.querySelectorAll('input[name="vacation_type"]').forEach(input=>{input.checked=false;input.closest('.vacation-type-card')?.classList.remove('selected');});},true));
       const businessNotes=form.querySelector('textarea[name="business_notes"]')?.closest('.notes-label');if(businessNotes)businessNotes.remove();const oneConnection=form.querySelector('input[name="business_priorities"][value="max_one_connection"]')?.closest('.choice-button');if(oneConnection)oneConnection.remove();
       function syncSoloSki(){const solo=form.querySelector('input[name="ski_travel_party"][value="solo"]')?.checked,mixed=form.querySelector('input[name="ski_skill_level"][value="mixed"]'),label=mixed?.closest('.choice-button');if(label)label.hidden=!!solo;if(solo&&mixed?.checked){mixed.checked=false;mixed.dispatchEvent(new Event('change',{bubbles:true}));}}form.querySelectorAll('input[name="ski_travel_party"]').forEach(x=>x.addEventListener('change',syncSoloSki));syncSoloSki();
