@@ -1,6 +1,6 @@
 (function(){
   function init(){
-    if(!document.getElementById('ariella-corrections-20260908')){const link=document.createElement('link');link.id='ariella-corrections-20260908';link.rel='stylesheet';link.href='/static/ariella-corrections-20260908.css?v=20260908e';document.head.appendChild(link);}
+    if(!document.getElementById('ariella-corrections-20260908')){const link=document.createElement('link');link.id='ariella-corrections-20260908';link.rel='stylesheet';link.href='/static/ariella-corrections-20260908.css?v=20260908f';document.head.appendChild(link);}
     const form=document.getElementById('tripWizard');const isEn=document.documentElement.lang==='en';
     if(form){
       const bar=document.querySelector('.trip-back-bar'),gate=document.getElementById('vacationTypeGate');if(bar&&gate&&window.matchMedia('(max-width:760px)').matches){gate.insertAdjacentElement('afterend',bar);bar.classList.add('mobile-ready');}else if(bar){bar.classList.add('mobile-ready');}
