@@ -1,52 +1,23 @@
 (function(){
   function init(){
-    if(!document.getElementById('ariella-corrections-20260908')){
-      const link=document.createElement('link');link.id='ariella-corrections-20260908';link.rel='stylesheet';link.href='/static/ariella-corrections-20260908.css?v=20260908d';document.head.appendChild(link);
-    }
-    const form=document.getElementById('tripWizard');
-    const isEn=document.documentElement.lang==='en';
-
+    if(!document.getElementById('ariella-corrections-20260908')){const link=document.createElement('link');link.id='ariella-corrections-20260908';link.rel='stylesheet';link.href='/static/ariella-corrections-20260908.css?v=20260908e';document.head.appendChild(link);}
+    const form=document.getElementById('tripWizard');const isEn=document.documentElement.lang==='en';
     if(form){
-      const bar=document.querySelector('.trip-back-bar');
-      const gate=document.getElementById('vacationTypeGate');
-      if(bar&&gate&&window.matchMedia('(max-width:760px)').matches){gate.insertAdjacentElement('afterend',bar);bar.classList.add('mobile-ready');}else if(bar){bar.classList.add('mobile-ready');}
-
-      function setChoiceText(name,value,textHe,textEn){
-        const input=form.querySelector(`input[name="${name}"][value="${value}"]`);
-        const span=input?.closest('.choice-button')?.querySelector('span');
-        if(span)span.textContent=isEn?textEn:textHe;
-      }
-      setChoiceText('budget_mode','per_person','תקציב לאדם','Budget per person');
-      setChoiceText('budget_mode','unlimited','ללא הגבלת תקציב','No budget limit');
-      setChoiceText('business_budget_mode','per_person','תקציב לאדם','Budget per person');
-      setChoiceText('business_budget_mode','unlimited','ללא הגבלת תקציב','No budget limit');
-      setChoiceText('ski_budget_mode','per_person','תקציב לאדם','Budget per person');
-      setChoiceText('ski_budget_mode','unlimited','ללא הגבלת תקציב','No budget limit');
+      const bar=document.querySelector('.trip-back-bar'),gate=document.getElementById('vacationTypeGate');if(bar&&gate&&window.matchMedia('(max-width:760px)').matches){gate.insertAdjacentElement('afterend',bar);bar.classList.add('mobile-ready');}else if(bar){bar.classList.add('mobile-ready');}
+      function setChoiceText(name,value,textHe,textEn){const input=form.querySelector(`input[name="${name}"][value="${value}"]`),span=input?.closest('.choice-button')?.querySelector('span');if(span)span.textContent=isEn?textEn:textHe;}
+      setChoiceText('budget_mode','per_person','תקציב לאדם','Budget per person');setChoiceText('budget_mode','unlimited','ללא הגבלת תקציב','No budget limit');setChoiceText('business_budget_mode','per_person','תקציב לאדם','Budget per person');setChoiceText('business_budget_mode','unlimited','ללא הגבלת תקציב','No budget limit');setChoiceText('ski_budget_mode','per_person','תקציב לאדם','Budget per person');setChoiceText('ski_budget_mode','unlimited','ללא הגבלת תקציב','No budget limit');
       [form.querySelector('.wizard-step[data-route="standard"][data-step="5"]'),form.querySelector('.business-question[data-step="6"]'),form.querySelector('.ski-question[data-step="7"]')].forEach(step=>{const h=step?.querySelector('h2');if(h)h.textContent=isEn?'Would you like to set a budget?':'האם תרצו להגביל את התקציב?';});
-
-      form.querySelectorAll('.choice-icon').forEach(icon=>icon.remove());
-      const partyIcons={solo:'👤',couple:'👤👤',friends:'👤👤👤',family:'👨👩🧒🧒🧒'};
-      Object.entries(partyIcons).forEach(([value,icon])=>{
-        const input=form.querySelector(`input[name="travel_party"][value="${value}"]`);
-        const span=input?.closest('.choice-button')?.querySelector(':scope > span');
-        if(span&&!span.querySelector('.party-people-icon')){const i=document.createElement('i');i.className='party-people-icon';i.setAttribute('aria-hidden','true');i.textContent=icon;span.prepend(i);}
-      });
-
-      /* In question 4 keep only the airplane for Direct flight, separate from the text. */
-      const directInput=form.querySelector('input[name="deal_priorities"][value="direct"]');
-      const directLabel=directInput?.closest('.choice-button');
-      if(directLabel&&!directLabel.querySelector('.direct-flight-icon')){const i=document.createElement('i');i.className='direct-flight-icon';i.setAttribute('aria-hidden','true');i.textContent='✈️';directLabel.appendChild(i);}
-
+      form.querySelectorAll('.choice-icon,.party-people-icon,.budget-choice-icon,.direct-flight-icon').forEach(icon=>icon.remove());
+      const party={solo:['👤'],couple:['👤','👤'],friends:['👤','👤','👤'],family:['👤','👤','👤','👤','👤']};Object.entries(party).forEach(([value,people])=>{const span=form.querySelector(`input[name="travel_party"][value="${value}"]`)?.closest('.choice-button')?.querySelector(':scope > span');if(!span)return;const wrap=document.createElement('i');wrap.className='party-people-icon '+(value==='family'?'family-people-icon':'');wrap.setAttribute('aria-hidden','true');people.forEach((person,index)=>{const p=document.createElement('b');p.textContent=person;if(value==='family'&&index>=2)p.className='child-person';wrap.appendChild(p);});span.prepend(wrap);});
+      const directLabel=form.querySelector('input[name="deal_priorities"][value="direct"]')?.closest('.choice-button');if(directLabel){const i=document.createElement('i');i.className='direct-flight-icon';i.setAttribute('aria-hidden','true');i.textContent='✈️';directLabel.appendChild(i);}
+      [['per_person','💵'],['unlimited','💸']].forEach(([value,icon])=>{const label=form.querySelector(`input[name="budget_mode"][value="${value}"]`)?.closest('.choice-button');if(label){const i=document.createElement('i');i.className='budget-choice-icon';i.setAttribute('aria-hidden','true');i.textContent=icon;label.appendChild(i);}});
       form.querySelectorAll('.wizard-type-back').forEach(button=>button.addEventListener('click',()=>{form.querySelectorAll('input[name="vacation_type"]').forEach(input=>{input.checked=false;input.closest('.vacation-type-card')?.classList.remove('selected');});},true));
-      const businessNotes=form.querySelector('textarea[name="business_notes"]')?.closest('.notes-label');if(businessNotes)businessNotes.remove();
-      const oneConnection=form.querySelector('input[name="business_priorities"][value="max_one_connection"]')?.closest('.choice-button');if(oneConnection)oneConnection.remove();
-      function syncSoloSki(){const solo=form.querySelector('input[name="ski_travel_party"][value="solo"]')?.checked;const mixed=form.querySelector('input[name="ski_skill_level"][value="mixed"]');const label=mixed?.closest('.choice-button');if(label)label.hidden=!!solo;if(solo&&mixed?.checked){mixed.checked=false;mixed.dispatchEvent(new Event('change',{bubbles:true}));}}
-      form.querySelectorAll('input[name="ski_travel_party"]').forEach(x=>x.addEventListener('change',syncSoloSki));syncSoloSki();
+      const businessNotes=form.querySelector('textarea[name="business_notes"]')?.closest('.notes-label');if(businessNotes)businessNotes.remove();const oneConnection=form.querySelector('input[name="business_priorities"][value="max_one_connection"]')?.closest('.choice-button');if(oneConnection)oneConnection.remove();
+      function syncSoloSki(){const solo=form.querySelector('input[name="ski_travel_party"][value="solo"]')?.checked,mixed=form.querySelector('input[name="ski_skill_level"][value="mixed"]'),label=mixed?.closest('.choice-button');if(label)label.hidden=!!solo;if(solo&&mixed?.checked){mixed.checked=false;mixed.dispatchEvent(new Event('change',{bubbles:true}));}}form.querySelectorAll('input[name="ski_travel_party"]').forEach(x=>x.addEventListener('change',syncSoloSki));syncSoloSki();
     }
-
     document.querySelectorAll('.search-status').forEach(el=>{const t=(el.textContent||'').trim().toLowerCase();if(t==='סריקה ראשונית'||t==='initial scan')el.remove();});
     document.querySelectorAll('.notification-toggle').forEach(button=>{if(button.querySelector('.whatsapp-one-time-price'))return;const text=button.querySelector(':scope > span:not(.toggle-track)');if(!text)return;const note=document.createElement('small');note.className='whatsapp-one-time-price';note.textContent=isEn?'One-time payment · ₪9':'תשלום חד־פעמי · 9 ₪';text.appendChild(note);});
-    document.querySelectorAll('.plan-options').forEach(box=>{if(box.dataset.twoPlans==='1')return;const firstForm=box.querySelector('form');if(!firstForm)return;const action=firstForm.getAttribute('action')||'';const plans=isEn?[{key:'daily',name:'Database search',desc:'Smart search using Ariella’s shared deal database',price:'₪19'},{key:'intensive',name:'Intensive search',desc:'Includes external scans when needed',price:'₪39'}]:[{key:'daily',name:'חיפוש במאגר',desc:'חיפוש חכם במאגר הדילים המשותף של אריאלה',price:'19 ₪'},{key:'intensive',name:'חיפוש אינטנסיבי',desc:'כולל סריקות חיצוניות לפי הצורך',price:'39 ₪'}];box.innerHTML='';box.dataset.twoPlans='1';plans.forEach((p,idx)=>{const f=document.createElement('form');f.method='post';f.action=action;const input=document.createElement('input');input.type='hidden';input.name='plan';input.value=p.key;const b=document.createElement('button');b.type='submit';b.className='plan-choice'+(idx===0?' recommended':'');if(idx===0){const em=document.createElement('em');em.textContent=isEn?'Recommended':'מומלץ';b.appendChild(em);}const strong=document.createElement('strong');strong.textContent=p.name;const span=document.createElement('span');span.textContent=p.desc;const price=document.createElement('b');price.textContent=p.price+' · '+(isEn?'one-time payment':'תשלום חד־פעמי');b.append(strong,span,price);f.append(input,b);box.appendChild(f);});});
+    document.querySelectorAll('.plan-options').forEach(box=>{if(box.dataset.twoPlans==='1')return;const firstForm=box.querySelector('form');if(!firstForm)return;const action=firstForm.getAttribute('action')||'',plans=isEn?[{key:'daily',name:'Database search',desc:'Smart search using Ariella’s shared deal database',price:'₪19'},{key:'intensive',name:'Intensive search',desc:'Includes external scans when needed',price:'₪39'}]:[{key:'daily',name:'חיפוש במאגר',desc:'חיפוש חכם במאגר הדילים המשותף של אריאלה',price:'19 ₪'},{key:'intensive',name:'חיפוש אינטנסיבי',desc:'כולל סריקות חיצוניות לפי הצורך',price:'39 ₪'}];box.innerHTML='';box.dataset.twoPlans='1';plans.forEach((p,idx)=>{const f=document.createElement('form');f.method='post';f.action=action;const input=document.createElement('input');input.type='hidden';input.name='plan';input.value=p.key;const b=document.createElement('button');b.type='submit';b.className='plan-choice'+(idx===0?' recommended':'');if(idx===0){const em=document.createElement('em');em.textContent=isEn?'Recommended':'מומלץ';b.appendChild(em);}const strong=document.createElement('strong');strong.textContent=p.name,span=document.createElement('span');span.textContent=p.desc;const price=document.createElement('b');price.textContent=p.price+' · '+(isEn?'one-time payment':'תשלום חד־פעמי');b.append(strong,span,price);f.append(input,b);box.appendChild(f);});});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
