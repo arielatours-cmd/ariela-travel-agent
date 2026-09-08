@@ -27,13 +27,9 @@
       const wrap=document.getElementById('dealFiltersWrap'),main=wrap?.querySelector('.deal-filters-main'),more=document.getElementById('dealFiltersMore'),button=document.getElementById('moreFiltersToggle'),clear=document.getElementById('clearDealFilters');
       const stops=document.getElementById('filterStops');
       if(stops){stops.style.setProperty('width','72%','important');stops.style.setProperty('align-self','flex-start','important');}
-      const airlineWrap=document.getElementById('filterAirlineWrap'),airlineMenu=airlineWrap?.querySelector('.filter-multi-menu');
-      if(airlineMenu&&!airlineMenu.querySelector('.mobile-filter-popup-close')){
-        const close=document.createElement('button');close.type='button';close.className='mobile-filter-popup-close';close.setAttribute('aria-label',isEn?'Close airlines':'סגירת חברות תעופה');close.textContent='×';
-        close.style.cssText='position:sticky;top:0;float:left;z-index:3;width:32px;height:32px;min-height:32px;padding:0;margin:0 0 6px 0;border:0;border-radius:50%;background:#17283f;color:#fff;font-size:24px;line-height:30px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18)';
-        close.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();airlineMenu.hidden=true;});
-        airlineMenu.prepend(close);
-      }
+      function addPopupClose(wrapId,labelHe,labelEn){const popupWrap=document.getElementById(wrapId),menu=popupWrap?.querySelector('.filter-multi-menu');if(!menu||menu.querySelector('.mobile-filter-popup-close'))return;const close=document.createElement('button');close.type='button';close.className='mobile-filter-popup-close';close.setAttribute('aria-label',isEn?labelEn:labelHe);close.textContent='×';close.style.cssText='position:sticky;top:0;float:left;z-index:3;width:32px;height:32px;min-height:32px;padding:0;margin:0 0 6px 0;border:0;border-radius:50%;background:#17283f;color:#fff;font-size:24px;line-height:30px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18)';close.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();menu.hidden=true;});menu.prepend(close);}
+      addPopupClose('filterAirlineWrap','סגירת חברות תעופה','Close airlines');
+      addPopupClose('filterDestinationWrap','סגירת יעדים','Close destinations');
       if(wrap&&clear){
         wrap.appendChild(clear);
         clear.style.cssText='display:none;width:100%;min-height:40px;margin:8px 0 0;padding:8px 12px;border:0;border-radius:9px;background:#0b8f9c;color:#fff;font-size:13px;font-weight:800;align-items:center;justify-content:center;cursor:pointer';
