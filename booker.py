@@ -7,6 +7,7 @@ It does not purchase or submit payment for the customer.
 from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlsplit
+import os
 import requests
 
 from config import SERPAPI_API_KEY
@@ -30,10 +31,14 @@ ACTIONABLE_BOOKING_SUPPLIERS = {
     "trip.com", "expedia", "lastminute.com", "booking.com",
 }
 
+BLUEBIRD_NAMES = {
+    "bluebird airways", "blue bird airways", "bluebird",
+}
+
 OFFICIAL_AIRLINE_BOOKING_FALLBACKS = {
-    "bluebird airways": "https://www.bluebirdair.com/",
-    "blue bird airways": "https://www.bluebirdair.com/",
-    "bluebird": "https://www.bluebirdair.com/",
+    "bluebird airways": "https://booking.bluebirdair.com/he",
+    "blue bird airways": "https://booking.bluebirdair.com/he",
+    "bluebird": "https://booking.bluebirdair.com/he",
     "air haifa": "https://www.airhaifa.com/",
     "airhaifa": "https://www.airhaifa.com/",
     "אייר חיפה": "https://www.airhaifa.com/",
@@ -88,6 +93,102 @@ def _priority(part: dict, preferred_supplier: str) -> tuple[int, float]:
     return (4, price)
 
 
+def _aerocrs_date(value) -> str:
+    raw = str(value or "")[:10]
+    if len(raw) == 10 and raw[4:5] == "-" and raw[7:8] == "-":
+        return raw.replace("-", "/")
+    return ""
+
+
+def _bluebird_deeplink(offer: dict, adults: int, children: int) -> str | None:
+    """Ask Bluebird's AeroCRS IBE for a prefilled itinerary handoff.
+
+    The supplier controls the final booking page, but this avoids forcing the
+    customer to re-enter route, dates and party size when AeroCRS credentials are
+    available in the deployment environment.
+    """
+    names = (
+        offer.get("booking_supplier"), offer.get("airline"),
+        offer.get("return_airline"), (offer.get("flight") or {}).get("airline"),
+    )
+    if not any(_norm(name) in BLUEBIRD_NAMES for name in names):
+        return None
+
+    auth_id = (os.getenv("BLUEBIRD_AEROCRS_AUTH_ID") or os.getenv("AEROCRS_AUTH_ID") or "").strip()
+    auth_password = (os.getenv("BLUEBIRD_AEROCRS_AUTH_PASSWORD") or os.getenv("AEROCRS_AUTH_PASSWORD") or "").strip()
+    if not auth_id or not auth_password:
+        return None
+
+    departure = str(offer.get("departure_code") or offer.get("departure_airport") or "").strip().upper()
+    arrival = str(offer.get("arrival_code") or offer.get("arrival_airport") or "").strip().upper()
+    start = _aerocrs_date(offer.get("outbound_date"))
+    end = _aerocrs_date(offer.get("return_date"))
+    if not all((departure, arrival, start, end)):
+        return None
+
+    params = {
+        "from": departure,
+        "to": arrival,
+        "start": start,
+        "end": end,
+        "adults": str(max(1, int(adults or 1))),
+        "child": str(max(0, int(children or 0))),
+        "infant": "0",
+        "currency": "ILS",
+    }
+    flight_number = str(offer.get("flight_number") or "").strip()
+    if flight_number:
+        params["fltnum"] = flight_number
+
+    try:
+        response = requests.get(
+            "https://api.aerocrs.com/v5/getDeepLink",
+            params=params,
+            headers={"auth_id": auth_id, "auth_password": auth_password, "accept": "application/json"},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception:
+        return None
+
+    def rows(value):
+        if isinstance(value, list):
+            return value
+        if isinstance(value, dict):
+            for key in ("data", "result", "results", "flights"):
+                nested = value.get(key)
+                if isinstance(nested, list):
+                    return nested
+                if isinstance(nested, dict):
+                    nested_rows = rows(nested)
+                    if nested_rows:
+                        return nested_rows
+            return [value]
+        return []
+
+    candidates = []
+    for row in rows(payload):
+        if not isinstance(row, dict):
+            continue
+        url = row.get("deeplink") or row.get("deepLink") or row.get("url")
+        if not url:
+            continue
+        score = 0
+        row_flight = str(row.get("flight_number") or row.get("fltnum") or row.get("flight") or "").strip().casefold()
+        if flight_number and row_flight and flight_number.casefold() in row_flight:
+            score += 4
+        wanted_time = str(offer.get("departure_time") or "")[-5:]
+        row_time = str(row.get("departure_time") or row.get("deptime") or row.get("departure") or "")[-5:]
+        if wanted_time and row_time == wanted_time:
+            score += 2
+        candidates.append((score, str(url)))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[0][1]
+
+
 def resolve_booking_target(offer: dict, *, adults: int | None = None, children: int | None = None,
                            travel_class: str = "1", regenerate_itinerary: bool = True) -> BookerTarget:
     """Resolve a supplier handoff for the exact itinerary and passenger party.
@@ -139,9 +240,6 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
 
     token = None
     if personal and regenerate_itinerary and SERPAPI_API_KEY:
-        # Fresh exact-party search: select the same outbound, expand its returns,
-        # then select the same inbound. The resulting booking_token is now tied to
-        # the requested passenger composition rather than the shared DB search.
         try:
             departure = offer.get("departure_code") or offer.get("departure_airport")
             arrival = offer.get("arrival_code") or offer.get("arrival_airport")
@@ -170,9 +268,6 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         except Exception:
             token = None
 
-    # A stored token belongs to the original scan party. It is safe only when no
-    # passenger composition was supplied; never silently use a 1-adult token for
-    # a customer who selected a different party.
     if not token and not personal:
         token = offer.get("booking_token") or (offer.get("flight") or {}).get("booking_token")
 
@@ -215,33 +310,42 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
             supplier=recommended, mode="stored_supplier_fallback", exact=False,
             note="יש לוודא באתר הספק את מספר הנוסעים והזמינות לפני התשלום.")
 
-    # Some airlines do not expose an actionable booking request through Google
-    # Flights. Never bounce the customer back to Ariella after a booking click;
-    # continue to the airline's official booking homepage as the final fallback.
     airline_names = (
         recommended,
         offer.get("airline"),
         offer.get("return_airline"),
         (offer.get("flight") or {}).get("airline"),
     )
+
+    # Bluebird uses AeroCRS. Prefer its supplier-side deeplink so the customer does
+    # not need to type TLV/destination/dates/passenger count again.
+    if personal and any(_norm(name) in BLUEBIRD_NAMES for name in airline_names):
+        bluebird_url = _bluebird_deeplink(offer, pax_adults, pax_children)
+        if bluebird_url:
+            return BookerTarget(
+                url=bluebird_url, fields=[], supplier="Bluebird Airways",
+                mode="bluebird_aerocrs_deeplink", exact=False,
+                note="היעד, התאריכים ומספר הנוסעים מולאו מראש באתר בלו בירד.",
+            )
+
     for airline_name in airline_names:
         official_url = OFFICIAL_AIRLINE_BOOKING_FALLBACKS.get(_norm(airline_name))
         if official_url:
+            note = (
+                "אריאלה פתחה עבורכם את מסך ההזמנה של בלו בירד."
+                if _norm(airline_name) in BLUEBIRD_NAMES
+                else "יש להמשיך באתר הספק עם פרטי הטיסה."
+            )
             return BookerTarget(url=official_url, fields=[],
                 supplier=str(airline_name or recommended), mode="official_airline_fallback",
-                exact=False, note="הספק לא מאפשר לאריאלה ליצור עבורכם את ההזמנה. יש להזין את הטיסה ומספר הנוסעים בעצמכם באתר הספק.")
+                exact=False, note=note)
 
-    # For other suppliers, use only the clean site root. Never submit the stale
-    # one-passenger POST data from the scan as though it matched this customer.
     supplier_homepage = _homepage(stored_url)
     if personal and supplier_homepage:
         return BookerTarget(url=supplier_homepage, fields=[], supplier=recommended,
             mode="supplier_homepage_manual_entry", exact=False,
-            note="הספק לא מאפשר לאריאלה ליצור עבורכם את ההזמנה. יש להזין את הטיסה ומספר הנוסעים בעצמכם באתר הספק.")
+            note="יש להמשיך באתר הספק עם פרטי הטיסה.")
 
-    # Every scanned offer normally carries the original Google Flights result
-    # URL. It is less precise than a supplier deep-link, but remains actionable
-    # and is preferable to silently returning the customer to the Deals page.
     search_url = offer.get("booking_url")
     if search_url and not personal:
         return BookerTarget(url=search_url, fields=[], supplier=recommended or "Google Flights",
