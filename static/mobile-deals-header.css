@@ -2,7 +2,7 @@
 @media (max-width:760px){
   .luxury-header .nav-toggle{transform:translateY(22px)!important}
 
-  .deals-page .deals-heading-with-alert{padding-top:96px!important;min-height:236px!important}
+  .deals-page .deals-heading-with-alert{padding-top:96px!important;min-height:205px!important}
   .deals-page .deals-alert-left,.deals-page .deals-vacations-right{top:12px!important;display:flex!important;align-items:stretch!important;justify-content:stretch!important}
   .deals-page .deals-alert-left{left:12px!important;right:auto!important;width:calc(56% - 16px)!important}
   .deals-page .deals-vacations-right{right:12px!important;left:auto!important;width:calc(44% - 16px)!important}
