@@ -24,8 +24,8 @@
       setChoiceText('ski_budget_mode','unlimited','ללא הגבלת תקציב','No budget limit');
       [form.querySelector('.wizard-step[data-route="standard"][data-step="5"]'),form.querySelector('.business-question[data-step="6"]'),form.querySelector('.ski-question[data-step="7"]')].forEach(step=>{const h=step?.querySelector('h2');if(h)h.textContent=isEn?'Would you like to set a budget?':'האם תרצו להגביל את התקציב?';});
 
-      const icons={destination_mode:{specific:'📍',open:'🌍'},date_mode:{exact:'▣',month:'▦',anytime:'↔'},budget_mode:{per_person:'₪',unlimited:'▤'},business_budget_mode:{per_person:'₪',unlimited:'▤'},ski_budget_mode:{per_person:'₪',unlimited:'▤'},deal_priorities:{direct:'✈',baggage:'▣',dates:'▦',maximize:'↗'},ski_date_mode:{exact:'▣',month:'▦',ski_flexible:'↔'}};
-      Object.entries(icons).forEach(([name,values])=>Object.entries(values).forEach(([value,icon])=>{form.querySelectorAll(`input[name="${name}"][value="${value}"]`).forEach(input=>{const label=input.closest('.choice-button');if(!label)return;const span=label.querySelector(':scope > span');if(!span)return;let i=label.querySelector('.choice-icon');if(!i){i=document.createElement('i');i.className='choice-icon';i.setAttribute('aria-hidden','true');span.prepend(i);}i.textContent=icon;});}));
+      /* Choice icons were removed by request; keep questionnaire buttons text-only. */
+      form.querySelectorAll('.choice-icon').forEach(icon=>icon.remove());
 
       form.querySelectorAll('.wizard-type-back').forEach(button=>button.addEventListener('click',()=>{form.querySelectorAll('input[name="vacation_type"]').forEach(input=>{input.checked=false;input.closest('.vacation-type-card')?.classList.remove('selected');});},true));
 
