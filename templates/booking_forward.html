@@ -17,7 +17,7 @@
   <section class="booking-message" role="status" aria-live="polite">
     <div class="mark">A</div>
     <h1>{{ 'You are continuing to book directly on the provider website.' if site_lang == 'en' else 'אתם עוברים להזמנת הטיסה ישירות באתר הספק.' }}</h1>
-    <p><span class="thanks">{{ 'Thank you for choosing Ariella' if site_lang == 'en' else 'תודה שבחרתם באריאלה' }}</span></p>
+    <p>{% if booking_note %}<span>{{ booking_note }}</span>{% endif %}<span class="thanks">{{ 'Thank you for choosing Ariella' if site_lang == 'en' else 'תודה שבחרתם באריאלה' }}</span></p>
     <div class="progress" aria-hidden="true"><i></i></div>
   </section>
   <form id="booking-forward" method="{{ method }}" action="{{ action }}">{% for k,v in fields %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}</form>

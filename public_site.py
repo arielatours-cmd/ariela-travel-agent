@@ -2248,6 +2248,7 @@ def book_offer(offer_id):
         return redirect(url_for("site.deals"))
 
     adults = children = None
+    travel_class = "1"
     if personal_trip is not None:
         answers = personal_trip.get("answers") or {}
         try:
@@ -2258,6 +2259,13 @@ def book_offer(offer_id):
             children = max(0, int(answers.get("children") or 0))
         except (TypeError, ValueError):
             children = 0
+        cabin_value = str(
+            answers.get("business_cabin_class") or answers.get("cabin_class") or "economy"
+        ).lower()
+        travel_class = {
+            "economy": "1", "premium_economy": "2", "premium economy": "2",
+            "business": "3", "first": "4",
+        }.get(cabin_value, "1")
     else:
         # Public deals do not yet have a passenger context. Ask once before
         # resolving the supplier URL so the booking search opens for the right
@@ -2268,8 +2276,8 @@ def book_offer(offer_id):
         children = max(0, min(request.args.get("children", 0, type=int) or 0, 9))
 
     target = resolve_booking_target(
-        offer, adults=adults, children=children,
-        regenerate_itinerary=personal_trip is not None,
+        offer, adults=adults, children=children, travel_class=travel_class,
+        regenerate_itinerary=True,
     )
 
     record_booking_click(
@@ -2292,6 +2300,7 @@ def book_offer(offer_id):
             action=target.url,
             fields=target.fields or [],
             method="post" if target.fields else "get",
+            booking_note=target.note,
         )
 
     if personal_trip is not None:
@@ -2943,7 +2952,7 @@ def new_trip():
             elif travel_party == "couple":
                 adults = "2"
 
-            children = form.get("ski_children")
+            children = form.get("ski_children") if travel_party == "family" else "0"
             age_groups = form.getlist("ski_age_groups")
             if travel_party == "friends" and form.get("ski_friends_age_group"):
                 age_groups = [form.get("ski_friends_age_group")]
@@ -3042,7 +3051,7 @@ def new_trip():
             elif travel_party == "couple":
                 adults = "2"
 
-            children = form.get("children")
+            children = form.get("children") if travel_party == "family" else "0"
             age_groups = form.getlist("age_groups")
             if travel_party == "friends" and form.get("friends_age_group"):
                 age_groups = [form.get("friends_age_group")]

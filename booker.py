@@ -78,7 +78,7 @@ def _priority(part: dict, preferred_supplier: str) -> tuple[int, float]:
 
 
 def resolve_booking_target(offer: dict, *, adults: int | None = None, children: int | None = None,
-                           regenerate_itinerary: bool = True) -> BookerTarget:
+                           travel_class: str = "1", regenerate_itinerary: bool = True) -> BookerTarget:
     """Resolve a supplier handoff for the exact itinerary and passenger party.
 
     A Google Flights booking_token belongs to the search that created it. For a
@@ -97,26 +97,6 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         return BookerTarget(url=stored_url,
             fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
             supplier=recommended, mode="recommended_supplier", exact=True)
-
-    # Public-deal passenger selection must stay fast enough for the web request.
-    # Reuse a stored supplier handoff immediately; otherwise direct-booking
-    # airlines with known official sites should not wait on a fresh API lookup.
-    if not regenerate_itinerary:
-        if stored_url:
-            return BookerTarget(url=stored_url,
-                fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
-                supplier=recommended, mode="stored_supplier_selected_party", exact=False,
-                note="יש לוודא באתר הספק את מספר הנוסעים לפני התשלום.")
-        public_airline_names = (
-            recommended, offer.get("airline"), offer.get("return_airline"),
-            (offer.get("flight") or {}).get("airline"),
-        )
-        for airline_name in public_airline_names:
-            official_url = OFFICIAL_AIRLINE_BOOKING_FALLBACKS.get(_norm(airline_name))
-            if official_url:
-                return BookerTarget(url=official_url, fields=[],
-                    supplier=str(airline_name or recommended), mode="official_airline_selected_party",
-                    exact=False, note="יש לבחור באתר חברת התעופה את הטיסה ומספר הנוסעים.")
 
     def _time5(value):
         value = str(value or "")
@@ -161,17 +141,17 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                         "departure_id":departure, "arrival_id":arrival,
                         "outbound_date":outbound_date, "return_date":return_date,
                         "type":"1", "hl":"en", "gl":"il", "currency":"ILS",
-                        "travel_class":"1", "adults":str(pax_adults),
+                        "travel_class":str(travel_class or "1"), "adults":str(pax_adults),
                         "children":str(pax_children), "bags":"0", "sort_by":"2",
                         "no_cache":"false"}
-                out_data = requests.get("https://serpapi.com/search.json", params=base, timeout=45).json()
+                out_data = requests.get("https://serpapi.com/search.json", params=base, timeout=7).json()
                 outbound = _choose(_items(out_data), offer.get("departure_time"),
                                    offer.get("airline"), offer.get("stops"))
                 departure_token = (outbound or {}).get("departure_token")
                 if departure_token:
                     ret_params = dict(base)
                     ret_params["departure_token"] = departure_token
-                    ret_data = requests.get("https://serpapi.com/search.json", params=ret_params, timeout=45).json()
+                    ret_data = requests.get("https://serpapi.com/search.json", params=ret_params, timeout=7).json()
                     inbound = _choose(_items(ret_data), offer.get("return_departure_time"),
                                       offer.get("return_airline") or offer.get("airline"),
                                       offer.get("return_stops"))
@@ -179,10 +159,10 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         except Exception:
             token = None
 
-    # If regenerating the exact passenger search did not return a token, retain
-    # the original itinerary token instead of dropping a valid supplier path.
-    # The supplier will still confirm the selected passenger count before pay.
-    if not token:
+    # A stored token belongs to the original scan party. It is safe only when no
+    # passenger composition was supplied; never silently use a 1-adult token for
+    # a customer who selected a different party.
+    if not token and not personal:
         token = offer.get("booking_token") or (offer.get("flight") or {}).get("booking_token")
 
     if token and SERPAPI_API_KEY:
@@ -191,7 +171,7 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                       "api_key":SERPAPI_API_KEY, "hl":"en", "gl":"il",
                       "currency":"ILS", "adults":str(pax_adults),
                       "children":str(pax_children)}
-            data = requests.get("https://serpapi.com/search.json", params=params, timeout=15).json()
+            data = requests.get("https://serpapi.com/search.json", params=params, timeout=7).json()
             exact_supplier, direct_airline, approved_supplier = [], [], []
             for group in data.get("booking_options") or []:
                 if group.get("separate_tickets"):
@@ -218,7 +198,7 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         except Exception:
             pass
 
-    if stored_url:
+    if stored_url and not personal:
         return BookerTarget(url=stored_url,
             fields=parse_qsl(stored_post, keep_blank_values=True) if stored_post else [],
             supplier=recommended, mode="stored_supplier_fallback", exact=False,
