@@ -17,9 +17,9 @@
   .account-vacations-hero-inner>.button.primary{min-height:66px!important;padding:0 42px!important;font-size:21px!important;border-radius:12px!important;box-shadow:0 10px 28px rgba(0,0,0,.18)!important}
 }
 
-/* Questionnaire answer cards: subtle icons and selected treatment. */
-.trip-wizard .choice-button>span{gap:9px!important}
-.trip-wizard .choice-icon{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:26px!important;height:26px!important;font-style:normal!important;font-weight:900!important;color:#9a742f!important;font-size:18px!important}
+/* Questionnaire answer cards: keep label geometrically centered; icon must not push it sideways. */
+.trip-wizard .choice-button>span{position:relative!important;justify-content:center!important;text-align:center!important;padding-inline:44px!important}
+.trip-wizard .choice-icon{position:absolute!important;inset-inline-start:14px!important;top:50%!important;transform:translateY(-50%)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;width:26px!important;height:26px!important;font-style:normal!important;font-weight:900!important;color:#9a742f!important;font-size:18px!important}
 .trip-wizard .choice-button.selected,
 .trip-wizard .choice-button:has(input:checked){border-color:#c99a3f!important;background:var(--ariella-turquoise-soft)!important;box-shadow:0 0 0 1px rgba(201,154,63,.15)!important}
 
