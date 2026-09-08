@@ -67,7 +67,7 @@ function togglePassword(button){const input=button.closest('.password-field').qu
 document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.account-trip-deals .alternative-deals-block .alternative-deals-message').forEach(function(el){if(el.querySelector('.personal-additional-options-title')) return;const title=document.createElement('strong');title.className='personal-additional-options-title';title.textContent=document.documentElement.lang==='en'?'Additional options':'אפשרויות נוספות';const note=document.createElement('span');note.className='personal-additional-options-note';note.textContent=document.documentElement.lang==='en'?'Ariella’s pick, best value, longest stay, and worthwhile date changes — when suitable options exist.':'בחירת אריאלה, הכי משתלם, הכי הרבה זמן ביעד ושינויי תאריכים שכדאי לשקול — כשיש אפשרויות מתאימות.';el.textContent='';el.appendChild(title);el.appendChild(note);});});
 </script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
-<script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260908m"></script>
+<script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260908n"></script>
 <script id="login-error-modal-runtime">
 document.addEventListener('DOMContentLoaded',function(){
   const login=document.querySelector('.auth-section .form-card');
