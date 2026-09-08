@@ -20,6 +20,28 @@
     }
     document.querySelectorAll('.search-status').forEach(el=>{const t=(el.textContent||'').trim().toLowerCase();if(t==='סריקה ראשונית'||t==='initial scan')el.remove();});
     document.querySelectorAll('.notification-toggle').forEach(button=>{if(button.querySelector('.whatsapp-one-time-price'))return;const text=button.querySelector(':scope > span:not(.toggle-track)');if(!text)return;const note=document.createElement('small');note.className='whatsapp-one-time-price';note.textContent=isEn?'One-time payment of ₪9':'בתשלום חד פעמי של 9 ש״ח';text.appendChild(note);});
+    document.querySelectorAll('.deal-alert-copy').forEach(copy=>{if(copy.querySelector('.deal-alert-price'))return;const note=document.createElement('small');note.className='deal-alert-price';note.textContent=isEn?'One-time payment of ₪9':'בתשלום חד פעמי של 9 ש״ח';copy.appendChild(note);});
+    if(window.matchMedia('(max-width:760px)').matches){
+      const wrap=document.getElementById('dealFiltersWrap'),main=wrap?.querySelector('.deal-filters-main'),more=document.getElementById('dealFiltersMore'),button=document.getElementById('moreFiltersToggle');
+      if(wrap&&main&&more&&button){
+        const children=[...main.children].filter(el=>el!==button);
+        const setOpen=open=>{
+          wrap.classList.toggle('filters-open',open);
+          button.setAttribute('aria-expanded',open?'true':'false');
+          button.textContent=isEn?(open?'Close filters ▴':'Filter deals ▾'):(open?'סגור סינון ▴':'סינון דילים ▾');
+          button.style.setProperty('display','flex','important');
+          button.style.setProperty('width','100%','important');
+          main.style.setProperty('display','grid','important');
+          main.style.setProperty('grid-template-columns',open?'repeat(2,minmax(0,1fr))':'1fr','important');
+          main.style.setProperty('gap',open?'7px 8px':'0','important');
+          children.forEach(el=>el.style.setProperty('display',open?'flex':'none','important'));
+          if(open){more.hidden=false;more.setAttribute('aria-hidden','false');more.style.setProperty('display','grid','important');more.style.setProperty('grid-template-columns','repeat(2,minmax(0,1fr))','important');}
+          else{more.hidden=true;more.setAttribute('aria-hidden','true');more.style.setProperty('display','none','important');}
+        };
+        setOpen(false);
+        button.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();setOpen(button.getAttribute('aria-expanded')!=='true');},true);
+      }
+    }
     document.querySelectorAll('.plan-options').forEach(box=>{if(box.dataset.twoPlans==='1')return;const firstForm=box.querySelector('form');if(!firstForm)return;const action=firstForm.getAttribute('action')||'',plans=isEn?[{key:'daily',name:'Database search',desc:'Smart search using Ariella’s shared deal database',price:'₪19'},{key:'intensive',name:'Intensive search',desc:'Includes external scans when needed',price:'₪39'}]:[{key:'daily',name:'חיפוש במאגר',desc:'חיפוש חכם במאגר הדילים המשותף של אריאלה',price:'19 ₪'},{key:'intensive',name:'חיפוש אינטנסיבי',desc:'כולל סריקות חיצוניות לפי הצורך',price:'39 ₪'}];box.innerHTML='';box.dataset.twoPlans='1';plans.forEach((p,idx)=>{const f=document.createElement('form');f.method='post';f.action=action;const input=document.createElement('input');input.type='hidden';input.name='plan';input.value=p.key;const b=document.createElement('button');b.type='submit';b.className='plan-choice'+(idx===0?' recommended':'');if(idx===0){const em=document.createElement('em');em.textContent=isEn?'Recommended':'מומלץ';b.appendChild(em);}const strong=document.createElement('strong');strong.textContent=p.name,span=document.createElement('span');span.textContent=p.desc;const price=document.createElement('b');price.textContent=p.price+' · '+(isEn?'one-time payment':'תשלום חד־פעמי');b.append(strong,span,price);f.append(input,b);box.appendChild(f);});});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
