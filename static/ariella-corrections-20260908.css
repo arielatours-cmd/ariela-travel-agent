@@ -26,8 +26,10 @@ html body .trip-wizard label.choice-button,html body .trip-wizard .vacation-type
 @media(max-width:760px){
   .trip-wizard .origin-default-heading{font-size:18px!important;text-align:right!important}html[dir="ltr"] .trip-wizard .origin-default-heading{text-align:left!important}.trip-wizard .origin-airport-picker .airport-tags{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;width:100%!important;overflow:visible!important}.trip-wizard .origin-airport-picker .airport-tag{width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:4px 5px!important;justify-content:center!important;white-space:nowrap!important;font-size:11px!important;gap:3px!important}.trip-wizard .origin-airport-picker .airport-tag button{flex:0 0 20px!important;width:20px!important;height:20px!important;padding:0!important}
 
-  .trip-wizard .wizard-step[data-route="standard"][data-step="2"] .choice-row{gap:6px!important}
-  .trip-wizard .wizard-step[data-route="standard"][data-step="2"] .choice-button{min-height:92px!important;padding:6px!important}
+  /* Date choices: first two identical; third spans both columns. */
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;align-items:stretch!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row .choice-button{width:100%!important;height:92px!important;min-height:92px!important;margin:0!important;padding:6px!important;display:flex!important;align-items:center!important;justify-content:center!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row .choice-button:nth-child(3){grid-column:1/-1!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="2"] .choice-button>span{padding:4px 8px!important;line-height:1.12!important}
 
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] .compact-options{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
@@ -39,22 +41,21 @@ html body .trip-wizard label.choice-button,html body .trip-wizard .vacation-type
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] .family-people-icon b{font-size:20px!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] .family-people-icon .child-person{font-size:12px!important}
 
-  /* Flight priorities: baggage and direct stay side by side; maximize spans the full row. */
   #regularFlightPriorities .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;align-items:stretch!important}
   #regularFlightPriorities .choice-button{width:100%!important;min-width:0!important;min-height:92px!important;height:auto!important;margin:0!important;padding:8px!important;display:flex!important;align-items:center!important;justify-content:center!important}
   #regularFlightPriorities .choice-button>span{padding:4px 8px!important;width:100%!important;line-height:1.12!important}
   #regularFlightPriorities .choice-button:has(input[value="maximize"]){grid-column:1/-1!important;min-height:108px!important}
   #regularFlightPriorities .choice-button:has(input[value="maximize"]) small{font-size:11px!important;line-height:1.15!important;margin-top:2px!important}
 
-  /* Open-destination preferences: much shorter cards and almost no wasted vertical space. */
   #regularOpenPriorities>h2{margin-bottom:10px!important}
   #regularOpenPriorities>.priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:58px!important;gap:3px 4px!important;margin:0!important}
   #regularOpenPriorities>.priority-grid .choice-button{width:100%!important;height:58px!important;min-height:58px!important;margin:0!important;padding:3px 5px!important;display:flex!important;align-items:center!important;justify-content:center!important}
   #regularOpenPriorities>.priority-grid .choice-button>span{padding:2px 5px!important;font-size:16px!important;line-height:1.08!important;white-space:normal!important}
   #regularOpenPriorities>h3{margin:10px 0 6px!important}
-  #regularOpenPriorities>.compact-options{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important}
-  #regularOpenPriorities>.compact-options .choice-button{height:58px!important;min-height:58px!important;margin:0!important;padding:4px!important}
+  #regularOpenPriorities>.compact-options{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important;align-items:stretch!important}
+  #regularOpenPriorities>.compact-options .choice-button{width:100%!important;height:58px!important;min-height:58px!important;margin:0!important;padding:4px!important;display:flex!important;align-items:center!important;justify-content:center!important}
   #regularOpenPriorities>.compact-options .choice-button>span{padding:2px 5px!important;font-size:16px!important;line-height:1.08!important}
+  #regularOpenPriorities>.compact-options .choice-button:nth-child(3){grid-column:1/-1!important;width:calc(50% - 2px)!important;justify-self:center!important}
 
   .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row{gap:6px!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="5"] .choice-button{height:96px!important;min-height:96px!important}
