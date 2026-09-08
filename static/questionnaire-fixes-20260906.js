@@ -24,7 +24,20 @@
     document.querySelectorAll('.important-terms dd.check').forEach(el=>{el.textContent=isEn?'Check on supplier website':'יש לבדוק באתר הספק';});
     document.querySelectorAll('.important-terms dd').forEach(el=>{const t=(el.textContent||'').trim();if(t==='בכפוף לתנאי הספק'||t==='יש לבדוק מול הספק'||t==='Subject to supplier terms')el.textContent=isEn?'Check on supplier website':'יש לבדוק באתר הספק';});
     if(window.matchMedia('(max-width:760px)').matches){
-      const wrap=document.getElementById('dealFiltersWrap'),main=wrap?.querySelector('.deal-filters-main'),more=document.getElementById('dealFiltersMore'),button=document.getElementById('moreFiltersToggle');
+      const wrap=document.getElementById('dealFiltersWrap'),main=wrap?.querySelector('.deal-filters-main'),more=document.getElementById('dealFiltersMore'),button=document.getElementById('moreFiltersToggle'),clear=document.getElementById('clearDealFilters');
+      const stops=document.getElementById('filterStops');
+      if(stops){stops.style.setProperty('width','72%','important');stops.style.setProperty('align-self','flex-start','important');}
+      const airlineWrap=document.getElementById('filterAirlineWrap'),airlineMenu=airlineWrap?.querySelector('.filter-multi-menu');
+      if(airlineMenu&&!airlineMenu.querySelector('.mobile-filter-popup-close')){
+        const close=document.createElement('button');close.type='button';close.className='mobile-filter-popup-close';close.setAttribute('aria-label',isEn?'Close airlines':'סגירת חברות תעופה');close.textContent='×';
+        close.style.cssText='position:sticky;top:0;float:left;z-index:3;width:32px;height:32px;min-height:32px;padding:0;margin:0 0 6px 0;border:0;border-radius:50%;background:#17283f;color:#fff;font-size:24px;line-height:30px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18)';
+        close.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();airlineMenu.hidden=true;});
+        airlineMenu.prepend(close);
+      }
+      if(wrap&&clear){
+        wrap.appendChild(clear);
+        clear.style.cssText='display:none;width:100%;min-height:40px;margin:8px 0 0;padding:8px 12px;border:0;border-radius:9px;background:#0b8f9c;color:#fff;font-size:13px;font-weight:800;align-items:center;justify-content:center;cursor:pointer';
+      }
       if(wrap&&main&&more&&button){
         const children=[...main.children].filter(el=>el!==button);
         const setOpen=open=>{
@@ -37,8 +50,8 @@
           main.style.setProperty('grid-template-columns',open?'repeat(2,minmax(0,1fr))':'1fr','important');
           main.style.setProperty('gap',open?'7px 8px':'0','important');
           children.forEach(el=>el.style.setProperty('display',open?'flex':'none','important'));
-          if(open){more.hidden=false;more.setAttribute('aria-hidden','false');more.style.setProperty('display','grid','important');more.style.setProperty('grid-template-columns','repeat(2,minmax(0,1fr))','important');}
-          else{more.hidden=true;more.setAttribute('aria-hidden','true');more.style.setProperty('display','none','important');}
+          if(open){more.hidden=false;more.setAttribute('aria-hidden','false');more.style.setProperty('display','grid','important');more.style.setProperty('grid-template-columns','repeat(2,minmax(0,1fr))','important');if(clear)clear.style.setProperty('display','flex','important');}
+          else{more.hidden=true;more.setAttribute('aria-hidden','true');more.style.setProperty('display','none','important');if(clear)clear.style.setProperty('display','none','important');}
         };
         setOpen(false);
         button.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();setOpen(button.getAttribute('aria-expanded')!=='true');},true);
