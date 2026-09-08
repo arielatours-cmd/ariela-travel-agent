@@ -17,6 +17,10 @@
 .business-time-field-headings span:first-child{text-align:right}
 .business-time-field-headings span:last-child{text-align:right}
 
+/* Regular vacation destination choice: globe instead of the decorative star on Ariella suggestions. */
+.trip-wizard .wizard-step[data-route="standard"][data-step="1"] .destination-options label:has(input[name="destination_mode"][value="open"]) .choice-icon{font-size:0!important}
+.trip-wizard .wizard-step[data-route="standard"][data-step="1"] .destination-options label:has(input[name="destination_mode"][value="open"]) .choice-icon::before{content:"🌍"!important;font-size:20px!important;line-height:1!important}
+
 @media(max-width:760px){
   /* Prevent the back button flashing at the old top-right location. JS moves it first. */
   .trip-back-bar:not(.mobile-ready){visibility:hidden!important}
@@ -28,9 +32,10 @@
   .trip-wizard .trip-origin-defaults{padding:10px 12px!important;margin:8px auto 10px!important;border-radius:14px!important}
   .trip-wizard .origin-default-heading{font-size:16px!important;line-height:1.15!important;margin:0 0 7px!important}
   .trip-wizard .origin-airport-picker{min-height:0!important;padding:7px 8px!important;gap:5px!important}
-  .trip-wizard .origin-airport-picker .airport-tags{display:flex!important;flex-wrap:wrap!important;gap:5px!important}
-  .trip-wizard .origin-airport-picker .airport-tag{min-height:31px!important;padding:4px 8px!important;font-size:12px!important;line-height:1.1!important}
-  .trip-wizard .origin-airport-picker .airport-tag button{width:22px!important;height:22px!important;font-size:16px!important}
+  /* Keep the default origin airports on one row, side by side. */
+  .trip-wizard .origin-airport-picker .airport-tags{display:flex!important;flex-wrap:nowrap!important;gap:6px!important;width:100%!important}
+  .trip-wizard .origin-airport-picker .airport-tag{flex:1 1 0!important;min-width:0!important;justify-content:center!important;min-height:31px!important;padding:4px 6px!important;font-size:12px!important;line-height:1.1!important;white-space:nowrap!important}
+  .trip-wizard .origin-airport-picker .airport-tag button{width:22px!important;height:22px!important;font-size:16px!important;flex:0 0 22px!important}
   .trip-wizard .origin-airport-picker .airport-search{height:34px!important;min-height:34px!important;padding:5px 7px!important;font-size:12px!important;margin-top:3px!important}
   .trip-wizard .wizard-progress{margin-top:7px!important}
   .trip-wizard .wizard-counter{margin:6px 0 10px!important;font-size:14px!important}
