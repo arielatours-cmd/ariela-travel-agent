@@ -30,7 +30,6 @@
     text-align:center!important;
     line-height:1.15!important;
   }
-  /* Q4: no V/check icon at all on mobile. The card selection styling is sufficient. */
   #regularOpenPriorities .choice-button::before,
   #regularOpenPriorities .choice-button::after,
   #regularOpenPriorities .choice-button>span::before,
@@ -46,18 +45,16 @@
   #regularOpenPriorities label.choice-button:has(input[name="deal_priorities"][value="balanced"]){display:none!important}
   #regularOpenPriorities>.compact-options .choice-button:nth-child(2){grid-column:auto!important;width:100%!important;justify-self:stretch!important}
 
-  /* Ski priorities: updated icons + full-width airport proximity option. */
-  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="proximity"]){
-    order:98!important;
-    grid-column:1/-1!important;
-    width:100%!important;
-    height:92px!important;
-    min-height:92px!important;
-  }
-  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="proximity"])>span::before{
-    content:"🛬"!important;
-  }
-  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="spa"])>span::before{
-    content:"💆‍♀️"!important;
-  }
+  /* Ski priorities: keep the original icons. Only swap spa/proximity positions. */
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="snow"]){order:1!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="family"]){order:2!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="large"]){order:3!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="value"]){order:4!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="spa"]){order:5!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="atmosphere"]){order:6!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="nightlife"]){order:7!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="proximity"]){order:8!important;grid-column:1/-1!important;width:100%!important;height:92px!important;min-height:92px!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="level"]){order:99!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="proximity"])>span::before{content:"🚐"!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="spa"])>span::before{content:"🧖"!important}
 }
