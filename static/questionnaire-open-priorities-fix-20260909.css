@@ -45,4 +45,19 @@
   #regularOpenPriorities input[name="deal_priorities"][value="balanced"]{display:none!important}
   #regularOpenPriorities label.choice-button:has(input[name="deal_priorities"][value="balanced"]){display:none!important}
   #regularOpenPriorities>.compact-options .choice-button:nth-child(2){grid-column:auto!important;width:100%!important;justify-self:stretch!important}
+
+  /* Ski priorities: updated icons + full-width airport proximity option. */
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="proximity"]){
+    order:98!important;
+    grid-column:1/-1!important;
+    width:100%!important;
+    height:92px!important;
+    min-height:92px!important;
+  }
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="proximity"])>span::before{
+    content:"🛬"!important;
+  }
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="spa"])>span::before{
+    content:"💆‍♀️"!important;
+  }
 }
