@@ -3,16 +3,13 @@
   .trip-wizard .wizard-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important}
   .trip-wizard .wizard-actions>.button,.trip-wizard .wizard-actions>button{width:100%!important;min-width:0!important;height:82px!important;min-height:82px!important;margin:0!important;padding:10px 12px!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;line-height:1.2!important;text-align:center!important}
 
-  /* All questionnaire question headings: centered and kept to one line on mobile. */
   .trip-wizard .wizard-step[data-route="standard"]>h2,.trip-wizard .wizard-step[data-route="standard"]>h3,.trip-wizard .wizard-step[data-route="standard"] .question-title,.trip-wizard #regularOriginPanel>h3,.trip-wizard #regularDestinationPanel>h3,.trip-wizard #regularFlightPriorities>h2,.trip-wizard #regularFlightPriorities>h3,.trip-wizard #regularOpenPriorities>h2,.trip-wizard #regularOpenPriorities>h3,.trip-wizard #originPanel>.origin-default-heading{width:100%!important;max-width:100%!important;margin-left:auto!important;margin-right:auto!important;text-align:center!important;white-space:nowrap!important;font-size:clamp(22px,6.1vw,34px)!important;line-height:1.12!important;letter-spacing:0!important;box-sizing:border-box!important}
   .trip-wizard #originPanel>.origin-default-heading{display:block!important;padding-left:4px!important;padding-right:4px!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>h2{font-size:clamp(17px,4.8vw,23px)!important;padding-left:2px!important;padding-right:2px!important}
 
-  /* Q2 — two equal top cards and third option spans the combined width of both. */
   .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button{width:100%!important;min-width:0!important;height:96px!important;min-height:96px!important;max-height:96px!important;margin:0!important;padding:0!important;box-sizing:border-box!important;display:flex!important;align-items:stretch!important;justify-content:stretch!important}
-  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button:nth-child(3),
-  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>label:has(input[value="anytime"]){grid-column:1 / -1!important;justify-self:stretch!important;width:100%!important;max-width:none!important;height:96px!important;min-height:96px!important;max-height:96px!important;margin-left:0!important;margin-right:0!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button:nth-child(3),.trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>label:has(input[value="anytime"]){grid-column:1/-1!important;justify-self:stretch!important;width:100%!important;max-width:none!important;height:96px!important;min-height:96px!important;max-height:96px!important;margin-left:0!important;margin-right:0!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button>span{width:100%!important;height:100%!important;min-height:0!important;padding:10px 12px!important;box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;line-height:1.12!important}
 
   .trip-wizard #regularMonthPanel,.trip-wizard #skiMonthPanel{padding-top:22px!important;padding-bottom:22px!important}
@@ -25,19 +22,20 @@
   #regularFlightPriorities .choice-button:has(input[value="dates"]){order:3!important;grid-column:1/-1!important;min-height:100px!important}
   #regularFlightPriorities .choice-button:has(input[value="maximize"]){order:4!important;grid-column:1/-1!important;min-height:108px!important}
 
-  /* Q5 — two equal cards that fill the available questionnaire width. */
   .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row>.choice-button{width:100%!important;min-width:0!important;height:96px!important;min-height:96px!important;max-height:96px!important;margin:0!important;padding:0!important;box-sizing:border-box!important;display:flex!important;align-items:stretch!important;justify-content:stretch!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row>.choice-button>span{width:100%!important;height:100%!important;min-height:0!important;padding:8px 10px!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-size:17px!important;line-height:1.08!important}
 
+  /* Regular participants: use the same friendly icons as ski, and keep them visible when selected. */
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])>span::before{content:"👫"!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])>span::before{content:"👨‍👩‍👧‍👦"!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])>span::before,.trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])>span::before{display:block!important;font-size:24px!important;line-height:1!important;margin-bottom:5px!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label.selected:has(input[name="travel_party"][value="couple"])>span::before,.trip-wizard .wizard-step[data-route="standard"][data-step="3"] label.selected:has(input[name="travel_party"][value="family"])>span::before{display:block!important;visibility:visible!important;opacity:1!important}
+
   /* ===================== SKI MOBILE ===================== */
   .trip-wizard .ski-question>h2{width:100%!important;max-width:100%!important;margin-left:auto!important;margin-right:auto!important;text-align:center!important;line-height:1.08!important;box-sizing:border-box!important}
   .trip-wizard .ski-question[data-step="3"]>h2,.trip-wizard .ski-question[data-step="4"]>h2{font-size:clamp(18px,5vw,24px)!important;white-space:nowrap!important}
-
-  /* Ski destination selection icon. */
   .trip-wizard .ski-question[data-step="1"] label:has(input[name="ski_destination_mode"][value="several"])>span::before{content:"🎿";display:block;font-size:25px;line-height:1;margin-bottom:5px}
-
-  /* Ski dates: same calendar treatment as regular vacation. */
   .trip-wizard .ski-question[data-step="2"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%!important}
   .trip-wizard .ski-question[data-step="2"]>.choice-row>.choice-button{width:100%!important;min-width:0!important;min-height:96px!important;margin:0!important}
   .trip-wizard .ski-question[data-step="2"] label:has(input[name="ski_date_mode"][value="exact"])>span::before{content:"📅";display:block;font-size:25px;line-height:1;margin-bottom:5px}
@@ -47,22 +45,22 @@
   html[lang="en"] .trip-wizard .ski-question[data-step="2"] label:has(input[name="ski_date_mode"][value="month"])>span::after{content:"A specific month"}
   .trip-wizard .ski-question[data-step="2"] label:has(input[name="ski_date_mode"][value="ski_flexible"]){grid-column:1/-1!important;width:100%!important;min-height:96px!important}
 
-  /* Participants icons. */
   .trip-wizard .ski-question[data-step="3"] label:has(input[name="ski_travel_party"][value="solo"])>span::before{content:"👤"}
   .trip-wizard .ski-question[data-step="3"] label:has(input[name="ski_travel_party"][value="couple"])>span::before{content:"👫"}
   .trip-wizard .ski-question[data-step="3"] label:has(input[name="ski_travel_party"][value="friends"])>span::before{content:"👥"}
   .trip-wizard .ski-question[data-step="3"] label:has(input[name="ski_travel_party"][value="family"])>span::before{content:"👨‍👩‍👧‍👦"}
-  .trip-wizard .ski-question[data-step="3"] label:has(input[name="ski_travel_party"])>span::before{display:block;font-size:24px;line-height:1;margin-bottom:5px}
+  .trip-wizard .ski-question[data-step="3"] label:has(input[name="ski_travel_party"])>span::before{display:block!important;font-size:24px!important;line-height:1!important;margin-bottom:5px!important;visibility:visible!important;opacity:1!important}
+  .trip-wizard .ski-question[data-step="3"] label.selected:has(input[name="ski_travel_party"])>span::before{display:block!important;visibility:visible!important;opacity:1!important}
 
-  /* Ski level icons: first time / beginner / intermediate / advanced / mixed. */
+  .trip-wizard .ski-question[data-step="4"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%!important}
   .trip-wizard .ski-question[data-step="4"] label:has(input[value="first_time"])>span::before{content:"🎿"}
   .trip-wizard .ski-question[data-step="4"] label:has(input[value="beginner"])>span::before{content:"🟢"}
   .trip-wizard .ski-question[data-step="4"] label:has(input[value="intermediate"])>span::before{content:"🔵"}
   .trip-wizard .ski-question[data-step="4"] label:has(input[value="advanced"])>span::before{content:"⚫"}
+  .trip-wizard .ski-question[data-step="4"] label:has(input[value="mixed"]){grid-column:1/-1!important;width:100%!important;min-height:88px!important}
   .trip-wizard .ski-question[data-step="4"] label:has(input[value="mixed"])>span::before{content:"🔀"}
   .trip-wizard .ski-question[data-step="4"] label>span::before{display:block;font-size:22px;line-height:1;margin-bottom:5px}
 
-  /* Transfer time icons + full-width no-preference option. */
   .trip-wizard .ski-question[data-step="5"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%!important}
   .trip-wizard .ski-question[data-step="5"] label:has(input[value="90"])>span::before{content:"⏱️"}
   .trip-wizard .ski-question[data-step="5"] label:has(input[value="180"])>span::before{content:"🕒"}
@@ -70,16 +68,12 @@
   .trip-wizard .ski-question[data-step="5"] label>span::before{display:block;font-size:23px;line-height:1;margin-bottom:5px}
   .trip-wizard .ski-question[data-step="5"] label:has(input[value="any"]){grid-column:1/-1!important;width:100%!important;min-height:88px!important}
 
-  /* Ski priorities: move level-match to the end and span both columns. */
   .trip-wizard .ski-question[data-step="6"] .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
   .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="level"]){order:99!important;grid-column:1/-1!important;width:100%!important;min-height:92px!important}
 
-  /* Ski budget: equal cards + money icons. */
   .trip-wizard .ski-question[data-step="7"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%!important}
   .trip-wizard .ski-question[data-step="7"]>.choice-row>.choice-button{width:100%!important;min-width:0!important;height:96px!important;min-height:96px!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
   .trip-wizard .ski-question[data-step="7"] label:has(input[name="ski_budget_mode"][value="per_person"])>span::before{content:"💵";display:block;font-size:25px;line-height:1;margin-bottom:5px}
   .trip-wizard .ski-question[data-step="7"] label:has(input[name="ski_budget_mode"][value="unlimited"])>span::before{content:"💸";display:block;font-size:25px;line-height:1;margin-bottom:5px}
-
-  /* Remove the extra free-text box from ski entirely. */
   .trip-wizard .ski-question[data-step="7"]>.notes-label{display:none!important}
 }
