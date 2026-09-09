@@ -3,7 +3,6 @@
 .back-to-vacations{background:var(--ariella-turquoise)!important;border-color:var(--ariella-turquoise)!important;color:#fff!important;font-weight:800!important}.back-to-vacations:hover,.back-to-vacations:focus-visible{background:var(--ariella-turquoise-dark)!important;border-color:var(--ariella-turquoise-dark)!important;color:#fff!important}
 @media(max-width:760px){html body .site-header .mobile-nav-menu .mobile-myariella-submenu{background:#20282a!important;border:1px solid rgba(40,170,163,.5)!important;border-radius:8px!important;margin:4px 5px 6px!important;padding:5px!important}html body .site-header .mobile-myariella-submenu a,html body .site-header .mobile-myariella-submenu button{background:#20282a!important;color:#fff!important;border-bottom:1px solid rgba(255,255,255,.09)!important}}
 @media(min-width:761px){.account-vacations-hero-inner>.button.primary{min-height:66px!important;padding:0 42px!important;font-size:21px!important;border-radius:12px!important;box-shadow:0 10px 28px rgba(0,0,0,.18)!important}}
-
 html body .trip-wizard label.choice-button,html body .trip-wizard .vacation-type-card{border-radius:14px!important;overflow:hidden!important}
 .trip-wizard .choice-button>span{position:relative!important;justify-content:center!important;text-align:center!important;padding-inline:44px!important}.trip-wizard .choice-button.selected,.trip-wizard .choice-button:has(input:checked){border-color:#c99a3f!important;background:var(--ariella-turquoise-soft)!important;box-shadow:0 0 0 1px rgba(201,154,63,.15)!important}
 .trip-wizard .choice-button.has-answer-visual>span{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:5px!important;text-align:center!important}
@@ -11,6 +10,21 @@ html body .trip-wizard label.choice-button,html body .trip-wizard .vacation-type
 .trip-wizard .destination-globe-icon{font-size:27px!important}.trip-wizard .date-choice-icon{font-size:25px!important}.trip-wizard .priority-choice-icon{font-size:25px!important}.trip-wizard .budget-choice-icon{font-size:24px!important}.trip-wizard .budget-many-bills{font-size:17px!important;letter-spacing:-2px!important;padding:0!important;max-width:100%!important;overflow:hidden!important;text-overflow:clip!important}
 .trip-wizard .party-people-icon{display:inline-flex!important;align-items:flex-end!important;justify-content:center!important;gap:2px!important;font-style:normal!important;white-space:nowrap!important;vertical-align:middle!important}.trip-wizard .party-people-icon b{font:inherit!important;font-size:20px!important;line-height:1!important}.trip-wizard .family-people-icon .child-person{font-size:13px!important}
 
+/* Q2 — exact dates/month are identical size; anytime stays full-width on mobile. */
+.trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row{align-items:stretch!important}
+.trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row .choice-button{flex:1 1 0!important;min-width:0!important;min-height:92px!important;display:flex!important;align-items:center!important;justify-content:center!important}
+/* Month fields: keep visible breathing room between heading and picker. */
+.trip-wizard #regularMonthPanel>label{display:flex!important;flex-direction:column!important;gap:10px!important}
+.trip-wizard #regularMonthPanel select,.trip-wizard #regularMonthPanel input{margin-top:2px!important}
+
+/* Q4 — direct replaces dates in the first position; dates gets a full row like maximize. */
+#regularFlightPriorities .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch!important}
+#regularFlightPriorities .choice-button:has(input[value="direct"]){order:1!important}
+#regularFlightPriorities .choice-button:has(input[value="baggage"]){order:2!important}
+#regularFlightPriorities .choice-button:has(input[value="dates"]){order:3!important;grid-column:1/-1!important}
+#regularFlightPriorities .choice-button:has(input[value="maximize"]){order:4!important;grid-column:1/-1!important}
+
+/* Q5 — both budget choices are exactly the same size. */
 .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important}
 .trip-wizard .wizard-step[data-route="standard"][data-step="5"] .choice-button{width:100%!important;height:106px!important;min-height:106px!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
 .trip-wizard .wizard-step[data-route="standard"][data-step="5"] .choice-button>span{width:100%!important;padding:8px 20px!important;box-sizing:border-box!important;white-space:normal!important;overflow-wrap:anywhere!important}
@@ -29,10 +43,11 @@ html body .trip-wizard label.choice-button,html body .trip-wizard .vacation-type
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] .choice-button{min-width:0!important;min-height:104px!important;height:104px!important;padding:10px 8px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] .choice-button>span{padding:0!important;width:100%!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:8px!important;font-size:20px!important;line-height:1.12!important;white-space:normal!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] .party-people-icon{margin:0!important;min-height:26px!important}.trip-wizard .wizard-step[data-route="standard"][data-step="3"] .party-people-icon b{font-size:22px!important}.trip-wizard .wizard-step[data-route="standard"][data-step="3"] .family-people-icon{gap:1px!important;max-width:100%!important}.trip-wizard .wizard-step[data-route="standard"][data-step="3"] .family-people-icon b{font-size:20px!important}.trip-wizard .wizard-step[data-route="standard"][data-step="3"] .family-people-icon .child-person{font-size:12px!important}
-  #regularFlightPriorities .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;align-items:stretch!important}
+  #regularFlightPriorities .priority-grid{gap:7px!important}
   #regularFlightPriorities .choice-button{width:100%!important;min-width:0!important;min-height:92px!important;height:auto!important;margin:0!important;padding:8px!important;display:flex!important;align-items:center!important;justify-content:center!important}
   #regularFlightPriorities .choice-button>span{padding:4px 8px!important;width:100%!important;line-height:1.12!important}
-  #regularFlightPriorities .choice-button:has(input[value="maximize"]){grid-column:1/-1!important;min-height:108px!important}
+  #regularFlightPriorities .choice-button:has(input[value="dates"]){min-height:92px!important}
+  #regularFlightPriorities .choice-button:has(input[value="maximize"]){min-height:108px!important}
   #regularFlightPriorities .choice-button:has(input[value="maximize"]) small{font-size:11px!important;line-height:1.15!important;margin-top:2px!important}
   #regularOpenPriorities>h2{margin-bottom:10px!important}
   #regularOpenPriorities>.priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:58px!important;gap:3px 4px!important;margin:0!important}
