@@ -1,23 +1,26 @@
 /* Mobile questionnaire fixes approved 2026-09-09 */
 @media(max-width:760px){
-  /* Bottom navigation buttons must always be identical in size. */
   .trip-wizard .wizard-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important}
   .trip-wizard .wizard-actions>.button,.trip-wizard .wizard-actions>button{width:100%!important;min-width:0!important;height:82px!important;min-height:82px!important;margin:0!important;padding:10px 12px!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;line-height:1.2!important;text-align:center!important}
 
-  /* Month fields: keep the field visually separated from its heading. */
+  /* Q2 — equal, proportional date buttons. */
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important;width:100%!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button{width:100%!important;height:88px!important;min-height:88px!important;max-height:88px!important;margin:0!important;padding:7px 8px!important;box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button:nth-child(3){grid-column:1/-1!important;height:72px!important;min-height:72px!important;max-height:72px!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button>span{width:100%!important;padding:4px 8px!important;box-sizing:border-box!important;text-align:center!important;line-height:1.12!important}
+
   .trip-wizard #regularMonthPanel,.trip-wizard #skiMonthPanel{padding-top:22px!important;padding-bottom:22px!important}
   .trip-wizard #regularMonthPanel>label,.trip-wizard #skiMonthPanel>label{display:flex!important;flex-direction:column!important;gap:18px!important;align-items:stretch!important;margin:0!important;line-height:1.2!important}
   .trip-wizard #regularMonthPanel select,.trip-wizard #skiMonthPanel select,.trip-wizard #regularMonthPanel input[type="month"],.trip-wizard #skiMonthPanel input[type="month"]{width:100%!important;margin:0!important;min-height:58px!important;box-sizing:border-box!important}
 
-  /* Q4: direct + baggage on the first row; selected dates becomes a full-width card. */
   #regularFlightPriorities .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;align-items:stretch!important}
   #regularFlightPriorities .choice-button:has(input[value="direct"]){order:1!important;grid-column:auto!important}
   #regularFlightPriorities .choice-button:has(input[value="baggage"]){order:2!important;grid-column:auto!important}
   #regularFlightPriorities .choice-button:has(input[value="dates"]){order:3!important;grid-column:1/-1!important;min-height:100px!important}
   #regularFlightPriorities .choice-button:has(input[value="maximize"]){order:4!important;grid-column:1/-1!important;min-height:108px!important}
 
-  /* Q5: compact, proportional budget cards across the available mobile width. */
-  .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;align-items:stretch!important;width:100%!important;padding:0!important}
-  .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row>.choice-button{width:100%!important;height:94px!important;min-height:94px!important;max-height:94px!important;margin:0!important;padding:8px 10px!important;align-self:stretch!important;box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important}
-  .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row>.choice-button>span{width:100%!important;min-height:0!important;padding:4px!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;line-height:1.15!important}
+  /* Q5 — two equal compact budget cards, proportional to the mobile panel. */
+  .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important;width:100%!important;margin:0!important;padding:0!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row>.choice-button{width:100%!important;height:86px!important;min-height:86px!important;max-height:86px!important;margin:0!important;padding:6px 8px!important;box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row>.choice-button>span{width:100%!important;padding:3px 5px!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-size:17px!important;line-height:1.08!important}
 }
