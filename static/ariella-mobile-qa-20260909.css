@@ -10,7 +10,8 @@
   .trip-wizard #regularOriginPanel>h3,
   .trip-wizard #regularDestinationPanel>h3,
   .trip-wizard #regularFlightPriorities>h3,
-  .trip-wizard #regularOpenPriorities>h3{
+  .trip-wizard #regularOpenPriorities>h3,
+  .trip-wizard #originPanel>.origin-default-heading{
     width:100%!important;
     max-width:100%!important;
     margin-left:auto!important;
@@ -21,6 +22,7 @@
     line-height:1.12!important;
     letter-spacing:0!important;
   }
+  .trip-wizard #originPanel>.origin-default-heading{display:block!important;box-sizing:border-box!important;padding-left:4px!important;padding-right:4px!important}
 
   /* Q2 — two equal top cards and one full-width lower card. */
   .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
