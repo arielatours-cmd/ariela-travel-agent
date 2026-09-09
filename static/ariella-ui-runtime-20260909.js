@@ -44,6 +44,27 @@
     }
     wire('outboundMonth','returnMonth');wire('skiOutboundMonth','skiReturnMonth');
   }
+  function moveSearchStartDate(){
+    const isEn=document.documentElement.lang==='en';
+    document.querySelectorAll('.trip-main-details').forEach(main=>{
+      if(main.querySelector('.trip-search-start-small'))return;
+      const rows=[...main.querySelectorAll('.trip-details-list > div')];
+      const row=rows.find(r=>{
+        const label=(r.querySelector('dt')?.textContent||'').trim();
+        return label===(isEn?'Search started':'החיפוש התחיל');
+      });
+      if(!row)return;
+      const value=(row.querySelector('dd')?.textContent||'').trim();
+      if(!value)return;
+      const line=document.createElement('div');
+      line.className='trip-search-start-small';
+      line.textContent=(isEn?'Search started: ':'החיפוש התחיל: ')+value;
+      line.style.cssText='font-size:11px;line-height:1.2;color:#7a8490;font-weight:600;margin:0 0 3px;direction:rtl;text-align:right;';
+      const title=main.querySelector('.trip-title-line');
+      if(title)main.insertBefore(line,title);
+      row.remove();
+    });
+  }
   function pollPendingPersonalVacation(){
     const match=location.hash.match(/^#vacation-(\d+)$/);if(!match)return;
     const id=match[1],card=document.getElementById('vacation-'+id),deals=document.getElementById('tripDeals'+id);
@@ -56,6 +77,6 @@
     sessionStorage.setItem(key,String(count+1));
     setTimeout(()=>location.reload(),4000);
   }
-  function init(){fixMonthPickers();pollPendingPersonalVacation();}
+  function init(){fixMonthPickers();moveSearchStartDate();pollPendingPersonalVacation();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
