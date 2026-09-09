@@ -1,0 +1,26 @@
+/* Open-destination questionnaire: keep the gold check away from copy. */
+@media(max-width:760px){
+  #regularOpenPriorities .priority-grid .choice-button>span,
+  #regularOpenPriorities .compact-options .choice-button>span{
+    position:relative!important;
+    width:100%!important;
+    padding-inline:28px!important;
+    box-sizing:border-box!important;
+    text-align:center!important;
+  }
+  #regularOpenPriorities .choice-button:has(input:checked)>span::after{
+    right:8px!important;
+    left:auto!important;
+    margin:0!important;
+    transform:none!important;
+  }
+  html[dir="ltr"] #regularOpenPriorities .choice-button:has(input:checked)>span::after{
+    left:8px!important;
+    right:auto!important;
+  }
+  /* No selection already means Ariella chooses, so this control is redundant. */
+  #regularOpenPriorities input[name="deal_priorities"][value="balanced"]{display:none!important}
+  #regularOpenPriorities label.choice-button:has(input[name="deal_priorities"][value="balanced"]){display:none!important}
+  #regularOpenPriorities>.compact-options{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #regularOpenPriorities>.compact-options .choice-button:nth-child(2){grid-column:auto!important;width:100%!important;justify-self:stretch!important}
+}
