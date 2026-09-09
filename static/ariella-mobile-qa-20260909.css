@@ -4,40 +4,15 @@
   .trip-wizard .wizard-actions>.button,.trip-wizard .wizard-actions>button{width:100%!important;min-width:0!important;height:82px!important;min-height:82px!important;margin:0!important;padding:10px 12px!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;line-height:1.2!important;text-align:center!important}
 
   /* All questionnaire question headings: centered and kept to one line on mobile. */
-  .trip-wizard .wizard-step[data-route="standard"]>h2,
-  .trip-wizard .wizard-step[data-route="standard"]>h3,
-  .trip-wizard .wizard-step[data-route="standard"] .question-title,
-  .trip-wizard #regularOriginPanel>h3,
-  .trip-wizard #regularDestinationPanel>h3,
-  .trip-wizard #regularFlightPriorities>h2,
-  .trip-wizard #regularFlightPriorities>h3,
-  .trip-wizard #regularOpenPriorities>h2,
-  .trip-wizard #regularOpenPriorities>h3,
-  .trip-wizard #originPanel>.origin-default-heading{
-    width:100%!important;
-    max-width:100%!important;
-    margin-left:auto!important;
-    margin-right:auto!important;
-    text-align:center!important;
-    white-space:nowrap!important;
-    font-size:clamp(22px,6.1vw,34px)!important;
-    line-height:1.12!important;
-    letter-spacing:0!important;
-    box-sizing:border-box!important;
-  }
+  .trip-wizard .wizard-step[data-route="standard"]>h2,.trip-wizard .wizard-step[data-route="standard"]>h3,.trip-wizard .wizard-step[data-route="standard"] .question-title,.trip-wizard #regularOriginPanel>h3,.trip-wizard #regularDestinationPanel>h3,.trip-wizard #regularFlightPriorities>h2,.trip-wizard #regularFlightPriorities>h3,.trip-wizard #regularOpenPriorities>h2,.trip-wizard #regularOpenPriorities>h3,.trip-wizard #originPanel>.origin-default-heading{width:100%!important;max-width:100%!important;margin-left:auto!important;margin-right:auto!important;text-align:center!important;white-space:nowrap!important;font-size:clamp(22px,6.1vw,34px)!important;line-height:1.12!important;letter-spacing:0!important;box-sizing:border-box!important}
   .trip-wizard #originPanel>.origin-default-heading{display:block!important;padding-left:4px!important;padding-right:4px!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>h2{font-size:clamp(17px,4.8vw,23px)!important;padding-left:2px!important;padding-right:2px!important}
 
-  /* Q5 title is longer: reduce it enough to stay inside the mobile questionnaire frame. */
-  .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>h2{
-    font-size:clamp(17px,4.8vw,23px)!important;
-    padding-left:2px!important;
-    padding-right:2px!important;
-  }
-
-  /* Q2 — two equal top cards and one full-width lower card. */
+  /* Q2 — two equal top cards and third option spans the combined width of both. */
   .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button{width:100%!important;min-width:0!important;height:96px!important;min-height:96px!important;max-height:96px!important;margin:0!important;padding:0!important;box-sizing:border-box!important;display:flex!important;align-items:stretch!important;justify-content:stretch!important}
-  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button:nth-child(3){grid-column:1/-1!important;width:100%!important;height:82px!important;min-height:82px!important;max-height:82px!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button:nth-child(3),
+  .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>label:has(input[value="anytime"]){grid-column:1 / -1!important;justify-self:stretch!important;width:100%!important;max-width:none!important;height:96px!important;min-height:96px!important;max-height:96px!important;margin-left:0!important;margin-right:0!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="2"]>.choice-row>.choice-button>span{width:100%!important;height:100%!important;min-height:0!important;padding:10px 12px!important;box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;line-height:1.12!important}
 
   .trip-wizard #regularMonthPanel,.trip-wizard #skiMonthPanel{padding-top:22px!important;padding-bottom:22px!important}
