@@ -26,7 +26,6 @@
   .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row>.choice-button{width:100%!important;min-width:0!important;height:96px!important;min-height:96px!important;max-height:96px!important;margin:0!important;padding:0!important;box-sizing:border-box!important;display:flex!important;align-items:stretch!important;justify-content:stretch!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="5"]>.choice-row>.choice-button>span{width:100%!important;height:100%!important;min-height:0!important;padding:8px 10px!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-size:17px!important;line-height:1.08!important}
 
-  /* Regular participants: use the same friendly icons as ski, and keep them visible when selected. */
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])>span::before{content:"👫"!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])>span::before{content:"👨‍👩‍👧‍👦"!important}
   .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])>span::before,.trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])>span::before{display:block!important;font-size:24px!important;line-height:1!important;margin-bottom:5px!important}
@@ -68,8 +67,21 @@
   .trip-wizard .ski-question[data-step="5"] label>span::before{display:block;font-size:23px;line-height:1;margin-bottom:5px}
   .trip-wizard .ski-question[data-step="5"] label:has(input[value="any"]){grid-column:1/-1!important;width:100%!important;min-height:88px!important}
 
-  .trip-wizard .ski-question[data-step="6"] .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
-  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="level"]){order:99!important;grid-column:1/-1!important;width:100%!important;min-height:92px!important}
+  /* Ski priorities: equal two-column cards with icons and clear spacing. */
+  .trip-wizard .ski-question[data-step="6"] .priority-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important;width:100%!important}
+  .trip-wizard .ski-question[data-step="6"] .priority-grid>.choice-button{width:100%!important;min-width:0!important;height:92px!important;min-height:92px!important;margin:0!important;padding:0!important;box-sizing:border-box!important;display:flex!important;align-items:stretch!important;justify-content:stretch!important}
+  .trip-wizard .ski-question[data-step="6"] .priority-grid>.choice-button>span{width:100%!important;height:100%!important;min-height:0!important;padding:12px 10px!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;line-height:1.12!important}
+  .trip-wizard .ski-question[data-step="6"] .priority-grid>.choice-button>span::before{display:block!important;font-size:24px!important;line-height:1!important;margin:0 0 9px!important}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="snow"])>span::before{content:"❄️"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="family"])>span::before{content:"👨‍👩‍👧‍👦"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="large"])>span::before{content:"🏔️"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="value"])>span::before{content:"💰"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="proximity"])>span::before{content:"🚐"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="atmosphere"])>span::before{content:"🍽️"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="nightlife"])>span::before{content:"🎉"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="spa"])>span::before{content:"🧖"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[value="level"])>span::before{content:"🎿"}
+  .trip-wizard .ski-question[data-step="6"] label:has(input[name="ski_priorities"][value="level"]){order:99!important;grid-column:1/-1!important;width:100%!important;height:92px!important;min-height:92px!important}
 
   .trip-wizard .ski-question[data-step="7"]>.choice-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%!important}
   .trip-wizard .ski-question[data-step="7"]>.choice-row>.choice-button{width:100%!important;min-width:0!important;height:96px!important;min-height:96px!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
