@@ -892,7 +892,8 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     """
     arrivals = _customer_destination_codes(answers)
     vacation_type = str(answers.get("vacation_type") or "standard")
-    if vacation_type == "standard" and str(answers.get("destination_mode") or "open") == "open" and not answers.get("_alternative_other_destination"):
+    priorities = {str(x) for x in (answers.get("deal_priorities") or []) if x}
+    if vacation_type == "standard" and str(answers.get("destination_mode") or "open") == "open" and "maximize" not in priorities and not answers.get("_alternative_other_destination"):
         return {"status": "db_only_open", "offers_found": 0, "api_requests": 0, "searches_completed": 0, "errors": 0}
     if answers.get("_alternative_other_destination"):
         original = set(arrivals)
