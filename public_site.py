@@ -1437,11 +1437,9 @@ def _objective_match_details(offer, trip):
             ok = _good_price_condition(offer) if pref == "price" else _destination_condition_met(code, pref, month)
             add(bool(ok), he, en)
 
-        if "maximize" in priorities:
-            arr = _time_minutes(offer.get("arrival_time"))
-            ret = _time_minutes(offer.get("return_departure_time"))
-            add(arr is not None and ret is not None and arr <= 600 and ret >= 1200,
-                "למקסם את החופשה", "Maximize the vacation")
+        # "Maximize the vacation" is a ranking preference, not a condition that
+        # may disqualify an otherwise suitable flight.  _priority_sort_key()
+        # already promotes early arrivals and late return departures.
 
     # Ski preferences are evaluated from the ski-resort table, not the generic
     # destination matrix.
@@ -3202,9 +3200,11 @@ def new_trip():
         # Initial DB-first match. External work is queued only for a bounded,
         # destination-led request; the browser is never held open for SerpApi.
         existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
+        priorities = {str(x) for x in (payload.get("deal_priorities") or []) if x}
         open_db_only = (
             vacation_type == "standard"
             and str(payload.get("destination_mode") or "open") == "open"
+            and "maximize" not in priorities
         )
 
         if existing_matches:
