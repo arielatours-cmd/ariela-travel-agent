@@ -1,0 +1,71 @@
+@media(max-width:760px){
+  /* Ski family details: compact, aligned and easy to scan on mobile. */
+  .trip-wizard .ski-question[data-step="3"] #skiFamily{
+    width:100%!important;
+    margin:12px 0 0!important;
+    padding:14px 12px!important;
+    box-sizing:border-box!important;
+  }
+
+  .trip-wizard .ski-question[data-step="3"] #skiFamily>.two-cols{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:10px!important;
+    width:100%!important;
+    margin:0 0 12px!important;
+  }
+
+  .trip-wizard .ski-question[data-step="3"] #skiFamily>.two-cols>label{
+    margin:0!important;
+    min-width:0!important;
+    text-align:center!important;
+    font-size:14px!important;
+    line-height:1.2!important;
+  }
+
+  .trip-wizard .ski-question[data-step="3"] #skiFamily>.two-cols input[type="number"]{
+    width:100%!important;
+    height:46px!important;
+    min-height:46px!important;
+    margin:6px 0 0!important;
+    padding:6px 8px!important;
+    text-align:center!important;
+    font-size:18px!important;
+    box-sizing:border-box!important;
+  }
+
+  .trip-wizard .ski-question[data-step="3"] #skiFamily>.choice-row.compact-options{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    width:100%!important;
+    margin:0!important;
+  }
+
+  .trip-wizard .ski-question[data-step="3"] #skiFamily>.choice-row.compact-options>.choice-button{
+    width:100%!important;
+    min-width:0!important;
+    height:62px!important;
+    min-height:62px!important;
+    margin:0!important;
+    padding:0!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    align-items:stretch!important;
+    justify-content:stretch!important;
+  }
+
+  .trip-wizard .ski-question[data-step="3"] #skiFamily>.choice-row.compact-options>.choice-button>span{
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    padding:8px 6px!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    text-align:center!important;
+    font-size:15px!important;
+    line-height:1.15!important;
+  }
+}
