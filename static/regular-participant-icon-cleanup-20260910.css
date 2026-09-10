@@ -1,0 +1,29 @@
+@media(max-width:760px){
+  /* Regular vacation participants: keep only the new colorful emoji for couple/family. */
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"]),
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"]){
+    background-image:none!important;
+  }
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])::before,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])::before,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])>span::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])>span::after{
+    content:none!important;
+    display:none!important;
+    background:none!important;
+  }
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])>span::before{
+    content:"👫"!important;
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])>span::before{
+    content:"👨‍👩‍👧‍👦"!important;
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+}
