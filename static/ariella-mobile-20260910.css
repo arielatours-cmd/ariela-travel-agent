@@ -1,0 +1,90 @@
+@media(max-width:760px){
+  /* Regular + ski family detail panels: clean two-column counters and two-column age cards. */
+  .trip-wizard #regularFamily,
+  .trip-wizard #skiFamily{
+    width:100%!important;
+    margin:12px 0 0!important;
+    padding:14px 12px!important;
+    box-sizing:border-box!important;
+  }
+
+  .trip-wizard #regularFamily>.two-cols,
+  .trip-wizard #skiFamily>.two-cols{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:10px!important;
+    width:100%!important;
+    margin:0 0 12px!important;
+  }
+
+  .trip-wizard #regularFamily>.two-cols>label,
+  .trip-wizard #skiFamily>.two-cols>label{
+    margin:0!important;
+    min-width:0!important;
+    text-align:center!important;
+    font-size:14px!important;
+    line-height:1.2!important;
+  }
+
+  .trip-wizard #regularFamily>.two-cols input[type="number"],
+  .trip-wizard #skiFamily>.two-cols input[type="number"]{
+    width:100%!important;
+    height:46px!important;
+    min-height:46px!important;
+    margin:6px 0 0!important;
+    padding:6px 8px!important;
+    text-align:center!important;
+    font-size:18px!important;
+    box-sizing:border-box!important;
+  }
+
+  .trip-wizard #regularFamily>.choice-row.compact-options,
+  .trip-wizard #skiFamily>.choice-row.compact-options{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    width:100%!important;
+    margin:0!important;
+  }
+
+  .trip-wizard #regularFamily>.choice-row.compact-options>.choice-button,
+  .trip-wizard #skiFamily>.choice-row.compact-options>.choice-button{
+    width:100%!important;
+    min-width:0!important;
+    height:62px!important;
+    min-height:62px!important;
+    margin:0!important;
+    padding:0!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    align-items:stretch!important;
+    justify-content:stretch!important;
+  }
+
+  .trip-wizard #regularFamily>.choice-row.compact-options>.choice-button>span,
+  .trip-wizard #skiFamily>.choice-row.compact-options>.choice-button>span{
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    padding:8px 6px!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    text-align:center!important;
+    font-size:15px!important;
+    line-height:1.15!important;
+  }
+
+  /* Regular participants: remove old grey icon layer from couple/family; keep the colorful emoji only. */
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"]),
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"]){background-image:none!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])::before,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])::before,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])>span::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])>span::after{content:none!important;display:none!important;background:none!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])>span::before{content:"👫"!important;display:block!important;visibility:visible!important;opacity:1!important}
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])>span::before{content:"👨‍👩‍👧‍👦"!important;display:block!important;visibility:visible!important;opacity:1!important}
+}
