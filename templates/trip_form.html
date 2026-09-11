@@ -54,7 +54,7 @@
     <span class="step-number">01</span>
     <h2>{{ 'Where would you like to fly?' if site_lang == 'en' else 'לאן תרצו לטוס?' }}</h2>
     <div class="choice-row destination-options">
-      {% set opts=[('specific','I have a destination in mind','יש לי יעד/ים מסוימים'),('open',"I'm open to Ariella's suggestions",'אני פתוח/ה להצעות של אריאלה')] %}
+      {% set opts=[('open',"I'm open to Ariella's suggestions",'אני פתוח/ה להצעות של אריאלה'),('specific','I have a destination in mind','יש לי יעד/ים מסוימים')] %}
       {% for value,en,he in opts %}
       <label class="choice-button"><input type="radio" name="destination_mode" value="{{value}}" required><span>{{ en if site_lang=='en' else he }}</span></label>
       {% endfor %}
