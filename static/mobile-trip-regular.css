@@ -46,6 +46,68 @@
   .trip-wizard .wizard-step[data-route="standard"] .wizard-actions{margin-top:14px!important;gap:10px!important}
   .trip-wizard .wizard-step[data-route="standard"] .wizard-actions .button{min-height:44px!important;padding:0 18px!important}
 
+  /* Question 3 - mobile only: four participant cards must be identical in size. */
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] > .choice-row.compact-options{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:14px 18px!important;
+    width:100%!important;
+  }
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] > .choice-row.compact-options > .choice-button.small{
+    width:100%!important;
+    min-width:0!important;
+    height:106px!important;
+    min-height:106px!important;
+    margin:0!important;
+  }
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] > .choice-row.compact-options > .choice-button.small > span{
+    width:100%!important;
+    height:106px!important;
+    min-height:106px!important;
+    padding:8px 8px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:2px!important;
+    overflow:hidden!important;
+    text-align:center!important;
+  }
+
+  /* Remove the old grey silhouette layer from couple/family and keep only the colorful emoji. */
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"]),
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"]){
+    background-image:none!important;
+  }
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])::before,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"])::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])::before,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"])::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"]) > span::after,
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"]) > span::after{
+    content:none!important;
+    display:none!important;
+    background:none!important;
+  }
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="couple"]) > span::before{
+    content:"👫"!important;
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    font-size:30px!important;
+    line-height:1!important;
+    margin:0 0 3px!important;
+  }
+  .trip-wizard .wizard-step[data-route="standard"][data-step="3"] label:has(input[name="travel_party"][value="family"]) > span::before{
+    content:"👨‍👩‍👧‍👦"!important;
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    font-size:30px!important;
+    line-height:1!important;
+    margin:0 0 3px!important;
+  }
+
   /* Origin selection is shared by all questionnaire routes. Keep it very compact so question 1 fits above the fold. */
   .trip-wizard #originPanel{
     margin-top:6px!important;
