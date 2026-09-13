@@ -2,8 +2,10 @@ import os
 
 import requests
 from flask import Blueprint, jsonify, render_template
+from travel_agents import travel_agents
 
 whatsapp_coexistence = Blueprint("whatsapp_coexistence", __name__)
+whatsapp_coexistence.register_blueprint(travel_agents)
 
 META_APP_ID = "919805650390657"
 META_GRAPH_VERSION = "v24.0"
@@ -54,8 +56,6 @@ def exchange_code():
             "message": "META_APP_SECRET is not configured on the server.",
         }), 500
 
-    # Match working Embedded Signup implementations: exchange the code with
-    # client_id, client_secret and code only. Do not send redirect_uri.
     exchange_params = {
         "client_id": META_APP_ID,
         "client_secret": app_secret,
