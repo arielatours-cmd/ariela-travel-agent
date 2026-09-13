@@ -9,38 +9,36 @@ travel_agents = Blueprint("travel_agents", __name__)
 
 _DATA_FILE = Path(__file__).resolve().parent / "data" / "attractions.json"
 
-ARIELLA_SYSTEM = """את אריאלה, סוכנת הנסיעות הראשית של ARIELA AI TRAVEL.
+ARIELLA_SYSTEM = """את אריאלה, סוכנת הנסיעות הראשית והיחידה שמדברת עם הלקוח של ARIELA AI TRAVEL.
 את מנהלת שיחה טבעית וחופשית בעברית (או בשפת הלקוח), כמו סוכנת נסיעות אנושית מצוינת.
-המטרה שלך היא להבין מה הלקוח באמת מחפש, בלי להקריא שאלון ובלי לשאול שוב מידע שכבר נאמר.
-שאלי בכל פעם רק את השאלה החשובה הבאה. אפשר להתייחס גם להעדפות רכות: טבע, ערים, חופים, שופינג, ילדים, תינוקות, נגישות, קצב, חיי לילה, קזינו, אקסטרים, אוכל, רכב ומרחקי נסיעה.
-לעולם אל תמציאי מחיר טיסה, זמינות או דיל. טיסות אמיתיות הן באחריות טינקרבל ומנוע הסריקות.
-החזירי JSON בלבד עם המפתחות reply, profile, ready_for_flights, ready_for_travel.
+המטרה שלך היא קודם כל להבין מה הלקוח מחפש. אל תקפצי להצעות, אטרקציות או מסלול לפני שאספת את הפרטים הדרושים.
+הובילי את השיחה בשאלות מנחות, שאלה אחת בכל פעם, בלי להקריא שאלון ובלי לשאול שוב מידע שכבר נאמר.
+סדר טבעי לדוגמה: מה מחפשים/יעד, מתי, מי נוסע, תקציב, העדפות טיסה וכבודה, ואופי החופשה/העדפות מיוחדות. אל תשאלי שדה שכבר ברור מהשיחה.
+אם הלקוח עדיין רק אמר יעד או סגנון, המשיכי לשאלה הבאה במקום להציע אטרקציות.
+רק אם הלקוח ביקש במפורש המלצות ובידייך מספיק מידע, מותר להתחיל להציע אפשרויות.
+טינקרבל ו-Travel הם סוכנים פנימיים בלבד. לעולם אל תזכירי ללקוח שמות של סוכנים פנימיים, DB, מנוע פנימי, handoff או תהליך פנימי. כל מידע מהם חייב לעבור דרכך ולהישמע כאילו אריאלה עצמה עונה.
+לעולם אל תמציאי מחיר טיסה, זמינות או דיל.
+החזירי JSON בלבד עם המפתחות reply, profile, ready_for_flights, ready_for_travel, intake_complete.
 profile הוא אובייקט מצטבר. אל תמחקי מידע קודם אלא אם הלקוח תיקן אותו.
 שדות אפשריים: destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, nature, urban, shopping, nightlife, casino, accessibility, baby_friendly, pace, max_drive_minutes, notes.
-ready_for_flights=true רק כשיש מספיק מידע מעשי להעביר לטינקרבל לחיפוש טיסה: יעד/כיוון יעד, תקופה, נוסעים. ready_for_travel=true כשיש יעד והעדפות שמאפשרים התאמת אטרקציות.
+ready_for_flights=true רק כשיש מספיק מידע מעשי לחיפוש טיסה: יעד/כיוון יעד, תקופה ונוסעים.
+ready_for_travel=true רק כשיש יעד והעדפות שמאפשרים התאמת אטרקציות.
+intake_complete=true רק כשהמידע הבסיסי לחופשה מספיק כדי לעבור משלב התשאול לשלב ההצעות.
+"""
+
+TINKERBELL_SYSTEM = """את טינקרבל, סוכנת פנימית של ARIELA AI TRAVEL. אינך מדברת עם הלקוח.
+התפקיד שלך הוא לפרש ניסוחים חופשיים, שגיאות כתיב וביטויים עמומים של הלקוח ולהמיר רק מידע שנאמר בפועל לשדות מובנים עבור אריאלה.
+אל תנחשי פרטים שלא נאמרו. אל תציעי אטרקציות, דילים או יעדים. אם משהו לא ברור, כתבי אותו ב-unclear כדי שאריאלה תוכל לשאול שאלה מנחה.
+החזירי JSON בלבד: profile_patch כאובייקט, interpretation כמחרוזת קצרה לשימוש פנימי, unclear כמערך מחרוזות.
 """
 
 
-def _call_ariella(message, history, profile):
-    key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not key:
-        raise RuntimeError("OPENAI_API_KEY is not configured")
-    model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna").strip()
-    conversation = [
-        {
-            "role": "developer",
-            "content": ARIELLA_SYSTEM + "\nפרופיל שכבר נאסף:\n" + json.dumps(profile or {}, ensure_ascii=False),
-        }
-    ]
-    for item in (history or [])[-12:]:
-        role = "assistant" if item.get("role") == "assistant" else "user"
-        conversation.append({"role": role, "content": str(item.get("content") or "")[:2500]})
-    conversation.append({"role": "user", "content": message})
+def _openai_json(key, model, developer_text, conversation, max_output_tokens=1200):
     payload = {
         "model": model,
-        "input": conversation,
+        "input": [{"role": "developer", "content": developer_text}] + conversation,
         "text": {"format": {"type": "json_object"}},
-        "max_output_tokens": 1200,
+        "max_output_tokens": max_output_tokens,
     }
     response = requests.post(
         "https://api.openai.com/v1/responses",
@@ -50,7 +48,7 @@ def _call_ariella(message, history, profile):
     )
     if response.status_code >= 400:
         detail = response.text[:1200]
-        raise RuntimeError(f"Ariella API error {response.status_code}: {detail}")
+        raise RuntimeError(f"OpenAI API error {response.status_code}: {detail}")
     body = response.json()
     text = body.get("output_text")
     if not text:
@@ -60,7 +58,44 @@ def _call_ariella(message, history, profile):
                 if part.get("type") == "output_text":
                     chunks.append(part.get("text") or "")
         text = "".join(chunks)
-    result = json.loads(text or "{}")
+    return json.loads(text or "{}")
+
+
+def _conversation(history, message):
+    items = []
+    for item in (history or [])[-12:]:
+        role = "assistant" if item.get("role") == "assistant" else "user"
+        items.append({"role": role, "content": str(item.get("content") or "")[:2500]})
+    items.append({"role": "user", "content": message})
+    return items
+
+
+def _call_tinkerbell(message, history, profile):
+    key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+    model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna").strip()
+    developer = TINKERBELL_SYSTEM + "\nפרופיל קיים:\n" + json.dumps(profile or {}, ensure_ascii=False)
+    result = _openai_json(key, model, developer, _conversation(history, message), max_output_tokens=650)
+    if not isinstance(result.get("profile_patch"), dict):
+        result["profile_patch"] = {}
+    if not isinstance(result.get("unclear"), list):
+        result["unclear"] = []
+    return result
+
+
+def _call_ariella(message, history, profile, tinkerbell):
+    key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+    model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna").strip()
+    internal = {
+        "profile": profile or {},
+        "tinkerbell_interpretation": tinkerbell.get("interpretation") or "",
+        "tinkerbell_unclear": tinkerbell.get("unclear") or [],
+    }
+    developer = ARIELLA_SYSTEM + "\nמידע פנימי שאסור לחשוף ללקוח:\n" + json.dumps(internal, ensure_ascii=False)
+    result = _openai_json(key, model, developer, _conversation(history, message), max_output_tokens=1200)
     if not isinstance(result.get("profile"), dict):
         result["profile"] = dict(profile or {})
     return result
@@ -149,15 +184,24 @@ def ariella_chat():
     profile = body.get("profile") if isinstance(body.get("profile"), dict) else {}
     history = body.get("history") if isinstance(body.get("history"), list) else []
     try:
-        result = _call_ariella(message, history, profile)
+        tinkerbell = _call_tinkerbell(message, history, profile)
+        normalized = dict(profile)
+        normalized.update({k: v for k, v in tinkerbell.get("profile_patch", {}).items() if v not in (None, "", [])})
+        result = _call_ariella(message, history, normalized, tinkerbell)
     except Exception as exc:
         return jsonify({"status": "error", "message": "אריאלה לא זמינה כרגע.", "detail": str(exc)}), 503
-    merged = dict(profile)
+    merged = dict(normalized)
     merged.update({k: v for k, v in result.get("profile", {}).items() if v not in (None, "", [])})
-    travel = _travel_matches(merged) if result.get("ready_for_travel") else []
+    intake_complete = bool(result.get("intake_complete"))
+    travel = _travel_matches(merged) if intake_complete and result.get("ready_for_travel") else []
     return jsonify({
-        "status": "success", "agent": "Ariella", "reply": result.get("reply") or "ספרו לי עוד קצת על החופשה שאתם מחפשים.",
-        "profile": merged, "ready_for_flights": bool(result.get("ready_for_flights")),
-        "tinkerbell_handoff": _tinkerbell_handoff(merged), "ready_for_travel": bool(result.get("ready_for_travel")),
+        "status": "success",
+        "agent": "Ariella",
+        "reply": result.get("reply") or "ספרו לי עוד קצת על החופשה שאתם מחפשים.",
+        "profile": merged,
+        "ready_for_flights": bool(result.get("ready_for_flights")),
+        "ready_for_travel": bool(result.get("ready_for_travel")),
+        "intake_complete": intake_complete,
+        "tinkerbell_handoff": _tinkerbell_handoff(merged),
         "travel_agent": {"agent": "Travel", "attractions": travel},
     })
