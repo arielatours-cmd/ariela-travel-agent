@@ -29,7 +29,7 @@
     input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();e.stopImmediatePropagation();submit()}},true);
     const first=messages.querySelector('.ac-row.bot .ac-bubble');
     if(first)first.textContent='היי, אני אריאלה, סוכנת הנסיעות הראשית שלך. ספרו לי חופשי איזו חופשה אתם מחפשים — גם אם עדיין אין לכם יעד. אני אשאל רק מה שחסר, וברקע אעביר לטינקרבל את פרטי הטיסה ול-Travel את ההעדפות למסלול ולאטרקציות.';
-    input.placeholder='למשל: אנחנו משפחה עם 3 ילדים ורוצים טבע באוקטובר...';
+    input.placeholder='';
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
