@@ -21,7 +21,9 @@
     chat.querySelectorAll('.ac-avatar,.ac-mini-avatar').forEach(x=>x.textContent='A');
     const note=chat.querySelector('.ac-note');if(note)note.style.display='none';
 
-    const STORAGE_KEY='ariellaChatState:v1';
+    const OLD_STORAGE_KEY='ariellaChatState:v1';
+    const STORAGE_KEY='ariellaChatState:v2';
+    try{localStorage.removeItem(OLD_STORAGE_KEY);}catch(e){}
     let profile={},history=[],busy=false;
     try{
       const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
