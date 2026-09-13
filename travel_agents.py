@@ -25,15 +25,19 @@ def _call_ariella(message, history, profile):
     key = os.getenv("OPENAI_API_KEY", "").strip()
     if not key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
-    model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna")
-    conversation = []
+    model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna").strip()
+    conversation = [
+        {
+            "role": "developer",
+            "content": ARIELLA_SYSTEM + "\nפרופיל שכבר נאסף:\n" + json.dumps(profile or {}, ensure_ascii=False),
+        }
+    ]
     for item in (history or [])[-12:]:
         role = "assistant" if item.get("role") == "assistant" else "user"
         conversation.append({"role": role, "content": str(item.get("content") or "")[:2500]})
     conversation.append({"role": "user", "content": message})
     payload = {
         "model": model,
-        "instructions": ARIELLA_SYSTEM + "\nפרופיל שכבר נאסף:\n" + json.dumps(profile or {}, ensure_ascii=False),
         "input": conversation,
         "text": {"format": {"type": "json_object"}},
         "max_output_tokens": 1200,
@@ -45,7 +49,8 @@ def _call_ariella(message, history, profile):
         timeout=35,
     )
     if response.status_code >= 400:
-        raise RuntimeError(f"Ariella API error {response.status_code}")
+        detail = response.text[:1200]
+        raise RuntimeError(f"Ariella API error {response.status_code}: {detail}")
     body = response.json()
     text = body.get("output_text")
     if not text:
