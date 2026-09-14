@@ -13,31 +13,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply 9.7.136 core patch
-        run: python tools/apply_v136.py
       - name: Install dependencies
         run: pip install -r requirements.txt pytest
       - name: Compile source
         run: python -m compileall -q .
+      - name: JavaScript syntax
+        run: node --check static/ariella-chat-confirmation-20260911.js
       - name: Import production app and materialize runtime QA patches
         env:
           SCHEDULER_ENABLED: 'false'
           DB_PATH: /tmp/ariella-v136-import.db
           SERPAPI_API_KEY: dummy-not-used-during-import
         run: python -c "import app; print('APP_IMPORT_OK')"
-      - name: Verify 9.7.136 markers
+      - name: Verify current core markers
         run: |
-          grep -q '9.7.136' config.py
           grep -q 'MONTHLY_SCAN_REUSE_HOURS' config.py
           grep -q 'monthly_scan_coverage' scanner.py
           grep -q 'db_only_open' scanner.py
           grep -q '_SERPAPI_HTTP_REQUESTS += 1' scanner.py
-          grep -q 'max_outbounds=1' scanner.py
           grep -q 'def _queue_customer_scan' public_site.py
-          grep -q 'external_search_queued' public_site.py
-          grep -q 'alternative_search_queued' public_site.py
           grep -q 'open_db_only' public_site.py
-          grep -q "for scan in scans" admin.py
+          grep -q '/api/ariella/confirm-search' travel_agents.py
+          grep -q 'ariella_travel_companions' travel_agents.py
+          grep -q 'customer_gender' travel_agents.py
+          grep -q 'ariellaRegistrationGender' templates/join.html
       - name: Tests if present
         env:
           SCHEDULER_ENABLED: 'false'
