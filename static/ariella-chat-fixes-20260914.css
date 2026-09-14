@@ -1,0 +1,9 @@
+body.ariella-chat-preview-active #vacationTypeGate,body.ariella-chat-preview-active .vacation-type-gate{display:none!important}
+#ariellaDesktopChat .ariella-new-chat{display:none!important}
+@media(max-width:899px){
+ #ariellaDesktopChat .ac-head{min-height:64px!important;padding:8px 12px!important;gap:9px!important;flex-wrap:nowrap!important}
+ #ariellaDesktopChat .ac-avatar{width:44px!important;height:44px!important;flex:0 0 44px!important}
+ #ariellaDesktopChat .ac-head-copy{min-width:0!important;flex:1!important}
+ #ariellaDesktopChat .ac-head-copy strong{font-size:14px!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+ #ariellaDesktopChat .ac-online{display:none!important}
+}
