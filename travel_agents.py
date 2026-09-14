@@ -1,10 +1,13 @@
 import json
 import os
+import re
 from datetime import date
 from pathlib import Path
 
 import requests
 from flask import Blueprint, jsonify, request
+
+from lodging_providers import lodging_inventory_status
 
 travel_agents = Blueprint("travel_agents", __name__)
 
@@ -195,7 +198,7 @@ def _lodging_question(p):
     if p.get("location_priority") in (None, "", []):
         return "מה הכי חשוב במיקום — מרכז, שקט, חוף, תחבורה, אטרקציות או חניה?"
     if p.get("lodging_amenities") in (None, "", []):
-        return "מה חשוב שיהיה במקום — למשל מטבח, בריכה, חניה, מעלית, מכונת כביסה, ארוחת בוקר או נגישות?"
+        return "מה חשוב שיהיה במקום — למשל מטבח, בריכה, חניה, מעלית, מכונת כביסה, ארוחת בוקר או נגישות? אם אין דרישה מיוחדת, כתבו שלא."
     return ""
 
 
@@ -249,6 +252,51 @@ def _next_question(p):
         if q:
             return q, "experience"
     return "", "complete"
+
+
+def _simple_number(message):
+    match = re.fullmatch(r"\s*(\d{1,3})\s*", str(message or ""))
+    if not match:
+        return None
+    value = int(match.group(1))
+    return value if value > 0 else None
+
+
+def _contextual_patch(message, profile):
+    """Deterministic fallback for short answers whose meaning comes from the current question.
+
+    This prevents the flow from stalling when the customer answers only "2" to
+    bedrooms/bathrooms/rooms/driver-age questions and the language model omits the field.
+    """
+    p = dict(profile or {})
+    services = _normalize_services(p.get("services"))
+    number = _simple_number(message)
+    text = str(message or "").strip().lower()
+    no_special = text in {"לא", "אין", "לא חשוב", "לא משנה", "בלי", "ללא", "none", "no"}
+
+    if "lodging" in services:
+        lodging_type = str(p.get("lodging_type") or "")
+        if lodging_type in {"apartment", "villa", "דירה", "וילה"}:
+            if not p.get("rooms") and number:
+                return {"rooms": number}
+            if p.get("rooms") and not p.get("bathrooms") and number:
+                return {"bathrooms": number}
+        if lodging_type in {"hotel", "resort", "מלון", "ריזורט"} and not p.get("hotel_rooms") and number:
+            return {"hotel_rooms": number}
+        if lodging_type and not _has_budget(p, "lodging_") and no_special:
+            return {"lodging_budget_mode": "unlimited"}
+        if _has_budget(p, "lodging_") and p.get("location_priority") not in (None, "", []) and p.get("lodging_amenities") in (None, "", []) and no_special:
+            return {"lodging_amenities": ["none"]}
+
+    if "car" in services:
+        if p.get("pickup_location") and p.get("dropoff_location") and not p.get("driver_age") and number:
+            return {"driver_age": number}
+        if p.get("car_type") and p.get("transmission") and not _has_budget(p, "car_") and no_special:
+            return {"car_budget_mode": "unlimited"}
+        if _has_budget(p, "car_") and p.get("car_features") in (None, "", []) and no_special:
+            return {"car_features": ["none"]}
+
+    return {}
 
 
 def _load_json(path, default):
@@ -331,8 +379,11 @@ def ariella_chat():
     profile = body.get("profile") if isinstance(body.get("profile"), dict) else {}
     history = body.get("history") if isinstance(body.get("history"), list) else []
     try:
-        tinkerbell = _call_tinkerbell(message, history, profile)
-        normalized = dict(profile)
+        deterministic = _contextual_patch(message, profile)
+        base_profile = dict(profile)
+        base_profile.update(deterministic)
+        tinkerbell = _call_tinkerbell(message, history, base_profile)
+        normalized = dict(base_profile)
         normalized.update({k: v for k, v in tinkerbell.get("profile_patch", {}).items() if v not in (None, "", [])})
         normalized["services"] = _normalize_services(normalized.get("services"))
         result = _call_ariella(message, history, normalized, tinkerbell)
@@ -346,6 +397,7 @@ def ariella_chat():
     complete = stage == "complete"
     services = merged.get("services") or []
     travel = _travel_matches(merged) if complete and ("attractions" in services or "route" in services) else []
+    lodging_status = lodging_inventory_status() if "lodging" in services else {"providers": [], "live_provider_count": 0, "live_inventory_available": False}
 
     return jsonify({
         "status": "success", "agent": "Ariella", "reply": next_question, "profile": merged,
@@ -358,5 +410,8 @@ def ariella_chat():
         "travel_agent": {"attractions": travel},
         "lodging_schema": _load_json(_LODGING_SCHEMA_FILE, {}) if "lodging" in services else {},
         "car_schema": _load_json(_CAR_SCHEMA_FILE, {}) if "car" in services else {},
-        "inventory_status": {"lodging": "provider_pending", "car": "provider_pending"},
+        "inventory_status": {
+            "lodging": lodging_status,
+            "car": "provider_pending",
+        },
     })
