@@ -14,7 +14,6 @@ function flightComplete(){return ['destination','dates','travelers','budget','fl
 function resetVacation(){try{['ariellaChatState:v3','ariellaChatState:v4'].forEach(k=>{localStorage.removeItem(k);sessionStorage.removeItem(k);});}catch(e){}document.querySelectorAll('#ariellaDesktopChat .ac-detail').forEach(r=>{r.classList.remove('is-filled');const s=r.querySelector('span');if(s)s.textContent=document.documentElement.lang==='en'?'Not specified yet':'עדיין לא צוין';});}
 function hideLegacyGate(){document.querySelectorAll('#vacationTypeGate,.vacation-type-gate,.vacation-type-grid').forEach(x=>x.style.setProperty('display','none','important'));}
 function ensureDirectChatShell(){
-  const params=new URLSearchParams(location.search);if(params.get('ariella_chat')!=='1')return null;
   const wizard=document.getElementById('tripWizard');if(!wizard)return null;
   let chat=document.getElementById('ariellaDesktopChat');if(chat)return chat;
   const isEn=document.documentElement.lang==='en';
@@ -24,7 +23,7 @@ function ensureDirectChatShell(){
   chat=document.createElement('section');chat.id='ariellaDesktopChat';chat.innerHTML=`<div class="ac-shell"><div class="ac-chat"><div class="ac-head"><div class="ac-avatar">A</div><div class="ac-head-copy"><strong>${isEn?'Ariella — your personal travel agent':'אריאלה — סוכנת הנסיעות האישית שלך'}</strong></div><div class="ac-online">${isEn?'Available':'זמינה עכשיו'}</div></div><div class="ac-messages" id="ariellaChatMessages"></div><div class="ac-compose"><textarea id="ariellaChatInput" rows="1"></textarea><button type="button" class="ac-send" id="ariellaChatSend">${isEn?'Send':'שליחה'}</button></div></div><aside class="ac-summary"><div class="ac-summary-head"><strong>${isEn?'My vacation':'החופשה שלי'}</strong><small>${isEn?'The details Ariella understands from the conversation will appear here.':'הפרטים שאריאלה תבין מהשיחה יתעדכנו כאן.'}</small></div>${defs.map(d=>`<div class="ac-detail" data-summary-key="${d[0]}"><div>${d[1]}</div><div><b>${d[2]}</b><span>${isEn?'Not specified yet':'עדיין לא צוין'}</span></div></div>`).join('')}</aside></div>`;
   wizard.parentNode.insertBefore(chat,wizard);document.body.classList.add('ariella-chat-preview-active');hideLegacyGate();
   const existing=[...document.scripts].find(s=>/ariella-chat-confirmation-20260911\.js/.test(s.src));
-  if(existing){const reload=document.createElement('script');reload.src=existing.src.split('?')[0]+'?v=20260914-direct2';document.body.appendChild(reload);}
+  if(existing){const reload=document.createElement('script');reload.src=existing.src.split('?')[0]+'?v=20260914-direct4';document.body.appendChild(reload);}
   return chat;
 }
 function tidy(){hideLegacyGate();const c=document.getElementById('ariellaDesktopChat');if(!c)return;c.querySelectorAll('.ariella-new-chat').forEach(x=>x.remove());c.querySelectorAll('.ac-flow-card').forEach(x=>{if(!flightComplete())x.remove();});}
