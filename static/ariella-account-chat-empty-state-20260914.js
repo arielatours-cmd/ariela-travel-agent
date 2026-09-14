@@ -60,6 +60,12 @@
     btn.style.margin='0 auto';
     btn.style.padding='12px 24px';
     btn.style.lineHeight='1.2';
+    btn.style.background='#17283f';
+    btn.style.color='#ffffff';
+    btn.style.border='1px solid #17283f';
+    btn.style.borderRadius='8px';
+    btn.style.textDecoration='none';
+    btn.style.fontWeight='700';
     return btn;
   }
 
