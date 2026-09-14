@@ -1,10 +1,22 @@
 (function(){
+  function toChatHref(href){
+    try{
+      const u=new URL(href,location.origin);
+      u.searchParams.set('ariella_chat','1');
+      return u.pathname+u.search+u.hash;
+    }catch(e){return href;}
+  }
+
   function boot(){
     if(document.documentElement.lang==='en') return;
 
     const first=[...document.querySelectorAll('a')].find(a=>(a.textContent||'').includes('תכנון החופשה הראשונה'));
+    const next=[...document.querySelectorAll('a')].find(a=>(a.textContent||'').includes('תכנון החופשה הבאה'));
     const intro=document.querySelector('.account-intro');
     const empty=document.querySelector('.account-empty-section .empty-state');
+
+    [first,next].filter(Boolean).forEach(a=>{a.href=toChatHref(a.href);});
+
     if(!first || !empty) return;
 
     if(intro){
