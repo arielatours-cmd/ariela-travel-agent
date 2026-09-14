@@ -1,0 +1,6 @@
+/* Ariella conversational planner: the legacy vacation-type cards are not part of the chat flow. */
+body.ariella-chat-preview-active #vacationTypeGate,
+body.ariella-chat-preview-active .vacation-type-gate,
+body.ariella-chat-preview-active .vacation-type-grid {
+  display: none !important;
+}
