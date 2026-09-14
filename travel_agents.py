@@ -8,29 +8,38 @@ from flask import Blueprint, jsonify, request
 
 travel_agents = Blueprint("travel_agents", __name__)
 
-_DATA_FILE = Path(__file__).resolve().parent / "data" / "attractions.json"
+_DATA_DIR = Path(__file__).resolve().parent / "data"
+_ATTRACTION_FILES = [_DATA_DIR / "attractions.json", _DATA_DIR / "attractions_global30.json"]
+_LODGING_SCHEMA_FILE = _DATA_DIR / "lodging_preferences.json"
+_CAR_SCHEMA_FILE = _DATA_DIR / "car_preferences.json"
+
+SERVICE_LABELS = {
+    "flight": "טיסות",
+    "lodging": "לינה",
+    "attractions": "אטרקציות",
+    "route": "בניית מסלול",
+    "car": "השכרת רכב",
+}
 
 ARIELLA_SYSTEM = """את אריאלה, סוכנת הנסיעות הראשית והיחידה שמדברת עם הלקוח של ARIELA AI TRAVEL.
 את מנהלת שיחה טבעית וקצרה בעברית (או בשפת הלקוח).
-תפקידך לשמור בשקט את הנתונים במבנה החיפוש. אסור לחזור על מידע שהלקוח כבר מסר, אסור לסכם אותו ואסור לכתוב מה את יכולה לעשות או מה תעשי בעתיד.
-אסור לכתוב ניסוחים כמו: "אבדוק", "אני מתחילה לבדוק", "אפשר לבדוק", "אני יכולה לעזור", "אחפש", "מעולה, מתחילה" וכדומה.
-אם חסר מידע לחיפוש טיסה, שאלי רק את השאלה החסרה הבאה. אם המידע מלא, אל תכריזי שהחיפוש התחיל ואל תמציאי תוצאות.
-החזירי JSON בלבד עם המפתחות reply, profile, ready_for_travel.
-profile הוא אובייקט מצטבר. אל תמחקי מידע קודם אלא אם הלקוח תיקן אותו.
-שדות אפשריים: destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, nature, urban, shopping, nightlife, casino, accessibility, baby_friendly, pace, max_drive_minutes, notes.
+שמרי בשקט את הנתונים במבנה החיפוש. אל תחזרי על מידע שהלקוח כבר מסר ואל תסכמי אותו.
+אל תכתבי מה את יכולה לעשות, מה תעשי בעתיד, או ניסוחים כגון 'אבדוק', 'אחפש', 'מתחילה לבדוק'.
+הלקוח יכול לבחור שירות אחד או יותר: טיסות, לינה, אטרקציות, בניית מסלול והשכרת רכב.
+החזירי JSON בלבד עם המפתחות reply ו-profile. profile מצטבר ואסור למחוק מידע קודם אלא אם הלקוח תיקן אותו.
+שדות עיקריים: services, destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, nature, urban, shopping, nightlife, accessibility, pace, max_drive_minutes, lodging_type, rooms, bathrooms, hotel_rooms, beds, lodging_budget_mode, lodging_budget_amount, location_priority, lodging_amenities, meal_plan, star_rating, cancellation, car_needed, pickup_location, dropoff_location, pickup_datetime, dropoff_datetime, driver_age, car_type, passenger_capacity, large_bags, transmission, car_budget_mode, car_budget_amount, car_features, fuel_policy, one_way, notes.
 """
 
-TINKERBELL_SYSTEM = """את טינקרבל, סוכנת פנימית של ARIELA AI TRAVEL. אינך מדברת עם הלקוח.
-התפקיד שלך הוא לפרש ניסוחים חופשיים, שגיאות כתיב וביטויים עמומים ולהמיר רק מידע שנאמר בפועל לשדות מובנים עבור אריאלה.
-שמרי כל פרט שאפשר למפות ל-profile כדי שאריאלה לא תצטרך לשאול עליו שוב.
-אם הלקוח אומר שאין תקציב/אין הגבלת תקציב/לא מוגבל בתקציב/המחיר לא משנה, מפִי ל-budget_mode=unlimited.
-כאשר נמסרים יום וחודש ללא שנה, השתמשי בתאריך הנוכחי: אם החודש כבר עבר השנה, השנה היא הבאה; אם הוא עדיין לפנינו, השנה היא הנוכחית. צרי departure_date/return_date מלאים ואל תבקשי שנה כשאפשר להסיק אותה.
-אל תנחשי פרטים שלא נאמרו. אם משהו לא ברור, כתבי אותו ב-unclear.
-החזירי JSON בלבד: profile_patch כאובייקט, interpretation כמחרוזת קצרה לשימוש פנימי, unclear כמערך מחרוזות.
+TINKERBELL_SYSTEM = """את טינקרבל, סוכנת פנימית. אינך מדברת עם הלקוח.
+פרשי ניסוח חופשי ושגיאות כתיב ומפי רק מידע שנאמר בפועל לשדות profile.
+שירותים: טיסה/טיסות=>flight; מלון/דירה/וילה/לינה=>lodging; אטרקציות=>attractions; מסלול/תכנון טיול=>route; רכב/השכרת רכב=>car.
+'אין תקציב'/'בלי הגבלת תקציב'/'לא משנה המחיר' => budget_mode=unlimited; ובהקשר לינה או רכב השתמשי בשדה התקציב המתאים.
+כאשר נמסרים יום וחודש ללא שנה, הסיקי את השנה העתידית הקרובה לפי current_date וצרי תאריכים מלאים.
+אל תנחשי מידע שלא נאמר. החזירי JSON בלבד: profile_patch, interpretation, unclear.
 """
 
 
-def _openai_json(key, model, developer_text, conversation, max_output_tokens=1200):
+def _openai_json(key, model, developer_text, conversation, max_output_tokens=1000):
     payload = {
         "model": model,
         "input": [{"role": "developer", "content": developer_text}] + conversation,
@@ -71,10 +80,14 @@ def _call_tinkerbell(message, history, profile):
     if not key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
     model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna").strip()
-    p = dict(profile or {})
-    p["current_date"] = date.today().isoformat()
-    developer = TINKERBELL_SYSTEM + "\nפרופיל קיים:\n" + json.dumps(p, ensure_ascii=False)
-    result = _openai_json(key, model, developer, _conversation(history, message), max_output_tokens=650)
+    context = dict(profile or {})
+    context["current_date"] = date.today().isoformat()
+    result = _openai_json(
+        key, model,
+        TINKERBELL_SYSTEM + "\nפרופיל קיים:\n" + json.dumps(context, ensure_ascii=False),
+        _conversation(history, message),
+        max_output_tokens=700,
+    )
     if not isinstance(result.get("profile_patch"), dict):
         result["profile_patch"] = {}
     if not isinstance(result.get("unclear"), list):
@@ -90,64 +103,178 @@ def _call_ariella(message, history, profile, tinkerbell):
     internal = {
         "profile": profile or {},
         "current_date": date.today().isoformat(),
-        "tinkerbell_interpretation": tinkerbell.get("interpretation") or "",
-        "tinkerbell_unclear": tinkerbell.get("unclear") or [],
+        "interpretation": tinkerbell.get("interpretation") or "",
+        "unclear": tinkerbell.get("unclear") or [],
     }
-    developer = ARIELLA_SYSTEM + "\nמידע פנימי שאסור לחשוף ללקוח:\n" + json.dumps(internal, ensure_ascii=False)
-    result = _openai_json(key, model, developer, _conversation(history, message), max_output_tokens=900)
+    result = _openai_json(
+        key, model,
+        ARIELLA_SYSTEM + "\nמידע פנימי:\n" + json.dumps(internal, ensure_ascii=False),
+        _conversation(history, message),
+        max_output_tokens=800,
+    )
     if not isinstance(result.get("profile"), dict):
         result["profile"] = dict(profile or {})
     return result
 
 
-def _has_destination(profile):
-    return bool(profile.get("destinations")) or profile.get("destination_mode") in {"open", "ariella", "flexible"}
+def _normalize_services(value):
+    if isinstance(value, str):
+        value = [value]
+    out = []
+    for raw in value or []:
+        token = str(raw or "").strip().lower()
+        aliases = {
+            "flights": "flight", "טיסה": "flight", "טיסות": "flight",
+            "hotel": "lodging", "hotels": "lodging", "לינה": "lodging", "מלון": "lodging", "דירה": "lodging",
+            "attraction": "attractions", "אטרקציה": "attractions", "אטרקציות": "attractions",
+            "itinerary": "route", "מסלול": "route", "תכנון מסלול": "route",
+            "rental_car": "car", "רכב": "car", "השכרת רכב": "car",
+        }
+        token = aliases.get(token, token)
+        if token in SERVICE_LABELS and token not in out:
+            out.append(token)
+    return out
 
 
-def _has_dates(profile):
-    return bool(
-        (profile.get("departure_date") and profile.get("return_date"))
-        or profile.get("outbound_month")
-    )
+def _has_destination(p):
+    return bool(p.get("destinations")) or p.get("destination_mode") in {"open", "ariella", "flexible"}
 
 
-def _has_travelers(profile):
-    adults = profile.get("adults")
-    return adults is not None and str(adults) != "" and int(adults or 0) > 0
+def _has_dates(p):
+    return bool((p.get("departure_date") and p.get("return_date")) or p.get("outbound_month"))
 
 
-def _has_budget(profile):
-    return bool(profile.get("budget_mode") or profile.get("budget_amount") not in (None, ""))
+def _has_travelers(p):
+    try:
+        return int(p.get("adults") or 0) > 0
+    except (TypeError, ValueError):
+        return False
 
 
-def _missing_flight_question(profile):
-    if not _has_destination(profile):
-        return "לאן תרצו לטוס? אם אין יעד מסוים, אפשר לכתוב שאתם פתוחים להצעות."
-    if not _has_dates(profile):
-        return "מתי תרצו לטוס? אפשר לכתוב תאריכים מדויקים או חודש מועדף."
-    if not _has_travelers(profile):
+def _has_budget(p, prefix=""):
+    mode = p.get(f"{prefix}budget_mode")
+    amount = p.get(f"{prefix}budget_amount")
+    return bool(mode or amount not in (None, ""))
+
+
+def _shared_question(p):
+    if not _has_destination(p):
+        return "לאן תרצו לנסוע? אם אין יעד מסוים, אפשר לבחור פתוחים להצעות."
+    if not _has_dates(p):
+        return "מתי תרצו לנסוע? אפשר תאריכים מדויקים או חודש מועדף."
+    if not _has_travelers(p):
         return "כמה נוסעים יהיו, וכמה מהם ילדים או תינוקות?"
-    if not _has_budget(profile):
-        return "מה התקציב המשוער לחופשה? אם אין מגבלת תקציב, אפשר לכתוב שאין הגבלה."
-    if not profile.get("departure_airports"):
+    return ""
+
+
+def _flight_question(p):
+    if not _has_budget(p):
+        return "יש מגבלת תקציב לאדם?"
+    if not p.get("departure_airports"):
         return "מאיזה שדה תעופה תרצו לצאת?"
-    if not profile.get("flight_preference"):
+    if not p.get("flight_preference"):
         return "חשוב לכם לטוס ישיר, או שגם קונקשן מתאים?"
-    if not profile.get("baggage"):
+    if not p.get("baggage"):
         return "איזו כבודה תרצו לכלול — תיק יד, טרולי או מזוודה?"
     return ""
 
 
-def _truthy(value):
-    return str(value or "").strip().lower() in {"כן", "yes", "true", "1", "חלקית"}
+def _lodging_question(p):
+    lodging_type = str(p.get("lodging_type") or "")
+    if not lodging_type:
+        return "איזה סוג לינה אתם מעדיפים — מלון, דירה, וילה, ריזורט או שלא משנה?"
+    if lodging_type in {"apartment", "villa", "דירה", "וילה"}:
+        if not p.get("rooms"):
+            return "כמה חדרי שינה אתם צריכים?"
+        if not p.get("bathrooms"):
+            return "כמה חדרי רחצה חשוב שיהיו?"
+    if lodging_type in {"hotel", "resort", "מלון", "ריזורט"} and not p.get("hotel_rooms"):
+        return "כמה חדרי מלון אתם צריכים?"
+    if not _has_budget(p, "lodging_"):
+        return "יש מגבלת תקציב ללינה — ללילה או לכל השהות?"
+    if p.get("location_priority") in (None, "", []):
+        return "מה הכי חשוב במיקום — מרכז, שקט, חוף, תחבורה, אטרקציות או חניה?"
+    if p.get("lodging_amenities") in (None, "", []):
+        return "מה חשוב שיהיה במקום — למשל מטבח, בריכה, חניה, מעלית, מכונת כביסה, ארוחת בוקר או נגישות?"
+    return ""
+
+
+def _car_question(p):
+    if not p.get("pickup_location"):
+        return "איפה תרצו לאסוף את הרכב?"
+    if not p.get("dropoff_location"):
+        return "איפה תרצו להחזיר את הרכב?"
+    if not p.get("driver_age"):
+        return "מה גיל הנהג הראשי?"
+    if not p.get("car_type"):
+        return "איזה רכב מתאים לכם — קטן, משפחתי, SUV, 7 מקומות או שלא משנה?"
+    if not p.get("transmission"):
+        return "חשוב לכם רכב אוטומטי, או שלא משנה?"
+    if not _has_budget(p, "car_"):
+        return "יש מגבלת תקציב לרכב — ליום או לכל התקופה?"
+    if p.get("car_features") in (None, "", []):
+        return "יש משהו שחייב להיות ברכב — למשל מושב תינוק, בוסטר, נהג נוסף, ביטוח מלא או תא מטען גדול? אם לא, כתבו שלא."
+    return ""
+
+
+def _experience_question(p):
+    if p.get("vacation_styles") in (None, "", []):
+        return "מה תרצו לשלב בחופשה — טבע, ערים, חופים, שופינג, חיי לילה, אקסטרים או שילוב?"
+    if "route" in _normalize_services(p.get("services")) and not p.get("pace"):
+        return "איזה קצב מתאים לכם — רגוע, בינוני או עמוס?"
+    return ""
+
+
+def _next_question(p):
+    services = _normalize_services(p.get("services"))
+    if not services:
+        return "", "services"
+    shared = _shared_question(p)
+    if shared:
+        return shared, "shared"
+    if "flight" in services:
+        q = _flight_question(p)
+        if q:
+            return q, "flight"
+    if "lodging" in services:
+        q = _lodging_question(p)
+        if q:
+            return q, "lodging"
+    if "car" in services:
+        q = _car_question(p)
+        if q:
+            return q, "car"
+    if "attractions" in services or "route" in services:
+        q = _experience_question(p)
+        if q:
+            return q, "experience"
+    return "", "complete"
+
+
+def _load_json(path, default):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return default
 
 
 def _load_attractions():
-    try:
-        data = json.loads(_DATA_FILE.read_text(encoding="utf-8"))
-        return data.get("attractions", data if isinstance(data, list) else [])
-    except Exception:
-        return []
+    combined = []
+    seen = set()
+    for path in _ATTRACTION_FILES:
+        data = _load_json(path, {})
+        items = data.get("attractions", data if isinstance(data, list) else [])
+        for row in items:
+            key = (str(row.get("מדינה") or ""), str(row.get("עיר/בסיס") or ""), str(row.get("שם האטרקציה") or ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            combined.append(row)
+    return combined
+
+
+def _truthy(value):
+    return str(value or "").strip().lower() in {"כן", "yes", "true", "1", "חלקית"}
 
 
 def _travel_matches(profile, limit=8):
@@ -162,63 +289,36 @@ def _travel_matches(profile, limit=8):
         score = 0
         reasons = []
         checks = [
-            (profile.get("nature") or "טבע" in styles, "טבע ונופים", "טבע ונופים"),
-            (profile.get("urban") or "עירוני" in styles, "טיול עירוני", "טיול עירוני"),
+            (profile.get("nature") or "טבע" in styles, "טבע ונופים", "טבע"),
+            (profile.get("urban") or "עירוני" in styles, "טיול עירוני", "עירוני"),
             (profile.get("shopping") or "שופינג" in styles, "שופינג", "שופינג"),
-            (profile.get("nightlife") or "חיי לילה" in styles, "ברים/מועדונים/מסיבות", "חיי לילה"),
-            (profile.get("casino"), "קזינו", "קזינו"),
-            (profile.get("baby_friendly") or int(profile.get("infants") or 0) > 0, "מתאים לתינוקות", "מתאים לתינוקות"),
-            (int(profile.get("children") or 0) > 0, "מתאים לילדים", "מתאים לילדים"),
+            (int(profile.get("children") or 0) > 0, "מתאים לילדים", "ילדים"),
         ]
         for wanted, field, label in checks:
             if wanted and _truthy(row.get(field)):
                 score += 3
                 reasons.append(label)
             elif wanted and str(row.get(field) or "").strip() == "לא":
-                score -= 4
-        if profile.get("accessibility") and str(row.get("נגישות") or "") in {"כן", "חלקית"}:
-            score += 4
-            reasons.append("נגישות")
+                score -= 3
         rows.append((score, row, reasons))
     rows.sort(key=lambda x: x[0], reverse=True)
-    out = []
-    for score, row, reasons in rows[:limit]:
-        out.append({
-            "name": row.get("שם האטרקציה"),
-            "country": row.get("מדינה"),
-            "region": row.get("אזור/מחוז"),
-            "city": row.get("עיר/בסיס"),
-            "type": row.get("סוג ראשי"),
-            "score": score,
-            "reasons": reasons,
-            "duration": row.get("משך מומלץ"),
-            "difficulty": row.get("רמת קושי"),
-            "accessibility": row.get("נגישות"),
-            "price": row.get("מחיר/הערת מחיר"),
-            "official_url": row.get("אתר רשמי"),
-            "booking_url": row.get("קישור הזמנה/כרטיסים"),
-            "notes": row.get("הערות"),
-        })
-    return out
+    return [{
+        "name": row.get("שם האטרקציה"), "country": row.get("מדינה"), "region": row.get("אזור/מחוז"),
+        "city": row.get("עיר/בסיס"), "type": row.get("סוג ראשי"), "score": score, "reasons": reasons,
+        "duration": row.get("משך מומלץ"), "difficulty": row.get("רמת קושי"), "accessibility": row.get("נגישות"),
+        "price": row.get("מחיר/הערת מחיר"), "official_url": row.get("אתר רשמי"),
+        "booking_url": row.get("קישור הזמנה/כרטיסים"), "notes": row.get("הערות"),
+    } for score, row, reasons in rows[:limit]]
 
 
-def _tinkerbell_handoff(profile):
+def _flight_handoff(p):
     return {
-        "destination_mode": profile.get("destination_mode") or ("specific" if profile.get("destinations") else "open"),
-        "destinations": profile.get("destinations") or [],
-        "departure_airports": profile.get("departure_airports") or [],
-        "date_mode": profile.get("date_mode"),
-        "departure_date": profile.get("departure_date"),
-        "return_date": profile.get("return_date"),
-        "outbound_month": profile.get("outbound_month"),
-        "return_month": profile.get("return_month"),
-        "date_flex_days": profile.get("date_flex_days") or 0,
-        "adults": profile.get("adults"),
-        "children": profile.get("children") or 0,
-        "budget_mode": profile.get("budget_mode"),
-        "budget_amount": profile.get("budget_amount"),
-        "flight_preference": profile.get("flight_preference"),
-        "baggage": profile.get("baggage"),
+        "destination_mode": p.get("destination_mode") or ("specific" if p.get("destinations") else "open"),
+        "destinations": p.get("destinations") or [], "departure_airports": p.get("departure_airports") or [],
+        "date_mode": p.get("date_mode"), "departure_date": p.get("departure_date"), "return_date": p.get("return_date"),
+        "outbound_month": p.get("outbound_month"), "return_month": p.get("return_month"), "date_flex_days": p.get("date_flex_days") or 0,
+        "adults": p.get("adults"), "children": p.get("children") or 0, "budget_mode": p.get("budget_mode"),
+        "budget_amount": p.get("budget_amount"), "flight_preference": p.get("flight_preference"), "baggage": p.get("baggage"),
     }
 
 
@@ -234,28 +334,29 @@ def ariella_chat():
         tinkerbell = _call_tinkerbell(message, history, profile)
         normalized = dict(profile)
         normalized.update({k: v for k, v in tinkerbell.get("profile_patch", {}).items() if v not in (None, "", [])})
+        normalized["services"] = _normalize_services(normalized.get("services"))
         result = _call_ariella(message, history, normalized, tinkerbell)
     except Exception as exc:
         return jsonify({"status": "error", "message": "אריאלה לא זמינה כרגע.", "detail": str(exc)}), 503
 
     merged = dict(normalized)
     merged.update({k: v for k, v in result.get("profile", {}).items() if v not in (None, "", [])})
-
-    next_question = _missing_flight_question(merged)
-    intake_complete = not bool(next_question)
-    ready_for_flights = intake_complete
-    travel = _travel_matches(merged) if intake_complete and _has_destination(merged) else []
+    merged["services"] = _normalize_services(merged.get("services"))
+    next_question, stage = _next_question(merged)
+    complete = stage == "complete"
+    services = merged.get("services") or []
+    travel = _travel_matches(merged) if complete and ("attractions" in services or "route" in services) else []
 
     return jsonify({
-        "status": "success",
-        "agent": "Ariella",
-        "reply": next_question,
-        "profile": merged,
-        "ready_for_flights": ready_for_flights,
-        "flight_search_started": False,
-        "ready_for_travel": bool(travel),
-        "intake_complete": intake_complete,
-        "show_assistance": intake_complete,
-        "tinkerbell_handoff": _tinkerbell_handoff(merged),
-        "travel_agent": {"agent": "Travel", "attractions": travel},
+        "status": "success", "agent": "Ariella", "reply": next_question, "profile": merged,
+        "stage": stage, "show_service_picker": stage == "services", "services": services,
+        "ready_for_flights": complete and "flight" in services, "flight_search_started": False,
+        "ready_for_lodging": complete and "lodging" in services,
+        "ready_for_car": complete and "car" in services,
+        "ready_for_travel": bool(travel), "intake_complete": complete,
+        "show_assistance": False, "tinkerbell_handoff": _flight_handoff(merged),
+        "travel_agent": {"attractions": travel},
+        "lodging_schema": _load_json(_LODGING_SCHEMA_FILE, {}) if "lodging" in services else {},
+        "car_schema": _load_json(_CAR_SCHEMA_FILE, {}) if "car" in services else {},
+        "inventory_status": {"lodging": "provider_pending", "car": "provider_pending"},
     })
