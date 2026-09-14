@@ -1,23 +1,116 @@
 (function(){
 'use strict';
+
 const originalFetch=window.fetch.bind(window);
 const MAX_QUESTION_WAIT_MS=4000;
-const FLOW_ORDER='סדר איסוף הפרטים המחייב בחופשה רגילה: 1 יעד, 2 תאריכי נסיעה, 3 נוסעים, 4 תקציב לאדם, 5 העדפות טיסה, 6 כבודה, 7 לינה/דיור, 8 רכב, 9 אטרקציות ושירותים נוספים. שאלי בכל פעם רק את הפרט הראשון שחסר לפי הסדר הזה. בשלב נוסעים בקשי כמויות נפרדות של מבוגרים, ילדים ותינוקות. אל תדלגי קדימה. אם הלקוח שואל שאלה או מתקן אותך, עני לו תחילה ואז חזרי לפרט הראשון שחסר לפי הסדר.';
-function isAriellaChatRequest(input,init){const url=typeof input==='string'?input:(input&&input.url)||'';return /\/api\/ariella\/chat(?:\?|$)/.test(url)&&String((init&&init.method)||'GET').toUpperCase()==='POST';}
-function looksLikeCustomerQuestion(text){const t=String(text||'').trim();if(!t||t==='בחרתי את שירותי החופשה')return false;if(/[?？]/.test(t))return true;return /^(למה|מה|איך|איפה|מתי|האם|אפשר|איזה|איזו|כמה|מי|לא הבנתי|לא שאלת|רגע|אבל|ומה לגבי|מה לגבי)/.test(t)||/לא שאלת|לא ענית|לא הבנתי|מה הכוונה|אפשר לדעת|רציתי לשאול/.test(t);}
-function enrichMessage(message){const questionRule=looksLikeCustomerQuestion(message)?'הודעת הלקוח היא שאלה/הערה/תיקון: עני קודם ישירות ובטבעיות למה שכתב, ורק אחר כך המשיכי בשאלון.':'';return['הודעת הלקוח המקורית:',message,'',FLOW_ORDER,questionRule,'בכל שאלת בחירה החזירי ui_choice עם 2–5 תשובות קצרות ואנושיות. אל תציגי קודים פנימיים, true/false או ערכי enum.'].filter(Boolean).join('\n');}
-function fastQuestionFromProfile(p){p=p||{};if(!(p.destinations&&p.destinations.length))return 'לאן תרצו לנסוע?';if(!(p.departure_date&&p.return_date)&&!(p.outbound_month||p.return_month))return 'מתי תרצו לנסוע? אפשר לבחור תאריכים מדויקים.';if(!(Number(p.adults)>0||Number(p.children)>0||Number(p.infants)>0))return 'כמה נוסעים יהיו? בחרו כמה מבוגרים, ילדים ותינוקות.';if(!p.budget_amount&&p.budget_mode!=='unlimited')return 'מה התקציב שלכם לאדם?';if(!p.flight_preference)return 'איזו טיסה אתם מעדיפים — ישירה בלבד, קונקשן אחד, או שלא משנה?';if(!p.baggage)return 'איזו כבודה תרצו לכלול?';if(!Array.isArray(p.services)||!p.services.includes('lodging'))return 'האם תרצו שאחפש גם לינה?';if(!p._ariella_car_answered)return 'האם תצטרכו גם רכב?';if(!p._ariella_attractions_answered)return 'האם תרצו שאציע גם אטרקציות?';return '';}
-function syntheticResponse(question,profile){return new Response(JSON.stringify({status:'success',reply:question,profile:profile||{},ariella_fast_fallback:true}),{status:200,headers:{'Content-Type':'application/json'}});}
-window.fetch=async function(input,init){if(isAriellaChatRequest(input,init)&&init&&typeof init.body==='string'){try{const payload=JSON.parse(init.body),original=String(payload.message||'').trim(),profile=payload.profile||{};if(original){payload.message=enrichMessage(original);init=Object.assign({},init,{body:JSON.stringify(payload)});}const requestPromise=originalFetch(input,init);const fastQuestion=fastQuestionFromProfile(profile);if(fastQuestion&&!looksLikeCustomerQuestion(original)){const timeoutPromise=new Promise(resolve=>setTimeout(()=>resolve(syntheticResponse(fastQuestion,profile)),MAX_QUESTION_WAIT_MS-250));return await Promise.race([requestPromise,timeoutPromise]);}return await requestPromise;}catch(e){return originalFetch(input,init);}}return originalFetch(input,init);};
-function chatRoot(){return document.getElementById('ariellaDesktopChat');}function messagesRoot(){return chatRoot()?.querySelector('#ariellaChatMessages');}function inputEl(){return chatRoot()?.querySelector('#ariellaChatInput');}function sendEl(){return chatRoot()?.querySelector('#ariellaChatSend');}
-function isDateQuestion(q){return /מתי תרצו|מתי תרצה|מתי אתם רוצים|מתי אתם מעוניינים|תאריכי.*טיסה|תאריכי.*נסיעה|באילו תאריכים/.test(String(q||''));}
-function isPassengerQuestion(q){return /כמה נוסעים|כמה.*מבוגרים|כמה.*ילדים|כמה.*תינוק|מי נוסע|מי משתתף/.test(String(q||''));}
-function optionSet(question){const q=String(question||'').trim();if(!q)return[];if(/טיסה ישיר|קונקשן|עציר/.test(q))return['טיסה ישירה בלבד','קונקשן אחד מתאים','לא משנה לי'];if(/שדה תעופה|מאיזה שדה|מאיפה תרצו לצאת|מאיפה תרצה לצאת/.test(q))return['תל אביב (TLV)','חיפה (HFA)','לא משנה לי'];if(/תקציב/.test(q))return['אין הגבלת תקציב','עד 1,500 ₪ לאדם','עד 2,500 ₪ לאדם','עד 4,000 ₪ לאדם'];if(/כבודה|מזוודה|טרולי/.test(q))return['תיק יד בלבד','טרולי 8 ק״ג','מזוודה 23 ק״ג','לא משנה לי'];if(/לאן תרצו|לאן תרצה|יעד/.test(q))return['יש לי יעד מסוים','יש לי כמה יעדים','פתוח/ה להצעות של אריאלה'];if(/שמות.*נוסעים|שמות.*ילדים|לשמור.*שמות|רוצה.*שמות/.test(q))return['כן','לא'];if(/גמישות/.test(q))return['בלי גמישות','± יום אחד','± יומיים','± 3 ימים'];if(/מה חשוב|על מה חשוב|דגש/.test(q))return['מחיר משתלם','טיסה ישירה','כבודה','למקסם זמן בחופשה'];if(/לינה|מלון|דיור/.test(q))return['כן, חפשי גם לינה','לא צריך לינה כרגע'];if(/רכב|השכרת רכב/.test(q))return['כן, אצטרך רכב','לא צריך רכב'];if(/אטרקצי/.test(q))return['כן, הציעי אטרקציות','לא כרגע'];if(/האם|רוצה|תרצו|תרצה/.test(q)&&q.endsWith('?'))return['כן','לא'];return[];}
-function todayIso(){const d=new Date(),o=d.getTimezoneOffset();return new Date(d.getTime()-o*60000).toISOString().slice(0,10);}function formatDate(v){if(!v)return'';const[y,m,d]=v.split('-');return`${d}.${m}.${y}`;}
-function addDatePicker(anchor){const root=messagesRoot();if(!root||!anchor||root.querySelector('.ac-date-range[data-for-latest="1"]'))return;root.querySelectorAll('.ac-date-range,.ac-quick-replies,.ac-passengers').forEach(x=>x.remove());const box=document.createElement('div');box.className='ac-date-range';box.dataset.forLatest='1';box.dir='rtl';box.style.cssText='display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin:5px 42px 12px 0;max-width:92%;padding:12px 14px;border:1px solid #dccb9f;border-radius:14px;background:#fffaf2';box.innerHTML=`<label style="display:grid;gap:5px;font-weight:700">מ־<input type="date" data-date-from min="${todayIso()}" style="font:inherit;padding:8px;border:1px solid #cdbd9a;border-radius:9px;background:#fff"></label><label style="display:grid;gap:5px;font-weight:700">עד<input type="date" data-date-to min="${todayIso()}" style="font:inherit;padding:8px;border:1px solid #cdbd9a;border-radius:9px;background:#fff"></label><button type="button" data-date-send style="border:0;background:#0b8f9c;color:#fff;border-radius:10px;padding:10px 16px;font:inherit;font-weight:800;cursor:pointer">המשך</button><div data-date-error hidden style="width:100%;color:#9b3b31;font-size:13px">יש לבחור תאריך יציאה ותאריך חזרה.</div>`;const from=box.querySelector('[data-date-from]'),to=box.querySelector('[data-date-to]'),go=box.querySelector('[data-date-send]'),err=box.querySelector('[data-date-error]');from.addEventListener('change',()=>{to.min=from.value||todayIso();if(to.value&&to.value<from.value)to.value='';if(from.value){to.value=from.value;try{to.showPicker();}catch(e){to.focus();to.click();}}});go.addEventListener('click',()=>{if(!from.value||!to.value||to.value<from.value){err.hidden=false;return;}const input=inputEl(),send=sendEl();if(!input||!send)return;input.value=`מ־${formatDate(from.value)} עד ${formatDate(to.value)}`;box.remove();send.click();});anchor.insertAdjacentElement('afterend',box);}
-function addPassengerPicker(anchor){const root=messagesRoot();if(!root||!anchor||root.querySelector('.ac-passengers[data-for-latest="1"]'))return;root.querySelectorAll('.ac-passengers,.ac-quick-replies,.ac-date-range').forEach(x=>x.remove());const box=document.createElement('div');box.className='ac-passengers';box.dataset.forLatest='1';box.dir='rtl';box.style.cssText='display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin:5px 42px 12px 0;max-width:92%;padding:12px 14px;border:1px solid #dccb9f;border-radius:14px;background:#fffaf2';const options=n=>Array.from({length:n},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');box.innerHTML=`<label style="display:grid;gap:5px;font-weight:700">מבוגרים<select data-adults style="font:inherit;padding:8px 18px;border:1px solid #0b8f9c;border-radius:9px;background:#fff">${options(10)}</select></label><label style="display:grid;gap:5px;font-weight:700">ילדים<select data-children style="font:inherit;padding:8px 18px;border:1px solid #0b8f9c;border-radius:9px;background:#fff">${options(10)}</select></label><label style="display:grid;gap:5px;font-weight:700">תינוקות<select data-infants style="font:inherit;padding:8px 18px;border:1px solid #0b8f9c;border-radius:9px;background:#fff">${options(5)}</select></label><button type="button" data-passengers-send style="border:0;background:#0b8f9c;color:#fff;border-radius:10px;padding:10px 16px;font:inherit;font-weight:800;cursor:pointer">המשך</button>`;box.querySelector('[data-passengers-send]').addEventListener('click',()=>{const input=inputEl(),send=sendEl();if(!input||!send)return;const a=box.querySelector('[data-adults]').value,c=box.querySelector('[data-children]').value,i=box.querySelector('[data-infants]').value;input.value=`מבוגרים: ${a}, ילדים: ${c}, תינוקות: ${i}`;box.remove();send.click();});anchor.insertAdjacentElement('afterend',box);}
-function addQuickReplies(question,anchor){const root=messagesRoot();if(!root||!anchor||root.querySelector('.ac-quick-replies[data-for-latest="1"]'))return;const options=optionSet(question);if(options.length<2)return;root.querySelectorAll('.ac-quick-replies').forEach(x=>x.remove());const box=document.createElement('div');box.className='ac-quick-replies';box.dataset.forLatest='1';box.style.cssText='display:flex;flex-wrap:wrap;gap:8px;margin:4px 42px 12px 0;max-width:90%';options.forEach(label=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.style.cssText='border:1px solid #0b8f9c;background:#fffaf2;color:#17313a;border-radius:999px;padding:8px 12px;cursor:pointer;font:inherit';b.addEventListener('click',()=>{const input=inputEl(),send=sendEl();if(!input||!send)return;input.value=label;box.remove();send.click();});box.appendChild(b);});anchor.insertAdjacentElement('afterend',box);}
-function inspectBotRow(row){if(!row?.matches?.('.ac-row.bot'))return;setTimeout(()=>{const root=messagesRoot();if(!root)return;const latest=[...root.querySelectorAll('.ac-row.bot')].pop();if(latest!==row||root.querySelector('.ac-flow-card'))return;const text=(row.querySelector('.ac-bubble')?.textContent||'').trim();if(!text)return;if(isDateQuestion(text)){addDatePicker(row);return;}if(isPassengerQuestion(text)){addPassengerPicker(row);return;}if(/[?？]\s*$/.test(text))addQuickReplies(text,row);},40);}
-function boot(){const root=messagesRoot();if(!root||root.dataset.conversationEnhancer==='1')return;root.dataset.conversationEnhancer='1';root.querySelectorAll('.ac-row.bot').forEach(inspectBotRow);new MutationObserver(muts=>muts.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1)inspectBotRow(n);}))).observe(root,{childList:true});}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,0));else setTimeout(boot,0);
+
+const FLOW_RULES=`
+שפת השיחה של אריאלה חייבת להרגיש כמו שיחה עם סוכנת נסיעות אמיתית, לא כמו שאלון.
+אל תציגי ערכים טכניים, enum, true/false או שמות שדות פנימיים.
+אל תציגי כפתורי בחירה בתוך שלבי החופשה הרגילה. בקשי תשובה חופשית, אלא אם הממשק עצמו מחייב בחירה.
+לעולם אל תשאלי שוב מידע שהלקוח כבר מסר, גם אם הוא מסר אותו מוקדם מהצפוי.
+
+זרימת נופש רגיל:
+1. בתחילת החופשה בקשי יחד ובמשפט טבעי: יעד, מתי ומי נוסע. הנוסח המועדף הוא: "ספרו לי קצת על החופשה שאתם מתכננים — לאן תרצו לטוס, מתי ומי נוסע. ואם עדיין לא החלטתם לאן — אפשר גם לתת לי להמליץ לכם 😊".
+2. חלצי מהתשובה את כל המידע שנמסר ושאלי רק על מה שחסר מתוך יעד/מועד/נוסעים. אם הלקוח ביקש המלצה או כתב שלא משנה היעד, התייחסי לכך כבקשה מאריאלה לבחור יעד ואל תשאלי שוב לאן.
+3. פרשי זמן באופן טבעי: תאריכים מדויקים נשמרים כפי שנמסרו; חודש כללי פירושו חיפוש בכל החודש; "סופ״ש" פירושו יציאה ברביעי/חמישי וחזרה בשבת/ראשון; "שבוע" פירושו ראשון עד חמישי; תקופה כמו "סוף אוקטובר" נשמרת כטווח התקופה שנאמרה. אין לשאול שאלת גמישות אוטומטית.
+4. אחרי שיש יעד/המלצה + זמן + נוסעים, שאלי יחד ובתשובה חופשית על תקציב, כבודה וישיר/קונקשן. הנוסח המועדף: "מעולה 😊 ומה חשוב לכם מבחינת הטיסה? ספרו לי אם יש תקציב שתרצו לעמוד בו, איזו כבודה תצטרכו ואם חשוב לכם לטוס ישיר או שגם קונקשן יכול להתאים." אם חלק מהפרטים כבר נמסרו, שאלי רק על החסרים.
+5. אחר כך שאלי האם הלקוח רוצה שאריאלה תבנה גם את הטיול כולו או רק תעזור בדברים מסוימים. הנוסח המועדף: "ומה לגבי החופשה עצמה? 😊 תרצו שאעזור לכם לבנות גם את הטיול — מסלול, אטרקציות, מקומות לינה ורכב — או שאתם כבר יודעים מה אתם רוצים ורק צריכים עזרה בדברים מסוימים?"
+6. אם אריאלה בונה את הטיול: קודם שאלי מה אוהבים לעשות ומה פחות; אחר כך בונים מסלול הגיוני לפי הימים; רק לאחר מבנה המסלול מתאימים מקומות לינה; ורק לאחר מכן קובעים אם צריך רכב, לאילו ימים, והיכן נכון לקחת ולהחזיר אותו.
+7. אם הלקוח רוצה אטרקציות בלבד, שאלי: "בשמחה 😊 איזה דברים אתם אוהבים לעשות בחופשה? ספרו לי מה מעניין אתכם ומה פחות, כדי שאוכל להתאים לכם אטרקציות שבאמת תיהנו מהן." השתמשי בגילי הילדים והרכב הנוסעים שכבר נמסרו.
+8. אם הלקוח רוצה לינה, קודם בררי אם מלון או וילה/דירה. למלון תני דוגמאות כמו רמה, תקציב, מיקום, ארוחת בוקר/הכול כלול, בריכה, ספא וחדרי משפחה. לוילה/דירה תני דוגמאות כמו חדרי שינה, תקציב, מיקום, מטבח, בריכה, חצר וחדרי רחצה. הדוגמאות הן כיוון בלבד ולא שדות חובה.
+9. אם הלקוח רוצה רכב, שאלי באופן פתוח על העדפות כמו אוטומטי/ידני, רגיל/SUV וכיסאות ילדים. אל תשאלי שוב כמה נוסעים או כמה מזוודות אם המידע כבר קיים. התאמת הרכב חייבת לקחת בחשבון גם מספר נוסעים וגם כמות כבודה, ולסנן מראש רכבים קטנים מדי. אם אריאלה בנתה מסלול, נקודות וימי האיסוף/ההחזרה של הרכב נגזרים מהמסלול ולא נשאלים סתם.
+10. בסיום ההשלמות שאלי: "יש עוד משהו שחשוב לכם בחופשה שאדע לפני שאני מתחילה לחפש? 😊" ואז עוברים לחיפוש.
+11. "חופשה חדשה" ומשפטים מקבילים כמו "בואי נחפש משהו אחר" או "נתחיל מחדש" פותחים חופשה/חיפוש חדש לאותו משתמש. אין למחוק משתמש, היסטוריה או חופשות קודמות.
+`;
+
+function isAriellaChatRequest(input,init){
+  const url=typeof input==='string'?input:(input&&input.url)||'';
+  return /\/api\/ariella\/chat(?:\?|$)/.test(url)&&String((init&&init.method)||'GET').toUpperCase()==='POST';
+}
+
+function looksLikeCustomerQuestion(text){
+  const t=String(text||'').trim();
+  if(!t)return false;
+  if(/[?？]/.test(t))return true;
+  return /^(למה|מה|איך|איפה|מתי|האם|אפשר|איזה|איזו|כמה|מי|לא הבנתי|לא שאלת|רגע|אבל|ומה לגבי|מה לגבי)/.test(t)||/לא שאלת|לא ענית|לא הבנתי|מה הכוונה|אפשר לדעת|רציתי לשאול/.test(t);
+}
+
+function enrichMessage(message){
+  const questionRule=looksLikeCustomerQuestion(message)
+    ?'הודעת הלקוח היא שאלה/הערה/תיקון: עני קודם ישירות ובטבעיות למה שכתב, ורק אחר כך המשיכי מהנקודה המתאימה בלי לחזור על מידע שכבר התקבל.'
+    :'';
+  return [
+    'הודעת הלקוח המקורית:',message,'',FLOW_RULES,questionRule,
+    'העדיפי שאלה אחת טבעית שמאפשרת ללקוח למסור כמה פרטים יחד, ולא סדרה של שאלות טופס.'
+  ].filter(Boolean).join('\n');
+}
+
+function hasTime(p){
+  return !!((p.departure_date&&p.return_date)||p.outbound_month||p.return_month||p.travel_window||p.date_text||p.period_text);
+}
+function hasParty(p){
+  return Number(p.adults)>0||Number(p.children)>0||Number(p.infants)>0||!!p.travel_party||!!p.party_text;
+}
+function hasDestination(p){
+  return !!((Array.isArray(p.destinations)&&p.destinations.length)||p.destination_mode==='ariella_choice'||p.ariella_recommends||p.destination_text);
+}
+function hasBudget(p){return !!(p.budget_amount||p.budget_mode==='unlimited'||p.budget_text);}
+function hasBaggage(p){return !!(p.baggage||p.baggage_text);}
+function hasFlightPreference(p){return !!(p.flight_preference||p.connection_preference||p.stops_preference);}
+
+function fastQuestionFromProfile(p){
+  p=p||{};
+  const missingBasic=[];
+  if(!hasDestination(p))missingBasic.push('לאן תרצו לטוס');
+  if(!hasTime(p))missingBasic.push('מתי תרצו לנסוע');
+  if(!hasParty(p))missingBasic.push('מי נוסע');
+  if(missingBasic.length){
+    if(missingBasic.length===3)return 'ספרו לי קצת על החופשה שאתם מתכננים — לאן תרצו לטוס, מתי ומי נוסע. ואם עדיין לא החלטתם לאן — אפשר גם לתת לי להמליץ לכם 😊';
+    return `חסר לי רק עוד קצת כדי להתקדם 😊 ${missingBasic.join(', ')}?`;
+  }
+  const missingFlight=[];
+  if(!hasBudget(p))missingFlight.push('תקציב');
+  if(!hasBaggage(p))missingFlight.push('כבודה');
+  if(!hasFlightPreference(p))missingFlight.push('טיסה ישירה או קונקשן');
+  if(missingFlight.length){
+    if(missingFlight.length===3)return 'מעולה 😊 ומה חשוב לכם מבחינת הטיסה? ספרו לי אם יש תקציב שתרצו לעמוד בו, איזו כבודה תצטרכו ואם חשוב לכם לטוס ישיר או שגם קונקשן יכול להתאים.';
+    return `מעולה 😊 נשאר לי להבין רק ${missingFlight.join(', ')}. ספרו לי מה מתאים לכם.`;
+  }
+  if(!p.trip_planning_preference&&!p.full_trip_planning&&!p.services_decided){
+    return 'ומה לגבי החופשה עצמה? 😊 תרצו שאעזור לכם לבנות גם את הטיול — מסלול, אטרקציות, מקומות לינה ורכב — או שאתם כבר יודעים מה אתם רוצים ורק צריכים עזרה בדברים מסוימים?';
+  }
+  return '';
+}
+
+function syntheticResponse(question,profile){
+  return new Response(JSON.stringify({status:'success',reply:question,profile:profile||{},ariella_fast_fallback:true}),{status:200,headers:{'Content-Type':'application/json'}});
+}
+
+window.fetch=async function(input,init){
+  if(isAriellaChatRequest(input,init)&&init&&typeof init.body==='string'){
+    try{
+      const payload=JSON.parse(init.body);
+      const original=String(payload.message||'').trim();
+      const profile=payload.profile||{};
+      if(original){
+        payload.message=enrichMessage(original);
+        init=Object.assign({},init,{body:JSON.stringify(payload)});
+      }
+      const requestPromise=originalFetch(input,init);
+      const fastQuestion=fastQuestionFromProfile(profile);
+      if(fastQuestion&&!looksLikeCustomerQuestion(original)){
+        const timeoutPromise=new Promise(resolve=>setTimeout(()=>resolve(syntheticResponse(fastQuestion,profile)),MAX_QUESTION_WAIT_MS-250));
+        return await Promise.race([requestPromise,timeoutPromise]);
+      }
+      return await requestPromise;
+    }catch(e){
+      return originalFetch(input,init);
+    }
+  }
+  return originalFetch(input,init);
+};
+
+// Intentionally no quick-reply, date-picker or passenger-picker injection here.
+// The regular vacation flow is free-form so the same conversational language can be reused in WhatsApp.
 })();
