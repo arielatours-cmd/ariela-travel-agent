@@ -64,6 +64,9 @@
   .site-footer .contact-open{min-width:0!important;padding:9px 20px!important;font-size:15px!important;line-height:1.2!important}
 }
 </style>
+{% if request.endpoint == 'site.new_trip' %}
+<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260914-hardfix-2207"></script>
+{% endif %}
 <footer class="ariella-legal-footer">
   <div class="footer-inner">
     <nav class="footer-legal-buttons" aria-label="{{ 'Legal information' if site_lang == 'en' else 'מידע משפטי' }}">
