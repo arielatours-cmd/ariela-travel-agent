@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_VERSION = "9.7.142-scan-score-sort"
+APP_VERSION = "9.7.143-connected-trip"
 ISRAEL_TZ = "Asia/Jerusalem"
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -39,9 +39,11 @@ DESTINATIONS = [
     {"code": "SKP", "name": "סקופיה", "country_flag": "🇲🇰"}, {"code": "TGD", "name": "פודגוריצה", "country_flag": "🇲🇪"},
     {"code": "ZAG", "name": "זאגרב", "country_flag": "🇭🇷"}, {"code": "LJU", "name": "לובליאנה", "country_flag": "🇸🇮"},
     {"code": "BKK", "name": "בנגקוק", "country_flag": "🇹🇭"}, {"code": "JFK", "name": "ניו יורק", "country_flag": "🇺🇸"},
+    {"code": "TIA", "name": "טירנה", "country_flag": "🇦🇱"}, {"code": "DXB", "name": "דובאי", "country_flag": "🇦🇪"},
+    {"code": "GYD", "name": "באקו", "country_flag": "🇦🇿"}, {"code": "RMO", "name": "קישינב", "country_flag": "🇲🇩"},
 ]
 
-# The automatic/wide-search default is Ben Gurion.  Haifa remains available
+# The automatic/wide-search default is Ben Gurion. Haifa remains available
 # when a customer explicitly selects it, but is not searched implicitly.
 DEPARTURE_AIRPORTS = ["TLV"]
 DEPARTURE_OFFSETS_DAYS = [21, 35, 45, 60, 90, 120, 150, 180]
@@ -53,7 +55,7 @@ AIRPORT_NAMES = {
     "BCN": "ברצלונה", "MAD": "מדריד", "LIS": "ליסבון", "LHR": "לונדון", "BER": "ברלין", "MUC": "מינכן",
     "ZRH": "ציריך", "BRU": "בריסל", "OTP": "בוקרשט", "KRK": "קרקוב", "WAW": "ורשה", "TBS": "טביליסי",
     "EVN": "ירוואן", "BEG": "בלגרד", "SKP": "סקופיה", "TGD": "פודגוריצה", "ZAG": "זאגרב", "LJU": "לובליאנה",
-    "BKK": "בנגקוק", "JFK": "ניו יורק",
+    "BKK": "בנגקוק", "JFK": "ניו יורק", "TIA": "טירנה", "DXB": "דובאי", "GYD": "באקו", "RMO": "קישינב",
 }
 
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
