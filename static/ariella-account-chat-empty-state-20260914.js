@@ -40,11 +40,14 @@
     if(document.documentElement.lang==='en') return;
     wireDirectChatLinks();wireMobileMenu();
     const intro=document.querySelector('.account-intro'),emptySection=document.querySelector('.account-empty-section'),empty=document.querySelector('.account-empty-section .empty-state');
-    if(intro) intro.textContent='התחברו לאריאלה והיא תעזור לכם לתכנן את החופשה הבאה שלכם — החל ממציאת טיסות, דרך אטרקציות ומקומות לינה ועד להשכרת רכב. והכול במקום אחד! ✈️';
+    if(intro){
+      intro.textContent='התחברו לאריאלה והיא תעזור לכם לתכנן את החופשה הבאה שלכם — החל ממציאת טיסות, דרך אטרקציות ומקומות לינה ועד להשכרת רכב. והכול במקום אחד! ✈️';
+      Object.assign(intro.style,{border:'1px solid #b8914f',borderRadius:'12px',padding:'16px 18px',margin:'14px auto 18px',maxWidth:'620px',boxSizing:'border-box'});
+    }
     if(!empty)return;
     empty.querySelector('h3')?.remove();empty.querySelector('p')?.remove();
     [...empty.querySelectorAll('a')].forEach(a=>{if(!a.classList.contains('ariella-first-vacation-chat'))a.remove();});
-    if(emptySection){emptySection.style.paddingTop='12px';emptySection.style.marginTop='0';}
+    if(emptySection){emptySection.style.paddingTop='4px';emptySection.style.marginTop='0';}
     empty.style.paddingTop='18px';empty.style.paddingBottom='18px';buildFirstVacationButton(empty);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
