@@ -12,17 +12,20 @@
     chat.querySelectorAll('.ac-avatar,.ac-mini-avatar').forEach(x=>x.textContent='A');const note=chat.querySelector('.ac-note');if(note)note.style.display='none';
 
     const STORAGE_KEY='ariellaChatState:v4';
+    const INTERNAL_CHAT_VALUES=new Set(['true','false','family','solo','couple','friends','standard','business','ski','open','specific','none']);
+    function isInternalChatValue(value){const text=String(value??'').trim().toLowerCase();return INTERNAL_CHAT_VALUES.has(text)||/^(?:true|false|null|undefined)$/i.test(text);}
     let profile={},history=[],busy=false,lastResponse=null;
     try{
       const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||localStorage.getItem('ariellaChatState:v3')||'null');
       if(saved&&typeof saved==='object'){if(saved.profile&&typeof saved.profile==='object')profile=saved.profile;if(Array.isArray(saved.history))history=saved.history.slice(-120);}
       const regGender=localStorage.getItem('ariellaRegistrationGender');if(regGender&&!profile.customer_gender)profile.customer_gender=regGender;
     }catch(e){}
+    history=history.filter(item=>!(item?.role==='user'&&isInternalChatValue(item?.content)));
     let greetingSeen=false;history=history.filter((item,index)=>{const text=String(item?.content||'').trim();const greeting=item?.role==='assistant'&&index<4&&/^היי[ ,].*(?:אריאלה|איך אפשר לעזור|איזו חופשה|כיף לראות)/.test(text);if(!greeting)return true;if(greetingSeen)return false;greetingSeen=true;return true;});
 
     const labels={destination:'יעד',dates:'תאריכים',travelers:'נוסעים',budget:'תקציב',flight:'טיסה',baggage:'כבודה'};
     function saveState(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({profile,history:history.slice(-120),saved_at:new Date().toISOString()}));}catch(e){}}
-    function add(who,text){if(!String(text||'').trim())return;const row=document.createElement('div');row.className='ac-row '+who;if(who==='bot'){const a=document.createElement('div');a.className='ac-mini-avatar';a.textContent='A';row.appendChild(a)}const b=document.createElement('div');b.className='ac-bubble';b.textContent=text;row.appendChild(b);messages.appendChild(row);messages.scrollTop=messages.scrollHeight;}
+    function add(who,text){if(!String(text||'').trim())return;if(who==='user'&&isInternalChatValue(text))return;const row=document.createElement('div');row.className='ac-row '+who;if(who==='bot'){const a=document.createElement('div');a.className='ac-mini-avatar';a.textContent='A';row.appendChild(a)}const b=document.createElement('div');b.className='ac-bubble';b.textContent=text;row.appendChild(b);messages.appendChild(row);messages.scrollTop=messages.scrollHeight;}
     function valueText(k){const p=profile;if(k==='destination')return Array.isArray(p.destinations)?p.destinations.join(', '):(p.destinations||'');if(k==='dates')return p.departure_date&&p.return_date?`${p.departure_date} – ${p.return_date}`:(p.outbound_month||p.return_month||'');if(k==='travelers'){const a=p.adults||0,c=p.children||0,i=p.infants||0;return a||c||i?`${a} מבוגרים${c?`, ${c} ילדים`:''}${i?`, ${i} תינוקות`:''}`:''}if(k==='budget')return p.budget_mode==='unlimited'?'ללא הגבלת תקציב':(p.budget_amount?`${p.budget_amount} ₪ לאדם`:'');if(k==='flight')return p.flight_preference||'';if(k==='baggage')return p.baggage||'';return ''}
     function summary(){Object.keys(labels).forEach(k=>{const row=chat.querySelector(`[data-summary-key="${k}"]`),span=row?.querySelector('span'),v=valueText(k);if(span)span.textContent=v||'עדיין לא צוין';row?.classList.toggle('is-filled',!!v)})}
     function clearCards(){messages.querySelectorAll('.ac-flow-card').forEach(x=>x.remove())}
@@ -51,7 +54,7 @@
       clearCards();const card=document.createElement('div');card.className='ac-flow-card';card.id='ariellaChoiceCard';const multi=choice.type==='multi';
       card.innerHTML=`<strong>${choice.title||''}</strong><div class="ac-flow-options">${(choice.options||[]).map((o,i)=>`<label class="ac-flow-option"><input type="${multi?'checkbox':'radio'}" name="ariellaChoice${multi?'_'+i:''}" value="${String(o.value).replace(/"/g,'&quot;')}"> ${o.label}</label>`).join('')}</div>${choice.allow_none?'<label class="ac-flow-option" style="margin-top:8px"><input type="checkbox" data-none-choice> לא נדרש משהו מיוחד</label>':''}<button type="button" class="ac-flow-go">המשך</button><span class="ac-flow-error" hidden>בחרו לפחות אפשרות אחת.</span>`;
       messages.appendChild(card);messages.scrollTop=messages.scrollHeight;
-      card.querySelector('.ac-flow-go').onclick=async()=>{const none=card.querySelector('[data-none-choice]')?.checked;let vals=none?['none']:[...card.querySelectorAll('.ac-flow-options input:checked')].map(x=>x.value);if(!vals.length){card.querySelector('.ac-flow-error').hidden=false;return;}let value=multi?vals:vals[0];if(choice.field==='save_traveler_names')value=String(value)==='true';if(choice.field==='travel_party_type'){if(value==='solo'){profile.adults=1;profile.children=0;profile.infants=0;}else if(value==='couple'){profile.adults=2;profile.children=0;profile.infants=0;}}profile[choice.field]=value;saveState();card.remove();await sendMessage(Array.isArray(value)?value.join(', '):String(value),true);};
+      card.querySelector('.ac-flow-go').onclick=async()=>{const none=card.querySelector('[data-none-choice]')?.checked;let vals=none?['none']:[...card.querySelectorAll('.ac-flow-options input:checked')].map(x=>x.value);if(!vals.length){card.querySelector('.ac-flow-error').hidden=false;return;}let value=multi?vals:vals[0];if(choice.field==='save_traveler_names')value=String(value)==='true';if(choice.field==='travel_party_type'){if(value==='solo'){profile.adults=1;profile.children=0;profile.infants=0;}else if(value==='couple'){profile.adults=2;profile.children=0;profile.infants=0;}}profile[choice.field]=value;saveState();card.remove();await sendMessage(Array.isArray(value)?value.join(', '):String(value),false);};
     }
 
     function travelerChoiceForReply(reply){
@@ -93,7 +96,7 @@
     }
 
     async function sendMessage(raw,displayUser){
-      raw=String(raw||'').trim();if(!raw||busy)return;busy=true;send.disabled=true;if(displayUser)add('user',raw);const priorHistory=history.slice(-12);history.push({role:'user',content:raw});saveState();
+      raw=String(raw||'').trim();if(!raw||busy)return;busy=true;send.disabled=true;if(displayUser&&!isInternalChatValue(raw))add('user',raw);const priorHistory=history.slice(-12);history.push({role:'user',content:raw});saveState();
       try{
         const res=await fetch('/api/ariella/chat',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({message:raw,history:priorHistory,profile})});const data=await res.json();
         if(!res.ok||data.status!=='success'){const err=aiErrorMessage(data);add('bot',err);history.push({role:'assistant',content:err});saveState();return;}
@@ -111,7 +114,7 @@
 
     async function initializeConversation(){
       messages.innerHTML='';
-      if(history.length){history.forEach(item=>add(item.role==='assistant'?'bot':'user',String(item.content||'')));}
+      if(history.length){history.forEach(item=>{if(!(item.role==='user'&&isInternalChatValue(item.content)))add(item.role==='assistant'?'bot':'user',String(item.content||''));});}
       else{
         const firstName=await getMemberFirstName();
         const female=String(profile.customer_gender||'').toLowerCase()==='female';
