@@ -18,7 +18,7 @@
       if(saved&&typeof saved==='object'){if(saved.profile&&typeof saved.profile==='object')profile=saved.profile;if(Array.isArray(saved.history))history=saved.history.slice(-120);}
       const regGender=localStorage.getItem('ariellaRegistrationGender');if(regGender&&!profile.customer_gender)profile.customer_gender=regGender;
     }catch(e){}
-    let greetingSeen=false;history=history.filter((item,index)=>{const text=String(item?.content||'').trim();const greeting=item?.role==='assistant'&&index<4&&/^היי[ ,].*(?:אריאלה|איך אפשר לעזור|איזו חופשה)/.test(text);if(!greeting)return true;if(greetingSeen)return false;greetingSeen=true;return true;});
+    let greetingSeen=false;history=history.filter((item,index)=>{const text=String(item?.content||'').trim();const greeting=item?.role==='assistant'&&index<4&&/^היי[ ,].*(?:אריאלה|איך אפשר לעזור|איזו חופשה|כיף לראות)/.test(text);if(!greeting)return true;if(greetingSeen)return false;greetingSeen=true;return true;});
 
     const labels={destination:'יעד',dates:'תאריכים',travelers:'נוסעים',budget:'תקציב',flight:'טיסה',baggage:'כבודה'};
     function saveState(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({profile,history:history.slice(-120),saved_at:new Date().toISOString()}));}catch(e){}}
@@ -27,6 +27,7 @@
     function summary(){Object.keys(labels).forEach(k=>{const row=chat.querySelector(`[data-summary-key="${k}"]`),span=row?.querySelector('span'),v=valueText(k);if(span)span.textContent=v||'עדיין לא צוין';row?.classList.toggle('is-filled',!!v)})}
     function clearCards(){messages.querySelectorAll('.ac-flow-card').forEach(x=>x.remove())}
     function aiErrorMessage(data){const d=String(data?.detail||'');if(/429/.test(d))return 'אין כרגע מכסת API זמינה.';if(/401|403/.test(d))return 'החיבור לשרת לא הושלם.';if(/400/.test(d))return data?.message||'הבקשה לא התקבלה. נסי שוב.';return data?.message||'יש כרגע תקלה זמנית. נסי שוב בעוד רגע.'}
+    async function getMemberFirstName(){try{const cached=localStorage.getItem('ariellaMemberFirstName');if(cached)return cached;const links=[...document.querySelectorAll('a')],detailsLink=links.find(a=>/פרטי החשבון|Account Details/i.test((a.textContent||'').trim()));if(!detailsLink)return '';const res=await fetch(detailsLink.href,{credentials:'same-origin'});if(!res.ok)return '';const html=await res.text(),doc=new DOMParser().parseFromString(html,'text/html'),full=(doc.querySelector('input[name="full_name"]')?.value||'').trim(),first=full.split(/\s+/)[0]||'';if(first)localStorage.setItem('ariellaMemberFirstName',first);return first;}catch(e){return '';}}
 
     function renderPurposePicker(){
       clearCards();const card=document.createElement('div');card.className='ac-flow-card';card.id='ariellaPurposeCard';
@@ -50,7 +51,21 @@
       clearCards();const card=document.createElement('div');card.className='ac-flow-card';card.id='ariellaChoiceCard';const multi=choice.type==='multi';
       card.innerHTML=`<strong>${choice.title||''}</strong><div class="ac-flow-options">${(choice.options||[]).map((o,i)=>`<label class="ac-flow-option"><input type="${multi?'checkbox':'radio'}" name="ariellaChoice${multi?'_'+i:''}" value="${String(o.value).replace(/"/g,'&quot;')}"> ${o.label}</label>`).join('')}</div>${choice.allow_none?'<label class="ac-flow-option" style="margin-top:8px"><input type="checkbox" data-none-choice> לא נדרש משהו מיוחד</label>':''}<button type="button" class="ac-flow-go">המשך</button><span class="ac-flow-error" hidden>בחרו לפחות אפשרות אחת.</span>`;
       messages.appendChild(card);messages.scrollTop=messages.scrollHeight;
-      card.querySelector('.ac-flow-go').onclick=async()=>{const none=card.querySelector('[data-none-choice]')?.checked;let vals=none?['none']:[...card.querySelectorAll('.ac-flow-options input:checked')].map(x=>x.value);if(!vals.length){card.querySelector('.ac-flow-error').hidden=false;return;}let value=multi?vals:vals[0];if(choice.field==='save_traveler_names')value=String(value)==='true';profile[choice.field]=value;saveState();card.remove();await sendMessage(Array.isArray(value)?value.join(', '):String(value),true);};
+      card.querySelector('.ac-flow-go').onclick=async()=>{const none=card.querySelector('[data-none-choice]')?.checked;let vals=none?['none']:[...card.querySelectorAll('.ac-flow-options input:checked')].map(x=>x.value);if(!vals.length){card.querySelector('.ac-flow-error').hidden=false;return;}let value=multi?vals:vals[0];if(choice.field==='save_traveler_names')value=String(value)==='true';if(choice.field==='travel_party_type'){if(value==='solo'){profile.adults=1;profile.children=0;profile.infants=0;}else if(value==='couple'){profile.adults=2;profile.children=0;profile.infants=0;}}profile[choice.field]=value;saveState();card.remove();await sendMessage(Array.isArray(value)?value.join(', '):String(value),true);};
+    }
+
+    function travelerChoiceForReply(reply){
+      if(profile.travel_party_type)return null;
+      if(!/כמה נוסעים יהיו|כמה נוסעים|מי נוסע/.test(String(reply||'')))return null;
+      return {field:'travel_party_type',type:'single',title:'מי נוסע לחופשה?',options:[{value:'solo',label:'אני לבד'},{value:'couple',label:'עם בן/בת זוג'},{value:'family',label:'משפחה עם ילדים'},{value:'friends',label:'עם חברים'}]};
+    }
+    function personalizeTravelerNamesQuestion(reply){
+      if(profile.save_traveler_names!==true||!/כתבו את השמות הפרטיים|השמות הפרטיים של הנוסעים/.test(String(reply||'')))return reply;
+      const party=String(profile.travel_party_type||'').toLowerCase();
+      if(party==='family'||party==='משפחה')return 'איך קוראים לבן/בת הזוג ולילדים? כתבו את השמות הפרטיים שתרצו שאזכור לחיפושים הבאים.';
+      if(party==='friends'||party==='חברים')return 'מה השמות הפרטיים של החברים שנוסעים איתכם?';
+      if(party==='couple'||party==='זוג')return 'איך קוראים לבן/בת הזוג שנוסע/ת איתכם?';
+      return reply;
     }
 
     function renderConfirmation(data){
@@ -82,8 +97,8 @@
       try{
         const res=await fetch('/api/ariella/chat',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({message:raw,history:priorHistory,profile})});const data=await res.json();
         if(!res.ok||data.status!=='success'){const err=aiErrorMessage(data);add('bot',err);history.push({role:'assistant',content:err});saveState();return;}
-        lastResponse=data;profile=data.profile||profile;summary();const reply=String(data.reply||'').trim();
-        if(data.ui_choice){renderChoice(data.ui_choice);}else if(reply){add('bot',reply);history.push({role:'assistant',content:reply});}
+        lastResponse=data;profile=data.profile||profile;summary();let reply=personalizeTravelerNamesQuestion(String(data.reply||'').trim());let choice=data.ui_choice||travelerChoiceForReply(reply);
+        if(choice){renderChoice(choice);}else if(reply){add('bot',reply);history.push({role:'assistant',content:reply});}
         if(data.show_purpose_picker)renderPurposePicker();else if(data.show_service_picker)renderServicePicker();else if(data.requires_confirmation)renderConfirmation(data);
         saveState();
       }catch(e){const err='יש כרגע תקלה זמנית. נסי שוב בעוד רגע.';add('bot',err);history.push({role:'assistant',content:err});saveState();}
@@ -94,9 +109,19 @@
     send.addEventListener('click',function(e){e.preventDefault();e.stopImmediatePropagation();submit()},true);
     input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();e.stopImmediatePropagation();submit()}},true);
 
-    messages.innerHTML='';if(history.length){history.forEach(item=>add(item.role==='assistant'?'bot':'user',String(item.content||'')));}else{const welcome='היי, אני אריאלה. מה תרצו לתכנן לחופשה?';add('bot',welcome);history=[{role:'assistant',content:welcome}];saveState();}
-    summary();if(!profile.vacation_type)renderPurposePicker();else if(!Array.isArray(profile.services)||!profile.services.length)renderServicePicker();
-    input.placeholder='';
+    async function initializeConversation(){
+      messages.innerHTML='';
+      if(history.length){history.forEach(item=>add(item.role==='assistant'?'bot':'user',String(item.content||'')));}
+      else{
+        const firstName=await getMemberFirstName();
+        const female=String(profile.customer_gender||'').toLowerCase()==='female';
+        let welcome='היי, אני אריאלה. איך אני יכולה לעזור לך הפעם?';
+        if(firstName)welcome=female?`היי ${firstName}, שמחה שחזרת, כמה כיף שאת כאן. איך אני יכולה לעזור לך הפעם?`:`היי ${firstName}, שמחה שחזרת, כמה כיף שאתה כאן. איך אני יכולה לעזור לך הפעם?`;
+        add('bot',welcome);history=[{role:'assistant',content:welcome}];saveState();
+      }
+      summary();if(!profile.vacation_type)renderPurposePicker();else if(!Array.isArray(profile.services)||!profile.services.length)renderServicePicker();input.placeholder='';
+    }
+    initializeConversation();
     const guard=new MutationObserver(muts=>{for(const m of muts){for(const n of m.addedNodes){if(n.nodeType!==1||!n.matches?.('.ac-row.bot'))continue;const text=(n.querySelector('.ac-bubble')?.textContent||'').trim();if(/^היי[ ,].*איך אפשר לעזור\??$/.test(text))n.remove();}}});guard.observe(messages,{childList:true});setTimeout(()=>guard.disconnect(),6000);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
