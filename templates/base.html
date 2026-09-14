@@ -4,25 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="{% if site_lang == 'en' %}Ariella — smarter vacation search{% else %}אריאלה — למצוא את החופשה שמתאימה לך{% endif %}">
   <title>{% block title %}{{ 'Ariella' if site_lang == 'en' else 'אריאלה' }}{% endblock %}</title>
-  <script id="ariella-nonblocking-main-css">
-  (function(){
-    fetch({{ url_for('static', filename='site.css')|tojson }},{cache:'no-cache'})
-      .then(function(r){return r.text();})
-      .then(function(css){
-        css=css.replace(/^\s*@import\s+url\([^;]+;\s*/i,'');
-        var s=document.createElement('style');
-        s.id='ariella-main-css-local';
-        s.textContent=css;
-        document.head.appendChild(s);
-      })
-      .catch(function(){
-        var l=document.createElement('link');
-        l.rel='stylesheet';
-        l.href={{ url_for('static', filename='site.css')|tojson }};
-        document.head.appendChild(l);
-      });
-  })();
-  </script>
+  <script id="ariella-nonblocking-main-css">(function(){fetch({{ url_for('static', filename='site.css')|tojson }},{cache:'no-cache'}).then(function(r){return r.text();}).then(function(css){css=css.replace(/^\s*@import\s+url\([^;]+;\s*/i,'');var s=document.createElement('style');s.id='ariella-main-css-local';s.textContent=css;document.head.appendChild(s);}).catch(function(){var l=document.createElement('link');l.rel='stylesheet';l.href={{ url_for('static', filename='site.css')|tojson }};document.head.appendChild(l);});})();</script>
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-trip-regular.css') }}">
@@ -30,78 +12,20 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='ariella-mobile-qa-20260909.css') }}?v=20260909c">
   <link rel="stylesheet" href="{{ url_for('static', filename='questionnaire-open-priorities-fix-20260909.css') }}?v=20260909c">
   <link rel="stylesheet" href="{{ url_for('static', filename='ariella-hide-legacy-vacation-gate-20260914.css') }}?v=20260914c">
-<style id="canonical-home-header-css">
-:root{--black:#070707;--cream:#f7f0e4;--cream2:#fffaf2;--gold:#c99a3f;--gold2:#e7c778}
-*{box-sizing:border-box}html{scroll-behavior:smooth}
-body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);color:#111}
-.site-header{min-height:126px;background:linear-gradient(#030303,#090909);border-bottom:1px solid var(--gold);display:flex;align-items:center;direction:ltr}
-.header-inner{width:min(1440px,92%);margin:auto;display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:28px}
-.brand{display:flex;align-items:center;gap:16px;justify-self:start;direction:ltr;cursor:default;user-select:none}
-.logo-a{width:72px;height:72px;display:block;flex:0 0 auto;object-fit:contain}.brand-copy{display:block}
-.brand-name{display:block;font:30px/1 Georgia,"Times New Roman",serif;letter-spacing:9px;color:var(--gold2)}
-.brand-tag{display:block;margin-top:11px;font-size:12px;letter-spacing:5px;color:var(--gold);text-align:center}
-.main-nav{direction:{{ 'ltr' if site_lang == 'en' else 'rtl' }};display:flex;gap:42px;justify-self:center}
-.main-nav a{color:#f5f1e8;text-decoration:none;font-size:18px;padding:18px 4px;position:relative;transition:color .25s ease;white-space:nowrap}
-.main-nav a::after{content:"";position:absolute;right:50%;left:50%;bottom:5px;height:1px;background:var(--gold);transition:right .28s ease,left .28s ease}
-.main-nav a:hover,.main-nav a:focus-visible,.main-nav a.active{color:var(--gold2)}
-.main-nav a:hover::after,.main-nav a:focus-visible,.main-nav a.active::after{right:15%;left:15%}
-.language-switch{display:flex;align-items:center;gap:7px;font-size:14px;white-space:nowrap;direction:ltr}
-.language-switch a{color:#bda66f;text-decoration:none;padding:7px 2px}.language-switch a.active{color:var(--gold2);font-weight:700}.language-switch span{color:#665a42}
-.account{justify-self:end;direction:{{ 'ltr' if site_lang == 'en' else 'rtl' }};color:#fff;border:1px solid var(--gold2);border-radius:999px;padding:15px 28px;text-decoration:none;font-size:17px;transition:background .25s ease,color .25s ease;white-space:nowrap}
-.account:hover,.account:focus-visible{background:var(--gold2);color:#111}
-.hero{min-height:calc(100vh - 126px);display:flex;align-items:center;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 0%,#fff,transparent 36%),linear-gradient(135deg,var(--cream2),var(--cream))}
-.hero::before{content:"";position:absolute;width:520px;height:520px;border:1px solid rgba(201,154,63,.12);border-radius:50%;left:-260px;bottom:-160px}
-.plane{position:absolute;left:10%;top:18%;font-size:44px;color:var(--gold);opacity:.7;transform:rotate(-17deg)}
-.trail{position:absolute;left:12%;top:27%;width:200px;height:260px;border-left:2px dashed rgba(201,154,63,.45);border-radius:50%;transform:rotate(-20deg)}
-.inner{width:min(1000px,88%);margin:auto;text-align:center;z-index:2;padding:76px 0 90px}
-h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-weight:600}
-.dark{display:block;font-size:clamp(52px,7.4vw,105px)}.gold{display:block;font-size:clamp(48px,6.6vw,91px);margin-top:8px;background:linear-gradient(90deg,#a87523,#e1bf69 48%,#af7c25);-webkit-background-clip:text;background-clip:text;color:transparent}
-.subtitle{margin:34px 0 0;font-size:clamp(24px,2.2vw,34px);font-weight:600}.story{margin:48px auto 0;max-width:860px;font-size:clamp(18px,1.7vw,24px);line-height:1.85}.story strong{display:block;margin-top:7px;font-size:1.12em}
-.actions{margin-top:38px;display:flex;justify-content:center;gap:20px;flex-wrap:wrap}.btn{min-width:240px;padding:17px 26px;border-radius:10px;text-decoration:none;font-size:19px;font-weight:700;transition:transform .2s ease,box-shadow .2s ease}.btn:hover,.btn:focus-visible{transform:translateY(-2px);box-shadow:0 9px 22px rgba(0,0,0,.14)}.goldbtn{color:#111;background:linear-gradient(135deg,#eed28a,#c99234)}.darkbtn{color:#fff;background:#050505}
-@media(max-width:1050px){.header-inner{grid-template-columns:1fr auto auto}.language-switch{grid-column:2}.main-nav{display:none}}
-@media(max-width:700px){.site-header{padding:14px 0;min-height:auto}.header-inner{width:94%;grid-template-columns:1fr auto;gap:12px}.language-switch{grid-column:auto;grid-row:2;justify-self:start}.account{font-size:14px;padding:11px 14px}.brand-name{font-size:20px;letter-spacing:5px}.brand-tag{font-size:9px;letter-spacing:3px}.logo-a{width:50px;height:50px}.inner{width:91%;padding:58px 0 70px}.btn{width:100%}.hero{min-height:calc(100vh - 110px)}}
-.account-trip-deals .deal-card-v970 .deal-visual,.account-trip-deals .deal-card-v970 .visual-destination-outside{display:none!important}
-.account-trip-deals .deal-card-v970 .deal-main-grid{grid-template-columns:minmax(430px,2fr) minmax(210px,1fr) minmax(260px,1.1fr)!important;grid-template-rows:auto!important}
-.account-trip-deals .deal-card-v970 .deal-flight,.account-trip-deals .deal-card-v970 .deal-baggage,.account-trip-deals .deal-card-v970 .deal-commerce{grid-row:1!important;min-height:0!important}
-.account-trip-deals .personal-additional-options-title{display:block;margin-bottom:5px;font-size:20px;font-weight:800;color:#17283f}
-.account-trip-deals .personal-additional-options-note{display:block;color:#667180;font-size:14px}
-@media(max-width:900px){.account-trip-deals .deal-card-v970 .deal-main-grid{display:block!important}}
-.login-error-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.48);backdrop-filter:blur(2px)}
-.login-error-popup{width:min(430px,calc(100vw - 40px));background:#fffaf2;border:1px solid var(--gold2);box-shadow:0 18px 55px rgba(0,0,0,.28);border-radius:16px;padding:26px 24px;text-align:center;color:#17283f}
-.login-error-popup strong{display:block;font-size:22px;line-height:1.3;margin-bottom:8px}.login-error-popup p{margin:0;font-size:16px;line-height:1.5}.login-error-popup small{display:block;margin-top:14px;color:#7b6b4d;font-size:12px}
-</style>
+<style id="canonical-home-header-css">:root{--black:#070707;--cream:#f7f0e4;--cream2:#fffaf2;--gold:#c99a3f;--gold2:#e7c778}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--cream);color:#111}</style>
 </head>
-<!-- ARIELLA_BUILD:9.7.151 -->
+<!-- ARIELLA_BUILD:9.7.152 -->
 <body>
 {% include "_site_header.html" %}
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}{% set errors = messages|selectattr('0','in',['error','danger'])|list %}{% if request.endpoint == 'site.login' and errors %}<div class="login-error-overlay" id="loginErrorOverlay" role="alert" aria-live="assertive"><div class="login-error-popup"><strong>{{ 'Login failed' if site_lang == 'en' else 'ההתחברות לא הצליחה' }}</strong>{% for category, message in errors %}<p>{{ message }}</p>{% endfor %}<small>{{ 'Returning to the login page…' if site_lang == 'en' else 'חוזרים לדף ההתחברות בעוד כמה שניות…' }}</small></div></div><script>setTimeout(function(){window.location.replace({{ url_for('site.login', lang=site_lang)|tojson }});},4000);</script>{% elif request.endpoint != 'site.login' %}<div class="shell flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endif %}{% endwith %}
 <main>{% block content %}{% endblock %}</main>
 {% block site_disclaimer %}{% endblock %}
 {% block site_footer %}{% include "_site_footer.html" %}{% endblock %}
-<script>
-document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});
-(function(){const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');if(!button||!menu)return;const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});})();
-function togglePassword(button){const input=button.closest('.password-field').querySelector('input');const show=input.type==='password';button.classList.toggle('is-visible',show);button.setAttribute('aria-label',show?'{{ 'Hide password' if site_lang == 'en' else 'הסתרת סיסמה' }}':'{{ 'Show password' if site_lang == 'en' else 'הצגת סיסמה' }}');input.type=show?'text':'password';}
-document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.account-trip-deals .alternative-deals-block .alternative-deals-message').forEach(function(el){if(el.querySelector('.personal-additional-options-title')) return;const title=document.createElement('strong');title.className='personal-additional-options-title';title.textContent=document.documentElement.lang==='en'?'Additional options':'אפשרויות נוספות';const note=document.createElement('span');note.className='personal-additional-options-note';note.textContent=document.documentElement.lang==='en'?'Ariella’s pick, best value, longest stay, and worthwhile date changes — when suitable options exist.':'בחירת אריאלה, הכי משתלם, הכי הרבה זמן ביעד ושינויי תאריכים שכדאי לשקול — כשיש אפשרויות מתאימות.';el.textContent='';el.appendChild(title);el.appendChild(note);});});
-</script>
+<script>document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});(function(){const button=document.getElementById('accountMenuButton'),menu=document.getElementById('accountMenu');if(!button||!menu)return;const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false')};button.addEventListener('click',e=>{e.stopPropagation();const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',open?'true':'false')});document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==button)close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});})();</script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260908n"></script>
-<script>try{const m=location.hash.match(/^#vacation-(\d+)$/);if(m)sessionStorage.setItem('ariellaScanPoll:'+m[1],'15');}catch(e){}</script>
 <script src="{{ url_for('static', filename='ariella-ui-runtime-20260909.js') }}?v=20260914g"></script>
-<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260914-clean-v1"></script>
-<script src="{{ url_for('static', filename='ariella-avatar-runtime-20260913.js') }}?v=20260914-no-new-chat-v2"></script>
-<script src="{{ url_for('static', filename='ariella-account-chat-empty-state-20260914.js') }}?v=20260914-layout-v2"></script>
-<script id="login-error-modal-runtime">
-document.addEventListener('DOMContentLoaded',function(){
-  const login=document.querySelector('.auth-section .form-card');
-  const stack=document.querySelector('.flash-stack');
-  if(!login||!stack)return;
-  const err=stack.querySelector('.flash.error,.flash.danger'); if(!err)return;
-  err.textContent=document.documentElement.lang==='en'?'The email address or password is incorrect.':'כתובת המייל או הסיסמה אינם נכונים';
-  stack.classList.add('login-error-modal');
-  const b=document.createElement('button'); b.type='button'; b.className='login-error-close'; b.textContent=document.documentElement.lang==='en'?'OK':'אישור';
-  b.addEventListener('click',()=>{stack.remove();login.scrollIntoView({behavior:'smooth',block:'center'});login.querySelector('input[name="email"]')?.focus();});
-  err.appendChild(b);
-});
-</script>
+<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260914-chat-rebuild-v1"></script>
+<script src="{{ url_for('static', filename='ariella-avatar-runtime-20260913.js') }}?v=20260914-no-new-chat-v3"></script>
+<script src="{{ url_for('static', filename='ariella-account-chat-empty-state-20260914.js') }}?v=20260914-layout-v3"></script>
 </body></html>
