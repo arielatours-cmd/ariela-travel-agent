@@ -71,7 +71,7 @@ h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-we
 .login-error-popup strong{display:block;font-size:22px;line-height:1.3;margin-bottom:8px}.login-error-popup p{margin:0;font-size:16px;line-height:1.5}.login-error-popup small{display:block;margin-top:14px;color:#7b6b4d;font-size:12px}
 </style>
 </head>
-<!-- ARIELLA_BUILD:9.7.153 -->
+<!-- ARIELLA_BUILD:9.7.154 -->
 <body>
 {% include "_site_header.html" %}
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}{% set errors = messages|selectattr('0','in',['error','danger'])|list %}{% if request.endpoint == 'site.login' and errors %}<div class="login-error-overlay" id="loginErrorOverlay" role="alert" aria-live="assertive"><div class="login-error-popup"><strong>{{ 'Login failed' if site_lang == 'en' else 'ההתחברות לא הצליחה' }}</strong>{% for category, message in errors %}<p>{{ message }}</p>{% endfor %}<small>{{ 'Returning to the login page…' if site_lang == 'en' else 'חוזרים לדף ההתחברות בעוד כמה שניות…' }}</small></div></div><script>setTimeout(function(){window.location.replace({{ url_for('site.login', lang=site_lang)|tojson }});},4000);</script>{% elif request.endpoint != 'site.login' %}<div class="shell flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endif %}{% endwith %}
@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded',function(){document.querySelectorAl
 <script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260908n"></script>
 <script>try{const m=location.hash.match(/^#vacation-(\d+)$/);if(m)sessionStorage.setItem('ariellaScanPoll:'+m[1],'15');}catch(e){}</script>
 <script src="{{ url_for('static', filename='ariella-ui-runtime-20260909.js') }}?v=20260914g"></script>
-<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260915-chat-freeze-fix-v2"></script>
-<script src="{{ url_for('static', filename='ariella-avatar-runtime-20260913.js') }}?v=20260914-no-new-chat-v3"></script>
+<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260915-chat-stable-v3"></script>
+<script src="{{ url_for('static', filename='ariella-avatar-runtime-20260913.js') }}?v=20260915-avatar-stable-v2"></script>
 <script src="{{ url_for('static', filename='ariella-account-chat-empty-state-20260914.js') }}?v=20260914-layout-v3"></script>
 <script id="login-error-modal-runtime">
 document.addEventListener('DOMContentLoaded',function(){
