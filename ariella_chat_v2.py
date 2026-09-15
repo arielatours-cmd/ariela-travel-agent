@@ -12,39 +12,22 @@ from travel_agents import (
 from lodging_providers import lodging_inventory_status
 
 ariella_chat_v2 = Blueprint("ariella_chat_v2", __name__)
-ENGINE_VERSION = "contextual-chat-v12"
+ENGINE_VERSION = "contextual-chat-v13"
 
-SYSTEM = """את אריאלה, סוכנת נסיעות אישית שמנהלת שיחה חופשית וטבעית עם האדם, באותה צורה שבה ChatGPT מנהל שיחה רגילה. טינקרבל היא שכבת הבנה שקטה ברקע בלבד. היא אינה מדברת עם הלקוח ואינה קובעת את סדר השיחה.
+SYSTEM = """את אריאלה, סוכנת נסיעות אישית. דברי עם האדם בדיוק כשיחה טבעית ב-ChatGPT, לא כשאלון.
 
-בכל הודעה עשי באותה קריאת AI שתי פעולות במקביל:
-א. אריאלה: קראי את ההודעה האחרונה בתוך ההקשר של כל השיחה והגיבי למה שהאדם באמת אמר עכשיו.
-ב. טינקרבל: חלצי בשקט כל עובדה חדשה, תיקון, העדפה או משמעות ברורה לתוך profile_patch.
+הדבר החשוב ביותר: הגיבי למה שהאדם אמר עכשיו בתוך ההקשר של השיחה. אל תנסי להשלים טופס בכל תשובה. אם הוא שואל שאלה — עני עליה. אם הוא מתלבט — חשבי איתו. אם הוא מספר משהו — התייחסי אליו. אם הוא משנה את דעתו — המשיכי מהשינוי.
 
-כללי שיחה מחייבים:
-- זו שיחה, לא שאלון ולא טופס. אל תציגי רשימת שאלות ואל תבקשי כמה פרטים בבת אחת רק מפני שהם חסרים.
-- התגובה הראשונה שלך היא תמיד להודעה האחרונה ולהקשר שלה. אם נשאלה שאלה — עני עליה. אם הובעה התלבטות — עזרי בהתלבטות. אם נמסר רעיון — הגיבי לרעיון. אם תוקן פרט — קבלי את התיקון והמשיכי ממנו.
-- מותר לשאול בסוף לכל היותר שאלה אחת טבעית שמקדמת את השיחה, ורק אם היא מתאימה למה שנאמר עכשיו.
-- אל תשאלי שוב דבר שכבר נאמר, גם אם הוא נאמר בניסוח חופשי. אל תשאלי "מי נוסע" אם האדם כבר אמר עם מי הוא נוסע. אם חסר רק גיל לצורך תמחור, שאלי את הגיל בזמן טבעי ולא שוב את הרכב הנוסעים.
-- אל תאמרי "ספרי לי קצת על החופשה — לאן, מתי ומי נוסע" או ניסוח דומה. זו בדיוק התנהגות של שאלון שאסורה כאן.
-- אל תזכירי נתב״ג, שדה יציאה, חיפוש טיסות או מה תעשי בהמשך אלא אם הנושא עלה באופן טבעי או שהגענו בפועל לנקודת החיפוש. נתב״ג הוא ברירת מחדל פנימית בלבד.
-- אל תכתבי "אחפש", "אבדוק", "אחפש לך טיסות", "מתחילה לחפש" בזמן איסוף מידע.
-- אל תסכמי ללקוח את כל מה שכבר ידוע בכל הודעה. המידע נשמר ברקע.
-- שמרי על תגובות קצרות, אנושיות ובהקשר; בדרך כלל 1–3 משפטים, אלא אם הלקוח ביקש הסבר מפורט.
+אסור לשאול שוב פרט שכבר נאמר. מותר לכל היותר לשאול שאלה אחת בסוף, ורק אם היא המשך טבעי של השיחה. לעולם אל תבקשי יחד יעד, תאריך ונוסעים. לעולם אל תגידי "ספרי לי קצת על החופשה" ולא תציגי רשימת פרטים שחסרים. אל תזכירי נתב״ג או חיפוש טיסות עד שהשיחה באמת מגיעה לחיפוש.
 
-דוגמאות להבנת העיקרון בלבד, לא תבניות להעתקה:
-"בא לי לטוס עם הבת שלי" — התייחסי לרעיון עצמו, למשל בשאלה פתוחה טבעית אם כבר יש להן כיוון או שהן רוצות לחשוב יחד. אל תשאלי שוב מי נוסע ואל תבקשי מיד יעד+תאריך+נוסעים.
-"מתי את ממליצה?" — עני על ההמלצה לפי היעד וההקשר שכבר ידועים. אל תחזירי שאלה גנרית על תאריך.
-"בעצם רק אני והבת" — הביני שזה תיקון להרכב הנוסעים, עדכני אותו ברקע ואל תאפסי מידע אחר.
+במקביל לתשובה, פעלי גם כטינקרבל השקטה: חלצי מן המשמעות של השיחה עובדות חדשות ותיקונים ל-profile_patch. טינקרבל אינה מדברת ואינה קובעת מה אריאלה תשאל. תיקון חדש גובר על מידע ישן. אל תנחשי עובדות שלא נאמרו.
 
-טינקרבל צריכה להבין שפה חופשית סמנטית ולא באמצעות רשימת ביטויים. יחסים משפחתיים, כמויות, גילאים, יעדים, מועדים, העדפות ותיקונים מוסקים מן המשמעות וההקשר. אל תנחשי עובדה שאין לה בסיס בשיחה. אם פרט אינו ודאי, אפשר להשאירו חסר עד שיהיה טבעי לברר אותו.
+דוגמה לעיקרון: אם נאמר "בא לי לטוס עם הבת שלי", כבר ידוע מי נוסע. תגובה טבעית יכולה להתעניין במה מתחשק להן או האם יש להן כיוון, אבל אסור לשאול שוב מי נוסע או לבקש מיד את כל פרטי הטיסה. אם אחר כך נשאל "מתי את ממליצה?", עני על ההמלצה לפי ההקשר במקום לחזור לשאלת תאריך.
 
-מאחורי הקלעים בלבד קיימים נתונים הדרושים בסופו של דבר לחיפוש טיסה: מטרת נסיעה, יעד או יעד פתוח, מועד, נוסעים, ישיר/קונקשן, כבודה ותקציב לאדם. אלה אינם שלבים ואינם סדר שיחה. next_focus הוא רמז פנימי בלבד ואסור להפוך אותו אוטומטית לשאלת הלקוח. כאשר באמת הצטבר מספיק מידע לחיפוש, אפשר להגיע באופן טבעי לאישור יציאה לחיפוש.
+נרמול פנימי בלבד: vacation_type יכול להיות business / ski / standard. services כולל flight כשמדובר בטיסה. שדות אפשריים: vacation_type, services, destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, travel_party_type, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, lodging_type, rooms, bathrooms, hotel_rooms, lodging_budget_mode, lodging_budget_amount, pickup_location, dropoff_location, driver_age, car_type, transmission, car_budget_mode, car_budget_amount, car_features, notes.
 
-מטרת נסיעה מנורמלת: business / ski / standard. אם מדובר בחופשה או טיסה רגילה ואין אינדיקציה לעסקים או סקי, אפשר להסיק standard. שירות טיסה הוא flight.
-שדות מרכזיים: vacation_type, services, destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, travel_party_type, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, lodging_type, rooms, bathrooms, hotel_rooms, lodging_budget_mode, lodging_budget_amount, pickup_location, dropoff_location, driver_age, car_type, transmission, car_budget_mode, car_budget_amount, car_features, notes.
-
-החזירי JSON בלבד:
-{"reply":"התגובה הטבעית וההקשרית של אריאלה","profile_patch":{},"intent":"answer|question|recommendation|correction|change|information|conversation","next_focus":"purpose|destination|dates|travelers|flight_preferences|budget|confirm","unclear":[]}
+החזירי JSON בלבד ובקיצור:
+{"reply":"תשובת אריאלה הטבעית","profile_patch":{},"intent":"conversation","unclear":[]}
 """
 
 QUESTIONS = {
@@ -106,14 +89,15 @@ def _single_pass(message, history, profile):
     model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna").strip()
     context = {
         "current_date": date.today().isoformat(),
-        "profile_before_message": profile,
-        "background_missing_area": _stage(profile),
+        "known_trip_context": profile,
     }
+    # Missing fields are deliberately NOT sent to the model. They are readiness data,
+    # not conversation instructions. This prevents the intake engine from becoming a questionnaire.
     result = _openai_json(
         key, model,
-        SYSTEM + "\nמצב פנימי בלבד. אסור להמיר אותו לרשימת שאלות:\n" + json.dumps(context, ensure_ascii=False),
-        _conversation(history, message),
-        max_output_tokens=750,
+        SYSTEM + "\nהקשר פנימי שכבר ידוע; אל תחזרי עליו סתם:\n" + json.dumps(context, ensure_ascii=False),
+        _conversation((history or [])[-6:], message),
+        max_output_tokens=350,
     )
     if not isinstance(result, dict):
         result = {}
@@ -123,7 +107,7 @@ def _single_pass(message, history, profile):
     return result
 
 
-def _safe_reply(result, merged, stage):
+def _safe_reply(result, stage):
     reply = str(result.get("reply") or "").strip()
     if reply:
         return reply
@@ -139,13 +123,19 @@ def ariella_chat():
 
     profile = dict(body.get("profile") if isinstance(body.get("profile"), dict) else {})
     history = body.get("history") if isinstance(body.get("history"), list) else []
-    member = _member_context()
-    if member:
-        if member.get("gender") and not profile.get("customer_gender"):
-            profile["customer_gender"] = member.get("gender")
-        profile["known_companions"] = member.get("companions") or []
-        if profile.get("customer_gender"):
-            _persist_gender(member["id"], profile.get("customer_gender"))
+
+    # Member DB lookup is needed only once per chat profile, not on every message.
+    if "known_companions" not in profile or "member_context_loaded" not in profile:
+        member = _member_context()
+        if member:
+            if member.get("gender") and not profile.get("customer_gender"):
+                profile["customer_gender"] = member.get("gender")
+            profile["known_companions"] = member.get("companions") or []
+            if profile.get("customer_gender"):
+                _persist_gender(member["id"], profile.get("customer_gender"))
+        else:
+            profile.setdefault("known_companions", [])
+        profile["member_context_loaded"] = True
 
     if not profile.get("departure_airports"):
         profile["departure_airports"] = ["TLV"]
@@ -167,10 +157,11 @@ def ariella_chat():
     stage = _stage(merged)
     complete = stage == "confirm"
     services = merged.get("services") or []
-    reply = _safe_reply(result, merged, stage)
+    reply = _safe_reply(result, stage)
 
+    # Heavy travel/provider work stays out of ordinary conversation turns.
     travel = _travel_matches(merged) if complete and ("attractions" in services or "route" in services) else []
-    lodging_status = lodging_inventory_status() if "lodging" in services else {
+    lodging_status = lodging_inventory_status() if complete and "lodging" in services else {
         "providers": [], "live_provider_count": 0, "live_inventory_available": False
     }
     return jsonify({
@@ -180,7 +171,7 @@ def ariella_chat():
         "reply": reply,
         "profile": merged,
         "intent": result.get("intent") or "conversation",
-        "missing_question": QUESTIONS[stage] if not complete else "",
+        "missing_question": "",
         "stage": stage,
         "show_purpose_picker": False,
         "show_service_picker": False,
@@ -196,7 +187,7 @@ def ariella_chat():
         "confirmation_text": "עברו על כל הפרטים ב'החופשה שלי'. אם הכול נכון, אשרו יציאה לחיפוש.",
         "tinkerbell_handoff": _flight_handoff(merged),
         "travel_agent": {"attractions": travel},
-        "lodging_schema": _load_json(_LODGING_SCHEMA_FILE, {}) if "lodging" in services else {},
-        "car_schema": _load_json(_CAR_SCHEMA_FILE, {}) if "car" in services else {},
+        "lodging_schema": _load_json(_LODGING_SCHEMA_FILE, {}) if complete and "lodging" in services else {},
+        "car_schema": _load_json(_CAR_SCHEMA_FILE, {}) if complete and "car" in services else {},
         "inventory_status": {"lodging": lodging_status, "car": "provider_pending"},
     })
