@@ -23,24 +23,11 @@
 <script>document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});</script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260908n"></script>
-<script id="ariella-one-time-chat-reset-live-v4">
-(function(){
- const marker='ariellaOneTimeChatReset:20260915-live-chat-v4-reset1';
- try{
-  if(localStorage.getItem(marker)==='1')return;
-  const key='ariellaChatState:v4';let old={};try{old=JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(_e){}
-  const p=old.profile||{},identity={};
-  ['first_name','last_name','name','full_name','gender','sex','phone','email','member_id','user_id','departure_airport'].forEach(function(k){if(p[k]!==undefined&&p[k]!==null&&p[k]!=='')identity[k]=p[k];});
-  localStorage.removeItem(key);localStorage.removeItem('ariellaChatOneTimeReset');
-  localStorage.setItem(key,JSON.stringify({profile:identity,history:[],flow:'20260915-live-chat-v4',saved_at:new Date().toISOString()}));
-  localStorage.setItem('ariellaChatOneTimeReset','20260915-live-chat-v4-reset1');localStorage.setItem(marker,'1');
- }catch(_e){}
-})();
+<script id="ariella-one-time-chat-reset-live-v5">
+(function(){try{const marker='ariellaOneTimeChatReset:20260915-live-chat-v5-reset1';if(localStorage.getItem(marker)==='1')return;const key='ariellaChatState:v4';let old={};try{old=JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(_e){}const p=old.profile||{},identity={};['first_name','last_name','name','full_name','gender','sex','phone','email','member_id','user_id','departure_airport'].forEach(function(k){if(p[k]!==undefined&&p[k]!==null&&p[k]!=='')identity[k]=p[k];});localStorage.removeItem(key);localStorage.removeItem('ariellaChatOneTimeReset');localStorage.setItem(key,JSON.stringify({profile:identity,history:[],flow:'20260915-live-chat-v5',saved_at:new Date().toISOString()}));localStorage.setItem('ariellaChatOneTimeReset','20260915-live-chat-v5-reset1');localStorage.setItem(marker,'1');}catch(_e){}})();
 </script>
-<script src="{{ url_for('static', filename='ariella-ui-runtime-20260909.js') }}?v=20260915-no-legacy-chat-v2"></script>
-<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260915-live-chat-v4-force1"></script>
-<script src="{{ url_for('static', filename='ariella-avatar-runtime-20260913.js') }}?v=20260915-avatar-stable-v3"></script>
-<script src="{{ url_for('static', filename='ariella-account-chat-empty-state-20260914.js') }}?v=20260914-layout-v3"></script>
+<script src="{{ url_for('static', filename='ariella-ui-runtime-20260909.js') }}?v=20260915-no-legacy-chat"></script>
+<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260915-live-chat-v5-pure1"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
