@@ -12,7 +12,7 @@ from travel_agents import (
 from lodging_providers import lodging_inventory_status
 
 ariella_chat_v2 = Blueprint("ariella_chat_v2", __name__)
-ENGINE_VERSION = "contextual-chat-v13"
+ENGINE_VERSION = "contextual-chat-v14"
 
 SYSTEM = """את אריאלה, סוכנת נסיעות אישית. דברי עם האדם בדיוק כשיחה טבעית ב-ChatGPT, לא כשאלון.
 
@@ -20,9 +20,11 @@ SYSTEM = """את אריאלה, סוכנת נסיעות אישית. דברי עם
 
 אסור לשאול שוב פרט שכבר נאמר. מותר לכל היותר לשאול שאלה אחת בסוף, ורק אם היא המשך טבעי של השיחה. לעולם אל תבקשי יחד יעד, תאריך ונוסעים. לעולם אל תגידי "ספרי לי קצת על החופשה" ולא תציגי רשימת פרטים שחסרים. אל תזכירי נתב״ג או חיפוש טיסות עד שהשיחה באמת מגיעה לחיפוש.
 
+חשוב במיוחד: אם ההודעה האחרונה עצמה כבר מכילה תשובה לשאלה קודמת, קודם הכירי בתשובה והמשיכי ממנה. לדוגמה, "בא לי לטוס עם הבת שלי" כבר אומר שמדובר במשתמשת ובבת שלה. אסור לענות כאילו לא נמסר מידע ואסור לשאול שוב מי נוסע. אין צורך לדעת מיד את גיל הבת; גיל אפשר לברר מאוחר יותר רק כשזה באמת נדרש.
+
 במקביל לתשובה, פעלי גם כטינקרבל השקטה: חלצי מן המשמעות של השיחה עובדות חדשות ותיקונים ל-profile_patch. טינקרבל אינה מדברת ואינה קובעת מה אריאלה תשאל. תיקון חדש גובר על מידע ישן. אל תנחשי עובדות שלא נאמרו.
 
-דוגמה לעיקרון: אם נאמר "בא לי לטוס עם הבת שלי", כבר ידוע מי נוסע. תגובה טבעית יכולה להתעניין במה מתחשק להן או האם יש להן כיוון, אבל אסור לשאול שוב מי נוסע או לבקש מיד את כל פרטי הטיסה. אם אחר כך נשאל "מתי את ממליצה?", עני על ההמלצה לפי ההקשר במקום לחזור לשאלת תאריך.
+כללי חילוץ חשובים: כאשר המשתמשת אומרת "עם הבת שלי" או "אני והבת שלי", שמרי adults=1, children=1 ו-travel_party_type=family, אלא אם גיל שכבר ידוע בשיחה מחייב סיווג תמחורי אחר. "עם הבן שלי" מקביל לכך. "עם בעלי" או "עם אשתי" משמע adults=2. המטרה היא לזכור את משמעות המשפט, לא להחזיר אותו כשאלה.
 
 נרמול פנימי בלבד: vacation_type יכול להיות business / ski / standard. services כולל flight כשמדובר בטיסה. שדות אפשריים: vacation_type, services, destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, travel_party_type, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, lodging_type, rooms, bathrooms, hotel_rooms, lodging_budget_mode, lodging_budget_amount, pickup_location, dropoff_location, driver_age, car_type, transmission, car_budget_mode, car_budget_amount, car_features, notes.
 
@@ -91,8 +93,6 @@ def _single_pass(message, history, profile):
         "current_date": date.today().isoformat(),
         "known_trip_context": profile,
     }
-    # Missing fields are deliberately NOT sent to the model. They are readiness data,
-    # not conversation instructions. This prevents the intake engine from becoming a questionnaire.
     result = _openai_json(
         key, model,
         SYSTEM + "\nהקשר פנימי שכבר ידוע; אל תחזרי עליו סתם:\n" + json.dumps(context, ensure_ascii=False),
@@ -124,7 +124,6 @@ def ariella_chat():
     profile = dict(body.get("profile") if isinstance(body.get("profile"), dict) else {})
     history = body.get("history") if isinstance(body.get("history"), list) else []
 
-    # Member DB lookup is needed only once per chat profile, not on every message.
     if "known_companions" not in profile or "member_context_loaded" not in profile:
         member = _member_context()
         if member:
@@ -159,7 +158,6 @@ def ariella_chat():
     services = merged.get("services") or []
     reply = _safe_reply(result, stage)
 
-    # Heavy travel/provider work stays out of ordinary conversation turns.
     travel = _travel_matches(merged) if complete and ("attractions" in services or "route" in services) else []
     lodging_status = lodging_inventory_status() if complete and "lodging" in services else {
         "providers": [], "live_provider_count": 0, "live_inventory_available": False
