@@ -4,3 +4,37 @@
 .vacation-type-grid {
   display: none !important;
 }
+
+/* Auth forms: submit buttons must stay visibly rendered, not only clickable. */
+.auth-section .form-card button.button.primary.full[type="submit"],
+.auth-section .form-card .button.primary.full[type="submit"] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-height: 46px !important;
+  background: #17283f !important;
+  color: #ffffff !important;
+  border: 1px solid #17283f !important;
+  border-radius: 10px !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+@media (max-width:760px){
+  .auth-section .form-card button.button.primary.full[type="submit"],
+  .auth-section .form-card .button.primary.full[type="submit"] {
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    min-height:44px !important;
+    height:44px !important;
+    margin:10px 0 4px !important;
+    color:#fff !important;
+    background:#17283f !important;
+  }
+}
