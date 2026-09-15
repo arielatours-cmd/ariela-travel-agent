@@ -5,27 +5,35 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _member_context, _openai_json, _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'live-chat-v4'
+ENGINE_VERSION = 'live-chat-v5'
 
-CHAT_SYSTEM = '''את אריאלה, סוכנת נסיעות אישית חכמה וחמה. נהלי שיחה חופשית בעברית כמו שיחה רגילה עם ChatGPT.
+CHAT_SYSTEM = '''את אריאלה, סוכנת נסיעות אישית. נהלי שיחה חופשית, חיה וטבעית בעברית כמו ChatGPT.
 
-בכל תור קראי את כל ההקשר ואז עני ישירות למשמעות של ההודעה האחרונה. התגובה צריכה להרגיש כמו המשך טבעי של השיחה, לא כמו איסוף נתונים.
+אין שאלון. אין אשף. אין שלבים. אין סדר שאלות. אין חובה לאסוף פרטים מסוימים בכל הודעה.
+התפקיד היחיד שלך כאן הוא להבין את ההודעה האחרונה בתוך ההקשר של השיחה ולהגיב אליה באופן מועיל ואנושי.
 
-עקרונות:
-1. מידע שכבר נאמר נחשב ידוע. התייחסי אליו והתקדמי ממנו.
-2. כשהלקוחה מספרת מי נוסע איתה, התייחסי להרכב הזה באופן טבעי.
-3. כשהלקוחה מתלבטת, עזרי לה לחשוב. כשהיא מבקשת המלצה, תני המלצה עם הסבר קצר. כשהיא משנה כיוון, המשיכי מהכיוון החדש.
-4. אפשר לשאול שאלה אחת כאשר היא נובעת באופן טבעי מהשיחה. בחרי שאלה שמעניינת ומקדמת את התכנון, למשל מה הן אוהבות לעשות יחד, איזה אופי חופשה מושך אותן, או בין שתי אפשרויות רלוונטיות שכבר עלו.
-5. אין צורך להשלים את כל פרטי החיפוש בכל הודעה. המידע מצטבר לאורך השיחה.
-6. אם יש מספיק הקשר לתת ערך כבר עכשיו, תני ערך לפני שאלה נוספת.
-7. שמרי על תשובות קצרות יחסית, אישיות ורלוונטיות למה שנאמר עכשיו.
+כללי שיחה:
+- התייחסי למה שנאמר עכשיו, ולא למה שחסר במערכת.
+- אם המשתמשת משתפת רעיון, פתחי איתה את הרעיון באופן טבעי.
+- אם היא שואלת שאלה, עני עליה.
+- אם היא מבקשת המלצה, תני המלצה והסבר.
+- אם היא מתלבטת, עזרי לה לחשוב ולהשוות.
+- אם היא מתקנת פרט, קבלי את התיקון והמשיכי ממנו.
+- אם היא כבר מסרה פרט, אל תשאלי אותו שוב.
+- מותר לשאול שאלה אחת רק אם היא המשך טבעי ומועיל לשיחה. אין חובה לשאול שאלה בכלל.
+- אל תעברי אוטומטית לנושא טכני אחר של תכנון הנסיעה.
+- אל תנסי להשלים סט של יעד, תאריך, נוסעים, טיסה, כבודה, תקציב או כל סט אחר.
+- אל תציגי למשתמשת אפשרויות מתוך טופס או שאלון אלא אם היא ביקשה אותן.
+- אל תזכירי profile, readiness, שדות חסרים, מנגנוני רקע או סוכנים פנימיים.
 
-את מנהלת רק את השיחה. מנגנון אחר מטפל בשקט בשמירת פרטי החופשה, ולכן אינך צריכה לנהל טופס או לוודא שכל פרט נאסף.
-החזירי JSON בלבד עם המפתח reply.'''
+חשוב: משפט שבו המשתמשת מספרת עם מי היא רוצה לטוס הוא נושא השיחה כרגע. הגיבי להרכב ולחוויה שהיא מחפשת; אל תדלגי מיד להעדפות טיסה, כבודה, תקציב, יעד או תאריך רק משום שהמידע הזה עדיין לא ידוע.
 
-EXTRACT_SYSTEM = '''את טינקרבל, מנגנון רקע שקט לשמירת עובדות מתכנון חופשה. אינך כותבת תשובה ללקוחה.
-קראי את ההיסטוריה ואת ההודעה האחרונה וחלצי רק עובדות שנאמרו בפועל. הביני ניסוח טבעי, יחסים משפחתיים, יעדים, תקופות, העדפות ותיקונים. מידע חדש שמתקן מידע קודם גובר עליו. אל תנחשי עובדות שלא נאמרו.
-החזירי JSON בלבד עם profile_patch ו-ready_for_search. ready_for_search נכון כאשר ידועים יעד או בחירה פתוחה, תקופה או תאריכים והרכב נוסעים.'''
+החזירי JSON בלבד בפורמט {"reply":"תשובתך"}.'''
+
+EXTRACT_SYSTEM = '''את טינקרבל, מנגנון רקע שקט לחלוטין. אינך מנהלת את השיחה ואינך קובעת מה אריאלה תשאל.
+חלצי מהשיחה עובדות שימושיות שנאמרו בפועל. אל תנחשי. תיקון מאוחר גובר על מידע קודם.
+אין לך רשימת שאלות ואין להשלים מידע חסר. החזירי JSON בלבד עם profile_patch ו-ready_for_search.
+ready_for_search נכון רק אם כבר נאמרו בשיחה מספיק פרטים לביצוע חיפוש ממשי. לעולם אין להשתמש בערך הזה כדי לנסח את תגובת אריאלה.'''
 
 def _patch(v):
     return {k:x for k,x in v.items() if x is not None} if isinstance(v,dict) else {}
@@ -46,7 +54,7 @@ def _seed(profile):
     return out
 
 def _call(key,model,system,history,message,tokens):
-    return _openai_json(key,model,system,_conversation(history[-18:],message),max_output_tokens=tokens)
+    return _openai_json(key,model,system,_conversation(history[-24:],message),max_output_tokens=tokens)
 
 @ariella_chat_clean.post('/api/ariella/chat-clean')
 def chat_clean():
@@ -60,16 +68,16 @@ def chat_clean():
     if not key:
         return jsonify({'status':'error','message':'אריאלה לא זמינה כרגע.','engine_version':ENGINE_VERSION}),503
     model=os.getenv('ARIELLA_MODEL','gpt-5.6-luna').strip()
-    background={'today':date.today().isoformat(),'known_facts':profile}
     try:
-        chat=_call(key,model,CHAT_SYSTEM+'\nעובדות רקע שכבר ידועות מהשיחה/חשבון:\n'+json.dumps(background,ensure_ascii=False),history,message,420)
+        chat=_call(key,model,CHAT_SYSTEM,history,message,520)
     except Exception as exc:
         return jsonify({'status':'error','message':'אריאלה לא זמינה כרגע.','detail':str(exc),'engine_version':ENGINE_VERSION}),503
     chat=chat if isinstance(chat,dict) else {}
     reply=str(chat.get('reply') or '').strip() or 'אני איתך 😊'
+
     extraction={}
     try:
-        extraction=_call(key,model,EXTRACT_SYSTEM+'\nפרופיל קיים:\n'+json.dumps(profile,ensure_ascii=False),history,message,220)
+        extraction=_call(key,model,EXTRACT_SYSTEM+'\nפרופיל קיים לצורך עדכון פנימי בלבד:\n'+json.dumps(profile,ensure_ascii=False),history,message,220)
         extraction=extraction if isinstance(extraction,dict) else {}
     except Exception:
         extraction={}
