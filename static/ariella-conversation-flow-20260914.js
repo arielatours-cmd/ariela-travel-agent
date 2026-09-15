@@ -1,8 +1,7 @@
 (function(){
 'use strict';
-const FLOW='20260915-intent-first-v9';
-const RESET='20260915-intent-first-reset-v5';
-const RULES='כלל עליון: זו שיחה עם סוכנת נסיעות, לא מילוי טופס. בכל הודעה קודם לזהות את כוונת הלקוח: תשובה לשאלה, שאלה לאריאלה, בקשת המלצה, בקשת הסבר, תיקון/שינוי, או מידע חדש. אם הלקוח שאל שאלה או ביקש המלצה/הסבר — חובה לענות על מה ששאל לפני שממשיכים באיסוף הפרטים. במקביל יש לחלץ ולשמור כל מידע חדש שנמסר. לאחר מכן בודקים מה חסר. אחרי מטרת הטיסה שלושת פרטי הבסיס הם יעד, מועד ומי נוסע. אם התקבל רק חלק מהם, שואלים אך ורק על החסר; אין לעבור לפרטי טיסה עד ששלושתם קיימים. לדוגמה: אם נכתב ״טיול לאיטליה עם בעלי ובת 17״ כבר ידועים יעד ונוסעים ולכן השאלה הבאה היא רק מתי רוצים לטוס. אם לאחר מכן הלקוח שואל ״מתי את ממליצה?״ יש לענות בהמלצה עניינית על איטליה ורק בסוף לשאול שאלה טבעית שמסייעת לבחור מועד — אסור לחזור על ״מתי תרצו לנסוע?״. תיקונים כמו ״בעצם״ או ״תשני״ מעדכנים רק את המידע שתוקן. אין לשאול שוב מידע שכבר ידוע. רק לאחר יעד+מועד+נוסעים שואלים יחד על ישיר/קונקשן וכבודה, והתקציב הוא שאלת הטיסה האחרונה. התשובה תמיד טבעית, קצרה ואנושית.';
+const FLOW='20260915-single-pass-v10';
+const RESET='20260915-single-pass-reset-v6';
 function isTrip(){return !!document.getElementById('tripWizard')||location.pathname.indexOf('/trip/new')===0;}
 function firstName(p){return String(p.first_name||p.name||p.full_name||'').trim().split(/\s+/)[0]||'';}
 function hello(p){const n=firstName(p);return (n?'היי '+n+', ':'היי, ')+'איזה כיף שהתחברת 😊\nאני אריאלה, סוכנת הנסיעות האישית שלך.\nמה מטרת הטיסה? למשל עסקים, בילוי עם חברים, טיול משפחתי או חופשת סקי.';}
@@ -21,7 +20,6 @@ function purpose(){const greet=hello(profile);add('bot',greet);history.push({rol
 async function start(){messages.innerHTML='';if(history.length){history.forEach(x=>add(x.role==='assistant'?'bot':'user',x.content));summary();return;}await loadMemberName(profile);save();purpose();summary();}
 async function sendMessage(raw,display){raw=String(raw||'').trim();if(!raw||busy)return;busy=true;send.disabled=true;input.value='';if(display)add('user',raw);const prior=history.slice(-6);history.push({role:'user',content:raw});save();try{const payload={message:raw,history:prior,profile};const r=await fetch('/api/ariella/chat',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});let data={};try{data=await r.json();}catch(e){}if(!r.ok||data.status!=='success'){add('bot',data.message||'יש כרגע תקלה זמנית. נסו שוב בעוד רגע.');return;}profile=data.profile||profile;summary();const reply=String(data.reply||'').trim();if(reply){add('bot',reply);history.push({role:'assistant',content:reply});}save();}catch(e){add('bot','יש כרגע תקלה זמנית. נסו שוב בעוד רגע.');}finally{busy=false;send.disabled=false;input.focus();}}
 send.addEventListener('click',e=>{e.preventDefault();sendMessage(input.value,true);});input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage(input.value,true);}});input.disabled=false;send.disabled=false;start();}
-function patchFetch(){if(window.__ariellaPatched)return;window.__ariellaPatched=true;const old=window.fetch.bind(window);window.fetch=async function(input,init){const url=typeof input==='string'?input:(input&&input.url)||'';if(/\/api\/ariella\/chat(?:\?|$)/.test(url)&&init&&typeof init.body==='string'){try{const p=JSON.parse(init.body),m=String(p.message||'').trim();if(m)p.message=m+'\n\n'+RULES;init=Object.assign({},init,{body:JSON.stringify(p)});}catch(e){}}return old(input,init);};}
-function boot(){if(!isTrip())return;removeLegacy();style();patchFetch();controller(makeChat());}
+function boot(){if(!isTrip())return;removeLegacy();style();controller(makeChat());}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
