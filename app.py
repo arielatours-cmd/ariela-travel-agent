@@ -24,6 +24,7 @@ from din_agent import enrich_offer_legal_terms
 from schedule_rules import delivery_status
 from public_site import site
 from whatsapp_coexistence import whatsapp_coexistence
+from ariella_chat_v2 import ariella_chat_v2
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -33,6 +34,7 @@ app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 app.register_blueprint(site)
 app.register_blueprint(whatsapp_coexistence)
+app.register_blueprint(ariella_chat_v2)
 
 # Din is Ariella's legal/terms verification layer. Scanner functions resolve
 # `insert_offer` from their module globals at runtime, so wrapping it here makes
@@ -43,9 +45,6 @@ def _insert_offer_with_din(scan_run_id, offer):
     try:
         offer = enrich_offer_legal_terms(offer)
     except Exception as exc:
-        # Legal verification must never make a flight scan fail. When Din cannot
-        # verify a rule clearly, Ariella displays the conservative supplier-check
-        # fallback requested for the customer card.
         app.logger.warning("Din verification failed for deal: %s", exc)
         offer.setdefault("consumer_protection", {
             "status": "check", "label": "יש לבדוק באתר הספק", "checked_by": "Din"
@@ -62,9 +61,6 @@ _latest_for_normalization = latest_scan_run()
 if _latest_for_normalization and _latest_for_normalization.get("status") != "running":
     normalize_scan_run_price_groups(int(_latest_for_normalization["id"]))
 
-# Manual scans must never run inside the browser request itself: a wide flight
-# search can exceed Gunicorn's request timeout. The request only starts a
-# background worker and returns immediately; the admin page polls job status.
 _manual_scan_lock = threading.Lock()
 _manual_scan_jobs = {}
 
@@ -84,27 +80,18 @@ def _background_scan_worker(job_id, label, runner):
 
 
 def _start_background_scan(label, runner):
-    # Only one manual scan at a time. This prevents accidental double-clicks
-    # from burning the SerpApi quota.
     if not _manual_scan_lock.acquire(blocking=False):
         return None, (jsonify({
             "status": "busy",
             "message": "כבר מתבצעת סריקה ידנית. יש להמתין לסיומה."
         }), 409)
-
     job_id = uuid.uuid4().hex
     _manual_scan_jobs[job_id] = {
-        "job_id": job_id,
-        "label": label,
-        "status": "starting",
-        "result": None,
-        "error": None,
+        "job_id": job_id, "label": label, "status": "starting", "result": None, "error": None,
     }
     thread = threading.Thread(
         target=_background_scan_worker,
-        args=(job_id, label, runner),
-        daemon=True,
-        name=f"ariella-{label}-{job_id[:8]}",
+        args=(job_id, label, runner), daemon=True, name=f"ariella-{label}-{job_id[:8]}",
     )
     thread.start()
     return job_id, None
@@ -144,8 +131,7 @@ def health():
         "database_error": db_error, "database_path": str(DB_PATH),
         "database_persistent_path": str(DB_PATH).startswith("/var/data/"),
         "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
-        "admin_protected": bool(ADMIN_TOKEN),
-        "whatsapp": whatsapp_status(),
+        "admin_protected": bool(ADMIN_TOKEN), "whatsapp": whatsapp_status(),
     })
 
 
