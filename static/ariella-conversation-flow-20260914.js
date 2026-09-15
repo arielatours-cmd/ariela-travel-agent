@@ -1,7 +1,7 @@
 (function(){
 'use strict';
-const FLOW='20260915-single-pass-v10';
-const RESET='20260915-single-pass-reset-v6';
+const FLOW='20260915-single-pass-v11';
+const RESET='20260915-single-pass-reset-v7';
 function isTrip(){return !!document.getElementById('tripWizard')||location.pathname.indexOf('/trip/new')===0;}
 function firstName(p){return String(p.first_name||p.name||p.full_name||'').trim().split(/\s+/)[0]||'';}
 function hello(p){const n=firstName(p);return (n?'היי '+n+', ':'היי, ')+'איזה כיף שהתחברת 😊\nאני אריאלה, סוכנת הנסיעות האישית שלך.\nמה מטרת הטיסה? למשל עסקים, בילוי עם חברים, טיול משפחתי או חופשת סקי.';}
