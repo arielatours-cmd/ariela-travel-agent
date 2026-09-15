@@ -5,44 +5,87 @@ from datetime import date
 from flask import Blueprint, jsonify, request
 
 from travel_agents import (
-    _member_context, _persist_gender, _normalize_services, _next_question,
-    _travel_matches, _ui_choice, _flight_handoff, _load_json,
+    _member_context, _persist_gender, _normalize_services,
+    _travel_matches, _flight_handoff, _load_json,
     _LODGING_SCHEMA_FILE, _CAR_SCHEMA_FILE, _openai_json, _conversation,
 )
 from lodging_providers import lodging_inventory_status
 
 ariella_chat_v2 = Blueprint("ariella_chat_v2", __name__)
 
-SYSTEM = """את אריאלה, סוכנת הנסיעות האישית שמנהלת את השיחה עם הלקוח. טינקרבל היא שכבת ההבנה השקטה שלך: באותה קריאה את גם מנהלת שיחה טבעית וגם מעדכנת ברקע את תיק החופשה.
+SYSTEM = """את אריאלה, סוכנת הנסיעות האישית שמדברת עם הלקוח. טינקרבל היא שכבת ההבנה השקטה שלך ופועלת ברקע באותה קריאת AI.
 
-כלל עליון: זו שיחה בין בני אדם, לא שאלון ולא טופס. בכל הודעה הביני קודם מה הלקוח התכוון לעשות עכשיו: לענות, לשאול אותך שאלה, לבקש המלצה או הסבר, לתקן מידע קודם, לשנות החלטה, להתלבט, או למסור כמה פרטים יחד. אם הלקוח שאל שאלה או ביקש המלצה/הסבר — עני על זה קודם. אסור ששדה חסר ידרוס את התשובה לשאלה שלו.
+בכל הודעה עשי שתי פעולות יחד:
+1. הביני סמנטית את כל מה שנאמר ועדכני profile_patch רק במידע חדש או מתוקן.
+2. נהלי שיחה טבעית ואנושית בהתאם לכוונת הלקוח ולהקשר.
 
-במקביל, חלצי סמנטית כל מידע חדש שנאמר ועדכני אותו ב-profile_patch. אל תסתמכי על רשימת ניסוחים קשיחה. הביני יחסים וכמויות מתוך השפה הטבעית וההקשר. לדוגמה, משפט שמספר שהלקוחה נוסעת עם בעלה ובת בת 17 משמעו 2 מבוגרים, ילדה אחת, child_ages=[17], travel_party_type=family. זו דוגמה להבנה סמנטית בלבד, לא תבנית שיש לחפש. אם בהמשך הלקוח מתקן מידע, עדכני רק את מה שתוקן.
+זו אינה מערכת של משפטים קבועים. הביני שפה חופשית, יחסים, כמויות, תיקונים ושאלות לפי משמעותם. אם הלקוח מתאר מי נוסע, הסיקי את הרכב הנוסעים מן המשמעות. לדוגמה בלבד, נסיעה של הלקוחה עם בעלה ובת בת 17 משמעותה שני מבוגרים, ילדה אחת בת 17 ומשפחה. אל תחפשי את הניסוח הזה כתבנית — הפעילי אותה הבנה על כל ניסוח טבעי.
 
-אל תשאלי שוב מידע שכבר קיים בפרופיל. אחרי שמטרת הנסיעה ידועה, פרטי הבסיס הם יעד, מועד ונוסעים. אם חלק מהם ידוע, שאלי באופן טבעי רק על מה שחסר. רק כששלושתם ידועים עוברים להעדפות הטיסה. ישיר/קונקשן וכבודה נשאלים יחד אם שניהם חסרים. תקציב לאדם הוא שאלת הטיסה האחרונה. נתב״ג הוא ברירת המחדל למשתמש ישראלי ואין צורך לשאול שדה יציאה אלא אם הלקוח מבקש אחרת.
+אם הלקוח שואל שאלה, מבקש המלצה, הסבר או מתלבט — עני על זה קודם. אסור ששדה חסר ידרוס שאלה של הלקוח. אפשר בסוף התשובה לשלב שאלה קצרה שמקדמת את החופשה.
 
-אל תבטיחי שחיפוש התחיל ואל תכתבי 'אחפש', 'אבדוק' או 'מתחילה לחפש' בזמן איסוף הפרטים. החיפוש מתחיל רק לאחר שכל נתוני החובה הושלמו ואושרו.
+אם ההודעה בעיקר מוסרת/מתקנת מידע, התגובה צריכה להתבסס על המידע החדש כאילו profile_patch כבר מוזג לפרופיל. אל תשאלי על פרט שמסרת כרגע או שכבר היה ידוע. next_focus צריך לציין איזה תחום נכון להשלים אחרי המיזוג.
 
-ה-profile הקיים הוא מקור האמת למה שכבר ידוע. profile_patch מכיל רק מידע חדש או מתוקן מההודעה הנוכחית. ערכים פנימיים יכולים להיות מנורמלים באנגלית, אך reply תמיד בשפת הלקוח.
+סדר נתוני הטיסה: מטרת נסיעה -> יעד -> מועד -> נוסעים -> ישיר/קונקשן וכבודה -> תקציב לאדם. אם התקבל מידע חלקי, משלימים רק את החסר. ישיר/קונקשן וכבודה נשאלים יחד כאשר שניהם חסרים. נתב״ג הוא ברירת מחדל ואין לשאול עליו. אין לשאול שמות נוסעים כחלק מנתוני החובה.
 
-מטרת נסיעה: business / ski / standard. שירותים: flight / lodging / attractions / route / car. שדות מרכזיים: vacation_type, services, destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, travel_party_type, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, lodging_type, rooms, bathrooms, hotel_rooms, lodging_budget_mode, lodging_budget_amount, pickup_location, dropoff_location, driver_age, car_type, transmission, car_budget_mode, car_budget_amount, car_features, notes.
+אל תכתבי 'אחפש', 'אבדוק', 'אחפש לך טיסות', 'מתחילה לחפש' או כל הבטחה לחיפוש בזמן איסוף הפרטים. חיפוש מתחיל רק לאחר השלמת הפרטים ואישור.
 
-החזירי JSON בלבד במבנה:
-{"reply":"התשובה הטבעית ללקוח","profile_patch":{},"intent":"answer|question|recommendation|correction|change|information|conversation","unclear":[]}
+מטרת נסיעה: business / ski / standard. אם הלקוח אומר שהוא מחפש טיסה/חופשה משפחתית רגילה ואין אינדיקציה לעסקים או סקי, אפשר להסיק standard. שירות טיסה הוא flight.
+שדות מרכזיים: vacation_type, services, destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, travel_party_type, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, lodging_type, rooms, bathrooms, hotel_rooms, lodging_budget_mode, lodging_budget_amount, pickup_location, dropoff_location, driver_age, car_type, transmission, car_budget_mode, car_budget_amount, car_features, notes.
+
+החזירי JSON בלבד:
+{"reply":"תשובה טבעית","profile_patch":{},"intent":"answer|question|recommendation|correction|change|information|conversation","next_focus":"purpose|destination|dates|travelers|flight_preferences|budget|confirm","unclear":[]}
 """
+
+QUESTIONS = {
+    "purpose": "מה מטרת הטיסה? למשל עסקים, בילוי עם חברים, טיול משפחתי או חופשת סקי.",
+    "destination": "לאן תרצו לטוס? אם עדיין לא החלטתם, אני יכולה גם לעזור לבחור יעד 😊",
+    "dates": "ומתי תרצו לטוס? אפשר תאריכים מדויקים או חודש מועדף.",
+    "travelers": "ומי נוסע איתכם?",
+    "flight_preferences": "ומה חשוב לכם מבחינת הטיסה? חשוב לכם לטוס ישיר, או שגם קונקשן יכול להתאים? ואיזו כבודה תצטרכו — תיק יד, טרולי או מזוודה?",
+    "budget": "ולסיום, יש תקציב לאדם שתרצו שאשתדל לעמוד בו, או שאין מגבלת תקציב?",
+    "confirm": "יש עוד משהו שחשוב לכם בחופשה שאדע לפני שמתחילים לחפש? 😊",
+}
 
 
 def _clean_patch(value):
     if not isinstance(value, dict):
         return {}
-    # None means "not learned". Empty values are allowed only when the model is
-    # explicitly correcting/removing a previous choice.
     return {k: v for k, v in value.items() if v is not None}
 
 
-def _missing_context(profile):
-    question, stage = _next_question(profile)
-    return {"stage": stage, "suggested_missing_question": question}
+def _has_destination(p):
+    return bool(p.get("destinations")) or p.get("destination_mode") in {"open", "ariella", "flexible"}
+
+
+def _has_dates(p):
+    return bool((p.get("departure_date") and p.get("return_date")) or p.get("outbound_month"))
+
+
+def _has_travelers(p):
+    try:
+        return int(p.get("adults") or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _has_budget(p):
+    return bool(p.get("budget_mode") or p.get("budget_amount") not in (None, ""))
+
+
+def _stage(p):
+    if not p.get("vacation_type"):
+        return "purpose"
+    if not _has_destination(p):
+        return "destination"
+    if not _has_dates(p):
+        return "dates"
+    if not _has_travelers(p):
+        return "travelers"
+    if not p.get("flight_preference") or not p.get("baggage"):
+        return "flight_preferences"
+    if not _has_budget(p):
+        return "budget"
+    return "confirm"
 
 
 def _single_pass(message, history, profile):
@@ -52,15 +95,14 @@ def _single_pass(message, history, profile):
     model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna").strip()
     context = {
         "current_date": date.today().isoformat(),
-        "profile": profile,
-        "missing_before_message": _missing_context(profile),
+        "profile_before_message": profile,
+        "stage_before_message": _stage(profile),
     }
     result = _openai_json(
-        key,
-        model,
-        SYSTEM + "\nמידע פנימי לפני ההודעה הנוכחית:\n" + json.dumps(context, ensure_ascii=False),
+        key, model,
+        SYSTEM + "\nמידע פנימי לפני ההודעה:\n" + json.dumps(context, ensure_ascii=False),
         _conversation(history, message),
-        max_output_tokens=900,
+        max_output_tokens=850,
     )
     if not isinstance(result, dict):
         result = {}
@@ -68,6 +110,24 @@ def _single_pass(message, history, profile):
     if not isinstance(result.get("unclear"), list):
         result["unclear"] = []
     return result
+
+
+def _safe_reply(result, merged, stage):
+    reply = str(result.get("reply") or "").strip()
+    intent = str(result.get("intent") or "conversation").strip().lower()
+    model_focus = str(result.get("next_focus") or "").strip()
+
+    # Questions/recommendations belong to Ariella: answer the customer, never let
+    # the completeness engine overwrite that answer.
+    if intent in {"question", "recommendation", "answer", "conversation"} and reply:
+        return reply
+
+    # For information/corrections the backend verifies the model's proposed next
+    # focus against the profile AFTER extraction. This prevents re-asking a field
+    # that Tinkerbell has just learned, without relying on Hebrew phrase patterns.
+    if model_focus != stage:
+        return QUESTIONS[stage]
+    return reply or QUESTIONS[stage]
 
 
 @ariella_chat_v2.post("/api/ariella/chat")
@@ -87,7 +147,6 @@ def ariella_chat():
         if profile.get("customer_gender"):
             _persist_gender(member["id"], profile.get("customer_gender"))
 
-    # Israel/TLV is the product default; it should not consume a conversational turn.
     if not profile.get("departure_airports"):
         profile["departure_airports"] = ["TLV"]
 
@@ -105,15 +164,10 @@ def ariella_chat():
         elif "flight" not in merged["services"]:
             merged["services"].insert(0, "flight")
 
-    next_question, stage = _next_question(merged)
+    stage = _stage(merged)
     complete = stage == "confirm"
     services = merged.get("services") or []
-    reply = str(result.get("reply") or "").strip()
-    # The deterministic completeness check is advisory only. It never replaces a
-    # natural answer. If the model returned no text, use the missing question as a
-    # safety fallback; otherwise Ariella owns the conversation.
-    if not reply:
-        reply = next_question or "יש עוד משהו שחשוב לכם שאדע לפני שנמשיך?"
+    reply = _safe_reply(result, merged, stage)
 
     travel = _travel_matches(merged) if complete and ("attractions" in services or "route" in services) else []
     lodging_status = lodging_inventory_status() if "lodging" in services else {
@@ -125,11 +179,11 @@ def ariella_chat():
         "reply": reply,
         "profile": merged,
         "intent": result.get("intent") or "conversation",
-        "missing_question": next_question,
+        "missing_question": QUESTIONS[stage] if not complete else "",
         "stage": stage,
         "show_purpose_picker": False,
         "show_service_picker": False,
-        "ui_choice": _ui_choice(stage, next_question, merged),
+        "ui_choice": None,
         "services": services,
         "ready_for_flights": complete and "flight" in services,
         "flight_search_started": False,
