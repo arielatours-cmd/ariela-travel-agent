@@ -4,25 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="{% if site_lang == 'en' %}Ariella — smarter vacation search{% else %}אריאלה — למצוא את החופשה שמתאימה לך{% endif %}">
   <title>{% block title %}{{ 'Ariella' if site_lang == 'en' else 'אריאלה' }}{% endblock %}</title>
-  <script id="ariella-nonblocking-main-css">
-  (function(){
-    fetch({{ url_for('static', filename='site.css')|tojson }},{cache:'no-cache'})
-      .then(function(r){return r.text();})
-      .then(function(css){
-        css=css.replace(/^\s*@import\s+url\([^;]+;\s*/i,'');
-        var s=document.createElement('style');
-        s.id='ariella-main-css-local';
-        s.textContent=css;
-        document.head.appendChild(s);
-      })
-      .catch(function(){
-        var l=document.createElement('link');
-        l.rel='stylesheet';
-        l.href={{ url_for('static', filename='site.css')|tojson }};
-        document.head.appendChild(l);
-      });
-  })();
-  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20260916-prepaint-v1">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-trip-regular.css') }}">
@@ -71,7 +53,7 @@ h1{margin:0;line-height:1.08;font-family:Georgia,"Times New Roman",serif;font-we
 .login-error-popup strong{display:block;font-size:22px;line-height:1.3;margin-bottom:8px}.login-error-popup p{margin:0;font-size:16px;line-height:1.5}.login-error-popup small{display:block;margin-top:14px;color:#7b6b4d;font-size:12px}
 </style>
 </head>
-<!-- ARIELLA_BUILD:9.7.154 -->
+<!-- ARIELLA_BUILD:9.7.155 -->
 <body>
 {% include "_site_header.html" %}
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}{% set errors = messages|selectattr('0','in',['error','danger'])|list %}{% if request.endpoint == 'site.login' and errors %}<div class="login-error-overlay" id="loginErrorOverlay" role="alert" aria-live="assertive"><div class="login-error-popup"><strong>{{ 'Login failed' if site_lang == 'en' else 'ההתחברות לא הצליחה' }}</strong>{% for category, message in errors %}<p>{{ message }}</p>{% endfor %}<small>{{ 'Returning to the login page…' if site_lang == 'en' else 'חוזרים לדף ההתחברות בעוד כמה שניות…' }}</small></div></div><script>setTimeout(function(){window.location.replace({{ url_for('site.login', lang=site_lang)|tojson }});},4000);</script>{% elif request.endpoint != 'site.login' %}<div class="shell flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endif %}{% endwith %}
