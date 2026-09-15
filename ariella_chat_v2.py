@@ -12,35 +12,26 @@ from travel_agents import (
 from lodging_providers import lodging_inventory_status
 
 ariella_chat_v2 = Blueprint("ariella_chat_v2", __name__)
-ENGINE_VERSION = "contextual-chat-v14"
+ENGINE_VERSION = "contextual-chat-v15"
 
-SYSTEM = """את אריאלה, סוכנת נסיעות אישית. דברי עם האדם בדיוק כשיחה טבעית ב-ChatGPT, לא כשאלון.
+SYSTEM = """את מפעילה שתי שכבות באותה קריאה ובסדר מחייב:
+1. טינקרבל השקטה מבינה קודם את ההודעה האחרונה בתוך כל ההקשר ומעדכנת profile_patch.
+2. רק אחרי שהבנת מה נאמר, אריאלה מנסחת reply טבעי על סמך ההודעה, ההיסטוריה, הפרופיל הקיים וה-profile_patch שזה עתה חילצת.
 
-הדבר החשוב ביותר: הגיבי למה שהאדם אמר עכשיו בתוך ההקשר של השיחה. אל תנסי להשלים טופס בכל תשובה. אם הוא שואל שאלה — עני עליה. אם הוא מתלבט — חשבי איתו. אם הוא מספר משהו — התייחסי אליו. אם הוא משנה את דעתו — המשיכי מהשינוי.
+אריאלה היא סוכנת נסיעות אישית שמדברת כמו ChatGPT בשיחה חופשית, לא כמו שאלון. הגיבי למה שהאדם אמר עכשיו. אם הוא שואל — עני. אם הוא מתלבט — חשבי איתו. אם הוא מוסר מידע — הכירי בו והמשיכי ממנו. אם הוא מתקן — קבלי את התיקון והמשיכי.
 
-אסור לשאול שוב פרט שכבר נאמר. מותר לכל היותר לשאול שאלה אחת בסוף, ורק אם היא המשך טבעי של השיחה. לעולם אל תבקשי יחד יעד, תאריך ונוסעים. לעולם אל תגידי "ספרי לי קצת על החופשה" ולא תציגי רשימת פרטים שחסרים. אל תזכירי נתב״ג או חיפוש טיסות עד שהשיחה באמת מגיעה לחיפוש.
+חוק קשיח: אסור לשאול על פרט שכבר מופיע בפרופיל הקיים, בהיסטוריה, בהודעה האחרונה או ב-profile_patch של התור הנוכחי. אל תשאלי רשימת שאלות ואל תנסי להשלים טופס. מותר לכל היותר סימן שאלה אחד ב-reply, ורק לשאלת המשך אחת טבעית. לעולם אל תבקשי יחד יעד, תאריך ונוסעים. לעולם אל תגידי "ספרי לי קצת על החופשה" או נוסח דומה. אל תזכירי נתב״ג או חיפוש טיסות עד שזה רלוונטי ממש.
 
-חשוב במיוחד: אם ההודעה האחרונה עצמה כבר מכילה תשובה לשאלה קודמת, קודם הכירי בתשובה והמשיכי ממנה. לדוגמה, "בא לי לטוס עם הבת שלי" כבר אומר שמדובר במשתמשת ובבת שלה. אסור לענות כאילו לא נמסר מידע ואסור לשאול שוב מי נוסע. אין צורך לדעת מיד את גיל הבת; גיל אפשר לברר מאוחר יותר רק כשזה באמת נדרש.
+דוגמה מחייבת: אם ההודעה היא "בא לי לטוס עם הבת שלי", טינקרבל מחלצת קודם adults=1, children=1, travel_party_type=family. לכן אריאלה כבר יודעת מי נוסע ואסור לה לשאול "מי נוסע", "מי נוסע איתך" או לצרף את זה לרשימת פרטים. תשובה טבעית אפשרית היא בסגנון "איזה כיף 😊 יש לכן כבר כיוון בראש או שאת רוצה שנחשוב יחד?" — זו דוגמה לסגנון, לא טקסט קבוע.
 
-במקביל לתשובה, פעלי גם כטינקרבל השקטה: חלצי מן המשמעות של השיחה עובדות חדשות ותיקונים ל-profile_patch. טינקרבל אינה מדברת ואינה קובעת מה אריאלה תשאל. תיקון חדש גובר על מידע ישן. אל תנחשי עובדות שלא נאמרו.
-
-כללי חילוץ חשובים: כאשר המשתמשת אומרת "עם הבת שלי" או "אני והבת שלי", שמרי adults=1, children=1 ו-travel_party_type=family, אלא אם גיל שכבר ידוע בשיחה מחייב סיווג תמחורי אחר. "עם הבן שלי" מקביל לכך. "עם בעלי" או "עם אשתי" משמע adults=2. המטרה היא לזכור את משמעות המשפט, לא להחזיר אותו כשאלה.
+טינקרבל אינה מדברת עם הלקוח ואינה קובעת את השאלה הבאה. תיקון חדש גובר על מידע ישן. אל תנחשי עובדות שלא נאמרו. "עם הבת שלי"/"אני והבת שלי" => adults=1, children=1, travel_party_type=family כשאין מידע אחר שסותר; "עם הבן שלי" מקביל; "עם בעלי"/"עם אשתי" => adults=2.
 
 נרמול פנימי בלבד: vacation_type יכול להיות business / ski / standard. services כולל flight כשמדובר בטיסה. שדות אפשריים: vacation_type, services, destination_mode, destinations, departure_airports, date_mode, departure_date, return_date, outbound_month, return_month, date_flex_days, adults, children, child_ages, infants, travel_party_type, budget_mode, budget_amount, flight_preference, baggage, vacation_styles, lodging_type, rooms, bathrooms, hotel_rooms, lodging_budget_mode, lodging_budget_amount, pickup_location, dropoff_location, driver_age, car_type, transmission, car_budget_mode, car_budget_amount, car_features, notes.
 
-החזירי JSON בלבד ובקיצור:
-{"reply":"תשובת אריאלה הטבעית","profile_patch":{},"intent":"conversation","unclear":[]}
+חשוב: סדר המפתחות בפלט הוא חלק מהתהליך — קודם חלצי profile_patch ורק אחר כך כתבי reply.
+החזירי JSON בלבד ובקיצור, בדיוק במבנה:
+{"profile_patch":{},"reply":"תשובת אריאלה הטבעית","intent":"conversation","unclear":[]}
 """
-
-QUESTIONS = {
-    "purpose": "מה מתחשק לך לתכנן?",
-    "destination": "יש לך כבר כיוון בראש, או שנחשוב יחד? 😊",
-    "dates": "יש תקופה שמתאימה לך יותר?",
-    "travelers": "מי מצטרף לחופשה?",
-    "flight_preferences": "יש משהו שחשוב לך במיוחד בטיסה או בכבודה?",
-    "budget": "יש תקציב לאדם שחשוב לך שאקח בחשבון?",
-    "confirm": "יש עוד משהו שחשוב לך שאדע לפני החיפוש? 😊",
-}
 
 
 def _clean_patch(value):
@@ -89,15 +80,12 @@ def _single_pass(message, history, profile):
     if not key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
     model = os.getenv("ARIELLA_MODEL", "gpt-5.6-luna").strip()
-    context = {
-        "current_date": date.today().isoformat(),
-        "known_trip_context": profile,
-    }
+    context = {"current_date": date.today().isoformat(), "known_trip_context": profile}
     result = _openai_json(
         key, model,
         SYSTEM + "\nהקשר פנימי שכבר ידוע; אל תחזרי עליו סתם:\n" + json.dumps(context, ensure_ascii=False),
         _conversation((history or [])[-6:], message),
-        max_output_tokens=350,
+        max_output_tokens=280,
     )
     if not isinstance(result, dict):
         result = {}
@@ -107,11 +95,9 @@ def _single_pass(message, history, profile):
     return result
 
 
-def _safe_reply(result, stage):
+def _safe_reply(result):
     reply = str(result.get("reply") or "").strip()
-    if reply:
-        return reply
-    return QUESTIONS.get(stage, "ספרי לי עוד 😊")
+    return reply or "ספרי לי עוד 😊"
 
 
 @ariella_chat_v2.post("/api/ariella/chat")
@@ -156,35 +142,21 @@ def ariella_chat():
     stage = _stage(merged)
     complete = stage == "confirm"
     services = merged.get("services") or []
-    reply = _safe_reply(result, stage)
+    reply = _safe_reply(result)
 
     travel = _travel_matches(merged) if complete and ("attractions" in services or "route" in services) else []
-    lodging_status = lodging_inventory_status() if complete and "lodging" in services else {
-        "providers": [], "live_provider_count": 0, "live_inventory_available": False
-    }
+    lodging_status = lodging_inventory_status() if complete and "lodging" in services else {"providers": [], "live_provider_count": 0, "live_inventory_available": False}
     return jsonify({
-        "status": "success",
-        "agent": "Ariella",
-        "engine_version": ENGINE_VERSION,
-        "reply": reply,
-        "profile": merged,
-        "intent": result.get("intent") or "conversation",
-        "missing_question": "",
-        "stage": stage,
-        "show_purpose_picker": False,
-        "show_service_picker": False,
-        "ui_choice": None,
-        "services": services,
-        "ready_for_flights": complete and "flight" in services,
-        "flight_search_started": False,
+        "status": "success", "agent": "Ariella", "engine_version": ENGINE_VERSION,
+        "reply": reply, "profile": merged, "intent": result.get("intent") or "conversation",
+        "missing_question": "", "stage": stage, "show_purpose_picker": False,
+        "show_service_picker": False, "ui_choice": None, "services": services,
+        "ready_for_flights": complete and "flight" in services, "flight_search_started": False,
         "ready_for_lodging": complete and "lodging" in services,
-        "ready_for_car": complete and "car" in services,
-        "ready_for_travel": bool(travel),
-        "intake_complete": complete,
-        "requires_confirmation": complete,
+        "ready_for_car": complete and "car" in services, "ready_for_travel": bool(travel),
+        "intake_complete": complete, "requires_confirmation": complete,
         "confirmation_text": "עברו על כל הפרטים ב'החופשה שלי'. אם הכול נכון, אשרו יציאה לחיפוש.",
-        "tinkerbell_handoff": _flight_handoff(merged),
-        "travel_agent": {"attractions": travel},
+        "tinkerbell_handoff": _flight_handoff(merged), "travel_agent": {"attractions": travel},
         "lodging_schema": _load_json(_LODGING_SCHEMA_FILE, {}) if complete and "lodging" in services else {},
         "car_schema": _load_json(_CAR_SCHEMA_FILE, {}) if complete and "car" in services else {},
         "inventory_status": {"lodging": lodging_status, "car": "provider_pending"},
