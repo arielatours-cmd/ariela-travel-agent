@@ -23,11 +23,14 @@
 <script>document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});</script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260908n"></script>
-<script id="ariella-one-time-chat-reset-live-v6">
-(function(){try{const marker='ariellaOneTimeChatReset:20260916-live-chat-v6-reset1';if(localStorage.getItem(marker)==='1')return;let identity={};for(const key of ['ariellaChatState:v6','ariellaChatState:v4']){try{const old=JSON.parse(localStorage.getItem(key)||'{}')||{},p=old.profile||{};['first_name','last_name','name','full_name','gender','sex','phone','email','member_id','user_id','departure_airport'].forEach(function(k){if(identity[k]===undefined&&p[k]!==undefined&&p[k]!==null&&p[k]!=='')identity[k]=p[k];});}catch(_e){}}localStorage.removeItem('ariellaChatState:v4');localStorage.removeItem('ariellaChatState:v6');localStorage.removeItem('ariellaChatOneTimeReset');localStorage.setItem('ariellaChatState:v6',JSON.stringify({profile:identity,history:[],flow:'20260916-live-chat-v6',saved_at:new Date().toISOString()}));localStorage.setItem('ariellaChatOneTimeReset','20260916-live-chat-v6-reset1');localStorage.setItem(marker,'1');}catch(_e){}})();
+<script id="ariella-one-time-chat-reset-live-v7">
+(function(){try{const marker='ariellaOneTimeChatReset:20260916-live-chat-v7-reset1';if(localStorage.getItem(marker)==='1')return;let identity={};for(const key of ['ariellaChatState:v7','ariellaChatState:v6','ariellaChatState:v4']){try{const old=JSON.parse(localStorage.getItem(key)||'{}')||{},p=old.profile||{};['first_name','last_name','name','full_name','gender','sex','phone','email','member_id','user_id','departure_airport'].forEach(function(k){if(identity[k]===undefined&&p[k]!==undefined&&p[k]!==null&&p[k]!=='')identity[k]=p[k];});}catch(_e){}}localStorage.removeItem('ariellaChatState:v4');localStorage.removeItem('ariellaChatState:v6');localStorage.removeItem('ariellaChatState:v7');localStorage.removeItem('ariellaChatOneTimeReset');localStorage.setItem('ariellaChatState:v7',JSON.stringify({profile:identity,history:[],flow:'20260916-live-chat-v7',saved_at:new Date().toISOString()}));localStorage.setItem('ariellaChatOneTimeReset','20260916-live-chat-v7-reset1');localStorage.setItem(marker,'1');}catch(_e){}})();
 </script>
-<script src="{{ url_for('static', filename='ariella-ui-runtime-20260909.js') }}?v=20260916-no-legacy-chat-v6"></script>
-<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260916-live-chat-v6-pure1"></script>
+<script id="ariella-account-first-name-only">
+(function(){if(location.pathname!='/account'||document.documentElement.lang==='en')return;function fix(){const h=document.querySelector('.account-new-content h1');if(!h)return;const raw=(h.textContent||'').replace(/^\s*שלום\s*[,،]?\s*/,'').trim();const first=raw.split(/\s+/)[0]||'';h.textContent=first?'שלום '+first:'שלום';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix,{once:true});else fix();})();
+</script>
+<script src="{{ url_for('static', filename='ariella-ui-runtime-20260909.js') }}?v=20260916-no-legacy-chat-v7"></script>
+<script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260916-live-chat-v7-pure1"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
