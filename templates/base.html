@@ -7,11 +7,13 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20260916-prepaint-v1">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}">
+  {% if request.endpoint != 'site.new_trip' %}
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-trip-regular.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='questionnaire-fixes-20260906.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='ariella-mobile-qa-20260909.css') }}?v=20260909c">
   <link rel="stylesheet" href="{{ url_for('static', filename='questionnaire-open-priorities-fix-20260909.css') }}?v=20260909c">
   <link rel="stylesheet" href="{{ url_for('static', filename='ariella-hide-legacy-vacation-gate-20260914.css') }}?v=20260914c">
+  {% endif %}
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -22,12 +24,16 @@
 {% block site_footer %}{% include "_site_footer.html" %}{% endblock %}
 <script>document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});</script>
 <script src="{{ url_for('static', filename='airport-picker.js') }}"></script>
+{% if request.endpoint != 'site.new_trip' %}
 <script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260908n"></script>
+{% endif %}
 <script id="ariella-account-first-name-only">
 (function(){if(location.pathname!='/account'||document.documentElement.lang==='en')return;function fix(){const h=document.querySelector('.account-new-content h1');if(!h)return;const raw=(h.textContent||'').replace(/^\s*שלום\s*[,،]?\s*/,'').trim();const first=raw.split(/\s+/)[0]||'';h.textContent=first?'שלום '+first:'שלום';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix,{once:true});else fix();})();
 </script>
 <script src="{{ url_for('static', filename='ariella-ui-runtime-20260909.js') }}?v=20260916-no-legacy-chat-v8"></script>
+{% if request.endpoint != 'site.new_trip' %}
 <script src="{{ url_for('static', filename='ariella-conversation-flow-20260914.js') }}?v=20260916-live-chat-v8-guard1"></script>
+{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>
