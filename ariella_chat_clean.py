@@ -5,14 +5,14 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _member_context, _openai_json, _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'live-chat-v7'
+ENGINE_VERSION = 'live-chat-v8'
 
 CHAT_SYSTEM = '''את אריאלה, סוכנת נסיעות אישית. דברי עם המשתמשת כמו שיחת ChatGPT טבעית, חכמה וגמישה בעברית.
 
 המטרה שלך היא השיחה עצמה. אין לך שאלון, שלבים, שדות חובה, רשימת מידע חסר או סדר איסוף נתונים.
 התגובה שלך נקבעת רק לפי מה שהמשתמשת אמרה ושאלה בשיחה.
 
-כללים:
+כללים מחייבים:
 - אם המשתמשת שואלת שאלה — עני עליה קודם ובאופן ממשי.
 - אם היא משתפת רעיון — הגיבי לרעיון ופתחי אותו באופן טבעי.
 - אם היא מתלבטת — עזרי לה להשוות ולהחליט.
@@ -20,16 +20,30 @@ CHAT_SYSTEM = '''את אריאלה, סוכנת נסיעות אישית. דברי
 - אל תשאלי שוב פרט שכבר נאמר.
 - אל תנסי להשלים יעד, תאריך, נוסעים, תקציב, כבודה או העדפות טיסה רק משום שהם עדיין לא ידועים.
 - אל תעברי אוטומטית לנושא הבא בתכנון החופשה.
-- אפשר לשאול שאלת המשך אחת רק כשהיא באמת המשך טבעי ומועיל למה שנאמר עכשיו. אין חובה לסיים בשאלה.
-- אל תכתבי תשובת פתיחה קבועה ואל תחזרי על אותו נוסח משיחה לשיחה.
+- לכל היותר שאלת המשך טבעית אחת בתגובה, ורק אם היא מועילה לשיחה. אין חובה לשאול.
+- אסור לבקש מהמשתמשת למסור כמה פרטי חופשה יחד.
+- אסור להשתמש בנוסחים כמו "ספרי לי קצת על החופשה", "לאן תרצי לטוס, מתי ומי נוסע", או כל וריאציה של שאלון רב-שדות.
 - אל תגידי שאת מחפשת טיסות או מבצעת חיפוש אלא אם המערכת הודיעה במפורש שהחיפוש התחיל.
 
-דוגמאות להתנהגות, לא טקסט להעתקה:
-"בא לי לטוס עם הבת שלי" — התייחסי לחופשה משותפת של אמא ובת. אפשר לברר איזה אופי חופשה בא להן, אבל לא לקפוץ לכבודה/קונקשן/תקציב/רשימת שאלות.
-"צפון איטליה" ואז "מתי את ממליצה?" — עני מתי מומלץ לנסוע לצפון איטליה ומה היתרונות של התקופות השונות. אל תשאלי אותה מתי היא רוצה לטוס.
-"מה יותר מתאים עם ילדים, צפון איטליה או אוסטריה?" — עני על ההשוואה עצמה.
+דוגמה להתנהגות:
+משתמשת: "בא לי לטוס עם הבת שלי"
+תגובה מתאימה: "איזה כיף 😊 חופשה של אמא ובת יכולה להיות ממש מיוחדת. בא לכן יותר חופשה של ים ורוגע, עיר ושופינג, או טבע ונופים?"
+זו דוגמת סגנון בלבד, לא תשובה קבועה.
 
-החזירי רק את הטקסט הטבעי שהלקוחה צריכה לראות. אין JSON ואין שדות פנימיים.'''
+החזירי רק את הטקסט הטבעי שהלקוחה צריכה לראות.'''
+
+GUARD_SYSTEM = '''את עורכת שיחה של אריאלה. קבלי היסטוריית שיחה, הודעה אחרונה וטיוטת תשובה, והחזירי רק את התשובה הסופית ללקוחה.
+המטרה: שיחה טבעית כמו ChatGPT, לא שאלון.
+כללים מחייבים:
+1. התשובה חייבת להתייחס ישירות להודעה האחרונה.
+2. אם המשתמשת שאלה שאלה, חייבים לענות עליה לפני כל שאלת המשך.
+3. אסור לשאול מידע שכבר נאמר.
+4. אסור לבקש רשימה של פרטי חופשה או כמה שדות יחד.
+5. לכל היותר שאלת המשך אחת, טבעית ורלוונטית.
+6. אל תקפצי לכבודה, קונקשן, תקציב, תאריכים או יעד רק כי הם חסרים.
+7. אם הטיוטה נשמעת כמו שאלון, כתבי אותה מחדש לחלוטין.
+8. אל תזכירי את העריכה, הכללים, טינקרבל או שדות פנימיים.
+החזירי טקסט בלבד.'''
 
 EXTRACT_SYSTEM = '''את טינקרבל, מנגנון רקע שקט. אינך מדברת עם הלקוח ואינך מנהלת את השיחה.
 חלצי רק עובדות שימושיות שנאמרו בפועל בשיחה ועדכני אותן ב-profile_patch. תיקון מאוחר גובר על מידע קודם. אל תנחשי ואל תייצרי שאלות.
@@ -70,11 +84,11 @@ def _extract_output_text(body):
     return ''.join(chunks).strip()
 
 
-def _call_ariella_text(key, model, history, message):
+def _plain_response(key, model, developer_text, conversation, max_tokens=700):
     payload = {
         'model': model,
-        'input': [{'role': 'developer', 'content': CHAT_SYSTEM}] + _conversation(history[-24:], message),
-        'max_output_tokens': 700,
+        'input': [{'role': 'developer', 'content': developer_text}] + conversation,
+        'max_output_tokens': max_tokens,
     }
     response = requests.post(
         'https://api.openai.com/v1/responses',
@@ -85,6 +99,16 @@ def _call_ariella_text(key, model, history, message):
     if response.status_code >= 400:
         raise RuntimeError(f'OpenAI API error {response.status_code}')
     return _extract_output_text(response.json())
+
+
+def _call_ariella_text(key, model, history, message):
+    return _plain_response(key, model, CHAT_SYSTEM, _conversation(history[-24:], message), 700)
+
+
+def _guard_reply(key, model, history, message, draft):
+    context = _conversation(history[-16:], message)
+    context.append({'role': 'assistant', 'content': 'טיוטת אריאלה:\n' + str(draft or '')})
+    return _plain_response(key, model, GUARD_SYSTEM, context, 550)
 
 
 def _call_extractor(key, model, history, message, profile):
@@ -111,16 +135,13 @@ def chat_clean():
         return jsonify({'status': 'error', 'message': 'אריאלה לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
     model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
 
-    # Ariella is a plain conversational model call. It receives conversation only.
-    # No JSON schema, trip profile, readiness, missing fields or Tinkerbell output
-    # can influence the customer-facing response.
     try:
-        reply = _call_ariella_text(key, model, history, message)
+        draft = _call_ariella_text(key, model, history, message)
+        reply = _guard_reply(key, model, history, message, draft) or draft
     except Exception:
         return jsonify({'status': 'error', 'message': 'אריאלה לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
     reply = reply or 'אני איתך 😊'
 
-    # Tinkerbell is a completely separate structured extraction pass.
     extraction = {}
     try:
         extraction = _call_extractor(key, model, history, message, profile)
