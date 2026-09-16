@@ -1,31 +1,35 @@
 import json
 import os
+import requests
 from flask import Blueprint, jsonify, request
 from travel_agents import _member_context, _openai_json, _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'live-chat-v6'
+ENGINE_VERSION = 'live-chat-v7'
 
-CHAT_SYSTEM = '''את אריאלה, סוכנת נסיעות אישית שמנהלת שיחה חופשית וטבעית בעברית כמו ChatGPT.
+CHAT_SYSTEM = '''את אריאלה, סוכנת נסיעות אישית. דברי עם המשתמשת כמו שיחת ChatGPT טבעית, חכמה וגמישה בעברית.
 
-את מנהלת שיחה — לא שאלון ולא טופס איסוף נתונים.
-הגיבי קודם כל למשמעות של ההודעה האחרונה בתוך ההקשר של השיחה.
-אם נשאלה שאלה — עני עליה. אם המשתמשת מתלבטת — עזרי לה. אם היא משתפת רעיון — פתחי אותו איתה. אם היא משנה את דעתה — המשיכי מהשינוי.
+המטרה שלך היא השיחה עצמה. אין לך שאלון, שלבים, שדות חובה, רשימת מידע חסר או סדר איסוף נתונים.
+התגובה שלך נקבעת רק לפי מה שהמשתמשת אמרה ושאלה בשיחה.
 
-אין לך גישה לרשימת שדות חסרים, לשלבים, ל-readiness או לפרופיל החיפוש. אל תנסי להשלים אותם.
-אין סדר קבוע של יעד, תאריכים, נוסעים, תקציב, טיסה או כבודה.
-אל תשאלי פרט רק משום שהוא עדיין לא נאמר.
-מותר לשאול שאלה אחת כאשר היא המשך טבעי של מה שנאמר עכשיו, ומותר גם לענות בלי שאלה.
-לעולם אל תשאלי שוב מידע שכבר נאמר בשיחה.
-אל תציגי אפשרויות של שאלון אלא אם המשתמשת ביקשה אפשרויות או המלצה.
+כללים:
+- אם המשתמשת שואלת שאלה — עני עליה קודם ובאופן ממשי.
+- אם היא משתפת רעיון — הגיבי לרעיון ופתחי אותו באופן טבעי.
+- אם היא מתלבטת — עזרי לה להשוות ולהחליט.
+- אם היא משנה פרט — קבלי את השינוי והמשיכי ממנו.
+- אל תשאלי שוב פרט שכבר נאמר.
+- אל תנסי להשלים יעד, תאריך, נוסעים, תקציב, כבודה או העדפות טיסה רק משום שהם עדיין לא ידועים.
+- אל תעברי אוטומטית לנושא הבא בתכנון החופשה.
+- אפשר לשאול שאלת המשך אחת רק כשהיא באמת המשך טבעי ומועיל למה שנאמר עכשיו. אין חובה לסיים בשאלה.
+- אל תכתבי תשובת פתיחה קבועה ואל תחזרי על אותו נוסח משיחה לשיחה.
+- אל תגידי שאת מחפשת טיסות או מבצעת חיפוש אלא אם המערכת הודיעה במפורש שהחיפוש התחיל.
 
-דוגמאות עקרוניות:
-- "בא לי לטוס עם הבת שלי" הוא פתיחת שיחה על חופשה של שתיהן. הגיבי לזה; אל תקפצי לכבודה, קונקשן, תקציב או רשימת פרטים חסרים.
-- אם נאמר "צפון איטליה" ואז נשאל "מתי את ממליצה?" — עני מתי מומלץ לנסוע לצפון איטליה והסבירי את ההבדלים בין התקופות. אל תשאלי מתי המשתמשת רוצה לטוס.
-- אם נאמר "בעצם אולי מונטנגרו" — הביני שזה שינוי כיוון והמשיכי לדבר עליו טבעית.
-- אם נשאל "מה יותר מתאים עם ילדים, צפון איטליה או אוסטריה?" — עני על ההשוואה לפני כל ניסיון להתקדם לחיפוש.
+דוגמאות להתנהגות, לא טקסט להעתקה:
+"בא לי לטוס עם הבת שלי" — התייחסי לחופשה משותפת של אמא ובת. אפשר לברר איזה אופי חופשה בא להן, אבל לא לקפוץ לכבודה/קונקשן/תקציב/רשימת שאלות.
+"צפון איטליה" ואז "מתי את ממליצה?" — עני מתי מומלץ לנסוע לצפון איטליה ומה היתרונות של התקופות השונות. אל תשאלי אותה מתי היא רוצה לטוס.
+"מה יותר מתאים עם ילדים, צפון איטליה או אוסטריה?" — עני על ההשוואה עצמה.
 
-החזירי JSON בלבד בפורמט {"reply":"תשובתך"}.'''
+החזירי רק את הטקסט הטבעי שהלקוחה צריכה לראות. אין JSON ואין שדות פנימיים.'''
 
 EXTRACT_SYSTEM = '''את טינקרבל, מנגנון רקע שקט. אינך מדברת עם הלקוח ואינך מנהלת את השיחה.
 חלצי רק עובדות שימושיות שנאמרו בפועל בשיחה ועדכני אותן ב-profile_patch. תיקון מאוחר גובר על מידע קודם. אל תנחשי ואל תייצרי שאלות.
@@ -54,8 +58,43 @@ def _seed(profile):
     return out
 
 
-def _call(key, model, system, history, message, tokens):
-    return _openai_json(key, model, system, _conversation(history[-24:], message), max_output_tokens=tokens)
+def _extract_output_text(body):
+    text = body.get('output_text')
+    if text:
+        return str(text).strip()
+    chunks = []
+    for out in body.get('output') or []:
+        for part in out.get('content') or []:
+            if part.get('type') == 'output_text':
+                chunks.append(part.get('text') or '')
+    return ''.join(chunks).strip()
+
+
+def _call_ariella_text(key, model, history, message):
+    payload = {
+        'model': model,
+        'input': [{'role': 'developer', 'content': CHAT_SYSTEM}] + _conversation(history[-24:], message),
+        'max_output_tokens': 700,
+    }
+    response = requests.post(
+        'https://api.openai.com/v1/responses',
+        headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
+        json=payload,
+        timeout=35,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(f'OpenAI API error {response.status_code}')
+    return _extract_output_text(response.json())
+
+
+def _call_extractor(key, model, history, message, profile):
+    return _openai_json(
+        key,
+        model,
+        EXTRACT_SYSTEM + '\nפרופיל קיים לצורך עדכון פנימי בלבד:\n' + json.dumps(profile, ensure_ascii=False),
+        _conversation(history[-24:], message),
+        max_output_tokens=300,
+    )
 
 
 @ariella_chat_clean.post('/api/ariella/chat-clean')
@@ -72,27 +111,19 @@ def chat_clean():
         return jsonify({'status': 'error', 'message': 'אריאלה לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
     model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
 
-    # Customer-facing Ariella sees only the conversation. Search/profile state is
-    # deliberately not supplied to this call, so it cannot drive the next reply.
+    # Ariella is a plain conversational model call. It receives conversation only.
+    # No JSON schema, trip profile, readiness, missing fields or Tinkerbell output
+    # can influence the customer-facing response.
     try:
-        chat = _call(key, model, CHAT_SYSTEM, history, message, 650)
+        reply = _call_ariella_text(key, model, history, message)
     except Exception:
         return jsonify({'status': 'error', 'message': 'אריאלה לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
-    chat = chat if isinstance(chat, dict) else {}
-    reply = str(chat.get('reply') or '').strip() or 'אני איתך 😊'
+    reply = reply or 'אני איתך 😊'
 
-    # Tinkerbell runs independently after the reply and only updates structured
-    # state for future search/persistence. Its output never feeds Ariella's reply.
+    # Tinkerbell is a completely separate structured extraction pass.
     extraction = {}
     try:
-        extraction = _call(
-            key,
-            model,
-            EXTRACT_SYSTEM + '\nפרופיל קיים לצורך עדכון פנימי בלבד:\n' + json.dumps(profile, ensure_ascii=False),
-            history,
-            message,
-            300,
-        )
+        extraction = _call_extractor(key, model, history, message, profile)
         extraction = extraction if isinstance(extraction, dict) else {}
     except Exception:
         extraction = {}
