@@ -4,12 +4,17 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="{% if site_lang == 'en' %}Ariella — smarter vacation search{% else %}אריאלה — למצוא את החופשה שמתאימה לך{% endif %}">
   <title>{% block title %}{{ 'Ariella' if site_lang == 'en' else 'אריאלה' }}{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20260917-qa4">
-  {% if request.endpoint != 'site.feedback' %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}?v=20260917-qa4">
-  <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}?v=20260917-qa4">
+  {% if request.endpoint == 'site.deals' and offers %}
+    {% for offer in offers[:3] %}
+      {% set preload_image = offer.destination_image_url or ((offer.destination_image_pool|first) if offer.destination_image_pool else none) %}
+      {% if preload_image %}<link rel="preload" as="image" href="{{ preload_image }}" fetchpriority="high">{% endif %}
+    {% endfor %}
   {% endif %}
-  {% if request.endpoint == 'site.deals' %}<script src="{{ url_for('static', filename='deals-first-paint-stabilizer.js') }}?v=20260917-1"></script>{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20260917-imagepreload1">
+  {% if request.endpoint != 'site.feedback' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}?v=20260917-imagepreload1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}?v=20260917-imagepreload1">
+  {% endif %}
   {% if request.endpoint not in ['site.new_trip','site.feedback','site.deals'] %}
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-trip-regular.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='questionnaire-fixes-20260906.css') }}">
