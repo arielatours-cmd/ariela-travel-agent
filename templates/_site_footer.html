@@ -7,4 +7,6 @@
 {% if request.endpoint == 'site.new_trip' %}
 <script src="{{ url_for('static', filename='ariella-free-chat-hotfix-20260915.js') }}?v=20260915-freechat-v2"></script>
 {% endif %}
+{% if request.endpoint != 'site.new_trip' %}
 <footer class="ariella-legal-footer"><div class="footer-inner"><nav class="footer-legal-buttons" aria-label="{{ 'Legal information' if site_lang == 'en' else 'מידע משפטי' }}"><a class="footer-legal-btn" href="{{ url_for('site.terms', lang=site_lang) }}">{{ 'Terms of Use' if site_lang == 'en' else 'תנאי שימוש' }}</a><a class="footer-legal-btn" href="{{ url_for('site.privacy', lang=site_lang) }}">{{ 'Privacy Policy' if site_lang == 'en' else 'מדיניות פרטיות' }}</a><a class="footer-legal-btn" href="{{ url_for('site.cookies', lang=site_lang) }}">{{ 'Cookie Policy' if site_lang == 'en' else 'מדיניות Cookies' }}</a><a class="footer-legal-btn" href="{{ url_for('site.affiliates', lang=site_lang) }}">{{ 'Affiliate Disclosure' if site_lang == 'en' else 'גילוי נאות וקישורי שותפים' }}</a><a class="footer-legal-btn" href="{{ url_for('site.accessibility', lang=site_lang) }}">{{ 'Accessibility' if site_lang == 'en' else 'הצהרת נגישות' }}</a></nav><div class="footer-copyright">{{ '© Ariella. All rights reserved.' if site_lang == 'en' else '© אריאלה. כל הזכויות שמורות.' }}</div></div></footer>
+{% endif %}
