@@ -33,7 +33,19 @@
   }
   let history=[];
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
-  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');body.textContent=text;el.appendChild(body);box.appendChild(el);box.scrollTop=box.scrollHeight;}
+  function appendFormattedText(parent,text,allowMarkdown){
+    const value=String(text||'');
+    if(!allowMarkdown){parent.appendChild(document.createTextNode(value));return;}
+    const re=/\*\*([^*\n]+)\*\*/g;
+    let last=0,match;
+    while((match=re.exec(value))!==null){
+      if(match.index>last)parent.appendChild(document.createTextNode(value.slice(last,match.index)));
+      const strong=document.createElement('strong');strong.textContent=match[1];parent.appendChild(strong);
+      last=re.lastIndex;
+    }
+    if(last<value.length)parent.appendChild(document.createTextNode(value.slice(last)));
+  }
+  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);box.scrollTop=box.scrollHeight;}
   function save(){localStorage.setItem(key,JSON.stringify(history.slice(-80)));}
   if(!history.length){
     const rawName={{ ((current_member.first_name if current_member and current_member.first_name else current_member.full_name if current_member and current_member.full_name else '') or '')|tojson }};
