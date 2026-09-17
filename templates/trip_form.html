@@ -25,6 +25,12 @@
   const send=form?.querySelector('button[type="submit"]');
   if(!box||!form||!input||!send)return;
   const key='ariellaFreshChat:v2';
+  const resetMarker='ariellaTinkerbellReset:20260917';
+  if(localStorage.getItem(resetMarker)!=='1'){
+    localStorage.removeItem('ariellaFreshChat:v1');
+    localStorage.removeItem('ariellaFreshChat:v2');
+    localStorage.setItem(resetMarker,'1');
+  }
   let history=[];
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
   function add(role,text,agent){const el=document.createElement('div');el.className='ariella-msg '+role;if(role==='assistant'&&agent==='Tinkerbell'){const label=document.createElement('span');label.className='ariella-msg-agent';label.textContent='טינקרבל';el.appendChild(label);}const body=document.createElement('span');body.textContent=text;el.appendChild(body);box.appendChild(el);box.scrollTop=box.scrollHeight;}
