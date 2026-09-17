@@ -15,7 +15,7 @@
   </div>
 </section>
 <style>
-.ariella-new-chat{max-width:900px;margin:24px auto 48px;padding:0 16px}.ariella-chat-card{height:min(720px,calc(100vh - 150px));min-height:560px;background:#fff;border:1px solid rgba(22,49,64,.1);border-radius:24px;box-shadow:0 14px 40px rgba(22,49,64,.09);overflow:hidden;display:flex;flex-direction:column}.ariella-chat-header{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid rgba(22,49,64,.09);background:#fff}.ariella-chat-avatar{width:54px;height:54px;border-radius:50%;object-fit:cover;flex:0 0 54px}.ariella-chat-header h1{font-size:20px;margin:0 0 3px;font-weight:700}.ariella-chat-header span{font-size:13px;opacity:.65}.ariella-chat-messages{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:12px;background:#fafafa}.ariella-msg{max-width:78%;padding:12px 15px;border-radius:18px;line-height:1.55;white-space:pre-line}.ariella-msg.assistant{align-self:flex-start;background:#fff;border:1px solid rgba(22,49,64,.08);border-top-left-radius:6px}.ariella-msg.user{align-self:flex-end;background:#e8f5f3;border-top-right-radius:6px}.ariella-msg-agent{display:block;font-size:11px;font-weight:700;color:#1c8f88;margin-bottom:3px}.ariella-chat-compose{display:flex;align-items:flex-end;gap:10px;padding:13px 15px;border-top:1px solid rgba(22,49,64,.09);background:#fff}.ariella-chat-compose textarea{flex:1;resize:none;max-height:120px;min-height:44px;border:1px solid rgba(22,49,64,.18);border-radius:22px;padding:11px 15px;font:inherit;outline:none}.ariella-chat-compose button{width:44px;height:44px;border:0;border-radius:50%;cursor:pointer;font-size:18px;background:#1c8f88;color:#fff}.ariella-chat-compose button:disabled{opacity:.45;cursor:default}@media(max-width:760px){.ariella-new-chat{margin:0;padding:0}.ariella-chat-card{height:calc(100dvh - 72px);min-height:0;border-radius:0;border-left:0;border-right:0}.ariella-chat-header{padding:12px 14px}.ariella-chat-avatar{width:46px;height:46px;flex-basis:46px}.ariella-chat-header h1{font-size:17px}.ariella-chat-messages{padding:16px 12px}.ariella-msg{max-width:88%}}
+.ariella-new-chat{max-width:900px;margin:24px auto 48px;padding:0 16px}.ariella-chat-card{height:min(720px,calc(100vh - 150px));min-height:560px;background:#fff;border:1px solid rgba(22,49,64,.1);border-radius:24px;box-shadow:0 14px 40px rgba(22,49,64,.09);overflow:hidden;display:flex;flex-direction:column}.ariella-chat-header{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid rgba(22,49,64,.09);background:#fff}.ariella-chat-avatar{width:54px;height:54px;border-radius:50%;object-fit:cover;flex:0 0 54px}.ariella-chat-header h1{font-size:20px;margin:0 0 3px;font-weight:700}.ariella-chat-header span{font-size:13px;opacity:.65}.ariella-chat-messages{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:12px;background:#fafafa}.ariella-msg{max-width:78%;padding:12px 15px;border-radius:18px;line-height:1.55;white-space:pre-line}.ariella-msg.assistant{align-self:flex-start;background:#fff;border:1px solid rgba(22,49,64,.08);border-top-left-radius:6px}.ariella-msg.user{align-self:flex-end;background:#e8f5f3;border-top-right-radius:6px}.ariella-chat-compose{display:flex;align-items:flex-end;gap:10px;padding:13px 15px;border-top:1px solid rgba(22,49,64,.09);background:#fff}.ariella-chat-compose textarea{flex:1;resize:none;max-height:120px;min-height:44px;border:1px solid rgba(22,49,64,.18);border-radius:22px;padding:11px 15px;font:inherit;outline:none}.ariella-chat-compose button{width:44px;height:44px;border:0;border-radius:50%;cursor:pointer;font-size:18px;background:#1c8f88;color:#fff}.ariella-chat-compose button:disabled{opacity:.45;cursor:default}@media(max-width:760px){.ariella-new-chat{margin:0;padding:0}.ariella-chat-card{height:calc(100dvh - 72px);min-height:0;border-radius:0;border-left:0;border-right:0}.ariella-chat-header{padding:12px 14px}.ariella-chat-avatar{width:46px;height:46px;flex-basis:46px}.ariella-chat-header h1{font-size:17px}.ariella-chat-messages{padding:16px 12px}.ariella-msg{max-width:88%}}
 </style>
 <script>
 (function(){
@@ -33,27 +33,28 @@
   }
   let history=[];
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
-  function add(role,text,agent){const el=document.createElement('div');el.className='ariella-msg '+role;if(role==='assistant'&&agent==='Tinkerbell'){const label=document.createElement('span');label.className='ariella-msg-agent';label.textContent='טינקרבל';el.appendChild(label);}const body=document.createElement('span');body.textContent=text;el.appendChild(body);box.appendChild(el);box.scrollTop=box.scrollHeight;}
+  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');body.textContent=text;el.appendChild(body);box.appendChild(el);box.scrollTop=box.scrollHeight;}
   function save(){localStorage.setItem(key,JSON.stringify(history.slice(-80)));}
   if(!history.length){
-    const name={{ ((current_member.first_name if current_member and current_member.first_name else '') or '')|tojson }};
-    const hello=name?'היי '+name+' 😊 איזה כיף לראות אותך!':'היי 😊 איזה כיף לראות אותך!';
+    const rawName={{ ((current_member.first_name if current_member and current_member.first_name else current_member.full_name if current_member and current_member.full_name else '') or '')|tojson }};
+    const name=String(rawName||'').trim().split(/\s+/)[0];
+    const hello=name?'שלום '+name+' 😊 איזה כיף לראות אותך!':'שלום 😊 איזה כיף לראות אותך!';
     const text=hello+'\nאני כאן כדי לעזור לתכנן את החופשה הבאה — מטיסות ולינה ועד אטרקציות, מסלול ורכב.\nמה מתחשק לתכנן?';
     history=[{role:'assistant',content:text,agent:'Ariella'}];save();
   }
-  history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||'',x.agent));
+  history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||''));
   async function askTinkerbell(text){
     const context=history.slice(0,-1).map(x=>({role:x.role,content:x.content}));
     send.disabled=true;input.disabled=true;
     try{
-      const r=await fetch('/api/ariella/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:context})});
+      const r=await fetch('/api/ariella/chat-clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:context})});
       const data=await r.json().catch(()=>({}));
       if(!r.ok||data.status!=='success')throw new Error(data.message||'chat unavailable');
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
-      history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply,'Tinkerbell');save();
+      history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
     }catch(e){
       const reply='יש לי תקלה רגעית בשיחה. נסו לשלוח שוב בעוד רגע.';
-      history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply,'Tinkerbell');save();
+      history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
     }finally{send.disabled=false;input.disabled=false;input.focus();}
   }
   form.addEventListener('submit',function(e){e.preventDefault();const text=input.value.trim();if(!text||send.disabled)return;history.push({role:'user',content:text});add('user',text);save();input.value='';input.style.height='auto';askTinkerbell(text);});
