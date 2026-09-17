@@ -24,11 +24,12 @@
   const input=document.getElementById('ariellaNewChatInput');
   const send=form?.querySelector('button[type="submit"]');
   if(!box||!form||!input||!send)return;
-  const key='ariellaFreshChat:v2';
-  const resetMarker='ariellaTinkerbellReset:20260917';
+  const key='ariellaFreshChat:v3';
+  const resetMarker='ariellaTinkerbellReset:20260918-v3';
   if(localStorage.getItem(resetMarker)!=='1'){
     localStorage.removeItem('ariellaFreshChat:v1');
     localStorage.removeItem('ariellaFreshChat:v2');
+    localStorage.removeItem('ariellaFreshChat:v3');
     localStorage.setItem(resetMarker,'1');
   }
   let history=[];
