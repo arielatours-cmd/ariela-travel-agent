@@ -571,11 +571,26 @@ def _save_companions(member_id, profile):
 
 
 def _start_scan(trip_id, answers):
+    """Start a customer scan and persist failures so the waiting page cannot hang silently."""
     def worker():
         try:
-            run_customer_trip_search(trip_id, answers)
-        except Exception:
-            return
+            result = run_customer_trip_search(trip_id, answers)
+            status = str((result or {}).get("status") or "unknown")
+            with _db() as conn:
+                row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+                saved = json.loads(row["answers_json"] or "{}") if row else {}
+                saved["_flight_search_result"] = result or {}
+                saved["_flight_search_finished"] = True
+                conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(saved, ensure_ascii=False), trip_id))
+                conn.commit()
+        except Exception as exc:
+            with _db() as conn:
+                row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+                saved = json.loads(row["answers_json"] or "{}") if row else {}
+                saved["_flight_search_finished"] = True
+                saved["_flight_search_result"] = {"status":"error","message":str(exc)[:500]}
+                conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(saved, ensure_ascii=False), trip_id))
+                conn.commit()
     threading.Thread(target=worker, daemon=True, name=f"ariella-trip-{trip_id}").start()
 
 
