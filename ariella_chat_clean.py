@@ -96,24 +96,34 @@ EXTRACTOR_SYSTEM = '''את שכבת חילוץ נתוני החופשה של אר
 
 
 def _weekday_date_conflict(message):
-    """Validate explicit weekday/date combinations deterministically."""
+    """Validate every explicit Hebrew weekday/date pairing deterministically."""
+    import re
     text = str(message or "")
     weekdays = {"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
-    found_day = next(((name, idx) for name, idx in weekdays.items() if name in text), None)
-    m = __import__("re").search(r"(?<!\\d)(\\d{1,2})[./-](\\d{1,2})(?:[./-](\\d{2,4}))?", text)
-    if not found_day or not m:
-        return None
-    d, mo = int(m.group(1)), int(m.group(2))
-    y = int(m.group(3)) if m.group(3) else date.today().year
-    if y < 100: y += 2000
-    if not m.group(3) and (mo, d) < (date.today().month, date.today().day): y += 1
-    try:
-        dt = date(y, mo, d)
-    except ValueError:
-        return None
-    if dt.weekday() != found_day[1]:
-        actual = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"][dt.weekday()]
-        return f"רק לוודא לפני שממשיכים — {d}.{mo}.{y} יוצא יום {actual}, אבל כתבת יום {found_day[0]}. איזה מהם נכון מבחינתך?"
+    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)"
+    date_re = r"(\\d{1,2})[./-](\\d{1,2})(?:[./-](\\d{2,4}))?"
+    # Pair a weekday with the nearest date on either side (up to 40 chars).
+    pairs = []
+    for m in re.finditer(day_re + r".{0,40}?" + date_re, text):
+        pairs.append((m.group(1), m.group(2), m.group(3), m.group(4)))
+    for m in re.finditer(date_re + r".{0,40}?" + day_re, text):
+        pairs.append((m.group(4), m.group(1), m.group(2), m.group(3)))
+    seen = set()
+    for day_name, ds, mos, ys in pairs:
+        sig=(day_name,ds,mos,ys)
+        if sig in seen: continue
+        seen.add(sig)
+        d, mo = int(ds), int(mos)
+        y = int(ys) if ys else date.today().year
+        if y < 100: y += 2000
+        if not ys and (mo, d) < (date.today().month, date.today().day): y += 1
+        try:
+            dt = date(y, mo, d)
+        except ValueError:
+            continue
+        if dt.weekday() != weekdays[day_name]:
+            actual = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"][dt.weekday()]
+            return f"רק לוודא לפני שממשיכים — {d}.{mo}.{y} יוצא יום {actual}, אבל כתבת יום {day_name}. איזה מהם נכון מבחינתך?"
     return None
 
 def _extract_output_text(body):
