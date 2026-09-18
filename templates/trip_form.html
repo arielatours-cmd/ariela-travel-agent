@@ -24,9 +24,9 @@
   const input=document.getElementById('ariellaNewChatInput');
   const send=form?.querySelector('button[type="submit"]');
   if(!box||!form||!input||!send)return;
-  const key='ariellaFreshChat:v7';
-  const stateKey='ariellaTripState:v7';
-  const resetMarker='ariellaTinkerbellReset:20260918-v7';
+  const key='ariellaFreshChat:v8';
+  const stateKey='ariellaTripState:v8';
+  const resetMarker='ariellaTinkerbellReset:20260918-v8';
   if(localStorage.getItem(resetMarker)!=='1'){
     localStorage.removeItem('ariellaFreshChat:v1');
     localStorage.removeItem('ariellaFreshChat:v2');
@@ -36,6 +36,8 @@
     localStorage.removeItem('ariellaFreshChat:v6');
     localStorage.removeItem('ariellaFreshChat:v7');
     localStorage.removeItem('ariellaTripState:v7');
+    localStorage.removeItem('ariellaFreshChat:v8');
+    localStorage.removeItem('ariellaTripState:v8');
     localStorage.setItem(resetMarker,'1');
   }
   let history=[];
@@ -71,6 +73,15 @@
       if(!r.ok||data.status!=='success')throw new Error(data.message||'chat unavailable');
       if(data.trip_update&&typeof data.trip_update==='object') localStorage.setItem(stateKey,JSON.stringify(data.trip_update));
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
+      if(data.trip_update&&data.trip_update.search_confirmed===true&&(data.trip_update.requested_services||[]).includes('flights')){
+        history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
+        const start=await fetch('/api/ariella/confirm-clean-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:data.trip_update,history:history.map(x=>({role:x.role,content:x.content}))})});
+        const started=await start.json().catch(()=>({}));
+        if(start.ok&&started.status==='success'&&started.waiting_url){
+          localStorage.removeItem(key);localStorage.removeItem(stateKey);
+          location.href=started.waiting_url;return;
+        }
+      }
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
     }catch(e){
       const reply='יש לי תקלה רגעית בשיחה. נסו לשלוח שוב בעוד רגע.';
