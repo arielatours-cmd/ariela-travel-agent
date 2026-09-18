@@ -904,7 +904,28 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
         # returning unsupported_destination when the shared DB has no match.
         arrivals = [d["code"] for d in DESTINATIONS]
     if not arrivals:
-        return {"status": "unsupported_destination", "offers_found": 0, "api_requests": 0}
+        # A destination missing from Ariella's curated list must not stop a customer search.
+        # Try resolving the customer's raw destination against the full airport catalogue.
+        raw_destinations = answers.get("destination_names") or answers.get("unresolved_destinations") or []
+        if isinstance(raw_destinations, str):
+            raw_destinations = [raw_destinations]
+        try:
+            from travel_agents import _load_airports
+            catalogue = _load_airports()
+        except Exception:
+            catalogue = []
+        for raw in raw_destinations:
+            needle = str(raw or "").strip().lower()
+            if not needle:
+                continue
+            for airport in catalogue:
+                hay = " ".join(str(airport.get(k) or "") for k in ("country_he","country_en","city_he","city_en","name_he","name_en")).lower()
+                if needle in hay:
+                    code = str(airport.get("code") or "").upper()
+                    if code and code not in arrivals:
+                        arrivals.append(code)
+        if not arrivals:
+            return {"status": "destination_resolution_required", "offers_found": 0, "api_requests": 0, "destination_names": raw_destinations}
 
     origins = [str(x).upper() for x in answers.get("origin_airports", []) if x] or list(DEPARTURE_AIRPORTS)
     try:
