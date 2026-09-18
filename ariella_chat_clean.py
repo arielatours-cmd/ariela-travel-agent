@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v9'
+ENGINE_VERSION = 'tinkerbell-chat-v10'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -37,7 +37,8 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
-- אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר.\n- כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
+- אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר.
+- לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.\n- כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
 - רק לאחר שכל המידע ההכרחי לשירותים שהתבקשו הושלם, הציגי סיכום קצר ומלא של בקשת החיפוש ובקשי אישור מפורש. אישור הלקוח הוא הטריגר הסופי לסריקה.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
@@ -169,6 +170,28 @@ def _parse_trip_update(text):
     return {}
 
 
+def _merge_trip_state(previous, incoming):
+    """Recursively preserve collected trip facts; only meaningful new values overwrite them."""
+    previous = previous if isinstance(previous, dict) else {}
+    incoming = incoming if isinstance(incoming, dict) else {}
+    merged = dict(previous)
+    for key, value in incoming.items():
+        old = merged.get(key)
+        if isinstance(value, dict):
+            merged[key] = _merge_trip_state(old if isinstance(old, dict) else {}, value)
+            continue
+        # Extractor defaults/omissions must not erase facts already collected.
+        if value is None or value == [] or value == {} or value == "unknown":
+            if key in merged:
+                continue
+        # False is a valid explicit value for some fields, but for cumulative search
+        # flags it must never undo a prior True.
+        if key in {"search_intent", "ready_for_summary", "search_confirmed"} and old is True and value is False:
+            continue
+        merged[key] = value
+    return merged
+
+
 def _state_context(state):
     return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
 
@@ -227,13 +250,7 @@ def chat_clean():
             extracted = state_job.result()
             # Preserve accumulated facts deterministically. The extractor may update facts,
             # but omitted/default values must never erase information already collected.
-            trip_update = dict(trip_state)
-            if isinstance(extracted, dict):
-                for k, v in extracted.items():
-                    if v is None or v == [] or v == {} or v == "unknown":
-                        if k in trip_update:
-                            continue
-                    trip_update[k] = v
+            trip_update = _merge_trip_state(trip_state, extracted)
 
         # Search approval is a system event, not a language-model decision.
         if _approval_trigger(message, history, trip_state):
