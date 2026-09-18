@@ -1,9 +1,95 @@
 {% extends "base.html" %}
 {% block title %}{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}{% endblock %}
 {% block content %}
-<section class="section">
-  <div class="shell">
+<section class="vacations-hero">
+  <div class="vacations-hero-shade"></div>
+  <div class="shell vacations-hero-content">
     <h1>{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}</h1>
+    <div class="vacations-gold-rule"></div>
+    <p>{{ 'Everything Ariella found for your trip, in one place' if site_lang == 'en' else 'כל מה שאריאלה מצאה לחופשה שלך, במקום אחד' }}</p>
   </div>
 </section>
+
+<section class="vacations-page" dir="rtl">
+  <div class="shell">
+    <div class="vacations-actions">
+      <a class="ariella-return-button" href="{{ url_for('site.new_trip') }}">✦ {{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}</a>
+      <span>{{ 'Search again or change your vacation' if site_lang == 'en' else 'לחיפוש חדש או לשינוי החופשה' }}</span>
+    </div>
+
+    {% if trips %}
+      {% for trip in trips %}
+      {% set services = trip.answers.get('services', []) %}
+      <article class="vacation-result" id="vacation-{{ trip.id }}">
+        <header class="vacation-head">
+          <div>
+            <small>נוצרה ב־{{ (trip.created_at or '')[:10] }}</small>
+            <h2>{{ trip.destination_display or trip.request_name }}</h2>
+            {% if trip.travel_window %}<p>{{ trip.travel_window }}</p>{% endif %}
+          </div>
+        </header>
+
+        <div class="vacation-tabs" role="tablist">
+          <button class="vacation-tab active" data-tab="flights-{{ trip.id }}">✈ טיסות</button>
+          <button class="vacation-tab" data-tab="lodging-{{ trip.id }}">⌂ לינה</button>
+          <button class="vacation-tab" data-tab="car-{{ trip.id }}">🚗 רכב</button>
+          <button class="vacation-tab" data-tab="travel-{{ trip.id }}">⌖ מסלול ואטרקציות</button>
+        </div>
+
+        <div class="vacation-panel active" id="flights-{{ trip.id }}">
+          {% if trip.offers %}
+            <h3>3 הטיסות המתאימות ביותר</h3>
+            <div class="vacation-flight-list">
+              {% for deal in trip.offers[:3] %}{% include "_deal_card.html" %}{% endfor %}
+            </div>
+            {% if trip.offers|length > 3 %}
+              <details class="more-results"><summary>טיסות נוספות</summary>
+                <div class="vacation-flight-list">
+                  {% for deal in trip.offers[3:] %}{% include "_deal_card.html" %}{% endfor %}
+                </div>
+              </details>
+            {% endif %}
+          {% else %}
+            <div class="vacation-empty">אריאלה עדיין מחפשת את הטיסות המתאימות ביותר.</div>
+          {% endif %}
+        </div>
+
+        <div class="vacation-panel" id="lodging-{{ trip.id }}">
+          <h3>אפשרויות לינה לפי אזורי המסלול</h3>
+          <div class="vacation-empty">כאן יוצגו קישורי הלינה לפי האזורים, התאריכים ותנאי הלינה שבחרתם.</div>
+        </div>
+
+        <div class="vacation-panel" id="car-{{ trip.id }}">
+          <h3>רכב שמתאים לחופשה</h3>
+          <div class="vacation-empty">כאן יוצגו קישורי רכב לפי מספר הנוסעים, הכבודה, האיסוף וההחזרה שבחרתם.</div>
+        </div>
+
+        <div class="vacation-panel" id="travel-{{ trip.id }}">
+          <h3>מסלול ואטרקציות</h3>
+          <div class="vacation-empty">כאן יוצגו אטרקציות וקישורים מתוך מאגר אריאלה לפי סגנון החופשה והמסלול.</div>
+        </div>
+      </article>
+      {% endfor %}
+    {% else %}
+      <div class="vacations-empty-page">
+        <h2>עדיין אין כאן חופשה</h2>
+        <p>אריאלה מחכה לתכנן איתך את החופשה הבאה.</p>
+        <a class="ariella-return-button" href="{{ url_for('site.new_trip') }}">אריאלה שלי</a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('.vacation-tab');
+  if(!btn)return;
+  const card=btn.closest('.vacation-result');
+  card.querySelectorAll('.vacation-tab').forEach(x=>x.classList.remove('active'));
+  card.querySelectorAll('.vacation-panel').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  const panel=document.getElementById(btn.dataset.tab);
+  if(panel)panel.classList.add('active');
+});
+</script>
 {% endblock %}
