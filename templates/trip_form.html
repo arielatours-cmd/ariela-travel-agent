@@ -41,7 +41,7 @@
   let history=[];
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
   function appendFormattedText(parent,text,allowMarkdown){
-    const value=String(text||'');
+    const value=String(text||'').replace(/^#{1,6}\s+/gm,'');
     if(!allowMarkdown){parent.appendChild(document.createTextNode(value));return;}
     const re=/\*\*([^*\n]+)\*\*/g;
     let last=0,match;
