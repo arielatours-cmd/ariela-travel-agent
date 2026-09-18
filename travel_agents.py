@@ -662,6 +662,7 @@ def _clean_state_to_profile(state):
     # Scanner inventory is keyed by IATA. Resolve natural city/country names
     # against Ariella's airport catalogue, while preserving explicit IATA codes.
     destination_codes = []
+    unresolved_destinations = []
     airports = _load_airports()
     for place in places:
         raw = str(place or "").strip()
@@ -677,6 +678,8 @@ def _clean_state_to_profile(state):
                 if code:
                     matches.append(code)
         destination_codes.extend(matches[:4])
+        if not matches and raw:
+            unresolved_destinations.append(raw)
     destination_codes = list(dict.fromkeys(destination_codes))
 
     requested = state.get("requested_services") or []
@@ -693,6 +696,8 @@ def _clean_state_to_profile(state):
         "services": list(dict.fromkeys(services)),
         "destination_mode": destination.get("mode") or ("specific" if destination_codes else "open"),
         "destinations": destination_codes,
+        "destination_names": [str(x).strip() for x in places if str(x).strip()],
+        "unresolved_destinations": unresolved_destinations,
         "departure_airports": [state.get("departure_airport") or "TLV"],
         "date_mode": "exact" if dep and ret else ("month" if period else "anytime"),
         "departure_date": dep,
