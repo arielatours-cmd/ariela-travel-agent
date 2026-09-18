@@ -130,6 +130,21 @@ def _state_context(state):
     return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
 
 
+def _approval_trigger(message, history, state):
+    """Deterministic handoff: GPT may phrase the chat, but it does not own the scan trigger."""
+    msg = str(message or "").strip().lower()
+    positive = (
+        msg in {"כן","נכון","מאשר","מאשרת","חיובי","צאי לדרך","צא לדרך","אישור","מאושר","מאושרת"}
+        or any(x in msg for x in ("תמצאי לי טיסות","תחפשי לי טיסות","תבדקי לי טיסות","אפשר לצאת לבדיקה","אפשר לצאת לחיפוש"))
+    )
+    if not positive:
+        return False
+    prior_ready = bool((state or {}).get("ready_for_summary") or (state or {}).get("search_confirmed"))
+    prior_text = " ".join(str(x.get("content") or "") for x in (history or [])[-6:] if isinstance(x, dict))
+    summary_seen = any(x in prior_text for x in ("לאישור","אם הפרטים","הבקשה מאושרת","ניתן לצאת לבדיקה","הפרטים שסיכמנו"))
+    return prior_ready or summary_seen
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
     return _post_openai(key, model, system, history, message, 1400).strip()
@@ -164,6 +179,20 @@ def chat_clean():
             state_job = pool.submit(_extract_trip_update, key, model, history, message, trip_state)
             reply = reply_job.result()
             trip_update = state_job.result()
+
+        # Search approval is a system event, not a language-model decision.
+        if _approval_trigger(message, history, trip_state):
+            merged = dict(trip_state)
+            if isinstance(trip_update, dict):
+                merged.update(trip_update)
+            merged["search_intent"] = True
+            merged["search_confirmed"] = True
+            merged["ready_for_summary"] = True
+            services = list(merged.get("requested_services") or trip_state.get("requested_services") or [])
+            if any(word in message for word in ("טיסה","טיסות")) and "flights" not in services:
+                services.append("flights")
+            merged["requested_services"] = services
+            trip_update = merged
     except Exception:
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
 
