@@ -1,11 +1,13 @@
 import json
 import os
 import requests
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v6'
+ENGINE_VERSION = 'tinkerbell-chat-v7'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -16,7 +18,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אל תשאלי שאלה רק מפני שחסר לך מידע על החופשה.
 - שאלי שאלה רק כשהיא המשך טבעי למה שהלקוח עצמו מנסה לברר או כשהיא באמת נחוצה כדי לענות לבקשה הנוכחית.
 - אין חובה לשאול שאלה בכל הודעה. לעיתים התשובה הטובה ביותר היא פשוט תגובה או המלצה.
-- אם כבר נאמר פרט בשיחה, זכרי אותו. אם הלקוח משנה אותו, התייחסי לגרסה החדשה.
+- אם כבר נאמר פרט בשיחה או במצב החופשה המצטבר, זכרי אותו. אם הלקוח משנה אותו, התייחסי לגרסה החדשה. אסור לשאול שוב פרט שכבר ידוע.
 - אל תחזרי על פרטים שכבר נאמרו כדי לאשר אותם, אלא אם יש אי-בהירות אמיתית.
 - אל תפעילי חיפוש ואל תטעני שחיפשת טיסות, מלונות או מחירים בשלב הזה.
 - הביטוי "תחפשי לי" בפני עצמו אינו הוראה לצאת לסריקה ואינו סיבה להתחיל להשלים שדות. המשיכי בשיחה טבעית לפי ההקשר.
@@ -28,7 +30,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
-- אל תשאלי שוב שום פרט שכבר נאמר בשיחה.
+- אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר.\n- כשחודש מוזכר בלי שנה: חודש נוכחי או עתידי הוא בשנה הנוכחית; חודש שכבר עבר הוא בשנה הבאה. שאלי שנה רק כשיש סתירה אמיתית.
 - רק לאחר שכל המידע ההכרחי לשירותים שהתבקשו הושלם, הציגי סיכום קצר ומלא של בקשת החיפוש ובקשי אישור מפורש. אישור הלקוח הוא הטריגר הסופי לסריקה.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
@@ -39,7 +41,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 EXTRACTOR_SYSTEM = '''את שכבת חילוץ נתוני החופשה של אריאלה. אינך משוחחת עם הלקוח ואינך מחליטה איזו שאלה לשאול. קבלי את היסטוריית השיחה וחלצי רק מידע שהלקוח כבר מסר או שינה.
 
 כללים:
-- אל תמציאי מידע ואל תשלימי שדות חסרים.
+- אל תמציאי מידע ואל תשלימי שדות חסרים.\n- מצב החופשה המצטבר המצורף הוא מקור אמת לפרטים שכבר נאספו. החזירי מצב מלא ומעודכן, לא רק את ההודעה האחרונה.\n- חודש בלי שנה: חודש נוכחי/עתידי = השנה הנוכחית; חודש שכבר עבר = השנה הבאה, אלא אם ההקשר אומר אחרת.
 - אין שדה משך חופשה.
 - תקציב נשמר לאדם בלבד. אם הלקוח נתן תקציב כולל ומספר הנוסעים ידוע בבטחה, חשבי לאדם; אחרת השאירי לא ידוע.
 - לזהות: סוג חופשה; נוסעים ומבנה; יעד/ים ומידת הוודאות; שדה מוצא; תאריכים/תקופה/גמישות ומגבלות; תקציב לאדם; ישירה/קונקשן, מחלקה, כבודה והעדפות טיסה; עדיפויות ומגבלות קשיחות; בקשת הלקוח הנוכחית.
@@ -120,16 +122,21 @@ def _parse_trip_update(text):
     return {}
 
 
-def _call_tinkerbell(key, model, history, message):
-    return _post_openai(key, model, TINKERBELL_SYSTEM, history, message, 650).strip()
+def _state_context(state):
+    return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
 
 
-def _extract_trip_update(key, model, history, message):
+def _call_tinkerbell(key, model, history, message, state=None):
+    system = TINKERBELL_SYSTEM + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
+    return _post_openai(key, model, system, history, message, 1400).strip()
+
+
+def _extract_trip_update(key, model, history, message, state=None):
     try:
-        raw = _post_openai(key, model, EXTRACTOR_SYSTEM, history, message, 900)
+        system = EXTRACTOR_SYSTEM + '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat()
+        raw = _post_openai(key, model, system, history, message, 1000)
         return _parse_trip_update(raw)
     except Exception:
-        # Extraction must never break the customer conversation.
         return {}
 
 
@@ -141,17 +148,20 @@ def chat_clean():
         return jsonify({'status': 'error', 'message': 'message is required', 'engine_version': ENGINE_VERSION}), 400
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
+    trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
     key = os.getenv('OPENAI_API_KEY', '').strip()
     if not key:
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
     model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
 
     try:
-        reply = _call_tinkerbell(key, model, history, message)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            reply_job = pool.submit(_call_tinkerbell, key, model, history, message, trip_state)
+            state_job = pool.submit(_extract_trip_update, key, model, history, message, trip_state)
+            reply = reply_job.result()
+            trip_update = state_job.result()
     except Exception:
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
-
-    trip_update = _extract_trip_update(key, model, history, message)
 
     return jsonify({
         'status': 'success',
