@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% from "_deal_card.html" import deal_card %}
 {% block title %}{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}{% endblock %}
 {% block content %}
 <section class="vacations-hero">
@@ -40,12 +40,12 @@
           {% if trip.offers %}
             <h3>3 הטיסות המתאימות ביותר</h3>
             <div class="vacation-flight-list">
-              {% for deal in trip.offers[:3] %}{% include "_deal_card.html" %}{% endfor %}
+              {% for deal in trip.offers[:3] %}{{ deal_card(deal, site_lang) }}{% endfor %}
             </div>
             {% if trip.offers|length > 3 %}
               <details class="more-results"><summary>טיסות נוספות</summary>
                 <div class="vacation-flight-list">
-                  {% for deal in trip.offers[3:] %}{% include "_deal_card.html" %}{% endfor %}
+                  {% for deal in trip.offers[3:] %}{{ deal_card(deal, site_lang) }}{% endfor %}
                 </div>
               </details>
             {% endif %}
