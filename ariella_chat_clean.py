@@ -190,7 +190,7 @@ def _approval_trigger(message, history, state):
 
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
-    return _post_openai(key, model, system, history, message, 700).strip()
+    return _post_openai(key, model, system, history, message, 1500).strip()
 
 
 def _extract_trip_update(key, model, history, message, state=None):
