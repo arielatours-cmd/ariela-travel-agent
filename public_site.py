@@ -2466,6 +2466,36 @@ def account():
     )
 
 
+@site.get("/trip/<int:trip_id>/waiting")
+@login_required
+def trip_waiting(trip_id):
+    with _db() as conn:
+        row = conn.execute("SELECT id FROM trip_requests WHERE id=? AND member_id=?", (trip_id, session["member_id"])).fetchone()
+    if not row:
+        return redirect(url_for("site.account"))
+    return render_template("trip_waiting.html", trip_id=trip_id)
+
+
+@site.get("/trip/<int:trip_id>/flight-status")
+@login_required
+def trip_flight_status(trip_id):
+    with _db() as conn:
+        row = conn.execute("SELECT * FROM trip_requests WHERE id=? AND member_id=?", (trip_id, session["member_id"])).fetchone()
+    if not row:
+        return jsonify({"status":"missing"}), 404
+    trip = _trip_dict(row)
+    inventory = [_localize_offer_airports(o) for o in recent_offers(limit=1500, minimum_score=None)]
+    try:
+        offers = _resolved_trip_offers(inventory, trip, limit=5)
+    except Exception:
+        offers = []
+    return jsonify({
+        "status":"ready" if offers else "searching",
+        "count":len(offers),
+        "url":url_for("site.account") + f"#vacation-{trip_id}"
+    })
+
+
 @site.post("/trip/<int:trip_id>/toggle-search")
 @login_required
 def toggle_trip_search(trip_id):
