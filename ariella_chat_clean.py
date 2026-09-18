@@ -2,7 +2,7 @@ import json
 import os
 import requests
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
@@ -83,6 +83,30 @@ EXTRACTOR_SYSTEM = '''את שכבת חילוץ נתוני החופשה של אר
 }
 '''
 
+
+
+
+
+def _weekday_date_conflict(message):
+    """Validate explicit weekday/date combinations deterministically."""
+    text = str(message or "")
+    weekdays = {"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
+    found_day = next(((name, idx) for name, idx in weekdays.items() if name in text), None)
+    m = __import__("re").search(r"(?<!\\d)(\\d{1,2})[./-](\\d{1,2})(?:[./-](\\d{2,4}))?", text)
+    if not found_day or not m:
+        return None
+    d, mo = int(m.group(1)), int(m.group(2))
+    y = int(m.group(3)) if m.group(3) else date.today().year
+    if y < 100: y += 2000
+    if not m.group(3) and (mo, d) < (date.today().month, date.today().day): y += 1
+    try:
+        dt = date(y, mo, d)
+    except ValueError:
+        return None
+    if dt.weekday() != found_day[1]:
+        actual = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"][dt.weekday()]
+        return f"רק לוודא לפני שממשיכים — {d}.{mo}.{y} יוצא יום {actual}, אבל כתבת יום {found_day[0]}. איזה מהם נכון מבחינתך?"
+    return None
 
 def _extract_output_text(body):
     text = body.get('output_text')
@@ -168,6 +192,9 @@ def chat_clean():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
+    date_conflict = _weekday_date_conflict(message)
+    if date_conflict:
+        return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
     key = os.getenv('OPENAI_API_KEY', '').strip()
     if not key:
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
