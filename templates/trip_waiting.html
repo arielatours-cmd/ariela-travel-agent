@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}אריאלה מחפשת לך{% endblock %}
+{% block content %}
+<section class="ariella-search-wait" dir="rtl">
+  <div class="search-wait-card">
+    <div class="monkey-coconut" aria-hidden="true"><span class="monkey">🐒</span><span class="coconut">🥥</span></div>
+    <h1>אריאלה מחפשת לך עכשיו</h1>
+    <p>בודקת קודם את המאגר של אריאלה, ואם צריך ממשיכה לחיפוש חיצוני.</p>
+    <div class="search-dots"><i></i><i></i><i></i></div>
+    <small>ברגע שהטיסות מוכנות נעביר אותך לחופשה שלך.</small>
+  </div>
+</section>
+<style>
+.ariella-search-wait{min-height:68vh;display:grid;place-items:center;padding:35px 18px;background:linear-gradient(180deg,#fffaf3,#f6eee2)}
+.search-wait-card{text-align:center;max-width:620px;width:100%;background:#fff;border:1px solid #e2d4bd;border-radius:26px;padding:46px 28px;box-shadow:0 18px 50px rgba(69,52,26,.11)}
+.monkey-coconut{height:150px;display:flex;justify-content:center;align-items:flex-end;gap:2px;font-size:92px}.monkey{display:inline-block;animation:monkeyBob 1.4s ease-in-out infinite}.coconut{font-size:52px;transform:translateY(-4px)}
+.search-wait-card h1{font-size:34px;margin:18px 0 8px}.search-wait-card p{color:#6d6459;font-size:18px}.search-wait-card small{color:#887b6b}.search-dots{display:flex;justify-content:center;gap:8px;margin:25px 0}.search-dots i{width:9px;height:9px;border-radius:50%;background:#c99a3f;animation:dot 1.2s infinite}.search-dots i:nth-child(2){animation-delay:.2s}.search-dots i:nth-child(3){animation-delay:.4s}
+@keyframes monkeyBob{50%{transform:translateY(-8px) rotate(-2deg)}}@keyframes dot{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}
+</style>
+<script>
+(function(){
+ const url={{ url_for('site.trip_flight_status',trip_id=trip_id)|tojson }};
+ let tries=0;
+ async function check(){
+   tries++;
+   try{
+     const r=await fetch(url,{cache:'no-store'});
+     const d=await r.json();
+     if(d.status==='ready'&&d.url){location.replace(d.url);return;}
+   }catch(e){}
+   if(tries<45)setTimeout(check,2000);
+   else location.replace({{ (url_for('site.account') ~ '#vacation-' ~ trip_id)|tojson }});
+ }
+ setTimeout(check,1200);
+})();
+</script>
+{% endblock %}
