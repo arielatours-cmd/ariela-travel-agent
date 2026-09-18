@@ -125,14 +125,14 @@ def _extract_output_text(body):
 def _post_openai(key, model, system_prompt, history, message, max_tokens):
     payload = {
         'model': model,
-        'input': [{'role': 'developer', 'content': system_prompt}] + _conversation(history[-30:], message),
+        'input': [{'role': 'developer', 'content': system_prompt}] + _conversation(history[-16:], message),
         'max_output_tokens': max_tokens,
     }
     response = requests.post(
         'https://api.openai.com/v1/responses',
         headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
         json=payload,
-        timeout=35,
+        timeout=22,
     )
     if response.status_code >= 400:
         raise RuntimeError(f'OpenAI API error {response.status_code}')
@@ -173,13 +173,13 @@ def _approval_trigger(message, history, state):
 
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
-    return _post_openai(key, model, system, history, message, 1400).strip()
+    return _post_openai(key, model, system, history, message, 700).strip()
 
 
 def _extract_trip_update(key, model, history, message, state=None):
     try:
         system = EXTRACTOR_SYSTEM + '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat()
-        raw = _post_openai(key, model, system, history, message, 1000)
+        raw = _post_openai(key, model, system, history, message, 650)
         return _parse_trip_update(raw)
     except Exception:
         return {}
