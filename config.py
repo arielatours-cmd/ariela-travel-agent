@@ -24,7 +24,7 @@ WIDE_SCAN_HOUR = int(os.getenv("WIDE_SCAN_HOUR", "6"))
 WIDE_SCAN_MINUTE = int(os.getenv("WIDE_SCAN_MINUTE", "15"))
 
 DESTINATIONS = [
-    {"code": "ATH", "name": "אתונה", "country_flag": "🇬🇷"}, {"code": "LCA", "name": "לרנקה", "country_flag": "🇨🇾"},
+    {"code": "ATH", "name": "אתונה", "country_flag": "🇬🇷"}, {"code": "LCA", "name": "לרנקה", "country_flag": "🇨🇾"}, {"code": "PFO", "name": "פאפוס", "country_flag": "🇨🇾"},
     {"code": "BUD", "name": "בודפשט", "country_flag": "🇭🇺"}, {"code": "VIE", "name": "וינה", "country_flag": "🇦🇹"},
     {"code": "SOF", "name": "סופיה", "country_flag": "🇧🇬"}, {"code": "PRG", "name": "פראג", "country_flag": "🇨🇿"},
     {"code": "FCO", "name": "רומא", "country_flag": "🇮🇹"}, {"code": "MXP", "name": "מילאנו", "country_flag": "🇮🇹"},
@@ -50,7 +50,7 @@ DEPARTURE_OFFSETS_DAYS = [21, 35, 45, 60, 90, 120, 150, 180]
 TRIP_LENGTHS_DAYS = [4, 5, 7]
 
 AIRPORT_NAMES = {
-    "TLV": "נתב״ג", "HFA": "חיפה", "ATH": "אתונה", "LCA": "לרנקה", "BUD": "בודפשט", "VIE": "וינה",
+    "TLV": "נתב״ג", "HFA": "חיפה", "ATH": "אתונה", "LCA": "לרנקה", "PFO": "פאפוס", "BUD": "בודפשט", "VIE": "וינה",
     "SOF": "סופיה", "PRG": "פראג", "FCO": "רומא", "MXP": "מילאנו", "CDG": "פריז", "AMS": "אמסטרדם",
     "BCN": "ברצלונה", "MAD": "מדריד", "LIS": "ליסבון", "LHR": "לונדון", "BER": "ברלין", "MUC": "מינכן",
     "ZRH": "ציריך", "BRU": "בריסל", "OTP": "בוקרשט", "KRK": "קרקוב", "WAW": "ורשה", "TBS": "טביליסי",
