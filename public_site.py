@@ -2489,9 +2489,14 @@ def trip_flight_status(trip_id):
         offers = _resolved_trip_offers(inventory, trip, limit=5)
     except Exception:
         offers = []
+    answers = trip.get("answers") or {}
+    finished = bool(answers.get("_flight_search_finished"))
+    result = answers.get("_flight_search_result") or {}
+    status = "ready" if offers or finished else "searching"
     return jsonify({
-        "status":"ready" if offers else "searching",
+        "status":status,
         "count":len(offers),
+        "search_result":result,
         "url":url_for("site.account") + f"#vacation-{trip_id}"
     })
 
