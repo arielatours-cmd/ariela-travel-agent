@@ -25,8 +25,8 @@
   const send=form?.querySelector('button[type="submit"]');
   if(!box||!form||!input||!send)return;
   // Conversation history is persistent customer history. Never clear it on deploy or after a search.
-  const key='ariellaFreshChat:v8';
-  const stateKey='ariellaTripState:v8';
+  const key='ariellaFreshChat:v9';
+  const stateKey='ariellaTripState:v9';
   let history=[];
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
   function appendFormattedText(parent,text,allowMarkdown){
