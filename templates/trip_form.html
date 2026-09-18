@@ -24,22 +24,9 @@
   const input=document.getElementById('ariellaNewChatInput');
   const send=form?.querySelector('button[type="submit"]');
   if(!box||!form||!input||!send)return;
+  // Conversation history is persistent customer history. Never clear it on deploy or after a search.
   const key='ariellaFreshChat:v8';
   const stateKey='ariellaTripState:v8';
-  const resetMarker='ariellaTinkerbellReset:20260918-v8';
-  if(localStorage.getItem(resetMarker)!=='1'){
-    localStorage.removeItem('ariellaFreshChat:v1');
-    localStorage.removeItem('ariellaFreshChat:v2');
-    localStorage.removeItem('ariellaFreshChat:v3');
-    localStorage.removeItem('ariellaFreshChat:v4');
-    localStorage.removeItem('ariellaFreshChat:v5');
-    localStorage.removeItem('ariellaFreshChat:v6');
-    localStorage.removeItem('ariellaFreshChat:v7');
-    localStorage.removeItem('ariellaTripState:v7');
-    localStorage.removeItem('ariellaFreshChat:v8');
-    localStorage.removeItem('ariellaTripState:v8');
-    localStorage.setItem(resetMarker,'1');
-  }
   let history=[];
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
   function appendFormattedText(parent,text,allowMarkdown){
@@ -78,7 +65,6 @@
         const start=await fetch('/api/ariella/confirm-clean-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:data.trip_update,history:history.map(x=>({role:x.role,content:x.content}))})});
         const started=await start.json().catch(()=>({}));
         if(start.ok&&started.status==='success'&&started.waiting_url){
-          localStorage.removeItem(key);localStorage.removeItem(stateKey);
           location.href=started.waiting_url;return;
         }
       }
