@@ -780,6 +780,7 @@ def _customer_destination_codes(answers: dict) -> list[str]:
         "וינה": "VIE", "vienna": "VIE", "vie": "VIE",
         "מילאנו": "MXP", "milan": "MXP", "mxp": "MXP",
         "לרנקה": "LCA", "larnaca": "LCA", "lca": "LCA",
+        "פאפוס": "PFO", "paphos": "PFO", "pfo": "PFO",
         "סופיה": "SOF", "sofia": "SOF", "sof": "SOF",
         "פריז": "CDG", "paris": "CDG", "cdg": "CDG",
         "אמסטרדם": "AMS", "amsterdam": "AMS", "ams": "AMS",
