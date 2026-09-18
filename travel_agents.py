@@ -632,6 +632,116 @@ def ariella_chat():
     })
 
 
+def _clean_state_to_profile(state):
+    """Translate the natural-chat state into the existing flight scanner contract."""
+    state = state or {}
+    travelers = state.get("travelers") or {}
+    destination = state.get("destination") or {}
+    dates = state.get("dates") or {}
+    budget = state.get("budget_per_person") or {}
+    flight = state.get("flight") or {}
+    places = destination.get("places") or []
+    if isinstance(places, str):
+        places = [places]
+
+    # Scanner inventory is keyed by IATA. Resolve natural city/country names
+    # against Ariella's airport catalogue, while preserving explicit IATA codes.
+    destination_codes = []
+    airports = _load_airports()
+    for place in places:
+        raw = str(place or "").strip()
+        if len(raw) == 3 and raw.isalpha():
+            destination_codes.append(raw.upper())
+            continue
+        needle = raw.lower()
+        matches = []
+        for airport in airports:
+            hay = " ".join(str(airport.get(k) or "") for k in ("country_he","country_en","city_he","city_en")).lower()
+            if needle and needle in hay:
+                code = str(airport.get("code") or "").upper()
+                if code:
+                    matches.append(code)
+        destination_codes.extend(matches[:4])
+    destination_codes = list(dict.fromkeys(destination_codes))
+
+    requested = state.get("requested_services") or []
+    services = ["flight"] if "flights" in requested or not requested else []
+    if "lodging" in requested: services.append("lodging")
+    if "car" in requested: services.append("car")
+    if "trip_planning" in requested: services.extend(["route","attractions"])
+
+    dep = dates.get("departure")
+    ret = dates.get("return")
+    period = str(dates.get("period") or "")
+    profile = {
+        "vacation_type": state.get("trip_type") or "standard",
+        "services": list(dict.fromkeys(services)),
+        "destination_mode": destination.get("mode") or ("specific" if destination_codes else "open"),
+        "destinations": destination_codes,
+        "departure_airports": [state.get("departure_airport") or "TLV"],
+        "date_mode": "exact" if dep and ret else ("month" if period else "anytime"),
+        "departure_date": dep,
+        "return_date": ret,
+        "outbound_month": period[:7] if len(period) >= 7 else None,
+        "return_month": period[:7] if len(period) >= 7 else None,
+        "date_flex_days": dates.get("flexibility_days") or 0,
+        "adults": travelers.get("adults") or 1,
+        "children": travelers.get("children") or 0,
+        "child_ages": travelers.get("child_ages") or [],
+        "infants": travelers.get("infants") or 0,
+        "budget_mode": "limited" if budget.get("amount") is not None else "unlimited",
+        "budget_amount": budget.get("amount"),
+        "flight_preference": flight.get("connection_preference"),
+        "baggage": flight.get("baggage") or [],
+    }
+    return profile
+
+
+@travel_agents.post("/api/ariella/confirm-clean-search")
+def confirm_clean_search():
+    """Create the vacation and start the real flight pipeline after chat approval."""
+    member = _member_context()
+    if not member:
+        return jsonify({"status":"error","message":"נדרשת התחברות כדי לשמור את החופשה."}), 401
+    body = request.get_json(silent=True) or {}
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    history = body.get("history") if isinstance(body.get("history"), list) else []
+    if not state.get("search_confirmed"):
+        return jsonify({"status":"error","message":"החיפוש עדיין לא אושר."}), 400
+    if "flights" not in (state.get("requested_services") or []):
+        return jsonify({"status":"error","message":"לא התבקש חיפוש טיסות."}), 400
+
+    profile = _clean_state_to_profile(state)
+    answers = _scanner_answers(profile)
+    destinations = profile.get("destinations") or []
+    request_name = " / ".join(destinations[:3]) if destinations else "חופשה חדשה"
+    travel_window = ""
+    if profile.get("departure_date") and profile.get("return_date"):
+        travel_window = f"{profile['departure_date']} – {profile['return_date']}"
+    elif profile.get("outbound_month"):
+        travel_window = str(profile["outbound_month"])
+
+    _ensure_schema()
+    with _db() as conn:
+        cur = conn.execute(
+            "INSERT INTO trip_requests(member_id,request_name,travel_window,status,answers_json,created_at) VALUES(?,?,?,?,?,?)",
+            (member["id"], request_name, travel_window, "active",
+             json.dumps({**profile, **answers, "_chat_state": state}, ensure_ascii=False), utc_now_iso()),
+        )
+        trip_id = int(cur.lastrowid)
+        conn.execute(
+            "INSERT INTO ariella_trip_conversations(member_id,trip_id,history_json,profile_json,created_at) VALUES(?,?,?,?,?)",
+            (member["id"], trip_id, json.dumps(history, ensure_ascii=False),
+             json.dumps(state, ensure_ascii=False), utc_now_iso()),
+        )
+        conn.commit()
+    _start_scan(trip_id, answers)
+    return jsonify({
+        "status":"success","trip_id":trip_id,"search_started":True,
+        "waiting_url":f"/trip/{trip_id}/waiting"
+    })
+
+
 @travel_agents.post("/api/ariella/confirm-search")
 def confirm_search():
     member = _member_context()
