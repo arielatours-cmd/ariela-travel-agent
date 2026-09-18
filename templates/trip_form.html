@@ -24,8 +24,9 @@
   const input=document.getElementById('ariellaNewChatInput');
   const send=form?.querySelector('button[type="submit"]');
   if(!box||!form||!input||!send)return;
-  const key='ariellaFreshChat:v6';
-  const resetMarker='ariellaTinkerbellReset:20260918-v6';
+  const key='ariellaFreshChat:v7';
+  const stateKey='ariellaTripState:v7';
+  const resetMarker='ariellaTinkerbellReset:20260918-v7';
   if(localStorage.getItem(resetMarker)!=='1'){
     localStorage.removeItem('ariellaFreshChat:v1');
     localStorage.removeItem('ariellaFreshChat:v2');
@@ -33,6 +34,8 @@
     localStorage.removeItem('ariellaFreshChat:v4');
     localStorage.removeItem('ariellaFreshChat:v5');
     localStorage.removeItem('ariellaFreshChat:v6');
+    localStorage.removeItem('ariellaFreshChat:v7');
+    localStorage.removeItem('ariellaTripState:v7');
     localStorage.setItem(resetMarker,'1');
   }
   let history=[];
@@ -61,11 +64,12 @@
   history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||''));
   async function askTinkerbell(text){
     const context=history.slice(0,-1).map(x=>({role:x.role,content:x.content}));
-    send.disabled=true;input.disabled=true;
+    send.disabled=true;input.disabled=false;
     try{
-      const r=await fetch('/api/ariella/chat-clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:context})});
+      const r=await fetch('/api/ariella/chat-clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:context,trip_state:JSON.parse(localStorage.getItem(stateKey)||'{}')})});
       const data=await r.json().catch(()=>({}));
       if(!r.ok||data.status!=='success')throw new Error(data.message||'chat unavailable');
+      if(data.trip_update&&typeof data.trip_update==='object') localStorage.setItem(stateKey,JSON.stringify(data.trip_update));
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
     }catch(e){
