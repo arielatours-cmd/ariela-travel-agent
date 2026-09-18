@@ -43,13 +43,13 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
 - אין צורך להזדהות בשם טינקרבל מול הלקוח.
-- מותר להשתמש ב-Markdown פשוט להדגשה.
+- אל תשתמשי בכוכביות, Markdown או סימני עיצוב. כתבי טקסט נקי בלבד; ממשק האתר אחראי לעיצוב.
 '''
 
 EXTRACTOR_SYSTEM = '''את שכבת חילוץ נתוני החופשה של אריאלה. אינך משוחחת עם הלקוח ואינך מחליטה איזו שאלה לשאול. קבלי את היסטוריית השיחה וחלצי רק מידע שהלקוח כבר מסר או שינה.
 
 כללים:
-- אל תמציאי מידע ואל תשלימי שדות חסרים.\n- מצב החופשה המצטבר המצורף הוא מקור אמת לפרטים שכבר נאספו. החזירי מצב מלא ומעודכן, לא רק את ההודעה האחרונה.\n- חודש בלי שנה: חודש נוכחי/עתידי = השנה הנוכחית; חודש שכבר עבר = השנה הבאה, אלא אם ההקשר אומר אחרת.
+- אל תמציאי מידע ואל תשלימי שדות חסרים.\n- מצב החופשה המצטבר המצורף הוא מקור אמת לפרטים שכבר נאספו. החזירי מצב מלא ומעודכן, לא רק את ההודעה האחרונה. לעולם אל תאפסי ערך קיים ל-null, מערך ריק, unknown או false רק מפני שהוא לא הופיע שוב בהודעה הנוכחית; העתיקי את הערך הקיים ושני רק מידע שהלקוח הוסיף, תיקן או ביטל במפורש.\n- חודש בלי שנה: חודש נוכחי/עתידי = השנה הנוכחית; חודש שכבר עבר = השנה הבאה, אלא אם ההקשר אומר אחרת.
 - אין שדה משך חופשה.
 - תקציב נשמר לאדם בלבד. אם הלקוח נתן תקציב כולל ומספר הנוסעים ידוע בבטחה, חשבי לאדם; אחרת השאירי לא ידוע.
 - לזהות: סוג חופשה; נוסעים ומבנה; יעד/ים ומידת הוודאות; שדה מוצא; תאריכים/תקופה/גמישות ומגבלות; תקציב לאדם; ישירה/קונקשן, מחלקה, כבודה והעדפות טיסה; עדיפויות ומגבלות קשיחות; בקשת הלקוח הנוכחית.
@@ -213,7 +213,16 @@ def chat_clean():
             reply_job = pool.submit(_call_tinkerbell, key, model, history, message, trip_state)
             state_job = pool.submit(_extract_trip_update, key, model, history, message, trip_state)
             reply = reply_job.result()
-            trip_update = state_job.result()
+            extracted = state_job.result()
+            # Preserve accumulated facts deterministically. The extractor may update facts,
+            # but omitted/default values must never erase information already collected.
+            trip_update = dict(trip_state)
+            if isinstance(extracted, dict):
+                for k, v in extracted.items():
+                    if v is None or v == [] or v == {} or v == "unknown":
+                        if k in trip_update:
+                            continue
+                    trip_update[k] = v
 
         # Search approval is a system event, not a language-model decision.
         if _approval_trigger(message, history, trip_state):
