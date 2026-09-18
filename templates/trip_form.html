@@ -25,12 +25,12 @@
   const send=form?.querySelector('button[type="submit"]');
   if(!box||!form||!input||!send)return;
   // Conversation history is persistent customer history. Never clear it on deploy or after a search.
-  const key='ariellaFreshChat:v10';
-  const stateKey='ariellaTripState:v10';
+  const key='ariellaFreshChat:v11';
+  const stateKey='ariellaTripState:v11';
   let history=[];
   let waitingForReply=false;
   // One-time clean start requested for the current end-to-end test.
-  if(!localStorage.getItem('ariellaReset:v10')){localStorage.removeItem('ariellaFreshChat:v9');localStorage.removeItem('ariellaTripState:v9');localStorage.removeItem('ariellaFreshChat:v10');localStorage.removeItem('ariellaTripState:v10');localStorage.setItem('ariellaReset:v10','1');}
+  if(!localStorage.getItem('ariellaReset:v11')){['ariellaFreshChat:v9','ariellaTripState:v9','ariellaFreshChat:v10','ariellaTripState:v10','ariellaFreshChat:v11','ariellaTripState:v11'].forEach(k=>localStorage.removeItem(k));localStorage.setItem('ariellaReset:v11','1');}
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
   function appendFormattedText(parent,text,allowMarkdown){
     const value=String(text||'').replace(/^#{1,6}\s+/gm,'');
