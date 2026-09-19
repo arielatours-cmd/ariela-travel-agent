@@ -302,6 +302,18 @@ def chat_clean():
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
+        # A generic "yes" during normal data collection is NEVER a search approval.
+        # It must only approve an explicit final approval question / ready state.
+        msg_norm = str(message or "").strip().lower()
+        generic_yes = msg_norm in {"כן","נכון","מעולה","מצוין","מצויין","סבבה","אחלה","נשמע טוב","נשמע אחלה"}
+        if generic_yes and not approval:
+            # Do not let extractor/model turn this ordinary conversational answer
+            # into search intent or missing-data validation.
+            trip_update["search_intent"] = bool(trip_state.get("search_intent"))
+            trip_update["search_confirmed"] = bool(trip_state.get("search_confirmed"))
+            trip_update["ready_for_summary"] = bool(trip_state.get("ready_for_summary"))
+            if not trip_state.get("search_intent"):
+                trip_update["missing_required"] = list(trip_state.get("missing_required") or [])
         if approval:
             merged = _merge_trip_state(trip_state, trip_update if isinstance(trip_update, dict) else {})
             merged["search_intent"] = True
