@@ -2466,6 +2466,105 @@ def account():
     )
 
 
+
+def _chat_destination_codes(places):
+    """Resolve chat destination labels/codes against the shipped airport catalog."""
+    wanted = [str(x or "").strip().lower() for x in (places or []) if str(x or "").strip()]
+    codes = []
+    for raw in wanted:
+        upper = raw.upper()
+        if upper in _AIRPORT_LOCALIZATION:
+            codes.append(upper)
+            continue
+        for code, info in _AIRPORT_LOCALIZATION.items():
+            values = {
+                str(info.get("city_he") or "").strip().lower(),
+                str(info.get("city_en") or "").strip().lower(),
+                str(info.get("country_he") or "").strip().lower(),
+                str(info.get("country_en") or "").strip().lower(),
+                str(info.get("country") or "").strip().lower(),
+            }
+            if raw in values:
+                codes.append(code)
+    return list(dict.fromkeys(codes))
+
+
+@site.post("/api/ariella/start-flight-search")
+@login_required
+def ariella_start_flight_search():
+    body = request.get_json(silent=True) or {}
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    services = set(state.get("requested_services") or [])
+    if "flights" not in services or not state.get("search_confirmed"):
+        return jsonify({"status":"error","message":"flight search is not confirmed"}), 400
+
+    destination = state.get("destination") or {}
+    places = destination.get("places") or []
+    destination_codes = _chat_destination_codes(places)
+    if places and not destination_codes:
+        return jsonify({"status":"error","message":"לא הצלחתי לזהות את יעד הטיסה לצורך הסריקה."}), 400
+
+    travelers = state.get("travelers") or {}
+    dates = state.get("dates") or {}
+    flight = state.get("flight") or {}
+    budget = state.get("budget_per_person") or {}
+    departure_airport = str(state.get("departure_airport") or "TLV").upper()
+    dep = str(dates.get("departure") or "")
+    ret = str(dates.get("return") or "")
+    period = str(dates.get("period") or "")
+    month = period[:7] if len(period) >= 7 and period[:4].isdigit() else ""
+    date_mode = "exact" if dep and ret else ("month" if month else "flexible")
+    connection = str(flight.get("connection_preference") or "any").lower()
+    deal_priorities = []
+    if connection in {"direct","nonstop","non-stop","ישירה","ישיר"}:
+        deal_priorities.append("direct")
+    baggage = flight.get("baggage") or []
+    if baggage:
+        deal_priorities.append("baggage")
+
+    payload = {
+        "origin_airports": [departure_airport],
+        "destination_mode": "specific" if destination_codes else "open",
+        "vacation_type": "standard",
+        "destinations": ",".join(destination_codes),
+        "date_mode": date_mode,
+        "travel_month": month,
+        "outbound_month": month,
+        "return_month": month,
+        "departure_date": dep,
+        "return_date": ret,
+        "date_flex_days": int(dates.get("flexibility_days") or 0),
+        "travel_party": travelers.get("composition") or "",
+        "adults": int(travelers.get("adults") or 1),
+        "children": int(travelers.get("children") or 0),
+        "age_groups": travelers.get("child_ages") or [],
+        "holiday_priorities": [],
+        "deal_priorities": deal_priorities,
+        "budget_mode": "limited" if budget.get("amount") else "unlimited",
+        "budget_amount": budget.get("amount"),
+        "cabin_class": flight.get("cabin") or "any",
+        "ticket_flexibility": "any",
+        "special_needs": [],
+        "notes": "Created from Ariella live conversation",
+        "baggage": baggage,
+    }
+    title = " • ".join(places) if places else "אריאלה תבחר"
+    travel_window = (dep + " – " + ret) if dep and ret else (period or month)
+    with _db() as conn:
+        cur = conn.execute(
+            "INSERT INTO trip_requests (member_id,request_name,travel_window,status,answers_json,created_at,mobile_notifications) VALUES(?,?,?,?,?,?,?)",
+            (session["member_id"], title, travel_window, "active", json.dumps(payload, ensure_ascii=False), utc_now_iso(), 0),
+        )
+        trip_id = int(cur.lastrowid)
+        conn.execute(
+            "UPDATE trip_requests SET free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+            (utc_now_iso(), "external_search_queued", trip_id),
+        )
+        conn.commit()
+    _queue_customer_scan(trip_id, payload, mode="initial")
+    return jsonify({"status":"queued","trip_id":trip_id,"waiting_url":url_for("site.trip_waiting",trip_id=trip_id)})
+
+
 @site.get("/trip/<int:trip_id>/waiting")
 @login_required
 def trip_waiting(trip_id):
