@@ -8,6 +8,7 @@ import sqlite3
 import threading
 import random
 import requests
+import re
 from urllib.parse import parse_qsl
 from datetime import date, datetime
 from functools import wraps
@@ -2429,10 +2430,10 @@ def account():
                 info = _AIRPORT_LOCALIZATION.get(code, {})
                 city_he = info.get("city_he") or code
                 city_en = info.get("city_en") or code
-                labels.append(f"{city_en} ({code})" if _lang() == "en" else f"{city_he} ({code})")
+                labels.append(f"{city_en} ({code})" if _lang() == "en" else city_he)
             trip["destination_display"] = " • ".join(labels)
         else:
-            trip["destination_display"] = _msg("אריאלה תמליץ", "Ariella recommends")
+            trip["destination_display"] = trip.get("request_name") or _msg("חופשה", "Vacation")
 
         if str(answers.get("vacation_type") or "") == "ski":
             trip["image_url"] = "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=82"
@@ -2489,6 +2490,34 @@ def _chat_destination_codes(places):
     return list(dict.fromkeys(codes))
 
 
+def _chat_recover_search_facts(history):
+    """Recover destination/date facts from the retained chat when legacy state missed them."""
+    text = " ".join(str(x.get("content") or "") for x in (history or []) if isinstance(x, dict))
+    lower = text.lower()
+    codes = []
+    labels = []
+    for code, info in _AIRPORT_LOCALIZATION.items():
+        names = [
+            str(info.get("city_he") or "").strip(),
+            str(info.get("city_en") or "").strip(),
+        ]
+        for name in names:
+            if len(name) >= 3 and name.lower() in lower:
+                codes.append(code)
+                labels.append(name)
+                break
+    # Prefer dates from the latest summary; taking the last two full dates avoids
+    # stale dates mentioned earlier in a changed conversation.
+    found_dates = re.findall(r"(?<!\\d)(\\d{1,2})[./-](\\d{1,2})[./-](20\\d{2})(?!\\d)", text)
+    iso_dates = []
+    for d, m, y in found_dates[-2:]:
+        try:
+            iso_dates.append(date(int(y), int(m), int(d)).isoformat())
+        except ValueError:
+            pass
+    return list(dict.fromkeys(codes)), list(dict.fromkeys(labels)), iso_dates
+
+
 def _chat_iso_date(value):
     """Normalize chat dates before handing them to the scanner."""
     raw = str(value or "").strip()
@@ -2514,6 +2543,12 @@ def ariella_start_flight_search():
     destination = state.get("destination") or {}
     places = destination.get("places") or []
     destination_codes = _chat_destination_codes(places)
+    history = body.get("history") if isinstance(body.get("history"), list) else []
+    recovered_codes, recovered_labels, recovered_dates = _chat_recover_search_facts(history)
+    if not destination_codes and recovered_codes:
+        destination_codes = recovered_codes
+        if not places:
+            places = recovered_labels
     if places and not destination_codes:
         return jsonify({"status":"error","message":"לא הצלחתי לזהות את יעד הטיסה לצורך הסריקה."}), 400
 
@@ -2524,9 +2559,15 @@ def ariella_start_flight_search():
     departure_airport = str(state.get("departure_airport") or "TLV").upper()
     dep = _chat_iso_date(dates.get("departure"))
     ret = _chat_iso_date(dates.get("return"))
+    if (not dep or not ret) and len(recovered_dates) >= 2:
+        dep, ret = recovered_dates[-2], recovered_dates[-1]
     period = str(dates.get("period") or "")
     month = period[:7] if len(period) >= 7 and period[:4].isdigit() else ""
     date_mode = "exact" if dep and ret else ("month" if month else "flexible")
+    if not destination_codes:
+        return jsonify({"status":"error","message":"חסר יעד טיסה ולכן לא נפתחה חופשה ריקה."}), 400
+    if date_mode == "flexible":
+        return jsonify({"status":"error","message":"חסרים תאריכי חיפוש ולכן לא נפתחה חופשה ריקה."}), 400
     connection = str(flight.get("connection_preference") or "any").lower()
     deal_priorities = []
     if connection in {"direct","nonstop","non-stop","ישירה","ישיר"}:
