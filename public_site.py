@@ -2596,6 +2596,14 @@ def ariella_start_flight_search():
     ret = _chat_iso_date(dates.get("return"))
     if (not dep or not ret) and len(recovered_dates) >= 2:
         dep, ret = recovered_dates[-2], recovered_dates[-1]
+    # The final approved summary is part of the authoritative conversation.
+    # Recover exact dates from it as a safety net when the extractor failed to
+    # persist dates.departure / dates.return in the structured state.
+    if not dep or not ret:
+        approved_history = history + [{"role": "assistant", "content": str(body.get("approved_summary") or "")}]
+        _, _, approved_dates = _chat_recover_search_facts(approved_history)
+        if len(approved_dates) >= 2:
+            dep, ret = approved_dates[-2], approved_dates[-1]
     period = str(dates.get("period") or "")
     month = period[:7] if len(period) >= 7 and period[:4].isdigit() else ""
     date_mode = "exact" if dep and ret else ("month" if month else "flexible")
@@ -2645,14 +2653,43 @@ def ariella_start_flight_search():
             (session["member_id"], title, travel_window, "active", json.dumps(payload, ensure_ascii=False), utc_now_iso(), 0),
         )
         trip_id = int(cur.lastrowid)
-        conn.execute(
-            "UPDATE trip_requests SET free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-            (utc_now_iso(), "external_search_queued", trip_id),
-        )
         conn.commit()
-    queued = _queue_customer_scan(trip_id, payload, mode="initial")
-    if not queued:
-        return jsonify({"status":"error","message":"לא ניתן היה להפעיל את הסריקה כרגע."}), 503
+
+    # Keep the chat execution path identical to the proven trip-form behavior:
+    # DB first; only spend an external scan when fresh inventory cannot satisfy
+    # the approved request.
+    trip_for_match = {"id": trip_id, "answers": payload, "request_name": title, "travel_window": travel_window}
+    existing_inventory = [
+        _localize_offer_airports(o)
+        for o in recent_offers(limit=1500, minimum_score=None)
+        if _offer_is_recent(o, 48)
+    ] + _qa_fixture_offers()
+    existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
+    if existing_matches:
+        matched_ids = [
+            int(o.get("offer_id") or o.get("id"))
+            for o in existing_matches
+            if (o.get("offer_id") or o.get("id")) is not None
+        ]
+        payload["_matched_offer_ids"] = matched_ids
+        payload["_flight_search_finished"] = True
+        payload["_flight_search_result"] = {"status": "database_match", "api_requests": 0}
+        with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET answers_json=?, free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (json.dumps(payload, ensure_ascii=False), utc_now_iso(), "database_match", trip_id),
+            )
+            conn.commit()
+    else:
+        with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                (utc_now_iso(), "external_search_queued", trip_id),
+            )
+            conn.commit()
+        queued = _queue_customer_scan(trip_id, payload, mode="initial")
+        if not queued:
+            return jsonify({"status":"error","message":"לא ניתן היה להפעיל את הסריקה כרגע."}), 503
     return jsonify({"status":"queued","trip_id":trip_id,"waiting_url":url_for("site.trip_waiting",trip_id=trip_id)})
 
 
