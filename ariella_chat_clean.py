@@ -206,7 +206,13 @@ def _approval_trigger(message, history, state):
     if not positive:
         return False
     prior_ready = bool((state or {}).get("ready_for_summary") or (state or {}).get("search_confirmed"))
-    prior_text = " ".join(str(x.get("content") or "") for x in (history or [])[-6:] if isinstance(x, dict))
+    services = set((state or {}).get("requested_services") or [])
+    flight_wanted = "flights" in services or ((state or {}).get("service_decisions") or {}).get("flights", {}).get("wanted") is True
+    # Once flights are part of the accumulated trip state, an explicit approval is an execution command.
+    # Do not depend on a summary phrase still being present in the last N chat messages.
+    if flight_wanted:
+        return True
+    prior_text = " ".join(str(x.get("content") or "") for x in (history or []))
     summary_seen = any(x in prior_text for x in ("לאישור","אם הפרטים","הבקשה מאושרת","ניתן לצאת לבדיקה","הפרטים שסיכמנו","לאשר לי לחפש","אשר לי לחפש","לאשר חיפוש","אישור לחיפוש","לחפש לפי הבקשה שסיכמנו","לחפש לפי הסיכום"))
     return prior_ready or summary_seen
 
