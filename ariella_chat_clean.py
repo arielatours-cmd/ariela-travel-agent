@@ -207,7 +207,7 @@ def _approval_trigger(message, history, state):
         return False
     prior_ready = bool((state or {}).get("ready_for_summary") or (state or {}).get("search_confirmed"))
     prior_text = " ".join(str(x.get("content") or "") for x in (history or [])[-6:] if isinstance(x, dict))
-    summary_seen = any(x in prior_text for x in ("לאישור","אם הפרטים","הבקשה מאושרת","ניתן לצאת לבדיקה","הפרטים שסיכמנו"))
+    summary_seen = any(x in prior_text for x in ("לאישור","אם הפרטים","הבקשה מאושרת","ניתן לצאת לבדיקה","הפרטים שסיכמנו","לאשר לי לחפש","אשר לי לחפש","לאשר חיפוש","אישור לחיפוש","לחפש לפי הבקשה שסיכמנו","לחפש לפי הסיכום"))
     return prior_ready or summary_seen
 
 
