@@ -1,13 +1,12 @@
 import json
 import os
 import requests
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v13'
+ENGINE_VERSION = 'tinkerbell-chat-v14'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -330,10 +329,44 @@ def _call_tinkerbell(key, model, history, message, state=None):
 def _extract_trip_update(key, model, history, message, state=None):
     try:
         system = EXTRACTOR_SYSTEM + '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat()
-        raw = _post_openai(key, model, system, history, message, 650)
+        raw = _post_openai(key, model, system, history, message, 900)
         return _parse_trip_update(raw)
     except Exception:
         return {}
+
+
+def _deterministic_traveler_facts(message):
+    """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
+    import re
+    msg = str(message or "").strip().lower()
+    facts = {}
+    if "זוג" in msg or any(p in msg for p in ("אני ובעלי", "אני ואשתי", "בעלי ואני", "אשתי ואני")):
+        facts["adults"] = 2
+
+    child_count = None
+    if re.search(r"(?:עם|ו)\s*(?:ה)?(?:ילדה|בת)\b", msg):
+        child_count = 1
+    elif re.search(r"(?:עם|ו)\s*(?:ה)?(?:ילד|בן)\b", msg):
+        child_count = 1
+    m = re.search(r"(\d+)\s*(?:ילדים|ילדות)", msg)
+    if m:
+        child_count = int(m.group(1))
+    if child_count is not None:
+        facts["children"] = child_count
+
+    ages = []
+    for m in re.finditer(r"(?:בת|בן)\s*(\d{1,2})\b", msg):
+        age = int(m.group(1))
+        if 0 <= age <= 17:
+            ages.append(age)
+    if ages:
+        facts["child_ages"] = ages
+        if "children" not in facts:
+            facts["children"] = len(ages)
+
+    if re.search(r"2\s*(?:הורים|מבוגרים)", msg):
+        facts["adults"] = 2
+    return {"travelers": facts} if facts else {}
 
 
 @ariella_chat_clean.post('/api/ariella/chat-clean')
@@ -402,14 +435,13 @@ def chat_clean():
     model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
 
     try:
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            reply_job = pool.submit(_call_tinkerbell, key, model, history, message, trip_state)
-            state_job = pool.submit(_extract_trip_update, key, model, history, message, trip_state)
-            reply = reply_job.result()
-            extracted = state_job.result()
-            # Preserve accumulated facts deterministically. Every extracted fact is
-            # persisted into the one structured source of truth used by Ariella.
-            trip_update = _merge_trip_state(trip_state, extracted)
+        # One ordered pipeline: first understand and persist the user's message,
+        # then generate Ariella's reply from that UPDATED state. The old parallel
+        # calls let the reply see stale state and caused repeated/lost facts.
+        extracted = _extract_trip_update(key, model, history, message, trip_state)
+        trip_update = _merge_trip_state(trip_state, extracted)
+        trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        reply = _call_tinkerbell(key, model, history, message, trip_update)
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
