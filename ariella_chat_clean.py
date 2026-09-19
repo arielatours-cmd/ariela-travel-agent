@@ -199,7 +199,10 @@ def _state_context(state):
 def _approval_trigger(message, history, state):
     """Explicit final approval must hand off to execution, independent of stale/missing extracted state."""
     msg = str(message or "").strip().lower()
-    explicit_approval = msg in {"כן","נכון","מאשר","מאשרת","חיובי","צאי לדרך","צא לדרך","אישור","מאושר","מאושרת"}
+    explicit_approval = msg in {
+        "כן","נכון","מאשר","מאשרת","חיובי","צאי לדרך","צא לדרך","אישור","מאושר","מאושרת",
+        "נשמע אחלה","נשמע טוב","מעולה","מצוין","מצויין","סבבה","אחלה"
+    }
     explicit_search = any(x in msg for x in ("תמצאי לי טיסות","תחפשי לי טיסות","תבדקי לי טיסות","אפשר לצאת לבדיקה","אפשר לצאת לחיפוש"))
     if not (explicit_approval or explicit_search):
         return False
