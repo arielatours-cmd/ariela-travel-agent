@@ -247,7 +247,9 @@ def _approval_trigger(message, history, state):
     # explicitly asked for final search approval. This avoids depending on the
     # extractor to set ready_for_summary in the same turn that the UI already
     # presented the final summary.
-    prior_ready = bool(state.get("ready_for_summary")) and not bool(state.get("search_confirmed"))
+    # Explicit approval remains executable even if an earlier failed handoff
+    # already persisted search_confirmed=true. A failed redirect/scan must be retryable.
+    prior_ready = bool(state.get("ready_for_summary") or state.get("search_confirmed"))
     last_assistant = ""
     for item in reversed(history or []):
         if isinstance(item, dict) and item.get("role") == "assistant":
