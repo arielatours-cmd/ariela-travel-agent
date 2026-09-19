@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v12'
+ENGINE_VERSION = 'tinkerbell-chat-v13'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -226,6 +226,15 @@ def _full_reset_confirmation(message):
     phrases = ("למחוק הכל","למחוק הכול","תמחקי הכל","תמחקי הכול","להתחיל לגמרי מהתחלה","מהתחלה לגמרי","כן למחוק","כן, למחוק")
     return any(p in msg for p in phrases)
 
+def _user_gender_from_approval(message, state):
+    msg = str(message or "").strip().lower()
+    if msg == "מאשרת":
+        return "female"
+    if msg == "מאשר":
+        return "male"
+    return (state or {}).get("user_gender")
+
+
 def _approval_trigger(message, history, state):
     """Only a dedicated final-search confirmation may start execution."""
     msg = str(message or "").strip().lower()
@@ -250,7 +259,10 @@ def _approval_trigger(message, history, state):
         "לאשר את החיפוש",
         "אפשר להתחיל בחיפוש",
         "אפשר לצאת לחיפוש",
-        "אישור לחיפוש"
+        "אישור לחיפוש",
+        "אם כל הפרטים נכונים, כתבי מאשרת",
+        "אם כל הפרטים נכונים, כתוב מאשר",
+        "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת"
     ))
     # Also inspect the full current-trip history. On mobile the last assistant
     # message may be a short acknowledgement while the final approval question
@@ -266,7 +278,10 @@ def _approval_trigger(message, history, state):
         "לאשר את החיפוש",
         "אפשר להתחיל בחיפוש",
         "אפשר לצאת לחיפוש",
-        "אישור לחיפוש"
+        "אישור לחיפוש",
+        "אם כל הפרטים נכונים, כתבי מאשרת",
+        "אם כל הפרטים נכונים, כתוב מאשר",
+        "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת"
     ))
     return prior_ready or asked_final_approval
 
@@ -378,6 +393,7 @@ def chat_clean():
             merged["search_intent"] = True
             merged["search_confirmed"] = True
             merged["ready_for_summary"] = True
+            merged["user_gender"] = _user_gender_from_approval(message, merged)
             services = list(merged.get("requested_services") or [])
             # Approval at a flight confirmation stage is authoritative: mark flights requested.
             if "flights" not in services:
@@ -407,5 +423,5 @@ def chat_clean():
         'trip_update': trip_update,
         # Execution is allowed only when the deterministic approval gate fired
         # on THIS user message. Never let model-extracted state start a scan.
-        'start_flight_search': bool(approval) and bool(trip_update.get('search_confirmed')) and ('flights' in (trip_update.get('requested_services') or [])),
+        'start_flight_search': bool(approval) and bool(trip_update.get('search_confirmed')),
     })
