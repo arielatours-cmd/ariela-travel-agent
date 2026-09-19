@@ -2564,8 +2564,16 @@ def ariella_start_flight_search():
     body = request.get_json(silent=True) or {}
     state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
     services = set(state.get("requested_services") or [])
-    if "flights" not in services or not state.get("search_confirmed"):
+    flight_decision = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    flight_wanted = "flights" in services or ((flight_decision.get("flights") or {}).get("wanted") is True)
+    # Final approval is authoritative. Normalize flight intent before creating the scan,
+    # rather than rejecting a valid conversation because the extractor omitted the service label.
+    if not state.get("search_confirmed"):
         return jsonify({"status":"error","message":"flight search is not confirmed"}), 400
+    if flight_wanted and "flights" not in services:
+        services.add("flights")
+    if not flight_wanted:
+        return jsonify({"status":"error","message":"לא סומן חיפוש טיסות בבקשה המאושרת."}), 400
 
     destination = state.get("destination") or {}
     places = destination.get("places") or []
