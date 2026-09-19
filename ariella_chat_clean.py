@@ -207,20 +207,7 @@ def _state_context(state):
 def _approval_trigger(message, history, state):
     """Only a dedicated final-search confirmation may start execution."""
     msg = str(message or "").strip().lower()
-    explicit_search = any(x in msg for x in (
-        "תמצאי לי טיסות","תחפשי לי טיסות","תבדקי לי טיסות",
-        "אפשר לצאת לבדיקה","אפשר לצאת לחיפוש","צאי לחיפוש","תתחילי בחיפוש"
-    ))
-    if explicit_search:
-        return True
-
-    explicit_approval = msg in {
-        "כן","נכון","מאשר","מאשרת","חיובי","צאי לדרך","צא לדרך","אישור","מאושר","מאושרת",
-        "נשמע אחלה","נשמע טוב","מעולה","מצוין","מצויין","סבבה","אחלה"
-    }
-    if not explicit_approval:
-        return False
-
+    explicit_approval = msg in {"מאשר","מאשרת"}\n    if not explicit_approval:\n        return False\n
     state = state if isinstance(state, dict) else {}
     # A positive answer is a final approval when either the deterministic state
     # is at the approval gate OR the immediately preceding assistant message
