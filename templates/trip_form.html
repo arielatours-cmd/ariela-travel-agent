@@ -58,8 +58,8 @@
     history=[{role:'assistant',content:text,agent:'Ariella'}];save();
   }
   history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||''));
-  async function askTinkerbell(text){
-    const context=history.slice(0,-1).map(x=>({role:x.role,content:x.content}));
+  async function askTinkerbell(text, freshSearch=false){
+    const context=freshSearch?[]:history.slice(0,-1).map(x=>({role:x.role,content:x.content}));
     waitingForReply=true;
     send.disabled=true;
     input.disabled=false;
@@ -100,9 +100,10 @@
     const text=input.value.trim();if(!text)return;
     // A new-search command starts a fresh trip state but intentionally keeps
     // the visible conversation history for continuity.
-    if(isNewSearchCommand(text)) localStorage.removeItem(stateKey);
+    const freshSearch=isNewSearchCommand(text);
+    if(freshSearch) localStorage.removeItem(stateKey);
     history.push({role:'user',content:text});add('user',text);save();
-    input.value='';input.style.height='auto';askTinkerbell(text);
+    input.value='';input.style.height='auto';askTinkerbell(text,freshSearch);
   });
   input.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';});
   input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit();}});
