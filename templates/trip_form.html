@@ -65,7 +65,7 @@
       if(!r.ok||data.status!=='success')throw new Error(data.message||'chat unavailable');
       if(data.trip_update&&typeof data.trip_update==='object') localStorage.setItem(stateKey,JSON.stringify(data.trip_update));
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
-      if(data.trip_update&&data.trip_update.search_confirmed===true&&(data.trip_update.requested_services||[]).includes('flights')){
+      if(data.start_flight_search===true){
         history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
         const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:data.trip_update,history:history.map(x=>({role:x.role,content:x.content}))})});
         const started=await start.json().catch(()=>({}));
