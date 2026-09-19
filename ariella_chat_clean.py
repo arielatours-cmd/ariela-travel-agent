@@ -241,6 +241,22 @@ def _approval_trigger(message, history, state):
         "אפשר לצאת לחיפוש",
         "אישור לחיפוש"
     ))
+    # Also inspect the full current-trip history. On mobile the last assistant
+    # message may be a short acknowledgement while the final approval question
+    # is one turn earlier.
+    history_text = " ".join(
+        str(item.get("content") or "").lower()
+        for item in (history or [])
+        if isinstance(item, dict) and item.get("role") == "assistant"
+    )
+    asked_final_approval = asked_final_approval or any(x in history_text for x in (
+        "לאשר לי להתחיל בחיפוש",
+        "לאשר לי לצאת לחיפוש",
+        "לאשר את החיפוש",
+        "אפשר להתחיל בחיפוש",
+        "אפשר לצאת לחיפוש",
+        "אישור לחיפוש"
+    ))
     return prior_ready or asked_final_approval
 
 def _call_tinkerbell(key, model, history, message, state=None):
