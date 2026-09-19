@@ -29,8 +29,12 @@
   const stateKey='ariellaTripState:v11';
   let history=[];
   let waitingForReply=false;
-  // One-time clean start requested for the current end-to-end test.
-  // Refreshes and deployments preserve the current conversation and trip state.
+  // Explicit one-time reset for clean QA. Ordinary refreshes never clear customer history.
+  if(new URLSearchParams(location.search).get('reset_chat')==='1'){
+    localStorage.removeItem(key);
+    localStorage.removeItem(stateKey);
+    window.history.replaceState({},'',location.pathname);
+  }
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
   function appendFormattedText(parent,text,allowMarkdown){
     const value=String(text||'').replace(/^#{1,6}\s+/gm,'');
