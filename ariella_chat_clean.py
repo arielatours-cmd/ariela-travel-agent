@@ -222,10 +222,26 @@ def _approval_trigger(message, history, state):
         return False
 
     state = state if isinstance(state, dict) else {}
-    # Do not infer final approval merely because the conversation contains flights.
-    # The accumulated state must explicitly say the data collection reached its
-    # final summary/approval gate.
-    return bool(state.get("ready_for_summary")) and not bool(state.get("search_confirmed"))
+    # A positive answer is a final approval when either the deterministic state
+    # is at the approval gate OR the immediately preceding assistant message
+    # explicitly asked for final search approval. This avoids depending on the
+    # extractor to set ready_for_summary in the same turn that the UI already
+    # presented the final summary.
+    prior_ready = bool(state.get("ready_for_summary")) and not bool(state.get("search_confirmed"))
+    last_assistant = ""
+    for item in reversed(history or []):
+        if isinstance(item, dict) and item.get("role") == "assistant":
+            last_assistant = str(item.get("content") or "").lower()
+            break
+    asked_final_approval = any(x in last_assistant for x in (
+        "לאשר לי להתחיל בחיפוש",
+        "לאשר לי לצאת לחיפוש",
+        "לאשר את החיפוש",
+        "אפשר להתחיל בחיפוש",
+        "אפשר לצאת לחיפוש",
+        "אישור לחיפוש"
+    ))
+    return prior_ready or asked_final_approval
 
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
