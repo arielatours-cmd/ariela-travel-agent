@@ -25,6 +25,7 @@ from schedule_rules import delivery_status
 from public_site import site
 from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
+from ariella_chat_clean import ariella_chat_clean
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -35,6 +36,7 @@ app.secret_key = FLASK_SECRET_KEY
 app.register_blueprint(site)
 app.register_blueprint(whatsapp_coexistence)
 app.register_blueprint(ariella_chat_v2)
+app.register_blueprint(ariella_chat_clean)
 
 # Din is Ariella's legal/terms verification layer. Scanner functions resolve
 # `insert_offer` from their module globals at runtime, so wrapping it here makes
