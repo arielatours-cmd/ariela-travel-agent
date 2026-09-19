@@ -102,26 +102,10 @@
     e.preventDefault();if(waitingForReply)return;
     const text=input.value.trim();if(!text)return;
     const freshSearch=isNewSearchCommand(text);
-    if(freshSearch){
-      // Archive the trip being planned before clearing the active fields.
-      let currentState={};
-      try{currentState=JSON.parse(localStorage.getItem(stateKey)||'{}')||{};}catch(err){}
-      if(currentState&&Object.keys(currentState).length){
-        try{
-          const saved=await fetch('/api/ariella/save-trip-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:currentState})});
-          if(!saved.ok) throw new Error('draft save failed');
-        }catch(err){
-          const msg='לא הצלחתי לשמור את הטיול הקודם, ולכן לא אפתח טיול חדש כדי שלא יאבדו נתונים.';
-          history.push({role:'assistant',content:msg,agent:'Ariella'});add('assistant',msg);save();
-          return;
-        }
-      }
-      localStorage.removeItem(stateKey);
-      // Old messages remain visible, but the new trip gets a clean context/state.
-      localStorage.setItem(contextStartKey,String(history.length));
-    }
+    // A request to start over is NOT an automatic reset. Ariella must first
+    // clarify whether the customer wants a full reset or only a specific change.
     history.push({role:'user',content:text});add('user',text);save();
-    input.value='';input.style.height='auto';askTinkerbell(text,freshSearch);
+    input.value='';input.style.height='auto';askTinkerbell(text,false);
   });
   input.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';});
   input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit();}});
