@@ -306,9 +306,17 @@ def chat_clean():
             'trip_update':cleared,'start_flight_search':False,'trip_state_reset':True
         })
     if trip_state.get("reset_pending"):
-        # The customer chose a partial change (or described it directly).
-        # Keep all existing facts and let the normal extractor update only the
-        # fields explicitly changed in this message.
+        msg_norm = str(message or "").strip().lower()
+        full_reset_choice = msg_norm in {"מחדש", "מהתחלה", "התחלה חדשה", "חופשה חדשה", "טיול חדש"}
+        if full_reset_choice:
+            cleared = {"reset_pending": False}
+            return jsonify({
+                'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                'reply':'בסדר. מתחילים חופשה חדשה. מה מתחשק לתכנן?',
+                'trip_update':cleared,'start_flight_search':False,'trip_state_reset':True
+            })
+        # Otherwise this is a partial-change answer. Preserve the existing state
+        # and let the extractor update only what the customer asks to change.
         trip_state = dict(trip_state)
         trip_state["reset_pending"] = False
     date_conflict = _weekday_date_conflict(message)
