@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v15'
+ENGINE_VERSION = 'tinkerbell-chat-v16'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -273,56 +273,9 @@ def _user_gender_from_approval(message, state):
 
 
 def _approval_trigger(message, history, state):
-    """Only a dedicated final-search confirmation may start execution."""
+    """Exact final approval is the execution command; generic yes never is."""
     msg = str(message or "").strip().lower()
-    explicit_approval = msg in {"מאשר", "מאשרת"}
-    if not explicit_approval:
-        return False
-    state = state if isinstance(state, dict) else {}
-    # A positive answer is a final approval when either the deterministic state
-    # is at the approval gate OR the immediately preceding assistant message
-    # explicitly asked for final search approval. This avoids depending on the
-    # extractor to set ready_for_summary in the same turn that the UI already
-    # presented the final summary.
-    # Explicit approval remains executable even if an earlier failed handoff
-    # already persisted search_confirmed=true. A failed redirect/scan must be retryable.
-    prior_ready = bool(state.get("ready_for_summary") or state.get("search_confirmed"))
-    last_assistant = ""
-    for item in reversed(history or []):
-        if isinstance(item, dict) and item.get("role") == "assistant":
-            last_assistant = str(item.get("content") or "").lower()
-            break
-    asked_final_approval = any(x in last_assistant for x in (
-        "לאשר לי להתחיל בחיפוש",
-        "לאשר לי לצאת לחיפוש",
-        "לאשר את החיפוש",
-        "אפשר להתחיל בחיפוש",
-        "אפשר לצאת לחיפוש",
-        "אישור לחיפוש",
-        "אם כל הפרטים נכונים, כתבי מאשרת",
-        "אם כל הפרטים נכונים, כתוב מאשר",
-        "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת"
-    ))
-    # Also inspect the full current-trip history. On mobile the last assistant
-    # message may be a short acknowledgement while the final approval question
-    # is one turn earlier.
-    history_text = " ".join(
-        str(item.get("content") or "").lower()
-        for item in (history or [])
-        if isinstance(item, dict) and item.get("role") == "assistant"
-    )
-    asked_final_approval = asked_final_approval or any(x in history_text for x in (
-        "לאשר לי להתחיל בחיפוש",
-        "לאשר לי לצאת לחיפוש",
-        "לאשר את החיפוש",
-        "אפשר להתחיל בחיפוש",
-        "אפשר לצאת לחיפוש",
-        "אישור לחיפוש",
-        "אם כל הפרטים נכונים, כתבי מאשרת",
-        "אם כל הפרטים נכונים, כתוב מאשר",
-        "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת"
-    ))
-    return prior_ready or asked_final_approval
+    return msg in {"מאשר", "מאשרת"}
 
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
@@ -475,21 +428,9 @@ def chat_clean():
                 trip_update["missing_required"] = list(trip_state.get("missing_required") or [])
         if approval:
             merged = _merge_trip_state(trip_state, trip_update if isinstance(trip_update, dict) else {})
-            approval_gaps = _required_state_gaps(merged)
-            if approval_gaps:
-                # Do not manufacture a search payload from chat prose. The state
-                # must be complete first; keep approval retryable after the missing
-                # structured fact is collected.
-                merged["search_confirmed"] = False
-                merged["ready_for_summary"] = False
-                merged["missing_required"] = list(dict.fromkeys(
-                    list(merged.get("missing_required") or []) + approval_gaps
-                ))
-                return jsonify({
-                    'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                    'reply':'חסר לי פרט שנדרש לביצוע החיפוש. אשלים אותו איתך לפני האישור.',
-                    'trip_update':merged,'start_flight_search':False
-                })
+            # Exact מאשר/מאשרת is the execution command. Required-field validation
+            # belongs to the structured execution endpoint; it must never silently
+            # suppress the handoff and leave the user in chat.
             merged["search_intent"] = True
             merged["search_confirmed"] = True
             merged["ready_for_summary"] = True
