@@ -30,7 +30,7 @@
   let history=[];
   let waitingForReply=false;
   // One-time clean start requested for the current end-to-end test.
-  if(!localStorage.getItem('ariellaReset:v12')){['ariellaFreshChat:v9','ariellaTripState:v9','ariellaFreshChat:v10','ariellaTripState:v10','ariellaFreshChat:v11','ariellaTripState:v11','ariellaFreshChat:v12','ariellaTripState:v12'].forEach(k=>localStorage.removeItem(k));localStorage.setItem('ariellaReset:v11','1');}
+  // Refreshes and deployments preserve the current conversation and trip state.
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
   function appendFormattedText(parent,text,allowMarkdown){
     const value=String(text||'').replace(/^#{1,6}\s+/gm,'');
