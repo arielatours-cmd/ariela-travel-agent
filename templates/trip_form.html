@@ -44,7 +44,7 @@
     }
     if(last<value.length)parent.appendChild(document.createTextNode(value.slice(last)));
   }
-  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);box.scrollTop=box.scrollHeight;}
+  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);if(role==='assistant'){requestAnimationFrame(()=>{box.scrollTop=Math.max(0,el.offsetTop-box.offsetTop-12);});}else{box.scrollTop=box.scrollHeight;}return el;}
   function save(){localStorage.setItem(key,JSON.stringify(history.slice(-80)));}
   if(!history.length){
     const rawName={{ ((current_member.first_name if current_member and current_member.first_name else current_member.full_name if current_member and current_member.full_name else '') or '')|tojson }};
@@ -67,9 +67,9 @@
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
       if(data.trip_update&&data.trip_update.search_confirmed===true&&(data.trip_update.requested_services||[]).includes('flights')){
         history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
-        const start=await fetch('/api/ariella/confirm-clean-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:data.trip_update,history:history.map(x=>({role:x.role,content:x.content}))})});
+        const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:data.trip_update,history:history.map(x=>({role:x.role,content:x.content}))})});
         const started=await start.json().catch(()=>({}));
-        if(start.ok&&started.status==='success'&&started.waiting_url){
+        if(start.ok&&['success','queued'].includes(started.status)&&started.waiting_url){
           location.href=started.waiting_url;return;
         }
       }
