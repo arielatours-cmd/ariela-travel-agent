@@ -197,28 +197,27 @@ def _state_context(state):
 
 
 def _approval_trigger(message, history, state):
-    """Explicit final approval must hand off to execution, independent of stale/missing extracted state."""
+    """Only a dedicated final-search confirmation may start execution."""
     msg = str(message or "").strip().lower()
+    explicit_search = any(x in msg for x in (
+        "תמצאי לי טיסות","תחפשי לי טיסות","תבדקי לי טיסות",
+        "אפשר לצאת לבדיקה","אפשר לצאת לחיפוש","צאי לחיפוש","תתחילי בחיפוש"
+    ))
+    if explicit_search:
+        return True
+
     explicit_approval = msg in {
         "כן","נכון","מאשר","מאשרת","חיובי","צאי לדרך","צא לדרך","אישור","מאושר","מאושרת",
         "נשמע אחלה","נשמע טוב","מעולה","מצוין","מצויין","סבבה","אחלה"
     }
-    explicit_search = any(x in msg for x in ("תמצאי לי טיסות","תחפשי לי טיסות","תבדקי לי טיסות","אפשר לצאת לבדיקה","אפשר לצאת לחיפוש"))
-    if not (explicit_approval or explicit_search):
+    if not explicit_approval:
         return False
-    if explicit_search:
-        return True
-    # Approval is only an execution command after the conversation has reached a confirmation/search stage.
-    # Search the full retained history; never depend on the last 6 messages or on extractor flags.
-    prior_text = " ".join(str(x.get("content") or "") for x in (history or []) if isinstance(x, dict)).lower()
-    confirmation_markers = (
-        "לאישור","אם הפרטים","הבקשה מאושרת","ניתן לצאת לבדיקה","הפרטים שסיכמנו",
-        "לאשר לי לחפש","אשר לי לחפש","לאשר חיפוש","אישור לחיפוש",
-        "לחפש לפי הבקשה שסיכמנו","לחפש לפי הסיכום","מתחילה לבדוק",
-        "מתחילה לחפש","ממשיכה לביצוע","מתחילים בביצוע","יוצאת לחיפוש"
-    )
-    flight_markers = ("טיסה","טיסות","המראה","נחיתה","כבודה","טרולי","מזוודה","מחלקת")
-    return any(x in prior_text for x in confirmation_markers) and any(x in prior_text for x in flight_markers)
+
+    state = state if isinstance(state, dict) else {}
+    # Do not infer final approval merely because the conversation contains flights.
+    # The accumulated state must explicitly say the data collection reached its
+    # final summary/approval gate.
+    return bool(state.get("ready_for_summary")) and not bool(state.get("search_confirmed"))
 
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
