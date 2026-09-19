@@ -288,37 +288,53 @@ def chat_clean():
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
 
-    # Restart/change-of-direction is a deterministic state transition. Never let
-    # the model or browser erase collected facts before the customer confirms.
+    # General restart/change-of-direction always enters a simple yes/no gate.
+    # Never erase collected trip facts before an explicit "כן".
     if _reset_intent(message) and not trip_state.get("reset_pending"):
         pending = dict(trip_state)
         pending["reset_pending"] = True
+        pending["reset_change_request"] = message
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':'בשמחה. להתחיל לגמרי מהתחלה ולמחוק את כל פרטי החופשה שאספנו עד עכשיו, או רק לשנות משהו בחופשה הנוכחית?',
+            'reply':'רוצה למחוק את כל פרטי החופשה הנוכחית ולהתחיל מחדש?',
             'trip_update':pending,'start_flight_search':False
         })
-    if trip_state.get("reset_pending") and _full_reset_confirmation(message):
-        cleared = {"reset_pending": False}
-        return jsonify({
-            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':'בסדר. מתחילים חופשה חדשה. מה מתחשק לתכנן?',
-            'trip_update':cleared,'start_flight_search':False,'trip_state_reset':True
-        })
+
     if trip_state.get("reset_pending"):
         msg_norm = str(message or "").strip().lower()
-        full_reset_choice = msg_norm in {"מחדש", "מהתחלה", "התחלה חדשה", "חופשה חדשה", "טיול חדש"}
-        if full_reset_choice:
-            cleared = {"reset_pending": False}
+        yes_answers = {"כן", "כן.", "כן!", "בטח", "בהחלט"}
+        no_answers = {"לא", "לא.", "לא!", "לא תודה"}
+
+        if msg_norm in yes_answers:
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                'reply':'בסדר. מתחילים חופשה חדשה. מה מתחשק לתכנן?',
-                'trip_update':cleared,'start_flight_search':False,'trip_state_reset':True
+                'reply':'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?',
+                'trip_update':{},'start_flight_search':False,'trip_state_reset':True
             })
-        # Otherwise this is a partial-change answer. Preserve the existing state
-        # and let the extractor update only what the customer asks to change.
-        trip_state = dict(trip_state)
-        trip_state["reset_pending"] = False
+
+        if msg_norm in no_answers:
+            original_change = str(trip_state.get("reset_change_request") or "").strip()
+            kept = dict(trip_state)
+            kept["reset_pending"] = False
+            kept.pop("reset_change_request", None)
+            # If the original message only expressed a general wish to change,
+            # ask what to change. If it already named the requested change, keep
+            # the trip facts and let the next turn continue from that context.
+            return jsonify({
+                'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                'reply':'מה תרצי לשנות בחופשה הנוכחית?',
+                'trip_update':kept,'start_flight_search':False
+            })
+
+        # While awaiting this gate, do not let the model reinterpret or mutate
+        # the trip. Keep the question binary and deterministic.
+        pending = dict(trip_state)
+        return jsonify({
+            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            'reply':'רק כדי לוודא: למחוק את כל פרטי החופשה ולהתחיל מחדש? כן או לא?',
+            'trip_update':pending,'start_flight_search':False
+        })
+
     date_conflict = _weekday_date_conflict(message)
     if date_conflict:
         return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
