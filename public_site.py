@@ -2489,6 +2489,19 @@ def _chat_destination_codes(places):
     return list(dict.fromkeys(codes))
 
 
+def _chat_iso_date(value):
+    """Normalize chat dates before handing them to the scanner."""
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date().isoformat()
+        except ValueError:
+            pass
+    return raw
+
+
 @site.post("/api/ariella/start-flight-search")
 @login_required
 def ariella_start_flight_search():
@@ -2509,8 +2522,8 @@ def ariella_start_flight_search():
     flight = state.get("flight") or {}
     budget = state.get("budget_per_person") or {}
     departure_airport = str(state.get("departure_airport") or "TLV").upper()
-    dep = str(dates.get("departure") or "")
-    ret = str(dates.get("return") or "")
+    dep = _chat_iso_date(dates.get("departure"))
+    ret = _chat_iso_date(dates.get("return"))
     period = str(dates.get("period") or "")
     month = period[:7] if len(period) >= 7 and period[:4].isdigit() else ""
     date_mode = "exact" if dep and ret else ("month" if month else "flexible")
@@ -2561,7 +2574,9 @@ def ariella_start_flight_search():
             (utc_now_iso(), "external_search_queued", trip_id),
         )
         conn.commit()
-    _queue_customer_scan(trip_id, payload, mode="initial")
+    queued = _queue_customer_scan(trip_id, payload, mode="initial")
+    if not queued:
+        return jsonify({"status":"error","message":"לא ניתן היה להפעיל את הסריקה כרגע."}), 503
     return jsonify({"status":"queued","trip_id":trip_id,"waiting_url":url_for("site.trip_waiting",trip_id=trip_id)})
 
 
@@ -2839,7 +2854,15 @@ def _customer_scan_worker(trip_id: int, scan_answers: dict, mode: str = "initial
                     conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
                     conn.commit()
 
+        # Persist completion/result for the waiting page even when the scanner
+        # legitimately reused fresh monthly coverage or found zero matching offers.
+        answers["_flight_search_finished"] = True
+        answers["_flight_search_result"] = result
         with _db() as conn:
+            conn.execute(
+                "UPDATE trip_requests SET answers_json=? WHERE id=?",
+                (json.dumps(answers, ensure_ascii=False), trip_id),
+            )
             if api_used > 0:
                 conn.execute(
                     "UPDATE trip_requests SET free_scan_count=COALESCE(free_scan_count,0)+1, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
