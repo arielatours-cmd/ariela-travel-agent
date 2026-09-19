@@ -197,25 +197,25 @@ def _state_context(state):
 
 
 def _approval_trigger(message, history, state):
-    """Deterministic handoff: GPT may phrase the chat, but it does not own the scan trigger."""
+    """Explicit final approval must hand off to execution, independent of stale/missing extracted state."""
     msg = str(message or "").strip().lower()
-    positive = (
-        msg in {"כן","נכון","מאשר","מאשרת","חיובי","צאי לדרך","צא לדרך","אישור","מאושר","מאושרת"}
-        or any(x in msg for x in ("תמצאי לי טיסות","תחפשי לי טיסות","תבדקי לי טיסות","אפשר לצאת לבדיקה","אפשר לצאת לחיפוש"))
-    )
-    if not positive:
+    explicit_approval = msg in {"כן","נכון","מאשר","מאשרת","חיובי","צאי לדרך","צא לדרך","אישור","מאושר","מאושרת"}
+    explicit_search = any(x in msg for x in ("תמצאי לי טיסות","תחפשי לי טיסות","תבדקי לי טיסות","אפשר לצאת לבדיקה","אפשר לצאת לחיפוש"))
+    if not (explicit_approval or explicit_search):
         return False
-    prior_ready = bool((state or {}).get("ready_for_summary") or (state or {}).get("search_confirmed"))
-    services = set((state or {}).get("requested_services") or [])
-    flight_wanted = "flights" in services or ((state or {}).get("service_decisions") or {}).get("flights", {}).get("wanted") is True
-    # Once flights are part of the accumulated trip state, an explicit approval is an execution command.
-    # Do not depend on a summary phrase still being present in the last N chat messages.
-    if flight_wanted:
+    if explicit_search:
         return True
-    prior_text = " ".join(str(x.get("content") or "") for x in (history or []))
-    summary_seen = any(x in prior_text for x in ("לאישור","אם הפרטים","הבקשה מאושרת","ניתן לצאת לבדיקה","הפרטים שסיכמנו","לאשר לי לחפש","אשר לי לחפש","לאשר חיפוש","אישור לחיפוש","לחפש לפי הבקשה שסיכמנו","לחפש לפי הסיכום"))
-    return prior_ready or summary_seen
-
+    # Approval is only an execution command after the conversation has reached a confirmation/search stage.
+    # Search the full retained history; never depend on the last 6 messages or on extractor flags.
+    prior_text = " ".join(str(x.get("content") or "") for x in (history or []) if isinstance(x, dict)).lower()
+    confirmation_markers = (
+        "לאישור","אם הפרטים","הבקשה מאושרת","ניתן לצאת לבדיקה","הפרטים שסיכמנו",
+        "לאשר לי לחפש","אשר לי לחפש","לאשר חיפוש","אישור לחיפוש",
+        "לחפש לפי הבקשה שסיכמנו","לחפש לפי הסיכום","מתחילה לבדוק",
+        "מתחילה לחפש","ממשיכה לביצוע","מתחילים בביצוע","יוצאת לחיפוש"
+    )
+    flight_markers = ("טיסה","טיסות","המראה","נחיתה","כבודה","טרולי","מזוודה","מחלקת")
+    return any(x in prior_text for x in confirmation_markers) and any(x in prior_text for x in flight_markers)
 
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
@@ -266,6 +266,9 @@ def chat_clean():
             merged["search_confirmed"] = True
             merged["ready_for_summary"] = True
             services = list(merged.get("requested_services") or [])
+            # Approval at a flight confirmation stage is authoritative: mark flights requested.
+            if "flights" not in services:
+                services.append("flights")
             flight_state = merged.get("flight") if isinstance(merged.get("flight"), dict) else {}
             has_flight_data = bool(
                 merged.get("departure_airport")
