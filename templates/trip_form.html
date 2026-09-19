@@ -98,16 +98,26 @@
       || t.includes('להתחיל חיפוש חדש')
       || t.includes('בואי נתחיל מחדש');
   }
-  form.addEventListener('submit',function(e){
+  form.addEventListener('submit',async function(e){
     e.preventDefault();if(waitingForReply)return;
     const text=input.value.trim();if(!text)return;
-    // A new-search command starts a fresh trip state but intentionally keeps
-    // the visible conversation history for continuity.
     const freshSearch=isNewSearchCommand(text);
     if(freshSearch){
+      // Archive the trip being planned before clearing the active fields.
+      let currentState={};
+      try{currentState=JSON.parse(localStorage.getItem(stateKey)||'{}')||{};}catch(err){}
+      if(currentState&&Object.keys(currentState).length){
+        try{
+          const saved=await fetch('/api/ariella/save-trip-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:currentState})});
+          if(!saved.ok) throw new Error('draft save failed');
+        }catch(err){
+          const msg='לא הצלחתי לשמור את הטיול הקודם, ולכן לא אפתח טיול חדש כדי שלא יאבדו נתונים.';
+          history.push({role:'assistant',content:msg,agent:'Ariella'});add('assistant',msg);save();
+          return;
+        }
+      }
       localStorage.removeItem(stateKey);
-      // Keep old messages visible, but permanently exclude the previous vacation
-      // from the model/search context for every following turn.
+      // Old messages remain visible, but the new trip gets a clean context/state.
       localStorage.setItem(contextStartKey,String(history.length));
     }
     history.push({role:'user',content:text});add('user',text);save();
