@@ -2508,13 +2508,24 @@ def _chat_recover_search_facts(history):
                 break
     # Prefer dates from the latest summary; taking the last two full dates avoids
     # stale dates mentioned earlier in a changed conversation.
+    # Accept both numeric dates (27.6.2027) and Hebrew summary dates
+    # such as "27.6.2027 עד יום חמישי 1.7.2027". Keep the latest valid
+    # chronological pair so an older date mentioned earlier cannot win.
     found_dates = re.findall(r"(?<!\\d)(\\d{1,2})[./-](\\d{1,2})[./-](20\\d{2})(?!\\d)", text)
     iso_dates = []
-    for d, m, y in found_dates[-2:]:
+    for d, m, y in found_dates:
         try:
             iso_dates.append(date(int(y), int(m), int(d)).isoformat())
         except ValueError:
             pass
+    if len(iso_dates) >= 2:
+        pair = None
+        for idx in range(len(iso_dates) - 2, -1, -1):
+            left, right = iso_dates[idx], iso_dates[idx + 1]
+            if right > left:
+                pair = [left, right]
+                break
+        iso_dates = pair or iso_dates[-2:]
     return list(dict.fromkeys(codes)), list(dict.fromkeys(labels)), iso_dates
 
 
