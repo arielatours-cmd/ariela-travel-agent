@@ -83,8 +83,13 @@
         // context-start marker is only for LLM context after a reset; slicing
         // again here could drop the approved summary/dates and block execution.
         const currentTripHistory=history.map(x=>({role:x.role,content:x.content}));
-        const approvedSummary=[...currentTripHistory].reverse().find(x=>x.role==='assistant'&&(/סיכום/.test(String(x.content||''))||/מאשר|מאשרת/.test(String(x.content||''))))?.content||'';
-        const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:data.trip_update,history:currentTripHistory,approved_summary:approvedSummary})});
+        // Single source of truth: the structured trip state that produced the
+        // approved conversation is what execution receives. History is carried
+        // only for diagnostics, never as a second source of trip facts.
+        const approvedTripState=(data.trip_update&&typeof data.trip_update==='object')
+          ? data.trip_update
+          : JSON.parse(localStorage.getItem(stateKey)||'{}');
+        const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:approvedTripState,history:currentTripHistory})});
         const started=await start.json().catch(()=>({}));
         if(start.ok&&['success','queued'].includes(started.status)&&started.waiting_url){
           location.href=started.waiting_url;return;
