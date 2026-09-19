@@ -27,12 +27,14 @@
   // Conversation history is persistent customer history. Never clear it on deploy or after a search.
   const key='ariellaFreshChat:v11';
   const stateKey='ariellaTripState:v11';
+  const contextStartKey='ariellaChatContextStart:v11';
   let history=[];
   let waitingForReply=false;
   // Explicit one-time reset for clean QA. Ordinary refreshes never clear customer history.
   if(new URLSearchParams(location.search).get('reset_chat')==='1'){
     localStorage.removeItem(key);
     localStorage.removeItem(stateKey);
+    localStorage.removeItem(contextStartKey);
     window.history.replaceState({},'',location.pathname);
   }
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
@@ -59,7 +61,8 @@
   }
   history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||''));
   async function askTinkerbell(text, freshSearch=false){
-    const context=freshSearch?[]:history.slice(0,-1).map(x=>({role:x.role,content:x.content}));
+    const contextStart=Math.max(0,Number(localStorage.getItem(contextStartKey)||0));
+    const context=freshSearch?[]:history.slice(contextStart,-1).map(x=>({role:x.role,content:x.content}));
     waitingForReply=true;
     send.disabled=true;
     input.disabled=false;
@@ -101,7 +104,12 @@
     // A new-search command starts a fresh trip state but intentionally keeps
     // the visible conversation history for continuity.
     const freshSearch=isNewSearchCommand(text);
-    if(freshSearch) localStorage.removeItem(stateKey);
+    if(freshSearch){
+      localStorage.removeItem(stateKey);
+      // Keep old messages visible, but permanently exclude the previous vacation
+      // from the model/search context for every following turn.
+      localStorage.setItem(contextStartKey,String(history.length));
+    }
     history.push({role:'user',content:text});add('user',text);save();
     input.value='';input.style.height='auto';askTinkerbell(text,freshSearch);
   });
