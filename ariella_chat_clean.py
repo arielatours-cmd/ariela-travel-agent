@@ -214,6 +214,41 @@ def _state_context(state):
     return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
 
 
+def _required_state_gaps(state):
+    """Validate the structured state itself before allowing a final summary/search."""
+    state = state if isinstance(state, dict) else {}
+    services = set(state.get("requested_services") or [])
+    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    for service in ("flights", "lodging", "car", "trip_planning"):
+        if ((decisions.get(service) or {}).get("wanted") is True):
+            services.add(service)
+
+    gaps = []
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+
+    if services and not (destination.get("places") or []):
+        gaps.append("destination")
+    if services and not ((dates.get("departure") and dates.get("return")) or dates.get("period")):
+        gaps.append("dates")
+    if services and travelers.get("adults") is None:
+        gaps.append("travelers")
+
+    if "flights" in services:
+        if not state.get("departure_airport"):
+            gaps.append("departure_airport")
+        if not flight.get("connection_preference"):
+            gaps.append("flight.connection_preference")
+        if not flight.get("cabin"):
+            gaps.append("flight.cabin")
+        if not flight.get("baggage"):
+            gaps.append("flight.baggage")
+
+    return list(dict.fromkeys(gaps))
+
+
 def _reset_intent(message):
     """Detect possible restart/change-of-direction language without deleting state."""
     msg = str(message or "").strip().lower()
@@ -372,9 +407,19 @@ def chat_clean():
             state_job = pool.submit(_extract_trip_update, key, model, history, message, trip_state)
             reply = reply_job.result()
             extracted = state_job.result()
-            # Preserve accumulated facts deterministically. The extractor may update facts,
-            # but omitted/default values must never erase information already collected.
+            # Preserve accumulated facts deterministically. Every extracted fact is
+            # persisted into the one structured source of truth used by Ariella.
             trip_update = _merge_trip_state(trip_state, extracted)
+
+        # Never let the conversation claim it is ready for a final summary when
+        # the structured source of truth is missing required facts. This keeps
+        # the visible summary and downstream execution on the same data object.
+        state_gaps = _required_state_gaps(trip_update)
+        if state_gaps:
+            trip_update["missing_required"] = list(dict.fromkeys(
+                list(trip_update.get("missing_required") or []) + state_gaps
+            ))
+            trip_update["ready_for_summary"] = False
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
@@ -392,6 +437,21 @@ def chat_clean():
                 trip_update["missing_required"] = list(trip_state.get("missing_required") or [])
         if approval:
             merged = _merge_trip_state(trip_state, trip_update if isinstance(trip_update, dict) else {})
+            approval_gaps = _required_state_gaps(merged)
+            if approval_gaps:
+                # Do not manufacture a search payload from chat prose. The state
+                # must be complete first; keep approval retryable after the missing
+                # structured fact is collected.
+                merged["search_confirmed"] = False
+                merged["ready_for_summary"] = False
+                merged["missing_required"] = list(dict.fromkeys(
+                    list(merged.get("missing_required") or []) + approval_gaps
+                ))
+                return jsonify({
+                    'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                    'reply':'חסר לי פרט שנדרש לביצוע החיפוש. אשלים אותו איתך לפני האישור.',
+                    'trip_update':merged,'start_flight_search':False
+                })
             merged["search_intent"] = True
             merged["search_confirmed"] = True
             merged["ready_for_summary"] = True
