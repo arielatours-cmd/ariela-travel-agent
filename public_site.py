@@ -2603,18 +2603,10 @@ def ariella_start_flight_search():
     flight = state.get("flight") or {}
     budget = state.get("budget_per_person") or {}
     departure_airport = str(state.get("departure_airport") or "TLV").upper()
+    # Execution uses the approved structured state as the sole source of truth.
+    # Never rebuild approved dates from prose/history at handoff time.
     dep = _chat_iso_date(dates.get("departure"))
     ret = _chat_iso_date(dates.get("return"))
-    if (not dep or not ret) and len(recovered_dates) >= 2:
-        dep, ret = recovered_dates[-2], recovered_dates[-1]
-    # The final approved summary is part of the authoritative conversation.
-    # Recover exact dates from it as a safety net when the extractor failed to
-    # persist dates.departure / dates.return in the structured state.
-    if not dep or not ret:
-        approved_history = history + [{"role": "assistant", "content": str(body.get("approved_summary") or "")}]
-        _, _, approved_dates = _chat_recover_search_facts(approved_history)
-        if len(approved_dates) >= 2:
-            dep, ret = approved_dates[-2], approved_dates[-1]
     period = str(dates.get("period") or "")
     month = period[:7] if len(period) >= 7 and period[:4].isdigit() else ""
     date_mode = "exact" if dep and ret else ("month" if month else "flexible")
