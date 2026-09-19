@@ -1,16 +1,19 @@
 import json
 import os
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v14'
+ENGINE_VERSION = 'tinkerbell-chat-v15'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
+- את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אל תנהלי או תאמתִי שדות פנימיים ואל תשני את השיחה בגלל missing_required או ready_for_summary.
+- הסתמכי על כל מה שכבר נאמר בשיחה ועל מצב החופשה המצטבר כזיכרון. אל תשאלי שוב יעד, תאריכים, נוסעים או העדפות שכבר נאמרו.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
@@ -435,13 +438,16 @@ def chat_clean():
     model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
 
     try:
-        # One ordered pipeline: first understand and persist the user's message,
-        # then generate Ariella's reply from that UPDATED state. The old parallel
-        # calls let the reply see stale state and caused repeated/lost facts.
-        extracted = _extract_trip_update(key, model, history, message, trip_state)
+        # Tinkerbell owns the conversation. The extractor listens to the same
+        # conversation and converts understood facts into Ariella's structured state.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            reply_job = pool.submit(_call_tinkerbell, key, model, history, message, trip_state)
+            state_job = pool.submit(_extract_trip_update, key, model, history, message, trip_state)
+            reply = reply_job.result()
+            extracted = state_job.result()
+
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
-        reply = _call_tinkerbell(key, model, history, message, trip_update)
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
