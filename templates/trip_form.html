@@ -88,7 +88,22 @@
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
     }finally{waitingForReply=false;send.disabled=false;input.disabled=false;input.focus();}
   }
-  form.addEventListener('submit',function(e){e.preventDefault();if(waitingForReply)return;const text=input.value.trim();if(!text)return;history.push({role:'user',content:text});add('user',text);save();input.value='';input.style.height='auto';askTinkerbell(text);});
+  function isNewSearchCommand(text){
+    const t=String(text||'').trim().toLowerCase();
+    return /(?:^|\\s)(?:חיפוש|חופשה|טיול)\\s+חדש(?:ה)?(?:$|\\s)/.test(t)
+      || t.includes('נתחיל חיפוש חדש')
+      || t.includes('להתחיל חיפוש חדש')
+      || t.includes('בואי נתחיל מחדש');
+  }
+  form.addEventListener('submit',function(e){
+    e.preventDefault();if(waitingForReply)return;
+    const text=input.value.trim();if(!text)return;
+    // A new-search command starts a fresh trip state but intentionally keeps
+    // the visible conversation history for continuity.
+    if(isNewSearchCommand(text)) localStorage.removeItem(stateKey);
+    history.push({role:'user',content:text});add('user',text);save();
+    input.value='';input.style.height='auto';askTinkerbell(text);
+  });
   input.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';});
   input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit();}});
 })();
