@@ -294,5 +294,7 @@ def chat_clean():
         'engine_version': ENGINE_VERSION,
         'reply': reply or 'אני איתך 😊',
         'trip_update': trip_update,
-        'start_flight_search': bool(trip_update.get('search_confirmed')) and ('flights' in (trip_update.get('requested_services') or [])),
+        # Execution is allowed only when the deterministic approval gate fired
+        # on THIS user message. Never let model-extracted state start a scan.
+        'start_flight_search': bool(approval) and bool(trip_update.get('search_confirmed')) and ('flights' in (trip_update.get('requested_services') or [])),
     })
