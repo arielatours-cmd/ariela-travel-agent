@@ -274,4 +274,5 @@ def chat_clean():
         'engine_version': ENGINE_VERSION,
         'reply': reply or 'אני איתך 😊',
         'trip_update': trip_update,
+        'start_flight_search': bool(trip_update.get('search_confirmed')) and ('flights' in (trip_update.get('requested_services') or []) or (trip_state.get('service_decisions') or {}).get('flights', {}).get('wanted') is True),
     })
