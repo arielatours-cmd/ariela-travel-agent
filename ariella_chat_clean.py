@@ -259,15 +259,24 @@ def chat_clean():
             trip_update = _merge_trip_state(trip_state, extracted)
 
         # Search approval is a system event, not a language-model decision.
-        if _approval_trigger(message, history, trip_state):
-            merged = dict(trip_state)
-            if isinstance(trip_update, dict):
-                merged.update(trip_update)
+        approval = _approval_trigger(message, history, trip_state)
+        if approval:
+            merged = _merge_trip_state(trip_state, trip_update if isinstance(trip_update, dict) else {})
             merged["search_intent"] = True
             merged["search_confirmed"] = True
             merged["ready_for_summary"] = True
-            services = list(merged.get("requested_services") or trip_state.get("requested_services") or [])
-            if any(word in message for word in ("טיסה","טיסות")) and "flights" not in services:
+            services = list(merged.get("requested_services") or [])
+            flight_state = merged.get("flight") if isinstance(merged.get("flight"), dict) else {}
+            has_flight_data = bool(
+                merged.get("departure_airport")
+                or flight_state.get("connection_preference")
+                or flight_state.get("cabin")
+                or flight_state.get("baggage")
+                or (merged.get("dates") or {}).get("departure")
+                or (merged.get("dates") or {}).get("return")
+            )
+            history_text = " ".join(str(x.get("content") or "") for x in history if isinstance(x, dict))
+            if ("flights" not in services) and (has_flight_data or any(word in history_text for word in ("טיסה","טיסות","טיסות ישירות"))):
                 services.append("flights")
             merged["requested_services"] = services
             trip_update = merged
@@ -280,5 +289,5 @@ def chat_clean():
         'engine_version': ENGINE_VERSION,
         'reply': reply or 'אני איתך 😊',
         'trip_update': trip_update,
-        'start_flight_search': bool(trip_update.get('search_confirmed')) and ('flights' in (trip_update.get('requested_services') or []) or (trip_state.get('service_decisions') or {}).get('flights', {}).get('wanted') is True),
+        'start_flight_search': bool(trip_update.get('search_confirmed')) and ('flights' in (trip_update.get('requested_services') or [])),
     })
