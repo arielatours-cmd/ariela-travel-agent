@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v11'
+ENGINE_VERSION = 'tinkerbell-chat-v12'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -204,6 +204,18 @@ def _state_context(state):
     return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
 
 
+def _reset_intent(message):
+    """Detect possible restart/change-of-direction language without deleting state."""
+    msg = str(message or "").strip().lower()
+    phrases = ("חופשה חדשה","טיול חדש","חיפוש חדש","להתחיל מחדש","נתחיל מחדש","מהתחלה","להתחיל מהתחלה","נתחיל מהתחלה","לשנות כיוון")
+    return any(p in msg for p in phrases)
+
+def _full_reset_confirmation(message):
+    """Only explicit confirmation after the clarification may clear trip state."""
+    msg = str(message or "").strip().lower()
+    phrases = ("למחוק הכל","למחוק הכול","תמחקי הכל","תמחקי הכול","להתחיל לגמרי מהתחלה","מהתחלה לגמרי","כן למחוק","כן, למחוק")
+    return any(p in msg for p in phrases)
+
 def _approval_trigger(message, history, state):
     """Only a dedicated final-search confirmation may start execution."""
     msg = str(message or "").strip().lower()
@@ -269,6 +281,30 @@ def chat_clean():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
+
+    # Restart/change-of-direction is a deterministic state transition. Never let
+    # the model or browser erase collected facts before the customer confirms.
+    if _reset_intent(message) and not trip_state.get("reset_pending"):
+        pending = dict(trip_state)
+        pending["reset_pending"] = True
+        return jsonify({
+            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            'reply':'בשמחה. להתחיל לגמרי מהתחלה ולמחוק את כל פרטי החופשה שאספנו עד עכשיו, או רק לשנות משהו בחופשה הנוכחית?',
+            'trip_update':pending,'start_flight_search':False
+        })
+    if trip_state.get("reset_pending") and _full_reset_confirmation(message):
+        cleared = {"reset_pending": False}
+        return jsonify({
+            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            'reply':'בסדר. מתחילים חופשה חדשה. מה מתחשק לתכנן?',
+            'trip_update':cleared,'start_flight_search':False,'trip_state_reset':True
+        })
+    if trip_state.get("reset_pending"):
+        # The customer chose a partial change (or described it directly).
+        # Keep all existing facts and let the normal extractor update only the
+        # fields explicitly changed in this message.
+        trip_state = dict(trip_state)
+        trip_state["reset_pending"] = False
     date_conflict = _weekday_date_conflict(message)
     if date_conflict:
         return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
