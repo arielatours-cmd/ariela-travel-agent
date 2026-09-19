@@ -79,7 +79,7 @@
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
       if(data.start_flight_search===true){
         history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
-        const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:data.trip_update,history:history.slice(Math.max(0,Number(localStorage.getItem(contextStartKey)||0))).map(x=>({role:x.role,content:x.content}))})});
+        const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:data.trip_update,history:history.slice(Math.max(0,Number(localStorage.getItem(contextStartKey)||0))).map(x=>({role:x.role,content:x.content})),approved_summary:[...history].reverse().find(x=>x.role==='assistant'&&String(x.content||'').includes('סיכום'))?.content||''})});
         const started=await start.json().catch(()=>({}));
         if(start.ok&&['success','queued'].includes(started.status)&&started.waiting_url){
           location.href=started.waiting_url;return;
