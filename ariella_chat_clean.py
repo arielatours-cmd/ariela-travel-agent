@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v16'
+ENGINE_VERSION = 'tinkerbell-chat-v17'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -291,6 +291,38 @@ def _extract_trip_update(key, model, history, message, state=None):
         return {}
 
 
+def _deterministic_date_facts(history, message, state=None):
+    """Reinforce explicit dates already present in the conversation without guessing."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if current_dates.get("departure") and current_dates.get("return"):
+        return {}
+    parts = [str(x.get("content") or "") for x in (history or []) if isinstance(x, dict)]
+    parts.append(str(message or ""))
+    text = " ".join(parts)
+    found = []
+    for m in re.finditer(r"(?<!\\d)(\\d{1,2})[./-](\\d{1,2})[./-](20\\d{2})(?!\\d)", text):
+        try:
+            found.append(date(int(m.group(3)), int(m.group(2)), int(m.group(1))))
+        except ValueError:
+            pass
+    for m in re.finditer(r"(?<!\\d)(20\\d{2})-(\\d{1,2})-(\\d{1,2})(?!\\d)", text):
+        try:
+            found.append(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+        except ValueError:
+            pass
+    unique = []
+    for d in found:
+        if d not in unique:
+            unique.append(d)
+    if len(unique) < 2:
+        return {}
+    dep, ret = unique[-2], unique[-1]
+    if ret < dep:
+        return {}
+    return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
+
 def _deterministic_traveler_facts(message):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
     import re
@@ -401,6 +433,7 @@ def chat_clean():
 
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_date_facts(history, message, trip_update))
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
