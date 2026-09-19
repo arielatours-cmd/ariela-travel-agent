@@ -223,7 +223,9 @@ def _full_reset_confirmation(message):
 def _approval_trigger(message, history, state):
     """Only a dedicated final-search confirmation may start execution."""
     msg = str(message or "").strip().lower()
-    explicit_approval = msg in {"מאשר","מאשרת"}\n    if not explicit_approval:\n        return False\n
+    explicit_approval = msg in {"מאשר", "מאשרת"}
+    if not explicit_approval:
+        return False
     state = state if isinstance(state, dict) else {}
     # A positive answer is a final approval when either the deterministic state
     # is at the approval gate OR the immediately preceding assistant message
