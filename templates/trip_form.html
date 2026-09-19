@@ -72,6 +72,11 @@
         if(start.ok&&['success','queued'].includes(started.status)&&started.waiting_url){
           location.href=started.waiting_url;return;
         }
+        // The approval reply was already rendered above. Never append it twice
+        // when starting the scan fails; surface the actual handoff error instead.
+        const startError=String(started.message||'לא הצלחתי להתחיל את החיפוש כרגע. נסי שוב בעוד רגע.');
+        history.push({role:'assistant',content:startError,agent:'Ariella'});add('assistant',startError);save();
+        return;
       }
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
     }catch(e){
