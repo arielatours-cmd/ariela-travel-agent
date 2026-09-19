@@ -2531,6 +2531,33 @@ def _chat_iso_date(value):
     return raw
 
 
+@site.post("/api/ariella/save-trip-draft")
+@login_required
+def ariella_save_trip_draft():
+    """Persist the current chat trip before the client starts a different trip."""
+    body = request.get_json(silent=True) or {}
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    if not state:
+        return jsonify({"status":"empty"})
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = destination.get("places") or []
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    dep = _chat_iso_date(dates.get("departure"))
+    ret = _chat_iso_date(dates.get("return"))
+    period = str(dates.get("period") or "")
+    title = " • ".join(str(x) for x in places if str(x).strip()) or "חופשה בתכנון"
+    travel_window = (dep + " – " + ret) if dep and ret else period
+    payload = dict(state)
+    payload["_chat_draft"] = True
+    with _db() as conn:
+        cur = conn.execute(
+            "INSERT INTO trip_requests (member_id,request_name,travel_window,status,answers_json,created_at,mobile_notifications) VALUES(?,?,?,?,?,?,?)",
+            (session["member_id"], title, travel_window, "draft", json.dumps(payload, ensure_ascii=False), utc_now_iso(), 0),
+        )
+        conn.commit()
+    return jsonify({"status":"saved","trip_id":int(cur.lastrowid)})
+
+
 @site.post("/api/ariella/start-flight-search")
 @login_required
 def ariella_start_flight_search():
