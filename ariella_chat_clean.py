@@ -892,6 +892,44 @@ def chat_clean():
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
 
+    # After the flight handoff, keep the same vacation as the default context.
+    # When the customer asks for one of the remaining services, deterministically
+    # activate that session and keep it active across follow-up answers.
+    msg_lower = message.lower()
+    service_request = None
+    if any(x in msg_lower for x in ("מסלול", "אטרקצי", "מה לעשות", "טיול יומי", "תכנון טיול")):
+        service_request = "trip_planning"
+    elif any(x in msg_lower for x in ("מלון", "לינה", "וילה", "דירה")):
+        service_request = "lodging"
+    elif any(x in msg_lower for x in ("רכב", "השכרת רכב")):
+        service_request = "car"
+
+    existing_active = str(trip_state.get("active_session") or "")
+    if service_request and trip_state.get("post_flight_continuation"):
+        continued = dict(trip_state)
+        statuses = dict(continued.get("session_status") or {})
+        decisions = dict(continued.get("service_decisions") or {})
+        services = list(continued.get("requested_services") or [])
+        statuses[service_request] = "active"
+        decisions[service_request] = {"wanted": True, "source": "explicit_post_flight_request"}
+        if service_request not in services:
+            services.append(service_request)
+        continued["session_status"] = statuses
+        continued["service_decisions"] = decisions
+        continued["requested_services"] = services
+        continued["active_session"] = service_request
+        continued["next_session"] = None
+        trip_state = continued
+    elif existing_active in {"lodging", "car", "trip_planning"} and trip_state.get("post_flight_continuation"):
+        # Ordinary answers inside a chosen post-flight session must not let the
+        # extractor/sessionizer jump back to flights or another pending service.
+        locked = dict(trip_state)
+        statuses = dict(locked.get("session_status") or {})
+        statuses[existing_active] = "active"
+        locked["session_status"] = statuses
+        locked["active_session"] = existing_active
+        trip_state = locked
+
     # General restart/change-of-direction always enters a simple yes/no gate.
     # Never erase collected trip facts before an explicit "כן".
     if _reset_intent(message) and not trip_state.get("reset_pending"):
@@ -1108,6 +1146,14 @@ def chat_clean():
                 decisions_state["flights"] = {"wanted": True, "source": "destination_trip_intent"}
             trip_update["service_decisions"] = decisions_state
 
+        # During a chosen post-flight service, preserve the session lock unless
+        # the customer explicitly selected another service above.
+        locked_post_flight_session = str(trip_state.get("active_session") or "")
+        if trip_state.get("post_flight_continuation") and locked_post_flight_session in {"lodging","car","trip_planning"}:
+            statuses_lock = dict(trip_update.get("session_status") or {})
+            statuses_lock[locked_post_flight_session] = "active"
+            trip_update["session_status"] = statuses_lock
+            trip_update["active_session"] = locked_post_flight_session
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
 
