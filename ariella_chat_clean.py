@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -7,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v18'
+ENGINE_VERSION = 'tinkerbell-chat-v19'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -424,7 +425,13 @@ def chat_clean():
         else:
             trip_update["missing_required"] = []
 
-        reply = _call_tinkerbell(key, model, history, message, trip_update)
+        try:
+            reply = _call_tinkerbell(key, model, history, message, trip_update)
+        except Exception as exc:
+            logging.exception("Tinkerbell reply failed after state update: %s", exc)
+            # Preserve Ariella's newly collected state even if the conversational
+            # model has a transient failure. The next user turn can continue.
+            reply = "קלטתי את הפרטים. נמשיך מכאן."
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
@@ -477,7 +484,8 @@ def chat_clean():
                 services.append("flights")
             merged["requested_services"] = services
             trip_update = merged
-    except Exception:
+    except Exception as exc:
+        logging.exception("ariella chat-clean pipeline failed: %s", exc)
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
 
     return jsonify({
