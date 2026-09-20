@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v50'
+ENGINE_VERSION = 'tinkerbell-chat-v51'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -1082,6 +1082,19 @@ def chat_clean():
 
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
+
+        # If the customer has just declined/deferred the remaining optional
+        # services and every wanted service is already complete, skip the
+        # conversational acknowledgement turn. Go straight to the final summary.
+        # This is service-agnostic: flights/lodging/car/trip planning behave alike.
+        statuses_now = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+        decisions_now = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
+        resolved_all_services = all(
+            statuses_now.get(s) in ("complete","declined")
+            or ((decisions_now.get(s) or {}).get("wanted") is False if isinstance(decisions_now.get(s), dict) else decisions_now.get(s) is False)
+            for s in ("flights","lodging","car","trip_planning")
+        )
+        force_summary_now = bool(trip_update.get("ready_for_summary")) and resolved_all_services
 
         try:
             reply = _call_tinkerbell(key, model, history, message, trip_update)
