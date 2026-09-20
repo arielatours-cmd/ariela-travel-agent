@@ -589,7 +589,9 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                 api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 for message in result.get("expansion_errors") or []:
                     errors += 1
-                    error_messages.append(f"{job['departure']}-{job['arrival']} return option: {message}")
+                    detail = f"{job['departure']}-{job['arrival']} return option: {message}"
+                    error_messages.append(detail)
+                    print(f"[SCAN-ERROR] run={run_id} {detail}", flush=True)
 
                 # Score every complete round-trip combination. Persistence and
                 # publication are separate: all valid inventory expands the DB,
@@ -675,14 +677,18 @@ def _run_jobs_scan(jobs: list[dict], max_outbounds_per_route: int | None = None,
                             existing_offers += 1
             except Exception as exc:
                 errors += 1
-                error_messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+                detail = f"{job['departure']}-{job['arrival']}: {type(exc).__name__}: {exc}"
+                error_messages.append(detail)
+                print(f"[SCAN-ERROR] run={run_id} {detail}", flush=True)
             finally:
                 api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 update_scan_progress(run_id, completed, offers_found, errors, api_requests)
     except BaseException as exc:
         # Still close the DB scan record if the worker/request fails unexpectedly.
         errors += 1
-        error_messages.append(f"scan: {exc}")
+        detail = f"scan: {type(exc).__name__}: {exc}"
+        error_messages.append(detail)
+        print(f"[SCAN-ERROR] run={run_id} {detail}", flush=True)
         raise
     finally:
         api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
