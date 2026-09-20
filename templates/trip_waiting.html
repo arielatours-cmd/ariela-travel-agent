@@ -1,37 +1,73 @@
 {% extends "base.html" %}
-{% block title %}אריאלה מחפשת לך{% endblock %}
+{% block title %}אריאלה מכינה את החופשה שלך{% endblock %}
 {% block content %}
 <section class="ariella-search-wait" dir="rtl">
   <div class="search-wait-card">
-    <div class="monkey-coconut" aria-hidden="true"><span class="monkey">🐒</span><span class="coconut">🥥</span></div>
-    <h1>אריאלה מחפשת לך עכשיו</h1>
-    <p>עוד רגע האפשרויות המתאימות יחכו לך בחופשה שלך.</p>
+    <div class="travel-animation" aria-hidden="true">
+      <div class="orbit"></div><span class="plane">✈️</span><span class="stage-icon" id="stageIcon">🔎</span>
+    </div>
+    <h1 id="stageTitle">מחפשת את הטיסות המתאימות לך…</h1>
+    <p id="stageText">בודקת קודם את האפשרויות שכבר קיימות אצל אריאלה, ואם צריך ממשיכה לחיפוש חדש.</p>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="stage-row">
+      <span class="stage active" data-stage="flight">טיסות</span>
+      <span class="stage" data-stage="lodging">לינה</span>
+      <span class="stage" data-stage="car">רכב</span>
+      <span class="stage" data-stage="plan">מסלול</span>
+    </div>
     <div class="search-dots"><i></i><i></i><i></i></div>
-    <small>ברגע שהאפשרויות שביקשת יהיו מוכנות, נעביר אותך לחופשה שלך.</small>
+    <small>המסך מתעדכן בזמן שהחופשה שלך מתקדמת.</small>
   </div>
 </section>
 <style>
 .ariella-search-wait{min-height:68vh;display:grid;place-items:center;padding:35px 18px;background:linear-gradient(180deg,#fffaf3,#f6eee2)}
-.search-wait-card{text-align:center;max-width:620px;width:100%;background:#fff;border:1px solid #e2d4bd;border-radius:26px;padding:46px 28px;box-shadow:0 18px 50px rgba(69,52,26,.11)}
-.monkey-coconut{height:150px;display:flex;justify-content:center;align-items:flex-end;gap:2px;font-size:92px}.monkey{display:inline-block;animation:monkeyBob 1.4s ease-in-out infinite}.coconut{font-size:52px;transform:translateY(-4px)}
-.search-wait-card h1{font-size:34px;margin:18px 0 8px}.search-wait-card p{color:#6d6459;font-size:18px}.search-wait-card small{color:#887b6b}.search-dots{display:flex;justify-content:center;gap:8px;margin:25px 0}.search-dots i{width:9px;height:9px;border-radius:50%;background:#c99a3f;animation:dot 1.2s infinite}.search-dots i:nth-child(2){animation-delay:.2s}.search-dots i:nth-child(3){animation-delay:.4s}
-@keyframes monkeyBob{50%{transform:translateY(-8px) rotate(-2deg)}}@keyframes dot{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}
+.search-wait-card{text-align:center;max-width:620px;width:100%;background:#fff;border:1px solid #e2d4bd;border-radius:26px;padding:42px 26px;box-shadow:0 18px 50px rgba(69,52,26,.11)}
+.travel-animation{height:145px;width:145px;margin:auto;position:relative;display:grid;place-items:center}.orbit{position:absolute;inset:12px;border:2px dashed #d7b77b;border-radius:50%;animation:spin 7s linear infinite}.plane{position:absolute;font-size:34px;animation:fly 2.1s ease-in-out infinite}.stage-icon{font-size:58px;animation:pulse 1.5s ease-in-out infinite}
+.search-wait-card h1{font-size:30px;margin:15px 0 9px}.search-wait-card p{color:#6d6459;font-size:17px;min-height:48px}.search-wait-card small{color:#887b6b}
+.progress-track{height:8px;border-radius:99px;background:#eee6d9;overflow:hidden;margin:25px 0 14px}.progress-fill{height:100%;width:18%;background:#c99a3f;border-radius:99px;transition:width .6s ease}
+.stage-row{display:flex;justify-content:space-between;gap:7px;font-size:13px;color:#a29a90}.stage{flex:1;padding:7px 3px;border-radius:20px;transition:.3s}.stage.active{color:#49391f;background:#f6ead4;font-weight:700}.stage.done{color:#5f765e}
+.search-dots{display:flex;justify-content:center;gap:8px;margin:22px 0}.search-dots i{width:9px;height:9px;border-radius:50%;background:#c99a3f;animation:dot 1.2s infinite}.search-dots i:nth-child(2){animation-delay:.2s}.search-dots i:nth-child(3){animation-delay:.4s}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes fly{0%,100%{transform:translate(-46px,24px) rotate(-8deg)}50%{transform:translate(47px,-26px) rotate(8deg)}}@keyframes pulse{50%{transform:scale(1.08)}}@keyframes dot{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}
 </style>
 <script>
 (function(){
  const url={{ url_for('site.trip_flight_status',trip_id=trip_id)|tojson }};
- let tries=0;
+ const accountUrl={{ (url_for('site.account') ~ '#vacation-' ~ trip_id)|tojson }};
+ const title=document.getElementById('stageTitle'), text=document.getElementById('stageText'), icon=document.getElementById('stageIcon'), fill=document.getElementById('progressFill');
+ const stages=[...document.querySelectorAll('.stage')];
+ let tries=0, visualStage=0, lastRealStatus='searching';
+ const copy=[
+  ['✈️','מחפשת את הטיסות המתאימות לך…','משווה אפשרויות ובודקת התאמה לתאריכים ולבקשה שלך.'],
+  ['🏨','מכינה את שלב הלינה…','מסדרת את פרטי הלינה שביקשת בהתאם לחופשה.'],
+  ['🚗','מכינה את שלב הרכב…','מתאימה את פרטי הרכב למסלול ולהרכב הנוסעים.'],
+  ['🗺️','מסדרת את המסלול והאטרקציות…','מחברת את כל חלקי החופשה לתמונה אחת מסודרת.'],
+  ['✨','כמעט סיימנו…','מסיימת להכין את החופשה שלך.']
+ ];
+ function paint(n){
+   visualStage=Math.max(0,Math.min(n,4)); const x=copy[visualStage];
+   icon.textContent=x[0];title.textContent=x[1];text.textContent=x[2];fill.style.width=(18+visualStage*20)+'%';
+   stages.forEach((s,i)=>{s.classList.toggle('active',i===visualStage);s.classList.toggle('done',i<visualStage)});
+ }
+ // Until backend exposes hotel/car/itinerary execution statuses, later labels are
+ // visual progress only; we never claim a search has completed unless status says so.
+ function gentleProgress(){
+   if(lastRealStatus!=='searching')return;
+   if(tries===8) paint(1);
+   if(tries===16) paint(2);
+   if(tries===24) paint(3);
+   if(tries===32) paint(4);
+ }
  async function check(){
    tries++;
    try{
-     const r=await fetch(url,{cache:'no-store'});
-     const d=await r.json();
-     if(d.status==='ready'&&d.url){location.replace(d.url);return;}
+     const r=await fetch(url,{cache:'no-store'}), d=await r.json();
+     lastRealStatus=d.status||lastRealStatus;
+     if(d.status==='ready'&&d.url){paint(4);setTimeout(()=>location.replace(d.url),450);return;}
    }catch(e){}
-   if(tries<45)setTimeout(check,2000);
-   else location.replace({{ (url_for('site.account') ~ '#vacation-' ~ trip_id)|tojson }});
+   gentleProgress();
+   if(tries<90)setTimeout(check,2000); else location.replace(accountUrl);
  }
- setTimeout(check,1200);
+ paint(0); setTimeout(check,1000);
 })();
 </script>
 {% endblock %}
