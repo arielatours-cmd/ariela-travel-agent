@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v47'
+ENGINE_VERSION = 'tinkerbell-chat-v48'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -507,6 +507,24 @@ def _approval_trigger(message, history, state):
     """Exact final approval is the execution command; generic yes never is."""
     msg = str(message or "").strip().lower()
     return msg in {"מאשר", "מאשרת"}
+
+def _looks_like_approval_typo(message, state=None):
+    """Near-approval text may be clarified, but can never execute a search."""
+    import difflib
+    msg = str(message or "").strip().lower()
+    if not msg or msg in {"מאשר", "מאשרת"}:
+        return False
+    state = state if isinstance(state, dict) else {}
+    # Only interpret a near-match as an approval typo when the conversation is
+    # actually at the final summary/approval stage.
+    if not state.get("ready_for_summary"):
+        return False
+    compact = "".join(ch for ch in msg if ch.isalpha())
+    if not compact or len(compact) > 8:
+        return False
+    return max(difflib.SequenceMatcher(None, compact, target).ratio()
+               for target in ("מאשר", "מאשרת")) >= 0.72
+
 
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
@@ -1063,6 +1081,16 @@ def chat_clean():
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
+        # A typo that resembles approval must never produce a false "search started"
+        # message. Keep the hard execution gate exact, and ask for the exact word.
+        if not approval and _looks_like_approval_typo(message, trip_state):
+            gender = str((trip_state or {}).get("user_gender") or "").lower()
+            if gender == "male":
+                reply = "לא הבנתי, האם התכוונת לאשר? אם כן, כתוב מאשר."
+            elif gender == "female":
+                reply = "לא הבנתי, האם התכוונת לאשר? אם כן, כתבי מאשרת."
+            else:
+                reply = "לא הבנתי, האם התכוונת לאשר? אם כן, יש לכתוב מאשר/מאשרת."
         # A generic "yes" during normal data collection is NEVER a search approval.
         # It must only approve an explicit final approval question / ready state.
         msg_norm = str(message or "").strip().lower()
