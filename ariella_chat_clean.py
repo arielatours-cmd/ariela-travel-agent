@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v19'
+ENGINE_VERSION = 'tinkerbell-chat-v20'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -208,7 +208,11 @@ def _required_state_gaps(state):
     services = set(state.get("requested_services") or [])
     decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
     for service in ("flights", "lodging", "car", "trip_planning"):
-        if ((decisions.get(service) or {}).get("wanted") is True):
+        decision = decisions.get(service)
+        # Extracted service_decisions may legitimately be a boolean or an object.
+        # Normalize both shapes instead of assuming .get() exists.
+        wanted = decision.get("wanted") if isinstance(decision, dict) else decision
+        if wanted is True:
             services.add(service)
 
     gaps = []
