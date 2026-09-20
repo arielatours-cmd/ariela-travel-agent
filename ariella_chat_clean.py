@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v35'
+ENGINE_VERSION = 'tinkerbell-chat-v36'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -523,6 +523,48 @@ def _deterministic_date_facts(history, message, state=None):
         return {}
     return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
 
+def _deterministic_candidate_choice_facts(message, state=None):
+    """Resolve a customer's selected candidate date range into exact ISO dates."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
+    if not dates.get("needs_confirmation") or not candidates:
+        return {}
+    msg = str(message or "").strip()
+    # Accept an exact range repeated by the customer, or an ordinal choice such as
+    # "הראשון/השני" after Ariella displayed candidate ranges.
+    chosen = None
+    ordinal_map = {"הראשון":0,"ראשון":0,"הראשונה":0,"השני":1,"שני":1,"השנייה":1,"השניה":1}
+    for word, idx in ordinal_map.items():
+        if word in msg and idx < len(candidates):
+            chosen = candidates[idx]
+            break
+    if chosen is None:
+        normalized_msg = msg.replace("–","-").replace("—","-").replace(" ","")
+        for candidate in candidates:
+            if str(candidate).replace("–","-").replace("—","-").replace(" ","") in normalized_msg:
+                chosen = candidate
+                break
+    if chosen is None:
+        return {}
+    found = re.findall(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", str(chosen))
+    if len(found) != 2:
+        return {}
+    try:
+        dep = date(int(found[0][2]), int(found[0][1]), int(found[0][0]))
+        ret = date(int(found[1][2]), int(found[1][1]), int(found[1][0]))
+    except ValueError:
+        return {}
+    if ret <= dep:
+        return {}
+    return {"dates":{
+        "departure":dep.isoformat(),"return":ret.isoformat(),
+        "period":f"{dep.strftime('%d.%m.%Y')}–{ret.strftime('%d.%m.%Y')}",
+        "needs_confirmation":False,"candidate_ranges":[]
+    }}
+
+
 def _deterministic_budget_facts(message):
     """Treat explicit no-budget-limit language as a completed budget decision."""
     msg = str(message or "").strip().lower()
@@ -732,6 +774,9 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        # If Ariella offered concrete date ranges and the customer chose one,
+        # convert that choice to authoritative exact dates before any summary/search.
+        trip_update = _merge_trip_state(trip_update, _deterministic_candidate_choice_facts(message, trip_state))
         # Current message + Ariella state only. Never resurrect facts from old chat history.
         trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message))
 
