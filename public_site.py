@@ -2700,6 +2700,33 @@ def ariella_start_flight_search():
         if _offer_is_recent(o, 48)
     ] + _qa_fixture_offers()
     existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
+    # Diagnostic only: expose the DB-first decision before any paid scan.
+    try:
+        candidate_debug = []
+        for offer in existing_inventory:
+            _, possible, matched, missed = _objective_match_details(offer, trip_for_match)
+            candidate_debug.append({
+                "id": offer.get("offer_id") or offer.get("id"),
+                "route": f"{offer.get('departure_code')}->{offer.get('arrival_code')}",
+                "outbound": offer.get("outbound_date"),
+                "return": offer.get("return_date"),
+                "last_seen_at": offer.get("last_seen_at"),
+                "complete_roundtrip": _offer_has_complete_roundtrip(offer),
+                "destination_match": _offer_destination_matches(offer, trip_for_match),
+                "vacation_type_match": _offer_matches_vacation_type(offer, trip_for_match),
+                "objective_possible": possible,
+                "objective_matched": matched,
+                "objective_missed": missed,
+            })
+        print(
+            "[DB-FIRST] "
+            f"trip={trip_id} destination_codes={sorted(destination_codes)} "
+            f"dates={dep}->{ret} fetched={len(existing_inventory)} "
+            f"qualified={len(existing_matches)} candidates={candidate_debug[:20]}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(f"[DB-FIRST] diagnostic_error={exc}", flush=True)
     if existing_matches:
         matched_ids = [
             int(o.get("offer_id") or o.get("id"))
@@ -2722,6 +2749,7 @@ def ariella_start_flight_search():
                 (utc_now_iso(), "external_search_queued", trip_id),
             )
             conn.commit()
+        print(f"[DB-FIRST] trip={trip_id} no qualified DB match; queueing external initial scan", flush=True)
         queued = _queue_customer_scan(trip_id, payload, mode="initial")
         if not queued:
             return jsonify({"status":"error","message":"לא ניתן היה להפעיל את הסריקה כרגע."}), 503
