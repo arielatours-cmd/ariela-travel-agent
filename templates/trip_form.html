@@ -28,6 +28,7 @@
   const key='ariellaFreshChat:v11';
   const stateKey='ariellaTripState:v11';
   const contextStartKey='ariellaChatContextStart:v11';
+  const committedKey='ariellaTripCommitted:v11';
   let history=[];
   let waitingForReply=false;
   // Explicit one-time reset for clean QA. Ordinary refreshes never clear customer history.
@@ -35,6 +36,7 @@
     localStorage.removeItem(key);
     localStorage.removeItem(stateKey);
     localStorage.removeItem(contextStartKey);
+    localStorage.removeItem(committedKey);
     window.history.replaceState({},'',location.pathname);
   }
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
@@ -99,6 +101,7 @@
             // Preserve the visible customer conversation. Only close the finished
             // trip's model/state commit so a later chat starts with clean trip facts.
             localStorage.removeItem(stateKey);
+            localStorage.setItem(committedKey,'1');
             localStorage.setItem(contextStartKey,String(history.length));
             // Clear only legacy structured-state engines; never delete visible history.
             for(const legacyKey of ['ariellaChatState:v8','ariellaChatState:v7','ariellaChatState:v6','ariellaChatState:v4']){
@@ -131,17 +134,20 @@
     const text=input.value.trim();if(!text)return;
     const freshSearch=isNewSearchCommand(text);
     const hasActiveTripState=!!localStorage.getItem(stateKey);
-    // After a trip was successfully handed off, stateKey is deliberately gone.
-    // A later "new vacation/search" is therefore already a clean trip boundary:
-    // do not ask to delete a trip that no longer exists. Keep visible history,
-    // move the model-context boundary, and start the new trip immediately.
-    if(freshSearch&&!hasActiveTripState){
+    const previousTripCommitted=localStorage.getItem(committedKey)==='1';
+    // A successful handoff is an explicit trip boundary. Do not rely only on
+    // stateKey absence: a reply generated after handoff can recreate a tiny
+    // transient state and previously caused a false "delete old trip?" prompt.
+    const cleanCommittedRestart=freshSearch&&previousTripCommitted;
+    if(cleanCommittedRestart){
+      localStorage.removeItem(stateKey);
+      localStorage.setItem(contextStartKey,String(history.length));
+      localStorage.removeItem(committedKey);
+    }else if(freshSearch&&!hasActiveTripState){
       localStorage.setItem(contextStartKey,String(history.length));
     }
-    // During an unfinished trip, a restart request still goes through Ariella's
-    // confirmation gate so collected facts are never erased accidentally.
     history.push({role:'user',content:text});add('user',text);save();
-    input.value='';input.style.height='auto';askTinkerbell(text,freshSearch&&!hasActiveTripState);
+    input.value='';input.style.height='auto';askTinkerbell(text,cleanCommittedRestart||(freshSearch&&!hasActiveTripState));
   });
   input.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';});
   input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit();}});
