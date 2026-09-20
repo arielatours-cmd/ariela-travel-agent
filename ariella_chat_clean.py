@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v49'
+ENGINE_VERSION = 'tinkerbell-chat-v50'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -1026,7 +1026,13 @@ def chat_clean():
         current_date_facts = _deterministic_date_facts([], message, trip_state)
         current_dates = current_date_facts.get("dates") if isinstance(current_date_facts, dict) and isinstance(current_date_facts.get("dates"), dict) else {}
         if prior_dates.get("departure") and prior_dates.get("return") and not current_dates:
-            trip_update["dates"] = dict(prior_dates)
+            locked_dates = dict(prior_dates)
+            # Exact dates are authoritative. Do not preserve stale proposal flags
+            # from an earlier candidate-selection phase.
+            locked_dates["needs_confirmation"] = False
+            locked_dates.pop("candidate_ranges", None)
+            locked_dates.pop("candidates", None)
+            trip_update["dates"] = locked_dates
         only_flights_facts = _deterministic_only_flights_facts(message)
         trip_update = _merge_trip_state(trip_update, only_flights_facts)
         # "Only flights" is a replacement decision, not an additive merge.
