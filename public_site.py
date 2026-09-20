@@ -2983,6 +2983,17 @@ def _customer_scan_worker(trip_id: int, scan_answers: dict, mode: str = "initial
             matches = _customer_deal_choices(refreshed, trip, limit=5)
             if matches:
                 _pin_offer_ids_to_trip(trip_id, answers, matches)
+            else:
+                # Initial search completed with no exact match. Do not leave the
+                # customer with an empty vacation: pin the closest same-destination
+                # date alternatives already discovered by the scan, clearly labelled
+                # as alternatives. This is display fallback only; it never pretends
+                # that the requested dates matched.
+                alternatives = _customer_alternative_choices(refreshed, trip, limit=5)
+                if alternatives:
+                    answers["_initial_exact_match_missing"] = True
+                    answers["_showing_closest_matches"] = True
+                    _pin_offer_ids_to_trip(trip_id, answers, alternatives)
         elif mode == "other_destination":
             answers["_alternative_other_destination"] = True
             answers["_second_chance_used"] = True
