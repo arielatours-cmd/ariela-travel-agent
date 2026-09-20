@@ -91,4 +91,15 @@ document.addEventListener('click',function(e){
   if(panel)panel.classList.add('active');
 });
 </script>
+<script>
+/* Personal-vacation cards also show the actual discovery/update time in Israel. */
+document.querySelectorAll('.deal-last-updated').forEach(function(el){
+  const raw=el.dataset.ts;if(!raw)return;
+  const dt=new Date(raw);if(isNaN(dt))return;
+  const df=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',day:'2-digit',month:'2-digit',year:'2-digit'});
+  const tf=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit',hour12:false});
+  const now=new Date(),day=df.format(dt),b=el.querySelector('b');
+  if(b)b.textContent=(day===df.format(now)?'היום':day)+', '+tf.format(dt);
+});
+</script>
 {% endblock %}
