@@ -2990,11 +2990,24 @@ _customer_scan_threads_lock = threading.Lock()
 def _customer_scan_worker(trip_id: int, scan_answers: dict, mode: str = "initial", choice: str = ""):
     """Run one bounded personal scan outside the HTTP request and persist results."""
     try:
-        result = run_customer_trip_search(trip_id, dict(scan_answers))
+        # The worker runs after the HTTP request has ended. Some legacy helpers
+        # still consult Flask request/session indirectly, so give the worker an
+        # application-owned request context instead of letting every scan job
+        # fail with "Working outside of request context".
+        app = site._get_current_object() if hasattr(site, "_get_current_object") else None
+        # Blueprint itself has no app context; capture the real Flask app before
+        # the thread starts in _queue_customer_scan and pass it through.
+        flask_app = scan_answers.pop("_worker_flask_app", None)
+        if flask_app is not None:
+            with flask_app.test_request_context("/_ariella_background_scan"):
+                result = run_customer_trip_search(trip_id, dict(scan_answers))
+        else:
+            result = run_customer_trip_search(trip_id, dict(scan_answers))
         status = str(result.get("status") or "unknown")
         api_used = int(result.get("api_requests") or 0)
-    except Exception:
-        result = {}
+    except Exception as exc:
+        print(f"[CUSTOMER-SCAN] trip={trip_id} worker_error={type(exc).__name__}: {exc}", flush=True)
+        result = {"status":"search_error","error":str(exc),"api_requests":0,"offers_found":0,"errors":1}
         status = "search_error"
         api_used = 0
 
@@ -3081,9 +3094,17 @@ def _queue_customer_scan(trip_id: int, scan_answers: dict, mode: str = "initial"
         current = _customer_scan_threads.get(trip_id)
         if current and current.is_alive():
             return False
+        worker_answers = dict(scan_answers)
+        # Capture the Flask application while we are still inside the HTTP request.
+        # Do not pass the request/session object itself across threads.
+        try:
+            from flask import current_app
+            worker_answers["_worker_flask_app"] = current_app._get_current_object()
+        except Exception:
+            pass
         thread = threading.Thread(
             target=_customer_scan_worker,
-            args=(trip_id, dict(scan_answers), mode, choice),
+            args=(trip_id, worker_answers, mode, choice),
             daemon=True,
             name=f"ariella-customer-{trip_id}-{mode}",
         )
