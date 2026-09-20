@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v43'
+ENGINE_VERSION = 'tinkerbell-chat-v44'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -163,7 +163,7 @@ def _weekday_date_conflict(message):
     text = str(message or "")
     weekdays = {"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
     day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)"
-    date_re = r"(\\d{1,2})[./-](\\d{1,2})(?:[./-](\\d{2,4}))?"
+    date_re = r"(\d{1,2})[./-](\d{1,2})(?:[./-](\\d{2,4}))?"
     # Pair a weekday with the nearest date on either side (up to 40 chars).
     pairs = []
     for m in re.finditer(day_re + r".{0,40}?" + date_re, text):
@@ -553,12 +553,12 @@ def _deterministic_date_facts(history, message, state=None):
     parts.append(str(message or ""))
     text = " ".join(parts)
     found = []
-    for m in re.finditer(r"(?<!\\d)(\\d{1,2})[./-](\\d{1,2})[./-](20\\d{2})(?!\\d)", text):
+    for m in re.finditer(r"(?<!\d)(\d{1,2})[./-](\\d{1,2})[./-](20\d{2})(?!\d)", text):
         try:
             found.append(date(int(m.group(3)), int(m.group(2)), int(m.group(1))))
         except ValueError:
             pass
-    for m in re.finditer(r"(?<!\\d)(20\\d{2})-(\\d{1,2})-(\\d{1,2})(?!\\d)", text):
+    for m in re.finditer(r"(?<!\\d)(20\d{2})-(\d{1,2})-(\d{1,2})(?!\d)", text):
         try:
             found.append(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
         except ValueError:
@@ -725,6 +725,33 @@ def _deterministic_candidate_choice_facts(message, state=None):
         "period":f"{dep.strftime('%d.%m.%Y')}–{ret.strftime('%d.%m.%Y')}",
         "needs_confirmation":False,"candidate_ranges":[]
     }}
+
+
+def _deterministic_only_flights_facts(message):
+    """'Only flights' is an explicit decision for all four service domains."""
+    msg = str(message or "").strip().lower()
+    compact = " ".join(msg.split())
+    only_flights = any(p in compact for p in (
+        "רק טיסות", "טיסות בלבד", "רק טיסה", "טיסה בלבד",
+        "only flights", "flights only"
+    ))
+    if not only_flights:
+        return {}
+    return {
+        "search_intent": True,
+        "requested_services": ["flights"],
+        "service_decisions": {
+            "flights": {"wanted": True, "source": "explicit_only_flights"},
+            "lodging": {"wanted": False, "source": "explicit_only_flights"},
+            "car": {"wanted": False, "source": "explicit_only_flights"},
+            "trip_planning": {"wanted": False, "source": "explicit_only_flights"},
+        },
+        "session_status": {
+            "flights": "active", "lodging": "declined",
+            "car": "declined", "trip_planning": "declined"
+        },
+        "active_session": "flights",
+    }
 
 
 def _deterministic_budget_facts(message):
@@ -934,6 +961,7 @@ def chat_clean():
         # Ariella owns and merges the cumulative state.
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
+        trip_update = _merge_trip_state(trip_update, _deterministic_only_flights_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
