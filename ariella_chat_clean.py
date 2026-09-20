@@ -8,19 +8,19 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v22'
+ENGINE_VERSION = 'tinkerbell-chat-v23'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
-- את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אל תנהלי או תאמתִי שדות פנימיים ואל תשני את השיחה בגלל missing_required או ready_for_summary.
+- את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור את 1–3 השאלות הבאות באופן טבעי, בלי להציג שמות שדות פנימיים ללקוח.
 - הסתמכי על כל מה שכבר נאמר בשיחה ועל מצב החופשה המצטבר כזיכרון. אל תשאלי שוב יעד, תאריכים, נוסעים או העדפות שכבר נאמרו.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
 - סיכום פרטי החופשה מיועד רק לשלב הסיכום הסופי לפני אישור החיפוש, או כאשר יש סתירה/אי-בהירות שדורשת אימות.
 - אל תראייני את הלקוח. אל תנהלי רצף של שאלות איסוף נתונים.
-- אל תשאלי שאלה רק מפני שחסר לך מידע על החופשה.
+- כאשר קיימת כוונת חופשה/חיפוש, כן צריך להשלים את missing_required שאריאלה מחזירה. שאלי בכל פעם 1–3 פרטים חסרים באופן טבעי, לפי ההקשר והסדר ההגיוני.
 - שאלי שאלה רק כשהיא המשך טבעי למה שהלקוח עצמו מנסה לברר או כשהיא באמת נחוצה כדי לענות לבקשה הנוכחית.
 - אין חובה לשאול שאלה בכל הודעה. לעיתים התשובה הטובה ביותר היא פשוט תגובה או המלצה.
 - אם כבר נאמר פרט בשיחה או במצב החופשה המצטבר, זכרי אותו. אם הלקוח משנה אותו, התייחסי לגרסה החדשה. אסור לשאול שוב פרט שכבר ידוע.
@@ -31,7 +31,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - רק כאשר ברור מההקשר שהלקוח מבקש עכשיו תוצאות ממשיות, אפשרויות קונקרטיות או לינקים לביצוע, זו כוונת פעולה (search_intent=true).
 - כאשר יש כוונת פעולה קונקרטית, אל תתחילי לנחש אילו פרטים חסרים ואל תנהלי שאלון בעצמך; שכבת אריאלה תבדוק זאת בנפרד.
 - כאשר יש כוונת פעולה קונקרטית, שכבת אריאלה בודקת אילו פרטים הכרחיים חסרים לפי השירותים שהלקוח ביקש בפועל: טיסות, לינה, רכב ו/או תכנון מסלול ואטרקציות.
-- אם הלקוח מתחיל לדבר על לינה, רכב, מסלול או אטרקציות ועדיין לא ברור מה הוא רוצה לגבי הטיסה, עצרי לפני איסוף הפרטים העמוקים של השירותים האלה ושאלי באופן טבעי קודם מה לגבי הטיסה: האם הוא רוצה שאריאלה תחפש גם טיסות, או שהטיסה כבר סגורה/לא נדרשת. לפי התשובה המשיכי. אם כבר נאמר במפורש מה מצב הטיסה, אל תשאלי שוב.
+- כאשר הלקוח מבקש חופשה/טיול ליעד מסוים, ברירת המחדל היא שטיסות רצויות ואין לשאול 'האם תרצי גם טיסה'. שאלי זאת רק אם ההקשר מצביע שהטיסות אולי כבר סגורות או שהלקוח מבקש במפורש שירות קרקעי בלבד.
 - אחרי שביררת את נושא הטיסה, חובה לחזור לנושא שהלקוח העלה לפני כן ולהמשיך ממנו. למשל אם ביקש לתכנן מסלול ואז ביררת טיסה, לאחר תשובת הטיסה חזרי לתכנון המסלול ואל תנטשי אותו.
 - במהלך שיחה על חופשה צריך לברר באופן טבעי גם מה הלקוח רוצה לגבי ארבעת התחומים: טיסות, לינה, רכב, ותכנון מסלול/אטרקציות. אם תחום עדיין לא עלה ולא ידוע אם הוא רצוי, העלי אותו בשיחה בצורה טבעית. אם הלקוח התחיל דווקא מטיסות, לאחר שמבינים את צורכי הטיסה שאלי באופן שיחתי מה ירצה שאעזור בו גם מעבר לטיסה — לינה, רכב, מסלול ואטרקציות — והמשיכי רק בתחומים שבחר.
 - אין להפוך את ארבעת התחומים לצ'קליסט או שאלון. אפשר לשלב הצעה או המלצה, לשאול שאלה אחת טבעית, ולהתקדם לפי תשובת הלקוח. המטרה היא שיחה חופשית שבסופה ברור לגבי כל תחום אם הלקוח רוצה בו עזרה או לא.
@@ -203,14 +203,12 @@ def _state_context(state):
 
 
 def _required_state_gaps(state):
-    """Validate the structured state itself before allowing a final summary/search."""
+    """Return the authoritative unanswered decisions Ariella needs for requested services."""
     state = state if isinstance(state, dict) else {}
     services = set(state.get("requested_services") or [])
     decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
     for service in ("flights", "lodging", "car", "trip_planning"):
         decision = decisions.get(service)
-        # Extracted service_decisions may legitimately be a boolean or an object.
-        # Normalize both shapes instead of assuming .get() exists.
         wanted = decision.get("wanted") if isinstance(decision, dict) else decision
         if wanted is True:
             services.add(service)
@@ -220,13 +218,29 @@ def _required_state_gaps(state):
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+    lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
+    car = state.get("car") if isinstance(state.get("car"), dict) else {}
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    lodging_details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    car_details = car.get("details") if isinstance(car.get("details"), dict) else {}
+    planning_details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
 
+    # Shared trip facts.
     if services and not (destination.get("places") or []):
         gaps.append("destination")
     if services and not ((dates.get("departure") and dates.get("return")) or dates.get("period")):
         gaps.append("dates")
     if services and travelers.get("adults") is None:
         gaps.append("travelers")
+
+    # First establish whether each of the four domains is wanted. A trip request
+    # with a destination implies flights unless the user explicitly says flights
+    # are already booked/not needed.
+    for service in ("flights", "lodging", "car", "trip_planning"):
+        decision = decisions.get(service)
+        explicit = decision.get("wanted") if isinstance(decision, dict) else decision
+        if service not in services and explicit is None:
+            gaps.append("service_decisions." + service)
 
     if "flights" in services:
         if not state.get("departure_airport"):
@@ -237,6 +251,39 @@ def _required_state_gaps(state):
             gaps.append("flight.cabin")
         if not flight.get("baggage"):
             gaps.append("flight.baggage")
+        budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
+        if budget.get("amount") is None and budget.get("status") not in ("unlimited","none","no_limit"):
+            gaps.append("budget_per_person")
+
+    if "lodging" in services:
+        if not lodging_details.get("type"):
+            gaps.append("lodging.details.type")
+        if not (lodging_details.get("bedrooms") or lodging_details.get("rooms")):
+            gaps.append("lodging.details.rooms")
+        if not (lodging_details.get("areas") or lodging_details.get("locations")):
+            gaps.append("lodging.details.locations")
+        if not (lodging_details.get("budget") or lodging_details.get("level")):
+            gaps.append("lodging.details.budget_or_level")
+
+    if "car" in services:
+        if not (car_details.get("vehicle_type") or car_details.get("size")):
+            gaps.append("car.details.vehicle_type")
+        if not car_details.get("pickup"):
+            gaps.append("car.details.pickup")
+        if not car_details.get("return"):
+            gaps.append("car.details.return")
+        # luggage capacity derives from the shared traveler + baggage facts; do
+        # not invent suitcases that the user never requested.
+        if not car_details.get("luggage_capacity_confirmed"):
+            gaps.append("car.details.luggage_capacity")
+
+    if "trip_planning" in services:
+        if not (planning_details.get("style") or planning_details.get("interests")):
+            gaps.append("trip_planning.details.style")
+        if not planning_details.get("pace"):
+            gaps.append("trip_planning.details.pace")
+        if not (planning_details.get("route") or planning_details.get("daily_plan")):
+            gaps.append("trip_planning.details.route")
 
     return list(dict.fromkeys(gaps))
 
@@ -501,6 +548,22 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_destination_facts(history, message, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_date_facts(history, message, trip_update))
+
+        # A normal trip request to a destination implies Ariella should handle
+        # flights unless the customer explicitly says flights are booked/not needed.
+        dest_state = trip_update.get("destination") if isinstance(trip_update.get("destination"), dict) else {}
+        decisions_state = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
+        flight_decision = decisions_state.get("flights")
+        flight_wanted = flight_decision.get("wanted") if isinstance(flight_decision, dict) else flight_decision
+        if dest_state.get("places") and flight_wanted is not False:
+            services_state = list(trip_update.get("requested_services") or [])
+            if "flights" not in services_state:
+                services_state.append("flights")
+            trip_update["requested_services"] = services_state
+            decisions_state = dict(decisions_state)
+            if flight_decision is None:
+                decisions_state["flights"] = {"wanted": True, "source": "destination_trip_intent"}
+            trip_update["service_decisions"] = decisions_state
 
         # Ariella computes the authoritative remaining gaps and returns the updated
         # state to Tinkerbell. Tinkerbell then decides naturally what to ask next.
