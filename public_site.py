@@ -2605,6 +2605,70 @@ def ariella_save_trip_draft():
     return jsonify({"status":"saved","trip_id":int(cur.lastrowid)})
 
 
+def _enrich_approved_attractions(planning, assistant_plan):
+    """Match approved itinerary attractions against Ariella's shipped attraction DB."""
+    raw = planning.get("attractions") if isinstance(planning, dict) else []
+    raw = raw if isinstance(raw, list) else []
+    records = []
+    for filename in ("attractions.json", "attractions_global30.json", "attractions_global30_extra.json"):
+        path = os.path.join(os.path.dirname(__file__), "data", filename)
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+            rows = payload.get("attractions", []) if isinstance(payload, dict) else payload
+            if isinstance(rows, list):
+                records.extend(x for x in rows if isinstance(x, dict))
+        except Exception:
+            logging.exception("Could not load attraction DB file %s", filename)
+
+    def name_of(x):
+        if isinstance(x, dict):
+            return str(x.get("name") or x.get("title") or x.get("שם האטרקציה") or "").strip()
+        return str(x or "").strip()
+
+    approved_names = [name_of(x) for x in raw if name_of(x)]
+    plan_lower = str(assistant_plan or "").lower()
+    # If the structured state did not carry attraction names, recover only names
+    # that literally appear in the itinerary the customer approved.
+    if not approved_names:
+        for row in records:
+            nm = name_of(row)
+            if nm and nm.lower() in plan_lower:
+                approved_names.append(nm)
+
+    enriched = []
+    seen = set()
+    for approved in approved_names:
+        key = approved.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        match = next((r for r in records if name_of(r).casefold() == key), None)
+        if match is None:
+            match = next((r for r in records if key in name_of(r).casefold() or name_of(r).casefold() in key), None)
+        if match:
+            info_parts = [
+                str(match.get("משך מומלץ") or "").strip(),
+                str(match.get("רמת קושי") or "").strip(),
+                str(match.get("הערות") or "").strip(),
+            ]
+            enriched.append({
+                "name": name_of(match) or approved,
+                "price": str(match.get("מחיר/הערת מחיר") or "").strip(),
+                "info": " • ".join(x for x in info_parts if x),
+                "booking_url": str(match.get("קישור הזמנה/כרטיסים") or match.get("אתר רשמי") or "").strip(),
+            })
+        else:
+            original = next((x for x in raw if name_of(x).casefold() == key), {})
+            enriched.append({
+                "name": approved,
+                "price": str(original.get("price") or "").strip() if isinstance(original, dict) else "",
+                "info": str(original.get("info") or "").strip() if isinstance(original, dict) else "",
+                "booking_url": str(original.get("booking_url") or "").strip() if isinstance(original, dict) else "",
+            })
+    return enriched
+
+
 @site.post("/api/ariella/save-trip-plan")
 @login_required
 def ariella_save_trip_plan():
@@ -2644,7 +2708,7 @@ def ariella_save_trip_plan():
             "text": assistant_plan,
             "approved_at": utc_now_iso(),
             "planning_state": planning,
-            "attractions": planning.get("attractions") if isinstance(planning.get("attractions"), list) else [],
+            "attractions": _enrich_approved_attractions(planning, assistant_plan),
         }
         answers["_trip_planning_complete"] = True
         conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?",
