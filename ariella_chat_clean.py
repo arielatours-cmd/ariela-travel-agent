@@ -1298,6 +1298,7 @@ def chat_clean():
         'engine_version': ENGINE_VERSION,
         'reply': reply or 'אני איתך 😊',
         'trip_update': trip_update,
+        'persist_trip_plan': bool(locals().get("planning_accept", False)),
         # Execution is allowed only when the deterministic approval gate fired
         # on THIS user message. Never let model-extracted state start a scan.
         'start_flight_search': bool(approval) and bool(trip_update.get('search_confirmed')),
