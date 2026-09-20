@@ -656,7 +656,7 @@ def get_daily_batch(batch_date: str) -> dict | None:
         return dict(row) if row else None
 
 
-def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: list[int] | None = None) -> list[dict]:
+def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: list[int] | None = None, departure_codes: list[str] | None = None, arrival_codes: list[str] | None = None, outbound_date: str | None = None, return_date: str | None = None) -> list[dict]:
     query = "SELECT * FROM offers"
     params: list = []
     clauses = []
@@ -668,6 +668,22 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
         if clean_ids:
             clauses.append("id IN (" + ",".join("?" for _ in clean_ids) + ")")
             params.extend(clean_ids)
+    if departure_codes:
+        clean = [str(x).strip().upper() for x in departure_codes if str(x).strip()]
+        if clean:
+            clauses.append("departure_code IN (" + ",".join("?" for _ in clean) + ")")
+            params.extend(clean)
+    if arrival_codes:
+        clean = [str(x).strip().upper() for x in arrival_codes if str(x).strip()]
+        if clean:
+            clauses.append("arrival_code IN (" + ",".join("?" for _ in clean) + ")")
+            params.extend(clean)
+    if outbound_date:
+        clauses.append("outbound_date = ?")
+        params.append(str(outbound_date)[:10])
+    if return_date:
+        clauses.append("return_date = ?")
+        params.append(str(return_date)[:10])
     if clauses:
         query += " WHERE " + " AND ".join(clauses)
     query += " ORDER BY scan_run_id DESC, score DESC, price_ils ASC, COALESCE(last_seen_at,observed_at) DESC LIMIT ?"
