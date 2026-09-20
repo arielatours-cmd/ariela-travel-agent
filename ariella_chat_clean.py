@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v20'
+ENGINE_VERSION = 'tinkerbell-chat-v21'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -281,6 +281,31 @@ def _extract_trip_update(key, model, history, message, state=None):
         return {}
 
 
+def _deterministic_destination_facts(history, message, state=None):
+    """Preserve an explicitly stated destination when extractor output misses it."""
+    state = state if isinstance(state, dict) else {}
+    current = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    if current.get("places"):
+        return {}
+    text = " ".join(
+        [str(x.get("content") or "") for x in (history or []) if isinstance(x, dict)]
+        + [str(message or "")]
+    ).lower()
+    known = {
+        "מונטנגרו": "מונטנגרו", "montenegro": "Montenegro",
+        "יוון": "יוון", "greece": "Greece",
+        "איטליה": "איטליה", "italy": "Italy",
+        "בולגריה": "בולגריה", "bulgaria": "Bulgaria",
+        "אלבניה": "אלבניה", "albania": "Albania",
+        "קרואטיה": "קרואטיה", "croatia": "Croatia",
+        "תאילנד": "תאילנד", "thailand": "Thailand",
+    }
+    for needle, label in known.items():
+        if needle in text:
+            return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+    return {}
+
+
 def _deterministic_date_facts(history, message, state=None):
     """Reinforce explicit dates already present in the conversation without guessing."""
     import re
@@ -418,6 +443,7 @@ def chat_clean():
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_destination_facts(history, message, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_date_facts(history, message, trip_update))
 
         # Ariella computes the authoritative remaining gaps and returns the updated
