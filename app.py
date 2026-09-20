@@ -67,10 +67,14 @@ _manual_scan_lock = threading.Lock()
 _manual_scan_jobs = {}
 
 
-def _background_scan_worker(job_id, label, runner):
+def _background_scan_worker(job_id, label, runner, flask_app=None):
     try:
         _manual_scan_jobs[job_id]["status"] = "running"
-        result = runner()
+        if flask_app is not None:
+            with flask_app.test_request_context("/_ariella_manual_background_scan"):
+                result = runner()
+        else:
+            result = runner()
         _manual_scan_jobs[job_id]["result"] = result
         _manual_scan_jobs[job_id]["status"] = "finished"
     except BaseException as exc:
@@ -91,9 +95,16 @@ def _start_background_scan(label, runner):
     _manual_scan_jobs[job_id] = {
         "job_id": job_id, "label": label, "status": "starting", "result": None, "error": None,
     }
+    # Capture the real Flask app while still inside the initiating request.
+    # Background scan threads must never dereference Flask request/session proxies
+    # after the HTTP request has returned.
+    try:
+        flask_app = app
+    except Exception:
+        flask_app = None
     thread = threading.Thread(
         target=_background_scan_worker,
-        args=(job_id, label, runner), daemon=True, name=f"ariella-{label}-{job_id[:8]}",
+        args=(job_id, label, runner, flask_app), daemon=True, name=f"ariella-{label}-{job_id[:8]}",
     )
     thread.start()
     return job_id, None
