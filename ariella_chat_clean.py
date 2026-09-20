@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v40'
+ENGINE_VERSION = 'tinkerbell-chat-v41'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -21,6 +21,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
+- לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
 - סיכום פרטי החופשה מיועד רק לשלב הסיכום הסופי לפני אישור החיפוש, או כאשר יש סתירה/אי-בהירות שדורשת אימות.
 - אל תראייני את הלקוח. אל תנהלי רצף של שאלות איסוף נתונים.
@@ -571,6 +572,41 @@ def _deterministic_date_facts(history, message, state=None):
         return {}
     return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
 
+def _deterministic_duration_facts(message, state=None):
+    """If a departure date is known and customer gives a duration, calculate return deterministically."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    dep_raw = str(dates.get("departure") or "")[:10]
+    if not dep_raw:
+        return {}
+    msg = str(message or "").strip().lower()
+    if "שבועיים" in msg:
+        n, unit = 2, "שבועות"
+    else:
+        m = re.search(r"(\d+)\s*(שבוע|שבועות|ימים|יום|לילות|לילה)", msg)
+        if not m:
+            return {}
+        n = int(m.group(1))
+        unit = m.group(2)
+    if n <= 0:
+        return {}
+    try:
+        dep = date.fromisoformat(dep_raw)
+    except ValueError:
+        return {}
+    if unit in ("שבוע","שבועות"):
+        # "שבועיים" is commonly written without a numeral; handled below.
+        delta_days = n * 7
+    elif unit in ("לילות","לילה"):
+        delta_days = n
+    else:
+        delta_days = max(0, n - 1)
+    ret = dep + timedelta(days=delta_days)
+    return {"dates":{"departure":dep.isoformat(),"return":ret.isoformat(),
+        "period":f"{dep.strftime('%d.%m.%Y')}–{ret.strftime('%d.%m.%Y')}",
+        "needs_confirmation":False,"candidate_ranges":[]}}
+
 def _accept_assistant_single_date_proposal(history, message, state=None):
     """Commit one concrete range proposed in Ariella's immediately previous reply when customer continues without changing dates."""
     import re
@@ -893,6 +929,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range
         # and the customer simply continued (e.g. supplied the airport), accept it.
         trip_update = _merge_trip_state(trip_update, _accept_assistant_single_date_proposal(history, message, trip_state))
