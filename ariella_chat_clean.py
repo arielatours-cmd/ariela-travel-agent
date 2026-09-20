@@ -505,9 +505,10 @@ def _user_gender_from_approval(message, state):
 
 
 def _approval_trigger(message, history, state):
-    """Exact final approval is the execution command; generic yes never is."""
+    """Exact approval executes only after Ariella's authoritative state reached final summary."""
     msg = str(message or "").strip().lower()
-    return msg in {"מאשר", "מאשרת"}
+    state = state if isinstance(state, dict) else {}
+    return msg in {"מאשר", "מאשרת"} and bool(state.get("ready_for_summary"))
 
 def _looks_like_approval_typo(message, state=None):
     """Near-approval text may be clarified, but can never execute a search."""
