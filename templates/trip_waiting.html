@@ -34,40 +34,40 @@
  const url={{ url_for('site.trip_flight_status',trip_id=trip_id)|tojson }};
  const accountUrl={{ (url_for('site.account') ~ '#vacation-' ~ trip_id)|tojson }};
  const title=document.getElementById('stageTitle'), text=document.getElementById('stageText'), icon=document.getElementById('stageIcon'), fill=document.getElementById('progressFill');
- const stages=[...document.querySelectorAll('.stage')];
- let tries=0, visualStage=0, lastRealStatus='searching';
- const copy=[
-  ['✈️','מחפשת את הטיסות המתאימות לך…','משווה אפשרויות ובודקת התאמה לתאריכים ולבקשה שלך.'],
-  ['🏨','מכינה את שלב הלינה…','מסדרת את פרטי הלינה שביקשת בהתאם לחופשה.'],
-  ['🚗','מכינה את שלב הרכב…','מתאימה את פרטי הרכב למסלול ולהרכב הנוסעים.'],
-  ['🗺️','מסדרת את המסלול והאטרקציות…','מחברת את כל חלקי החופשה לתמונה אחת מסודרת.'],
-  ['✨','כמעט סיימנו…','מסיימת להכין את החופשה שלך.']
- ];
- function paint(n){
-   visualStage=Math.max(0,Math.min(n,4)); const x=copy[visualStage];
-   icon.textContent=x[0];title.textContent=x[1];text.textContent=x[2];fill.style.width=(18+visualStage*20)+'%';
-   stages.forEach((s,i)=>{s.classList.toggle('active',i===visualStage);s.classList.toggle('done',i<visualStage)});
+ const nodes=[...document.querySelectorAll('.stage')];
+ const order=['flight','lodging','car','plan'];
+ const copy={
+   flight:['✈️','מחפשת את הטיסות המתאימות לך…','משווה אפשרויות ובודקת התאמה לתאריכים ולבקשה שלך.'],
+   lodging:['🏨','ממשיכה ללינה…','פרטי הלינה שביקשת נשמרו עם החופשה.'],
+   car:['🚗','ממשיכה לרכב…','פרטי הרכב שביקשת נשמרו עם החופשה.'],
+   plan:['🗺️','מסדרת את המסלול והאטרקציות…','המסלול שאישרת נשמר כחלק מהחופשה.'],
+   done:['✨','החופשה שלך מוכנה…','מעבירה אותך עכשיו לחופשות שלי.']
+ };
+ let tries=0;
+ function paint(key,states){
+   const x=copy[key]||copy.done; icon.textContent=x[0];title.textContent=x[1];text.textContent=x[2];
+   const idx=key==='done'?4:order.indexOf(key);fill.style.width=(18+Math.max(0,idx)*20)+'%';
+   nodes.forEach((n,i)=>{const k=order[i],s=states&&states[k];n.classList.toggle('active',k===key);n.classList.toggle('done',s==='complete'||(idx>i&&s!=='skipped'));n.style.opacity=s==='skipped'?'.35':'1';if(s==='skipped')n.title='לא נדרש';});
  }
- // Until backend exposes hotel/car/itinerary execution statuses, later labels are
- // visual progress only; we never claim a search has completed unless status says so.
- function gentleProgress(){
-   if(lastRealStatus!=='searching')return;
-   if(tries===8) paint(1);
-   if(tries===16) paint(2);
-   if(tries===24) paint(3);
-   if(tries===32) paint(4);
+ function runApprovedStages(states,doneUrl){
+   const remaining=order.slice(1).filter(k=>states[k]!=='skipped');
+   let i=0;
+   function next(){
+     if(i>=remaining.length){paint('done',states);setTimeout(()=>location.replace(doneUrl||accountUrl),650);return;}
+     const key=remaining[i++];paint(key,states);setTimeout(next,850);
+   }
+   next();
  }
  async function check(){
    tries++;
    try{
-     const r=await fetch(url,{cache:'no-store'}), d=await r.json();
-     lastRealStatus=d.status||lastRealStatus;
-     if(d.status==='ready'&&d.url){paint(4);setTimeout(()=>location.replace(d.url),450);return;}
+     const r=await fetch(url,{cache:'no-store'}),d=await r.json(),states=d.stages||{};
+     paint('flight',states);
+     if(d.status==='ready'){runApprovedStages(states,d.url);return;}
    }catch(e){}
-   gentleProgress();
-   if(tries<90)setTimeout(check,2000); else location.replace(accountUrl);
+   if(tries<90)setTimeout(check,2000);else location.replace(accountUrl);
  }
- paint(0); setTimeout(check,1000);
+ paint('flight',{});setTimeout(check,900);
 })();
 </script>
 {% endblock %}
