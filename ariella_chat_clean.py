@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v39'
+ENGINE_VERSION = 'tinkerbell-chat-v40'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -571,6 +571,47 @@ def _deterministic_date_facts(history, message, state=None):
         return {}
     return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
 
+def _accept_assistant_single_date_proposal(history, message, state=None):
+    """Commit one concrete range proposed in Ariella's immediately previous reply when customer continues without changing dates."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    current = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if current.get("departure") and current.get("return"):
+        return {}
+    msg = str(message or "").strip().lower()
+    # Explicit correction/rejection/date text means let the normal parsers handle it.
+    if any(x in msg for x in ("לא", "במקום", "תשני", "אחר", "לא מתאים")) or re.search(r"\d{1,2}[./-]\d{1,2}", msg):
+        return {}
+    assistant_text = ""
+    for item in reversed(history or []):
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "").lower()
+        if role in ("assistant","ariella","tinkerbell"):
+            assistant_text = str(item.get("content") or "")
+            break
+    if not assistant_text:
+        return {}
+    found = re.findall(r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](20\d{2})(?!\d)", assistant_text)
+    parsed = []
+    for day, month, year in found:
+        try:
+            d = date(int(year), int(month), int(day))
+            if d not in parsed:
+                parsed.append(d)
+        except ValueError:
+            pass
+    # Exactly one pair only: if Ariella offered alternatives, customer must choose.
+    if len(parsed) != 2 or parsed[1] <= parsed[0]:
+        return {}
+    dep, ret = parsed
+    return {"dates":{
+        "departure":dep.isoformat(),"return":ret.isoformat(),
+        "period":f"{dep.strftime('%d.%m.%Y')}–{ret.strftime('%d.%m.%Y')}",
+        "needs_confirmation":False,"candidate_ranges":[]
+    }}
+
+
 def _accept_single_proposed_date_range(message, state=None):
     """A single concrete date proposal becomes authoritative when the customer continues without rejecting/changing it."""
     import re
@@ -852,6 +893,9 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        # If Ariella's immediately previous reply proposed one concrete date range
+        # and the customer simply continued (e.g. supplied the airport), accept it.
+        trip_update = _merge_trip_state(trip_update, _accept_assistant_single_date_proposal(history, message, trip_state))
         # A single proposed range is accepted when the customer naturally continues
         # without rejecting/changing it. Multiple alternatives still require a choice.
         trip_update = _merge_trip_state(trip_update, _accept_single_proposed_date_range(message, trip_state))
