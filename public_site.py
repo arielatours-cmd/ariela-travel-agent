@@ -2500,16 +2500,26 @@ def _chat_destination_codes(places):
         if upper in _AIRPORT_LOCALIZATION:
             codes.append(upper)
             continue
+        # City selection is narrower than country selection. If the customer
+        # explicitly chose Sofia, resolve Sofia only (SOF) and never expand it
+        # through the airport catalog to every Bulgarian airport.
+        city_matches = []
+        country_matches = []
         for code, info in _AIRPORT_LOCALIZATION.items():
-            values = {
+            city_values = {
                 str(info.get("city_he") or "").strip().lower(),
                 str(info.get("city_en") or "").strip().lower(),
+            }
+            country_values = {
                 str(info.get("country_he") or "").strip().lower(),
                 str(info.get("country_en") or "").strip().lower(),
                 str(info.get("country") or "").strip().lower(),
             }
-            if raw in values:
-                codes.append(code)
+            if raw in city_values:
+                city_matches.append(code)
+            elif raw in country_values:
+                country_matches.append(code)
+        codes.extend(city_matches if city_matches else country_matches)
     return list(dict.fromkeys(codes))
 
 
