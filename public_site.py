@@ -1480,21 +1480,34 @@ def _saved_match_offer_ids(trip):
 
 
 def _resolved_trip_offers(all_offers, trip, limit=5):
-    """Show fresh matches plus every deal already published to this vacation."""
-    fresh = _customer_deal_choices(all_offers, trip, limit=limit)
+    """Resolve results for this vacation without letting shared DB refreshes mutate it.
+
+    The shared offers DB is inventory for future searches.  Once an initial search
+    finishes, a saved vacation is frozen to its pinned offer ids.  It may receive
+    new ids only through an explicit continuation flow (and paid continuation once
+    checkout is wired), never merely because another customer scanned the same
+    destination later.
+    """
+    answers = trip.get("answers") or {}
     saved_ids = _saved_match_offer_ids(trip)
+    search_finished = bool(answers.get("_flight_search_finished"))
     try:
         trip_id = int(trip.get("id") or 0)
     except (TypeError, ValueError):
         trip_id = 0
-    trip_owned = [o for o in all_offers if trip_id and int(o.get("trip_id") or 0) == trip_id]
+
+    # During the initial search we may read current shared inventory. After the
+    # search is complete, only the ids explicitly pinned to this vacation render.
+    fresh = [] if search_finished else _customer_deal_choices(all_offers, trip, limit=limit)
     try:
-        pinned = [_localize_offer_airports(o) for o in recent_offers(limit=2000, minimum_score=None, offer_ids=saved_ids)] if saved_ids else []
+        pinned = [_localize_offer_airports(o) for o in recent_offers(
+            limit=2000, minimum_score=None, offer_ids=saved_ids
+        )] if saved_ids else []
     except Exception:
         pinned = []
-    historical = pinned + trip_owned
+
     merged, seen = [], set()
-    for offer in fresh + historical:
+    for offer in pinned + fresh:
         oid = int(offer.get("id") or offer.get("offer_id") or 0)
         sig = ("id", oid) if oid else ("sig", _offer_signature(offer))
         if sig in seen:
@@ -1504,7 +1517,11 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
         copy["is_stale_48h"] = not _offer_is_recent(copy, 48)
         copy["booking_trip_id"] = trip_id or None
         merged.append(copy)
-    return merged[:limit + len(historical)]
+
+    # Personal-vacation results are always cheapest first. Destination/airport
+    # order must not override price when several requested gateways are valid.
+    merged.sort(key=lambda o: float(o.get("price_ils") or 10**9))
+    return merged[:limit]
 
 def _requested_passenger_count(trip):
     answers = trip.get("answers") or {}
