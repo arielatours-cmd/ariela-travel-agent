@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v48'
+ENGINE_VERSION = 'tinkerbell-chat-v49'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -80,6 +80,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בביטוי יחסי כמו "סוף יוני" יחד עם ימי שבוע/משך, אל תבחרי תאריך אחד בשם הלקוח. אם יש שתי אפשרויות סבירות סמוכות, הציגי את שתיהן ושאלי איזו עדיפה. רק אחרי בחירת הלקוח יש תאריכי יציאה וחזרה סופיים.
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
+- תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
 - אם profile.gender הוא female/נקבה, פני ללקוחה בלשון נקבה יחידה לאורך כל השיחה. אם male/זכר, פנה בלשון זכר יחיד. אל תשתמשי בלשון רבים רק כדי להימנע מבחירת מגדר.
@@ -1016,6 +1017,16 @@ def chat_clean():
             trip_update,
             _deterministic_date_facts(history, message, trip_state)
         )
+        # Closed exact dates are sticky. Once the customer has an authoritative
+        # departure+return range, an unrelated later turn (route, attractions,
+        # car, lodging, "sounds good", etc.) must never reopen date selection.
+        # Dates may change only when the current message itself contains a new
+        # deterministic date fact/range.
+        prior_dates = trip_state.get("dates") if isinstance(trip_state.get("dates"), dict) else {}
+        current_date_facts = _deterministic_date_facts([], message, trip_state)
+        current_dates = current_date_facts.get("dates") if isinstance(current_date_facts, dict) and isinstance(current_date_facts.get("dates"), dict) else {}
+        if prior_dates.get("departure") and prior_dates.get("return") and not current_dates:
+            trip_update["dates"] = dict(prior_dates)
         only_flights_facts = _deterministic_only_flights_facts(message)
         trip_update = _merge_trip_state(trip_update, only_flights_facts)
         # "Only flights" is a replacement decision, not an additive merge.
