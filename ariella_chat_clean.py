@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v38'
+ENGINE_VERSION = 'tinkerbell-chat-v39'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -571,6 +571,36 @@ def _deterministic_date_facts(history, message, state=None):
         return {}
     return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
 
+def _accept_single_proposed_date_range(message, state=None):
+    """A single concrete date proposal becomes authoritative when the customer continues without rejecting/changing it."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
+    if not dates.get("needs_confirmation") or len(candidates) != 1:
+        return {}
+    msg = str(message or "").strip().lower()
+    reject = ("לא", "במקום", "תשני", "שני את", "אחר", "אחרת", "לא מתאים")
+    if any(x in msg for x in reject):
+        return {}
+    chosen = str(candidates[0])
+    found = re.findall(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", chosen)
+    if len(found) != 2:
+        return {}
+    try:
+        dep = date(int(found[0][2]), int(found[0][1]), int(found[0][0]))
+        ret = date(int(found[1][2]), int(found[1][1]), int(found[1][0]))
+    except ValueError:
+        return {}
+    if ret <= dep:
+        return {}
+    return {"dates":{
+        "departure":dep.isoformat(),"return":ret.isoformat(),
+        "period":f"{dep.strftime('%d.%m.%Y')}–{ret.strftime('%d.%m.%Y')}",
+        "needs_confirmation":False,"candidate_ranges":[]
+    }}
+
+
 def _deterministic_candidate_choice_facts(message, state=None):
     """Resolve a customer's selected candidate date range into exact ISO dates."""
     import re
@@ -822,6 +852,9 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        # A single proposed range is accepted when the customer naturally continues
+        # without rejecting/changing it. Multiple alternatives still require a choice.
+        trip_update = _merge_trip_state(trip_update, _accept_single_proposed_date_range(message, trip_state))
         # If Ariella offered concrete date ranges and the customer chose one,
         # convert that choice to authoritative exact dates before any summary/search.
         trip_update = _merge_trip_state(trip_update, _deterministic_candidate_choice_facts(message, trip_state))
