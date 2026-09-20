@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v17'
+ENGINE_VERSION = 'tinkerbell-chat-v18'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -63,57 +63,42 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אל תשתמשי בכוכביות, Markdown או סימני עיצוב. כתבי טקסט נקי בלבד; ממשק האתר אחראי לעיצוב.
 '''
 
-EXTRACTOR_SYSTEM = '''את שכבת חילוץ נתוני החופשה של אריאלה. אינך משוחחת עם הלקוח ואינך מחליטה איזו שאלה לשאול. קבלי את היסטוריית השיחה וחלצי רק מידע שהלקוח כבר מסר או שינה.
+EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים לאריאלה. אותה הבנה ששימשה לניהול השיחה צריכה להפוך כאן לעדכוני state. אינך מדברת עם הלקוח.
 
-כללים:
-- אל תמציאי מידע ואל תשלימי שדות חסרים.
-- מצב החופשה המצטבר המצורף הוא מקור אמת לפרטים שכבר נאספו. החזירי מצב מלא ומעודכן, לא רק את ההודעה האחרונה. לעולם אל תאפסי ערך קיים ל-null, מערך ריק, unknown או false רק מפני שהוא לא הופיע שוב בהודעה הנוכחית; העתיקי את הערך הקיים ושני רק מידע שהלקוח הוסיף, תיקן או ביטל במפורש.
-- חודש או יום+חודש בלי שנה: קבעי את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי. אם היום אחרי אותו יום+חודש בשנה הנוכחית, השנה היא הבאה. לעולם אל תחזירי תאריך עבר כברירת מחדל.
-- אין שדה משך חופשה.
-- תקציב נשמר לאדם בלבד. אם הלקוח נתן תקציב כולל ומספר הנוסעים ידוע בבטחה, חשבי לאדם; אחרת השאירי לא ידוע.
-- לזהות: סוג חופשה; נוסעים ומבנה; יעד/ים ומידת הוודאות; שדה מוצא; תאריכים/תקופה/גמישות ומגבלות; תקציב לאדם; ישירה/קונקשן, מחלקה, כבודה והעדפות טיסה; עדיפויות ומגבלות קשיחות; בקשת הלקוח הנוכחית.
-- travelers הוא מקור אמת משותף לכל שירותי החופשה. אל תיצור מספר נוסעים נפרד בתוך flight/lodging/car. כאשר travelers ידוע, הוא חל אוטומטית על הטיסה, תפוסת הלינה, התאמת הרכב ותכנון המסלול.
-- לעולם אל תסיק מספר נוסעים מהיסטוריה שקדמה לאיפוס חופשה. אם travelers ריק במצב המצטבר החדש והלקוח לא מסר נוסעים מאז האיפוס, הוא נשאר לא ידוע.
-- אם נוסעים אינם ידועים, missing_required חייב לכלול travelers עבור כל שירות שדורש התאמה לפי אנשים; אין להמציא 1/2/3 נוסעים.
-- זהי search_intent=true רק כאשר מההקשר ברור שהלקוח מבקש עכשיו לקבל תוצאות ממשיות/אפשרויות קונקרטיות/לינקים לביצוע. המילים "תחפשי לי" לבדן אינן מספיקות. אחרת false.
-- זהי אילו שירותים הלקוח מבקש לקבל בפועל בתוך requested_services: flights, lodging, car, trip_planning. אל תניחי שירות שלא התבקש.
-- שמרי גם service_decisions עבור flights, lodging, car, trip_planning עם wanted=true/false/unknown. תחום שלא דובר עליו נשאר unknown; אין להפוך unknown ל-false. כך שכבת השיחה יודעת אילו תחומים עוד צריך להעלות באופן טבעי.
-- אם הלקוח העלה תחום ואז השיחה סטתה זמנית לבירור טיסה, התחום המקורי נשאר wanted=true ואסור לאבד אותו.
-- אם התבקשו lodging, car או trip_planning ומצב הטיסה טרם נאמר, אל תניחי flights ואל תסמני שהאיסוף מוכן לסיכום; שמרי חוסר בשם flight_decision עד שהלקוח יאמר אם לחפש גם טיסה או שהטיסה כבר סגורה/לא נדרשת.
-- כאשר search_intent=true, חשבי missing_required לפי השירותים שהתבקשו בלבד. לטיסות יכולים להידרש, לפי ההקשר: יעד/ים, תאריכים/תקופה, נוסעים, מוצא, תקציב לאדם, כבודה, ישירה/קונקשן ומחלקה. ללינה יכולים להידרש: יעד/מסלול, תאריכים, נוסעים, סוג לינה, חדרים, רמת לינה/תקציב והעדפות מהותיות. לרכב: יעד/מסלול, תאריכים, נוסעים, כבודה/מקום נדרש, סוג רכב ואיסוף/החזרה. לתכנון מסלול: יעד/תקופה, נוסעים, אופי הטיול ומגבלות מהותיות. אל תכללי שדה שכבר נמסר.
-- ready_for_summary=true רק כש-search_intent=true ואין עוד missing_required לשירותים שהתבקשו.
-- זהי search_confirmed=true רק לאחר שהוצג ללקוח סיכום בקשת החיפוש והלקוח כתב במפורש "מאשר" או "מאשרת". שום תשובה חיובית אחרת — כגון כן, נכון, מעולה, אחלה, סבבה, קדימה או נשמע טוב — אינה אישור לחיפוש. אחרת false.
-- לאחר שסיכום הבקשה כבר הוצג כשהמצב ready_for_summary=true, רק "מאשר" או "מאשרת" מסמנים search_confirmed=true. זהו מצב מצטבר ואין לאפס אותו לאחר שנקבע.
-- לינה, רכב ותכנון מסלול/אטרקציות מתחילים ב-interested=true/false/unknown. פרטים עמוקים תחת תחום נשמרים רק כשהתחום רלוונטי או כשהלקוח העלה אותם מיוזמתו.
-- כשלקוח משנה פרט, הערך החדש הוא הפעיל. אל תשאירי את הערך הישן כפעיל.
-- סטטוס אפשרי לפרט כשנדרש: confirmed, preference, considering, unknown.
+קבלי את כל השיחה ואת ה-state שאריאלה כבר שומרת. החזירי JSON בלבד ובו trip_update שהוא המצב המלא לאחר החלת ההודעה החדשה.
 
-החזירי JSON תקין בלבד במבנה:
+כללי יסוד:
+- אריאלה היא בעלת ה-state. כל פרט שהלקוח מסר וטינקרבל הבינה חייב להיכתב בשדה המתאים.
+- התחילי מה-state הקיים. שמרי כל ערך קיים שלא שונה. לעולם אל תמחקי ערך רק כי לא הוזכר שוב.
+- אם הלקוח משנה פרט, החליפי רק את אותו פרט. לדוגמה: "במקום מונטנגרו יוון" מחליף destination בלבד; שינוי תאריכים מחליף dates בלבד.
+- אל תמציאי ואל תנחשי. ערך חסר נשאר חסר.
+- travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17].
+- יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
+- requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
+- search_confirmed נקבע רק על ידי מנגנון האישור בקוד, לא על ידך.
+- לאחר עדכון הנתונים חשבי missing_required מה-state המלא והרלוונטי בלבד. הוא רשימת השדות שאריאלה מחזירה לטינקרבל כדי לדעת מה עדיין צריך לברר.
+- אל תסמני כשדה חסר שירות שהלקוח אמר שאינו רוצה.
+- ready_for_summary=true רק כאשר יש כוונת חיפוש וכל שדות החובה לשירותים המבוקשים מלאים.
+
+החזירי JSON תקין בלבד:
 {
-  "trip_update": {
-    "trip_type": null,
-    "travelers": {"adults": null, "children": null, "child_ages": [], "infants": null, "composition": null},
-    "destination": {"places": [], "mode": null, "status": "unknown"},
-    "departure_airport": null,
-    "dates": {"departure": null, "return": null, "period": null, "flexibility_days": null, "constraints": []},
-    "budget_per_person": {"amount": null, "currency": null, "status": "unknown"},
-    "flight": {"connection_preference": null, "max_connections": null, "cabin": null, "baggage": [], "preferences": []},
-    "priorities": [],
-    "hard_constraints": [],
-    "current_request": null,
-    "search_intent": false,
-    "requested_services": [],
-    "missing_required": [],
-    "ready_for_summary": false,
-    "search_confirmed": false,
-    "lodging": {"interested": "unknown", "details": {}},
-    "car": {"interested": "unknown", "details": {}},
-    "trip_planning": {"interested": "unknown", "details": {}}
-  }
+ "trip_update":{
+  "trip_type":null,
+  "travelers":{"adults":null,"children":null,"child_ages":[],"infants":null,"composition":null},
+  "destination":{"places":[],"mode":null,"status":"unknown"},
+  "departure_airport":null,
+  "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"constraints":[]},
+  "budget_per_person":{"amount":null,"currency":null,"status":"unknown"},
+  "flight":{"connection_preference":null,"max_connections":null,"cabin":null,"baggage":[],"preferences":[]},
+  "priorities":[],"hard_constraints":[],"current_request":null,
+  "search_intent":false,"requested_services":[],"service_decisions":{},
+  "missing_required":[],"ready_for_summary":false,"search_confirmed":false,
+  "lodging":{"interested":"unknown","details":{}},
+  "car":{"interested":"unknown","details":{}},
+  "trip_planning":{"interested":"unknown","details":{}}
+ }
 }
 '''
-
-
 
 
 
@@ -423,27 +408,33 @@ def chat_clean():
     model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
 
     try:
-        # Tinkerbell owns the conversation. The extractor listens to the same
-        # conversation and converts understood facts into Ariella's structured state.
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            reply_job = pool.submit(_call_tinkerbell, key, model, history, message, trip_state)
-            state_job = pool.submit(_extract_trip_update, key, model, history, message, trip_state)
-            reply = reply_job.result()
-            extracted = state_job.result()
-
+        # Tinkerbell's data-transfer pass tells Ariella what changed.
+        # Ariella owns and merges the cumulative state.
+        extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_date_facts(history, message, trip_update))
+
+        # Ariella computes the authoritative remaining gaps and returns the updated
+        # state to Tinkerbell. Tinkerbell then decides naturally what to ask next.
+        state_gaps = _required_state_gaps(trip_update)
+        if state_gaps:
+            trip_update["missing_required"] = state_gaps
+            trip_update["ready_for_summary"] = False
+        else:
+            trip_update["missing_required"] = []
+
+        reply = _call_tinkerbell(key, model, history, message, trip_update)
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
         # the visible summary and downstream execution on the same data object.
         state_gaps = _required_state_gaps(trip_update)
         if state_gaps:
-            trip_update["missing_required"] = list(dict.fromkeys(
-                list(trip_update.get("missing_required") or []) + state_gaps
-            ))
+            trip_update["missing_required"] = state_gaps
             trip_update["ready_for_summary"] = False
+        else:
+            trip_update["missing_required"] = []
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
