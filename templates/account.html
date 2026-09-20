@@ -65,7 +65,27 @@
 
         <div class="vacation-panel" id="travel-{{ trip.id }}">
           <h3>מסלול ואטרקציות</h3>
-          <div class="vacation-empty">כאן יוצגו אטרקציות וקישורים מתוך מאגר אריאלה לפי סגנון החופשה והמסלול.</div>
+          {% set itinerary = trip.answers.get('_approved_itinerary', {}) %}
+          {% if itinerary and itinerary.get('text') %}
+            <div class="vacation-itinerary">
+              <div style="white-space:pre-line">{{ itinerary.get('text') }}</div>
+              {% set attractions = itinerary.get('attractions', []) %}
+              {% if attractions %}
+                <div class="vacation-attractions-list">
+                {% for attraction in attractions %}
+                  <div class="vacation-attraction">
+                    <strong>{{ attraction.get('name') or attraction.get('title') }}</strong>
+                    {% if attraction.get('price') %}<span>מחיר כניסה: {{ attraction.get('price') }}</span>{% endif %}
+                    {% if attraction.get('info') %}<span>{{ attraction.get('info') }}</span>{% endif %}
+                    {% if attraction.get('booking_url') %}<a href="{{ attraction.get('booking_url') }}" target="_blank" rel="noopener">להזמנת כרטיסים</a>{% endif %}
+                  </div>
+                {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="vacation-empty">כאן יוצגו אטרקציות וקישורים מתוך מאגר אריאלה לפי סגנון החופשה והמסלול.</div>
+          {% endif %}
         </div>
       </article>
       {% endfor %}
