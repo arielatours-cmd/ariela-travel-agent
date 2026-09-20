@@ -1954,6 +1954,12 @@ def inject_site_context():
 
 
 def _lang():
+    # Background customer scans also build localized labels, but they do not own
+    # the browser request/session. Never make localization depend on a Flask
+    # request context.
+    from flask import has_request_context
+    if not has_request_context():
+        return "he"
     requested_lang = request.args.get("lang")
     if requested_lang in {"he", "en"}:
         session["lang"] = requested_lang
