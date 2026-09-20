@@ -130,10 +130,18 @@
     e.preventDefault();if(waitingForReply)return;
     const text=input.value.trim();if(!text)return;
     const freshSearch=isNewSearchCommand(text);
-    // A request to start over is NOT an automatic reset. Ariella must first
-    // clarify whether the customer wants a full reset or only a specific change.
+    const hasActiveTripState=!!localStorage.getItem(stateKey);
+    // After a trip was successfully handed off, stateKey is deliberately gone.
+    // A later "new vacation/search" is therefore already a clean trip boundary:
+    // do not ask to delete a trip that no longer exists. Keep visible history,
+    // move the model-context boundary, and start the new trip immediately.
+    if(freshSearch&&!hasActiveTripState){
+      localStorage.setItem(contextStartKey,String(history.length));
+    }
+    // During an unfinished trip, a restart request still goes through Ariella's
+    // confirmation gate so collected facts are never erased accidentally.
     history.push({role:'user',content:text});add('user',text);save();
-    input.value='';input.style.height='auto';askTinkerbell(text,false);
+    input.value='';input.style.height='auto';askTinkerbell(text,freshSearch&&!hasActiveTripState);
   });
   input.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';});
   input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit();}});
