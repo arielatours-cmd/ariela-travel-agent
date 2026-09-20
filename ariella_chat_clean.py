@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v30'
+ENGINE_VERSION = 'tinkerbell-chat-v31'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -33,7 +33,11 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כאשר יש כוונת פעולה קונקרטית, שכבת אריאלה בודקת אילו פרטים הכרחיים חסרים לפי השירותים שהלקוח ביקש בפועל: טיסות, לינה, רכב ו/או תכנון מסלול ואטרקציות.
 - כאשר הלקוח מבקש חופשה/טיול ליעד מסוים, ברירת המחדל היא שטיסות רצויות ואין לשאול 'האם תרצי גם טיסה'. שאלי זאת רק אם ההקשר מצביע שהטיסות אולי כבר סגורות או שהלקוח מבקש במפורש שירות קרקעי בלבד.
 - אחרי שביררת את נושא הטיסה, חובה לחזור לנושא שהלקוח העלה לפני כן ולהמשיך ממנו. למשל אם ביקש לתכנן מסלול ואז ביררת טיסה, לאחר תשובת הטיסה חזרי לתכנון המסלול ואל תנטשי אותו.
-- במהלך שיחה על חופשה צריך לברר באופן טבעי גם מה הלקוח רוצה לגבי ארבעת התחומים: טיסות, לינה, רכב, ותכנון מסלול/אטרקציות. אם תחום עדיין לא עלה ולא ידוע אם הוא רצוי, העלי אותו בשיחה בצורה טבעית. אם הלקוח התחיל דווקא מטיסות, לאחר שמבינים את צורכי הטיסה שאלי באופן שיחתי מה ירצה שאעזור בו גם מעבר לטיסה — לינה, רכב, מסלול ואטרקציות — והמשיכי רק בתחומים שבחר.
+- לכל חופשה יש ארבעה סשנים פנימיים: טיסות, לינה, רכב, ותכנון מסלול/אטרקציות. הלקוח יכול להתחיל מכל אחד מהם.
+- בכל רגע יש סשן פעיל אחד. סיימי אותו לפני שאת יוזמת מעבר לסשן אחר. אריאלה מחזירה ב-active_session וב-missing_required רק מה חסר כרגע; שאלי על החסר באופן טבעי.
+- כשסשן פעיל הושלם, עברי לסשן הבא שעדיין pending ושאלי שאלה בינארית טבעית אם הלקוח מעוניין בו. לא = declined ועוברים לבא; כן = active ומבררים רק את פרטיו החסרים.
+- אם הלקוח מוסר מיוזמתו מידע על סשן אחר, אפשר לשמור אותו ב-state, אך אל תנטשי בגללו את הסשן הפעיל. כשהסשן האחר יגיע, השתמשי במה שכבר נשמר.
+- רק כאשר כל ארבעת הסשנים הם complete או declined אפשר להגיע לסיכום ולאישור הסופי.
 - אין להפוך את ארבעת התחומים לצ'קליסט או שאלון. אפשר לשלב הצעה או המלצה, לשאול שאלה אחת טבעית, ולהתקדם לפי תשובת הלקוח. המטרה היא שיחה חופשית שבסופה ברור לגבי כל תחום אם הלקוח רוצה בו עזרה או לא.
 - העדיפי שאלת כן/לא רק כאשר מדובר בהחלטה בינארית אמיתית, ובניסוח שיחתי טבעי. לדוגמה: "חשוב לך שהטיסה תהיה ישירה?", "יש לך הגבלת תקציב?", "תרצי שאחפש גם לינה?", "תרצי רכב שכור?".
 - שאלות כן/לא הן כלי לפישוט החלטה, לא מבנה השיחה. אסור לשלוח רצף של שאלות כן/לא או להפוך את השיחה לשאלון. אחרי תשובה המשיכי באופן טבעי לנושא המתאים.
@@ -81,6 +85,9 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 כללי יסוד:
 - אריאלה היא בעלת ה-state. כל פרט שהלקוח מסר וטינקרבל הבינה חייב להיכתב בשדה המתאים.
 - התחילי מה-state הקיים. שמרי כל ערך קיים שלא שונה. לעולם אל תמחקי ערך רק כי לא הוזכר שוב.
+- ה-state שקיבלת הוא הזיכרון היחיד. אסור לשחזר עובדות מהודעות קודמות שאינן נמצאות בו.
+- session_status כולל תמיד flights/lodging/car/trip_planning, וכל אחד הוא pending/active/complete/declined. אל תסמני complete רק כי הלקוח הזכיר את התחום; אריאלה מחשבת השלמה לפי שדות החובה.
+- active_session הוא הסשן היחיד שטינקרבל משלימה כעת.
 - אם הלקוח משנה פרט, החליפי רק את אותו פרט. לדוגמה: "במקום מונטנגרו יוון" מחליף destination בלבד; שינוי תאריכים מחליף dates בלבד.
 - אל תמציאי ואל תנחשי. ערך חסר נשאר חסר.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים). החיפוש מציג את אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
@@ -104,6 +111,8 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[]},
   "priorities":[],"hard_constraints":[],"current_request":null,
   "search_intent":false,"requested_services":[],"service_decisions":{},
+  "session_status":{"flights":"pending","lodging":"pending","car":"pending","trip_planning":"pending"},
+  "active_session":null,
   "missing_required":[],"ready_for_summary":false,"search_confirmed":false,
   "lodging":{"interested":"unknown","details":{}},
   "car":{"interested":"unknown","details":{}},
@@ -180,7 +189,7 @@ def _extract_output_text(body):
 def _post_openai(key, model, system_prompt, history, message, max_tokens):
     payload = {
         'model': model,
-        'input': [{'role': 'developer', 'content': system_prompt}] + _conversation(history[-16:], message),
+        # The trip state is the only memory. Never replay older chat turns into a new turn.\n        'input': [{'role': 'developer', 'content': system_prompt}] + _conversation([], message),
         'max_output_tokens': max_tokens,
     }
     response = requests.post(
@@ -231,6 +240,93 @@ def _merge_trip_state(previous, incoming):
 
 def _state_context(state):
     return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
+
+
+def _sessionize_state(state):
+    """Ariella owns the four-session lifecycle; Tinkerbell only converses around it."""
+    state = state if isinstance(state, dict) else {}
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    statuses = {s: statuses.get(s, "pending") for s in ("flights","lodging","car","trip_planning")}
+    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    services = set(state.get("requested_services") or [])
+
+    # Explicit decisions always win.
+    for s in statuses:
+        d = decisions.get(s)
+        wanted = d.get("wanted") if isinstance(d, dict) else d
+        if wanted is False:
+            statuses[s] = "declined"
+        elif wanted is True:
+            services.add(s)
+            if statuses[s] == "pending":
+                statuses[s] = "active"
+
+    # A destination/trip request implies flights unless explicitly declined.
+    dest = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    fd = decisions.get("flights")
+    fw = fd.get("wanted") if isinstance(fd, dict) else fd
+    if dest.get("places") and fw is not False:
+        services.add("flights")
+        if statuses["flights"] == "pending":
+            statuses["flights"] = "active"
+
+    # Keep one active session. Respect an existing unfinished active session first.
+    active = state.get("active_session")
+    if active not in statuses or statuses.get(active) in ("complete","declined"):
+        active = None
+    if not active:
+        active = next((s for s in ("flights","lodging","car","trip_planning") if statuses[s] == "active"), None)
+
+    state["requested_services"] = list(dict.fromkeys(list(state.get("requested_services") or []) + list(services)))
+    state["session_status"] = statuses
+    state["active_session"] = active
+    return state
+
+
+def _session_gaps(state, session):
+    """Required facts for one session only."""
+    all_gaps = _required_state_gaps(state)
+    prefixes = {
+        "flights": ("destination","dates","travelers","departure_airport","flight.","budget_per_person"),
+        "lodging": ("destination","dates","travelers","lodging."),
+        "car": ("destination","dates","travelers","car."),
+        "trip_planning": ("destination","dates","travelers","trip_planning."),
+    }
+    allowed = prefixes.get(session, ())
+    return [g for g in all_gaps if any(g == p or g.startswith(p) for p in allowed)]
+
+
+def _advance_sessions(state):
+    """Complete the active session when full, then expose exactly one next session decision."""
+    state = _sessionize_state(state)
+    statuses = dict(state.get("session_status") or {})
+    active = state.get("active_session")
+
+    if active and not _session_gaps(state, active):
+        statuses[active] = "complete"
+        active = None
+
+    # Never auto-activate a new domain merely because it is pending. The next
+    # pending domain becomes a yes/no decision for Tinkerbell.
+    next_pending = next((s for s in ("flights","lodging","car","trip_planning") if statuses.get(s) == "pending"), None)
+    if not active:
+        active = next((s for s in ("flights","lodging","car","trip_planning") if statuses.get(s) == "active"), None)
+
+    state["session_status"] = statuses
+    state["active_session"] = active
+    if active:
+        state["missing_required"] = _session_gaps(state, active)
+        state["next_session"] = None
+        state["ready_for_summary"] = False
+    elif next_pending:
+        state["missing_required"] = []
+        state["next_session"] = next_pending
+        state["ready_for_summary"] = False
+    else:
+        state["missing_required"] = []
+        state["next_session"] = None
+        state["ready_for_summary"] = all(v in ("complete","declined") for v in statuses.values())
+    return state
 
 
 def _required_state_gaps(state):
@@ -536,7 +632,7 @@ def chat_clean():
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?',
-                'trip_update':{'conversation_boundary':'current_trip'},'start_flight_search':False,'trip_state_reset':True
+                'trip_update':{'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None},'start_flight_search':False,'trip_state_reset':True
             })
 
         if msg_norm in no_answers:
@@ -638,9 +734,8 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
-        trip_update = _merge_trip_state(trip_update, _deterministic_destination_facts(history, message, trip_update))
+        # Current message + Ariella state only. Never resurrect facts from old chat history.
         trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message))
-        trip_update = _merge_trip_state(trip_update, _deterministic_date_facts(history, message, trip_update))
 
         # A normal trip request to a destination implies Ariella should handle
         # flights unless the customer explicitly says flights are booked/not needed.
@@ -658,14 +753,8 @@ def chat_clean():
                 decisions_state["flights"] = {"wanted": True, "source": "destination_trip_intent"}
             trip_update["service_decisions"] = decisions_state
 
-        # Ariella computes the authoritative remaining gaps and returns the updated
-        # state to Tinkerbell. Tinkerbell then decides naturally what to ask next.
-        state_gaps = _required_state_gaps(trip_update)
-        if state_gaps:
-            trip_update["missing_required"] = state_gaps
-            trip_update["ready_for_summary"] = False
-        else:
-            trip_update["missing_required"] = []
+        # Ariella, not chat history, owns the four-session progression.
+        trip_update = _advance_sessions(trip_update)
 
         try:
             reply = _call_tinkerbell(key, model, history, message, trip_update)
@@ -678,12 +767,7 @@ def chat_clean():
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
         # the visible summary and downstream execution on the same data object.
-        state_gaps = _required_state_gaps(trip_update)
-        if state_gaps:
-            trip_update["missing_required"] = state_gaps
-            trip_update["ready_for_summary"] = False
-        else:
-            trip_update["missing_required"] = []
+        trip_update = _advance_sessions(trip_update)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
@@ -697,8 +781,6 @@ def chat_clean():
             trip_update["search_intent"] = bool(trip_state.get("search_intent"))
             trip_update["search_confirmed"] = bool(trip_state.get("search_confirmed"))
             trip_update["ready_for_summary"] = bool(trip_state.get("ready_for_summary"))
-            if not trip_state.get("search_intent"):
-                trip_update["missing_required"] = list(trip_state.get("missing_required") or [])
         if approval:
             merged = _merge_trip_state(trip_state, trip_update if isinstance(trip_update, dict) else {})
             # Exact מאשר/מאשרת is the execution command. Required-field validation
