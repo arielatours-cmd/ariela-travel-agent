@@ -2605,6 +2605,54 @@ def ariella_save_trip_draft():
     return jsonify({"status":"saved","trip_id":int(cur.lastrowid)})
 
 
+@site.post("/api/ariella/save-trip-plan")
+@login_required
+def ariella_save_trip_plan():
+    """Attach the customer's approved itinerary to the already-created vacation."""
+    body = request.get_json(silent=True) or {}
+    trip_id = int(body.get("trip_id") or 0)
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    history = body.get("history") if isinstance(body.get("history"), list) else []
+    if not trip_id:
+        return jsonify({"status":"error","message":"missing trip"}), 400
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    if not planning.get("approved"):
+        return jsonify({"status":"error","message":"itinerary is not approved"}), 400
+
+    # Keep the exact approved planning conversation as the source record. A
+    # structured attraction list can be enriched from Ariella's attraction DB
+    # when records exist; missing prices/links remain empty rather than invented.
+    assistant_plan = ""
+    for item in reversed(history):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+            txt = str(item.get("content") or "").strip()
+            if txt and "אני אשלח לך את כל האינפורמציה" not in txt:
+                assistant_plan = txt
+                break
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT answers_json FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+        if not row:
+            return jsonify({"status":"missing"}), 404
+        try:
+            answers = json.loads(row["answers_json"] or "{}")
+        except Exception:
+            answers = {}
+        answers["_approved_itinerary"] = {
+            "text": assistant_plan,
+            "approved_at": utc_now_iso(),
+            "planning_state": planning,
+            "attractions": planning.get("attractions") if isinstance(planning.get("attractions"), list) else [],
+        }
+        answers["_trip_planning_complete"] = True
+        conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?",
+                     (json.dumps(answers, ensure_ascii=False), trip_id))
+        conn.commit()
+    return jsonify({"status":"saved","trip_id":trip_id})
+
+
 @site.post("/api/ariella/start-flight-search")
 @login_required
 def ariella_start_flight_search():
