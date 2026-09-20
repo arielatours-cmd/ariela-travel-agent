@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v33'
+ENGINE_VERSION = 'tinkerbell-chat-v34'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -70,6 +70,9 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'. אם נאמר גם חודש/טווח כמו 'באפריל אחרי ה-15', חשבי את התאריכים האפשריים מתוך המגבלה במקום לבקש שוב משך.
+- היי סלחנית לשגיאות כתיב ברורות לפי ההקשר. אם שאלת על תקציב ונכתב למשל "ללא תקציר", אפשר להבין "ללא תקציב"; אם יש יותר מפירוש סביר אחד, שאלי הבהרה קצרה.
+- בביטוי יחסי כמו "סוף יוני" יחד עם ימי שבוע/משך, אל תבחרי תאריך אחד בשם הלקוח. אם יש שתי אפשרויות סבירות סמוכות, הציגי את שתיהן ושאלי איזו עדיפה. רק אחרי בחירת הלקוח יש תאריכי יציאה וחזרה סופיים.
+- אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
@@ -93,6 +96,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - active_session הוא הסשן היחיד שטינקרבל משלימה כעת.
 - אם הלקוח משנה פרט, החליפי רק את אותו פרט. לדוגמה: "במקום מונטנגרו יוון" מחליף destination בלבד; שינוי תאריכים מחליף dates בלבד.
 - אל תמציאי ואל תנחשי. ערך חסר נשאר חסר.
+- תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים). החיפוש מציג את אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17].
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
@@ -358,7 +362,7 @@ def _required_state_gaps(state):
     # Shared trip facts.
     if services and not (destination.get("places") or []):
         gaps.append("destination")
-    if services and not ((dates.get("departure") and dates.get("return")) or dates.get("period")):
+    if services and (dates.get("needs_confirmation") or not (dates.get("departure") and dates.get("return"))):
         gaps.append("dates")
     if services and travelers.get("adults") is None:
         gaps.append("travelers")
@@ -527,48 +531,33 @@ def _deterministic_budget_facts(message):
 
 
 def _deterministic_period_facts(message):
-    """Capture a clear weekday/month window so Tinkerbell never re-asks trip length."""
-    import re
-    msg = str(message or "").strip().lower()
-    months = {
-        "ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,
-        "יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12,
-    }
-    weekdays = {"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
-    month = next((n for name,n in months.items() if name in msg), None)
-    pair = re.search(r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\\s*(?:עד|[-–])\\s*(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)", msg)
-    after = re.search(r"אחרי\\s+(?:ה[- ]?)?(\\d{1,2})", msg)
-    if not month or not pair:
-        return {}
-    today = date.today()
-    year = today.year
-    # A month without a year means its next future occurrence.
-    if month < today.month:
-        year += 1
-    min_day = int(after.group(1)) + 1 if after else 1
-    start_wd, end_wd = weekdays[pair.group(1)], weekdays[pair.group(2)]
-    start = None
-    for day in range(min_day, 32):
-        try:
-            candidate = date(year, month, day)
-        except ValueError:
-            break
-        if candidate.weekday() == start_wd:
-            start = candidate
-            break
-    if not start:
-        return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} באפריל {year}"}}
-    delta = (end_wd - start_wd) % 7
-    end = start + timedelta(days=delta)
-    if end.month != month:
-        return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} אחרי {min_day-1}.{month}.{year}"}}
-    return {"dates":{
-        "departure":start.isoformat(),
-        "return":end.isoformat(),
-        "period":f"{pair.group(1)} עד {pair.group(2)}",
-        "constraints":[f"אחרי {min_day-1}.{month}.{year}"],
-    }}
-
+    """Parse weekday/month windows; ambiguous end-of-month requests require customer choice."""
+    import re, calendar
+    msg=str(message or "").strip().lower()
+    months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
+    weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
+    month_name=next((name for name in months if name in msg),None); month=months.get(month_name) if month_name else None
+    pair=re.search(r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\\s*(?:עד|[-–])\\s*(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)",msg)
+    if not month or not pair:return {}
+    today=date.today(); year=today.year+(1 if month<today.month else 0)
+    start_wd,end_wd=weekdays[pair.group(1)],weekdays[pair.group(2)]; delta=(end_wd-start_wd)%7
+    if "סוף" in msg:
+        last=calendar.monthrange(year,month)[1]; candidates=[]
+        for day in range(max(1,last-14),last+1):
+            d=date(year,month,day)
+            if d.weekday()==start_wd:candidates.append((d,d+timedelta(days=delta)))
+        candidates=candidates[-2:]
+        labels=[f"{x.strftime('%d.%m.%Y')}–{y.strftime('%d.%m.%Y')}" for x,y in candidates]
+        return {"dates":{"departure":None,"return":None,"period":f"סוף {month_name} {year}, {pair.group(1)} עד {pair.group(2)}","constraints":[f"{pair.group(1)} עד {pair.group(2)}"],"candidate_ranges":labels,"needs_confirmation":True}}
+    after=re.search(r"אחרי\\s+(?:ה[- ]?)?(\\d{1,2})",msg); min_day=int(after.group(1))+1 if after else 1
+    start=None
+    for day in range(min_day,32):
+        try:d=date(year,month,day)
+        except ValueError:break
+        if d.weekday()==start_wd:start=d;break
+    if not start:return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} ב{month_name} {year}"}}
+    end=start+timedelta(days=delta)
+    return {"dates":{"departure":start.isoformat(),"return":end.isoformat(),"period":f"{pair.group(1)} עד {pair.group(2)}","constraints":[f"אחרי {min_day-1}.{month}.{year}"]}}
 
 def _deterministic_traveler_facts(message):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
