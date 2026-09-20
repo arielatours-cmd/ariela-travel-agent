@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v45'
+ENGINE_VERSION = 'tinkerbell-chat-v46'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -961,6 +961,14 @@ def chat_clean():
         # Ariella owns and merges the cumulative state.
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
+        # Safety net for facts that must never be re-asked. This helper already
+        # existed but was not wired into the live chat path. Run it before
+        # missing-field/session calculation so an explicitly stated destination
+        # remains authoritative even when the LLM extractor misses it.
+        trip_update = _merge_trip_state(
+            trip_update,
+            _deterministic_destination_facts(history, message, trip_state)
+        )
         only_flights_facts = _deterministic_only_flights_facts(message)
         trip_update = _merge_trip_state(trip_update, only_flights_facts)
         # "Only flights" is a replacement decision, not an additive merge.
