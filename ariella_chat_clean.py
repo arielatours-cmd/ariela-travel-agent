@@ -352,6 +352,12 @@ def _advance_sessions(state):
         state["missing_required"] = []
         state["next_session"] = None
         state["ready_for_summary"] = all(v in ("complete","declined") for v in statuses.values())
+    # Session 1 is intentionally self-contained. Once flights are complete, the
+    # flight search may be summarized/approved without forcing decisions about
+    # lodging, car or trip planning. Those sessions reopen after flight handoff.
+    if statuses.get("flights") == "complete" and state.get("active_session") is None:
+        state["missing_required"] = []
+        state["ready_for_summary"] = True
     return state
 
 
@@ -1134,6 +1140,16 @@ def chat_clean():
             trip_update["ready_for_summary"] = bool(trip_state.get("ready_for_summary"))
         if approval:
             merged = _merge_trip_state(trip_state, trip_update if isinstance(trip_update, dict) else {})
+            # Flight approval closes only session 1. Keep the shared trip facts and
+            # leave lodging/car/planning available for continuation after the scan.
+            statuses_after_flight = dict(merged.get("session_status") or {})
+            statuses_after_flight["flights"] = "complete"
+            for optional_service in ("lodging","car","trip_planning"):
+                if statuses_after_flight.get(optional_service) == "declined":
+                    statuses_after_flight[optional_service] = "pending"
+            merged["session_status"] = statuses_after_flight
+            merged["active_session"] = None
+            merged["post_flight_continuation"] = True
             # Approval must execute exactly the dates the customer already approved.
             # The extractor response to the word מאשרת must never erase/replace them.
             if isinstance(trip_state.get('dates'), dict) and trip_state.get('dates', {}).get('departure') and trip_state.get('dates', {}).get('return'):
