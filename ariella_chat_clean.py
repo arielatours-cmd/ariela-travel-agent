@@ -1185,6 +1185,14 @@ def chat_clean():
                 services.append("flights")
             merged["requested_services"] = services
             trip_update = merged
+            # The approval turn must not ask any more flight questions. It is a
+            # deterministic handoff message; the browser keeps it visible for 4s
+            # before opening the scan.
+            reply = (
+                "מעולה, אישרתי את פרטי הטיסה. אני יוצאת עכשיו לסריקה. "
+                "אם תרצי להמשיך לתכנן את אותה חופשה, תוכלי לחזור לשיחה ולהמשיך "
+                "מאותה נקודה עם לינה, השכרת רכב או תכנון מסלול ואטרקציות."
+            )
     except Exception as exc:
         logging.exception("ariella chat-clean pipeline failed: %s", exc)
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
