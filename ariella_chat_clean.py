@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v44'
+ENGINE_VERSION = 'tinkerbell-chat-v45'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -163,7 +163,7 @@ def _weekday_date_conflict(message):
     text = str(message or "")
     weekdays = {"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
     day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)"
-    date_re = r"(\d{1,2})[./-](\d{1,2})(?:[./-](\\d{2,4}))?"
+    date_re = r"(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?"
     # Pair a weekday with the nearest date on either side (up to 40 chars).
     pairs = []
     for m in re.finditer(day_re + r".{0,40}?" + date_re, text):
@@ -961,7 +961,22 @@ def chat_clean():
         # Ariella owns and merges the cumulative state.
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
-        trip_update = _merge_trip_state(trip_update, _deterministic_only_flights_facts(message))
+        only_flights_facts = _deterministic_only_flights_facts(message)
+        trip_update = _merge_trip_state(trip_update, only_flights_facts)
+        # "Only flights" is a replacement decision, not an additive merge.
+        # The generic recursive merge intentionally preserves lists, so enforce
+        # the exclusive service set after extraction to prevent lodging/car/plan
+        # from being resurrected by prior state or the LLM.
+        if only_flights_facts:
+            trip_update["requested_services"] = ["flights"]
+            decisions = dict(trip_update.get("service_decisions") or {})
+            decisions.update(only_flights_facts["service_decisions"])
+            trip_update["service_decisions"] = decisions
+            statuses = dict(trip_update.get("session_status") or {})
+            statuses.update(only_flights_facts["session_status"])
+            trip_update["session_status"] = statuses
+            trip_update["active_session"] = "flights"
+            trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
