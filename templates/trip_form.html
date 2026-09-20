@@ -55,7 +55,7 @@
     }
     if(last<value.length)parent.appendChild(document.createTextNode(value.slice(last)));
   }
-  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);if(role==='assistant'){requestAnimationFrame(()=>{box.scrollTop=Math.max(0,el.offsetTop-box.offsetTop-12);});}else{box.scrollTop=box.scrollHeight;}return el;}
+  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);if(role==='assistant'){requestAnimationFrame(()=>{box.scrollTop=Math.max(0,el.offsetTop-box.offsetTop-12);});}else{box.scrollTop=box.scrollHeight;}return el;}\n  function addVacationLink(tripId){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#travel-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);requestAnimationFrame(()=>{box.scrollTop=Math.max(0,el.offsetTop-box.offsetTop-12);});}
   function save(){localStorage.setItem(key,JSON.stringify(history.slice(-80)));}
   if(!history.length){
     const rawName={{ ((current_member.first_name if current_member and current_member.first_name else current_member.full_name if current_member and current_member.full_name else '') or '')|tojson }};
@@ -91,7 +91,7 @@
       }
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
       if(data.start_flight_search===true){
-        history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
+        history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);if(savedPlanTripId)addVacationLink(savedPlanTripId);save();
         // Approval must hand off the complete current-trip conversation. The
         // context-start marker is only for LLM context after a reset; slicing
         // again here could drop the approved summary/dates and block execution.
