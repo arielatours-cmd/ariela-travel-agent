@@ -86,6 +86,8 @@
         // Approval must hand off the complete current-trip conversation. The
         // context-start marker is only for LLM context after a reset; slicing
         // again here could drop the approved summary/dates and block execution.
+        // Keep the pre-scan continuation message visible long enough to read.
+        await new Promise(resolve=>setTimeout(resolve,4000));
         const currentTripHistory=history.map(x=>({role:x.role,content:x.content}));
         // Single source of truth: the structured trip state that produced the
         // approved conversation is what execution receives. History is carried
