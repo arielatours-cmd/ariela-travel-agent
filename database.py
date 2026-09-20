@@ -175,6 +175,12 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_direct_routes_lookup
             ON direct_routes(origin_code, destination_code, status, valid_from, valid_to);
 
+            INSERT OR IGNORE INTO direct_routes
+                (origin_code,destination_code,destination_name,country_name,valid_from,valid_to,status,source,last_verified_at,notes,created_at,updated_at)
+            VALUES
+                ('TLV','BKK','בנגקוק','תאילנד',NULL,NULL,'active','verified_web_2026-09-20','2026-09-20','EL AL / Arkia nonstop route','2026-09-20T00:00:00+00:00','2026-09-20T00:00:00+00:00'),
+                ('TLV','HKT','פוקט','תאילנד','2026-09-10',NULL,'active','verified_web_2026-09-20','2026-09-20','EL AL / Arkia nonstop route','2026-09-20T00:00:00+00:00','2026-09-20T00:00:00+00:00');
+
             CREATE TABLE IF NOT EXISTS scan_runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 started_at TEXT NOT NULL,
