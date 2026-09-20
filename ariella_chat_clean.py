@@ -5,10 +5,12 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
+from config import DB_PATH
+import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v37'
+ENGINE_VERSION = 'tinkerbell-chat-v38'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -344,6 +346,44 @@ def _advance_sessions(state):
     return state
 
 
+def _direct_route_available(state):
+    """True when the requested destination has a known nonstop route from the selected Israeli origin."""
+    state = state if isinstance(state, dict) else {}
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = destination.get("places") if isinstance(destination.get("places"), list) else []
+    if not places:
+        return False
+    origin = str(state.get("departure_airport") or "TLV").strip().upper()
+    aliases = {
+        "תאילנד":["BKK","HKT"], "thailand":["BKK","HKT"],
+        "בנגקוק":["BKK"], "bangkok":["BKK"], "פוקט":["HKT"], "phuket":["HKT"],
+    }
+    codes = []
+    for place in places:
+        raw = str(place or "").strip()
+        upper = raw.upper()
+        if len(upper) == 3 and upper.isalpha():
+            codes.append(upper)
+        codes.extend(aliases.get(raw.lower(), aliases.get(raw, [])))
+    if not codes:
+        return False
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    departure = str(dates.get("departure") or "")[:10]
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        marks = ",".join("?" for _ in codes)
+        sql = f"""SELECT 1 FROM direct_routes
+                  WHERE origin_code=? AND destination_code IN ({marks}) AND status='active'
+                    AND (valid_from IS NULL OR valid_from='' OR ?='' OR valid_from<=?)
+                    AND (valid_to IS NULL OR valid_to='' OR ?='' OR valid_to>=?)
+                  LIMIT 1"""
+        row = conn.execute(sql, [origin, *codes, departure, departure, departure, departure]).fetchone()
+        conn.close()
+        return bool(row)
+    except Exception:
+        return False
+
+
 def _required_state_gaps(state):
     """Return the authoritative unanswered decisions Ariella needs for requested services."""
     state = state if isinstance(state, dict) else {}
@@ -391,7 +431,9 @@ def _required_state_gaps(state):
     if "flights" in services:
         if not state.get("departure_airport"):
             gaps.append("departure_airport")
-        if not flight.get("connection_preference"):
+        # Ask direct-vs-connection only when a verified nonstop route exists
+        # for this origin/destination/date. Otherwise connections are simply ranked results.
+        if _direct_route_available(state) and not flight.get("connection_preference"):
             gaps.append("flight.connection_preference")
         if not flight.get("baggage"):
             gaps.append("flight.baggage")
