@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v28'
+ENGINE_VERSION = 'tinkerbell-chat-v29'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -20,8 +20,8 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
 - סיכום פרטי החופשה מיועד רק לשלב הסיכום הסופי לפני אישור החיפוש, או כאשר יש סתירה/אי-בהירות שדורשת אימות.
 - אל תראייני את הלקוח. אל תנהלי רצף של שאלות איסוף נתונים.
-- כאשר קיימת כוונת חופשה/חיפוש, כן צריך להשלים את missing_required שאריאלה מחזירה. שאלי בכל פעם 1–3 פרטים חסרים באופן טבעי, לפי ההקשר והסדר ההגיוני.
-- שאלי שאלה רק כשהיא המשך טבעי למה שהלקוח עצמו מנסה לברר או כשהיא באמת נחוצה כדי לענות לבקשה הנוכחית.
+- missing_required הוא מידע עזר מאריאלה, לא שאלון ולא הוראה לשאול מיד. קודם הביני ועני לבקשה הנוכחית של הלקוח; רק כשפרט חסר באמת נחוץ להמשך, שלבי שאלה עליו באופן טבעי.
+- שאלי שאלה רק כשהיא המשך טבעי למה שהלקוח עצמו מנסה לברר או כשהיא באמת נחוצה כדי להתקדם. אם הלקוח מבקש ממך המלצה (למשל מתי כדאי לנסוע), תני את ההמלצה קודם ואל תחזירי אליו את אותה החלטה רק משום שהשדה עדיין מופיע ב-missing_required.
 - אין חובה לשאול שאלה בכל הודעה. לעיתים התשובה הטובה ביותר היא פשוט תגובה או המלצה.
 - אם כבר נאמר פרט בשיחה או במצב החופשה המצטבר, זכרי אותו. אם הלקוח משנה אותו, התייחסי לגרסה החדשה. אסור לשאול שוב פרט שכבר ידוע.
 - אם הלקוח אומר חופשה חדשה, טיול חדש, להתחיל מחדש, מהתחלה, לשנות כיוון או ניסוח דומה שמשתמע ממנו רצון להתחיל מחדש/לשנות כיוון, אל תמחקי ואל תשני עדיין שום מידע. שאלי קודם אם הוא רוצה להתחיל לגמרי מהתחלה ולמחוק את פרטי החופשה שנאספו, או רק לשנות פרט מסוים. אם הוא רוצה שינוי נקודתי, שאלי מה לשנות רק אם לא כתב זאת כבר. אם הוא מבקש במפורש למחוק הכול לאחר שאלת האימות, מתחילים ממצב חופשה ריק.
@@ -111,6 +111,26 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 }
 '''
 
+
+
+def _current_trip_history(history, state=None):
+    """Return only messages belonging to the current trip conversation boundary."""
+    history = history if isinstance(history, list) else []
+    state = state if isinstance(state, dict) else {}
+    # After a confirmed reset the client receives a reset marker in state. If it
+    # survives there, everything before the most recent restart request is stale.
+    restart_phrases = ("חופשה חדשה","טיול חדש","חיפוש חדש","להתחיל מחדש","נתחיל מחדש",
+                       "מהתחלה","להתחיל מהתחלה","נתחיל מהתחלה","בואי נתחיל מהתחלה","לשנות כיוון")
+    boundary = -1
+    for i, item in enumerate(history):
+        if not isinstance(item, dict):
+            continue
+        txt = str(item.get("content") or "").strip().lower()
+        if any(p in txt for p in restart_phrases):
+            boundary = i
+    if boundary >= 0:
+        return history[boundary:]
+    return history
 
 
 def _weekday_date_conflict(message):
@@ -517,7 +537,7 @@ def chat_clean():
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?',
-                'trip_update':{},'start_flight_search':False,'trip_state_reset':True
+                'trip_update':{'conversation_boundary':'current_trip'},'start_flight_search':False,'trip_state_reset':True
             })
 
         if msg_norm in no_answers:
@@ -598,6 +618,11 @@ def chat_clean():
             'reply':'לשנות את היעד ולבנות מחדש את הפרטים שתלויים בו? כן או לא?',
             'trip_update':trip_state,'start_flight_search':False
         })
+
+    # A confirmed/new-trip boundary prevents old vacation facts from being
+    # resurrected by the model or deterministic history scanners.
+    if trip_state.get("conversation_boundary") == "current_trip":
+        history = _current_trip_history(history, trip_state)
 
     date_conflict = _weekday_date_conflict(message)
     if date_conflict:
