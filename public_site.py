@@ -1618,13 +1618,16 @@ def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
         obj_points, obj_possible, matched, missed = _objective_match_details(o, trip)
         if obj_possible and not missed:
             continue
-        non_date_misses = [m for m in missed if m not in {"התאריכים שביקשת", "Requested dates", "החודשים שביקשת", "Requested months"}]
-        if non_date_misses or not _offer_within_budget(o, trip):
+        # Closest matches may miss selected soft flight conditions such as
+        # baggage. They must still be shown below the divider instead of leaving
+        # the customer with an empty result set. Keep destination/round-trip hard
+        # requirements above, and keep budget hard when explicitly limited.
+        if not _offer_within_budget(o, trip):
             continue
-        ranked.append((date_tier, -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, obj_points))
-    ranked.sort(key=lambda x: x[:4])
+        ranked.append((date_tier, len(missed), -obj_points, -int(o.get("score") or 0), float(o.get("price_ils") or 10**9), o, matched, missed, obj_points))
+    ranked.sort(key=lambda x: x[:5])
     out = []
-    for _, _, _, _, o, matched, missed, total_points in ranked[:limit]:
+    for _, _, _, _, _, o, matched, missed, total_points in ranked[:limit]:
         c = _decorate_availability_note(o, trip)
         c["request_match_reasons"] = matched
         c["request_missed_reasons"] = missed
