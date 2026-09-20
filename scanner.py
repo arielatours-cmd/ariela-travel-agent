@@ -957,29 +957,12 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
         offsets = range(-flex_days, flex_days + 1) if flex_days else [0]
         if business_mode and not flex_days and answers.get("business_arrive_by_time"):
             offsets = [-1, 0]
-        # Regular initial exact-date searches deliberately scan representative
-        # windows across the entire requested month. This both serves the exact
-        # request and grows fresh shared inventory. The explicit "other destination,
-        # same dates" second chance remains exact and never changes the dates.
-        scan_whole_month = (
-            vacation_type in {"standard", "ski"}
-            and not answers.get("_alternative_other_destination")
-        )
-        if scan_whole_month:
-            trip_len = max(1, (base_ret - base_out).days)
-            month_first = base_out.replace(day=1)
-            candidate_starts = [base_out]
-            for day_offset in (2, 9, 16, 23):
-                candidate = month_first + timedelta(days=day_offset)
-                if candidate.month == month_first.month and candidate not in candidate_starts:
-                    candidate_starts.append(candidate)
-            candidate_starts.sort(key=lambda d: (0 if d == base_out else 1, abs((d - base_out).days)))
-            for arrival in arrivals:
-                for origin in origins:
-                    for start in candidate_starts:
-                        ret_date = start + timedelta(days=trip_len)
-                        jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret_date.isoformat()})
-        elif flex_days:
+        # Customer-facing exact searches must be exact first. Do not make the
+        # customer wait while we populate unrelated dates in the month. Shared-DB
+        # expansion is a separate background concern after the requested dates have
+        # completed and must never sit in front of the customer's result.
+        scan_whole_month = False
+        if flex_days:
             # A flexible request means each requested date may move within the chosen
             # tolerance. Interleave origins so TLV/HFA both get searched before the
             # safety cap is reached, and prioritize the smallest changes first.
