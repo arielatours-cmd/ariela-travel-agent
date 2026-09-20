@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v21'
+ENGINE_VERSION = 'tinkerbell-chat-v22'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -427,6 +427,62 @@ def chat_clean():
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':'רק כדי לוודא: למחוק את כל פרטי החופשה ולהתחיל מחדש? כן או לא?',
             'trip_update':pending,'start_flight_search':False
+        })
+
+    # Destination replacement is the only ordinary field change that requires
+    # confirmation because route/lodging/car destination-dependent facts become stale.
+    import re
+    known_destinations = ("יוון","מונטנגרו","איטליה","בולגריה","אלבניה","קרואטיה","תאילנד")
+    current_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
+    current_places = current_destination.get("places") or []
+    destination_change = None
+    for candidate in known_destinations:
+        if candidate in message and current_places and candidate not in current_places:
+            if any(token in message for token in ("במקום","רוצה לטוס ל","היעד","לשנות")):
+                destination_change = candidate
+                break
+
+    if destination_change and not trip_state.get("destination_change_pending"):
+        pending = dict(trip_state)
+        pending["destination_change_pending"] = destination_change
+        return jsonify({
+            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            'reply':'שינוי היעד משנה גם את המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד. למחוק את הפרטים שתלויים ביעד ולבנות אותם מחדש ליעד החדש?',
+            'trip_update':pending,'start_flight_search':False
+        })
+
+    if trip_state.get("destination_change_pending"):
+        msg_norm = str(message or "").strip().lower()
+        if msg_norm in {"כן","כן.","כן!","בטח","בהחלט"}:
+            changed = dict(trip_state)
+            new_destination = changed.pop("destination_change_pending")
+            changed["destination"] = {"places":[new_destination],"mode":"specific","status":"known"}
+            old_lodging = changed.get("lodging") if isinstance(changed.get("lodging"), dict) else {}
+            old_car = changed.get("car") if isinstance(changed.get("car"), dict) else {}
+            old_plan = changed.get("trip_planning") if isinstance(changed.get("trip_planning"), dict) else {}
+            changed["lodging"] = {"interested":old_lodging.get("interested","unknown"),"details":{}}
+            changed["car"] = {"interested":old_car.get("interested","unknown"),"details":{}}
+            changed["trip_planning"] = {"interested":old_plan.get("interested","unknown"),"details":{}}
+            changed["ready_for_summary"] = False
+            changed["search_confirmed"] = False
+            changed["missing_required"] = []
+            return jsonify({
+                'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                'reply':'בסדר. היעד עודכן. את המסלול, הלינה והרכב נבנה מחדש בהתאם ליעד החדש.',
+                'trip_update':changed,'start_flight_search':False
+            })
+        if msg_norm in {"לא","לא.","לא!","לא תודה"}:
+            kept = dict(trip_state)
+            kept.pop("destination_change_pending", None)
+            return jsonify({
+                'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                'reply':'בסדר, נשאיר את היעד הקיים.',
+                'trip_update':kept,'start_flight_search':False
+            })
+        return jsonify({
+            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            'reply':'לשנות את היעד ולבנות מחדש את הפרטים שתלויים בו? כן או לא?',
+            'trip_update':trip_state,'start_flight_search':False
         })
 
     date_conflict = _weekday_date_conflict(message)
