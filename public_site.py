@@ -2647,6 +2647,8 @@ def ariella_start_flight_search():
         "special_needs": [],
         "notes": "Created from Ariella live conversation",
         "baggage": baggage,
+        "_requested_services": sorted(services),
+        "_session_status": state.get("session_status") if isinstance(state.get("session_status"), dict) else {},
     }
     title = " • ".join(places) if places else "אריאלה תבחר"
     travel_window = (dep + " – " + ret) if dep and ret else (period or month)
@@ -2723,10 +2725,19 @@ def trip_flight_status(trip_id):
     finished = bool(answers.get("_flight_search_finished"))
     result = answers.get("_flight_search_result") or {}
     status = "ready" if offers or finished else "searching"
+    requested = set(answers.get("_requested_services") or [])
+    session_status = answers.get("_session_status") if isinstance(answers.get("_session_status"), dict) else {}
+    stages = {
+        "flight": "complete" if status == "ready" else "searching",
+        "lodging": "pending" if ("lodging" in requested or session_status.get("lodging") == "complete") else "skipped",
+        "car": "pending" if ("car" in requested or session_status.get("car") == "complete") else "skipped",
+        "plan": "pending" if ("trip_planning" in requested or session_status.get("trip_planning") == "complete") else "skipped",
+    }
     return jsonify({
         "status":status,
         "count":len(offers),
         "search_result":result,
+        "stages":stages,
         "url":url_for("site.account") + f"#vacation-{trip_id}"
     })
 
