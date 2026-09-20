@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v36'
+ENGINE_VERSION = 'tinkerbell-chat-v37'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -232,6 +232,12 @@ def _merge_trip_state(previous, incoming):
     merged = dict(previous)
     for key, value in incoming.items():
         old = merged.get(key)
+        # A confirmed date choice is a replacement object, not a cumulative merge.
+        # Otherwise stale candidate metadata (needs_confirmation/candidate_ranges)
+        # survives beside the exact dates and makes Tinkerbell ask for dates again.
+        if key == "dates" and isinstance(value, dict) and value.get("departure") and value.get("return") and value.get("needs_confirmation") is False:
+            merged[key] = dict(value)
+            continue
         if isinstance(value, dict):
             merged[key] = _merge_trip_state(old if isinstance(old, dict) else {}, value)
             continue
