@@ -156,6 +156,25 @@ def init_db() -> None:
         conn.executescript(
             """
             PRAGMA journal_mode=WAL;
+            CREATE TABLE IF NOT EXISTS direct_routes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                origin_code TEXT NOT NULL DEFAULT 'TLV',
+                destination_code TEXT NOT NULL,
+                destination_name TEXT,
+                country_name TEXT,
+                valid_from TEXT,
+                valid_to TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                source TEXT,
+                last_verified_at TEXT,
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(origin_code, destination_code, valid_from, valid_to)
+            );
+            CREATE INDEX IF NOT EXISTS idx_direct_routes_lookup
+            ON direct_routes(origin_code, destination_code, status, valid_from, valid_to);
+
             CREATE TABLE IF NOT EXISTS scan_runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 started_at TEXT NOT NULL,
