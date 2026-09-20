@@ -29,6 +29,7 @@
   const stateKey='ariellaTripState:v11';
   const contextStartKey='ariellaChatContextStart:v11';
   const committedKey='ariellaTripCommitted:v11';
+  const continueTripKey='ariellaContinueTrip:v12';
   let history=[];
   let waitingForReply=false;
   // Explicit one-time reset for clean QA. Ordinary refreshes never clear customer history.
@@ -37,6 +38,7 @@
     localStorage.removeItem(stateKey);
     localStorage.removeItem(contextStartKey);
     localStorage.removeItem(committedKey);
+    localStorage.removeItem(continueTripKey);
     window.history.replaceState({},'',location.pathname);
   }
   try{history=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
@@ -100,9 +102,12 @@
           try{
             // Preserve the visible customer conversation. Only close the finished
             // trip's model/state commit so a later chat starts with clean trip facts.
-            localStorage.removeItem(stateKey);
+            // Keep the approved trip facts so the customer can return from the
+            // flight scan and continue the SAME vacation with lodging/car/planning.
+            // A later explicit new-vacation choice will clear them.
+            localStorage.setItem(stateKey,JSON.stringify(approvedTripState));
             localStorage.setItem(committedKey,'1');
-            localStorage.setItem(contextStartKey,String(history.length));
+            localStorage.setItem(continueTripKey,'1');
             // Clear only legacy structured-state engines; never delete visible history.
             for(const legacyKey of ['ariellaChatState:v8','ariellaChatState:v7','ariellaChatState:v6','ariellaChatState:v4']){
               localStorage.removeItem(legacyKey);
@@ -138,12 +143,11 @@
     // A successful handoff is an explicit trip boundary. Do not rely only on
     // stateKey absence: a reply generated after handoff can recreate a tiny
     // transient state and previously caused a false "delete old trip?" prompt.
-    const cleanCommittedRestart=freshSearch&&previousTripCommitted;
-    if(cleanCommittedRestart){
-      localStorage.removeItem(stateKey);
-      localStorage.setItem(contextStartKey,String(history.length));
-      localStorage.removeItem(committedKey);
-    }else if(freshSearch&&!hasActiveTripState){
+    // After a flight handoff the trip remains open for the other sessions.
+    // Never silently wipe it. The server/Tinkerbell will ask whether the user
+    // means this vacation or a new one; only an explicit new-vacation reset clears it.
+    const cleanCommittedRestart=false;
+    if(freshSearch&&!hasActiveTripState){
       localStorage.setItem(contextStartKey,String(history.length));
     }
     history.push({role:'user',content:text});add('user',text);save();
