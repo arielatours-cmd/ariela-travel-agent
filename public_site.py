@@ -2681,9 +2681,22 @@ def ariella_start_flight_search():
     # DB first; only spend an external scan when fresh inventory cannot satisfy
     # the approved request.
     trip_for_match = {"id": trip_id, "answers": payload, "request_name": title, "travel_window": travel_window}
+    # DB-FIRST MUST BE TARGETED. A broad LIMIT over the whole offers table can
+    # hide an exact itinerary from a recent large monthly scan and incorrectly
+    # trigger another paid scan. Query the approved route/dates first, then apply
+    # the full customer-condition matcher. Only fresh inventory is eligible.
+    db_lookup_kwargs = {
+        "limit": 500,
+        "minimum_score": None,
+        "departure_codes": [departure_airport],
+        "arrival_codes": destination_codes,
+    }
+    if date_mode == "exact":
+        db_lookup_kwargs["outbound_date"] = dep
+        db_lookup_kwargs["return_date"] = ret
     existing_inventory = [
         _localize_offer_airports(o)
-        for o in recent_offers(limit=1500, minimum_score=None)
+        for o in recent_offers(**db_lookup_kwargs)
         if _offer_is_recent(o, 48)
     ] + _qa_fixture_offers()
     existing_matches = _customer_deal_choices(existing_inventory, trip_for_match, limit=5)
