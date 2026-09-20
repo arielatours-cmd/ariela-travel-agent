@@ -2612,6 +2612,17 @@ def ariella_start_flight_search():
         destination_codes = recovered_codes
         if not places:
             places = recovered_labels
+
+    # Country names intentionally resolve to several airports for open country
+    # searches. But once the conversation/itinerary has selected one concrete
+    # gateway city, the approved flight search must use that city only.
+    # Example: state may still say "Bulgaria" while the approved itinerary says
+    # to fly to Sofia; do not scan SOF+VAR+BOJ in that case.
+    if len(destination_codes) > 1 and recovered_codes:
+        narrowed = [code for code in recovered_codes if code in destination_codes]
+        if len(narrowed) == 1:
+            print(f"[CHAT-HANDOFF] narrowing country destination {destination_codes} -> {narrowed} from approved conversation", flush=True)
+            destination_codes = narrowed
     if places and not destination_codes:
         return jsonify({"status":"error","message":"לא הצלחתי לזהות את יעד הטיסה לצורך הסריקה."}), 400
 
