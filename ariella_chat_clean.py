@@ -556,7 +556,14 @@ def _looks_like_approval_typo(message, state=None):
 
 
 def _call_tinkerbell(key, model, history, message, state=None):
-    system = TINKERBELL_SYSTEM + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
+    continuity = """
+כללי שיחה מחייבים לאחר סריקת הטיסות:
+- אם קיימת חופשה פעילה והלקוח ממשיך לדבר עליה, זו אותה חופשה כברירת מחדל. אל תשאלי שוב "אותה חופשה או חופשה חדשה" אלא אם הלקוח עצמו מבקש חופשה חדשה או שיש סתירה אמיתית.
+- אם active_session הוא trip_planning, הישארי בתכנון המסלול. אל תעברי מיוזמתך ללינה, רכב או טיסות ואל תשאלי שאלות על תחום אחר.
+- דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
+- כאשר הצעת מסלול/אטרקציות והלקוח מאשר אותו במפורש או אומר שהוא מתאים, אל תשאלי אם לאשר שוב ואל תציעי לעבור ללינה. סיימי בדיוק בנוסח: "מצוין. אני אשלח לך את כל האינפורמציה לכרטיסיית האטרקציות בכרטיס החופשה שלך. מאחלת לך חופשה נעימה ולכל שאלה נוספת אני תמיד כאן."
+"""
+    system = TINKERBELL_SYSTEM + continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
     return _post_openai(key, model, system, history, message, 1500, include_history=True).strip()
 
 
@@ -1170,6 +1177,30 @@ def chat_clean():
         )
         force_summary_now = bool(trip_update.get("ready_for_summary")) and resolved_all_services
 
+        # A natural confirmation of an already-proposed itinerary closes only
+        # the planning session. Persist the approved plan context for the vacation
+        # card; enrichment (DB prices/ticket links) can consume this state without
+        # reopening the conversation as a questionnaire.
+        msg_confirm = str(message or "").strip().lower()
+        planning_active = str(trip_state.get("active_session") or "") == "trip_planning"
+        prior_assistant = " ".join(
+            str(x.get("content") or "") for x in (history or [])[-4:]
+            if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"
+        )
+        planning_accept = planning_active and msg_confirm in {
+            "כן","כן.","מעולה","מצוין","מצויין","אחלה","נשמע טוב","מתאים","מאשרת","מאשר"
+        } and any(x in prior_assistant for x in ("מסלול","יום ראשון","יום שני","יום שלישי","יום רביעי","אטרק"))
+        if planning_accept:
+            statuses_plan = dict(trip_update.get("session_status") or {})
+            statuses_plan["trip_planning"] = "complete"
+            trip_update["session_status"] = statuses_plan
+            trip_update["active_session"] = None
+            plan = dict(trip_update.get("trip_planning") or {})
+            plan["interested"] = True
+            plan["approved"] = True
+            plan["enrichment_pending"] = True
+            trip_update["trip_planning"] = plan
+
         try:
             reply = _call_tinkerbell(key, model, history, message, trip_update)
         except Exception as exc:
@@ -1177,6 +1208,9 @@ def chat_clean():
             # Preserve Ariella's newly collected state even if the conversational
             # model has a transient failure. The next user turn can continue.
             reply = "קלטתי את הפרטים. נמשיך מכאן."
+
+        if planning_accept:
+            reply = "מצוין. אני אשלח לך את כל האינפורמציה לכרטיסיית האטרקציות בכרטיס החופשה שלך. מאחלת לך חופשה נעימה ולכל שאלה נוספת אני תמיד כאן."
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
