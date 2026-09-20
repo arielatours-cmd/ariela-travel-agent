@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v23'
+ENGINE_VERSION = 'tinkerbell-chat-v24'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -52,7 +52,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
-- אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר.
+- אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'. אם נאמר גם חודש/טווח כמו 'באפריל אחרי ה-15', חשבי את התאריכים האפשריים מתוך המגבלה במקום לבקש שוב משך.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
@@ -385,6 +385,50 @@ def _deterministic_date_facts(history, message, state=None):
         return {}
     return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
 
+def _deterministic_period_facts(message):
+    """Capture a clear weekday/month window so Tinkerbell never re-asks trip length."""
+    import re
+    msg = str(message or "").strip().lower()
+    months = {
+        "ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,
+        "יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12,
+    }
+    weekdays = {"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
+    month = next((n for name,n in months.items() if name in msg), None)
+    pair = re.search(r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\\s*(?:עד|[-–])\\s*(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)", msg)
+    after = re.search(r"אחרי\\s+(?:ה[- ]?)?(\\d{1,2})", msg)
+    if not month or not pair:
+        return {}
+    today = date.today()
+    year = today.year
+    # A month without a year means its next future occurrence.
+    if month < today.month:
+        year += 1
+    min_day = int(after.group(1)) + 1 if after else 1
+    start_wd, end_wd = weekdays[pair.group(1)], weekdays[pair.group(2)]
+    start = None
+    for day in range(min_day, 32):
+        try:
+            candidate = date(year, month, day)
+        except ValueError:
+            break
+        if candidate.weekday() == start_wd:
+            start = candidate
+            break
+    if not start:
+        return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} באפריל {year}"}}
+    delta = (end_wd - start_wd) % 7
+    end = start + timedelta(days=delta)
+    if end.month != month:
+        return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} אחרי {min_day-1}.{month}.{year}"}}
+    return {"dates":{
+        "departure":start.isoformat(),
+        "return":end.isoformat(),
+        "period":f"{pair.group(1)} עד {pair.group(2)}",
+        "constraints":[f"אחרי {min_day-1}.{month}.{year}"],
+    }}
+
+
 def _deterministic_traveler_facts(message):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
     import re
@@ -547,6 +591,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_destination_facts(history, message, trip_update))
+        trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_date_facts(history, message, trip_update))
 
         # A normal trip request to a destination implies Ariella should handle
