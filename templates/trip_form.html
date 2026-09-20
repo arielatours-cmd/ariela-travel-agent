@@ -92,6 +92,19 @@
         const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:approvedTripState,history:currentTripHistory})});
         const started=await start.json().catch(()=>({}));
         if(start.ok&&['success','queued'].includes(started.status)&&started.waiting_url){
+          // The approved trip is now persisted and handed off successfully.
+          // End this conversation commit before leaving for the waiting page.
+          // Ordinary refreshes during an active conversation still preserve state.
+          try{
+            localStorage.removeItem(key);
+            localStorage.removeItem(stateKey);
+            localStorage.removeItem(contextStartKey);
+            // Also clear legacy chat engines so none can resurrect the finished trip.
+            for(const legacyKey of ['ariellaChatState:v8','ariellaChatState:v7','ariellaChatState:v6','ariellaChatState:v4']){
+              localStorage.removeItem(legacyKey);
+            }
+          }catch(e){}
+          history=[];
           location.href=started.waiting_url;return;
         }
         // The approval reply was already rendered above. Never append it twice
