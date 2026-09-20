@@ -671,18 +671,18 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
     if departure_codes:
         clean = [str(x).strip().upper() for x in departure_codes if str(x).strip()]
         if clean:
-            clauses.append("departure_code IN (" + ",".join("?" for _ in clean) + ")")
+            clauses.append("UPPER(TRIM(departure_code)) IN (" + ",".join("?" for _ in clean) + ")")
             params.extend(clean)
     if arrival_codes:
         clean = [str(x).strip().upper() for x in arrival_codes if str(x).strip()]
         if clean:
-            clauses.append("arrival_code IN (" + ",".join("?" for _ in clean) + ")")
+            clauses.append("UPPER(TRIM(arrival_code)) IN (" + ",".join("?" for _ in clean) + ")")
             params.extend(clean)
     if outbound_date:
-        clauses.append("outbound_date = ?")
+        clauses.append("SUBSTR(TRIM(outbound_date),1,10) = ?")
         params.append(str(outbound_date)[:10])
     if return_date:
-        clauses.append("return_date = ?")
+        clauses.append("SUBSTR(TRIM(return_date),1,10) = ?")
         params.append(str(return_date)[:10])
     if clauses:
         query += " WHERE " + " AND ".join(clauses)
@@ -694,6 +694,16 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             int(r["id"]): r["started_at"]
             for r in conn.execute("SELECT id, started_at FROM scan_runs").fetchall()
         }
+        # scan_run_offers is the canonical observation history. Admin already
+        # shows these observation times; DB-first must use the same freshness
+        # source instead of depending only on offers.last_seen_at, which can be
+        # stale on legacy/reused rows.
+        latest_observations = {
+            int(r["offer_id"]): r["latest_seen"]
+            for r in conn.execute(
+                "SELECT offer_id, MAX(observed_at) AS latest_seen FROM scan_run_offers GROUP BY offer_id"
+            ).fetchall()
+        }
 
     result = []
     seen_itineraries = set()
@@ -704,7 +714,7 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
         payload["offer_id"] = item.get("id")
         payload["scan_run_id"] = item.get("scan_run_id")
         payload["observed_at"] = item.get("observed_at") or payload.get("observed_at")
-        payload["last_seen_at"] = item.get("last_seen_at") or item.get("observed_at") or payload.get("observed_at")
+        payload["last_seen_at"] = latest_observations.get(int(item.get("id"))) or item.get("last_seen_at") or item.get("observed_at") or payload.get("observed_at")
         payload["scan_started_at"] = item.get("scan_started_at")
         if item.get("trip_id") is not None:
             payload["trip_id"] = item.get("trip_id")
