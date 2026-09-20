@@ -517,10 +517,25 @@ def _user_gender_from_approval(message, state):
 
 
 def _approval_trigger(message, history, state):
-    """Exact approval executes only after Ariella's authoritative state reached final summary."""
+    """Exact approval executes after the flight summary was visibly presented.
+    Do not depend on a stale ready_for_summary flag from the previous HTTP turn.
+    """
     msg = str(message or "").strip().lower()
+    if msg not in {"מאשר", "מאשרת"}:
+        return False
     state = state if isinstance(state, dict) else {}
-    return msg in {"מאשר", "מאשרת"} and bool(state.get("ready_for_summary"))
+    if state.get("ready_for_summary"):
+        return True
+    # The visible assistant summary is authoritative evidence that we reached
+    # the approval gate; this survives state normalization between turns.
+    recent = [x for x in (history or []) if isinstance(x, dict)][-4:]
+    assistant_text = " ".join(
+        str(x.get("content") or "") for x in recent
+        if str(x.get("role") or "").lower() == "assistant"
+    )
+    return ("כתבי מאשרת" in assistant_text
+            or "כתוב מאשר" in assistant_text
+            or "מאשר/מאשרת" in assistant_text)
 
 def _looks_like_approval_typo(message, state=None):
     """Near-approval text may be clarified, but can never execute a search."""
