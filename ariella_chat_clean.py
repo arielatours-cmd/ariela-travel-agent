@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v46'
+ENGINE_VERSION = 'tinkerbell-chat-v47'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -108,6 +108,11 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17].
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
+- הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
+- כאשר הלקוח מבהיר שהוא רוצה שירות מסוים בלבד, או ששאר השירותים כבר סגורים/לא נחוצים, החזירי service_decisions מפורש לכל ארבעת התחומים: המבוקש wanted=true וכל התחומים שנשללו במשמעות המשפט wanted=false. requested_services יכיל רק את השירותים המבוקשים.
+- הכלל סימטרי: "רק טיסות", "המלון והרכב כבר סגורים, צריכה טיסה", "רק מקום לינה", "הטיסות כבר הוזמנו, תמצאי מלון", "צריך רק רכב", "רק תבני לי מסלול ואטרקציות" הם דוגמאות למשמעות ולא רשימת ביטויים.
+- אל תסיקי ששירותים אחרים נדחו רק מעצם אזכור שירות אחד. "אני רוצה טיסה לסופיה" לבדו מבקש flights אך אינו בהכרח שולל לינה/רכב/מסלול. שלילה של האחרים דורשת משמעות ברורה מההקשר.
+- תשובה קצרה לשאלה האחרונה חייבת להתפרש לפי ההקשר שלה. אם נשאל "תרצי גם לינה?" ונענה "לא", סמני lodging wanted=false בלבד.
 - search_confirmed נקבע רק על ידי מנגנון האישור בקוד, לא על ידך.
 - לאחר עדכון הנתונים חשבי missing_required מה-state המלא והרלוונטי בלבד. הוא רשימת השדות שאריאלה מחזירה לטינקרבל כדי לדעת מה עדיין צריך לברר.
 - אל תסמני כשדה חסר שירות שהלקוח אמר שאינו רוצה.
@@ -553,12 +558,12 @@ def _deterministic_date_facts(history, message, state=None):
     parts.append(str(message or ""))
     text = " ".join(parts)
     found = []
-    for m in re.finditer(r"(?<!\d)(\d{1,2})[./-](\\d{1,2})[./-](20\d{2})(?!\d)", text):
+    for m in re.finditer(r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](20\d{2})(?!\d)", text):
         try:
             found.append(date(int(m.group(3)), int(m.group(2)), int(m.group(1))))
         except ValueError:
             pass
-    for m in re.finditer(r"(?<!\\d)(20\d{2})-(\d{1,2})-(\d{1,2})(?!\d)", text):
+    for m in re.finditer(r"(?<!\d)(20\d{2})-(\d{1,2})-(\d{1,2})(?!\d)", text):
         try:
             found.append(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
         except ValueError:
@@ -961,6 +966,26 @@ def chat_clean():
         # Ariella owns and merges the cumulative state.
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
+        # Service intent is semantic. When the extractor explicitly resolves a
+        # domain as wanted/not-wanted, that decision is authoritative even if an
+        # older requested_services list still contains the domain.
+        extracted_decisions = extracted.get("service_decisions") if isinstance(extracted, dict) and isinstance(extracted.get("service_decisions"), dict) else {}
+        if extracted_decisions:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service in ("flights","lodging","car","trip_planning"):
+                d = extracted_decisions.get(service)
+                wanted = d.get("wanted") if isinstance(d, dict) else d
+                if wanted is True:
+                    services.add(service)
+                    statuses[service] = statuses.get(service) if statuses.get(service) == "complete" else "active"
+                elif wanted is False:
+                    services.discard(service)
+                    statuses[service] = "declined"
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
         # Safety net for facts that must never be re-asked. This helper already
         # existed but was not wired into the live chat path. Run it before
         # missing-field/session calculation so an explicitly stated destination
@@ -968,6 +993,10 @@ def chat_clean():
         trip_update = _merge_trip_state(
             trip_update,
             _deterministic_destination_facts(history, message, trip_state)
+        )
+        trip_update = _merge_trip_state(
+            trip_update,
+            _deterministic_date_facts(history, message, trip_state)
         )
         only_flights_facts = _deterministic_only_flights_facts(message)
         trip_update = _merge_trip_state(trip_update, only_flights_facts)
