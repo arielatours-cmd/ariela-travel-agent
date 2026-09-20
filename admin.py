@@ -413,8 +413,17 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
       {% else %}—{% endif %}
     </td>
     <td class="destination">
+        {% set dest_he = {
+          'VAR':'ורנה','SOF':'סופיה','FCO':'רומא','ATH':'אתונה','LCA':'לרנקה',
+          'BUD':'בודפשט','VIE':'וינה','PRG':'פראג','MXP':'מילאנו','CDG':'פריז',
+          'AMS':'אמסטרדם','BCN':'ברצלונה','MAD':'מדריד','LIS':'ליסבון','LHR':'לונדון',
+          'BER':'ברלין','MUC':'מינכן','ZRH':'ציריך','BRU':'בריסל','OTP':'בוקרשט',
+          'KRK':'קרקוב','WAW':'ורשה','TBS':'טביליסי','EVN':'ירוואן','BEG':'בלגרד',
+          'SKP':'סקופיה','TGD':'פודגוריצה','ZAG':'זאגרב','LJU':'לובליאנה',
+          'BKK':'בנגקוק','HKT':'פוקט','JFK':'ניו יורק'
+        } %}
         <span class="destination-code">{{ o.arrival_code or '—' }}</span>
-        <span class="destination-name">{{ o.destination_name or o.arrival_code or '—' }}</span>
+        <span class="destination-name">{{ dest_he.get((o.arrival_code or '')|upper, o.destination_name or o.arrival_code or '—') }}</span>
     </td>
     <td class="flight-date-col">{{ o.outbound_date or '—' }}</td>
     <td class="flight-date-col">{{ o.return_date or '—' }}</td>
