@@ -8,13 +8,15 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v31'
+ENGINE_VERSION = 'tinkerbell-chat-v32'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
 - את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור את 1–3 השאלות הבאות באופן טבעי, בלי להציג שמות שדות פנימיים ללקוח.
-- הסתמכי על כל מה שכבר נאמר בשיחה ועל מצב החופשה המצטבר כזיכרון. אל תשאלי שוב יעד, תאריכים, נוסעים או העדפות שכבר נאמרו.
+- השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
+- פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
+- אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
@@ -186,10 +188,10 @@ def _extract_output_text(body):
     return ''.join(chunks).strip()
 
 
-def _post_openai(key, model, system_prompt, history, message, max_tokens):
+def _post_openai(key, model, system_prompt, history, message, max_tokens, include_history=True):
     payload = {
         'model': model,
-        # The trip state is the only memory. Never replay older chat turns into a new turn.\n        'input': [{'role': 'developer', 'content': system_prompt}] + _conversation([], message),
+        'input': [{'role': 'developer', 'content': system_prompt}] + _conversation(history[-16:] if include_history else [], message),
         'max_output_tokens': max_tokens,
     }
     response = requests.post(
@@ -441,13 +443,13 @@ def _approval_trigger(message, history, state):
 
 def _call_tinkerbell(key, model, history, message, state=None):
     system = TINKERBELL_SYSTEM + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
-    return _post_openai(key, model, system, history, message, 1500).strip()
+    return _post_openai(key, model, system, history, message, 1500, include_history=True).strip()
 
 
 def _extract_trip_update(key, model, history, message, state=None):
     try:
         system = EXTRACTOR_SYSTEM + '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat()
-        raw = _post_openai(key, model, system, history, message, 900)
+        raw = _post_openai(key, model, system, [], message, 900, include_history=False)
         return _parse_trip_update(raw)
     except Exception:
         return {}
