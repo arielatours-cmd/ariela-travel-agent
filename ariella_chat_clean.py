@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v29'
+ENGINE_VERSION = 'tinkerbell-chat-v30'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -58,7 +58,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כל סעיף שהלקוח צריך לענות עליו נחשב שאלה נפרדת גם אם ניסחת כמה סעיפים בתוך משפט אחד. לדוגמה: "ישירה או קונקשן, מזוודה לכל נוסע, מלון או דירה, ובאיזו רמה?" הן ארבע שאלות ואסור לשלוח אותן יחד.
 - אם חסרים יותר משלושה פרטים, בחרי את 1–3 הפרטים שהכי טבעי לברר עכשיו, המתיני לתשובה, ורק בהודעה הבאה שאלי את היתר.
 - אל תצרפי לשאלה שלוש שאלות ואז תוסיפי בסוף עוד בחירה או שאלה "קטנה". סך כל הדברים שמבקשים מהלקוח להחליט או למסור בהודעה אחת הוא עד שלושה.
-- לטיסות, בדקי בין היתר רק כשחסר ורלוונטי: תקציב לאדם, כבודה, ישירה/קונקשן, מחלקה, מוצא ותאריכים. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
+- לטיסות, בדקי בין היתר רק כשחסר ורלוונטי: תקציב לאדם, כבודה, ישירה/קונקשן, מוצא ותאריכים. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
@@ -83,6 +83,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - התחילי מה-state הקיים. שמרי כל ערך קיים שלא שונה. לעולם אל תמחקי ערך רק כי לא הוזכר שוב.
 - אם הלקוח משנה פרט, החליפי רק את אותו פרט. לדוגמה: "במקום מונטנגרו יוון" מחליף destination בלבד; שינוי תאריכים מחליף dates בלבד.
 - אל תמציאי ואל תנחשי. ערך חסר נשאר חסר.
+- אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים). החיפוש מציג את אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17].
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
@@ -100,7 +101,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "departure_airport":null,
   "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"constraints":[]},
   "budget_per_person":{"amount":null,"currency":null,"status":"unknown"},
-  "flight":{"connection_preference":null,"max_connections":null,"cabin":null,"baggage":[],"preferences":[]},
+  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[]},
   "priorities":[],"hard_constraints":[],"current_request":null,
   "search_intent":false,"requested_services":[],"service_decisions":{},
   "missing_required":[],"ready_for_summary":false,"search_confirmed":false,
@@ -277,8 +278,6 @@ def _required_state_gaps(state):
             gaps.append("departure_airport")
         if not flight.get("connection_preference"):
             gaps.append("flight.connection_preference")
-        if not flight.get("cabin"):
-            gaps.append("flight.cabin")
         if not flight.get("baggage"):
             gaps.append("flight.baggage")
         budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
