@@ -594,8 +594,15 @@ def _start_scan(trip_id, answers):
     threading.Thread(target=worker, daemon=True, name=f"ariella-trip-{trip_id}").start()
 
 
-@travel_agents.post("/api/ariella/chat")
-def ariella_chat():
+# NOTE (route removed): this legacy chat engine used to be bound to
+# POST /api/ariella/chat, colliding with the current engine registered in
+# ariella_chat_v2.py -> ariella_chat_clean.py. Blueprint registration order
+# made THIS legacy handler win, so the live chat widget was silently talking
+# to the old engine instead of chat_clean(). The route is removed so
+# /api/ariella/chat is served only by the current, live code
+# (ariella_chat_clean.chat_clean). This function is kept, unrouted, until
+# it is reviewed and either merged into the live engine or deleted.
+def _legacy_ariella_chat_unused():
     body = request.get_json(silent=True) or {}
     message = str(body.get("message") or "").strip()
     if not message:

@@ -383,19 +383,12 @@ def settings():
     return jsonify({"status": "success", "settings": all_settings()})
 
 
-@app.get("/whatsapp-webhook")
-def whatsapp_webhook_verify():
-    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
-    if request.args.get("hub.mode") == "subscribe" and request.args.get("hub.verify_token") == verify_token and verify_token:
-        return request.args.get("hub.challenge", ""), 200
-    return "Verification failed", 403
-
-
-@app.post("/whatsapp-webhook")
-def whatsapp_webhook_receive():
-    payload = request.get_json(silent=True) or {}
-    app.logger.info("WhatsApp webhook event received: object=%s entries=%s", payload.get("object"), len(payload.get("entry") or []))
-    return jsonify({"status": "received"}), 200
+# NOTE: /whatsapp-webhook used to be registered here too (duplicate of the
+# implementation in whatsapp.py, attached to the `site` blueprint). Having
+# two handlers for the same path/methods is ambiguous routing and only one
+# was ever actually reachable. Removed so there is exactly one WhatsApp
+# webhook implementation (whatsapp.py: whatsapp_webhook, on the `site`
+# blueprint). To adapt/extend behavior, edit whatsapp.py directly.
 
 
 if __name__ == "__main__":
