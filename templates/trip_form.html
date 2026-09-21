@@ -77,7 +77,13 @@
       const data=await r.json().catch(()=>({}));
       if(!r.ok||data.status!=='success')throw new Error(data.message||'chat unavailable');
       if(data.trip_state_reset===true){
+        // A new vacation is a hard structured-state boundary. Visible chat may
+        // remain for the customer, but no prior vacation id/commit/state is allowed
+        // to leak into the new request.
         localStorage.removeItem(stateKey);
+        localStorage.removeItem(committedKey);
+        localStorage.removeItem(continueTripKey);
+        localStorage.removeItem(tripIdKey);
         localStorage.setItem(contextStartKey,String(history.length));
       }else if(data.trip_update&&typeof data.trip_update==='object'){
         localStorage.setItem(stateKey,JSON.stringify(data.trip_update));
