@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v53'
+ENGINE_VERSION = 'tinkerbell-chat-v54'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -976,6 +976,21 @@ def chat_clean():
         locked["session_status"] = statuses
         locked["active_session"] = existing_active
         trip_state = locked
+
+    # Returning to an already-approved flight-only vacation is a navigation
+    # action, not a new conversational turn and never a reason to launch a
+    # duplicate scan. The browser will reopen the existing vacation's flight tab.
+    flight_only_return = (
+        bool(trip_state.get("post_flight_continuation"))
+        and bool(trip_state.get("search_confirmed"))
+        and any(x in msg_lower for x in ("רק טיסה","רק טיסות","טיסה בלבד","טיסות בלבד"))
+    )
+    if flight_only_return:
+        return jsonify({
+            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            'reply':'פרטי הטיסה כבר אושרו. אני מחזירה אותך לטיסות של החופשה הזו.',
+            'trip_update':trip_state,'start_flight_search':False,'open_existing_flights':True
+        })
 
     # Interpret answers to a pending "same vacation or new vacation?" question
     # semantically. The customer can answer naturally; there are no magic phrases.
