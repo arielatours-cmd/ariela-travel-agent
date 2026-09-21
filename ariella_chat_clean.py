@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v57'
+ENGINE_VERSION = 'tinkerbell-chat-v58'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -138,7 +138,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "travelers":{"adults":null,"children":null,"child_ages":[],"infants":null,"composition":null},
   "destination":{"places":[],"mode":null,"status":"unknown"},
   "departure_airport":null,
-  "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"constraints":[]},
+  "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"duration_days":null,"constraints":[]},
   "budget_per_person":{"amount":null,"currency":null,"status":"unknown"},
   "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[]},
   "priorities":[],"hard_constraints":[],"current_request":null,
@@ -705,8 +705,10 @@ def _deterministic_duration_facts(message, state=None):
     else:
         delta_days = max(0, n - 1)
     ret = dep + timedelta(days=delta_days)
+    duration_days = (ret - dep).days + 1
     return {"dates":{"departure":dep.isoformat(),"return":ret.isoformat(),
         "period":f"{dep.strftime('%d.%m.%Y')}–{ret.strftime('%d.%m.%Y')}",
+        "duration_days":duration_days,
         "needs_confirmation":False,"candidate_ranges":[]}}
 
 def _accept_assistant_single_date_proposal(history, message, state=None):
@@ -1417,11 +1419,24 @@ def chat_clean():
             # The approval turn must not ask any more flight questions. It is a
             # deterministic handoff message; the browser keeps it visible for 4s
             # before opening the scan.
-            reply = (
-                "הבקשה אושרה ואני יוצאת לסריקת טיסות. "
-                "כשתרצי, אפשר לחזור לכאן ולהמשיך לתכנן את החופשה עם לינה, "
-                "השכרת רכב, מסלול ואטרקציות."
-            )
+            remaining_labels = {
+                "lodging":"לינה", "car":"השכרת רכב", "trip_planning":"מסלול ואטרקציות"
+            }
+            remaining = [
+                remaining_labels[s] for s in ("lodging","car","trip_planning")
+                if statuses_after_flight.get(s) not in ("complete","declined")
+            ]
+            if remaining:
+                if len(remaining) == 1:
+                    extra = remaining[0]
+                else:
+                    extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
+                reply = (
+                    "הבקשה אושרה ואני יוצאת לסריקת טיסות. "
+                    f"כשתרצי, אפשר לחזור לכאן ולהמשיך עם {extra}."
+                )
+            else:
+                reply = "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
     except Exception as exc:
         logging.exception("ariella chat-clean pipeline failed: %s", exc)
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
