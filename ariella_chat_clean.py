@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-import requests
+import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
@@ -210,33 +210,17 @@ def _weekday_date_conflict(message):
             return f"רק לוודא לפני שממשיכים — {d}.{mo}.{y} יוצא יום {actual}, אבל כתבת יום {day_name}. איזה מהם נכון מבחינתך?"
     return None
 
-def _extract_output_text(body):
-    text = body.get('output_text')
-    if text:
-        return str(text).strip()
-    chunks = []
-    for out in body.get('output') or []:
-        for part in out.get('content') or []:
-            if part.get('type') == 'output_text':
-                chunks.append(part.get('text') or '')
-    return ''.join(chunks).strip()
 
-
-def _post_openai(key, model, system_prompt, history, message, max_tokens, include_history=True):
-    payload = {
-        'model': model,
-        'input': [{'role': 'developer', 'content': system_prompt}] + _conversation(history[-16:] if include_history else [], message),
-        'max_output_tokens': max_tokens,
-    }
-    response = requests.post(
-        'https://api.openai.com/v1/responses',
-        headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-        json=payload,
-        timeout=22,
-    )
-    if response.status_code >= 400:
-        raise RuntimeError(f'OpenAI API error {response.status_code}')
-    return _extract_output_text(response.json())
+def _post_claude(key, model, system_prompt, history, message, max_tokens, include_history=True):
+    client = anthropic.Anthropic(api_key=key)
+    messages = _conversation(history[-16:] if include_history else [], message)
+    try:
+        response = client.messages.create(
+            model=model, max_tokens=max_tokens, system=system_prompt, messages=messages,
+        )
+    except anthropic.APIStatusError as exc:
+        raise RuntimeError(f'Claude API error {exc.status_code}') from exc
+    return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
 
 def _parse_trip_update(text):
@@ -588,7 +572,7 @@ KEEP = הלקוח רוצה להישאר בחופשה הקיימת או רק לש
 UNCLEAR = אי אפשר להבין בבטחה.
 הביני משמעות והקשר; אל תדרשי מילת קסם ואל תסתמכי על התאמת מחרוזת."""
     try:
-        raw = _post_openai(
+        raw = _post_claude(
             key, model, prompt, history if isinstance(history, list) else [],
             "question_kind=" + str(question_kind) + "\nתשובת הלקוח: " + str(message or ""),
             20, include_history=True
@@ -611,7 +595,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - כאשר הצעת מסלול/אטרקציות והלקוח מאשר אותו במפורש או אומר שהוא מתאים, אל תשאלי אם לאשר שוב ואל תציעי לעבור ללינה. סיימי בדיוק בנוסח: "מצוין. אני אשלח לך את כל האינפורמציה לכרטיסיית האטרקציות בכרטיס החופשה שלך. מאחלת לך חופשה נעימה ולכל שאלה נוספת אני תמיד כאן."
 """
     system = TINKERBELL_SYSTEM + continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
-    return _post_openai(key, model, system, history, message, 1500, include_history=True).strip()
+    return _post_claude(key, model, system, history, message, 1500, include_history=True).strip()
 
 
 def _extract_trip_update(key, model, history, message, state=None):
@@ -621,7 +605,7 @@ def _extract_trip_update(key, model, history, message, state=None):
         # question to be interpreted correctly. Keep only a tiny recent window to
         # preserve semantics without paying the latency of the entire conversation.
         recent = (history or [])[-4:]
-        raw = _post_openai(key, model, system, recent, message, 700, include_history=True)
+        raw = _post_claude(key, model, system, recent, message, 700, include_history=True)
         return _parse_trip_update(raw)
     except Exception:
         return {}
@@ -950,8 +934,8 @@ def chat_clean():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
-    key = os.getenv('OPENAI_API_KEY', '').strip()
-    model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
+    key = os.getenv('ANTHROPIC_API_KEY', '').strip()
+    model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
     # After the flight handoff, keep the same vacation as the default context.
     # When the customer asks for one of the remaining services, deterministically
@@ -1224,10 +1208,10 @@ def chat_clean():
     date_conflict = _weekday_date_conflict(message)
     if date_conflict:
         return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
-    key = os.getenv('OPENAI_API_KEY', '').strip()
+    key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     if not key:
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
-    model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
+    model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
     try:
         # Tinkerbell's data-transfer pass tells Ariella what changed.
