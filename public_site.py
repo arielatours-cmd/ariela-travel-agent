@@ -1409,7 +1409,22 @@ def _objective_match_details(offer, trip):
     elif mode == "month":
         add(_offer_matches_trip(offer, trip, same_month=True), "החודשים שביקשת", "Requested months")
 
-    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+    # A requested trip length is an objective condition, including month-flexible
+    # searches ("any five days in June"). Do not present a 21-day fare as a match.
+    try:
+        requested_days = int(answers.get("duration_days") or 0)
+    except (TypeError, ValueError):
+        requested_days = 0
+    if requested_days > 0:
+        try:
+            off_out = _date_from_iso(offer.get("outbound_date"))
+            off_ret = _date_from_iso(offer.get("return_date"))
+            offer_days = (off_ret - off_out).days + 1 if off_out and off_ret else 0
+        except Exception:
+            offer_days = 0
+        add(offer_days == requested_days, f"{requested_days} ימים", f"{requested_days} days")
+
+    if answers.get("budget_mode") in {"per_person","limited"} and answers.get("budget_amount"):
         try:
             add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10, "תקציב", "Budget")
         except (TypeError, ValueError):
@@ -2805,6 +2820,7 @@ def ariella_start_flight_search():
         "departure_date": dep,
         "return_date": ret,
         "date_flex_days": int(dates.get("flexibility_days") or 0),
+        "duration_days": int(dates.get("duration_days") or 0),
         "travel_party": travelers.get("composition") or "",
         "adults": int(travelers.get("adults") or 1),
         "children": int(travelers.get("children") or 0),
