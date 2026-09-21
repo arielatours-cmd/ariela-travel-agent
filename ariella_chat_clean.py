@@ -986,6 +986,32 @@ def chat_clean():
         locked["active_session"] = existing_active
         trip_state = locked
 
+    # A request for a genuinely new vacation after a completed/approved trip is
+    # a hard boundary, not a field edit. Clear the old structured trip immediately
+    # and seed only facts explicitly present in the new request.
+    new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר"))
+    old_trip_committed = bool(trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
+    if new_vacation_language and old_trip_committed:
+        fresh = {
+            'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
+            'active_session':None
+        }
+        seed = _deterministic_destination_facts([], message, {})
+        if seed:
+            fresh = _merge_trip_state(fresh, seed)
+        if any(x in msg_lower for x in ("טיסה","טיסות")):
+            fresh['requested_services'] = ['flights']
+            fresh['active_session'] = 'flights'
+            fresh['session_status']['flights'] = 'active'
+            fresh['service_decisions'] = {'flights':{'wanted':True,'source':'explicit_new_vacation'}}
+        places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
+        reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
+                 if places else "בשמחה. מתחילים חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
+        return jsonify({
+            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
+        })
+
     # Returning to an already-approved flight-only vacation is a navigation
     # action, not a new conversational turn and never a reason to launch a
     # duplicate scan. The browser will reopen the existing vacation's flight tab.
