@@ -91,6 +91,17 @@
         }
       }
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
+      if(data.open_existing_flights===true){
+        history.push({role:'assistant',content:reply,agent:'Ariella'});add('assistant',reply);save();
+        const activeTripId=Number(localStorage.getItem(tripIdKey)||0);
+        await new Promise(resolve=>setTimeout(resolve,1800));
+        if(activeTripId>0){
+          location.href='/account#flights-'+activeTripId;
+        }else{
+          location.href='/account';
+        }
+        return;
+      }
       if(data.start_flight_search===true){
         history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
         // Approval must hand off the complete current-trip conversation. The
