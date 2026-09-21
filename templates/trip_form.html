@@ -91,7 +91,7 @@
       }
       const reply=String(data.reply||'').trim()||'אני איתך 😊';
       if(data.start_flight_search===true){
-        history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);if(savedPlanTripId)addVacationLink(savedPlanTripId);save();
+        history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
         // Approval must hand off the complete current-trip conversation. The
         // context-start marker is only for LLM context after a reset; slicing
         // again here could drop the approved summary/dates and block execution.
