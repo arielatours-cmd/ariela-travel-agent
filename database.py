@@ -322,6 +322,12 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_booking_clicks_clicked_at ON booking_clicks(clicked_at);
             CREATE INDEX IF NOT EXISTS idx_booking_clicks_destination ON booking_clicks(destination_code);
+
+            CREATE TABLE IF NOT EXISTS destination_trends (
+                destination_code TEXT PRIMARY KEY,
+                trend_score REAL NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_payments_paid_at ON payments(paid_at);
             CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 
@@ -982,6 +988,99 @@ def latest_scan_cycle_index() -> int:
     with connection() as conn:
         row = conn.execute("SELECT COUNT(*) AS n FROM scan_runs").fetchone()
     return int(row["n"] or 0)
+
+
+def search_demand_counts() -> dict:
+    """How many times customers explicitly asked for each destination via the
+    trip chat. This is the primary, most trustworthy demand signal."""
+    with connection() as conn:
+        rows = conn.execute("SELECT answers_json FROM trip_requests").fetchall()
+    counts: dict = {}
+    for row in rows:
+        try:
+            answers = json.loads(row["answers_json"] or "{}")
+        except Exception:
+            continue
+        raw = answers.get("destinations") or answers.get("destination_codes") or []
+        if isinstance(raw, str):
+            raw = [x.strip() for x in raw.replace(";", ",").split(",") if x.strip()]
+        specific = answers.get("destination") or answers.get("destination_code")
+        if specific:
+            raw = list(raw) + [specific]
+        for code in {str(x).upper() for x in raw if x}:
+            counts[code] = counts.get(code, 0) + 1
+    return counts
+
+
+def save_destination_trends(scores: dict) -> None:
+    """Cache Google Trends search-interest scores per destination code."""
+    now = utc_now_iso()
+    with connection() as conn:
+        for code, score in scores.items():
+            conn.execute(
+                """INSERT INTO destination_trends(destination_code,trend_score,updated_at) VALUES(?,?,?)
+                   ON CONFLICT(destination_code) DO UPDATE SET trend_score=excluded.trend_score, updated_at=excluded.updated_at""",
+                (str(code).upper(), float(score), now),
+            )
+        conn.commit()
+
+
+def destination_trends(max_age_days: int = 7) -> dict:
+    """Cached Google Trends scores, dropping anything older than max_age_days
+    so a stale/failed refresh doesn't silently freeze the ranking forever."""
+    with connection() as conn:
+        rows = conn.execute("SELECT destination_code,trend_score,updated_at FROM destination_trends").fetchall()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    out: dict = {}
+    for row in rows:
+        try:
+            updated = datetime.fromisoformat(str(row["updated_at"]).replace("Z", "+00:00"))
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+        if updated >= cutoff:
+            out[row["destination_code"]] = row["trend_score"]
+    return out
+
+
+def destination_trends_are_stale(max_age_days: int = 7) -> bool:
+    with connection() as conn:
+        row = conn.execute("SELECT MAX(updated_at) AS latest FROM destination_trends").fetchone()
+    latest = row["latest"] if row else None
+    if not latest:
+        return True
+    try:
+        updated = datetime.fromisoformat(str(latest).replace("Z", "+00:00"))
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+    except Exception:
+        return True
+    return updated < datetime.now(timezone.utc) - timedelta(days=max_age_days)
+
+
+def ranked_destinations(candidates: list, limit: int) -> list:
+    """Pick the most in-demand destinations to scan. Ariella's own customer
+    search requests (trip_requests) are the primary signal; cached Google
+    Trends search interest is a secondary signal that can surface demand
+    before any customer has asked Ariella for it directly. A destination with
+    no signal at all keeps its original position as a fallback, so coverage
+    doesn't collapse before enough demand data has accumulated."""
+    internal = search_demand_counts()
+    trends = destination_trends()
+    max_internal = max(internal.values(), default=0) or 1
+    max_trend = max(trends.values(), default=0) or 1
+
+    def score(dest):
+        code = dest["code"]
+        internal_score = (internal.get(code, 0) / max_internal) * 100
+        trend_score = (trends.get(code, 0) / max_trend) * 100
+        # Explicit on-site requests are stronger intent than general search interest.
+        return internal_score * 2 + trend_score
+
+    order = {id(d): i for i, d in enumerate(candidates)}
+    ranked = sorted(candidates, key=lambda d: (-score(d), order[id(d)]))
+    return ranked[:limit]
 
 
 def recent_scan_runs(limit: int = 20) -> list[dict]:

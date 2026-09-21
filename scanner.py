@@ -10,10 +10,11 @@ import time
 from config import (
     AIRPORT_NAMES, DEPARTURE_AIRPORTS, DEPARTURE_OFFSETS_DAYS, DESTINATIONS,
     MAX_SEARCHES_PER_SCAN, CUSTOMER_SCAN_MAX_API_REQUESTS, SERPAPI_API_KEY, TRIP_LENGTHS_DAYS,
-    DB_PATH, MONTHLY_SCAN_REUSE_HOURS,
+    DB_PATH, MONTHLY_SCAN_REUSE_HOURS, WIDE_SCAN_DESTINATION_LIMIT,
 )
 from database import (create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference,
-    set_setting, latest_scan_cycle_index, update_scan_progress, clear_scan_stop, scan_stop_requested)
+    set_setting, latest_scan_cycle_index, update_scan_progress, clear_scan_stop, scan_stop_requested,
+    ranked_destinations, destination_trends_are_stale, save_destination_trends)
 from scoring import calculate_deal_score
 
 SERPAPI_URL = "https://serpapi.com/search.json"
@@ -204,6 +205,56 @@ def _serpapi_request(params: dict) -> dict:
             if attempt >= 4:
                 raise
     raise last_error or RuntimeError("SerpAPI request failed")
+
+
+_TRENDS_ANCHOR = "טיסות לחו\"ל"
+
+
+def _trends_batch_scores(terms: list[str]) -> dict:
+    """One Google Trends comparison request (SerpApi), the shared anchor plus
+    up to 4 destination terms. Returns {term: average interest 0-100},
+    including the anchor, so separate batches can be normalized against each
+    other through it."""
+    params = {
+        "engine": "google_trends",
+        "api_key": _api_key(),
+        "q": ",".join([_TRENDS_ANCHOR] + terms),
+        "data_type": "TIMESERIES",
+        "geo": "IL",
+        "date": "today 3-m",
+    }
+    data = _serpapi_request(params)
+    timeline = (data.get("interest_over_time") or {}).get("timeline_data") or []
+    sums: dict = {}
+    counts: dict = {}
+    for point in timeline:
+        for entry in point.get("values") or []:
+            query = entry.get("query")
+            value = entry.get("extracted_value")
+            if query and isinstance(value, (int, float)):
+                sums[query] = sums.get(query, 0) + value
+                counts[query] = counts.get(query, 0) + 1
+    return {q: sums[q] / counts[q] for q in sums if counts[q]}
+
+
+def fetch_destination_search_trends(destinations: list[dict]) -> dict:
+    """Google Trends search-interest score per destination code (Israel, last
+    3 months), batched 4-at-a-time against a shared anchor term so every
+    destination ends up on one comparable scale. Best-effort: a batch that
+    fails is skipped rather than aborting the whole refresh."""
+    scores: dict = {}
+    for i in range(0, len(destinations), 4):
+        chunk = destinations[i:i + 4]
+        try:
+            batch = _trends_batch_scores([d["name"] for d in chunk])
+        except Exception:
+            continue
+        anchor_value = batch.get(_TRENDS_ANCHOR) or 1
+        for dest in chunk:
+            value = batch.get(dest["name"])
+            if value is not None:
+                scores[dest["code"]] = round((value / anchor_value) * 100, 1)
+    return scores
 
 
 def _roundtrip_params(departure: str, arrival: str, outbound_date: str, return_date: str, adults: int = 1, children: int = 0, travel_class: str = "1") -> dict:
@@ -733,9 +784,11 @@ def run_hourly_scan(max_searches: int | None = None) -> dict:
 
 
 def _wide_search_jobs(limit: int | None = None) -> list[dict]:
-    """One rotating vacation window per destination across the full six-month horizon."""
+    """One rotating vacation window per destination across the full six-month horizon.
+    Only the most in-demand destinations are scanned; see ranked_destinations()."""
     today = date.today()
-    max_items = min(limit or len(DESTINATIONS), len(DESTINATIONS))
+    max_items = min(limit or WIDE_SCAN_DESTINATION_LIMIT, len(DESTINATIONS))
+    destinations = ranked_destinations(DESTINATIONS, max_items)
 
     # Dense six-month coverage, not a handful of near-identical dates.
     offsets = [14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84, 91,
@@ -751,7 +804,7 @@ def _wide_search_jobs(limit: int | None = None) -> list[dict]:
 
     jobs = []
     origins = [str(x).upper() for x in DEPARTURE_AIRPORTS if x] or ["TLV"]
-    for i, destination in enumerate(DESTINATIONS[:max_items]):
+    for i, destination in enumerate(destinations):
         j = i + cycle
         offset = offsets[j % len(offsets)]
         trip_length = lengths[(j // len(offsets) + i) % len(lengths)]
@@ -771,8 +824,22 @@ def _wide_search_jobs(limit: int | None = None) -> list[dict]:
     return jobs
 
 
+def _maybe_refresh_destination_trends() -> None:
+    """Refresh cached Google Trends search-interest scores when stale (weekly).
+    Best-effort: the wide scan must still run on the internal demand signal
+    (and the static fallback order) if Trends is unavailable."""
+    try:
+        if destination_trends_are_stale():
+            scores = fetch_destination_search_trends(DESTINATIONS)
+            if scores:
+                save_destination_trends(scores)
+    except Exception:
+        pass
+
+
 def run_wide_scan(max_destinations: int | None = None) -> dict:
-    limit = max(1, min(int(max_destinations or len(DESTINATIONS)), len(DESTINATIONS)))
+    limit = max(1, min(int(max_destinations or WIDE_SCAN_DESTINATION_LIMIT), len(DESTINATIONS)))
+    _maybe_refresh_destination_trends()
     return _run_jobs_scan(_wide_search_jobs(limit), max_outbounds_per_route=3, max_api_requests=220, scan_type="wide")
 
 

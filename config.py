@@ -22,6 +22,7 @@ DAILY_SEND_HOUR = int(os.getenv("DAILY_SEND_HOUR", "17"))
 DAILY_SEND_MINUTE = int(os.getenv("DAILY_SEND_MINUTE", "0"))
 WIDE_SCAN_HOUR = int(os.getenv("WIDE_SCAN_HOUR", "6"))
 WIDE_SCAN_MINUTE = int(os.getenv("WIDE_SCAN_MINUTE", "15"))
+WIDE_SCAN_DESTINATION_LIMIT = int(os.getenv("WIDE_SCAN_DESTINATION_LIMIT", "30"))
 
 DESTINATIONS = [
     {"code": "ATH", "name": "אתונה", "country_flag": "🇬🇷"}, {"code": "LCA", "name": "לרנקה", "country_flag": "🇨🇾"}, {"code": "PFO", "name": "פאפוס", "country_flag": "🇨🇾"},
