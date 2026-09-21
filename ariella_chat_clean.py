@@ -109,7 +109,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אריאלה היא בעלת ה-state. כל פרט שהלקוח מסר וטינקרבל הבינה חייב להיכתב בשדה המתאים.
 - התחילי מה-state הקיים. שמרי כל ערך קיים שלא שונה. לעולם אל תמחקי ערך רק כי לא הוזכר שוב.
 - ה-state שקיבלת הוא הזיכרון היחיד. אסור לשחזר עובדות מהודעות קודמות שאינן נמצאות בו.
-- יש state מרכזי אחד לחופשה. destination, destination_airports, departure_airport, dates, travelers, budget_per_person והעדפות טיסה הם מידע משותף בין כל הסשנים. מעבר בין flights/lodging/car/trip_planning לעולם אינו מאפס אותם ולעולם אינו מצדיק לשאול אותם שוב.
+- יש state מרכזי אחד לחופשה. destination, destination_airports, return_departure_airports, departure_airport, dates, travelers, budget_per_person והעדפות טיסה הם מידע משותף בין כל הסשנים. מעבר בין flights/lodging/car/trip_planning לעולם אינו מאפס אותם ולעולם אינו מצדיק לשאול אותם שוב.
 - תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות.
 - כאשר הלקוח מבקש לעבור לשירות אחר, שאלי רק על missing_required של אותו שירות אחרי קריאת כל המידע המשותף. אל תפתחי שאלון מחדש.
 - session_status כולל תמיד flights/lodging/car/trip_planning, וכל אחד הוא pending/active/complete/declined. אל תסמני complete רק כי הלקוח הזכיר את התחום; אריאלה מחשבת השלמה לפי שדות החובה.
@@ -123,7 +123,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
-- הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA שנבחרו בפועל לחיפוש.
+- הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
 - אם נאמרה מדינה או יעד רחב עם כמה שערי כניסה סבירים, אל תמציאי שדה יעד ואל תסמני את בחירת היעד לטיסה כמושלמת. destination_airports נשאר ריק עד שהלקוח בוחר אחד/כמה/כולם, או עד שמסלול שאושר קובע את שער הכניסה.
 - כאשר הלקוח מבהיר שהוא רוצה שירות מסוים בלבד, או ששאר השירותים כבר סגורים/לא נחוצים, החזירי service_decisions מפורש לכל ארבעת התחומים: המבוקש wanted=true וכל התחומים שנשללו במשמעות המשפט wanted=false. requested_services יכיל רק את השירותים המבוקשים.
@@ -468,6 +468,11 @@ def _required_state_gaps(state):
         destination_mode = str(destination.get("mode") or "").lower()
         if destination_mode in {"country","region","area","broad"} and not destination_airports:
             gaps.append("destination_airports")
+        # Return gateway defaults to the outbound arrival gateway. It is only a
+        # separate required fact when the customer explicitly asks for open-jaw.
+        return_airports = state.get("return_departure_airports") if isinstance(state.get("return_departure_airports"), list) else []
+        if state.get("open_jaw_requested") and not return_airports:
+            gaps.append("return_departure_airports")
         # Ask direct-vs-connection only when a verified nonstop route exists
         # for this origin/destination/date. Otherwise connections are simply ranked results.
         if _direct_route_available(state) and not flight.get("connection_preference"):
@@ -1458,10 +1463,28 @@ def chat_clean():
             # The extractor response to the word מאשרת must never erase/replace them.
             if isinstance(trip_state.get('dates'), dict) and trip_state.get('dates', {}).get('departure') and trip_state.get('dates', {}).get('return'):
                 merged['dates'] = dict(trip_state['dates'])
-            # Exact מאשר/מאשרת is the execution command. Required-field validation
-            # belongs to the structured execution endpoint; it must never silently
-            # suppress the handoff and leave the user in chat.
-            merged["search_intent"] = True
+            # Never approve/launch a scan while a required flight fact is still
+            # missing. Ask for that fact first, then summarize and request approval again.
+            approval_gaps = _session_gaps(merged, "flights")
+            if approval_gaps:
+                merged["search_intent"] = True
+                merged["search_confirmed"] = False
+                merged["ready_for_summary"] = False
+                merged["session_status"] = dict(merged.get("session_status") or {})
+                merged["session_status"]["flights"] = "active"
+                merged["active_session"] = "flights"
+                trip_update = merged
+                if "destination_airports" in approval_gaps:
+                    reply = "לפני שאצא לסריקה צריך להשלים את שדה היעד לנחיתה בהלוך. באיזה שדה תרצי לנחות?"
+                elif "return_departure_airports" in approval_gaps:
+                    reply = "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
+                elif "budget_per_person" in approval_gaps:
+                    reply = "לפני הסריקה חסר לי התקציב לאדם. מה התקציב, או שאין מגבלת תקציב?"
+                else:
+                    reply = "לפני שאצא לסריקה חסר עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
+                approval = False
+            else:
+                merged["search_intent"] = True
             merged["search_confirmed"] = True
             merged["ready_for_summary"] = True
             merged["user_gender"] = _user_gender_from_approval(message, merged)
