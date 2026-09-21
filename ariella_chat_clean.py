@@ -555,6 +555,32 @@ def _looks_like_approval_typo(message, state=None):
                for target in ("מאשר", "מאשרת")) >= 0.72
 
 
+def _interpret_pending_choice(key, model, history, message, question_kind):
+    """Interpret free-form customer answers to a pending conversational choice."""
+    if not key:
+        return "unclear"
+    prompt = """את מסווגת כוונת לקוח מתוך הקשר השיחה. הלקוח רשאי לענות בכל ניסוח טבעי וגם עם שגיאות כתיב.
+החזירי מילה אחת בלבד.
+כאשר question_kind=new_vacation:
+NEW = הלקוח רוצה להתחיל חופשה חדשה ולוותר על פרטי החופשה הקודמת.
+KEEP = הלקוח רוצה להישאר בחופשה הקיימת או רק לשנות בה פרט.
+UNCLEAR = אי אפשר להבין בבטחה.
+הביני משמעות והקשר; אל תדרשי מילת קסם ואל תסתמכי על התאמת מחרוזת."""
+    try:
+        raw = _post_openai(
+            key, model, prompt, history if isinstance(history, list) else [],
+            "question_kind=" + str(question_kind) + "\nתשובת הלקוח: " + str(message or ""),
+            20, include_history=True
+        ).strip().upper()
+        if raw.startswith("NEW"):
+            return "new"
+        if raw.startswith("KEEP"):
+            return "keep"
+    except Exception:
+        pass
+    return "unclear"
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     continuity = """
 כללי שיחה מחייבים לאחר סריקת הטיסות:
@@ -898,6 +924,8 @@ def chat_clean():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
+    key = os.getenv('OPENAI_API_KEY', '').strip()
+    model = os.getenv('ARIELLA_MODEL', 'gpt-5.6-luna').strip()
 
     # After the flight handoff, keep the same vacation as the default context.
     # When the customer asks for one of the remaining services, deterministically
@@ -937,28 +965,35 @@ def chat_clean():
         locked["active_session"] = existing_active
         trip_state = locked
 
-    # When Ariella's immediately previous message already asked whether this is
-    # the same vacation or a new one, a short "חדשה" is an explicit choice, not a
-    # new ambiguous reset request. Start a clean vacation immediately instead of
-    # asking the customer the same confirmation twice.
+    # Interpret answers to a pending "same vacation or new vacation?" question
+    # semantically. The customer can answer naturally; there are no magic phrases.
     last_assistant = ""
     for _item in reversed(history):
         if isinstance(_item, dict) and str(_item.get("role") or "").lower() == "assistant":
             last_assistant = str(_item.get("content") or "").strip().lower()
             break
-    _new_trip_short_answers = {"חדשה", "חופשה חדשה", "טיול חדש", "חדש"}
-    _previous_asked_same_or_new = (
-        ("אותה חופשה" in last_assistant and "חדשה" in last_assistant)
-        or ("חופשה חדשה" in last_assistant and ("הקודמת" in last_assistant or "הנוכחית" in last_assistant))
-        or ("חופשה חדשה" in last_assistant and ("למחוק" in last_assistant or "להתחיל" in last_assistant))
+    _previous_asked_new_vacation = (
+        "חופשה" in last_assistant and "חדשה" in last_assistant
+        and ("הקודמת" in last_assistant or "הנוכחית" in last_assistant or "אותה חופשה" in last_assistant or "למחוק" in last_assistant or "להתחיל" in last_assistant)
     )
-    if str(message or "").strip().lower() in _new_trip_short_answers and _previous_asked_same_or_new:
-        return jsonify({
-            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?',
-            'trip_update':{'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None},
-            'start_flight_search':False,'trip_state_reset':True
-        })
+    if _previous_asked_new_vacation:
+        _intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
+        if _intent == "new":
+            return jsonify({
+                'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                'reply':'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?',
+                'trip_update':{'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None},
+                'start_flight_search':False,'trip_state_reset':True
+            })
+        if _intent == "keep":
+            kept = dict(trip_state)
+            kept["reset_pending"] = False
+            kept.pop("reset_change_request", None)
+            return jsonify({
+                'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                'reply':'בשמחה. מה תרצי לשנות בחופשה הנוכחית?',
+                'trip_update':kept,'start_flight_search':False
+            })
 
     # General restart/change-of-direction always enters a simple yes/no gate.
     # Never erase collected trip facts before an explicit confirmation.
