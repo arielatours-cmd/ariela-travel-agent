@@ -16,6 +16,7 @@ from database import (create_scan_run, finish_scan_run, get_setting, insert_offe
     set_setting, latest_scan_cycle_index, update_scan_progress, clear_scan_stop, scan_stop_requested,
     ranked_destinations, destination_trends_are_stale, save_destination_trends)
 from scoring import calculate_deal_score
+from baggage_pricing import policy_personal_item_included
 
 SERPAPI_URL = "https://serpapi.com/search.json"
 HEBREW_WEEKDAYS = {0: "יום שני", 1: "יום שלישי", 2: "יום רביעי", 3: "יום חמישי", 4: "יום שישי", 5: "שבת", 6: "יום ראשון"}
@@ -505,6 +506,7 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     base_baggage = dict(flight.get("baggage") or {})
     carry = dict(base_baggage.get("carry_on_8kg") or {})
     checked = dict(base_baggage.get("checked_bag_23kg") or {})
+    personal = dict(base_baggage.get("personal_item") or {})
     if baggage["carry_on_roundtrip_ils"] is not None:
         carry["roundtrip_price_ils"] = baggage["carry_on_roundtrip_ils"]
         carry["estimated"] = baggage["carry_on_estimated"]
@@ -515,8 +517,19 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
         checked["estimated"] = baggage["checked_bag_estimated"]
         checked["known"] = True
         checked["included"] = baggage["checked_bag_roundtrip_ils"] == 0
+    # A personal item is almost never itemized as a paid add-on by SerpApi, so
+    # without this, scoring never credits it even though nearly every airline
+    # includes it. Apply the same known-airline-policy fallback used for
+    # display (database.py) here too, so scoring sees it from the start.
+    out_airline = flight.get("outbound_airline_code") or flight.get("airline_code") or flight.get("airline")
+    ret_airline = flight.get("return_airline_code") or flight.get("return_airline") or out_airline
+    if personal.get("included") is not True and policy_personal_item_included(out_airline, ret_airline):
+        personal["included"] = True
+        personal["known"] = True
+        personal["source"] = "airline_policy"
     base_baggage["carry_on_8kg"] = carry
     base_baggage["checked_bag_23kg"] = checked
+    base_baggage["personal_item"] = personal
     flight["baggage"] = base_baggage
     return flight, 1
 
