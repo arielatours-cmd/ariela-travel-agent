@@ -950,6 +950,7 @@ def chat_clean():
     _previous_asked_same_or_new = (
         ("אותה חופשה" in last_assistant and "חדשה" in last_assistant)
         or ("חופשה חדשה" in last_assistant and ("הקודמת" in last_assistant or "הנוכחית" in last_assistant))
+        or ("חופשה חדשה" in last_assistant and ("למחוק" in last_assistant or "להתחיל" in last_assistant))
     )
     if str(message or "").strip().lower() in _new_trip_short_answers and _previous_asked_same_or_new:
         return jsonify({
