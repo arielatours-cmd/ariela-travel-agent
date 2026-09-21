@@ -633,6 +633,7 @@ def _deterministic_destination_facts(history, message, state=None):
         "איטליה": "איטליה", "italy": "Italy",
         "בולגריה": "בולגריה", "bulgaria": "Bulgaria",
         "אלבניה": "אלבניה", "albania": "Albania",
+        "מלטה": "מלטה", "malta": "Malta",
         "קרואטיה": "קרואטיה", "croatia": "Croatia",
         "תאילנד": "תאילנד", "thailand": "Thailand",
     }
@@ -1031,9 +1032,22 @@ def chat_clean():
         pending = dict(trip_state)
         pending["reset_pending"] = True
         pending["reset_change_request"] = message
+        # When the current interaction is flight-only, the reset gate applies only
+        # to flight-search details. Shared vacation/other-service data is untouched.
+        statuses_reset = trip_state.get("session_status") if isinstance(trip_state.get("session_status"), dict) else {}
+        flight_only_reset = (
+            str(trip_state.get("active_session") or "") == "flights"
+            or (statuses_reset.get("flights") in {"active","complete"} and not any(statuses_reset.get(s) == "active" for s in ("lodging","car","trip_planning")))
+        )
+        pending["reset_scope"] = "flights" if flight_only_reset else "vacation"
+        question = (
+            "האם תרצי למחוק את כל פרטי הטיסה הקיימים ולהתחיל מחדש?"
+            if flight_only_reset else
+            "רוצה למחוק את כל פרטי החופשה הנוכחית ולהתחיל מחדש?"
+        )
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':'רוצה למחוק את כל פרטי החופשה הנוכחית ולהתחיל מחדש?',
+            'reply':question,
             'trip_update':pending,'start_flight_search':False
         })
 
@@ -1043,10 +1057,28 @@ def chat_clean():
         no_answers = {"לא", "לא.", "לא!", "לא תודה"}
 
         if msg_norm in yes_answers:
+            original_change = str(trip_state.get("reset_change_request") or "").strip()
+            if trip_state.get("reset_scope") == "flights":
+                fresh = dict(trip_state)
+                for key_name in ("departure_airport","destination_airports","flight","budget_per_person","search_confirmed","ready_for_summary"):
+                    fresh.pop(key_name, None)
+                fresh["dates"] = {}
+                statuses_fresh = dict(fresh.get("session_status") or {})
+                statuses_fresh["flights"] = "active"
+                fresh["session_status"] = statuses_fresh
+                fresh["active_session"] = "flights"
+                fresh["search_intent"] = True
+                fresh["reset_pending"] = False
+                fresh.pop("reset_scope", None)
+                fresh.pop("reset_change_request", None)
+                return jsonify({
+                    'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                    'reply':'בסדר. מחקתי את פרטי הטיסה. לאן תרצי לטוס ובאיזו תקופה?',
+                    'trip_update':fresh,'start_flight_search':False
+                })
             # The message that triggered the reset gate may already contain facts
             # for the NEW vacation ("I want you to plan Greece"). Preserve those
             # facts across the confirmation instead of asking for them again.
-            original_change = str(trip_state.get("reset_change_request") or "").strip()
             fresh = {
                 'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
                 'active_session':None
@@ -1079,7 +1111,7 @@ def chat_clean():
             # the trip facts and let the next turn continue from that context.
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                'reply':'מה תרצי לשנות בחופשה הנוכחית?',
+                'reply':('מה תרצי לשנות בפרטי הטיסה?' if trip_state.get("reset_scope") == "flights" else 'מה תרצי לשנות בחופשה הנוכחית?'),
                 'trip_update':kept,'start_flight_search':False
             })
 
@@ -1088,14 +1120,14 @@ def chat_clean():
         pending = dict(trip_state)
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':'רק כדי לוודא: למחוק את כל פרטי החופשה ולהתחיל מחדש? כן או לא?',
+            'reply':('רק כדי לוודא: למחוק את כל פרטי הטיסה? כן או לא?' if trip_state.get("reset_scope") == "flights" else 'רק כדי לוודא: למחוק את כל פרטי החופשה ולהתחיל מחדש? כן או לא?'),
             'trip_update':pending,'start_flight_search':False
         })
 
     # Destination replacement is the only ordinary field change that requires
     # confirmation because route/lodging/car destination-dependent facts become stale.
     import re
-    known_destinations = ("יוון","מונטנגרו","איטליה","בולגריה","אלבניה","קרואטיה","תאילנד")
+    known_destinations = ("יוון","מונטנגרו","איטליה","בולגריה","אלבניה","קרואטיה","תאילנד","מלטה")
     current_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
     current_places = current_destination.get("places") or []
     destination_change = None
