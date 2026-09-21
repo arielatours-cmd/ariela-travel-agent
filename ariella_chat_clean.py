@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v54'
+ENGINE_VERSION = 'tinkerbell-chat-v55'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -644,8 +644,6 @@ def _deterministic_date_facts(history, message, state=None):
     import re
     state = state if isinstance(state, dict) else {}
     current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
-    if current_dates.get("departure") and current_dates.get("return"):
-        return {}
     parts = [str(x.get("content") or "") for x in (history or []) if isinstance(x, dict)]
     parts.append(str(message or ""))
     text = " ".join(parts)
@@ -1181,9 +1179,18 @@ def chat_clean():
         # Dates may change only when the current message itself contains a new
         # deterministic date fact/range.
         prior_dates = trip_state.get("dates") if isinstance(trip_state.get("dates"), dict) else {}
-        current_date_facts = _deterministic_date_facts([], message, trip_state)
+        current_date_facts = _deterministic_date_facts([], message, {})
         current_dates = current_date_facts.get("dates") if isinstance(current_date_facts, dict) and isinstance(current_date_facts.get("dates"), dict) else {}
-        if prior_dates.get("departure") and prior_dates.get("return") and not current_dates:
+        # An explicit new date range in the CURRENT customer message overrides the
+        # old approved range. Sticky dates protect against unrelated turns only;
+        # they must never block a correction such as "change it to 23-27 May 2027".
+        if current_dates:
+            trip_update["dates"] = dict(current_dates)
+            trip_update["dates"]["needs_confirmation"] = False
+            trip_update["dates"]["candidate_ranges"] = []
+            trip_update["search_confirmed"] = False
+            trip_update["ready_for_summary"] = False
+        elif prior_dates.get("departure") and prior_dates.get("return"):
             locked_dates = dict(prior_dates)
             # Exact dates are authoritative. Do not preserve stale proposal flags
             # from an earlier candidate-selection phase.
