@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request, session
 from config import DB_PATH
 import sqlite3
-from travel_agents import _conversation
+from travel_agents import _conversation, _load_airports
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -72,6 +72,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - יעד גאוגרפי ושדה תעופה יעד הם שני נתונים נפרדים. אזור אינו מידע חובה. אם הלקוח כתב מדינה או יעד רחב שיכולים להתאים ליותר משדה תעופה אחד, אל תשאלי קודם "איזה אזור?" רק כדי להשלים מידע. הציגי בקצרה את שדות התעופה/ערי השער הרלוונטיים ותני אפשרות לבחור אחד, כמה, את כולם, או לבקש קודם בניית מסלול ואז לגזור ממנו את שדה/שדות היעד.
 - לדוגמה "צפון איטליה" אינו "רומא". יש להתייחס אליו כאזור באיטליה ולהשלים שדה/שדות יעד צפוניים מתאימים לפני סיכום הטיסה.
 - אם הלקוח בוחר כמה שדות או "כולם", שמרי את כולם ב-destination_airports. אם הוא מבקש קודם מסלול, אל תאשרי חיפוש טיסה עד שהמסלול קבע gateway מתאים.
+- לפני שמציעים שדה תעופה כאופציה ליעד מסוים, ודאי שהוא באמת באותה מדינה שהלקוח ביקש. אם ההצעה היחידה הסבירה היא שדה במדינה שכנה (למשל זאגרב בקרואטיה עבור יעד בסלובניה), חובה לציין זאת במפורש ולתת ללקוח לבחור מדעת, ולא להציג אותו כאילו הוא בתוך היעד המבוקש.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה.
@@ -217,6 +218,10 @@ def _post_claude(key, model, system_prompt, history, message, max_tokens, includ
     try:
         response = client.messages.create(
             model=model, max_tokens=max_tokens, system=system_prompt, messages=messages,
+            # Reply generation and state extraction are both simple, well-specified
+            # tasks (natural conversation, structured JSON) - extended thinking adds
+            # latency here without improving output, so keep it off for speed.
+            thinking={'type': 'disabled'},
         )
     except anthropic.APIStatusError as exc:
         raise RuntimeError(f'Claude API error {exc.status_code}') from exc
@@ -301,7 +306,10 @@ def _sessionize_state(state):
     if active not in statuses or statuses.get(active) in ("complete","declined"):
         active = None
     if not active:
-        active = next((s for s in ("flights","lodging","car","trip_planning") if statuses[s] == "active"), None)
+        # "flights" is the domain most likely to get auto-marked active purely
+        # from a destination being known (see the block above), so it must not
+        # win this tie-break over a session the customer explicitly chose.
+        active = next((s for s in ("trip_planning","lodging","car","flights") if statuses[s] == "active"), None)
 
     state["requested_services"] = list(dict.fromkeys(list(state.get("requested_services") or []) + list(services)))
     state["session_status"] = statuses
@@ -397,6 +405,49 @@ def _direct_route_available(state):
         return bool(row)
     except Exception:
         return False
+
+
+def _resolve_destination_airports_from_route(state):
+    """Deterministic safety net: once trip planning has confirmed a day-by-day
+    route, derive the flight gateway from it (or from a plain destination name)
+    the same way the scanner resolves free-text places to IATA codes, instead
+    of relying on the extractor to remember to copy it over every turn. Without
+    this, returning to the flight session after route planning can re-ask a
+    question the route itself already answered."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("destination_airports"):
+        return state
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
+    route = details.get("route") if isinstance(details.get("route"), list) else []
+    names = []
+    for day in route:
+        if isinstance(day, dict):
+            base = day.get("base") or day.get("city") or day.get("region")
+            if base:
+                names.append(str(base))
+    if not names:
+        destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+        names = [str(p) for p in (destination.get("places") or []) if p]
+    if not names:
+        return state
+    airports = _load_airports()
+    codes = []
+    for name in names:
+        needle = str(name).strip().lower()
+        if not needle:
+            continue
+        for airport in airports:
+            hay = " ".join(str(airport.get(k) or "") for k in ("country_he", "country_en", "city_he", "city_en")).lower()
+            if hay and (needle in hay or hay in needle):
+                code = str(airport.get("code") or "").upper()
+                if code and code not in codes:
+                    codes.append(code)
+    if not codes:
+        return state
+    state = dict(state)
+    state["destination_airports"] = codes[:4]
+    return state
 
 
 def _required_state_gaps(state):
@@ -1333,6 +1384,9 @@ def chat_clean():
             statuses_lock[locked_post_flight_session] = "active"
             trip_update["session_status"] = statuses_lock
             trip_update["active_session"] = locked_post_flight_session
+        # A confirmed route settles the flight gateway even if the extractor
+        # forgot to copy it into destination_airports this turn.
+        trip_update = _resolve_destination_airports_from_route(trip_update)
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
 
