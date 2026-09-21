@@ -1238,5 +1238,15 @@
     "country": "UZ",
     "country_en": "Uzbekistan",
     "country_he": "אוזבקיסטן"
+  },
+  {
+    "code": "MLA",
+    "city_he": "מלטה",
+    "city_en": "Malta",
+    "name_he": "נמל התעופה הבינלאומי של מלטה",
+    "name_en": "Malta International Airport",
+    "country_he": "מלטה",
+    "country_en": "Malta",
+    "country": "Malta"
   }
 ]
