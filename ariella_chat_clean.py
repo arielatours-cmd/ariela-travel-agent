@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v55'
+ENGINE_VERSION = 'tinkerbell-chat-v56'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -1038,10 +1038,30 @@ def chat_clean():
         no_answers = {"לא", "לא.", "לא!", "לא תודה"}
 
         if msg_norm in yes_answers:
+            # The message that triggered the reset gate may already contain facts
+            # for the NEW vacation ("I want you to plan Greece"). Preserve those
+            # facts across the confirmation instead of asking for them again.
+            original_change = str(trip_state.get("reset_change_request") or "").strip()
+            fresh = {
+                'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
+                'active_session':None
+            }
+            pending_destination = _deterministic_destination_facts([], original_change, {})
+            if pending_destination:
+                fresh = _merge_trip_state(fresh, pending_destination)
+            if any(x in original_change.lower() for x in ("מסלול","לתכנן טיול","תכנון טיול","אטרקציות")):
+                fresh['requested_services'] = ['trip_planning']
+                fresh['active_session'] = 'trip_planning'
+                fresh['session_status']['trip_planning'] = 'active'
+                fresh['service_decisions'] = {'trip_planning':{'wanted':True}}
+            places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
+            if places:
+                reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה תרצי לנסוע?"
+            else:
+                reply = 'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?'
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                'reply':'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?',
-                'trip_update':{'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None},'start_flight_search':False,'trip_state_reset':True
+                'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
             })
 
         if msg_norm in no_answers:
