@@ -189,7 +189,16 @@
     history.push({role:'user',content:text});add('user',text);save();
     input.value='';input.style.height='auto';askTinkerbell(text,cleanCommittedRestart||(freshSearch&&!hasActiveTripState));
   });
-  input.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';});
+  function scrollChatToLatest(){
+    requestAnimationFrame(()=>{box.scrollTop=box.scrollHeight;});
+    setTimeout(()=>{box.scrollTop=box.scrollHeight;},180);
+    setTimeout(()=>{box.scrollTop=box.scrollHeight;},420);
+  }
+  input.addEventListener('focus',scrollChatToLatest);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',()=>{if(document.activeElement===input)scrollChatToLatest();});
+  }
+  input.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';scrollChatToLatest();});
   input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit();}});
 })();
 </script>
