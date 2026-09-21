@@ -1059,17 +1059,35 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
                                     continue
                                 jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
             else:
+                # Month-based personal searches must search the vacation duration
+                # the customer actually requested. Do not spend API calls on arbitrary
+                # return dates and only filter them after the scan.
+                try:
+                    requested_days = int(answers.get("duration_days") or answers.get("_requested_trip_length_days") or 0)
+                except (TypeError, ValueError):
+                    requested_days = 0
+                requested_days = max(2, min(21, requested_days)) if requested_days else 0
                 out_starts = [out_first + timedelta(days=d) for d in (3, 10, 17, 24)]
-                ret_starts = [ret_first + timedelta(days=d) for d in (3, 10, 17, 24)]
                 for arrival in arrivals:
                     for origin in origins:
                         for start in out_starts:
                             if start.month != out_first.month:
                                 continue
-                            for ret in ret_starts:
-                                if ret <= start or ret.month != ret_first.month:
+                            if requested_days:
+                                # duration_days is inclusive calendar vacation length:
+                                # a 5-day vacation departing June 4 returns June 8.
+                                ret = start + timedelta(days=requested_days - 1)
+                                if ret <= start or ret.strftime("%Y-%m") != return_month:
                                     continue
                                 jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
+                            else:
+                                # Legacy fallback only when the customer never supplied
+                                # a duration. Existing month behavior is preserved.
+                                for ret_day in (3, 10, 17, 24):
+                                    ret = ret_first + timedelta(days=ret_day)
+                                    if ret <= start or ret.month != ret_first.month:
+                                        continue
+                                    jobs.append({"departure": origin, "arrival": arrival, "outbound": start.isoformat(), "return": ret.isoformat()})
 
     # 9.7.136 monthly reuse: a successful route-month scan (even with zero offers)
     # is reusable for 12 hours. Failed/partial/stopped coverage is never marked.
