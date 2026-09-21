@@ -937,8 +937,30 @@ def chat_clean():
         locked["active_session"] = existing_active
         trip_state = locked
 
+    # When Ariella's immediately previous message already asked whether this is
+    # the same vacation or a new one, a short "חדשה" is an explicit choice, not a
+    # new ambiguous reset request. Start a clean vacation immediately instead of
+    # asking the customer the same confirmation twice.
+    last_assistant = ""
+    for _item in reversed(history):
+        if isinstance(_item, dict) and str(_item.get("role") or "").lower() == "assistant":
+            last_assistant = str(_item.get("content") or "").strip().lower()
+            break
+    _new_trip_short_answers = {"חדשה", "חופשה חדשה", "טיול חדש", "חדש"}
+    _previous_asked_same_or_new = (
+        ("אותה חופשה" in last_assistant and "חדשה" in last_assistant)
+        or ("חופשה חדשה" in last_assistant and ("הקודמת" in last_assistant or "הנוכחית" in last_assistant))
+    )
+    if str(message or "").strip().lower() in _new_trip_short_answers and _previous_asked_same_or_new:
+        return jsonify({
+            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            'reply':'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?',
+            'trip_update':{'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None},
+            'start_flight_search':False,'trip_state_reset':True
+        })
+
     # General restart/change-of-direction always enters a simple yes/no gate.
-    # Never erase collected trip facts before an explicit "כן".
+    # Never erase collected trip facts before an explicit confirmation.
     if _reset_intent(message) and not trip_state.get("reset_pending"):
         pending = dict(trip_state)
         pending["reset_pending"] = True
