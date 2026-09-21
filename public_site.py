@@ -3108,9 +3108,15 @@ def _month_shift(month_value, delta):
 
 
 def _pin_offer_ids_to_trip(trip_id, answers, offers):
+    # Freeze exactly the customer-facing results in the same order they should
+    # appear in My Vacations: cheapest qualifying flight first.
+    ordered = sorted(
+        offers,
+        key=lambda o: float(o.get("price_ils") or 10**9),
+    )
     ids = [
         int(o.get("offer_id") or o.get("id"))
-        for o in offers
+        for o in ordered
         if (o.get("offer_id") or o.get("id")) is not None
     ][:5]
     if ids:
