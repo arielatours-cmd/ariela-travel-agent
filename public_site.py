@@ -2759,6 +2759,12 @@ def ariella_start_flight_search():
     destination_codes = [str(x or "").strip().upper() for x in selected_destination_airports if str(x or "").strip()]
     if not destination_codes:
         destination_codes = _chat_destination_codes(places)
+    # Round-trip is the default. A distinct return gateway is used only when the
+    # customer explicitly requested/approved an open-jaw itinerary.
+    selected_return_airports = state.get("return_departure_airports") if isinstance(state.get("return_departure_airports"), list) else []
+    return_departure_codes = [str(x or "").strip().upper() for x in selected_return_airports if str(x or "").strip()]
+    if not return_departure_codes:
+        return_departure_codes = list(destination_codes)
     # Never silently expand a broad country/region into arbitrary airports at
     # execution time. Tinkerbell must first resolve the gateway choice with the customer.
     destination_mode = str(destination.get("mode") or "").lower()
@@ -2813,6 +2819,8 @@ def ariella_start_flight_search():
         "destination_mode": "specific" if destination_codes else "open",
         "vacation_type": "standard",
         "destinations": ",".join(destination_codes),
+        "return_departure_airports": return_departure_codes,
+        "open_jaw": bool(return_departure_codes != destination_codes),
         "date_mode": date_mode,
         "travel_month": month,
         "outbound_month": month,
