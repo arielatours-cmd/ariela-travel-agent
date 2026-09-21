@@ -84,6 +84,12 @@
         localStorage.removeItem(committedKey);
         localStorage.removeItem(continueTripKey);
         localStorage.removeItem(tripIdKey);
+        // The reset reply may intentionally carry seed facts from the message
+        // that requested the new vacation (e.g. destination=Greece). Persist
+        // only that fresh state; never discard it and never retain old dates.
+        if(data.trip_update&&typeof data.trip_update==='object'){
+          localStorage.setItem(stateKey,JSON.stringify(data.trip_update));
+        }
         localStorage.setItem(contextStartKey,String(history.length));
       }else if(data.trip_update&&typeof data.trip_update==='object'){
         localStorage.setItem(stateKey,JSON.stringify(data.trip_update));
