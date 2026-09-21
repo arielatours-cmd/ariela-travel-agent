@@ -640,6 +640,8 @@ html[dir="ltr"] .site-header.luxury-header .main-nav{direction:ltr!important}
 .deal-more-filters-toggle,.deal-clear-filters{min-height:42px;padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:700}
 .deal-more-filters-toggle{border:1px solid #c99a3f;background:#fffaf2;color:#7a5517}
 .deal-clear-filters{border:1px solid #cfd5dd;background:#fff;color:#18263a}
+.deal-clear-filters-bottom{display:flex!important;align-items:center;justify-content:center;width:100%!important;margin-top:14px!important;background:#0b8f9c!important;border:0!important;color:#fff!important;box-shadow:none!important;filter:none!important;text-shadow:none!important}
+.deal-clear-filters-bottom:hover{background:#087a86!important;color:#fff!important}
 html[dir="rtl"] .deal-filters-wrap{text-align:right}
 html[dir="ltr"] .deal-filters-wrap{text-align:left}
 @media(max-width:800px){.deal-filters-wrap label{min-width:calc(50% - 8px);flex:1}.deal-more-filters-toggle,.deal-clear-filters{flex:1}}
@@ -1393,8 +1395,10 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
   justify-content:center!important;
   padding:18px 0!important;
   min-height:0!important;
+  border-top:0!important;
 }
-/* Existing border on important-terms is the requested divider. */
+/* Existing border on important-terms is the requested divider; cancel the
+   generic mobile .deal-price-box border-top above so only one line shows. */
 
 /* v9.7.8 compact card + larger admin */
 
@@ -1764,6 +1768,8 @@ html body .site-header .myariella-star{
 
 /* v9.7.37 */
 .deal-card-v970 .connection-pill{white-space:normal!important;flex-direction:column!important;justify-content:center!important;line-height:1.15!important;text-align:center!important;max-width:175px!important;padding:4px 8px!important}.deal-card-v970 .connection-airport{display:block!important;overflow-wrap:anywhere}.deal-card-v970 .connection-wait{display:block!important;margin-top:3px!important;font-size:11px!important;font-weight:600!important}.deal-card-v970 .mini-flight-line{gap:4px!important}.deal-card-v970 .important-terms{padding:0!important;transform:translateY(-10px)!important}.deal-card-v970 .important-terms div{margin:2px 0!important}.deal-card-v970 .deal-flight{padding-bottom:8px!important}.deal-card-v970 .flight-leg:last-child{padding-bottom:2px!important}.deal-card-v970.deal-en .stop-badge{direction:ltr!important;unicode-bidi:isolate!important}.filter-multi{position:relative;display:flex;flex-direction:column;gap:6px}.filter-multi>span{font-size:13px;color:var(--muted)}.filter-multi-button{min-height:42px;border:1px solid #cfd5dc;background:#fff;padding:8px 12px;font:inherit;text-align:start}.filter-multi-menu{position:absolute;z-index:30;top:100%;inset-inline-start:0;min-width:220px;max-height:260px;overflow:auto;background:#fff;border:1px solid #d8d8d8;box-shadow:0 8px 22px rgba(0,0,0,.12);padding:8px}.filter-multi-menu label{display:flex!important;align-items:center;gap:8px;padding:7px 5px;white-space:nowrap}
+.deal-footer{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:8px;flex-wrap:wrap}
+.filter-multi-menu{padding-top:34px!important}.filter-multi-close{position:absolute;top:4px;inset-inline-end:4px;width:26px;height:26px;min-height:26px;border:0;background:#f0ede6;color:#4a453c;border-radius:50%;font:16px/1 Arial,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}.filter-multi-close:hover{background:#e2ddd0}
 
 /* v9.7.38 — compact legal block: reduce empty space above/below the two lines */
 .deal-card-v970 .deal-commerce{
@@ -1782,6 +1788,17 @@ html body .site-header .myariella-star{
   margin:2px 0!important;
   min-height:0!important;
   line-height:1.35!important;
+}
+/* Consumer protection and change/cancellation side by side instead of stacked. */
+.deal-card-v970 .important-terms{
+  flex-direction:row!important;
+  flex-wrap:wrap!important;
+  justify-content:center!important;
+  gap:4px 18px!important;
+  width:100%!important;
+}
+.deal-card-v970 .important-terms div{
+  flex:0 1 auto!important;
 }
 .deal-card-v970 .deal-price-box{
   min-height:0!important;

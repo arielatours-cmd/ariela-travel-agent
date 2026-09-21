@@ -7,6 +7,7 @@
 <label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}<input name="full_name" autocomplete="name" value="{{ member.full_name or '' }}" required></label>
 <label>{{ 'Email address' if site_lang == 'en' else 'כתובת דוא״ל' }}<input type="email" name="email" autocomplete="email" value="{{ member.email or '' }}" required></label>
 <label>{{ 'Phone number' if site_lang == 'en' else 'מספר טלפון' }}<input name="phone" autocomplete="tel" value="{{ member.phone or '' }}"></label>
+{% if member.gender in ('male', 'female') %}<label>{{ 'Gender' if site_lang == 'en' else 'מין' }}<input value="{{ ('Male' if member.gender == 'male' else 'Female') if site_lang == 'en' else ('זכר' if member.gender == 'male' else 'נקבה') }}" disabled readonly></label>{% endif %}
 <label>{{ "Country" if site_lang == "en" else "מדינה" }}
       <select name="country" required>
         <option value="" disabled>{{ "Select a country" if site_lang == "en" else "בחרו מדינה" }}</option>

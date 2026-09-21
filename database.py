@@ -408,6 +408,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE members ADD COLUMN country TEXT")
         if "preferred_airports" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN preferred_airports TEXT NOT NULL DEFAULT '[]'")
+        if "gender" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN gender TEXT")
 
         # v9.7.122: permanently retire QA fixture inventory and purge any QA rows
         # that may have been persisted by older builds. Real scan history/deals stay intact.

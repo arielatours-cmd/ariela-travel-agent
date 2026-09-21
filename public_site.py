@@ -341,7 +341,7 @@ def _current_member():
         return None
     with _db() as conn:
         row = conn.execute(
-            "SELECT id, full_name, email, phone, country, preferred_airports, created_at, whatsapp_opt_in, whatsapp_opt_in_at FROM members WHERE id=?",
+            "SELECT id, full_name, email, phone, country, preferred_airports, created_at, whatsapp_opt_in, whatsapp_opt_in_at, gender FROM members WHERE id=?",
             (member_id,),
         ).fetchone()
     
@@ -2130,6 +2130,7 @@ def join():
         email = request.form.get("email", "").strip().lower()
         phone = request.form.get("phone", "").strip()
         country = request.form.get("country", "").strip().upper()
+        gender = request.form.get("gender", "").strip().lower()
         preferred_airports = [x.strip().upper() for x in request.form.get("preferred_airports", "").replace(";", ",").split(",") if x.strip()]
         password = request.form.get("password", "")
         consent = request.form.get("consent") == "yes"
@@ -2155,8 +2156,8 @@ def join():
                     flash(_msg("כבר קיים חשבון עם מספר הטלפון הזה.", "An account already exists with this phone number."), "error")
                 return render_template("join.html", duplicate_account=True)
             cur = conn.execute(
-                "INSERT INTO members (full_name,email,phone,password_hash,created_at,status,country,preferred_airports) VALUES(?,?,?,?,?,?,?,?)",
-                (full_name, email, phone, generate_password_hash(password), utc_now_iso(), "active", country, json.dumps(preferred_airports)),
+                "INSERT INTO members (full_name,email,phone,password_hash,created_at,status,country,preferred_airports,gender) VALUES(?,?,?,?,?,?,?,?,?)",
+                (full_name, email, phone, generate_password_hash(password), utc_now_iso(), "active", country, json.dumps(preferred_airports), gender or None),
             )
             member_id = int(cur.lastrowid)
             conn.commit()
