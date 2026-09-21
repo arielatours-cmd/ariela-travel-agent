@@ -10,7 +10,7 @@ import sqlite3
 from travel_agents import _conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
-ENGINE_VERSION = 'tinkerbell-chat-v56'
+ENGINE_VERSION = 'tinkerbell-chat-v57'
 
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
@@ -1334,7 +1334,12 @@ def chat_clean():
             reply = "קלטתי את הפרטים. נמשיך מכאן."
 
         if planning_accept:
-            reply = "מצוין. אני אשלח לך את כל האינפורמציה לכרטיסיית האטרקציות בכרטיס החופשה שלך. מאחלת לך חופשה נעימה ולכל שאלה נוספת אני תמיד כאן."
+            # Approval closes only the itinerary session. Do not promise a final
+            # handoff yet: first offer the remaining vacation services naturally.
+            reply = (
+                "מצוין, המסלול מאושר. "
+                "תרצי שאמשיך גם עם לינה או השכרת רכב לחופשה הזו, או שסיימנו?"
+            )
         elif flight_summary_now:
             # Re-run the conversational response with the now-complete structured
             # state. The system prompt requires a flight-only summary + מאשר/מאשרת.
@@ -1427,7 +1432,10 @@ def chat_clean():
         'engine_version': ENGINE_VERSION,
         'reply': reply or 'אני איתך 😊',
         'trip_update': trip_update,
-        'persist_trip_plan': bool(locals().get("planning_accept", False)),
+        # Save only an itinerary approved against the current structured state.
+        'persist_trip_plan': bool(locals().get("planning_accept", False))
+            and bool((trip_update.get("dates") or {}).get("departure"))
+            and bool((trip_update.get("dates") or {}).get("return")),
         # Execution is allowed only when the deterministic approval gate fired
         # on THIS user message. Never let model-extracted state start a scan.
         'start_flight_search': bool(approval) and bool(trip_update.get('search_confirmed')),
