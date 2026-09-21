@@ -176,6 +176,20 @@ def _serpapi_request(params: dict) -> dict:
                 last_error = RuntimeError(f"SerpAPI HTTP {response.status_code}")
                 if attempt < 4:
                     continue
+            # Preserve SerpApi's actual validation message for 4xx responses.
+            # requests.raise_for_status() alone hides the useful response body and
+            # leaves QA with only "400 Bad Request".
+            if 400 <= response.status_code < 500 and response.status_code != 429:
+                try:
+                    error_data = response.json()
+                    provider_message = str(error_data.get("error") or error_data.get("message") or "").strip()
+                except Exception:
+                    provider_message = str(response.text or "").strip()[:800]
+                safe_params = {k: v for k, v in params.items() if k != "api_key"}
+                raise RuntimeError(
+                    f"SerpAPI HTTP {response.status_code}: {provider_message or 'Bad Request'}; "
+                    f"params={safe_params}"
+                )
             response.raise_for_status()
             data = response.json()
             if data.get("error"):
