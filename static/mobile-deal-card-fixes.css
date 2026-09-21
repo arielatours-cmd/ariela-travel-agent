@@ -52,7 +52,7 @@
   .deal-card-v970 .deal-baggage li{min-height:26px!important;padding:2px 0!important;font-size:12px!important;grid-template-columns:22px 1fr auto!important}
   .deal-card-v970 .bag-svg{font-size:15px!important}
   .deal-card-v970 .bag-svg.checked{font-size:15px!important;transform:none!important}
-  .deal-card-v970 .important-terms{margin:0 0 8px!important}
+  .deal-card-v970 .important-terms{margin:0 -12px 8px!important;padding:0 12px!important;width:calc(100% + 24px)!important;box-sizing:border-box!important}
   .deal-card-v970 .important-terms>div{display:flex!important;justify-content:space-between!important;gap:8px!important;padding:4px 0!important;font-size:11px!important}
   .deal-card-v970 .deal-price-box{padding:10px!important;text-align:center!important}
   .deal-card-v970 .found-label,.deal-card-v970 .average-label{font-size:10px!important}
