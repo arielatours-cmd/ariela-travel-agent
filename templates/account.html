@@ -100,7 +100,19 @@
 </section>
 
 <script>
-function openVacationHashPanel(){\n  const id=String(location.hash||'').replace(/^#/,'');\n  if(!id||!id.startsWith('travel-'))return;\n  const panel=document.getElementById(id);\n  if(!panel)return;\n  const card=panel.closest('.vacation-result');\n  card.querySelectorAll('.vacation-tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));\n  card.querySelectorAll('.vacation-panel').forEach(x=>x.classList.toggle('active',x.id===id));\n  setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),80);\n}\nwindow.addEventListener('hashchange',openVacationHashPanel);\ndocument.addEventListener('DOMContentLoaded',openVacationHashPanel);\ndocument.addEventListener('click',function(e){
+function openVacationHashPanel(){
+  const id=String(location.hash||'').replace(/^#/,'');
+  if(!id||!id.startsWith('travel-'))return;
+  const panel=document.getElementById(id);
+  if(!panel)return;
+  const card=panel.closest('.vacation-result');
+  card.querySelectorAll('.vacation-tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));
+  card.querySelectorAll('.vacation-panel').forEach(x=>x.classList.toggle('active',x.id===id));
+  setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+window.addEventListener('hashchange',openVacationHashPanel);
+document.addEventListener('DOMContentLoaded',openVacationHashPanel);
+document.addEventListener('click',function(e){
   const btn=e.target.closest('.vacation-tab');
   if(!btn)return;
   const card=btn.closest('.vacation-result');
