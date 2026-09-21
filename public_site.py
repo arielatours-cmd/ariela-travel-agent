@@ -2592,6 +2592,10 @@ def ariella_save_trip_draft():
     dep = _chat_iso_date(dates.get("departure"))
     ret = _chat_iso_date(dates.get("return"))
     period = str(dates.get("period") or "")
+    # Exact approved dates are the only dates allowed to create an exact-search
+    # vacation card. Do not recover stale dates from earlier conversations.
+    if dep and ret and ret <= dep:
+        return jsonify({"status":"error","message":"תאריכי החופשה אינם תקינים. יש לאשר מחדש את תאריכי היציאה והחזרה."}), 400
     title = " • ".join(str(x) for x in places if str(x).strip()) or "חופשה בתכנון"
     travel_window = (dep + " – " + ret) if dep and ret else period
     payload = dict(state)
@@ -2736,7 +2740,15 @@ def ariella_start_flight_search():
 
     destination = state.get("destination") or {}
     places = destination.get("places") or []
-    destination_codes = _chat_destination_codes(places)
+    selected_destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
+    destination_codes = [str(x or "").strip().upper() for x in selected_destination_airports if str(x or "").strip()]
+    if not destination_codes:
+        destination_codes = _chat_destination_codes(places)
+    # Never silently expand a broad country/region into arbitrary airports at
+    # execution time. Tinkerbell must first resolve the gateway choice with the customer.
+    destination_mode = str(destination.get("mode") or "").lower()
+    if destination_mode in {"country","region","area","broad"} and not selected_destination_airports:
+        return jsonify({"status":"error","message":"יש להשלים בחירת שדה או שדות יעד לפני סריקת הטיסות."}), 400
     history = body.get("history") if isinstance(body.get("history"), list) else []
     recovered_codes, recovered_labels, recovered_dates = _chat_recover_search_facts(history)
     if not destination_codes and recovered_codes:
