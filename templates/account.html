@@ -16,6 +16,7 @@
     <div class="vacations-actions">
       <a class="ariella-return-button" href="{{ url_for('site.new_trip') }}">✦ {{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}</a>
       <span>{{ 'Search again or change your vacation' if site_lang == 'en' else 'לחיפוש חדש או לשינוי החופשה' }}</span>
+      <i class="vacations-actions-rule" aria-hidden="true"></i>
     </div>
       {% for trip in trips %}
       {% set services = trip.answers.get('services', []) %}
