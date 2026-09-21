@@ -1421,9 +1421,10 @@ def chat_clean():
             # leave lodging/car/planning available for continuation after the scan.
             statuses_after_flight = dict(merged.get("session_status") or {})
             statuses_after_flight["flights"] = "complete"
+            # Flight approval must not erase prior service decisions. Pending stays
+            # pending, completed stays completed, and an explicit decline stays declined.
             for optional_service in ("lodging","car","trip_planning"):
-                if statuses_after_flight.get(optional_service) == "declined":
-                    statuses_after_flight[optional_service] = "pending"
+                statuses_after_flight.setdefault(optional_service, "pending")
             merged["session_status"] = statuses_after_flight
             merged["active_session"] = None
             merged["post_flight_continuation"] = True
@@ -1464,7 +1465,7 @@ def chat_clean():
             }
             remaining = [
                 remaining_labels[s] for s in ("lodging","car","trip_planning")
-                if statuses_after_flight.get(s) not in ("complete","declined")
+                if statuses_after_flight.get(s, "pending") == "pending"
             ]
             if remaining:
                 if len(remaining) == 1:
