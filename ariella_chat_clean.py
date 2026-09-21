@@ -4,7 +4,7 @@ import os
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 from config import DB_PATH
 import sqlite3
 from travel_agents import _conversation
@@ -927,6 +927,9 @@ def _deterministic_traveler_facts(message):
 
 @ariella_chat_clean.post('/api/ariella/chat-clean')
 def chat_clean():
+    if not session.get('member_id'):
+        return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.', 'engine_version': ENGINE_VERSION}), 401
+
     body = request.get_json(silent=True) or {}
     message = str(body.get('message') or '').strip()
     if not message:
