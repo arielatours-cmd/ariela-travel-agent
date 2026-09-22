@@ -13,23 +13,28 @@ def _hour(value: str | None):
     return None
 
 
-def _price_points(analysis: dict) -> tuple[int, list[str]]:
-    """Score price (0..85) against the cheapest comparable current result."""
+def _price_points(analysis: dict, max_points: int = 85) -> tuple[int, list[str]]:
+    """Score price against the cheapest comparable current result.
+
+    max_points scales the same relative tiers for a different scoring
+    profile (e.g. business trips, where price matters far less).
+    """
     reasons: list[str] = []
     gap = analysis.get("current_search_price_gap_percent")
     if not isinstance(gap, (int, float)):
         return 0, reasons
-    if gap <= 0: points = 85
-    elif gap <= 5: points = 80
-    elif gap <= 10: points = 75
-    elif gap <= 15: points = 70
-    elif gap <= 20: points = 65
-    elif gap <= 25: points = 60
-    elif gap <= 30: points = 55
-    elif gap <= 35: points = 50
-    elif gap <= 40: points = 45
-    elif gap <= 50: points = 35
-    else: points = 25
+    if gap <= 0: fraction = 1.0
+    elif gap <= 5: fraction = 0.94
+    elif gap <= 10: fraction = 0.88
+    elif gap <= 15: fraction = 0.82
+    elif gap <= 20: fraction = 0.76
+    elif gap <= 25: fraction = 0.71
+    elif gap <= 30: fraction = 0.65
+    elif gap <= 35: fraction = 0.59
+    elif gap <= 40: fraction = 0.53
+    elif gap <= 50: fraction = 0.41
+    else: fraction = 0.29
+    points = round(max_points * fraction)
     reasons.append(f"מחיר נמוך לעומת טיסות דומות: +{points}")
     return points, reasons
 
@@ -47,8 +52,12 @@ def _minutes_of_day(value: str | None):
     return None
 
 
-def _time_value_points(flight: dict) -> tuple[int, list[str]]:
-    """Usable stay score (1..9), based on arrival at destination and return departure."""
+def _time_value_points(flight: dict, max_points: int = 9) -> tuple[int, list[str]]:
+    """Usable stay score, based on arrival at destination and return departure.
+
+    max_points=9 preserves the original 1..9 scale; a business profile scales
+    this up since maximizing usable same-day time matters more there.
+    """
     out_dep = _minutes_of_day(flight.get("arrival_time"))
     ret_dep = _minutes_of_day(flight.get("return_departure_time"))
     if None in (out_dep, ret_dep):
@@ -61,29 +70,35 @@ def _time_value_points(flight: dict) -> tuple[int, list[str]]:
             return "afternoon"
         return "evening"
 
-    points = {
+    tier = {
         ("morning", "evening"): 9, ("morning", "afternoon"): 8,
         ("afternoon", "evening"): 7, ("morning", "morning"): 6,
         ("afternoon", "afternoon"): 5, ("evening", "evening"): 4,
         ("afternoon", "morning"): 3, ("evening", "afternoon"): 2,
         ("evening", "morning"): 1,
     }[(band(out_dep), band(ret_dep))]
+    points = round(max_points * tier / 9)
     return points, []
 
 
-def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
-    """Ariella public-deal score, exactly 0..100.
+def calculate_deal_score(deal_analysis: dict, flight: dict, vacation_type: str = "standard") -> dict:
+    """Ariella deal score, 0..100.
 
-    Weights: price 85, time/value 9, baggage 3, route 3.
-    Reliability and historical rarity are not scoring components. Personal
-    searches use score for ranking only; the public 70 threshold must not hide
-    a flight that matches the customer's explicit request.
+    Standard profile weights: price 85, time/value 9, baggage 3, route 3 -
+    price dominates because a leisure customer is choosing between many
+    otherwise-similar options and the price is usually the deciding factor.
+
+    Business profile weights: route 45, price 30, time/value 15, baggage 3 -
+    a business traveler has a fixed date tied to a meeting and cares far more
+    about directness and not losing a workday to a layover than about saving
+    a bit more on the fare.
     """
+    is_business = str(vacation_type or "").strip().lower() == "business"
     score = 0
     reasons: list[str] = []
     components: dict[str, int] = {}
 
-    price, price_reasons = _price_points(deal_analysis)
+    price, price_reasons = _price_points(deal_analysis, max_points=30 if is_business else 85)
     components["price"] = price
     score += price
     reasons.extend(price_reasons)
@@ -93,13 +108,19 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     worst_stops = max(stops, return_stops)
     duration = max(flight.get("total_duration_minutes") or 0, flight.get("return_total_duration_minutes") or 0)
     # Flight quality is absolute, not relative to the weakest search pool, and
-    # graded by the worse leg of the two: direct scores full, then one point
-    # is lost per additional connection.
-    route_points = max(0, 3 - worst_stops)
+    # graded by the worse leg of the two. Standard: direct scores full, then
+    # one point is lost per additional connection. Business: the drop from
+    # direct to even one connection is steep, since a layover risks the
+    # whole day's schedule, not just adds travel time.
+    if is_business:
+        route_points = {0: 45, 1: 20, 2: 5}.get(worst_stops, 0)
+    else:
+        route_points = max(0, 3 - worst_stops)
     components["route"] = route_points
     score += route_points
-    if route_points == 3:
-        reasons.append("איכות מסלול (ישירה): +3")
+    route_max = 45 if is_business else 3
+    if route_points == route_max:
+        reasons.append("איכות מסלול (ישירה): +" + str(route_points))
     elif route_points:
         reasons.append(f"מסלול עם {worst_stops} קונקשן(ים): +{route_points}")
 
@@ -120,11 +141,12 @@ def calculate_deal_score(deal_analysis: dict, flight: dict) -> dict:
     if baggage_reason:
         reasons.append(f"{baggage_reason}: +{baggage_points}")
 
-    time_points, time_reasons = _time_value_points(flight)
+    time_points, time_reasons = _time_value_points(flight, max_points=15 if is_business else 9)
     components["time_value"] = time_points
     score += time_points
-    if time_points >= 8:
-        reasons.append(f"מקסימום ניצול זמן חופשה: +{time_points}")
+    time_alert_threshold = 13 if is_business else 8
+    if time_points >= time_alert_threshold:
+        reasons.append(f"מקסימום ניצול זמן היום: +{time_points}" if is_business else f"מקסימום ניצול זמן חופשה: +{time_points}")
     reasons.extend(time_reasons)
 
     # Keep reliability visible to admin/validation without affecting score.
