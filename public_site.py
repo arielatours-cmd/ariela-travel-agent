@@ -34,11 +34,11 @@ _booking_jobs = {}
 _booking_jobs_lock = threading.Lock()
 
 
-def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_context):
+def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_context, personal):
     try:
         target = resolve_booking_target(
             offer, adults=adults, children=children, travel_class=travel_class,
-            regenerate_itinerary=True,
+            regenerate_itinerary=True, personal=personal,
         )
         logging.info(
             "booking job %s resolved mode=%s exact=%s url=%s offer_id=%s",
@@ -2375,7 +2375,7 @@ def book_offer(offer_id):
         _booking_jobs[job_id] = {"status": "running", "created_at": datetime.now(timezone.utc)}
     threading.Thread(
         target=_prepare_booking_job,
-        args=(job_id, dict(offer), adults, children, travel_class, click_context),
+        args=(job_id, dict(offer), adults, children, travel_class, click_context, personal_trip is not None),
         daemon=True,
     ).start()
     return render_template(

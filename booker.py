@@ -6,7 +6,7 @@ It does not purchase or submit payment for the customer.
 
 from __future__ import annotations
 from dataclasses import dataclass
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, quote, urlsplit
 import logging
 import os
 import requests
@@ -62,11 +62,73 @@ OFFICIAL_AIRLINE_BOOKING_FALLBACKS = {
     "air france": "https://www.airfrance.com/",
     "klm": "https://www.klm.com/",
     "ita airways": "https://www.ita-airways.com/",
+    "tarom": "https://www.tarom.ro/",
+    "turkish airlines": "https://www.turkishairlines.com/",
+    "pegasus": "https://www.flypgs.com/",
+    "pegasus airlines": "https://www.flypgs.com/",
+    "lot": "https://www.lot.com/",
+    "lot polish airlines": "https://www.lot.com/",
+    "austrian": "https://www.austrian.com/",
+    "austrian airlines": "https://www.austrian.com/",
+    "swiss": "https://www.swiss.com/",
+    "swiss international air lines": "https://www.swiss.com/",
+    "emirates": "https://www.emirates.com/",
+    "qatar airways": "https://www.qatarairways.com/",
+    "vueling": "https://www.vueling.com/",
+    "norwegian": "https://www.norwegian.com/",
+    "norwegian air shuttle": "https://www.norwegian.com/",
+    "condor": "https://www.condor.com/",
+    "iberia": "https://www.iberia.com/",
+    "air serbia": "https://www.airserbia.com/",
+    "croatia airlines": "https://www.croatiaairlines.com/",
+    "air baltic": "https://www.airbaltic.com/",
+    "airbaltic": "https://www.airbaltic.com/",
+    "transavia": "https://www.transavia.com/",
+    "eurowings": "https://www.eurowings.com/",
+    "brussels airlines": "https://www.brusselsairlines.com/",
+    "tap air portugal": "https://www.flytap.com/",
+    "tap portugal": "https://www.flytap.com/",
+    "finnair": "https://www.finnair.com/",
+    "air malta": "https://www.airmalta.com/",
+    "cyprus airways": "https://www.cyprusairways.com/",
+    "aeroflot": "https://www.aeroflot.ru/",
+    "ukraine international airlines": "https://www.flyuia.com/",
+    "bulgaria air": "https://www.air.bg/",
+    "luxair": "https://www.luxair.lu/",
+    "volotea": "https://www.volotea.com/",
+    "wizz air malta": "https://wizzair.com/",
+    "smartwings": "https://www.smartwings.com/",
+    "corendon airlines": "https://www.corendonairlines.com/",
+    "sun d’or": "https://www.sundor.com/",
+    "sundor": "https://www.sundor.com/",
+    "סאן דור": "https://www.sundor.com/",
 }
+
+
+def _api_key() -> str:
+    # Defensive re-check, matching scanner.py's _api_key(): if the module-level
+    # import happened before the environment variable was set, os.getenv still
+    # finds it. Scans and bookings must never disagree about key availability.
+    return SERPAPI_API_KEY or os.getenv("SERPAPI_API_KEY", "").strip()
 
 
 def _norm(value) -> str:
     return str(value or "").strip().lower()
+
+
+def _generic_flight_search_url(offer: dict) -> str | None:
+    """A plain, honestly-labeled flight search — never presented as the
+    supplier's own booking page — used only when no real supplier or
+    airline could be identified at all, so the customer is never left
+    with literally nowhere to go."""
+    departure = str(offer.get("departure_code") or offer.get("departure_airport") or "").strip()
+    arrival = str(offer.get("arrival_code") or offer.get("arrival_airport") or "").strip()
+    outbound_date = str(offer.get("outbound_date") or "").strip()[:10]
+    return_date = str(offer.get("return_date") or "").strip()[:10]
+    if not (departure and arrival and outbound_date and return_date):
+        return None
+    query = f"Flights from {departure} to {arrival} on {outbound_date} through {return_date}"
+    return f"https://www.google.com/travel/flights?hl=iw&curr=ILS&q={quote(query)}"
 
 
 def _homepage(value: str | None) -> str | None:
@@ -217,18 +279,23 @@ def _bluebird_deeplink(offer: dict, adults: int, children: int) -> str | None:
 
 
 def resolve_booking_target(offer: dict, *, adults: int | None = None, children: int | None = None,
-                           travel_class: str = "1", regenerate_itinerary: bool = True) -> BookerTarget:
+                           travel_class: str = "1", regenerate_itinerary: bool = True,
+                           personal: bool = False) -> BookerTarget:
     """Resolve a supplier handoff for the exact itinerary and passenger party.
 
     A Google Flights booking_token belongs to the search that created it. For a
     personal vacation we therefore regenerate the outbound + return selection
     with the customer's current adults/children before requesting Booking Options.
+
+    `personal` must reflect whether this is an actual personal-vacation booking
+    (party size may differ from what was originally scanned), not merely
+    whether adults/children were supplied — the public deals flow always
+    supplies them too, once the customer has picked a passenger count.
     """
     recommended = str(offer.get("booking_supplier") or offer.get("airline") or "").strip()
     preferred = _norm(recommended)
     stored_url = offer.get("booking_request_url")
     stored_post = offer.get("booking_request_post_data")
-    personal = adults is not None or children is not None
     pax_adults = max(1, int(adults or 1))
     pax_children = max(0, int(children or 0))
 
@@ -265,15 +332,16 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         ranked.sort(key=lambda x: x[0], reverse=True)
         return ranked[0][1] if ranked and ranked[0][0] >= 8 else None
 
+    api_key = _api_key()
     token = None
-    if personal and regenerate_itinerary and SERPAPI_API_KEY:
+    if personal and regenerate_itinerary and api_key:
         try:
             departure = offer.get("departure_code") or offer.get("departure_airport")
             arrival = offer.get("arrival_code") or offer.get("arrival_airport")
             outbound_date = offer.get("outbound_date")
             return_date = offer.get("return_date")
             if departure and arrival and outbound_date and return_date:
-                base = {"engine":"google_flights", "api_key":SERPAPI_API_KEY,
+                base = {"engine":"google_flights", "api_key":api_key,
                         "departure_id":departure, "arrival_id":arrival,
                         "outbound_date":outbound_date, "return_date":return_date,
                         "type":"1", "hl":"en", "gl":"il", "currency":"ILS",
@@ -300,10 +368,10 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
     if not token and not personal:
         token = offer.get("booking_token") or (offer.get("flight") or {}).get("booking_token")
 
-    if token and SERPAPI_API_KEY:
+    if token and api_key:
         try:
             params = {"engine":"google_flights", "booking_token":token,
-                      "api_key":SERPAPI_API_KEY, "hl":"en", "gl":"il",
+                      "api_key":api_key, "hl":"en", "gl":"il",
                       "currency":"ILS", "adults":str(pax_adults),
                       "children":str(pax_children)}
             data = requests.get("https://serpapi.com/search.json", params=params, timeout=25).json()
@@ -380,14 +448,20 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
             mode="supplier_homepage_manual_entry", exact=False,
             note="הספק לא מאפשר כרגע העברה מלאה של פרטי ההזמנה. אריאלה פתחה את אתר הספק עצמו — לא את Google.")
 
-    # Never use the original Google Flights result URL as a customer booking fallback.
-    # If we cannot identify the supplier itself, keep the customer on Ariella instead
-    # of pretending that a Google page is the supplier booking page.
+    # We never send the customer to the ORIGINAL stale Google Flights result
+    # page and pretend it is the supplier. But leaving the customer with
+    # literally nowhere to go is worse than an honestly-labeled general
+    # search for the same route and dates, so that is the true last resort.
     logging.warning(
         "resolve_booking_target: no booking target found. personal=%s has_serpapi_key=%s "
         "token=%s stored_url=%s recommended=%r airline_names=%r",
-        personal, bool(SERPAPI_API_KEY), bool(token), bool(stored_url), recommended, airline_names,
+        personal, bool(api_key), bool(token), bool(stored_url), recommended, airline_names,
     )
+    generic_url = _generic_flight_search_url(offer)
+    if generic_url:
+        return BookerTarget(url=generic_url, fields=[], supplier=recommended,
+            mode="generic_flight_search_fallback", exact=False,
+            note="אריאלה לא הצליחה לפתוח כרגע את אתר הספק המדויק, אז פתחה עבורכם חיפוש טיסות כללי לאותו מסלול ותאריכים.")
     return BookerTarget(url=None, fields=[], supplier=recommended,
         mode="personal_exact_booking_unavailable" if personal else "recommended_supplier_unavailable",
         exact=False,
