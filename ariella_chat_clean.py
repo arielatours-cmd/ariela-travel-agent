@@ -90,6 +90,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
 - אם profile.gender הוא female/נקבה, פני ללקוחה בלשון נקבה יחידה לאורך כל השיחה. אם male/זכר, פנה בלשון זכר יחיד. אל תשתמשי בלשון רבים רק כדי להימנע מבחירת מגדר.
+- אם יש profile.first_name, זהו שם הלקוח האמיתי מהרשמתו לאתר. אפשר (לא חובה) לפנות אליו בשמו הפרטי בהודעת הפתיחה של השיחה או במקום טבעי אחר, כדי שהשיחה תרגיש אישית - אבל אל תשלבי אותו בכל הודעה כאילו זו תבנית קבועה.
 - זרימת הסשנים החדשה: סשן 1 הוא טיסות בלבד. השלימי את כל פרטי הטיסה, הציגי סיכום טיסה ובקשי מאשר/מאשרת בלי לשאול לפני כן על לינה, רכב או אטרקציות.
 - אחרי אישור סיכום הטיסה החיפוש יוצא לסריקה. אל תמשיכי באותה נקודה לשאלות לינה/רכב/אטרקציות לפני ההפניה לסריקה.
 - לאחר סריקת הטיסות, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
@@ -1048,6 +1049,26 @@ def _deterministic_traveler_facts(message):
     return {"travelers": facts} if facts else {}
 
 
+def _member_profile(member_id):
+    """Authoritative name/gender for personalizing the conversation. Always
+    read fresh from the registration data - never trust a client-supplied
+    profile, which can be stale, spoofed, or (as the client widget did)
+    silently defaulted to a wrong gender."""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT full_name, gender FROM members WHERE id=?", (member_id,)).fetchone()
+        conn.close()
+    except Exception:
+        return {"first_name": "", "gender": None}
+    if not row:
+        return {"first_name": "", "gender": None}
+    full_name = str(row["full_name"] or "").strip()
+    first_name = full_name.split()[0] if full_name else ""
+    gender = str(row["gender"] or "").strip().lower() or None
+    return {"first_name": first_name, "gender": gender}
+
+
 @ariella_chat_clean.post('/api/ariella/chat-clean')
 def chat_clean():
     if not session.get('member_id'):
@@ -1463,6 +1484,11 @@ def chat_clean():
         trip_update = _resolve_destination_airports_from_route(trip_update)
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
+        # The customer's name/gender always come fresh from their registration
+        # data, never from client-supplied state, which can be stale or wrong.
+        trip_update["profile"] = _member_profile(session["member_id"])
+        if trip_update["profile"].get("gender"):
+            trip_update["user_gender"] = trip_update["profile"]["gender"]
 
         # If the customer has just declined/deferred the remaining optional
         # services and every wanted service is already complete, skip the
@@ -1652,6 +1678,7 @@ def chat_clean():
         'engine_version': ENGINE_VERSION,
         'reply': reply or 'אני איתך 😊',
         'trip_update': trip_update,
+        'profile': trip_update.get('profile'),
         # Save only an itinerary approved against the current structured state.
         'persist_trip_plan': bool(locals().get("planning_accept", False))
             and bool((trip_update.get("dates") or {}).get("departure"))
