@@ -61,14 +61,33 @@
   function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);if(role==='assistant'){requestAnimationFrame(()=>{box.scrollTop=Math.max(0,el.offsetTop-box.offsetTop-12);});}else{box.scrollTop=box.scrollHeight;}return el;}
   function addVacationLink(tripId){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#travel-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);requestAnimationFrame(()=>{box.scrollTop=Math.max(0,el.offsetTop-box.offsetTop-12);});}
   function save(){localStorage.setItem(key,JSON.stringify(history.slice(-80)));}
-  if(!history.length){
-    const rawName={{ ((current_member.first_name if current_member and current_member.first_name else current_member.full_name if current_member and current_member.full_name else '') or '')|tojson }};
-    const name=String(rawName||'').trim().split(/\s+/)[0];
-    const hello=name?'שלום '+name+' 😊 איזה כיף לראות אותך!':'שלום 😊 איזה כיף לראות אותך!';
-    const text=hello+'\nלפני שנתחיל — זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?';
-    history=[{role:'assistant',content:text,agent:'Ariella'}];save();
+  async function initChat(){
+    if(!history.length){
+      // Nothing cached on this device/browser - resume the member's own
+      // saved conversation from the server (works across devices and survives logout).
+      try{
+        const res=await fetch('/api/ariella/resume',{credentials:'same-origin',cache:'no-store'});
+        if(res.ok){
+          const data=await res.json();
+          if(data&&Array.isArray(data.history)&&data.history.length){
+            history=data.history;save();
+            if(data.trip_state&&typeof data.trip_state==='object'){
+              localStorage.setItem(stateKey,JSON.stringify(data.trip_state));
+            }
+          }
+        }
+      }catch(e){}
+    }
+    if(!history.length){
+      const rawName={{ ((current_member.first_name if current_member and current_member.first_name else current_member.full_name if current_member and current_member.full_name else '') or '')|tojson }};
+      const name=String(rawName||'').trim().split(/\s+/)[0];
+      const hello=name?'שלום '+name+' 😊 איזה כיף לראות אותך!':'שלום 😊 איזה כיף לראות אותך!';
+      const text=hello+'\nלפני שנתחיל — זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?';
+      history=[{role:'assistant',content:text,agent:'Ariella'}];save();
+    }
+    history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||''));
   }
-  history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||''));
+  initChat();
   async function askTinkerbell(text, freshSearch=false){
     const contextStart=Math.max(0,Number(localStorage.getItem(contextStartKey)||0));
     const context=freshSearch?[]:history.slice(contextStart,-1).map(x=>({role:x.role,content:x.content}));

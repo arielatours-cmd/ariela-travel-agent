@@ -289,6 +289,14 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_site_events_type_date ON site_events(event_type, created_at);
             CREATE INDEX IF NOT EXISTS idx_site_events_visitor ON site_events(visitor_id);
 
+            CREATE TABLE IF NOT EXISTS ariella_conversations (
+                member_id INTEGER PRIMARY KEY,
+                history_json TEXT NOT NULL,
+                trip_state_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+
             CREATE TABLE IF NOT EXISTS payments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 member_id INTEGER,
@@ -1472,6 +1480,44 @@ def price_history_reference(departure_code: str, arrival_code: str, outbound_mon
     below_or_equal = sum(1 for value in prices if value <= current_price)
     percentile = (below_or_equal / len(prices)) * 100
     return {"sample_count": len(prices), "median": round(median, 2), "percentile": round(percentile, 1)}
+
+
+def save_ariella_conversation(member_id: int, history: list, trip_state: dict) -> None:
+    """Server-side copy of the in-progress Ariella conversation, so it
+    survives logout and is available from any device the member logs into -
+    localStorage alone is per-browser and cannot do that."""
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO ariella_conversations (member_id,history_json,trip_state_json,updated_at)
+               VALUES(?,?,?,?)
+               ON CONFLICT(member_id) DO UPDATE SET
+                 history_json=excluded.history_json,
+                 trip_state_json=excluded.trip_state_json,
+                 updated_at=excluded.updated_at""",
+            (member_id, json.dumps(history, ensure_ascii=False), json.dumps(trip_state, ensure_ascii=False), utc_now_iso()),
+        )
+
+
+def load_ariella_conversation(member_id: int) -> dict | None:
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT history_json, trip_state_json FROM ariella_conversations WHERE member_id=?",
+            (member_id,),
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        return {
+            "history": json.loads(row["history_json"] or "[]"),
+            "trip_state": json.loads(row["trip_state_json"] or "{}"),
+        }
+    except (TypeError, json.JSONDecodeError):
+        return None
+
+
+def clear_ariella_conversation(member_id: int) -> None:
+    with connection() as conn:
+        conn.execute("DELETE FROM ariella_conversations WHERE member_id=?", (member_id,))
 
 
 def save_feedback(full_name: str, email: str, phone: str, message: str) -> int:

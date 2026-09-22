@@ -9,6 +9,7 @@ from config import DB_PATH
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
+from database import save_ariella_conversation, load_ariella_conversation, clear_ariella_conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -1149,6 +1150,19 @@ def _member_profile(member_id):
     return {"first_name": first_name, "gender": gender}
 
 
+@ariella_chat_clean.get('/api/ariella/resume')
+def chat_resume():
+    """Let a page load hydrate the member's own in-progress conversation from
+    the server, so it's available on any device/browser they log into, not
+    only the one it was saved from."""
+    if not session.get('member_id'):
+        return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.'}), 401
+    saved = load_ariella_conversation(session['member_id'])
+    if not saved:
+        return jsonify({'status': 'success', 'history': [], 'trip_state': {}})
+    return jsonify({'status': 'success', 'history': saved.get('history') or [], 'trip_state': saved.get('trip_state') or {}})
+
+
 @ariella_chat_clean.post('/api/ariella/chat-clean')
 def chat_clean():
     if not session.get('member_id'):
@@ -1161,6 +1175,14 @@ def chat_clean():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
+    # The browser's local cache is per-device and empties on logout/switching
+    # devices. When it has no progress at all, resume the member's own
+    # server-saved conversation instead of starting over.
+    if not trip_state:
+        saved_conversation = load_ariella_conversation(session['member_id'])
+        if saved_conversation and (saved_conversation.get('trip_state') or saved_conversation.get('history')):
+            history = saved_conversation.get('history') or history
+            trip_state = saved_conversation.get('trip_state') or trip_state
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
@@ -1223,6 +1245,7 @@ def chat_clean():
         places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
         reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
                  if places else "בשמחה. מתחילים חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
+        clear_ariella_conversation(session['member_id'])
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
@@ -1257,6 +1280,7 @@ def chat_clean():
     if _previous_asked_new_vacation:
         _intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
         if _intent == "new":
+            clear_ariella_conversation(session['member_id'])
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?',
@@ -1343,6 +1367,7 @@ def chat_clean():
                 reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה תרצי לנסוע?"
             else:
                 reply = 'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?'
+            clear_ariella_conversation(session['member_id'])
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
@@ -1753,6 +1778,17 @@ def chat_clean():
     except Exception as exc:
         logging.exception("ariella chat-clean pipeline failed: %s", exc)
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
+
+    # Server-side copy of the conversation so it survives logout and follows
+    # the account across devices, not just this browser's local cache.
+    try:
+        saved_history = list(history) + [
+            {'role': 'user', 'content': message},
+            {'role': 'assistant', 'content': reply or 'אני איתך 😊'},
+        ]
+        save_ariella_conversation(session['member_id'], saved_history[-80:], trip_update)
+    except Exception:
+        logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
 
     return jsonify({
         'status': 'success',
