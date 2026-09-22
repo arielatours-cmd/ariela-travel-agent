@@ -2264,8 +2264,6 @@ def account_details():
         phone = request.form.get("phone", "").strip()
         country = request.form.get("country", "").strip().upper()
         preferred_airports = [x.strip().upper() for x in request.form.get("preferred_airports", "").replace(";", ",").split(",") if x.strip()]
-        gender = request.form.get("gender", "").strip().lower()
-        gender = gender if gender in ("male", "female") else None
         if not full_name or not email or not preferred_airports:
             flash(_msg("יש למלא שם, כתובת דוא״ל ולבחור לפחות שדה תעופה אחד.", "Please enter your name, email address and select at least one departure airport."), "error")
         else:
@@ -2277,6 +2275,17 @@ def account_details():
                 elif phone_match:
                     flash("מספר הטלפון הזה כבר משויך לחשבון אחר.", "error")
                 else:
+                    # Gender is set once. Existing members who registered before
+                    # this field existed may set it a single time from here; once
+                    # it holds male/female it is locked and this form can never
+                    # overwrite it, regardless of what is submitted.
+                    current_gender = conn.execute("SELECT gender FROM members WHERE id=?", (member_id,)).fetchone()
+                    current_gender = str((current_gender["gender"] if current_gender else "") or "").strip().lower()
+                    if current_gender in ("male", "female"):
+                        gender = current_gender
+                    else:
+                        submitted_gender = request.form.get("gender", "").strip().lower()
+                        gender = submitted_gender if submitted_gender in ("male", "female") else None
                     conn.execute("UPDATE members SET full_name=?, email=?, phone=?, country=?, preferred_airports=?, gender=? WHERE id=?", (full_name, email, phone, country, json.dumps(preferred_airports), gender, member_id))
                     conn.commit()
                     flash("פרטי החשבון עודכנו בהצלחה.", "success")
