@@ -32,9 +32,11 @@
   var stack = document.querySelector('.flash-stack');
   if(!stack || !stack.querySelector('.flash.error')) return;
   stack.classList.add('login-error-modal');
+  var dismiss = function(){ stack.style.display = 'none'; };
   stack.addEventListener('click', function(e){
-    if(e.target === stack) stack.style.display = 'none';
+    if(e.target === stack) dismiss();
   });
+  setTimeout(dismiss, 4000);
 })();
 </script>
 {% endblock %}
