@@ -2874,7 +2874,9 @@ def ariella_start_flight_search():
             "message": "כבר יש לך חיפוש פעיל לטיסה הזו. מעבירה אותך לתוצאות הקיימות — ואם תרצי עדכון מחיר יומי טרי, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה.",
         })
 
-    vacation_type = "business" if str(state.get("trip_type") or "").strip().lower() == "business" else "standard"
+    trip_type_value = str(state.get("trip_type") or "").strip().lower()
+    vacation_type = trip_type_value if trip_type_value in ("business", "ski") else "standard"
+    ski_state = state.get("ski") if isinstance(state.get("ski"), dict) else {}
     payload = {
         "origin_airports": [departure_airport],
         "destination_mode": "specific" if destination_codes else "open",
@@ -2903,6 +2905,10 @@ def ariella_start_flight_search():
         "special_needs": [],
         "notes": "Created from Ariella live conversation",
         "baggage": baggage,
+        "ski_resort_names": ski_state.get("resort_names") or [],
+        "ski_skill_level": ski_state.get("skill_level") or "",
+        "ski_priorities": ski_state.get("priorities") or [],
+        "ski_transfer_choice": ski_state.get("transfer_choice") or "any",
         "_requested_services": sorted(services),
         "_session_status": state.get("session_status") if isinstance(state.get("session_status"), dict) else {},
     }
