@@ -25,12 +25,15 @@
   const send=form?.querySelector('button[type="submit"]');
   if(!box||!form||!input||!send)return;
   // Conversation history is persistent customer history. Never clear it on deploy or after a search.
-  const key='ariellaFreshChat:v11';
-  const stateKey='ariellaTripState:v11';
-  const contextStartKey='ariellaChatContextStart:v11';
-  const committedKey='ariellaTripCommitted:v11';
-  const continueTripKey='ariellaContinueTrip:v12';
-  const tripIdKey='ariellaActiveTripId:v12';
+  // Every key is namespaced per logged-in account (see base.html), so each
+  // account keeps its own separate, intact history on this device.
+  const acctSuffix=':'+(window.ARIELLA_MEMBER_KEY||'guest');
+  const key='ariellaFreshChat:v11'+acctSuffix;
+  const stateKey='ariellaTripState:v11'+acctSuffix;
+  const contextStartKey='ariellaChatContextStart:v11'+acctSuffix;
+  const committedKey='ariellaTripCommitted:v11'+acctSuffix;
+  const continueTripKey='ariellaContinueTrip:v12'+acctSuffix;
+  const tripIdKey='ariellaActiveTripId:v12'+acctSuffix;
   let history=[];
   let waitingForReply=false;
   // Explicit one-time reset for clean QA. Ordinary refreshes never clear customer history.

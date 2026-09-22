@@ -29,24 +29,21 @@
 (function(){
   // Ariella's chat history/trip-state/profile are cached in localStorage,
   // which is shared by every account that logs into this browser/device -
-  // not scoped to whoever is actually logged in. Without this, a second
-  // person signing in on the same phone would see the previous account's
-  // conversation and personal details. Wipe the cache whenever the logged-in
-  // member changes (including to/from logged-out).
+  // not scoped to whoever is actually logged in. Expose the logged-in
+  // member's id so every Ariella script can namespace its storage keys per
+  // account instead of using one shared key: each account keeps its own
+  // separate, intact history on this device, and switching accounts never
+  // deletes or mixes anyone's data.
+  window.ARIELLA_MEMBER_KEY = {{ ((current_member.id|string) if current_member else 'guest')|tojson }};
+  // One-time cleanup: earlier versions of this page used unscoped keys
+  // (shared by every account) and, briefly, wiped them on every account
+  // switch. Remove those old unscoped keys once so they cannot leak into
+  // or overwrite anyone's newly-scoped history.
   try {
-    var currentId = {{ ((current_member.id|string) if current_member else '')|tojson }};
-    var ownerKey = 'ariellaStateOwner';
-    var prevId = localStorage.getItem(ownerKey);
-    if (prevId !== currentId) {
-      var prefixes = ['ariellaChatState:','ariellaChatTripFinished:','ariellaFreshChat:','ariellaTripState:','ariellaChatContextStart:','ariellaTripCommitted:','ariellaContinueTrip:','ariellaActiveTripId:'];
-      var exact = ['ariellaMemberFirstName','ariellaRegistrationGender'];
-      var toRemove = [];
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && (exact.indexOf(k) !== -1 || prefixes.some(function(p){ return k.indexOf(p) === 0; }))) toRemove.push(k);
-      }
-      toRemove.forEach(function(k){ localStorage.removeItem(k); });
-      localStorage.setItem(ownerKey, currentId);
+    var legacyExact = ['ariellaChatState:v8','ariellaChatState:v7','ariellaChatState:v6','ariellaChatState:v4','ariellaChatState:v3','ariellaChatTripFinished:v8','ariellaFreshChat:v11','ariellaTripState:v11','ariellaChatContextStart:v11','ariellaTripCommitted:v11','ariellaContinueTrip:v12','ariellaActiveTripId:v12','ariellaMemberFirstName','ariellaRegistrationGender'];
+    if (!localStorage.getItem('ariellaLegacyKeysCleared')) {
+      legacyExact.forEach(function(k){ localStorage.removeItem(k); });
+      localStorage.setItem('ariellaLegacyKeysCleared', '1');
     }
   } catch(e) {}
 })();
