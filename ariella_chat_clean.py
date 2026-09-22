@@ -638,13 +638,33 @@ UNCLEAR = אי אפשר להבין בבטחה.
 
 
 def _call_tinkerbell(key, model, history, message, state=None):
+    state = state if isinstance(state, dict) else {}
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    active_session = state.get("active_session")
+    trip_planning_settled = statuses.get("trip_planning") in ("complete", "declined")
+    other_session_pending = active_session and active_session != "trip_planning"
+    if not other_session_pending:
+        other_session_pending = any(
+            statuses.get(s) not in ("complete", "declined")
+            for s in ("flights", "lodging", "car")
+        )
+
+    if trip_planning_settled and other_session_pending:
+        route_handoff = """
+- הלקוח זה עתה אישר את המסלול/האטרקציות המוצעים, אבל יש עוד תחום/ים בחופשה (טיסות/לינה/רכב) שטרם טופלו. אל תסיימי את השיחה, אל תאמרי "מאחלת חופשה נעימה" ואל תבטיחי שליחת מידע לכרטיסייה עדיין.
+- אם המסלול קבע שדה/שדות כניסה ליעד, הם כבר נשמרו ב-destination_airports; אל תשאלי עליהם שוב, רק אשרי אותם בקצרה במידת הצורך. המשיכי כעת ישירות לתחום הפתוח: אם active_session מוגדר, השלימי את missing_required שלו; אם אין active_session, זהו סשן pending הבא ושאלי עליו שאלה בינארית טבעית כרגיל.
+- ברגע שהתחום הפתוח הזה מלא, נהגי לפי כללי הסיכום הרגילים שלו (למשל עבור טיסות: סיכום קצר ובקשת מאשר/מאשרת), ולא לפי נוסח הסיום של תכנון המסלול.
+"""
+    else:
+        route_handoff = """
+- כאשר הצעת מסלול/אטרקציות והלקוח מאשר אותו במפורש או אומר שהוא מתאים, ואין עוד סשן פתוח שממתין להשלמה (כלומר טיסות/לינה/רכב כבר complete או declined), אל תשאלי אם לאשר שוב ואל תציעי לעבור ללינה. סיימי בדיוק בנוסח: "מצוין. אני אשלח לך את כל האינפורמציה לכרטיסיית האטרקציות בכרטיס החופשה שלך. מאחלת לך חופשה נעימה ולכל שאלה נוספת אני תמיד כאן."
+"""
     continuity = """
 כללי שיחה מחייבים לאחר סריקת הטיסות:
 - אם קיימת חופשה פעילה והלקוח ממשיך לדבר עליה, זו אותה חופשה כברירת מחדל. אל תשאלי שוב "אותה חופשה או חופשה חדשה" אלא אם הלקוח עצמו מבקש חופשה חדשה או שיש סתירה אמיתית.
 - אם active_session הוא trip_planning, הישארי בתכנון המסלול. אל תעברי מיוזמתך ללינה, רכב או טיסות ואל תשאלי שאלות על תחום אחר.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
-- כאשר הצעת מסלול/אטרקציות והלקוח מאשר אותו במפורש או אומר שהוא מתאים, אל תשאלי אם לאשר שוב ואל תציעי לעבור ללינה. סיימי בדיוק בנוסח: "מצוין. אני אשלח לך את כל האינפורמציה לכרטיסיית האטרקציות בכרטיס החופשה שלך. מאחלת לך חופשה נעימה ולכל שאלה נוספת אני תמיד כאן."
-"""
+""" + route_handoff
     system = TINKERBELL_SYSTEM + continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
     return _post_claude(key, model, system, history, message, 1500, include_history=True).strip()
 
@@ -941,6 +961,27 @@ def _deterministic_period_facts(message):
     if not start:return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} ב{month_name} {year}"}}
     end=start+timedelta(days=delta)
     return {"dates":{"departure":start.isoformat(),"return":end.isoformat(),"period":f"{pair.group(1)} עד {pair.group(2)}","constraints":[f"אחרי {min_day-1}.{month}.{year}"]}}
+
+def _deterministic_departure_airport_facts(message):
+    """Capture an explicitly named Israeli departure airport so it never depends
+    solely on the extractor remembering to copy it over in a dense message."""
+    import re
+    msg = str(message or "").strip().lower()
+    tlv_phrases = (
+        "נתבג", 'נתב"ג', "נתב’ג", "נתב'ג", "מנתבג", 'מנתב"ג',
+        "בן גוריון", "בן-גוריון", "מבן גוריון", "מבן-גוריון", "tlv",
+    )
+    if any(p in msg for p in tlv_phrases):
+        return {"departure_airport": "TLV"}
+    # "חיפה" alone is ambiguous (a home city, not necessarily the airport), so
+    # only match it when the message clearly ties it to departing/the airport.
+    hfa_phrases = ("משדה חיפה", "משדה תעופה חיפה", "hfa")
+    if any(p in msg for p in hfa_phrases):
+        return {"departure_airport": "HFA"}
+    if re.search(r"(נצא|לצאת|יציאה|טסים|נטוס)[^.,!?]{0,6}מחיפה", msg):
+        return {"departure_airport": "HFA"}
+    return {}
+
 
 def _deterministic_traveler_facts(message):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
@@ -1346,6 +1387,7 @@ def chat_clean():
             trip_update["active_session"] = "flights"
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range
