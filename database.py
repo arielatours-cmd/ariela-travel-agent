@@ -1520,6 +1520,25 @@ def clear_ariella_conversation(member_id: int) -> None:
         conn.execute("DELETE FROM ariella_conversations WHERE member_id=?", (member_id,))
 
 
+def reset_ariella_conversation_trip_state(member_id: int, trip_state: dict | None = None) -> None:
+    """A new vacation (or a finished search) resets the structured vacation
+    data only. The chat history itself is never erased - it keeps growing
+    as one continuous conversation with the member."""
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT history_json FROM ariella_conversations WHERE member_id=?", (member_id,)
+        ).fetchone()
+        history_json = row["history_json"] if row else "[]"
+        conn.execute(
+            """INSERT INTO ariella_conversations (member_id,history_json,trip_state_json,updated_at)
+               VALUES(?,?,?,?)
+               ON CONFLICT(member_id) DO UPDATE SET
+                 trip_state_json=excluded.trip_state_json,
+                 updated_at=excluded.updated_at""",
+            (member_id, history_json, json.dumps(trip_state or {}, ensure_ascii=False), utc_now_iso()),
+        )
+
+
 def save_feedback(full_name: str, email: str, phone: str, message: str) -> int:
     with connection() as conn:
         cur = conn.execute(

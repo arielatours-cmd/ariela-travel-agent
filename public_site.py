@@ -20,7 +20,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, clear_ariella_conversation
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
@@ -2867,7 +2867,7 @@ def ariella_start_flight_search():
         session["member_id"], departure_airport, destination_codes, date_mode, dep, ret, month
     )
     if duplicate_trip_id:
-        clear_ariella_conversation(session["member_id"])
+        reset_ariella_conversation_trip_state(session["member_id"])
         return jsonify({
             "status": "duplicate_active_trip",
             "trip_id": duplicate_trip_id,
@@ -3000,7 +3000,7 @@ def ariella_start_flight_search():
         if not queued:
             return jsonify({"status":"error","message":"לא ניתן היה להפעיל את הסריקה כרגע."}), 503
     # The flight session is done; the saved conversation reopens fresh next time.
-    clear_ariella_conversation(session["member_id"])
+    reset_ariella_conversation_trip_state(session["member_id"])
     return jsonify({"status":"queued","trip_id":trip_id,"waiting_url":url_for("site.trip_waiting",trip_id=trip_id)})
 
 

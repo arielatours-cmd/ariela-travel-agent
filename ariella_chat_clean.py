@@ -9,7 +9,7 @@ from config import DB_PATH
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
-from database import save_ariella_conversation, load_ariella_conversation, clear_ariella_conversation
+from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -1150,6 +1150,21 @@ def _member_profile(member_id):
     return {"first_name": first_name, "gender": gender}
 
 
+def _remember_turn_reset_trip(member_id, history, message, reply, fresh_trip_state):
+    """Used on a new-vacation boundary: this turn still joins the one
+    continuous conversation history, but the structured vacation data
+    starts over. The conversation itself is never erased."""
+    try:
+        existing = load_ariella_conversation(member_id)
+        full_history = list((existing or {}).get('history') or history) + [
+            {'role': 'user', 'content': message},
+            {'role': 'assistant', 'content': reply},
+        ]
+        save_ariella_conversation(member_id, full_history[-80:], fresh_trip_state)
+    except Exception:
+        logging.exception("Failed to persist Ariella conversation reset for member %s", member_id)
+
+
 @ariella_chat_clean.get('/api/ariella/resume')
 def chat_resume():
     """Let a page load hydrate the member's own in-progress conversation from
@@ -1245,7 +1260,7 @@ def chat_clean():
         places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
         reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
                  if places else "בשמחה. מתחילים חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
-        clear_ariella_conversation(session['member_id'])
+        _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
@@ -1280,7 +1295,7 @@ def chat_clean():
     if _previous_asked_new_vacation:
         _intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
         if _intent == "new":
-            clear_ariella_conversation(session['member_id'])
+            _remember_turn_reset_trip(session['member_id'], history, message, 'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?', {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None})
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?',
@@ -1367,7 +1382,7 @@ def chat_clean():
                 reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה תרצי לנסוע?"
             else:
                 reply = 'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?'
-            clear_ariella_conversation(session['member_id'])
+            _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
