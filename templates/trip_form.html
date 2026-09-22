@@ -151,6 +151,15 @@
           }catch(e){}
           location.href=started.waiting_url;return;
         }
+        if(start.ok&&started.status==='duplicate_active_trip'&&started.waiting_url){
+          // The customer already has an active vacation for this exact
+          // origin/destination/dates. Explain why, then hand off to the
+          // existing results instead of spending another free scan.
+          const dupMsg=String(started.message||'כבר יש לך חיפוש פעיל לחופשה הזו.');
+          history.push({role:'assistant',content:dupMsg,agent:'Ariella'});add('assistant',dupMsg);save();
+          await new Promise(resolve=>setTimeout(resolve,4000));
+          location.href=started.waiting_url;return;
+        }
         // The approval reply was already rendered above. Never append it twice
         // when starting the scan fails; surface the actual handoff error instead.
         const startError=String(started.message||'לא הצלחתי להתחיל את החיפוש כרגע. נסי שוב בעוד רגע.');

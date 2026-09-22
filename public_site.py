@@ -2737,6 +2737,43 @@ def ariella_save_trip_plan():
     return jsonify({"status":"saved","trip_id":trip_id})
 
 
+def _find_duplicate_active_trip(member_id, departure_airport, destination_codes, date_mode, dep, ret, month):
+    """A customer must not be able to farm repeated free scans by re-approving
+    the same route/dates in a new conversation. If they already have an active
+    vacation for this exact origin+destination+dates, reuse it instead of
+    opening (and free-scanning) a brand new trip_requests row."""
+    dest_set = frozenset(x for x in (destination_codes or []) if x)
+    if not dest_set:
+        return None
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT id,answers_json FROM trip_requests WHERE member_id=? AND status='active' ORDER BY id DESC LIMIT 50",
+            (member_id,),
+        ).fetchall()
+    for row in rows:
+        try:
+            existing = json.loads(row["answers_json"] or "{}")
+        except Exception:
+            continue
+        existing_origins = existing.get("origin_airports") or []
+        existing_origin = str(existing_origins[0] or "").upper() if existing_origins else ""
+        if existing_origin != departure_airport:
+            continue
+        existing_dest = frozenset(x for x in str(existing.get("destinations") or "").split(",") if x)
+        if existing_dest != dest_set:
+            continue
+        existing_mode = str(existing.get("date_mode") or "")
+        if existing_mode != date_mode:
+            continue
+        if date_mode == "exact":
+            if str(existing.get("departure_date") or "") == dep and str(existing.get("return_date") or "") == ret:
+                return int(row["id"])
+        elif date_mode == "month":
+            if str(existing.get("travel_month") or "") == month:
+                return int(row["id"])
+    return None
+
+
 @site.post("/api/ariella/start-flight-search")
 @login_required
 def ariella_start_flight_search():
@@ -2814,6 +2851,17 @@ def ariella_start_flight_search():
     baggage = flight.get("baggage") or []
     if baggage:
         deal_priorities.append("baggage")
+
+    duplicate_trip_id = _find_duplicate_active_trip(
+        session["member_id"], departure_airport, destination_codes, date_mode, dep, ret, month
+    )
+    if duplicate_trip_id:
+        return jsonify({
+            "status": "duplicate_active_trip",
+            "trip_id": duplicate_trip_id,
+            "waiting_url": url_for("site.trip_waiting", trip_id=duplicate_trip_id),
+            "message": "כבר יש לך חיפוש פעיל לטיסה הזו. מעבירה אותך לתוצאות הקיימות — ואם תרצי עדכון מחיר יומי טרי, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה.",
+        })
 
     payload = {
         "origin_airports": [departure_airport],
