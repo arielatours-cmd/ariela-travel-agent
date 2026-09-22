@@ -50,7 +50,10 @@ def start_scheduler():
     # Every hour: DB-only Top Deals refresh. No external flight search.
     _scheduler.add_job(_safe_public_db_refresh, CronTrigger(minute=5), id="hourly_public_db_refresh", replace_existing=True, max_instances=1, coalesce=True)
     # Once per day: system-wide external inventory discovery (TLV + HFA).
-    _scheduler.add_job(_safe_daily_wide_scan, CronTrigger(hour=WIDE_SCAN_HOUR, minute=WIDE_SCAN_MINUTE), id="daily_wide_scan", replace_existing=True, max_instances=1, coalesce=True)
+    # PAUSED at the business owner's request - this is the SerpAPI-spending job
+    # and there is no budget for it until launch. Re-enable this line (and
+    # redeploy) when ready to resume automatic daily scanning.
+    # _scheduler.add_job(_safe_daily_wide_scan, CronTrigger(hour=WIDE_SCAN_HOUR, minute=WIDE_SCAN_MINUTE), id="daily_wide_scan", replace_existing=True, max_instances=1, coalesce=True)
     _scheduler.add_job(_safe_daily_batch, CronTrigger(hour=DAILY_SEND_HOUR, minute=DAILY_SEND_MINUTE), id="daily_batch", replace_existing=True, max_instances=1, coalesce=True)
     _scheduler.start()
     return _scheduler
