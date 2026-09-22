@@ -51,7 +51,7 @@
 
   /* Baggage narrowed to the right, change/cancel + consumer protection to
      its left, so the card doesn't need a full-width block for each. */
-  .deal-card-v970 .baggage-terms-flex{display:flex!important;align-items:flex-start!important;gap:10px!important}
+  .deal-card-v970 .baggage-terms-flex{display:flex!important;align-items:center!important;gap:10px!important}
   .deal-card-v970 .baggage-terms-flex ul{flex:0 0 48%!important;min-width:0!important;margin:0!important;padding:0!important;gap:4px!important}
   .deal-card-v970 .deal-baggage li{min-height:24px!important;padding:2px 0!important;font-size:11px!important;grid-template-columns:20px 1fr auto!important;gap:4px!important}
   .deal-card-v970 .bag-svg{font-size:14px!important}
