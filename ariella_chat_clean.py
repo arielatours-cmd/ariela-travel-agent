@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request, session
 from config import DB_PATH
 import sqlite3
 from travel_agents import _conversation, _load_airports
+from ski_catalog import SKI_RESORTS
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -19,8 +20,9 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
-- בתחילת שיחה חדשה, כאשר גם trip_type וגם היעד עדיין אינם ידועים ב-state, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא האם זו חופשה רגילה או נסיעת עסקים, בניסוח טבעי. לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. כרגע אין תמיכה בחופשת סקי בצ'אט - אל תציעי אותה כאופציה.
-- בנסיעת עסקים אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות אינו רלוונטי לנסיעת עסקים ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
+- בתחילת שיחה חדשה, כאשר גם trip_type וגם היעד עדיין אינם ידועים ב-state, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא איזה סוג נסיעה זו: חופשה רגילה, נסיעת עסקים, או חופשת סקי, בניסוח טבעי. לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב.
+- בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
+- בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
@@ -122,8 +124,9 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אל תמציאי ואל תנחשי. ערך חסר נשאר חסר.
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
-- trip_type מזהה האם זו חופשה רגילה ("standard") או נסיעת עסקים ("business"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
+- trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
+- כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17].
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
@@ -157,7 +160,8 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "missing_required":[],"ready_for_summary":false,"search_confirmed":false,
   "lodging":{"interested":"unknown","details":{}},
   "car":{"interested":"unknown","details":{}},
-  "trip_planning":{"interested":"unknown","details":{}}
+  "trip_planning":{"interested":"unknown","details":{}},
+  "ski":{"skill_level":null,"priorities":[],"transfer_choice":null}
  }
 }
 '''
@@ -305,13 +309,15 @@ def _sessionize_state(state):
         if statuses["flights"] == "pending":
             statuses["flights"] = "active"
 
-    # A business trip has no natural use for day-by-day itinerary/attraction
-    # planning. Default trip_planning to declined unless the customer
-    # explicitly asked for it (an explicit decision above already won).
-    if str(state.get("trip_type") or "").lower() == "business" and decisions.get("trip_planning") is None and statuses["trip_planning"] == "pending":
+    # A business trip or a single-resort ski trip has no natural use for
+    # day-by-day multi-city itinerary/attraction planning. Default
+    # trip_planning to declined unless the customer explicitly asked for it
+    # (an explicit decision above already won).
+    _trip_type = str(state.get("trip_type") or "").lower()
+    if _trip_type in ("business", "ski") and decisions.get("trip_planning") is None and statuses["trip_planning"] == "pending":
         statuses["trip_planning"] = "declined"
         decisions = dict(decisions)
-        decisions["trip_planning"] = {"wanted": False, "source": "business_trip_default"}
+        decisions["trip_planning"] = {"wanted": False, "source": f"{_trip_type}_trip_default"}
 
     # Keep one active session. Respect an existing unfinished active session first.
     active = state.get("active_session")
@@ -434,6 +440,13 @@ def _resolve_destination_airports_from_route(state):
     state = state if isinstance(state, dict) else {}
     if state.get("destination_airports"):
         return state
+    # A ski trip's gateway airports come only from the ski resort catalog
+    # (see _resolve_ski_destination_airports) - the general airport catalog
+    # would happily match a country to its capital's airport, which is
+    # usually the wrong gateway for skiing (e.g. Vienna for Austria, instead
+    # of Innsbruck/Salzburg/Munich).
+    if str(state.get("trip_type") or "").lower() == "ski":
+        return state
     planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
     details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
     route = details.get("route") if isinstance(details.get("route"), list) else []
@@ -464,6 +477,53 @@ def _resolve_destination_airports_from_route(state):
         return state
     state = dict(state)
     state["destination_airports"] = codes[:4]
+    return state
+
+
+def _resolve_ski_destination_airports(state):
+    """Ski gateway airports come from the ski resort catalog, not the general
+    airport catalog: matching a country/resort name against SKI_RESORTS and
+    deriving destination_airports from the matched resorts' own gateway
+    airports (e.g. Austria -> INN/ZRH/MUC/SZG, not Vienna). Also records
+    which resorts matched, needed later so the search/scoring layer can
+    match offers back to a specific resort."""
+    state = state if isinstance(state, dict) else {}
+    if str(state.get("trip_type") or "").lower() != "ski":
+        return state
+    if state.get("destination_airports"):
+        return state
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p) for p in (destination.get("places") or []) if str(p).strip()]
+    if not places:
+        return state
+    matched_rows = []
+    for place in places:
+        needle = place.strip().lower()
+        if not needle:
+            continue
+        for row in SKI_RESORTS:
+            hay = " ".join(str(row.get(k) or "") for k in ("country", "country_he", "resort")).lower()
+            if needle in hay or hay in needle:
+                matched_rows.append(row)
+    if not matched_rows:
+        return state
+    resort_names = []
+    codes = []
+    for row in matched_rows:
+        name = str(row.get("resort") or "")
+        if name and name not in resort_names:
+            resort_names.append(name)
+        for code in (row.get("gateway_airports") or []):
+            code = str(code).upper()
+            if code and code not in codes:
+                codes.append(code)
+    if not codes:
+        return state
+    state = dict(state)
+    state["destination_airports"] = codes[:6]
+    ski_state = dict(state.get("ski") or {})
+    ski_state["resort_names"] = resort_names
+    state["ski"] = ski_state
     return state
 
 
@@ -520,7 +580,11 @@ def _required_state_gaps(state):
         # requests must not silently resolve to an arbitrary airport.
         destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
         destination_mode = str(destination.get("mode") or "").lower()
-        if destination_mode in {"country","region","area","broad"} and not destination_airports:
+        # A ski gateway always needs the catalog resolution regardless of
+        # how specific the stated destination is (even a named resort still
+        # needs its gateway airports derived from the ski catalog).
+        is_ski_trip = str(state.get("trip_type") or "").lower() == "ski"
+        if (is_ski_trip or destination_mode in {"country","region","area","broad"}) and not destination_airports:
             gaps.append("destination_airports")
         # Return gateway defaults to the outbound arrival gateway. It is only a
         # separate required fact when the customer explicitly asks for open-jaw.
@@ -1003,13 +1067,16 @@ def _deterministic_departure_airport_facts(message):
 
 
 def _deterministic_trip_type_facts(message):
-    """Capture an explicit regular-vacation-vs-business-trip choice so the
+    """Capture an explicit vacation-type choice (regular/business/ski) so the
     opening question doesn't depend solely on the LLM extractor."""
     msg = str(message or "").strip().lower()
     business_phrases = ("נסיעת עסקים", "נסיעה עסקית", "טיסת עסקים", "טיול עסקים", "business trip")
+    ski_phrases = ("חופשת סקי", "טיול סקי", "נסיעת סקי", "לגלוש בסקי", "חופשת גלישה בשלג", "ski trip", "ski vacation")
     standard_phrases = ("חופשה רגילה", "חופשת נופש", "לא, חופשה", "זו חופשה")
     if any(p in msg for p in business_phrases):
         return {"trip_type": "business"}
+    if any(p in msg for p in ski_phrases):
+        return {"trip_type": "ski"}
     if any(p in msg for p in standard_phrases):
         return {"trip_type": "standard"}
     return {}
@@ -1482,6 +1549,8 @@ def chat_clean():
         # A confirmed route settles the flight gateway even if the extractor
         # forgot to copy it into destination_airports this turn.
         trip_update = _resolve_destination_airports_from_route(trip_update)
+        # A ski trip's gateway is derived from the ski resort catalog instead.
+        trip_update = _resolve_ski_destination_airports(trip_update)
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
         # The customer's name/gender always come fresh from their registration
