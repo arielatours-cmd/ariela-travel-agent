@@ -65,7 +65,7 @@
     const rawName={{ ((current_member.first_name if current_member and current_member.first_name else current_member.full_name if current_member and current_member.full_name else '') or '')|tojson }};
     const name=String(rawName||'').trim().split(/\s+/)[0];
     const hello=name?'שלום '+name+' 😊 איזה כיף לראות אותך!':'שלום 😊 איזה כיף לראות אותך!';
-    const text=hello+'\nאני כאן כדי לעזור לתכנן את החופשה הבאה — מטיסות ולינה ועד אטרקציות, מסלול ורכב.\nמה מתחשק לתכנן?';
+    const text=hello+'\nלפני שנתחיל — זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?';
     history=[{role:'assistant',content:text,agent:'Ariella'}];save();
   }
   history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||''));

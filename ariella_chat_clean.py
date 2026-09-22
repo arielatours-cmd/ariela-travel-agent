@@ -1070,6 +1070,19 @@ def _deterministic_trip_type_facts(message):
     """Capture an explicit vacation-type choice (regular/business/ski) so the
     opening question doesn't depend solely on the LLM extractor."""
     msg = str(message or "").strip().lower()
+    # Short exact replies (matched only against the whole, trimmed message -
+    # never as a substring) cover directly answering the opening question
+    # ("regular vacation, business trip, or ski vacation?") with just one
+    # word, without risking a false match inside an unrelated longer sentence.
+    business_exact = {"עסקים", "נסיעת עסקים", "עסקי", "עסקית", "business"}
+    ski_exact = {"סקי", "חופשת סקי", "ski"}
+    standard_exact = {"רגילה", "חופשה רגילה", "רגיל", "standard", "regular"}
+    if msg in business_exact:
+        return {"trip_type": "business"}
+    if msg in ski_exact:
+        return {"trip_type": "ski"}
+    if msg in standard_exact:
+        return {"trip_type": "standard"}
     business_phrases = ("נסיעת עסקים", "נסיעה עסקית", "טיסת עסקים", "טיול עסקים", "business trip")
     ski_phrases = ("חופשת סקי", "טיול סקי", "נסיעת סקי", "לגלוש בסקי", "חופשת גלישה בשלג", "ski trip", "ski vacation")
     standard_phrases = ("חופשה רגילה", "חופשת נופש", "לא, חופשה", "זו חופשה")
