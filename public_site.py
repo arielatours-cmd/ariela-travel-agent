@@ -2863,10 +2863,11 @@ def ariella_start_flight_search():
             "message": "כבר יש לך חיפוש פעיל לטיסה הזו. מעבירה אותך לתוצאות הקיימות — ואם תרצי עדכון מחיר יומי טרי, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה.",
         })
 
+    vacation_type = "business" if str(state.get("trip_type") or "").strip().lower() == "business" else "standard"
     payload = {
         "origin_airports": [departure_airport],
         "destination_mode": "specific" if destination_codes else "open",
-        "vacation_type": "standard",
+        "vacation_type": vacation_type,
         "destinations": ",".join(destination_codes),
         "return_departure_airports": return_departure_codes,
         "open_jaw": bool(return_departure_codes != destination_codes),
@@ -2887,6 +2888,7 @@ def ariella_start_flight_search():
         "budget_mode": "limited" if budget.get("amount") else "unlimited",
         "budget_amount": budget.get("amount"),
         "cabin_class": flight.get("cabin") or "any",
+        "business_cabin_class": flight.get("cabin") or "economy",
         "ticket_flexibility": "any",
         "special_needs": [],
         "notes": "Created from Ariella live conversation",

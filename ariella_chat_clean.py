@@ -19,6 +19,8 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
+- בתחילת שיחה חדשה, כאשר גם trip_type וגם היעד עדיין אינם ידועים ב-state, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא האם זו חופשה רגילה או נסיעת עסקים, בניסוח טבעי. לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. כרגע אין תמיכה בחופשת סקי בצ'אט - אל תציעי אותה כאופציה.
+- אם trip_type הוא business, בררי גם מחלקת טיסה מועדפת (תיירים/פרימיום/עסקים/ראשונה) ושמרי אותה כפרט טיסה. אין צורך לשאול על תכנון מסלול/אטרקציות בנסיעת עסקים אלא אם הלקוח מבקש זאת במפורש.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
@@ -119,7 +121,8 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אל תמציאי ואל תנחשי. ערך חסר נשאר חסר.
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
-- אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים). החיפוש מציג את אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
+- trip_type מזהה האם זו חופשה רגילה ("standard") או נסיעת עסקים ("business"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
+- בחופשה רגילה (trip_type=standard או null) אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים). החיפוש מציג את אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך. בנסיעת עסקים (trip_type=business) כן שומרים את מחלקת הטיסה המועדפת שהלקוח מסר ב-flight.cabin (אחד מ-economy/premium/business/first), אם נאמרה.
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17].
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
@@ -145,7 +148,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "departure_airport":null,
   "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"duration_days":null,"constraints":[]},
   "budget_per_person":{"amount":null,"currency":null,"status":"unknown"},
-  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[]},
+  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[],"cabin":null},
   "priorities":[],"hard_constraints":[],"current_request":null,
   "search_intent":false,"requested_services":[],"service_decisions":{},
   "session_status":{"flights":"pending","lodging":"pending","car":"pending","trip_planning":"pending"},
@@ -321,10 +324,10 @@ def _session_gaps(state, session):
     """Required facts for one session only."""
     all_gaps = _required_state_gaps(state)
     prefixes = {
-        "flights": ("destination","dates","travelers","departure_airport","flight.","budget_per_person"),
-        "lodging": ("destination","dates","travelers","lodging."),
-        "car": ("destination","dates","travelers","car."),
-        "trip_planning": ("destination","dates","travelers","trip_planning."),
+        "flights": ("trip_type","destination","dates","travelers","departure_airport","flight.","budget_per_person"),
+        "lodging": ("trip_type","destination","dates","travelers","lodging."),
+        "car": ("trip_type","destination","dates","travelers","car."),
+        "trip_planning": ("trip_type","destination","dates","travelers","trip_planning."),
     }
     allowed = prefixes.get(session, ())
     return [g for g in all_gaps if any(g == p or g.startswith(p) for p in allowed)]
@@ -474,6 +477,8 @@ def _required_state_gaps(state):
     planning_details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
 
     # Shared trip facts.
+    if services and not state.get("trip_type"):
+        gaps.append("trip_type")
     if services and not (destination.get("places") or []):
         gaps.append("destination")
     if services and (dates.get("needs_confirmation") or not (dates.get("departure") and dates.get("return"))):
@@ -514,6 +519,8 @@ def _required_state_gaps(state):
             gaps.append("flight.connection_preference")
         if not flight.get("baggage"):
             gaps.append("flight.baggage")
+        if str(state.get("trip_type") or "") == "business" and not flight.get("cabin"):
+            gaps.append("flight.cabin")
         budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
         if budget.get("amount") is None and budget.get("status") not in ("unlimited","none","no_limit"):
             gaps.append("budget_per_person")
@@ -983,6 +990,33 @@ def _deterministic_departure_airport_facts(message):
     return {}
 
 
+def _deterministic_trip_type_facts(message):
+    """Capture an explicit regular-vacation-vs-business-trip choice so the
+    opening question doesn't depend solely on the LLM extractor."""
+    msg = str(message or "").strip().lower()
+    business_phrases = ("נסיעת עסקים", "נסיעה עסקית", "טיסת עסקים", "טיול עסקים", "business trip")
+    standard_phrases = ("חופשה רגילה", "חופשת נופש", "לא, חופשה", "זו חופשה")
+    if any(p in msg for p in business_phrases):
+        return {"trip_type": "business"}
+    if any(p in msg for p in standard_phrases):
+        return {"trip_type": "standard"}
+    return {}
+
+
+def _deterministic_cabin_class_facts(message):
+    """Capture an explicit cabin-class preference (relevant to business trips)."""
+    msg = str(message or "").strip().lower()
+    if "מחלקה ראשונה" in msg or "first class" in msg:
+        return {"flight": {"cabin": "first"}}
+    if "מחלקת עסקים" in msg or "business class" in msg:
+        return {"flight": {"cabin": "business"}}
+    if "פרימיום אקונומי" in msg or "premium economy" in msg or "פרימיום" in msg:
+        return {"flight": {"cabin": "premium"}}
+    if "מחלקת תיירים" in msg or "economy class" in msg:
+        return {"flight": {"cabin": "economy"}}
+    return {}
+
+
 def _deterministic_traveler_facts(message):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
     import re
@@ -1388,6 +1422,8 @@ def chat_clean():
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_cabin_class_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range
