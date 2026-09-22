@@ -7,7 +7,13 @@
 <label>{{ 'Full name' if site_lang == 'en' else 'שם מלא' }}<input name="full_name" autocomplete="name" value="{{ member.full_name or '' }}" required></label>
 <label>{{ 'Email address' if site_lang == 'en' else 'כתובת דוא״ל' }}<input type="email" name="email" autocomplete="email" value="{{ member.email or '' }}" required></label>
 <label>{{ 'Phone number' if site_lang == 'en' else 'מספר טלפון' }}<input name="phone" autocomplete="tel" value="{{ member.phone or '' }}"></label>
-{% if member.gender in ('male', 'female') %}<label>{{ 'Gender' if site_lang == 'en' else 'מין' }}<input value="{{ ('Male' if member.gender == 'male' else 'Female') if site_lang == 'en' else ('זכר' if member.gender == 'male' else 'נקבה') }}" disabled readonly></label>{% endif %}
+<label>{{ 'Gender' if site_lang == 'en' else 'מין' }}
+      <select name="gender">
+        <option value="" {% if member.gender not in ('male', 'female') %}selected{% endif %}>{{ 'Prefer not to say' if site_lang == 'en' else 'לא צוין' }}</option>
+        <option value="female" {% if member.gender == 'female' %}selected{% endif %}>{{ 'Female' if site_lang == 'en' else 'נקבה' }}</option>
+        <option value="male" {% if member.gender == 'male' %}selected{% endif %}>{{ 'Male' if site_lang == 'en' else 'זכר' }}</option>
+      </select>
+    </label>
 <label>{{ "Country" if site_lang == "en" else "מדינה" }}
       <select name="country" required>
         <option value="" disabled>{{ "Select a country" if site_lang == "en" else "בחרו מדינה" }}</option>
