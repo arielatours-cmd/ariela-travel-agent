@@ -855,16 +855,15 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             ]
 
         if not display_reasons:
-            # In fallback mode, add a price reason only when it is factually true.
+            # A connecting flight or an unremarkable price are not genuine
+            # selling points and must never be presented as if they were -
+            # it is fine (and honest) for a deal card to show no "why
+            # Ariella chose this" footer at all when nothing here is
+            # actually a real reason to prefer this flight over another.
             if price_is_lower and item.get("discount_percent") and item["discount_percent"] >= 15:
                 display_reasons.append("מחיר נמוך משמעותית")
             if (item.get("stops") or 0) == 0:
                 display_reasons.append("טיסה ישירה")
-            elif (item.get("stops") or 0) == 1:
-                display_reasons.append("קונקשן אחד")
-            else:
-                display_reasons.append("מסלול משתלם")
-            display_reasons.append("נבחר לאחר השוואת אפשרויות")
 
         protection = payload.get("consumer_protection") or {}
         if isinstance(protection, str):

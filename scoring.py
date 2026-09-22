@@ -35,7 +35,17 @@ def _price_points(analysis: dict, max_points: int = 85) -> tuple[int, list[str]]
     elif gap <= 50: fraction = 0.41
     else: fraction = 0.29
     points = round(max_points * fraction)
-    reasons.append(f"מחיר נמוך לעומת טיסות דומות: +{points}")
+    # The point curve keeps tapering all the way to a 50%+ gap so ranking stays
+    # smooth, but touting a flight that costs up to 50% more as "a low price"
+    # is simply false. Only surface this as a customer-facing reason when the
+    # flight is genuinely near the cheapest in its own comparison pool -
+    # otherwise several flights at different prices for the same search would
+    # all claim "good price" as a reason, which cannot be true for more than
+    # the actual cheapest one(s).
+    if gap <= 0:
+        reasons.append(f"המחיר הזול ביותר שנמצא לתאריכים האלה: +{points}")
+    elif gap <= 10:
+        reasons.append(f"מחיר נמוך לעומת טיסות דומות: +{points}")
     return points, reasons
 
 
@@ -119,10 +129,13 @@ def calculate_deal_score(deal_analysis: dict, flight: dict, vacation_type: str =
     components["route"] = route_points
     score += route_points
     route_max = 45 if is_business else 3
+    # A connecting flight is never a selling point, even when it still scores
+    # some points relative to a worse alternative - it should not be
+    # presented to the customer as a "reason this deal was chosen" when a
+    # direct flight might have been available instead. Only a genuinely
+    # direct route is worth surfacing as a reason.
     if route_points == route_max:
         reasons.append("איכות מסלול (ישירה): +" + str(route_points))
-    elif route_points:
-        reasons.append(f"מסלול עם {worst_stops} קונקשן(ים): +{route_points}")
 
     baggage = flight.get("baggage") or {}
     checked = baggage.get("checked_bag_23kg", {}) or {}
