@@ -7,6 +7,7 @@ It does not purchase or submit payment for the customer.
 from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlsplit
+import logging
 import os
 import requests
 
@@ -292,6 +293,8 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                                       offer.get("return_stops"))
                     token = (inbound or {}).get("booking_token")
         except Exception:
+            logging.exception("resolve_booking_target: itinerary regeneration failed for %s-%s",
+                               offer.get("departure_code"), offer.get("arrival_code"))
             token = None
 
     if not token and not personal:
@@ -327,8 +330,13 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                     supplier=part.get("book_with") or recommended,
                     mode="personal_exact_party_regenerated" if personal else "recommended_supplier_refreshed",
                     exact=True)
+            logging.info(
+                "resolve_booking_target: booking_token lookup returned no usable pool "
+                "(exact=%s direct=%s approved=%s) preferred=%s",
+                len(exact_supplier), len(direct_airline), len(approved_supplier), preferred,
+            )
         except Exception:
-            pass
+            logging.exception("resolve_booking_target: booking_token lookup failed")
 
     if stored_url and not personal:
         return BookerTarget(url=stored_url,
@@ -375,6 +383,11 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
     # Never use the original Google Flights result URL as a customer booking fallback.
     # If we cannot identify the supplier itself, keep the customer on Ariella instead
     # of pretending that a Google page is the supplier booking page.
+    logging.warning(
+        "resolve_booking_target: no booking target found. personal=%s has_serpapi_key=%s "
+        "token=%s stored_url=%s recommended=%r airline_names=%r",
+        personal, bool(SERPAPI_API_KEY), bool(token), bool(stored_url), recommended, airline_names,
+    )
     return BookerTarget(url=None, fields=[], supplier=recommended,
         mode="personal_exact_booking_unavailable" if personal else "recommended_supplier_unavailable",
         exact=False,

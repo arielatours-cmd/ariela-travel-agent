@@ -1,5 +1,6 @@
 from pathlib import Path
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -39,6 +40,10 @@ def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_co
             offer, adults=adults, children=children, travel_class=travel_class,
             regenerate_itinerary=True,
         )
+        logging.info(
+            "booking job %s resolved mode=%s exact=%s url=%s offer_id=%s",
+            job_id, target.mode, target.exact, bool(target.url), click_context.get("offer_id"),
+        )
         if not target.url:
             raise RuntimeError(target.note or "לא נמצא כרגע קישור לאתר הספק.")
         record_booking_click(booking_url=target.url, supplier=target.supplier, **click_context)
@@ -53,6 +58,7 @@ def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_co
                 result=result,
             )
     except Exception as exc:
+        logging.exception("booking job %s failed offer_id=%s", job_id, click_context.get("offer_id"))
         with _booking_jobs_lock:
             _booking_jobs[job_id].update(status="failed", error=str(exc))
 
