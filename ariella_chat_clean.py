@@ -20,7 +20,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
 - בתחילת שיחה חדשה, כאשר גם trip_type וגם היעד עדיין אינם ידועים ב-state, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא האם זו חופשה רגילה או נסיעת עסקים, בניסוח טבעי. לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. כרגע אין תמיכה בחופשת סקי בצ'אט - אל תציעי אותה כאופציה.
-- אם trip_type הוא business, בררי גם מחלקת טיסה מועדפת (תיירים/פרימיום/עסקים/ראשונה) ושמרי אותה כפרט טיסה. אין צורך לשאול על תכנון מסלול/אטרקציות בנסיעת עסקים אלא אם הלקוח מבקש זאת במפורש.
+- בנסיעת עסקים אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות אינו רלוונטי לנסיעת עסקים ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
@@ -122,7 +122,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
 - trip_type מזהה האם זו חופשה רגילה ("standard") או נסיעת עסקים ("business"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
-- בחופשה רגילה (trip_type=standard או null) אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים). החיפוש מציג את אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך. בנסיעת עסקים (trip_type=business) כן שומרים את מחלקת הטיסה המועדפת שהלקוח מסר ב-flight.cabin (אחד מ-economy/premium/business/first), אם נאמרה.
+- אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17].
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
@@ -148,7 +148,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "departure_airport":null,
   "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"duration_days":null,"constraints":[]},
   "budget_per_person":{"amount":null,"currency":null,"status":"unknown"},
-  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[],"cabin":null},
+  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[]},
   "priorities":[],"hard_constraints":[],"current_request":null,
   "search_intent":false,"requested_services":[],"service_decisions":{},
   "session_status":{"flights":"pending","lodging":"pending","car":"pending","trip_planning":"pending"},
@@ -292,7 +292,7 @@ def _sessionize_state(state):
             statuses[s] = "declined"
         elif wanted is True:
             services.add(s)
-            if statuses[s] == "pending":
+            if statuses[s] in ("pending", "declined"):
                 statuses[s] = "active"
 
     # A destination/trip request implies flights unless explicitly declined.
@@ -303,6 +303,14 @@ def _sessionize_state(state):
         services.add("flights")
         if statuses["flights"] == "pending":
             statuses["flights"] = "active"
+
+    # A business trip has no natural use for day-by-day itinerary/attraction
+    # planning. Default trip_planning to declined unless the customer
+    # explicitly asked for it (an explicit decision above already won).
+    if str(state.get("trip_type") or "").lower() == "business" and decisions.get("trip_planning") is None and statuses["trip_planning"] == "pending":
+        statuses["trip_planning"] = "declined"
+        decisions = dict(decisions)
+        decisions["trip_planning"] = {"wanted": False, "source": "business_trip_default"}
 
     # Keep one active session. Respect an existing unfinished active session first.
     active = state.get("active_session")
@@ -316,6 +324,7 @@ def _sessionize_state(state):
 
     state["requested_services"] = list(dict.fromkeys(list(state.get("requested_services") or []) + list(services)))
     state["session_status"] = statuses
+    state["service_decisions"] = decisions
     state["active_session"] = active
     return state
 
@@ -324,10 +333,14 @@ def _session_gaps(state, session):
     """Required facts for one session only."""
     all_gaps = _required_state_gaps(state)
     prefixes = {
+        # trip_type only gates the flights session (it affects date-flex/cabin
+        # behavior there). Requiring it for every session risks permanently
+        # stalling lodging/car/trip_planning if the opening question was ever
+        # skipped, since none of those sessions have a natural place to ask it.
         "flights": ("trip_type","destination","dates","travelers","departure_airport","flight.","budget_per_person"),
-        "lodging": ("trip_type","destination","dates","travelers","lodging."),
-        "car": ("trip_type","destination","dates","travelers","car."),
-        "trip_planning": ("trip_type","destination","dates","travelers","trip_planning."),
+        "lodging": ("destination","dates","travelers","lodging."),
+        "car": ("destination","dates","travelers","car."),
+        "trip_planning": ("destination","dates","travelers","trip_planning."),
     }
     allowed = prefixes.get(session, ())
     return [g for g in all_gaps if any(g == p or g.startswith(p) for p in allowed)]
@@ -519,8 +532,6 @@ def _required_state_gaps(state):
             gaps.append("flight.connection_preference")
         if not flight.get("baggage"):
             gaps.append("flight.baggage")
-        if str(state.get("trip_type") or "") == "business" and not flight.get("cabin"):
-            gaps.append("flight.cabin")
         budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
         if budget.get("amount") is None and budget.get("status") not in ("unlimited","none","no_limit"):
             gaps.append("budget_per_person")
@@ -1003,20 +1014,6 @@ def _deterministic_trip_type_facts(message):
     return {}
 
 
-def _deterministic_cabin_class_facts(message):
-    """Capture an explicit cabin-class preference (relevant to business trips)."""
-    msg = str(message or "").strip().lower()
-    if "מחלקה ראשונה" in msg or "first class" in msg:
-        return {"flight": {"cabin": "first"}}
-    if "מחלקת עסקים" in msg or "business class" in msg:
-        return {"flight": {"cabin": "business"}}
-    if "פרימיום אקונומי" in msg or "premium economy" in msg or "פרימיום" in msg:
-        return {"flight": {"cabin": "premium"}}
-    if "מחלקת תיירים" in msg or "economy class" in msg:
-        return {"flight": {"cabin": "economy"}}
-    return {}
-
-
 def _deterministic_traveler_facts(message):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
     import re
@@ -1423,7 +1420,6 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
-        trip_update = _merge_trip_state(trip_update, _deterministic_cabin_class_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range

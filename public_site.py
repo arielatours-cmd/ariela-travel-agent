@@ -2888,7 +2888,6 @@ def ariella_start_flight_search():
         "budget_mode": "limited" if budget.get("amount") else "unlimited",
         "budget_amount": budget.get("amount"),
         "cabin_class": flight.get("cabin") or "any",
-        "business_cabin_class": flight.get("cabin") or "economy",
         "ticket_flexibility": "any",
         "special_needs": [],
         "notes": "Created from Ariella live conversation",
