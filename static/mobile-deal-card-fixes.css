@@ -56,9 +56,9 @@
   .deal-card-v970 .deal-baggage li{min-height:24px!important;padding:2px 0!important;font-size:11px!important;grid-template-columns:20px 1fr auto!important;gap:4px!important}
   .deal-card-v970 .bag-svg{font-size:14px!important}
   .deal-card-v970 .bag-svg.checked{font-size:14px!important;transform:none!important}
-  .deal-card-v970 .baggage-terms-inline{display:flex!important;flex:1 1 auto!important;min-width:0!important;flex-direction:column!important;gap:5px!important;margin:0!important;padding-inline-start:10px!important;border-inline-start:1px solid #ece5d9!important}
-  .deal-card-v970 .baggage-terms-inline>div{display:flex!important;flex-direction:column!important;gap:1px!important;font-size:10px!important;line-height:1.3!important}
-  .deal-card-v970 .baggage-terms-inline dt{font-weight:700!important}
+  .deal-card-v970 .baggage-terms-inline{display:flex!important;flex:1 1 auto!important;min-width:0!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:8px!important;margin:0!important;padding:0!important;border:0!important;text-align:center!important}
+  .deal-card-v970 .baggage-terms-inline>div{display:flex!important;flex-direction:column!important;align-items:center!important;gap:2px!important;font-size:10px!important;line-height:1.3!important;text-align:center!important}
+  .deal-card-v970 .baggage-terms-inline dt{font-weight:700!important;margin:0!important}
   .deal-card-v970 .baggage-terms-inline dd{margin:0!important}
   /* The original important-terms block (inside deal-commerce) is now
      duplicated inline within the baggage row above; hide it here so it
