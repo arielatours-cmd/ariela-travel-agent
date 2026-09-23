@@ -32,7 +32,10 @@
   var stack = document.querySelector('.flash-stack');
   if(!stack || !stack.querySelector('.flash.error')) return;
   stack.classList.add('login-error-modal');
-  var dismiss = function(){ stack.style.display = 'none'; };
+  // .login-error-modal sets display:flex with !important in site.css, so a
+  // plain inline style.display='none' from here can never win against it -
+  // the popup would stay on screen forever. Remove the class itself instead.
+  var dismiss = function(){ stack.classList.remove('login-error-modal'); stack.style.display = 'none'; };
   stack.addEventListener('click', function(e){
     if(e.target === stack) dismiss();
   });
