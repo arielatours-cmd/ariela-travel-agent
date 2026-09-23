@@ -1,3 +1,4 @@
+import logging
 import os
 import sqlite3
 import threading
@@ -5,6 +6,12 @@ import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect
+
+# Gunicorn/Flask leave the root logger at its default WARNING level, which
+# silently drops every logging.info() call app-wide (booking diagnostics,
+# scan progress, etc. never reach Render's log stream). INFO must be
+# configured before any other module logs anything.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard
 from config import (
