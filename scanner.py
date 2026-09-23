@@ -14,7 +14,7 @@ from config import (
 )
 from database import (create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference,
     set_setting, latest_scan_cycle_index, update_scan_progress, clear_scan_stop, scan_stop_requested,
-    ranked_destinations, destination_trends_are_stale, save_destination_trends)
+    ranked_destinations, destination_trends_are_stale, save_destination_trends, record_route_availability)
 from scoring import calculate_deal_score
 from baggage_pricing import policy_personal_item_included
 
@@ -570,6 +570,16 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
     # Cost control for broad discovery scans. Targeted/customer searches keep full depth.
     if max_outbounds is not None:
         unique_outbounds = unique_outbounds[:max(1, int(max_outbounds))]
+
+    # Whether Google returned any outbound flight at all is a reliable signal
+    # for whether this route is served from this departure airport - remember
+    # it so a future customer request for a known dead route (e.g. a small
+    # regional airport with very limited international service) can be told
+    # immediately instead of spending another live search on it.
+    try:
+        record_route_availability(departure, arrival, bool(unique_outbounds))
+    except Exception:
+        pass
 
     complete = []
     expansion_errors = []

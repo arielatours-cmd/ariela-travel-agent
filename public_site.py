@@ -20,8 +20,8 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
@@ -2870,6 +2870,20 @@ def ariella_start_flight_search():
         return jsonify({"status":"error","message":"חסר יעד טיסה ולכן לא נפתחה חופשה ריקה."}), 400
     if date_mode == "flexible":
         return jsonify({"status":"error","message":"חסרים תאריכי חיפוש ולכן לא נפתחה חופשה ריקה."}), 400
+
+    # A departure airport with very limited service (e.g. Haifa) can have
+    # zero real flights to a given destination. Once a live search has
+    # already confirmed that, skip wasting another search on the same dead
+    # route and tell the customer up front to pick a different airport.
+    if departure_airport != "TLV":
+        dead_codes = known_dead_routes(departure_airport, destination_codes)
+        if dead_codes and set(dead_codes) >= set(destination_codes):
+            dep_name = AIRPORT_NAMES.get(departure_airport, departure_airport)
+            return jsonify({
+                "status": "no_service_from_departure",
+                "message": f"נראה שאין כרגע טיסות זמינות משדה {dep_name} ליעד הזה. מומלץ לבחור שדה תעופה אחר (כמו נתב״ג) כדי שאוכל לחפש עבורכם.",
+            }), 200
+
     connection = str(flight.get("connection_preference") or "any").lower()
     deal_priorities = []
     if connection in {"direct","nonstop","non-stop","ישירה","ישיר"}:

@@ -297,6 +297,14 @@ def init_db() -> None:
                 FOREIGN KEY(member_id) REFERENCES members(id)
             );
 
+            CREATE TABLE IF NOT EXISTS route_availability (
+                departure_code TEXT NOT NULL,
+                arrival_code TEXT NOT NULL,
+                has_flights INTEGER NOT NULL,
+                checked_at TEXT NOT NULL,
+                PRIMARY KEY (departure_code, arrival_code)
+            );
+
             CREATE TABLE IF NOT EXISTS payments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 member_id INTEGER,
@@ -1479,6 +1487,39 @@ def price_history_reference(departure_code: str, arrival_code: str, outbound_mon
     below_or_equal = sum(1 for value in prices if value <= current_price)
     percentile = (below_or_equal / len(prices)) * 100
     return {"sample_count": len(prices), "median": round(median, 2), "percentile": round(percentile, 1)}
+
+
+def record_route_availability(departure_code: str, arrival_code: str, has_flights: bool) -> None:
+    """Remember whether a live search actually found flights for this
+    departure/arrival pair, so a future customer request for a route we
+    already know is a dead end can be told that immediately instead of
+    spending another live search on it."""
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO route_availability (departure_code,arrival_code,has_flights,checked_at)
+               VALUES(?,?,?,?)
+               ON CONFLICT(departure_code,arrival_code) DO UPDATE SET
+                 has_flights=excluded.has_flights,
+                 checked_at=excluded.checked_at""",
+            (departure_code, arrival_code, 1 if has_flights else 0, utc_now_iso()),
+        )
+
+
+def known_dead_routes(departure_code: str, arrival_codes: list, max_age_days: int = 45) -> list:
+    """Which of the given arrival codes are already confirmed, within the
+    last max_age_days, to have zero flights from departure_code."""
+    if not arrival_codes:
+        return []
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=max_age_days)).isoformat()
+    placeholders = ",".join("?" for _ in arrival_codes)
+    with connection() as conn:
+        rows = conn.execute(
+            f"""SELECT arrival_code FROM route_availability
+                WHERE departure_code=? AND arrival_code IN ({placeholders})
+                  AND has_flights=0 AND checked_at>=?""",
+            (departure_code, *arrival_codes, cutoff),
+        ).fetchall()
+    return [r["arrival_code"] for r in rows]
 
 
 def save_ariella_conversation(member_id: int, history: list, trip_state: dict) -> None:
