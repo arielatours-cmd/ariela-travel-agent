@@ -381,6 +381,22 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                       "currency":"ILS", "adults":str(pax_adults),
                       "children":str(pax_children)}
             data = requests.get("https://serpapi.com/search.json", params=params, timeout=25).json()
+            raw_groups = data.get("booking_options") or []
+            logging.info(
+                "resolve_booking_target: raw booking_options=%d shapes=%r",
+                len(raw_groups),
+                [
+                    {
+                        "separate": bool(g.get("separate_tickets")),
+                        "keys": sorted(g.keys()) if isinstance(g, dict) else None,
+                        "together_book_with": (g.get("together") or {}).get("book_with") if isinstance(g.get("together"), dict) else None,
+                        "together_has_url": bool(((g.get("together") or {}).get("booking_request") or {}).get("url")) if isinstance(g.get("together"), dict) else None,
+                        "departing_book_with": (g.get("departing") or {}).get("book_with") if isinstance(g.get("departing"), dict) else None,
+                        "returning_book_with": (g.get("returning") or {}).get("book_with") if isinstance(g.get("returning"), dict) else None,
+                    }
+                    for g in raw_groups[:8]
+                ],
+            )
             exact_supplier, direct_airline, approved_supplier = [], [], []
             for group in data.get("booking_options") or []:
                 if group.get("separate_tickets"):
