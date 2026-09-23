@@ -376,10 +376,22 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
 
     if token and api_key:
         try:
-            params = {"engine":"google_flights", "booking_token":token,
-                      "api_key":api_key, "hl":"en", "gl":"il",
-                      "currency":"ILS", "adults":str(pax_adults),
-                      "children":str(pax_children)}
+            # A booking_token lookup needs the same route/date context as the
+            # search that produced it - SerpApi returns an empty
+            # booking_options list otherwise (confirmed in production: every
+            # airline came back exact=0 direct=0 approved=0 separate=0 with
+            # this call sending only the token). Mirror scanner.py's proven
+            # enrich_booking_options, which always resends the full search.
+            params = {
+                "engine": "google_flights", "booking_token": token, "api_key": api_key,
+                "departure_id": offer.get("departure_code") or offer.get("departure_airport"),
+                "arrival_id": offer.get("arrival_code") or offer.get("arrival_airport"),
+                "outbound_date": offer.get("outbound_date"), "return_date": offer.get("return_date"),
+                "type": "1", "hl": "en", "gl": "il", "currency": "ILS",
+                "travel_class": str(travel_class or "1"),
+                "adults": str(pax_adults), "children": str(pax_children),
+                "bags": "0", "sort_by": "2", "no_cache": "false",
+            }
             data = requests.get("https://serpapi.com/search.json", params=params, timeout=25).json()
             raw_groups = data.get("booking_options") or []
             logging.info(
