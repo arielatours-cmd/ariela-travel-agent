@@ -20,8 +20,8 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
 from booker import resolve_booking_target
@@ -414,6 +414,16 @@ def _expire_finished_trips(conn, member_id):
                 "UPDATE trip_requests SET status='ended', mobile_notifications=0, ended_at=? WHERE id=?",
                 (utc_now_iso(), row["id"]),
             )
+
+    # A paid tracking period (search_period_ends_at) that has run out must stop
+    # counting as an active subscription, whether or not the vacation itself is
+    # still open - otherwise the card would keep showing "active" forever.
+    now_iso = utc_now_iso()
+    conn.execute(
+        "UPDATE trip_requests SET subscription_status='ended', subscription_cancel_at_period_end=0 "
+        "WHERE member_id=? AND subscription_status='active' AND search_period_ends_at IS NOT NULL AND search_period_ends_at < ?",
+        (member_id, now_iso),
+    )
 
 
 def _trip_destination_codes(trip):
@@ -2532,6 +2542,7 @@ def account():
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
+        personal_search_plans=PERSONAL_SEARCH_PLANS,
     )
 
 
@@ -3528,8 +3539,7 @@ def free_trip_alternative(trip_id):
 @login_required
 def renew_trip_search(trip_id):
     plan = request.form.get("plan", "").strip()
-    allowed = {"calm", "daily", "intensive"}
-    if plan not in allowed:
+    if plan not in PERSONAL_SEARCH_PLANS:
         return redirect(url_for("site.account"))
     with _db() as conn:
         row = conn.execute(
@@ -3542,11 +3552,62 @@ def renew_trip_search(trip_id):
                 (plan, trip_id),
             )
             conn.commit()
-    # Checkout will replace this pending step. Selecting a plan does NOT start scans.
-    # Only a confirmed payment may activate the paid monthly search period.
-    # Four days before expiry, send a renewal reminder with a link back to My Vacations.
-    # No automatic renewal or recurring charge.
-    return redirect(url_for("site.account", payment="pending", trip_id=trip_id))
+    # Selecting a plan only records intent (status='pending'). It never starts
+    # scans or charges anything by itself - only a confirmed payment (see
+    # _confirm_paid_search) activates the paid search period.
+    return redirect(url_for("site.trip_checkout", trip_id=trip_id))
+
+
+@site.get("/trip/<int:trip_id>/checkout")
+@login_required
+def trip_checkout(trip_id):
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return redirect(url_for("site.account"))
+    trip = _trip_dict(row)
+    plan = trip.get("subscription_plan")
+    plan_info = PERSONAL_SEARCH_PLANS.get(plan)
+    if trip.get("subscription_status") != "pending" or not plan_info:
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+    return render_template(
+        "trip_checkout.html", trip=trip, plan=plan, plan_info=plan_info,
+        search_period_days=SEARCH_PERIOD_DAYS,
+    )
+
+
+def _confirm_paid_search(trip_id, provider=None, provider_reference=None):
+    """The one place a payment turns into an active tracking period. Today it
+    is only reachable from the admin manual-confirm action (no live payment
+    processor yet); a real gateway's webhook will call this same function
+    once it exists - nothing else in the flow needs to change."""
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT member_id, subscription_plan, subscription_status FROM trip_requests WHERE id=?",
+            (trip_id,),
+        ).fetchone()
+        if not row or row["subscription_status"] != "pending":
+            return False
+        plan = row["subscription_plan"]
+        plan_info = PERSONAL_SEARCH_PLANS.get(plan)
+        if not plan_info:
+            return False
+        now = datetime.now(timezone.utc)
+        ends = now + timedelta(days=SEARCH_PERIOD_DAYS)
+        conn.execute(
+            "UPDATE trip_requests SET subscription_status='active', subscription_started_at=?, "
+            "subscription_cancel_at_period_end=0, search_period_started_at=?, search_period_ends_at=?, "
+            "renewal_reminder_sent_at=NULL, has_paid_search=1 WHERE id=?",
+            (now.isoformat(), now.isoformat(), ends.isoformat(), trip_id),
+        )
+        conn.commit()
+        member_id = row["member_id"]
+    record_payment(member_id, trip_id, plan, plan_info["price_ils"], provider=provider,
+                    provider_reference=provider_reference, status="paid", paid_at=now.isoformat())
+    return True
 
 
 @site.route("/trip/new", methods=["GET", "POST"])

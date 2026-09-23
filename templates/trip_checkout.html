@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Complete payment' if site_lang == 'en' else 'השלמת תשלום' }}{% endblock %}
+{% block content %}
+<section class="trip-checkout-page" dir="rtl">
+  <div class="checkout-card">
+    <a class="checkout-back" href="{{ url_for('site.account') }}#vacation-{{ trip.id }}">&larr; {{ 'Back to my vacations' if site_lang == 'en' else 'חזרה לחופשות שלי' }}</a>
+    <h1>{{ 'Daily tracking for' if site_lang == 'en' else 'מעקב יומי עבור' }} {{ trip.destination_display or trip.request_name }}</h1>
+    <div class="checkout-plan">
+      <strong>{{ plan_info.label_en if site_lang == 'en' else plan_info.label_he }}</strong>
+      <span class="checkout-price">{{ plan_info.price_ils }} ₪</span>
+      <p>{{ plan_info.desc_en if site_lang == 'en' else plan_info.desc_he }}</p>
+      <small>{{ ('One-time payment, valid for %d days. Not a recurring subscription - no card details are stored.' % search_period_days) if site_lang == 'en' else ('תשלום חד-פעמי, בתוקף ל-%d ימים. לא מנוי מתחדש - לא נשמרים פרטי אשראי.' % search_period_days) }}</small>
+    </div>
+    <div class="checkout-pending-notice">
+      {{ 'Secure payment will be available here soon. This vacation is marked as awaiting payment in the meantime.' if site_lang == 'en' else 'השלמת תשלום מאובטח תתאפשר כאן בקרוב. בינתיים החופשה מסומנת כממתינה לתשלום.' }}
+    </div>
+  </div>
+</section>
+<style>
+.trip-checkout-page{min-height:60vh;display:grid;place-items:center;padding:35px 18px;background:linear-gradient(180deg,#fffaf3,#f6eee2)}
+.checkout-card{max-width:480px;width:100%;background:#fff;border:1px solid #e2d4bd;border-radius:20px;padding:30px 26px;box-shadow:0 18px 50px rgba(69,52,26,.11)}
+.checkout-back{display:inline-block;color:#147d77;font-size:13px;text-decoration:none;margin-bottom:14px}
+.checkout-card h1{font-size:21px;margin:0 0 18px;color:#3a3025}
+.checkout-plan{background:#faf7f0;border:1px solid #e5dccd;border-radius:14px;padding:16px 18px;margin-bottom:16px}
+.checkout-plan strong{display:block;font-size:16px;color:#6d5a2c;margin-bottom:4px}
+.checkout-price{display:inline-block;font-size:24px;font-weight:800;color:#3a3025;margin-bottom:8px}
+.checkout-plan p{margin:6px 0 8px;font-size:13.5px;color:#4a453c;line-height:1.5}
+.checkout-plan small{display:block;color:#8a7f6c;font-size:11.5px}
+.checkout-pending-notice{font-size:13px;color:#7a6a3f;background:#fdf6e3;border:1px solid #eddca4;border-radius:12px;padding:12px 14px;line-height:1.5}
+</style>
+{% endblock %}

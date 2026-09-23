@@ -29,7 +29,7 @@ from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search
 import scanner as _scanner
 from din_agent import enrich_offer_legal_terms
 from schedule_rules import delivery_status
-from public_site import site
+from public_site import site, _confirm_paid_search
 from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
@@ -180,6 +180,29 @@ def toggle_test_mode():
     set_setting("qa_test_mode", "0" if current else "1")
     supplied = request.args.get("token") or ""
     return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
+
+
+@app.post("/admin/confirm-payment")
+def admin_confirm_payment():
+    """Manual stand-in for a payment processor's success webhook. Until a real
+    gateway (Isracard or otherwise) is connected, this is the only way a
+    personal-search payment (19/39 ILS) turns from 'pending' into an active
+    34-day tracking period - for testing the flow end to end. A real
+    gateway's callback will call the exact same public_site._confirm_paid_search
+    function; nothing else about the flow needs to change when that happens."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    trip_id = request.form.get("trip_id", type=int) or request.args.get("trip_id", type=int)
+    if not trip_id:
+        return jsonify({"status": "error", "message": "missing trip_id"}), 400
+    ok = _confirm_paid_search(trip_id, provider="manual_admin")
+    if not ok:
+        return jsonify({"status": "error", "message": "no pending payment for this trip"}), 404
+    supplied = request.args.get("token") or request.form.get("token") or ""
+    if request.form.get("redirect") == "admin":
+        return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
+    return jsonify({"status": "success", "trip_id": trip_id})
 
 
 @app.get("/admin")

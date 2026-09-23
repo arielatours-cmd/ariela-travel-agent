@@ -24,6 +24,31 @@ WIDE_SCAN_HOUR = int(os.getenv("WIDE_SCAN_HOUR", "6"))
 WIDE_SCAN_MINUTE = int(os.getenv("WIDE_SCAN_MINUTE", "15"))
 WIDE_SCAN_DESTINATION_LIMIT = int(os.getenv("WIDE_SCAN_DESTINATION_LIMIT", "30"))
 
+# Personal-vacation paid daily tracking (after the free first scan). One-time
+# payment per period, never an auto-renewing subscription - no card details
+# are stored. "update" piggybacks on the existing general deals scan; "scan"
+# adds a dedicated daily search just for that customer's request at noon.
+PERSONAL_SEARCH_DAILY_SCAN_HOUR = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_HOUR", "12"))
+PERSONAL_SEARCH_DAILY_SCAN_MINUTE = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MINUTE", "0"))
+SEARCH_PERIOD_DAYS = int(os.getenv("SEARCH_PERIOD_DAYS", "34"))
+RENEWAL_REMINDER_DAYS_BEFORE = int(os.getenv("RENEWAL_REMINDER_DAYS_BEFORE", "4"))
+PERSONAL_SEARCH_PLANS = {
+    "update": {
+        "price_ils": 19,
+        "label_he": "עדכון יומי",
+        "label_en": "Daily update",
+        "desc_he": "עדכון פעם ביום אם נמצא דיל שמתאים ליעד, לתאריכים, לתקציב ולכבודה שביקשתם - מתוך הסריקה הכללית היומית.",
+        "desc_en": "One update a day if a deal matching your destination, dates, budget and baggage turns up in the regular daily scan.",
+    },
+    "scan": {
+        "price_ils": 39,
+        "label_he": "סריקה יומית נוספת",
+        "label_en": "Extra daily search",
+        "desc_he": "סריקה ייעודית נוספת במיוחד בשבילכם כל יום בצהריים, בנוסף לעדכון הכללי בערב - פעמיים ביום.",
+        "desc_en": "One extra dedicated search just for your trip every noon, on top of the evening update - twice a day.",
+    },
+}
+
 DESTINATIONS = [
     {"code": "ATH", "name": "אתונה", "country_flag": "🇬🇷"}, {"code": "LCA", "name": "לרנקה", "country_flag": "🇨🇾"}, {"code": "PFO", "name": "פאפוס", "country_flag": "🇨🇾"},
     {"code": "BUD", "name": "בודפשט", "country_flag": "🇭🇺"}, {"code": "VIE", "name": "וינה", "country_flag": "🇦🇹"},
