@@ -116,11 +116,14 @@
       }else if(data.trip_update&&typeof data.trip_update==='object'){
         localStorage.setItem(stateKey,JSON.stringify(data.trip_update));
       }
+      let savedPlanTripId=0;
       if(data.persist_trip_plan===true){
         const activeTripId=Number(localStorage.getItem(tripIdKey)||0);
         if(activeTripId>0){
           try{
-            await fetch('/api/ariella/save-trip-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_id:activeTripId,trip_state:data.trip_update||{},history:history.concat([{role:'user',content:text},{role:'assistant',content:String(data.reply||'')}])})});
+            const saveRes=await fetch('/api/ariella/save-trip-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_id:activeTripId,trip_state:data.trip_update||{},history:history.concat([{role:'user',content:text},{role:'assistant',content:String(data.reply||'')}])})});
+            const saveData=await saveRes.json().catch(()=>({}));
+            if(saveRes.ok&&saveData.status==='saved')savedPlanTripId=activeTripId;
           }catch(e){}
         }
       }
@@ -189,6 +192,7 @@
         return;
       }
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
+      if(savedPlanTripId>0)addVacationLink(savedPlanTripId);
     }catch(e){
       const reply='יש לי תקלה רגעית בשיחה. נסו לשלוח שוב בעוד רגע.';
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
