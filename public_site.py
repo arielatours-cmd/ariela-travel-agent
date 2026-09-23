@@ -3573,10 +3573,7 @@ def trip_checkout(trip_id):
     plan_info = PERSONAL_SEARCH_PLANS.get(plan)
     if trip.get("subscription_status") != "pending" or not plan_info:
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
-    return render_template(
-        "trip_checkout.html", trip=trip, plan=plan, plan_info=plan_info,
-        search_period_days=SEARCH_PERIOD_DAYS,
-    )
+    return render_template("trip_checkout.html", trip=trip, plan=plan, plan_info=plan_info)
 
 
 def _confirm_paid_search(trip_id, provider=None, provider_reference=None):

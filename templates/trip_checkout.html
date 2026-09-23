@@ -9,7 +9,7 @@
       <strong>{{ plan_info.label_en if site_lang == 'en' else plan_info.label_he }}</strong>
       <span class="checkout-price">{{ plan_info.price_ils }} ₪</span>
       <p>{{ plan_info.desc_en if site_lang == 'en' else plan_info.desc_he }}</p>
-      <small>{{ ('One-time payment, valid for %d days. Not a recurring subscription - no card details are stored.' % search_period_days) if site_lang == 'en' else ('תשלום חד-פעמי, בתוקף ל-%d ימים. לא מנוי מתחדש - לא נשמרים פרטי אשראי.' % search_period_days) }}</small>
+      <small>{{ 'One-time payment, valid for a month. Not a recurring subscription - no card details are stored.' if site_lang == 'en' else 'תשלום חד-פעמי, בתוקף לחודש. לא מנוי מתחדש - לא נשמרים פרטי אשראי.' }}</small>
     </div>
     <div class="checkout-pending-notice">
       {{ 'Secure payment will be available here soon. This vacation is marked as awaiting payment in the meantime.' if site_lang == 'en' else 'השלמת תשלום מאובטח תתאפשר כאן בקרוב. בינתיים החופשה מסומנת כממתינה לתשלום.' }}
