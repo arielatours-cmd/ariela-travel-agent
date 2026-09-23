@@ -1625,18 +1625,6 @@ def chat_clean():
         )
         force_summary_now = bool(trip_update.get("ready_for_summary")) and resolved_all_services
 
-        # Flight session is intentionally self-contained. The moment its last
-        # required fact is collected, do not leave the customer with a generic
-        # acknowledgement and do not wait for optional services. Tinkerbell must
-        # produce the flight summary and ask for the exact approval word.
-        flight_status_now = statuses_now.get("flights")
-        flight_summary_now = (
-            flight_status_now == "complete"
-            and bool(trip_update.get("ready_for_summary"))
-            and not bool(trip_state.get("ready_for_summary"))
-            and not bool(trip_state.get("search_confirmed"))
-        )
-
         # A natural confirmation of an already-proposed itinerary closes only
         # the planning session. Persist the approved plan context for the vacation
         # card; enrichment (DB prices/ticket links) can consume this state without
@@ -1676,11 +1664,6 @@ def chat_clean():
                 "מצוין, המסלול מאושר. "
                 "תרצי שאמשיך גם עם לינה או השכרת רכב לחופשה הזו, או שסיימנו?"
             )
-        elif flight_summary_now:
-            # Re-run the conversational response with the now-complete structured
-            # state. The system prompt requires a flight-only summary + מאשר/מאשרת.
-            # This prevents replies such as "תודה, קיבלתי" after the final fact.
-            reply = _call_tinkerbell(key, model, history, message, trip_update)
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
