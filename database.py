@@ -1595,3 +1595,28 @@ def mark_feedback_seen() -> None:
         row = conn.execute("SELECT MAX(id) AS max_id FROM feedback_messages").fetchone()
         max_id = int(row["max_id"] or 0)
     set_setting("admin_feedback_last_seen_id", str(max_id))
+
+
+def members_to_notify_on_whatsapp() -> list[dict]:
+    """
+    מחזירה רשימת לקוחות שמתאימים לקבל הודעת דיל בוואטסאפ:
+    - הסכימו לקבל וואטסאפ (whatsapp_opt_in = 1)
+    - החשבון שלהם פעיל (members.status = 'active')
+    - יש להם לפחות בקשת טיול אחת עם מנוי פעיל (subscription_status = 'active')
+
+    מחזירה: [{"member_id": .., "full_name": .., "phone": ..}, ...]
+    """
+    with connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT m.id AS member_id, m.full_name, m.phone
+            FROM members m
+            JOIN trip_requests t ON t.member_id = m.id
+            WHERE m.whatsapp_opt_in = 1
+              AND m.status = 'active'
+              AND m.phone IS NOT NULL
+              AND TRIM(m.phone) <> ''
+              AND t.subscription_status = 'active'
+            """
+        ).fetchall()
+    return [dict(row) for row in rows]
