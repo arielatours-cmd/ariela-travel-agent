@@ -23,9 +23,9 @@
       <article class="vacation-result" id="vacation-{{ trip.id }}">
         <header class="vacation-head">
           <div>
-            <small>נוצרה ב־{{ (trip.created_at or '')[:10] }}</small>
+            <small>נוצרה ב־<span dir="ltr">{{ (trip.created_at or '')[:10] }}</span></small>
             <h2>{{ trip.destination_display or trip.request_name }}</h2>
-            {% if trip.travel_window %}<p>{{ trip.travel_window }}</p>{% endif %}
+            {% if trip.travel_window %}<p dir="ltr">{{ trip.travel_window }}</p>{% endif %}
           </div>
         </header>
 
@@ -33,15 +33,10 @@
         {% set deal_priorities = a.get('deal_priorities') or [] %}
         {% set baggage_list = a.get('baggage') or [] %}
         {% set ages = a.get('age_groups') or [] %}
+        {% set baggage_he = {'carry_on':'טרולי','carry_on_only':'טרולי בלבד','checked':'מזוודה','checked_bag':'מזוודה','personal_item':'תיק אישי','none':'ללא כבודה','no_baggage':'ללא כבודה'} %}
         <ul class="vacation-request-facts">
           <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
           {% if a.get('origin_airports') %}<li><b>שדה יציאה:</b> {{ a.get('origin_airports')|join(', ') }}</li>{% endif %}
-          {% if a.get('destinations') %}<li><b>יעד:</b> {{ a.get('destinations') }}</li>{% endif %}
-          {% if a.get('date_mode') == 'exact' and a.get('departure_date') and a.get('return_date') %}
-            <li><b>תאריכים:</b> {{ a.get('departure_date') }} – {{ a.get('return_date') }}</li>
-          {% elif a.get('travel_month') %}
-            <li><b>חודש יציאה:</b> {{ a.get('travel_month') }}</li>
-          {% endif %}
           <li><b>נוסעים:</b> {{ a.get('adults', 1) }} מבוגרים{% if a.get('children') %}, {{ a.get('children') }} ילדים{% if ages %} (גילאים: {{ ages|join(', ') }}){% endif %}{% endif %}</li>
           {% if a.get('budget_mode') == 'limited' and a.get('budget_amount') %}
             <li><b>תקציב:</b> עד ₪{{ a.get('budget_amount')|int }} לאדם</li>
@@ -49,7 +44,7 @@
             <li><b>תקציב:</b> ללא הגבלה</li>
           {% endif %}
           {% if 'direct' in deal_priorities %}<li><b>העדפת טיסה:</b> ישירה בלבד</li>{% endif %}
-          {% if baggage_list %}<li><b>כבודה:</b> {{ baggage_list|join(', ') }}</li>{% endif %}
+          {% if baggage_list %}<li><b>כבודה:</b> {% for b in baggage_list %}{{ baggage_he.get(b|string|lower, b) }}{{ ', ' if not loop.last }}{% endfor %}</li>{% endif %}
           {% if a.get('vacation_type') == 'business' and a.get('cabin_class') and a.get('cabin_class') != 'any' %}
             <li><b>מחלקת טיסה:</b> {{ a.get('cabin_class') }}</li>
           {% endif %}
