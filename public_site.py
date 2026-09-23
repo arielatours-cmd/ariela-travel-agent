@@ -11,7 +11,7 @@ import threading
 import random
 import requests
 import re
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, quote, urlencode
 from datetime import date, datetime
 from functools import wraps
 from zoneinfo import ZoneInfo
@@ -21,7 +21,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, CJ_BOOKING_EVERGREEN_LINK
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
@@ -109,6 +109,50 @@ try:
 
 except Exception:
     _AIRPORT_LOCALIZATION = {}
+
+
+def _cj_booking_wrap(destination_url: str, sid: str | None = None) -> str:
+    """Wrap a plain Booking.com URL behind our CJ "Evergreen" tracking link
+    (Booking.com's URL structure means CJ's own deep-link generator can't do
+    this automatically - see CJ_BOOKING_EVERGREEN_LINK). Falls back to the
+    plain destination URL, uncredited, until that link is configured."""
+    if not CJ_BOOKING_EVERGREEN_LINK:
+        return destination_url
+    params = {"url": destination_url}
+    if sid:
+        params["sid"] = sid
+    return CJ_BOOKING_EVERGREEN_LINK + "?" + urlencode(params, quote_via=quote)
+
+
+def _booking_com_lodging_url(trip: dict, destination_codes: list[str]) -> str | None:
+    """A Booking.com stays-search deep link pre-filled with what the customer
+    already told Ariella (destination, dates, party size). No live prices are
+    ever pulled from Booking.com - the CJ affiliate program does not include
+    Demand API access, so this only hands the customer off to Booking.com's
+    own search results."""
+    if not destination_codes:
+        return None
+    info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
+    city = info.get("city_he") or info.get("city_en") or destination_codes[0]
+    answers = trip.get("answers") or {}
+    params = {"ss": city, "no_rooms": "1"}
+    dep, ret = answers.get("departure_date"), answers.get("return_date")
+    if dep and ret:
+        params["checkin"] = dep
+        params["checkout"] = ret
+    try:
+        adults = max(1, int(answers.get("adults") or 1))
+    except (TypeError, ValueError):
+        adults = 1
+    params["group_adults"] = str(adults)
+    try:
+        children = max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        children = 0
+    if children:
+        params["group_children"] = str(children)
+    search_url = "https://www.booking.com/searchresults.html?" + urlencode(params)
+    return _cj_booking_wrap(search_url, sid=f"trip{trip.get('id')}" if trip.get("id") else None)
 
 _SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
 try:
@@ -2513,6 +2557,11 @@ def account():
             trip["destination_display"] = " • ".join(labels)
         else:
             trip["destination_display"] = trip.get("request_name") or _msg("חופשה", "Vacation")
+
+        try:
+            trip["booking_lodging_url"] = _booking_com_lodging_url(trip, destination_codes)
+        except Exception:
+            trip["booking_lodging_url"] = None
 
         if str(answers.get("vacation_type") or "") == "ski":
             trip["image_url"] = "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=82"

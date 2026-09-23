@@ -171,9 +171,21 @@
         </div>
 
         <div class="vacation-panel" id="lodging-{{ trip.id }}">
-          <h3>אפשרויות לינה לפי אזורי המסלול</h3>
-          <div class="vacation-empty">כאן יוצגו קישורי הלינה לפי האזורים, התאריכים ותנאי הלינה שבחרתם.</div>
+          <h3>אפשרויות לינה ליעד ולתאריכים שלכם</h3>
+          {% if trip.booking_lodging_url %}
+            <div class="booking-lodging-cta">
+              <a class="booking-lodging-btn" href="{{ trip.booking_lodging_url }}" target="_blank" rel="noopener">חיפוש לינה ב-Booking.com</a>
+              <small>מומלץ להשלים את ההזמנה באותו דפדפן שבו נפתח הקישור.</small>
+            </div>
+          {% else %}
+            <div class="vacation-empty">כאן יוצג קישור לחיפוש לינה ליעד ולתאריכים שבחרתם.</div>
+          {% endif %}
         </div>
+        <style>
+          .booking-lodging-cta{text-align:center;padding:18px}
+          .booking-lodging-btn{display:inline-block;background:#0fc2b0;color:#fff!important;font-weight:800;padding:12px 28px;border-radius:999px;box-shadow:0 7px 20px rgba(15,194,176,.3)}
+          .booking-lodging-cta small{display:block;color:#8a7f6c;font-size:12px;margin-top:10px}
+        </style>
 
         <div class="vacation-panel" id="car-{{ trip.id }}">
           <h3>רכב שמתאים לחופשה</h3>

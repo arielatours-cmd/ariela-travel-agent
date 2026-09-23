@@ -36,6 +36,15 @@ PERSONAL_SEARCH_DAILY_SCAN_MINUTE = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MI
 # refresh a couple of jobs a day, not re-explore the flex window every day at
 # exploratory cost - see the SerpAPI-cost math behind the 19/39 ILS pricing.
 PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS", "3"))
+
+# Booking.com affiliate program, via CJ Affiliate (not the Demand API - that
+# path is invite-only direct-with-Booking.com and confirmed unavailable to
+# this account). CJ's own deep-link generator does not work for Booking.com's
+# URL structure, so the destination URL is wrapped manually behind the
+# "Evergreen" tracking link CJ issues per publisher (Links -> search
+# "evergreen" in the CJ dashboard). Leave blank until that link is in hand -
+# lodging search then just links straight to Booking.com, uncredited.
+CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
 # Sold to the customer as "a month" (never shown as a raw day count) but kept
 # internally at 30 real service days + the 4-day RENEWAL_REMINDER_DAYS_BEFORE
 # buffer, so a customer who reacts slowly to the reminder email still gets
