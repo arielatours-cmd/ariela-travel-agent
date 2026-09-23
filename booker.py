@@ -22,6 +22,12 @@ class BookerTarget:
     mode: str
     exact: bool
     note: str = ""
+    # Set only when a budget carrier sells its round trip as two separate
+    # one-way tickets from itself (e.g. Wizz Air, Ryanair) rather than one
+    # combined booking: url/fields above are the outbound leg, these are the
+    # return leg, opened as an explicit second step.
+    second_leg_url: str | None = None
+    second_leg_fields: list[tuple[str, str]] | None = None
 
 
 UNRELIABLE_DIRECT_SUPPLIERS = {
@@ -398,10 +404,51 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                     supplier=part.get("book_with") or recommended,
                     mode="personal_exact_party_regenerated" if personal else "recommended_supplier_refreshed",
                     exact=True)
+
+            # No combined round-trip option. Budget carriers (Wizz Air, Ryanair,
+            # easyJet, ...) commonly sell outbound + return as two separate
+            # one-way tickets instead - Google marks these separate_tickets.
+            # Only trust a pair sold by the SAME identified airline on both
+            # legs (that is exactly how you would book directly on its own
+            # site anyway); never combine two different resellers.
+            separate_candidates = []
+            for group in data.get("booking_options") or []:
+                if not group.get("separate_tickets"):
+                    continue
+                departing = group.get("departing") or {}
+                returning = group.get("returning") or {}
+                dep_req = departing.get("booking_request") or {}
+                ret_req = returning.get("booking_request") or {}
+                if not dep_req.get("url") or not ret_req.get("url"):
+                    continue
+                if departing.get("airline") is not True or returning.get("airline") is not True:
+                    continue
+                if _is_unreliable_direct(departing) or _is_unreliable_direct(returning):
+                    continue
+                dep_supplier = _norm(departing.get("book_with"))
+                ret_supplier = _norm(returning.get("book_with"))
+                if not dep_supplier or dep_supplier != ret_supplier:
+                    continue
+                try:
+                    total = float(departing.get("price") or 0) + float(returning.get("price") or 0)
+                except (TypeError, ValueError):
+                    total = 10**9
+                separate_candidates.append((total, departing, dep_req, ret_req))
+            if separate_candidates:
+                _, departing, dep_req, ret_req = min(separate_candidates, key=lambda x: x[0])
+                return BookerTarget(
+                    url=dep_req.get("url"), fields=_request_fields(dep_req),
+                    supplier=departing.get("book_with") or recommended,
+                    mode="separate_tickets_two_step", exact=True,
+                    note="הספק מוכר את הטיסה הזו כשני כרטיסים נפרדים - הלוך וחזור. אריאלה פתחה עבורכם קודם את טיסת ההלוך, ותציג בהמשך קישור נפרד להזמנת טיסת החזור.",
+                    second_leg_url=ret_req.get("url"), second_leg_fields=_request_fields(ret_req),
+                )
+
             logging.info(
                 "resolve_booking_target: booking_token lookup returned no usable pool "
-                "(exact=%s direct=%s approved=%s) preferred=%s",
-                len(exact_supplier), len(direct_airline), len(approved_supplier), preferred,
+                "(exact=%s direct=%s approved=%s separate=%s) preferred=%s",
+                len(exact_supplier), len(direct_airline), len(approved_supplier),
+                len(separate_candidates), preferred,
             )
         except Exception:
             logging.exception("resolve_booking_target: booking_token lookup failed")

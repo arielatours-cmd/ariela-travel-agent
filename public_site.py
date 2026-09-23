@@ -52,6 +52,10 @@ def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_co
             "method": "post" if target.fields else "get",
             "exact": target.exact, "note": target.note,
         }
+        if target.second_leg_url:
+            result["second_leg_url"] = target.second_leg_url
+            result["second_leg_fields"] = target.second_leg_fields or []
+            result["second_leg_method"] = "post" if target.second_leg_fields else "get"
         with _booking_jobs_lock:
             _booking_jobs[job_id].update(
                 status="finished" if target.exact else "manual",

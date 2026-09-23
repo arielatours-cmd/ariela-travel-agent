@@ -19,11 +19,36 @@
     <h1 id="booking-title">{{ 'Ariella is preparing your exact booking…' if site_lang == 'en' else 'אריאלה מכינה את ההזמנה המדויקת שלכם…' }}</h1>
     <p><span id="booking-note">{{ 'The flight and passenger details are being filled in.' if site_lang == 'en' else 'פרטי הטיסה ומספר הנוסעים מתמלאים כעת.' }}</span><span class="thanks">{{ 'Thank you for choosing Ariella' if site_lang == 'en' else 'תודה שבחרתם באריאלה' }}</span></p>
     <div class="progress" aria-hidden="true"><i></i></div>
+    <div id="two-step-buttons" style="display:none;margin-top:20px;flex-direction:column;gap:10px"></div>
   </section>
   <form id="booking-forward" method="{{ method }}" action="{{ action }}">{% for k,v in fields %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}</form>
   <script>
   const started=Date.now(), statusUrl={{ status_url|default('', true)|tojson }};
+  function showTwoStepButtons(result){
+    document.getElementById('booking-title').textContent={{ ('This provider sells outbound and return as two separate tickets.' if site_lang == 'en' else 'הספק מוכר את ההלוך והחזור כשני כרטיסים נפרדים.')|tojson }};
+    document.getElementById('booking-note').textContent=result.note||{{ ('Open each leg below to complete both bookings.' if site_lang == 'en' else 'פתחו כל טיסה בנפרד כדי להשלים את שתי ההזמנות.')|tojson }};
+    document.querySelector('.progress').style.display='none';
+    const wrap=document.getElementById('two-step-buttons');
+    wrap.style.display='flex';
+    const mkBtn=(label,target)=>{
+      const btn=document.createElement('button');
+      btn.type='button'; btn.textContent=label;
+      btn.style.cssText='min-height:48px;border:0;border-radius:8px;background:linear-gradient(100deg,#123e7a,#1d58a8);color:#fff;font-size:16px;font-weight:800;cursor:pointer';
+      btn.onclick=()=>{
+        const form=document.createElement('form');
+        form.method=target.method||'get'; form.action=target.url; form.target='_blank';
+        (target.fields||[]).forEach(([k,v])=>{const i=document.createElement('input');i.type='hidden';i.name=k;i.value=v;form.appendChild(i)});
+        document.body.appendChild(form); form.submit(); form.remove();
+      };
+      return btn;
+    };
+    wrap.appendChild(mkBtn({{ ('Step 1: Book the outbound flight' if site_lang == 'en' else 'שלב 1: הזמנת טיסת ההלוך')|tojson }},
+      {url:result.url, fields:result.fields, method:result.method}));
+    wrap.appendChild(mkBtn({{ ('Step 2: Book the return flight' if site_lang == 'en' else 'שלב 2: הזמנת טיסת החזור')|tojson }},
+      {url:result.second_leg_url, fields:result.second_leg_fields, method:result.second_leg_method}));
+  }
   function submitTarget(target){
+    if(target.second_leg_url) return showTwoStepButtons(target);
     const form=document.getElementById('booking-forward');
     form.method=target.method||'get'; form.action=target.url;
     (target.fields||[]).forEach(([k,v])=>{const i=document.createElement('input');i.type='hidden';i.name=k;i.value=v;form.appendChild(i)});
