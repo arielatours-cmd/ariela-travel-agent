@@ -113,13 +113,12 @@
         </div>
         <style>
           .vqt-row{margin-top:10px}
-          .vqt-tabs{display:flex;border:1px solid #e5dccd;border-radius:10px;overflow:hidden}
-          .vqt-tab{flex:1 1 50%;min-width:0;border:0;background:#faf7f0;color:#6d5a2c;font-size:12.5px;font-weight:700;padding:10px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-inline-start:1px solid #e5dccd}
-          .vqt-tab:first-child{border-inline-start:0}
-          .vqt-tab-sub{background:#faf7f0}
-          .vqt-tab.active{color:#fff}
-          .vqt-tab-facts.active{background:#8a744a}
-          .vqt-tab-sub.active{background:#0fc2b0}
+          .vqt-tabs{display:flex;gap:8px}
+          .vqt-tab{flex:1 1 50%;min-width:0;border-radius:10px;font-size:12.5px;font-weight:700;padding:9px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .vqt-tab-facts{background:#fff;border:2.5px solid #c9a44a;color:#6d5a2c}
+          .vqt-tab-facts.active{background:#c9a44a;color:#fff}
+          .vqt-tab-sub{background:#0fc2b0;border:2.5px solid #0fc2b0;color:#fff}
+          .vqt-tab-sub.active{background:#0a9c8e;border-color:#0a9c8e}
           .vqt-panel{display:none;margin-top:8px}
           .vqt-panel.active{display:block}
           .sub-intro{font-size:12px;font-weight:700;color:#6d5a2c;margin-bottom:8px}
