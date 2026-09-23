@@ -34,77 +34,69 @@
         {% set baggage_list = a.get('baggage') or [] %}
         {% set ages = a.get('age_groups') or [] %}
         {% set baggage_he = {'carry_on':'טרולי','carry_on_only':'טרולי בלבד','checked':'מזוודה','checked_bag':'מזוודה','personal_item':'תיק אישי','none':'ללא כבודה','no_baggage':'ללא כבודה'} %}
-        <div class="vacation-quick-row">
-        <details class="vacation-facts-toggle">
-          <summary>פרטי הבקשה</summary>
-          <ul class="vacation-request-facts">
-            <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
-            {% if a.get('origin_airports') %}<li><b>שדה יציאה:</b> {{ a.get('origin_airports')|join(', ') }}</li>{% endif %}
-            <li><b>נוסעים:</b> {{ a.get('adults', 1) }} מבוגרים{% if a.get('children') %}, {{ a.get('children') }} ילדים{% if ages %} (גילאים: {{ ages|join(', ') }}){% endif %}{% endif %}</li>
-            {% if a.get('budget_mode') == 'limited' and a.get('budget_amount') %}
-              <li><b>תקציב:</b> עד ₪{{ a.get('budget_amount')|int }} לאדם</li>
-            {% else %}
-              <li><b>תקציב:</b> ללא הגבלה</li>
-            {% endif %}
-            {% if 'direct' in deal_priorities %}<li><b>העדפת טיסה:</b> ישירה בלבד</li>{% endif %}
-            {% if baggage_list %}<li><b>כבודה:</b> {% for b in baggage_list %}{{ baggage_he.get(b|string|lower, b) }}{{ ', ' if not loop.last }}{% endfor %}</li>{% endif %}
-            {% if a.get('vacation_type') == 'business' and a.get('cabin_class') and a.get('cabin_class') != 'any' %}
-              <li><b>מחלקת טיסה:</b> {{ a.get('cabin_class') }}</li>
-            {% endif %}
-            {% if a.get('vacation_type') == 'ski' %}
-              {% if a.get('ski_resort_names') %}<li><b>אתר סקי:</b> {{ a.get('ski_resort_names')|join(', ') }}</li>{% endif %}
-              {% if a.get('ski_skill_level') %}<li><b>רמת סקי:</b> {{ a.get('ski_skill_level') }}</li>{% endif %}
-              {% if a.get('ski_transfer_choice') and a.get('ski_transfer_choice') != 'any' %}<li><b>העברה משדה התעופה:</b> {{ a.get('ski_transfer_choice') }}</li>{% endif %}
-            {% endif %}
-          </ul>
-        </details>
-        <style>
-          .vacation-facts-toggle{margin-top:10px}
-          .vacation-facts-toggle summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#6d5a2c;padding:9px 14px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;list-style:none}
-          .vacation-facts-toggle summary::-webkit-details-marker{display:none}
-          .vacation-facts-toggle summary::after{content:'▾';float:left;color:#a89568}
-          .vacation-facts-toggle[open] summary::after{content:'▴'}
-          .vacation-request-facts{list-style:none;margin:8px 0 0;padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px 18px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;font-size:12.5px;color:#4a453c}
-          .vacation-request-facts li{white-space:nowrap}
-          .vacation-request-facts b{font-weight:700;color:#6d5a2c}
-          @media(max-width:520px){.vacation-request-facts{font-size:11.5px;gap:4px 12px}}
-        </style>
-
         {% set sub_status = trip.subscription_status or 'none' %}
         {% set sub_plan_info = personal_search_plans.get(trip.subscription_plan) %}
-        <div class="vacation-subscription">
-          {% if sub_status == 'active' and sub_plan_info %}
-            <div class="sub-row sub-active">
-              <span class="sub-label">מעקב יומי פעיל — {{ sub_plan_info.label_he }} ({{ sub_plan_info.price_ils }} ₪)</span>
-              {% if trip.search_period_ends_at %}<span class="sub-until" dir="ltr">עד {{ trip.search_period_ends_at[:10] }}</span>{% endif %}
-              {% if trip.subscription_cancel_at_period_end %}
-                <small class="sub-note">המעקב יסתיים בתום התקופה ששולמה</small>
+        <div class="vqt-row">
+          <div class="vqt-tabs" role="tablist">
+            <button type="button" class="vqt-tab vqt-tab-facts" data-vqt="vqt-facts-{{ trip.id }}">פרטי הבקשה</button>
+            <button type="button" class="vqt-tab vqt-tab-sub" data-vqt="vqt-sub-{{ trip.id }}">מעקב יומי בתשלום</button>
+          </div>
+
+          <div class="vqt-panel" id="vqt-facts-{{ trip.id }}">
+            <ul class="vacation-request-facts">
+              <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
+              {% if a.get('origin_airports') %}<li><b>שדה יציאה:</b> {{ a.get('origin_airports')|join(', ') }}</li>{% endif %}
+              <li><b>נוסעים:</b> {{ a.get('adults', 1) }} מבוגרים{% if a.get('children') %}, {{ a.get('children') }} ילדים{% if ages %} (גילאים: {{ ages|join(', ') }}){% endif %}{% endif %}</li>
+              {% if a.get('budget_mode') == 'limited' and a.get('budget_amount') %}
+                <li><b>תקציב:</b> עד ₪{{ a.get('budget_amount')|int }} לאדם</li>
               {% else %}
-                <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}"><button type="submit" class="sub-end-btn">סיום מעקב</button></form>
+                <li><b>תקציב:</b> ללא הגבלה</li>
               {% endif %}
-            </div>
-          {% elif sub_status == 'pending' and sub_plan_info %}
-            <div class="sub-row sub-pending">
-              <span class="sub-label">ממתין לאישור תשלום — {{ sub_plan_info.label_he }} ({{ sub_plan_info.price_ils }} ₪)</span>
-              <a class="sub-checkout-link" href="{{ url_for('site.trip_checkout', trip_id=trip.id) }}">להשלמת התשלום</a>
-            </div>
-            <details class="sub-picker sub-picker-change">
-              <summary>לבחור מסלול אחר</summary>
-              <div class="sub-plans">
-                {% for plan_key, info in personal_search_plans.items() %}
-                <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}" class="sub-plan-form">
-                  <input type="hidden" name="plan" value="{{ plan_key }}">
-                  <button type="submit" class="sub-plan-btn{{ ' sub-plan-btn-current' if plan_key == trip.subscription_plan else '' }}">
-                    <strong>{{ info.label_he }} · {{ info.price_ils }} ₪</strong>
-                    <small>{{ info.desc_he }}</small>
-                  </button>
-                </form>
-                {% endfor %}
+              {% if 'direct' in deal_priorities %}<li><b>העדפת טיסה:</b> ישירה בלבד</li>{% endif %}
+              {% if baggage_list %}<li><b>כבודה:</b> {% for b in baggage_list %}{{ baggage_he.get(b|string|lower, b) }}{{ ', ' if not loop.last }}{% endfor %}</li>{% endif %}
+              {% if a.get('vacation_type') == 'business' and a.get('cabin_class') and a.get('cabin_class') != 'any' %}
+                <li><b>מחלקת טיסה:</b> {{ a.get('cabin_class') }}</li>
+              {% endif %}
+              {% if a.get('vacation_type') == 'ski' %}
+                {% if a.get('ski_resort_names') %}<li><b>אתר סקי:</b> {{ a.get('ski_resort_names')|join(', ') }}</li>{% endif %}
+                {% if a.get('ski_skill_level') %}<li><b>רמת סקי:</b> {{ a.get('ski_skill_level') }}</li>{% endif %}
+                {% if a.get('ski_transfer_choice') and a.get('ski_transfer_choice') != 'any' %}<li><b>העברה משדה התעופה:</b> {{ a.get('ski_transfer_choice') }}</li>{% endif %}
+              {% endif %}
+            </ul>
+          </div>
+
+          <div class="vqt-panel" id="vqt-sub-{{ trip.id }}">
+            {% if sub_status == 'active' and sub_plan_info %}
+              <div class="sub-row sub-active">
+                <span class="sub-label">מעקב יומי פעיל — {{ sub_plan_info.label_he }} ({{ sub_plan_info.price_ils }} ₪)</span>
+                {% if trip.search_period_ends_at %}<span class="sub-until" dir="ltr">עד {{ trip.search_period_ends_at[:10] }}</span>{% endif %}
+                {% if trip.subscription_cancel_at_period_end %}
+                  <small class="sub-note">המעקב יסתיים בתום התקופה ששולמה</small>
+                {% else %}
+                  <form method="post" action="{{ url_for('site.toggle_trip_search', trip_id=trip.id) }}"><button type="submit" class="sub-end-btn">סיום מעקב</button></form>
+                {% endif %}
               </div>
-            </details>
-          {% else %}
-            <details class="sub-picker">
-              <summary>מעקב יומי בתשלום — עדכון על דילים לחופשה הזו כל יום</summary>
+            {% elif sub_status == 'pending' and sub_plan_info %}
+              <div class="sub-row sub-pending">
+                <span class="sub-label">ממתין לאישור תשלום — {{ sub_plan_info.label_he }} ({{ sub_plan_info.price_ils }} ₪)</span>
+                <a class="sub-checkout-link" href="{{ url_for('site.trip_checkout', trip_id=trip.id) }}">להשלמת התשלום</a>
+              </div>
+              <details class="sub-picker sub-picker-change">
+                <summary>לבחור מסלול אחר</summary>
+                <div class="sub-plans">
+                  {% for plan_key, info in personal_search_plans.items() %}
+                  <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}" class="sub-plan-form">
+                    <input type="hidden" name="plan" value="{{ plan_key }}">
+                    <button type="submit" class="sub-plan-btn{{ ' sub-plan-btn-current' if plan_key == trip.subscription_plan else '' }}">
+                      <strong>{{ info.label_he }} · {{ info.price_ils }} ₪</strong>
+                      <small>{{ info.desc_he }}</small>
+                    </button>
+                  </form>
+                  {% endfor %}
+                </div>
+              </details>
+            {% else %}
+              <div class="sub-intro">מעקב יומי בתשלום — עדכון על דילים לחופשה הזו כל יום</div>
               <div class="sub-plans">
                 {% for plan_key, info in personal_search_plans.items() %}
                 <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}" class="sub-plan-form">
@@ -116,16 +108,25 @@
                 </form>
                 {% endfor %}
               </div>
-            </details>
-          {% endif %}
-        </div>
+            {% endif %}
+          </div>
         </div>
         <style>
-          .vacation-quick-row{display:flex;gap:8px}
-          .vacation-quick-row>.vacation-facts-toggle,.vacation-quick-row>.vacation-subscription{flex:1 1 0;min-width:0;margin-top:0}
-          .sub-picker summary{background:#0fc2b0!important;border-color:#0fc2b0!important;color:#fff!important}
-          .sub-picker summary::after{color:#fff!important}
-          .vacation-subscription{margin-top:10px}
+          .vqt-row{margin-top:10px}
+          .vqt-tabs{display:flex;border:1px solid #e5dccd;border-radius:10px;overflow:hidden}
+          .vqt-tab{flex:1 1 50%;min-width:0;border:0;background:#faf7f0;color:#6d5a2c;font-size:12.5px;font-weight:700;padding:10px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-inline-start:1px solid #e5dccd}
+          .vqt-tab:first-child{border-inline-start:0}
+          .vqt-tab-sub{background:#faf7f0}
+          .vqt-tab.active{color:#fff}
+          .vqt-tab-facts.active{background:#8a744a}
+          .vqt-tab-sub.active{background:#0fc2b0}
+          .vqt-panel{display:none;margin-top:8px}
+          .vqt-panel.active{display:block}
+          .sub-intro{font-size:12px;font-weight:700;color:#6d5a2c;margin-bottom:8px}
+          .vacation-request-facts{list-style:none;margin:0;padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px 18px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;font-size:12.5px;color:#4a453c}
+          .vacation-request-facts li{white-space:nowrap}
+          .vacation-request-facts b{font-weight:700;color:#6d5a2c}
+          @media(max-width:520px){.vacation-request-facts{font-size:11.5px;gap:4px 12px}}
           .sub-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:9px 14px;border-radius:10px;font-size:12.5px}
           .sub-active{background:#eef7f1;border:1px solid #c9e5d3;color:#20563a}
           .sub-pending{background:#fdf6e3;border:1px solid #eddca4;color:#7a6a3f}
@@ -133,11 +134,9 @@
           .sub-until{color:#4a453c}
           .sub-note{color:#6d6459}
           .sub-end-btn,.sub-checkout-link{margin-inline-start:auto;border:0;background:#147d77;color:#fff;font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:999px;cursor:pointer;text-decoration:none}
-          .sub-picker{margin-top:2px}
-          .sub-picker summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#6d5a2c;padding:9px 14px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;list-style:none}
-          .sub-picker summary::-webkit-details-marker{display:none}
           .sub-picker-change{margin-top:6px}
-          .sub-picker-change summary{background:transparent!important;border:1px dashed #d5bd87!important;color:#8a7455!important;font-size:11px!important;padding:6px 10px!important}
+          .sub-picker-change summary{cursor:pointer;background:transparent;border:1px dashed #d5bd87;color:#8a7455;font-size:11px;padding:6px 10px;border-radius:9px;list-style:none}
+          .sub-picker-change summary::-webkit-details-marker{display:none}
           .sub-plan-btn-current{border-color:#0fc2b0!important;box-shadow:inset 0 0 0 1px #0fc2b0}
           .sub-plans{display:flex;flex-direction:column;gap:5px;margin-top:8px}
           .sub-plan-form{flex:0 0 auto}
@@ -240,6 +239,19 @@ document.addEventListener('click',function(e){
   btn.classList.add('active');
   const panel=document.getElementById(btn.dataset.tab);
   if(panel)panel.classList.add('active');
+});
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('.vqt-tab');
+  if(!btn)return;
+  const row=btn.closest('.vqt-row');
+  const wasActive=btn.classList.contains('active');
+  row.querySelectorAll('.vqt-tab').forEach(x=>x.classList.remove('active'));
+  row.querySelectorAll('.vqt-panel').forEach(x=>x.classList.remove('active'));
+  if(!wasActive){
+    btn.classList.add('active');
+    const panel=document.getElementById(btn.dataset.vqt);
+    if(panel)panel.classList.add('active');
+  }
 });
 </script>
 <script>
