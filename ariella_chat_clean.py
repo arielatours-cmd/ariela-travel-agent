@@ -14,6 +14,19 @@ from database import save_ariella_conversation, load_ariella_conversation, reset
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
 
+_anthropic_clients = {}
+
+
+def _get_anthropic_client(key):
+    """A fresh anthropic.Anthropic(...) per call opens a new connection pool
+    (a TLS handshake) every single chat turn. Reuse one client per API key
+    for the life of the process instead."""
+    client = _anthropic_clients.get(key)
+    if client is None:
+        client = anthropic.Anthropic(api_key=key)
+        _anthropic_clients[key] = client
+    return client
+
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
@@ -221,12 +234,20 @@ def _weekday_date_conflict(message):
     return None
 
 
-def _post_claude(key, model, system_prompt, history, message, max_tokens, include_history=True):
-    client = anthropic.Anthropic(api_key=key)
+def _post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True):
+    """system_static is the large, unchanging instruction block (thousands of
+    tokens, identical on every call) - marked cacheable so Claude does not
+    reprocess it from scratch on every chat turn. system_dynamic is the small
+    per-turn suffix (current date, accumulated trip state) that must never be
+    cached since it changes every call."""
+    client = _get_anthropic_client(key)
     messages = _conversation(history[-16:] if include_history else [], message)
+    system_blocks = [{"type": "text", "text": system_static, "cache_control": {"type": "ephemeral"}}]
+    if system_dynamic:
+        system_blocks.append({"type": "text", "text": system_dynamic})
     try:
         response = client.messages.create(
-            model=model, max_tokens=max_tokens, system=system_prompt, messages=messages,
+            model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
             # Reply generation and state extraction are both simple, well-specified
             # tasks (natural conversation, structured JSON) - extended thinking adds
             # latency here without improving output, so keep it off for speed.
@@ -708,7 +729,7 @@ UNCLEAR = אי אפשר להבין בבטחה.
 הביני משמעות והקשר; אל תדרשי מילת קסם ואל תסתמכי על התאמת מחרוזת."""
     try:
         raw = _post_claude(
-            key, model, prompt, history if isinstance(history, list) else [],
+            key, model, prompt, "", history if isinstance(history, list) else [],
             "question_kind=" + str(question_kind) + "\nתשובת הלקוח: " + str(message or ""),
             20, include_history=True
         ).strip().upper()
@@ -749,18 +770,18 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - אם active_session הוא trip_planning, הישארי בתכנון המסלול. אל תעברי מיוזמתך ללינה, רכב או טיסות ואל תשאלי שאלות על תחום אחר.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
-    system = TINKERBELL_SYSTEM + continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
-    return _post_claude(key, model, system, history, message, 1500, include_history=True).strip()
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
+    return _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
 
 
 def _extract_trip_update(key, model, history, message, state=None):
     try:
-        system = EXTRACTOR_SYSTEM + '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat()
+        system_dynamic = '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat()
         # Short replies ("כן", "נכון", "זוג") need the immediately preceding
         # question to be interpreted correctly. Keep only a tiny recent window to
         # preserve semantics without paying the latency of the entire conversation.
         recent = (history or [])[-4:]
-        raw = _post_claude(key, model, system, recent, message, 700, include_history=True)
+        raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, recent, message, 700, include_history=True)
         return _parse_trip_update(raw)
     except Exception:
         return {}
