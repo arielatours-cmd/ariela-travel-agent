@@ -95,7 +95,18 @@
     send.disabled=true;
     input.disabled=false;
     try{
-      const r=await fetch('/api/ariella/chat-clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:context,trip_state:JSON.parse(localStorage.getItem(stateKey)||'{}')})});
+      // A long reply (an itinerary/route recommendation) can legitimately take
+      // a while, but the browser's fetch has no built-in timeout - without this,
+      // a truly stuck backend leaves the customer staring at nothing forever
+      // instead of seeing the "try again" message below. 110s stays under the
+      // server's own 120s worker timeout, so a real server-side timeout is
+      // reported first when that's what actually happened.
+      const abortController=new AbortController();
+      const abortTimer=setTimeout(()=>abortController.abort(),110000);
+      let r;
+      try{
+        r=await fetch('/api/ariella/chat-clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:context,trip_state:JSON.parse(localStorage.getItem(stateKey)||'{}')}),signal:abortController.signal});
+      }finally{clearTimeout(abortTimer);}
       const data=await r.json().catch(()=>({}));
       if(!r.ok||data.status!=='success')throw new Error(data.message||'chat unavailable');
       if(data.trip_state_reset===true){

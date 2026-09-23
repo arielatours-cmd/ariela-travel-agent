@@ -6,7 +6,12 @@ services:
     # Source migrations are materialized in the repository. Re-running historical
     # patch scripts here caused non-idempotent UI regressions between deployments.
     # One worker is intentional because the in-process scheduler must run only once.
-    startCommand: gunicorn --workers 1 --threads 4 app:app
+    # --timeout raises gunicorn's default 30s worker kill: a chat turn that makes
+    # Tinkerbell generate a long reply (an itinerary/route recommendation, close
+    # to its max output length) routinely takes longer than that. Without this,
+    # gunicorn kills the request mid-flight and the customer's chat just hangs
+    # forever with no error ever reaching the browser ("the conversation got stuck").
+    startCommand: gunicorn --workers 1 --threads 4 --timeout 120 app:app
     healthCheckPath: /health
     autoDeploy: true
     disk:
