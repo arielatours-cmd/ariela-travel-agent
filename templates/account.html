@@ -14,9 +14,9 @@
   <div class="shell">
     {% if trips %}
     <div class="vacations-actions">
-      <a class="ariella-return-button" href="{{ url_for('site.new_trip') }}">✦ {{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}</a>
       <span>{{ 'Search again or change your vacation' if site_lang == 'en' else 'לחיפוש חדש או לשינוי החופשה' }}</span>
       <i class="vacations-actions-rule" aria-hidden="true"></i>
+      <a class="ariella-return-button" href="{{ url_for('site.new_trip') }}">✦ {{ 'My Ariella' if site_lang == 'en' else 'אריאלה שלי' }}</a>
     </div>
       {% for trip in trips %}
       {% set services = trip.answers.get('services', []) %}
@@ -34,28 +34,36 @@
         {% set baggage_list = a.get('baggage') or [] %}
         {% set ages = a.get('age_groups') or [] %}
         {% set baggage_he = {'carry_on':'טרולי','carry_on_only':'טרולי בלבד','checked':'מזוודה','checked_bag':'מזוודה','personal_item':'תיק אישי','none':'ללא כבודה','no_baggage':'ללא כבודה'} %}
-        <ul class="vacation-request-facts">
-          <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
-          {% if a.get('origin_airports') %}<li><b>שדה יציאה:</b> {{ a.get('origin_airports')|join(', ') }}</li>{% endif %}
-          <li><b>נוסעים:</b> {{ a.get('adults', 1) }} מבוגרים{% if a.get('children') %}, {{ a.get('children') }} ילדים{% if ages %} (גילאים: {{ ages|join(', ') }}){% endif %}{% endif %}</li>
-          {% if a.get('budget_mode') == 'limited' and a.get('budget_amount') %}
-            <li><b>תקציב:</b> עד ₪{{ a.get('budget_amount')|int }} לאדם</li>
-          {% else %}
-            <li><b>תקציב:</b> ללא הגבלה</li>
-          {% endif %}
-          {% if 'direct' in deal_priorities %}<li><b>העדפת טיסה:</b> ישירה בלבד</li>{% endif %}
-          {% if baggage_list %}<li><b>כבודה:</b> {% for b in baggage_list %}{{ baggage_he.get(b|string|lower, b) }}{{ ', ' if not loop.last }}{% endfor %}</li>{% endif %}
-          {% if a.get('vacation_type') == 'business' and a.get('cabin_class') and a.get('cabin_class') != 'any' %}
-            <li><b>מחלקת טיסה:</b> {{ a.get('cabin_class') }}</li>
-          {% endif %}
-          {% if a.get('vacation_type') == 'ski' %}
-            {% if a.get('ski_resort_names') %}<li><b>אתר סקי:</b> {{ a.get('ski_resort_names')|join(', ') }}</li>{% endif %}
-            {% if a.get('ski_skill_level') %}<li><b>רמת סקי:</b> {{ a.get('ski_skill_level') }}</li>{% endif %}
-            {% if a.get('ski_transfer_choice') and a.get('ski_transfer_choice') != 'any' %}<li><b>העברה משדה התעופה:</b> {{ a.get('ski_transfer_choice') }}</li>{% endif %}
-          {% endif %}
-        </ul>
+        <details class="vacation-facts-toggle">
+          <summary>פרטי הבקשה</summary>
+          <ul class="vacation-request-facts">
+            <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
+            {% if a.get('origin_airports') %}<li><b>שדה יציאה:</b> {{ a.get('origin_airports')|join(', ') }}</li>{% endif %}
+            <li><b>נוסעים:</b> {{ a.get('adults', 1) }} מבוגרים{% if a.get('children') %}, {{ a.get('children') }} ילדים{% if ages %} (גילאים: {{ ages|join(', ') }}){% endif %}{% endif %}</li>
+            {% if a.get('budget_mode') == 'limited' and a.get('budget_amount') %}
+              <li><b>תקציב:</b> עד ₪{{ a.get('budget_amount')|int }} לאדם</li>
+            {% else %}
+              <li><b>תקציב:</b> ללא הגבלה</li>
+            {% endif %}
+            {% if 'direct' in deal_priorities %}<li><b>העדפת טיסה:</b> ישירה בלבד</li>{% endif %}
+            {% if baggage_list %}<li><b>כבודה:</b> {% for b in baggage_list %}{{ baggage_he.get(b|string|lower, b) }}{{ ', ' if not loop.last }}{% endfor %}</li>{% endif %}
+            {% if a.get('vacation_type') == 'business' and a.get('cabin_class') and a.get('cabin_class') != 'any' %}
+              <li><b>מחלקת טיסה:</b> {{ a.get('cabin_class') }}</li>
+            {% endif %}
+            {% if a.get('vacation_type') == 'ski' %}
+              {% if a.get('ski_resort_names') %}<li><b>אתר סקי:</b> {{ a.get('ski_resort_names')|join(', ') }}</li>{% endif %}
+              {% if a.get('ski_skill_level') %}<li><b>רמת סקי:</b> {{ a.get('ski_skill_level') }}</li>{% endif %}
+              {% if a.get('ski_transfer_choice') and a.get('ski_transfer_choice') != 'any' %}<li><b>העברה משדה התעופה:</b> {{ a.get('ski_transfer_choice') }}</li>{% endif %}
+            {% endif %}
+          </ul>
+        </details>
         <style>
-          .vacation-request-facts{list-style:none;margin:10px 0 0;padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px 18px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;font-size:12.5px;color:#4a453c}
+          .vacation-facts-toggle{margin-top:10px}
+          .vacation-facts-toggle summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#6d5a2c;padding:9px 14px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;list-style:none}
+          .vacation-facts-toggle summary::-webkit-details-marker{display:none}
+          .vacation-facts-toggle summary::after{content:'▾';float:left;color:#a89568}
+          .vacation-facts-toggle[open] summary::after{content:'▴'}
+          .vacation-request-facts{list-style:none;margin:8px 0 0;padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px 18px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;font-size:12.5px;color:#4a453c}
           .vacation-request-facts li{white-space:nowrap}
           .vacation-request-facts b{font-weight:700;color:#6d5a2c}
           @media(max-width:520px){.vacation-request-facts{font-size:11.5px;gap:4px 12px}}
@@ -108,12 +116,12 @@
           .sub-picker{margin-top:2px}
           .sub-picker summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#6d5a2c;padding:9px 14px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;list-style:none}
           .sub-picker summary::-webkit-details-marker{display:none}
-          .sub-plans{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
-          .sub-plan-form{flex:1 1 220px}
-          .sub-plan-btn{width:100%;text-align:right;border:1px solid #d5bd87;background:#fff;border-radius:12px;padding:10px 14px;cursor:pointer}
-          .sub-plan-btn strong{display:block;color:#3a3025;font-size:13px;margin-bottom:4px}
-          .sub-plan-btn small{color:#6d6459;font-size:11.5px;line-height:1.4}
-          @media(max-width:520px){.sub-row{font-size:11.5px}.sub-plans{flex-direction:column}}
+          .sub-plans{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+          .sub-plan-form{flex:0 0 auto}
+          .sub-plan-btn{width:100%;text-align:right;border:1px solid #d5bd87;background:#fff;border-radius:9px;padding:6px 10px;cursor:pointer}
+          .sub-plan-btn strong{display:block;color:#3a3025;font-size:11.5px;margin-bottom:2px}
+          .sub-plan-btn small{color:#6d6459;font-size:10px;line-height:1.3}
+          @media(max-width:520px){.sub-row{font-size:11.5px}}
         </style>
 
         <div class="vacation-tabs" role="tablist">
