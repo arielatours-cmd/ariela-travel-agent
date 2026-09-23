@@ -196,9 +196,18 @@ def _serpapi_request(params: dict) -> dict:
             data = response.json()
             if data.get("error"):
                 message = str(data["error"])
-                if ("too many" in message.lower() or "rate" in message.lower()) and attempt < 4:
+                lowered = message.lower()
+                if ("too many" in lowered or "rate" in lowered) and attempt < 4:
                     last_error = RuntimeError(message)
                     continue
+                # SerpApi reports "no flights on this route/dates" as an
+                # error field too (e.g. "Google hasn't returned any results
+                # for this query."). That is a legitimate empty result, not
+                # a failure - raising it here made every such route count
+                # as a scan error and never reach the customer as a clean
+                # "no flights found" outcome.
+                if "hasn't returned any results" in lowered or "no results" in lowered:
+                    return {}
                 raise RuntimeError(message)
             return data
         except requests.RequestException as exc:
