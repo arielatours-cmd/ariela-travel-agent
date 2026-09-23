@@ -1,6 +1,7 @@
 from pathlib import Path
 import hashlib
 import logging
+log = logging.getLogger(__name__)
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -20,7 +21,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search
@@ -3405,6 +3406,55 @@ def _queue_customer_scan(trip_id: int, scan_answers: dict, mode: str = "initial"
         _customer_scan_threads[trip_id] = thread
         thread.start()
         return True
+
+
+def run_paid_personal_search_batch() -> dict:
+    """Daily noon job for the 39 ILS 'scan' tier only (the 19 ILS 'update'
+    tier just reads the existing evening deals feed - no dedicated scan).
+
+    Runs trip by trip, sequentially and never in parallel threads: this is
+    what lets run_customer_trip_search's own monthly route coverage-freshness
+    cache (see scanner._coverage_is_fresh, reused for MONTHLY_SCAN_REUSE_HOURS)
+    absorb two different paying customers who asked for the same route and
+    similar dates into a single SerpAPI scan, instead of spending once per
+    paying customer. Each scan is capped at PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS
+    - far below the one-time free-scan cap - because a recurring daily
+    re-scan only needs to refresh dates it already explored once, not
+    re-explore a whole flexible date window every single day."""
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT id FROM trip_requests WHERE status='active' AND subscription_status='active' AND subscription_plan='scan'"
+        ).fetchall()
+    refreshed = None
+    scanned = []
+    for row in rows:
+        trip_id = int(row["id"])
+        try:
+            with _db() as conn:
+                trip_row = conn.execute("SELECT * FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+            if not trip_row:
+                continue
+            trip = _trip_dict(trip_row)
+            answers = dict(trip.get("answers") or {})
+            result = run_customer_trip_search(trip_id, answers, max_api_requests=PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS)
+            status = str(result.get("status") or "unknown")
+            if refreshed is None or result.get("offers_found"):
+                refreshed = _recent_inventory_48h()
+            matches = _customer_deal_choices(refreshed, trip, limit=5)
+            if matches:
+                _pin_offer_ids_to_trip(trip_id, answers, matches)
+            with _db() as conn:
+                conn.execute(
+                    "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (utc_now_iso(), status, trip_id),
+                )
+                conn.commit()
+            scanned.append({"trip_id": trip_id, "status": status})
+        except Exception:
+            log.exception("Paid personal search failed for trip %s", trip_id)
+            scanned.append({"trip_id": trip_id, "status": "search_error"})
+    return {"scanned": len(scanned), "results": scanned}
+
 
 @site.post("/trip/<int:trip_id>/free-alternative")
 @login_required

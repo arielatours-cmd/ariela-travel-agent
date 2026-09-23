@@ -4,6 +4,7 @@ from apscheduler.triggers.cron import CronTrigger
 from config import (
     DAILY_SEND_HOUR, DAILY_SEND_MINUTE, ISRAEL_TZ,
     WIDE_SCAN_HOUR, WIDE_SCAN_MINUTE,
+    PERSONAL_SEARCH_DAILY_SCAN_HOUR, PERSONAL_SEARCH_DAILY_SCAN_MINUTE,
 )
 from daily import prepare_daily_batch
 from scanner import run_wide_scan
@@ -42,6 +43,17 @@ def _safe_daily_batch():
         log.exception("Daily batch preparation failed")
 
 
+def _safe_paid_personal_search():
+    """Noon scan for customers on the paid 39 ILS personal-search tier only."""
+    try:
+        # Lazy import avoids a startup circular import with the Flask blueprint.
+        from public_site import run_paid_personal_search_batch
+        result = run_paid_personal_search_batch()
+        log.info("Paid personal search batch complete: %s", result)
+    except Exception:
+        log.exception("Paid personal search batch failed")
+
+
 def start_scheduler():
     global _scheduler
     if _scheduler and _scheduler.running:
@@ -55,5 +67,7 @@ def start_scheduler():
     # redeploy) when ready to resume automatic daily scanning.
     # _scheduler.add_job(_safe_daily_wide_scan, CronTrigger(hour=WIDE_SCAN_HOUR, minute=WIDE_SCAN_MINUTE), id="daily_wide_scan", replace_existing=True, max_instances=1, coalesce=True)
     _scheduler.add_job(_safe_daily_batch, CronTrigger(hour=DAILY_SEND_HOUR, minute=DAILY_SEND_MINUTE), id="daily_batch", replace_existing=True, max_instances=1, coalesce=True)
+    # Once per day: dedicated search for customers on the paid 39 ILS personal-search tier.
+    _scheduler.add_job(_safe_paid_personal_search, CronTrigger(hour=PERSONAL_SEARCH_DAILY_SCAN_HOUR, minute=PERSONAL_SEARCH_DAILY_SCAN_MINUTE), id="paid_personal_search", replace_existing=True, max_instances=1, coalesce=True)
     _scheduler.start()
     return _scheduler

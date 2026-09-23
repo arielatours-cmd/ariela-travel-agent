@@ -1004,11 +1004,18 @@ def _mark_coverage_success(key, offers_found=0, api_requests=0):
         conn.commit()
 
 
-def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
+def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int | None = None) -> dict:
     """Run a targeted fresh search for the customer's chosen vacation.
 
     A chosen destination is a relevance search, not a global bargain contest: valid
     flights are therefore retained even when their global deal score is below 65.
+
+    max_api_requests overrides the default one-time-free-scan cap
+    (CUSTOMER_SCAN_MAX_API_REQUESTS, sized for an exploratory first scan across
+    a whole flexible date range). The recurring paid daily re-scan must pass a
+    much smaller cap here - it already knows the best dates from the first
+    scan and only needs to refresh them, not re-explore the flex window every
+    single day at the exploratory cost.
     """
     arrivals = _customer_destination_codes(answers)
     vacation_type = str(answers.get("vacation_type") or "standard")
@@ -1208,7 +1215,7 @@ def run_customer_trip_search(trip_id: int, answers: dict) -> dict:
     api_counter_start = _SERPAPI_HTTP_REQUESTS
     new_offers = existing_offers = 0
     messages = []
-    max_api_requests = max(1, CUSTOMER_SCAN_MAX_API_REQUESTS)
+    max_api_requests = max(1, int(max_api_requests) if max_api_requests is not None else CUSTOMER_SCAN_MAX_API_REQUESTS)
     destination_led = str(answers.get("destination_mode") or "open") in {"specific", "several"} or ski_mode
     destination_names = {d["code"]: d for d in (list(DESTINATIONS) + list(SKI_DESTINATIONS))}
     try:

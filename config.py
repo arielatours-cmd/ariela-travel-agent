@@ -30,6 +30,12 @@ WIDE_SCAN_DESTINATION_LIMIT = int(os.getenv("WIDE_SCAN_DESTINATION_LIMIT", "30")
 # adds a dedicated daily search just for that customer's request at noon.
 PERSONAL_SEARCH_DAILY_SCAN_HOUR = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_HOUR", "12"))
 PERSONAL_SEARCH_DAILY_SCAN_MINUTE = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MINUTE", "0"))
+# The one-time free scan may explore a whole flexible-date window (up to
+# CUSTOMER_SCAN_MAX_API_REQUESTS). The recurring PAID daily re-scan must not:
+# it already knows the best dates from that first scan, so it only needs to
+# refresh a couple of jobs a day, not re-explore the flex window every day at
+# exploratory cost - see the SerpAPI-cost math behind the 19/39 ILS pricing.
+PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS", "3"))
 # Sold to the customer as "a month" (never shown as a raw day count) but kept
 # internally at 30 real service days + the 4-day RENEWAL_REMINDER_DAYS_BEFORE
 # buffer, so a customer who reacts slowly to the reminder email still gets
