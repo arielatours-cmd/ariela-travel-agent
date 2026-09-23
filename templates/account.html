@@ -34,6 +34,7 @@
         {% set baggage_list = a.get('baggage') or [] %}
         {% set ages = a.get('age_groups') or [] %}
         {% set baggage_he = {'carry_on':'טרולי','carry_on_only':'טרולי בלבד','checked':'מזוודה','checked_bag':'מזוודה','personal_item':'תיק אישי','none':'ללא כבודה','no_baggage':'ללא כבודה'} %}
+        <div class="vacation-quick-row">
         <details class="vacation-facts-toggle">
           <summary>פרטי הבקשה</summary>
           <ul class="vacation-request-facts">
@@ -87,6 +88,20 @@
               <span class="sub-label">ממתין לאישור תשלום — {{ sub_plan_info.label_he }} ({{ sub_plan_info.price_ils }} ₪)</span>
               <a class="sub-checkout-link" href="{{ url_for('site.trip_checkout', trip_id=trip.id) }}">להשלמת התשלום</a>
             </div>
+            <details class="sub-picker sub-picker-change">
+              <summary>לבחור מסלול אחר</summary>
+              <div class="sub-plans">
+                {% for plan_key, info in personal_search_plans.items() %}
+                <form method="post" action="{{ url_for('site.renew_trip_search', trip_id=trip.id) }}" class="sub-plan-form">
+                  <input type="hidden" name="plan" value="{{ plan_key }}">
+                  <button type="submit" class="sub-plan-btn{{ ' sub-plan-btn-current' if plan_key == trip.subscription_plan else '' }}">
+                    <strong>{{ info.label_he }} · {{ info.price_ils }} ₪</strong>
+                    <small>{{ info.desc_he }}</small>
+                  </button>
+                </form>
+                {% endfor %}
+              </div>
+            </details>
           {% else %}
             <details class="sub-picker">
               <summary>מעקב יומי בתשלום — עדכון על דילים לחופשה הזו כל יום</summary>
@@ -104,7 +119,12 @@
             </details>
           {% endif %}
         </div>
+        </div>
         <style>
+          .vacation-quick-row{display:flex;gap:8px}
+          .vacation-quick-row>.vacation-facts-toggle,.vacation-quick-row>.vacation-subscription{flex:1 1 0;min-width:0;margin-top:0}
+          .sub-picker summary{background:#0fc2b0!important;border-color:#0fc2b0!important;color:#fff!important}
+          .sub-picker summary::after{color:#fff!important}
           .vacation-subscription{margin-top:10px}
           .sub-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:9px 14px;border-radius:10px;font-size:12.5px}
           .sub-active{background:#eef7f1;border:1px solid #c9e5d3;color:#20563a}
@@ -116,6 +136,9 @@
           .sub-picker{margin-top:2px}
           .sub-picker summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#6d5a2c;padding:9px 14px;background:#faf7f0;border:1px solid #e5dccd;border-radius:10px;list-style:none}
           .sub-picker summary::-webkit-details-marker{display:none}
+          .sub-picker-change{margin-top:6px}
+          .sub-picker-change summary{background:transparent!important;border:1px dashed #d5bd87!important;color:#8a7455!important;font-size:11px!important;padding:6px 10px!important}
+          .sub-plan-btn-current{border-color:#0fc2b0!important;box-shadow:inset 0 0 0 1px #0fc2b0}
           .sub-plans{display:flex;flex-direction:column;gap:5px;margin-top:8px}
           .sub-plan-form{flex:0 0 auto}
           .sub-plan-btn{width:100%;text-align:right;border:1px solid #d5bd87;background:#fff;border-radius:9px;padding:6px 10px;cursor:pointer}
