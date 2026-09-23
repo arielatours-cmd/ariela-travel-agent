@@ -2373,9 +2373,14 @@ def book_offer(offer_id):
     job_id = uuid.uuid4().hex
     with _booking_jobs_lock:
         _booking_jobs[job_id] = {"status": "running", "created_at": datetime.now(timezone.utc)}
+    # A stored booking link from the original scan was captured for 1 adult,
+    # 0 children. It is only trustworthy as-is when the customer wants that
+    # same party size; any personal trip, or any different party size chosen
+    # on the public passenger-count page, needs a live re-verified itinerary.
+    needs_live_party_check = personal_trip is not None or adults != 1 or children != 0
     threading.Thread(
         target=_prepare_booking_job,
-        args=(job_id, dict(offer), adults, children, travel_class, click_context, personal_trip is not None),
+        args=(job_id, dict(offer), adults, children, travel_class, click_context, needs_live_party_check),
         daemon=True,
     ).start()
     return render_template(
