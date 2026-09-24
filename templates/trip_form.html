@@ -72,11 +72,6 @@
     }
     if(last<value.length)appendTextWithDates(parent,value.slice(last));
   }
-  // getBoundingClientRect-based, not offsetTop-based: box is a plain
-  // (non-positioned) flex column, so offsetTop on box vs. el can resolve
-  // against different offsetParents and land nowhere near the message -
-  // this measures the live on-screen gap between them instead, so a long
-  // assistant reply opens at its own first line, not its last.
   // suppressAutoScrollUntil: askTinkerbell() re-focuses the input right after
   // this runs, and that focus (plus the mobile keyboard opening behind it)
   // fires scrollChatToLatest() via the focus/visualViewport listeners below -
@@ -84,11 +79,31 @@
   // Muting that auto-scroll for a short window after we place the reply at
   // its top is what actually keeps it there.
   let suppressAutoScrollUntil=0;
+  // scrollGeneration: a reply can come back fast enough (a deterministic,
+  // no-LLM-call reply path answers almost instantly) that the OUTGOING
+  // user message's own deferred re-assertions (below) are still pending
+  // when the new assistant message arrives and positions itself - and
+  // since these run on timers, whichever fires last wins, so the stale
+  // "scroll to bottom" from the user's message could clobber the reply's
+  // "scroll to top" a moment after it was correctly placed. Each add()
+  // call claims a fresh generation number; a deferred callback checks it
+  // still owns the latest one before touching scrollTop, so an older
+  // message's leftover timers become no-ops once a newer one has arrived.
+  let scrollGeneration=0;
   function scrollElementToTop(el){
+    const myGen=++scrollGeneration;
+    // scrollIntoView, not a manual box.scrollTop calculation: when the
+    // on-screen keyboard is already open (the customer switched back to
+    // this tab mid-conversation with it still up), a fixed-height container
+    // sized off 100vh doesn't shrink for the keyboard the way the actual
+    // visible viewport does, so a plain "scrollTop = message top minus box
+    // top" lands the message behind the keyboard even though the math is
+    // internally consistent. scrollIntoView asks the browser itself, which
+    // already knows the real visible viewport (it's the same mechanism the
+    // browser uses to keep a focused input above the keyboard).
     const place=()=>{
-      const boxRect=box.getBoundingClientRect();
-      const elRect=el.getBoundingClientRect();
-      box.scrollTop=Math.max(0,box.scrollTop+(elRect.top-boxRect.top)-12);
+      if(myGen!==scrollGeneration)return;
+      el.scrollIntoView({block:'start',inline:'nearest'});
     };
     place();
     suppressAutoScrollUntil=Date.now()+900;
@@ -98,13 +113,15 @@
     setTimeout(place,500);
   }
   function scrollBoxToBottom(){
-    box.scrollTop=box.scrollHeight;
+    const myGen=++scrollGeneration;
+    const toBottom=()=>{if(myGen===scrollGeneration)box.scrollTop=box.scrollHeight;};
+    toBottom();
     // The compose textarea resets to one line (input.style.height='auto')
     // right after this in the submit handler, and since the messages box is
     // the flex:1 sibling of that textarea, the textarea shrinking grows the
     // box itself a moment later - re-assert once that reflow has happened.
-    requestAnimationFrame(()=>{box.scrollTop=box.scrollHeight;});
-    setTimeout(()=>{box.scrollTop=box.scrollHeight;},120);
+    requestAnimationFrame(toBottom);
+    setTimeout(toBottom,120);
   }
   function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);if(role==='assistant'){requestAnimationFrame(()=>scrollElementToTop(el));}else{scrollBoxToBottom();}return el;}
   function addVacationLink(tripId){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#travel-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);requestAnimationFrame(()=>scrollElementToTop(el));}
