@@ -5,7 +5,7 @@ import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request, session
-from config import DB_PATH, DESTINATIONS
+from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
@@ -88,6 +88,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אל תצרפי לשאלה שלוש שאלות ואז תוסיפי בסוף עוד בחירה או שאלה "קטנה". סך כל הדברים שמבקשים מהלקוח להחליט או למסור בהודעה אחת הוא עד שלושה.
 - לטיסות, בדקי בין היתר רק כשחסר ורלוונטי: תקציב לאדם, כבודה, ישירה/קונקשן, מוצא, שדה/שדות יעד ותאריכים.
 - יעד גאוגרפי ושדה תעופה יעד הם שני נתונים נפרדים. אזור אינו מידע חובה. אם הלקוח כתב מדינה או יעד רחב שיכולים להתאים ליותר משדה תעופה אחד (למשל: קפריסין - לרנקה/פאפוס; איטליה - רומא/מילאנו; ספרד - ברצלונה/מדריד; גרמניה - ברלין/מינכן; פולין - קרקוב/ורשה), אל תשאלי קודם "איזה אזור?" רק כדי להשלים מידע ואל תבחרי שדה אחד בעצמך. במקום זה, בשאלה אחת: הציגי בקצרה את שדות התעופה/ערי השער הרלוונטיים, **וגם** ציינו את האפשרות לבקש קודם בניית מסלול (ואז שדה/שדות היעד ייגזרו ממנו) - כדי שהלקוח יידע משתי האפשרויות ולא ייתקע בשלב האישור בלי לדעת שהיה יכול לבקש את זה קודם.
+- גם עיר בודדת (לא רק מדינה/אזור רחב) יכולה להיות משורתת על ידי כמה שדות תעופה אמיתיים (למשל ניו יורק, פריז, לונדון, טוקיו, איסטנבול). כשזה המקרה, מידע מאומת על השדות והשמות שלהם יימסר לך למטה כ"היעד מתאים ליותר משדה תעופה אמיתי אחד" - השתמשי אך ורק ברשימה הזו, אל תוסיפי שדה משלך מהידע הכללי שלך, גם אם הוא נכון במציאות: אם השדה לא ברשימה שקיבלת, אל תזכירי אותו בכלל.
 - לדוגמה "צפון איטליה" אינו "רומא". יש להתייחס אליו כאזור באיטליה ולהשלים שדה/שדות יעד צפוניים מתאימים לפני סיכום הטיסה.
 - אם הלקוח בוחר כמה שדות או "כולם", שמרי את כולם ב-destination_airports וסרקי טיסות לכל השדות שנבחרו יחד, כדי שהלקוח יוכל להשוות מחירים/שעות אמיתיים בעצמו. אם הוא מבקש קודם מסלול, אל תאשרי חיפוש טיסה עד שהמסלול קבע gateway מתאים.
 - לפני שמציעים שדה תעופה כאופציה ליעד מסוים, ודאי שהוא באמת באותה מדינה שהלקוח ביקש. אם ההצעה היחידה הסבירה היא שדה במדינה שכנה (למשל זאגרב בקרואטיה עבור יעד בסלובניה), חובה לציין זאת במפורש ולתת ללקוח לבחור מדעת, ולא להציג אותו כאילו הוא בתוך היעד המבוקש.
@@ -305,6 +306,28 @@ def _merge_trip_state(previous, incoming):
 
 def _state_context(state):
     return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
+
+
+def _multi_gateway_hint(state):
+    """When the destination matches a city genuinely served by more than one
+    real airport (New York, Paris, London, Tokyo, Istanbul - see
+    config.MULTI_GATEWAY_CITIES, itself built from the verified airport
+    catalog) and no gateway choice has been made yet, hand Tinkerbell the
+    real code/name list so it presents verified data instead of relying on
+    its own recollection - the exact thing that produced an unconfirmed,
+    unprompted "LaGuardia" mention (once even with a spelled-out name
+    garbled into stray Cyrillic) with nothing in destination_airports to
+    back it up."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("destination_airports"):
+        return None
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip() for p in (destination.get("places") or []) if str(p).strip()]
+    for place in places:
+        for city, options in MULTI_GATEWAY_CITIES.items():
+            if city in place or place in city:
+                return {"city": city, "options": options}
+    return None
 
 
 def _sessionize_state(state):
@@ -792,6 +815,14 @@ def _strip_unconfirmed_airports(text, state):
     airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
     if any(str(a or "").strip().upper() == "LGA" for a in airports):
         return text
+    # A New York destination genuinely offers LGA as a verified multi-gateway
+    # option (see config.MULTI_GATEWAY_CITIES / _multi_gateway_hint) - in
+    # that case Tinkerbell is meant to ask about it, using the exact
+    # verified list it was handed, so this is not the unconfirmed-invention
+    # case this function guards against.
+    gateway_hint = _multi_gateway_hint(state)
+    if gateway_hint and any(o.get("code") == "LGA" for o in gateway_hint.get("options", [])):
+        return text
     import re
     text = str(text or "")
     forbidden = re.compile(r'לה\s*גוארדיה|לגה\s*גוארדיה|\bלגה\b|LaGuardia|\bLGA\b', re.IGNORECASE)
@@ -859,7 +890,16 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - אם active_session הוא trip_planning, הישארי בתכנון המסלול. אל תעברי מיוזמתך ללינה, רכב או טיסות ואל תשאלי שאלות על תחום אחר.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
+    gateway_hint = _multi_gateway_hint(state)
+    gateway_hint_text = ""
+    if gateway_hint:
+        options_text = ", ".join(f"{o['name_he']} ({o['code']})" for o in gateway_hint["options"])
+        gateway_hint_text = (
+            f'\nהיעד "{gateway_hint["city"]}" מתאים ליותר משדה תעופה אמיתי אחד: {options_text}. '
+            'אלה שדות מאומתים - אל תוסיפי או תמציאי שדה אחר משלך. אם destination_airports עדיין ריק, '
+            'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
+        )
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
     return _strip_unconfirmed_airports(reply, state)
@@ -867,7 +907,16 @@ def _call_tinkerbell(key, model, history, message, state=None):
 
 def _extract_trip_update(key, model, history, message, state=None):
     try:
-        system_dynamic = '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat()
+        gateway_hint = _multi_gateway_hint(state)
+        gateway_hint_text = ""
+        if gateway_hint:
+            options_text = ", ".join(f"{o['name_he']} ({o['code']})" for o in gateway_hint["options"])
+            gateway_hint_text = (
+                f'\nאם הלקוח כרגע עונה לגבי בחירת שדה תעופה עבור "{gateway_hint["city"]}", השדות האמיתיים היחידים '
+                f'הם: {options_text}. כתבי ב-destination_airports אך ורק קודי IATA מהרשימה הזו לפי מה שהלקוח בחר '
+                '(אחד, כמה, או כולם) - לעולם לא קוד אחר.'
+            )
+        system_dynamic = '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat() + gateway_hint_text
         # Short replies ("כן", "נכון", "זוג") need the immediately preceding
         # question to be interpreted correctly. Keep only a tiny recent window to
         # preserve semantics without paying the latency of the entire conversation.

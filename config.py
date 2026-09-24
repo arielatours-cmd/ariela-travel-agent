@@ -110,6 +110,16 @@ AIRPORT_NAMES = {
 # AIRPORT_NAMES from the full static/airports.json catalog (curated codes
 # above always win) means any of them still displays its real Hebrew city
 # name wherever a code is shown, instead of falling back to the bare code.
+#
+# MULTI_GATEWAY_CITIES: cities genuinely served by more than one real
+# airport, grouped from the same catalog so the codes/names Ariella offers
+# a customer always come from verified data, never the model's own
+# recollection (which is exactly what invented LaGuardia unprompted, with
+# no basis in destination_airports, and once even garbled its spelled-out
+# name into stray Cyrillic). EWR/Newark is added by hand: airports.json
+# lists it under its own city ("Newark"), but it is commonly used as a
+# third New York-area gateway alongside JFK/LGA.
+MULTI_GATEWAY_CITIES = {}
 try:
     import json as _json
     _airports_catalog = _json.loads((BASE_DIR / "static" / "airports.json").read_text(encoding="utf-8"))
@@ -118,7 +128,22 @@ try:
         _name = _airport.get("city_he")
         if _code and _name and _code not in AIRPORT_NAMES:
             AIRPORT_NAMES[_code] = _name
-    del _airports_catalog, _airport, _code, _name
+    _by_city = {}
+    for _airport in _airports_catalog:
+        _city_key = str(_airport.get("city_en") or "").strip().lower()
+        if _city_key:
+            _by_city.setdefault(_city_key, []).append(_airport)
+    for _city_key, _group in _by_city.items():
+        if len(_group) < 2:
+            continue
+        _city_he = _group[0].get("city_he") or _city_key
+        MULTI_GATEWAY_CITIES[_city_he] = [
+            {"code": str(_a.get("code") or "").upper(), "name_he": _a.get("name_he") or _a.get("code")}
+            for _a in _group
+        ]
+    if "ניו יורק" in MULTI_GATEWAY_CITIES:
+        MULTI_GATEWAY_CITIES["ניו יורק"].append({"code": "EWR", "name_he": "נמל התעופה ניוארק ליברטי"})
+    del _airports_catalog, _airport, _code, _name, _by_city, _city_key, _group, _city_he
 except Exception:
     pass
 
