@@ -411,9 +411,17 @@ def _advance_sessions(state):
     # Session 1 is intentionally self-contained. Once flights are complete, the
     # flight search may be summarized/approved without forcing decisions about
     # lodging, car or trip planning. Those sessions reopen after flight handoff.
+    # next_session must be cleared here too: the elif branch above may have
+    # already set it to the next pending domain (e.g. lodging) before this
+    # flights-complete check ran, leaving both ready_for_summary=True and
+    # next_session="lodging" set at once - a genuinely contradictory signal
+    # that let Tinkerbell sometimes jump straight to the next domain's
+    # question instead of presenting the flight summary and asking for
+    # "מאשר/מאשרת" first, skipping the hard approval gate entirely.
     if statuses.get("flights") == "complete" and state.get("active_session") is None:
         state["missing_required"] = []
         state["ready_for_summary"] = True
+        state["next_session"] = None
     return state
 
 
@@ -765,6 +773,29 @@ def _fix_known_typos(text):
     return text
 
 
+def _strip_unconfirmed_airports(text, state):
+    """Deterministic safety net for a second recurring model behavior: even
+    after an explicit prompt instruction not to, Tinkerbell keeps
+    volunteering LaGuardia (LGA) as an extra New York gateway alongside JFK
+    from its own general world knowledge - nothing in destination_airports
+    ever actually named it. The prompt fix alone did not reliably hold, so
+    strip the phrase here regardless of what the model produced."""
+    state = state if isinstance(state, dict) else {}
+    airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
+    if any(str(a or "").strip().upper() == "LGA" for a in airports):
+        return text
+    import re
+    text = str(text or "")
+    # "לגה"/"לה" optionally followed by "גארדיה"/"גוארדיה" (both spellings
+    # seen in practice) as one unit first, so a bare "\bלגה\b" pass afterward
+    # doesn't leave a dangling "גארדיה" behind.
+    text = re.sub(r'\s*[/,]?\s*(?:או\s+)?(?:לה|לגה)\s*גו?ארדיה', '', text)
+    text = re.sub(r'\s*[/,]?\s*(?:או\s+)?\bלגה\b', '', text)
+    text = re.sub(r'\s*[/,]?\s*(?:or\s+)?LaGuardia\b', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s*[/,]?\s*(?:or\s+)?\bLGA\b', '', text)
+    return text
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
@@ -795,7 +826,8 @@ def _call_tinkerbell(key, model, history, message, state=None):
 """ + route_handoff
     system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
-    return _fix_known_typos(reply)
+    reply = _fix_known_typos(reply)
+    return _strip_unconfirmed_airports(reply, state)
 
 
 def _extract_trip_update(key, model, history, message, state=None):
@@ -1815,9 +1847,22 @@ def chat_clean():
             remaining_labels = {
                 "lodging":"לינה", "car":"השכרת רכב", "trip_planning":"מסלול ואטרקציות"
             }
+            # Reassure about a domain the customer might still want even if
+            # they already said no to it earlier (declined), not only one
+            # that's still pending - "you can always come back" is exactly
+            # as true either way. The one exception is trip_planning when a
+            # business/ski trip_type default silently declined it without
+            # ever asking - that was never the customer's own decision to
+            # revisit, and mentioning it here would be confusing.
+            decisions_after_flight = merged.get("service_decisions") if isinstance(merged.get("service_decisions"), dict) else {}
+            def _auto_declined_by_trip_type(service):
+                d = decisions_after_flight.get(service)
+                source = d.get("source") if isinstance(d, dict) else None
+                return source in ("business_trip_default", "ski_trip_default")
             remaining = [
                 remaining_labels[s] for s in ("lodging","car","trip_planning")
-                if statuses_after_flight.get(s, "pending") == "pending"
+                if statuses_after_flight.get(s, "pending") in ("pending", "declined")
+                and not _auto_declined_by_trip_type(s)
             ]
             if remaining:
                 if len(remaining) == 1:
