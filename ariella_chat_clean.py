@@ -670,6 +670,13 @@ def _full_reset_confirmation(message):
     phrases = ("למחוק הכל","למחוק הכול","תמחקי הכל","תמחקי הכול","להתחיל לגמרי מהתחלה","מהתחלה לגמרי","כן למחוק","כן, למחוק")
     return any(p in msg for p in phrases)
 
+
+def _normalize_confirm(message):
+    """Strip trailing punctuation ("מעולה!", "מצוין..") before matching a
+    short confirmation against an exact-phrase set, so an ordinary exclamation
+    mark doesn't make an unambiguous "yes" invisible to a deterministic gate."""
+    return str(message or "").strip().rstrip("!.,?;:״\"'׳ ").strip()
+
 def _user_gender_from_approval(message, state):
     msg = str(message or "").strip().lower()
     if msg == "מאשרת":
@@ -1652,7 +1659,7 @@ def chat_clean():
         # the planning session. Persist the approved plan context for the vacation
         # card; enrichment (DB prices/ticket links) can consume this state without
         # reopening the conversation as a questionnaire.
-        msg_confirm = str(message or "").strip().lower()
+        msg_confirm = _normalize_confirm(message).lower()
         planning_active = str(trip_state.get("active_session") or "") == "trip_planning"
         prior_assistant = " ".join(
             str(x.get("content") or "") for x in (history or [])[-4:]
@@ -1707,7 +1714,7 @@ def chat_clean():
                 reply = "לא הבנתי, האם התכוונת לאשר? אם כן, יש לכתוב מאשר/מאשרת."
         # A generic "yes" during normal data collection is NEVER a search approval.
         # It must only approve an explicit final approval question / ready state.
-        msg_norm = str(message or "").strip().lower()
+        msg_norm = _normalize_confirm(message).lower()
         generic_yes = msg_norm in {"כן","נכון","מעולה","מצוין","מצויין","סבבה","אחלה","נשמע טוב","נשמע אחלה"}
         if generic_yes and not approval:
             # Do not let extractor/model turn this ordinary conversational answer
