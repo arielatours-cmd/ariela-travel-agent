@@ -103,6 +103,24 @@ AIRPORT_NAMES = {
     "EVN": "ירוואן", "BEG": "בלגרד", "SKP": "סקופיה", "TGD": "פודגוריצה", "ZAG": "זאגרב", "LJU": "לובליאנה",
     "BKK": "בנגקוק", "JFK": "ניו יורק", "TIA": "טירנה", "DXB": "דובאי", "GYD": "באקו", "RMO": "קישינב",
 }
+# "Quiet" airports: real, valid IATA codes (e.g. LGA/LaGuardia alongside
+# JFK for New York) that a customer's own request can resolve to and get
+# scanned for, but that DESTINATIONS deliberately leaves out so they are
+# never proactively scanned/marketed on the general deals page. Filling
+# AIRPORT_NAMES from the full static/airports.json catalog (curated codes
+# above always win) means any of them still displays its real Hebrew city
+# name wherever a code is shown, instead of falling back to the bare code.
+try:
+    import json as _json
+    _airports_catalog = _json.loads((BASE_DIR / "static" / "airports.json").read_text(encoding="utf-8"))
+    for _airport in _airports_catalog:
+        _code = str(_airport.get("code") or "").upper()
+        _name = _airport.get("city_he")
+        if _code and _name and _code not in AIRPORT_NAMES:
+            AIRPORT_NAMES[_code] = _name
+    del _airports_catalog, _airport, _code, _name
+except Exception:
+    pass
 
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
