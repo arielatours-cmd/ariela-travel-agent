@@ -1800,10 +1800,20 @@ def chat_clean():
         logging.exception("ariella chat-clean pipeline failed: %s", exc)
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
 
-    persist_trip_plan = bool(locals().get("planning_accept", False)) \
-        and bool((trip_update.get("dates") or {}).get("departure")) \
-        and bool((trip_update.get("dates") or {}).get("return"))
-    start_flight_search = bool(approval) and bool(trip_update.get('search_confirmed'))
+    if not isinstance(trip_update, dict):
+        trip_update = {}
+    try:
+        persist_trip_plan = bool(locals().get("planning_accept", False)) \
+            and bool((trip_update.get("dates") or {}).get("departure")) \
+            and bool((trip_update.get("dates") or {}).get("return"))
+    except Exception:
+        logging.exception("persist_trip_plan computation failed; defaulting to False")
+        persist_trip_plan = False
+    try:
+        start_flight_search = bool(approval) and bool(trip_update.get('search_confirmed'))
+    except Exception:
+        logging.exception("start_flight_search computation failed; defaulting to False")
+        start_flight_search = False
     profile_for_response = trip_update.get('profile')
 
     # Once all four service domains (flights/lodging/car/trip_planning) have
@@ -1816,27 +1826,34 @@ def chat_clean():
     # is already certain once every domain answered either way; that gate
     # exists for the ambiguous case where the customer might still be
     # mid-trip, which this is not.
-    final_statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
-    final_decisions = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
-    trip_fully_resolved = all(
-        final_statuses.get(s) in ("complete", "declined")
-        or ((final_decisions.get(s) or {}).get("wanted") is False if isinstance(final_decisions.get(s), dict) else final_decisions.get(s) is False)
-        for s in ("flights", "lodging", "car", "trip_planning")
-    )
+    # Defensive: this reset must never be allowed to crash the whole request.
+    # Whatever shape trip_update happens to be in, the worst acceptable outcome
+    # is skipping the reset for this turn, never a 500 that blocks the chat.
     trip_state_reset = False
-    if trip_fully_resolved:
-        trip_state_reset = True
-        fresh_after_completion = {
-            'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
-            'active_session': None,
-        }
-        # Member-level facts (not trip facts) survive the reset - no need to
-        # re-ask gender for the next vacation.
-        if trip_update.get('profile'):
-            fresh_after_completion['profile'] = trip_update['profile']
-        if trip_update.get('user_gender'):
-            fresh_after_completion['user_gender'] = trip_update['user_gender']
-        trip_update = fresh_after_completion
+    try:
+        final_statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+        final_decisions = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
+        trip_fully_resolved = all(
+            final_statuses.get(s) in ("complete", "declined")
+            or ((final_decisions.get(s) or {}).get("wanted") is False if isinstance(final_decisions.get(s), dict) else final_decisions.get(s) is False)
+            for s in ("flights", "lodging", "car", "trip_planning")
+        )
+        if trip_fully_resolved:
+            trip_state_reset = True
+            fresh_after_completion = {
+                'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
+                'active_session': None,
+            }
+            # Member-level facts (not trip facts) survive the reset - no need to
+            # re-ask gender for the next vacation.
+            if trip_update.get('profile'):
+                fresh_after_completion['profile'] = trip_update['profile']
+            if trip_update.get('user_gender'):
+                fresh_after_completion['user_gender'] = trip_update['user_gender']
+            trip_update = fresh_after_completion
+    except Exception:
+        logging.exception("Auto-reset-on-completion check failed; leaving trip_update untouched")
+        trip_state_reset = False
 
     # Server-side copy of the conversation so it survives logout and follows
     # the account across devices, not just this browser's local cache.
