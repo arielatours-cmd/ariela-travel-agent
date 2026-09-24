@@ -1350,9 +1350,9 @@ def chat_clean():
         )
         pending["reset_scope"] = "flights" if flight_only_reset else "vacation"
         question = (
-            "האם תרצי למחוק את כל פרטי הטיסה הקיימים ולהתחיל מחדש?"
+            "רוצה שנתחיל טיסה חדשה לגמרי ונמחק את הפרטים הקיימים, או שנשאיר הכול ונשנה רק את מה שביקשת? (כן = להתחיל מחדש, לא = להשאיר ולשנות)"
             if flight_only_reset else
-            "רוצה למחוק את כל פרטי החופשה הנוכחית ולהתחיל מחדש?"
+            "רוצה שנתחיל חופשה חדשה לגמרי ונמחק את כל הפרטים שנאספו, או שנשאיר הכול ונשנה רק את מה שביקשת? (כן = להתחיל מחדש, לא = להשאיר ולשנות)"
         )
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
@@ -1430,7 +1430,7 @@ def chat_clean():
         pending = dict(trip_state)
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':('רק כדי לוודא: למחוק את כל פרטי הטיסה? כן או לא?' if trip_state.get("reset_scope") == "flights" else 'רק כדי לוודא: למחוק את כל פרטי החופשה ולהתחיל מחדש? כן או לא?'),
+            'reply':('רק כדי לוודא: למחוק הכול ולהתחיל טיסה חדשה, או להשאיר ולשנות רק פרט אחד? (כן = למחוק ולהתחיל מחדש, לא = להשאיר ולשנות)' if trip_state.get("reset_scope") == "flights" else 'רק כדי לוודא: למחוק הכול ולהתחיל חופשה חדשה, או להשאיר ולשנות רק פרט אחד? (כן = למחוק ולהתחיל מחדש, לא = להשאיר ולשנות)'),
             'trip_update':pending,'start_flight_search':False
         })
 
