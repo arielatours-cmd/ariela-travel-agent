@@ -5,7 +5,7 @@ import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request, session
-from config import DB_PATH
+from config import DB_PATH, DESTINATIONS
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
@@ -1457,8 +1457,20 @@ def chat_clean():
 
     # Destination replacement is the only ordinary field change that requires
     # confirmation because route/lodging/car destination-dependent facts become stale.
+    # A real customer's destination-change wasn't caught here because this list only
+    # named 8 countries - "ספרד" (Spain) wasn't one of them, so the swap fell through
+    # to plain extraction with no confirmation/rebuild step, in a conversation Tinkerbell
+    # itself was already confused by. Every city already in DESTINATIONS is covered
+    # automatically now, plus every country those cities sit in, so a newly-added
+    # destination city doesn't reopen this same gap.
     import re
-    known_destinations = ("יוון","מונטנגרו","איטליה","בולגריה","אלבניה","קרואטיה","תאילנד","מלטה")
+    known_destinations = (
+        "יוון", "קפריסין", "הונגריה", "אוסטריה", "בולגריה", "צ'כיה", "איטליה", "צרפת",
+        "הולנד", "ספרד", "פורטוגל", "בריטניה", "גרמניה", "שוויץ", "בלגיה", "רומניה",
+        "פולין", "גאורגיה", "ארמניה", "סרביה", "מקדוניה", "מונטנגרו", "קרואטיה",
+        "סלובניה", "תאילנד", "ארה\"ב", "אלבניה", "איחוד האמירויות", "אזרבייג'ן",
+        "מולדובה", "מלטה",
+    ) + tuple(d["name"] for d in DESTINATIONS)
     current_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
     current_places = current_destination.get("places") or []
     destination_change = None
