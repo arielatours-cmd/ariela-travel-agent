@@ -169,8 +169,11 @@
         // Approval must hand off the complete current-trip conversation. The
         // context-start marker is only for LLM context after a reset; slicing
         // again here could drop the approved summary/dates and block execution.
-        // Keep the pre-scan continuation message visible long enough to read.
-        await new Promise(resolve=>setTimeout(resolve,8000));
+        // Fire the handoff immediately rather than waiting first: an artificial
+        // delay here left a window where backgrounding the tab/app (very common
+        // on mobile right after approving) silently killed the pending call -
+        // the customer saw "starting the search" and then genuinely nothing
+        // ever happened, with no error, because the request was never sent.
         const currentTripHistory=history.map(x=>({role:x.role,content:x.content}));
         // Single source of truth: the structured trip state that produced the
         // approved conversation is what execution receives. History is carried
