@@ -1951,6 +1951,10 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 .previous-deals-section>h2{text-align:center;font-size:34px;margin:0 0 6px}
 .previous-deals-note{text-align:center;color:var(--muted);margin:0 0 28px}
 .previous-deals-list{opacity:.94}
+@media(max-width:600px){
+  .previous-deals-section>h2{font-size:19px!important;white-space:nowrap!important;margin:0 0 4px!important}
+  .previous-deals-note{font-size:12px!important;white-space:nowrap!important;margin:0 0 20px!important}
+}
 @media(max-width:700px){.deals-heading-with-alert{padding-top:85px}.deals-alert-slot{left:50%;transform:translateX(-50%);top:0}.whatsapp-deals-toggle{min-width:210px}}
 
 /* v9.7.107 — card clarity */

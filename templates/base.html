@@ -10,7 +10,7 @@
       {% if preload_image %}<link rel="preload" as="image" href="{{ preload_image }}" fetchpriority="high">{% endif %}
     {% endfor %}
   {% endif %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20260924-reasonsfont">
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20260924-prevdealsfont">
   {% if request.endpoint != 'site.feedback' %}
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}?v=20260917-imagepreload1">
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}?v=20260923-terms6">
