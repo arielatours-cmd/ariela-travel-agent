@@ -1202,7 +1202,17 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
     if fresh_keys:
         jobs = [j for j in jobs if _coverage_key(j) not in fresh_keys]
     if not jobs:
-        return {"status": "monthly_coverage_reused", "offers_found": 0, "api_requests": 0, "searches_completed": 0, "errors": 0, "reused_coverage": len(fresh_keys)}
+        # Every route/date was already covered within the last 12h, so there's
+        # nothing new to scan - but the customer's search still needs a
+        # traceable record of its own. Without this, a fully-reused personal
+        # search (common for a business/ski trip tested more than once in a
+        # short window) never created a scan_runs row at all, so it was
+        # invisible in the admin dashboard under this trip's own id even
+        # though the customer genuinely searched and got results (matched
+        # from the shared pool via _resolved_trip_offers).
+        reuse_run_id = create_scan_run(0, scan_type=f"personal_{str(answers.get('vacation_type') or 'standard')}", trip_id=trip_id)
+        finish_scan_run(reuse_run_id, 0, 0, 0)
+        return {"status": "monthly_coverage_reused", "scan_run_id": reuse_run_id, "offers_found": 0, "api_requests": 0, "searches_completed": 0, "errors": 0, "reused_coverage": len(fresh_keys)}
     coverage_expected = Counter(_coverage_key(j) for j in jobs)
     coverage_completed = Counter()
     coverage_errors = Counter()
