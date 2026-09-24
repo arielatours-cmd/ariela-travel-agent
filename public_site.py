@@ -2945,10 +2945,15 @@ def ariella_start_flight_search():
                 "message": f"נראה שאין כרגע טיסות זמינות משדה {dep_name} ליעד הזה. מומלץ לבחור שדה תעופה אחר (כמו נתב״ג) כדי שאוכל לחפש עבורכם.",
             }), 200
 
+    # The extractor is now instructed to always write exactly "direct" here,
+    # but a customer's direct-flight request must never silently fail to
+    # apply just because the model phrased it differently - substring match
+    # on the direct/nonstop root catches any reasonable variant either way.
     connection = str(flight.get("connection_preference") or "any").lower()
-    deal_priorities = []
-    if connection in {"direct","nonstop","non-stop","ישירה","ישיר"}:
-        deal_priorities.append("direct")
+    if any(token in connection for token in ("direct", "nonstop", "non-stop", "ישיר")):
+        deal_priorities = ["direct"]
+    else:
+        deal_priorities = []
     baggage = flight.get("baggage") or []
     if baggage:
         deal_priorities.append("baggage")
