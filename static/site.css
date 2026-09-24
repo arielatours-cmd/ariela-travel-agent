@@ -2491,7 +2491,8 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
   line-height:1.15!important;
   font-weight:900!important;
 }
-.deal-card-v970 .route-destination .route-city{
+.deal-card-v970 .route-destination .route-city,
+.deal-card-v970 .route-origin .route-city{
   font-size:24px!important;
   font-weight:900!important;
 }
@@ -2508,7 +2509,8 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
     font-size:17px!important;
   }
   .deal-card-v970 .visual-destination-outside strong{font-size:25px!important}
-  .deal-card-v970 .route-destination .route-city{font-size:21px!important}
+  .deal-card-v970 .route-destination .route-city,
+  .deal-card-v970 .route-origin .route-city{font-size:21px!important}
 }
 
 /* v9.7.110 QA fixes */
