@@ -751,6 +751,19 @@ UNCLEAR = אי אפשר להבין בבטחה.
     return "unclear"
 
 
+def _fix_known_typos(text):
+    """Deterministic safety net for a recurring model typo: dropping the
+    leading נ from the נתב"ג (Ben Gurion airport) acronym, or reversing its
+    two middle letters. Same philosophy as the deterministic fact-extraction
+    helpers elsewhere in this file - do not trust free-form model text for
+    something that has exactly one correct spelling."""
+    import re
+    text = str(text or "")
+    text = re.sub(r'(?<!נ)תב["״]ג', 'נתב"ג', text)
+    text = re.sub(r'(?<!נ)בת["״]ג', 'נתב"ג', text)
+    return text
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
@@ -780,7 +793,8 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
     system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state)
-    return _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
+    reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
+    return _fix_known_typos(reply)
 
 
 def _extract_trip_update(key, model, history, message, state=None):
