@@ -273,6 +273,16 @@
               localStorage.removeItem(legacyKey);
             }
           }catch(e){}
+          // The reassurance line in `reply` ("אפשר לחזור לכאן להמשיך עם
+          // לינה/רכב...") had no minimum time on screen at all - unlike the
+          // other two handoff paths above/below, which wait 1.8s/4s before
+          // leaving. It only stayed visible for however long this fetch
+          // itself took, so a fast response could redirect before the
+          // customer had a chance to read it. This wait is safe to add
+          // (unlike a delay before the fetch, which risked losing the
+          // request entirely if the tab backgrounded) since the request has
+          // already completed successfully by this point.
+          await new Promise(resolve=>setTimeout(resolve,4000));
           location.href=started.waiting_url;return;
         }
         if(start.ok&&started.status==='duplicate_active_trip'&&started.waiting_url){
