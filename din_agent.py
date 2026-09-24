@@ -22,27 +22,37 @@ _MAX_POLICY_PAGES = 4
 # Official carrier pages used as strong starting points. Unknown carriers are still
 # checked from a direct-airline booking URL when one is available in the deal.
 AIRLINE_POLICY_SOURCES = {
+    # Foreign carriers flying to/from Israel are required to publish an
+    # explicit "Israel Consumer Protection Law" notice - most of the entries
+    # below now point straight at that dedicated page (confirmed to exist and
+    # to name the law) instead of a generic homepage/help-center URL, so
+    # Din's explicit-mention check actually has a real page to find it on.
+    # A carrier left on a generic URL here is one no such dedicated page
+    # could be confirmed for - Din correctly keeps showing "check" for it
+    # rather than guessing.
     "el al": "https://www.elal.com/eng/useful-info/policies",
     "אל על": "https://www.elal.com/eng/useful-info/policies",
-    "arkia": "https://www.arkia.com/",
-    "ארקיע": "https://www.arkia.com/",
-    "israir": "https://www.israir.co.il/",
-    "ישראייר": "https://www.israir.co.il/",
+    "arkia": "https://www.arkia.co.il/he/content/cancel-reservation",
+    "ארקיע": "https://www.arkia.co.il/he/content/cancel-reservation",
+    "israir": "https://www.israir.co.il/Passengers_Info/Cancel_Remote_Sale_Policy",
+    "ישראייר": "https://www.israir.co.il/Passengers_Info/Cancel_Remote_Sale_Policy",
     "wizz air": "https://wizzair.com/en-gb/information-and-services/booking-information/changing-your-reservation",
     "ryanair": "https://help.ryanair.com/hc/en-gb/categories/12489112419089-Changes-Refunds",
     "easyjet": "https://www.easyjet.com/en/help/booking-and-check-in/managing-your-booking",
     "aegean": "https://en.aegeanair.com/plan/fare-rules/",
     "aegean airlines": "https://en.aegeanair.com/plan/fare-rules/",
     "lufthansa": "https://www.lufthansa.com/",
-    "ita airways": "https://www.ita-airways.com/",
+    "ita airways": "https://www.ita-airways.com/il/en/local-page/consumer-protection",
     "air france": "https://wwws.airfrance.com/",
-    "klm": "https://www.klm.com/",
+    "klm": "https://www.klm.co.il/information/legal/customer-rights",
     "british airways": "https://www.britishairways.com/",
     "turkish airlines": "https://www.turkishairlines.com/",
-    "emirates": "https://www.emirates.com/",
+    "emirates": "https://www.emirates.com/english/information/consumer-law-notice/",
     "flydubai": "https://www.flydubai.com/",
-    "etihad": "https://www.etihad.com/",
-    "etihad airways": "https://www.etihad.com/",
+    "etihad": "https://www.etihad.com/en-us/legal/israel-consumer-protection-law",
+    "etihad airways": "https://www.etihad.com/en-us/legal/israel-consumer-protection-law",
+    "lot": "https://www.lot.com/il/en/regulations/consumer-protection-law-cancellation-notice",
+    "lot polish airlines": "https://www.lot.com/il/en/regulations/consumer-protection-law-cancellation-notice",
     "bluebird airways": "https://www.bluebirdair.com/",
     "sky express": "https://www.skyexpress.gr/",
     "air haifa": "https://www.airhaifa.com/",

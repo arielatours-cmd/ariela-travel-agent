@@ -1947,7 +1947,20 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 .whatsapp-deals-toggle:hover,.whatsapp-deals-toggle.is-on{background:#faf5e9}
 .whatsapp-deals-toggle small{font-size:12px;font-weight:500;color:var(--muted);margin-top:2px}
 .previous-deals-section{margin-top:58px}
-.previous-deals-divider{height:2px;background:var(--gold);width:100%;margin-bottom:28px}
+/* Same broken-line-with-a-flower motif as .alternative-deals-message, but
+   built from two short gradient segments instead of a background-color
+   cutout, since this divider sits on the page's gradient background (not a
+   flat white) and a solid-color gap would show a visible mismatched patch. */
+.previous-deals-divider{
+  position:relative;height:22px;margin-bottom:28px;width:100%;
+  background:
+    linear-gradient(var(--gold),var(--gold)) left center/44% 2px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) right center/44% 2px no-repeat;
+}
+.previous-deals-divider::after{
+  content:"✿";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  color:var(--gold);font-size:19px;line-height:1;
+}
 .previous-deals-section>h2{text-align:center;font-size:34px;margin:0 0 6px}
 .previous-deals-note{text-align:center;color:var(--muted);margin:0 0 28px}
 .previous-deals-list{opacity:.94}
