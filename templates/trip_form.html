@@ -249,7 +249,16 @@
     }catch(e){
       const reply='יש לי תקלה רגעית בשיחה. נסו לשלוח שוב בעוד רגע.';
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
-    }finally{waitingForReply=false;send.disabled=false;input.disabled=false;input.focus();}
+    }finally{
+      waitingForReply=false;send.disabled=false;input.disabled=false;
+      // {preventScroll:true}: mobile browsers natively scroll a newly-
+      // focused element into view as part of focus() itself, outside JS's
+      // control - the suppression window in scrollElementToTop() only
+      // stopped this app's OWN scrollChatToLatest() calls, not that native
+      // behavior, which was still yanking the box back to the bottom to
+      // show the input. This is the actual fix for that.
+      try{input.focus({preventScroll:true});}catch(e){input.focus();}
+    }
   }
   function isNewSearchCommand(text){
     const t=String(text||'').trim().toLowerCase();
