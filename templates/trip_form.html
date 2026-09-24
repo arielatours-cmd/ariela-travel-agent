@@ -123,8 +123,28 @@
     requestAnimationFrame(toBottom);
     setTimeout(toBottom,120);
   }
-  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);if(role==='assistant'){requestAnimationFrame(()=>scrollElementToTop(el));}else{scrollBoxToBottom();}return el;}
-  function addVacationLink(tripId){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#travel-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);requestAnimationFrame(()=>scrollElementToTop(el));}
+  // lastMessageEl/lastMessageRole: no add() call happens just from switching
+  // back to this tab - so when the customer leaves mid-conversation (keyboard
+  // open, message scrolled to its top) and returns, nothing re-asserts that
+  // position. The keyboard closing while the tab is away and reopening on
+  // return changes the box's visible height without any scrollTop write of
+  // ours in between, so the old pixel value can now point at stale, scrolled-
+  // up content. The visibilitychange listener below re-applies the last
+  // message's correct placement once the tab is actually visible again.
+  let lastMessageEl=null,lastMessageRole=null;
+  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);lastMessageEl=el;lastMessageRole=role;if(role==='assistant'){requestAnimationFrame(()=>scrollElementToTop(el));}else{scrollBoxToBottom();}return el;}
+  function addVacationLink(tripId){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#travel-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);lastMessageEl=el;lastMessageRole='assistant';requestAnimationFrame(()=>scrollElementToTop(el));}
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='visible'||!lastMessageEl||!lastMessageEl.isConnected)return;
+    // A short delay: right when the tab becomes visible again, the keyboard
+    // (if it re-opens because the input still has focus) hasn't finished
+    // animating in yet, and scrolling before that settles gets overridden
+    // by the browser's own keyboard-open adjustment a moment later.
+    setTimeout(()=>{
+      if(lastMessageRole==='assistant')scrollElementToTop(lastMessageEl);
+      else scrollBoxToBottom();
+    },250);
+  });
   function save(){localStorage.setItem(key,JSON.stringify(history.slice(-80)));}
   async function initChat(){
     if(!history.length){
