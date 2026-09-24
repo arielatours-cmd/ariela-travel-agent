@@ -1800,6 +1800,44 @@ def chat_clean():
         logging.exception("ariella chat-clean pipeline failed: %s", exc)
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
 
+    persist_trip_plan = bool(locals().get("planning_accept", False)) \
+        and bool((trip_update.get("dates") or {}).get("departure")) \
+        and bool((trip_update.get("dates") or {}).get("return"))
+    start_flight_search = bool(approval) and bool(trip_update.get('search_confirmed'))
+    profile_for_response = trip_update.get('profile')
+
+    # Once all four service domains (flights/lodging/car/trip_planning) have
+    # each reached a final answer - complete OR declined, either way - the
+    # vacation is unambiguously done. Nothing about it should leak into
+    # whatever the customer asks for next (a real bug: a couple with a
+    # 17-year-old daughter carried over into a new trip as a 17-year-old son,
+    # because the old structured state was never actually cleared). This is
+    # deliberately silent - no "delete everything?" gate - because completion
+    # is already certain once every domain answered either way; that gate
+    # exists for the ambiguous case where the customer might still be
+    # mid-trip, which this is not.
+    final_statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+    final_decisions = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
+    trip_fully_resolved = all(
+        final_statuses.get(s) in ("complete", "declined")
+        or ((final_decisions.get(s) or {}).get("wanted") is False if isinstance(final_decisions.get(s), dict) else final_decisions.get(s) is False)
+        for s in ("flights", "lodging", "car", "trip_planning")
+    )
+    trip_state_reset = False
+    if trip_fully_resolved:
+        trip_state_reset = True
+        fresh_after_completion = {
+            'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
+            'active_session': None,
+        }
+        # Member-level facts (not trip facts) survive the reset - no need to
+        # re-ask gender for the next vacation.
+        if trip_update.get('profile'):
+            fresh_after_completion['profile'] = trip_update['profile']
+        if trip_update.get('user_gender'):
+            fresh_after_completion['user_gender'] = trip_update['user_gender']
+        trip_update = fresh_after_completion
+
     # Server-side copy of the conversation so it survives logout and follows
     # the account across devices, not just this browser's local cache.
     try:
@@ -1817,12 +1855,11 @@ def chat_clean():
         'engine_version': ENGINE_VERSION,
         'reply': reply or 'אני איתך 😊',
         'trip_update': trip_update,
-        'profile': trip_update.get('profile'),
+        'profile': profile_for_response,
         # Save only an itinerary approved against the current structured state.
-        'persist_trip_plan': bool(locals().get("planning_accept", False))
-            and bool((trip_update.get("dates") or {}).get("departure"))
-            and bool((trip_update.get("dates") or {}).get("return")),
+        'persist_trip_plan': persist_trip_plan,
         # Execution is allowed only when the deterministic approval gate fired
         # on THIS user message. Never let model-extracted state start a scan.
-        'start_flight_search': bool(approval) and bool(trip_update.get('search_confirmed')),
+        'start_flight_search': start_flight_search,
+        'trip_state_reset': trip_state_reset,
     })
