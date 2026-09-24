@@ -780,21 +780,55 @@ def _strip_unconfirmed_airports(text, state):
     volunteering LaGuardia (LGA) as an extra New York gateway alongside JFK
     from its own general world knowledge - nothing in destination_airports
     ever actually named it. The prompt fix alone did not reliably hold, so
-    strip the phrase here regardless of what the model produced."""
+    strip it here regardless of what the model produced. Seen twice now: a
+    brief inline mention ("JFK או לגה"), and a full elaborated paragraph
+    building on the invented second airport (explaining it exists, asking
+    which one/both to search, even once with a stray Cyrillic word mixed
+    into the airport's spelled-out name) - the two need different handling,
+    since deleting a few words out of a paragraph built around the premise
+    leaves an incoherent sentence behind, but deleting an entire paragraph
+    for a brief inline mention would delete real content too."""
     state = state if isinstance(state, dict) else {}
     airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
     if any(str(a or "").strip().upper() == "LGA" for a in airports):
         return text
     import re
     text = str(text or "")
-    # "לגה"/"לה" optionally followed by "גארדיה"/"גוארדיה" (both spellings
-    # seen in practice) as one unit first, so a bare "\bלגה\b" pass afterward
-    # doesn't leave a dangling "גארדיה" behind.
-    text = re.sub(r'\s*[/,]?\s*(?:או\s+)?(?:לה|לגה)\s*גו?ארדיה', '', text)
-    text = re.sub(r'\s*[/,]?\s*(?:או\s+)?\bלגה\b', '', text)
+    forbidden = re.compile(r'לה\s*גוארדיה|לגה\s*גוארדיה|\bלגה\b|LaGuardia|\bLGA\b', re.IGNORECASE)
+    if not forbidden.search(text):
+        return text
+    # Paragraph-level removal first (Tinkerbell's own structure is one topic
+    # per blank-line-separated paragraph): drop any paragraph that mentions
+    # it at all, as long as other paragraphs remain to keep the reply from
+    # going empty.
+    paragraphs = re.split(r'(\n\s*\n)', text)
+    blocks = paragraphs[0::2]
+    separators = paragraphs[1::2]
+    kept_blocks, kept_seps = [], []
+    for i, block in enumerate(blocks):
+        if not forbidden.search(block):
+            kept_blocks.append(block)
+            if i < len(separators):
+                kept_seps.append(separators[i])
+    if kept_blocks and len(kept_blocks) < len(blocks):
+        result = kept_blocks[0]
+        for sep, block in zip(kept_seps, kept_blocks[1:]):
+            result += sep + block
+        return result.strip()
+    # Single-paragraph (or every paragraph tainted) case: surgical phrase
+    # removal instead, including the Hebrew ו- prefix glued directly onto
+    # the next word ("ולה גוארדיה") and parenthesized codes ("(LGA)"),
+    # followed by a cleanup pass for the connector/punctuation debris left
+    # behind (a dangling "ו"/"או", empty "()", doubled spaces or commas).
+    text = re.sub(r'\s*[/,]?\s*(?:ו|או)?\s*(?:לה|לגה)\s*גו?ארדיה', '', text)
+    text = re.sub(r'\s*[/,]?\s*(?:ו|או)?\s*\bלגה\b', '', text)
     text = re.sub(r'\s*[/,]?\s*(?:or\s+)?LaGuardia\b', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\s*[/,]?\s*(?:or\s+)?\bLGA\b', '', text)
-    return text
+    text = re.sub(r'\s*[/,]?\s*(?:or\s+)?\(?\s*\bLGA\b\s*\)?', '', text)
+    text = re.sub(r'\(\s*\)', '', text)
+    text = re.sub(r'(?:^|\s)(?:ו|או)(?=[\s.,?!]|$)', '', text)
+    text = re.sub(r'[ \t]{2,}', ' ', text)
+    text = re.sub(r'\s+([.,?!])', r'\1', text)
+    return text.strip()
 
 
 def _call_tinkerbell(key, model, history, message, state=None):
