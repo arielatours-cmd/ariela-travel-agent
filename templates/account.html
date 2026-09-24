@@ -156,12 +156,12 @@
           {% if trip.offers %}
             <h3>3 הטיסות המתאימות ביותר</h3>
             <div class="vacation-flight-list">
-              {% for deal in trip.offers[:3] %}{{ deal_card(deal, site_lang) }}{% endfor %}
+              {% for deal in trip.offers[:3] %}{{ deal_card(deal, site_lang, a.get('vacation_type')) }}{% endfor %}
             </div>
             {% if trip.offers|length > 3 %}
               <details class="more-results"><summary>טיסות נוספות</summary>
                 <div class="vacation-flight-list">
-                  {% for deal in trip.offers[3:] %}{{ deal_card(deal, site_lang) }}{% endfor %}
+                  {% for deal in trip.offers[3:] %}{{ deal_card(deal, site_lang, a.get('vacation_type')) }}{% endfor %}
                 </div>
               </details>
             {% endif %}
