@@ -1952,8 +1952,10 @@ html[dir="rtl"] .wizard-step .choice-button.selected span::before{
 .previous-deals-note{text-align:center;color:var(--muted);margin:0 0 28px}
 .previous-deals-list{opacity:.94}
 @media(max-width:600px){
-  .previous-deals-section>h2{font-size:19px!important;white-space:nowrap!important;margin:0 0 4px!important}
-  .previous-deals-note{font-size:12px!important;white-space:nowrap!important;margin:0 0 20px!important}
+  /* clamp(), not a flat px, so this scales itself down on a narrower phone
+     instead of ever needing a wider single line than the screen has. */
+  .previous-deals-section>h2{font-size:clamp(16px,5.4vw,22px)!important;white-space:nowrap!important;margin:0 0 4px!important}
+  .previous-deals-note{font-size:clamp(11px,3.2vw,14px)!important;white-space:nowrap!important;margin:0 0 20px!important}
 }
 @media(max-width:700px){.deals-heading-with-alert{padding-top:85px}.deals-alert-slot{left:50%;transform:translateX(-50%);top:0}.whatsapp-deals-toggle{min-width:210px}}
 
