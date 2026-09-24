@@ -2075,17 +2075,21 @@ def deals():
     # "previous deals" through a later list split.
     all_qualified = [o for o in candidates if _offer_is_publicly_bookable(o)]
 
-    # Current deals = qualified deals from today's scan batch.
+    # Current deals = qualified deals scanned within the last 24 hours.
     # We deliberately use the latest scan id instead of timestamp parsing so
     # older records cannot be misclassified by legacy timestamp formats.
     scan_ids = [int(o.get("scan_run_id")) for o in all_qualified if o.get("scan_run_id") is not None]
     latest_scan_id = max(scan_ids) if scan_ids else None
 
-    # Include every qualified offer from scans run in the same current-day batch.
-    # Existing data from the testing session may span several scan IDs, so use
-    # scan_started_at where valid; otherwise keep recent scan IDs together.
-    today_local = datetime.now(ZoneInfo(ISRAEL_TZ)).date()
-    today_scan_ids = set()
+    # A rolling 24h window, not "same calendar day": a customer-specific scan
+    # (e.g. a ski search) can reuse an existing route-month's coverage for up
+    # to 12h (scanner.py's monthly-reuse cache) instead of re-scanning, so a
+    # deal found minutes ago can still carry a scan_started_at from just
+    # before midnight - a calendar-day match wrongly sent it to "previous"
+    # even though it's genuinely fresh. 24h comfortably covers both that
+    # reuse window and the daily public scan's own cadence.
+    now_utc = datetime.now(timezone.utc)
+    current_scan_ids = set()
     for offer in all_qualified:
         sid = offer.get("scan_run_id")
         raw = offer.get("scan_started_at")
@@ -2095,21 +2099,21 @@ def deals():
             dt = datetime.fromisoformat(str(raw).replace("Z","+00:00")) if raw else None
             if dt and dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
-            if dt and dt.astimezone(ZoneInfo(ISRAEL_TZ)).date() == today_local:
-                today_scan_ids.add(int(sid))
+            if dt and (now_utc - dt.astimezone(timezone.utc)) <= timedelta(hours=24):
+                current_scan_ids.add(int(sid))
         except Exception:
             pass
 
     # Legacy fallback: if historical scan timestamps cannot be interpreted,
     # the latest scan remains current rather than sending everything below the divider.
-    if not today_scan_ids and latest_scan_id is not None:
-        today_scan_ids.add(latest_scan_id)
+    if not current_scan_ids and latest_scan_id is not None:
+        current_scan_ids.add(latest_scan_id)
 
     offers = [
         o for o in all_qualified
         if _offer_is_publicly_bookable(o)
         and o.get("scan_run_id") is not None
-        and int(o.get("scan_run_id")) in today_scan_ids
+        and int(o.get("scan_run_id")) in current_scan_ids
     ]
     previous_offers = [
         o for o in all_qualified
