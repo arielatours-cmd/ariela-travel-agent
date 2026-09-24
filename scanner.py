@@ -946,6 +946,18 @@ def _customer_scan_rank(score: dict, answers: dict) -> float:
 
 
 def _coverage_key(job: dict) -> tuple[str, str, str, str]:
+    # A customer's exact requested date (date_mode == "exact") is a distinct search
+    # from a month-wide exploration scan that only samples a few representative days.
+    # Truncating to the month here would let an unrelated scan that happened to touch
+    # the same month - but never the customer's actual date - falsely mark it "fresh"
+    # and skip searching it entirely, silently leaving the customer with zero offers.
+    if job.get("date_exact"):
+        return (
+            str(job.get("departure") or "").upper(),
+            str(job.get("arrival") or "").upper(),
+            str(job.get("outbound") or ""),
+            str(job.get("return") or ""),
+        )
     return (
         str(job.get("departure") or "").upper(),
         str(job.get("arrival") or "").upper(),
@@ -1095,7 +1107,7 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                     continue
                 for arrival in arrivals:
                     for origin in origins:
-                        jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat()})
+                        jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat(), "date_exact": True})
         else:
             for arrival in arrivals:
                 for origin in origins:
@@ -1103,7 +1115,7 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                     ret_date = base_ret
                     if ret_date <= out_date:
                         continue
-                    jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat()})
+                    jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat(), "date_exact": True})
     elif ski_mode and date_mode == "ski_flexible":
         # Use the next core ski season and keep the first live test controlled:
         # two representative 6-night windows per airport/origin, not a world-wide explosion.
