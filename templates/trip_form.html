@@ -77,10 +77,25 @@
   // against different offsetParents and land nowhere near the message -
   // this measures the live on-screen gap between them instead, so a long
   // assistant reply opens at its own first line, not its last.
+  // suppressAutoScrollUntil: askTinkerbell() re-focuses the input right after
+  // this runs, and that focus (plus the mobile keyboard opening behind it)
+  // fires scrollChatToLatest() via the focus/visualViewport listeners below -
+  // which forces scrollTop back to the very bottom and undoes this entirely.
+  // Muting that auto-scroll for a short window after we place the reply at
+  // its top is what actually keeps it there.
+  let suppressAutoScrollUntil=0;
   function scrollElementToTop(el){
-    const boxRect=box.getBoundingClientRect();
-    const elRect=el.getBoundingClientRect();
-    box.scrollTop=Math.max(0,box.scrollTop+(elRect.top-boxRect.top)-12);
+    const place=()=>{
+      const boxRect=box.getBoundingClientRect();
+      const elRect=el.getBoundingClientRect();
+      box.scrollTop=Math.max(0,box.scrollTop+(elRect.top-boxRect.top)-12);
+    };
+    place();
+    suppressAutoScrollUntil=Date.now()+900;
+    // Re-assert once more after the input-focus/keyboard-open scroll attempts
+    // below have had their turn, in case content reflow (webfont, wrapping)
+    // also shifted the message slightly.
+    setTimeout(place,500);
   }
   function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);if(role==='assistant'){requestAnimationFrame(()=>scrollElementToTop(el));}else{box.scrollTop=box.scrollHeight;}return el;}
   function addVacationLink(tripId){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#travel-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);requestAnimationFrame(()=>scrollElementToTop(el));}
@@ -263,9 +278,10 @@
     input.value='';input.style.height='auto';askTinkerbell(text,cleanCommittedRestart||(freshSearch&&!hasActiveTripState));
   });
   function scrollChatToLatest(){
-    requestAnimationFrame(()=>{box.scrollTop=box.scrollHeight;});
-    setTimeout(()=>{box.scrollTop=box.scrollHeight;},180);
-    setTimeout(()=>{box.scrollTop=box.scrollHeight;},420);
+    const toBottom=()=>{if(Date.now()>=suppressAutoScrollUntil)box.scrollTop=box.scrollHeight;};
+    requestAnimationFrame(toBottom);
+    setTimeout(toBottom,180);
+    setTimeout(toBottom,420);
   }
   input.addEventListener('focus',scrollChatToLatest);
   if(window.visualViewport){
