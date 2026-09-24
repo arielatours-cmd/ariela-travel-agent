@@ -14,7 +14,7 @@
       <span class="stage active" data-stage="flight">טיסות</span>
       <span class="stage" data-stage="lodging">לינה</span>
       <span class="stage" data-stage="car">רכב</span>
-      <span class="stage" data-stage="plan">מסלול</span>
+      {% if show_plan_stage %}<span class="stage" data-stage="plan">מסלול</span>{% endif %}
     </div>
     <div class="search-dots"><i></i><i></i><i></i></div>
     <small>המסך מתעדכן בזמן שהחופשה שלך מתקדמת.</small>

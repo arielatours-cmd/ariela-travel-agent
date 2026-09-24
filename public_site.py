@@ -3103,10 +3103,16 @@ def ariella_start_flight_search():
 @login_required
 def trip_waiting(trip_id):
     with _db() as conn:
-        row = conn.execute("SELECT id FROM trip_requests WHERE id=? AND member_id=?", (trip_id, session["member_id"])).fetchone()
+        row = conn.execute("SELECT id, answers_json FROM trip_requests WHERE id=? AND member_id=?", (trip_id, session["member_id"])).fetchone()
     if not row:
         return redirect(url_for("site.account"))
-    return render_template("trip_waiting.html", trip_id=trip_id)
+    # Route/attractions planning is never relevant for a business or ski
+    # trip (session_status.trip_planning auto-declines without ever being
+    # asked) - the waiting page's stage row shouldn't show a "מסלול" pill
+    # for one at all, not even a dimmed "skipped" one.
+    vacation_type = _trip_dict(row).get("answers", {}).get("vacation_type")
+    show_plan_stage = vacation_type not in ("business", "ski")
+    return render_template("trip_waiting.html", trip_id=trip_id, show_plan_stage=show_plan_stage)
 
 
 @site.get("/trip/<int:trip_id>/flight-status")
