@@ -12,8 +12,11 @@
       <small>{{ 'One-time payment, valid for a month. Not a recurring subscription - no card details are stored.' if site_lang == 'en' else 'תשלום חד-פעמי, בתוקף לחודש. לא מנוי מתחדש - לא נשמרים פרטי אשראי.' }}</small>
     </div>
     <div class="checkout-pending-notice">
-      {{ 'Secure payment will be available here soon. This vacation is marked as awaiting payment in the meantime.' if site_lang == 'en' else 'השלמת תשלום מאובטח תתאפשר כאן בקרוב. בינתיים החופשה מסומנת כממתינה לתשלום.' }}
+      {{ 'Secure payment is not connected yet. For now, use the button below to mark this as paid and test the daily tracking.' if site_lang == 'en' else 'סליקה מאובטחת עדיין לא מחוברת. בינתיים אפשר לסמן כאילו שולם באמצעות הכפתור למטה, כדי לבדוק את המעקב היומי.' }}
     </div>
+    <form method="post" action="{{ url_for('site.dev_bypass_payment', trip_id=trip.id) }}" class="checkout-pay-form">
+      <button type="submit" class="checkout-pay-btn">{{ 'Mark as paid (temporary, no real gateway yet)' if site_lang == 'en' else 'סימון כשולם (זמני, עד לחיבור סליקה)' }}</button>
+    </form>
     <form method="post" action="{{ url_for('site.cancel_pending_search', trip_id=trip.id) }}" class="checkout-cancel-form">
       <button type="submit" class="checkout-cancel-btn">{{ 'Cancel, I changed my mind' if site_lang == 'en' else 'ביטול, התחרטתי' }}</button>
     </form>
@@ -30,7 +33,10 @@
 .checkout-plan p{margin:6px 0 8px;font-size:13.5px;color:#4a453c;line-height:1.5}
 .checkout-plan small{display:block;color:#8a7f6c;font-size:11.5px}
 .checkout-pending-notice{font-size:13px;color:#7a6a3f;background:#fdf6e3;border:1px solid #eddca4;border-radius:12px;padding:12px 14px;line-height:1.5}
-.checkout-cancel-form{margin-top:14px;text-align:center}
+.checkout-pay-form{margin-top:16px;text-align:center}
+.checkout-pay-btn{background:#147d77;border:0;color:#fff;border-radius:999px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer}
+.checkout-pay-btn:hover{background:#0f625d}
+.checkout-cancel-form{margin-top:10px;text-align:center}
 .checkout-cancel-btn{background:transparent;border:1px solid #c9beac;color:#6d5a2c;border-radius:999px;padding:10px 18px;font-size:13px;cursor:pointer}
 .checkout-cancel-btn:hover{background:#faf5e9}
 </style>

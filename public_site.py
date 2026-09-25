@@ -3789,7 +3789,7 @@ def _confirm_paid_search(trip_id, provider=None, provider_reference=None):
         conn.execute(
             "UPDATE trip_requests SET subscription_status='active', subscription_started_at=?, "
             "subscription_cancel_at_period_end=0, search_period_started_at=?, search_period_ends_at=?, "
-            "renewal_reminder_sent_at=NULL, has_paid_search=1 WHERE id=?",
+            "renewal_reminder_sent_at=NULL, has_paid_search=1, mobile_notifications=1 WHERE id=?",
             (now.isoformat(), now.isoformat(), ends.isoformat(), trip_id),
         )
         conn.commit()
@@ -3797,6 +3797,28 @@ def _confirm_paid_search(trip_id, provider=None, provider_reference=None):
     record_payment(member_id, trip_id, plan, plan_info["price_ils"], provider=provider,
                     provider_reference=provider_reference, status="paid", paid_at=now.isoformat())
     return True
+
+
+@site.post("/trip/<int:trip_id>/dev-bypass-payment")
+@login_required
+def dev_bypass_payment(trip_id):
+    """TEMPORARY customer-facing stand-in for a real payment gateway.
+
+    No payment processor is connected yet (see admin_confirm_payment in
+    app.py, the admin equivalent of this). This lets the personal-search
+    flow - including whether daily notifications actually arrive - be
+    tested end to end as a real customer, without an admin detour. Remove
+    this route once a real gateway is wired in; _confirm_paid_search is the
+    one place that needs to keep working unchanged.
+    """
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT member_id FROM trip_requests WHERE id=?", (trip_id,)
+        ).fetchone()
+    if not row or row["member_id"] != session["member_id"]:
+        return redirect(url_for("site.account"))
+    _confirm_paid_search(trip_id, provider="dev_bypass_no_gateway")
+    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
 @site.route("/trip/new", methods=["GET", "POST"])
