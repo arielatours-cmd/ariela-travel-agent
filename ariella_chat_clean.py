@@ -1178,6 +1178,30 @@ def _deterministic_budget_facts(message):
     return {}
 
 
+def _deterministic_baggage_facts(message):
+    """Safety net for flight.baggage: a customer often answers baggage mixed
+    into one longer reply that also covers origin airport, direct/connection
+    preference and budget all at once. The extractor sometimes drops just the
+    baggage part of a message like that, so Tinkerbell asks about baggage
+    again next turn - even after it was already answered, sometimes more than
+    once in a row. Matches only clear, unambiguous phrasing to avoid false
+    positives; order matters, since "carry-on only" phrasing must be checked
+    before a bare "no baggage" match ("רק טרולי" means a trolley, not nothing)."""
+    import re
+    msg = str(message or "")
+    if not msg.strip():
+        return {}
+    if re.search(r"רק\s+טרולי|טרולי\s+בלבד|טרולי\s+לכל\s+אחד|רק\s+כבודת\s+עלי", msg):
+        return {"flight": {"baggage": ["carry_on_only"]}}
+    if re.search(r"מזוודה\s+למחסן|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
+        return {"flight": {"baggage": ["checked_bag"]}}
+    if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)", msg):
+        return {"flight": {"baggage": ["personal_item"]}}
+    if re.search(r"אין\s+לי\s+שום\s+כבודה|בלי\s+שום\s+כבודה|בלי\s+כבודה\s+בכלל", msg):
+        return {"flight": {"baggage": ["no_baggage"]}}
+    return {}
+
+
 def _deterministic_period_facts(message):
     """Parse weekday/month windows; ambiguous end-of-month requests require customer choice."""
     import re, calendar
@@ -1732,6 +1756,7 @@ def chat_clean():
             trip_update["active_session"] = "flights"
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
