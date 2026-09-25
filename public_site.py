@@ -3724,6 +3724,32 @@ def cancel_pending_search(trip_id):
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
+@site.post("/trip/<int:trip_id>/stop-daily-search")
+@login_required
+def stop_daily_search(trip_id):
+    """Stop an already-paid daily-tracking subscription, distinct from ending
+    the vacation itself.
+
+    The payment was one-time and covers a fixed period - stopping here never
+    refunds or retroactively touches it. This only turns off future daily
+    scans/notifications immediately (the scheduler that runs them filters on
+    subscription_status='active', so resetting it here is what actually stops
+    them) and resets the plan selection back to "none chosen", the same state
+    a trip starts in, so the customer can pick a plan again (e.g. switch
+    19<->39) right away if they change their mind. The vacation/trip itself
+    is left untouched - this must never end or archive it.
+    """
+    with _db() as conn:
+        conn.execute(
+            "UPDATE trip_requests SET subscription_plan=NULL, subscription_status='none', "
+            "subscription_cancel_at_period_end=0, mobile_notifications=0 "
+            "WHERE id=? AND member_id=? AND subscription_status='active'",
+            (trip_id, session["member_id"]),
+        )
+        conn.commit()
+    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+
 @site.get("/trip/<int:trip_id>/checkout")
 @login_required
 def trip_checkout(trip_id):
