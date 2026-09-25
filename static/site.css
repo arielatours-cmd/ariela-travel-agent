@@ -31,6 +31,8 @@
 
 /* ===== Deals page — approved clean cream layout ===== */
 :root{--deal-blue:#102f72;--deal-blue-2:#184a9d;--deal-cream:#fbf8f1;--deal-line:#e5dfd5;--deal-text:#151515;--deal-muted:#746f67;--deal-gold:#b98a31}
+.deal-close-match-note{background:#fdf6e8;border-bottom:1px solid #e9d9ae;padding:10px 22px;font-size:13px;line-height:1.5;color:#5c4a1d}
+.deal-close-match-note strong{display:block;color:#8a6a1b;font-size:14px;margin-bottom:2px}
 .deals-page{background:linear-gradient(180deg,#fff 0,#fbf8f1 42%,#f6f0e7 100%);padding:26px 0 54px;min-height:72vh}
 .deals-shell{width:min(1480px,94%);margin-inline:auto}
 .deals-heading{text-align:center;padding:2px 0 24px}.deals-heading h1{margin:0;font:700 clamp(38px,4.5vw,62px)/1.15 Georgia,"Times New Roman",serif;color:#0d0d0d}.deals-heading p{margin:18px 0 0;font-size:20px;color:#4f4b45}.deals-heading::after{content:"";display:block;width:88px;height:1px;background:var(--deal-gold);margin:19px auto 0}
