@@ -15,7 +15,7 @@
   </div>
 </section>
 <style>
-.ariella-new-chat{max-width:900px;margin:24px auto 48px;padding:0 16px}.ariella-chat-card{height:min(720px,calc(100vh - 150px));min-height:560px;background:#fff;border:1px solid rgba(22,49,64,.1);border-radius:24px;box-shadow:0 14px 40px rgba(22,49,64,.09);overflow:hidden;display:flex;flex-direction:column}.ariella-chat-header{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid rgba(22,49,64,.09);background:#fff}.ariella-chat-avatar{width:54px;height:54px;border-radius:50%;object-fit:cover;flex:0 0 54px}.ariella-chat-header h1{font-size:20px;margin:0 0 3px;font-weight:700}.ariella-chat-header span{font-size:13px;opacity:.65}.ariella-chat-messages{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:12px;background:#fafafa}.ariella-msg{max-width:78%;padding:12px 15px;border-radius:18px;line-height:1.55;white-space:pre-line}.ariella-msg.assistant{align-self:flex-start;background:#fff;border:1px solid rgba(22,49,64,.08);border-top-left-radius:6px}.ariella-msg.user{align-self:flex-end;background:#e8f5f3;border-top-right-radius:6px}.ariella-chat-compose{display:flex;align-items:flex-end;gap:10px;padding:13px 15px;border-top:1px solid rgba(22,49,64,.09);background:#fff}.ariella-chat-compose textarea{flex:1;resize:none;max-height:120px;min-height:44px;border:1px solid rgba(22,49,64,.18);border-radius:22px;padding:11px 15px;font:inherit;outline:none}.ariella-chat-compose button{width:44px;height:44px;border:0;border-radius:50%;cursor:pointer;font-size:18px;background:#1c8f88;color:#fff}.ariella-chat-compose button:disabled{opacity:.45;cursor:default}@media(max-width:760px){.ariella-new-chat{margin:0;padding:0}.ariella-chat-card{height:calc(100dvh - 72px);min-height:0;border-radius:0;border-left:0;border-right:0}.ariella-chat-header{padding:12px 14px}.ariella-chat-avatar{width:46px;height:46px;flex-basis:46px}.ariella-chat-header h1{font-size:17px}.ariella-chat-messages{padding:16px 12px}.ariella-msg{max-width:88%}}
+.ariella-new-chat{max-width:900px;margin:24px auto 48px;padding:0 16px}.ariella-chat-card{height:min(720px,calc(100vh - 150px));min-height:560px;background:#fff;border:1px solid rgba(22,49,64,.1);border-radius:24px;box-shadow:0 14px 40px rgba(22,49,64,.09);overflow:hidden;display:flex;flex-direction:column}.ariella-chat-header{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid rgba(22,49,64,.09);background:#fff}.ariella-chat-avatar{width:54px;height:54px;border-radius:50%;object-fit:cover;flex:0 0 54px}.ariella-chat-header h1{font-size:20px;margin:0 0 3px;font-weight:700}.ariella-chat-header span{font-size:13px;opacity:.65}.ariella-chat-messages{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:12px;background:#fafafa}.ariella-msg{max-width:78%;padding:12px 15px;border-radius:18px;line-height:1.55;white-space:pre-line}.ariella-msg.assistant{align-self:flex-start;background:#fff;border:1px solid rgba(22,49,64,.08);border-top-left-radius:6px}.ariella-msg.user{align-self:flex-end;background:#e8f5f3;border-top-right-radius:6px}.ariella-typing{display:flex;align-items:center;gap:4px;padding:14px 16px}.ariella-typing span{width:7px;height:7px;border-radius:50%;background:rgba(22,49,64,.35);display:inline-block;animation:ariella-typing-bounce 1.2s infinite ease-in-out}.ariella-typing span:nth-child(2){animation-delay:.15s}.ariella-typing span:nth-child(3){animation-delay:.3s}@keyframes ariella-typing-bounce{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-5px);opacity:1}}.ariella-chat-compose{display:flex;align-items:flex-end;gap:10px;padding:13px 15px;border-top:1px solid rgba(22,49,64,.09);background:#fff}.ariella-chat-compose textarea{flex:1;resize:none;max-height:120px;min-height:44px;border:1px solid rgba(22,49,64,.18);border-radius:22px;padding:11px 15px;font:inherit;outline:none}.ariella-chat-compose button{width:44px;height:44px;border:0;border-radius:50%;cursor:pointer;font-size:18px;background:#1c8f88;color:#fff}.ariella-chat-compose button:disabled{opacity:.45;cursor:default}@media(max-width:760px){.ariella-new-chat{margin:0;padding:0}.ariella-chat-card{height:calc(100dvh - 72px);min-height:0;border-radius:0;border-left:0;border-right:0}.ariella-chat-header{padding:12px 14px}.ariella-chat-avatar{width:46px;height:46px;flex-basis:46px}.ariella-chat-header h1{font-size:17px}.ariella-chat-messages{padding:16px 12px}.ariella-msg{max-width:88%}}
 </style>
 <script>
 (function(){
@@ -132,7 +132,18 @@
   // up content. The visibilitychange listener below re-applies the last
   // message's correct placement once the tab is actually visible again.
   let lastMessageEl=null,lastMessageRole=null;
-  function add(role,text){const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);lastMessageEl=el;lastMessageRole=role;if(role==='assistant'){requestAnimationFrame(()=>scrollElementToTop(el));}else{scrollBoxToBottom();}return el;}
+  let typingEl=null;
+  function showTyping(){
+    if(typingEl)return;
+    const el=document.createElement('div');
+    el.className='ariella-msg assistant ariella-typing';
+    el.innerHTML='<span></span><span></span><span></span>';
+    box.appendChild(el);
+    typingEl=el;
+    requestAnimationFrame(()=>scrollElementToTop(el));
+  }
+  function hideTyping(){if(typingEl){typingEl.remove();typingEl=null;}}
+  function add(role,text){hideTyping();const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);lastMessageEl=el;lastMessageRole=role;if(role==='assistant'){requestAnimationFrame(()=>scrollElementToTop(el));}else{scrollBoxToBottom();}return el;}
   function addVacationLink(tripId){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#travel-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);lastMessageEl=el;lastMessageRole='assistant';requestAnimationFrame(()=>scrollElementToTop(el));}
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState!=='visible'||!lastMessageEl||!lastMessageEl.isConnected)return;
@@ -179,6 +190,7 @@
     waitingForReply=true;
     send.disabled=true;
     input.disabled=false;
+    showTyping();
     try{
       // A long reply (an itinerary/route recommendation) can legitimately take
       // a while, but the browser's fetch has no built-in timeout - without this,
@@ -306,6 +318,7 @@
       const reply='יש לי תקלה רגעית בשיחה. נסו לשלוח שוב בעוד רגע.';
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
     }finally{
+      hideTyping();
       waitingForReply=false;send.disabled=false;input.disabled=false;
       // {preventScroll:true}: mobile browsers natively scroll a newly-
       // focused element into view as part of focus() itself, outside JS's
