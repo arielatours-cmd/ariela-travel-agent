@@ -72,7 +72,7 @@
                 {% if trip.search_period_ends_at %}<span class="sub-until" dir="ltr">עד {{ trip.search_period_ends_at|ddmmyyyy }}</span>{% endif %}
                 <form method="post" action="{{ url_for('site.stop_daily_search', trip_id=trip.id) }}"><button type="submit" class="sub-end-btn">הפסק חיפוש</button></form>
               </div>
-              <small class="sub-note">התשלום חד-פעמי ולא מוחזר, אבל אפשר להפסיק את ההתראות בכל שלב ולבחור מסלול אחר באותה הזדמנות</small>
+              <small class="sub-note">התשלום הינו חד פעמי ואינו מוחזר במצב של הפסקת חיפוש.<br>ניתן לסיים את השירות או לשנות מסלול בכל עת.</small>
             {% elif sub_status == 'pending' and sub_plan_info %}
               <div class="sub-row sub-pending">
                 <span class="sub-label">ממתין לאישור תשלום — {{ sub_plan_info.label_he }} ({{ sub_plan_info.price_ils }} ₪)</span>
