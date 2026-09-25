@@ -1,6 +1,7 @@
 from pathlib import Path
 import hashlib
 import logging
+import os
 log = logging.getLogger(__name__)
 import secrets
 import uuid
@@ -3044,6 +3045,29 @@ def ariella_start_flight_search():
         "_requested_services": sorted(services),
         "_session_status": state.get("session_status") if isinstance(state.get("session_status"), dict) else {},
     }
+    # A route/itinerary conversation that happened and was approved BEFORE the
+    # customer approved the flight search (a natural order - "let's plan the
+    # route first, then search flights for it") had no trip_id to attach to
+    # yet, so /api/ariella/save-trip-plan was never reachable and the whole
+    # planning conversation silently vanished once the trip was created here.
+    # Carry it forward the same way that endpoint persists it, from the state/
+    # history already available at this point.
+    planning_state = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    if planning_state.get("approved"):
+        assistant_plan = ""
+        for item in reversed(history):
+            if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+                txt = str(item.get("content") or "").strip()
+                if txt and "אני אשלח לך את כל האינפורמציה" not in txt:
+                    assistant_plan = txt
+                    break
+        payload["_approved_itinerary"] = {
+            "text": assistant_plan,
+            "approved_at": utc_now_iso(),
+            "planning_state": planning_state,
+            "attractions": _enrich_approved_attractions(planning_state, assistant_plan),
+        }
+        payload["_trip_planning_complete"] = True
     title = " • ".join(places) if places else "אריאלה תבחר"
     travel_window = (dep + " – " + ret) if dep and ret else (period or month)
     with _db() as conn:
