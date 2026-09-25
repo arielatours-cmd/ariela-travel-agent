@@ -23,9 +23,9 @@
       <article class="vacation-result" id="vacation-{{ trip.id }}">
         <header class="vacation-head">
           <div>
-            <small>נוצרה ב־<span dir="ltr">{{ (trip.created_at or '')[:10] }}</span></small>
+            <small>נוצרה ב־<span dir="ltr">{{ trip.created_at|ddmmyyyy }}</span></small>
             <h2>{{ trip.destination_display or trip.request_name }}</h2>
-            {% if trip.travel_window %}<p dir="ltr">{{ trip.travel_window }}</p>{% endif %}
+            {% if trip.travel_window %}<p dir="ltr">{{ trip.travel_window|he_dates }}</p>{% endif %}
           </div>
         </header>
 
@@ -69,7 +69,7 @@
             {% if sub_status == 'active' and sub_plan_info %}
               <div class="sub-row sub-active">
                 <span class="sub-label">מעקב יומי פעיל — {{ sub_plan_info.label_he }} ({{ sub_plan_info.price_ils }} ₪)</span>
-                {% if trip.search_period_ends_at %}<span class="sub-until" dir="ltr">עד {{ trip.search_period_ends_at[:10] }}</span>{% endif %}
+                {% if trip.search_period_ends_at %}<span class="sub-until" dir="ltr">עד {{ trip.search_period_ends_at|ddmmyyyy }}</span>{% endif %}
                 {% if trip.subscription_cancel_at_period_end %}
                   <small class="sub-note">המעקב יסתיים בתום התקופה ששולמה</small>
                 {% else %}

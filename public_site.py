@@ -35,6 +35,38 @@ _booking_jobs = {}
 _booking_jobs_lock = threading.Lock()
 
 
+@site.app_template_filter("ddmmyyyy")
+def _ddmmyyyy(value):
+    """Render an ISO date (YYYY-MM-DD, optionally with a time part) as DD.MM.YYYY.
+
+    Confirmed day-left/month-middle/year-right is the correct reading order
+    for every date shown to the customer (same layout as the flight-leg
+    dates), not the ISO year-first order the database stores.
+    """
+    raw = str(value or "")[:10]
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").strftime("%d.%m.%Y")
+    except ValueError:
+        return raw
+
+
+@site.app_template_filter("he_dates")
+def _he_dates(value):
+    """Reformat every embedded YYYY-MM-DD date inside free text as DD.MM.YYYY.
+
+    Used for fields like travel_window that mix dates with plain text
+    ("אריאלה תבחר", a month range, etc.) - only the date-shaped substrings
+    are touched.
+    """
+    text = str(value or "")
+
+    def _swap(match):
+        y, m, d = match.group(1), match.group(2), match.group(3)
+        return f"{d}.{m}.{y}"
+
+    return re.sub(r"(\d{4})-(\d{2})-(\d{2})", _swap, text)
+
+
 def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_context, personal):
     try:
         target = resolve_booking_target(
