@@ -1327,6 +1327,7 @@ html[dir="ltr"] .deal-card-v970 .deal-main-grid{direction:ltr}
 .deal-card-v970.deal-en .deal-route-title{direction:ltr!important;justify-content:flex-start!important;text-align:left!important}
 .deal-card-v970.deal-en .route-point{direction:ltr!important;flex-direction:row!important}
 .deal-card-v970.deal-en .route-city{direction:ltr!important;unicode-bidi:isolate!important}
+.deal-card-v970 .open-jaw-note{margin:2px 0 14px;font-size:12.5px;color:#8a6a1b;background:#fdf6e8;border:1px solid #e9d9ae;border-radius:8px;padding:6px 10px;display:inline-block}
 
 /* v9.7.6 safe rebuild from working 9.7.2 */
 .deal-card-v970.deal-he .leg-route-times{direction:rtl!important}

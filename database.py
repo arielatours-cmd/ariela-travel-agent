@@ -931,6 +931,12 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
             "return_airline": flight.get("return_airline"),
             "return_departure_time": flight.get("return_departure_time"),
             "return_arrival_time": flight.get("return_arrival_time"),
+            # Open-jaw: the return leg departs from a different city than the
+            # outbound leg arrived at. Absent for an ordinary same-city round
+            # trip, where the return simply departs from arrival_code.
+            "open_jaw": bool(flight.get("open_jaw")),
+            "return_departure_airport": flight.get("return_departure_airport"),
+            "return_arrival_airport": flight.get("return_arrival_airport"),
             "arrival_days_after": _arrival_days_after(item.get("outbound_date"), flight.get("arrival_date"), flight.get("departure_time"), flight.get("arrival_time"), flight.get("total_duration_minutes")),
             "return_arrival_days_after": _arrival_days_after(item.get("return_date"), flight.get("return_arrival_date"), flight.get("return_departure_time"), flight.get("return_arrival_time"), flight.get("return_total_duration_minutes")),
             "return_total_duration_minutes": flight.get("return_total_duration_minutes"),

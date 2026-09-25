@@ -636,6 +636,104 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
         "expansion_errors": expansion_errors,
     }
 
+
+def _oneway_params(departure: str, arrival: str, flight_date: str, adults: int = 1, children: int = 0, travel_class: str = "1") -> dict:
+    return {
+        "engine": "google_flights",
+        "api_key": _api_key(),
+        "departure_id": departure,
+        "arrival_id": arrival,
+        "outbound_date": flight_date,
+        "type": "2",
+        "hl": "en",
+        "gl": "il",
+        "currency": "ILS",
+        "travel_class": str(travel_class or "1"),
+        "adults": str(max(1, int(adults or 1))),
+        "children": str(max(0, int(children or 0))),
+        "bags": "0",
+        "sort_by": "2",
+        "no_cache": "false",
+    }
+
+
+def search_open_jaw_flights(departure: str, outbound_arrival: str, return_departure: str, outbound_date: str, return_date: str, max_outbounds: int | None = None, adults: int = 1, children: int = 0, travel_class: str = "1") -> dict:
+    """Search a genuine open-jaw itinerary: fly departure -> outbound_arrival,
+    then separately return_departure -> departure on the return date.
+
+    Google Flights' round-trip search (search_flights, type=1) only supports
+    a single fixed city pair shared by both legs - it has no way to express
+    "land in Larnaca, fly home from Paphos". Rather than depend on SerpApi's
+    multi-city format (type=3, multi_city_json), whose exact response shape
+    cannot be verified against a live call from here, this reuses the
+    one-way search (type=2) twice - once per leg - and combines the results
+    itself. A one-way response has the identical shape as search_flights'
+    own outbound stage (the same best_flights/other_flights structure,
+    already proven correct there), so this carries no new parsing risk.
+    Two one-way requests is also cheaper in API calls than one round trip's
+    departure_token expansion.
+    """
+    out_params = _oneway_params(departure, outbound_arrival, outbound_date, adults=adults, children=children, travel_class=travel_class)
+    out_data = _serpapi_request(out_params)
+    ret_params = _oneway_params(return_departure, departure, return_date, adults=adults, children=children, travel_class=travel_class)
+    ret_data = _serpapi_request(ret_params)
+    api_requests = 2
+
+    out_items = [f for f in (out_data.get("best_flights") or []) + (out_data.get("other_flights") or []) if isinstance(f.get("price"), (int, float))]
+    ret_items = [f for f in (ret_data.get("best_flights") or []) + (ret_data.get("other_flights") or []) if isinstance(f.get("price"), (int, float))]
+    if max_outbounds is not None:
+        out_items = out_items[:max(1, int(max_outbounds))]
+
+    try:
+        record_route_availability(departure, outbound_arrival, bool(out_items))
+        record_route_availability(return_departure, departure, bool(ret_items))
+    except Exception:
+        pass
+
+    complete = []
+    for out_item in out_items:
+        outbound_summary = _summarize_flight(out_item)
+        for ret_item in ret_items:
+            return_summary = _summarize_flight(ret_item)
+            combo = dict(outbound_summary)
+            try:
+                combo["price"] = float(out_item.get("price") or 0) + float(ret_item.get("price") or 0)
+            except (TypeError, ValueError):
+                continue
+            combo["return_departure_time"] = return_summary.get("departure_time")
+            combo["return_arrival_time"] = return_summary.get("arrival_time")
+            combo["return_departure_airport"] = return_summary.get("departure_airport")
+            combo["return_arrival_airport"] = return_summary.get("arrival_airport")
+            combo["return_airline"] = return_summary.get("airline")
+            combo["return_airline_logo"] = return_summary.get("airline_logo")
+            combo["return_stops"] = return_summary.get("stops")
+            combo["return_connections"] = return_summary.get("connections") or []
+            combo["return_total_duration_minutes"] = return_summary.get("total_duration_minutes")
+            combo["open_jaw"] = True
+            complete.append(combo)
+
+    combo_prices = [f.get("price") for f in complete if isinstance(f.get("price"), (int, float))]
+    analysis = _deal_analysis(out_data, combo_prices)
+    stop_counts = [max(int(f.get("stops") or 0), int(f.get("return_stops") or 0)) for f in complete]
+    analysis["search_min_stops"] = min(stop_counts) if stop_counts else 0
+    return {
+        "route": f"{departure}-{outbound_arrival}/{return_departure}-{departure}",
+        "departure_code": departure,
+        "arrival_code": outbound_arrival,
+        "departure_airport_name": AIRPORT_NAMES.get(departure, departure),
+        "arrival_airport_name": AIRPORT_NAMES.get(outbound_arrival, outbound_arrival),
+        "outbound": _date_with_weekday(outbound_date),
+        "return": _date_with_weekday(return_date),
+        "deal_analysis": analysis,
+        "flights": complete,
+        "booking_url": (out_data.get("search_metadata") or {}).get("google_flights_url"),
+        "api_requests": api_requests,
+        "combinations_checked": len(complete),
+        "outbounds_checked": len(out_items),
+        "expansion_errors": [],
+    }
+
+
 def _all_search_jobs() -> list[dict]:
     today = date.today()
     jobs = []
@@ -951,6 +1049,19 @@ def _coverage_key(job: dict) -> tuple[str, str, str, str]:
     # Truncating to the month here would let an unrelated scan that happened to touch
     # the same month - but never the customer's actual date - falsely mark it "fresh"
     # and skip searching it entirely, silently leaving the customer with zero offers.
+    if job.get("open_jaw"):
+        # A distinct return-departure airport makes this a different itinerary
+        # from a same-city round trip to the same arrival - never share coverage
+        # with one, even when departure/arrival/dates otherwise match. The
+        # monthly_scan_coverage table has exactly 4 key columns, so the
+        # arrival+return-departure pair is encoded into the one "arrival"
+        # slot rather than widening the tuple.
+        return (
+            str(job.get("departure") or "").upper(),
+            str(job.get("arrival") or "").upper() + ">" + str(job.get("return_departure") or "").upper(),
+            str(job.get("outbound") or ""),
+            str(job.get("return") or ""),
+        )
     if job.get("date_exact"):
         return (
             str(job.get("departure") or "").upper(),
@@ -1077,6 +1188,13 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
     date_mode = answers.get("date_mode")
     jobs = []
     ski_mode = vacation_type == "ski"
+    # An open-jaw itinerary (land in one city, depart for home from a different
+    # one) is a single combined job, not a per-arrival round trip: only the
+    # exact single arrival/return-departure pair the customer confirmed is
+    # meaningful here, never every candidate gateway looped independently.
+    return_departure_airports = [str(x).upper().strip() for x in (answers.get("return_departure_airports") or []) if x]
+    is_open_jaw = bool(answers.get("open_jaw")) and len(arrivals) == 1 and len(return_departure_airports) == 1 and return_departure_airports[0] != arrivals[0]
+    open_jaw_return_airport = return_departure_airports[0] if is_open_jaw else None
     if date_mode == "exact" and answers.get("departure_date") and answers.get("return_date"):
         business_mode = str(answers.get("vacation_type") or "") == "business"
         try:
@@ -1105,17 +1223,24 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                 ret_date = base_ret + timedelta(days=ret_offset)
                 if ret_date <= out_date:
                     continue
-                for arrival in arrivals:
+                if is_open_jaw:
                     for origin in origins:
-                        jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat(), "date_exact": True})
+                        jobs.append({"departure": origin, "arrival": arrivals[0], "return_departure": open_jaw_return_airport, "outbound": out_date.isoformat(), "return": ret_date.isoformat(), "date_exact": True, "open_jaw": True})
+                else:
+                    for arrival in arrivals:
+                        for origin in origins:
+                            jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat(), "date_exact": True})
         else:
-            for arrival in arrivals:
-                for origin in origins:
-                    out_date = base_out
-                    ret_date = base_ret
-                    if ret_date <= out_date:
-                        continue
-                    jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat(), "date_exact": True})
+            out_date = base_out
+            ret_date = base_ret
+            if ret_date > out_date:
+                if is_open_jaw:
+                    for origin in origins:
+                        jobs.append({"departure": origin, "arrival": arrivals[0], "return_departure": open_jaw_return_airport, "outbound": out_date.isoformat(), "return": ret_date.isoformat(), "date_exact": True, "open_jaw": True})
+                else:
+                    for arrival in arrivals:
+                        for origin in origins:
+                            jobs.append({"departure": origin, "arrival": arrival, "outbound": out_date.isoformat(), "return": ret_date.isoformat(), "date_exact": True})
     elif ski_mode and date_mode == "ski_flexible":
         # Use the next core ski season and keep the first live test controlled:
         # two representative 6-night windows per airport/origin, not a world-wide explosion.
@@ -1258,7 +1383,10 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                 # when the customer continues to the supplier.
                 cabin_map = {"economy":"1", "premium":"2", "business":"3", "first":"4", "any":"1"}
                 requested_class = cabin_map.get(str(answers.get("business_cabin_class") or "economy").lower(), "1") if str(answers.get("vacation_type") or "standard") == "business" else "1"
-                result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=1, children=0)
+                if job.get("open_jaw"):
+                    result = search_open_jaw_flights(job["departure"], job["arrival"], job["return_departure"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=1, children=0)
+                else:
+                    result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=1, children=0)
                 api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 completed += 1
                 for message in result.get("expansion_errors") or []:
