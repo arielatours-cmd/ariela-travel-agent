@@ -3704,6 +3704,26 @@ def renew_trip_search(trip_id):
     return redirect(url_for("site.trip_checkout", trip_id=trip_id))
 
 
+@site.post("/trip/<int:trip_id>/cancel-pending-search")
+@login_required
+def cancel_pending_search(trip_id):
+    """Let the customer back out of an unpaid plan selection entirely.
+
+    Choosing a plan only ever recorded intent (subscription_status='pending')
+    and never charged anything, but until now there was no way back to "no
+    plan selected" - only a switch to the other paid plan or completing
+    payment. This clears the pending selection so the picker renders fresh.
+    """
+    with _db() as conn:
+        conn.execute(
+            "UPDATE trip_requests SET subscription_plan=NULL, subscription_status='none' "
+            "WHERE id=? AND member_id=? AND subscription_status='pending'",
+            (trip_id, session["member_id"]),
+        )
+        conn.commit()
+    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+
 @site.get("/trip/<int:trip_id>/checkout")
 @login_required
 def trip_checkout(trip_id):

@@ -80,6 +80,7 @@
               <div class="sub-row sub-pending">
                 <span class="sub-label">ממתין לאישור תשלום — {{ sub_plan_info.label_he }} ({{ sub_plan_info.price_ils }} ₪)</span>
                 <a class="sub-checkout-link" href="{{ url_for('site.trip_checkout', trip_id=trip.id) }}">להשלמת התשלום</a>
+                <form method="post" action="{{ url_for('site.cancel_pending_search', trip_id=trip.id) }}"><button type="submit" class="sub-cancel-btn">ביטול, לא רוצה מעקב יומי</button></form>
               </div>
               <details class="sub-picker sub-picker-change">
                 <summary>לבחור מסלול אחר</summary>
@@ -133,6 +134,7 @@
           .sub-until{color:#4a453c}
           .sub-note{color:#6d6459}
           .sub-end-btn,.sub-checkout-link{margin-inline-start:auto;border:0;background:#147d77;color:#fff;font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:999px;cursor:pointer;text-decoration:none}
+          .sub-cancel-btn{border:1px solid #c9beac;background:transparent;color:#7a6a3f;font-size:11px;padding:6px 12px;border-radius:999px;cursor:pointer}
           .sub-picker-change{margin-top:6px}
           .sub-picker-change summary{cursor:pointer;background:transparent;border:1px dashed #d5bd87;color:#8a7455;font-size:11px;padding:6px 10px;border-radius:9px;list-style:none}
           .sub-picker-change summary::-webkit-details-marker{display:none}
