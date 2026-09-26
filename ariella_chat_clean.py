@@ -1465,7 +1465,19 @@ def _deterministic_trip_type_facts(message):
         return {"trip_type": "standard"}
     business_phrases = ("נסיעת עסקים", "נסיעה עסקית", "טיסת עסקים", "טיול עסקים", "business trip")
     ski_phrases = ("חופשת סקי", "טיול סקי", "נסיעת סקי", "לגלוש בסקי", "חופשת גלישה בשלג", "ski trip", "ski vacation")
-    standard_phrases = ("חופשה רגילה", "חופשת נופש", "לא, חופשה", "זו חופשה")
+    # A "family trip"/"family vacation" is unambiguously a standard leisure
+    # vacation - not business, not specifically ski - even though the
+    # customer never used the literal word "רגילה". Seen live: a customer
+    # answered the opening trip-type question with "לתכנן טיול משפחתי" and
+    # reasonably expected that to count, but the strict extractor rule
+    # (never infer trip_type from context) left it stuck asking the same
+    # opening question again much later, mid-conversation, after everything
+    # else had already moved forward - confusing since the customer had
+    # already, in their own words, answered it.
+    standard_phrases = (
+        "חופשה רגילה", "חופשת נופש", "לא, חופשה", "זו חופשה",
+        "טיול משפחתי", "חופשה משפחתית", "נסיעה משפחתית", "טיול עם המשפחה", "חופשה עם המשפחה",
+    )
     if any(p in msg for p in business_phrases):
         return {"trip_type": "business"}
     if any(p in msg for p in ski_phrases):
