@@ -1108,6 +1108,16 @@ def _accept_assistant_single_date_proposal(history, message, state=None):
     current = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     if current.get("departure") and current.get("return"):
         return {}
+    # Only while dates are actually the thing being discussed (the flights
+    # session). Two dd.mm.yyyy-looking numbers can show up in an itinerary/
+    # route reply for an unrelated reason (a local festival's dates, a
+    # recommended season window, etc.) - seen live: a trip-planning
+    # conversation mentioned two such dates, the customer's next reply was an
+    # ordinary continuation with no rejection wording, and this function
+    # silently adopted them as the confirmed flight departure/return dates
+    # the customer had never actually been asked about or given.
+    if str(state.get("active_session") or "") == "trip_planning":
+        return {}
     msg = str(message or "").strip().lower()
     # Explicit correction/rejection/date text means let the normal parsers handle it.
     # "תשני" ("change [it]") is deliberately NOT treated as a rejection here:
@@ -1129,6 +1139,14 @@ def _accept_assistant_single_date_proposal(history, message, state=None):
             assistant_text = str(item.get("content") or "")
             break
     if not assistant_text:
+        return {}
+    # Belt-and-suspenders alongside the trip_planning exclusion above: even
+    # inside the flights session, two dates appearing in the text is not by
+    # itself evidence they were offered AS a departure/return proposal (vs.
+    # e.g. an unrelated aside). Require wording that actually frames them as
+    # travel dates.
+    date_proposal_cues = ("לצאת","לחזור","יציאה","חזרה","תאריך","נחיתה","טיסה","מתאים")
+    if not any(cue in assistant_text for cue in date_proposal_cues):
         return {}
     found = re.findall(r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](20\d{2})(?!\d)", assistant_text)
     parsed = []
