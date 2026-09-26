@@ -1452,8 +1452,17 @@ def chat_clean():
         matches = find_member_trip_by_mention(member_id, message) if member_id else []
         if len(matches) == 1:
             trip = matches[0]
+            import re as _re
+            # Match the day.month.year layout used everywhere else customer-
+            # facing (confirmed against the flight-leg date display) - never
+            # the raw ISO year-first storage format.
+            window_he = _re.sub(
+                r"(\d{4})-(\d{2})-(\d{2})",
+                lambda m: f"{m.group(3)}.{m.group(2)}.{m.group(1)}",
+                str(trip.get('travel_window') or ''),
+            )
             reply = (
-                f"כן, זוכרת! {trip['request_name']} ({trip.get('travel_window') or ''}). "
+                f"כן, זוכרת! {trip['request_name']} ({window_he}). "
                 "אפשר להמשיך את החופשה הזו ישירות מהכרטיסייה שלך - שם אפשר גם לבקש למצוא לינה או רכב עבורה."
             )
             return jsonify({
