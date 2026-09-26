@@ -9,7 +9,7 @@ from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
-from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention
+from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention, clear_ariella_conversation
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -1423,6 +1423,18 @@ def chat_resume():
     if not saved:
         return jsonify({'status': 'success', 'history': [], 'trip_state': {}})
     return jsonify({'status': 'success', 'history': saved.get('history') or [], 'trip_state': saved.get('trip_state') or {}})
+
+
+@ariella_chat_clean.post('/api/ariella/reset-conversation')
+def chat_reset_conversation():
+    """A full, permanent reset of the member's own saved conversation - not
+    the ordinary "new vacation" reset (which only clears structured trip
+    facts and keeps history growing), but a genuine start-from-nothing wipe
+    of the visible chat itself, on explicit customer request only."""
+    if not session.get('member_id'):
+        return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.'}), 401
+    clear_ariella_conversation(session['member_id'])
+    return jsonify({'status': 'success'})
 
 
 @ariella_chat_clean.post('/api/ariella/chat-clean')
