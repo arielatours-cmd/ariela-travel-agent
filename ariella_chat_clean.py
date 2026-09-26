@@ -108,6 +108,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
+- אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
 - כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
 - אם profile.gender הוא female/נקבה, פני ללקוחה בלשון נקבה יחידה לאורך כל השיחה. אם male/זכר, פנה בלשון זכר יחיד. אל תשתמשי בלשון רבים רק כדי להימנע מבחירת מגדר.
@@ -912,40 +913,75 @@ def _fix_child_gender_wording(text, state):
 
 
 def _strip_unconfirmed_airports(text, state):
-    """Deterministic safety net for a second recurring model behavior: even
-    after an explicit prompt instruction not to, Tinkerbell keeps
-    volunteering LaGuardia (LGA) as an extra New York gateway alongside JFK
-    from its own general world knowledge - nothing in destination_airports
+    """Deterministic safety net for a recurring model behavior: even after an
+    explicit prompt instruction not to, Tinkerbell keeps volunteering an
+    unverified alternate gateway airport from its own general world
+    knowledge - nothing in destination_airports/return_departure_airports
     ever actually named it. The prompt fix alone did not reliably hold, so
-    strip it here regardless of what the model produced. Seen twice now: a
-    brief inline mention ("JFK או לגה"), and a full elaborated paragraph
-    building on the invented second airport (explaining it exists, asking
-    which one/both to search, even once with a stray Cyrillic word mixed
-    into the airport's spelled-out name) - the two need different handling,
-    since deleting a few words out of a paragraph built around the premise
+    strip it here regardless of what the model produced.
+
+    First seen with LaGuardia (LGA) volunteered next to JFK for New York;
+    later, with a destination_airports choice already settled on Paphos
+    (PFO), it brought up Larnaca (LCA) again mid itinerary-planning,
+    unprompted, to second-guess an already-closed decision. Rather than
+    hardcode each city as it comes up, this checks every known airport in
+    config.AIRPORT_NAMES that ISN'T one of the confirmed/verified codes for
+    this trip and strips any paragraph that names it - genuinely unconfirmed
+    detail is never worth partially keeping.
+
+    Two different shapes need different handling: a brief inline mention
+    ("JFK או לגה") and a full elaborated paragraph built on the invented
+    airport (explaining it exists, asking which one/both, weighing it
+    against the confirmed choice) - deleting a few words out of the second
     leaves an incoherent sentence behind, but deleting an entire paragraph
-    for a brief inline mention would delete real content too."""
-    state = state if isinstance(state, dict) else {}
-    airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
-    if any(str(a or "").strip().upper() == "LGA" for a in airports):
-        return text
-    # A New York destination genuinely offers LGA as a verified multi-gateway
-    # option (see config.MULTI_GATEWAY_CITIES / _multi_gateway_hint) - in
-    # that case Tinkerbell is meant to ask about it, using the exact
-    # verified list it was handed, so this is not the unconfirmed-invention
-    # case this function guards against.
-    gateway_hint = _multi_gateway_hint(state)
-    if gateway_hint and any(o.get("code") == "LGA" for o in gateway_hint.get("options", [])):
-        return text
+    for the first would delete real content too."""
     import re
-    text = str(text or "")
-    forbidden = re.compile(r'לה\s*גוארדיה|לגה\s*גוארדיה|\bלגה\b|LaGuardia|\bLGA\b', re.IGNORECASE)
-    if not forbidden.search(text):
+    from config import AIRPORT_NAMES
+    state = state if isinstance(state, dict) else {}
+    confirmed = set()
+    for key in ("destination_airports", "return_departure_airports"):
+        for a in (state.get(key) if isinstance(state.get(key), list) else []):
+            confirmed.add(str(a or "").strip().upper())
+    dep = str(state.get("departure_airport") or "").strip().upper()
+    if dep:
+        confirmed.add(dep)
+    # A verified multi-gateway destination (config.MULTI_GATEWAY_CITIES,
+    # surfaced via _multi_gateway_hint) legitimately offers more than one
+    # real airport - Tinkerbell is meant to ask about those, using the exact
+    # verified list it was handed, so they are not "unconfirmed" here.
+    gateway_hint = _multi_gateway_hint(state)
+    if gateway_hint:
+        for o in gateway_hint.get("options", []):
+            confirmed.add(str(o.get("code") or "").strip().upper())
+    # Nothing confirmed yet (still choosing a gateway) - a mentioned airport
+    # isn't "unconfirmed" in that case, it's the normal selection process.
+    if not (state.get("destination_airports") or state.get("return_departure_airports")):
         return text
+
+    text = str(text or "")
+    if not text.strip():
+        return text
+    # Deliberately match only "CityName (CODE)" - the exact shape Ariella
+    # always uses when actually discussing something as a flight gateway
+    # (matching the live transcripts this was found in) - not a bare city
+    # name alone, which would false-positive on a common capital mentioned
+    # for an unrelated scenic/cultural reason (e.g. "מרגיש כמו רובע ברומא").
+    unconfirmed_hits = []
+    for code, name in AIRPORT_NAMES.items():
+        code_u = str(code or "").strip().upper()
+        name_s = str(name or "").strip()
+        if not code_u or code_u in confirmed or not name_s:
+            continue
+        pattern = re.compile(re.escape(name_s) + r'\s*\(\s*' + re.escape(code_u) + r'\s*\)')
+        if pattern.search(text):
+            unconfirmed_hits.append(pattern)
+    if not unconfirmed_hits:
+        return text
+    forbidden = re.compile('|'.join(p.pattern for p in unconfirmed_hits))
     # Paragraph-level removal first (Tinkerbell's own structure is one topic
     # per blank-line-separated paragraph): drop any paragraph that mentions
-    # it at all, as long as other paragraphs remain to keep the reply from
-    # going empty.
+    # an unconfirmed airport at all, as long as other paragraphs remain to
+    # keep the reply from going empty.
     paragraphs = re.split(r'(\n\s*\n)', text)
     blocks = paragraphs[0::2]
     separators = paragraphs[1::2]
@@ -961,14 +997,12 @@ def _strip_unconfirmed_airports(text, state):
             result += sep + block
         return result.strip()
     # Single-paragraph (or every paragraph tainted) case: surgical phrase
-    # removal instead, including the Hebrew ו- prefix glued directly onto
-    # the next word ("ולה גוארדיה") and parenthesized codes ("(LGA)"),
-    # followed by a cleanup pass for the connector/punctuation debris left
-    # behind (a dangling "ו"/"או", empty "()", doubled spaces or commas).
-    text = re.sub(r'\s*[/,]?\s*(?:ו|או)?\s*(?:לה|לגה)\s*גו?ארדיה', '', text)
-    text = re.sub(r'\s*[/,]?\s*(?:ו|או)?\s*\bלגה\b', '', text)
-    text = re.sub(r'\s*[/,]?\s*(?:or\s+)?LaGuardia\b', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\s*[/,]?\s*(?:or\s+)?\(?\s*\bLGA\b\s*\)?', '', text)
+    # removal instead, including a Hebrew ו/או prefix glued directly onto the
+    # city name and parenthesized codes, followed by a cleanup pass for the
+    # connector/punctuation debris left behind (a dangling "ו"/"או", empty
+    # "()", doubled spaces or commas).
+    for pattern in unconfirmed_hits:
+        text = re.sub(r'\s*[/,]?\s*(?:ו|או)?\s*(?:' + pattern.pattern + r')', '', text)
     text = re.sub(r'\(\s*\)', '', text)
     text = re.sub(r'(?:^|\s)(?:ו|או)(?=[\s.,?!]|$)', '', text)
     text = re.sub(r'[ \t]{2,}', ' ', text)
