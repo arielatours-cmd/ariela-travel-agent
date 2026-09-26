@@ -1034,7 +1034,15 @@ def _accept_assistant_single_date_proposal(history, message, state=None):
         return {}
     msg = str(message or "").strip().lower()
     # Explicit correction/rejection/date text means let the normal parsers handle it.
-    if any(x in msg for x in ("לא", "במקום", "תשני", "אחר", "לא מתאים")) or re.search(r"\d{1,2}[./-]\d{1,2}", msg):
+    # "תשני" ("change [it]") is deliberately NOT treated as a rejection here:
+    # a live transcript showed "מצוין. תשני רק את תאריך החזרה" ("great, change
+    # only the return date") - the customer AGREEING with Ariella's own just-
+    # proposed date and asking for a specific follow-up - get bailed out on as
+    # if the date itself had been rejected, leaving a stale, never-actually-
+    # confirmed date silently stuck in state. A genuinely different new date
+    # still overrides this correctly via the dedicated date-fact parsers that
+    # run after this one, so dropping this one keyword is safe either way.
+    if any(x in msg for x in ("לא", "במקום", "אחר", "לא מתאים")) or re.search(r"\d{1,2}[./-]\d{1,2}", msg):
         return {}
     assistant_text = ""
     for item in reversed(history or []):
@@ -1075,7 +1083,11 @@ def _accept_single_proposed_date_range(message, state=None):
     if not dates.get("needs_confirmation") or len(candidates) != 1:
         return {}
     msg = str(message or "").strip().lower()
-    reject = ("לא", "במקום", "תשני", "שני את", "אחר", "אחרת", "לא מתאים")
+    # "תשני" ("change [it]") deliberately excluded - see
+    # _accept_assistant_single_date_proposal's docstring/comment for the
+    # live-transcript false rejection this caused ("מצוין. תשני רק את תאריך
+    # החזרה" read as rejecting the very date it was agreeing to).
+    reject = ("לא", "במקום", "שני את", "אחר", "אחרת", "לא מתאים")
     if any(x in msg for x in reject):
         return {}
     chosen = str(candidates[0])
