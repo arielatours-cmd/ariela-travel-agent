@@ -2131,6 +2131,35 @@ def chat_clean():
                 reply = "לא הבנתי, האם התכוונת לאשר? אם כן, כתבי מאשרת."
             else:
                 reply = "לא הבנתי, האם התכוונת לאשר? אם כן, יש לכתוב מאשר/מאשרת."
+        # Deceptive-success safety net: the prompt tells Tinkerbell that once the
+        # summary was already shown and the customer answers affirmatively, it
+        # should "briefly confirm the request was received and proceed to
+        # execution" - free text, written on the assumption that the real
+        # deterministic approval gate (_approval_trigger, above) actually fired
+        # this turn. Seen live: it didn't (the customer's word wasn't an exact
+        # "מאשר"/"מאשרת" match, or ready_for_summary wasn't true this turn for
+        # some other reason), yet Tinkerbell still confidently wrote "הבקשה
+        # יוצאת עכשיו לחיפוש... אחזור אלייך עם התוצאות" - telling the customer
+        # a search had started when nothing had actually happened, with no way
+        # for her to tell from the chat alone. Never let that combination reach
+        # the customer: if the deterministic gate didn't fire, any reply that
+        # claims execution/search has started is replaced with the same honest
+        # clarification used for a typo above.
+        elif not approval:
+            false_success_markers = (
+                "יוצאת לחיפוש", "יוצא לחיפוש", "יוצאת לסריקה", "יוצא לסריקה",
+                "יוצאת עכשיו לחיפוש", "אחזור אלייך עם התוצאות", "אחזור אליך עם התוצאות",
+                "ממשיכה לביצוע", "ממשיך לביצוע", "מתחילה לחפש", "מתחילה בסריקה",
+                "התחלתי לחפש", "התחלתי בסריקה", "הבקשה יוצאת",
+            )
+            if any(p in str(reply or "") for p in false_success_markers):
+                gender = str((trip_state or {}).get("user_gender") or "").lower()
+                if gender == "male":
+                    reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר כדי להתחיל."
+                elif gender == "female":
+                    reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשרת כדי להתחיל."
+                else:
+                    reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר/מאשרת כדי להתחיל."
         # A generic "yes" during normal data collection is NEVER a search approval.
         # It must only approve an explicit final approval question / ready state.
         msg_norm = _normalize_confirm(message).lower()
