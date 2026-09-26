@@ -202,7 +202,9 @@
                 <div class="vacation-attractions-list">
                 {% for attraction in attractions %}
                   <div class="vacation-attraction">
-                    <strong>{{ attraction.get('name') or attraction.get('title') }}</strong>
+                    <strong>
+                      {% if attraction.get('name_he') %}{{ attraction.get('name_he') }} ({{ attraction.get('name') or attraction.get('title') }}){% else %}{{ attraction.get('name') or attraction.get('title') }}{% endif %}
+                    </strong>
                     {% if attraction.get('price') %}<span>מחיר כניסה: {{ attraction.get('price') }}</span>{% endif %}
                     {% if attraction.get('info') %}<span>{{ attraction.get('info') }}</span>{% endif %}
                     {% if attraction.get('booking_url') %}<a href="{{ attraction.get('booking_url') }}" target="_blank" rel="noopener">להזמנת כרטיסים</a>{% endif %}

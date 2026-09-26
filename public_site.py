@@ -2770,15 +2770,37 @@ def _enrich_approved_attractions(planning, assistant_plan):
             return str(x.get("name") or x.get("title") or x.get("שם האטרקציה") or "").strip()
         return str(x or "").strip()
 
+    hebrew_stopwords = {"של", "עם", "ליד", "באזור", "בין", "עד", "או", "גם", "את", "כל", "זה", "זו", "על", "אל", "כמו", "הוא", "היא"}
+
+    def hebrew_keywords(text):
+        return [w for w in re.findall(r"[א-ת]{2,}", str(text or "")) if w not in hebrew_stopwords]
+
     approved_names = [name_of(x) for x in raw if name_of(x)]
     plan_lower = str(assistant_plan or "").lower()
-    # If the structured state did not carry attraction names, recover only names
-    # that literally appear in the itinerary the customer approved.
+    # Sentence/clause-level split for the Hebrew-alias check below: requiring
+    # an alias's keywords to all land in the SAME clause (not just anywhere in
+    # the whole itinerary) avoids a generic word like "המצודה" (the castle)
+    # from one day's paragraph falsely matching a different city's castle
+    # just because that city's name happens to appear somewhere else in the plan.
+    plan_lines = [ln for ln in re.split(r"[\n.!?]+", plan_lower) if ln.strip()]
+    # If the structured state did not carry attraction names, recover names that
+    # appear in the itinerary the customer approved - either the DB's English
+    # name literally, or (since Ariella normally writes the plan as a natural
+    # Hebrew narrative, not by quoting the English name) a Hebrew alias whose
+    # meaningful words all show up together in one clause, regardless of exact phrasing.
     if not approved_names:
         for row in records:
             nm = name_of(row)
-            if nm and nm.lower() in plan_lower:
+            if not nm:
+                continue
+            if nm.lower() in plan_lower:
                 approved_names.append(nm)
+                continue
+            for alias in re.split(r"[,•;]", str(row.get("כינויים בעברית") or "")):
+                kws = hebrew_keywords(alias)
+                if kws and any(all(kw in line for kw in kws) for line in plan_lines):
+                    approved_names.append(nm)
+                    break
 
     enriched = []
     seen = set()
@@ -2796,8 +2818,13 @@ def _enrich_approved_attractions(planning, assistant_plan):
                 str(match.get("רמת קושי") or "").strip(),
                 str(match.get("הערות") or "").strip(),
             ]
+            name_he = ""
+            aliases = str(match.get("כינויים בעברית") or "").strip()
+            if aliases:
+                name_he = re.split(r"[,•;]", aliases)[0].strip()
             enriched.append({
                 "name": name_of(match) or approved,
+                "name_he": name_he,
                 "price": str(match.get("מחיר/הערת מחיר") or "").strip(),
                 "info": " • ".join(x for x in info_parts if x),
                 "booking_url": str(match.get("קישור הזמנה/כרטיסים") or match.get("אתר רשמי") or "").strip(),
