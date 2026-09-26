@@ -148,7 +148,7 @@
           <button class="vacation-tab active" data-tab="flights-{{ trip.id }}">✈ טיסות</button>
           <button class="vacation-tab" data-tab="lodging-{{ trip.id }}">⌂ לינה</button>
           <button class="vacation-tab" data-tab="car-{{ trip.id }}">🚗 רכב</button>
-          <button class="vacation-tab" data-tab="travel-{{ trip.id }}">⌖ מסלול ואטרקציות</button>
+          {% if a.get('vacation_type') not in ('ski', 'business') %}<button class="vacation-tab" data-tab="travel-{{ trip.id }}">⌖ מסלול ואטרקציות</button>{% endif %}
         </div>
 
         <div class="vacation-panel active" id="flights-{{ trip.id }}">
@@ -191,6 +191,7 @@
           <div class="vacation-empty">כאן יוצגו קישורי רכב לפי מספר הנוסעים, הכבודה, האיסוף וההחזרה שבחרתם.</div>
         </div>
 
+        {% if a.get('vacation_type') not in ('ski', 'business') %}
         <div class="vacation-panel" id="travel-{{ trip.id }}">
           <h3>מסלול ואטרקציות</h3>
           {% set itinerary = trip.answers.get('_approved_itinerary', {}) %}
@@ -217,6 +218,7 @@
             <div class="vacation-empty">כאן יוצגו אטרקציות וקישורים מתוך מאגר אריאלה לפי סגנון החופשה והמסלול.</div>
           {% endif %}
         </div>
+        {% endif %}
       </article>
       {% endfor %}
     {% else %}
