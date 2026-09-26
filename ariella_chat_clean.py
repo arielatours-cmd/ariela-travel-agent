@@ -1448,21 +1448,24 @@ def chat_clean():
         "מהטיול ש", "מהחופשה ש", "לטיול הישן", "לחופשה הישנה",
     )
     if any(p in message for p in past_trip_triggers):
-        member_id = session.get('member_id')
-        matches = find_member_trip_by_mention(member_id, message) if member_id else []
-        if len(matches) == 1:
-            trip = matches[0]
-            import re as _re
+        import re as _re
+
+        def _he_window(trip):
             # Match the day.month.year layout used everywhere else customer-
             # facing (confirmed against the flight-leg date display) - never
             # the raw ISO year-first storage format.
-            window_he = _re.sub(
+            return _re.sub(
                 r"(\d{4})-(\d{2})-(\d{2})",
                 lambda m: f"{m.group(3)}.{m.group(2)}.{m.group(1)}",
                 str(trip.get('travel_window') or ''),
             )
+
+        member_id = session.get('member_id')
+        matches = find_member_trip_by_mention(member_id, message) if member_id else []
+        if len(matches) == 1:
+            trip = matches[0]
             reply = (
-                f"כן, זוכרת! {trip['request_name']} ({window_he}). "
+                f"כן, זוכרת! {trip['request_name']} ({_he_window(trip)}). "
                 "אפשר להמשיך את החופשה הזו ישירות מהכרטיסייה שלך - שם אפשר גם לבקש למצוא לינה או רכב עבורה."
             )
             return jsonify({
@@ -1471,8 +1474,14 @@ def chat_clean():
                 'open_existing_trip_id': trip['id'],
             })
         elif len(matches) > 1:
-            names = ", ".join(m['request_name'] for m in matches[:5])
-            reply = f"מצאתי כמה חופשות שיכולות להתאים: {names}. לאיזו מהן התכוונת?"
+            # Each candidate needs its own date and id shown - two same-named
+            # vacations ("קפריסין, קפריסין") are otherwise indistinguishable,
+            # leaving the customer no way to say which one they meant.
+            listed = "; ".join(
+                f"{m['request_name']} ({_he_window(m)}, מספר חופשה {m['id']})"
+                for m in matches[:5]
+            )
+            reply = f"מצאתי כמה חופשות שיכולות להתאים: {listed}. לאיזו מהן התכוונת?"
             return jsonify({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': reply, 'trip_update': trip_state, 'start_flight_search': False,

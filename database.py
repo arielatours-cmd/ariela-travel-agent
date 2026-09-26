@@ -1576,13 +1576,22 @@ def find_member_trip_by_mention(member_id: int, message: str, limit: int = 30) -
     holds the actual place name(s) as resolved in that trip's own
     conversation (in Hebrew), so a direct substring match against the
     customer's current message is reliable without a separate alias table.
+
+    Trips whose dates have already fully passed are excluded - a customer
+    asking to be reminded about a vacation means an upcoming one, not one
+    already taken. A trip with no resolvable dates (e.g. "Ariella will
+    choose") is kept rather than guessed at either way. Each match carries
+    its real departure/return dates (ISO, for the caller to format) so
+    several same-name matches can be told apart instead of shown as
+    identical, unlabelled duplicates.
     """
     msg = str(message or "")
     if not msg.strip() or not member_id:
         return []
+    today = datetime.now(timezone.utc).date().isoformat()
     with connection() as conn:
         rows = conn.execute(
-            "SELECT id, request_name, travel_window, status FROM trip_requests WHERE member_id=? ORDER BY id DESC LIMIT ?",
+            "SELECT id, request_name, travel_window, status, answers_json FROM trip_requests WHERE member_id=? ORDER BY id DESC LIMIT ?",
             (member_id, limit),
         ).fetchall()
     seen = set()
@@ -1591,12 +1600,33 @@ def find_member_trip_by_mention(member_id: int, message: str, limit: int = 30) -
         name = str(row["request_name"] or "").strip()
         if not name or name == "אריאלה תבחר" or row["id"] in seen:
             continue
+        matched_place = None
         for place in name.split(" • "):
             place = place.strip()
             if place and len(place) >= 2 and place in msg:
-                seen.add(row["id"])
-                matches.append(dict(row))
+                matched_place = place
                 break
+        if not matched_place:
+            continue
+        try:
+            answers = json.loads(row["answers_json"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            answers = {}
+        departure_date = answers.get("departure_date")
+        return_date = answers.get("return_date")
+        # A trip is only excluded as "past" when it has a resolvable end
+        # date that has already gone by - never for a still-open/flexible
+        # search, which has no such date to check.
+        if return_date and str(return_date) < today:
+            continue
+        if not return_date and departure_date and str(departure_date) < today:
+            continue
+        seen.add(row["id"])
+        item = dict(row)
+        item.pop("answers_json", None)
+        item["departure_date"] = departure_date
+        item["return_date"] = return_date
+        matches.append(item)
     return matches
 
 
