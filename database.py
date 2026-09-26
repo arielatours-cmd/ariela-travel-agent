@@ -1566,6 +1566,40 @@ def clear_ariella_conversation(member_id: int) -> None:
         conn.execute("DELETE FROM ariella_conversations WHERE member_id=?", (member_id,))
 
 
+def find_member_trip_by_mention(member_id: int, message: str, limit: int = 30) -> list[dict]:
+    """Look up the member's own past/other saved vacations by name, for a
+    customer question like "את זוכרת את הטיסה לניו יורק?" about a DIFFERENT
+    trip than the one currently being discussed.
+
+    This is a deterministic lookup against the member's real trip history,
+    not something the model should guess or invent - request_name already
+    holds the actual place name(s) as resolved in that trip's own
+    conversation (in Hebrew), so a direct substring match against the
+    customer's current message is reliable without a separate alias table.
+    """
+    msg = str(message or "")
+    if not msg.strip() or not member_id:
+        return []
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT id, request_name, travel_window, status FROM trip_requests WHERE member_id=? ORDER BY id DESC LIMIT ?",
+            (member_id, limit),
+        ).fetchall()
+    seen = set()
+    matches = []
+    for row in rows:
+        name = str(row["request_name"] or "").strip()
+        if not name or name == "אריאלה תבחר" or row["id"] in seen:
+            continue
+        for place in name.split(" • "):
+            place = place.strip()
+            if place and len(place) >= 2 and place in msg:
+                seen.add(row["id"])
+                matches.append(dict(row))
+                break
+    return matches
+
+
 def reset_ariella_conversation_trip_state(member_id: int, trip_state: dict | None = None) -> None:
     """A new vacation (or a finished search) resets the structured vacation
     data only. The chat history itself is never erased - it keeps growing

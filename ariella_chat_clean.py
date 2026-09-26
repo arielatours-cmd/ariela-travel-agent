@@ -9,7 +9,7 @@ from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
-from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state
+from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -1435,6 +1435,42 @@ def chat_clean():
             trip_state = saved_conversation.get('trip_state') or trip_state
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
+
+    # A customer question about a DIFFERENT/past vacation ("את זוכרת את
+    # הטיסה לניו יורק?") must be answered from their real trip history, not
+    # left for the model to (truthfully) say it has no record of, or worse,
+    # guess at. This is a deterministic lookup - exactly one correct answer -
+    # so it short-circuits before any LLM call, and never touches the
+    # current conversation's own trip_state.
+    past_trip_triggers = (
+        "זוכרת את", "את זוכרת", "זוכר את", "אתה זוכר",
+        "שסגרנו", "שכבר תכננו", "שכבר סגרנו", "שכבר הזמנו",
+        "מהטיול ש", "מהחופשה ש", "לטיול הישן", "לחופשה הישנה",
+    )
+    if any(p in message for p in past_trip_triggers):
+        member_id = session.get('member_id')
+        matches = find_member_trip_by_mention(member_id, message) if member_id else []
+        if len(matches) == 1:
+            trip = matches[0]
+            reply = (
+                f"כן, זוכרת! {trip['request_name']} ({trip.get('travel_window') or ''}). "
+                "אפשר להמשיך את החופשה הזו ישירות מהכרטיסייה שלך - שם אפשר גם לבקש למצוא לינה או רכב עבורה."
+            )
+            return jsonify({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': reply, 'trip_update': trip_state, 'start_flight_search': False,
+                'open_existing_trip_id': trip['id'],
+            })
+        elif len(matches) > 1:
+            names = ", ".join(m['request_name'] for m in matches[:5])
+            reply = f"מצאתי כמה חופשות שיכולות להתאים: {names}. לאיזו מהן התכוונת?"
+            return jsonify({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': reply, 'trip_update': trip_state, 'start_flight_search': False,
+            })
+        # No match: fall through to the normal model call, which already
+        # knows (per its own instructions) to say honestly that it has no
+        # record rather than invent one.
 
     # After the flight handoff, keep the same vacation as the default context.
     # When the customer asks for one of the remaining services, deterministically

@@ -144,7 +144,7 @@
   }
   function hideTyping(){if(typingEl){typingEl.remove();typingEl=null;}}
   function add(role,text){hideTyping();const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);lastMessageEl=el;lastMessageRole=role;if(role==='assistant'){requestAnimationFrame(()=>scrollElementToTop(el));}else{scrollBoxToBottom();}return el;}
-  function addVacationLink(tripId){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#travel-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);lastMessageEl=el;lastMessageRole='assistant';requestAnimationFrame(()=>scrollElementToTop(el));}
+  function addVacationLink(tripId,anchor){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#'+(anchor||'travel')+'-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);lastMessageEl=el;lastMessageRole='assistant';requestAnimationFrame(()=>scrollElementToTop(el));}
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState!=='visible'||!lastMessageEl||!lastMessageEl.isConnected)return;
     // A short delay: right when the tab becomes visible again, the keyboard
@@ -314,6 +314,7 @@
       }
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
       if(savedPlanTripId>0)addVacationLink(savedPlanTripId);
+      if(data.open_existing_trip_id)addVacationLink(data.open_existing_trip_id,'vacation');
     }catch(e){
       const reply='יש לי תקלה רגעית בשיחה. נסו לשלוח שוב בעוד רגע.';
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
