@@ -703,6 +703,44 @@ def _required_state_gaps(state):
     return list(dict.fromkeys(gaps))
 
 
+def _flight_gap_question(gaps):
+    """Map a _session_gaps(..., "flights") result to the one specific
+    question that actually resolves it. Shared by the approval-time gap
+    handling and the false-approval-claim safety net below, so both ask the
+    same real, concrete question instead of a generic "something is
+    missing" line the customer has no way to act on."""
+    gaps = gaps or []
+    if "destination_airports" in gaps:
+        return "לפני שאצא לסריקה צריך להשלים את שדה היעד לנחיתה בהלוך. באיזה שדה תרצי לנחות?"
+    if "return_departure_airports" in gaps:
+        return "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
+    if "budget_per_person" in gaps:
+        return "לפני הסריקה חסר לי התקציב לאדם. מה התקציב, או שאין מגבלת תקציב?"
+    if "departure_airport" in gaps:
+        return "לפני הסריקה חסר לי שדה היציאה שלכם. מאיזה שדה תרצי לטוס?"
+    if "trip_type" in gaps:
+        return "רק לפני שממשיכים - זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"
+    if "destination" in gaps:
+        return "לפני הסריקה חסר לי היעד. לאן תרצי לטוס?"
+    if "dates" in gaps:
+        return "לפני הסריקה חסרים לי תאריכי הטיסה המדויקים. מתי תרצי לצאת ולחזור?"
+    if "travelers" in gaps:
+        return "לפני הסריקה חסר לי הרכב הנוסעים. כמה נוסעים, ומי מבוגר ומי ילד?"
+    if "travelers.child_ages" in gaps:
+        return "חסר לי הגיל של הילד/ה בהרכב הנוסעים. מה הגיל?"
+    if "flight.connection_preference" in gaps:
+        return "חשוב לך שהטיסה תהיה ישירה, או שקונקשן בסדר?"
+    if "flight.baggage" in gaps:
+        return "לפני הסריקה חסר לי פרטי הכבודה - טרולי בלבד, גם מזוודה למחסן, או רק תיק?"
+    missing_service = next((g.split(".",1)[1] for g in gaps if g.startswith("service_decisions.")), None)
+    if missing_service:
+        labels = {"lodging":"גם לינה","car":"גם רכב שכור","trip_planning":"גם תכנון מסלול ואטרקציות"}
+        return f"רק לפני שממשיכים - תרצי {labels.get(missing_service, missing_service)} לחופשה הזו?"
+    if gaps:
+        return "לפני שאצא לסריקה חסר עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
+    return None
+
+
 def _reset_intent(message):
     """Detect possible restart/change-of-direction language without deleting state."""
     msg = str(message or "").strip().lower()
@@ -2155,30 +2193,42 @@ def chat_clean():
         # should "briefly confirm the request was received and proceed to
         # execution" - free text, written on the assumption that the real
         # deterministic approval gate (_approval_trigger, above) actually fired
-        # this turn. Seen live: it didn't (the customer's word wasn't an exact
-        # "מאשר"/"מאשרת" match, or ready_for_summary wasn't true this turn for
-        # some other reason), yet Tinkerbell still confidently wrote "הבקשה
-        # יוצאת עכשיו לחיפוש... אחזור אלייך עם התוצאות" - telling the customer
-        # a search had started when nothing had actually happened, with no way
-        # for her to tell from the chat alone. Never let that combination reach
-        # the customer: if the deterministic gate didn't fire, any reply that
-        # claims execution/search has started is replaced with the same honest
-        # clarification used for a typo above.
+        # this turn. Seen live TWICE, with two different phrasings each time
+        # ("הבקשה יוצאת עכשיו לחיפוש... אחזור אלייך עם התוצאות", then later
+        # "אני שולחת אותה לסריקה ונחזור אלייך עם התוצאות") - free text has
+        # endless equivalent phrasings, so matching a fixed list of exact
+        # phrases missed the second one entirely. Detect it instead as a
+        # co-occurrence of an action verb ("שולחת/יוצאת/התחלתי/נשלח/נקלט"...)
+        # with a search/results noun ("לחיפוש/לסריקה/תוצאות"...) anywhere in
+        # the reply - robust to whichever way the model phrases the same claim.
         elif not approval:
-            false_success_markers = (
-                "יוצאת לחיפוש", "יוצא לחיפוש", "יוצאת לסריקה", "יוצא לסריקה",
-                "יוצאת עכשיו לחיפוש", "אחזור אלייך עם התוצאות", "אחזור אליך עם התוצאות",
-                "ממשיכה לביצוע", "ממשיך לביצוע", "מתחילה לחפש", "מתחילה בסריקה",
-                "התחלתי לחפש", "התחלתי בסריקה", "הבקשה יוצאת",
+            action_verbs = (
+                "יוצאת","יוצא","שולחת","שולח","נשלח","נשלחה","התחלתי",
+                "מתחילה","מתחיל","נקלט","נקלטה","ממשיכה","ממשיך","מעבדת","מעבד",
             )
-            if any(p in str(reply or "") for p in false_success_markers):
-                gender = str((trip_state or {}).get("user_gender") or "").lower()
-                if gender == "male":
-                    reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר כדי להתחיל."
-                elif gender == "female":
-                    reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשרת כדי להתחיל."
+            action_targets = ("לחיפוש","לסריקה","סריקת טיסות","בסריקה","בחיפוש","תוצאות")
+            claims_execution = (
+                any(v in str(reply or "") for v in action_verbs)
+                and any(t in str(reply or "") for t in action_targets)
+            )
+            if claims_execution:
+                # If a real required fact is still missing, the honest and
+                # useful reply is the actual pending question - not a vague
+                # "just retype מאשרת", which is actively misleading here: a
+                # gap means retyping מאשרת alone will not start anything, and
+                # telling her to do that is exactly what produced the next
+                # false claim in the same live transcript.
+                gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"))
+                if gap_question:
+                    reply = gap_question
                 else:
-                    reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר/מאשרת כדי להתחיל."
+                    gender = str((trip_state or {}).get("user_gender") or "").lower()
+                    if gender == "male":
+                        reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר כדי להתחיל."
+                    elif gender == "female":
+                        reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשרת כדי להתחיל."
+                    else:
+                        reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר/מאשרת כדי להתחיל."
         # A generic "yes" during normal data collection is NEVER a search approval.
         # It must only approve an explicit final approval question / ready state.
         msg_norm = _normalize_confirm(message).lower()
@@ -2217,14 +2267,13 @@ def chat_clean():
                 merged["session_status"]["flights"] = "active"
                 merged["active_session"] = "flights"
                 trip_update = merged
-                if "destination_airports" in approval_gaps:
-                    reply = "לפני שאצא לסריקה צריך להשלים את שדה היעד לנחיתה בהלוך. באיזה שדה תרצי לנחות?"
-                elif "return_departure_airports" in approval_gaps:
-                    reply = "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
-                elif "budget_per_person" in approval_gaps:
-                    reply = "לפני הסריקה חסר לי התקציב לאדם. מה התקציב, או שאין מגבלת תקציב?"
-                else:
-                    reply = "לפני שאצא לסריקה חסר עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
+                # Every gap _session_gaps can actually return for "flights" needs
+                # its own specific question here. A generic fallback ("one
+                # detail is missing") leaves the customer with no way to know
+                # what to answer - seen live: she got exactly that generic
+                # line, asked "מה עכשיו?" (what now?), and had no way forward
+                # other than guessing.
+                reply = _flight_gap_question(approval_gaps)
                 approval = False
             else:
                 # This whole branch used to end here, with everything below it
