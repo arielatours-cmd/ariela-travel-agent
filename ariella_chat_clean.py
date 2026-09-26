@@ -2056,7 +2056,7 @@ def chat_clean():
             if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"
         )
         planning_accept = planning_active and msg_confirm in {
-            "כן","כן.","מעולה","מצוין","מצויין","אחלה","נשמע טוב","מתאים","מאשרת","מאשר"
+            "כן","כן.","מעולה","מצוין","מצויין","אחלה","נשמע טוב","נשמע סבבה","סבבה","סבבה גמור","מתאים","מאשרת","מאשר"
         } and any(x in prior_assistant for x in ("מסלול","יום ראשון","יום שני","יום שלישי","יום רביעי","אטרק"))
         if planning_accept:
             statuses_plan = dict(trip_update.get("session_status") or {})
@@ -2079,12 +2079,31 @@ def chat_clean():
         reply = _fix_child_gender_wording(reply, trip_update)
 
         if planning_accept:
-            # Approval closes only the itinerary session. Do not promise a final
-            # handoff yet: first offer the remaining vacation services naturally.
-            reply = (
-                "מצוין, המסלול מאושר. "
-                "תרצי שאמשיך גם עם לינה או השכרת רכב לחופשה הזו, או שסיימנו?"
-            )
+            # Approval closes only the itinerary session. Name whichever of the
+            # other three domains are still genuinely open - this must never
+            # assume flights was already handled. trip_planning can be the
+            # FIRST session a customer goes through (asking for route/
+            # destination ideas before ever discussing a flight), not only
+            # the usual last one after a flight search. Seen live: a customer
+            # who planned Cyprus's itinerary first got told "great, itinerary
+            # approved" with only lodging/car offered next - flights was
+            # silently skipped entirely, because this reply used to hardcode
+            # "לינה או השכרת רכב" unconditionally regardless of what was
+            # actually still pending.
+            statuses_after_plan = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+            remaining_labels = {"flights":"טיסות", "lodging":"לינה", "car":"השכרת רכב"}
+            remaining = [
+                remaining_labels[s] for s in ("flights","lodging","car")
+                if statuses_after_plan.get(s, "pending") not in ("complete","declined")
+            ]
+            if remaining:
+                if len(remaining) == 1:
+                    extra = remaining[0]
+                else:
+                    extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
+                reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {extra} לחופשה הזו, או שסיימנו?"
+            else:
+                reply = "מצוין, המסלול מאושר."
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
