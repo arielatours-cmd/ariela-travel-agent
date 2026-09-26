@@ -2121,6 +2121,15 @@ def chat_clean():
             str(x.get("content") or "") for x in (history or [])[-4:]
             if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"
         )
+        # The single immediately-preceding assistant message specifically (not
+        # the last-4-joined prior_assistant above, which is only for the
+        # keyword check) - this is the actual itinerary text being approved
+        # right now, while it's still unambiguous which message that is.
+        last_assistant_text = ""
+        for item in reversed(history or []):
+            if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+                last_assistant_text = str(item.get("content") or "").strip()
+                break
         planning_accept = planning_active and msg_confirm in {
             "כן","כן.","מעולה","מצוין","מצויין","אחלה","נשמע טוב","נשמע סבבה","סבבה","סבבה גמור","מתאים","מאשרת","מאשר"
         } and any(x in prior_assistant for x in ("מסלול","יום ראשון","יום שני","יום שלישי","יום רביעי","אטרק"))
@@ -2133,6 +2142,17 @@ def chat_clean():
             plan["interested"] = True
             plan["approved"] = True
             plan["enrichment_pending"] = True
+            # Capture the actual itinerary text right now, while it's still
+            # unambiguously the message being approved. Left for later (a
+            # backward scan through the full history at flight-approval time,
+            # in ariella_start_flight_search) it silently grabs whatever
+            # assistant message happens to be last by then instead - seen
+            # live: the itinerary card ended up showing the flight-approval
+            # confirmation text ("הבקשה אושרה ואני יוצאת לסריקת טיסות...")
+            # instead of the route/attractions plan, because that had since
+            # become the last non-excluded assistant message in history.
+            if last_assistant_text:
+                plan["approved_text"] = last_assistant_text
             trip_update["trip_planning"] = plan
 
         try:

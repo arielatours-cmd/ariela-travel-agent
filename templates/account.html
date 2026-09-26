@@ -153,7 +153,7 @@
 
         <div class="vacation-panel active" id="flights-{{ trip.id }}">
           {% if trip.offers %}
-            <h3>3 הטיסות המתאימות ביותר</h3>
+            <h3>{% if trip.offers|length == 1 %}הטיסה המתאימה ביותר{% else %}{{ [trip.offers|length, 3]|min }} הטיסות המתאימות ביותר{% endif %}</h3>
             <div class="vacation-flight-list">
               {% for deal in trip.offers[:3] %}{{ deal_card(deal, site_lang, a.get('vacation_type')) }}{% endfor %}
             </div>

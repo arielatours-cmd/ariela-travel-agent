@@ -44,6 +44,14 @@
    plan:['🗺️','מסדרת את המסלול והאטרקציות…','המסלול שאישרת נשמר כחלק מהחופשה.'],
    done:['✨','החופשה שלך מוכנה…','מעבירה אותך עכשיו לחופשות שלי.']
  };
+ // Cycle through the globe's three emoji faces (Europe/Africa, Americas,
+ // Asia/Australia) to actually read as the earth turning - a flat CSS
+ // rotate on a single emoji glyph just spins a static disc in place, not a
+ // sphere.
+ const globeEl=document.querySelector('.globe');
+ const globeFaces=['🌍','🌎','🌏'];
+ let globeIdx=0;
+ setInterval(()=>{globeIdx=(globeIdx+1)%globeFaces.length;if(globeEl)globeEl.textContent=globeFaces[globeIdx];},700);
  let tries=0;
  function paint(key,states){
    const x=copy[key]||copy.done;title.textContent=x[1];text.textContent=x[2];

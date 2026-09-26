@@ -2854,16 +2854,20 @@ def ariella_save_trip_plan():
     if not planning.get("approved"):
         return jsonify({"status":"error","message":"itinerary is not approved"}), 400
 
-    # Keep the exact approved planning conversation as the source record. A
-    # structured attraction list can be enriched from Ariella's attraction DB
-    # when records exist; missing prices/links remain empty rather than invented.
-    assistant_plan = ""
-    for item in reversed(history):
-        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
-            txt = str(item.get("content") or "").strip()
-            if txt and "אני אשלח לך את כל האינפורמציה" not in txt:
-                assistant_plan = txt
-                break
+    # The chat layer captures the itinerary text at the moment of approval
+    # (trip_planning.approved_text), while it's still unambiguous which
+    # message that is. Fall back to scanning history only for older
+    # conversations from before that was captured - a backward scan at this
+    # point can no longer tell the itinerary text apart from any later
+    # non-itinerary assistant message (e.g. a flight-approval confirmation).
+    assistant_plan = str(planning.get("approved_text") or "").strip()
+    if not assistant_plan:
+        for item in reversed(history):
+            if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+                txt = str(item.get("content") or "").strip()
+                if txt and "אני אשלח לך את כל האינפורמציה" not in txt:
+                    assistant_plan = txt
+                    break
     with _db() as conn:
         row = conn.execute(
             "SELECT answers_json FROM trip_requests WHERE id=? AND member_id=?",
@@ -3150,13 +3154,20 @@ def ariella_start_flight_search():
     # history already available at this point.
     planning_state = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
     if planning_state.get("approved"):
-        assistant_plan = ""
-        for item in reversed(history):
-            if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
-                txt = str(item.get("content") or "").strip()
-                if txt and "אני אשלח לך את כל האינפורמציה" not in txt:
-                    assistant_plan = txt
-                    break
+        # See the matching comment in ariella_save_trip_plan: prefer the text
+        # captured at the moment of approval over a backward scan through the
+        # full history, which by flight-approval time can no longer tell the
+        # itinerary text apart from later non-itinerary assistant messages
+        # (e.g. the flight-approval confirmation itself, which is exactly
+        # what a live conversation ended up showing on the vacation card).
+        assistant_plan = str(planning_state.get("approved_text") or "").strip()
+        if not assistant_plan:
+            for item in reversed(history):
+                if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+                    txt = str(item.get("content") or "").strip()
+                    if txt and "אני אשלח לך את כל האינפורמציה" not in txt:
+                        assistant_plan = txt
+                        break
         payload["_approved_itinerary"] = {
             "text": assistant_plan,
             "approved_at": utc_now_iso(),
