@@ -3175,7 +3175,17 @@ def ariella_start_flight_search():
             "attractions": _enrich_approved_attractions(planning_state, assistant_plan),
         }
         payload["_trip_planning_complete"] = True
-    title = " • ".join(places) if places else "אריאלה תבחר"
+    # A ski trip where the customer asked Ariella to choose the resort keeps
+    # a placeholder like "אריאלה תבחר אתר סקי" in destination.places even
+    # after a specific resort has actually been determined (ski.resort_names,
+    # set by _resolve_ski_destination_airports above) - the vacation card
+    # title then never updates to say which resort it actually is, leaving
+    # the customer with no way to tell where they're going from the card
+    # title alone.
+    if vacation_type == "ski" and ski_state.get("resort_names"):
+        title = " • ".join(ski_state["resort_names"])
+    else:
+        title = " • ".join(places) if places else "אריאלה תבחר"
     travel_window = (dep + " – " + ret) if dep and ret else (period or month)
     with _db() as conn:
         cur = conn.execute(
