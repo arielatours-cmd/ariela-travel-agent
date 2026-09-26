@@ -444,7 +444,16 @@ def _advance_sessions(state):
     # that let Tinkerbell sometimes jump straight to the next domain's
     # question instead of presenting the flight summary and asking for
     # "מאשר/מאשרת" first, skipping the hard approval gate entirely.
-    if statuses.get("flights") == "complete" and state.get("active_session") is None:
+    # This must only apply BEFORE that approval gate - once the flight was
+    # actually approved and searched (post_flight_continuation=True), the gate
+    # has already done its job. Without excluding that case, this block kept
+    # firing forever afterward on every later turn too (flights stays
+    # "complete" for the rest of the conversation), so once trip_planning also
+    # completed post-approval it forced next_session back to None and
+    # ready_for_summary back to True even though lodging/car were still
+    # genuinely "pending" - seen live: Ariella silently treated the whole
+    # vacation as finished instead of ever asking about lodging or car.
+    if statuses.get("flights") == "complete" and state.get("active_session") is None and not state.get("post_flight_continuation"):
         state["missing_required"] = []
         state["ready_for_summary"] = True
         state["next_session"] = None
