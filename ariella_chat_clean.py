@@ -82,6 +82,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - מספר והרכב הנוסעים הוא נתון משותף אחד לכל החופשה, לא נתון נפרד לכל שירות. אם הוא ידוע, השתמשי באותו הרכב נוסעים בטיסות, בלינה, ברכב ובתכנון המסלול; לעולם אל תנחשי מספר נוסעים עבור שירות מסוים ואל תשאלי אותו מחדש.
 - אם מספר/הרכב הנוסעים עדיין לא ידוע, אסור להציע לינה לפי מספר חדרים/מיטות, גודל רכב או סיכום חיפוש כאילו הוא ידוע. שאלי את הרכב הנוסעים פעם אחת ואז החילי אותו על כל השירותים.
 - התאמת רכב חייבת להתחשב במספר הנוסעים ובכבודה שכבר נאספה לטיסה. התאמת לינה חייבת להתחשב באותו מספר והרכב נוסעים.
+- כשמזכירים ילד/ה מסוים לפי גיל (לדוגמה בסיכום הנוסעים), חובה להתאים את המגדר בדיוק למה שקיים ב-travelers.child_genders עבור אותו גיל (female="ילדה"/"בת", male="ילד"/"בן"). לעולם אל תנחשי או תמציאי מגדר; אם הערך המקביל הוא null, כתבי בניסוח נייטרלי כמו "ילד/ה בגיל X" במקום לבחור מגדר.
 - בכל הודעה מותר לבקש מהלקוח לכל היותר שלושה פרטים/החלטות שונים. זהו גבול קשיח, לא המלצה.
 - כל סעיף שהלקוח צריך לענות עליו נחשב שאלה נפרדת גם אם ניסחת כמה סעיפים בתוך משפט אחד. לדוגמה: "ישירה או קונקשן, מזוודה לכל נוסע, מלון או דירה, ובאיזו רמה?" הן ארבע שאלות ואסור לשלוח אותן יחד.
 - אם חסרים יותר משלושה פרטים, בחרי את 1–3 הפרטים שהכי טבעי לברר עכשיו, המתיני לתשובה, ורק בהודעה הבאה שאלי את היתר.
@@ -144,7 +145,8 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
-- travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17].
+- travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17], child_genders=["female"].
+- child_genders היא רשימה מקבילה ל-child_ages, לפי אותו סדר: "female" כאשר הלקוח אמר "ילדה"/"בת", "male" כאשר אמר "ילד"/"בן", ו-null כשלא צוין מגדר לאותו ילד. לעולם אל תמחקי או תנחשי ערך שכבר קיים ברשימה הזו.
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
@@ -166,7 +168,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 {
  "trip_update":{
   "trip_type":null,
-  "travelers":{"adults":null,"children":null,"child_ages":[],"infants":null,"composition":null},
+  "travelers":{"adults":null,"children":null,"child_ages":[],"child_genders":[],"infants":null,"composition":null},
   "destination":{"places":[],"mode":null,"status":"unknown"},
   "departure_airport":null,
   "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"duration_days":null,"constraints":[]},
@@ -819,6 +821,47 @@ def _strip_garbled_lead_token(text):
     return text
 
 
+def _fix_child_gender_wording(text, state):
+    """Deterministic safety net, same philosophy as the two helpers above: a
+    prompt instruction alone did not reliably stop the model from inventing a
+    child's gender when it writes them into a summary - seen live, a customer-
+    stated "ילדה בת 17" turned into "ונער בן 17" in Tinkerbell's own generated
+    trip summary. travelers.child_genders (set deterministically in
+    _deterministic_traveler_facts from the customer's own "ילדה בת"/"ילד בן"
+    wording) is the one place this fact is actually recorded, so correct any
+    mismatch against it after the fact rather than trust free text to get it
+    right."""
+    state = state if isinstance(state, dict) else {}
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    ages = travelers.get("child_ages") if isinstance(travelers.get("child_ages"), list) else []
+    genders = travelers.get("child_genders") if isinstance(travelers.get("child_genders"), list) else []
+    if not ages or not genders:
+        return text
+    import re
+    text = str(text or "")
+    to_fem = {"ילד": "ילדה", "נער": "נערה"}
+    to_masc = {"ילדה": "ילד", "נערה": "נער"}
+    for age, gender in zip(ages, genders):
+        if gender not in ("male", "female"):
+            continue
+        try:
+            age_int = int(age)
+        except (TypeError, ValueError):
+            continue
+        pattern = re.compile(r"(ילד|ילדה|נער|נערה)(\s+)(בן|בת)(\s*%d\b)" % age_int)
+
+        def _fix(m, wants_fem=(gender == "female")):
+            noun, sep, particle, tail = m.group(1), m.group(2), m.group(3), m.group(4)
+            if noun.endswith("ה") == wants_fem:
+                return m.group(0)
+            noun = (to_fem if wants_fem else to_masc).get(noun, noun)
+            particle = "בת" if wants_fem else "בן"
+            return noun + sep + particle + tail
+
+        text = pattern.sub(_fix, text)
+    return text
+
+
 def _strip_unconfirmed_airports(text, state):
     """Deterministic safety net for a second recurring model behavior: even
     after an explicit prompt instruction not to, Tinkerbell keeps
@@ -1386,12 +1429,21 @@ def _deterministic_traveler_facts(message):
         facts["children"] = child_count
 
     ages = []
-    for m in re.finditer(r"(?:בת|בן)\s*(\d{1,2})\b", msg):
-        age = int(m.group(1))
+    genders = []
+    for m in re.finditer(r"(בת|בן)\s*(\d{1,2})\b", msg):
+        age = int(m.group(2))
         if 0 <= age <= 17:
             ages.append(age)
+            genders.append("female" if m.group(1) == "בת" else "male")
     if ages:
         facts["child_ages"] = ages
+        # "בת"/"בן" preceding the age is itself the customer's own gender
+        # statement ("ילדה בת 17" = a girl, age 17) - carry it through so the
+        # final summary can refer to the child correctly, instead of relying
+        # on the model to guess (it doesn't: seen live defaulting a stated
+        # "ילדה בת 17" to "נער בן 17" in the summary, since nothing preserved
+        # the gender the customer actually gave).
+        facts["child_genders"] = genders
         if "children" not in facts:
             facts["children"] = len(ages)
 
@@ -2024,6 +2076,7 @@ def chat_clean():
             # Preserve Ariella's newly collected state even if the conversational
             # model has a transient failure. The next user turn can continue.
             reply = "קלטתי את הפרטים. נמשיך מכאן."
+        reply = _fix_child_gender_wording(reply, trip_update)
 
         if planning_accept:
             # Approval closes only the itinerary session. Do not promise a final
