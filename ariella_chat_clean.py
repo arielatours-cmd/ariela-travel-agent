@@ -797,6 +797,28 @@ def _fix_known_typos(text):
     return text
 
 
+def _strip_garbled_lead_token(text):
+    """Deterministic safety net for a recurring model glitch, seen live on
+    the phone more than once: an occasional garbled token that mixes Hebrew
+    and Latin letters within the same run of characters (e.g. "סדחFOSX")
+    injected as the very first word of an otherwise normal Hebrew reply. A
+    legitimate word never mixes scripts letter-by-letter like that - real
+    English terms inside a Hebrew reply always appear as their own separate,
+    single-script word (an airport code in parentheses, "COVID", etc.), so
+    any leading token containing both scripts together is never real content
+    and can be dropped outright, along with the stray comma/dash left after
+    it."""
+    import re
+    text = str(text or "")
+    m = re.match(r'^\S*[֐-׿]\S*[A-Za-z]\S*|^\S*[A-Za-z]\S*[֐-׿]\S*', text)
+    if m and m.group(0):
+        rest = text[m.end():].lstrip()
+        rest = re.sub(r'^[,:\-–]\s*', '', rest)
+        if rest:
+            return rest
+    return text
+
+
 def _strip_unconfirmed_airports(text, state):
     """Deterministic safety net for a second recurring model behavior: even
     after an explicit prompt instruction not to, Tinkerbell keeps
@@ -902,6 +924,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
+    reply = _strip_garbled_lead_token(reply)
     return _strip_unconfirmed_airports(reply, state)
 
 
