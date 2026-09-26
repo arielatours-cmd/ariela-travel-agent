@@ -567,15 +567,44 @@ def _resolve_ski_destination_airports(state):
     places = [str(p) for p in (destination.get("places") or []) if str(p).strip()]
     if not places:
         return state
-    matched_rows = []
+    # Match against the specific resort name first. destination.places often
+    # holds BOTH a country and a resort together (e.g. ["איטליה", "סטרייר"] -
+    # seen live as "יעד: איטליה, אזור סקי סטרייר"), and matching every place
+    # string against country+resort together let the broad "איטליה" entry
+    # match every single Italian resort in the catalog, unioning all of
+    # their gateway airports into one destination_airports list (6 airports
+    # across 6 different resorts for what the customer named as one specific
+    # resort) and listing all 6 as "matched" for scoring too. A named resort
+    # is always more specific than a country, so once any place string names
+    # an actual resort, only resort-level matches are used; country-level
+    # matching is a fallback for when no place names a specific resort at all.
+    resort_matches = []
     for place in places:
         needle = place.strip().lower()
         if not needle:
             continue
         for row in SKI_RESORTS:
-            hay = " ".join(str(row.get(k) or "") for k in ("country", "country_he", "resort")).lower()
-            if needle in hay or hay in needle:
-                matched_rows.append(row)
+            # resort_he is the Hebrew transliteration - without it, a Hebrew
+            # place string could never match the catalog's English-only
+            # resort names at all, silently falling through to the broad
+            # country-level match every time regardless of how specific the
+            # customer's own wording was.
+            for hay in (str(row.get("resort") or "").lower(), str(row.get("resort_he") or "").lower()):
+                if hay and (needle in hay or hay in needle):
+                    resort_matches.append(row)
+                    break
+    if resort_matches:
+        matched_rows = resort_matches
+    else:
+        matched_rows = []
+        for place in places:
+            needle = place.strip().lower()
+            if not needle:
+                continue
+            for row in SKI_RESORTS:
+                hay = " ".join(str(row.get(k) or "") for k in ("country", "country_he", "resort")).lower()
+                if needle in hay or hay in needle:
+                    matched_rows.append(row)
     if not matched_rows:
         return state
     resort_names = []
