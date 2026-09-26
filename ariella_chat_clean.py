@@ -2219,15 +2219,34 @@ def chat_clean():
             str(x.get("content") or "") for x in (history or [])[-4:]
             if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"
         )
-        # The single immediately-preceding assistant message specifically (not
-        # the last-4-joined prior_assistant above, which is only for the
-        # keyword check) - this is the actual itinerary text being approved
-        # right now, while it's still unambiguous which message that is.
+        # The message actually being approved right now is NOT reliably "the
+        # immediately-preceding assistant message" - seen live even with the
+        # already_approved guard below in place: the customer asked a
+        # tangential question about the route ("מה עם לרנקה?") right after
+        # the real itinerary was proposed, got an answer, and only THEN said
+        # something that counted as acceptance - so the message directly
+        # before that acceptance was the tangential answer, not the day-by-
+        # day plan, and it was that tangential answer getting captured and
+        # saved as the itinerary text on the very first (and only) capture,
+        # with the guard having nothing to protect against since it never
+        # fires twice here. Search backward for the most recent assistant
+        # message that actually LOOKS like a day-by-day itinerary (multiple
+        # "יום <weekday>" markers) and prefer that; fall back to the
+        # immediately-preceding message only if nothing matches that shape.
+        import re as _re_itinerary
+        day_marker = _re_itinerary.compile(r"יום\s+(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\b")
         last_assistant_text = ""
+        itinerary_shaped_text = ""
         for item in reversed(history or []):
-            if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
-                last_assistant_text = str(item.get("content") or "").strip()
+            if not isinstance(item, dict) or str(item.get("role") or "").lower() != "assistant":
+                continue
+            content = str(item.get("content") or "").strip()
+            if not last_assistant_text:
+                last_assistant_text = content
+            if not itinerary_shaped_text and len(day_marker.findall(content)) >= 2:
+                itinerary_shaped_text = content
                 break
+        last_assistant_text = itinerary_shaped_text or last_assistant_text
         # trip_planning already fully approved once must never re-fire this.
         # Without this guard, a later, unrelated follow-up question about the
         # already-approved route (e.g. "מה עם לרנקה?") can reopen
