@@ -2995,6 +2995,75 @@ def ariella_start_flight_search():
     if baggage:
         deal_priorities.append("baggage")
 
+    # A customer changing a flight criterion (destination and/or dates) that
+    # was ALREADY set on an existing, already-approved vacation is different
+    # from simply filling in a service that was never requested (lodging/
+    # car/planning completion stays free). Changing what was already decided
+    # is a paid action, available only during an active 39 ILS ("scan") paid
+    # period - at which point the SAME trip is updated and re-scanned in
+    # place rather than spawning a duplicate vacation with the old, stale
+    # dates left behind.
+    existing_trip_id = body.get("existing_trip_id")
+    try:
+        existing_trip_id = int(existing_trip_id) if existing_trip_id else None
+    except (TypeError, ValueError):
+        existing_trip_id = None
+    if existing_trip_id:
+        with _db() as conn:
+            existing_row = conn.execute(
+                "SELECT id, answers_json, subscription_status, subscription_plan FROM trip_requests "
+                "WHERE id=? AND member_id=? AND status='active'",
+                (existing_trip_id, session["member_id"]),
+            ).fetchone()
+        if existing_row:
+            try:
+                existing_answers = json.loads(existing_row["answers_json"] or "{}")
+            except Exception:
+                existing_answers = {}
+            had_prior_criteria = bool(
+                existing_answers.get("destinations")
+                or existing_answers.get("departure_date")
+                or existing_answers.get("travel_month")
+            )
+            existing_dest = frozenset(x for x in str(existing_answers.get("destinations") or "").split(",") if x)
+            new_dest = frozenset(destination_codes)
+            dest_changed = bool(existing_dest) and existing_dest != new_dest
+            dates_changed = (
+                str(existing_answers.get("departure_date") or "") != (dep or "")
+                or str(existing_answers.get("return_date") or "") != (ret or "")
+                or str(existing_answers.get("travel_month") or "") != (month or "")
+            )
+            if had_prior_criteria and (dest_changed or dates_changed):
+                if existing_row["subscription_status"] == "active" and existing_row["subscription_plan"] == "scan":
+                    title = " • ".join(places) if places else "אריאלה תבחר"
+                    travel_window = (dep + " – " + ret) if dep and ret else (period or month)
+                    change_payload = {
+                        "origin_airports": [departure_airport],
+                        "destination_mode": "specific" if destination_codes else "open",
+                        "destinations": ",".join(destination_codes),
+                        "return_departure_airports": return_departure_codes,
+                        "open_jaw": bool(return_departure_codes != destination_codes),
+                        "date_mode": date_mode,
+                        "travel_month": month, "outbound_month": month, "return_month": month,
+                        "departure_date": dep, "return_date": ret,
+                    }
+                    _apply_trip_change_and_rescan(existing_trip_id, title, travel_window, change_payload)
+                    return jsonify({
+                        "status": "queued", "trip_id": existing_trip_id,
+                        "waiting_url": url_for("site.trip_waiting", trip_id=existing_trip_id),
+                        "message": "מעדכנת את החופשה שלך לפרטים החדשים וסורקת מחדש.",
+                    })
+                return jsonify({
+                    "status": "change_requires_payment",
+                    "trip_id": existing_trip_id,
+                    "account_url": url_for("site.account") + f"#vacation-{existing_trip_id}",
+                    "message": (
+                        "שינוי יעד או תאריכים לחופשה שכבר אושרה הוא חלק מהמעקב היומי בתשלום (39 ₪) - "
+                        "מעבירה אותך לכרטיסייה כדי לבחור את המסלול הזה. לאחר התשלום אפשר לשנות תאריכים "
+                        "או יעד בכל שלב במהלך תקופת המעקב."
+                    ),
+                })
+
     duplicate_trip_id = _find_duplicate_active_trip(
         session["member_id"], departure_airport, destination_codes, date_mode, dep, ret, month
     )
@@ -3501,6 +3570,37 @@ def _customer_scan_worker(trip_id: int, scan_answers: dict, mode: str = "initial
     finally:
         with _customer_scan_threads_lock:
             _customer_scan_threads.pop(trip_id, None)
+
+
+def _apply_trip_change_and_rescan(trip_id: int, title: str, travel_window: str, new_payload: dict) -> None:
+    """Update an already-approved trip's flight criteria (destination/dates)
+    IN PLACE and queue a fresh scan for the same trip - never create a
+    duplicate trip_requests row. Reserved for a customer already on the paid
+    'scan' (39 ILS) plan: changing a flight criterion that was already set is
+    otherwise a paid action gated in ariella_start_flight_search."""
+    with _db() as conn:
+        row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+        try:
+            answers = json.loads(row["answers_json"] or "{}") if row else {}
+        except Exception:
+            answers = {}
+        # Stale match/second-chance state from the OLD criteria must never
+        # survive into the new search - a fresh scan decides fresh matches.
+        for stale_key in (
+            "_matched_offer_ids", "_flight_search_finished", "_flight_search_result",
+            "_initial_exact_match_missing", "_showing_closest_matches",
+            "_second_chance_used", "_second_chance_choice", "_second_chance_exhausted",
+            "_alternative_other_destination", "_alternative_nearby_dates",
+        ):
+            answers.pop(stale_key, None)
+        answers.update(new_payload)
+        conn.execute(
+            "UPDATE trip_requests SET request_name=?, travel_window=?, answers_json=?, "
+            "free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+            (title, travel_window, json.dumps(answers, ensure_ascii=False), utc_now_iso(), "change_requeued", trip_id),
+        )
+        conn.commit()
+    _queue_customer_scan(trip_id, answers, mode="initial")
 
 
 def _queue_customer_scan(trip_id: int, scan_answers: dict, mode: str = "initial", choice: str = "") -> bool:

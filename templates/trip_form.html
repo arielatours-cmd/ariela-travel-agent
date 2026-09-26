@@ -264,7 +264,8 @@
         const approvedTripState=(data.trip_update&&typeof data.trip_update==='object')
           ? data.trip_update
           : JSON.parse(localStorage.getItem(stateKey)||'{}');
-        const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:approvedTripState,history:currentTripHistory})});
+        const existingTripId=Number(localStorage.getItem(tripIdKey)||0)||null;
+        const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:approvedTripState,history:currentTripHistory,existing_trip_id:existingTripId})});
         const started=await start.json().catch(()=>({}));
         if(start.ok&&['success','queued'].includes(started.status)&&started.waiting_url){
           // The approved trip is now persisted and handed off successfully.
@@ -296,6 +297,16 @@
           // already completed successfully by this point.
           await new Promise(resolve=>setTimeout(resolve,4000));
           location.href=started.waiting_url;return;
+        }
+        if(start.ok&&started.status==='change_requires_payment'&&started.account_url){
+          // Changing a destination/date that was already approved is a paid
+          // (39 ILS) action - explain why, then send the customer to the
+          // vacation card to choose that plan, instead of silently either
+          // blocking the change or spawning a second, duplicate vacation.
+          const payMsg=String(started.message||'השינוי הזה דורש מעקב יומי בתשלום.');
+          history.push({role:'assistant',content:payMsg,agent:'Ariella'});add('assistant',payMsg);save();
+          await new Promise(resolve=>setTimeout(resolve,4000));
+          location.href=started.account_url;return;
         }
         if(start.ok&&started.status==='duplicate_active_trip'&&started.waiting_url){
           // The customer already has an active vacation for this exact

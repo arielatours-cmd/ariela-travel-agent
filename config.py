@@ -57,15 +57,15 @@ PERSONAL_SEARCH_PLANS = {
         "price_ils": 19,
         "label_he": "עדכון יומי",
         "label_en": "Daily update",
-        "desc_he": "עדכון פעם ביום אם נמצא דיל שמתאים ליעד, לתאריכים, לתקציב ולכבודה שביקשתם - מתוך הסריקה הכללית היומית.",
-        "desc_en": "One update a day if a deal matching your destination, dates, budget and baggage turns up in the regular daily scan.",
+        "desc_he": "עדכון פעם ביום אם נמצא דיל שמתאים ליעד, לתאריכים, לתקציב ולכבודה שביקשתם - מתוך הסריקה הכללית היומית. לא כולל אפשרות לשנות יעד או תאריכים - רק הפעלה/הפסקה של ההתראות.",
+        "desc_en": "One update a day if a deal matching your destination, dates, budget and baggage turns up in the regular daily scan. Does not include changing destination or dates - only turning notifications on/off.",
     },
     "scan": {
         "price_ils": 39,
         "label_he": "סריקה יומית נוספת",
         "label_en": "Extra daily search",
-        "desc_he": "סריקה ייעודית נוספת במיוחד בשבילכם כל יום בצהריים, בנוסף לעדכון הכללי בערב - פעמיים ביום.",
-        "desc_en": "One extra dedicated search just for your trip every noon, on top of the evening update - twice a day.",
+        "desc_he": "סריקה ייעודית נוספת במיוחד בשבילכם כל יום בצהריים, בנוסף לעדכון הכללי בערב - פעמיים ביום. כולל גם אפשרות לשנות יעד או תאריכים בכל שלב במהלך תקופת המעקב, והחופשה תיסרק מחדש בהתאם.",
+        "desc_en": "One extra dedicated search just for your trip every noon, on top of the evening update - twice a day. Also includes changing destination or dates at any point during the tracking period, with the vacation re-scanned accordingly.",
     },
 }
 
