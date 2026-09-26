@@ -2164,6 +2164,21 @@ def chat_clean():
             reply = "קלטתי את הפרטים. נמשיך מכאן."
         reply = _fix_child_gender_wording(reply, trip_update)
 
+        # Never let Tinkerbell present the final summary/"כתבי מאשרת" request
+        # while a required flight fact is still genuinely missing. The prompt
+        # already says to summarize only once everything requested is
+        # complete - but seen live, it asked for approval anyway with the
+        # budget never having been asked, and only "remembered" to ask for it
+        # after the customer had already said מאשרת. That is confusing on its
+        # own even before anyone tries to confirm it (a summary that turns
+        # out to be incomplete looks like a bug by itself), so catch it here
+        # proactively - not only in the separate approval_gaps handling further
+        # down, which only fires once the customer actually tries to approve.
+        if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
+            premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"))
+            if premature_gap_question:
+                reply = premature_gap_question
+
         if planning_accept:
             # Approval closes only the itinerary session. Name whichever of the
             # other three domains are still genuinely open - this must never
