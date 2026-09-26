@@ -102,6 +102,12 @@ AIRPORT_NAMES = {
     "ZRH": "ציריך", "BRU": "בריסל", "OTP": "בוקרשט", "KRK": "קרקוב", "WAW": "ורשה", "TBS": "טביליסי",
     "EVN": "ירוואן", "BEG": "בלגרד", "SKP": "סקופיה", "TGD": "פודגוריצה", "ZAG": "זאגרב", "LJU": "לובליאנה",
     "BKK": "בנגקוק", "JFK": "ניו יורק", "TIA": "טירנה", "DXB": "דובאי", "GYD": "באקו", "RMO": "קישינב",
+    # Ski-resort gateway airports (config.SKI_RESORTS via ski_catalog.py) -
+    # never in static/airports.json's general destinations catalog, so
+    # without these a ski deal card fell back to showing the bare IATA code
+    # instead of a Hebrew city name (seen live: "TRN" instead of "טורינו").
+    "TRN": "טורינו", "INN": "אינסברוק", "BTS": "ברטיסלבה", "GRX": "גרנדה",
+    "PDV": "פלובדיב", "PRN": "פרישטינה", "INI": "ניש", "KUT": "קוטאיסי", "GHV": "ברשוב",
 }
 # "Quiet" airports: real, valid IATA codes (e.g. LGA/LaGuardia alongside
 # JFK for New York) that a customer's own request can resolve to and get

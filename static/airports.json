@@ -1248,5 +1248,95 @@
     "country_he": "מלטה",
     "country_en": "Malta",
     "country": "Malta"
+  },
+  {
+    "code": "TRN",
+    "city_en": "Turin",
+    "city_he": "טורינו",
+    "name_en": "Turin Airport",
+    "name_he": "נמל התעופה טורינו",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "INN",
+    "city_en": "Innsbruck",
+    "city_he": "אינסברוק",
+    "name_en": "Innsbruck Airport",
+    "name_he": "נמל התעופה אינסברוק",
+    "country": "AT",
+    "country_en": "Austria",
+    "country_he": "אוסטריה"
+  },
+  {
+    "code": "BTS",
+    "city_en": "Bratislava",
+    "city_he": "ברטיסלבה",
+    "name_en": "Bratislava Airport",
+    "name_he": "נמל התעופה ברטיסלבה",
+    "country": "SK",
+    "country_en": "Slovakia",
+    "country_he": "סלובקיה"
+  },
+  {
+    "code": "GRX",
+    "city_en": "Granada",
+    "city_he": "גרנדה",
+    "name_en": "Federico García Lorca Granada-Jaén Airport",
+    "name_he": "נמל התעופה גרנדה",
+    "country": "ES",
+    "country_en": "Spain",
+    "country_he": "ספרד"
+  },
+  {
+    "code": "PDV",
+    "city_en": "Plovdiv",
+    "city_he": "פלובדיב",
+    "name_en": "Plovdiv Airport",
+    "name_he": "נמל התעופה פלובדיב",
+    "country": "BG",
+    "country_en": "Bulgaria",
+    "country_he": "בולגריה"
+  },
+  {
+    "code": "PRN",
+    "city_en": "Pristina",
+    "city_he": "פרישטינה",
+    "name_en": "Pristina International Airport",
+    "name_he": "נמל התעופה הבינלאומי פרישטינה",
+    "country": "XK",
+    "country_en": "Kosovo",
+    "country_he": "קוסובו"
+  },
+  {
+    "code": "INI",
+    "city_en": "Niš",
+    "city_he": "ניש",
+    "name_en": "Niš Airport",
+    "name_he": "נמל התעופה ניש",
+    "country": "RS",
+    "country_en": "Serbia",
+    "country_he": "סרביה"
+  },
+  {
+    "code": "KUT",
+    "city_en": "Kutaisi",
+    "city_he": "קוטאיסי",
+    "name_en": "Kutaisi International Airport",
+    "name_he": "נמל התעופה הבינלאומי קוטאיסי",
+    "country": "GE",
+    "country_en": "Georgia",
+    "country_he": "גאורגיה"
+  },
+  {
+    "code": "GHV",
+    "city_en": "Brasov",
+    "city_he": "ברשוב",
+    "name_en": "Brașov-Ghimbav International Airport",
+    "name_he": "נמל התעופה ברשוב",
+    "country": "RO",
+    "country_en": "Romania",
+    "country_he": "רומניה"
   }
 ]
