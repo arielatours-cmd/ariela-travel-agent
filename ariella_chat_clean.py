@@ -1202,6 +1202,56 @@ def _deterministic_baggage_facts(message):
     return {}
 
 
+def _deterministic_service_decline_facts(history, message):
+    """Safety net for a short decline reply ("לא"/"גם לא"/"גם לא כרגע"/"לא
+    תודה" etc.) to Ariella's own immediately previous question about a
+    SPECIFIC service (lodging or car). A short, context-only reply like this
+    names no service itself, and a live transcript showed the extractor lose
+    track of which one it answered: a lodging decline got misattributed to
+    the car question being re-asked, and by the time car was declined
+    lodging had silently reverted to pending and got asked again from
+    scratch - an outright loop between the two. Only fires when Ariella's
+    own last message unambiguously named exactly one of the two services."""
+    compact = " ".join(str(message or "").strip().split())
+    decline_phrases = {
+        "לא", "לא.", "לא!", "לא תודה", "גם לא", "גם לא כרגע", "לא כרגע",
+        "לא צריך", "לא צריכים", "בלי", "לא תודה כרגע",
+    }
+    if compact not in decline_phrases:
+        return {}
+    assistant_text = ""
+    for item in reversed(history or []):
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "").lower()
+        if role in ("assistant", "ariella", "tinkerbell"):
+            assistant_text = str(item.get("content") or "")
+            break
+    if not assistant_text:
+        return {}
+    # Ariella's reply often acknowledges the PREVIOUS topic in one sentence
+    # before asking about the new one ("understood, no lodging - now, about
+    # a rental car?") - checking the whole message for either keyword would
+    # see both and bail out as ambiguous. The actual question lives in the
+    # final clause, so only that is checked.
+    import re
+    clauses = [c.strip() for c in re.split(r"[.!?]+", assistant_text) if c.strip()]
+    last_clause = clauses[-1] if clauses else assistant_text
+    lodging_kw = ("לינה", "מלון", "וילה", "דירה", "אכסניה")
+    mentions_lodging = any(k in last_clause for k in lodging_kw)
+    mentions_car = "רכב" in last_clause
+    if mentions_lodging and not mentions_car:
+        service = "lodging"
+    elif mentions_car and not mentions_lodging:
+        service = "car"
+    else:
+        return {}
+    return {
+        "service_decisions": {service: {"wanted": False, "source": "explicit_short_decline"}},
+        "session_status": {service: "declined"},
+    }
+
+
 def _deterministic_period_facts(message):
     """Parse weekday/month windows; ambiguous end-of-month requests require customer choice."""
     import re, calendar
@@ -1697,6 +1747,25 @@ def chat_clean():
                     services.add(service)
                     statuses[service] = statuses.get(service) if statuses.get(service) == "complete" else "active"
                 elif wanted is False:
+                    services.discard(service)
+                    statuses[service] = "declined"
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
+        # Safety net for a short decline ("לא"/"גם לא כרגע" etc.) to Ariella's
+        # own previous lodging/car question. Applied the same way as the
+        # extractor's own decisions above so it authoritatively overrides a
+        # misattributed or dropped extraction - see the function's docstring
+        # for the live-transcript loop this fixes.
+        deterministic_decline = _deterministic_service_decline_facts(history, message)
+        decline_decisions = deterministic_decline.get("service_decisions") if isinstance(deterministic_decline, dict) else None
+        if decline_decisions:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service, d in decline_decisions.items():
+                decisions[service] = d
+                if (d.get("wanted") if isinstance(d, dict) else d) is False:
                     services.discard(service)
                     statuses[service] = "declined"
             trip_update["requested_services"] = list(services)
