@@ -2165,7 +2165,20 @@ def chat_clean():
             if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
                 last_assistant_text = str(item.get("content") or "").strip()
                 break
-        planning_accept = planning_active and msg_confirm in {
+        # trip_planning already fully approved once must never re-fire this.
+        # Without this guard, a later, unrelated follow-up question about the
+        # already-approved route (e.g. "מה עם לרנקה?") can reopen
+        # trip_planning as active_session (the explicit-request handoff
+        # above honors that immediately, by design), and if the customer's
+        # NEXT reply to Ariella's answer happens to land in the accept-phrase
+        # set below while that answer itself mentions "מסלול" (easy for an
+        # answer ABOUT the route to do), this fired again - silently
+        # overwriting trip_planning.approved_text with that tangential
+        # answer instead of the real itinerary, which is exactly what ended
+        # up saved to the vacation card in a live conversation, with the
+        # actual day-by-day plan lost entirely.
+        already_approved = bool((trip_state.get("trip_planning") or {}).get("approved")) if isinstance(trip_state.get("trip_planning"), dict) else False
+        planning_accept = planning_active and not already_approved and msg_confirm in {
             "כן","כן.","מעולה","מצוין","מצויין","אחלה","נשמע טוב","נשמע סבבה","סבבה","סבבה גמור","מתאים","מאשרת","מאשר"
         } and any(x in prior_assistant for x in ("מסלול","יום ראשון","יום שני","יום שלישי","יום רביעי","אטרק"))
         if planning_accept:
