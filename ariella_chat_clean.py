@@ -2151,62 +2151,74 @@ def chat_clean():
                     reply = "לפני שאצא לסריקה חסר עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
                 approval = False
             else:
+                # This whole branch used to end here, with everything below it
+                # (search_confirmed=True, the "approved" reply, etc.) sitting
+                # OUTSIDE this else at the same indent as the if/else itself -
+                # so it ran unconditionally no matter which branch had just
+                # executed. That silently undid the approval_gaps branch above:
+                # a customer told "כתבי מאשרת" was accepted and a scan was
+                # starting even when a required flight fact (destination
+                # airport, budget, etc.) was still genuinely missing, which
+                # then made the actual /start-flight-search call fail with an
+                # unrelated-looking error instead of asking the missing
+                # question in the first place. All of this must only run when
+                # approval_gaps was actually empty.
                 merged["search_intent"] = True
-            merged["search_confirmed"] = True
-            merged["ready_for_summary"] = True
-            merged["user_gender"] = _user_gender_from_approval(message, merged)
-            services = list(merged.get("requested_services") or [])
-            # Approval at a flight confirmation stage is authoritative: mark flights requested.
-            if "flights" not in services:
-                services.append("flights")
-            flight_state = merged.get("flight") if isinstance(merged.get("flight"), dict) else {}
-            has_flight_data = bool(
-                merged.get("departure_airport")
-                or flight_state.get("connection_preference")
-                or flight_state.get("cabin")
-                or flight_state.get("baggage")
-                or (merged.get("dates") or {}).get("departure")
-                or (merged.get("dates") or {}).get("return")
-            )
-            history_text = " ".join(str(x.get("content") or "") for x in history if isinstance(x, dict))
-            if ("flights" not in services) and (has_flight_data or any(word in history_text for word in ("טיסה","טיסות","טיסות ישירות"))):
-                services.append("flights")
-            merged["requested_services"] = services
-            trip_update = merged
-            # The approval turn must not ask any more flight questions. It is a
-            # deterministic handoff message; the browser keeps it visible for 4s
-            # before opening the scan.
-            remaining_labels = {
-                "lodging":"לינה", "car":"השכרת רכב", "trip_planning":"מסלול ואטרקציות"
-            }
-            # Reassure about a domain the customer might still want even if
-            # they already said no to it earlier (declined), not only one
-            # that's still pending - "you can always come back" is exactly
-            # as true either way. The one exception is trip_planning when a
-            # business/ski trip_type default silently declined it without
-            # ever asking - that was never the customer's own decision to
-            # revisit, and mentioning it here would be confusing.
-            decisions_after_flight = merged.get("service_decisions") if isinstance(merged.get("service_decisions"), dict) else {}
-            def _auto_declined_by_trip_type(service):
-                d = decisions_after_flight.get(service)
-                source = d.get("source") if isinstance(d, dict) else None
-                return source in ("business_trip_default", "ski_trip_default")
-            remaining = [
-                remaining_labels[s] for s in ("lodging","car","trip_planning")
-                if statuses_after_flight.get(s, "pending") in ("pending", "declined")
-                and not _auto_declined_by_trip_type(s)
-            ]
-            if remaining:
-                if len(remaining) == 1:
-                    extra = remaining[0]
-                else:
-                    extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
-                reply = (
-                    "הבקשה אושרה ואני יוצאת לסריקת טיסות. "
-                    f"כשתרצי, אפשר לחזור לכאן ולהמשיך עם {extra}."
+                merged["search_confirmed"] = True
+                merged["ready_for_summary"] = True
+                merged["user_gender"] = _user_gender_from_approval(message, merged)
+                services = list(merged.get("requested_services") or [])
+                # Approval at a flight confirmation stage is authoritative: mark flights requested.
+                if "flights" not in services:
+                    services.append("flights")
+                flight_state = merged.get("flight") if isinstance(merged.get("flight"), dict) else {}
+                has_flight_data = bool(
+                    merged.get("departure_airport")
+                    or flight_state.get("connection_preference")
+                    or flight_state.get("cabin")
+                    or flight_state.get("baggage")
+                    or (merged.get("dates") or {}).get("departure")
+                    or (merged.get("dates") or {}).get("return")
                 )
-            else:
-                reply = "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
+                history_text = " ".join(str(x.get("content") or "") for x in history if isinstance(x, dict))
+                if ("flights" not in services) and (has_flight_data or any(word in history_text for word in ("טיסה","טיסות","טיסות ישירות"))):
+                    services.append("flights")
+                merged["requested_services"] = services
+                trip_update = merged
+                # The approval turn must not ask any more flight questions. It is a
+                # deterministic handoff message; the browser keeps it visible for 4s
+                # before opening the scan.
+                remaining_labels = {
+                    "lodging":"לינה", "car":"השכרת רכב", "trip_planning":"מסלול ואטרקציות"
+                }
+                # Reassure about a domain the customer might still want even if
+                # they already said no to it earlier (declined), not only one
+                # that's still pending - "you can always come back" is exactly
+                # as true either way. The one exception is trip_planning when a
+                # business/ski trip_type default silently declined it without
+                # ever asking - that was never the customer's own decision to
+                # revisit, and mentioning it here would be confusing.
+                decisions_after_flight = merged.get("service_decisions") if isinstance(merged.get("service_decisions"), dict) else {}
+                def _auto_declined_by_trip_type(service):
+                    d = decisions_after_flight.get(service)
+                    source = d.get("source") if isinstance(d, dict) else None
+                    return source in ("business_trip_default", "ski_trip_default")
+                remaining = [
+                    remaining_labels[s] for s in ("lodging","car","trip_planning")
+                    if statuses_after_flight.get(s, "pending") in ("pending", "declined")
+                    and not _auto_declined_by_trip_type(s)
+                ]
+                if remaining:
+                    if len(remaining) == 1:
+                        extra = remaining[0]
+                    else:
+                        extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
+                    reply = (
+                        "הבקשה אושרה ואני יוצאת לסריקת טיסות. "
+                        f"כשתרצי, אפשר לחזור לכאן ולהמשיך עם {extra}."
+                    )
+                else:
+                    reply = "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
     except Exception as exc:
         logging.exception("ariella chat-clean pipeline failed: %s", exc)
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
