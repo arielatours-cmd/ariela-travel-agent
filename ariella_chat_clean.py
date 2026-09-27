@@ -1741,13 +1741,24 @@ def _deterministic_traveler_facts(message):
     if child_count is not None:
         facts["children"] = child_count
 
+    # "בת"/"בן" must be a standalone word (optionally prefixed ו/ה) - seen
+    # live: "חמישי שישי שבת 3 לילות" matched the "בת 3" inside "שבת" and
+    # invented a 3-year-old daughter the customer never mentioned.
+    # Plural "בני 9 ו-11"/"בנות 9, 11" lists every age after it (seen live:
+    # "הילדים בני 9 11" was not captured at all, so the stray 3 survived).
+    found = []
+    for m in re.finditer(r"(?<![א-ת])(?:ו|ה|וה)?(בת|בן)\s*(\d{1,2})\b", msg):
+        found.append((m.start(), int(m.group(2)), "female" if m.group(1) == "בת" else "male"))
+    for m in re.finditer(r"(?<![א-ת])(?:ו|ה|וה)?(בני|בנות)\s*((?:\d{1,2}(?:\s*(?:,|ו-?|-)?\s*)){1,8})", msg):
+        gender = "female" if m.group(1) == "בנות" else None
+        for n in re.findall(r"\d{1,2}", m.group(2)):
+            found.append((m.start(), int(n), gender))
     ages = []
     genders = []
-    for m in re.finditer(r"(בת|בן)\s*(\d{1,2})\b", msg):
-        age = int(m.group(2))
+    for _pos, age, gender in sorted(found, key=lambda f: f[0]):
         if 0 <= age <= 17:
             ages.append(age)
-            genders.append("female" if m.group(1) == "בת" else "male")
+            genders.append(gender)
     if ages:
         facts["child_ages"] = ages
         # "בת"/"בן" preceding the age is itself the customer's own gender
