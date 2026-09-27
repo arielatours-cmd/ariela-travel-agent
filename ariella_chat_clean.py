@@ -38,6 +38,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
+- שמות מקומות כתבי תמיד באותיות עבריות בלבד (למשל פליטביצה, קרקה, ספליט, דוברובניק, זאגרב). לעולם אל תשלבי אותיות קיריליות, יווניות או לטיניות בתוך מילה עברית.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
@@ -94,6 +95,8 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - יעד גאוגרפי ושדה תעופה יעד הם שני נתונים נפרדים. אזור אינו מידע חובה. אם הלקוח כתב מדינה או יעד רחב שיכולים להתאים ליותר משדה תעופה אחד (למשל: קפריסין - לרנקה/פאפוס; איטליה - רומא/מילאנו; ספרד - ברצלונה/מדריד; גרמניה - ברלין/מינכן; פולין - קרקוב/ורשה), אל תשאלי קודם "איזה אזור?" רק כדי להשלים מידע ואל תבחרי שדה אחד בעצמך. במקום זה, בשאלה אחת: הציגי בקצרה את שדות התעופה/ערי השער הרלוונטיים, **וגם** ציינו את האפשרות לבקש קודם בניית מסלול (ואז שדה/שדות היעד ייגזרו ממנו) - כדי שהלקוח יידע משתי האפשרויות ולא ייתקע בשלב האישור בלי לדעת שהיה יכול לבקש את זה קודם.
 - גם עיר בודדת (לא רק מדינה/אזור רחב) יכולה להיות משורתת על ידי כמה שדות תעופה אמיתיים (למשל ניו יורק, פריז, לונדון, טוקיו, איסטנבול). כשזה המקרה, מידע מאומת על השדות והשמות שלהם יימסר לך למטה כ"היעד מתאים ליותר משדה תעופה אמיתי אחד" - השתמשי אך ורק ברשימה הזו, אל תוסיפי שדה משלך מהידע הכללי שלך, גם אם הוא נכון במציאות: אם השדה לא ברשימה שקיבלת, אל תזכירי אותו בכלל.
 - לדוגמה "צפון איטליה" אינו "רומא". יש להתייחס אליו כאזור באיטליה ולהשלים שדה/שדות יעד צפוניים מתאימים לפני סיכום הטיסה.
+- אם הלקוח כבר ביקש תכנון מסלול (trip_planning מבוקש), אל תציעי לו "לבנות קודם מסלול" כאופציה ואל תשאלי אם הוא רוצה מסלול - הוא כבר ביקש. המשיכי את המסלול מהנקודה שבה עצר, ושדה/שדות הכניסה ייגזרו ממנו.
+- "אין העדפה", "לא משנה", "שניהם", "גם וגם" כתשובה לשאלה על שדה נחיתה פירושם כל השדות שהצעת - שמרי את כולם ב-destination_airports, ואל תשאלי שוב.
 - אם הלקוח בוחר כמה שדות או "כולם", שמרי את כולם ב-destination_airports וסרקי טיסות לכל השדות שנבחרו יחד, כדי שהלקוח יוכל להשוות מחירים/שעות אמיתיים בעצמו. אם הוא מבקש קודם מסלול, אל תאשרי חיפוש טיסה עד שהמסלול קבע gateway מתאים.
 - לפני שמציעים שדה תעופה כאופציה ליעד מסוים, ודאי שהוא באמת באותה מדינה שהלקוח ביקש. אם ההצעה היחידה הסבירה היא שדה במדינה שכנה (למשל זאגרב בקרואטיה עבור יעד בסלובניה), חובה לציין זאת במפורש ולתת ללקוח לבחור מדעת, ולא להציג אותו כאילו הוא בתוך היעד המבוקש.
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
@@ -936,6 +939,53 @@ def _strip_garbled_lead_token(text):
     return text
 
 
+_FOREIGN_TO_HEBREW = {
+    # Cyrillic
+    "а": "א", "б": "ב", "в": "ו", "г": "ג", "д": "ד", "е": "", "ё": "יו",
+    "ж": "ז'", "з": "ז", "и": "י", "й": "י", "і": "י", "к": "ק", "л": "ל",
+    "м": "מ", "н": "נ", "о": "ו", "п": "פ", "р": "ר", "с": "ס", "т": "ט",
+    "у": "ו", "ф": "פ", "х": "ח", "ц": "צ", "ч": "צ'", "ш": "ש", "щ": "ש",
+    "ъ": "", "ы": "י", "ь": "", "э": "", "ю": "יו", "я": "יה", "ј": "י",
+    # Greek
+    "α": "א", "β": "ב", "γ": "ג", "δ": "ד", "ε": "", "ζ": "ז", "η": "י",
+    "θ": "ת", "ι": "י", "κ": "ק", "λ": "ל", "μ": "מ", "ν": "נ", "ξ": "קס",
+    "ο": "ו", "π": "פ", "ρ": "ר", "σ": "ס", "ς": "ס", "τ": "ט", "υ": "י",
+    "φ": "פ", "χ": "ח", "ψ": "פס", "ω": "ו",
+}
+
+# Canonical Hebrew spellings for names the transliteration above lands close
+# to but not exactly on (Slavic names are where this glitch keeps striking).
+_CANONICAL_PLACE_SPELLINGS = (
+    (r"פליט[ובי]+צ[הא]?", "פליטביצה"),
+)
+
+
+def _repair_foreign_letters_in_hebrew(text):
+    """Deterministic safety net, seen live more than once on Slavic place
+    names: a Hebrew word with some letters swapped for Cyrillic ones mid-word
+    ("פליטвицה" for פליטביצה). _strip_mixed_script_garble ignores Hebrew, so
+    this slipped through. Cyrillic/Greek never belong in a Hebrew reply, so
+    instead of dropping the word (which would leave a hole mid-sentence),
+    transliterate those letters back to Hebrew and snap known names to their
+    canonical spelling. Tokens that also contain Latin are left for
+    _strip_mixed_script_garble to drop, as before."""
+    import re
+    text = str(text or "")
+    if not re.search(r"[\u0370-\u03ff\u0400-\u04ff]", text) or not re.search(r"[\u05d0-\u05ea]", text):
+        return text
+
+    def _fix(m):
+        tok = m.group(0)
+        if not re.search(r"[\u0370-\u03ff\u0400-\u04ff]", tok) or re.search(r"[A-Za-z]", tok):
+            return tok
+        out = "".join(_FOREIGN_TO_HEBREW.get(ch.lower(), ch) if "\u0370" <= ch <= "\u04ff" else ch for ch in tok)
+        for pattern, canonical in _CANONICAL_PLACE_SPELLINGS:
+            out = re.sub(pattern, canonical, out)
+        return out
+
+    return re.sub(r"\S+", _fix, text)
+
+
 def _strip_mixed_script_garble(text):
     """Deterministic safety net for a related model glitch, seen live: a
     place name mid-sentence rendered with letters from multiple unrelated
@@ -1178,6 +1228,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
     reply = _strip_garbled_lead_token(reply)
+    reply = _repair_foreign_letters_in_hebrew(reply)
     reply = _strip_mixed_script_garble(reply)
     reply = _strip_leaked_internal_paragraph(reply)
     return _strip_unconfirmed_airports(reply, state)
@@ -1651,6 +1702,120 @@ def _deterministic_trip_type_facts(message):
     return {}
 
 
+def _infer_standard_trip_type(state, message, history):
+    """Seen live: after the whole route and the flights were already worked
+    out for a customer who opened with "I want to plan a route in Croatia",
+    the flights gap check still asked "regular vacation, business trip, or
+    ski?" - the customer never said the literal word "רגילה" and the
+    extractor is told never to infer trip_type. Asking for a route,
+    attractions or places to go out is itself the answer: business and ski
+    trips don't get an itinerary (see TINKERBELL_SYSTEM). Children alone are
+    NOT evidence - families go on ski trips too - and a customer who only
+    asked for flights/lodging/car still gets the question."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    if state.get("trip_type"):
+        return {}
+    texts = [str(message or "")]
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            texts.append(str(item.get("content") or ""))
+            if len(texts) >= 12:
+                break
+    blob = " ".join(texts).lower()
+    ski_words = ("סקי", "שלג", "גלישה", "מדרון", "ski", "snow")
+    business_words = ("עסקים", "עסקית", "עסקי", "כנס", "ועידה", "תערוכה", "פגישת", "business", "conference")
+    if any(w in blob for w in ski_words + business_words):
+        return {}
+    ski_state = state.get("ski") if isinstance(state.get("ski"), dict) else {}
+    if any(v for v in ski_state.values()):
+        return {}
+    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    planning = decisions.get("trip_planning")
+    wants_planning = (planning.get("wanted") if isinstance(planning, dict) else planning) is True
+    itinerary_words = (
+        "מסלול", "אטרקציות", "אטרקציה", "מקומות בילוי", "בילוי", "בילויים", "לבלות",
+        "תכנון טיול", "לתכנן טיול", "לטייל", "סיור", "סיורים", "מה לעשות", "מה לראות", "itinerary", "attractions",
+    )
+    has_itinerary = any(re.search(r"(?<![א-ת])(?:ו|ה|ב|ל|וה|וב|ול)?" + re.escape(w) + r"(?![א-ת])", blob) for w in itinerary_words)
+    if wants_planning or has_itinerary:
+        return {"trip_type": "standard"}
+    # Children + a destination that is not a ski destination = a family
+    # vacation (per product owner). Children alone are not enough - families
+    # ski too - so only when every named place is clearly not skiing: not a
+    # ski country/resort from SKI_RESORTS, and not a mountain gateway city.
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    try:
+        has_children = int(travelers.get("children") or 0) > 0
+    except (TypeError, ValueError):
+        has_children = False
+    has_children = has_children or bool(travelers.get("child_ages"))
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip().lower() for p in (destination.get("places") or []) if str(p).strip()]
+    if has_children and places and not any(_is_possible_ski_place(p) for p in places):
+        return {"trip_type": "standard"}
+    return {}
+
+
+# Airports whose city is mainly a gateway to the mountains - a family flight
+# there may well be a ski trip, unlike e.g. Barcelona or Prague which also
+# appear as ski gateways in SKI_RESORTS but are first of all city breaks.
+_MOUNTAIN_GATEWAY_AIRPORTS = {"INN", "GVA", "SZG", "TRN"}
+
+
+def _is_possible_ski_place(place):
+    place = str(place or "").strip().lower()
+    if not place:
+        return False
+    names = set()
+    for row in SKI_RESORTS:
+        for key in ("country", "country_he", "resort", "resort_he"):
+            value = str(row.get(key) or "").strip().lower()
+            if value:
+                names.add(value)
+    for airport in _load_airports():
+        if str(airport.get("code") or "").upper() in _MOUNTAIN_GATEWAY_AIRPORTS:
+            for key in ("city_he", "city_en"):
+                value = str(airport.get(key) or "").strip().lower()
+                if value:
+                    names.add(value)
+    return any(n in place or place in n for n in names)
+
+
+def _deterministic_airport_indifference(message, history, state):
+    """Seen live: Ariella asked "land around Split or Dubrovnik?", the
+    customer answered that they had no preference, and nothing was saved -
+    so destination_airports stayed empty and the flight summary later asked
+    all over again (offering "build the route first?" to a customer who had
+    asked for a route in their very first message). An indifferent answer to
+    an airport question means every airport that question offered."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    if state.get("destination_airports"):
+        return {}
+    msg = str(message or "").strip()
+    indifferent = ("אין העדפה", "אין לי העדפה", "לא משנה", "לא אכפת", "שניהם", "שתיהן", "גם וגם", "כולם", "כל אחד מהם", "מה שזול")
+    if not msg or len(msg) > 60 or not any(p in msg for p in indifferent):
+        return {}
+    prior_assistant = ""
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+            prior_assistant = str(item.get("content") or "")
+            break
+    if not prior_assistant or not re.search(r"לנחות|נחיתה|שדה|שדות|כניסה", prior_assistant):
+        return {}
+    codes = []
+    for airport in _load_airports():
+        city = str(airport.get("city_he") or "").strip()
+        code = str(airport.get("code") or "").upper()
+        if city and code and re.search(r"(?<![א-ת])(?:ו|ב|ל|מ|וב|ול|ומ)?" + re.escape(city) + r"(?![א-ת])", prior_assistant):
+            if code not in codes:
+                codes.append(code)
+    if len(codes) < 2:
+        return {}
+    return {"destination_airports": codes}
+
+
 def _deterministic_open_jaw_airports(message):
     """Capture an explicit open-jaw answer ("לנחות בפאפוס ולחזור מלרנקה")
     deterministically instead of trusting the extractor to split it into
@@ -1752,13 +1917,24 @@ def _deterministic_traveler_facts(message):
     if child_count is not None:
         facts["children"] = child_count
 
+    # "בת"/"בן" must be a standalone word (optionally prefixed ו/ה) - seen
+    # live: "חמישי שישי שבת 3 לילות" matched the "בת 3" inside "שבת" and
+    # invented a 3-year-old daughter the customer never mentioned.
+    # Plural "בני 9 ו-11"/"בנות 9, 11" lists every age after it (seen live:
+    # "הילדים בני 9 11" was not captured at all, so the stray 3 survived).
+    found = []
+    for m in re.finditer(r"(?<![א-ת])(?:ו|ה|וה)?(בת|בן)\s*(\d{1,2})\b", msg):
+        found.append((m.start(), int(m.group(2)), "female" if m.group(1) == "בת" else "male"))
+    for m in re.finditer(r"(?<![א-ת])(?:ו|ה|וה)?(בני|בנות)\s*((?:\d{1,2}(?:\s*(?:,|ו-?|-)?\s*)){1,8})", msg):
+        gender = "female" if m.group(1) == "בנות" else None
+        for n in re.findall(r"\d{1,2}", m.group(2)):
+            found.append((m.start(), int(n), gender))
     ages = []
     genders = []
-    for m in re.finditer(r"(בת|בן)\s*(\d{1,2})\b", msg):
-        age = int(m.group(2))
+    for _pos, age, gender in sorted(found, key=lambda f: f[0]):
         if 0 <= age <= 17:
             ages.append(age)
-            genders.append("female" if m.group(1) == "בת" else "male")
+            genders.append(gender)
     if ages:
         facts["child_ages"] = ages
         # "בת"/"בן" preceding the age is itself the customer's own gender
@@ -2355,6 +2531,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
@@ -2371,6 +2548,7 @@ def chat_clean():
                     trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(_item.get("content")))
                     break
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        trip_update = _merge_trip_state(trip_update, _infer_standard_trip_type(trip_update, message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range
         # and the customer simply continued (e.g. supplied the airport), accept it.
