@@ -1689,6 +1689,51 @@ def _deterministic_trip_type_facts(message):
     return {}
 
 
+def _infer_standard_trip_type(state, message, history):
+    """Seen live: after the whole route and the flights were already worked
+    out for "a couple with 2 kids, a trip full of lakes and streams, a
+    beach day", the flights gap check still asked "regular vacation,
+    business trip, or ski?" - because the customer never said the literal
+    word "רגילה" and the extractor is told never to infer trip_type. Obvious
+    context settles it: children or a leisure itinerary rule out business,
+    and with no snow/ski mentioned anywhere it isn't a ski trip either."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    if state.get("trip_type"):
+        return {}
+    texts = [str(message or "")]
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            texts.append(str(item.get("content") or ""))
+            if len(texts) >= 12:
+                break
+    blob = " ".join(texts).lower()
+    ski_words = ("סקי", "שלג", "גלישה", "מדרון", "ski", "snow")
+    business_words = ("עסקים", "עסקית", "עסקי", "כנס", "ועידה", "תערוכה", "פגישת", "business", "conference")
+    if any(w in blob for w in ski_words + business_words):
+        return {}
+    ski_state = state.get("ski") if isinstance(state.get("ski"), dict) else {}
+    if any(v for v in ski_state.values()):
+        return {}
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    try:
+        has_children = int(travelers.get("children") or 0) > 0
+    except (TypeError, ValueError):
+        has_children = False
+    has_children = has_children or bool(travelers.get("child_ages"))
+    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    planning = decisions.get("trip_planning")
+    wants_planning = (planning.get("wanted") if isinstance(planning, dict) else planning) is True
+    leisure_words = (
+        "מסלול", "אטרקציות", "טיול", "חופשה", "נופש", "אגמים", "נחלים", "חוף", "ים",
+        "משפחה", "משפחתי", "ילדים", "טבע", "פארק", "בטן גב", "ירח דבש",
+    )
+    has_leisure = any(re.search(r"(?<![א-ת])(?:ו|ה|ב|ל|וה|וב|ול)?" + re.escape(w) + r"(?![א-ת])", blob) for w in leisure_words)
+    if has_children or wants_planning or has_leisure:
+        return {"trip_type": "standard"}
+    return {}
+
+
 def _deterministic_open_jaw_airports(message):
     """Capture an explicit open-jaw answer ("לנחות בפאפוס ולחזור מלרנקה")
     deterministically instead of trusting the extractor to split it into
@@ -2406,6 +2451,7 @@ def chat_clean():
                     trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(_item.get("content")))
                     break
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        trip_update = _merge_trip_state(trip_update, _infer_standard_trip_type(trip_update, message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range
         # and the customer simply continued (e.g. supplied the airport), accept it.
