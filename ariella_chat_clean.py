@@ -1896,23 +1896,27 @@ def chat_clean():
         pending = dict(trip_state)
         pending["reset_pending"] = True
         pending["reset_change_request"] = message
-        # When the current interaction is flight-only, the reset gate applies only
-        # to flight-search details. Shared vacation/other-service data is untouched.
-        statuses_reset = trip_state.get("session_status") if isinstance(trip_state.get("session_status"), dict) else {}
-        # An explicit "delete EVERYTHING" ("תמחקי הכל") must never be narrowed
-        # to just the flight fields by this session-status heuristic alone -
-        # seen live: a customer said exactly "תמחקי הכל. נתחיל מהתחלה" right
-        # after an already-approved ski vacation (flights complete, nothing
-        # else active), which made this heuristic assume a flight-only reset
-        # of the SAME ski vacation. She then started describing an unrelated
-        # Cyprus trip, but trip_type/destination/ski state all silently
-        # survived (the flights-only reset only clears flight-search fields),
-        # so old facts like the ski dates kept leaking into the "new" trip.
-        customer_wants_everything = any(w in str(message or "") for w in ("הכל", "הכול", "לגמרי", "מהיסוד"))
-        flight_only_reset = (not customer_wants_everything) and (
-            str(trip_state.get("active_session") or "") == "flights"
-            or (statuses_reset.get("flights") in {"active","complete"} and not any(statuses_reset.get(s) == "active" for s in ("lodging","car","trip_planning")))
+        # Narrowing to a flights-only reset must require the customer to
+        # actually SAY it's just the flight - defaulting to "flights-only
+        # whenever flights happen to already be complete and nothing else is
+        # active" was wrong far more often than right. Seen live repeatedly:
+        # a customer restarting after an already-approved ski vacation always
+        # matches that exact session shape (flights complete, nothing else
+        # active) even when she is plainly describing an entirely different
+        # trip (destination, dates, trip type) - a flights-only reset only
+        # clears flight-search fields, so trip_type/destination/ski state
+        # (and anything else outside that narrow field list) silently
+        # survives and keeps leaking into what she clearly means as a new
+        # vacation. Trying to enumerate every "I mean everything" phrasing
+        # ("הכל"/"הכול"/"לגמרי"/"מהיסוד"...) chased one live failure at a
+        # time without fixing the actual default. A full vacation reset is
+        # the safe default instead: at worst it re-asks a fact the customer
+        # would have repeated anyway; a wrongly-scoped flights-only reset
+        # silently keeps wrong facts she never gets a chance to correct.
+        explicit_flight_only = any(
+            w in str(message or "") for w in ("רק את הטיסה", "רק הטיסה", "רק פרטי הטיסה", "רק טיסה", "רק תאריכי הטיסה")
         )
+        flight_only_reset = explicit_flight_only
         pending["reset_scope"] = "flights" if flight_only_reset else "vacation"
         question = (
             "רוצה שנתחיל טיסה חדשה לגמרי ונמחק את הפרטים הקיימים, או שנשאיר הכול ונשנה רק את מה שביקשת? (כן = להתחיל מחדש, לא = להשאיר ולשנות)"
