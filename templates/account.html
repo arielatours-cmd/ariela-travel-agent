@@ -144,7 +144,7 @@
           @media(max-width:520px){.sub-row{font-size:11.5px}}
         </style>
 
-        <div class="vacation-tabs" role="tablist">
+        <div class="vacation-tabs{% if a.get('vacation_type') in ('ski', 'business') %} tabs-3{% endif %}" role="tablist">
           <button class="vacation-tab active" data-tab="flights-{{ trip.id }}">✈ טיסות</button>
           <button class="vacation-tab" data-tab="lodging-{{ trip.id }}">⌂ לינה</button>
           <button class="vacation-tab" data-tab="car-{{ trip.id }}">🚗 רכב</button>
