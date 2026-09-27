@@ -1729,7 +1729,46 @@ def _infer_standard_trip_type(state, message, history):
     has_itinerary = any(re.search(r"(?<![א-ת])(?:ו|ה|ב|ל|וה|וב|ול)?" + re.escape(w) + r"(?![א-ת])", blob) for w in itinerary_words)
     if wants_planning or has_itinerary:
         return {"trip_type": "standard"}
+    # Children + a destination that is not a ski destination = a family
+    # vacation (per product owner). Children alone are not enough - families
+    # ski too - so only when every named place is clearly not skiing: not a
+    # ski country/resort from SKI_RESORTS, and not a mountain gateway city.
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    try:
+        has_children = int(travelers.get("children") or 0) > 0
+    except (TypeError, ValueError):
+        has_children = False
+    has_children = has_children or bool(travelers.get("child_ages"))
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip().lower() for p in (destination.get("places") or []) if str(p).strip()]
+    if has_children and places and not any(_is_possible_ski_place(p) for p in places):
+        return {"trip_type": "standard"}
     return {}
+
+
+# Airports whose city is mainly a gateway to the mountains - a family flight
+# there may well be a ski trip, unlike e.g. Barcelona or Prague which also
+# appear as ski gateways in SKI_RESORTS but are first of all city breaks.
+_MOUNTAIN_GATEWAY_AIRPORTS = {"INN", "GVA", "SZG", "TRN"}
+
+
+def _is_possible_ski_place(place):
+    place = str(place or "").strip().lower()
+    if not place:
+        return False
+    names = set()
+    for row in SKI_RESORTS:
+        for key in ("country", "country_he", "resort", "resort_he"):
+            value = str(row.get(key) or "").strip().lower()
+            if value:
+                names.add(value)
+    for airport in _load_airports():
+        if str(airport.get("code") or "").upper() in _MOUNTAIN_GATEWAY_AIRPORTS:
+            for key in ("city_he", "city_en"):
+                value = str(airport.get(key) or "").strip().lower()
+                if value:
+                    names.add(value)
+    return any(n in place or place in n for n in names)
 
 
 def _deterministic_airport_indifference(message, history, state):
