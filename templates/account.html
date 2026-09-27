@@ -20,7 +20,7 @@
     </div>
       {% for trip in trips %}
       {% set services = trip.answers.get('services', []) %}
-      <article class="vacation-result" id="vacation-{{ trip.id }}">
+      <article class="vacation-result{% if not loop.first %} vacation-collapsed{% endif %}" id="vacation-{{ trip.id }}">
         <header class="vacation-head">
           <div>
             <small>נוצרה ב־<span dir="ltr">{{ trip.created_at|ddmmyyyy }}</span></small>
@@ -41,7 +41,9 @@
             <button type="button" class="vqt-tab vqt-tab-facts" data-vqt="vqt-facts-{{ trip.id }}">פרטי הבקשה</button>
             <button type="button" class="vqt-tab vqt-tab-sub" data-vqt="vqt-sub-{{ trip.id }}">מעקב יומי בתשלום</button>
           </div>
+          <button type="button" class="vacation-collapse-toggle">{{ 'לפתיחה' if not loop.first else 'לסגירה' }}</button>
 
+          <div class="vacation-collapsible">
           <div class="vqt-panel" id="vqt-facts-{{ trip.id }}">
             <ul class="vacation-request-facts">
               <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
@@ -108,6 +110,7 @@
               </div>
             {% endif %}
           </div>
+          </div>
         </div>
         <style>
           .vqt-row{margin-top:10px}
@@ -144,6 +147,7 @@
           @media(max-width:520px){.sub-row{font-size:11.5px}}
         </style>
 
+        <div class="vacation-collapsible">
         <div class="vacation-tabs{% if a.get('vacation_type') in ('ski', 'business') %} tabs-3{% endif %}" role="tablist">
           <button class="vacation-tab active" data-tab="flights-{{ trip.id }}">✈ טיסות</button>
           <button class="vacation-tab" data-tab="lodging-{{ trip.id }}">⌂ לינה</button>
@@ -221,6 +225,7 @@
           {% endif %}
         </div>
         {% endif %}
+        </div>
       </article>
       {% endfor %}
     {% else %}
@@ -268,6 +273,14 @@ document.addEventListener('click',function(e){
     const panel=document.getElementById(btn.dataset.vqt);
     if(panel)panel.classList.add('active');
   }
+});
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('.vacation-collapse-toggle');
+  if(!btn)return;
+  const card=btn.closest('.vacation-result');
+  const willCollapse=!card.classList.contains('vacation-collapsed');
+  card.classList.toggle('vacation-collapsed',willCollapse);
+  btn.textContent=willCollapse?'לפתיחה':'לסגירה';
 });
 </script>
 <script>
