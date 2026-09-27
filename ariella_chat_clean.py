@@ -2280,9 +2280,20 @@ def chat_clean():
         # up saved to the vacation card in a live conversation, with the
         # actual day-by-day plan lost entirely.
         already_approved = bool((trip_state.get("trip_planning") or {}).get("approved")) if isinstance(trip_state.get("trip_planning"), dict) else False
+        # Require actual day-by-day itinerary shape (2+ "יום <weekday>" markers)
+        # in the recent assistant messages, not just the word "מסלול"/"אטרק"
+        # appearing somewhere. That bare substring check fired even on a
+        # narrow sub-question mid-planning that happens to mention "מסלול" in
+        # a different sense - e.g. "לגבי הטיסה - נוח לך יותר לצאת ממלרנקה
+        # ולחזור מפאפוס?" (an open-jaw airport preference, not the day-by-day
+        # plan) - seen live: a plain "מצוין" answering that narrow question
+        # closed the whole trip_planning session and told the customer it was
+        # time to move on to flights/lodging/car, which made no sense since
+        # she was still mid-flight-conversation and had approved nothing like
+        # a full itinerary.
         planning_accept = planning_active and not already_approved and msg_confirm in {
             "כן","כן.","מעולה","מצוין","מצויין","אחלה","נשמע טוב","נשמע סבבה","סבבה","סבבה גמור","מתאים","מאשרת","מאשר"
-        } and any(x in prior_assistant for x in ("מסלול","יום ראשון","יום שני","יום שלישי","יום רביעי","אטרק"))
+        } and len(day_marker.findall(prior_assistant)) >= 2
         if planning_accept:
             statuses_plan = dict(trip_update.get("session_status") or {})
             statuses_plan["trip_planning"] = "complete"
