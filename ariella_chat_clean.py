@@ -827,7 +827,7 @@ def _approval_trigger(message, history, state):
             or "כתוב מאשר" in assistant_text
             or "מאשר/מאשרת" in assistant_text)
 
-def _looks_like_approval_typo(message, state=None):
+def _looks_like_approval_typo(message, state=None, history=None):
     """Near-approval text may be clarified, but can never execute a search."""
     import difflib
     msg = str(message or "").strip().lower()
@@ -835,8 +835,27 @@ def _looks_like_approval_typo(message, state=None):
         return False
     state = state if isinstance(state, dict) else {}
     # Only interpret a near-match as an approval typo when the conversation is
-    # actually at the final summary/approval stage.
-    if not state.get("ready_for_summary"):
+    # actually at the final summary/approval stage. ready_for_summary alone
+    # can be stale between HTTP turns (the same issue _approval_trigger's own
+    # docstring warns about) - seen live: a customer typed "אשרת" (missing the
+    # leading מ) right after the real summary/"כתבי מאשרת" prompt, but the
+    # flag had already gone stale, so this bailed out here instead of asking
+    # "did you mean to approve?", and the turn fell through to a free-text
+    # reply that falsely claimed a search had started. Fall back to the same
+    # recent-assistant-text check _approval_trigger already uses.
+    at_approval_gate = bool(state.get("ready_for_summary"))
+    if not at_approval_gate:
+        recent = [x for x in (history or []) if isinstance(x, dict)][-4:]
+        assistant_text = " ".join(
+            str(x.get("content") or "") for x in recent
+            if str(x.get("role") or "").lower() == "assistant"
+        )
+        at_approval_gate = (
+            "כתבי מאשרת" in assistant_text
+            or "כתוב מאשר" in assistant_text
+            or "מאשר/מאשרת" in assistant_text
+        )
+    if not at_approval_gate:
         return False
     compact = "".join(ch for ch in msg if ch.isalpha())
     if not compact or len(compact) > 8:
@@ -2376,7 +2395,7 @@ def chat_clean():
         approval = _approval_trigger(message, history, trip_state)
         # A typo that resembles approval must never produce a false "search started"
         # message. Keep the hard execution gate exact, and ask for the exact word.
-        if not approval and _looks_like_approval_typo(message, trip_state):
+        if not approval and _looks_like_approval_typo(message, trip_state, history):
             gender = str((trip_state or {}).get("user_gender") or "").lower()
             if gender == "male":
                 reply = "לא הבנתי, האם התכוונת לאשר? אם כן, כתוב מאשר."
@@ -2402,7 +2421,12 @@ def chat_clean():
                 "יוצאת","יוצא","שולחת","שולח","נשלח","נשלחה","התחלתי",
                 "מתחילה","מתחיל","נקלט","נקלטה","ממשיכה","ממשיך","מעבדת","מעבד",
             )
-            action_targets = ("לחיפוש","לסריקה","סריקת טיסות","בסריקה","בחיפוש","תוצאות")
+            # "לחפש"/"לסרוק" (infinitive "to search"/"to scan") are distinct
+            # strings from "לחיפוש"/"לסריקה" (the noun forms already listed) -
+            # seen live: "יוצאים לחפש" ("heading out to search") slipped past
+            # this exact gap, claiming a scan had launched via a phrasing this
+            # list didn't cover.
+            action_targets = ("לחיפוש","לסריקה","סריקת טיסות","בסריקה","בחיפוש","תוצאות","לחפש","לסרוק")
             claims_execution = (
                 any(v in str(reply or "") for v in action_verbs)
                 and any(t in str(reply or "") for t in action_targets)
