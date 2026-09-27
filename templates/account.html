@@ -164,6 +164,8 @@
                 </div>
               </details>
             {% endif %}
+          {% elif a.get('_flight_search_finished') %}
+            <div class="vacation-empty">אריאלה סיימה לחפש ולא מצאה טיסות שתואמות בדיוק לבקשה שלך{% if (a.get('flight') or {}).get('connection_preference') == 'direct' %} (כולל טיסה ישירה בלבד){% endif %}. אפשר לחזור לצ'אט ולבקש לשנות פרט (כמו לאפשר גם טיסות עם קונקשן) כדי שהחיפוש יתרחב.</div>
           {% else %}
             <div class="vacation-empty">אריאלה עדיין מחפשת את הטיסות המתאימות ביותר.</div>
           {% endif %}
