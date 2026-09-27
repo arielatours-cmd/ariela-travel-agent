@@ -2581,7 +2581,13 @@ def account():
             destination_codes = []
         destination_info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {}) if destination_codes else {}
         if str(answers.get("vacation_type") or "") == "ski":
+            # ski_target_labels comes from the manual resort-picker form;
+            # ski_resort_names(_he) comes from the Ariella chat flow, which
+            # determines the resort through conversation instead. Either one
+            # means a specific resort was actually pinned down.
             ski_labels = answers.get("ski_target_labels") or []
+            if not ski_labels and answers.get("ski_resort_names"):
+                ski_labels = answers.get("ski_resort_names_he") or _ski_resort_he_names(answers.get("ski_resort_names"))
             if ski_labels:
                 trip["destination_display"] = _msg(
                     "חופשת סקי — " + " • ".join(ski_labels),
