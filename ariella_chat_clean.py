@@ -55,12 +55,14 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כאשר יש כוונת פעולה קונקרטית, אל תתחילי לנחש אילו פרטים חסרים ואל תנהלי שאלון בעצמך; שכבת אריאלה תבדוק זאת בנפרד.
 - כאשר יש כוונת פעולה קונקרטית, שכבת אריאלה בודקת אילו פרטים הכרחיים חסרים לפי השירותים שהלקוח ביקש בפועל: טיסות, לינה, רכב ו/או תכנון מסלול ואטרקציות.
 - כאשר הלקוח מבקש חופשה/טיול ליעד מסוים, ברירת המחדל היא שטיסות רצויות ואין לשאול 'האם תרצי גם טיסה'. שאלי זאת רק אם ההקשר מצביע שהטיסות אולי כבר סגורות או שהלקוח מבקש במפורש שירות קרקעי בלבד.
-- אחרי שביררת את נושא הטיסה, חובה לחזור לנושא שהלקוח העלה לפני כן ולהמשיך ממנו. למשל אם ביקש לתכנן מסלול ואז ביררת טיסה, לאחר תשובת הטיסה חזרי לתכנון המסלול ואל תנטשי אותו.
-- לכל חופשה יש ארבעה סשנים פנימיים: טיסות, לינה, רכב, ותכנון מסלול/אטרקציות. הלקוח יכול להתחיל מכל אחד מהם.
+- אחרי שביררת נושא צדדי, חובה לחזור לנושא שהלקוח היה באמצעו לפני כן ולהמשיך ממנו, ולא לנטוש אותו.
+- לכל חופשה יש ארבעה סשנים פנימיים: טיסות, לינה, רכב, ותכנון מסלול/אטרקציות. **הסדר קבוע ואינו גמיש: טיסות תמיד ראשון.** לינה, רכב ותכנון מסלול/אטרקציות נפתחים רק אחרי שהטיסות הגיעו למצב complete (אושרו ויצאו לסריקה) או declined - אף פעם לא לפני כן, גם אם הלקוח מבקש זאת במפורש.
+- אם הלקוח מבקש במפורש "גם לינה"/"גם מסלול"/"גם רכב" בזמן שהטיסות עדיין לא complete/declined, אל תעברי לסשן הזה. הביעי קצרות שקלטת את הבקשה ושתחזרי אליה מיד אחרי הטיסות, והמשיכי לברר את הטיסות. הבקשה נשמרת אוטומטית (service_decisions) ותיפתח מעצמה ברגע שהטיסות יסתיימו - אין צורך לשאול עליה שוב.
+- יוצא מן הכלל היחיד לכלל הזה הוא בקשה מפורשת לחזור/לעבור לטיסות עצמן - זה תמיד מותר מיידית, כולל אחרי שכבר עברתם לסשן אחר (זו הדרך שהלקוח חוזר לשנות פרט בטיסה).
 - בכל רגע יש סשן פעיל אחד. אל תעברי מיוזמתך לסשן אחר לפני שסיימת את הנוכחי. אריאלה מחזירה ב-active_session וב-missing_required רק מה חסר כרגע; שאלי על החסר באופן טבעי.
 - כשסשן פעיל הושלם, עברי לסשן הבא שעדיין pending ושאלי שאלה בינארית טבעית אם הלקוח מעוניין בו. לא = declined ועוברים לבא; כן = active ומבררים רק את פרטיו החסרים.
 - אם הלקוח רק מוסר מיוזמתו פרט מידע על סשן אחר תוך כדי תשובה על הסשן הפעיל (לא מבקש לעבור), אפשר לשמור אותו ב-state, אך אל תנטשי בגללו את הסשן הפעיל. כשהסשן האחר יגיע, השתמשי במה שכבר נשמר.
-- זה שונה לחלוטין מבקשה מפורשת של הלקוח לעבור/להוסיף סשן אחר ("תבני לי גם מסלול", "אפשר גם לינה?" וכו') - זו לא "יוזמה שלך" אלא בקשה שלו, וצריך לזרום איתה מיד, גם אם הסשן הנוכחי (כולל טיסות) עוד לא הושלם ואפילו לא אושר. הלקוח שרוצה לסגור הכל מהר לא צריך להמתין; הסשן שהופרע נשאר עם כל מה שכבר נאסף ופשוט ממתין pending עד שיחזרו אליו.
+- בכל שלב, ודאי שהלקוח יודע שהוא יכול לחזור ולשנות פרט מסשן קודם שכבר טופל (למשל "רוצה לשנות משהו בטיסה") - זה תמיד אפשרי, לא רק בתגובה לשאלה מפורשת. אפשר להזכיר זאת בקצרה במעברים בין סשנים (למשל "אפשר תמיד לחזור ולשנות פרט בטיסה אם צריך").
 - רק כאשר כל ארבעת הסשנים הם complete או declined אפשר להגיע לסיכום ולאישור הסופי.
 - בסיכום הסופי הציגי את כל ארבעת התחומים. תחום שהלקוח בחר יוצג עם הפרטים הרלוונטיים; תחום שסומן declined **כי הלקוח עצמו כך ענה** יוצג בקצרה כ"לא נדרש" (למשל "רכב שכור: לא נדרש"). כך הלקוח יכול לוודא שגם החלטות שליליות נקלטו נכון. יוצא מן הכלל: תכנון מסלול/אטרקציות שסומן declined אוטומטית בגלל trip_type עסקים/סקי (ולא נשאל כלל, כמו שצוין למעלה) אינו החלטה של הלקוח - אל תציגי אותו בסיכום בכלל, לא כ"לא נדרש" ולא בשום ניסוח אחר, כדי לא ליצור רושם שגוי שזו שאלה שנשאלה ונענתה.
 - אין להפוך את ארבעת התחומים לצ'קליסט או שאלון. אפשר לשלב הצעה או המלצה, לשאול שאלה אחת טבעית, ולהתקדם לפי תשובת הלקוח. המטרה היא שיחה חופשית שבסופה ברור לגבי כל תחום אם הלקוח רוצה בו עזרה או לא.
@@ -343,7 +345,14 @@ def _sessionize_state(state):
     decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
     services = set(state.get("requested_services") or [])
 
-    # Explicit decisions always win.
+    # Explicit decisions always win - except flights always comes first.
+    # A "wanted: True" decision recorded for lodging/car/trip_planning while
+    # flights isn't complete/declined yet (e.g. the customer asked for it
+    # explicitly mid-flights and that request was deferred, not dropped)
+    # must not auto-activate that session ahead of flights. The want is
+    # still remembered in service_decisions/requested_services either way -
+    # it just doesn't flip session_status to "active" until its turn.
+    flights_settled = statuses.get("flights") in ("complete", "declined")
     for s in statuses:
         d = decisions.get(s)
         wanted = d.get("wanted") if isinstance(d, dict) else d
@@ -351,6 +360,8 @@ def _sessionize_state(state):
             statuses[s] = "declined"
         elif wanted is True:
             services.add(s)
+            if s != "flights" and not flights_settled:
+                continue
             if statuses[s] in ("pending", "declined"):
                 statuses[s] = "active"
 
@@ -1921,20 +1932,34 @@ def chat_clean():
         service_request = "flights"
 
     existing_active = str(trip_state.get("active_session") or "")
-    if service_request:
-        # An explicit request to move to another domain must be honored
-        # immediately, even mid-flights before approval - a customer who
-        # says "תבני לי גם מסלול" while still answering flight questions
-        # wants Ariella to flow with that request, not make them finish and
-        # approve flights first (which is exactly what happened live: asked
-        # to "also" build a route mid-flights, Ariella replied that flights
-        # had to be finished and approved first). This used to only apply
-        # once post_flight_continuation was already set (i.e. after flights
-        # were done), leaving the mid-flights case to the model's own
-        # judgment, which deferred it instead. If flights was the session
-        # being interrupted, pause it back to pending rather than losing it -
-        # its already-collected facts stay untouched and it resumes
-        # naturally once the customer comes back to it.
+    flights_status = str((trip_state.get("session_status") or {}).get("flights") or "pending")
+    flights_settled = flights_status in ("complete", "declined")
+    if service_request and service_request != "flights" and not flights_settled:
+        # Product decision: flights always come first, no exception for an
+        # explicit mid-flights request to jump ahead (that was the previous,
+        # now deliberately removed, behavior - see git history). Record what
+        # the customer asked for so it opens automatically, without asking
+        # again, the moment flights is complete or declined - but do not
+        # switch active_session away from flights for it.
+        continued = dict(trip_state)
+        statuses = dict(continued.get("session_status") or {})
+        decisions = dict(continued.get("service_decisions") or {})
+        services = list(continued.get("requested_services") or [])
+        decisions[service_request] = {"wanted": True, "source": "explicit_request_deferred_to_after_flights"}
+        if service_request not in services:
+            services.append(service_request)
+        statuses["flights"] = "active"
+        continued["session_status"] = statuses
+        continued["service_decisions"] = decisions
+        continued["requested_services"] = services
+        continued["active_session"] = "flights"
+        continued["next_session"] = None
+        trip_state = continued
+    elif service_request:
+        # Either the customer explicitly asked for flights (always allowed -
+        # this is also how "go back and change the flight" works once a
+        # later session is active), or flights is already settled and moving
+        # to another domain is exactly the intended next step.
         continued = dict(trip_state)
         statuses = dict(continued.get("session_status") or {})
         decisions = dict(continued.get("service_decisions") or {})
