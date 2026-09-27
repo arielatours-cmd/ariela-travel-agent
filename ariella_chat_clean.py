@@ -38,6 +38,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
+- שמות מקומות כתבי תמיד באותיות עבריות בלבד (למשל פליטביצה, קרקה, ספליט, דוברובניק, זאגרב). לעולם אל תשלבי אותיות קיריליות, יווניות או לטיניות בתוך מילה עברית.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
@@ -925,6 +926,53 @@ def _strip_garbled_lead_token(text):
     return text
 
 
+_FOREIGN_TO_HEBREW = {
+    # Cyrillic
+    "а": "א", "б": "ב", "в": "ו", "г": "ג", "д": "ד", "е": "", "ё": "יו",
+    "ж": "ז'", "з": "ז", "и": "י", "й": "י", "і": "י", "к": "ק", "л": "ל",
+    "м": "מ", "н": "נ", "о": "ו", "п": "פ", "р": "ר", "с": "ס", "т": "ט",
+    "у": "ו", "ф": "פ", "х": "ח", "ц": "צ", "ч": "צ'", "ш": "ש", "щ": "ש",
+    "ъ": "", "ы": "י", "ь": "", "э": "", "ю": "יו", "я": "יה", "ј": "י",
+    # Greek
+    "α": "א", "β": "ב", "γ": "ג", "δ": "ד", "ε": "", "ζ": "ז", "η": "י",
+    "θ": "ת", "ι": "י", "κ": "ק", "λ": "ל", "μ": "מ", "ν": "נ", "ξ": "קס",
+    "ο": "ו", "π": "פ", "ρ": "ר", "σ": "ס", "ς": "ס", "τ": "ט", "υ": "י",
+    "φ": "פ", "χ": "ח", "ψ": "פס", "ω": "ו",
+}
+
+# Canonical Hebrew spellings for names the transliteration above lands close
+# to but not exactly on (Slavic names are where this glitch keeps striking).
+_CANONICAL_PLACE_SPELLINGS = (
+    (r"פליט[ובי]+צ[הא]?", "פליטביצה"),
+)
+
+
+def _repair_foreign_letters_in_hebrew(text):
+    """Deterministic safety net, seen live more than once on Slavic place
+    names: a Hebrew word with some letters swapped for Cyrillic ones mid-word
+    ("פליטвицה" for פליטביצה). _strip_mixed_script_garble ignores Hebrew, so
+    this slipped through. Cyrillic/Greek never belong in a Hebrew reply, so
+    instead of dropping the word (which would leave a hole mid-sentence),
+    transliterate those letters back to Hebrew and snap known names to their
+    canonical spelling. Tokens that also contain Latin are left for
+    _strip_mixed_script_garble to drop, as before."""
+    import re
+    text = str(text or "")
+    if not re.search(r"[\u0370-\u03ff\u0400-\u04ff]", text) or not re.search(r"[\u05d0-\u05ea]", text):
+        return text
+
+    def _fix(m):
+        tok = m.group(0)
+        if not re.search(r"[\u0370-\u03ff\u0400-\u04ff]", tok) or re.search(r"[A-Za-z]", tok):
+            return tok
+        out = "".join(_FOREIGN_TO_HEBREW.get(ch.lower(), ch) if "\u0370" <= ch <= "\u04ff" else ch for ch in tok)
+        for pattern, canonical in _CANONICAL_PLACE_SPELLINGS:
+            out = re.sub(pattern, canonical, out)
+        return out
+
+    return re.sub(r"\S+", _fix, text)
+
+
 def _strip_mixed_script_garble(text):
     """Deterministic safety net for a related model glitch, seen live: a
     place name mid-sentence rendered with letters from multiple unrelated
@@ -1167,6 +1215,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
     reply = _strip_garbled_lead_token(reply)
+    reply = _repair_foreign_letters_in_hebrew(reply)
     reply = _strip_mixed_script_garble(reply)
     reply = _strip_leaked_internal_paragraph(reply)
     return _strip_unconfirmed_airports(reply, state)
