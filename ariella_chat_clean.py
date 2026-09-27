@@ -2283,7 +2283,13 @@ def chat_clean():
         # "יום <weekday>" markers) and prefer that; fall back to the
         # immediately-preceding message only if nothing matches that shape.
         import re as _re_itinerary
-        day_marker = _re_itinerary.compile(r"יום\s+(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\b")
+        # Matches the actual generated itinerary format ("יום 1 (ראשון) - ...")
+        # rather than a bare "יום ראשון" - the looser form also matches a
+        # flight-approval summary stating the departure/return weekday
+        # ("...27.06.2027 (יום ראשון) בבוקר, חזרה 01.07.2027 (יום חמישי)..."),
+        # which has exactly two such mentions and was getting misidentified
+        # as a real 2-day itinerary because of it - seen live.
+        day_marker = _re_itinerary.compile(r"יום\s+\d{1,2}\s*\(")
         last_assistant_text = ""
         itinerary_shaped_text = ""
         for item in reversed(history or []):

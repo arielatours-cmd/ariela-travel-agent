@@ -68,6 +68,34 @@ def _he_dates(value):
     return re.sub(r"(\d{4})-(\d{2})-(\d{2})", _swap, text)
 
 
+# Matches the actual generated itinerary format ("יום 1 (ראשון) - ...",
+# "יום 2 (שני) - ..."), not a bare "יום ראשון" - that looser form also
+# matches a flight-approval summary stating the departure/return weekday
+# ("...27.06.2027 (יום ראשון) בבוקר, חזרה 01.07.2027 (יום חמישי)..."),
+# which has exactly two such mentions and was getting misidentified as a
+# 2-day itinerary because of it.
+_ITINERARY_DAY_MARKER = re.compile(r"יום\s+\d{1,2}\s*\(")
+
+
+def _most_recent_itinerary_shaped_message(history):
+    """Fallback for when trip_planning.approved_text was never captured: find
+    the most recent assistant message that actually LOOKS like a day-by-day
+    itinerary (2+ "יום <N> (<weekday>)" markers), not just the last assistant
+    message overall. A plain "not this one phrase" exclusion let later,
+    unrelated assistant text (most often the flight-approval/summary message)
+    get saved and shown as the vacation's route/attractions plan instead -
+    seen live more than once, with different intervening messages each time,
+    which is exactly why a shape check is needed instead of another
+    one-off exact-phrase exclusion."""
+    for item in reversed(history or []):
+        if not isinstance(item, dict) or str(item.get("role") or "").lower() != "assistant":
+            continue
+        txt = str(item.get("content") or "").strip()
+        if txt and len(_ITINERARY_DAY_MARKER.findall(txt)) >= 2:
+            return txt
+    return ""
+
+
 def _prepare_booking_job(job_id, offer, adults, children, travel_class, click_context, personal):
     try:
         target = resolve_booking_target(
@@ -2876,12 +2904,7 @@ def ariella_save_trip_plan():
     # non-itinerary assistant message (e.g. a flight-approval confirmation).
     assistant_plan = str(planning.get("approved_text") or "").strip()
     if not assistant_plan:
-        for item in reversed(history):
-            if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
-                txt = str(item.get("content") or "").strip()
-                if txt and "אני אשלח לך את כל האינפורמציה" not in txt:
-                    assistant_plan = txt
-                    break
+        assistant_plan = _most_recent_itinerary_shaped_message(history)
     with _db() as conn:
         row = conn.execute(
             "SELECT answers_json FROM trip_requests WHERE id=? AND member_id=?",
@@ -3183,12 +3206,7 @@ def ariella_start_flight_search():
         # what a live conversation ended up showing on the vacation card).
         assistant_plan = str(planning_state.get("approved_text") or "").strip()
         if not assistant_plan:
-            for item in reversed(history):
-                if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
-                    txt = str(item.get("content") or "").strip()
-                    if txt and "אני אשלח לך את כל האינפורמציה" not in txt:
-                        assistant_plan = txt
-                        break
+            assistant_plan = _most_recent_itinerary_shaped_message(history)
         payload["_approved_itinerary"] = {
             "text": assistant_plan,
             "approved_at": utc_now_iso(),
