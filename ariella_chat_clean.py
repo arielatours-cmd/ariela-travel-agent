@@ -561,7 +561,13 @@ def _resolve_ski_destination_airports(state):
     state = state if isinstance(state, dict) else {}
     if str(state.get("trip_type") or "").lower() != "ski":
         return state
-    if state.get("destination_airports"):
+    # A broad country-level match (e.g. Austria -> INN/ZRH/MUC/SZG, covering
+    # every resort in the country) can set destination_airports before the
+    # customer has agreed on one specific resort. Only skip re-resolving once
+    # a specific resort has actually been pinned down (ski.resort_names) -
+    # otherwise a later turn where Ariella recommends a resort and the
+    # customer agrees would never narrow the broad match down to it.
+    if state.get("destination_airports") and (state.get("ski") or {}).get("resort_names"):
         return state
     destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
     places = [str(p) for p in (destination.get("places") or []) if str(p).strip()]

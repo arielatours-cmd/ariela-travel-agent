@@ -791,6 +791,7 @@ th{background:#eef2f8;font-size:16px;font-weight:800}.money{font-weight:800}.yoy
 button{background:#65748b;color:#fff;border:0;border-radius:7px;padding:8px 13px;font-size:14px;cursor:pointer}
 .daily-detail{display:none}.daily-detail.open{display:table-row}.daily-inner{width:100%}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:900px){.two-col{grid-template-columns:1fr}}
+@media(max-width:900px){.admin-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-nav a{font-size:14px;padding:13px 8px}}
 </style>
 </head>
 <body><div class="wrap">
@@ -894,6 +895,7 @@ FEEDBACK_DASHBOARD_HTML = r"""
 .admin-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;width:100%;margin:24px 0 20px;border-bottom:2px solid #d8c49a}.admin-nav a{background:#fff;color:#263a70;border:1px solid #dfe4ed;border-bottom:0;padding:16px 22px;text-decoration:none;font-weight:800;font-size:17px;text-align:center;position:relative}.admin-nav a:first-child{border-radius:0 12px 0 0}.admin-nav a:last-child{border-radius:12px 0 0 0}.admin-nav a.active{background:#fff;color:#182033}.admin-nav a.active:after{content:'';position:absolute;right:12%;left:12%;bottom:-2px;height:4px;background:var(--gold);border-radius:4px 4px 0 0}.admin-nav a:hover{background:#fbf8f1}.unread-count{color:#b8892e;font-weight:900;margin-inline-start:5px}
 .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:22px}.summary .box{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 10px #0000000d}.summary strong{display:block;font-size:28px;color:var(--gold);margin-top:5px}
 .feedback-list{display:grid;gap:13px}.feedback-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 2px 10px #0000000d;border-right:4px solid var(--gold)}.feedback-card .top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.feedback-card h2{font-size:18px;margin:0}.date{direction:ltr;color:var(--muted);font-size:13px}.contacts{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 13px;color:var(--muted);font-size:14px}.contacts a{color:#263a70;text-decoration:none}.message{border-top:1px solid var(--line);padding-top:13px;white-space:pre-wrap;line-height:1.7}.empty{background:#fff;text-align:center;padding:45px;border-radius:12px;color:var(--muted)}
+@media(max-width:900px){.admin-nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.admin-nav a{font-size:14px;padding:13px 8px}.feedback-card .top{flex-direction:column;gap:5px}}
 </style></head>
 <body><div class="wrap">

@@ -58,7 +58,7 @@
                 <li><b>מחלקת טיסה:</b> {{ a.get('cabin_class') }}</li>
               {% endif %}
               {% if a.get('vacation_type') == 'ski' %}
-                {% if a.get('ski_resort_names') %}<li><b>אתר סקי:</b> {{ a.get('ski_resort_names')|join(', ') }}</li>{% endif %}
+                {% if a.get('ski_resort_names') %}<li><b>אתר סקי:</b> {{ (a.get('ski_resort_names_he') or a.get('ski_resort_names'))|join(', ') }}</li>{% endif %}
                 {% if a.get('ski_skill_level') %}<li><b>רמת סקי:</b> {{ a.get('ski_skill_level') }}</li>{% endif %}
                 {% if a.get('ski_transfer_choice') and a.get('ski_transfer_choice') != 'any' %}<li><b>העברה משדה התעופה:</b> {{ a.get('ski_transfer_choice') }}</li>{% endif %}
               {% endif %}

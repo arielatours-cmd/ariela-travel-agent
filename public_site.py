@@ -289,6 +289,13 @@ def _ski_months_for_request(date_mode, outbound_month="", return_month="", depar
     return values
 
 
+def _ski_resort_he_names(resort_names_en):
+    """Translate catalog resort names (English, used for offer matching in
+    _ski_row_for_offer) to Hebrew for customer-facing display only."""
+    by_en = {str(r.get("resort")): str(r.get("resort_he") or r.get("resort") or "") for r in _SKI_RESORTS}
+    return [by_en.get(n, n) for n in (resort_names_en or [])]
+
+
 def _ski_resorts_in_season(rows, months):
     if not months:
         return list(rows)
@@ -781,6 +788,7 @@ def _over_budget_alternatives(all_offers, trip, limit=3):
         copy = dict(offer)
         copy["customer_choice_label_he"] = "אפשרות שכדאי להכיר"
         copy["customer_choice_label_en"] = "An option worth seeing"
+        copy["request_missed_reasons"] = ["תקציב"]
         out.append(copy)
         seen.add(sig)
         if len(out) >= limit:
@@ -3139,6 +3147,7 @@ def ariella_start_flight_search():
         "notes": "Created from Ariella live conversation",
         "baggage": baggage,
         "ski_resort_names": ski_state.get("resort_names") or [],
+        "ski_resort_names_he": _ski_resort_he_names(ski_state.get("resort_names")),
         "ski_skill_level": ski_state.get("skill_level") or "",
         "ski_priorities": ski_state.get("priorities") or [],
         "ski_transfer_choice": ski_state.get("transfer_choice") or "any",
@@ -3183,7 +3192,7 @@ def ariella_start_flight_search():
     # the customer with no way to tell where they're going from the card
     # title alone.
     if vacation_type == "ski" and ski_state.get("resort_names"):
-        title = " • ".join(ski_state["resort_names"])
+        title = " • ".join(_ski_resort_he_names(ski_state["resort_names"]))
     else:
         title = " • ".join(places) if places else "אריאלה תבחר"
     travel_window = (dep + " – " + ret) if dep and ret else (period or month)
@@ -3563,6 +3572,12 @@ def _customer_scan_worker(trip_id: int, scan_answers: dict, mode: str = "initial
                 # as alternatives. This is display fallback only; it never pretends
                 # that the requested dates matched.
                 alternatives = _customer_alternative_choices(refreshed, trip, limit=5)
+                if not alternatives:
+                    # Every other requirement is met but the price is over the
+                    # customer's stated budget - still never leave them with
+                    # nothing: show it as a clearly-labelled, transparent
+                    # over-budget option rather than an empty vacation.
+                    alternatives = _over_budget_alternatives(refreshed, trip, limit=5)
                 if alternatives:
                     answers["_initial_exact_match_missing"] = True
                     answers["_showing_closest_matches"] = True
