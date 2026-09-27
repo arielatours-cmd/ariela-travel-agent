@@ -3943,6 +3943,30 @@ def stop_daily_search(trip_id):
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
+@site.post("/trip/<int:trip_id>/delete")
+@login_required
+def delete_trip(trip_id):
+    """Let a customer permanently remove one of their own vacations from the
+    account page. Until now there was no way to do this at all - only ever
+    adding vacations, never removing one - so old test/abandoned trips stayed
+    'active' in trip_requests forever, which could also make the duplicate-
+    active-trip guard (_find_duplicate_active_trip) match against them later.
+    Scoped strictly to trips owned by the logged-in member; a shared offers
+    row is only ever unlinked (trip_id cleared), never deleted, since other
+    customers' matches may still reference the same underlying flight."""
+    with _db() as conn:
+        owned = conn.execute(
+            "SELECT id FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+        if not owned:
+            return redirect(url_for("site.account"))
+        conn.execute("UPDATE offers SET trip_id=NULL WHERE trip_id=?", (trip_id,))
+        conn.execute("DELETE FROM trip_requests WHERE id=? AND member_id=?", (trip_id, session["member_id"]))
+        conn.commit()
+    return redirect(url_for("site.account"))
+
+
 @site.get("/trip/<int:trip_id>/checkout")
 @login_required
 def trip_checkout(trip_id):

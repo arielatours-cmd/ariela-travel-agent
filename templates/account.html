@@ -27,6 +27,9 @@
             <h2>{{ trip.destination_display or trip.request_name }}</h2>
             {% if trip.travel_window %}<p dir="ltr">{{ trip.travel_window|he_dates }}</p>{% endif %}
           </div>
+          <form method="post" action="{{ url_for('site.delete_trip', trip_id=trip.id) }}" class="vacation-delete-form" onsubmit="return confirm('למחוק את החופשה הזו לצמיתות? לא ניתן לשחזר.');">
+            <button type="submit" class="vacation-delete-btn" aria-label="מחיקת החופשה">מחיקת החופשה</button>
+          </form>
         </header>
 
         {% set a = trip.answers or {} %}
