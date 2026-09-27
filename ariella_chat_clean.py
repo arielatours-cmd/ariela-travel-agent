@@ -925,6 +925,41 @@ def _strip_garbled_lead_token(text):
     return text
 
 
+def _strip_mixed_script_garble(text):
+    """Deterministic safety net for a related model glitch, seen live: a
+    place name mid-sentence rendered with letters from multiple unrelated
+    scripts mixed together (e.g. "пlutвицα" instead of "Plitvice" - Cyrillic
+    п/в/и/ц and Greek α standing in for some of the Latin letters, not a
+    consistent transliteration so it can't be reconstructed reliably).
+    _strip_garbled_lead_token only catches this at the very start of a
+    reply and only for a Hebrew+Latin mix; this catches it anywhere in the
+    text and for any 2+ of Latin/Cyrillic/Greek in the same token. A real
+    word is written in one script (Hebrew text, or a Latin term/airport
+    code as its own single-script token) - it never mixes Latin, Cyrillic
+    and Greek letters together, so any token that does is never real
+    content and is dropped, same philosophy as the lead-token case."""
+    import re
+    text = str(text or "")
+
+    def _check(m):
+        tok = m.group(0)
+        core = re.sub(r"\W", "", tok, flags=re.UNICODE)
+        has_latin = bool(re.search(r"[A-Za-z]", core))
+        has_cyrillic = bool(re.search(r"[Ѐ-ӿ]", core))
+        has_greek = bool(re.search(r"[Ͱ-Ͽ]", core))
+        if sum((has_latin, has_cyrillic, has_greek)) >= 2:
+            return ""
+        return tok
+
+    cleaned = re.sub(r"\S+", _check, text)
+    if cleaned == text:
+        return text
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"[ \t]+([.,:;!?])", r"\1", cleaned)
+    cleaned = re.sub(r"(?m)^[ \t]+", "", cleaned)
+    return cleaned.strip()
+
+
 def _strip_leaked_internal_paragraph(text):
     """Deterministic safety net for a recurring model glitch, seen live:
     an occasional stray technical/self-talk sentence ("פורמט תאריך לא ידוע.
@@ -1132,6 +1167,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
     reply = _strip_garbled_lead_token(reply)
+    reply = _strip_mixed_script_garble(reply)
     reply = _strip_leaked_internal_paragraph(reply)
     return _strip_unconfirmed_airports(reply, state)
 
@@ -1651,6 +1687,39 @@ def _deterministic_open_jaw_airports(message):
         "return_departure_airports": [return_code],
         "open_jaw_requested": True,
     }
+
+
+def _deterministic_trip_planning_pace_facts(message, history):
+    """trip_planning.details.pace has no deterministic writer anywhere else -
+    only the LLM's own JSON extraction ever sets it, and when that silently
+    fails to persist a one-word answer, _session_gaps keeps re-flagging pace
+    as missing forever. Seen live: the customer answered "פעיל" (active) to
+    "יש לכם קצב מועדף?" and Ariella asked the exact same pace question again
+    on the very next turn, then again the turn after that - a genuine
+    infinite loop, never progressing to actually build the itinerary."""
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    active_words = ("פעיל", "אינטנסיבי", "המון תוכן", "יום מלא", "רצף פעיל", "כמה שיותר")
+    relaxed_words = ("רגוע", "נחים", "ימי מנוחה", "לאט", "רגועים")
+    pace = None
+    if any(w in msg for w in active_words):
+        pace = "active"
+    elif any(w in msg for w in relaxed_words):
+        pace = "relaxed"
+    if not pace:
+        return {}
+    # Only apply right after Ariella actually asked about pace, so an
+    # unrelated "פעיל"/"רגוע" mention elsewhere in the conversation is never
+    # misread as answering a question that was never asked this turn.
+    prior_assistant = ""
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+            prior_assistant = str(item.get("content") or "")
+            break
+    if "קצב" not in prior_assistant:
+        return {}
+    return {"trip_planning": {"details": {"pace": pace}}}
 
 
 def _deterministic_traveler_facts(message):
@@ -2261,6 +2330,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
         # a new plan or continuing the ski trip?") clears trip_type, but the
