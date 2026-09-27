@@ -68,30 +68,47 @@ def _he_dates(value):
     return re.sub(r"(\d{4})-(\d{2})-(\d{2})", _swap, text)
 
 
-# Matches the actual generated itinerary format ("יום 1 (ראשון) - ...",
-# "יום 2 (שני) - ..."), not a bare "יום ראשון" - that looser form also
-# matches a flight-approval summary stating the departure/return weekday
-# ("...27.06.2027 (יום ראשון) בבוקר, חזרה 01.07.2027 (יום חמישי)..."),
-# which has exactly two such mentions and was getting misidentified as a
-# 2-day itinerary because of it.
-_ITINERARY_DAY_MARKER = re.compile(r"יום\s+\d{1,2}\s*\(")
+# A day mention ("יום 1 (ראשון)", "יום ראשון", "יום שני:"...) counts as
+# itinerary shape UNLESS it's immediately preceded by a calendar date - that
+# specific pattern ("27.06.2027 (יום ראשון)") is how a flight-approval
+# summary states which weekday a date falls on, not a day-by-day plan. A
+# first attempt required the literal "יום <N> (" format, which correctly
+# rejected the flight summary but also rejected real itineraries the model
+# phrased slightly differently ("יום ראשון:", no leading number) - seen
+# live: that stricter check then found nothing at all and left the
+# מסלול/אטרקציות tab completely empty instead of wrong-but-present.
+_ITINERARY_DAY_MENTION = re.compile(
+    r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
+)
+_DATE_JUST_BEFORE = re.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+
+
+def _itinerary_day_mention_count(text):
+    text = str(text or "")
+    count = 0
+    for m in _ITINERARY_DAY_MENTION.finditer(text):
+        prefix = text[max(0, m.start() - 20):m.start()]
+        if _DATE_JUST_BEFORE.search(prefix):
+            continue
+        count += 1
+    return count
 
 
 def _most_recent_itinerary_shaped_message(history):
     """Fallback for when trip_planning.approved_text was never captured: find
     the most recent assistant message that actually LOOKS like a day-by-day
-    itinerary (2+ "יום <N> (<weekday>)" markers), not just the last assistant
-    message overall. A plain "not this one phrase" exclusion let later,
-    unrelated assistant text (most often the flight-approval/summary message)
-    get saved and shown as the vacation's route/attractions plan instead -
-    seen live more than once, with different intervening messages each time,
-    which is exactly why a shape check is needed instead of another
-    one-off exact-phrase exclusion."""
+    itinerary (2+ real day mentions, see _itinerary_day_mention_count), not
+    just the last assistant message overall. A plain "not this one phrase"
+    exclusion let later, unrelated assistant text (most often the
+    flight-approval/summary message) get saved and shown as the vacation's
+    route/attractions plan instead - seen live more than once, with
+    different intervening messages each time, which is exactly why a shape
+    check is needed instead of another one-off exact-phrase exclusion."""
     for item in reversed(history or []):
         if not isinstance(item, dict) or str(item.get("role") or "").lower() != "assistant":
             continue
         txt = str(item.get("content") or "").strip()
-        if txt and len(_ITINERARY_DAY_MARKER.findall(txt)) >= 2:
+        if txt and _itinerary_day_mention_count(txt) >= 2:
             return txt
     return ""
 

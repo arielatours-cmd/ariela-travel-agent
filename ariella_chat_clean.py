@@ -2287,13 +2287,31 @@ def chat_clean():
         # "יום <weekday>" markers) and prefer that; fall back to the
         # immediately-preceding message only if nothing matches that shape.
         import re as _re_itinerary
-        # Matches the actual generated itinerary format ("יום 1 (ראשון) - ...")
-        # rather than a bare "יום ראשון" - the looser form also matches a
-        # flight-approval summary stating the departure/return weekday
-        # ("...27.06.2027 (יום ראשון) בבוקר, חזרה 01.07.2027 (יום חמישי)..."),
-        # which has exactly two such mentions and was getting misidentified
-        # as a real 2-day itinerary because of it - seen live.
-        day_marker = _re_itinerary.compile(r"יום\s+\d{1,2}\s*\(")
+        # A day mention ("יום 1 (ראשון)", "יום ראשון", "יום שני:"...) counts
+        # as itinerary shape UNLESS it's immediately preceded by a calendar
+        # date - that specific pattern ("27.06.2027 (יום ראשון)") is how a
+        # flight-approval summary states which weekday a date falls on, not
+        # a day-by-day plan. A first attempt required the literal "יום <N> ("
+        # format, which correctly rejected the flight summary but also
+        # rejected real itineraries the model phrased slightly differently
+        # ("יום ראשון:", no leading number) - seen live: that stricter check
+        # then found nothing at all and left the מסלול/אטרקציות tab
+        # completely empty instead of wrong-but-present.
+        _day_mention_re = _re_itinerary.compile(
+            r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
+        )
+        _date_just_before_re = _re_itinerary.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+
+        def day_mention_count(text):
+            text = str(text or "")
+            count = 0
+            for m in _day_mention_re.finditer(text):
+                prefix = text[max(0, m.start() - 20):m.start()]
+                if _date_just_before_re.search(prefix):
+                    continue
+                count += 1
+            return count
+
         last_assistant_text = ""
         itinerary_shaped_text = ""
         for item in reversed(history or []):
@@ -2302,7 +2320,7 @@ def chat_clean():
             content = str(item.get("content") or "").strip()
             if not last_assistant_text:
                 last_assistant_text = content
-            if not itinerary_shaped_text and len(day_marker.findall(content)) >= 2:
+            if not itinerary_shaped_text and day_mention_count(content) >= 2:
                 itinerary_shaped_text = content
                 break
         last_assistant_text = itinerary_shaped_text or last_assistant_text
@@ -2332,7 +2350,7 @@ def chat_clean():
         # a full itinerary.
         planning_accept = planning_active and not already_approved and msg_confirm in {
             "כן","כן.","מעולה","מצוין","מצויין","אחלה","נשמע טוב","נשמע סבבה","סבבה","סבבה גמור","מתאים","מאשרת","מאשר"
-        } and len(day_marker.findall(prior_assistant)) >= 2
+        } and day_mention_count(prior_assistant) >= 2
         if planning_accept:
             statuses_plan = dict(trip_update.get("session_status") or {})
             statuses_plan["trip_planning"] = "complete"
