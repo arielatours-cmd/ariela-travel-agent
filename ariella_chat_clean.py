@@ -925,6 +925,32 @@ def _strip_garbled_lead_token(text):
     return text
 
 
+def _strip_leaked_internal_paragraph(text):
+    """Deterministic safety net for a recurring model glitch, seen live:
+    an occasional stray technical/self-talk sentence ("פורמט תאריך לא ידוע.
+    אנא נסה תבנית אחרת.") injected as the reply's own leading paragraph,
+    completely unrelated to what the customer actually asked, immediately
+    followed by the real, warm customer-facing reply as a second paragraph.
+    The prompt already says Ariella must never surface system/technical
+    wording ("noted", "saved" etc.) - this is the same failure in spirit,
+    just a full sentence instead of one English word, so it needs the same
+    kind of deterministic net rather than trusting the instruction alone.
+    Only strips when there is a clear paragraph break AND the leading
+    paragraph contains an unambiguous technical/meta marker, so an ordinary
+    short opening line is never touched."""
+    import re
+    parts = re.split(r'\n\s*\n', str(text or ""), maxsplit=1)
+    if len(parts) != 2:
+        return text
+    lead, rest = parts[0].strip(), parts[1].strip()
+    if not lead or len(rest) < 10:
+        return text
+    meta_markers = ("פורמט", "תבנית", "שגיאה", "error", "exception")
+    if not any(m in lead for m in meta_markers):
+        return text
+    return rest
+
+
 def _fix_child_gender_wording(text, state):
     """Deterministic safety net, same philosophy as the two helpers above: a
     prompt instruction alone did not reliably stop the model from inventing a
@@ -1106,6 +1132,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
     reply = _strip_garbled_lead_token(reply)
+    reply = _strip_leaked_internal_paragraph(reply)
     return _strip_unconfirmed_airports(reply, state)
 
 
