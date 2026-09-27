@@ -2910,7 +2910,13 @@ def _find_duplicate_active_trip(member_id, departure_airport, destination_codes,
     """A customer must not be able to farm repeated free scans by re-approving
     the same route/dates in a new conversation. If they already have an active
     vacation for this exact origin+destination+dates, reuse it instead of
-    opening (and free-scanning) a brand new trip_requests row."""
+    opening (and free-scanning) a brand new trip_requests row.
+
+    Toggled off via /admin/toggle-duplicate-guard for repeated manual testing
+    of the exact same route/dates - re-enable it before real customers use
+    the site, since it's the anti-abuse guard against free-scan farming."""
+    if str(get_setting("duplicate_trip_guard_disabled", "0") or "0") == "1":
+        return None
     dest_set = frozenset(x for x in (destination_codes or []) if x)
     if not dest_set:
         return None

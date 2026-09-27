@@ -182,6 +182,21 @@ def toggle_test_mode():
     return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
 
 
+@app.post("/admin/toggle-duplicate-guard")
+def toggle_duplicate_guard():
+    """Temporarily disable the anti-abuse duplicate-active-trip guard
+    (public_site._find_duplicate_active_trip) so the same route/dates can be
+    re-approved repeatedly while manually testing. Re-enable before real
+    customers use the site."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    current = str(get_setting("duplicate_trip_guard_disabled", "0") or "0") == "1"
+    set_setting("duplicate_trip_guard_disabled", "0" if current else "1")
+    supplied = request.args.get("token") or ""
+    return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
+
+
 @app.post("/admin/confirm-payment")
 def admin_confirm_payment():
     """Manual stand-in for a payment processor's success webhook. Until a real
@@ -215,6 +230,7 @@ def admin_dashboard():
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=recent_offers(500),
         scans=recent_scan_runs(20), feedback_count=unread_feedback_count(),
         test_mode=str(get_setting("qa_test_mode", "0") or "0") == "1",
+        duplicate_guard_disabled=str(get_setting("duplicate_trip_guard_disabled", "0") or "0") == "1",
         token=request.args.get("token", ""),
     )
 
@@ -229,6 +245,7 @@ def admin_scans():
         stats=dashboard_stats(MIN_DEAL_SCORE), offers=[],
         scans=recent_scan_runs(100), feedback_count=unread_feedback_count(),
         test_mode=str(get_setting("qa_test_mode", "0") or "0") == "1",
+        duplicate_guard_disabled=str(get_setting("duplicate_trip_guard_disabled", "0") or "0") == "1",
         token=request.args.get("token", ""), page="scans",
     )
 

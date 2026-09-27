@@ -322,6 +322,14 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     </button>
   </form>
 </div>
+<div class="qa-test-mode {% if duplicate_guard_disabled %}active{% endif %}">
+  <strong>הגנת חיפוש כפול: {{ 'כבויה — אפשר לאשר שוב אותו יעד/תאריכים' if duplicate_guard_disabled else 'פעילה' }}</strong>
+  <form method="post" action="/admin/toggle-duplicate-guard{% if token %}?token={{ token }}{% endif %}">
+    <button type="submit" class="{{ 'secondary' if duplicate_guard_disabled else '' }}">
+      {{ 'הפעל בחזרה את ההגנה' if duplicate_guard_disabled else 'כבה זמנית לבדיקות' }}
+    </button>
+  </form>
+</div>
 <form method="post" action="/admin/clear-test-vacations{% if token %}?token={{ token }}{% endif %}" onsubmit="return confirm('למחוק את כל חופשות הבדיקה? הדילים הכלליים והסריקות יישארו.');" style="margin:10px 0 14px">
   <input type="hidden" name="token" value="{{ token }}">
   <button type="submit" class="secondary">נקה חופשות בדיקה</button>
@@ -746,7 +754,7 @@ refreshOfferAges();
 """
 
 
-def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_count=0, analytics=None, test_mode=False, token="", page="deals"):
+def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_count=0, analytics=None, test_mode=False, duplicate_guard_disabled=False, token="", page="deals"):
     offers = sorted(
         offers,
         key=lambda offer: float(offer.get("score") or 0),
@@ -763,6 +771,8 @@ def render_dashboard(*, version, minimum_score, stats, offers, scans, feedback_c
         scans=scans,
         feedback_count=feedback_count,
         analytics=analytics or {'overview':{},'monthly':[],'daily_by_month':{},'annual':[],'tracking_started_note':''},
+        test_mode=test_mode,
+        duplicate_guard_disabled=duplicate_guard_disabled,
         token=token,
         page=page,
     )
