@@ -93,6 +93,8 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - יעד גאוגרפי ושדה תעופה יעד הם שני נתונים נפרדים. אזור אינו מידע חובה. אם הלקוח כתב מדינה או יעד רחב שיכולים להתאים ליותר משדה תעופה אחד (למשל: קפריסין - לרנקה/פאפוס; איטליה - רומא/מילאנו; ספרד - ברצלונה/מדריד; גרמניה - ברלין/מינכן; פולין - קרקוב/ורשה), אל תשאלי קודם "איזה אזור?" רק כדי להשלים מידע ואל תבחרי שדה אחד בעצמך. במקום זה, בשאלה אחת: הציגי בקצרה את שדות התעופה/ערי השער הרלוונטיים, **וגם** ציינו את האפשרות לבקש קודם בניית מסלול (ואז שדה/שדות היעד ייגזרו ממנו) - כדי שהלקוח יידע משתי האפשרויות ולא ייתקע בשלב האישור בלי לדעת שהיה יכול לבקש את זה קודם.
 - גם עיר בודדת (לא רק מדינה/אזור רחב) יכולה להיות משורתת על ידי כמה שדות תעופה אמיתיים (למשל ניו יורק, פריז, לונדון, טוקיו, איסטנבול). כשזה המקרה, מידע מאומת על השדות והשמות שלהם יימסר לך למטה כ"היעד מתאים ליותר משדה תעופה אמיתי אחד" - השתמשי אך ורק ברשימה הזו, אל תוסיפי שדה משלך מהידע הכללי שלך, גם אם הוא נכון במציאות: אם השדה לא ברשימה שקיבלת, אל תזכירי אותו בכלל.
 - לדוגמה "צפון איטליה" אינו "רומא". יש להתייחס אליו כאזור באיטליה ולהשלים שדה/שדות יעד צפוניים מתאימים לפני סיכום הטיסה.
+- אם הלקוח כבר ביקש תכנון מסלול (trip_planning מבוקש), אל תציעי לו "לבנות קודם מסלול" כאופציה ואל תשאלי אם הוא רוצה מסלול - הוא כבר ביקש. המשיכי את המסלול מהנקודה שבה עצר, ושדה/שדות הכניסה ייגזרו ממנו.
+- "אין העדפה", "לא משנה", "שניהם", "גם וגם" כתשובה לשאלה על שדה נחיתה פירושם כל השדות שהצעת - שמרי את כולם ב-destination_airports, ואל תשאלי שוב.
 - אם הלקוח בוחר כמה שדות או "כולם", שמרי את כולם ב-destination_airports וסרקי טיסות לכל השדות שנבחרו יחד, כדי שהלקוח יוכל להשוות מחירים/שעות אמיתיים בעצמו. אם הוא מבקש קודם מסלול, אל תאשרי חיפוש טיסה עד שהמסלול קבע gateway מתאים.
 - לפני שמציעים שדה תעופה כאופציה ליעד מסוים, ודאי שהוא באמת באותה מדינה שהלקוח ביקש. אם ההצעה היחידה הסבירה היא שדה במדינה שכנה (למשל זאגרב בקרואטיה עבור יעד בסלובניה), חובה לציין זאת במפורש ולתת ללקוח לבחור מדעת, ולא להציג אותו כאילו הוא בתוך היעד המבוקש.
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
@@ -1734,6 +1736,40 @@ def _infer_standard_trip_type(state, message, history):
     return {}
 
 
+def _deterministic_airport_indifference(message, history, state):
+    """Seen live: Ariella asked "land around Split or Dubrovnik?", the
+    customer answered that they had no preference, and nothing was saved -
+    so destination_airports stayed empty and the flight summary later asked
+    all over again (offering "build the route first?" to a customer who had
+    asked for a route in their very first message). An indifferent answer to
+    an airport question means every airport that question offered."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    if state.get("destination_airports"):
+        return {}
+    msg = str(message or "").strip()
+    indifferent = ("אין העדפה", "אין לי העדפה", "לא משנה", "לא אכפת", "שניהם", "שתיהן", "גם וגם", "כולם", "כל אחד מהם", "מה שזול")
+    if not msg or len(msg) > 60 or not any(p in msg for p in indifferent):
+        return {}
+    prior_assistant = ""
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+            prior_assistant = str(item.get("content") or "")
+            break
+    if not prior_assistant or not re.search(r"לנחות|נחיתה|שדה|שדות|כניסה", prior_assistant):
+        return {}
+    codes = []
+    for airport in _load_airports():
+        city = str(airport.get("city_he") or "").strip()
+        code = str(airport.get("code") or "").upper()
+        if city and code and re.search(r"(?<![א-ת])(?:ו|ב|ל|מ|וב|ול|ומ)?" + re.escape(city) + r"(?![א-ת])", prior_assistant):
+            if code not in codes:
+                codes.append(code)
+    if len(codes) < 2:
+        return {}
+    return {"destination_airports": codes}
+
+
 def _deterministic_open_jaw_airports(message):
     """Capture an explicit open-jaw answer ("לנחות בפאפוס ולחזור מלרנקה")
     deterministically instead of trusting the extractor to split it into
@@ -2435,6 +2471,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
