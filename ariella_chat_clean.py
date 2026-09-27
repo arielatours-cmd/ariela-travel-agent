@@ -2151,6 +2151,19 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
+        # A "new vacation" reset (e.g. the customer replying "new" to "is this
+        # a new plan or continuing the ski trip?") clears trip_type, but the
+        # message that actually triggered the reset often already named the
+        # trip type ("let's ALSO plan a family vacation") - seen live: the
+        # customer got asked "regular/business/ski?" again right after saying
+        # "family vacation", which reasonably felt like Ariella not listening.
+        # Only the single most recent prior user message is checked, mirroring
+        # how the explicit reset-gate flow above scopes reset_change_request.
+        if not trip_update.get("trip_type"):
+            for _item in reversed(history or []):
+                if isinstance(_item, dict) and str(_item.get("role") or "").lower() == "user":
+                    trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(_item.get("content")))
+                    break
         trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range
