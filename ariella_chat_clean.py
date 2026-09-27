@@ -1604,6 +1604,55 @@ def _deterministic_trip_type_facts(message):
     return {}
 
 
+def _deterministic_open_jaw_airports(message):
+    """Capture an explicit open-jaw answer ("לנחות בפאפוס ולחזור מלרנקה")
+    deterministically instead of trusting the extractor to split it into
+    destination_airports (arrival) vs return_departure_airports (return)
+    correctly on its own. Seen live: exactly this answer to Ariella's own
+    open-jaw question got both airports merged into destination_airports
+    (as if it were a 2-city trip) instead of split - the vacation title
+    showed both cities and the scan searched an ordinary round trip to only
+    one of them, silently dropping the open-jaw request the customer had
+    just explicitly confirmed."""
+    import re
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    # Single Hebrew word only - a greedy multi-word capture bled across the
+    # rest of the sentence with nothing to stop it at the real city-name
+    # boundary (e.g. captured "פאפוס ולחזור מלרנקה" as one "city name"),
+    # which then spuriously matched multiple airports in the lookup below.
+    # Every airport this needs to resolve today has a single-word Hebrew
+    # city name, so this trades rare multi-word names for correctness on
+    # the common case instead of guessing where to stop.
+    arrival_match = re.search(r"לנחות\s+ב([א-ת]+)", msg)
+    return_match = re.search(r"לחזור\s+מ([א-ת]+)", msg)
+    if not arrival_match or not return_match:
+        return {}
+    airports = _load_airports()
+
+    def find_code(name):
+        needle = str(name or "").strip().lower()
+        if not needle:
+            return None
+        for airport in airports:
+            for key in ("city_he", "city_en"):
+                hay = str(airport.get(key) or "").strip().lower()
+                if hay and (needle in hay or hay in needle):
+                    return str(airport.get("code") or "").upper()
+        return None
+
+    arrival_code = find_code(arrival_match.group(1))
+    return_code = find_code(return_match.group(1))
+    if not arrival_code or not return_code or arrival_code == return_code:
+        return {}
+    return {
+        "destination_airports": [arrival_code],
+        "return_departure_airports": [return_code],
+        "open_jaw_requested": True,
+    }
+
+
 def _deterministic_traveler_facts(message):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
     import re
@@ -2211,6 +2260,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
         # a new plan or continuing the ski trip?") clears trip_type, but the
