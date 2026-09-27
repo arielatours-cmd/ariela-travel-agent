@@ -1693,12 +1693,14 @@ def _deterministic_trip_type_facts(message):
 
 def _infer_standard_trip_type(state, message, history):
     """Seen live: after the whole route and the flights were already worked
-    out for "a couple with 2 kids, a trip full of lakes and streams, a
-    beach day", the flights gap check still asked "regular vacation,
-    business trip, or ski?" - because the customer never said the literal
-    word "רגילה" and the extractor is told never to infer trip_type. Obvious
-    context settles it: children or a leisure itinerary rule out business,
-    and with no snow/ski mentioned anywhere it isn't a ski trip either."""
+    out for a customer who opened with "I want to plan a route in Croatia",
+    the flights gap check still asked "regular vacation, business trip, or
+    ski?" - the customer never said the literal word "רגילה" and the
+    extractor is told never to infer trip_type. Asking for a route,
+    attractions or places to go out is itself the answer: business and ski
+    trips don't get an itinerary (see TINKERBELL_SYSTEM). Children alone are
+    NOT evidence - families go on ski trips too - and a customer who only
+    asked for flights/lodging/car still gets the question."""
     import re
     state = state if isinstance(state, dict) else {}
     if state.get("trip_type"):
@@ -1717,21 +1719,15 @@ def _infer_standard_trip_type(state, message, history):
     ski_state = state.get("ski") if isinstance(state.get("ski"), dict) else {}
     if any(v for v in ski_state.values()):
         return {}
-    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
-    try:
-        has_children = int(travelers.get("children") or 0) > 0
-    except (TypeError, ValueError):
-        has_children = False
-    has_children = has_children or bool(travelers.get("child_ages"))
     decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
     planning = decisions.get("trip_planning")
     wants_planning = (planning.get("wanted") if isinstance(planning, dict) else planning) is True
-    leisure_words = (
-        "מסלול", "אטרקציות", "טיול", "חופשה", "נופש", "אגמים", "נחלים", "חוף", "ים",
-        "משפחה", "משפחתי", "ילדים", "טבע", "פארק", "בטן גב", "ירח דבש",
+    itinerary_words = (
+        "מסלול", "אטרקציות", "אטרקציה", "מקומות בילוי", "בילוי", "בילויים", "לבלות",
+        "תכנון טיול", "לתכנן טיול", "לטייל", "סיור", "סיורים", "מה לעשות", "מה לראות", "itinerary", "attractions",
     )
-    has_leisure = any(re.search(r"(?<![א-ת])(?:ו|ה|ב|ל|וה|וב|ול)?" + re.escape(w) + r"(?![א-ת])", blob) for w in leisure_words)
-    if has_children or wants_planning or has_leisure:
+    has_itinerary = any(re.search(r"(?<![א-ת])(?:ו|ה|ב|ל|וה|וב|ול)?" + re.escape(w) + r"(?![א-ת])", blob) for w in itinerary_words)
+    if wants_planning or has_itinerary:
         return {"trip_type": "standard"}
     return {}
 
