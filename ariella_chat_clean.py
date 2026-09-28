@@ -112,6 +112,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בביטוי יחסי כמו "סוף יוני" יחד עם ימי שבוע/משך, אל תבחרי תאריך אחד בשם הלקוח. אם יש שתי אפשרויות סבירות סמוכות, הציגי את שתיהן ושאלי איזו עדיפה. רק אחרי בחירת הלקוח יש תאריכי יציאה וחזרה סופיים.
 - כשdates.candidate_ranges במצב החופשה המצטבר כבר מכיל תאריכים (מחושבים דטרמיניסטית, לא על ידך), חובה להציג ללקוח בדיוק את התאריכים האלה, מילה במילה, ולעולם לא לחשב או לנחש תאריכים אחרים בעצמך - גם אם הם נראים לך "מתאימים יותר". אל תמציאי טווח שאינו ברשימת candidate_ranges.
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
+- לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו תאריכים בתוך אותו חודש בלבד - לעולם אל תציעי טווח שחורג לחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
@@ -1648,26 +1649,68 @@ def _deterministic_service_decline_facts(history, message):
     }
 
 
-def _deterministic_period_facts(message):
-    """Parse weekday/month windows; ambiguous end-of-month requests require customer choice."""
+def _deterministic_period_facts(message, history=None):
+    """Parse weekday/month windows ("סוף יוני, ראשון עד חמישי") into exact
+    candidate ranges, so Ariella never computes calendar dates herself.
+
+    Seen live: the customer wrote "סוף יוני" in one message and "ראשון עד
+    חמישי" in the next. This used to require both in the SAME message, so no
+    candidates were computed and the model invented its own: 28.6-2.7 and
+    5.7-9.7 - Sunday-Thursday in the already-past 2026 calendar (Monday-Friday
+    in 2027), the second one entirely in July. The month/part-of-month and
+    the weekday pair may now come from the current message or the customer's
+    recent messages, and a part-of-month window never spills into another
+    month ("end of June" never offers a range ending in July)."""
     import re, calendar
-    msg=str(message or "").strip().lower()
     months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
     weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
-    month_name=next((name for name in months if name in msg),None); month=months.get(month_name) if month_name else None
-    pair=re.search(r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\s*(?:עד|[-–])\s*(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)",msg)
+    day_alt="ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת"
+    msg=str(message or "").strip().lower()
+    recent=[msg]+[str(x.get("content") or "").strip().lower() for x in reversed(history or [])
+                  if isinstance(x,dict) and str(x.get("role") or "").lower()=="user"][:6]
+
+    def find_month(text):
+        # Whole word only (optionally ב/ל/מ/ו-prefixed): "מאיזה"/"מאיפה" are not May.
+        for name,num in months.items():
+            if re.search(r"(?<![\u05d0-\u05ea])(?:ב|ל|מ|ו|וב|ול|ומ)?"+name+r"(?![\u05d0-\u05ea])",text):
+                return name,num
+        return None,None
+
+    def find_pair(text):
+        return re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?("+day_alt+r")\s*(?:עד|[-–])\s*(?:יום\s+)?("+day_alt+r")(?![\u05d0-\u05ea])",text)
+
+    month_name,month=find_month(msg); pair=find_pair(msg)
+    # Only complete a fact from recent messages when the current message
+    # itself contributes one of the two - never re-fire on unrelated turns.
+    if not (month or pair):return {}
+    month_text=msg if month else None
+    if not month:
+        for t in recent[1:]:
+            month_name,month=find_month(t)
+            if month:month_text=t;break
+    if not pair:
+        for t in recent[1:]:
+            pair=find_pair(t)
+            if pair:break
     if not month or not pair:return {}
     today=date.today(); year=today.year+(1 if month<today.month else 0)
     start_wd,end_wd=weekdays[pair.group(1)],weekdays[pair.group(2)]; delta=(end_wd-start_wd)%7
-    if "סוף" in msg:
-        last=calendar.monthrange(year,month)[1]; candidates=[]
-        for day in range(max(1,last-14),last+1):
+    last=calendar.monthrange(year,month)[1]
+    part=None
+    for word,key in (("סוף","end"),("תחילת","start"),("בתחילת","start"),("אמצע","mid")):
+        if word in month_text:part=key;break
+    if part:
+        window={"end":(last-13,last),"start":(1,14),"mid":(8,22)}[part]
+        candidates=[]
+        for day in range(max(1,window[0]),window[1]+1):
             d=date(year,month,day)
-            if d.weekday()==start_wd:candidates.append((d,d+timedelta(days=delta)))
-        candidates=candidates[-2:]
+            if d.weekday()==start_wd and d>today and (d+timedelta(days=delta)).month==month:
+                candidates.append((d,d+timedelta(days=delta)))
+        candidates=candidates[-2:] if part=="end" else candidates[:2]
         labels=[f"{x.strftime('%d.%m.%Y')}–{y.strftime('%d.%m.%Y')}" for x,y in candidates]
-        return {"dates":{"departure":None,"return":None,"period":f"סוף {month_name} {year}, {pair.group(1)} עד {pair.group(2)}","constraints":[f"{pair.group(1)} עד {pair.group(2)}"],"candidate_ranges":labels,"needs_confirmation":True}}
-    after=re.search(r"אחרי\s+(?:ה[- ]?)?(\d{1,2})",msg)
+        part_he={"end":"סוף","start":"תחילת","mid":"אמצע"}[part]
+        return {"dates":{"departure":None,"return":None,"period":f"{part_he} {month_name} {year}, {pair.group(1)} עד {pair.group(2)}","constraints":[f"{pair.group(1)} עד {pair.group(2)}"],"candidate_ranges":labels,"needs_confirmation":True}}
+    after=re.search(r"אחרי\s+(?:ה[- ]?)?(\d{1,2})",month_text or msg)
     # Without an anchor day ("אחרי ה-15") the month has 4-5 such weeks - that
     # is a choice for the customer, never the first week picked for her.
     if not after:return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} ב{month_name} {year}"}}
@@ -2718,7 +2761,7 @@ def chat_clean():
         # open - never reopens dates the customer already closed (mid-route
         # "סוף מאי, ראשון עד חמישי" is context, not a new request).
         if not (prior_dates.get("departure") and prior_dates.get("return")):
-            trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message))
+            trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history))
 
         # A normal trip request to a destination implies Ariella should handle
         # flights unless the customer explicitly says flights are booked/not needed.
