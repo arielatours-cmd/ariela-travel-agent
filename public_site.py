@@ -2095,7 +2095,13 @@ def inject_site_context():
         lang = "he"
         session["lang"] = "he"
 
-    return {"current_member": _current_member(), "site_lang": lang}
+    # The chat's "reset conversation" button is a QA tool, shown only while
+    # test mode is on in the admin dashboard - never to real customers.
+    try:
+        qa_test_mode = str(get_setting("qa_test_mode", "0") or "0") == "1"
+    except Exception:
+        qa_test_mode = False
+    return {"current_member": _current_member(), "site_lang": lang, "qa_test_mode": qa_test_mode}
 
 
 def _lang():
@@ -3317,6 +3323,10 @@ def ariella_start_flight_search():
         "car_return": car_details.get("return") or "",
         "_requested_services": sorted(services),
         "_session_status": state.get("session_status") if isinstance(state.get("session_status"), dict) else {},
+        # The approved conversation facts, so a customer who comes back later
+        # to add lodging/car/route to THIS vacation continues from exactly what
+        # was agreed instead of being asked destination/dates/travelers again.
+        "_ariella_trip_state": {k: v for k, v in state.items() if k not in ("profile", "missing_required")},
     }
     # A route/itinerary conversation that happened and was approved BEFORE the
     # customer approved the flight search (a natural order - "let's plan the
@@ -3457,7 +3467,10 @@ def trip_waiting(trip_id):
     # for one at all, not even a dimmed "skipped" one.
     vacation_type = _trip_dict(row).get("answers", {}).get("vacation_type")
     show_plan_stage = vacation_type not in ("business", "ski")
-    return render_template("trip_waiting.html", trip_id=trip_id, show_plan_stage=show_plan_stage)
+    # ?reopen=1: the customer came back to add lodging/car/route to an
+    # already-searched vacation - the flight stage is not part of this visit.
+    hide_flight_stage = request.args.get("reopen") == "1"
+    return render_template("trip_waiting.html", trip_id=trip_id, show_plan_stage=show_plan_stage, hide_flight_stage=hide_flight_stage)
 
 
 @site.get("/trip/<int:trip_id>/flight-status")

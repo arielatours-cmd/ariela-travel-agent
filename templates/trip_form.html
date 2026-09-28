@@ -6,7 +6,7 @@
     <header class="ariella-chat-header">
       <img class="ariella-chat-avatar" src="{{ url_for('static', filename='ariella-avatar-approved.jpg') }}" alt="אריאלה">
       <div><h1>{{ 'Ariella — My Travel Agent' if site_lang == 'en' else 'אריאלה - סוכנת הנסיעות שלי' }}</h1><span>{{ 'Online' if site_lang == 'en' else 'כאן בשבילך' }}</span></div>
-      <button type="button" id="ariellaResetChatBtn" class="ariella-reset-chat-btn" title="{{ 'Permanently reset this chat' if site_lang == 'en' else 'איפוס מוחלט של השיחה' }}">{{ 'Reset chat' if site_lang == 'en' else 'איפוס שיחה' }}</button>
+{% if qa_test_mode %}<button type="button" id="ariellaResetChatBtn" class="ariella-reset-chat-btn" title="{{ 'Permanently reset this chat' if site_lang == 'en' else 'איפוס מוחלט של השיחה' }}">{{ 'Reset chat' if site_lang == 'en' else 'איפוס שיחה' }}</button>{% endif %}
     </header>
     <main class="ariella-chat-messages" id="ariellaNewChatMessages" aria-live="polite"></main>
     <form class="ariella-chat-compose" id="ariellaNewChatForm" autocomplete="off">
@@ -36,6 +36,7 @@
   const continueTripKey='ariellaContinueTrip:v12'+acctSuffix;
   const tripIdKey='ariellaActiveTripId:v12'+acctSuffix;
   const savedDomainsKey='ariellaSavedDomains:v1'+acctSuffix;
+  const reopenedKey='ariellaReopenedTrip:v1'+acctSuffix;
   const SAVE_ENDPOINTS={lodging:'/api/ariella/save-trip-lodging',car:'/api/ariella/save-trip-car',trip_planning:'/api/ariella/save-trip-plan'};
   function savedDomains(){try{return JSON.parse(localStorage.getItem(savedDomainsKey)||'{}')||{};}catch(e){return {};}}
   function markSaved(domain){const d=savedDomains();d[domain]=true;try{localStorage.setItem(savedDomainsKey,JSON.stringify(d));}catch(e){}}
@@ -256,6 +257,7 @@
       // Captured before any reset below clears it: the vacation whose flight
       // scan is already running, if this conversation is past approval.
       const postFlightTripId=Number(localStorage.getItem(tripIdKey)||0);
+      const postFlightReopened=localStorage.getItem(reopenedKey)==='1';
       if(data.trip_state_reset===true){
         // A new vacation is a hard structured-state boundary. Visible chat may
         // remain for the customer, but no prior vacation id/commit/state is allowed
@@ -264,6 +266,7 @@
         localStorage.removeItem(committedKey);
         localStorage.removeItem(continueTripKey);
         localStorage.removeItem(tripIdKey);
+        localStorage.removeItem(reopenedKey);
         // The reset reply may intentionally carry seed facts from the message
         // that requested the new vacation (e.g. destination=Greece). Persist
         // only that fresh state; never discard it and never retain old dates.
@@ -273,6 +276,16 @@
         localStorage.setItem(contextStartKey,String(history.length));
       }else if(data.trip_update&&typeof data.trip_update==='object'){
         localStorage.setItem(stateKey,JSON.stringify(data.trip_update));
+      }
+      if(data.reopen_trip_id){
+        // Continuing an already-approved vacation to add lodging/car/route:
+        // everything settled from here attaches to that same vacation.
+        try{
+          localStorage.setItem(tripIdKey,String(data.reopen_trip_id));
+          localStorage.removeItem(savedDomainsKey);
+          localStorage.setItem(committedKey,'1');
+          localStorage.setItem(reopenedKey,'1');
+        }catch(e){}
       }
       let savedPlanTripId=0;
       if(data.persist_trip_plan===true){
@@ -388,9 +401,12 @@
         const finished=await syncPostFlight(postFlightTripId,ts,convo);
         if(finished){
           history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
-          try{localStorage.removeItem(tripIdKey);localStorage.removeItem(savedDomainsKey);localStorage.setItem(committedKey,'1');}catch(e){}
+          const reopened=postFlightReopened;
+          try{localStorage.removeItem(tripIdKey);localStorage.removeItem(savedDomainsKey);localStorage.removeItem(reopenedKey);localStorage.setItem(committedKey,'1');}catch(e){}
           await new Promise(resolve=>setTimeout(resolve,2500));
-          location.href='/trip/'+postFlightTripId+'/waiting';return;
+          // A return visit only added services - the flights were handled
+          // before, so the waiting page shows just what was asked for now.
+          location.href='/trip/'+postFlightTripId+'/waiting'+(reopened?'?reopen=1':'');return;
         }
       }
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
