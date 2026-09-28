@@ -112,7 +112,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בביטוי יחסי כמו "סוף יוני" יחד עם ימי שבוע/משך, אל תבחרי תאריך אחד בשם הלקוח. אם יש שתי אפשרויות סבירות סמוכות, הציגי את שתיהן ושאלי איזו עדיפה. רק אחרי בחירת הלקוח יש תאריכי יציאה וחזרה סופיים.
 - כשdates.candidate_ranges במצב החופשה המצטבר כבר מכיל תאריכים (מחושבים דטרמיניסטית, לא על ידך), חובה להציג ללקוח בדיוק את התאריכים האלה, מילה במילה, ולעולם לא לחשב או לנחש תאריכים אחרים בעצמך - גם אם הם נראים לך "מתאימים יותר". אל תמציאי טווח שאינו ברשימת candidate_ranges.
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
-- לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו תאריכים בתוך אותו חודש בלבד - לעולם אל תציעי טווח שחורג לחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה.
+- לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו שתאריך היציאה בתוך אותו חודש (החזרה יכולה להיות בחודש הבא) - לעולם אל תציעי טווח שהיציאה בו בחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
@@ -294,9 +294,14 @@ def _weekday_pair_conflict(text, history):
             target = names.index(want)
             before = dt - timedelta(days=(dt.weekday() - target) % 7)
             after = dt + timedelta(days=(target - dt.weekday()) % 7)
+            # Suggest only dates in the same month the customer typed - never
+            # jump to the next month for them (end of June -> not 4.7).
+            options = [x for x in (before, after) if x.month == dt.month and x >= today]
+            if not options:
+                options = [before]
+            options_text = " או ".join(f"ליום {want} {x.strftime('%d.%m.%Y')}" for x in options)
             return (f"רק לוודא — {dt.strftime('%d.%m.%Y')} יוצא ביום {actual}, וביקשת {pair.group(1)} עד {pair.group(2)}. "
-                    f"התכוונת ליום {want} {before.strftime('%d.%m.%Y')} או ליום {want} {after.strftime('%d.%m.%Y')}? "
-                    f"או שנשנה את ימי הנסיעה?")
+                    f"התכוונת {options_text}? או שנשנה את ימי הנסיעה?")
     return None
 
 
@@ -1708,8 +1713,10 @@ def _deterministic_period_facts(message, history=None):
     5.7-9.7 - Sunday-Thursday in the already-past 2026 calendar (Monday-Friday
     in 2027), the second one entirely in July. The month/part-of-month and
     the weekday pair may now come from the current message or the customer's
-    recent messages, and a part-of-month window never spills into another
-    month ("end of June" never offers a range ending in July)."""
+    recent messages. Per product owner: a range whose DEPARTURE is inside the
+    requested part of the month is offered even if the return falls in the
+    next month (end of June -> 27.6-1.7 is fine), but a range departing in
+    the next month never is (5.7-9.7 for "end of June")."""
     import re, calendar
     months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
     weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
@@ -1753,7 +1760,7 @@ def _deterministic_period_facts(message, history=None):
         candidates=[]
         for day in range(max(1,window[0]),window[1]+1):
             d=date(year,month,day)
-            if d.weekday()==start_wd and d>today and (d+timedelta(days=delta)).month==month:
+            if d.weekday()==start_wd and d>today:
                 candidates.append((d,d+timedelta(days=delta)))
         candidates=candidates[-2:] if part=="end" else candidates[:2]
         labels=[f"{x.strftime('%d.%m.%Y')}–{y.strftime('%d.%m.%Y')}" for x,y in candidates]
