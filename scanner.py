@@ -1538,6 +1538,10 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                 key = _coverage_key(job)
                 coverage_errors[key] += 1
                 messages.append(f"{job['departure']}-{job['arrival']}: {exc}")
+                # Also to the server log (searchable in Render as
+                # "CUSTOMER-SCAN-ERROR") - until now a failed customer scan
+                # was recorded only in the database, invisible in the logs.
+                print(f"[CUSTOMER-SCAN-ERROR] trip={trip_id} run={run_id} {job['departure']}-{job['arrival']} {job.get('outbound')}..{job.get('return')}: {exc}", flush=True)
             finally:
                 api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 update_scan_progress(run_id, completed, offers_found, errors, api_requests)
