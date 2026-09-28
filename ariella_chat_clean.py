@@ -2216,36 +2216,62 @@ def _is_itinerary_acceptance(message):
     return any(re.search(r"(?<![\u05d0-\u05ea])" + re.escape(p) + r"(?![\u05d0-\u05ea])", msg) for p in positives)
 
 
-def _post_flight_offer_answer(message, state):
+_POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
+
+
+def _post_flight_offer_answer(message, state, key=None, model=None, history=None):
     """The customer's answer to "the flights are being scanned - want help
     with lodging, car or route too?" (asked right after flight approval).
-    Returns {service: wanted_bool} for every offered service, or {} when the
-    answer isn't clear enough to decide deterministically (the model then
-    handles it). "לא"/"לא עכשיו"/"זהו" declines all of them; naming services
-    ("כן, לינה ומסלול") wants those and declines the rest; a bare "כן"/"הכל"
-    wants all of them."""
+    Returns {service: wanted_bool} for each offered service the answer
+    settles, or {} when it doesn't settle anything (Ariella then continues
+    the conversation normally).
+
+    Per product owner: customers phrase this in endless ways ("יאללה בואי
+    נסגור גם מלון", "אני אסתדר לבד עם השאר", "לא בטוחה, אולי מסלול"), so
+    the meaning is understood by the model. Only very short, unambiguous
+    replies are read directly, without a model call."""
     import re
     state = state if isinstance(state, dict) else {}
-    offered = [s for s in (state.get("post_flight_offer") or []) if s in ("lodging", "car", "trip_planning")]
+    offered = [s for s in (state.get("post_flight_offer") or []) if s in _POST_FLIGHT_LABELS]
     if not offered:
         return {}
     msg = _normalize_confirm(message).lower()
-    if not msg or len(msg) > 80:
+    if not msg:
         return {}
-    mentions = {
-        "lodging": ("לינה", "מלון", "מלונות", "דירה", "וילה", "צימר"),
-        "car": ("רכב", "השכרת רכב", "רכב שכור"),
-        "trip_planning": ("מסלול", "אטרקציות", "אטרקציה", "תכנון טיול"),
-    }
-    named = [s for s in offered if any(re.search(r"(?<![\u05d0-\u05ea])(?:ו|ה|ל|וה|ול|ב)?" + re.escape(w) + r"(?![\u05d0-\u05ea])", msg) for w in mentions[s])]
-    negative = re.search(r"(?<![\u05d0-\u05ea])(?:לא|אין צורך|זהו|זה הכל|זה הכול|סיימנו|די|בלי)(?![\u05d0-\u05ea])", msg)
-    if negative and not named:
+    if msg in {"לא", "לא עכשיו", "לא תודה", "לא צריך", "לא צריכה", "לא צריכים", "זהו", "זה הכל", "זה הכול", "סיימנו", "אין צורך"}:
         return {s: False for s in offered}
-    if named and not negative:
-        return {s: (s in named) for s in offered}
-    if re.fullmatch(r"(?:כן|בטח|בהחלט|כולם|הכל|הכול|את הכל|את הכול|כן הכל|כן הכול|כן,? בבקשה|יאללה)", msg):
+    if msg in {"כן", "בטח", "בהחלט", "כולם", "הכל", "הכול", "את הכל", "את הכול", "כן הכל", "כן הכול", "כן בבקשה", "כן, בבקשה"}:
         return {s: True for s in offered}
-    return {}
+    if not key:
+        return {}
+    offered_text = ", ".join(f"{s} ({_POST_FLIGHT_LABELS[s]})" for s in offered)
+    prompt = (
+        "את מסווגת תשובת לקוח. אריאלה שאלה את הלקוח, אחרי שאישר את הטיסה, אם הוא רוצה עזרה גם באחד או יותר מהשירותים: "
+        + offered_text + ".\n"
+        "הביני את משמעות התשובה בכל ניסוח, כולל סלנג ושגיאות כתיב. לכל שירות החזירי true אם הלקוח רוצה אותו עכשיו, "
+        "false אם הוא לא רוצה אותו עכשיו (כולל 'אחר כך', 'אסתדר לבד', 'זהו'), או null אם אי אפשר לדעת מהתשובה. "
+        "'כן' כללי בלי פירוט = true לכולם. סירוב כללי בלי פירוט = false לכולם. "
+        "אם הלקוח מתלבט או שואל שאלה בלי להחליט - null. "
+        "החזירי JSON בלבד, בפורמט {\"lodging\": true|false|null, ...} רק עם המפתחות: " + ", ".join(offered) + "."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 60, include_history=False)
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").replace("json", "", 1).strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return {}
+    result = {s: data.get(s) for s in offered if isinstance(data.get(s), bool)}
+    # Partial answers: a clear yes to some with nothing said about the others
+    # ("בואי נסגור גם מלון") means the others are a no for now - but only
+    # when at least one decision was actually made.
+    if result and any(result.values()):
+        for s in offered:
+            result.setdefault(s, False)
+    elif result and len(result) < len(offered):
+        return {}
+    return result
 
 
 def _member_profile(member_id):
@@ -2745,7 +2771,7 @@ def chat_clean():
         # extractor's own decisions above so it authoritatively overrides a
         # misattributed or dropped extraction - see the function's docstring
         # for the live-transcript loop this fixes.
-        post_flight_answer = _post_flight_offer_answer(message, trip_state)
+        post_flight_answer = _post_flight_offer_answer(message, trip_state, key, model, history)
         if post_flight_answer:
             decisions = dict(trip_update.get("service_decisions") or {})
             statuses = dict(trip_update.get("session_status") or {})
