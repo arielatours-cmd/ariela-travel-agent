@@ -35,6 +35,32 @@
   const committedKey='ariellaTripCommitted:v11'+acctSuffix;
   const continueTripKey='ariellaContinueTrip:v12'+acctSuffix;
   const tripIdKey='ariellaActiveTripId:v12'+acctSuffix;
+  const savedDomainsKey='ariellaSavedDomains:v1'+acctSuffix;
+  const SAVE_ENDPOINTS={lodging:'/api/ariella/save-trip-lodging',car:'/api/ariella/save-trip-car',trip_planning:'/api/ariella/save-trip-plan'};
+  function savedDomains(){try{return JSON.parse(localStorage.getItem(savedDomainsKey)||'{}')||{};}catch(e){return {};}}
+  function markSaved(domain){const d=savedDomains();d[domain]=true;try{localStorage.setItem(savedDomainsKey,JSON.stringify(d));}catch(e){}}
+  // Post-flight continuation: the flight scan is already running for
+  // tripId. Every service (lodging/car/route) that just became "complete"
+  // is attached to that same vacation and its search fires immediately.
+  // Once all three are complete or declined, the vacation is finalized and
+  // the customer goes to the waiting page (showing only what she asked for)
+  // and from there straight to the vacation card.
+  async function syncPostFlight(tripId,ts,convo){
+    const st=(ts&&ts.session_status)||{};
+    for(const domain of ['lodging','car','trip_planning']){
+      if(st[domain]==='complete'&&!savedDomains()[domain]){
+        try{
+          const r=await fetch(SAVE_ENDPOINTS[domain],{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_id:tripId,trip_state:ts,history:convo})});
+          if(r.ok)markSaved(domain);
+        }catch(e){}
+      }
+    }
+    const allResolved=['lodging','car','trip_planning'].every(d=>st[d]==='complete'||st[d]==='declined');
+    if(allResolved){
+      try{await fetch('/api/ariella/sync-trip-services',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_id:tripId,trip_state:ts})});}catch(e){}
+    }
+    return allResolved;
+  }
   let history=[];
   let waitingForReply=false;
   // Explicit one-time reset for clean QA. Ordinary refreshes never clear customer history.
@@ -227,6 +253,9 @@
       }finally{clearTimeout(abortTimer);}
       const data=await r.json().catch(()=>({}));
       if(!r.ok||data.status!=='success')throw new Error(data.message||'chat unavailable');
+      // Captured before any reset below clears it: the vacation whose flight
+      // scan is already running, if this conversation is past approval.
+      const postFlightTripId=Number(localStorage.getItem(tripIdKey)||0);
       if(data.trip_state_reset===true){
         // A new vacation is a hard structured-state boundary. Visible chat may
         // remain for the customer, but no prior vacation id/commit/state is allowed
@@ -252,7 +281,7 @@
           try{
             const saveRes=await fetch('/api/ariella/save-trip-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_id:activeTripId,trip_state:data.trip_update||{},history:history.concat([{role:'user',content:text},{role:'assistant',content:String(data.reply||'')}])})});
             const saveData=await saveRes.json().catch(()=>({}));
-            if(saveRes.ok&&saveData.status==='saved')savedPlanTripId=activeTripId;
+            if(saveRes.ok&&saveData.status==='saved'){savedPlanTripId=activeTripId;markSaved('trip_planning');}
           }catch(e){}
         }
       }
@@ -302,6 +331,7 @@
             localStorage.setItem(committedKey,'1');
             localStorage.setItem(continueTripKey,'1');
             localStorage.setItem(tripIdKey,String(started.trip_id||''));
+            localStorage.removeItem(savedDomainsKey);
             // Clear only legacy structured-state engines; never delete visible history.
             for(const legacyKey of ['ariellaChatState:v8','ariellaChatState:v7','ariellaChatState:v6','ariellaChatState:v4']){
               localStorage.removeItem(legacyKey);
@@ -316,8 +346,16 @@
           // (unlike a delay before the fetch, which risked losing the
           // request entirely if the tab backgrounded) since the request has
           // already completed successfully by this point.
-          await new Promise(resolve=>setTimeout(resolve,4000));
-          location.href=started.waiting_url;return;
+          // The flight scan is running in the background. Stay in the chat:
+          // the reply just shown asks about lodging/car/route. Only when
+          // there is nothing left to ask about go straight to the waiting page.
+          const apSt=(approvedTripState&&approvedTripState.session_status)||{};
+          const nothingLeft=['lodging','car','trip_planning'].every(d=>apSt[d]==='complete'||apSt[d]==='declined');
+          if(nothingLeft){
+            await new Promise(resolve=>setTimeout(resolve,4000));
+            location.href=started.waiting_url;return;
+          }
+          return;
         }
         if(start.ok&&started.status==='change_requires_payment'&&started.account_url){
           // Changing a destination/date that was already approved is a paid
@@ -343,6 +381,17 @@
         const startError=String(started.message||'לא הצלחתי להתחיל את החיפוש כרגע. נסי שוב בעוד רגע.');
         history.push({role:'assistant',content:startError,agent:'Ariella'});add('assistant',startError);save();
         return;
+      }
+      if(postFlightTripId>0){
+        const ts=(data.resolved_trip_state&&typeof data.resolved_trip_state==='object')?data.resolved_trip_state:(data.trip_update||{});
+        const convo=history.concat([{role:'assistant',content:reply}]).map(x=>({role:x.role,content:x.content}));
+        const finished=await syncPostFlight(postFlightTripId,ts,convo);
+        if(finished){
+          history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
+          try{localStorage.removeItem(tripIdKey);localStorage.removeItem(savedDomainsKey);localStorage.setItem(committedKey,'1');}catch(e){}
+          await new Promise(resolve=>setTimeout(resolve,2500));
+          location.href='/trip/'+postFlightTripId+'/waiting';return;
+        }
       }
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
       if(savedPlanTripId>0)addVacationLink(savedPlanTripId);

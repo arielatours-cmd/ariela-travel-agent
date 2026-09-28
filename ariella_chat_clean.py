@@ -2216,6 +2216,38 @@ def _is_itinerary_acceptance(message):
     return any(re.search(r"(?<![\u05d0-\u05ea])" + re.escape(p) + r"(?![\u05d0-\u05ea])", msg) for p in positives)
 
 
+def _post_flight_offer_answer(message, state):
+    """The customer's answer to "the flights are being scanned - want help
+    with lodging, car or route too?" (asked right after flight approval).
+    Returns {service: wanted_bool} for every offered service, or {} when the
+    answer isn't clear enough to decide deterministically (the model then
+    handles it). "לא"/"לא עכשיו"/"זהו" declines all of them; naming services
+    ("כן, לינה ומסלול") wants those and declines the rest; a bare "כן"/"הכל"
+    wants all of them."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    offered = [s for s in (state.get("post_flight_offer") or []) if s in ("lodging", "car", "trip_planning")]
+    if not offered:
+        return {}
+    msg = _normalize_confirm(message).lower()
+    if not msg or len(msg) > 80:
+        return {}
+    mentions = {
+        "lodging": ("לינה", "מלון", "מלונות", "דירה", "וילה", "צימר"),
+        "car": ("רכב", "השכרת רכב", "רכב שכור"),
+        "trip_planning": ("מסלול", "אטרקציות", "אטרקציה", "תכנון טיול"),
+    }
+    named = [s for s in offered if any(re.search(r"(?<![\u05d0-\u05ea])(?:ו|ה|ל|וה|ול|ב)?" + re.escape(w) + r"(?![\u05d0-\u05ea])", msg) for w in mentions[s])]
+    negative = re.search(r"(?<![\u05d0-\u05ea])(?:לא|אין צורך|זהו|זה הכל|זה הכול|סיימנו|די|בלי)(?![\u05d0-\u05ea])", msg)
+    if negative and not named:
+        return {s: False for s in offered}
+    if named and not negative:
+        return {s: (s in named) for s in offered}
+    if re.fullmatch(r"(?:כן|בטח|בהחלט|כולם|הכל|הכול|את הכל|את הכול|כן הכל|כן הכול|כן,? בבקשה|יאללה)", msg):
+        return {s: True for s in offered}
+    return {}
+
+
 def _member_profile(member_id):
     """Authoritative name/gender for personalizing the conversation. Always
     read fresh from the registration data - never trust a client-supplied
@@ -2713,6 +2745,27 @@ def chat_clean():
         # extractor's own decisions above so it authoritatively overrides a
         # misattributed or dropped extraction - see the function's docstring
         # for the live-transcript loop this fixes.
+        post_flight_answer = _post_flight_offer_answer(message, trip_state)
+        if post_flight_answer:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service, wanted in post_flight_answer.items():
+                decisions[service] = {"wanted": wanted, "source": "post_flight_offer"}
+                if wanted:
+                    services.add(service)
+                    if statuses.get(service) != "complete":
+                        statuses[service] = "active"
+                else:
+                    services.discard(service)
+                    statuses[service] = "declined"
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
+            trip_update["post_flight_offer"] = []
+            first_wanted = next((s for s in ("lodging","car","trip_planning") if post_flight_answer.get(s)), None)
+            if first_wanted:
+                trip_update["active_session"] = first_wanted
         deterministic_decline = _deterministic_service_decline_facts(history, message)
         decline_decisions = deterministic_decline.get("service_decisions") if isinstance(deterministic_decline, dict) else None
         if decline_decisions:
@@ -2996,6 +3049,8 @@ def chat_clean():
             # model has a transient failure. The next user turn can continue.
             reply = "קלטתי את הפרטים. נמשיך מכאן."
         reply = _fix_child_gender_wording(reply, trip_update)
+        if post_flight_answer and not any(post_flight_answer.values()):
+            reply = "בסדר גמור. מעבירה אותך לתוצאות הטיסה - ותמיד אפשר לחזור לכאן כדי להוסיף לינה, רכב או מסלול."
 
         # Never let Tinkerbell present the final summary/"כתבי מאשרת" request
         # while a required flight fact is still genuinely missing. The prompt
@@ -3201,20 +3256,36 @@ def chat_clean():
                     d = decisions_after_flight.get(service)
                     source = d.get("source") if isinstance(d, dict) else None
                     return source in ("business_trip_default", "ski_trip_default")
-                remaining = [
-                    remaining_labels[s] for s in ("lodging","car","trip_planning")
-                    if statuses_after_flight.get(s, "pending") in ("pending", "declined")
+                # Product flow: the flight scan starts now in the background
+                # and Ariella immediately asks about the remaining services in
+                # the same conversation. "No" sends the customer to the
+                # waiting page (flights only); "yes" continues with just the
+                # services she said yes to, each searched as soon as it's
+                # settled, and the waiting page comes once everything is done.
+                def _wanted(service):
+                    d = decisions_after_flight.get(service)
+                    return (d.get("wanted") if isinstance(d, dict) else d) is True
+                already_requested = [
+                    s for s in ("lodging","car","trip_planning")
+                    if _wanted(s) and statuses_after_flight.get(s) not in ("complete","declined")
+                ]
+                offered = [
+                    s for s in ("lodging","car","trip_planning")
+                    if s not in already_requested
+                    and statuses_after_flight.get(s, "pending") == "pending"
                     and not _auto_declined_by_trip_type(s)
                 ]
-                if remaining:
-                    if len(remaining) == 1:
-                        extra = remaining[0]
-                    else:
-                        extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
+                def _join(labels):
+                    return labels[0] if len(labels) == 1 else " או ".join([", ".join(labels[:-1]), labels[-1]])
+                lead = "הבקשה אושרה והטיסות כבר נסרקות ברקע - התוצאות יתעדכנו בכרטיסיית החופשה."
+                if already_requested:
+                    reply = f"{lead} עכשיו נמשיך ל{_join([remaining_labels[s] for s in already_requested])}, כמו שביקשת. מתחילות?"
+                elif offered:
                     reply = (
-                        "הבקשה אושרה ואני יוצאת לסריקת טיסות. "
-                        f"כשתרצי, אפשר לחזור לכאן ולהמשיך עם {extra}."
+                        f"{lead} בינתיים, תרצי שאעזור גם ב{_join([remaining_labels[s] for s in offered])}? "
+                        "אם לא עכשיו, אעביר אותך לתוצאות, ותמיד אפשר לחזור לכאן בהמשך."
                     )
+                    merged["post_flight_offer"] = offered
                 else:
                     reply = "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
     except Exception as exc:
@@ -3251,6 +3322,7 @@ def chat_clean():
     # Whatever shape trip_update happens to be in, the worst acceptable outcome
     # is skipping the reset for this turn, never a 500 that blocks the chat.
     trip_state_reset = False
+    resolved_trip_state = None
     try:
         final_statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
         final_decisions = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
@@ -3270,9 +3342,13 @@ def chat_clean():
             or ((final_decisions.get(s) or {}).get("wanted") is False if isinstance(final_decisions.get(s), dict) else final_decisions.get(s) is False)
             for s in ("lodging", "car", "trip_planning")
         )
-        trip_fully_resolved = flights_resolved and other_domains_resolved
+        trip_fully_resolved = flights_resolved and other_domains_resolved and not bool(locals().get("approval", False))
         if trip_fully_resolved:
             trip_state_reset = True
+            # The chat page still needs the completed vacation facts this
+            # turn to send the just-settled service (lodging/car/route) to
+            # its search before handing off to the waiting page.
+            resolved_trip_state = trip_update
             fresh_after_completion = {
                 'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
                 'active_session': None,
@@ -3312,4 +3388,5 @@ def chat_clean():
         # on THIS user message. Never let model-extracted state start a scan.
         'start_flight_search': start_flight_search,
         'trip_state_reset': trip_state_reset,
+        'resolved_trip_state': resolved_trip_state,
     })

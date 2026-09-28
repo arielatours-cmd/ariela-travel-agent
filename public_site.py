@@ -3005,6 +3005,47 @@ def ariella_save_trip_car():
     return jsonify({"status":"saved","trip_id":trip_id})
 
 
+@site.post("/api/ariella/sync-trip-services")
+@login_required
+def ariella_sync_trip_services():
+    """Record which post-flight services this vacation actually ended up
+    needing, right before the chat hands off to the waiting page. A service
+    requested before the flight approval (and so already in
+    _requested_services) that the customer then declined after it must not
+    keep the waiting page "searching" for it forever."""
+    body = request.get_json(silent=True) or {}
+    trip_id = int(body.get("trip_id") or 0)
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    if not trip_id:
+        return jsonify({"status":"error","message":"missing trip"}), 400
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT answers_json FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return jsonify({"status":"missing"}), 404
+    try:
+        answers = json.loads(row["answers_json"] or "{}")
+    except Exception:
+        answers = {}
+    requested = set(answers.get("_requested_services") or [])
+    session_status = dict(answers.get("_session_status") or {})
+    for service in ("lodging", "car", "trip_planning"):
+        status = statuses.get(service)
+        if status == "declined":
+            requested.discard(service)
+            session_status[service] = "declined"
+        elif status == "complete":
+            requested.add(service)
+            session_status[service] = "complete"
+    answers["_requested_services"] = sorted(requested)
+    answers["_session_status"] = session_status
+    _save_trip_answers(trip_id, answers)
+    return jsonify({"status":"saved","trip_id":trip_id,"requested":sorted(requested)})
+
+
 def _find_duplicate_active_trip(member_id, departure_airport, destination_codes, date_mode, dep, ret, month):
     """A customer must not be able to farm repeated free scans by re-approving
     the same route/dates in a new conversation. If they already have an active
