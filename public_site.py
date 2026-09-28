@@ -22,7 +22,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, CJ_BOOKING_EVERGREEN_LINK
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels
@@ -2090,7 +2090,8 @@ def inject_site_context():
         lang = "he"
         session["lang"] = "he"
 
-    return {"current_member": _current_member(), "site_lang": lang}
+    return {"current_member": _current_member(), "site_lang": lang,
+            "car_partner_cards": _car_partner_cards}
 
 
 def _lang():
@@ -4138,6 +4139,12 @@ def _run_car_search(trip_id: int, answers: dict) -> None:
     provider is configured."""
     if not booking_demand.is_configured():
         answers["_car_search_finished"] = True
+        if CAR_RENTAL_AFFILIATE_LINK:
+            # No priced API, but an approved car-rental partner: the car tab
+            # renders honest partner cards (see _car_partner_cards).
+            answers["_car_search_result"] = {"status": "partner_link"}
+            _save_trip_answers(trip_id, answers)
+            return
         answers["_car_search_result"] = {
             "status": "unavailable",
             "message": "חיפוש רכב אמיתי עדיין לא מחובר - אריאלה תעדכן ברגע שהאפשרות תהיה זמינה.",
@@ -4168,6 +4175,50 @@ def _run_car_search(trip_id: int, answers: dict) -> None:
         answers["_car_search_result"] = {"status": "error", "message": str(exc)[:300]}
     answers["_car_search_finished"] = True
     _save_trip_answers(trip_id, answers)
+
+
+def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
+    """Outbound CJ-tracked URL for one car-rental card. The sid lets CJ
+    reports tie a commission back to the vacation it came from."""
+    params = {"sid": f"trip{trip_id}"}
+    if CAR_RENTAL_SEARCH_URL_TEMPLATE:
+        try:
+            params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(
+                iata=iata,
+                pickup_date=answers.get("departure_date") or "",
+                return_date=answers.get("return_date") or "",
+            )
+        except (KeyError, IndexError, ValueError):
+            logging.warning("CAR_RENTAL_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
+    joiner = "&" if "?" in CAR_RENTAL_AFFILIATE_LINK else "?"
+    return CAR_RENTAL_AFFILIATE_LINK + joiner + urlencode(params, quote_via=quote)
+
+
+def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
+    """One card per destination airport (max 3) for a trip that asked for a
+    car, each linking out to the approved car-rental partner. Deliberately
+    carries no price: nothing priced is fetched, so nothing is shown."""
+    if not CAR_RENTAL_AFFILIATE_LINK or not isinstance(answers, dict):
+        return []
+    wants_car = (
+        "car" in (answers.get("_requested_services") or [])
+        or answers.get("car_vehicle_type") or answers.get("car_pickup")
+    )
+    if not wants_car:
+        return []
+    vehicle = str(answers.get("car_vehicle_type") or "").strip()
+    title = "רכב שכור" + (f" · {vehicle}" if vehicle and vehicle != "אין העדפה" else "")
+    dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
+    cards = []
+    for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
+        cards.append({
+            "name": title,
+            "pickup": f"איסוף והחזרה בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code})",
+            "dates": f"{dep} – {ret}" if dep and ret else "",
+            "supplier": CAR_RENTAL_PARTNER_NAME,
+            "link": f"/trip/{trip_id}/rent-car/{code}",
+        })
+    return cards
 
 
 _car_search_threads = {}
@@ -4209,6 +4260,30 @@ def search_lodging(trip_id):
     answers = dict(trip.get("answers") or {})
     _run_lodging_search(trip_id, answers)
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+
+@site.get("/trip/<int:trip_id>/rent-car/<code>")
+@login_required
+def rent_car(trip_id, code):
+    """Record the click and send the customer to the car-rental partner."""
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    code = str(code or "").upper()
+    if not row or not CAR_RENTAL_AFFILIATE_LINK:
+        return redirect(url_for("site.account"))
+    answers = dict(_trip_dict(row).get("answers") or {})
+    if code not in _trip_destination_codes({"answers": answers}):
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+    url = _car_partner_url(answers, code, trip_id)
+    record_booking_click(
+        member_id=session["member_id"], destination_code=code,
+        supplier=CAR_RENTAL_PARTNER_NAME, outbound_date=answers.get("departure_date"),
+        return_date=answers.get("return_date"), booking_url=url,
+    )
+    return redirect(url)
 
 
 @site.post("/trip/<int:trip_id>/search-car")

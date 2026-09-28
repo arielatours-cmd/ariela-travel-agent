@@ -231,6 +231,7 @@
           <h3>רכב שמתאים לחופשה</h3>
           {% set car_offers = a.get('car_offers') or [] %}
           {% set car_result = a.get('_car_search_result') or {} %}
+          {% set partner_cards = [] if car_offers else car_partner_cards(trip.id, a) %}
           {% if car_offers %}
             <div class="lodging-results-list">
               {% for car in car_offers %}
@@ -245,6 +246,20 @@
                       </div>
                     {% endif %}
                     {% if car.get('link') %}<a class="lodging-result-link" href="{{ car.get('link') }}" target="_blank" rel="noopener">צפייה ופרטים</a>{% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% elif partner_cards %}
+            <div class="lodging-results-list">
+              {% for car in partner_cards %}
+                <div class="lodging-result-card">
+                  <div class="lodging-result-info">
+                    <strong>🚗 {{ car.name }}</strong>
+                    <div class="lodging-result-meta"><span>{{ car.pickup }}</span></div>
+                    {% if car.dates %}<div class="lodging-result-meta"><span>{{ car.dates }}</span></div>{% endif %}
+                    <div class="lodging-result-meta"><span>מחירים וזמינות בזמן אמת באתר {{ car.supplier }}</span></div>
+                    <a class="lodging-result-link" href="{{ car.link }}" target="_blank" rel="noopener sponsored">למעבר להזמנה ←</a>
                   </div>
                 </div>
               {% endfor %}
