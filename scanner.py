@@ -734,6 +734,76 @@ def search_open_jaw_flights(departure: str, outbound_arrival: str, return_depart
     }
 
 
+def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int = 1, children: int = 0, rooms: int = 1, min_price: int | None = None, max_price: int | None = None, vacation_rentals: bool = False) -> dict:
+    """Real, live lodging results via SerpApi's google_hotels engine - the
+    same vendor/API key already used for flights. Booking.com's own
+    affiliate program (CJ) does not expose a priced Demand API, only a
+    deep-link to their search results page (see _booking_com_lodging_url in
+    public_site.py); Google Hotels aggregates real, priced listings from
+    Booking.com and other suppliers without that limitation, so this is
+    what actually gives the customer real options to compare instead of a
+    single outbound link. Called on demand per trip only - not a
+    background scan like flights, since two customers rarely want the
+    exact same hotel search the way they might share a flight route.
+
+    vacation_rentals=True switches the same engine into apartments/villas
+    mode instead of traditional hotels - set it when the customer's stated
+    lodging type (lodging.details.type) is "וילה"/"דירה" rather than "מלון",
+    so the results actually match what they asked for instead of always
+    returning hotels."""
+    params = {
+        "engine": "google_hotels",
+        "api_key": _api_key(),
+        "q": query,
+        "check_in_date": checkin_date,
+        "check_out_date": checkout_date,
+        "adults": str(max(1, int(adults or 1))),
+        "children": str(max(0, int(children or 0))),
+        "currency": "ILS",
+        "gl": "il",
+        "hl": "he",
+    }
+    if vacation_rentals:
+        params["vacation_rentals"] = "true"
+    if min_price:
+        params["min_price"] = str(int(min_price))
+    if max_price:
+        params["max_price"] = str(int(max_price))
+    data = _serpapi_request(params)
+    properties = data.get("properties") or []
+    results = []
+    for prop in properties:
+        rate = prop.get("rate_per_night") or {}
+        total = prop.get("total_rate") or {}
+        images = prop.get("images") or []
+        thumbnail = None
+        if images and isinstance(images[0], dict):
+            thumbnail = images[0].get("thumbnail") or images[0].get("original_image")
+        results.append({
+            "name": prop.get("name"),
+            "hotel_class": prop.get("hotel_class"),
+            "overall_rating": prop.get("overall_rating"),
+            "reviews": prop.get("reviews"),
+            "price_per_night_ils": rate.get("extracted_lowest") or rate.get("lowest"),
+            "total_price_ils": total.get("extracted_lowest") or total.get("lowest"),
+            "thumbnail": thumbnail,
+            "link": prop.get("link"),
+            "gps_coordinates": prop.get("gps_coordinates"),
+            "amenities": prop.get("amenities") or [],
+            "nearby_places": [p.get("name") for p in (prop.get("nearby_places") or []) if isinstance(p, dict) and p.get("name")][:3],
+        })
+    return {
+        "query": query,
+        "checkin_date": checkin_date,
+        "checkout_date": checkout_date,
+        "adults": adults,
+        "children": children,
+        "rooms": rooms,
+        "hotels": results,
+        "api_requests": 1,
+    }
+
+
 def _all_search_jobs() -> list[dict]:
     today = date.today()
     jobs = []

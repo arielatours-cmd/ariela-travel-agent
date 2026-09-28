@@ -25,7 +25,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, CJ_BOOKING_EVERGREEN_LINK
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
-from scanner import run_customer_trip_search
+from scanner import run_customer_trip_search, search_hotels
 from booker import resolve_booking_target
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 
@@ -201,36 +201,6 @@ def _cj_booking_wrap(destination_url: str, sid: str | None = None) -> str:
         params["sid"] = sid
     return CJ_BOOKING_EVERGREEN_LINK + "?" + urlencode(params, quote_via=quote)
 
-
-def _booking_com_lodging_url(trip: dict, destination_codes: list[str]) -> str | None:
-    """A Booking.com stays-search deep link pre-filled with what the customer
-    already told Ariella (destination, dates, party size). No live prices are
-    ever pulled from Booking.com - the CJ affiliate program does not include
-    Demand API access, so this only hands the customer off to Booking.com's
-    own search results."""
-    if not destination_codes:
-        return None
-    info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
-    city = info.get("city_he") or info.get("city_en") or destination_codes[0]
-    answers = trip.get("answers") or {}
-    params = {"ss": city, "no_rooms": "1"}
-    dep, ret = answers.get("departure_date"), answers.get("return_date")
-    if dep and ret:
-        params["checkin"] = dep
-        params["checkout"] = ret
-    try:
-        adults = max(1, int(answers.get("adults") or 1))
-    except (TypeError, ValueError):
-        adults = 1
-    params["group_adults"] = str(adults)
-    try:
-        children = max(0, int(answers.get("children") or 0))
-    except (TypeError, ValueError):
-        children = 0
-    if children:
-        params["group_children"] = str(children)
-    search_url = "https://www.booking.com/searchresults.html?" + urlencode(params)
-    return _cj_booking_wrap(search_url, sid=f"trip{trip.get('id')}" if trip.get("id") else None)
 
 _SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
 try:
@@ -2654,11 +2624,6 @@ def account():
         else:
             trip["destination_display"] = trip.get("request_name") or _msg("חופשה", "Vacation")
 
-        try:
-            trip["booking_lodging_url"] = _booking_com_lodging_url(trip, destination_codes)
-        except Exception:
-            trip["booking_lodging_url"] = None
-
         if str(answers.get("vacation_type") or "") == "ski":
             trip["image_url"] = "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=82"
         elif len(destination_codes) > 1:
@@ -3170,6 +3135,8 @@ def ariella_start_flight_search():
     trip_type_value = str(state.get("trip_type") or "").strip().lower()
     vacation_type = trip_type_value if trip_type_value in ("business", "ski") else "standard"
     ski_state = state.get("ski") if isinstance(state.get("ski"), dict) else {}
+    lodging_details = (state.get("lodging") or {}).get("details") if isinstance(state.get("lodging"), dict) else {}
+    lodging_details = lodging_details if isinstance(lodging_details, dict) else {}
     payload = {
         "origin_airports": [departure_airport],
         "destination_mode": "specific" if destination_codes else "open",
@@ -3203,6 +3170,10 @@ def ariella_start_flight_search():
         "ski_skill_level": ski_state.get("skill_level") or "",
         "ski_priorities": ski_state.get("priorities") or [],
         "ski_transfer_choice": ski_state.get("transfer_choice") or "any",
+        "lodging_type": lodging_details.get("type") or "",
+        "lodging_rooms": lodging_details.get("rooms"),
+        "lodging_budget_per_person": lodging_details.get("budget_per_person"),
+        "lodging_location": lodging_details.get("location") or "",
         "_requested_services": sorted(services),
         "_session_status": state.get("session_status") if isinstance(state.get("session_status"), dict) else {},
     }
@@ -3954,6 +3925,82 @@ def cancel_pending_search(trip_id):
             "WHERE id=? AND member_id=? AND subscription_status='pending'",
             (trip_id, session["member_id"]),
         )
+        conn.commit()
+    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+
+@site.post("/trip/<int:trip_id>/search-lodging")
+@login_required
+def search_lodging(trip_id):
+    """On-demand real lodging search via SerpApi's Google Hotels engine -
+    triggered explicitly by the customer only (never automatically on page
+    load), since each call spends one paid API request. Real, priced
+    listings (including from Booking.com among other suppliers) rather than
+    the single Booking.com search-page link this used to be limited to."""
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return redirect(url_for("site.account"))
+    trip = _trip_dict(row)
+    answers = dict(trip.get("answers") or {})
+    destination_codes = sorted(_trip_destination_codes(trip))
+    dep, ret = answers.get("departure_date"), answers.get("return_date")
+    if not destination_codes or not dep or not ret:
+        answers["lodging_search_error"] = "חסר יעד או תאריכים כדי לחפש לינה."
+        with _db() as conn:
+            conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=? AND member_id=?",
+                         (json.dumps(answers, ensure_ascii=False), trip_id, session["member_id"]))
+            conn.commit()
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+    info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
+    city = info.get("city_en") or info.get("city_he") or destination_codes[0]
+    lodging_type = str(answers.get("lodging_type") or "").strip()
+    vacation_rentals = lodging_type in ("וילה", "דירה")
+    try:
+        adults = max(1, int(answers.get("adults") or 1))
+    except (TypeError, ValueError):
+        adults = 1
+    try:
+        children = max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        children = 0
+    try:
+        rooms = max(1, int(answers.get("lodging_rooms") or 1))
+    except (TypeError, ValueError):
+        rooms = 1
+    # A per-person total budget is only a coarse per-night ceiling here (party
+    # size over the stay length, with slack) - it steers SerpApi away from
+    # wildly over-budget listings; the customer still compares the actual
+    # returned prices themselves.
+    max_price = None
+    budget_pp = answers.get("lodging_budget_per_person")
+    if budget_pp:
+        try:
+            nights = max(1, (date.fromisoformat(ret) - date.fromisoformat(dep)).days)
+            max_price = int(float(budget_pp) * (adults + children) / nights * 1.3)
+        except Exception:
+            max_price = None
+
+    try:
+        result = search_hotels(
+            query=city, checkin_date=dep, checkout_date=ret,
+            adults=adults, children=children, rooms=rooms,
+            max_price=max_price, vacation_rentals=vacation_rentals,
+        )
+        answers["lodging_offers"] = (result.get("hotels") or [])[:10]
+        answers["lodging_searched_at"] = utc_now_iso()
+        answers["lodging_search_error"] = None
+    except Exception:
+        logging.exception("Lodging search failed for trip %s", trip_id)
+        answers["lodging_search_error"] = "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."
+
+    with _db() as conn:
+        conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=? AND member_id=?",
+                     (json.dumps(answers, ensure_ascii=False), trip_id, session["member_id"]))
         conn.commit()
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 

@@ -177,19 +177,54 @@
 
         <div class="vacation-panel" id="lodging-{{ trip.id }}">
           <h3>אפשרויות לינה ליעד ולתאריכים שלכם</h3>
-          {% if trip.booking_lodging_url %}
-            <div class="booking-lodging-cta">
-              <a class="booking-lodging-btn" href="{{ trip.booking_lodging_url }}" target="_blank" rel="noopener">חיפוש לינה ב-Booking.com</a>
-              <small>מומלץ להשלים את ההזמנה באותו דפדפן שבו נפתח הקישור.</small>
+          {% set lodging_offers = a.get('lodging_offers') or [] %}
+          {% if lodging_offers %}
+            <div class="lodging-results-list">
+              {% for hotel in lodging_offers %}
+                <div class="lodging-result-card">
+                  {% if hotel.get('thumbnail') %}<img class="lodging-thumb" src="{{ hotel.get('thumbnail') }}" alt="" loading="lazy">{% endif %}
+                  <div class="lodging-result-info">
+                    <strong>{{ hotel.get('name') or 'מלון' }}</strong>
+                    <div class="lodging-result-meta">
+                      {% if hotel.get('hotel_class') %}<span>{{ hotel.get('hotel_class') }} ★</span>{% endif %}
+                      {% if hotel.get('overall_rating') %}<span>דירוג {{ hotel.get('overall_rating') }}{% if hotel.get('reviews') %} ({{ hotel.get('reviews') }} ביקורות){% endif %}</span>{% endif %}
+                    </div>
+                    {% if hotel.get('nearby_places') %}<div class="lodging-result-nearby">קרוב ל: {{ hotel.get('nearby_places')|join(', ') }}</div>{% endif %}
+                    {% if hotel.get('price_per_night_ils') %}<div class="lodging-result-price">₪{{ hotel.get('price_per_night_ils')|round|int }} ללילה{% if hotel.get('total_price_ils') %} · סה"כ ₪{{ hotel.get('total_price_ils')|round|int }}{% endif %}</div>{% endif %}
+                    {% if hotel.get('link') %}<a class="lodging-result-link" href="{{ hotel.get('link') }}" target="_blank" rel="noopener">צפייה ופרטים</a>{% endif %}
+                  </div>
+                </div>
+              {% endfor %}
             </div>
+            <form method="post" action="{{ url_for('site.search_lodging', trip_id=trip.id) }}" class="lodging-search-again">
+              <button type="submit" class="lodging-search-btn secondary">חיפוש מחדש</button>
+            </form>
           {% else %}
-            <div class="vacation-empty">כאן יוצג קישור לחיפוש לינה ליעד ולתאריכים שבחרתם.</div>
+            {% if a.get('lodging_search_error') %}<div class="lodging-search-error">{{ a.get('lodging_search_error') }}</div>{% endif %}
+            <div class="booking-lodging-cta">
+              <form method="post" action="{{ url_for('site.search_lodging', trip_id=trip.id) }}">
+                <button type="submit" class="lodging-search-btn">חיפוש לינה אמיתית</button>
+              </form>
+              <small>מציג תוצאות אמיתיות (כולל מבוקינג ואתרים נוספים) לפי היעד, התאריכים ומספר האורחים.</small>
+            </div>
           {% endif %}
         </div>
         <style>
           .booking-lodging-cta{text-align:center;padding:18px}
-          .booking-lodging-btn{display:inline-block;background:#0fc2b0;color:#fff!important;font-weight:800;padding:12px 28px;border-radius:999px;box-shadow:0 7px 20px rgba(15,194,176,.3)}
+          .lodging-search-btn{display:inline-block;background:#0fc2b0;color:#fff!important;font-weight:800;padding:12px 28px;border-radius:999px;box-shadow:0 7px 20px rgba(15,194,176,.3);border:0;cursor:pointer;font-size:14px}
+          .lodging-search-btn.secondary{background:#fff;color:#0fc2b0!important;border:1.5px solid #0fc2b0;box-shadow:none;padding:9px 20px;font-size:13px}
           .booking-lodging-cta small{display:block;color:#8a7f6c;font-size:12px;margin-top:10px}
+          .lodging-search-error{background:#fff3f0;border:1px solid #f3c6bb;color:#9a3b23;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;text-align:center}
+          .lodging-results-list{display:grid;gap:14px;margin-bottom:14px}
+          .lodging-result-card{display:flex;gap:12px;background:#fff;border:1px solid #e5dccd;border-radius:12px;padding:12px;box-shadow:0 2px 8px #0000000a}
+          .lodging-thumb{width:96px;height:96px;object-fit:cover;border-radius:8px;flex:0 0 auto}
+          .lodging-result-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+          .lodging-result-info strong{font-size:14.5px;color:#2b2620}
+          .lodging-result-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#6d6459}
+          .lodging-result-nearby{font-size:11.5px;color:#8a7f6c}
+          .lodging-result-price{font-size:14px;font-weight:800;color:#147d77}
+          .lodging-result-link{align-self:flex-start;margin-top:4px;font-size:12.5px;font-weight:700;color:#0fc2b0;text-decoration:underline}
+          .lodging-search-again{text-align:center}
         </style>
 
         <div class="vacation-panel" id="car-{{ trip.id }}">
