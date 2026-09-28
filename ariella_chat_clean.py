@@ -78,6 +78,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשאת מאשרת הבנה של תשובה שלילית, עשי זאת בקצרה ואל תחזרי מחדש על המלצה ארוכה שכבר ניתנה. המשיכי מהמידע שכבר נשמר ושאלי רק את השאלה הבאה שחסרה.
 - אל תמציאי תחומי עניין חדשים תוך כדי אישור הבנה. אם הלקוח לא ביקש למשל טבע או אווירה מקומית, אל תוסיפי אותם כאילו נבחרו.
 - יעד, תאריכים, מספר נוסעים, סוג לינה ומספר חדרים אינם שאלות כן/לא כאשר צריך לקבל מהם ערך ממשי; שאלי אותם באופן טבעי רק אם הערך עדיין חסר.
+- כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
 - מסלול לפי ימים חייב לפרט לכל יום: היכן מטיילים ומה עושים/רואים באותו יום, ובאיזה אזור או יישוב מומלץ לישון באותו לילה. כאשר יש מעבר בין אזורים, סדרי את היום כך שהנסיעה והאטרקציות הגיוניות יחד.
 - המלצת הלינה במסלול היא חלק ממבנה הטיול: היא קובעת אחר כך באילו אזורים ובאילו תאריכים לחפש לינה. אין לחפש לינה כללית לכל היעד אם המסלול מחלק את הלילות בין כמה אזורים.
@@ -103,7 +104,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
-- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (המילה שהלקוח נתן - "קטן"/"משפחתי"/"ג'יפ"/"אוטומט" וכו', או "אין העדפה" אם נאמר במפורש שכל רכב מתאים), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM). שעת האיסוף ושעת ההחזרה הן חלק מהפרטים ההכרחיים להשכרת רכב - אם הלקוח לא ציין אותן, שאלי עליהן; אם הוא לא יודע, הציעי שעה סבירה (כשעה אחרי הנחיתה ביעד לאיסוף, וכשלוש שעות לפני טיסת החזור להחזרה) ובקשי שיאשר אותה - לעולם אל תשמרי שעה שהלקוח לא אישר, luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה.
+- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (המילה שהלקוח נתן - "קטן"/"משפחתי"/"ג'יפ"/"אוטומט" וכו', או "אין העדפה" אם נאמר במפורש שכל רכב מתאים), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. שעת האיסוף ושעת ההחזרה הן חלק מהפרטים ההכרחיים להשכרת רכב - אם הלקוח לא ציין אותן, שאלי עליהן; אם הוא לא יודע, הציעי שעה סבירה (כשעה אחרי הנחיתה ביעד לאיסוף, וכשלוש שעות לפני טיסת החזור להחזרה) ובקשי שיאשר אותה - לעולם אל תשמרי שעה שהלקוח לא אישר.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'.
 - חשבון תאריכים הוא דטרמיניסטי: שבוע=7 ימים ושבועיים=14 ימים. אם הלקוח אמר יציאה 20.12 ושבועיים, החזרה היא 3.1; אל תמציאי 7.1 ואל תציעי תאריך חלופי אחרי שהמשך אושר.
@@ -112,6 +113,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בביטוי יחסי כמו "סוף יוני" יחד עם ימי שבוע/משך, אל תבחרי תאריך אחד בשם הלקוח. אם יש שתי אפשרויות סבירות סמוכות, הציגי את שתיהן ושאלי איזו עדיפה. רק אחרי בחירת הלקוח יש תאריכי יציאה וחזרה סופיים.
 - כשdates.candidate_ranges במצב החופשה המצטבר כבר מכיל תאריכים (מחושבים דטרמיניסטית, לא על ידך), חובה להציג ללקוח בדיוק את התאריכים האלה, מילה במילה, ולעולם לא לחשב או לנחש תאריכים אחרים בעצמך - גם אם הם נראים לך "מתאימים יותר". אל תמציאי טווח שאינו ברשימת candidate_ranges.
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
+- לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו שתאריך היציאה בתוך אותו חודש (החזרה יכולה להיות בחודש הבא) - לעולם אל תציעי טווח שהיציאה בו בחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
@@ -218,7 +220,7 @@ def _current_trip_history(history, state=None):
     return history
 
 
-def _weekday_date_conflict(message):
+def _weekday_date_conflict(message, history=None):
     """Validate every explicit Hebrew weekday/date pairing deterministically."""
     import re
     text = str(message or "")
@@ -247,6 +249,60 @@ def _weekday_date_conflict(message):
         if dt.weekday() != weekdays[day_name]:
             actual = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"][dt.weekday()]
             return f"רק לוודא לפני שממשיכים — {d}.{mo}.{y} יוצא יום {actual}, אבל כתבת יום {day_name}. איזה מהם נכון מבחינתך?"
+    return _weekday_pair_conflict(text, history)
+
+
+def _weekday_pair_conflict(text, history):
+    """Seen live: the customer asked for "ראשון עד חמישי" in one message and
+    then replied with a bare "28.6" - in 2027 that's a Monday, so the trip
+    went into the summary as Monday-Friday while being described as
+    Sunday-Thursday. The same-message check above never sees the weekday
+    pair from an earlier message. Check a date-only reply against the
+    weekday pair the customer gave in their recent messages."""
+    import re
+    names = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"]
+    day_alt = "ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת"
+    if re.search(r"(?<![\u05d0-\u05ea])(?:ב|ו|וב|מ)?(?:יום\s+)?(?:" + day_alt + r")(?![\u05d0-\u05ea])", text):
+        return None
+    dates_found = re.findall(r"(?<!\d)(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?(?!\d)", text)
+    if not dates_found:
+        return None
+    pair = None
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            pair = re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?(" + day_alt + r")\s*(?:עד|[-–])\s*(?:יום\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", str(item.get("content") or ""))
+            if pair:
+                break
+    if not pair:
+        return None
+    today = date.today()
+    parsed = []
+    for ds, mos, ys in dates_found[:2]:
+        y = int(ys) if ys else today.year
+        if y < 100:
+            y += 2000
+        try:
+            dt = date(y, int(mos), int(ds))
+        except ValueError:
+            return None
+        if not ys and dt < today:
+            dt = date(y + 1, dt.month, dt.day)
+        parsed.append(dt)
+    wanted = [pair.group(1), pair.group(2)]
+    for dt, want in zip(parsed, wanted):
+        actual = names[dt.weekday()]
+        if actual != want:
+            target = names.index(want)
+            before = dt - timedelta(days=(dt.weekday() - target) % 7)
+            after = dt + timedelta(days=(target - dt.weekday()) % 7)
+            # Suggest only dates in the same month the customer typed - never
+            # jump to the next month for them (end of June -> not 4.7).
+            options = [x for x in (before, after) if x.month == dt.month and x >= today]
+            if not options:
+                options = [before]
+            options_text = " או ".join(f"ליום {want} {x.strftime('%d.%m.%Y')}" for x in options)
+            return (f"רק לוודא — {dt.strftime('%d.%m.%Y')} יוצא ביום {actual}, וביקשת {pair.group(1)} עד {pair.group(2)}. "
+                    f"התכוונת {options_text}? או שנשנה את ימי הנסיעה?")
     return None
 
 
@@ -759,6 +815,12 @@ def _required_state_gaps(state):
             gaps.append("trip_planning.details.pace")
         if not (planning_details.get("route") or planning_details.get("daily_plan")):
             gaps.append("trip_planning.details.route")
+        # A route the extractor saved is only PROPOSED. Seen live: the
+        # session auto-completed the moment one was written into state, Ariella
+        # jumped straight to flight questions, and the approval step (which
+        # also saves the itinerary text for the attractions card) never ran.
+        elif not planning.get("approved"):
+            gaps.append("trip_planning.approved")
 
     return list(dict.fromkeys(gaps))
 
@@ -1271,10 +1333,14 @@ def _deterministic_destination_facts(history, message, state=None):
     current = state.get("destination") if isinstance(state.get("destination"), dict) else {}
     if current.get("places"):
         return {}
-    text = " ".join(
-        [str(x.get("content") or "") for x in (history or []) if isinstance(x, dict)]
-        + [str(message or "")]
-    ).lower()
+    # Customer messages only, most recent first. Ariella's own replies name
+    # other countries all the time for comparison ("like in Italy...") - and
+    # a plain dict-order scan of everything picked whichever known country
+    # came first in this dict, not what the customer actually asked for.
+    texts = [str(message or "")] + [
+        str(x.get("content") or "") for x in reversed(history or [])
+        if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"
+    ]
     known = {
         "מונטנגרו": "מונטנגרו", "montenegro": "Montenegro",
         "יוון": "יוון", "greece": "Greece",
@@ -1285,9 +1351,11 @@ def _deterministic_destination_facts(history, message, state=None):
         "קרואטיה": "קרואטיה", "croatia": "Croatia",
         "תאילנד": "תאילנד", "thailand": "Thailand",
     }
-    for needle, label in known.items():
-        if needle in text:
-            return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+    for text in texts:
+        text = text.lower()
+        for needle, label in known.items():
+            if needle in text:
+                return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
     return {}
 
 
@@ -1296,7 +1364,15 @@ def _deterministic_date_facts(history, message, state=None):
     import re
     state = state if isinstance(state, dict) else {}
     current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
-    parts = [str(x.get("content") or "") for x in (history or []) if isinstance(x, dict)]
+    # Customer messages only. Ariella's replies carry many dates that are not
+    # the travel dates - alternative ranges she offered, per-day dates inside
+    # a route, lodging check-ins - and "the last two dates anywhere" silently
+    # adopted them as departure/return. Dates she proposed are accepted by
+    # the dedicated proposal/candidate-choice parsers instead.
+    parts = [
+        str(x.get("content") or "") for x in (history or [])
+        if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"
+    ]
     parts.append(str(message or ""))
     text = " ".join(parts)
     found = []
@@ -1329,12 +1405,28 @@ def _deterministic_duration_facts(message, state=None):
     dep_raw = str(dates.get("departure") or "")[:10]
     if not dep_raw:
         return {}
+    # Only to COMPLETE a missing return date. Seen live: with exact dates
+    # already agreed, any later "N nights"/"N days" mention inside the route
+    # discussion ("2 לילות בכל מקום", "3 ימים בספליט") ran through here after
+    # the sticky-dates lock and silently rewrote the return date to
+    # departure+N - a new trip length the customer never asked for. Changing
+    # agreed dates takes explicit new dates, handled by the date parsers.
+    if dates.get("return") or str(state.get("active_session") or "") == "trip_planning":
+        return {}
     msg = str(message or "").strip().lower()
+    import re as _re_dur
     hebrew_durations = {
         "שבועיים": (2, "שבועות"),
         "שבוע": (1, "שבועות"),
     }
-    matched = next((value for phrase, value in hebrew_durations.items() if phrase in msg), None)
+    # Standalone word only (optionally "ל"/"ו" prefixed) - "בשבוע הבא" or
+    # "סוף שבוע" are not a trip length.
+    matched = next(
+        (value for phrase, value in hebrew_durations.items()
+         if _re_dur.search(r"(?<![א-ת])(?:ל|ו|ול)?" + phrase + r"(?![א-ת])", msg)
+         and not _re_dur.search(r"סוף\s+" + phrase, msg)),
+        None,
+    )
     if matched:
         n, unit = matched
     else:
@@ -1537,7 +1629,7 @@ def _deterministic_budget_facts(message):
     """Treat explicit no-budget-limit language as a completed budget decision."""
     msg = str(message or "").strip().lower()
     no_limit_phrases = (
-        "אין תקציב לאדם", "אין לי תקציב", "ללא תקציב", "בלי תקציב",
+        "אין תקציב", "אין לי תקציב", "ללא תקציב", "בלי תקציב", "בלי הגבלה", "ללא הגבלה",
         "אין הגבלת תקציב", "ללא הגבלת תקציב", "לא מוגבלת בתקציב",
         "לא מוגבל בתקציב", "אין מגבלת תקציב"
     )
@@ -1620,26 +1712,74 @@ def _deterministic_service_decline_facts(history, message):
     }
 
 
-def _deterministic_period_facts(message):
-    """Parse weekday/month windows; ambiguous end-of-month requests require customer choice."""
+def _deterministic_period_facts(message, history=None):
+    """Parse weekday/month windows ("סוף יוני, ראשון עד חמישי") into exact
+    candidate ranges, so Ariella never computes calendar dates herself.
+
+    Seen live: the customer wrote "סוף יוני" in one message and "ראשון עד
+    חמישי" in the next. This used to require both in the SAME message, so no
+    candidates were computed and the model invented its own: 28.6-2.7 and
+    5.7-9.7 - Sunday-Thursday in the already-past 2026 calendar (Monday-Friday
+    in 2027), the second one entirely in July. The month/part-of-month and
+    the weekday pair may now come from the current message or the customer's
+    recent messages. Per product owner: a range whose DEPARTURE is inside the
+    requested part of the month is offered even if the return falls in the
+    next month (end of June -> 27.6-1.7 is fine), but a range departing in
+    the next month never is (5.7-9.7 for "end of June")."""
     import re, calendar
-    msg=str(message or "").strip().lower()
     months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
     weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
-    month_name=next((name for name in months if name in msg),None); month=months.get(month_name) if month_name else None
-    pair=re.search(r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\\s*(?:עד|[-–])\\s*(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)",msg)
+    day_alt="ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת"
+    msg=str(message or "").strip().lower()
+    recent=[msg]+[str(x.get("content") or "").strip().lower() for x in reversed(history or [])
+                  if isinstance(x,dict) and str(x.get("role") or "").lower()=="user"][:6]
+
+    def find_month(text):
+        # Whole word only (optionally ב/ל/מ/ו-prefixed): "מאיזה"/"מאיפה" are not May.
+        for name,num in months.items():
+            if re.search(r"(?<![\u05d0-\u05ea])(?:ב|ל|מ|ו|וב|ול|ומ)?"+name+r"(?![\u05d0-\u05ea])",text):
+                return name,num
+        return None,None
+
+    def find_pair(text):
+        return re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?("+day_alt+r")\s*(?:עד|[-–])\s*(?:יום\s+)?("+day_alt+r")(?![\u05d0-\u05ea])",text)
+
+    month_name,month=find_month(msg); pair=find_pair(msg)
+    # Only complete a fact from recent messages when the current message
+    # itself contributes one of the two - never re-fire on unrelated turns.
+    if not (month or pair):return {}
+    month_text=msg if month else None
+    if not month:
+        for t in recent[1:]:
+            month_name,month=find_month(t)
+            if month:month_text=t;break
+    if not pair:
+        for t in recent[1:]:
+            pair=find_pair(t)
+            if pair:break
     if not month or not pair:return {}
     today=date.today(); year=today.year+(1 if month<today.month else 0)
     start_wd,end_wd=weekdays[pair.group(1)],weekdays[pair.group(2)]; delta=(end_wd-start_wd)%7
-    if "סוף" in msg:
-        last=calendar.monthrange(year,month)[1]; candidates=[]
-        for day in range(max(1,last-14),last+1):
+    last=calendar.monthrange(year,month)[1]
+    part=None
+    for word,key in (("סוף","end"),("תחילת","start"),("בתחילת","start"),("אמצע","mid")):
+        if word in month_text:part=key;break
+    if part:
+        window={"end":(last-13,last),"start":(1,14),"mid":(8,22)}[part]
+        candidates=[]
+        for day in range(max(1,window[0]),window[1]+1):
             d=date(year,month,day)
-            if d.weekday()==start_wd:candidates.append((d,d+timedelta(days=delta)))
-        candidates=candidates[-2:]
+            if d.weekday()==start_wd and d>today:
+                candidates.append((d,d+timedelta(days=delta)))
+        candidates=candidates[-2:] if part=="end" else candidates[:2]
         labels=[f"{x.strftime('%d.%m.%Y')}–{y.strftime('%d.%m.%Y')}" for x,y in candidates]
-        return {"dates":{"departure":None,"return":None,"period":f"סוף {month_name} {year}, {pair.group(1)} עד {pair.group(2)}","constraints":[f"{pair.group(1)} עד {pair.group(2)}"],"candidate_ranges":labels,"needs_confirmation":True}}
-    after=re.search(r"אחרי\\s+(?:ה[- ]?)?(\\d{1,2})",msg); min_day=int(after.group(1))+1 if after else 1
+        part_he={"end":"סוף","start":"תחילת","mid":"אמצע"}[part]
+        return {"dates":{"departure":None,"return":None,"period":f"{part_he} {month_name} {year}, {pair.group(1)} עד {pair.group(2)}","constraints":[f"{pair.group(1)} עד {pair.group(2)}"],"candidate_ranges":labels,"needs_confirmation":True}}
+    after=re.search(r"אחרי\s+(?:ה[- ]?)?(\d{1,2})",month_text or msg)
+    # Without an anchor day ("אחרי ה-15") the month has 4-5 such weeks - that
+    # is a choice for the customer, never the first week picked for her.
+    if not after:return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} ב{month_name} {year}"}}
+    min_day=int(after.group(1))+1
     start=None
     for day in range(min_day,32):
         try:d=date(year,month,day)
@@ -1907,23 +2047,38 @@ def _deterministic_trip_planning_pace_facts(message, history):
     return {"trip_planning": {"details": {"pace": pace}}}
 
 
-def _deterministic_traveler_facts(message):
-    """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck."""
+def _deterministic_traveler_facts(message, existing=None):
+    """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck.
+
+    existing is the travelers dict already in state. A passing mention later
+    in the conversation ("משהו שמתאים לילדה", "הילד בן 9 אוהב ים") must not
+    overwrite what the customer already stated in full - seen live, the
+    traveler composition kept shifting mid-conversation."""
     import re
+    existing = existing if isinstance(existing, dict) else {}
     msg = str(message or "").strip().lower()
     facts = {}
-    if "זוג" in msg or any(p in msg for p in ("אני ובעלי", "אני ואשתי", "בעלי ואני", "אשתי ואני")):
+    # "partner" (בן/בת זוג) is an adult, never a child.
+    msg_no_partner = re.sub(r"(?:בן|בת)\s+(?:ה)?זוג\w*", " ", msg)
+    # "זוג" as its own word - not "זוגי"/"זוגית" (a double room/bed) and not
+    # "2 זוגות" (four adults).
+    if re.search(r"(?<![\u05d0-\u05ea])(?:ו|ל|כ|ה)?זוג(?![\u05d0-\u05ea])", msg_no_partner) \
+            or any(p in msg for p in ("אני ובעלי", "אני ואשתי", "בעלי ואני", "אשתי ואני", "אני ובן הזוג", "אני ובת הזוג")):
         facts["adults"] = 2
+    m = re.search(r"(\d+)\s*זוגות", msg)
+    if m:
+        facts["adults"] = int(m.group(1)) * 2
 
     child_count = None
-    if re.search(r"(?:עם|ו)\s*(?:ה)?(?:ילדה|בת)\b", msg):
-        child_count = 1
-    elif re.search(r"(?:עם|ו)\s*(?:ה)?(?:ילד|בן)\b", msg):
-        child_count = 1
+    singular = False
+    if re.search(r"(?:(?<![\u05d0-\u05ea])ו|עם\s+)(?:ה)?(?:ילדה|בת)(?![\u05d0-\u05ea])", msg_no_partner):
+        child_count, singular = 1, True
+    elif re.search(r"(?:(?<![\u05d0-\u05ea])ו|עם\s+)(?:ה)?(?:ילד|בן)(?![\u05d0-\u05ea])", msg_no_partner):
+        child_count, singular = 1, True
     m = re.search(r"(\d+)\s*(?:ילדים|ילדות)", msg)
     if m:
-        child_count = int(m.group(1))
-    if child_count is not None:
+        child_count, singular = int(m.group(1)), False
+    if child_count is not None and not (singular and existing.get("children")):
         facts["children"] = child_count
 
     # "בת"/"בן" must be a standalone word (optionally prefixed ו/ה) - seen
@@ -1944,6 +2099,11 @@ def _deterministic_traveler_facts(message):
         if 0 <= age <= 17:
             ages.append(age)
             genders.append(gender)
+    existing_ages = existing.get("child_ages") if isinstance(existing.get("child_ages"), list) else []
+    # A partial mention ("הילד בן 9 אוהב ים") must not shrink a full list the
+    # customer already gave; only a complete list replaces it.
+    if ages and existing_ages and len(ages) < len(existing_ages) and "children" not in facts:
+        ages = []
     if ages:
         facts["child_ages"] = ages
         # "בת"/"בן" preceding the age is itself the customer's own gender
@@ -1959,6 +2119,363 @@ def _deterministic_traveler_facts(message):
     if re.search(r"2\s*(?:הורים|מבוגרים)", msg):
         facts["adults"] = 2
     return {"travelers": facts} if facts else {}
+
+
+_SERVICE_KEYWORDS = (
+    ("trip_planning", ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול")),
+    ("lodging", ("מלון", "מלונות", "לינה", "וילה", "דירה", "צימר")),
+    ("car", ("רכב", "השכרת רכב", "רכב שכור")),
+    ("flights", ("טיסה", "טיסות", "לטוס", "טיסת")),
+)
+_REQUEST_CUES = (
+    "גם", "רוצה", "רוצים", "נרצה", "צריך", "צריכה", "צריכים", "תבני", "תבנה", "תכנני",
+    "תחפשי", "תחפש", "תמצאי", "תסדרי", "תזמיני", "אפשר", "בואי", "נעבור", "לעבור",
+    "מעוניין", "מעוניינת", "מעוניינים", "תעזרי", "נמשיך", "להמשיך", "נתקדם", "ועכשיו", "עכשיו",
+    "לשנות", "לחזור", "נחזור", "תחזרי", "לתקן", "לעדכן", "תשני", "תעדכני",
+)
+
+
+_STRONG_REQUEST_CUES = (
+    "גם", "תבני", "תבנה", "תחפשי", "תחפש", "תמצאי", "תסדרי", "תזמיני", "בואי", "נעבור",
+    "לעבור", "נמשיך", "להמשיך", "נתקדם", "ועכשיו", "עכשיו",
+    # Going back to change an earlier session is always allowed (e.g.
+    # "רוצה לשנות את הטיסה" from inside the route).
+    "לשנות", "לחזור", "נחזור", "תחזרי", "לתקן", "לעדכן", "תשני", "תעדכני",
+)
+
+
+def _explicit_service_request(message, state):
+    """Which of the four services the customer is explicitly asking to move
+    to, if any. Seen live, repeatedly: this used to be a bare substring check,
+    so any answer that merely MENTIONED a service word switched the whole
+    conversation - "no long drives by car" (ברכב) mid-route opened a car
+    rental session marked as explicitly requested, "2 nights of lodging in
+    one place" opened lodging, "the day after the flight" jumped to flights -
+    and the route being built was abandoned mid-way (the "stuck" planning
+    conversations). A mention now counts only as the opening request (no
+    session in progress yet) or when phrased as a request ("גם רכב", "תחפשי
+    לי מלון", "בואי נעבור לטיסות"), never after a negation, and never as a
+    descriptive ב/מ-prefixed word ("ברכב", "במלון", "במסלול")."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    text = str(message or "").strip().lower()
+    if not text:
+        return None
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    in_progress = bool(state.get("active_session")) or any(v == "active" for v in statuses.values())
+    words = re.findall(r"[א-תa-z\"'׳״]+", text)
+    prefix = r"(?:ו|ה|ל|ש|וה|ול|וש|שה|לה)?"
+    for service, keywords in _SERVICE_KEYWORDS:
+        for kw in keywords:
+            kw_words = kw.split()
+            n = len(kw_words)
+            first_re = re.compile(r"^" + prefix + re.escape(kw_words[0]) + r"$")
+            for i in range(len(words) - n + 1):
+                if not first_re.match(words[i]) or words[i + 1:i + n] != kw_words[1:]:
+                    continue
+                before = words[max(0, i - 4):i]
+                # Negation right before the keyword ("בלי רכב", "לא צריך
+                # רכב") - only the adjacent words, so an earlier, unrelated
+                # "בלי" in the same sentence doesn't cancel a real request.
+                if any(w in ("לא", "בלי", "אין", "ללא") for w in words[max(0, i - 2):i]):
+                    continue
+                if not in_progress:
+                    return service
+                # "3 לילות באותו מקום" while building a route is a route
+                # constraint, not a request to search lodging.
+                if service == "lodging" and state.get("active_session") == "trip_planning" and re.search(r"לילה|לילות", text):
+                    continue
+                cues = _REQUEST_CUES
+                if state.get("active_session") == "trip_planning":
+                    # A route is a long, multi-turn build. Answers inside it
+                    # ("רוצה לטוס ב-16.5", "רוצה טיסה ישירה") are details,
+                    # not a request to abandon it - leaving takes a clear
+                    # switch ("בואי נעבור לטיסות", "תחפשי לי גם מלון").
+                    cues = _STRONG_REQUEST_CUES
+                if any(w in cues or (w.startswith("ו") and w[1:] in cues) for w in before):
+                    return service
+                if words[i].startswith("ו") and words[i][1:].startswith(kw_words[0]) and i == 0:
+                    return service
+    return None
+
+
+def _is_itinerary_acceptance(message):
+    """Did the customer accept the itinerary just proposed? The exact-phrase
+    set this replaced missed ordinary approvals ("מאשרת את המסלול", "נשמע
+    מושלם, תודה", "אהבתי!") so the planning session never closed and Ariella
+    kept re-proposing or re-asking the route. Short positive replies count;
+    anything asking for a change or asking a question does not."""
+    import re
+    msg = _normalize_confirm(message).lower()
+    if not msg or len(msg) > 80 or "?" in str(message or ""):
+        return False
+    change_markers = (
+        "אבל", "לשנות", "תשני", "שני את", "במקום", "בלי", "תוסיפי", "להוסיף", "תורידי",
+        "להוריד", "פחות", "יותר", "אפשר", "מה עם", "למה", "לא מתאים", "לא טוב", "לא אוהב",
+    )
+    if any(m in msg for m in change_markers):
+        return False
+    if re.search(r"(?<![\u05d0-\u05ea])לא(?![\u05d0-\u05ea])", msg):
+        return False
+    positives = (
+        "כן", "מאשר", "מאשרת", "מתאים", "מתאימה", "מעולה", "מצוין", "מצויין", "אחלה", "נשמע טוב",
+        "נשמע מעולה", "נשמע אחלה", "נשמע סבבה", "נשמע מושלם", "סבבה", "אהבתי", "מושלם", "יופי",
+        "בדיוק", "נהדר", "מדהים", "סגור", "סגרנו", "יאללה", "טוב מאוד", "בסדר גמור", "perfect",
+    )
+    return any(re.search(r"(?<![\u05d0-\u05ea])" + re.escape(p) + r"(?![\u05d0-\u05ea])", msg) for p in positives)
+
+
+_POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
+
+
+def _post_flight_offer_answer(message, state, key=None, model=None, history=None):
+    """The customer's answer to "the flights are being scanned - want help
+    with lodging, car or route too?" (asked right after flight approval).
+    Returns {service: wanted_bool} for each offered service the answer
+    settles, or {} when it doesn't settle anything (Ariella then continues
+    the conversation normally).
+
+    Per product owner: customers phrase this in endless ways ("יאללה בואי
+    נסגור גם מלון", "אני אסתדר לבד עם השאר", "לא בטוחה, אולי מסלול"), so
+    the meaning is understood by the model. Only very short, unambiguous
+    replies are read directly, without a model call."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    offered = [s for s in (state.get("post_flight_offer") or []) if s in _POST_FLIGHT_LABELS]
+    if not offered:
+        return {}
+    msg = _normalize_confirm(message).lower()
+    if not msg:
+        return {}
+    if msg in {"לא", "לא עכשיו", "לא תודה", "לא צריך", "לא צריכה", "לא צריכים", "זהו", "זה הכל", "זה הכול", "סיימנו", "אין צורך"}:
+        return {s: False for s in offered}
+    if msg in {"כן", "בטח", "בהחלט", "כולם", "הכל", "הכול", "את הכל", "את הכול", "כן הכל", "כן הכול", "כן בבקשה", "כן, בבקשה"}:
+        return {s: True for s in offered}
+    if not key:
+        return {}
+    offered_text = ", ".join(f"{s} ({_POST_FLIGHT_LABELS[s]})" for s in offered)
+    prompt = (
+        "את מסווגת תשובת לקוח. אריאלה שאלה את הלקוח, אחרי שאישר את הטיסה, אם הוא רוצה עזרה גם באחד או יותר מהשירותים: "
+        + offered_text + ".\n"
+        "הביני את משמעות התשובה בכל ניסוח, כולל סלנג ושגיאות כתיב. לכל שירות החזירי true אם הלקוח רוצה אותו עכשיו, "
+        "false אם הוא לא רוצה אותו עכשיו (כולל 'אחר כך', 'אסתדר לבד', 'זהו'), או null אם אי אפשר לדעת מהתשובה. "
+        "'כן' כללי בלי פירוט = true לכולם. סירוב כללי בלי פירוט = false לכולם. "
+        "אם הלקוח מתלבט או שואל שאלה בלי להחליט - null. "
+        "החזירי JSON בלבד, בפורמט {\"lodging\": true|false|null, ...} רק עם המפתחות: " + ", ".join(offered) + "."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 60, include_history=False)
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").replace("json", "", 1).strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return {}
+    result = {s: data.get(s) for s in offered if isinstance(data.get(s), bool)}
+    # Partial answers: a clear yes to some with nothing said about the others
+    # ("בואי נסגור גם מלון") means the others are a no for now - but only
+    # when at least one decision was actually made.
+    if result and any(result.values()):
+        for s in offered:
+            result.setdefault(s, False)
+    elif result and len(result) < len(offered):
+        return {}
+    return result
+
+
+_REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_planning": "מסלול ואטרקציות"}
+_REOPEN_FIRST_QUESTION = {
+    "lodging": "איזה סוג לינה מתאים לכם (מלון, דירה או וילה), כמה חדרים, ובאיזו רמה?",
+    "car": "איזה רכב מתאים לכם, ואיפה נוח לאסוף ולהחזיר אותו?",
+    "trip_planning": "ספרי לי מה אתם אוהבים לעשות בחופשה, ובאיזה קצב - רגוע או פעיל?",
+}
+_PENDING_KEYS = (
+    "ready_for_summary", "search_intent", "missing_required", "next_session", "reset_pending",
+    "reset_change_request", "reset_scope", "post_flight_offer", "reopen_trip_pending",
+    "destination_change_pending", "new_trip_pending", "profile",
+)
+
+
+def _he_date_window(text):
+    import re
+    return re.sub(r"(\d{4})-(\d{2})-(\d{2})", lambda m: f"{int(m.group(3))}.{int(m.group(2))}.{m.group(1)}", str(text or ""))
+
+
+def _service_missing_on_trip(answers, service):
+    answers = answers if isinstance(answers, dict) else {}
+    if service == "lodging":
+        return not (answers.get("_lodging_search_finished") or answers.get("lodging_type"))
+    if service == "car":
+        return not (answers.get("_car_search_finished") or answers.get("car_vehicle_type") or answers.get("car_pickup"))
+    if service == "trip_planning":
+        return not answers.get("_approved_itinerary") and answers.get("vacation_type") not in ("business", "ski")
+    return False
+
+
+def _known_place_names():
+    names = set(d["name"] for d in DESTINATIONS)
+    for airport in _load_airports():
+        for key in ("city_he", "country_he"):
+            value = str(airport.get(key) or "").strip()
+            if value:
+                names.add(value)
+    return names
+
+
+def _mentioned_places(message):
+    """Known city/country names the customer mentioned (whole words, with
+    the usual ל/ב/מ/ו prefixes)."""
+    import re
+    msg = str(message or "")
+    found = []
+    for name in _known_place_names():
+        if len(name) >= 2 and re.search(r"(?<![\u05d0-\u05ea])(?:ל|ב|מ|ו|ול|וב)?" + re.escape(name) + r"(?![\u05d0-\u05ea])", msg):
+            found.append(name)
+    return found
+
+
+def _place_countries(names):
+    """Hebrew country for each known city/country name (a country maps to itself)."""
+    countries = set()
+    for airport in _load_airports():
+        city, country = str(airport.get("city_he") or ""), str(airport.get("country_he") or "")
+        for n in names:
+            n = str(n or "").strip()
+            if n and (n == city or n == country):
+                countries.add(country)
+    return countries
+
+
+def _reopenable_trips(member_id, service, message, limit=3):
+    """The customer's upcoming active vacations that don't have `service`
+    yet - candidates for "add lodging/car/route to an existing vacation".
+    If the message names a place, only vacations to that place count."""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT id, request_name, travel_window, answers_json FROM trip_requests "
+            "WHERE member_id=? AND status='active' ORDER BY id DESC LIMIT 20",
+            (member_id,),
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    mentioned = _mentioned_places(message)
+    mentioned_countries = _place_countries(mentioned)
+    today = date.today().isoformat()
+    trips = []
+    for row in rows:
+        try:
+            answers = json.loads(row["answers_json"] or "{}")
+        except Exception:
+            continue
+        # Only vacations still ahead of today (per product owner: never ask
+        # about a vacation whose dates already passed). Exact dates: the
+        # departure must be after today; month-only requests: the month
+        # must not be over yet.
+        dep = str(answers.get("departure_date") or "")[:10]
+        month = str(answers.get("travel_month") or answers.get("outbound_month") or "")[:7]
+        if dep and dep <= today:
+            continue
+        if not dep and month and month < today[:7]:
+            continue
+        if not dep and not month:
+            continue
+        if not _service_missing_on_trip(answers, service):
+            continue
+        name = str(row["request_name"] or "").strip()
+        if mentioned:
+            trip_places = [p.strip() for p in name.split(" • ") if p.strip()]
+            if not (set(trip_places) & set(mentioned) or _place_countries(trip_places) & mentioned_countries):
+                continue
+        trips.append({"id": int(row["id"]), "name": name or "החופשה", "window": _he_date_window(row["travel_window"]), "answers": answers})
+        if len(trips) >= limit:
+            break
+    return trips
+
+
+def _state_from_trip(trip, service):
+    """Rebuild the conversation state of an already-approved vacation so a
+    customer coming back to add `service` continues from what was agreed."""
+    answers = trip.get("answers") or {}
+    stored = answers.get("_ariella_trip_state")
+    if isinstance(stored, dict) and stored:
+        state = json.loads(json.dumps(stored))
+    else:
+        codes = [c for c in str(answers.get("destinations") or "").split(",") if c]
+        places = [p.strip() for p in str(trip.get("name") or "").split(" • ") if p.strip() and p.strip() != "החופשה"]
+        origins = answers.get("origin_airports") or []
+        state = {
+            "trip_type": answers.get("vacation_type") or "standard",
+            "destination": {"places": places, "mode": "specific", "status": "known"},
+            "destination_airports": codes,
+            "departure_airport": origins[0] if origins else None,
+            "dates": {"departure": answers.get("departure_date"), "return": answers.get("return_date"), "needs_confirmation": False},
+            "travelers": {"adults": answers.get("adults"), "children": answers.get("children"), "child_ages": answers.get("age_groups") or []},
+        }
+    for key in _PENDING_KEYS:
+        state.pop(key, None)
+    statuses = dict(state.get("session_status") or answers.get("_session_status") or {})
+    decisions = dict(state.get("service_decisions") or {})
+    statuses["flights"] = "complete"
+    for s in ("lodging", "car", "trip_planning"):
+        if s == service:
+            statuses[s] = "active"
+        elif not _service_missing_on_trip(answers, s):
+            statuses[s] = "complete"
+        elif statuses.get(s) != "complete":
+            # Not asked for now: stays closed so finishing `service` closes
+            # the visit; the customer can still ask for it explicitly.
+            statuses[s] = "declined"
+    decisions[service] = {"wanted": True, "source": "reopened_trip"}
+    services = set(state.get("requested_services") or []) | {"flights", service}
+    state.update({
+        "session_status": statuses, "service_decisions": decisions, "requested_services": sorted(services),
+        "active_session": service, "post_flight_continuation": True, "search_confirmed": True,
+        "reopened_trip_id": trip["id"],
+    })
+    return state
+
+
+def _reopen_question(service, trips):
+    label = _REOPEN_LABELS[service]
+    if len(trips) == 1:
+        t = trips[0]
+        return f"להוסיף {label} לחופשה ל{t['name']} ({t['window']})? (כן = לחופשה הזו, לא = חופשה חדשה)"
+    lines = "\n".join(f"{i + 1}. {t['name']} ({t['window']})" for i, t in enumerate(trips))
+    return f"לאיזו חופשה להוסיף {label}?\n{lines}\nאו שזו חופשה חדשה?"
+
+
+def _pick_reopen_option(message, options, key=None, model=None, history=None):
+    """Which offered vacation the customer chose: an index, "new", or None."""
+    import re
+    msg = _normalize_confirm(message).lower()
+    if re.search(r"(?<![\u05d0-\u05ea])(?:חדשה|חדש|אחרת)(?![\u05d0-\u05ea])", msg):
+        return "new"
+    if len(options) == 1:
+        if msg in {"כן", "כן בבקשה", "נכון", "בדיוק", "לזו", "לחופשה הזו", "לאותה חופשה", "בטח", "יאללה"}:
+            return 0
+        if msg in {"לא", "לא תודה"}:
+            return "new"
+    else:
+        m = re.fullmatch(r"(?:ל)?(\d)", msg)
+        if m and 1 <= int(m.group(1)) <= len(options):
+            return int(m.group(1)) - 1
+        ordinals = {"הראשונה": 0, "ראשונה": 0, "הראשון": 0, "השנייה": 1, "השניה": 1, "שנייה": 1, "השני": 1, "השלישית": 2, "שלישית": 2}
+        for word, idx in ordinals.items():
+            if word in msg and idx < len(options):
+                return idx
+    hits = [i for i, o in enumerate(options) if any(p.strip() and p.strip() in msg for p in str(o.get("name") or "").split(" • "))]
+    if len(hits) == 1:
+        return hits[0]
+    if len(options) == 1 and key:
+        intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
+        if intent == "keep":
+            return 0
+        if intent == "new":
+            return "new"
+    return None
 
 
 def _member_profile(member_id):
@@ -2098,25 +2615,54 @@ def chat_clean():
         # knows (per its own instructions) to say honestly that it has no
         # record rather than invent one.
 
+    # Coming back to add lodging/car/route to a vacation that was already
+    # approved and closed (per product owner): find the customer's upcoming
+    # vacations still missing that service and confirm which one - place and
+    # dates - before continuing it. Never guess, never offer a past vacation.
+    pending_reopen = trip_state.get("reopen_trip_pending") if isinstance(trip_state.get("reopen_trip_pending"), dict) else None
+    if pending_reopen:
+        options = pending_reopen.get("options") or []
+        service = pending_reopen.get("service")
+        choice = _pick_reopen_option(message, options, key, model, history)
+        member_id = session['member_id']
+        if choice == "new":
+            fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
+            reply = "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?"
+            _remember_turn_reset_trip(member_id, history, message, reply, fresh)
+            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
+        if isinstance(choice, int) and service in _REOPEN_LABELS:
+            chosen = next((t for t in _reopenable_trips(member_id, service, "", limit=20) if t["id"] == options[choice].get("id")), None)
+            if chosen:
+                reopened = _state_from_trip(chosen, service)
+                reopened["profile"] = _member_profile(member_id)
+                reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_REOPEN_FIRST_QUESTION[service]}"
+                _remember_turn_reset_trip(member_id, history, message, reply, reopened)
+                return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':reopened,'start_flight_search':False,'reopen_trip_id':chosen['id']})
+        reply = _reopen_question(service, options) if service in _REOPEN_LABELS else "לאיזו חופשה התכוונת?"
+        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':trip_state,'start_flight_search':False})
+
+    trip_is_empty = not ((trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None) \
+        and not trip_state.get("active_session") and not trip_state.get("reset_pending")
+    if trip_is_empty:
+        requested_service = _explicit_service_request(message, trip_state)
+        if requested_service in _REOPEN_LABELS:
+            candidates = _reopenable_trips(session['member_id'], requested_service, message)
+            if candidates:
+                pending = dict(trip_state)
+                pending["reopen_trip_pending"] = {
+                    "service": requested_service,
+                    "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
+                }
+                return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
+
     # After the flight handoff, keep the same vacation as the default context.
     # When the customer asks for one of the remaining services, deterministically
     # activate that session and keep it active across follow-up answers.
     msg_lower = message.lower()
-    service_request = None
-    if any(x in msg_lower for x in ("מסלול", "אטרקצי", "מה לעשות", "טיול יומי", "תכנון טיול")):
-        service_request = "trip_planning"
-    elif any(x in msg_lower for x in ("מלון", "לינה", "וילה", "דירה")):
-        service_request = "lodging"
-    elif any(x in msg_lower for x in ("רכב", "השכרת רכב")):
-        service_request = "car"
-    # Flights is just as valid a target as the other three - a customer who
-    # started with car/lodging/trip_planning and now explicitly wants to
-    # switch to flights must be flowed with immediately too, the same as any
-    # other domain switch (see the same-shaped block right below).
-    elif any(x in msg_lower for x in ("טיסה", "טיסות", "לטוס", "טיסת")):
-        service_request = "flights"
-
     existing_active = str(trip_state.get("active_session") or "")
+    service_request = _explicit_service_request(message, trip_state)
+    if service_request == existing_active:
+        service_request = None
     flights_status = str((trip_state.get("session_status") or {}).get("flights") or "pending")
     flights_settled = flights_status in ("complete", "declined")
     if service_request and service_request != "flights" and not flights_settled:
@@ -2177,7 +2723,10 @@ def chat_clean():
     # and seed only facts explicitly present in the new request.
     new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר"))
     old_trip_committed = bool(trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
-    if new_vacation_language and old_trip_committed:
+    # Own pending questions (new trip vs. destination change) are answered by
+    # their own handlers below - "חופשה חדשה" there is the answer, not a new request.
+    own_pending_question = bool(trip_state.get("new_trip_pending") or trip_state.get("reopen_trip_pending"))
+    if new_vacation_language and old_trip_committed and not own_pending_question:
         fresh = {
             'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
             'active_session':None
@@ -2225,7 +2774,7 @@ def chat_clean():
         "חופשה" in last_assistant and "חדשה" in last_assistant
         and ("הקודמת" in last_assistant or "הנוכחית" in last_assistant or "אותה חופשה" in last_assistant or "למחוק" in last_assistant or "להתחיל" in last_assistant)
     )
-    if _previous_asked_new_vacation:
+    if _previous_asked_new_vacation and not own_pending_question:
         _intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
         if _intent == "new":
             _remember_turn_reset_trip(session['member_id'], history, message, 'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?', {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None})
@@ -2247,7 +2796,7 @@ def chat_clean():
 
     # General restart/change-of-direction always enters a simple yes/no gate.
     # Never erase collected trip facts before an explicit confirmation.
-    if _reset_intent(message) and not trip_state.get("reset_pending"):
+    if _reset_intent(message) and not trip_state.get("reset_pending") and not own_pending_question:
         pending = dict(trip_state)
         pending["reset_pending"] = True
         pending["reset_change_request"] = message
@@ -2377,11 +2926,62 @@ def chat_clean():
     current_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
     current_places = current_destination.get("places") or []
     destination_change = None
+    possible_new_trip = None
+    # A place that is part of the current vacation's own country (e.g.
+    # "איטליה" while planning Rome) is never a different destination.
+    current_countries = _place_countries(current_places) | set(current_places)
     for candidate in known_destinations:
         if candidate in message and current_places and candidate not in current_places:
+            if candidate in current_countries or _place_countries([candidate]) & current_countries:
+                continue
             if any(token in message for token in ("במקום","רוצה לטוס ל","היעד","לשנות")):
                 destination_change = candidate
                 break
+            # Seen as a gap: "ומה עם טיסה לפריז בדצמבר?" in the middle of an
+            # open Rome vacation had no "new"/"instead" wording, so Paris and
+            # December could silently merge into the Rome trip. A different
+            # destination asked about as a trip of its own gets a question
+            # instead. Never inside route planning, where other places come
+            # up naturally (day trips, comparisons).
+            trip_cues = ("טיסה ל","לטוס ל","טיסות ל","חופשה ב","חופשה ל","טיול ל","נסיעה ל","לנסוע ל")
+            if str(trip_state.get("active_session") or "") != "trip_planning" and any(cue + candidate in message or cue + "ה" + candidate in message for cue in trip_cues):
+                possible_new_trip = candidate
+                break
+
+    pending_new_trip = trip_state.get("new_trip_pending")
+    if pending_new_trip:
+        msg_norm = _normalize_confirm(message).lower()
+        if any(w in msg_norm for w in ("חדשה", "חדש", "נפרדת", "נפרד", "אחרת")):
+            intent = "new"
+        elif any(w in msg_norm for w in ("שינוי", "לשנות", "הנוכחית", "במקום", "להחליף")):
+            intent = "keep"
+        else:
+            intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
+        if intent == "new":
+            fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None,
+                     'destination':{'places':[pending_new_trip],'mode':'specific','status':'known'}}
+            reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה תרצי לטוס?"
+            _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
+            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
+        if intent == "keep":
+            kept = dict(trip_state)
+            kept.pop("new_trip_pending", None)
+            kept["destination_change_pending"] = pending_new_trip
+            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                            'reply':'שינוי היעד משנה גם את המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד. למחוק את הפרטים שתלויים ביעד ולבנות אותם מחדש ליעד החדש?',
+                            'trip_update':kept,'start_flight_search':False})
+        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                        'reply':f"רק כדי לוודא - {pending_new_trip}: זו חופשה חדשה ונפרדת, או שינוי יעד בחופשה הנוכחית ל{', '.join(current_places)}?",
+                        'trip_update':trip_state,'start_flight_search':False})
+
+    if possible_new_trip and not trip_state.get("destination_change_pending"):
+        pending = dict(trip_state)
+        pending["new_trip_pending"] = possible_new_trip
+        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                        'reply':f"רגע, לפני שממשיכים - {possible_new_trip}: זו חופשה חדשה ונפרדת, או שינוי יעד בחופשה הנוכחית ל{', '.join(current_places)}?"
+                                + ("" if (trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
+                                   else f" (החופשה ל{', '.join(current_places)} עוד לא אושרה, אז בחופשה חדשה הפרטים שלה יימחקו.)"),
+                        'trip_update':pending,'start_flight_search':False})
 
     if destination_change and not trip_state.get("destination_change_pending"):
         pending = dict(trip_state)
@@ -2431,7 +3031,7 @@ def chat_clean():
     if trip_state.get("conversation_boundary") == "current_trip":
         history = _current_trip_history(history, trip_state)
 
-    date_conflict = _weekday_date_conflict(message)
+    date_conflict = _weekday_date_conflict(message, history)
     if date_conflict:
         return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
@@ -2469,6 +3069,27 @@ def chat_clean():
         # extractor's own decisions above so it authoritatively overrides a
         # misattributed or dropped extraction - see the function's docstring
         # for the live-transcript loop this fixes.
+        post_flight_answer = _post_flight_offer_answer(message, trip_state, key, model, history)
+        if post_flight_answer:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service, wanted in post_flight_answer.items():
+                decisions[service] = {"wanted": wanted, "source": "post_flight_offer"}
+                if wanted:
+                    services.add(service)
+                    if statuses.get(service) != "complete":
+                        statuses[service] = "active"
+                else:
+                    services.discard(service)
+                    statuses[service] = "declined"
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
+            trip_update["post_flight_offer"] = []
+            first_wanted = next((s for s in ("lodging","car","trip_planning") if post_flight_answer.get(s)), None)
+            if first_wanted:
+                trip_update["active_session"] = first_wanted
         deterministic_decline = _deterministic_service_decline_facts(history, message)
         decline_decisions = deterministic_decline.get("service_decisions") if isinstance(deterministic_decline, dict) else None
         if decline_decisions:
@@ -2556,7 +3177,7 @@ def chat_clean():
                 if isinstance(_item, dict) and str(_item.get("role") or "").lower() == "user":
                     trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(_item.get("content")))
                     break
-        trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message, trip_state.get("travelers")))
         trip_update = _merge_trip_state(trip_update, _infer_standard_trip_type(trip_update, message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range
@@ -2569,7 +3190,11 @@ def chat_clean():
         # convert that choice to authoritative exact dates before any summary/search.
         trip_update = _merge_trip_state(trip_update, _deterministic_candidate_choice_facts(message, trip_state))
         # Current message + Ariella state only. Never resurrect facts from old chat history.
-        trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message))
+        # Weekday/month wording opens a date choice only while dates are still
+        # open - never reopens dates the customer already closed (mid-route
+        # "סוף מאי, ראשון עד חמישי" is context, not a new request).
+        if not (prior_dates.get("departure") and prior_dates.get("return")):
+            trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history))
 
         # A normal trip request to a destination implies Ariella should handle
         # flights unless the customer explicitly says flights are booked/not needed.
@@ -2661,6 +3286,13 @@ def chat_clean():
         )
         _date_just_before_re = _re_itinerary.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
 
+        # Itineraries are just as often numbered ("יום 1: הגעה...", "יום 2:
+        # פליטביצה") with no weekday at all - seen live in the Croatia test:
+        # a full numbered route never counted as an itinerary, so the
+        # customer's approval of it was never recognized and the planning
+        # session could never close. Two distinct day numbers count too.
+        _numbered_day_re = _re_itinerary.compile(r"(?<![\u05d0-\u05ea])יום\s+(\d{1,2})(?!\d)")
+
         def day_mention_count(text):
             text = str(text or "")
             count = 0
@@ -2669,7 +3301,9 @@ def chat_clean():
                 if _date_just_before_re.search(prefix):
                     continue
                 count += 1
-            return count
+            numbered = {m.group(1) for m in _numbered_day_re.finditer(text)}
+            return max(count, len(numbered))
+
 
         last_assistant_text = ""
         itinerary_shaped_text = ""
@@ -2707,9 +3341,8 @@ def chat_clean():
         # time to move on to flights/lodging/car, which made no sense since
         # she was still mid-flight-conversation and had approved nothing like
         # a full itinerary.
-        planning_accept = planning_active and not already_approved and msg_confirm in {
-            "כן","כן.","מעולה","מצוין","מצויין","אחלה","נשמע טוב","נשמע סבבה","סבבה","סבבה גמור","מתאים","מאשרת","מאשר"
-        } and day_mention_count(prior_assistant) >= 2
+        planning_accept = planning_active and not already_approved \
+            and _is_itinerary_acceptance(message) and day_mention_count(prior_assistant) >= 2
         if planning_accept:
             statuses_plan = dict(trip_update.get("session_status") or {})
             statuses_plan["trip_planning"] = "complete"
@@ -2740,6 +3373,8 @@ def chat_clean():
             # model has a transient failure. The next user turn can continue.
             reply = "קלטתי את הפרטים. נמשיך מכאן."
         reply = _fix_child_gender_wording(reply, trip_update)
+        if post_flight_answer and not any(post_flight_answer.values()):
+            reply = "בסדר גמור. מעבירה אותך לתוצאות הטיסה - ותמיד אפשר לחזור לכאן כדי להוסיף לינה, רכב או מסלול."
 
         # Never let Tinkerbell present the final summary/"כתבי מאשרת" request
         # while a required flight fact is still genuinely missing. The prompt
@@ -2945,20 +3580,36 @@ def chat_clean():
                     d = decisions_after_flight.get(service)
                     source = d.get("source") if isinstance(d, dict) else None
                     return source in ("business_trip_default", "ski_trip_default")
-                remaining = [
-                    remaining_labels[s] for s in ("lodging","car","trip_planning")
-                    if statuses_after_flight.get(s, "pending") in ("pending", "declined")
+                # Product flow: the flight scan starts now in the background
+                # and Ariella immediately asks about the remaining services in
+                # the same conversation. "No" sends the customer to the
+                # waiting page (flights only); "yes" continues with just the
+                # services she said yes to, each searched as soon as it's
+                # settled, and the waiting page comes once everything is done.
+                def _wanted(service):
+                    d = decisions_after_flight.get(service)
+                    return (d.get("wanted") if isinstance(d, dict) else d) is True
+                already_requested = [
+                    s for s in ("lodging","car","trip_planning")
+                    if _wanted(s) and statuses_after_flight.get(s) not in ("complete","declined")
+                ]
+                offered = [
+                    s for s in ("lodging","car","trip_planning")
+                    if s not in already_requested
+                    and statuses_after_flight.get(s, "pending") == "pending"
                     and not _auto_declined_by_trip_type(s)
                 ]
-                if remaining:
-                    if len(remaining) == 1:
-                        extra = remaining[0]
-                    else:
-                        extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
+                def _join(labels):
+                    return labels[0] if len(labels) == 1 else " או ".join([", ".join(labels[:-1]), labels[-1]])
+                lead = "הבקשה אושרה והטיסות כבר נסרקות ברקע - התוצאות יתעדכנו בכרטיסיית החופשה."
+                if already_requested:
+                    reply = f"{lead} עכשיו נמשיך ל{_join([remaining_labels[s] for s in already_requested])}, כמו שביקשת. מתחילות?"
+                elif offered:
                     reply = (
-                        "הבקשה אושרה ואני יוצאת לסריקת טיסות. "
-                        f"כשתרצי, אפשר לחזור לכאן ולהמשיך עם {extra}."
+                        f"{lead} בינתיים, תרצי שאעזור גם ב{_join([remaining_labels[s] for s in offered])}? "
+                        "אם לא עכשיו, אעביר אותך לתוצאות, ותמיד אפשר לחזור לכאן בהמשך."
                     )
+                    merged["post_flight_offer"] = offered
                 else:
                     reply = "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
     except Exception as exc:
@@ -2995,6 +3646,7 @@ def chat_clean():
     # Whatever shape trip_update happens to be in, the worst acceptable outcome
     # is skipping the reset for this turn, never a 500 that blocks the chat.
     trip_state_reset = False
+    resolved_trip_state = None
     try:
         final_statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
         final_decisions = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
@@ -3014,9 +3666,13 @@ def chat_clean():
             or ((final_decisions.get(s) or {}).get("wanted") is False if isinstance(final_decisions.get(s), dict) else final_decisions.get(s) is False)
             for s in ("lodging", "car", "trip_planning")
         )
-        trip_fully_resolved = flights_resolved and other_domains_resolved
+        trip_fully_resolved = flights_resolved and other_domains_resolved and not bool(locals().get("approval", False))
         if trip_fully_resolved:
             trip_state_reset = True
+            # The chat page still needs the completed vacation facts this
+            # turn to send the just-settled service (lodging/car/route) to
+            # its search before handing off to the waiting page.
+            resolved_trip_state = trip_update
             fresh_after_completion = {
                 'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
                 'active_session': None,
@@ -3056,4 +3712,5 @@ def chat_clean():
         # on THIS user message. Never let model-extracted state start a scan.
         'start_flight_search': start_flight_search,
         'trip_state_reset': trip_state_reset,
+        'resolved_trip_state': resolved_trip_state,
     })

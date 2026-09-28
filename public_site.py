@@ -82,6 +82,7 @@ _ITINERARY_DAY_MENTION = re.compile(
     r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
 )
 _DATE_JUST_BEFORE = re.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+_ITINERARY_NUMBERED_DAY = re.compile(r"(?<![\u05d0-\u05ea])יום\s+(\d{1,2})(?!\d)")
 
 
 def _itinerary_day_mention_count(text):
@@ -92,7 +93,11 @@ def _itinerary_day_mention_count(text):
         if _DATE_JUST_BEFORE.search(prefix):
             continue
         count += 1
-    return count
+    # Numbered itineraries ("יום 1: ...", "יום 2: ...") with no weekday are
+    # just as common - count distinct day numbers too (same rule as
+    # ariella_chat_clean's day_mention_count).
+    numbered = {m.group(1) for m in _ITINERARY_NUMBERED_DAY.finditer(text)}
+    return max(count, len(numbered))
 
 
 def _most_recent_itinerary_shaped_message(history):
@@ -2090,7 +2095,13 @@ def inject_site_context():
         lang = "he"
         session["lang"] = "he"
 
-    return {"current_member": _current_member(), "site_lang": lang,
+    # The chat's "reset conversation" button is a QA tool, shown only while
+    # test mode is on in the admin dashboard - never to real customers.
+    try:
+        qa_test_mode = str(get_setting("qa_test_mode", "0") or "0") == "1"
+    except Exception:
+        qa_test_mode = False
+    return {"current_member": _current_member(), "site_lang": lang, "qa_test_mode": qa_test_mode,
             "car_partner_cards": _car_partner_cards}
 
 
@@ -3001,6 +3012,47 @@ def ariella_save_trip_car():
     return jsonify({"status":"saved","trip_id":trip_id})
 
 
+@site.post("/api/ariella/sync-trip-services")
+@login_required
+def ariella_sync_trip_services():
+    """Record which post-flight services this vacation actually ended up
+    needing, right before the chat hands off to the waiting page. A service
+    requested before the flight approval (and so already in
+    _requested_services) that the customer then declined after it must not
+    keep the waiting page "searching" for it forever."""
+    body = request.get_json(silent=True) or {}
+    trip_id = int(body.get("trip_id") or 0)
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    if not trip_id:
+        return jsonify({"status":"error","message":"missing trip"}), 400
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT answers_json FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return jsonify({"status":"missing"}), 404
+    try:
+        answers = json.loads(row["answers_json"] or "{}")
+    except Exception:
+        answers = {}
+    requested = set(answers.get("_requested_services") or [])
+    session_status = dict(answers.get("_session_status") or {})
+    for service in ("lodging", "car", "trip_planning"):
+        status = statuses.get(service)
+        if status == "declined":
+            requested.discard(service)
+            session_status[service] = "declined"
+        elif status == "complete":
+            requested.add(service)
+            session_status[service] = "complete"
+    answers["_requested_services"] = sorted(requested)
+    answers["_session_status"] = session_status
+    _save_trip_answers(trip_id, answers)
+    return jsonify({"status":"saved","trip_id":trip_id,"requested":sorted(requested)})
+
+
 def _find_duplicate_active_trip(member_id, departure_airport, destination_codes, date_mode, dep, ret, month):
     """A customer must not be able to farm repeated free scans by re-approving
     the same route/dates in a new conversation. If they already have an active
@@ -3272,6 +3324,10 @@ def ariella_start_flight_search():
         "car_return": car_details.get("return") or "",
         "_requested_services": sorted(services),
         "_session_status": state.get("session_status") if isinstance(state.get("session_status"), dict) else {},
+        # The approved conversation facts, so a customer who comes back later
+        # to add lodging/car/route to THIS vacation continues from exactly what
+        # was agreed instead of being asked destination/dates/travelers again.
+        "_ariella_trip_state": {k: v for k, v in state.items() if k not in ("profile", "missing_required")},
     }
     # A route/itinerary conversation that happened and was approved BEFORE the
     # customer approved the flight search (a natural order - "let's plan the
@@ -3412,7 +3468,10 @@ def trip_waiting(trip_id):
     # for one at all, not even a dimmed "skipped" one.
     vacation_type = _trip_dict(row).get("answers", {}).get("vacation_type")
     show_plan_stage = vacation_type not in ("business", "ski")
-    return render_template("trip_waiting.html", trip_id=trip_id, show_plan_stage=show_plan_stage)
+    # ?reopen=1: the customer came back to add lodging/car/route to an
+    # already-searched vacation - the flight stage is not part of this visit.
+    hide_flight_stage = request.args.get("reopen") == "1"
+    return render_template("trip_waiting.html", trip_id=trip_id, show_plan_stage=show_plan_stage, hide_flight_stage=hide_flight_stage)
 
 
 @site.get("/trip/<int:trip_id>/flight-status")
