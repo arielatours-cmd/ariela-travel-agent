@@ -26,6 +26,7 @@ from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels
+import booking_demand
 from booker import resolve_booking_target
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 
@@ -2905,9 +2906,97 @@ def ariella_save_trip_plan():
             "attractions": _enrich_approved_attractions(planning, assistant_plan),
         }
         answers["_trip_planning_complete"] = True
+        requested = set(answers.get("_requested_services") or [])
+        requested.add("trip_planning")
+        answers["_requested_services"] = sorted(requested)
+        session_status = dict(answers.get("_session_status") or {})
+        session_status["trip_planning"] = "complete"
+        answers["_session_status"] = session_status
         conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?",
                      (json.dumps(answers, ensure_ascii=False), trip_id))
         conn.commit()
+    return jsonify({"status":"saved","trip_id":trip_id})
+
+
+@site.post("/api/ariella/save-trip-lodging")
+@login_required
+def ariella_save_trip_lodging():
+    """Attach lodging details gathered post-flight to the already-created
+    vacation and immediately fire the real lodging search - this is the
+    automatic post-flight-continuation path; no manual button click needed."""
+    body = request.get_json(silent=True) or {}
+    trip_id = int(body.get("trip_id") or 0)
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    if not trip_id:
+        return jsonify({"status":"error","message":"missing trip"}), 400
+    lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
+    details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT answers_json FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return jsonify({"status":"missing"}), 404
+    try:
+        answers = json.loads(row["answers_json"] or "{}")
+    except Exception:
+        answers = {}
+    answers["lodging_type"] = details.get("type") or ""
+    answers["lodging_rooms"] = details.get("rooms")
+    answers["lodging_budget_per_person"] = details.get("budget")
+    answers["lodging_level"] = details.get("level") or ""
+    answers["lodging_location"] = details.get("locations") or details.get("location") or ""
+    answers.pop("_lodging_search_finished", None)
+    answers.pop("_lodging_search_result", None)
+    requested = set(answers.get("_requested_services") or [])
+    requested.add("lodging")
+    answers["_requested_services"] = sorted(requested)
+    session_status = dict(answers.get("_session_status") or {})
+    session_status["lodging"] = "complete"
+    answers["_session_status"] = session_status
+    _save_trip_answers(trip_id, answers)
+    _queue_lodging_search(trip_id, dict(answers))
+    return jsonify({"status":"saved","trip_id":trip_id})
+
+
+@site.post("/api/ariella/save-trip-car")
+@login_required
+def ariella_save_trip_car():
+    """Attach car-rental details gathered post-flight to the already-created
+    vacation and fire the real search when a live provider is configured -
+    same automatic post-flight-continuation path as lodging."""
+    body = request.get_json(silent=True) or {}
+    trip_id = int(body.get("trip_id") or 0)
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    if not trip_id:
+        return jsonify({"status":"error","message":"missing trip"}), 400
+    car = state.get("car") if isinstance(state.get("car"), dict) else {}
+    details = car.get("details") if isinstance(car.get("details"), dict) else {}
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT answers_json FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return jsonify({"status":"missing"}), 404
+    try:
+        answers = json.loads(row["answers_json"] or "{}")
+    except Exception:
+        answers = {}
+    answers["car_vehicle_type"] = details.get("vehicle_type") or ""
+    answers["car_pickup"] = details.get("pickup") or ""
+    answers["car_return"] = details.get("return") or ""
+    answers.pop("_car_search_finished", None)
+    answers.pop("_car_search_result", None)
+    requested = set(answers.get("_requested_services") or [])
+    requested.add("car")
+    answers["_requested_services"] = sorted(requested)
+    session_status = dict(answers.get("_session_status") or {})
+    session_status["car"] = "complete"
+    answers["_session_status"] = session_status
+    _save_trip_answers(trip_id, answers)
+    _queue_car_search(trip_id, dict(answers))
     return jsonify({"status":"saved","trip_id":trip_id})
 
 
@@ -3137,6 +3226,8 @@ def ariella_start_flight_search():
     ski_state = state.get("ski") if isinstance(state.get("ski"), dict) else {}
     lodging_details = (state.get("lodging") or {}).get("details") if isinstance(state.get("lodging"), dict) else {}
     lodging_details = lodging_details if isinstance(lodging_details, dict) else {}
+    car_details = (state.get("car") or {}).get("details") if isinstance(state.get("car"), dict) else {}
+    car_details = car_details if isinstance(car_details, dict) else {}
     payload = {
         "origin_airports": [departure_airport],
         "destination_mode": "specific" if destination_codes else "open",
@@ -3172,8 +3263,12 @@ def ariella_start_flight_search():
         "ski_transfer_choice": ski_state.get("transfer_choice") or "any",
         "lodging_type": lodging_details.get("type") or "",
         "lodging_rooms": lodging_details.get("rooms"),
-        "lodging_budget_per_person": lodging_details.get("budget_per_person"),
-        "lodging_location": lodging_details.get("location") or "",
+        "lodging_budget_per_person": lodging_details.get("budget"),
+        "lodging_level": lodging_details.get("level") or "",
+        "lodging_location": lodging_details.get("locations") or lodging_details.get("location") or "",
+        "car_vehicle_type": car_details.get("vehicle_type") or "",
+        "car_pickup": car_details.get("pickup") or "",
+        "car_return": car_details.get("return") or "",
         "_requested_services": sorted(services),
         "_session_status": state.get("session_status") if isinstance(state.get("session_status"), dict) else {},
     }
@@ -3337,18 +3432,30 @@ def trip_flight_status(trip_id):
     result = answers.get("_flight_search_result") or {}
     status = "ready" if offers or finished else "searching"
     requested = set(answers.get("_requested_services") or [])
-    session_status = answers.get("_session_status") if isinstance(answers.get("_session_status"), dict) else {}
+    flight_stage = "complete" if status == "ready" else "searching"
+
+    def stage_state(service, finished_flag_key):
+        # A domain the customer never asked for (or explicitly declined) is
+        # skipped outright. One that was requested but hasn't reached its own
+        # real search-completion flag yet is still genuinely searching - this
+        # never fakes completion with a client-side timer.
+        if service not in requested:
+            return "skipped"
+        return "complete" if bool(answers.get(finished_flag_key)) else "searching"
+
     stages = {
-        "flight": "complete" if status == "ready" else "searching",
-        "lodging": "pending" if ("lodging" in requested or session_status.get("lodging") == "complete") else "skipped",
-        "car": "pending" if ("car" in requested or session_status.get("car") == "complete") else "skipped",
-        "plan": "pending" if ("trip_planning" in requested or session_status.get("trip_planning") == "complete") else "skipped",
+        "flight": flight_stage,
+        "lodging": stage_state("lodging", "_lodging_search_finished"),
+        "car": stage_state("car", "_car_search_finished"),
+        "plan": stage_state("trip_planning", "_trip_planning_complete"),
     }
+    all_done = flight_stage == "complete" and all(v in ("complete", "skipped") for v in stages.values())
     return jsonify({
         "status":status,
         "count":len(offers),
         "search_result":result,
         "stages":stages,
+        "all_done":all_done,
         "url":url_for("site.account") + f"#vacation-{trip_id}"
     })
 
@@ -3929,32 +4036,27 @@ def cancel_pending_search(trip_id):
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
-@site.post("/trip/<int:trip_id>/search-lodging")
-@login_required
-def search_lodging(trip_id):
-    """On-demand real lodging search via SerpApi's Google Hotels engine -
-    triggered explicitly by the customer only (never automatically on page
-    load), since each call spends one paid API request. Real, priced
-    listings (including from Booking.com among other suppliers) rather than
-    the single Booking.com search-page link this used to be limited to."""
+def _save_trip_answers(trip_id: int, answers: dict) -> None:
     with _db() as conn:
-        row = conn.execute(
-            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
-            (trip_id, session["member_id"]),
-        ).fetchone()
-    if not row:
-        return redirect(url_for("site.account"))
-    trip = _trip_dict(row)
-    answers = dict(trip.get("answers") or {})
-    destination_codes = sorted(_trip_destination_codes(trip))
+        conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?",
+                     (json.dumps(answers, ensure_ascii=False), trip_id))
+        conn.commit()
+
+
+def _run_lodging_search(trip_id: int, answers: dict) -> None:
+    """Execute a real lodging search (SerpApi's Google Hotels engine) for one
+    trip and persist the results plus a completion flag the waiting page and
+    the account tabs both read. Shared by the manual "search again" button
+    and the automatic post-flight-continuation trigger - each call spends one
+    paid API request, so this never runs on page load, only explicitly."""
+    destination_codes = sorted(_trip_destination_codes({"answers": answers}))
     dep, ret = answers.get("departure_date"), answers.get("return_date")
     if not destination_codes or not dep or not ret:
         answers["lodging_search_error"] = "חסר יעד או תאריכים כדי לחפש לינה."
-        with _db() as conn:
-            conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=? AND member_id=?",
-                         (json.dumps(answers, ensure_ascii=False), trip_id, session["member_id"]))
-            conn.commit()
-        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        answers["_lodging_search_finished"] = True
+        answers["_lodging_search_result"] = {"status": "missing_criteria"}
+        _save_trip_answers(trip_id, answers)
+        return
 
     info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
     city = info.get("city_en") or info.get("city_he") or destination_codes[0]
@@ -3994,14 +4096,136 @@ def search_lodging(trip_id):
         answers["lodging_offers"] = (result.get("hotels") or [])[:10]
         answers["lodging_searched_at"] = utc_now_iso()
         answers["lodging_search_error"] = None
-    except Exception:
+        answers["_lodging_search_result"] = {"status": "ok", "count": len(answers["lodging_offers"])}
+    except Exception as exc:
         logging.exception("Lodging search failed for trip %s", trip_id)
         answers["lodging_search_error"] = "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."
+        answers["_lodging_search_result"] = {"status": "error", "message": str(exc)[:300]}
+    answers["_lodging_search_finished"] = True
+    _save_trip_answers(trip_id, answers)
 
+
+_lodging_search_threads = {}
+_lodging_search_threads_lock = threading.Lock()
+
+
+def _queue_lodging_search(trip_id: int, answers: dict) -> bool:
+    """Fire the real lodging search in the background so the caller (chat
+    turn or waiting page) never blocks on a paid external call."""
+    with _lodging_search_threads_lock:
+        current = _lodging_search_threads.get(trip_id)
+        if current and current.is_alive():
+            return False
+        def worker():
+            try:
+                _run_lodging_search(trip_id, dict(answers))
+            finally:
+                with _lodging_search_threads_lock:
+                    _lodging_search_threads.pop(trip_id, None)
+        thread = threading.Thread(target=worker, daemon=True, name=f"ariella-lodging-{trip_id}")
+        _lodging_search_threads[trip_id] = thread
+        thread.start()
+        return True
+
+
+def _run_car_search(trip_id: int, answers: dict) -> None:
+    """Execute a real car-rental search when a live provider is configured;
+    otherwise complete the car stage honestly instead of hanging the
+    pipeline or fabricating listings. No car-rental pricing API is wired up
+    today (no SerpApi engine for it, and BOOKING_DEMAND_API_KEY /
+    BOOKING_AFFILIATE_ID are not configured), so this currently always takes
+    the honest "unavailable" path - it is ready to go live the moment a real
+    provider is configured."""
+    if not booking_demand.is_configured():
+        answers["_car_search_finished"] = True
+        answers["_car_search_result"] = {
+            "status": "unavailable",
+            "message": "חיפוש רכב אמיתי עדיין לא מחובר - אריאלה תעדכן ברגע שהאפשרות תהיה זמינה.",
+        }
+        _save_trip_answers(trip_id, answers)
+        return
+
+    destination_codes = sorted(_trip_destination_codes({"answers": answers}))
+    dep, ret = answers.get("departure_date"), answers.get("return_date")
+    if not destination_codes or not dep or not ret:
+        answers["_car_search_finished"] = True
+        answers["_car_search_result"] = {"status": "missing_criteria"}
+        _save_trip_answers(trip_id, answers)
+        return
+    try:
+        result = booking_demand.search_cars(
+            pickup_airport=destination_codes[0], dropoff_airport=destination_codes[0],
+            pickup_datetime=f"{dep}T10:00:00", dropoff_datetime=f"{ret}T10:00:00",
+            driver_age=30,
+        )
+        answers["car_offers"] = (result.get("cars") or result.get("results") or [])[:10]
+        answers["car_searched_at"] = utc_now_iso()
+        answers["car_search_error"] = None
+        answers["_car_search_result"] = {"status": "ok", "count": len(answers["car_offers"])}
+    except Exception as exc:
+        logging.exception("Car search failed for trip %s", trip_id)
+        answers["car_search_error"] = "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."
+        answers["_car_search_result"] = {"status": "error", "message": str(exc)[:300]}
+    answers["_car_search_finished"] = True
+    _save_trip_answers(trip_id, answers)
+
+
+_car_search_threads = {}
+_car_search_threads_lock = threading.Lock()
+
+
+def _queue_car_search(trip_id: int, answers: dict) -> bool:
+    with _car_search_threads_lock:
+        current = _car_search_threads.get(trip_id)
+        if current and current.is_alive():
+            return False
+        def worker():
+            try:
+                _run_car_search(trip_id, dict(answers))
+            finally:
+                with _car_search_threads_lock:
+                    _car_search_threads.pop(trip_id, None)
+        thread = threading.Thread(target=worker, daemon=True, name=f"ariella-car-{trip_id}")
+        _car_search_threads[trip_id] = thread
+        thread.start()
+        return True
+
+
+@site.post("/trip/<int:trip_id>/search-lodging")
+@login_required
+def search_lodging(trip_id):
+    """On-demand real lodging search - kept as a "search again" fallback for
+    the account page. The normal path is automatic (see
+    /api/ariella/save-trip-lodging), triggered the moment lodging details are
+    gathered in chat, never a button click."""
     with _db() as conn:
-        conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=? AND member_id=?",
-                     (json.dumps(answers, ensure_ascii=False), trip_id, session["member_id"]))
-        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return redirect(url_for("site.account"))
+    trip = _trip_dict(row)
+    answers = dict(trip.get("answers") or {})
+    _run_lodging_search(trip_id, answers)
+    return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+
+@site.post("/trip/<int:trip_id>/search-car")
+@login_required
+def search_car(trip_id):
+    """Manual retry for a failed car search - kept for when a live provider
+    is configured and a one-off search error needs a re-try."""
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return redirect(url_for("site.account"))
+    trip = _trip_dict(row)
+    answers = dict(trip.get("answers") or {})
+    _run_car_search(trip_id, answers)
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 

@@ -39,8 +39,8 @@
  const order=['flight','lodging','car','plan'];
  const copy={
    flight:['✈️','מחפשת את הטיסות המתאימות לך…','משווה אפשרויות ובודקת התאמה לתאריכים ולבקשה שלך.'],
-   lodging:['🏨','ממשיכה ללינה…','פרטי הלינה שביקשת נשמרו עם החופשה.'],
-   car:['🚗','ממשיכה לרכב…','פרטי הרכב שביקשת נשמרו עם החופשה.'],
+   lodging:['🏨','יוצאת לחיפוש לינה אמיתי…','בודקת מלונות ודירות שמתאימים לתאריכים ולמספר האורחים.'],
+   car:['🚗','בודקת רכב שכור…','מתאימה רכב למספר הנוסעים ולכבודה.'],
    plan:['🗺️','מסדרת את המסלול והאטרקציות…','המסלול שאישרת נשמר כחלק מהחופשה.'],
    done:['✨','החופשה שלך מוכנה…','מעבירה אותך עכשיו לחופשות שלי.']
  };
@@ -58,23 +58,24 @@
    const idx=key==='done'?4:order.indexOf(key);fill.style.width=(18+Math.max(0,idx)*20)+'%';
    nodes.forEach((n,i)=>{const k=order[i],s=states&&states[k];n.classList.toggle('active',k===key);n.classList.toggle('done',s==='complete'||(idx>i&&s!=='skipped'));n.style.opacity=s==='skipped'?'.35':'1';if(s==='skipped')n.title='לא נדרש';});
  }
- function runApprovedStages(states,doneUrl){
-   const remaining=order.slice(1).filter(k=>states[k]!=='skipped');
-   let i=0;
-   function next(){
-     if(i>=remaining.length){paint('done',states);setTimeout(()=>location.replace(doneUrl||accountUrl),650);return;}
-     const key=remaining[i++];paint(key,states);setTimeout(next,850);
-   }
-   next();
- }
+ // Real, sequential progress - no client-side timer ever fakes a stage as
+ // done. Each poll reports the server's actual per-stage state; the first
+ // stage that is neither complete nor skipped is the one currently shown as
+ // active, and the page only moves to the next stage once the backend
+ // itself has actually finished (or genuinely skipped) the one before it.
  async function check(){
    tries++;
    try{
      const r=await fetch(url,{cache:'no-store'}),d=await r.json(),states=d.stages||{};
-     paint('flight',states);
-     if(d.status==='ready'){runApprovedStages(states,d.url);return;}
+     const current=order.find(k=>states[k]!=='complete'&&states[k]!=='skipped');
+     if(d.all_done){
+       paint('done',states);
+       setTimeout(()=>location.replace(d.url||accountUrl),900);
+       return;
+     }
+     paint(current||'flight',states);
    }catch(e){}
-   if(tries<90)setTimeout(check,2000);else location.replace(accountUrl);
+   if(tries<180)setTimeout(check,2000);else location.replace(accountUrl);
  }
  paint('flight',{});setTimeout(check,900);
 })();

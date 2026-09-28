@@ -229,7 +229,38 @@
 
         <div class="vacation-panel" id="car-{{ trip.id }}">
           <h3>רכב שמתאים לחופשה</h3>
-          <div class="vacation-empty">כאן יוצגו קישורי רכב לפי מספר הנוסעים, הכבודה, האיסוף וההחזרה שבחרתם.</div>
+          {% set car_offers = a.get('car_offers') or [] %}
+          {% set car_result = a.get('_car_search_result') or {} %}
+          {% if car_offers %}
+            <div class="lodging-results-list">
+              {% for car in car_offers %}
+                <div class="lodging-result-card">
+                  <div class="lodging-result-info">
+                    <strong>{{ car.get('name') or car.get('vehicle_name') or 'רכב שכור' }}</strong>
+                    {% if car.get('supplier') %}<div class="lodging-result-meta"><span>{{ car.get('supplier') }}</span></div>{% endif %}
+                    {% if car.get('price_per_day_ils') or car.get('total_price_ils') %}
+                      <div class="lodging-result-price">
+                        {% if car.get('price_per_day_ils') %}₪{{ car.get('price_per_day_ils')|round|int }} ליום{% endif %}
+                        {% if car.get('total_price_ils') %} · סה"כ ₪{{ car.get('total_price_ils')|round|int }}{% endif %}
+                      </div>
+                    {% endif %}
+                    {% if car.get('link') %}<a class="lodging-result-link" href="{{ car.get('link') }}" target="_blank" rel="noopener">צפייה ופרטים</a>{% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% elif car_result.get('status') == 'unavailable' %}
+            <div class="vacation-empty">{{ car_result.get('message') or 'חיפוש רכב אמיתי עדיין לא מחובר - אריאלה תעדכן ברגע שהאפשרות תהיה זמינה.' }}</div>
+          {% elif car_result.get('status') == 'error' %}
+            <div class="lodging-search-error">החיפוש נכשל, אפשר לנסות שוב בעוד רגע.</div>
+            <form method="post" action="{{ url_for('site.search_car', trip_id=trip.id) }}" class="lodging-search-again">
+              <button type="submit" class="lodging-search-btn secondary">חיפוש מחדש</button>
+            </form>
+          {% elif a.get('car_vehicle_type') or a.get('car_pickup') %}
+            <div class="vacation-empty">אריאלה בודקת רכב שכור לחופשה הזו.</div>
+          {% else %}
+            <div class="vacation-empty">כאן יוצגו אפשרויות רכב לפי מספר הנוסעים, הכבודה, האיסוף וההחזרה שבחרתם.</div>
+          {% endif %}
         </div>
 
         {% if a.get('vacation_type') not in ('ski', 'business') %}
