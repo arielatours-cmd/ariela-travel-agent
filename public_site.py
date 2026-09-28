@@ -4194,6 +4194,13 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     return CAR_RENTAL_AFFILIATE_LINK + joiner + urlencode(params, quote_via=quote)
 
 
+def _he_date(iso: str) -> str:
+    try:
+        return datetime.strptime(str(iso)[:10], "%Y-%m-%d").strftime("%d.%m.%Y")
+    except ValueError:
+        return str(iso)
+
+
 def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     """One card per destination airport (max 3) for a trip that asked for a
     car, each linking out to the approved car-rental partner. Deliberately
@@ -4214,7 +4221,7 @@ def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
         cards.append({
             "name": title,
             "pickup": f"איסוף והחזרה בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code})",
-            "dates": f"{dep} – {ret}" if dep and ret else "",
+            "dates": f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else "",
             "supplier": CAR_RENTAL_PARTNER_NAME,
             "link": f"/trip/{trip_id}/rent-car/{code}",
         })
