@@ -52,7 +52,8 @@ CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
 # until an advertiser has approved the account - the car tab then keeps its
 # "not connected yet" message. CAR_RENTAL_SEARCH_URL_TEMPLATE optionally
 # points the click at the partner's own search page, pre-filled, using the
-# placeholders {iata}, {pickup_date}, {return_date} (YYYY-MM-DD); it is sent
+# placeholders {iata}, {pickup_date}, {return_date} (YYYY-MM-DD),
+# {pickup_time}, {return_time} (HH:MM, 10:00 when the customer gave none); it is sent
 # as CJ's standard ?url= deep-link parameter. Blank = partner's home page.
 CAR_RENTAL_AFFILIATE_LINK = os.getenv("CAR_RENTAL_AFFILIATE_LINK", "").strip()
 CAR_RENTAL_PARTNER_NAME = os.getenv("CAR_RENTAL_PARTNER_NAME", "Discover Cars").strip() or "Discover Cars"

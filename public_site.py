@@ -4187,6 +4187,8 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
                 iata=iata,
                 pickup_date=answers.get("departure_date") or "",
                 return_date=answers.get("return_date") or "",
+                pickup_time=_car_time(answers.get("car_pickup")) or "10:00",
+                return_time=_car_time(answers.get("car_return")) or "10:00",
             )
         except (KeyError, IndexError, ValueError):
             logging.warning("CAR_RENTAL_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
@@ -4194,11 +4196,27 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     return CAR_RENTAL_AFFILIATE_LINK + joiner + urlencode(params, quote_via=quote)
 
 
+_CAR_TIME_RE = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b")
+
+
+def _car_time(text) -> str:
+    """HH:MM the customer confirmed in chat for pickup/return, or ''."""
+    match = _CAR_TIME_RE.search(str(text or ""))
+    return f"{int(match.group(1)):02d}:{match.group(2)}" if match else ""
+
+
 def _he_date(iso: str) -> str:
     try:
         return datetime.strptime(str(iso)[:10], "%Y-%m-%d").strftime("%d.%m.%Y")
     except ValueError:
         return str(iso)
+
+
+def _car_when(iso_date, text) -> str:
+    if not iso_date:
+        return ""
+    time = _car_time(text)
+    return _he_date(iso_date) + (f" בשעה {time}" if time else "")
 
 
 def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
@@ -4221,7 +4239,8 @@ def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
         cards.append({
             "name": title,
             "pickup": f"איסוף והחזרה בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code})",
-            "dates": f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else "",
+            "pickup_when": _car_when(dep, answers.get("car_pickup")),
+            "return_when": _car_when(ret, answers.get("car_return")),
             "supplier": CAR_RENTAL_PARTNER_NAME,
             "link": f"/trip/{trip_id}/rent-car/{code}",
         })
