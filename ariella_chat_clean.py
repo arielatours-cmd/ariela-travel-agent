@@ -219,7 +219,7 @@ def _current_trip_history(history, state=None):
     return history
 
 
-def _weekday_date_conflict(message):
+def _weekday_date_conflict(message, history=None):
     """Validate every explicit Hebrew weekday/date pairing deterministically."""
     import re
     text = str(message or "")
@@ -248,6 +248,55 @@ def _weekday_date_conflict(message):
         if dt.weekday() != weekdays[day_name]:
             actual = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"][dt.weekday()]
             return f"רק לוודא לפני שממשיכים — {d}.{mo}.{y} יוצא יום {actual}, אבל כתבת יום {day_name}. איזה מהם נכון מבחינתך?"
+    return _weekday_pair_conflict(text, history)
+
+
+def _weekday_pair_conflict(text, history):
+    """Seen live: the customer asked for "ראשון עד חמישי" in one message and
+    then replied with a bare "28.6" - in 2027 that's a Monday, so the trip
+    went into the summary as Monday-Friday while being described as
+    Sunday-Thursday. The same-message check above never sees the weekday
+    pair from an earlier message. Check a date-only reply against the
+    weekday pair the customer gave in their recent messages."""
+    import re
+    names = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"]
+    day_alt = "ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת"
+    if re.search(r"(?<![\u05d0-\u05ea])(?:ב|ו|וב|מ)?(?:יום\s+)?(?:" + day_alt + r")(?![\u05d0-\u05ea])", text):
+        return None
+    dates_found = re.findall(r"(?<!\d)(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?(?!\d)", text)
+    if not dates_found:
+        return None
+    pair = None
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            pair = re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?(" + day_alt + r")\s*(?:עד|[-–])\s*(?:יום\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", str(item.get("content") or ""))
+            if pair:
+                break
+    if not pair:
+        return None
+    today = date.today()
+    parsed = []
+    for ds, mos, ys in dates_found[:2]:
+        y = int(ys) if ys else today.year
+        if y < 100:
+            y += 2000
+        try:
+            dt = date(y, int(mos), int(ds))
+        except ValueError:
+            return None
+        if not ys and dt < today:
+            dt = date(y + 1, dt.month, dt.day)
+        parsed.append(dt)
+    wanted = [pair.group(1), pair.group(2)]
+    for dt, want in zip(parsed, wanted):
+        actual = names[dt.weekday()]
+        if actual != want:
+            target = names.index(want)
+            before = dt - timedelta(days=(dt.weekday() - target) % 7)
+            after = dt + timedelta(days=(target - dt.weekday()) % 7)
+            return (f"רק לוודא — {dt.strftime('%d.%m.%Y')} יוצא ביום {actual}, וביקשת {pair.group(1)} עד {pair.group(2)}. "
+                    f"התכוונת ליום {want} {before.strftime('%d.%m.%Y')} או ליום {want} {after.strftime('%d.%m.%Y')}? "
+                    f"או שנשנה את ימי הנסיעה?")
     return None
 
 
@@ -2619,7 +2668,7 @@ def chat_clean():
     if trip_state.get("conversation_boundary") == "current_trip":
         history = _current_trip_history(history, trip_state)
 
-    date_conflict = _weekday_date_conflict(message)
+    date_conflict = _weekday_date_conflict(message, history)
     if date_conflict:
         return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
