@@ -225,12 +225,14 @@
           .lodging-result-price{font-size:14px;font-weight:800;color:#147d77}
           .lodging-result-link{align-self:flex-start;margin-top:4px;font-size:12.5px;font-weight:700;color:#0fc2b0;text-decoration:underline}
           .lodging-search-again{text-align:center}
+          .car-partner-btn{align-self:flex-start;margin-top:8px;text-decoration:none}
         </style>
 
         <div class="vacation-panel" id="car-{{ trip.id }}">
           <h3>רכב שמתאים לחופשה</h3>
           {% set car_offers = a.get('car_offers') or [] %}
           {% set car_result = a.get('_car_search_result') or {} %}
+          {% set partner_cards = [] if car_offers else car_partner_cards(trip.id, a) %}
           {% if car_offers %}
             <div class="lodging-results-list">
               {% for car in car_offers %}
@@ -245,6 +247,21 @@
                       </div>
                     {% endif %}
                     {% if car.get('link') %}<a class="lodging-result-link" href="{{ car.get('link') }}" target="_blank" rel="noopener">צפייה ופרטים</a>{% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% elif partner_cards %}
+            <div class="lodging-results-list">
+              {% for car in partner_cards %}
+                <div class="lodging-result-card">
+                  <div class="lodging-result-info">
+                    <strong>🚗 {{ car.name }}</strong>
+                    <div class="lodging-result-meta"><span>{{ car.pickup }}</span></div>
+                    {% if car.pickup_when %}<div class="lodging-result-meta"><span>איסוף: {{ car.pickup_when }}</span></div>{% endif %}
+                    {% if car.return_when %}<div class="lodging-result-meta"><span>החזרה: {{ car.return_when }}</span></div>{% endif %}
+                    <div class="lodging-result-meta"><span>מחירים וזמינות בזמן אמת באתר {{ car.supplier }}</span></div>
+                    <a class="lodging-search-btn car-partner-btn" href="{{ car.link }}" target="_blank" rel="noopener sponsored">למעבר להזמנה ←</a>
                   </div>
                 </div>
               {% endfor %}

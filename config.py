@@ -45,6 +45,19 @@ PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS = int(os.getenv("PERSONAL_SEARCH_DAI
 # "evergreen" in the CJ dashboard). Leave blank until that link is in hand -
 # lodging search then just links straight to Booking.com, uncredited.
 CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
+# Car-rental partner via CJ (Discover Cars / EconomyBookings / etc.). There is
+# no priced car API available, so the car tab shows honest "search this
+# partner" cards (no prices) whose button goes out through this CJ tracking
+# link (CJ dashboard -> the approved advertiser -> Get Links). Leave blank
+# until an advertiser has approved the account - the car tab then keeps its
+# "not connected yet" message. CAR_RENTAL_SEARCH_URL_TEMPLATE optionally
+# points the click at the partner's own search page, pre-filled, using the
+# placeholders {iata}, {pickup_date}, {return_date} (YYYY-MM-DD),
+# {pickup_time}, {return_time} (HH:MM, 10:00 when the customer gave none); it is sent
+# as CJ's standard ?url= deep-link parameter. Blank = partner's home page.
+CAR_RENTAL_AFFILIATE_LINK = os.getenv("CAR_RENTAL_AFFILIATE_LINK", "").strip()
+CAR_RENTAL_PARTNER_NAME = os.getenv("CAR_RENTAL_PARTNER_NAME", "Discover Cars").strip() or "Discover Cars"
+CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "").strip()
 # Sold to the customer as "a month" (never shown as a raw day count) but kept
 # internally at 30 real service days + the 4-day RENEWAL_REMINDER_DAYS_BEFORE
 # buffer, so a customer who reacts slowly to the reminder email still gets

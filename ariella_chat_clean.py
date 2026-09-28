@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
@@ -103,7 +104,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
-- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (המילה שהלקוח נתן - "קטן"/"משפחתי"/"ג'יפ"/"אוטומט" וכו', או "אין העדפה" אם נאמר במפורש שכל רכב מתאים), pickup (מחרוזת - מיקום ותאריך/שעת איסוף), return (מחרוזת - מיקום ותאריך/שעת החזרה), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה.
+- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (המילה שהלקוח נתן - "קטן"/"משפחתי"/"ג'יפ"/"אוטומט" וכו', או "אין העדפה" אם נאמר במפורש שכל רכב מתאים), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. שעת האיסוף ושעת ההחזרה הן חלק מהפרטים ההכרחיים להשכרת רכב - אם הלקוח לא ציין אותן, שאלי עליהן; אם הוא לא יודע, הציעי שעה סבירה (כשעה אחרי הנחיתה ביעד לאיסוף, וכשלוש שעות לפני טיסת החזור להחזרה) ובקשי שיאשר אותה - לעולם אל תשמרי שעה שהלקוח לא אישר.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'.
 - חשבון תאריכים הוא דטרמיניסטי: שבוע=7 ימים ושבועיים=14 ימים. אם הלקוח אמר יציאה 20.12 ושבועיים, החזרה היא 3.1; אל תמציאי 7.1 ואל תציעי תאריך חלופי אחרי שהמשך אושר.
@@ -703,6 +704,10 @@ def _resolve_ski_destination_airports(state):
     return state
 
 
+# A car pickup/return string only counts as complete once it carries a time.
+_CAR_TIME_RE = re.compile(r"\b([01]?\d|2[0-3]):[0-5]\d\b")
+
+
 def _required_state_gaps(state):
     """Return the authoritative unanswered decisions Ariella needs for requested services."""
     state = state if isinstance(state, dict) else {}
@@ -792,8 +797,12 @@ def _required_state_gaps(state):
             gaps.append("car.details.vehicle_type")
         if not car_details.get("pickup"):
             gaps.append("car.details.pickup")
+        elif not _CAR_TIME_RE.search(str(car_details.get("pickup"))):
+            gaps.append("car.details.pickup_time")
         if not car_details.get("return"):
             gaps.append("car.details.return")
+        elif not _CAR_TIME_RE.search(str(car_details.get("return"))):
+            gaps.append("car.details.return_time")
         # luggage capacity derives from the shared traveler + baggage facts; do
         # not invent suitcases that the user never requested.
         if not car_details.get("luggage_capacity_confirmed"):
