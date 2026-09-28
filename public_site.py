@@ -82,6 +82,7 @@ _ITINERARY_DAY_MENTION = re.compile(
     r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
 )
 _DATE_JUST_BEFORE = re.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+_ITINERARY_NUMBERED_DAY = re.compile(r"(?<![\u05d0-\u05ea])יום\s+(\d{1,2})(?!\d)")
 
 
 def _itinerary_day_mention_count(text):
@@ -92,7 +93,11 @@ def _itinerary_day_mention_count(text):
         if _DATE_JUST_BEFORE.search(prefix):
             continue
         count += 1
-    return count
+    # Numbered itineraries ("יום 1: ...", "יום 2: ...") with no weekday are
+    # just as common - count distinct day numbers too (same rule as
+    # ariella_chat_clean's day_mention_count).
+    numbered = {m.group(1) for m in _ITINERARY_NUMBERED_DAY.finditer(text)}
+    return max(count, len(numbered))
 
 
 def _most_recent_itinerary_shaped_message(history):
