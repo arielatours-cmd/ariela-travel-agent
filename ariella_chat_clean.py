@@ -112,7 +112,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בביטוי יחסי כמו "סוף יוני" יחד עם ימי שבוע/משך, אל תבחרי תאריך אחד בשם הלקוח. אם יש שתי אפשרויות סבירות סמוכות, הציגי את שתיהן ושאלי איזו עדיפה. רק אחרי בחירת הלקוח יש תאריכי יציאה וחזרה סופיים.
 - כשdates.candidate_ranges במצב החופשה המצטבר כבר מכיל תאריכים (מחושבים דטרמיניסטית, לא על ידך), חובה להציג ללקוח בדיוק את התאריכים האלה, מילה במילה, ולעולם לא לחשב או לנחש תאריכים אחרים בעצמך - גם אם הם נראים לך "מתאימים יותר". אל תמציאי טווח שאינו ברשימת candidate_ranges.
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
-- לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו תאריכים בתוך אותו חודש בלבד - לעולם אל תציעי טווח שחורג לחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה.
+- לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו שתאריך היציאה בתוך אותו חודש (החזרה יכולה להיות בחודש הבא) - לעולם אל תציעי טווח שהיציאה בו בחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
@@ -294,9 +294,14 @@ def _weekday_pair_conflict(text, history):
             target = names.index(want)
             before = dt - timedelta(days=(dt.weekday() - target) % 7)
             after = dt + timedelta(days=(target - dt.weekday()) % 7)
+            # Suggest only dates in the same month the customer typed - never
+            # jump to the next month for them (end of June -> not 4.7).
+            options = [x for x in (before, after) if x.month == dt.month and x >= today]
+            if not options:
+                options = [before]
+            options_text = " או ".join(f"ליום {want} {x.strftime('%d.%m.%Y')}" for x in options)
             return (f"רק לוודא — {dt.strftime('%d.%m.%Y')} יוצא ביום {actual}, וביקשת {pair.group(1)} עד {pair.group(2)}. "
-                    f"התכוונת ליום {want} {before.strftime('%d.%m.%Y')} או ליום {want} {after.strftime('%d.%m.%Y')}? "
-                    f"או שנשנה את ימי הנסיעה?")
+                    f"התכוונת {options_text}? או שנשנה את ימי הנסיעה?")
     return None
 
 
@@ -1708,8 +1713,10 @@ def _deterministic_period_facts(message, history=None):
     5.7-9.7 - Sunday-Thursday in the already-past 2026 calendar (Monday-Friday
     in 2027), the second one entirely in July. The month/part-of-month and
     the weekday pair may now come from the current message or the customer's
-    recent messages, and a part-of-month window never spills into another
-    month ("end of June" never offers a range ending in July)."""
+    recent messages. Per product owner: a range whose DEPARTURE is inside the
+    requested part of the month is offered even if the return falls in the
+    next month (end of June -> 27.6-1.7 is fine), but a range departing in
+    the next month never is (5.7-9.7 for "end of June")."""
     import re, calendar
     months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
     weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
@@ -1753,7 +1760,7 @@ def _deterministic_period_facts(message, history=None):
         candidates=[]
         for day in range(max(1,window[0]),window[1]+1):
             d=date(year,month,day)
-            if d.weekday()==start_wd and d>today and (d+timedelta(days=delta)).month==month:
+            if d.weekday()==start_wd and d>today:
                 candidates.append((d,d+timedelta(days=delta)))
         candidates=candidates[-2:] if part=="end" else candidates[:2]
         labels=[f"{x.strftime('%d.%m.%Y')}–{y.strftime('%d.%m.%Y')}" for x,y in candidates]
@@ -2207,6 +2214,64 @@ def _is_itinerary_acceptance(message):
         "בדיוק", "נהדר", "מדהים", "סגור", "סגרנו", "יאללה", "טוב מאוד", "בסדר גמור", "perfect",
     )
     return any(re.search(r"(?<![\u05d0-\u05ea])" + re.escape(p) + r"(?![\u05d0-\u05ea])", msg) for p in positives)
+
+
+_POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
+
+
+def _post_flight_offer_answer(message, state, key=None, model=None, history=None):
+    """The customer's answer to "the flights are being scanned - want help
+    with lodging, car or route too?" (asked right after flight approval).
+    Returns {service: wanted_bool} for each offered service the answer
+    settles, or {} when it doesn't settle anything (Ariella then continues
+    the conversation normally).
+
+    Per product owner: customers phrase this in endless ways ("יאללה בואי
+    נסגור גם מלון", "אני אסתדר לבד עם השאר", "לא בטוחה, אולי מסלול"), so
+    the meaning is understood by the model. Only very short, unambiguous
+    replies are read directly, without a model call."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    offered = [s for s in (state.get("post_flight_offer") or []) if s in _POST_FLIGHT_LABELS]
+    if not offered:
+        return {}
+    msg = _normalize_confirm(message).lower()
+    if not msg:
+        return {}
+    if msg in {"לא", "לא עכשיו", "לא תודה", "לא צריך", "לא צריכה", "לא צריכים", "זהו", "זה הכל", "זה הכול", "סיימנו", "אין צורך"}:
+        return {s: False for s in offered}
+    if msg in {"כן", "בטח", "בהחלט", "כולם", "הכל", "הכול", "את הכל", "את הכול", "כן הכל", "כן הכול", "כן בבקשה", "כן, בבקשה"}:
+        return {s: True for s in offered}
+    if not key:
+        return {}
+    offered_text = ", ".join(f"{s} ({_POST_FLIGHT_LABELS[s]})" for s in offered)
+    prompt = (
+        "את מסווגת תשובת לקוח. אריאלה שאלה את הלקוח, אחרי שאישר את הטיסה, אם הוא רוצה עזרה גם באחד או יותר מהשירותים: "
+        + offered_text + ".\n"
+        "הביני את משמעות התשובה בכל ניסוח, כולל סלנג ושגיאות כתיב. לכל שירות החזירי true אם הלקוח רוצה אותו עכשיו, "
+        "false אם הוא לא רוצה אותו עכשיו (כולל 'אחר כך', 'אסתדר לבד', 'זהו'), או null אם אי אפשר לדעת מהתשובה. "
+        "'כן' כללי בלי פירוט = true לכולם. סירוב כללי בלי פירוט = false לכולם. "
+        "אם הלקוח מתלבט או שואל שאלה בלי להחליט - null. "
+        "החזירי JSON בלבד, בפורמט {\"lodging\": true|false|null, ...} רק עם המפתחות: " + ", ".join(offered) + "."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 60, include_history=False)
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").replace("json", "", 1).strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return {}
+    result = {s: data.get(s) for s in offered if isinstance(data.get(s), bool)}
+    # Partial answers: a clear yes to some with nothing said about the others
+    # ("בואי נסגור גם מלון") means the others are a no for now - but only
+    # when at least one decision was actually made.
+    if result and any(result.values()):
+        for s in offered:
+            result.setdefault(s, False)
+    elif result and len(result) < len(offered):
+        return {}
+    return result
 
 
 def _member_profile(member_id):
@@ -2706,6 +2771,27 @@ def chat_clean():
         # extractor's own decisions above so it authoritatively overrides a
         # misattributed or dropped extraction - see the function's docstring
         # for the live-transcript loop this fixes.
+        post_flight_answer = _post_flight_offer_answer(message, trip_state, key, model, history)
+        if post_flight_answer:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service, wanted in post_flight_answer.items():
+                decisions[service] = {"wanted": wanted, "source": "post_flight_offer"}
+                if wanted:
+                    services.add(service)
+                    if statuses.get(service) != "complete":
+                        statuses[service] = "active"
+                else:
+                    services.discard(service)
+                    statuses[service] = "declined"
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
+            trip_update["post_flight_offer"] = []
+            first_wanted = next((s for s in ("lodging","car","trip_planning") if post_flight_answer.get(s)), None)
+            if first_wanted:
+                trip_update["active_session"] = first_wanted
         deterministic_decline = _deterministic_service_decline_facts(history, message)
         decline_decisions = deterministic_decline.get("service_decisions") if isinstance(deterministic_decline, dict) else None
         if decline_decisions:
@@ -2989,6 +3075,8 @@ def chat_clean():
             # model has a transient failure. The next user turn can continue.
             reply = "קלטתי את הפרטים. נמשיך מכאן."
         reply = _fix_child_gender_wording(reply, trip_update)
+        if post_flight_answer and not any(post_flight_answer.values()):
+            reply = "בסדר גמור. מעבירה אותך לתוצאות הטיסה - ותמיד אפשר לחזור לכאן כדי להוסיף לינה, רכב או מסלול."
 
         # Never let Tinkerbell present the final summary/"כתבי מאשרת" request
         # while a required flight fact is still genuinely missing. The prompt
@@ -3194,20 +3282,36 @@ def chat_clean():
                     d = decisions_after_flight.get(service)
                     source = d.get("source") if isinstance(d, dict) else None
                     return source in ("business_trip_default", "ski_trip_default")
-                remaining = [
-                    remaining_labels[s] for s in ("lodging","car","trip_planning")
-                    if statuses_after_flight.get(s, "pending") in ("pending", "declined")
+                # Product flow: the flight scan starts now in the background
+                # and Ariella immediately asks about the remaining services in
+                # the same conversation. "No" sends the customer to the
+                # waiting page (flights only); "yes" continues with just the
+                # services she said yes to, each searched as soon as it's
+                # settled, and the waiting page comes once everything is done.
+                def _wanted(service):
+                    d = decisions_after_flight.get(service)
+                    return (d.get("wanted") if isinstance(d, dict) else d) is True
+                already_requested = [
+                    s for s in ("lodging","car","trip_planning")
+                    if _wanted(s) and statuses_after_flight.get(s) not in ("complete","declined")
+                ]
+                offered = [
+                    s for s in ("lodging","car","trip_planning")
+                    if s not in already_requested
+                    and statuses_after_flight.get(s, "pending") == "pending"
                     and not _auto_declined_by_trip_type(s)
                 ]
-                if remaining:
-                    if len(remaining) == 1:
-                        extra = remaining[0]
-                    else:
-                        extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
+                def _join(labels):
+                    return labels[0] if len(labels) == 1 else " או ".join([", ".join(labels[:-1]), labels[-1]])
+                lead = "הבקשה אושרה והטיסות כבר נסרקות ברקע - התוצאות יתעדכנו בכרטיסיית החופשה."
+                if already_requested:
+                    reply = f"{lead} עכשיו נמשיך ל{_join([remaining_labels[s] for s in already_requested])}, כמו שביקשת. מתחילות?"
+                elif offered:
                     reply = (
-                        "הבקשה אושרה ואני יוצאת לסריקת טיסות. "
-                        f"כשתרצי, אפשר לחזור לכאן ולהמשיך עם {extra}."
+                        f"{lead} בינתיים, תרצי שאעזור גם ב{_join([remaining_labels[s] for s in offered])}? "
+                        "אם לא עכשיו, אעביר אותך לתוצאות, ותמיד אפשר לחזור לכאן בהמשך."
                     )
+                    merged["post_flight_offer"] = offered
                 else:
                     reply = "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
     except Exception as exc:
@@ -3244,6 +3348,7 @@ def chat_clean():
     # Whatever shape trip_update happens to be in, the worst acceptable outcome
     # is skipping the reset for this turn, never a 500 that blocks the chat.
     trip_state_reset = False
+    resolved_trip_state = None
     try:
         final_statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
         final_decisions = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
@@ -3263,9 +3368,13 @@ def chat_clean():
             or ((final_decisions.get(s) or {}).get("wanted") is False if isinstance(final_decisions.get(s), dict) else final_decisions.get(s) is False)
             for s in ("lodging", "car", "trip_planning")
         )
-        trip_fully_resolved = flights_resolved and other_domains_resolved
+        trip_fully_resolved = flights_resolved and other_domains_resolved and not bool(locals().get("approval", False))
         if trip_fully_resolved:
             trip_state_reset = True
+            # The chat page still needs the completed vacation facts this
+            # turn to send the just-settled service (lodging/car/route) to
+            # its search before handing off to the waiting page.
+            resolved_trip_state = trip_update
             fresh_after_completion = {
                 'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
                 'active_session': None,
@@ -3305,4 +3414,5 @@ def chat_clean():
         # on THIS user message. Never let model-extracted state start a scan.
         'start_flight_search': start_flight_search,
         'trip_state_reset': trip_state_reset,
+        'resolved_trip_state': resolved_trip_state,
     })
