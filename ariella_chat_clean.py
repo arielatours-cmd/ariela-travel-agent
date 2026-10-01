@@ -92,7 +92,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם ביקש רכב או לינה, שוחחי איתו גם על הפרטים שבאמת נחוצים לבחירה.
 - מספר והרכב הנוסעים הוא נתון משותף אחד לכל החופשה, לא נתון נפרד לכל שירות. אם הוא ידוע, השתמשי באותו הרכב נוסעים בטיסות, בלינה, ברכב ובתכנון המסלול; לעולם אל תנחשי מספר נוסעים עבור שירות מסוים ואל תשאלי אותו מחדש.
 - אם מספר/הרכב הנוסעים עדיין לא ידוע, אסור להציע לינה לפי מספר חדרים/מיטות, גודל רכב או סיכום חיפוש כאילו הוא ידוע. שאלי את הרכב הנוסעים פעם אחת ואז החילי אותו על כל השירותים.
-- התאמת רכב חייבת להתחשב במספר הנוסעים ובכבודה שכבר נאספה לטיסה. התאמת לינה חייבת להתחשב באותו מספר והרכב נוסעים.
+- התאמת רכב חייבת להתחשב במספר הנוסעים ובכבודה שכבר נאספה לטיסה. לעולם אל תשאלי את הלקוח שוב על מזוודות בשלב הרכב - הכבודה כבר ידועה מהטיסה; אם הרכב שנבחר קטן מדי לכבודה הזו, ציייני זאת במשפט אחד. התאמת לינה חייבת להתחשב באותו מספר והרכב נוסעים.
 - כשמזכירים ילד/ה מסוים לפי גיל (לדוגמה בסיכום הנוסעים), חובה להתאים את המגדר בדיוק למה שקיים ב-travelers.child_genders עבור אותו גיל (female="ילדה"/"בת", male="ילד"/"בן"). לעולם אל תנחשי או תמציאי מגדר; אם הערך המקביל הוא null, כתבי בניסוח נייטרלי כמו "ילד/ה בגיל X" במקום לבחור מגדר.
 - בכל הודעה מותר לבקש מהלקוח לכל היותר שלושה פרטים/החלטות שונים. זהו גבול קשיח, לא המלצה.
 - כל סעיף שהלקוח צריך לענות עליו נחשב שאלה נפרדת גם אם ניסחת כמה סעיפים בתוך משפט אחד. לדוגמה: "ישירה או קונקשן, מזוודה לכל נוסע, מלון או דירה, ובאיזו רמה?" הן ארבע שאלות ואסור לשלוח אותן יחד.
@@ -427,6 +427,56 @@ def _keep_declines(previous, updated, explicit_request=None):
     updated["service_decisions"] = decisions
     updated["session_status"] = statuses
     return updated
+
+
+def _parse_state_date(value):
+    raw = str(value or "").strip()
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def _roll_past_dates(state, message, history):
+    """Deterministic backstop for the "day+month without a year is its next
+    future occurrence" rule. Seen live: in October 2026 the customer said
+    "28.6" and the model saved 28.6.2026 - already past - so a return visit
+    couldn't find the vacation (only future ones are offered), a new one
+    was created, and its flight scan failed. A past departure moves forward
+    a year, the return with it, unless the customer typed that year."""
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else None
+    if not dates:
+        return state
+    dep = _parse_state_date(dates.get("departure"))
+    if not dep or dep >= date.today():
+        return state
+    user_text = " ".join(
+        [str(x.get("content") or "") for x in (history or [])
+         if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"]
+        + [str(message or "")]
+    )
+    if str(dep.year) in user_text:
+        return state  # the customer named that year; the scan gate refuses it
+
+    def _plus_years(d, n):
+        try:
+            return d.replace(year=d.year + n)
+        except ValueError:  # 29 Feb
+            return d.replace(year=d.year + n, day=28)
+
+    years = 1
+    while _plus_years(dep, years) < date.today():
+        years += 1
+    new_dates = dict(dates)
+    new_dates["departure"] = _plus_years(dep, years).isoformat()
+    ret = _parse_state_date(dates.get("return"))
+    if ret:
+        new_dates["return"] = _plus_years(ret, years).isoformat()
+    state["dates"] = new_dates
+    return state
 
 
 def _sessionize_state(state):
@@ -1330,6 +1380,28 @@ def _travelers_summary(state):
     )
 
 
+_BAGGAGE_HE = {
+    "carry_on_only": "טרולי בלבד", "carry_on": "טרולי", "checked_bag": "מזוודה גדולה",
+    "checked": "מזוודה גדולה", "personal_item": "תיק אישי בלבד",
+    "none": "ללא כבודה", "no_baggage": "ללא כבודה",
+}
+
+
+def _baggage_summary(state):
+    """The luggage already collected for the flight, for the car session.
+    Seen live: after the flight baggage was settled, the car session asked
+    the customer again whether they're taking big suitcases."""
+    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+    baggage = flight.get("baggage") if isinstance(flight.get("baggage"), list) else []
+    labels = [_BAGGAGE_HE.get(str(b), str(b)) for b in baggage if b]
+    if not labels:
+        return ""
+    return (
+        "\nכבודה (כבר נאספה בטיסה, מקור אמת): " + ", ".join(dict.fromkeys(labels)) + ". "
+        "בהתאמת הרכב השתמשי בזה ואל תשאלי את הלקוח שוב על מזוודות."
+    )
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
@@ -1377,7 +1449,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
             'אלה שדות מאומתים - אל תוסיפי או תמציאי שדה אחר משלך. אם destination_airports עדיין ריק, '
             'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
         )
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state) + _baggage_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
     reply = _strip_garbled_lead_token(reply)
@@ -3133,6 +3205,7 @@ def chat_clean():
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
+        trip_update = _roll_past_dates(trip_update, message, history)
         # Service intent is semantic. When the extractor explicitly resolves a
         # domain as wanted/not-wanted, that decision is authoritative even if an
         # older requested_services list still contains the domain.

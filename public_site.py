@@ -3215,6 +3215,11 @@ def ariella_start_flight_search():
         return jsonify({"status":"error","message":"חסר יעד טיסה ולכן לא נפתחה חופשה ריקה."}), 400
     if date_mode == "flexible":
         return jsonify({"status":"error","message":"חסרים תאריכי חיפוש ולכן לא נפתחה חופשה ריקה."}), 400
+    # Never open a vacation (and spend a scan) on dates that already passed -
+    # seen live: a 28.6.2026 trip approved in October 2026 created a new
+    # vacation whose scan then failed.
+    if dep and dep < date.today().isoformat():
+        return jsonify({"status":"error","message":"תאריך היציאה כבר עבר, ולכן לא נפתח חיפוש. כדאי לבדוק עם אריאלה את התאריכים (כנראה התכוונת לשנה הבאה)."}), 400
 
     # A departure airport with very limited service (e.g. Haifa) can have
     # zero real flights to a given destination. Once a live search has
