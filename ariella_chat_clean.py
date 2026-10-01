@@ -2716,6 +2716,15 @@ def _place_countries(names):
     return countries
 
 
+def _place_codes(names):
+    """Airport codes of the mentioned cities/countries (catalog-based)."""
+    names = {str(n or "").strip() for n in names if str(n or "").strip()}
+    return {
+        str(a.get("code") or "").upper() for a in _load_airports()
+        if str(a.get("city_he") or "") in names or str(a.get("country_he") or "") in names
+    }
+
+
 def _reopenable_trips(member_id, service, message, limit=3):
     """The customer's upcoming active vacations that don't have `service`
     yet - candidates for "add lodging/car/route to an existing vacation".
@@ -2757,7 +2766,17 @@ def _reopenable_trips(member_id, service, message, limit=3):
         name = str(row["request_name"] or "").strip()
         if mentioned:
             trip_places = [p.strip() for p in name.split(" • ") if p.strip()]
-            if not (set(trip_places) & set(mentioned) or _place_countries(trip_places) & mentioned_countries):
+            # Not only an exact title match: a vacation titled "ניו יורק (JFK)"
+            # or "ניו יורק, ארה\"ב" (or with only airport codes saved) must
+            # still be found when the customer says "בניו יורק" - otherwise
+            # the request is treated as a brand-new trip.
+            trip_codes = {c.strip().upper() for c in str(answers.get("destinations") or "").split(",") if c.strip()}
+            if not (
+                set(trip_places) & set(mentioned)
+                or any(m in name for m in mentioned)
+                or _place_countries(trip_places) & mentioned_countries
+                or trip_codes & _place_codes(mentioned)
+            ):
                 continue
         trips.append({"id": int(row["id"]), "name": name or "החופשה", "window": _he_date_window(row["travel_window"]), "answers": answers})
         if len(trips) >= limit:
