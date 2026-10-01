@@ -22,10 +22,10 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
-from scanner import run_customer_trip_search, search_hotels
+from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
 import booking_demand
 import itinerary_cards
 from booker import resolve_booking_target
@@ -3957,7 +3957,19 @@ def run_paid_personal_search_batch() -> dict:
                 continue
             trip = _trip_dict(trip_row)
             answers = dict(trip.get("answers") or {})
-            result = run_customer_trip_search(trip_id, answers, max_api_requests=PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS)
+            # A trip with more than one entry airport (e.g. a ski resort
+            # served by two gateway cities) needs at least one search per
+            # gateway just to cover every option once - the single-gateway
+            # cap always left it "partial" partway through the first
+            # gateway, so the daily re-scan could never finish comparing
+            # candidates, let alone find anything better than what was
+            # already pinned.
+            daily_cap = (
+                PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY
+                if len(_customer_destination_codes(answers)) > 1
+                else PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS
+            )
+            result = run_customer_trip_search(trip_id, answers, max_api_requests=daily_cap)
             status = str(result.get("status") or "unknown")
             if refreshed is None or result.get("offers_found"):
                 refreshed = _recent_inventory_48h()
