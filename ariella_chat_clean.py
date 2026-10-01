@@ -3049,6 +3049,14 @@ def chat_clean():
         service = pending_reopen.get("service")
         choice = _pick_reopen_option(message, options, key, model, history)
         member_id = session['member_id']
+        if choice == "new" and pending_reopen.get("keep_state"):
+            # Offered because an open conversation matched an existing
+            # vacation; "no" means keep planning it as a separate trip.
+            kept = dict(trip_state)
+            kept.pop("reopen_trip_pending", None)
+            kept["reopen_offer_declined"] = True
+            reply = "בסדר, נמשיך עם זה כחופשה נפרדת."
+            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':kept,'start_flight_search':False})
         if choice == "new":
             fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
             reply = "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?"
@@ -3064,6 +3072,29 @@ def chat_clean():
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':reopened,'start_flight_search':False,'reopen_trip_id':chosen['id']})
         reply = _reopen_question(service, options) if service in _REOPEN_LABELS else "לאיזו חופשה התכוונת?"
         return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':trip_state,'start_flight_search':False})
+
+    # An open conversation about a destination that already has an upcoming
+    # vacation, but was never linked to it (seen live: "אטרקציות בניו יורק"
+    # opened a fresh New York conversation, and the next "הי אריאלה" asked
+    # again for days and travelers the New York vacation already has).
+    # Offer once to attach it to that vacation.
+    open_places = (trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None
+    if open_places and not (
+        trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
+        or trip_state.get("reopened_trip_id") or trip_state.get("reopen_offer_declined")
+    ):
+        linked_service = trip_state.get("active_session") if trip_state.get("active_session") in _REOPEN_LABELS else None
+        if not linked_service:
+            linked_service = next((s for s in ("trip_planning", "lodging", "car") if s in (trip_state.get("requested_services") or [])), None)
+        if linked_service:
+            candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places))
+            if candidates:
+                pending = dict(trip_state)
+                pending["reopen_trip_pending"] = {
+                    "service": linked_service, "keep_state": True,
+                    "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
+                }
+                return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(linked_service, candidates),'trip_update':pending,'start_flight_search':False})
 
     trip_is_empty = not ((trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None) \
         and not trip_state.get("active_session") and not trip_state.get("reset_pending")
