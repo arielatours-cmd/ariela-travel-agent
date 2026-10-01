@@ -2779,6 +2779,29 @@ def chat_clean():
         # the visible summary and downstream execution on the same data object.
         trip_update = _advance_sessions(trip_update)
 
+        # Deceptive-success safety net: a reply that declares the whole
+        # vacation closed/finished must never win over an authoritative
+        # still-pending domain. Seen live: the customer explicitly asked for
+        # car (skipping past the still-pending, never-discussed lodging
+        # session via the service_request shortcut above); once car and
+        # trip_planning were both done, Tinkerbell declared "everything is
+        # closed now - flights, itinerary and car" and never circled back to
+        # ask about lodging at all, even though _advance_sessions correctly
+        # still reports it as next_session. Free text has too many equivalent
+        # "we're all done" phrasings to allow-list exactly, so this matches on
+        # closing/finished language the same way claims_execution (above,
+        # flight-approval case) matches on execution language - and only
+        # overrides when the authoritative state genuinely disagrees.
+        closing_claim = any(p in str(reply or "") for p in (
+            "הכל סגור", "כל הפרטים", "סגורים עכשיו", "החופשה שלך מוכנה",
+            "הכל מאושר", "סיימנו", "הכל מוכן", "זה סוגר את כל", "כל התחומים",
+        ))
+        pending_domain = trip_update.get("next_session") if isinstance(trip_update, dict) else None
+        if closing_claim and pending_domain:
+            remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
+            label = remaining_labels.get(pending_domain, pending_domain)
+            reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}, או שזה הכל להפעם?"
+
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
         # A typo that resembles approval must never produce a false "search started"
