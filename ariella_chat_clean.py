@@ -1286,6 +1286,40 @@ def _strip_unconfirmed_airports(text, state):
     return text.strip()
 
 
+def _travelers_summary(state):
+    """The party size spelled out with its total already computed. Seen
+    live: "אתם ארבעה (שני מבוגרים ובת נוער)" - the model added 2+1 and got
+    4. The total is arithmetic, so it's computed here and handed to the
+    model as a fact instead of left for it to work out."""
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+
+    def _num(v):
+        try:
+            return max(0, int(v or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    adults, children, infants = _num(travelers.get("adults")), _num(travelers.get("children")), _num(travelers.get("infants"))
+    total = adults + children + infants
+    if not total:
+        return ""
+    ages = travelers.get("child_ages") if isinstance(travelers.get("child_ages"), list) else []
+    genders = travelers.get("child_genders") if isinstance(travelers.get("child_genders"), list) else []
+    parts = [f"{adults} מבוגרים"] if adults else []
+    if children:
+        kids = []
+        for i, age in enumerate(ages[:children]):
+            g = genders[i] if i < len(genders) else None
+            kids.append(f"{'בת' if g == 'female' else 'בן' if g == 'male' else 'ילד/ה'} {age}")
+        parts.append(f"{children} ילדים" + (f" ({', '.join(kids)})" if kids else ""))
+    if infants:
+        parts.append(f"{infants} תינוקות")
+    return (
+        f"\nהרכב הנוסעים (מחושב, מקור אמת): סה\"כ {total} נוסעים - " + ", ".join(parts) + ". "
+        f"כשאת מציינת את מספר הנוסעים השתמשי בדיוק במספר {total}; לעולם אל תחשבי סכום בעצמך."
+    )
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
@@ -1324,7 +1358,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
             'אלה שדות מאומתים - אל תוסיפי או תמציאי שדה אחר משלך. אם destination_airports עדיין ריק, '
             'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
         )
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
     reply = _strip_garbled_lead_token(reply)
@@ -3450,7 +3484,18 @@ def chat_clean():
                     extra = remaining[0]
                 else:
                     extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
-                reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {extra} לחופשה הזו, או שסיימנו?"
+                reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {extra} לחופשה הזו?"
+                # Remember what was just offered, so a plain "כן"/"לא" next
+                # turn settles it via _post_flight_offer_answer. Without this
+                # the "כן" reached the model with no record of the question,
+                # and it asked about the car all over again (seen live).
+                # Flights isn't offerable this way (it has its own approval
+                # flow), so only once flights is settled.
+                if statuses_after_plan.get("flights") in ("complete", "declined"):
+                    trip_update["post_flight_offer"] = [
+                        s for s in ("lodging", "car")
+                        if statuses_after_plan.get(s, "pending") not in ("complete", "declined")
+                    ]
             else:
                 reply = "מצוין, המסלול מאושר."
 
