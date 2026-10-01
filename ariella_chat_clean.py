@@ -81,6 +81,8 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
 - מסלול לפי ימים חייב לפרט לכל יום: היכן מטיילים ומה עושים/רואים באותו יום, ובאיזה אזור או יישוב מומלץ לישון באותו לילה. כאשר יש מעבר בין אזורים, סדרי את היום כך שהנסיעה והאטרקציות הגיוניות יחד.
+- יום ההגעה ויום החזרה הם ימי חופשה לכל דבר ולא "ימי טיסה" ריקים. אל תכתבי ליום האחרון רק "יום חזרה"/"טיסה הביתה" בלי תוכן. אם שעת טיסת החזור ידועה, תכנני לפניה פעילות שמתאימה לזמן שנשאר (ובקרבת שדה התעופה אם צריך), והשאירי זמן סביר להגעה לשדה. אם השעה לא ידועה, הציעי ליום האחרון פעילות קלה וגמישה וציייני במשפט אחד שאפשר להתאים אותה לשעת הטיסה. אותו עיקרון ליום ההגעה: פעילות קלה שמתאימה לשעת הנחיתה.
+- כשאת מציגה מסלול לפי ימים, ההודעה מתחילה ישר ביום הראשון (לכל היותר משפט פתיחה קצר אחד) ומסתיימת ביום האחרון ובשאלה קצרה אחת אם לשנות משהו. בלי הקדמות, בלי הערות כלליות, הסתייגויות או טיפים לפני הימים או אחריהם - כל מידע רלוונטי שייך לתוך היום שאליו הוא מתייחס.
 - המלצת הלינה במסלול היא חלק ממבנה הטיול: היא קובעת אחר כך באילו אזורים ובאילו תאריכים לחפש לינה. אין לחפש לינה כללית לכל היעד אם המסלול מחלק את הלילות בין כמה אזורים.
 - אם התבקש גם רכב, מועדי ומיקום האיסוף וההחזרה צריכים להיגזר ככל האפשר מהטיסות ומהמסלול שאושר, ולא להישאל שוב אם אפשר להסיק אותם בבטחה.
 - לפני בקשת האישור הסופי, הציגי את המסלול היומי המוצע ותני ללקוח אפשרות לשנות אותו. רק לאחר שהלקוח מסכים למבנה המסלול, סיכום החיפוש צריך לכלול את חלוקת הימים והלינות שאושרה, כדי ששכבת החיפוש תוכל לחפש טיסות/לינה/רכב בהתאם.
@@ -395,6 +397,33 @@ def _multi_gateway_hint(state):
             if city in place or place in city:
                 return {"city": city, "options": options}
     return None
+
+
+def _keep_declines(previous, updated, explicit_request=None):
+    """A service the customer already said no to stays declined. The
+    extractor re-reads the whole history each turn and can resurrect an
+    earlier "want a car" (or return session_status "pending" for it), which
+    made Ariella ask about the car again right after the customer declined
+    it. Only an explicit request for that service in this very message
+    (_explicit_service_request) reopens it."""
+    previous = previous if isinstance(previous, dict) else {}
+    updated = updated if isinstance(updated, dict) else {}
+    old_decisions = previous.get("service_decisions") if isinstance(previous.get("service_decisions"), dict) else {}
+    decisions = dict(updated.get("service_decisions") or {})
+    statuses = dict(updated.get("session_status") or {})
+    for s in ("lodging", "car", "trip_planning"):
+        old = old_decisions.get(s)
+        if not (isinstance(old, dict) and old.get("wanted") is False) and old is not False:
+            continue
+        if explicit_request == s:
+            continue
+        decisions[s] = old
+        statuses[s] = "declined"
+        if updated.get("active_session") == s:
+            updated["active_session"] = None
+    updated["service_decisions"] = decisions
+    updated["session_status"] = statuses
+    return updated
 
 
 def _sessionize_state(state):
@@ -2426,8 +2455,14 @@ def _state_from_trip(trip, service):
             statuses[s] = "complete"
         elif statuses.get(s) != "complete":
             # Not asked for now: stays closed so finishing `service` closes
-            # the visit; the customer can still ask for it explicitly.
+            # the visit; the customer can still ask for it explicitly. The
+            # decision must be closed too - a stale {"wanted": True} kept in
+            # the stored pre-approval state (e.g. "גם רכב" said mid-flights)
+            # otherwise makes _sessionize_state re-activate it, and Ariella
+            # asks about a car the customer never came back for (and keeps
+            # asking on every return visit, even after a "no").
             statuses[s] = "declined"
+            decisions[s] = {"wanted": False, "source": "reopened_trip_not_requested"}
     decisions[service] = {"wanted": True, "source": "reopened_trip"}
     services = set(state.get("requested_services") or []) | {"flights", service}
     state.update({
@@ -3044,6 +3079,7 @@ def chat_clean():
         # Ariella owns and merges the cumulative state.
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
+        trip_update = _keep_declines(trip_state, trip_update, service_request)
         # Service intent is semantic. When the extractor explicitly resolves a
         # domain as wanted/not-wanted, that decision is authoritative even if an
         # older requested_services list still contains the domain.

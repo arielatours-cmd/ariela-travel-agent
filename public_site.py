@@ -27,6 +27,7 @@ from database import recent_offers, save_feedback, utc_now_iso, record_site_even
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels
 import booking_demand
+import itinerary_cards
 from booker import resolve_booking_target
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 
@@ -2102,7 +2103,8 @@ def inject_site_context():
     except Exception:
         qa_test_mode = False
     return {"current_member": _current_member(), "site_lang": lang, "qa_test_mode": qa_test_mode,
-            "car_partner_cards": _car_partner_cards}
+            "car_partner_cards": _car_partner_cards,
+            "core_itinerary_text": itinerary_cards.core_itinerary_text}
 
 
 def _lang():
@@ -2927,7 +2929,52 @@ def ariella_save_trip_plan():
         conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?",
                      (json.dumps(answers, ensure_ascii=False), trip_id))
         conn.commit()
+    _queue_itinerary_cards(trip_id)
     return jsonify({"status":"saved","trip_id":trip_id})
+
+
+def _build_itinerary_cards(trip_id: int) -> None:
+    """Background: structure the approved itinerary into day/attraction
+    cards (one model call + a Wikipedia image lookup per attraction) and
+    store them next to the text, which stays as the fallback."""
+    from ariella_chat_clean import _post_claude
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    with _db() as conn:
+        row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+    if not row:
+        return
+    answers = json.loads(row["answers_json"] or "{}")
+    itinerary = answers.get("_approved_itinerary") or {}
+    text = itinerary.get("text") or ""
+    days = itinerary_cards.build_itinerary_days(text, answers, _post_claude, key, model)
+    if not days:
+        return
+    # Re-read before writing: other background searches (lodging/car) may
+    # have saved to this trip while the model call was running.
+    with _db() as conn:
+        row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+        answers = json.loads(row["answers_json"] or "{}")
+        current = answers.get("_approved_itinerary") or {}
+        if current.get("text") != text:
+            return  # a newer itinerary was approved meanwhile
+        current["days"] = days
+        current["cards_built_at"] = utc_now_iso()
+        answers["_approved_itinerary"] = current
+        conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?",
+                     (json.dumps(answers, ensure_ascii=False), trip_id))
+        conn.commit()
+
+
+def _queue_itinerary_cards(trip_id: int) -> None:
+    def worker():
+        try:
+            _build_itinerary_cards(trip_id)
+        except Exception:
+            logging.exception("Building itinerary cards failed for trip %s", trip_id)
+    threading.Thread(target=worker, daemon=True, name=f"ariella-itinerary-{trip_id}").start()
 
 
 @site.post("/api/ariella/save-trip-lodging")
@@ -3373,6 +3420,8 @@ def ariella_start_flight_search():
         )
         trip_id = int(cur.lastrowid)
         conn.commit()
+    if payload.get("_approved_itinerary"):
+        _queue_itinerary_cards(trip_id)
 
     # Keep the chat execution path identical to the proven trip-form behavior:
     # DB first; only spend an external scan when fresh inventory cannot satisfy
