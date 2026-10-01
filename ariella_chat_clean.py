@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
@@ -60,7 +61,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - לכל חופשה יש ארבעה סשנים פנימיים: טיסות, לינה, רכב, ותכנון מסלול/אטרקציות. **הסדר קבוע ואינו גמיש: טיסות תמיד ראשון.** לינה, רכב ותכנון מסלול/אטרקציות נפתחים רק אחרי שהטיסות הגיעו למצב complete (אושרו ויצאו לסריקה) או declined - אף פעם לא לפני כן, גם אם הלקוח מבקש זאת במפורש.
 - אם הלקוח מבקש במפורש "גם לינה"/"גם מסלול"/"גם רכב" בזמן שהטיסות עדיין לא complete/declined, אל תעברי לסשן הזה. הביעי קצרות שקלטת את הבקשה ושתחזרי אליה מיד אחרי הטיסות, והמשיכי לברר את הטיסות. הבקשה נשמרת אוטומטית (service_decisions) ותיפתח מעצמה ברגע שהטיסות יסתיימו - אין צורך לשאול עליה שוב.
 - יוצא מן הכלל היחיד לכלל הזה הוא בקשה מפורשת לחזור/לעבור לטיסות עצמן - זה תמיד מותר מיידית, כולל אחרי שכבר עברתם לסשן אחר (זו הדרך שהלקוח חוזר לשנות פרט בטיסה).
-- בכל רגע יש סשן פעיל אחד. אל תעברי מיוזמתך לסשן אחר לפני שסיימת את הנוכחי. אריאלה מחזירה ב-active_session וב-missing_required רק מה חסר כרגע; שאלי על החסר באופן טבעי.
+- בכל רגע יש סשן פעיל אחד. אל תעברי מיוזמתך לסשן אחר לפני שסיימת את הנוכחי. כל הודעה עוסקת בתחום אחד בלבד: לעולם אל תשאלי באותה הודעה שאלות על שני תחומים שונים (למשל לינה ורכב). אם הלקוח ביקש תחום חדש בזמן שתחום אחר עוד פתוח, עני רק על התחום שהלקוח ביקש עכשיו, וחזרי לתחום הפתוח רק אחרי שהחדש הושלם. אריאלה מחזירה ב-active_session וב-missing_required רק מה חסר כרגע; שאלי על החסר באופן טבעי.
 - כשסשן פעיל הושלם, עברי לסשן הבא שעדיין pending ושאלי שאלה בינארית טבעית אם הלקוח מעוניין בו. לא = declined ועוברים לבא; כן = active ומבררים רק את פרטיו החסרים.
 - לעולם אל תשלבי שני תחומים pending שונים (למשל לינה ורכב) באותה שאלה עם "או" ("רוצה לינה או שנדבר על רכב?") - גם אם שניהם ממתינים בו-זמנית. שאלי רק על תחום ה-pending הבא האחד (next_session) בכל הודעה, וחכי לתשובה הברורה עליו לפני שעוברים הלאה. שאלה שמשלבת שני תחומים הופכת תשובה קצרה כמו "לא" לדו-משמעית - לא ברור אם זה דחה תחום אחד או את שניהם - וזה בדיוק המצב שאסור ליצור.
 - תשובה שלילית לשאלה הבינארית (לא רוצה את התחום הזה) תמיד מקבלת אישור קצר שזה בסדר, יחד עם תזכורת שאפשר תמיד לחזור לכאן בהמשך ולקבל המלצות/עזרה בתחום הזה גם אחרי שסומן כלא נדרש - לא רק לתחומים שכבר הושלמו.
@@ -437,6 +438,27 @@ def _parse_state_date(value):
         except ValueError:
             pass
     return None
+
+
+def _split_car_transmission(state):
+    """Older conversations (and a model that slips) keep the gearbox inside
+    vehicle_type ("SUV אוטומטי"). With transmission a required field, the
+    car then never completed and Ariella asked about the car again although
+    the customer had answered (seen live). Move it to its own field."""
+    car = state.get("car") if isinstance(state.get("car"), dict) else None
+    details = car.get("details") if car and isinstance(car.get("details"), dict) else None
+    if not details or details.get("transmission"):
+        return state
+    vehicle = str(details.get("vehicle_type") or "")
+    for word, value in (("אוטומט", "אוטומטי"), ("ידני", "ידני")):
+        if word in vehicle:
+            details = dict(details)
+            details["transmission"] = value
+            cleaned = re.sub(r"[,\s]*(?:תיבת הילוכים\s*)?\S*" + word + r"\S*", "", vehicle).strip(" ,")
+            details["vehicle_type"] = cleaned or None
+            state["car"] = dict(car, details=details)
+            break
+    return state
 
 
 def _roll_past_dates(state, message, history):
@@ -1431,6 +1453,22 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - כשהחופשה הפעילה היא עסקים או סקי ואת שואלת אם הלקוח מתכוון לחופשה חדשה לגמרי או להמשיך את זו הקיימת, לעולם אל תציעי "להוסיף גם תכנון מסלול" כאפשרות להמשך אותה חופשה - זה לא רלוונטי לעסקים/סקי (ראי כלל למעלה) גם בתוך שאלת ההבהרה הזו. הצעת ההמשך היחידה הרלוונטית שם היא לינה או רכב.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
+    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    not_asked = [
+        {"lodging": "לינה", "car": "רכב", "trip_planning": "מסלול"}[s]
+        for s in ("lodging", "car", "trip_planning")
+        if isinstance(decisions.get(s), dict) and decisions[s].get("source") == "reopened_trip_not_requested"
+    ]
+    if not_asked:
+        # Closed only because this return visit was for another service -
+        # not done and not refused. Seen live: "זה משלים את כל התחומים"
+        # while lodging was never handled.
+        continuity += (
+            "\n- בביקור הזה הלקוח חזר רק בשביל תחום מסוים. התחומים האלה לא טופלו ולא נדחו על ידי הלקוח: "
+            + ", ".join(not_asked)
+            + ". לעולם אל תאמרי שכל התחומים הושלמו. בסיום, ציייני במשפט אחד מה נוסף עכשיו, ושאפשר להוסיף גם "
+            + ", ".join(not_asked) + " בכל רגע."
+        )
     if state.get("post_flight_continuation"):
         # The flights were already summarized and approved; repeating the
         # whole vacation summary after each later service (seen live after
@@ -2277,8 +2315,10 @@ def _deterministic_traveler_facts(message, existing=None):
 
 _SERVICE_KEYWORDS = (
     ("trip_planning", ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול")),
-    ("lodging", ("מלון", "מלונות", "לינה", "וילה", "דירה", "צימר")),
-    ("car", ("רכב", "השכרת רכב", "רכב שכור")),
+    # Plurals too - seen live: "אני רוצה שתחפשי לי גם דירות" wasn't
+    # recognized as a lodging request at all.
+    ("lodging", ("מלון", "מלונות", "לינה", "לינות", "וילה", "וילות", "דירה", "דירות", "צימר", "צימרים", "אירוח")),
+    ("car", ("רכב", "רכבים", "השכרת רכב", "רכב שכור")),
     ("flights", ("טיסה", "טיסות", "לטוס", "טיסת")),
 )
 _REQUEST_CUES = (
@@ -3206,6 +3246,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
         trip_update = _roll_past_dates(trip_update, message, history)
+        trip_update = _split_car_transmission(trip_update)
         # Service intent is semantic. When the extractor explicitly resolves a
         # domain as wanted/not-wanted, that decision is authoritative even if an
         # older requested_services list still contains the domain.
