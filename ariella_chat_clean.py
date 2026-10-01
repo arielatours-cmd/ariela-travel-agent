@@ -35,7 +35,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
-- כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא איזה סוג נסיעה זו: חופשה רגילה, נסיעת עסקים, או חופשת סקי, בניסוח טבעי. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב.
+- כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא איזה סוג נסיעה זו: חופשה רגילה, נסיעת עסקים, או חופשת סקי, בניסוח טבעי. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. חריג: אם מצוין למטה שללקוח יש חופשות פעילות קרובות וההודעה היא פתיחה כללית, קודם הציעי להמשיך עם החופשה הקרובה או לתכנן חדשה, ורק אם בחר חופשה חדשה - שאלי על סוג הנסיעה.
 - בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
@@ -1548,6 +1548,18 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - כשהחופשה הפעילה היא עסקים או סקי ואת שואלת אם הלקוח מתכוון לחופשה חדשה לגמרי או להמשיך את זו הקיימת, לעולם אל תציעי "להוסיף גם תכנון מסלול" כאפשרות להמשך אותה חופשה - זה לא רלוונטי לעסקים/סקי (ראי כלל למעלה) גם בתוך שאלת ההבהרה הזו. הצעת ההמשך היחידה הרלוונטית שם היא לינה או רכב.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
+    upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
+    has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
+    if upcoming and not has_destination:
+        listed = "; ".join(
+            f"{v.get('name')} ({v.get('window')})" + (f" - עוד אפשר להוסיף: {', '.join(v.get('missing') or [])}" if v.get("missing") else "")
+            for v in upcoming
+        )
+        continuity += (
+            "\n- ללקוח יש חופשות פעילות קרובות: " + listed + ". "
+            "אם ההודעה שלו היא פתיחה כללית (ברכה, 'היי', שאלה כללית) ולא בקשה ברורה לחופשה חדשה, אל תתחילי חופשה חדשה ואל תשאלי על סוג נסיעה: "
+            "הציעי בקצרה להמשיך עם החופשה הקרובה ולהוסיף לה את מה שחסר, או לתכנן חופשה חדשה. אם הוא מבקש חופשה חדשה או יעד אחר - המשיכי כרגיל."
+        )
     decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
     not_asked = [
         {"lodging": "לינה", "car": "רכב", "trip_planning": "מסלול"}[s]
@@ -2753,6 +2765,25 @@ def _reopenable_trips(member_id, service, message, limit=3):
     return trips
 
 
+def _upcoming_vacations(member_id, limit=3):
+    """The customer's upcoming active vacations and which of lodging/car/
+    route each still lacks - so a customer coming back after "not now"
+    is offered to continue that vacation instead of being greeted as if
+    starting from scratch (seen live with a New York trip)."""
+    seen, result = set(), []
+    for service in ("lodging", "car", "trip_planning"):
+        for trip in _reopenable_trips(member_id, service, "", limit=20):
+            if trip["id"] in seen:
+                continue
+            seen.add(trip["id"])
+            missing = [
+                _REOPEN_LABELS[s] for s in ("lodging", "car", "trip_planning")
+                if _service_missing_on_trip(trip["answers"], s)
+            ]
+            result.append({"name": trip["name"], "window": trip["window"], "missing": missing})
+    return result[:limit]
+
+
 def _state_from_trip(trip, service):
     """Rebuild the conversation state of an already-approved vacation so a
     customer coming back to add `service` continues from what was agreed."""
@@ -3028,6 +3059,13 @@ def chat_clean():
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
+        upcoming = _upcoming_vacations(session['member_id'])
+        if upcoming:
+            trip_state = dict(trip_state)
+            trip_state["upcoming_vacations"] = upcoming
+    else:
+        trip_state = dict(trip_state)
+        trip_state.pop("upcoming_vacations", None)
 
     # After the flight handoff, keep the same vacation as the default context.
     # When the customer asks for one of the remaining services, deterministically
