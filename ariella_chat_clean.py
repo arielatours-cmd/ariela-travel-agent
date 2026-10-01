@@ -6,7 +6,7 @@ import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request, session
-from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES
+from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES, AIRPORT_NAMES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
@@ -1424,6 +1424,30 @@ def _baggage_summary(state):
     )
 
 
+def _departure_summary(state):
+    """The departure airport's exact Hebrew name. Seen live: the customer
+    wrote "נתבג", TLV was saved correctly, and the reply still said
+    "אז נתניה ל-JFK". The name is handed over as a fact."""
+    code = str(state.get("departure_airport") or "").upper()
+    if not code:
+        return ""
+    name = AIRPORT_NAMES.get(code, code)
+    return f"\nשדה היציאה (מקור אמת): {name} ({code}). כשאת מזכירה אותו, כתבי בדיוק \"{name}\"."
+
+
+def _fix_departure_name(reply, state, history, message):
+    """Backstop for the same slip: Netanya has no airport, so in a reply
+    about a TLV departure it can only be a garbled נתב"ג - unless the
+    customer actually talked about Netanya."""
+    if str(state.get("departure_airport") or "").upper() != "TLV" or "נתניה" not in reply:
+        return reply
+    user_text = " ".join(
+        [str(x.get("content") or "") for x in (history or []) if isinstance(x, dict) and x.get("role") == "user"]
+        + [str(message or "")]
+    )
+    return reply if "נתניה" in user_text else reply.replace("נתניה", 'נתב"ג')
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
@@ -1487,9 +1511,10 @@ def _call_tinkerbell(key, model, history, message, state=None):
             'אלה שדות מאומתים - אל תוסיפי או תמציאי שדה אחר משלך. אם destination_airports עדיין ריק, '
             'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
         )
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state) + _baggage_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
+    reply = _fix_departure_name(reply, state, history, message)
     reply = _strip_garbled_lead_token(reply)
     reply = _repair_foreign_letters_in_hebrew(reply)
     reply = _strip_mixed_script_garble(reply)
@@ -1827,6 +1852,45 @@ def _deterministic_budget_facts(message):
     )
     if any(p in msg for p in no_limit_phrases):
         return {"budget_per_person":{"amount":None,"currency":None,"status":"unlimited"}}
+    return {}
+
+
+def _budget_answer_by_meaning(message, history, state):
+    """Seen live: Ariella replied "בלי הגבלת תקציב מוגדרת" - she understood
+    there's no limit - but the phrase list above didn't match the
+    customer's wording, budget stayed "unknown", and she asked about the
+    budget again. When the last question was about the budget and it is
+    still open, the answer is read by meaning (per product owner, not by a
+    word list)."""
+    budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
+    if budget.get("amount") is not None or budget.get("status") in ("unlimited", "none", "no_limit"):
+        return {}
+    last_assistant = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and x.get("role") == "assistant"), "")
+    if "תקציב" not in last_assistant:
+        return {}
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return {}
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    prompt = (
+        "את מסווגת תשובת לקוח לשאלת תקציב של סוכנת נסיעות. הביני לפי משמעות, בכל ניסוח. "
+        "החזירי JSON בלבד: {\"budget\": \"unlimited\"} אם אין מגבלת תקציב / המחיר לא משנה / תקציב פתוח, "
+        "{\"budget\": <מספר>, \"currency\": \"ILS\"|\"USD\"|\"EUR\"} אם נמסר סכום לאדם, "
+        "או {\"budget\": null} אם התשובה לא עונה על שאלת התקציב."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 40, include_history=False)
+        raw = raw.strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return {}
+    value = data.get("budget")
+    if value == "unlimited":
+        return {"budget_per_person": {"amount": None, "currency": None, "status": "unlimited"}}
+    if isinstance(value, (int, float)) and value > 0:
+        return {"budget_per_person": {"amount": value, "currency": data.get("currency") or "ILS", "status": "known"}}
     return {}
 
 
@@ -2338,6 +2402,35 @@ _STRONG_REQUEST_CUES = (
 )
 
 
+def _classify_service_request(message, history):
+    """Meaning-based fallback for _explicit_service_request (per product
+    owner: understand the request by meaning, not a word list - "גם דירות",
+    "איפה נישן?", "נצטרך גם איך להתנייד" all ask for a service). Used where
+    a missed request matters most: a new message after a vacation was
+    closed, which decides whether to attach the service to that vacation.
+    Returns lodging/car/trip_planning/flights or None."""
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key or not str(message or "").strip():
+        return None
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    last_assistant = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and x.get("role") == "assistant"), "")
+    prompt = (
+        "את מסווגת הודעת לקוח בשיחה עם סוכנת נסיעות. האם הלקוח מבקש עכשיו להוסיף/לחפש אחד מהשירותים: "
+        "lodging (לינה: מלון, דירה, וילה, צימר וכו'), car (השכרת רכב), trip_planning (מסלול/אטרקציות), flights (טיסות)? "
+        "הביני לפי משמעות, בכל ניסוח, סלנג ושגיאות כתיב. אזכור שירות בלי בקשה (למשל 'בלי רכב', 'נסענו ברכב') אינו בקשה. "
+        'החזירי JSON בלבד: {"service": "lodging"|"car"|"trip_planning"|"flights"|null}'
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת: " + last_assistant[-600:] + "\nהודעת הלקוח: " + str(message), 40, include_history=False)
+        raw = raw.strip()
+        service = json.loads(raw[raw.index("{"):raw.rindex("}") + 1]).get("service")
+    except Exception:
+        return None
+    return service if service in ("lodging", "car", "trip_planning", "flights") else None
+
+
 def _explicit_service_request(message, state):
     """Which of the four services the customer is explicitly asking to move
     to, if any. Seen live, repeatedly: this used to be a bare substring check,
@@ -2844,7 +2937,7 @@ def chat_clean():
     trip_is_empty = not ((trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None) \
         and not trip_state.get("active_session") and not trip_state.get("reset_pending")
     if trip_is_empty:
-        requested_service = _explicit_service_request(message, trip_state)
+        requested_service = _explicit_service_request(message, trip_state) or _classify_service_request(message, history)
         if requested_service in _REOPEN_LABELS:
             candidates = _reopenable_trips(session['member_id'], requested_service, message)
             if candidates:
@@ -3361,6 +3454,7 @@ def chat_clean():
             trip_update["active_session"] = "flights"
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
+        trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
