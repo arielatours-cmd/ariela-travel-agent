@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
@@ -437,6 +438,27 @@ def _parse_state_date(value):
         except ValueError:
             pass
     return None
+
+
+def _split_car_transmission(state):
+    """Older conversations (and a model that slips) keep the gearbox inside
+    vehicle_type ("SUV אוטומטי"). With transmission a required field, the
+    car then never completed and Ariella asked about the car again although
+    the customer had answered (seen live). Move it to its own field."""
+    car = state.get("car") if isinstance(state.get("car"), dict) else None
+    details = car.get("details") if car and isinstance(car.get("details"), dict) else None
+    if not details or details.get("transmission"):
+        return state
+    vehicle = str(details.get("vehicle_type") or "")
+    for word, value in (("אוטומט", "אוטומטי"), ("ידני", "ידני")):
+        if word in vehicle:
+            details = dict(details)
+            details["transmission"] = value
+            cleaned = re.sub(r"[,\s]*(?:תיבת הילוכים\s*)?\S*" + word + r"\S*", "", vehicle).strip(" ,")
+            details["vehicle_type"] = cleaned or None
+            state["car"] = dict(car, details=details)
+            break
+    return state
 
 
 def _roll_past_dates(state, message, history):
@@ -1431,6 +1453,22 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - כשהחופשה הפעילה היא עסקים או סקי ואת שואלת אם הלקוח מתכוון לחופשה חדשה לגמרי או להמשיך את זו הקיימת, לעולם אל תציעי "להוסיף גם תכנון מסלול" כאפשרות להמשך אותה חופשה - זה לא רלוונטי לעסקים/סקי (ראי כלל למעלה) גם בתוך שאלת ההבהרה הזו. הצעת ההמשך היחידה הרלוונטית שם היא לינה או רכב.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
+    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    not_asked = [
+        {"lodging": "לינה", "car": "רכב", "trip_planning": "מסלול"}[s]
+        for s in ("lodging", "car", "trip_planning")
+        if isinstance(decisions.get(s), dict) and decisions[s].get("source") == "reopened_trip_not_requested"
+    ]
+    if not_asked:
+        # Closed only because this return visit was for another service -
+        # not done and not refused. Seen live: "זה משלים את כל התחומים"
+        # while lodging was never handled.
+        continuity += (
+            "\n- בביקור הזה הלקוח חזר רק בשביל תחום מסוים. התחומים האלה לא טופלו ולא נדחו על ידי הלקוח: "
+            + ", ".join(not_asked)
+            + ". לעולם אל תאמרי שכל התחומים הושלמו. בסיום, ציייני במשפט אחד מה נוסף עכשיו, ושאפשר להוסיף גם "
+            + ", ".join(not_asked) + " בכל רגע."
+        )
     if state.get("post_flight_continuation"):
         # The flights were already summarized and approved; repeating the
         # whole vacation summary after each later service (seen live after
@@ -2277,8 +2315,10 @@ def _deterministic_traveler_facts(message, existing=None):
 
 _SERVICE_KEYWORDS = (
     ("trip_planning", ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול")),
-    ("lodging", ("מלון", "מלונות", "לינה", "וילה", "דירה", "צימר")),
-    ("car", ("רכב", "השכרת רכב", "רכב שכור")),
+    # Plurals too - seen live: "אני רוצה שתחפשי לי גם דירות" wasn't
+    # recognized as a lodging request at all.
+    ("lodging", ("מלון", "מלונות", "לינה", "לינות", "וילה", "וילות", "דירה", "דירות", "צימר", "צימרים", "אירוח")),
+    ("car", ("רכב", "רכבים", "השכרת רכב", "רכב שכור")),
     ("flights", ("טיסה", "טיסות", "לטוס", "טיסת")),
 )
 _REQUEST_CUES = (
@@ -3206,6 +3246,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
         trip_update = _roll_past_dates(trip_update, message, history)
+        trip_update = _split_car_transmission(trip_update)
         # Service intent is semantic. When the extractor explicitly resolves a
         # domain as wanted/not-wanted, that decision is authoritative even if an
         # older requested_services list still contains the domain.
