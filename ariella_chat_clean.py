@@ -1649,16 +1649,23 @@ def _call_tinkerbell(key, model, history, message, state=None):
 """ + route_handoff
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
-    if upcoming and not has_destination:
+    if upcoming:
         listed = "; ".join(
-            f"{v.get('name')} ({v.get('window')})" + (f" - עוד אפשר להוסיף: {', '.join(v.get('missing') or [])}" if v.get("missing") else "")
+            f"{v.get('name')} ({v.get('window')}"
+            + (f", {v.get('travelers')}" if v.get("travelers") else "") + ")"
+            + (f" - עוד אפשר להוסיף: {', '.join(v.get('missing') or [])}" if v.get("missing") else "")
             for v in upcoming
         )
         continuity += (
-            "\n- ללקוח יש חופשות פעילות קרובות: " + listed + ". "
-            "אם ההודעה שלו היא פתיחה כללית (ברכה, 'היי', שאלה כללית) ולא בקשה ברורה לחופשה חדשה, אל תתחילי חופשה חדשה ואל תשאלי על סוג נסיעה: "
-            "הציעי בקצרה להמשיך עם החופשה הקרובה ולהוסיף לה את מה שחסר, או לתכנן חופשה חדשה. אם הוא מבקש חופשה חדשה או יעד אחר - המשיכי כרגיל."
+            "\n- החופשות הפעילות השמורות של הלקוח (מקור אמת): " + listed + ". "
+            "כשהלקוח מדבר על אחד מהיעדים האלה, או מבקש שתבדקי בחופשות שלו, הסתמכי על הנתונים האלה - "
+            "לעולם אל תשאלי שוב על תאריכים, משך או נוסעים שכבר מופיעים כאן."
         )
+        if not has_destination:
+            continuity += (
+                " אם ההודעה היא פתיחה כללית (ברכה, 'היי', שאלה כללית) ולא בקשה ברורה לחופשה חדשה, אל תתחילי חופשה חדשה ואל תשאלי על סוג נסיעה: "
+                "הציעי בקצרה להמשיך עם החופשה הקרובה ולהוסיף לה את מה שחסר, או לתכנן חופשה חדשה. אם הוא מבקש חופשה חדשה או יעד אחר - המשיכי כרגיל."
+            )
     decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
     not_asked = [
         {"lodging": "לינה", "car": "רכב", "trip_planning": "מסלול"}[s]
@@ -3048,11 +3055,18 @@ def _upcoming_vacations(member_id, limit=3):
             if trip["id"] in seen:
                 continue
             seen.add(trip["id"])
+            answers = trip["answers"]
             missing = [
                 _REOPEN_LABELS[s] for s in ("lodging", "car", "trip_planning")
-                if _service_missing_on_trip(trip["answers"], s)
+                if _service_missing_on_trip(answers, s)
             ]
-            result.append({"name": trip["name"], "window": trip["window"], "missing": missing})
+            ages = answers.get("age_groups") or []
+            travelers = ""
+            if answers.get("adults"):
+                travelers = f"{answers.get('adults')} מבוגרים"
+                if answers.get("children"):
+                    travelers += f", {answers.get('children')} ילדים" + (f" (גילאים {', '.join(str(a) for a in ages)})" if ages else "")
+            result.append({"name": trip["name"], "window": trip["window"], "travelers": travelers, "missing": missing})
     return result[:limit]
 
 
@@ -3385,12 +3399,16 @@ def chat_clean():
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
-        upcoming = _upcoming_vacations(session['member_id'])
-        if upcoming:
-            trip_state = dict(trip_state)
-            trip_state["upcoming_vacations"] = upcoming
+
+    # The customer's saved vacations, every turn - so Ariella answers from
+    # them instead of asking again for facts they already hold (seen live:
+    # "תחפשי בחופשות שלי" about New York was answered with "כמה ימים ומי
+    # נוסע?" although the New York vacation has both).
+    trip_state = dict(trip_state)
+    upcoming = _upcoming_vacations(session['member_id'])
+    if upcoming:
+        trip_state["upcoming_vacations"] = upcoming
     else:
-        trip_state = dict(trip_state)
         trip_state.pop("upcoming_vacations", None)
 
     # After the flight handoff, keep the same vacation as the default context.
