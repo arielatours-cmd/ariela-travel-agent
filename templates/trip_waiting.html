@@ -37,6 +37,7 @@
  const title=document.getElementById('stageTitle'), text=document.getElementById('stageText'), fill=document.getElementById('progressFill');
  const nodes=[...document.querySelectorAll('.stage')];
  const order=['flight','lodging','car','plan'];
+ const hideFlight={{ 'true' if hide_flight_stage else 'false' }};
  const copy={
    flight:['✈️','מחפשת את הטיסות המתאימות לך…','משווה אפשרויות ובודקת התאמה לתאריכים ולבקשה שלך.'],
    lodging:['🏨','יוצאת לחיפוש לינה אמיתי…','בודקת מלונות ודירות שמתאימים לתאריכים ולמספר האורחים.'],
@@ -55,8 +56,16 @@
  let tries=0;
  function paint(key,states){
    const x=copy[key]||copy.done;title.textContent=x[1];text.textContent=x[2];
-   const idx=key==='done'?4:order.indexOf(key);fill.style.width=(18+Math.max(0,idx)*20)+'%';
-   nodes.forEach((n,i)=>{const k=order[i],s=states&&states[k];n.classList.toggle('active',k===key);n.classList.toggle('done',s==='complete'||(idx>i&&s!=='skipped'));n.style.opacity=s==='skipped'?'.35':'1';if(s==='skipped')n.title='לא נדרש';});
+   // Only the stages this vacation actually needs are shown. A skipped
+   // stage (never requested/declined) used to stay on screen dimmed, which
+   // read as "this page is about lodging/car/route too" for a flights-only
+   // request. Before the first real status arrives, only flights is shown.
+   const known=states&&Object.keys(states).length>0;
+   const present=new Set(nodes.map(n=>n.dataset.stage));
+   const visible=order.filter(k=>present.has(k)&&!(hideFlight&&k==='flight')&&(known?states[k]!=='skipped':k==='flight'));
+   const vIdx=key==='done'?visible.length:Math.max(0,visible.indexOf(key));
+   fill.style.width=(visible.length?Math.round(18+(82*vIdx)/visible.length):18)+'%';
+   nodes.forEach(n=>{const k=n.dataset.stage,s=states&&states[k];const show=visible.includes(k);n.style.display=show?'':'none';n.classList.toggle('active',k===key);n.classList.toggle('done',s==='complete'||(show&&visible.indexOf(k)<vIdx));});
  }
  // Real, sequential progress - no client-side timer ever fakes a stage as
  // done. Each poll reports the server's actual per-stage state; the first

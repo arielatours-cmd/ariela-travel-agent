@@ -225,12 +225,33 @@
           .lodging-result-price{font-size:14px;font-weight:800;color:#147d77}
           .lodging-result-link{align-self:flex-start;margin-top:4px;font-size:12.5px;font-weight:700;color:#0fc2b0;text-decoration:underline}
           .lodging-search-again{text-align:center}
+          .itin-days{display:flex;flex-direction:column;gap:18px}
+          .itin-day{background:#fffdf8;border:1px solid #e5dccd;border-radius:14px;padding:14px}
+          .itin-day-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:#8a7454}
+          .itin-day-num{background:#0fc2b0;color:#fff;font-weight:800;border-radius:999px;padding:3px 12px}
+          .itin-day-city{font-weight:700}
+          .itin-day-title{margin:8px 0 4px;font-size:17px}
+          .itin-day-summary{margin:0 0 10px;color:#5d5346;font-size:14px}
+          .itin-card{display:flex;gap:12px;background:#fff;border:1px solid #eee4d4;border-radius:12px;overflow:hidden;margin-top:10px;box-shadow:0 2px 8px #0000000a}
+          .itin-card-img{width:112px;min-height:112px;object-fit:cover;flex-shrink:0}
+          .itin-card-body{padding:10px 12px 12px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+          .itin-card-name{font-size:15px}
+          .itin-card-en{font-size:12px;color:#8a8a8a}
+          .itin-card-desc{margin:2px 0;font-size:13.5px;color:#3f3a33;line-height:1.5}
+          .itin-card-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:12.5px;color:#6b6152}
+          .itin-card-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+          .itin-btn{font-size:12.5px;font-weight:700;color:#0fc2b0!important;border:1.5px solid #0fc2b0;border-radius:999px;padding:5px 12px;text-decoration:none}
+          .itin-btn.primary{background:#0fc2b0;color:#fff!important}
+          .itin-day-base{margin-top:10px;font-size:13px;color:#6b6152;font-weight:700}
+          @media (max-width:480px){.itin-card{flex-direction:column}.itin-card-img{width:100%;height:150px;min-height:0}}
+          .car-partner-btn{align-self:flex-start;margin-top:8px;text-decoration:none}
         </style>
 
         <div class="vacation-panel" id="car-{{ trip.id }}">
           <h3>רכב שמתאים לחופשה</h3>
           {% set car_offers = a.get('car_offers') or [] %}
           {% set car_result = a.get('_car_search_result') or {} %}
+          {% set partner_cards = [] if car_offers else car_partner_cards(trip.id, a) %}
           {% if car_offers %}
             <div class="lodging-results-list">
               {% for car in car_offers %}
@@ -245,6 +266,21 @@
                       </div>
                     {% endif %}
                     {% if car.get('link') %}<a class="lodging-result-link" href="{{ car.get('link') }}" target="_blank" rel="noopener">צפייה ופרטים</a>{% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% elif partner_cards %}
+            <div class="lodging-results-list">
+              {% for car in partner_cards %}
+                <div class="lodging-result-card">
+                  <div class="lodging-result-info">
+                    <strong>🚗 {{ car.name }}</strong>
+                    <div class="lodging-result-meta"><span>{{ car.pickup }}</span></div>
+                    {% if car.pickup_when %}<div class="lodging-result-meta"><span>איסוף: {{ car.pickup_when }}</span></div>{% endif %}
+                    {% if car.return_when %}<div class="lodging-result-meta"><span>החזרה: {{ car.return_when }}</span></div>{% endif %}
+                    <div class="lodging-result-meta"><span>מחירים וזמינות בזמן אמת באתר {{ car.supplier }}</span></div>
+                    <a class="lodging-search-btn car-partner-btn" href="{{ car.link }}" target="_blank" rel="noopener sponsored">למעבר להזמנה ←</a>
                   </div>
                 </div>
               {% endfor %}
@@ -267,9 +303,44 @@
         <div class="vacation-panel" id="travel-{{ trip.id }}">
           <h3>מסלול ואטרקציות</h3>
           {% set itinerary = trip.answers.get('_approved_itinerary', {}) %}
-          {% if itinerary and itinerary.get('text') %}
+          {% if itinerary and itinerary.get('days') %}
+            <div class="itin-days">
+              {% for day in itinerary.get('days') %}
+                <section class="itin-day">
+                  <header class="itin-day-head">
+                    <span class="itin-day-num">יום {{ day.get('day') or loop.index }}</span>
+                    {% if day.get('date') %}<span class="itin-day-date">{{ day.get('date')[8:10] }}.{{ day.get('date')[5:7] }}</span>{% endif %}
+                    {% if day.get('city') %}<span class="itin-day-city">{{ day.get('city') }}</span>{% endif %}
+                  </header>
+                  {% if day.get('title') %}<h4 class="itin-day-title">{{ day.get('title') }}</h4>{% endif %}
+                  {% if day.get('summary') %}<p class="itin-day-summary">{{ day.get('summary') }}</p>{% endif %}
+                  {% for item in day.get('items') or [] %}
+                    <article class="itin-card">
+                      {% if item.get('image') %}<img class="itin-card-img" src="{{ item.get('image') }}" alt="{{ item.get('name_he') }}" loading="lazy">{% endif %}
+                      <div class="itin-card-body">
+                        <strong class="itin-card-name">{{ item.get('name_he') }}</strong>
+                        {% if item.get('name_en') %}<span class="itin-card-en">{{ item.get('name_en') }}</span>{% endif %}
+                        {% if item.get('description') %}<p class="itin-card-desc">{{ item.get('description') }}</p>{% endif %}
+                        <div class="itin-card-meta">
+                          {% if item.get('duration') %}<span>⏱ {{ item.get('duration') }}</span>{% endif %}
+                          {% if item.get('price') %}<span>🎟 {{ item.get('price') }}</span>{% endif %}
+                          {% if item.get('kids') == 'כן' %}<span>👨‍👩‍👧 מתאים לילדים</span>{% endif %}
+                        </div>
+                        <div class="itin-card-links">
+                          {% if item.get('tickets_url') %}<a class="itin-btn primary" href="{{ item.get('tickets_url') }}" target="_blank" rel="noopener">לרכישת כרטיסים</a>{% endif %}
+                          {% if item.get('official_url') %}<a class="itin-btn" href="{{ item.get('official_url') }}" target="_blank" rel="noopener">אתר רשמי</a>{% endif %}
+                          <a class="itin-btn" href="{{ item.get('map_url') }}" target="_blank" rel="noopener">📍 במפה</a>
+                        </div>
+                      </div>
+                    </article>
+                  {% endfor %}
+                  {% if day.get('base') %}<div class="itin-day-base">🛏 לינה: {{ day.get('base') }}</div>{% endif %}
+                </section>
+              {% endfor %}
+            </div>
+          {% elif itinerary and itinerary.get('text') %}
             <div class="vacation-itinerary">
-              <div style="white-space:pre-line">{{ itinerary.get('text') }}</div>
+              <div style="white-space:pre-line">{{ core_itinerary_text(itinerary.get('text')) }}</div>
               {% set attractions = itinerary.get('attractions', []) %}
               {% if attractions %}
                 <div class="vacation-attractions-list">

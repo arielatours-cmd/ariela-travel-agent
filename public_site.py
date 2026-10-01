@@ -22,11 +22,12 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, CJ_BOOKING_EVERGREEN_LINK
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels
 import booking_demand
+import itinerary_cards
 from booker import resolve_booking_target
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 
@@ -82,6 +83,7 @@ _ITINERARY_DAY_MENTION = re.compile(
     r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
 )
 _DATE_JUST_BEFORE = re.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+_ITINERARY_NUMBERED_DAY = re.compile(r"(?<![\u05d0-\u05ea])יום\s+(\d{1,2})(?!\d)")
 
 
 def _itinerary_day_mention_count(text):
@@ -92,7 +94,11 @@ def _itinerary_day_mention_count(text):
         if _DATE_JUST_BEFORE.search(prefix):
             continue
         count += 1
-    return count
+    # Numbered itineraries ("יום 1: ...", "יום 2: ...") with no weekday are
+    # just as common - count distinct day numbers too (same rule as
+    # ariella_chat_clean's day_mention_count).
+    numbered = {m.group(1) for m in _ITINERARY_NUMBERED_DAY.finditer(text)}
+    return max(count, len(numbered))
 
 
 def _most_recent_itinerary_shaped_message(history):
@@ -2090,7 +2096,15 @@ def inject_site_context():
         lang = "he"
         session["lang"] = "he"
 
-    return {"current_member": _current_member(), "site_lang": lang}
+    # The chat's "reset conversation" button is a QA tool, shown only while
+    # test mode is on in the admin dashboard - never to real customers.
+    try:
+        qa_test_mode = str(get_setting("qa_test_mode", "0") or "0") == "1"
+    except Exception:
+        qa_test_mode = False
+    return {"current_member": _current_member(), "site_lang": lang, "qa_test_mode": qa_test_mode,
+            "car_partner_cards": _car_partner_cards,
+            "core_itinerary_text": itinerary_cards.core_itinerary_text}
 
 
 def _lang():
@@ -2915,7 +2929,52 @@ def ariella_save_trip_plan():
         conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?",
                      (json.dumps(answers, ensure_ascii=False), trip_id))
         conn.commit()
+    _queue_itinerary_cards(trip_id)
     return jsonify({"status":"saved","trip_id":trip_id})
+
+
+def _build_itinerary_cards(trip_id: int) -> None:
+    """Background: structure the approved itinerary into day/attraction
+    cards (one model call + a Wikipedia image lookup per attraction) and
+    store them next to the text, which stays as the fallback."""
+    from ariella_chat_clean import _post_claude
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    with _db() as conn:
+        row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+    if not row:
+        return
+    answers = json.loads(row["answers_json"] or "{}")
+    itinerary = answers.get("_approved_itinerary") or {}
+    text = itinerary.get("text") or ""
+    days = itinerary_cards.build_itinerary_days(text, answers, _post_claude, key, model)
+    if not days:
+        return
+    # Re-read before writing: other background searches (lodging/car) may
+    # have saved to this trip while the model call was running.
+    with _db() as conn:
+        row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+        answers = json.loads(row["answers_json"] or "{}")
+        current = answers.get("_approved_itinerary") or {}
+        if current.get("text") != text:
+            return  # a newer itinerary was approved meanwhile
+        current["days"] = days
+        current["cards_built_at"] = utc_now_iso()
+        answers["_approved_itinerary"] = current
+        conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?",
+                     (json.dumps(answers, ensure_ascii=False), trip_id))
+        conn.commit()
+
+
+def _queue_itinerary_cards(trip_id: int) -> None:
+    def worker():
+        try:
+            _build_itinerary_cards(trip_id)
+        except Exception:
+            logging.exception("Building itinerary cards failed for trip %s", trip_id)
+    threading.Thread(target=worker, daemon=True, name=f"ariella-itinerary-{trip_id}").start()
 
 
 @site.post("/api/ariella/save-trip-lodging")
@@ -2985,6 +3044,8 @@ def ariella_save_trip_car():
     except Exception:
         answers = {}
     answers["car_vehicle_type"] = details.get("vehicle_type") or ""
+    answers["car_transmission"] = details.get("transmission") or ""
+    answers["car_seats"] = details.get("seats")
     answers["car_pickup"] = details.get("pickup") or ""
     answers["car_return"] = details.get("return") or ""
     answers.pop("_car_search_finished", None)
@@ -2998,6 +3059,47 @@ def ariella_save_trip_car():
     _save_trip_answers(trip_id, answers)
     _queue_car_search(trip_id, dict(answers))
     return jsonify({"status":"saved","trip_id":trip_id})
+
+
+@site.post("/api/ariella/sync-trip-services")
+@login_required
+def ariella_sync_trip_services():
+    """Record which post-flight services this vacation actually ended up
+    needing, right before the chat hands off to the waiting page. A service
+    requested before the flight approval (and so already in
+    _requested_services) that the customer then declined after it must not
+    keep the waiting page "searching" for it forever."""
+    body = request.get_json(silent=True) or {}
+    trip_id = int(body.get("trip_id") or 0)
+    state = body.get("trip_state") if isinstance(body.get("trip_state"), dict) else {}
+    if not trip_id:
+        return jsonify({"status":"error","message":"missing trip"}), 400
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT answers_json FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    if not row:
+        return jsonify({"status":"missing"}), 404
+    try:
+        answers = json.loads(row["answers_json"] or "{}")
+    except Exception:
+        answers = {}
+    requested = set(answers.get("_requested_services") or [])
+    session_status = dict(answers.get("_session_status") or {})
+    for service in ("lodging", "car", "trip_planning"):
+        status = statuses.get(service)
+        if status == "declined":
+            requested.discard(service)
+            session_status[service] = "declined"
+        elif status == "complete":
+            requested.add(service)
+            session_status[service] = "complete"
+    answers["_requested_services"] = sorted(requested)
+    answers["_session_status"] = session_status
+    _save_trip_answers(trip_id, answers)
+    return jsonify({"status":"saved","trip_id":trip_id,"requested":sorted(requested)})
 
 
 def _find_duplicate_active_trip(member_id, departure_airport, destination_codes, date_mode, dep, ret, month):
@@ -3267,10 +3369,16 @@ def ariella_start_flight_search():
         "lodging_level": lodging_details.get("level") or "",
         "lodging_location": lodging_details.get("locations") or lodging_details.get("location") or "",
         "car_vehicle_type": car_details.get("vehicle_type") or "",
+        "car_transmission": car_details.get("transmission") or "",
+        "car_seats": car_details.get("seats"),
         "car_pickup": car_details.get("pickup") or "",
         "car_return": car_details.get("return") or "",
         "_requested_services": sorted(services),
         "_session_status": state.get("session_status") if isinstance(state.get("session_status"), dict) else {},
+        # The approved conversation facts, so a customer who comes back later
+        # to add lodging/car/route to THIS vacation continues from exactly what
+        # was agreed instead of being asked destination/dates/travelers again.
+        "_ariella_trip_state": {k: v for k, v in state.items() if k not in ("profile", "missing_required")},
     }
     # A route/itinerary conversation that happened and was approved BEFORE the
     # customer approved the flight search (a natural order - "let's plan the
@@ -3316,6 +3424,8 @@ def ariella_start_flight_search():
         )
         trip_id = int(cur.lastrowid)
         conn.commit()
+    if payload.get("_approved_itinerary"):
+        _queue_itinerary_cards(trip_id)
 
     # Keep the chat execution path identical to the proven trip-form behavior:
     # DB first; only spend an external scan when fresh inventory cannot satisfy
@@ -3411,7 +3521,10 @@ def trip_waiting(trip_id):
     # for one at all, not even a dimmed "skipped" one.
     vacation_type = _trip_dict(row).get("answers", {}).get("vacation_type")
     show_plan_stage = vacation_type not in ("business", "ski")
-    return render_template("trip_waiting.html", trip_id=trip_id, show_plan_stage=show_plan_stage)
+    # ?reopen=1: the customer came back to add lodging/car/route to an
+    # already-searched vacation - the flight stage is not part of this visit.
+    hide_flight_stage = request.args.get("reopen") == "1"
+    return render_template("trip_waiting.html", trip_id=trip_id, show_plan_stage=show_plan_stage, hide_flight_stage=hide_flight_stage)
 
 
 @site.get("/trip/<int:trip_id>/flight-status")
@@ -4138,6 +4251,12 @@ def _run_car_search(trip_id: int, answers: dict) -> None:
     provider is configured."""
     if not booking_demand.is_configured():
         answers["_car_search_finished"] = True
+        if CAR_RENTAL_AFFILIATE_LINK:
+            # No priced API, but an approved car-rental partner: the car tab
+            # renders honest partner cards (see _car_partner_cards).
+            answers["_car_search_result"] = {"status": "partner_link"}
+            _save_trip_answers(trip_id, answers)
+            return
         answers["_car_search_result"] = {
             "status": "unavailable",
             "message": "חיפוש רכב אמיתי עדיין לא מחובר - אריאלה תעדכן ברגע שהאפשרות תהיה זמינה.",
@@ -4168,6 +4287,84 @@ def _run_car_search(trip_id: int, answers: dict) -> None:
         answers["_car_search_result"] = {"status": "error", "message": str(exc)[:300]}
     answers["_car_search_finished"] = True
     _save_trip_answers(trip_id, answers)
+
+
+def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
+    """Outbound CJ-tracked URL for one car-rental card. The sid lets CJ
+    reports tie a commission back to the vacation it came from."""
+    params = {"sid": f"trip{trip_id}"}
+    if CAR_RENTAL_SEARCH_URL_TEMPLATE:
+        try:
+            params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(
+                iata=iata,
+                pickup_date=answers.get("departure_date") or "",
+                return_date=answers.get("return_date") or "",
+                pickup_time=_car_time(answers.get("car_pickup")) or "10:00",
+                return_time=_car_time(answers.get("car_return")) or "10:00",
+            )
+        except (KeyError, IndexError, ValueError):
+            logging.warning("CAR_RENTAL_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
+    joiner = "&" if "?" in CAR_RENTAL_AFFILIATE_LINK else "?"
+    return CAR_RENTAL_AFFILIATE_LINK + joiner + urlencode(params, quote_via=quote)
+
+
+_CAR_TIME_RE = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b")
+
+
+def _car_time(text) -> str:
+    """HH:MM the customer confirmed in chat for pickup/return, or ''."""
+    match = _CAR_TIME_RE.search(str(text or ""))
+    return f"{int(match.group(1)):02d}:{match.group(2)}" if match else ""
+
+
+def _he_date(iso: str) -> str:
+    try:
+        return datetime.strptime(str(iso)[:10], "%Y-%m-%d").strftime("%d.%m.%Y")
+    except ValueError:
+        return str(iso)
+
+
+def _car_when(iso_date, text) -> str:
+    if not iso_date:
+        return ""
+    time = _car_time(text)
+    return _he_date(iso_date) + (f" בשעה {time}" if time else " · שעה לפי הטיסה")
+
+
+def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
+    """One card per destination airport (max 3) for a trip that asked for a
+    car, each linking out to the approved car-rental partner. Deliberately
+    carries no price: nothing priced is fetched, so nothing is shown."""
+    if not CAR_RENTAL_AFFILIATE_LINK or not isinstance(answers, dict):
+        return []
+    wants_car = (
+        "car" in (answers.get("_requested_services") or [])
+        or answers.get("car_vehicle_type") or answers.get("car_pickup")
+    )
+    if not wants_car:
+        return []
+    vehicle = str(answers.get("car_vehicle_type") or "").strip()
+    transmission = str(answers.get("car_transmission") or "").strip()
+    seats = answers.get("car_seats")
+    title = "רכב שכור" + "".join(
+        f" · {part}" for part in (
+            vehicle if vehicle != "אין העדפה" else "",
+            transmission if transmission != "לא משנה" else "",
+            f"{seats} מקומות" if seats and f"{seats} מקומות" not in vehicle else "",
+        ) if part
+    )
+    dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
+    cards = []
+    for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
+        cards.append({
+            "name": title,
+            "pickup": f"איסוף והחזרה בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code})",
+            "pickup_when": _car_when(dep, answers.get("car_pickup")),
+            "return_when": _car_when(ret, answers.get("car_return")),
+            "supplier": CAR_RENTAL_PARTNER_NAME,
+            "link": f"/trip/{trip_id}/rent-car/{code}",
+        })
+    return cards
 
 
 _car_search_threads = {}
@@ -4209,6 +4406,30 @@ def search_lodging(trip_id):
     answers = dict(trip.get("answers") or {})
     _run_lodging_search(trip_id, answers)
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+
+@site.get("/trip/<int:trip_id>/rent-car/<code>")
+@login_required
+def rent_car(trip_id, code):
+    """Record the click and send the customer to the car-rental partner."""
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    code = str(code or "").upper()
+    if not row or not CAR_RENTAL_AFFILIATE_LINK:
+        return redirect(url_for("site.account"))
+    answers = dict(_trip_dict(row).get("answers") or {})
+    if code not in _trip_destination_codes({"answers": answers}):
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+    url = _car_partner_url(answers, code, trip_id)
+    record_booking_click(
+        member_id=session["member_id"], destination_code=code,
+        supplier=CAR_RENTAL_PARTNER_NAME, outbound_date=answers.get("departure_date"),
+        return_date=answers.get("return_date"), booking_url=url,
+    )
+    return redirect(url)
 
 
 @site.post("/trip/<int:trip_id>/search-car")
