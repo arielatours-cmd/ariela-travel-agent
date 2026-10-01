@@ -4324,7 +4324,7 @@ def _car_when(iso_date, text) -> str:
     if not iso_date:
         return ""
     time = _car_time(text)
-    return _he_date(iso_date) + (f" בשעה {time}" if time else "")
+    return _he_date(iso_date) + (f" בשעה {time}" if time else " · שעה לפי הטיסה")
 
 
 def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:

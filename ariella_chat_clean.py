@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import re
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
@@ -106,7 +105,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
-- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (המילה שהלקוח נתן - "קטן"/"משפחתי"/"ג'יפ"/"אוטומט" וכו', או "אין העדפה" אם נאמר במפורש שכל רכב מתאים), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. שעת האיסוף ושעת ההחזרה הן חלק מהפרטים ההכרחיים להשכרת רכב - אם הלקוח לא ציין אותן, שאלי עליהן; אם הוא לא יודע, הציעי שעה סבירה (כשעה אחרי הנחיתה ביעד לאיסוף, וכשלוש שעות לפני טיסת החזור להחזרה) ובקשי שיאשר אותה - לעולם אל תשמרי שעה שהלקוח לא אישר.
+- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (המילה שהלקוח נתן - "קטן"/"משפחתי"/"ג'יפ"/"אוטומט" וכו', או "אין העדפה" אם נאמר במפורש שכל רכב מתאים), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'.
 - חשבון תאריכים הוא דטרמיניסטי: שבוע=7 ימים ושבועיים=14 ימים. אם הלקוח אמר יציאה 20.12 ושבועיים, החזרה היא 3.1; אל תמציאי 7.1 ואל תציעי תאריך חלופי אחרי שהמשך אושר.
@@ -733,10 +732,6 @@ def _resolve_ski_destination_airports(state):
     return state
 
 
-# A car pickup/return string only counts as complete once it carries a time.
-_CAR_TIME_RE = re.compile(r"\b([01]?\d|2[0-3]):[0-5]\d\b")
-
-
 def _required_state_gaps(state):
     """Return the authoritative unanswered decisions Ariella needs for requested services."""
     state = state if isinstance(state, dict) else {}
@@ -824,14 +819,13 @@ def _required_state_gaps(state):
     if "car" in services:
         if not (car_details.get("vehicle_type") or car_details.get("size")):
             gaps.append("car.details.vehicle_type")
+        # A time is welcome but never required: before the flights are
+        # booked the customer can't know it (per product owner), and the
+        # rental site asks for it at booking anyway.
         if not car_details.get("pickup"):
             gaps.append("car.details.pickup")
-        elif not _CAR_TIME_RE.search(str(car_details.get("pickup"))):
-            gaps.append("car.details.pickup_time")
         if not car_details.get("return"):
             gaps.append("car.details.return")
-        elif not _CAR_TIME_RE.search(str(car_details.get("return"))):
-            gaps.append("car.details.return_time")
         # luggage capacity derives from the shared traveler + baggage facts; do
         # not invent suitcases that the user never requested.
         if not car_details.get("luggage_capacity_confirmed"):
@@ -1286,6 +1280,40 @@ def _strip_unconfirmed_airports(text, state):
     return text.strip()
 
 
+def _travelers_summary(state):
+    """The party size spelled out with its total already computed. Seen
+    live: "אתם ארבעה (שני מבוגרים ובת נוער)" - the model added 2+1 and got
+    4. The total is arithmetic, so it's computed here and handed to the
+    model as a fact instead of left for it to work out."""
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+
+    def _num(v):
+        try:
+            return max(0, int(v or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    adults, children, infants = _num(travelers.get("adults")), _num(travelers.get("children")), _num(travelers.get("infants"))
+    total = adults + children + infants
+    if not total:
+        return ""
+    ages = travelers.get("child_ages") if isinstance(travelers.get("child_ages"), list) else []
+    genders = travelers.get("child_genders") if isinstance(travelers.get("child_genders"), list) else []
+    parts = [f"{adults} מבוגרים"] if adults else []
+    if children:
+        kids = []
+        for i, age in enumerate(ages[:children]):
+            g = genders[i] if i < len(genders) else None
+            kids.append(f"{'בת' if g == 'female' else 'בן' if g == 'male' else 'ילד/ה'} {age}")
+        parts.append(f"{children} ילדים" + (f" ({', '.join(kids)})" if kids else ""))
+    if infants:
+        parts.append(f"{infants} תינוקות")
+    return (
+        f"\nהרכב הנוסעים (מחושב, מקור אמת): סה\"כ {total} נוסעים - " + ", ".join(parts) + ". "
+        f"כשאת מציינת את מספר הנוסעים השתמשי בדיוק במספר {total}; לעולם אל תחשבי סכום בעצמך."
+    )
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
@@ -1324,7 +1352,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
             'אלה שדות מאומתים - אל תוסיפי או תמציאי שדה אחר משלך. אם destination_airports עדיין ריק, '
             'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
         )
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
     reply = _strip_garbled_lead_token(reply)
@@ -3450,7 +3478,18 @@ def chat_clean():
                     extra = remaining[0]
                 else:
                     extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
-                reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {extra} לחופשה הזו, או שסיימנו?"
+                reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {extra} לחופשה הזו?"
+                # Remember what was just offered, so a plain "כן"/"לא" next
+                # turn settles it via _post_flight_offer_answer. Without this
+                # the "כן" reached the model with no record of the question,
+                # and it asked about the car all over again (seen live).
+                # Flights isn't offerable this way (it has its own approval
+                # flow), so only once flights is settled.
+                if statuses_after_plan.get("flights") in ("complete", "declined"):
+                    trip_update["post_flight_offer"] = [
+                        s for s in ("lodging", "car")
+                        if statuses_after_plan.get(s, "pending") not in ("complete", "declined")
+                    ]
             else:
                 reply = "מצוין, המסלול מאושר."
 
