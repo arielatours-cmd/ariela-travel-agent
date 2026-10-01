@@ -79,6 +79,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשאת מאשרת הבנה של תשובה שלילית, עשי זאת בקצרה ואל תחזרי מחדש על המלצה ארוכה שכבר ניתנה. המשיכי מהמידע שכבר נשמר ושאלי רק את השאלה הבאה שחסרה.
 - אל תמציאי תחומי עניין חדשים תוך כדי אישור הבנה. אם הלקוח לא ביקש למשל טבע או אווירה מקומית, אל תוסיפי אותם כאילו נבחרו.
 - יעד, תאריכים, מספר נוסעים, סוג לינה ומספר חדרים אינם שאלות כן/לא כאשר צריך לקבל מהם ערך ממשי; שאלי אותם באופן טבעי רק אם הערך עדיין חסר.
+- המילים "מאשר/מאשרת" שמורות אך ורק לאישור חיפוש הטיסות. לעולם אל תבקשי "כתבי מאשרת" אחרי סיכום של לינה, רכב או מסלול: סכמי אותם בקצרה ושאלי רק אם צריך לתקן משהו - התחום נסגר מעצמו כשכל הפרטים שלו ידועים.
 - מה שהלקוח כבר אישר לא מוצג שוב לאישור ולא מבקשים לאשר אותו מחדש, אלא אם הלקוח שינה בו משהו - ואז מבקשים אישור רק על השינוי.
 - כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
@@ -831,9 +832,11 @@ def _required_state_gaps(state):
             gaps.append("car.details.pickup")
         if not car_details.get("return"):
             gaps.append("car.details.return")
-        # luggage capacity derives from the shared traveler + baggage facts; do
-        # not invent suitcases that the user never requested.
-        if not car_details.get("luggage_capacity_confirmed"):
+        # Luggage fit is something Ariella mentions when choosing the vehicle
+        # category, not a separate gate: as a hidden required flag the model
+        # had to set, it kept the car session open after every visible
+        # detail was answered, and Ariella asked for an extra confirmation.
+        if not car_details.get("luggage_capacity_confirmed") and not (car_details.get("vehicle_type") or car_details.get("seats")):
             gaps.append("car.details.luggage_capacity")
 
     if "trip_planning" in services:
@@ -927,6 +930,14 @@ def _approval_trigger(message, history, state):
     if msg not in {"מאשר", "מאשרת"}:
         return False
     state = state if isinstance(state, dict) else {}
+    # Once the flights were approved and are being scanned, "מאשרת" can only
+    # be about a later service (car/lodging/route) - seen live: a car
+    # summary ending in "כתבי מאשרת" was taken as a new flight approval, so
+    # a flight search was started again and the car was asked about from
+    # scratch. Only a flights session the customer reopened to change it may
+    # be approved again.
+    if state.get("post_flight_continuation") and state.get("active_session") != "flights":
+        return False
     if state.get("ready_for_summary"):
         return True
     # The visible assistant summary is authoritative evidence that we reached
