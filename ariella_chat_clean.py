@@ -928,7 +928,68 @@ def _required_state_gaps(state):
     return list(dict.fromkeys(gaps))
 
 
-def _flight_gap_question(gaps):
+def _country_airports(country, limit=4):
+    """The member's country's airports from the catalog, offered as choices
+    (the catalog isn't ordered by size, so none is guessed as "the" main
+    one - e.g. its first GB entry is Gatwick, not Heathrow)."""
+    if not country:
+        return []
+    codes = [str(a.get("code") or "").upper() for a in _load_airports()
+             if str(a.get("country") or "").upper() == country and a.get("code")]
+    # A big country (US: Boston, Chicago, LA, Miami...) isn't narrowed by a
+    # handful of arbitrary cities - an open question fits better there.
+    return codes if len(codes) <= limit else []
+
+
+def _apply_home_airport(state):
+    """Departure default from the customer's own registration data, never a
+    fixed country (per product owner - the site serves every country):
+    - one preferred airport: use it; Ariella names it in the summary and the
+      customer can change it;
+    - several: ask only among them;
+    - none chosen: offer their country's airports as choices.
+    Never overrides an airport the customer named in the conversation."""
+    state = state if isinstance(state, dict) else {}
+    profile = state.get("profile") if isinstance(state.get("profile"), dict) else {}
+    home = [c for c in (profile.get("home_airports") or []) if c]
+    if state.get("departure_airport"):
+        # The customer named another airport in the chat: it's no longer
+        # the registration default.
+        if state.get("departure_airport_source") == "profile" and state["departure_airport"] not in home:
+            state.pop("departure_airport_source", None)
+        state.pop("departure_options", None)
+        return state
+    if len(home) == 1:
+        state["departure_airport"] = home[0]
+        state["departure_airport_source"] = "profile"
+        state.pop("departure_options", None)
+    elif len(home) > 1:
+        state["departure_options"] = home
+    else:
+        options = _country_airports(profile.get("country"))
+        if options:
+            state["departure_options"] = options
+    return state
+
+
+def _airport_labels(codes):
+    """Hebrew names, with the IATA code added where two share a city name
+    (London: LGW/LHR/LTN/STN)."""
+    names = [AIRPORT_NAMES.get(c, c) for c in codes]
+    return [f"{n} ({c})" if names.count(n) > 1 else n for n, c in zip(names, codes)]
+
+
+def _departure_question(state):
+    options = (state or {}).get("departure_options") or []
+    names = _airport_labels(options)
+    if len(names) == 1:
+        return f"נטוס מ{names[0]}, או משדה אחר?"
+    if names:
+        return "מאיזה שדה נטוס - " + ", ".join(names[:-1]) + " או " + names[-1] + "?"
+    return "מאיזה שדה תעופה תרצי לטוס?"
+
+
+def _flight_gap_question(gaps, state=None):
     """Map a _session_gaps(..., "flights") result to the one specific
     question that actually resolves it. Shared by the approval-time gap
     handling and the false-approval-claim safety net below, so both ask the
@@ -942,7 +1003,7 @@ def _flight_gap_question(gaps):
     if "budget_per_person" in gaps:
         return "לפני הסריקה חסר לי התקציב לאדם. מה התקציב, או שאין מגבלת תקציב?"
     if "departure_airport" in gaps:
-        return "לפני הסריקה חסר לי שדה היציאה שלכם. מאיזה שדה תרצי לטוס?"
+        return "לפני הסריקה חסר לי שדה היציאה. " + _departure_question(state)
     if "trip_type" in gaps:
         return "רק לפני שממשיכים - זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"
     if "destination" in gaps:
@@ -1430,9 +1491,19 @@ def _departure_summary(state):
     "אז נתניה ל-JFK". The name is handed over as a fact."""
     code = str(state.get("departure_airport") or "").upper()
     if not code:
-        return ""
+        options = state.get("departure_options") or []
+        if not options:
+            return ""
+        names = ", ".join(f"{AIRPORT_NAMES.get(c, c)} ({c})" for c in options)
+        return (
+            f"\nשדה היציאה עוד לא נקבע. לפי פרטי ההרשמה של הלקוח, האפשרויות הסבירות: {names}. "
+            "כשמגיע הזמן לשאול על שדה היציאה, הציעי אותן בשאלה קצרה אחת (הלקוח יכול לבחור גם שדה אחר בכל מקום בעולם). אל תניחי שהלקוח טס מישראל."
+        )
     name = AIRPORT_NAMES.get(code, code)
-    return f"\nשדה היציאה (מקור אמת): {name} ({code}). כשאת מזכירה אותו, כתבי בדיוק \"{name}\"."
+    line = f"\nשדה היציאה (מקור אמת): {name} ({code}). כשאת מזכירה אותו, כתבי בדיוק \"{name}\"."
+    if state.get("departure_airport_source") == "profile":
+        line += " הוא נלקח מהשדה שהלקוח בחר בפרטי ההרשמה - אל תשאלי עליו; ציייני אותו בסיכום הטיסה כדי שהלקוח יוכל לשנות אם צריך."
+    return line
 
 
 def _fix_departure_name(reply, state, history, message):
@@ -2779,7 +2850,7 @@ def _member_profile(member_id):
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.row_factory = sqlite3.Row
-        row = conn.execute("SELECT full_name, gender FROM members WHERE id=?", (member_id,)).fetchone()
+        row = conn.execute("SELECT full_name, gender, country, preferred_airports FROM members WHERE id=?", (member_id,)).fetchone()
         conn.close()
     except Exception:
         return {"first_name": "", "gender": None}
@@ -2788,7 +2859,17 @@ def _member_profile(member_id):
     full_name = str(row["full_name"] or "").strip()
     first_name = full_name.split()[0] if full_name else ""
     gender = str(row["gender"] or "").strip().lower() or None
-    return {"first_name": first_name, "gender": gender}
+    try:
+        home_airports = [str(c).strip().upper() for c in json.loads(row["preferred_airports"] or "[]") if str(c).strip()]
+    except Exception:
+        home_airports = []
+    return {
+        "first_name": first_name, "gender": gender,
+        # Chosen at registration (and editable in account details) - the
+        # departure default, so the site works the same from any country.
+        "home_airports": home_airports,
+        "country": str(row["country"] or "").strip().upper(),
+    }
 
 
 def _remember_turn_reset_trip(member_id, history, message, reply, fresh_trip_state):
@@ -3522,11 +3603,14 @@ def chat_clean():
         trip_update = _resolve_destination_airports_from_route(trip_update)
         # A ski trip's gateway is derived from the ski resort catalog instead.
         trip_update = _resolve_ski_destination_airports(trip_update)
+        # The customer's name/gender/home airports always come fresh from
+        # their registration data, never from client-supplied state, which
+        # can be stale or wrong. Loaded before the sessions advance so the
+        # departure default counts toward the flight gaps.
+        trip_update["profile"] = _member_profile(session["member_id"])
+        trip_update = _apply_home_airport(trip_update)
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
-        # The customer's name/gender always come fresh from their registration
-        # data, never from client-supplied state, which can be stale or wrong.
-        trip_update["profile"] = _member_profile(session["member_id"])
         if trip_update["profile"].get("gender"):
             trip_update["user_gender"] = trip_update["profile"]["gender"]
 
@@ -3684,7 +3768,7 @@ def chat_clean():
         # proactively - not only in the separate approval_gaps handling further
         # down, which only fires once the customer actually tries to approve.
         if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
-            premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"))
+            premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
             if premature_gap_question:
                 reply = premature_gap_question
 
@@ -3801,7 +3885,7 @@ def chat_clean():
                 # gap means retyping מאשרת alone will not start anything, and
                 # telling her to do that is exactly what produced the next
                 # false claim in the same live transcript.
-                gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"))
+                gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
                 if gap_question:
                     reply = gap_question
                 else:
@@ -3856,7 +3940,7 @@ def chat_clean():
                 # what to answer - seen live: she got exactly that generic
                 # line, asked "מה עכשיו?" (what now?), and had no way forward
                 # other than guessing.
-                reply = _flight_gap_question(approval_gaps)
+                reply = _flight_gap_question(approval_gaps, trip_update)
                 approval = False
             else:
                 # This whole branch used to end here, with everything below it
