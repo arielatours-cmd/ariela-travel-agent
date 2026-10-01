@@ -3044,6 +3044,8 @@ def ariella_save_trip_car():
     except Exception:
         answers = {}
     answers["car_vehicle_type"] = details.get("vehicle_type") or ""
+    answers["car_transmission"] = details.get("transmission") or ""
+    answers["car_seats"] = details.get("seats")
     answers["car_pickup"] = details.get("pickup") or ""
     answers["car_return"] = details.get("return") or ""
     answers.pop("_car_search_finished", None)
@@ -3367,6 +3369,8 @@ def ariella_start_flight_search():
         "lodging_level": lodging_details.get("level") or "",
         "lodging_location": lodging_details.get("locations") or lodging_details.get("location") or "",
         "car_vehicle_type": car_details.get("vehicle_type") or "",
+        "car_transmission": car_details.get("transmission") or "",
+        "car_seats": car_details.get("seats"),
         "car_pickup": car_details.get("pickup") or "",
         "car_return": car_details.get("return") or "",
         "_requested_services": sorted(services),
@@ -4340,7 +4344,15 @@ def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     if not wants_car:
         return []
     vehicle = str(answers.get("car_vehicle_type") or "").strip()
-    title = "רכב שכור" + (f" · {vehicle}" if vehicle and vehicle != "אין העדפה" else "")
+    transmission = str(answers.get("car_transmission") or "").strip()
+    seats = answers.get("car_seats")
+    title = "רכב שכור" + "".join(
+        f" · {part}" for part in (
+            vehicle if vehicle != "אין העדפה" else "",
+            transmission if transmission != "לא משנה" else "",
+            f"{seats} מקומות" if seats and f"{seats} מקומות" not in vehicle else "",
+        ) if part
+    )
     dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
     cards = []
     for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
