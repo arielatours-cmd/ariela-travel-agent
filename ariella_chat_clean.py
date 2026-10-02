@@ -2386,6 +2386,65 @@ def _deterministic_trip_planning_pace_facts(message, history):
     return {"trip_planning": {"details": {"pace": pace}}}
 
 
+def _deterministic_car_vehicle_facts(message, history):
+    """car.details.vehicle_type/transmission have no deterministic writer
+    anywhere else - only the LLM's own JSON extraction ever sets them, and
+    when that silently fails to persist a short one-word answer,
+    _session_gaps keeps re-flagging the field as missing forever. Seen live:
+    the customer answered "משפחתי" to the car-type question, Ariella
+    acknowledged it ("בסדר, רכב משפחתי"), then asked a separate transmission
+    question, got "אוטומטי" - and the very next turn asked the car-type
+    question again from scratch, never having actually saved "משפחתי"."""
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    prior_assistant = ""
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+            prior_assistant = str(item.get("content") or "")
+            break
+
+    result = {}
+
+    # Canonical vehicle_type values (system prompt) - check the more
+    # specific "משפחתי סטיישן" before the bare "משפחתי" so it isn't
+    # shadowed by the shorter match.
+    vehicle_values = [
+        "משפחתי סטיישן", "מיניוואן 7 מקומות", "מיניוואן", "ג'יפ 4x4", "ג'יפ",
+        "SUV", "סטיישן", "משפחתי", "קטן", "יוקרה",
+    ]
+    no_preference_words = ("אין העדפה", "לא משנה", "כל רכב מתאים", "מה שיש")
+    # The exact lead-in phrasing varies ("סוג הרכב", "קטגוריית הרכב", ...),
+    # but the menu of category options itself is distinctive - three or more
+    # of them appearing together is a reliable signal this was the car-type
+    # question, regardless of how the sentence around them was phrased.
+    category_menu_words = ("קטן", "משפחתי", "סטיישן", "suv", "ג'יפ", "מיניוואן", "יוקרה")
+    asked_vehicle_type = (
+        any(p in prior_assistant for p in ("סוג הרכב", "סוג רכב", "קטגוריית הרכב", "קטגוריה של הרכב", "סוג/גודל רכב"))
+        or sum(1 for w in category_menu_words if w in prior_assistant.lower()) >= 3
+    )
+    if asked_vehicle_type:
+        if any(w in msg for w in no_preference_words):
+            result.setdefault("car", {}).setdefault("details", {})["vehicle_type"] = "אין העדפה"
+        else:
+            for value in vehicle_values:
+                if value.lower() in msg.lower():
+                    result.setdefault("car", {}).setdefault("details", {})["vehicle_type"] = value
+                    break
+
+    # Transmission is asked as its own binary question ("אוטומטי או ידני?").
+    asked_transmission = "אוטומטי" in prior_assistant and "ידני" in prior_assistant
+    if asked_transmission:
+        if "לא משנה" in msg or "אין העדפה" in msg:
+            result.setdefault("car", {}).setdefault("details", {})["transmission"] = "לא משנה"
+        elif "אוטומט" in msg:
+            result.setdefault("car", {}).setdefault("details", {})["transmission"] = "אוטומטי"
+        elif "ידני" in msg:
+            result.setdefault("car", {}).setdefault("details", {})["transmission"] = "ידני"
+
+    return result
+
+
 def _deterministic_traveler_facts(message, existing=None):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck.
 
@@ -3652,6 +3711,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
+        trip_update = _merge_trip_state(trip_update, _deterministic_car_vehicle_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
         # a new plan or continuing the ski trip?") clears trip_type, but the
