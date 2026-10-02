@@ -37,15 +37,14 @@ PERSONAL_SEARCH_DAILY_SCAN_MINUTE = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MI
 # exploratory cost - see the SerpAPI-cost math behind the 19/39 ILS pricing.
 PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS", "3"))
 # A trip with more than one entry airport (e.g. a ski resort served by two
-# gateway cities) needs at least one search per gateway just to cover every
-# option once - the single-gateway cap above always left it "partial" partway
-# through the first gateway, so the daily re-scan could never even finish
-# comparing the candidates, let alone discover a better one. SerpAPI cost
-# math (checked live with the business owner, Developer plan $75/5000
-# searches = 1.5c/search): even doubling 3->6 requests/day only raises the
-# monthly SerpAPI cost per "scan"-tier (39 ILS/30 days) customer from ~5.1
-# ILS to ~10.1 ILS - still a wide margin.
-PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY", "6"))
+# gateway cities) needs at least one search per date/gateway combination just
+# to cover every option once - 6 still left a real two-gateway ski trip
+# (TRN+MXP) at "partial" every day (observed live: 5 jobs for one gateway + 6
+# for the other = 11 total). SerpAPI cost math (checked live with the
+# business owner, Developer plan $75/5000 searches = 1.5c/search): even at
+# 12/day the monthly SerpAPI cost per "scan"-tier (39 ILS/30 days) customer
+# is only ~20.3 ILS - still a ~48% margin.
+PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY", "12"))
 
 # Booking.com affiliate program, via CJ Affiliate (not the Demand API - that
 # path is invite-only direct-with-Booking.com and confirmed unavailable to
