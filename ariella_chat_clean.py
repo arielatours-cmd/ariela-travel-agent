@@ -2880,7 +2880,30 @@ def _pick_reopen_option(message, options, key=None, model=None, history=None):
         for word, idx in ordinals.items():
             if word in msg and idx < len(options):
                 return idx
-    hits = [i for i, o in enumerate(options) if any(p.strip() and p.strip() in msg for p in str(o.get("name") or "").split(" • "))]
+    def _name_variants(name):
+        # An option's name is stored however the vacation was originally
+        # titled (often the English city name, e.g. "New York") while the
+        # customer naturally replies in Hebrew ("ניו יורק") - check the
+        # airport catalog for the matching city_he so either language
+        # resolves the same option, not just an exact-string match.
+        variants = {name.strip().lower()}
+        try:
+            for airport in _load_airports():
+                city_en = str(airport.get("city_en") or "").strip()
+                city_he = str(airport.get("city_he") or "").strip()
+                if city_en and city_en.lower() == name.strip().lower() and city_he:
+                    variants.add(city_he.lower())
+        except Exception:
+            pass
+        return variants
+
+    hits = [
+        i for i, o in enumerate(options)
+        if any(
+            part.strip() and any(v in msg for v in _name_variants(part))
+            for part in str(o.get("name") or "").split(" • ")
+        )
+    ]
     if len(hits) == 1:
         return hits[0]
     if len(options) == 1 and key:
