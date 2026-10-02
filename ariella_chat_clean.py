@@ -2534,6 +2534,93 @@ def _deterministic_car_vehicle_facts(message, history):
     return result
 
 
+def _deterministic_lodging_facts(message, history):
+    """lodging.details.type/level/rooms have no deterministic writer anywhere
+    else - only the LLM's own JSON extraction ever sets them, same gap as
+    _deterministic_car_vehicle_facts above. Seen live: the customer answered
+    "מלון לפחות 4 כוכבים" to the type question, then "יוקרתי" to the level
+    question, then "3 חדרים זוגיים" to the rooms question - and kept getting
+    asked the exact same already-answered questions again on every later
+    turn, never having actually saved any of the three."""
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    prior_assistant = ""
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+            prior_assistant = str(item.get("content") or "")
+            break
+
+    result = {}
+    no_preference_words = ("אין העדפה", "לא משנה", "מה שיש", "לא משנה לי")
+
+    type_values = ["מלון", "דירה", "אפרטמנט", "וילה", "צימר"]
+    asked_type = (
+        any(p in prior_assistant for p in ("סוג הלינה", "סוג לינה"))
+        or ("מלון" in prior_assistant and ("דירה" in prior_assistant or "וילה" in prior_assistant))
+    )
+    if asked_type:
+        if any(w in msg for w in no_preference_words):
+            result.setdefault("lodging", {}).setdefault("details", {})["type"] = "אין העדפה"
+        else:
+            for value in type_values:
+                if value in msg:
+                    result.setdefault("lodging", {}).setdefault("details", {})["type"] = "דירה" if value == "אפרטמנט" else value
+                    break
+
+    level_values = (
+        ("יוקרתי", "יוקרתי"), ("יוקרה", "יוקרתי"), ("פאר", "יוקרתי"),
+        ("בינוני", "בינוני"), ("בינונית", "בינוני"), ("סטנדרטי", "בינוני"),
+        ("חסכוני", "חסכוני"), ("תקציבי", "חסכוני"), ("כלכלי", "חסכוני"), ("זול", "חסכוני"),
+    )
+    asked_level = (
+        "רמת הנוחות" in prior_assistant
+        or ("יוקרתי" in prior_assistant and ("בינונ" in prior_assistant or "חסכונ" in prior_assistant))
+    )
+    if asked_level:
+        if any(w in msg for w in no_preference_words):
+            result.setdefault("lodging", {}).setdefault("details", {})["level"] = "אין העדפה"
+        else:
+            for word, canon in level_values:
+                if word in msg:
+                    result.setdefault("lodging", {}).setdefault("details", {})["level"] = canon
+                    break
+
+    # Rooms is asked as "כמה חדרים" with a one-big-room-or-split framing.
+    asked_rooms = any(p in prior_assistant for p in ("כמה חדרים", "חדר אחד גדול", "לחלק לשני חדרים", "חלוקת החדרים"))
+    if asked_rooms:
+        import re
+        rooms_match = re.search(r"(\d+)\s*חדר", msg)
+        if rooms_match:
+            result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = int(rooms_match.group(1))
+        elif any(w in msg for w in ("חדר אחד", "חדר גדול אחד")):
+            result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
+
+    return result
+
+
+def _protect_lodging_details_from_loss(previous, updated):
+    """type/level/budget/rooms/locations keep vanishing once already
+    answered - the same loss pattern seen with car.details (see
+    _protect_car_details_from_loss). Force-restore them from the pre-turn
+    state if the post-merge state lost them."""
+    old_details = (previous.get("lodging") or {}).get("details") if isinstance(previous.get("lodging"), dict) else None
+    if not isinstance(old_details, dict):
+        return updated
+    new_lodging = updated.get("lodging") if isinstance(updated.get("lodging"), dict) else {}
+    new_details = new_lodging.get("details") if isinstance(new_lodging.get("details"), dict) else {}
+    restored = dict(new_details)
+    changed = False
+    for field in ("type", "rooms", "bedrooms", "level", "budget", "locations", "areas"):
+        if old_details.get(field) and not restored.get(field):
+            restored[field] = old_details[field]
+            changed = True
+    if changed:
+        updated = dict(updated)
+        updated["lodging"] = dict(new_lodging, details=restored)
+    return updated
+
+
 def _deterministic_traveler_facts(message, existing=None):
     """Capture common Hebrew traveler phrases so semantic facts never depend on LLM luck.
 
@@ -3721,6 +3808,7 @@ def chat_clean():
         trip_update = _roll_past_dates(trip_update, message, history)
         trip_update = _split_car_transmission(trip_update)
         trip_update = _protect_car_details_from_loss(trip_state, trip_update)
+        trip_update = _protect_lodging_details_from_loss(trip_state, trip_update)
         # Service intent is semantic. When the extractor explicitly resolves a
         # domain as wanted/not-wanted, that decision is authoritative even if an
         # older requested_services list still contains the domain.
@@ -3842,6 +3930,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_car_vehicle_facts(message, history))
+        trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
         # a new plan or continuing the ski trip?") clears trip_type, but the
