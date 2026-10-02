@@ -41,6 +41,18 @@ def _safe_daily_batch():
         log.info("Daily batch prepared: status=%s count=%s", result["batch"]["status"], len(result["deals"]))
     except Exception:
         log.exception("Daily batch preparation failed")
+    try:
+        # Free re-match (no SerpAPI spend) for every personal-tracking trip
+        # against whatever today's scanning already found - runs every day,
+        # including Friday/Saturday, since this never spends external search
+        # budget. The delivery-timing rule above only governs when it's
+        # acceptable to actually SEND a message, not whether the trip's own
+        # saved card may already reflect the best match found so far.
+        from public_site import run_personal_vacation_evening_refresh
+        refresh_result = run_personal_vacation_evening_refresh()
+        log.info("Evening personal vacation refresh complete: %s", refresh_result)
+    except Exception:
+        log.exception("Evening personal vacation refresh failed")
 
 
 _PAID_SEARCH_LAST_RUN_KEY = "paid_personal_search_last_run_date"
@@ -53,8 +65,19 @@ def _israel_now():
 
 
 def _safe_paid_personal_search():
-    """Noon scan for customers on the paid 39 ILS personal-search tier only."""
+    """Noon scan for customers on the paid 39 ILS personal-search tier only.
+
+    Never runs on Saturday (business owner's explicit rule: no searches go
+    out on Shabbat at all, full stop - not a delivery-timing nuance like the
+    general daily batch's Friday/Saturday summer-winter rule, which governs
+    when a message may be SENT, not whether this dedicated search may spend
+    SerpAPI budget that day). The evening personal-vacation refresh (see
+    _safe_daily_batch) still runs every day including Saturday, since it
+    only re-matches already-gathered data and spends nothing."""
     try:
+        if _israel_now().weekday() == 5:
+            log.info("Paid personal search batch skipped - Saturday")
+            return
         # Lazy import avoids a startup circular import with the Flask blueprint.
         from public_site import run_paid_personal_search_batch
         from database import get_setting, set_setting
@@ -83,6 +106,8 @@ def _paid_personal_search_catch_up():
     try:
         from database import get_setting
         now = _israel_now()
+        if now.weekday() == 5:
+            return
         due = (now.hour, now.minute) >= (PERSONAL_SEARCH_DAILY_SCAN_HOUR, PERSONAL_SEARCH_DAILY_SCAN_MINUTE)
         if due and get_setting(_PAID_SEARCH_LAST_RUN_KEY) != now.date().isoformat():
             log.warning("Paid personal search batch missed today - running catch-up now")

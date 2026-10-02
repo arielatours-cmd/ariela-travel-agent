@@ -3994,6 +3994,49 @@ def run_paid_personal_search_batch() -> dict:
     return {"scanned": len(scanned), "results": scanned}
 
 
+def run_personal_vacation_evening_refresh() -> dict:
+    """Evening (17:00) re-match for every active personal-tracking trip
+    against whatever the day's own scanning activity already found -
+    spends zero extra SerpAPI requests, just re-runs the same matching/
+    pinning _run_paid_personal_search_batch uses, against the freshest
+    inventory now in the DB.
+
+    Covers both tiers: "scan" (39 ILS) already got its own dedicated noon
+    search, so this is a second, free chance to catch anything the general
+    scanning surfaced since then. "update" (19 ILS) was always advertised
+    as "one update a day from the general scan" but had no code actually
+    doing that matching - this is that missing piece.
+
+    Runs every day, including Friday/Saturday, regardless of the delivery-
+    timing rule in schedule_rules.delivery_status: that rule only governs
+    when it's acceptable to SEND a message, not whether the trip's own
+    saved card may reflect the best match already found - no external
+    search spend happens here either way."""
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT id FROM trip_requests WHERE status='active' AND subscription_status='active' "
+            "AND subscription_plan IN ('scan','update')"
+        ).fetchall()
+    refreshed = _recent_inventory_48h()
+    updated = []
+    for row in rows:
+        trip_id = int(row["id"])
+        try:
+            with _db() as conn:
+                trip_row = conn.execute("SELECT * FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+            if not trip_row:
+                continue
+            trip = _trip_dict(trip_row)
+            answers = dict(trip.get("answers") or {})
+            matches = _customer_deal_choices(refreshed, trip, limit=5)
+            if matches:
+                _pin_offer_ids_to_trip(trip_id, answers, matches)
+                updated.append(trip_id)
+        except Exception:
+            log.exception("Evening personal vacation refresh failed for trip %s", trip_id)
+    return {"checked": len(rows), "updated": updated}
+
+
 @site.post("/trip/<int:trip_id>/free-alternative")
 @login_required
 def free_trip_alternative(trip_id):
