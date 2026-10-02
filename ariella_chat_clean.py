@@ -440,6 +440,33 @@ def _parse_state_date(value):
     return None
 
 
+def _protect_car_details_from_loss(previous, updated):
+    """vehicle_type/transmission keep vanishing once already answered - seen
+    live repeatedly, most recently when trip_planning referenced the car
+    ("לאילו ימים צריך רכב") while car itself wasn't the active_session: the
+    very next car-related turn asked vehicle_type again from scratch, even
+    though _merge_trip_state's own None/omitted-key handling should already
+    protect it. Whatever the exact extractor path that drops it, once these
+    two fields are genuinely set they must never revert to empty without the
+    customer actually changing them - so force-restore them from the
+    pre-turn state if the post-merge state lost them."""
+    old_details = (previous.get("car") or {}).get("details") if isinstance(previous.get("car"), dict) else None
+    if not isinstance(old_details, dict):
+        return updated
+    new_car = updated.get("car") if isinstance(updated.get("car"), dict) else {}
+    new_details = new_car.get("details") if isinstance(new_car.get("details"), dict) else {}
+    restored = dict(new_details)
+    changed = False
+    for field in ("vehicle_type", "transmission"):
+        if old_details.get(field) and not restored.get(field):
+            restored[field] = old_details[field]
+            changed = True
+    if changed:
+        updated = dict(updated)
+        updated["car"] = dict(new_car, details=restored)
+    return updated
+
+
 def _split_car_transmission(state):
     """Older conversations (and a model that slips) keep the gearbox inside
     vehicle_type ("SUV אוטומטי"). With transmission a required field, the
@@ -3591,6 +3618,7 @@ def chat_clean():
         trip_update = _keep_declines(trip_state, trip_update, service_request)
         trip_update = _roll_past_dates(trip_update, message, history)
         trip_update = _split_car_transmission(trip_update)
+        trip_update = _protect_car_details_from_loss(trip_state, trip_update)
         # Service intent is semantic. When the extractor explicitly resolves a
         # domain as wanted/not-wanted, that decision is authoritative even if an
         # older requested_services list still contains the domain.
