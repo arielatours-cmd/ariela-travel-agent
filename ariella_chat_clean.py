@@ -1016,6 +1016,68 @@ def _departure_question(state):
     return "מאיזה שדה תעופה תרצי לטוס?"
 
 
+def _flight_summary_text(state):
+    """Deterministic flight-request summary built straight from state - the
+    honest fallback when the claims_execution safety net catches Tinkerbell
+    prematurely claiming a search already started, but the flight session is
+    genuinely ready for approval (no real gap left). Seen live: the customer
+    answered the last missing fact (budget) and got nothing but "you must
+    type מאשרת" with zero summary of what she'd actually be approving -
+    confusing on its own, and the opposite of the system prompt's own rule
+    that a summary must always precede the approval request."""
+    state = state if isinstance(state, dict) else {}
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p) for p in (destination.get("places") or []) if str(p or "").strip()]
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+    budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
+
+    def he_date(iso):
+        iso = str(iso or "")[:10]
+        parts = iso.split("-")
+        return f"{parts[2]}.{parts[1]}.{parts[0]}" if len(parts) == 3 else iso
+
+    lines = []
+    if places:
+        lines.append("יעד: " + ", ".join(places))
+    dep, ret = dates.get("departure"), dates.get("return")
+    if dep and ret:
+        lines.append(f"תאריכים: {he_date(dep)} – {he_date(ret)}")
+    departure_airport = state.get("departure_airport")
+    if departure_airport:
+        lines.append(f"שדה יציאה: {departure_airport}")
+    adults = travelers.get("adults")
+    children = int(travelers.get("children") or 0)
+    if adults:
+        party = f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"
+        if children:
+            party += (f" ו-{children} ילדים" if children != 1 else " וילד אחד")
+        lines.append("נוסעים: " + party)
+    connection = str(flight.get("connection_preference") or "").lower()
+    if connection:
+        lines.append("טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן")
+    baggage = flight.get("baggage") or []
+    baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה למחסן", "personal_item": "תיק קטן בלבד"}
+    if baggage:
+        lines.append("כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage))
+    if budget.get("status") == "unlimited":
+        lines.append("תקציב: ללא הגבלה")
+    elif budget.get("amount"):
+        lines.append(f"תקציב לאדם: {budget.get('amount')} {budget.get('currency') or '₪'}")
+    if not lines:
+        return None
+
+    gender = str(state.get("user_gender") or "").lower()
+    if gender == "male":
+        approval_line = "אם כל הפרטים נכונים, כתוב מאשר."
+    elif gender == "female":
+        approval_line = "אם כל הפרטים נכונים, כתבי מאשרת."
+    else:
+        approval_line = "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת."
+    return "סיכום בקשת הטיסה:\n" + "\n".join(lines) + "\n\n" + approval_line
+
+
 def _flight_gap_question(gaps, state=None):
     """Map a _session_gaps(..., "flights") result to the one specific
     question that actually resolves it. Shared by the approval-time gap
@@ -4088,13 +4150,22 @@ def chat_clean():
                 if gap_question:
                     reply = gap_question
                 else:
-                    gender = str((trip_state or {}).get("user_gender") or "").lower()
-                    if gender == "male":
-                        reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר כדי להתחיל."
-                    elif gender == "female":
-                        reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשרת כדי להתחיל."
+                    # No real gap left - show the actual summary instead of a
+                    # bare "type מאשרת" with nothing to approve. Falls back to
+                    # the old bare instruction only if state somehow has too
+                    # little to summarize (should not happen once gaps are
+                    # genuinely empty, but never block approval entirely).
+                    summary = _flight_summary_text(trip_update)
+                    if summary:
+                        reply = "עדיין לא יצאתי לחיפוש בפועל - הנה הסיכום, ורק לאחר אישור במילה המדויקת אני יוצאת לדרך:\n\n" + summary
                     else:
-                        reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר/מאשרת כדי להתחיל."
+                        gender = str((trip_state or {}).get("user_gender") or "").lower()
+                        if gender == "male":
+                            reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר כדי להתחיל."
+                        elif gender == "female":
+                            reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשרת כדי להתחיל."
+                        else:
+                            reply = "עדיין לא יצאתי לחיפוש בפועל - צריך לכתוב בדיוק את המילה מאשר/מאשרת כדי להתחיל."
         # A generic "yes" during normal data collection is NEVER a search approval.
         # It must only approve an explicit final approval question / ready state.
         msg_norm = _normalize_confirm(message).lower()
