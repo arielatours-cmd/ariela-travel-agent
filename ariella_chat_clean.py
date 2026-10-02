@@ -3581,6 +3581,39 @@ def chat_clean():
                 possible_new_trip = candidate
                 break
 
+    # Seen live: the customer says "אני רוצה מקום אחר" (no candidate yet, so
+    # none of the cues above fire and the model just asks "where to?" in free
+    # text), then answers with a bare place name ("פראג") - which also has
+    # none of "במקום"/"לשנות" etc., so it matched nothing here either. The
+    # model's free-text reply acknowledged the swap, but trip_state.destination
+    # never changed, and every later question kept being about the old place.
+    # A bare place name right after the customer's own stated wish to replace
+    # the destination is the same intent as the explicit cues above.
+    if not destination_change and not possible_new_trip and current_places:
+        general_replace_phrases = (
+            "מקום אחר", "יעד אחר", "לא מתאים לי", "רוצה להחליף", "רוצה לשנות יעד",
+            "רוצה לשנות את היעד", "לא רוצה את היעד", "יעד שונה",
+        )
+        prior_user_wanted_different_place = False
+        seen_assistant = False
+        for _item in reversed(history or []):
+            if not isinstance(_item, dict):
+                continue
+            role = str(_item.get("role") or "").lower()
+            if role == "assistant":
+                seen_assistant = True
+                continue
+            if role == "user" and seen_assistant:
+                prior_user_wanted_different_place = any(p in str(_item.get("content") or "") for p in general_replace_phrases)
+                break
+        if prior_user_wanted_different_place:
+            for candidate in known_destinations:
+                if candidate in message and candidate not in current_places:
+                    if candidate in current_countries or _place_countries([candidate]) & current_countries:
+                        continue
+                    destination_change = candidate
+                    break
+
     pending_new_trip = trip_state.get("new_trip_pending")
     if pending_new_trip:
         msg_norm = _normalize_confirm(message).lower()
@@ -3631,6 +3664,13 @@ def chat_clean():
             changed = dict(trip_state)
             new_destination = changed.pop("destination_change_pending")
             changed["destination"] = {"places":[new_destination],"mode":"specific","status":"known"}
+            # The old destination's arrival/return gateway codes are specific
+            # to that place (e.g. BUD for Budapest) and the system prompt
+            # treats destination_airports as locked once set, so a swap that
+            # left them in place would permanently strand the new destination
+            # on the old airport.
+            changed.pop("destination_airports", None)
+            changed.pop("return_departure_airports", None)
             old_lodging = changed.get("lodging") if isinstance(changed.get("lodging"), dict) else {}
             old_car = changed.get("car") if isinstance(changed.get("car"), dict) else {}
             old_plan = changed.get("trip_planning") if isinstance(changed.get("trip_planning"), dict) else {}
