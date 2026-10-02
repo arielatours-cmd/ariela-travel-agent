@@ -1,11 +1,12 @@
 import json
 import logging
 import os
+import re
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request, session
-from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES
+from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES, AIRPORT_NAMES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
@@ -34,7 +35,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
-- כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא איזה סוג נסיעה זו: חופשה רגילה, נסיעת עסקים, או חופשת סקי, בניסוח טבעי. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב.
+- כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא איזה סוג נסיעה זו: חופשה רגילה, נסיעת עסקים, או חופשת סקי, בניסוח טבעי. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. חריג: אם מצוין למטה שללקוח יש חופשות פעילות קרובות וההודעה היא פתיחה כללית, קודם הציעי להמשיך עם החופשה הקרובה או לתכנן חדשה, ורק אם בחר חופשה חדשה - שאלי על סוג הנסיעה.
 - בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
@@ -60,7 +61,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - לכל חופשה יש ארבעה סשנים פנימיים: טיסות, לינה, רכב, ותכנון מסלול/אטרקציות. **הסדר קבוע ואינו גמיש: טיסות תמיד ראשון.** לינה, רכב ותכנון מסלול/אטרקציות נפתחים רק אחרי שהטיסות הגיעו למצב complete (אושרו ויצאו לסריקה) או declined - אף פעם לא לפני כן, גם אם הלקוח מבקש זאת במפורש.
 - אם הלקוח מבקש במפורש "גם לינה"/"גם מסלול"/"גם רכב" בזמן שהטיסות עדיין לא complete/declined, אל תעברי לסשן הזה. הביעי קצרות שקלטת את הבקשה ושתחזרי אליה מיד אחרי הטיסות, והמשיכי לברר את הטיסות. הבקשה נשמרת אוטומטית (service_decisions) ותיפתח מעצמה ברגע שהטיסות יסתיימו - אין צורך לשאול עליה שוב.
 - יוצא מן הכלל היחיד לכלל הזה הוא בקשה מפורשת לחזור/לעבור לטיסות עצמן - זה תמיד מותר מיידית, כולל אחרי שכבר עברתם לסשן אחר (זו הדרך שהלקוח חוזר לשנות פרט בטיסה).
-- בכל רגע יש סשן פעיל אחד. אל תעברי מיוזמתך לסשן אחר לפני שסיימת את הנוכחי. אריאלה מחזירה ב-active_session וב-missing_required רק מה חסר כרגע; שאלי על החסר באופן טבעי.
+- בכל רגע יש סשן פעיל אחד. אל תעברי מיוזמתך לסשן אחר לפני שסיימת את הנוכחי. כל הודעה עוסקת בתחום אחד בלבד: לעולם אל תשאלי באותה הודעה שאלות על שני תחומים שונים (למשל לינה ורכב). אם הלקוח ביקש תחום חדש בזמן שתחום אחר עוד פתוח, עני רק על התחום שהלקוח ביקש עכשיו, וחזרי לתחום הפתוח רק אחרי שהחדש הושלם. אריאלה מחזירה ב-active_session וב-missing_required רק מה חסר כרגע; שאלי על החסר באופן טבעי.
 - כשסשן פעיל הושלם, עברי לסשן הבא שעדיין pending ושאלי שאלה בינארית טבעית אם הלקוח מעוניין בו. לא = declined ועוברים לבא; כן = active ומבררים רק את פרטיו החסרים.
 - לעולם אל תשלבי שני תחומים pending שונים (למשל לינה ורכב) באותה שאלה עם "או" ("רוצה לינה או שנדבר על רכב?") - גם אם שניהם ממתינים בו-זמנית. שאלי רק על תחום ה-pending הבא האחד (next_session) בכל הודעה, וחכי לתשובה הברורה עליו לפני שעוברים הלאה. שאלה שמשלבת שני תחומים הופכת תשובה קצרה כמו "לא" לדו-משמעית - לא ברור אם זה דחה תחום אחד או את שניהם - וזה בדיוק המצב שאסור ליצור.
 - תשובה שלילית לשאלה הבינארית (לא רוצה את התחום הזה) תמיד מקבלת אישור קצר שזה בסדר, יחד עם תזכורת שאפשר תמיד לחזור לכאן בהמשך ולקבל המלצות/עזרה בתחום הזה גם אחרי שסומן כלא נדרש - לא רק לתחומים שכבר הושלמו.
@@ -79,6 +80,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשאת מאשרת הבנה של תשובה שלילית, עשי זאת בקצרה ואל תחזרי מחדש על המלצה ארוכה שכבר ניתנה. המשיכי מהמידע שכבר נשמר ושאלי רק את השאלה הבאה שחסרה.
 - אל תמציאי תחומי עניין חדשים תוך כדי אישור הבנה. אם הלקוח לא ביקש למשל טבע או אווירה מקומית, אל תוסיפי אותם כאילו נבחרו.
 - יעד, תאריכים, מספר נוסעים, סוג לינה ומספר חדרים אינם שאלות כן/לא כאשר צריך לקבל מהם ערך ממשי; שאלי אותם באופן טבעי רק אם הערך עדיין חסר.
+- המילים "מאשר/מאשרת" שמורות אך ורק לאישור חיפוש הטיסות. לעולם אל תבקשי "כתבי מאשרת" אחרי סיכום של לינה, רכב או מסלול: סכמי אותם בקצרה ושאלי רק אם צריך לתקן משהו - התחום נסגר מעצמו כשכל הפרטים שלו ידועים.
 - מה שהלקוח כבר אישר לא מוצג שוב לאישור ולא מבקשים לאשר אותו מחדש, אלא אם הלקוח שינה בו משהו - ואז מבקשים אישור רק על השינוי.
 - כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
@@ -91,7 +93,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם ביקש רכב או לינה, שוחחי איתו גם על הפרטים שבאמת נחוצים לבחירה.
 - מספר והרכב הנוסעים הוא נתון משותף אחד לכל החופשה, לא נתון נפרד לכל שירות. אם הוא ידוע, השתמשי באותו הרכב נוסעים בטיסות, בלינה, ברכב ובתכנון המסלול; לעולם אל תנחשי מספר נוסעים עבור שירות מסוים ואל תשאלי אותו מחדש.
 - אם מספר/הרכב הנוסעים עדיין לא ידוע, אסור להציע לינה לפי מספר חדרים/מיטות, גודל רכב או סיכום חיפוש כאילו הוא ידוע. שאלי את הרכב הנוסעים פעם אחת ואז החילי אותו על כל השירותים.
-- התאמת רכב חייבת להתחשב במספר הנוסעים ובכבודה שכבר נאספה לטיסה. התאמת לינה חייבת להתחשב באותו מספר והרכב נוסעים.
+- התאמת רכב חייבת להתחשב במספר הנוסעים ובכבודה שכבר נאספה לטיסה. לעולם אל תשאלי את הלקוח שוב על מזוודות בשלב הרכב - הכבודה כבר ידועה מהטיסה; אם הרכב שנבחר קטן מדי לכבודה הזו, ציייני זאת במשפט אחד. התאמת לינה חייבת להתחשב באותו מספר והרכב נוסעים.
 - כשמזכירים ילד/ה מסוים לפי גיל (לדוגמה בסיכום הנוסעים), חובה להתאים את המגדר בדיוק למה שקיים ב-travelers.child_genders עבור אותו גיל (female="ילדה"/"בת", male="ילד"/"בן"). לעולם אל תנחשי או תמציאי מגדר; אם הערך המקביל הוא null, כתבי בניסוח נייטרלי כמו "ילד/ה בגיל X" במקום לבחור מגדר.
 - בכל הודעה מותר לבקש מהלקוח לכל היותר שלושה פרטים/החלטות שונים. זהו גבול קשיח, לא המלצה.
 - כל סעיף שהלקוח צריך לענות עליו נחשב שאלה נפרדת גם אם ניסחת כמה סעיפים בתוך משפט אחד. לדוגמה: "ישירה או קונקשן, מזוודה לכל נוסע, מלון או דירה, ובאיזו רמה?" הן ארבע שאלות ואסור לשלוח אותן יחד.
@@ -426,6 +428,77 @@ def _keep_declines(previous, updated, explicit_request=None):
     updated["service_decisions"] = decisions
     updated["session_status"] = statuses
     return updated
+
+
+def _parse_state_date(value):
+    raw = str(value or "").strip()
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def _split_car_transmission(state):
+    """Older conversations (and a model that slips) keep the gearbox inside
+    vehicle_type ("SUV אוטומטי"). With transmission a required field, the
+    car then never completed and Ariella asked about the car again although
+    the customer had answered (seen live). Move it to its own field."""
+    car = state.get("car") if isinstance(state.get("car"), dict) else None
+    details = car.get("details") if car and isinstance(car.get("details"), dict) else None
+    if not details or details.get("transmission"):
+        return state
+    vehicle = str(details.get("vehicle_type") or "")
+    for word, value in (("אוטומט", "אוטומטי"), ("ידני", "ידני")):
+        if word in vehicle:
+            details = dict(details)
+            details["transmission"] = value
+            cleaned = re.sub(r"[,\s]*(?:תיבת הילוכים\s*)?\S*" + word + r"\S*", "", vehicle).strip(" ,")
+            details["vehicle_type"] = cleaned or None
+            state["car"] = dict(car, details=details)
+            break
+    return state
+
+
+def _roll_past_dates(state, message, history):
+    """Deterministic backstop for the "day+month without a year is its next
+    future occurrence" rule. Seen live: in October 2026 the customer said
+    "28.6" and the model saved 28.6.2026 - already past - so a return visit
+    couldn't find the vacation (only future ones are offered), a new one
+    was created, and its flight scan failed. A past departure moves forward
+    a year, the return with it, unless the customer typed that year."""
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else None
+    if not dates:
+        return state
+    dep = _parse_state_date(dates.get("departure"))
+    if not dep or dep >= date.today():
+        return state
+    user_text = " ".join(
+        [str(x.get("content") or "") for x in (history or [])
+         if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"]
+        + [str(message or "")]
+    )
+    if str(dep.year) in user_text:
+        return state  # the customer named that year; the scan gate refuses it
+
+    def _plus_years(d, n):
+        try:
+            return d.replace(year=d.year + n)
+        except ValueError:  # 29 Feb
+            return d.replace(year=d.year + n, day=28)
+
+    years = 1
+    while _plus_years(dep, years) < date.today():
+        years += 1
+    new_dates = dict(dates)
+    new_dates["departure"] = _plus_years(dep, years).isoformat()
+    ret = _parse_state_date(dates.get("return"))
+    if ret:
+        new_dates["return"] = _plus_years(ret, years).isoformat()
+    state["dates"] = new_dates
+    return state
 
 
 def _sessionize_state(state):
@@ -831,9 +904,11 @@ def _required_state_gaps(state):
             gaps.append("car.details.pickup")
         if not car_details.get("return"):
             gaps.append("car.details.return")
-        # luggage capacity derives from the shared traveler + baggage facts; do
-        # not invent suitcases that the user never requested.
-        if not car_details.get("luggage_capacity_confirmed"):
+        # Luggage fit is something Ariella mentions when choosing the vehicle
+        # category, not a separate gate: as a hidden required flag the model
+        # had to set, it kept the car session open after every visible
+        # detail was answered, and Ariella asked for an extra confirmation.
+        if not car_details.get("luggage_capacity_confirmed") and not (car_details.get("vehicle_type") or car_details.get("seats")):
             gaps.append("car.details.luggage_capacity")
 
     if "trip_planning" in services:
@@ -853,7 +928,68 @@ def _required_state_gaps(state):
     return list(dict.fromkeys(gaps))
 
 
-def _flight_gap_question(gaps):
+def _country_airports(country, limit=4):
+    """The member's country's airports from the catalog, offered as choices
+    (the catalog isn't ordered by size, so none is guessed as "the" main
+    one - e.g. its first GB entry is Gatwick, not Heathrow)."""
+    if not country:
+        return []
+    codes = [str(a.get("code") or "").upper() for a in _load_airports()
+             if str(a.get("country") or "").upper() == country and a.get("code")]
+    # A big country (US: Boston, Chicago, LA, Miami...) isn't narrowed by a
+    # handful of arbitrary cities - an open question fits better there.
+    return codes if len(codes) <= limit else []
+
+
+def _apply_home_airport(state):
+    """Departure default from the customer's own registration data, never a
+    fixed country (per product owner - the site serves every country):
+    - one preferred airport: use it; Ariella names it in the summary and the
+      customer can change it;
+    - several: ask only among them;
+    - none chosen: offer their country's airports as choices.
+    Never overrides an airport the customer named in the conversation."""
+    state = state if isinstance(state, dict) else {}
+    profile = state.get("profile") if isinstance(state.get("profile"), dict) else {}
+    home = [c for c in (profile.get("home_airports") or []) if c]
+    if state.get("departure_airport"):
+        # The customer named another airport in the chat: it's no longer
+        # the registration default.
+        if state.get("departure_airport_source") == "profile" and state["departure_airport"] not in home:
+            state.pop("departure_airport_source", None)
+        state.pop("departure_options", None)
+        return state
+    if len(home) == 1:
+        state["departure_airport"] = home[0]
+        state["departure_airport_source"] = "profile"
+        state.pop("departure_options", None)
+    elif len(home) > 1:
+        state["departure_options"] = home
+    else:
+        options = _country_airports(profile.get("country"))
+        if options:
+            state["departure_options"] = options
+    return state
+
+
+def _airport_labels(codes):
+    """Hebrew names, with the IATA code added where two share a city name
+    (London: LGW/LHR/LTN/STN)."""
+    names = [AIRPORT_NAMES.get(c, c) for c in codes]
+    return [f"{n} ({c})" if names.count(n) > 1 else n for n, c in zip(names, codes)]
+
+
+def _departure_question(state):
+    options = (state or {}).get("departure_options") or []
+    names = _airport_labels(options)
+    if len(names) == 1:
+        return f"נטוס מ{names[0]}, או משדה אחר?"
+    if names:
+        return "מאיזה שדה נטוס - " + ", ".join(names[:-1]) + " או " + names[-1] + "?"
+    return "מאיזה שדה תעופה תרצי לטוס?"
+
+
+def _flight_gap_question(gaps, state=None):
     """Map a _session_gaps(..., "flights") result to the one specific
     question that actually resolves it. Shared by the approval-time gap
     handling and the false-approval-claim safety net below, so both ask the
@@ -867,7 +1003,7 @@ def _flight_gap_question(gaps):
     if "budget_per_person" in gaps:
         return "לפני הסריקה חסר לי התקציב לאדם. מה התקציב, או שאין מגבלת תקציב?"
     if "departure_airport" in gaps:
-        return "לפני הסריקה חסר לי שדה היציאה שלכם. מאיזה שדה תרצי לטוס?"
+        return "לפני הסריקה חסר לי שדה היציאה. " + _departure_question(state)
     if "trip_type" in gaps:
         return "רק לפני שממשיכים - זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"
     if "destination" in gaps:
@@ -927,6 +1063,14 @@ def _approval_trigger(message, history, state):
     if msg not in {"מאשר", "מאשרת"}:
         return False
     state = state if isinstance(state, dict) else {}
+    # Once the flights were approved and are being scanned, "מאשרת" can only
+    # be about a later service (car/lodging/route) - seen live: a car
+    # summary ending in "כתבי מאשרת" was taken as a new flight approval, so
+    # a flight search was started again and the car was asked about from
+    # scratch. Only a flights session the customer reopened to change it may
+    # be approved again.
+    if state.get("post_flight_continuation") and state.get("active_session") != "flights":
+        return False
     if state.get("ready_for_summary"):
         return True
     # The visible assistant summary is authoritative evidence that we reached
@@ -1319,6 +1463,62 @@ def _travelers_summary(state):
     )
 
 
+_BAGGAGE_HE = {
+    "carry_on_only": "טרולי בלבד", "carry_on": "טרולי", "checked_bag": "מזוודה גדולה",
+    "checked": "מזוודה גדולה", "personal_item": "תיק אישי בלבד",
+    "none": "ללא כבודה", "no_baggage": "ללא כבודה",
+}
+
+
+def _baggage_summary(state):
+    """The luggage already collected for the flight, for the car session.
+    Seen live: after the flight baggage was settled, the car session asked
+    the customer again whether they're taking big suitcases."""
+    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+    baggage = flight.get("baggage") if isinstance(flight.get("baggage"), list) else []
+    labels = [_BAGGAGE_HE.get(str(b), str(b)) for b in baggage if b]
+    if not labels:
+        return ""
+    return (
+        "\nכבודה (כבר נאספה בטיסה, מקור אמת): " + ", ".join(dict.fromkeys(labels)) + ". "
+        "בהתאמת הרכב השתמשי בזה ואל תשאלי את הלקוח שוב על מזוודות."
+    )
+
+
+def _departure_summary(state):
+    """The departure airport's exact Hebrew name. Seen live: the customer
+    wrote "נתבג", TLV was saved correctly, and the reply still said
+    "אז נתניה ל-JFK". The name is handed over as a fact."""
+    code = str(state.get("departure_airport") or "").upper()
+    if not code:
+        options = state.get("departure_options") or []
+        if not options:
+            return ""
+        names = ", ".join(f"{AIRPORT_NAMES.get(c, c)} ({c})" for c in options)
+        return (
+            f"\nשדה היציאה עוד לא נקבע. לפי פרטי ההרשמה של הלקוח, האפשרויות הסבירות: {names}. "
+            "כשמגיע הזמן לשאול על שדה היציאה, הציעי אותן בשאלה קצרה אחת (הלקוח יכול לבחור גם שדה אחר בכל מקום בעולם). אל תניחי שהלקוח טס מישראל."
+        )
+    name = AIRPORT_NAMES.get(code, code)
+    line = f"\nשדה היציאה (מקור אמת): {name} ({code}). כשאת מזכירה אותו, כתבי בדיוק \"{name}\"."
+    if state.get("departure_airport_source") == "profile":
+        line += " הוא נלקח מהשדה שהלקוח בחר בפרטי ההרשמה - אל תשאלי עליו; ציייני אותו בסיכום הטיסה כדי שהלקוח יוכל לשנות אם צריך."
+    return line
+
+
+def _fix_departure_name(reply, state, history, message):
+    """Backstop for the same slip: Netanya has no airport, so in a reply
+    about a TLV departure it can only be a garbled נתב"ג - unless the
+    customer actually talked about Netanya."""
+    if str(state.get("departure_airport") or "").upper() != "TLV" or "נתניה" not in reply:
+        return reply
+    user_text = " ".join(
+        [str(x.get("content") or "") for x in (history or []) if isinstance(x, dict) and x.get("role") == "user"]
+        + [str(message or "")]
+    )
+    return reply if "נתניה" in user_text else reply.replace("נתניה", 'נתב"ג')
+
+
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
@@ -1348,6 +1548,34 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - כשהחופשה הפעילה היא עסקים או סקי ואת שואלת אם הלקוח מתכוון לחופשה חדשה לגמרי או להמשיך את זו הקיימת, לעולם אל תציעי "להוסיף גם תכנון מסלול" כאפשרות להמשך אותה חופשה - זה לא רלוונטי לעסקים/סקי (ראי כלל למעלה) גם בתוך שאלת ההבהרה הזו. הצעת ההמשך היחידה הרלוונטית שם היא לינה או רכב.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
+    upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
+    has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
+    if upcoming and not has_destination:
+        listed = "; ".join(
+            f"{v.get('name')} ({v.get('window')})" + (f" - עוד אפשר להוסיף: {', '.join(v.get('missing') or [])}" if v.get("missing") else "")
+            for v in upcoming
+        )
+        continuity += (
+            "\n- ללקוח יש חופשות פעילות קרובות: " + listed + ". "
+            "אם ההודעה שלו היא פתיחה כללית (ברכה, 'היי', שאלה כללית) ולא בקשה ברורה לחופשה חדשה, אל תתחילי חופשה חדשה ואל תשאלי על סוג נסיעה: "
+            "הציעי בקצרה להמשיך עם החופשה הקרובה ולהוסיף לה את מה שחסר, או לתכנן חופשה חדשה. אם הוא מבקש חופשה חדשה או יעד אחר - המשיכי כרגיל."
+        )
+    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    not_asked = [
+        {"lodging": "לינה", "car": "רכב", "trip_planning": "מסלול"}[s]
+        for s in ("lodging", "car", "trip_planning")
+        if isinstance(decisions.get(s), dict) and decisions[s].get("source") == "reopened_trip_not_requested"
+    ]
+    if not_asked:
+        # Closed only because this return visit was for another service -
+        # not done and not refused. Seen live: "זה משלים את כל התחומים"
+        # while lodging was never handled.
+        continuity += (
+            "\n- בביקור הזה הלקוח חזר רק בשביל תחום מסוים. התחומים האלה לא טופלו ולא נדחו על ידי הלקוח: "
+            + ", ".join(not_asked)
+            + ". לעולם אל תאמרי שכל התחומים הושלמו. בסיום, ציייני במשפט אחד מה נוסף עכשיו, ושאפשר להוסיף גם "
+            + ", ".join(not_asked) + " בכל רגע."
+        )
     if state.get("post_flight_continuation"):
         # The flights were already summarized and approved; repeating the
         # whole vacation summary after each later service (seen live after
@@ -1366,9 +1594,10 @@ def _call_tinkerbell(key, model, history, message, state=None):
             'אלה שדות מאומתים - אל תוסיפי או תמציאי שדה אחר משלך. אם destination_airports עדיין ריק, '
             'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
         )
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
     reply = _fix_known_typos(reply)
+    reply = _fix_departure_name(reply, state, history, message)
     reply = _strip_garbled_lead_token(reply)
     reply = _repair_foreign_letters_in_hebrew(reply)
     reply = _strip_mixed_script_garble(reply)
@@ -1706,6 +1935,45 @@ def _deterministic_budget_facts(message):
     )
     if any(p in msg for p in no_limit_phrases):
         return {"budget_per_person":{"amount":None,"currency":None,"status":"unlimited"}}
+    return {}
+
+
+def _budget_answer_by_meaning(message, history, state):
+    """Seen live: Ariella replied "בלי הגבלת תקציב מוגדרת" - she understood
+    there's no limit - but the phrase list above didn't match the
+    customer's wording, budget stayed "unknown", and she asked about the
+    budget again. When the last question was about the budget and it is
+    still open, the answer is read by meaning (per product owner, not by a
+    word list)."""
+    budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
+    if budget.get("amount") is not None or budget.get("status") in ("unlimited", "none", "no_limit"):
+        return {}
+    last_assistant = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and x.get("role") == "assistant"), "")
+    if "תקציב" not in last_assistant:
+        return {}
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return {}
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    prompt = (
+        "את מסווגת תשובת לקוח לשאלת תקציב של סוכנת נסיעות. הביני לפי משמעות, בכל ניסוח. "
+        "החזירי JSON בלבד: {\"budget\": \"unlimited\"} אם אין מגבלת תקציב / המחיר לא משנה / תקציב פתוח, "
+        "{\"budget\": <מספר>, \"currency\": \"ILS\"|\"USD\"|\"EUR\"} אם נמסר סכום לאדם, "
+        "או {\"budget\": null} אם התשובה לא עונה על שאלת התקציב."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 40, include_history=False)
+        raw = raw.strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return {}
+    value = data.get("budget")
+    if value == "unlimited":
+        return {"budget_per_person": {"amount": None, "currency": None, "status": "unlimited"}}
+    if isinstance(value, (int, float)) and value > 0:
+        return {"budget_per_person": {"amount": value, "currency": data.get("currency") or "ILS", "status": "known"}}
     return {}
 
 
@@ -2194,8 +2462,10 @@ def _deterministic_traveler_facts(message, existing=None):
 
 _SERVICE_KEYWORDS = (
     ("trip_planning", ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול")),
-    ("lodging", ("מלון", "מלונות", "לינה", "וילה", "דירה", "צימר")),
-    ("car", ("רכב", "השכרת רכב", "רכב שכור")),
+    # Plurals too - seen live: "אני רוצה שתחפשי לי גם דירות" wasn't
+    # recognized as a lodging request at all.
+    ("lodging", ("מלון", "מלונות", "לינה", "לינות", "וילה", "וילות", "דירה", "דירות", "צימר", "צימרים", "אירוח")),
+    ("car", ("רכב", "רכבים", "השכרת רכב", "רכב שכור")),
     ("flights", ("טיסה", "טיסות", "לטוס", "טיסת")),
 )
 _REQUEST_CUES = (
@@ -2213,6 +2483,35 @@ _STRONG_REQUEST_CUES = (
     # "רוצה לשנות את הטיסה" from inside the route).
     "לשנות", "לחזור", "נחזור", "תחזרי", "לתקן", "לעדכן", "תשני", "תעדכני",
 )
+
+
+def _classify_service_request(message, history):
+    """Meaning-based fallback for _explicit_service_request (per product
+    owner: understand the request by meaning, not a word list - "גם דירות",
+    "איפה נישן?", "נצטרך גם איך להתנייד" all ask for a service). Used where
+    a missed request matters most: a new message after a vacation was
+    closed, which decides whether to attach the service to that vacation.
+    Returns lodging/car/trip_planning/flights or None."""
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key or not str(message or "").strip():
+        return None
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    last_assistant = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and x.get("role") == "assistant"), "")
+    prompt = (
+        "את מסווגת הודעת לקוח בשיחה עם סוכנת נסיעות. האם הלקוח מבקש עכשיו להוסיף/לחפש אחד מהשירותים: "
+        "lodging (לינה: מלון, דירה, וילה, צימר וכו'), car (השכרת רכב), trip_planning (מסלול/אטרקציות), flights (טיסות)? "
+        "הביני לפי משמעות, בכל ניסוח, סלנג ושגיאות כתיב. אזכור שירות בלי בקשה (למשל 'בלי רכב', 'נסענו ברכב') אינו בקשה. "
+        'החזירי JSON בלבד: {"service": "lodging"|"car"|"trip_planning"|"flights"|null}'
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת: " + last_assistant[-600:] + "\nהודעת הלקוח: " + str(message), 40, include_history=False)
+        raw = raw.strip()
+        service = json.loads(raw[raw.index("{"):raw.rindex("}") + 1]).get("service")
+    except Exception:
+        return None
+    return service if service in ("lodging", "car", "trip_planning", "flights") else None
 
 
 def _explicit_service_request(message, state):
@@ -2417,6 +2716,15 @@ def _place_countries(names):
     return countries
 
 
+def _place_codes(names):
+    """Airport codes of the mentioned cities/countries (catalog-based)."""
+    names = {str(n or "").strip() for n in names if str(n or "").strip()}
+    return {
+        str(a.get("code") or "").upper() for a in _load_airports()
+        if str(a.get("city_he") or "") in names or str(a.get("country_he") or "") in names
+    }
+
+
 def _reopenable_trips(member_id, service, message, limit=3):
     """The customer's upcoming active vacations that don't have `service`
     yet - candidates for "add lodging/car/route to an existing vacation".
@@ -2458,12 +2766,41 @@ def _reopenable_trips(member_id, service, message, limit=3):
         name = str(row["request_name"] or "").strip()
         if mentioned:
             trip_places = [p.strip() for p in name.split(" • ") if p.strip()]
-            if not (set(trip_places) & set(mentioned) or _place_countries(trip_places) & mentioned_countries):
+            # Not only an exact title match: a vacation titled "ניו יורק (JFK)"
+            # or "ניו יורק, ארה\"ב" (or with only airport codes saved) must
+            # still be found when the customer says "בניו יורק" - otherwise
+            # the request is treated as a brand-new trip.
+            trip_codes = {c.strip().upper() for c in str(answers.get("destinations") or "").split(",") if c.strip()}
+            if not (
+                set(trip_places) & set(mentioned)
+                or any(m in name for m in mentioned)
+                or _place_countries(trip_places) & mentioned_countries
+                or trip_codes & _place_codes(mentioned)
+            ):
                 continue
         trips.append({"id": int(row["id"]), "name": name or "החופשה", "window": _he_date_window(row["travel_window"]), "answers": answers})
         if len(trips) >= limit:
             break
     return trips
+
+
+def _upcoming_vacations(member_id, limit=3):
+    """The customer's upcoming active vacations and which of lodging/car/
+    route each still lacks - so a customer coming back after "not now"
+    is offered to continue that vacation instead of being greeted as if
+    starting from scratch (seen live with a New York trip)."""
+    seen, result = set(), []
+    for service in ("lodging", "car", "trip_planning"):
+        for trip in _reopenable_trips(member_id, service, "", limit=20):
+            if trip["id"] in seen:
+                continue
+            seen.add(trip["id"])
+            missing = [
+                _REOPEN_LABELS[s] for s in ("lodging", "car", "trip_planning")
+                if _service_missing_on_trip(trip["answers"], s)
+            ]
+            result.append({"name": trip["name"], "window": trip["window"], "missing": missing})
+    return result[:limit]
 
 
 def _state_from_trip(trip, service):
@@ -2563,7 +2900,7 @@ def _member_profile(member_id):
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.row_factory = sqlite3.Row
-        row = conn.execute("SELECT full_name, gender FROM members WHERE id=?", (member_id,)).fetchone()
+        row = conn.execute("SELECT full_name, gender, country, preferred_airports FROM members WHERE id=?", (member_id,)).fetchone()
         conn.close()
     except Exception:
         return {"first_name": "", "gender": None}
@@ -2572,7 +2909,17 @@ def _member_profile(member_id):
     full_name = str(row["full_name"] or "").strip()
     first_name = full_name.split()[0] if full_name else ""
     gender = str(row["gender"] or "").strip().lower() or None
-    return {"first_name": first_name, "gender": gender}
+    try:
+        home_airports = [str(c).strip().upper() for c in json.loads(row["preferred_airports"] or "[]") if str(c).strip()]
+    except Exception:
+        home_airports = []
+    return {
+        "first_name": first_name, "gender": gender,
+        # Chosen at registration (and editable in account details) - the
+        # departure default, so the site works the same from any country.
+        "home_airports": home_airports,
+        "country": str(row["country"] or "").strip().upper(),
+    }
 
 
 def _remember_turn_reset_trip(member_id, history, message, reply, fresh_trip_state):
@@ -2702,6 +3049,14 @@ def chat_clean():
         service = pending_reopen.get("service")
         choice = _pick_reopen_option(message, options, key, model, history)
         member_id = session['member_id']
+        if choice == "new" and pending_reopen.get("keep_state"):
+            # Offered because an open conversation matched an existing
+            # vacation; "no" means keep planning it as a separate trip.
+            kept = dict(trip_state)
+            kept.pop("reopen_trip_pending", None)
+            kept["reopen_offer_declined"] = True
+            reply = "בסדר, נמשיך עם זה כחופשה נפרדת."
+            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':kept,'start_flight_search':False})
         if choice == "new":
             fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
             reply = "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?"
@@ -2718,10 +3073,33 @@ def chat_clean():
         reply = _reopen_question(service, options) if service in _REOPEN_LABELS else "לאיזו חופשה התכוונת?"
         return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':trip_state,'start_flight_search':False})
 
+    # An open conversation about a destination that already has an upcoming
+    # vacation, but was never linked to it (seen live: "אטרקציות בניו יורק"
+    # opened a fresh New York conversation, and the next "הי אריאלה" asked
+    # again for days and travelers the New York vacation already has).
+    # Offer once to attach it to that vacation.
+    open_places = (trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None
+    if open_places and not (
+        trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
+        or trip_state.get("reopened_trip_id") or trip_state.get("reopen_offer_declined")
+    ):
+        linked_service = trip_state.get("active_session") if trip_state.get("active_session") in _REOPEN_LABELS else None
+        if not linked_service:
+            linked_service = next((s for s in ("trip_planning", "lodging", "car") if s in (trip_state.get("requested_services") or [])), None)
+        if linked_service:
+            candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places))
+            if candidates:
+                pending = dict(trip_state)
+                pending["reopen_trip_pending"] = {
+                    "service": linked_service, "keep_state": True,
+                    "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
+                }
+                return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(linked_service, candidates),'trip_update':pending,'start_flight_search':False})
+
     trip_is_empty = not ((trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None) \
         and not trip_state.get("active_session") and not trip_state.get("reset_pending")
     if trip_is_empty:
-        requested_service = _explicit_service_request(message, trip_state)
+        requested_service = _explicit_service_request(message, trip_state) or _classify_service_request(message, history)
         if requested_service in _REOPEN_LABELS:
             candidates = _reopenable_trips(session['member_id'], requested_service, message)
             if candidates:
@@ -2731,6 +3109,13 @@ def chat_clean():
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
+        upcoming = _upcoming_vacations(session['member_id'])
+        if upcoming:
+            trip_state = dict(trip_state)
+            trip_state["upcoming_vacations"] = upcoming
+    else:
+        trip_state = dict(trip_state)
+        trip_state.pop("upcoming_vacations", None)
 
     # After the flight handoff, keep the same vacation as the default context.
     # When the customer asks for one of the remaining services, deterministically
@@ -3122,6 +3507,8 @@ def chat_clean():
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
+        trip_update = _roll_past_dates(trip_update, message, history)
+        trip_update = _split_car_transmission(trip_update)
         # Service intent is semantic. When the extractor explicitly resolves a
         # domain as wanted/not-wanted, that decision is authoritative even if an
         # older requested_services list still contains the domain.
@@ -3236,6 +3623,7 @@ def chat_clean():
             trip_update["active_session"] = "flights"
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
+        trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
@@ -3303,11 +3691,14 @@ def chat_clean():
         trip_update = _resolve_destination_airports_from_route(trip_update)
         # A ski trip's gateway is derived from the ski resort catalog instead.
         trip_update = _resolve_ski_destination_airports(trip_update)
+        # The customer's name/gender/home airports always come fresh from
+        # their registration data, never from client-supplied state, which
+        # can be stale or wrong. Loaded before the sessions advance so the
+        # departure default counts toward the flight gaps.
+        trip_update["profile"] = _member_profile(session["member_id"])
+        trip_update = _apply_home_airport(trip_update)
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
-        # The customer's name/gender always come fresh from their registration
-        # data, never from client-supplied state, which can be stale or wrong.
-        trip_update["profile"] = _member_profile(session["member_id"])
         if trip_update["profile"].get("gender"):
             trip_update["user_gender"] = trip_update["profile"]["gender"]
 
@@ -3465,7 +3856,7 @@ def chat_clean():
         # proactively - not only in the separate approval_gaps handling further
         # down, which only fires once the customer actually tries to approve.
         if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
-            premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"))
+            premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
             if premature_gap_question:
                 reply = premature_gap_question
 
@@ -3582,7 +3973,7 @@ def chat_clean():
                 # gap means retyping מאשרת alone will not start anything, and
                 # telling her to do that is exactly what produced the next
                 # false claim in the same live transcript.
-                gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"))
+                gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
                 if gap_question:
                     reply = gap_question
                 else:
@@ -3637,7 +4028,7 @@ def chat_clean():
                 # what to answer - seen live: she got exactly that generic
                 # line, asked "מה עכשיו?" (what now?), and had no way forward
                 # other than guessing.
-                reply = _flight_gap_question(approval_gaps)
+                reply = _flight_gap_question(approval_gaps, trip_update)
                 approval = False
             else:
                 # This whole branch used to end here, with everything below it
