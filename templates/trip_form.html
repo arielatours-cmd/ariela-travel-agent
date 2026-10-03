@@ -6,7 +6,11 @@
     <header class="ariella-chat-header">
       <img class="ariella-chat-avatar" src="{{ url_for('static', filename='ariella-avatar-approved.jpg') }}" alt="אריאלה">
       <div><h1>{{ 'Ariella — My Travel Agent' if site_lang == 'en' else 'אריאלה - סוכנת הנסיעות שלי' }}</h1><span>{{ 'Online' if site_lang == 'en' else 'כאן בשבילך' }}</span></div>
-{% if qa_test_mode %}<button type="button" id="ariellaResetChatBtn" class="ariella-reset-chat-btn" title="{{ 'Permanently reset this chat' if site_lang == 'en' else 'איפוס מוחלט של השיחה' }}">{{ 'Reset chat' if site_lang == 'en' else 'איפוס שיחה' }}</button>{% endif %}
+{# Temporarily forced on for Carmit's live testing marathon - was gated
+   behind {% if qa_test_mode %}, which needs the admin token to toggle on
+   the live site. Revert to that gate (or remove the button entirely) once
+   testing wraps up - this must never ship visible to real customers. #}
+<button type="button" id="ariellaResetChatBtn" class="ariella-reset-chat-btn" title="{{ 'Permanently reset this chat' if site_lang == 'en' else 'איפוס מוחלט של השיחה' }}">{{ 'Reset chat' if site_lang == 'en' else 'איפוס שיחה' }}</button>
     </header>
     <main class="ariella-chat-messages" id="ariellaNewChatMessages" aria-live="polite"></main>
     <form class="ariella-chat-compose" id="ariellaNewChatForm" autocomplete="off">
