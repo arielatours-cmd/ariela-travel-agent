@@ -204,12 +204,21 @@ def calculate_deal_score(
         reasons.append(f"מקסימום ניצול זמן היום: +{time_points}" if is_business else f"מקסימום ניצול זמן חופשה: +{time_points}")
     reasons.extend(time_reasons)
 
+    # Deliberately excluded from `score`/`reasons`: those two are persisted
+    # into the shared offers table (database.py) and the same stored row can
+    # surface on the general public deals feed to every visitor, not just
+    # the one customer who stated this preference - "as you requested" would
+    # be false for everyone else, and the inflated score could wrongly push
+    # a flight over the public feed's quality threshold for a reason that
+    # has nothing to do with that flight's general merit. Lives only in
+    # `components`, which _customer_scan_rank (scanner.py) reads for a
+    # specific customer's own personal, destination-specific search ranking
+    # - never read by the public feed's score/threshold check.
     time_pref_points, time_pref_reasons = _time_preference_points(
         flight, departure_time_preference, return_time_preference
     )
     components["time_preference"] = time_pref_points
-    score += time_pref_points
-    reasons.extend(time_pref_reasons)
+    components["time_preference_reasons"] = time_pref_reasons
 
     # Keep reliability visible to admin/validation without affecting score.
     if flight.get("booking_supplier_is_direct") is True:
