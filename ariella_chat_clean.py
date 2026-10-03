@@ -2098,11 +2098,15 @@ def _deterministic_baggage_facts(message):
     msg = str(message or "")
     if not msg.strip():
         return {}
-    if re.search(r"רק\s+טרולי|טרולי\s+בלבד|טרולי\s+לכל\s+אחד|רק\s+כבודת\s+עלי", msg):
+    # "X מספיק" ("X is enough") is as unambiguous a sufficiency statement as
+    # "רק X"/"X בלבד" - seen live: "טרולי מספיק" answered the exact baggage
+    # question (טרולי בלבד/גם מזוודה למחסן/רק תיק) and matched none of the
+    # patterns below, so the same question was asked again verbatim forever.
+    if re.search(r"רק\s+טרולי|טרולי\s+בלבד|טרולי\s+לכל\s+אחד|רק\s+כבודת\s+עלי|טרולי\s+מספיק", msg):
         return {"flight": {"baggage": ["carry_on_only"]}}
     if re.search(r"מזוודה\s+למחסן|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
         return {"flight": {"baggage": ["checked_bag"]}}
-    if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)", msg):
+    if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
         return {"flight": {"baggage": ["personal_item"]}}
     if re.search(r"אין\s+לי\s+שום\s+כבודה|בלי\s+שום\s+כבודה|בלי\s+כבודה\s+בכלל", msg):
         return {"flight": {"baggage": ["no_baggage"]}}
