@@ -62,23 +62,27 @@ def _minutes_of_day(value: str | None):
     return None
 
 
+def _time_band(minutes: int) -> str:
+    if 6 * 60 <= minutes < 12 * 60:
+        return "morning"
+    if 12 * 60 <= minutes < 18 * 60:
+        return "afternoon"
+    return "evening"
+
+
 def _time_value_points(flight: dict, max_points: int = 9) -> tuple[int, list[str]]:
     """Usable stay score, based on arrival at destination and return departure.
 
     max_points=9 preserves the original 1..9 scale; a business profile scales
-    this up since maximizing usable same-day time matters more there.
+    this up since maximizing usable same-day time matters more there. This
+    runs the same way for every search regardless of what the customer said
+    - see _time_preference_points below for the customer's own explicit,
+    visible preference.
     """
     out_dep = _minutes_of_day(flight.get("arrival_time"))
     ret_dep = _minutes_of_day(flight.get("return_departure_time"))
     if None in (out_dep, ret_dep):
         return 0, []
-
-    def band(minutes):
-        if 6 * 60 <= minutes < 12 * 60:
-            return "morning"
-        if 12 * 60 <= minutes < 18 * 60:
-            return "afternoon"
-        return "evening"
 
     tier = {
         ("morning", "evening"): 9, ("morning", "afternoon"): 8,
@@ -86,12 +90,50 @@ def _time_value_points(flight: dict, max_points: int = 9) -> tuple[int, list[str
         ("afternoon", "afternoon"): 5, ("evening", "evening"): 4,
         ("afternoon", "morning"): 3, ("evening", "afternoon"): 2,
         ("evening", "morning"): 1,
-    }[(band(out_dep), band(ret_dep))]
+    }[(_time_band(out_dep), _time_band(ret_dep))]
     points = round(max_points * tier / 9)
     return points, []
 
 
-def calculate_deal_score(deal_analysis: dict, flight: dict, vacation_type: str = "standard") -> dict:
+_TIME_PREF_TO_BAND = {"בוקר": "morning", "צהריים": "afternoon", "ערב": "evening"}
+
+
+def _time_preference_points(
+    flight: dict, departure_time_preference: str | None, return_time_preference: str | None, max_points: int = 6
+) -> tuple[int, list[str]]:
+    """Reward matching the customer's own explicitly stated flight-time
+    preference (optional - most customers never state one, and null here
+    is the normal case, not a gap). Separate from _time_value_points's
+    always-on "usable stay" heuristic, which scores every search the same
+    way regardless of what the customer said and never explains itself -
+    this only ever fires when the customer actually asked for a time of
+    day for the outbound/return flight itself, and always says so as a
+    customer-facing reason, since this is implementing an explicit request
+    rather than a generic internal heuristic."""
+    reasons: list[str] = []
+    points = 0
+    half = max_points // 2
+    dep_pref = str(departure_time_preference or "").strip()
+    dep_pref_band = _TIME_PREF_TO_BAND.get(dep_pref)
+    if dep_pref_band:
+        dep_actual = _minutes_of_day(flight.get("departure_time"))
+        if dep_actual is not None and _time_band(dep_actual) == dep_pref_band:
+            points += half
+            reasons.append(f"טיסת ההלוך ב{dep_pref}, כפי שביקשת: +{half}")
+    ret_pref = str(return_time_preference or "").strip()
+    ret_pref_band = _TIME_PREF_TO_BAND.get(ret_pref)
+    if ret_pref_band:
+        ret_actual = _minutes_of_day(flight.get("return_departure_time"))
+        if ret_actual is not None and _time_band(ret_actual) == ret_pref_band:
+            points += half
+            reasons.append(f"טיסת החזרה ב{ret_pref}, כפי שביקשת: +{half}")
+    return points, reasons
+
+
+def calculate_deal_score(
+    deal_analysis: dict, flight: dict, vacation_type: str = "standard",
+    departure_time_preference: str | None = None, return_time_preference: str | None = None,
+) -> dict:
     """Ariella deal score, 0..100.
 
     Standard profile weights: price 85, time/value 9, baggage 3, route 3 -
@@ -161,6 +203,13 @@ def calculate_deal_score(deal_analysis: dict, flight: dict, vacation_type: str =
     if time_points >= time_alert_threshold:
         reasons.append(f"מקסימום ניצול זמן היום: +{time_points}" if is_business else f"מקסימום ניצול זמן חופשה: +{time_points}")
     reasons.extend(time_reasons)
+
+    time_pref_points, time_pref_reasons = _time_preference_points(
+        flight, departure_time_preference, return_time_preference
+    )
+    components["time_preference"] = time_pref_points
+    score += time_pref_points
+    reasons.extend(time_pref_reasons)
 
     # Keep reliability visible to admin/validation without affecting score.
     if flight.get("booking_supplier_is_direct") is True:

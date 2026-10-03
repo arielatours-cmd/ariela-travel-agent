@@ -170,6 +170,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
 - flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. כשאין העדפה כזו השאירי null.
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה למחסן - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה למחסן), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
+- flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
 - אם נאמרה מדינה או יעד רחב עם כמה שערי כניסה סבירים, אל תמציאי שדה יעד ואל תסמני את בחירת היעד לטיסה כמושלמת. destination_airports נשאר ריק עד שהלקוח בוחר אחד/כמה/כולם, או עד שמסלול שאושר קובע את שער הכניסה.
 - כאשר הלקוח מבהיר שהוא רוצה שירות מסוים בלבד, או ששאר השירותים כבר סגורים/לא נחוצים, החזירי service_decisions מפורש לכל ארבעת התחומים: המבוקש wanted=true וכל התחומים שנשללו במשמעות המשפט wanted=false. requested_services יכיל רק את השירותים המבוקשים.
@@ -190,7 +191,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "departure_airport":null,
   "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"duration_days":null,"constraints":[]},
   "budget_per_person":{"amount":null,"currency":null,"status":"unknown"},
-  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[]},
+  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[],"departure_time_preference":null,"return_time_preference":null},
   "priorities":[],"hard_constraints":[],"current_request":null,
   "search_intent":false,"requested_services":[],"service_decisions":{},
   "session_status":{"flights":"pending","lodging":"pending","car":"pending","trip_planning":"pending"},
@@ -1061,6 +1062,15 @@ def _flight_summary_text(state):
     baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה למחסן", "personal_item": "תיק קטן בלבד"}
     if baggage:
         lines.append("כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage))
+    dep_time_pref = str(flight.get("departure_time_preference") or "").strip()
+    ret_time_pref = str(flight.get("return_time_preference") or "").strip()
+    if dep_time_pref or ret_time_pref:
+        parts = []
+        if dep_time_pref:
+            parts.append(f"הלוך {dep_time_pref}")
+        if ret_time_pref:
+            parts.append(f"חזור {ret_time_pref}")
+        lines.append("שעת טיסה מועדפת: " + ", ".join(parts) + " (לא תנאי מחייב)")
     if budget.get("status") == "unlimited":
         lines.append("תקציב: ללא הגבלה")
     elif budget.get("amount"):
@@ -4229,6 +4239,14 @@ def chat_clean():
         closing_claim = any(p in str(reply or "") for p in (
             "הכל סגור", "כל הפרטים", "סגורים עכשיו", "החופשה שלך מוכנה",
             "הכל מאושר", "סיימנו", "הכל מוכן", "זה סוגר את כל", "כל התחומים",
+            # Seen live: "בסדר גמור. מעבירה אותך לתוצאות הטיסה..." after a
+            # lodging request went undetected (car was declined in the same
+            # message) - Tinkerbell claimed a handoff to results/the vacation
+            # page while lodging was still genuinely open. The client only
+            # navigates anywhere when the backend's own resolved state says
+            # every requested domain is actually done, so this text was pure
+            # fiction and the customer saw "nothing happened" after it.
+            "מעבירה אותך", "מעביר אותך",
         ))
         pending_domain = trip_update.get("next_session") if isinstance(trip_update, dict) else None
         if closing_claim and pending_domain:

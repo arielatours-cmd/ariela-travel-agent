@@ -1477,7 +1477,7 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                         "historical_percentile": history["percentile"],
                     })
                     analysis = _apply_best_price_reference(analysis, price)
-                    score = calculate_deal_score(analysis, flight, vacation_type=answers.get("vacation_type"))
+                    score = calculate_deal_score(analysis, flight, vacation_type=answers.get("vacation_type"), departure_time_preference=answers.get("departure_time_preference"), return_time_preference=answers.get("return_time_preference"))
                     # Every complete valid result expands the shared DB. The 70+
                     # rule belongs only to the public Deals page, not persistence.
                     scored.append((_customer_scan_rank(score, answers), score["score"], -price, flight, analysis, score))
@@ -1495,7 +1495,7 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                         score = dict(score)
                         analysis["search_lowest"] = effective_search_lowest
                         analysis = _apply_best_price_reference(analysis, float(flight["price"]))
-                        score = calculate_deal_score(analysis, flight, vacation_type=answers.get("vacation_type"))
+                        score = calculate_deal_score(analysis, flight, vacation_type=answers.get("vacation_type"), departure_time_preference=answers.get("departure_time_preference"), return_time_preference=answers.get("return_time_preference"))
                         if candidate_index == 0:
                             try:
                                 flight, _ = enrich_booking_options(
@@ -1512,7 +1512,7 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                                         effective_search_lowest = displayed_price
                                         analysis["search_lowest"] = effective_search_lowest
                                 analysis = _apply_best_price_reference(analysis, float(flight["price"]))
-                                score = calculate_deal_score(analysis, flight, vacation_type=answers.get("vacation_type"))
+                                score = calculate_deal_score(analysis, flight, vacation_type=answers.get("vacation_type"), departure_time_preference=answers.get("departure_time_preference"), return_time_preference=answers.get("return_time_preference"))
                             except Exception as exc:
                                 errors += 1
                                 coverage_errors[coverage_key] += 1
