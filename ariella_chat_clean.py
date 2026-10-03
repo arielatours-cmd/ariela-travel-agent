@@ -162,6 +162,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
+- כאשר הלקוח ביקש שאריאלה תבחר את אתר הסקי (לא ציין אתר ספציפי מהרשימה המוכרת), לעולם אל תזכירי או תמציאי שם אתר/הר ספציפי בתשובתך - לא מהידע הכללי שלך על אתרי סקי בעולם ולא בתרגום/תעתיק עצמאי. דברי באופן כללי ("ליד ההר", "באזור האתר שייבחר") עד שאתר אמיתי מהקטלוג נבחר בפועל. שם אתר שהוזכר בטקסט חופשי בלבד, בלי להתבסס על ski.resort_names, אסור שייכנס ל-destination.places - זה בדיוק כמו לנחש תקציב או רכב, ובעבר הוביל לשם הר מתועתק גרוע שנשמר ככותרת החופשה בפועל.
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17], child_genders=["female"].
 - child_genders היא רשימה מקבילה ל-child_ages, לפי אותו סדר: "female" כאשר הלקוח אמר "ילדה"/"בת", "male" כאשר אמר "ילד"/"בן", ו-null כשלא צוין מגדר לאותו ילד. לעולם אל תמחקי או תנחשי ערך שכבר קיים ברשימה הזו.
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
@@ -2585,10 +2586,17 @@ def _deterministic_lodging_facts(message, history):
                     result.setdefault("lodging", {}).setdefault("details", {})["type"] = "דירה" if value == "אפרטמנט" else value
                     break
 
+    # Canonical values match the system prompt's own documented vocabulary
+    # for lodging.details.level exactly ("יוקרתי"/"בסיסי"/"בינוני" - see the
+    # ליינה rule above) - "בסיסי" was missing here entirely even though it's
+    # literally one of the three options Ariella's own questions offer
+    # ("יש לך העדפה (יוקרתי, בינוני, בסיסי)?"), so a customer answering with
+    # the system's own vocabulary word was never captured.
     level_values = (
         ("יוקרתי", "יוקרתי"), ("יוקרה", "יוקרתי"), ("פאר", "יוקרתי"),
         ("בינוני", "בינוני"), ("בינונית", "בינוני"), ("סטנדרטי", "בינוני"),
-        ("חסכוני", "חסכוני"), ("תקציבי", "חסכוני"), ("כלכלי", "חסכוני"), ("זול", "חסכוני"),
+        ("בסיסי", "בסיסי"), ("בסיסית", "בסיסי"),
+        ("חסכוני", "בסיסי"), ("תקציבי", "בסיסי"), ("כלכלי", "בסיסי"), ("זול", "בסיסי"),
     )
     asked_level = (
         "רמת הנוחות" in prior_assistant
@@ -2605,13 +2613,38 @@ def _deterministic_lodging_facts(message, history):
 
     # Rooms is asked as "כמה חדרים" with a one-big-room-or-split framing.
     asked_rooms = any(p in prior_assistant for p in ("כמה חדרים", "חדר אחד גדול", "לחלק לשני חדרים", "חלוקת החדרים"))
+    # A direct "is one room enough?" framing ("חדר זוגי אחד מספיק?") gets a
+    # plain "כן" answer, which names no number at all - seen live: that
+    # left rooms unset even though the customer had just confirmed it.
+    asked_single_room_confirm = bool(re.search(r"חדר\s+\S*\s*אחד\s+מספיק", prior_assistant))
     if asked_rooms:
-        import re
         rooms_match = re.search(r"(\d+)\s*חדר", msg)
         if rooms_match:
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = int(rooms_match.group(1))
         elif any(w in msg for w in ("חדר אחד", "חדר גדול אחד")):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
+        elif asked_single_room_confirm and _normalize_confirm(msg).lower() in {"כן", "בטח", "מספיק", "נכון", "כן, מספיק"}:
+            result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
+
+    # locations is free text, unlike type/level above - no fixed value list
+    # to match against, which is exactly why it had no deterministic writer
+    # at all before this. Seen live: the customer volunteered a location
+    # preference unprompted, in the very first message of the lodging
+    # conversation ("קרוב להגיע לאתר סקי ללא רכב") - no "area" question was
+    # ever asked (the type/rooms/level question above never asks about
+    # area separately), so a cue-gated approach alone would never catch it.
+    # The model's own free text correctly kept referencing this preference
+    # all the way to its closing summary, but lodging.details.locations
+    # itself apparently never got saved, so _required_state_gaps kept
+    # silently blocking session_status.lodging from ever legitimately
+    # reaching "complete" - invisible until the customer saw the closing
+    # message declare the lodging "done" and then nothing actually happened
+    # (no save-trip-lodging call, since the client only fires on a genuine
+    # "complete" status in the returned trip_update).
+    asked_area = any(p in prior_assistant for p in ("באיזה אזור", "איפה נוח", "מיקום", "אזור"))
+    location_cues = ("קרוב ל", "ליד ה", "ליד ל", "במרחק הליכה", "קרוב לאתר", "קרוב למרכז", "לא רחוק מ", "באזור ה", "בלב ")
+    if asked_area or any(c in msg for c in location_cues):
+        result.setdefault("lodging", {}).setdefault("details", {})["locations"] = msg
 
     return result
 
