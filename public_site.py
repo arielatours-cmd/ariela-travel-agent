@@ -3420,8 +3420,23 @@ def ariella_start_flight_search():
     # title then never updates to say which resort it actually is, leaving
     # the customer with no way to tell where they're going from the card
     # title alone.
-    if vacation_type == "ski" and ski_state.get("resort_names"):
-        title = " • ".join(_ski_resort_he_names(ski_state["resort_names"]))
+    if vacation_type == "ski":
+        # Seen live: with no catalog resort chosen, `places` still wasn't
+        # empty - the model's own free text had mentioned a specific resort
+        # by name ("Zell am See") that exists in the real world but not in
+        # Ariella's curated resort catalog (_SKI_RESORTS has no entry for
+        # it), badly transliterated to Hebrew ("זל אם זה") and saved
+        # straight into destination.places by the general extractor, which
+        # has no way to tell a verified catalog match from an offhand
+        # mention in a sentence. For a ski trip, `places` is never a
+        # trustworthy title source unless it's backed by ski.resort_names -
+        # better an honest "Ariella will choose" placeholder (replaced once
+        # a real flight is actually pinned - see _resolved_ski_title_from_offers)
+        # than a hallucinated, mistranslated resort name presented as fact.
+        if ski_state.get("resort_names"):
+            title = " • ".join(_ski_resort_he_names(ski_state["resort_names"]))
+        else:
+            title = "חופשת סקי — אריאלה תבחר אתר סקי"
     else:
         title = " • ".join(places) if places else "אריאלה תבחר"
     travel_window = (dep + " – " + ret) if dep and ret else (period or month)
