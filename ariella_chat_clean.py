@@ -171,7 +171,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
 - flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. כשאין העדפה כזו השאירי null.
-- flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה למחסן - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה למחסן), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
+- flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
 - אם נאמרה מדינה או יעד רחב עם כמה שערי כניסה סבירים, אל תמציאי שדה יעד ואל תסמני את בחירת היעד לטיסה כמושלמת. destination_airports נשאר ריק עד שהלקוח בוחר אחד/כמה/כולם, או עד שמסלול שאושר קובע את שער הכניסה.
@@ -1061,7 +1061,7 @@ def _flight_summary_text(state):
     if connection:
         lines.append("טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן")
     baggage = flight.get("baggage") or []
-    baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה למחסן", "personal_item": "תיק קטן בלבד"}
+    baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה בבטן המטוס", "personal_item": "תיק קטן בלבד"}
     if baggage:
         lines.append("כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage))
     dep_time_pref = str(flight.get("departure_time_preference") or "").strip()
@@ -1118,7 +1118,7 @@ def _flight_gap_question(gaps, state=None):
     if "flight.connection_preference" in gaps:
         return "חשוב לך שהטיסה תהיה ישירה, או שקונקשן בסדר?"
     if "flight.baggage" in gaps:
-        return "לפני הסריקה חסר לי פרטי הכבודה - טרולי בלבד, גם מזוודה למחסן, או רק תיק?"
+        return "לפני הסריקה חסר לי פרטי הכבודה - טרולי בלבד, גם מזוודה בבטן המטוס, או רק תיק?"
     missing_service = next((g.split(".",1)[1] for g in gaps if g.startswith("service_decisions.")), None)
     if missing_service:
         labels = {"lodging":"גם לינה","car":"גם רכב שכור","trip_planning":"גם תכנון מסלול ואטרקציות"}
@@ -2100,11 +2100,16 @@ def _deterministic_baggage_facts(message):
         return {}
     # "X מספיק" ("X is enough") is as unambiguous a sufficiency statement as
     # "רק X"/"X בלבד" - seen live: "טרולי מספיק" answered the exact baggage
-    # question (טרולי בלבד/גם מזוודה למחסן/רק תיק) and matched none of the
-    # patterns below, so the same question was asked again verbatim forever.
+    # question (טרולי בלבד/גם מזוודה בבטן המטוס/רק תיק) and matched none of
+    # the patterns below, so the same question was asked again verbatim
+    # forever.
     if re.search(r"רק\s+טרולי|טרולי\s+בלבד|טרולי\s+לכל\s+אחד|רק\s+כבודת\s+עלי|טרולי\s+מספיק", msg):
         return {"flight": {"baggage": ["carry_on_only"]}}
-    if re.search(r"מזוודה\s+למחסן|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
+    # "מזוודה למחסן" is kept alongside the correct "בטן המטוס" phrasing -
+    # this only ever reads the CUSTOMER's own words, never Ariella's (the
+    # system prompt rule, baggage_labels and _flight_gap_question above only
+    # ever say "בבטן המטוס" now - "מחסן" isn't a real aviation term at all).
+    if re.search(r"מזוודה\s+למחסן|מזוודה\s+בבטן\s+ה?מטוס|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
         return {"flight": {"baggage": ["checked_bag"]}}
     if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
         return {"flight": {"baggage": ["personal_item"]}}
