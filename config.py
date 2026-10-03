@@ -67,6 +67,17 @@ CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
 CAR_RENTAL_AFFILIATE_LINK = os.getenv("CAR_RENTAL_AFFILIATE_LINK", "").strip()
 CAR_RENTAL_PARTNER_NAME = os.getenv("CAR_RENTAL_PARTNER_NAME", "Discover Cars").strip() or "Discover Cars"
 CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "").strip()
+# Lodging partner via CJ (Agoda / Trip.com / etc.), same pattern as the car
+# partner: the lodging tab keeps its real Google Hotels results for price
+# comparison, and adds a card per destination whose button goes out through
+# this CJ tracking link so bookings earn a commission. Blank until an
+# advertiser approves the account (no card is shown). The optional
+# LODGING_SEARCH_URL_TEMPLATE pre-fills the partner's search page, sent as
+# CJ's ?url= deep link, with {city} (English), {checkin}, {checkout}
+# (YYYY-MM-DD), {adults}, {children}, {rooms}.
+LODGING_AFFILIATE_LINK = os.getenv("LODGING_AFFILIATE_LINK", "").strip()
+LODGING_PARTNER_NAME = os.getenv("LODGING_PARTNER_NAME", "Agoda").strip() or "Agoda"
+LODGING_SEARCH_URL_TEMPLATE = os.getenv("LODGING_SEARCH_URL_TEMPLATE", "").strip()
 # Sold to the customer as "a month" (never shown as a raw day count) but kept
 # internally at 30 real service days + the 4-day RENEWAL_REMINDER_DAYS_BEFORE
 # buffer, so a customer who reacts slowly to the reminder email still gets

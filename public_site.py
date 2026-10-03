@@ -22,7 +22,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
@@ -2104,6 +2104,7 @@ def inject_site_context():
         qa_test_mode = False
     return {"current_member": _current_member(), "site_lang": lang, "qa_test_mode": qa_test_mode,
             "car_partner_cards": _car_partner_cards,
+            "lodging_partner_cards": _lodging_partner_cards,
             "core_itinerary_text": itinerary_cards.core_itinerary_text}
 
 
@@ -4393,6 +4394,61 @@ def _car_when(iso_date, text) -> str:
     return _he_date(iso_date) + (f" בשעה {time}" if time else " · שעה לפי הטיסה")
 
 
+def _int_or(value, default):
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _lodging_partner_url(answers: dict, iata: str, trip_id: int) -> str:
+    """Outbound CJ-tracked URL for one lodging card (sid ties a commission
+    back to the vacation in CJ reports)."""
+    params = {"sid": f"trip{trip_id}"}
+    if LODGING_SEARCH_URL_TEMPLATE:
+        airport = _AIRPORT_LOCALIZATION.get(iata) or {}
+        try:
+            params["url"] = LODGING_SEARCH_URL_TEMPLATE.format(
+                city=airport.get("city_en") or iata,
+                checkin=answers.get("departure_date") or "",
+                checkout=answers.get("return_date") or "",
+                adults=_int_or(answers.get("adults"), 2) or 1,
+                children=_int_or(answers.get("children"), 0),
+                rooms=_int_or(answers.get("lodging_rooms"), 1) or 1,
+            )
+        except (KeyError, IndexError, ValueError):
+            logging.warning("LODGING_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
+    joiner = "&" if "?" in LODGING_AFFILIATE_LINK else "?"
+    return LODGING_AFFILIATE_LINK + joiner + urlencode(params, quote_via=quote)
+
+
+def _lodging_partner_cards(trip_id: int, answers: dict) -> list[dict]:
+    """One card per destination (max 3) for a trip that asked for lodging,
+    each linking out to the approved lodging partner. No price on the card:
+    the real, priced options are the Google Hotels results below it."""
+    if not LODGING_AFFILIATE_LINK or not isinstance(answers, dict):
+        return []
+    wants_lodging = "lodging" in (answers.get("_requested_services") or []) or answers.get("lodging_type")
+    if not wants_lodging:
+        return []
+    kind = str(answers.get("lodging_type") or "").strip()
+    dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
+    adults, children = _int_or(answers.get("adults"), 0), _int_or(answers.get("children"), 0)
+    guests = (f"{adults} מבוגרים" if adults else "") + (f", {children} ילדים" if children else "")
+    cards = []
+    for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
+        airport = _AIRPORT_LOCALIZATION.get(code) or {}
+        city = airport.get("city_he") or AIRPORT_NAMES.get(code, code)
+        cards.append({
+            "name": f"לינה ב{city}" + (f" · {kind}" if kind else ""),
+            "dates": f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else "",
+            "guests": guests,
+            "supplier": LODGING_PARTNER_NAME,
+            "link": f"/trip/{trip_id}/book-lodging/{code}",
+        })
+    return cards
+
+
 def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     """One card per destination airport (max 3) for a trip that asked for a
     car, each linking out to the approved car-rental partner. Deliberately
@@ -4468,6 +4524,30 @@ def search_lodging(trip_id):
     answers = dict(trip.get("answers") or {})
     _run_lodging_search(trip_id, answers)
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+
+
+@site.get("/trip/<int:trip_id>/book-lodging/<code>")
+@login_required
+def book_lodging(trip_id, code):
+    """Record the click and send the customer to the lodging partner."""
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+            (trip_id, session["member_id"]),
+        ).fetchone()
+    code = str(code or "").upper()
+    if not row or not LODGING_AFFILIATE_LINK:
+        return redirect(url_for("site.account"))
+    answers = dict(_trip_dict(row).get("answers") or {})
+    if code not in _trip_destination_codes({"answers": answers}):
+        return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+    url = _lodging_partner_url(answers, code, trip_id)
+    record_booking_click(
+        member_id=session["member_id"], destination_code=code,
+        supplier=LODGING_PARTNER_NAME, outbound_date=answers.get("departure_date"),
+        return_date=answers.get("return_date"), booking_url=url,
+    )
+    return redirect(url)
 
 
 @site.get("/trip/<int:trip_id>/rent-car/<code>")
