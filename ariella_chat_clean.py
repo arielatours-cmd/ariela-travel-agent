@@ -2708,6 +2708,13 @@ _REQUEST_CUES = (
     "תחפשי", "תחפש", "תמצאי", "תסדרי", "תזמיני", "אפשר", "בואי", "נעבור", "לעבור",
     "מעוניין", "מעוניינת", "מעוניינים", "תעזרי", "נמשיך", "להמשיך", "נתקדם", "ועכשיו", "עכשיו",
     "לשנות", "לחזור", "נחזור", "תחזרי", "לתקן", "לעדכן", "תשני", "תעדכני",
+    # Seen live: "אין צורך ברכב אבל כן תמליצי לי על מקום לינה..." - the
+    # customer declined the service just asked about and asked for a
+    # DIFFERENT one in the same breath, using "תמליצי" (recommend), which
+    # named no cue here, so the lodging request went undetected entirely
+    # and the turn just closed out ("מעבירה אותך לתוצאות") with no lodging
+    # search ever triggered.
+    "תמליצי", "תמליץ", "תמליצו", "מומלץ", "תציעי", "תציע", "תציעו",
 )
 
 
@@ -2717,6 +2724,7 @@ _STRONG_REQUEST_CUES = (
     # Going back to change an earlier session is always allowed (e.g.
     # "רוצה לשנות את הטיסה" from inside the route).
     "לשנות", "לחזור", "נחזור", "תחזרי", "לתקן", "לעדכן", "תשני", "תעדכני",
+    "תמליצי", "תמליץ", "תמליצו", "מומלץ", "תציעי", "תציע", "תציעו",
 )
 
 
