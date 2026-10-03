@@ -3752,8 +3752,23 @@ def chat_clean():
             # destination asked about as a trip of its own gets a question
             # instead. Never inside route planning, where other places come
             # up naturally (day trips, comparisons).
+            if str(trip_state.get("active_session") or "") == "trip_planning":
+                continue
             trip_cues = ("טיסה ל","לטוס ל","טיסות ל","חופשה ב","חופשה ל","טיול ל","נסיעה ל","לנסוע ל")
-            if str(trip_state.get("active_session") or "") != "trip_planning" and any(cue + candidate in message or cue + "ה" + candidate in message for cue in trip_cues):
+            cue_adjacent = any(cue + candidate in message or cue + "ה" + candidate in message for cue in trip_cues)
+            # Seen live: once a trip is already committed (flights searched/
+            # booked - search_confirmed or post_flight_continuation), a bare
+            # mention of a different known destination with no adjacent cue
+            # at all ("קפריסין, 27 ליוני...") silently merged into the OLD
+            # committed trip instead of asking - old dates/destination/
+            # travelers/session_status then bled into what the customer
+            # clearly meant as a brand new, separate vacation. Past this
+            # point in a trip's life "day trip comparison" is far less
+            # likely than it is during open route-planning chat, so a bare
+            # known-destination mention is itself a strong enough signal -
+            # no cue phrase required.
+            trip_already_committed = bool(trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
+            if cue_adjacent or trip_already_committed:
                 possible_new_trip = candidate
                 break
 
