@@ -3494,11 +3494,25 @@ def ariella_start_flight_search():
         payload["_matched_offer_ids"] = matched_ids
         payload["_flight_search_finished"] = True
         payload["_flight_search_result"] = {"status": "database_match", "api_requests": 0}
+        # This trip was just created with `title` above (still in scope) -
+        # an immediate DB-first match never goes through _pin_offer_ids_to_trip,
+        # so it needs the same ski-placeholder title fix inline.
+        resolved_title = (
+            _resolved_ski_title_from_offers(existing_matches)
+            if vacation_type == "ski" and _is_ski_placeholder_title(title)
+            else None
+        )
         with _db() as conn:
-            conn.execute(
-                "UPDATE trip_requests SET answers_json=?, free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
-                (json.dumps(payload, ensure_ascii=False), utc_now_iso(), "database_match", trip_id),
-            )
+            if resolved_title:
+                conn.execute(
+                    "UPDATE trip_requests SET answers_json=?, request_name=?, free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (json.dumps(payload, ensure_ascii=False), resolved_title, utc_now_iso(), "database_match", trip_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE trip_requests SET answers_json=?, free_scan_count=0, free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
+                    (json.dumps(payload, ensure_ascii=False), utc_now_iso(), "database_match", trip_id),
+                )
             conn.commit()
     else:
         with _db() as conn:
@@ -3746,6 +3760,34 @@ def _month_shift(month_value, delta):
         return ""
 
 
+def _is_ski_placeholder_title(title):
+    """A ski trip left for Ariella to choose the resort is created with a
+    placeholder title ("אריאלה תבחר אתר סקי"/"אריאלה תבחר") since no resort
+    is known yet. See _resolved_ski_title_from_offers for why that never
+    updates on its own."""
+    return "אריאלה תבחר" in str(title or "")
+
+
+def _resolved_ski_title_from_offers(offers):
+    """Once the scan actually pins a real flight for a ski trip created
+    with the "אריאלה תבחר" placeholder, build a real customer-facing title
+    from the gateway city/cities the match actually landed on - otherwise
+    the card title never updates and the customer has no way to tell where
+    the vacation actually is from the title alone (seen live: a trip
+    pinned to Salzburg/SZG still titled "אריאלה תבחר אתר סקי"). Uses the
+    gateway city, not a specific resort name, since one gateway airport can
+    serve several resorts and the match doesn't commit to just one."""
+    cities = []
+    for offer in offers:
+        localized = _localize_offer_airports(dict(offer))
+        city = str(localized.get("arrival_city_he") or "").strip()
+        if city and city not in cities:
+            cities.append(city)
+    if not cities:
+        return None
+    return "חופשת סקי — " + " • ".join(cities[:2])
+
+
 def _pin_offer_ids_to_trip(trip_id, answers, offers):
     # Freeze exactly the customer-facing results in the same order they should
     # appear in My Vacations: cheapest qualifying flight first.
@@ -3760,11 +3802,23 @@ def _pin_offer_ids_to_trip(trip_id, answers, offers):
     ][:5]
     if ids:
         answers["_matched_offer_ids"] = ids
+    resolved_title = None
+    if ordered and str(answers.get("vacation_type") or "") == "ski":
+        with _db() as conn:
+            row = conn.execute("SELECT request_name FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+        if row and _is_ski_placeholder_title(row["request_name"]):
+            resolved_title = _resolved_ski_title_from_offers(ordered)
     with _db() as conn:
-        conn.execute(
-            "UPDATE trip_requests SET answers_json=? WHERE id=?",
-            (json.dumps(answers, ensure_ascii=False), trip_id),
-        )
+        if resolved_title:
+            conn.execute(
+                "UPDATE trip_requests SET answers_json=?, request_name=? WHERE id=?",
+                (json.dumps(answers, ensure_ascii=False), resolved_title, trip_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE trip_requests SET answers_json=? WHERE id=?",
+                (json.dumps(answers, ensure_ascii=False), trip_id),
+            )
         conn.commit()
     return ids
 
