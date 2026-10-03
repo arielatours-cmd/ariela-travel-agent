@@ -1106,6 +1106,15 @@ def _customer_scan_rank(score: dict, answers: dict) -> float:
     return (
         float(c.get("route") or 0) * 2.0
         + float(c.get("time_value") or c.get("hours") or 0) * 2.0
+        # An explicitly stated flight-time preference is a stronger signal
+        # than the generic always-on time_value heuristic above (that one
+        # guesses at "usable stay time"; this one is the customer's own
+        # word for it) - weighted higher so a personal, specific-destination
+        # search (the common case - this function's other branch, not the
+        # overall 0..100 score, is what actually ranks those results)
+        # doesn't silently ignore it the way the plain score/components
+        # dict alone would for every destination-specific search.
+        + float(c.get("time_preference") or 0) * 3.0
         + float(c.get("baggage") or 0) * 1.5
         + float(c.get("price") or 0) * 0.5
         + float(c.get("rarity") or 0) * 0.25
