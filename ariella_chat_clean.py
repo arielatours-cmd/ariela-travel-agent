@@ -148,7 +148,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 כללי יסוד:
 - אריאלה היא בעלת ה-state. כל פרט שהלקוח מסר וטינקרבל הבינה חייב להיכתב בשדה המתאים.
 - התחילי מה-state הקיים. שמרי כל ערך קיים שלא שונה. לעולם אל תמחקי ערך רק כי לא הוזכר שוב.
-- ה-state שקיבלת הוא הזיכרון היחיד. אסור לשחזר עובדות מהודעות קודמות שאינן נמצאות בו.
+- קיבלת את כל השיחה, לא רק את ההודעה האחרונה. ה-state הוא נקודת הפתיחה שלך, לא גבול הזיכרון שלך: אם הלקוח ציין פרט רלוונטי בכל שלב קודם בשיחה (גם לא בהודעה הנוכחית) והוא עדיין חסר ב-state, זו עובדה אמיתית שפשוט לא נשמרה - כתבי אותה עכשיו לשדה המתאים, בלי לחכות שהלקוח יחזור ויגיד את זה שוב. לעולם אל תסתרי או תחליפי ערך קיים ב-state בלי סיבה מפורשת מהלקוח; כשהלקוח שינה פרט מאוחר יותר בשיחה ("לא, בעצם X"), הגרסה המאוחרת גוברת על המוקדמת לאותו שדה.
 - יש state מרכזי אחד לחופשה. destination, destination_airports, return_departure_airports, departure_airport, dates, travelers, budget_per_person והעדפות טיסה הם מידע משותף בין כל הסשנים. מעבר בין flights/lodging/car/trip_planning לעולם אינו מאפס אותם ולעולם אינו מצדיק לשאול אותם שוב.
 - תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות.
 - כאשר הלקוח מבקש לעבור לשירות אחר, שאלי רק על missing_required של אותו שירות אחרי קריאת כל המידע המשותף. אל תפתחי שאלון מחדש.
@@ -1725,11 +1725,21 @@ def _extract_trip_update(key, model, history, message, state=None):
                 '(אחד, כמה, או כולם) - לעולם לא קוד אחר.'
             )
         system_dynamic = '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat() + gateway_hint_text
-        # Short replies ("כן", "נכון", "זוג") need the immediately preceding
-        # question to be interpreted correctly. Keep only a tiny recent window to
-        # preserve semantics without paying the latency of the entire conversation.
-        recent = (history or [])[-4:]
-        raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, recent, message, 700, include_history=True)
+        # Used to pass only the last 4 messages ("preserve semantics without
+        # paying the latency of the entire conversation"), while the system
+        # prompt itself claims "קבלי את כל השיחה" - the two didn't match.
+        # Seen live, repeatedly: a fact stated once (a location preference,
+        # a baggage answer bundled into a longer reply) that the extractor
+        # happened to miss on its own turn became permanently unrecoverable
+        # the moment the conversation moved more than ~2 exchanges past it -
+        # not because Tinkerbell's own reply ever forgot it (that call
+        # already gets the full history and kept referencing it correctly
+        # throughout), but because the extractor's structured-state call
+        # literally no longer had the message in its input at all. No
+        # per-phrasing patch can fix a fact that has scrolled out of view.
+        # Matches the main conversational call's own history exactly now -
+        # same conversation, same memory.
+        raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, 700, include_history=True)
         return _parse_trip_update(raw)
     except Exception:
         return {}
