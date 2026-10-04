@@ -4870,20 +4870,41 @@ def chat_clean():
     # research job without delaying this chat turn at all. Reads from
     # resolved_trip_state when this turn just reset trip_update to a fresh
     # vacation (the destination info would otherwise already be gone).
+    #
+    # Keyed off destination.places (the free-text name(s) the customer
+    # actually said), not destination_airports - seen live: a customer deep
+    # into approving a Vietnam trip still had no attractions researched,
+    # because destination_airports in this conversational state is only
+    # required when destination_mode is "country"/"region"/"broad"
+    # (_required_state_gaps); for an ordinary single-gateway country like
+    # Vietnam it can stay empty in trip_update the entire conversation - the
+    # real gateway code only gets resolved just-in-time, separately, inside
+    # ariella_start_flight_search (public_site.py) from destination.places
+    # at the moment the search actually launches. Waiting for
+    # destination_airports here meant this trigger could fire late or never.
+    # destination.places is set as soon as the customer names a destination
+    # at all, so this now starts the research as early as possible.
     try:
         _state_for_coverage = locals().get("resolved_trip_state") or trip_update
-        _dest_codes = _state_for_coverage.get("destination_airports") if isinstance(_state_for_coverage, dict) else None
-        if _dest_codes:
+        _dest_info = _state_for_coverage.get("destination") if isinstance(_state_for_coverage, dict) else None
+        _places = (_dest_info.get("places") if isinstance(_dest_info, dict) else None) or []
+        if _places:
             import attractions_coverage
-            _airport_rows = {str(a.get("code") or "").upper(): a for a in _load_airports()}
             _seen_countries = set()
-            for _code in _dest_codes:
-                _airport = _airport_rows.get(str(_code or "").upper())
-                _country_he = str((_airport or {}).get("country_he") or "").strip()
-                _country_en = str((_airport or {}).get("country_en") or "").strip()
-                if _country_he and _country_he not in _seen_countries:
-                    _seen_countries.add(_country_he)
-                    attractions_coverage.ensure_country_coverage(_country_he, _country_en)
+            for _place in _places:
+                _needle = str(_place or "").strip()
+                if not _needle:
+                    continue
+                _needle_lower = _needle.lower()
+                for _airport in _load_airports():
+                    _hay = " ".join(str(_airport.get(k) or "") for k in ("country_he","country_en","city_he","city_en")).lower()
+                    if _hay and (_needle_lower in _hay or _hay in _needle_lower):
+                        _country_he = str(_airport.get("country_he") or "").strip()
+                        _country_en = str(_airport.get("country_en") or "").strip()
+                        if _country_he and _country_he not in _seen_countries:
+                            _seen_countries.add(_country_he)
+                            attractions_coverage.ensure_country_coverage(_country_he, _country_en)
+                        break
     except Exception:
         logging.exception("Attraction coverage check failed to queue")
 
