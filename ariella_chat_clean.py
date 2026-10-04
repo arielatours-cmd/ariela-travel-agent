@@ -2179,6 +2179,36 @@ def _deterministic_service_decline_facts(history, message):
     }
 
 
+def _deterministic_named_decline_facts(message):
+    """A decline that names its own service doesn't need the previous
+    question for context at all ("רכב לא נדרש", "לא צריך לינה") - unlike
+    _deterministic_service_decline_facts above, this never depends on
+    matching Ariella's prior message. Seen live: "רכב לא נדרש" left as pure
+    free text for the extractor to interpret, and the car session apparently
+    never actually flipped to "declined" in the returned state even though
+    the reply acknowledged it - leaving the four-session progression stuck
+    with car neither complete nor declined, so the vacation could never be
+    marked fully resolved and the client never navigated to the waiting
+    page. Deliberately narrow (exact short phrases only) to avoid
+    misreading a longer sentence that merely mentions the word "רכב"."""
+    import re
+    msg = str(message or "").strip()
+    if not msg or len(msg) > 40:
+        return {}
+    patterns = {
+        "car": (r"^רכב\s+לא\s+נדרש\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+רכב\.?!?$", r"^בלי\s+רכב\.?!?$"),
+        "lodging": (r"^לינה\s+לא\s+נדרש[הת]?\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+לינה\.?!?$", r"^בלי\s+לינה\.?!?$"),
+        "trip_planning": (r"^מסלול\s+לא\s+נדרש\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+מסלול\.?!?$"),
+    }
+    for service, service_patterns in patterns.items():
+        if any(re.match(p, msg) for p in service_patterns):
+            return {
+                "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
+                "session_status": {service: "declined"},
+            }
+    return {}
+
+
 def _deterministic_period_facts(message, history=None):
     """Parse weekday/month windows ("סוף יוני, ראשון עד חמישי") into exact
     candidate ranges, so Ariella never computes calendar dates herself.
@@ -3975,6 +4005,20 @@ def chat_clean():
             statuses = dict(trip_update.get("session_status") or {})
             services = set(trip_update.get("requested_services") or [])
             for service, d in decline_decisions.items():
+                decisions[service] = d
+                if (d.get("wanted") if isinstance(d, dict) else d) is False:
+                    services.discard(service)
+                    statuses[service] = "declined"
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
+        named_decline = _deterministic_named_decline_facts(message)
+        named_decline_decisions = named_decline.get("service_decisions") if isinstance(named_decline, dict) else None
+        if named_decline_decisions:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service, d in named_decline_decisions.items():
                 decisions[service] = d
                 if (d.get("wanted") if isinstance(d, dict) else d) is False:
                     services.discard(service)
