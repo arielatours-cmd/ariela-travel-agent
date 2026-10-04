@@ -2039,6 +2039,30 @@ def _deterministic_candidate_choice_facts(message, state=None):
                 chosen = candidate
                 break
     if chosen is None:
+        # A natural short answer repeating just the two day-of-month numbers
+        # Ariella herself just displayed ("18 עד 22") - not the full
+        # "18.4.2027" with month/year, which the exact-substring check above
+        # requires. Seen live: this fell through to {} every time, so the
+        # choice was silently never recorded, and the customer got asked
+        # for dates again several turns later as if she'd never answered.
+        # Only matches when exactly one candidate's own (departure_day,
+        # return_day) pair appears in that order in the message, so a
+        # coincidental lone number elsewhere in a longer reply can't misfire.
+        day_numbers = [int(n) for n in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", msg)]
+        if len(day_numbers) >= 2:
+            candidate_day_pairs = []
+            for candidate in candidates:
+                found_days = re.findall(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", str(candidate))
+                if len(found_days) == 2:
+                    candidate_day_pairs.append((candidate, int(found_days[0][0]), int(found_days[1][0])))
+            matches = [
+                candidate for candidate, dep_day, ret_day in candidate_day_pairs
+                for i in range(len(day_numbers) - 1)
+                if day_numbers[i] == dep_day and day_numbers[i + 1] == ret_day
+            ]
+            if len(matches) == 1:
+                chosen = matches[0]
+    if chosen is None:
         return {}
     found = re.findall(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", str(chosen))
     if len(found) != 2:
