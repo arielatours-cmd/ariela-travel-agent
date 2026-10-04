@@ -101,6 +101,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם חסרים יותר משלושה פרטים, בחרי את 1–3 הפרטים שהכי טבעי לברר עכשיו, המתיני לתשובה, ורק בהודעה הבאה שאלי את היתר.
 - אל תצרפי לשאלה שלוש שאלות ואז תוסיפי בסוף עוד בחירה או שאלה "קטנה". סך כל הדברים שמבקשים מהלקוח להחליט או למסור בהודעה אחת הוא עד שלושה.
 - לטיסות, בדקי בין היתר רק כשחסר ורלוונטי: תקציב לאדם, כבודה, ישירה/קונקשן, מוצא, שדה/שדות יעד ותאריכים.
+- שעות יציאה/חזרה מועדפות לטיסה (בוקר/צהריים/ערב) הן שדה אופציונלי בלבד ואינן ברשימת הבדיקה הזו. לעולם אל תשאלי עליהן, לא כשאלה ישירה ולא כהצעה כללית כמו "יש עוד משהו לגבי הטיסה?" או "שעות מועדפות, או שנקבע את זה גמיש?" - גם לא בתוך סיכום הטיסה לפני בקשת מאשר/מאשרת. שמרי אותן רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף.
 - יעד גאוגרפי ושדה תעופה יעד הם שני נתונים נפרדים. אזור אינו מידע חובה. אם הלקוח כתב מדינה או יעד רחב שיכולים להתאים ליותר משדה תעופה אחד (למשל: קפריסין - לרנקה/פאפוס; איטליה - רומא/מילאנו; ספרד - ברצלונה/מדריד; גרמניה - ברלין/מינכן; פולין - קרקוב/ורשה), אל תשאלי קודם "איזה אזור?" רק כדי להשלים מידע ואל תבחרי שדה אחד בעצמך. במקום זה, בשאלה אחת: הציגי בקצרה את שדות התעופה/ערי השער הרלוונטיים, **וגם** ציינו את האפשרות לבקש קודם בניית מסלול (ואז שדה/שדות היעד ייגזרו ממנו) - כדי שהלקוח יידע משתי האפשרויות ולא ייתקע בשלב האישור בלי לדעת שהיה יכול לבקש את זה קודם.
 - גם עיר בודדת (לא רק מדינה/אזור רחב) יכולה להיות משורתת על ידי כמה שדות תעופה אמיתיים (למשל ניו יורק, פריז, לונדון, טוקיו, איסטנבול). כשזה המקרה, מידע מאומת על השדות והשמות שלהם יימסר לך למטה כ"היעד מתאים ליותר משדה תעופה אמיתי אחד" - השתמשי אך ורק ברשימה הזו, אל תוסיפי שדה משלך מהידע הכללי שלך, גם אם הוא נכון במציאות: אם השדה לא ברשימה שקיבלת, אל תזכירי אותו בכלל.
 - לדוגמה "צפון איטליה" אינו "רומא". יש להתייחס אליו כאזור באיטליה ולהשלים שדה/שדות יעד צפוניים מתאימים לפני סיכום הטיסה.
@@ -133,7 +134,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - לאחר סריקת הטיסות, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
 - אם זו אותה חופשה, אל תשאלי שוב יעד, תאריכים, נוסעים או פרטי טיסה שכבר ידועים. שאלי במה ירצה/תרצה להמשיך: לינה, השכרת רכב או תכנון מסלול ואטרקציות, ואז פתחי רק את הסשן שנבחר.
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
-- סיכום הטיסה כולל רק את פרטי הטיסה והבקשה לכתוב מאשר/מאשרת. אין להוסיף בסיכום הסבר על מה יקרה לאחר האישור או על שירותים נוספים.
+- סיכום הטיסה כולל רק את פרטי הטיסה והבקשה לכתוב מאשר/מאשרת. אין להוסיף בסיכום הסבר על מה יקרה לאחר האישור או על שירותים נוספים, ואין להוסיף הצעה/שאלה פתוחה על פרט אופציונלי נוסף (כמו "יש עוד משהו לגבי הטיסה?") - הסיכום עובר ישר מהפרטים לבקשת מאשר/מאשרת.
 - רק לאחר שכל המידע ההכרחי לשירותים שהתבקשו הושלם, הציגי סיכום קצר ומלא של בקשת החיפוש. בסוף הסיכום: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר. רק המילים מאשר או מאשרת הן אישור לביצוע החיפוש.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
@@ -2993,16 +2994,15 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
         data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
     except Exception:
         return {}
-    result = {s: data.get(s) for s in offered if isinstance(data.get(s), bool)}
-    # Partial answers: a clear yes to some with nothing said about the others
-    # ("בואי נסגור גם מלון") means the others are a no for now - but only
-    # when at least one decision was actually made.
-    if result and any(result.values()):
-        for s in offered:
-            result.setdefault(s, False)
-    elif result and len(result) < len(offered):
-        return {}
-    return result
+    # Per product owner: a service the customer didn't address at all is
+    # never inferred as declined, even when she clearly said yes to a
+    # different offered service in the same reply ("כן תחפשי לי דירות..."
+    # says nothing about the car). It stays pending and gets asked about
+    # on its own once the service she did address reaches completion -
+    # same as the symmetric case (car answered first, lodging asked later).
+    # Only a service the model actually returned true/false for is settled
+    # here; anything left null/missing is simply not touched.
+    return {s: data.get(s) for s in offered if isinstance(data.get(s), bool)}
 
 
 _REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_planning": "מסלול ואטרקציות"}
@@ -4452,8 +4452,23 @@ def chat_clean():
             # this exact gap, claiming a scan had launched via a phrasing this
             # list didn't cover.
             action_targets = ("לחיפוש","לסריקה","סריקת טיסות","בסריקה","בחיפוש","תוצאות","לחפש","לסרוק")
+            # A reply that already ends with the real approval request
+            # ("כתבי מאשרת" etc.) is not a false completion claim, even if it
+            # also happens to mention what will happen once approved (e.g.
+            # "לאחר אישור אני יוצאת לחיפוש") - that is a true, correctly-
+            # phrased statement about the future, not a claim that the search
+            # already ran. Without this guard, the override below replaced an
+            # already-correct summary+approval-request with a near-duplicate
+            # of itself, so the customer saw the same flight summary twice in
+            # a row for no reason.
+            already_asks_for_approval = (
+                "כתבי מאשרת" in str(reply or "")
+                or "כתוב מאשר" in str(reply or "")
+                or "מאשר/מאשרת" in str(reply or "")
+            )
             claims_execution = (
-                any(v in str(reply or "") for v in action_verbs)
+                not already_asks_for_approval
+                and any(v in str(reply or "") for v in action_verbs)
                 and any(t in str(reply or "") for t in action_targets)
             )
             if claims_execution:
