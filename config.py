@@ -121,6 +121,7 @@ DESTINATIONS = [
     {"code": "TIA", "name": "טירנה", "country_flag": "🇦🇱"}, {"code": "DXB", "name": "דובאי", "country_flag": "🇦🇪"},
     {"code": "GYD", "name": "באקו", "country_flag": "🇦🇿"}, {"code": "RMO", "name": "קישינב", "country_flag": "🇲🇩"},
     {"code": "MLA", "name": "מלטה", "country_flag": "🇲🇹"},
+    {"code": "HAN", "name": "האנוי", "country_flag": "🇻🇳"},
 ]
 
 # The automatic/wide-search default is Ben Gurion. Haifa remains available
@@ -135,7 +136,7 @@ AIRPORT_NAMES = {
     "BCN": "ברצלונה", "MAD": "מדריד", "LIS": "ליסבון", "LHR": "לונדון", "BER": "ברלין", "MUC": "מינכן",
     "ZRH": "ציריך", "BRU": "בריסל", "OTP": "בוקרשט", "KRK": "קרקוב", "WAW": "ורשה", "TBS": "טביליסי",
     "EVN": "ירוואן", "BEG": "בלגרד", "SKP": "סקופיה", "TGD": "פודגוריצה", "ZAG": "זאגרב", "LJU": "לובליאנה",
-    "BKK": "בנגקוק", "JFK": "ניו יורק", "TIA": "טירנה", "DXB": "דובאי", "GYD": "באקו", "RMO": "קישינב", "MLA": "מלטה",
+    "BKK": "בנגקוק", "JFK": "ניו יורק", "TIA": "טירנה", "DXB": "דובאי", "GYD": "באקו", "RMO": "קישינב", "MLA": "מלטה", "HAN": "האנוי",
     # Ski-resort gateway airports (config.SKI_RESORTS via ski_catalog.py) -
     # never in static/airports.json's general destinations catalog, so
     # without these a ski deal card fell back to showing the bare IATA code

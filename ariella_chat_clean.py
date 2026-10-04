@@ -4782,6 +4782,32 @@ def chat_clean():
         logging.exception("Auto-reset-on-completion check failed; leaving trip_update untouched")
         trip_state_reset = False
 
+    # The moment a destination country is known, make sure the attractions
+    # DB (itinerary_cards.py, data/attractions*.json) actually covers it -
+    # per product owner, this must never again be a gap someone notices
+    # live (as happened with Malta). Fire-and-forget: ensure_country_coverage
+    # is a cheap no-op when the country is already covered or already being
+    # researched, and otherwise kicks off a background SerpAPI-grounded
+    # research job without delaying this chat turn at all. Reads from
+    # resolved_trip_state when this turn just reset trip_update to a fresh
+    # vacation (the destination info would otherwise already be gone).
+    try:
+        _state_for_coverage = locals().get("resolved_trip_state") or trip_update
+        _dest_codes = _state_for_coverage.get("destination_airports") if isinstance(_state_for_coverage, dict) else None
+        if _dest_codes:
+            import attractions_coverage
+            _airport_rows = {str(a.get("code") or "").upper(): a for a in _load_airports()}
+            _seen_countries = set()
+            for _code in _dest_codes:
+                _airport = _airport_rows.get(str(_code or "").upper())
+                _country_he = str((_airport or {}).get("country_he") or "").strip()
+                _country_en = str((_airport or {}).get("country_en") or "").strip()
+                if _country_he and _country_he not in _seen_countries:
+                    _seen_countries.add(_country_he)
+                    attractions_coverage.ensure_country_coverage(_country_he, _country_en)
+    except Exception:
+        logging.exception("Attraction coverage check failed to queue")
+
     # Server-side copy of the conversation so it survives logout and follows
     # the account across devices, not just this browser's local cache.
     try:

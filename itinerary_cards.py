@@ -19,6 +19,10 @@ from urllib.parse import quote_plus
 import requests
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# Explicit curated files plus anything attractions_coverage.py adds
+# automatically for a newly-researched country (attractions_auto_*.json) -
+# discovered dynamically so a new country becomes usable the moment the
+# background research job writes its file, no code change/deploy needed.
 _DB_FILES = ("attractions.json", "attractions_global30.json", "attractions_global30_extra.json", "attractions_malta.json")
 _WIKI_API = "https://en.wikipedia.org/w/api.php"
 _WIKI_HEADERS = {"User-Agent": "AriellaTravelAgent/1.0 (itinerary cards)"}
@@ -41,8 +45,12 @@ _STRUCTURE_PROMPT = """את ממירה מסלול טיול שאושר (טקסט 
 
 
 def _load_db():
+    try:
+        auto_files = [f for f in os.listdir(_DATA_DIR) if f.startswith("attractions_auto_") and f.endswith(".json")]
+    except FileNotFoundError:
+        auto_files = []
     records = []
-    for filename in _DB_FILES:
+    for filename in (*_DB_FILES, *auto_files):
         try:
             with open(os.path.join(_DATA_DIR, filename), "r", encoding="utf-8") as fh:
                 payload = json.load(fh)
