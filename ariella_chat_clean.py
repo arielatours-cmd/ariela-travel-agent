@@ -1072,7 +1072,7 @@ def _flight_summary_text(state):
             parts.append(f"הלוך {dep_time_pref}")
         if ret_time_pref:
             parts.append(f"חזור {ret_time_pref}")
-        lines.append("שעת טיסה מועדפת: " + ", ".join(parts) + " (לא תנאי מחייב)")
+        lines.append("שעת טיסה מועדפת: " + ", ".join(parts))
     if budget.get("status") == "unlimited":
         lines.append("תקציב: ללא הגבלה")
     elif budget.get("amount"):

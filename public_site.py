@@ -26,6 +26,11 @@ from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
+from scoring import (
+    _minutes_of_day as _scoring_minutes_of_day,
+    _time_band as _scoring_time_band,
+    _TIME_PREF_TO_BAND as _SCORING_TIME_PREF_TO_BAND,
+)
 import booking_demand
 import itinerary_cards
 from booker import resolve_booking_target
@@ -1557,6 +1562,24 @@ def _objective_match_details(offer, trip):
             add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10, "תקציב", "Budget")
         except (TypeError, ValueError):
             add(False, "תקציב", "Budget")
+
+    # A stated flight-time preference (optional, see scoring.py's own
+    # time_preference component) is an objective condition the customer
+    # asked for like any other - when the actual offer doesn't land in the
+    # requested time band, the customer should see that called out
+    # ("לא כולל: שעת טיסה הלוך") the same way a missed budget or date is,
+    # rather than silently showing a flight that doesn't match what was
+    # asked and leaving the customer to notice the discrepancy themselves.
+    dep_pref = str(answers.get("departure_time_preference") or "").strip()
+    if dep_pref:
+        dep_minutes = _scoring_minutes_of_day(offer.get("departure_time"))
+        dep_ok = dep_minutes is not None and _scoring_time_band(dep_minutes) == _SCORING_TIME_PREF_TO_BAND.get(dep_pref)
+        add(dep_ok, f"שעת טיסה הלוך ({dep_pref})", f"Outbound time ({dep_pref})")
+    ret_pref = str(answers.get("return_time_preference") or "").strip()
+    if ret_pref:
+        ret_minutes = _scoring_minutes_of_day(offer.get("return_departure_time"))
+        ret_ok = ret_minutes is not None and _scoring_time_band(ret_minutes) == _SCORING_TIME_PREF_TO_BAND.get(ret_pref)
+        add(ret_ok, f"שעת טיסה חזור ({ret_pref})", f"Return time ({ret_pref})")
 
     # Regular-vacation preferences: every selected item is part of the 100% match.
     if str(answers.get("vacation_type") or "standard") == "standard":
