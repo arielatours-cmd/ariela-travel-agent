@@ -3212,12 +3212,23 @@ def _state_from_trip(trip, service):
 
 
 def _reopen_question(service, trips):
+    """Per product owner: a customer may well be tracking several vacations
+    at once, not just the one most recently touched. With exactly one or
+    two candidates, listing them is still a short, scannable question. With
+    more than two, enumerating all of them floods the message (a customer
+    with ten parallel vacations should never see all ten spelled out) - ask
+    an open question instead and let the customer answer freely (by
+    destination/date); _pick_reopen_option already matches a free-text
+    answer against the full candidate list regardless of how many there
+    are."""
     label = _REOPEN_LABELS[service]
     if len(trips) == 1:
         t = trips[0]
         return f"להוסיף {label} לחופשה ל{t['name']} ({t['window']})? (כן = לחופשה הזו, לא = חופשה חדשה)"
-    lines = "\n".join(f"{i + 1}. {t['name']} ({t['window']})" for i, t in enumerate(trips))
-    return f"לאיזו חופשה להוסיף {label}?\n{lines}\nאו שזו חופשה חדשה?"
+    if len(trips) == 2:
+        lines = "\n".join(f"{i + 1}. {t['name']} ({t['window']})" for i, t in enumerate(trips))
+        return f"לאיזו חופשה להוסיף {label}?\n{lines}\nאו שזו חופשה חדשה?"
+    return f"יש לך כמה חופשות פעילות במקביל - לאיזו מהן להוסיף {label}? אפשר לציין יעד או תאריך, או להגיד שזו חופשה חדשה."
 
 
 def _pick_reopen_option(message, options, key=None, model=None, history=None):
@@ -3469,7 +3480,7 @@ def chat_clean():
         if not linked_service:
             linked_service = next((s for s in ("trip_planning", "lodging", "car") if s in (trip_state.get("requested_services") or [])), None)
         if linked_service:
-            candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places))
+            candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places), limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
@@ -3483,7 +3494,7 @@ def chat_clean():
     if trip_is_empty:
         requested_service = _explicit_service_request(message, trip_state) or _classify_service_request(message, history)
         if requested_service in _REOPEN_LABELS:
-            candidates = _reopenable_trips(session['member_id'], requested_service, message)
+            candidates = _reopenable_trips(session['member_id'], requested_service, message, limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
