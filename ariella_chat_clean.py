@@ -1795,6 +1795,71 @@ def _known_destination_names():
     return _KNOWN_DESTINATION_NAMES_CACHE
 
 
+def _clear_stale_gateway_airports(state):
+    """destination_airports/return_departure_airports must belong to the
+    country of the CURRENT destination.places - if every code on the list
+    belongs to some other country entirely, it's stale data left over from
+    a previous, different destination.
+
+    This isn't about the ordinary "destination_airports is closed, never
+    reconsider it" rule (that protects an already-chosen gateway WITHIN
+    the same destination from being second-guessed) - this is a genuine
+    destination change the structured field never followed. Most often
+    this survives a "new vacation" reset: the structured destination_
+    airports field gets cleared, but the OLD conversation text mentioning
+    the previous destination's airport is still visible in full chat
+    history (history is never erased, only vacation data - see
+    EXTRACTOR_SYSTEM's own "backfill a fact that's missing from state but
+    was mentioned earlier in the conversation" rule), and the extractor
+    can wrongly pull that old airport back in even though the customer
+    is no longer asking about it at all. Seen live: a brand-new Vietnam
+    vacation's flight summary correctly named Hanoi throughout, but
+    destination_airports stayed stuck on "LCA" (Larnaca, Cyprus) from an
+    earlier, unrelated conversation - nothing deterministic ever caught
+    the mismatch."""
+    state = state if isinstance(state, dict) else {}
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip() for p in (destination.get("places") or []) if str(p).strip()]
+    if not places:
+        return state
+    airports = _load_airports()
+    by_code = {str(a.get("code") or "").upper(): a for a in airports}
+
+    def _countries_for(names):
+        found = set()
+        for name in names:
+            needle = str(name).strip().lower()
+            if not needle:
+                continue
+            for airport in airports:
+                hay = " ".join(str(airport.get(k) or "") for k in ("country_he","country_en","city_he","city_en")).lower()
+                if hay and (needle in hay or hay in needle):
+                    country = str(airport.get("country_he") or "").strip()
+                    if country:
+                        found.add(country)
+                    break
+        return found
+
+    place_countries = _countries_for(places)
+    if not place_countries:
+        return state
+
+    changed = False
+    new_state = dict(state)
+    for field in ("destination_airports", "return_departure_airports"):
+        codes = state.get(field)
+        if not isinstance(codes, list) or not codes:
+            continue
+        stale = all(
+            str((by_code.get(str(code).upper()) or {}).get("country_he") or "").strip() not in place_countries
+            for code in codes
+        )
+        if stale:
+            new_state[field] = []
+            changed = True
+    return new_state if changed else state
+
+
 def _deterministic_destination_facts(history, message, state=None):
     """Preserve an explicitly stated destination when extractor output misses it."""
     state = state if isinstance(state, dict) else {}
@@ -4051,6 +4116,7 @@ def chat_clean():
         # Ariella owns and merges the cumulative state.
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
+        trip_update = _clear_stale_gateway_airports(trip_update)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
         trip_update = _roll_past_dates(trip_update, message, history)
         trip_update = _split_car_transmission(trip_update)
