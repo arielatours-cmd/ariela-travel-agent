@@ -3688,9 +3688,18 @@ def chat_clean():
     # Interpret answers to a pending "same vacation or new vacation?" question
     # semantically. The customer can answer naturally; there are no magic phrases.
     last_assistant = ""
+    _triggering_user_message = None
+    _seen_last_assistant = False
     for _item in reversed(history):
-        if isinstance(_item, dict) and str(_item.get("role") or "").lower() == "assistant":
+        if not isinstance(_item, dict):
+            continue
+        _role = str(_item.get("role") or "").lower()
+        if not _seen_last_assistant and _role == "assistant":
             last_assistant = str(_item.get("content") or "").strip().lower()
+            _seen_last_assistant = True
+            continue
+        if _seen_last_assistant and _role == "user":
+            _triggering_user_message = str(_item.get("content") or "")
             break
     _previous_asked_new_vacation = (
         "חופשה" in last_assistant and "חדשה" in last_assistant
@@ -3699,17 +3708,22 @@ def chat_clean():
     if _previous_asked_new_vacation and not own_pending_question:
         _intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
         if _intent == "new":
-            # The destination was very often already stated in the message
-            # that triggered this "start fresh or just change?" question in
-            # the first place (e.g. "לא, בואי נתכנן חופשה חדשה לקפריסין") -
-            # by the time the customer confirms "כן" here, that's 1-2 turns
-            # back in history, not in the current message. Without this,
-            # the reset blanked everything and asked "לאן תרצי לטוס?" again
-            # even though the destination was right there. Scans the
-            # customer's own recent messages (current + history), same as
-            # the sibling new-vacation handler above.
+            # The destination was very often already stated in the one
+            # message that triggered this "start fresh or just change?"
+            # question (e.g. "לא, בואי נתכנן חופשה חדשה לקפריסין") - by the
+            # time the customer confirms "כן" here, that's 1 turn back, not
+            # in the current message. Scoped to exactly that one triggering
+            # message (not the full history) deliberately: a genuine "בואי
+            # נתחיל מהתחלה" with no destination of its own must never pull
+            # in an unrelated destination mentioned somewhere earlier in a
+            # long conversation (a previous, already-finished vacation) -
+            # seen live, right after the equivalent full-history version of
+            # this fix shipped: "לרנקה" from an old vacation got silently
+            # adopted as the new one's destination with nothing said about
+            # it this time.
             _fresh_new = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
-            _seed_new = _deterministic_destination_facts(history, message, {})
+            _trigger_history = [{"role": "user", "content": _triggering_user_message}] if _triggering_user_message else []
+            _seed_new = _deterministic_destination_facts(_trigger_history, message, {})
             if _seed_new:
                 _fresh_new = _merge_trip_state(_fresh_new, _seed_new)
             _places_new = ((_fresh_new.get('destination') or {}).get('places') or []) if isinstance(_fresh_new.get('destination'), dict) else []
