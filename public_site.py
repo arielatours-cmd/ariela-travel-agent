@@ -3457,7 +3457,13 @@ def ariella_start_flight_search():
         # a real flight is actually pinned - see _resolved_ski_title_from_offers)
         # than a hallucinated, mistranslated resort name presented as fact.
         if ski_state.get("resort_names"):
-            title = " • ".join(_ski_resort_he_names(ski_state["resort_names"]))
+            # Per Carmit: ski resort names belong in their original/Latin
+            # spelling (e.g. "Saalbach"), never a Hebrew transliteration,
+            # even for a genuine catalog match - ski.resort_names already
+            # holds the catalog's own English names (see _ski_row_for_offer),
+            # so join them directly instead of translating via
+            # _ski_resort_he_names.
+            title = "חופשת סקי — " + " • ".join(ski_state["resort_names"])
         else:
             title = "חופשת סקי — אריאלה תבחר אתר סקי"
     else:
@@ -3815,10 +3821,12 @@ def _resolved_ski_title_from_offers(offers):
     pinned to Salzburg/SZG still titled "אריאלה תבחר אתר סקי"). Uses the
     gateway city, not a specific resort name, since one gateway airport can
     serve several resorts and the match doesn't commit to just one."""
+    # Per Carmit: foreign place names belong in their original/Latin
+    # spelling, never a Hebrew transliteration - city_en, not city_he.
     cities = []
     for offer in offers:
         localized = _localize_offer_airports(dict(offer))
-        city = str(localized.get("arrival_city_he") or "").strip()
+        city = str(localized.get("arrival_city_en") or "").strip()
         if city and city not in cities:
             cities.append(city)
     if not cities:
