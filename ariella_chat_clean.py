@@ -112,7 +112,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
-- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב קצרה ועניינית: הציגי את האפשרויות (קטן, משפחתי, משפחתי סטיישן, SUV, ג'יפ, מיניוואן 7 מקומות) ושאלי אם צריך יותר מקומות מאשר מספר הנוסעים - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). את ידני/אוטומטי שאלי כשאלה נפרדת.
+- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה בינארית קצרה וטבעית (למשל "לאסוף ולהחזיר בשדה התעופה, או שעדיף מיקום אחר כמו מרכז העיר?") ושמרי את המיקום שהלקוח בחר בפועל. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב קצרה ועניינית: הציגי את האפשרויות (קטן, משפחתי, משפחתי סטיישן, SUV, ג'יפ, מיניוואן 7 מקומות) ושאלי אם צריך יותר מקומות מאשר מספר הנוסעים - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). את ידני/אוטומטי שאלי כשאלה נפרדת.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'.
 - חשבון תאריכים הוא דטרמיניסטי: שבוע=7 ימים ושבועיים=14 ימים. אם הלקוח אמר יציאה 20.12 ושבועיים, החזרה היא 3.1; אל תמציאי 7.1 ואל תציעי תאריך חלופי אחרי שהמשך אושר.
@@ -3982,6 +3982,31 @@ def chat_clean():
             decisions = dict(trip_update.get("service_decisions") or {})
             statuses = dict(trip_update.get("session_status") or {})
             services = set(trip_update.get("requested_services") or [])
+            prior_statuses = trip_state.get("session_status") if isinstance(trip_state.get("session_status"), dict) else {}
+            prior_decisions = trip_state.get("service_decisions") if isinstance(trip_state.get("service_decisions"), dict) else {}
+            # A domain untouched by this message must never silently flip
+            # from pending to declined just because the customer engaged
+            # with a DIFFERENT domain this turn - the extractor's own rules
+            # already forbid concluding another service was declined just
+            # because one was mentioned, but it doesn't reliably follow
+            # that. Seen live: offered lodging+car+trip_planning together,
+            # the customer engaged only with the route and then lodging,
+            # and car - never discussed at all - silently went straight
+            # from pending to "declined" with no decline of any kind from
+            # the customer. Per product owner: a domain stays open until
+            # the customer actually answers no to it; it is never inferred
+            # from silence. A pending domain not named anywhere in this
+            # message keeps its prior status instead of trusting the
+            # extractor's unexplained "wanted=false". A domain already
+            # being actively discussed (session_status "active") is not
+            # gated here - the conversation IS about it this turn, so a
+            # genuine "actually, never mind" is trustworthy there.
+            service_name_cues = {
+                "lodging": ("לינה","מלון","וילה","דירה","אכסניה"),
+                "car": ("רכב",),
+                "trip_planning": ("מסלול","אטרקצי","תכנון הטיול","תוכנית הטיול"),
+            }
+            msg_text = str(message or "")
             for service in ("flights","lodging","car","trip_planning"):
                 d = extracted_decisions.get(service)
                 wanted = d.get("wanted") if isinstance(d, dict) else d
@@ -3989,6 +4014,23 @@ def chat_clean():
                     services.add(service)
                     statuses[service] = statuses.get(service) if statuses.get(service) == "complete" else "active"
                 elif wanted is False:
+                    prior_status = prior_statuses.get(service)
+                    if prior_status in (None, "pending"):
+                        cues = service_name_cues.get(service, ())
+                        if not any(c in msg_text for c in cues):
+                            # _merge_trip_state already merged the extractor's
+                            # unproven "wanted=false" into trip_update's own
+                            # service_decisions before this block ever runs -
+                            # _sessionize_state (inside _advance_sessions,
+                            # called later this same turn, and again on
+                            # every future turn) reads that field directly
+                            # and would unconditionally re-derive
+                            # session_status="declined" from it regardless
+                            # of what this guard decides here. The merged
+                            # value must be rolled back to what it was
+                            # before this turn, not just left unused.
+                            decisions[service] = prior_decisions.get(service)
+                            continue
                     services.discard(service)
                     statuses[service] = "declined"
             trip_update["requested_services"] = list(services)

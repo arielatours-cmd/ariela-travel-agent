@@ -231,7 +231,24 @@
     try{
       await fetch('/api/ariella/reset-conversation',{method:'POST'});
     }catch(e){}
-    for(const k of [key,stateKey,contextStartKey,committedKey,continueTripKey,tripIdKey]){
+    // This button's own chat widget (above) uses the v11/v12-keyed
+    // localStorage entries cleared here, but the chat actually rendered on
+    // this page is the newer engine from ariella-conversation-flow-*.js,
+    // which keeps its own separate state under completely different keys
+    // (ariellaChatState:v8.../ariellaChatTripFinished:v8...) that this
+    // button never touched. The button looked like it worked (it reloads
+    // the page and shows a fresh-looking greeting) but the live widget's
+    // real trip_state/tripId/history survived untouched in those other
+    // keys and silently carried over into the "new" conversation - seen
+    // live as a brand-new vacation opening with a previous test's dates
+    // and an already-used trip_id. Clear the keys the live widget actually
+    // reads, namespaced the same way it computes them.
+    const liveAcctSuffix=':'+(window.ARIELLA_MEMBER_KEY||'guest');
+    for(const k of [
+      key,stateKey,contextStartKey,committedKey,continueTripKey,tripIdKey,
+      'ariellaChatState:v8'+liveAcctSuffix,
+      'ariellaChatTripFinished:v8'+liveAcctSuffix,
+    ]){
       try{localStorage.removeItem(k);}catch(e){}
     }
     location.reload();

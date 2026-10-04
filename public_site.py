@@ -753,9 +753,18 @@ def _offer_matches_vacation_type(offer, trip):
 
 
 def _offer_within_budget(offer, trip):
-    """Per-person budget is a hard ceiling with the agreed 10% tolerance."""
+    """Per-person budget is a hard ceiling with the agreed 10% tolerance.
+
+    "per_person" is the manual trip-request form's own budget_mode value;
+    the Ariella chat flow (ariella_start_flight_search) writes "limited"
+    for the exact same per-person-budget-amount case instead. Checking for
+    "per_person" would silently treat every chat-originated trip as having
+    no budget limit at all - this must accept both (matching
+    _objective_match_details, which already checks both), or budget
+    enforcement here and in _over_budget_alternatives below is dead code
+    for the one flow customers actually use."""
     answers = trip.get("answers") or {}
-    if answers.get("budget_mode") != "per_person":
+    if answers.get("budget_mode") not in ("per_person", "limited"):
         return True
     try:
         budget = float(answers.get("budget_amount") or 0)
@@ -771,7 +780,9 @@ def _over_budget_alternatives(all_offers, trip, limit=3):
     Used only as a transparent fallback: these offers are NOT treated as budget matches.
     """
     answers = trip.get("answers") or {}
-    if answers.get("budget_mode") != "per_person" or not answers.get("budget_amount"):
+    # See _offer_within_budget above: the chat flow writes "limited", not
+    # "per_person", for the same per-person-budget case.
+    if answers.get("budget_mode") not in ("per_person", "limited") or not answers.get("budget_amount"):
         return []
     try:
         ceiling = float(answers.get("budget_amount") or 0) * 1.10
@@ -1015,7 +1026,7 @@ def _business_match_details(offer, trip):
         }
         add(any(x in offer_cabin for x in names.get(cabin, {cabin})), "מחלקה מבוקשת", "Requested cabin")
 
-    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+    if answers.get("budget_mode") in ("per_person", "limited") and answers.get("budget_amount"):
         try:
             add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10,
                 "בתקציב שביקשת", "Within your budget")
@@ -1075,7 +1086,7 @@ def _closest_condition_matches(all_offers, trip, limit=3):
             ret = _time_minutes(o.get("return_departure_time"))
             if arr is not None and ret is not None and arr <= 600 and ret >= 1200:
                 points += 1; reasons.append(_msg("ממקסמת את זמן החופשה", "Maximizes usable trip time"))
-        if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+        if answers.get("budget_mode") in ("per_person", "limited") and answers.get("budget_amount"):
             try:
                 if float(o.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10:
                     points += 1; reasons.append(_msg("בתקציב", "Within budget"))
@@ -1406,7 +1417,7 @@ def _open_customer_point_details(offer, trip):
         ret = _time_minutes(offer.get("return_departure_time"))
         detail["maximize"] = arr is not None and ret is not None and arr <= 600 and ret >= 1200
 
-    if answers.get("budget_mode") == "per_person" and answers.get("budget_amount"):
+    if answers.get("budget_mode") in ("per_person", "limited") and answers.get("budget_amount"):
         try:
             detail["budget"] = float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10
         except (TypeError, ValueError):
