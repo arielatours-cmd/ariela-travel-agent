@@ -716,8 +716,6 @@ def _resolve_destination_airports_from_route(state):
     this, returning to the flight session after route planning can re-ask a
     question the route itself already answered."""
     state = state if isinstance(state, dict) else {}
-    if state.get("destination_airports"):
-        return state
     # A ski trip's gateway airports come only from the ski resort catalog
     # (see _resolve_ski_destination_airports) - the general airport catalog
     # would happily match a country to its capital's airport, which is
@@ -734,7 +732,18 @@ def _resolve_destination_airports_from_route(state):
             base = day.get("base") or day.get("city") or day.get("region")
             if base:
                 names.append(str(base))
+    # A confirmed day-by-day route is itself the authoritative gateway
+    # decision, even when destination_airports already holds a broader set
+    # of candidates picked before route planning started (e.g. both Larnaca
+    # and Paphos for "Cyprus" before the customer said "same airport in and
+    # out" and the route settled on Larnaca only). Only skip re-deriving
+    # here when there is no route to derive from - in that case fall back to
+    # the old "don't override an already-resolved value from a plain
+    # destination name" behavior, since a bare destination name is less
+    # precise than whatever already got resolved and must not clobber it.
     if not names:
+        if state.get("destination_airports"):
+            return state
         destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
         names = [str(p) for p in (destination.get("places") or []) if p]
     if not names:
@@ -752,6 +761,8 @@ def _resolve_destination_airports_from_route(state):
                 if code and code not in codes:
                     codes.append(code)
     if not codes:
+        return state
+    if codes[:4] == (state.get("destination_airports") or []):
         return state
     state = dict(state)
     state["destination_airports"] = codes[:4]
