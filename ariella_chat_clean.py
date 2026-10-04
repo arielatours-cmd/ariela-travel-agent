@@ -2898,7 +2898,15 @@ def _is_itinerary_acceptance(message):
     )
     if any(m in msg for m in change_markers):
         return False
-    if re.search(r"(?<![\u05d0-\u05ea])לא(?![\u05d0-\u05ea])", msg):
+    # Seen live: "לא. זה נשמע מצוין" ("no [nothing to change], it sounds
+    # great") is a common acceptance pattern - a standalone "לא" clause
+    # followed by a clearly positive one - but the blanket "any לא anywhere
+    # = reject" rule below caught it regardless, so the itinerary never
+    # closed and kept getting re-presented/re-asked. A "לא" that negates an
+    # actual following word ("לא מתאים", "לא אהבתי") is still a real
+    # rejection and stays blocked; only a "לא" standing on its own (right
+    # before a sentence break or the end of the message) is exempted.
+    if re.search(r"(?<![\u05d0-\u05ea])לא(?![\u05d0-\u05ea])(?!\s*[.,!?]|\s*$)", msg):
         return False
     positives = (
         "כן", "מאשר", "מאשרת", "מתאים", "מתאימה", "מעולה", "מצוין", "מצויין", "אחלה", "נשמע טוב",
@@ -4127,8 +4135,20 @@ def chat_clean():
         # reopening the conversation as a questionnaire.
         msg_confirm = _normalize_confirm(message).lower()
         planning_active = str(trip_state.get("active_session") or "") == "trip_planning"
+        # Seen live: a route built up incrementally, one day (or a couple of
+        # days) proposed per turn rather than the whole itinerary in one
+        # message - by the time the customer finally confirms ("לא, זה נשמע
+        # מצוין"), only the last day or two is still within a narrow recent
+        # window, so day_mention_count below never reaches 2 even though the
+        # full route was genuinely built and just approved. The customer
+        # kept getting asked about the same route again and again, since
+        # _is_itinerary_acceptance below could never actually close
+        # trip_planning. Widened from the last 4 history items (~2
+        # exchanges) to 16 (~8 exchanges) - generous enough to span a
+        # typical multi-day route built turn by turn, still bounded so it
+        # can't reach back into an unrelated earlier conversation.
         prior_assistant = " ".join(
-            str(x.get("content") or "") for x in (history or [])[-4:]
+            str(x.get("content") or "") for x in (history or [])[-16:]
             if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"
         )
         # The message actually being approved right now is NOT reliably "the
