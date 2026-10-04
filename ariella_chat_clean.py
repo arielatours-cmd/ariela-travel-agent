@@ -58,7 +58,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כאשר יש כוונת פעולה קונקרטית, שכבת אריאלה בודקת אילו פרטים הכרחיים חסרים לפי השירותים שהלקוח ביקש בפועל: טיסות, לינה, רכב ו/או תכנון מסלול ואטרקציות.
 - כאשר הלקוח מבקש חופשה/טיול ליעד מסוים, ברירת המחדל היא שטיסות רצויות ואין לשאול 'האם תרצי גם טיסה'. שאלי זאת רק אם ההקשר מצביע שהטיסות אולי כבר סגורות או שהלקוח מבקש במפורש שירות קרקעי בלבד.
 - אחרי שביררת נושא צדדי, חובה לחזור לנושא שהלקוח היה באמצעו לפני כן ולהמשיך ממנו, ולא לנטוש אותו.
-- לכל חופשה יש ארבעה סשנים פנימיים: טיסות, לינה, רכב, ותכנון מסלול/אטרקציות. **הסדר קבוע ואינו גמיש: טיסות תמיד ראשון.** לינה, רכב ותכנון מסלול/אטרקציות נפתחים רק אחרי שהטיסות הגיעו למצב complete (אושרו ויצאו לסריקה) או declined - אף פעם לא לפני כן, גם אם הלקוח מבקש זאת במפורש.
+- לכל חופשה יש ארבעה סשנים פנימיים, בסדר קבוע ולא גמיש: טיסות, תכנון מסלול/אטרקציות, לינה, רכב. **טיסות תמיד ראשון** - תכנון מסלול/אטרקציות, לינה ורכב נפתחים רק אחרי שהטיסות הגיעו למצב complete (אושרו ויצאו לסריקה) או declined, אף פעם לא לפני כן, גם אם הלקוח מבקש זאת במפורש. הסדר הזה תקף תמיד, גם אם הלקוח עצמו פתח את השיחה בנושא אחר (למשל ביקש קודם רעיונות למסלול) - ברגע שהטיסות מסתיימות, הסשן הבא שנפתח הוא תמיד תכנון מסלול/אטרקציות, ואחריו לינה, ואז רכב.
 - אם הלקוח מבקש במפורש "גם לינה"/"גם מסלול"/"גם רכב" בזמן שהטיסות עדיין לא complete/declined, אל תעברי לסשן הזה. הביעי קצרות שקלטת את הבקשה ושתחזרי אליה מיד אחרי הטיסות, והמשיכי לברר את הטיסות. הבקשה נשמרת אוטומטית (service_decisions) ותיפתח מעצמה ברגע שהטיסות יסתיימו - אין צורך לשאול עליה שוב.
 - יוצא מן הכלל היחיד לכלל הזה הוא בקשה מפורשת לחזור/לעבור לטיסות עצמן - זה תמיד מותר מיידית, כולל אחרי שכבר עברתם לסשן אחר (זו הדרך שהלקוח חוזר לשנות פרט בטיסה).
 - בכל רגע יש סשן פעיל אחד. אל תעברי מיוזמתך לסשן אחר לפני שסיימת את הנוכחי. כל הודעה עוסקת בתחום אחד בלבד: לעולם אל תשאלי באותה הודעה שאלות על שני תחומים שונים (למשל לינה ורכב). אם הלקוח ביקש תחום חדש בזמן שתחום אחר עוד פתוח, עני רק על התחום שהלקוח ביקש עכשיו, וחזרי לתחום הפתוח רק אחרי שהחדש הושלם. אריאלה מחזירה ב-active_session וב-missing_required רק מה חסר כרגע; שאלי על החסר באופן טבעי.
@@ -620,22 +620,48 @@ def _advance_sessions(state):
     statuses = dict(state.get("session_status") or {})
     active = state.get("active_session")
 
-    if active and not _session_gaps(state, active):
+    # Flights is the one session that must never auto-"complete" just
+    # because its gaps are empty - unlike lodging/car/trip_planning, which
+    # genuinely do close themselves once their details are known (rule:
+    # "התחום נסגר מעצמו כשכל הפרטים שלו ידועים"), flights has its own hard
+    # מאשר/מאשרת approval gate (_approval_trigger/search_confirmed,
+    # applied separately once the customer actually types the exact
+    # word). Treating "no gaps left" as "complete" here skipped that gate
+    # entirely - seen live: a customer who built her day-by-day route
+    # before ever discussing flights had departure_airport/dates/budget/
+    # baggage all incidentally filled in along the way (shared fields, not
+    # flight-specific questions), so by the time she approved the route,
+    # flights' gaps were already empty and this generic rule silently
+    # marked flights "complete" - the flight summary/approval step, and
+    # the actual flight search, never happened at all. Leaving
+    # session_status untouched (still whatever it was - typically
+    # "active") and active_session as "flights" keeps every other
+    # consumer of session_status (the post-route "what's still open?"
+    # check, post_flight_offer, etc.) correctly treating flights as not
+    # yet resolved, while still surfacing missing_required=[] and
+    # ready_for_summary=True below so Tinkerbell knows it's time to
+    # present the summary and ask for approval.
+    flights_ready_for_summary = False
+    if active == "flights" and not _session_gaps(state, active):
+        flights_ready_for_summary = True
+    elif active and not _session_gaps(state, active):
         statuses[active] = "complete"
         active = None
 
     # Never auto-activate a new domain merely because it is pending. The next
-    # pending domain becomes a yes/no decision for Tinkerbell.
-    next_pending = next((s for s in ("flights","lodging","car","trip_planning") if statuses.get(s) == "pending"), None)
+    # pending domain becomes a yes/no decision for Tinkerbell. Fixed order
+    # per product owner, regardless of which topic the customer started
+    # with: flights, then the itinerary/route, then lodging, then car.
+    next_pending = next((s for s in ("flights","trip_planning","lodging","car") if statuses.get(s) == "pending"), None)
     if not active:
-        active = next((s for s in ("flights","lodging","car","trip_planning") if statuses.get(s) == "active"), None)
+        active = next((s for s in ("flights","trip_planning","lodging","car") if statuses.get(s) == "active"), None)
 
     state["session_status"] = statuses
     state["active_session"] = active
     if active:
         state["missing_required"] = _session_gaps(state, active)
         state["next_session"] = None
-        state["ready_for_summary"] = False
+        state["ready_for_summary"] = flights_ready_for_summary and active == "flights"
     elif next_pending:
         state["missing_required"] = []
         state["next_session"] = next_pending
@@ -644,29 +670,6 @@ def _advance_sessions(state):
         state["missing_required"] = []
         state["next_session"] = None
         state["ready_for_summary"] = all(v in ("complete","declined") for v in statuses.values())
-    # Session 1 is intentionally self-contained. Once flights are complete, the
-    # flight search may be summarized/approved without forcing decisions about
-    # lodging, car or trip planning. Those sessions reopen after flight handoff.
-    # next_session must be cleared here too: the elif branch above may have
-    # already set it to the next pending domain (e.g. lodging) before this
-    # flights-complete check ran, leaving both ready_for_summary=True and
-    # next_session="lodging" set at once - a genuinely contradictory signal
-    # that let Tinkerbell sometimes jump straight to the next domain's
-    # question instead of presenting the flight summary and asking for
-    # "מאשר/מאשרת" first, skipping the hard approval gate entirely.
-    # This must only apply BEFORE that approval gate - once the flight was
-    # actually approved and searched (post_flight_continuation=True), the gate
-    # has already done its job. Without excluding that case, this block kept
-    # firing forever afterward on every later turn too (flights stays
-    # "complete" for the rest of the conversation), so once trip_planning also
-    # completed post-approval it forced next_session back to None and
-    # ready_for_summary back to True even though lodging/car were still
-    # genuinely "pending" - seen live: Ariella silently treated the whole
-    # vacation as finished instead of ever asking about lodging or car.
-    if statuses.get("flights") == "complete" and state.get("active_session") is None and not state.get("post_flight_continuation"):
-        state["missing_required"] = []
-        state["ready_for_summary"] = True
-        state["next_session"] = None
     return state
 
 
@@ -4059,7 +4062,7 @@ def chat_clean():
             trip_update["service_decisions"] = decisions
             trip_update["session_status"] = statuses
             trip_update["post_flight_offer"] = []
-            first_wanted = next((s for s in ("lodging","car","trip_planning") if post_flight_answer.get(s)), None)
+            first_wanted = next((s for s in ("trip_planning","lodging","car") if post_flight_answer.get(s)), None)
             if first_wanted:
                 trip_update["active_session"] = first_wanted
         deterministic_decline = _deterministic_service_decline_facts(history, message)
@@ -4409,29 +4412,37 @@ def chat_clean():
             # actually still pending.
             statuses_after_plan = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
             remaining_labels = {"flights":"טיסות", "lodging":"לינה", "car":"השכרת רכב"}
-            remaining = [
-                remaining_labels[s] for s in ("flights","lodging","car")
-                if statuses_after_plan.get(s, "pending") not in ("complete","declined")
-            ]
-            if remaining:
-                if len(remaining) == 1:
-                    extra = remaining[0]
-                else:
-                    extra = " או ".join([", ".join(remaining[:-1]), remaining[-1]])
-                reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {extra} לחופשה הזו?"
-                # Remember what was just offered, so a plain "כן"/"לא" next
-                # turn settles it via _post_flight_offer_answer. Without this
-                # the "כן" reached the model with no record of the question,
-                # and it asked about the car all over again (seen live).
-                # Flights isn't offerable this way (it has its own approval
-                # flow), so only once flights is settled.
-                if statuses_after_plan.get("flights") in ("complete", "declined"):
-                    trip_update["post_flight_offer"] = [
-                        s for s in ("lodging", "car")
-                        if statuses_after_plan.get(s, "pending") not in ("complete", "declined")
-                    ]
+            # Per product owner: flights takes absolute priority over
+            # everything else, regardless of which topic the customer
+            # started with - if she built the route before ever discussing
+            # flights, approving the route must hand straight back to
+            # flights, not to a combined "flights or lodging or car?"
+            # question. Flights also isn't a yes/no offer the way
+            # lodging/car are (rule: a destination already implies flights
+            # are wanted by default) - it needs its own summary/approval
+            # flow, which _advance_sessions below will now correctly expose
+            # (ready_for_summary=True) once this turn's flights gaps are
+            # empty, instead of silently marking flights "complete" and
+            # skipping that step entirely (the bug seen live: after route
+            # approval the flight search never ran at all).
+            if statuses_after_plan.get("flights") not in ("complete", "declined"):
+                reply = "מצוין, המסלול מאושר. בואי נוודא שגם פרטי הטיסה שלמים."
+                trip_update["active_session"] = "flights"
             else:
-                reply = "מצוין, המסלול מאושר."
+                remaining = [
+                    s for s in ("lodging","car")
+                    if statuses_after_plan.get(s, "pending") not in ("complete","declined")
+                ]
+                if remaining:
+                    next_domain = remaining[0]
+                    reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
+                    # Remember what was just offered, so a plain "כן"/"לא" next
+                    # turn settles it via _post_flight_offer_answer. Without this
+                    # the "כן" reached the model with no record of the question,
+                    # and it asked about the car all over again (seen live).
+                    trip_update["post_flight_offer"] = [next_domain]
+                else:
+                    reply = "מצוין, המסלול מאושר."
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
@@ -4659,12 +4670,24 @@ def chat_clean():
                 def _wanted(service):
                     d = decisions_after_flight.get(service)
                     return (d.get("wanted") if isinstance(d, dict) else d) is True
+                # Per product owner: after flights, the remaining domains open
+                # one at a time in a fixed order - route/itinerary, then
+                # lodging, then car - never combined into one "X or Y?"
+                # question, regardless of which topic the customer started
+                # the conversation with. Combining several pending domains
+                # into a single offer is exactly the "לעולם אל תשלבי שני
+                # תחומים pending שונים... באותה שאלה" rule the rest of the
+                # conversation already follows (a short answer to a combined
+                # question is ambiguous about which domain it actually
+                # answered) - this deterministic handoff message used to be
+                # the one place that broke that rule.
+                order = ("trip_planning", "lodging", "car")
                 already_requested = [
-                    s for s in ("lodging","car","trip_planning")
+                    s for s in order
                     if _wanted(s) and statuses_after_flight.get(s) not in ("complete","declined")
                 ]
                 offered = [
-                    s for s in ("lodging","car","trip_planning")
+                    s for s in order
                     if s not in already_requested
                     and statuses_after_flight.get(s, "pending") == "pending"
                     and not _auto_declined_by_trip_type(s)
@@ -4675,11 +4698,12 @@ def chat_clean():
                 if already_requested:
                     reply = f"{lead} עכשיו נמשיך ל{_join([remaining_labels[s] for s in already_requested])}, כמו שביקשת. מתחילות?"
                 elif offered:
+                    next_domain = offered[0]
                     reply = (
-                        f"{lead} בינתיים, תרצי שאעזור גם ב{_join([remaining_labels[s] for s in offered])}? "
+                        f"{lead} בינתיים, תרצי שאעזור גם ב{remaining_labels[next_domain]}? "
                         "אם לא עכשיו, אעביר אותך לתוצאות, ותמיד אפשר לחזור לכאן בהמשך."
                     )
-                    merged["post_flight_offer"] = offered
+                    merged["post_flight_offer"] = [next_domain]
                 else:
                     reply = "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
     except Exception as exc:
