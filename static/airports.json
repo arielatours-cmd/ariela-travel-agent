@@ -1338,5 +1338,15 @@
     "country": "RO",
     "country_en": "Romania",
     "country_he": "רומניה"
+  },
+  {
+    "code": "HAN",
+    "city_en": "Hanoi",
+    "city_he": "האנוי",
+    "name_en": "Noi Bai International Airport",
+    "name_he": "נמל התעופה הבינלאומי נוי באי",
+    "country": "VN",
+    "country_en": "Vietnam",
+    "country_he": "וייטנאם"
   }
 ]

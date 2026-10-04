@@ -1761,6 +1761,40 @@ def _extract_trip_update(key, model, history, message, state=None):
         return {}
 
 
+_KNOWN_DESTINATION_NAMES_CACHE = None
+
+
+def _known_destination_names():
+    """needle -> display label for every country/city in the real airport
+    catalog (travel_agents._load_airports), built once and cached.
+
+    This used to be an 8-country hardcoded dict (Montenegro, Greece, Italy,
+    Bulgaria, Albania, Malta, Croatia, Thailand only) - seen live: a
+    customer opened a brand-new vacation with "חופשה חדשה לקפריסין" and got
+    the generic "לאן תרצי לטוס?" because Cyprus simply wasn't in that list,
+    even though Cyprus is one of the most commonly requested destinations
+    and has been in the scanned-destinations catalog the whole time. Deriving
+    this from the actual airport catalog instead means every real,
+    supported destination is recognized automatically, with no separate
+    list to remember to keep in sync."""
+    global _KNOWN_DESTINATION_NAMES_CACHE
+    if _KNOWN_DESTINATION_NAMES_CACHE is not None:
+        return _KNOWN_DESTINATION_NAMES_CACHE
+    known = {}
+    for airport in _load_airports():
+        for he_key, en_key in (("country_he", "country_en"), ("city_he", "city_en")):
+            he = str(airport.get(he_key) or "").strip()
+            en = str(airport.get(en_key) or "").strip()
+            if he:
+                known[he] = he
+            if en:
+                known[en.lower()] = en
+    # Longer names first so "דרום אפריקה" matches before a shorter,
+    # coincidentally-contained needle would.
+    _KNOWN_DESTINATION_NAMES_CACHE = dict(sorted(known.items(), key=lambda kv: -len(kv[0])))
+    return _KNOWN_DESTINATION_NAMES_CACHE
+
+
 def _deterministic_destination_facts(history, message, state=None):
     """Preserve an explicitly stated destination when extractor output misses it."""
     state = state if isinstance(state, dict) else {}
@@ -1775,20 +1809,11 @@ def _deterministic_destination_facts(history, message, state=None):
         str(x.get("content") or "") for x in reversed(history or [])
         if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"
     ]
-    known = {
-        "מונטנגרו": "מונטנגרו", "montenegro": "Montenegro",
-        "יוון": "יוון", "greece": "Greece",
-        "איטליה": "איטליה", "italy": "Italy",
-        "בולגריה": "בולגריה", "bulgaria": "Bulgaria",
-        "אלבניה": "אלבניה", "albania": "Albania",
-        "מלטה": "מלטה", "malta": "Malta",
-        "קרואטיה": "קרואטיה", "croatia": "Croatia",
-        "תאילנד": "תאילנד", "thailand": "Thailand",
-    }
+    known = _known_destination_names()
     for text in texts:
         text = text.lower()
         for needle, label in known.items():
-            if needle in text:
+            if needle.lower() in text:
                 return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
     return {}
 
