@@ -26,15 +26,27 @@ async function start(){messages.innerHTML='';let finished=false;try{finished=loc
 async function syncPostFlightDomains(ts){
  if(!tripId)return false;
  const st=(ts&&ts.session_status)||{};
+ // A save that fails (network blip, a timed-out session, a 5xx) must never
+ // be treated as done - seen live: the car summary said "everything is
+ // closed now" and the chat navigated straight to the waiting/tabs page,
+ // but the save-trip-car POST had silently failed, savedDomains.car was
+ // never set, and the very next line resets tripId/savedDomains/tripState
+ // to start a fresh conversation - so there was no later turn left to
+ // retry it on, and the car tab stayed on its empty placeholder forever.
+ // Track failures and refuse to treat the vacation as resolved (and so
+ // never reset/navigate) until every domain that claims "complete" has
+ // actually been confirmed saved.
+ let allSavedOk=true;
  for(const domain of ['lodging','car','trip_planning']){
   if(st[domain]==='complete'&&!savedDomains[domain]){
    try{
     const r=await fetch(SAVE_ENDPOINTS[domain],{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify({trip_id:tripId,trip_state:ts})});
     if(r.ok){savedDomains[domain]=true;save();}
-   }catch(e){}
+    else{allSavedOk=false;}
+   }catch(e){allSavedOk=false;}
   }
  }
- const allResolved=['lodging','car','trip_planning'].every(d=>st[d]==='complete'||st[d]==='declined');
+ const allResolved=allSavedOk&&['lodging','car','trip_planning'].every(d=>st[d]==='complete'||st[d]==='declined');
  return allResolved;
 }
 async function talk(){const text=input.value.trim();if(!text||busy)return;busy=true;send.disabled=true;input.value='';add('user',text);const prior=history.slice(-24);history.push({role:'user',content:text});save();try{const r=await fetch('/api/ariella/chat-clean',{method:'POST',headers:{'Content-Type':'application/json','X-Ariella-Client':'live-chat-v8'},credentials:'same-origin',cache:'no-store',body:JSON.stringify({message:text,history:prior,profile,trip_state:tripState})});let data={};try{data=await r.json();}catch(e){}if(!r.ok||data.status!=='success')throw new Error(data.message||'chat error');if(!data.engine_version){add('assistant','הגרסה החדשה עדיין נפרסת. רענני בעוד רגע.');return;}document.documentElement.dataset.ariellaEngine=data.engine_version;profile=data.profile||profile;tripState=data.trip_update||tripState;save();
