@@ -19,7 +19,7 @@ from urllib.parse import quote_plus
 import requests
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-_DB_FILES = ("attractions.json", "attractions_global30.json", "attractions_global30_extra.json")
+_DB_FILES = ("attractions.json", "attractions_global30.json", "attractions_global30_extra.json", "attractions_malta.json")
 _WIKI_API = "https://en.wikipedia.org/w/api.php"
 _WIKI_HEADERS = {"User-Agent": "AriellaTravelAgent/1.0 (itinerary cards)"}
 
