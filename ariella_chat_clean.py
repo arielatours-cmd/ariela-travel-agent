@@ -173,6 +173,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
 - flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. כשאין העדפה כזו השאירי null.
+- כשתוצאות הטיסות כבר נסרקו ואין טיסה ישירה ליעד (למשל התוצאה המוצגת מסומנת כ"לא כולל: טיסה ישירה"), ציייני זאת ללקוח כעובדה בפה מלא ("שימו לב - לא נמצאה טיסה ישירה ליעד הזה בתאריכים שביקשת, האפשרות הטובה ביותר שנמצאה כוללת קונקשן") ולעולם אל תשאלי שוב אם הלקוח רוצה טיסה ישירה - השאלה הזו רלוונטית רק לפני שיוצאים לסריקה ורק כשבאמת יש אפשרות ישירה אמיתית לבחור בה.
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
@@ -3140,6 +3141,17 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
         return {s: False for s in offered}
     if msg in {"כן", "בטח", "בהחלט", "כולם", "הכל", "הכול", "את הכל", "את הכול", "כן הכל", "כן הכול", "כן בבקשה", "כן, בבקשה"}:
         return {s: True for s in offered}
+    # "תעבירי"/"תעביר אותי" - the customer is asking to actually be taken to
+    # the flight results now, exactly the alternative Ariella herself offered
+    # alongside the lodging/car/route question ("אם לא עכשיו, אעביר אותך
+    # לתוצאות"). Seen live: the model-only path below has no way to express
+    # "navigate the customer" (it only ever returns true/false per service),
+    # so this got answered with chat text claiming a transfer that never
+    # actually happened - the client never got a signal to navigate anywhere.
+    # Treat it like "not now" for the offered extra services, plus the
+    # sentinel key below so the caller can set the real navigation flag.
+    if msg in {"תעבירי", "תעביר", "תעביר אותי", "תעבירי אותי", "קחי אותי לתוצאות", "העבירי אותי", "לתוצאות", "תעבירי לתוצאות"}:
+        return {"_transfer_to_results": True, **{s: False for s in offered}}
     if not key:
         return {}
     offered_text = ", ".join(f"{s} ({_POST_FLIGHT_LABELS[s]})" for s in offered)
@@ -4309,6 +4321,38 @@ def chat_clean():
         # misattributed or dropped extraction - see the function's docstring
         # for the live-transcript loop this fixes.
         post_flight_answer = _post_flight_offer_answer(message, trip_state, key, model, history)
+        if post_flight_answer.pop("_transfer_to_results", False):
+            # The customer asked to be taken to the results now, exactly the
+            # alternative Ariella's own offer named - settle it immediately
+            # and deterministically (declining the offered extras, same as a
+            # plain "לא") rather than falling through to the normal model
+            # reply, which has no way to also navigate and previously just
+            # described a transfer that never happened.
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service in post_flight_answer:
+                decisions[service] = {"wanted": False, "source": "post_flight_offer"}
+                services.discard(service)
+                statuses[service] = "declined"
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
+            trip_update["post_flight_offer"] = []
+            transfer_reply = "מעבירה אותך לתוצאות הטיסות. תמיד אפשר לחזור לכאן בהמשך ולהוסיף עוד."
+            try:
+                saved_history = list(history_before_gap) + [
+                    {'role': 'user', 'content': message},
+                    {'role': 'assistant', 'content': transfer_reply},
+                ]
+                save_ariella_conversation(session['member_id'], saved_history[-80:], trip_update)
+            except Exception:
+                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+            return jsonify({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': transfer_reply, 'trip_update': trip_update, 'start_flight_search': False,
+                'open_existing_flights': True,
+            })
         if post_flight_answer:
             decisions = dict(trip_update.get("service_decisions") or {})
             statuses = dict(trip_update.get("session_status") or {})
