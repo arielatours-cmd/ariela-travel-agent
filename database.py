@@ -1547,7 +1547,7 @@ def save_ariella_conversation(member_id: int, history: list, trip_state: dict) -
 def load_ariella_conversation(member_id: int) -> dict | None:
     with connection() as conn:
         row = conn.execute(
-            "SELECT history_json, trip_state_json FROM ariella_conversations WHERE member_id=?",
+            "SELECT history_json, trip_state_json, updated_at FROM ariella_conversations WHERE member_id=?",
             (member_id,),
         ).fetchone()
     if not row:
@@ -1556,6 +1556,7 @@ def load_ariella_conversation(member_id: int) -> dict | None:
         return {
             "history": json.loads(row["history_json"] or "[]"),
             "trip_state": json.loads(row["trip_state_json"] or "{}"),
+            "updated_at": row["updated_at"],
         }
     except (TypeError, json.JSONDecodeError):
         return None

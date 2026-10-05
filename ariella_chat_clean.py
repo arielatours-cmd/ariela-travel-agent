@@ -4,7 +4,7 @@ import os
 import re
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from flask import Blueprint, jsonify, request, session
 from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES, AIRPORT_NAMES
 import sqlite3
@@ -3458,6 +3458,66 @@ def _remember_turn_reset_trip(member_id, history, message, reply, fresh_trip_sta
         logging.exception("Failed to persist Ariella conversation reset for member %s", member_id)
 
 
+# Per product owner: a customer who goes quiet mid-planning and comes back
+# much later should never have the old, unfinished (or already-closed)
+# vacation's fields silently bleed into whatever they say next - seen live
+# as destination/date/baggage facts from a previous conversation leaking
+# into an unrelated new one. Requiring the customer to say the magic words
+# "חופשה חדשה" (handled separately above) isn't realistic; most customers
+# just start talking about the new thing. A stale gap is itself the signal.
+_STALE_SESSION_MINUTES = 60
+
+
+def _has_vacation_progress(trip_state):
+    """True when trip_state holds real in-progress vacation facts worth
+    clearing - a blank/fresh state has nothing to reset."""
+    if not isinstance(trip_state, dict):
+        return False
+    destination = trip_state.get("destination")
+    if isinstance(destination, dict) and destination.get("places"):
+        return True
+    for key in ("dates", "flight", "lodging", "car", "trip_planning", "ski"):
+        value = trip_state.get(key)
+        if isinstance(value, dict) and any(v not in (None, "", [], {}) for v in value.values()):
+            return True
+    travelers = trip_state.get("travelers")
+    if isinstance(travelers, dict) and (travelers.get("composition") or travelers.get("adults")):
+        return True
+    if trip_state.get("trip_type"):
+        return True
+    statuses = trip_state.get("session_status")
+    if isinstance(statuses, dict) and any(v not in (None, "pending") for v in statuses.values()):
+        return True
+    return False
+
+
+def _reset_stale_trip_state(trip_state, message):
+    """Same clean-slate shape used for an explicit 'new vacation' request
+    (see new_vacation_language above), but triggered by elapsed time instead
+    of the customer having to say so. Only facts in the CURRENT message seed
+    the fresh state - never the old, now-stale history."""
+    fresh = {
+        'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
+        'active_session': None,
+    }
+    seed = _deterministic_destination_facts([], message, {})
+    if seed:
+        fresh = _merge_trip_state(fresh, seed)
+    return fresh
+
+
+def _minutes_since(updated_at):
+    if not updated_at:
+        return None
+    try:
+        then = datetime.fromisoformat(str(updated_at))
+    except ValueError:
+        return None
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - then).total_seconds() / 60.0
+
+
 @ariella_chat_clean.get('/api/ariella/resume')
 def chat_resume():
     """Let a page load hydrate the member's own in-progress conversation from
@@ -3495,14 +3555,35 @@ def chat_clean():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
+    # Always consult the server-side record, even when the browser already
+    # sent its own trip_state - it's the only place that carries a reliable,
+    # server-controlled "when did we last actually talk" timestamp (the
+    # client's own copy has none), needed below for the stale-session reset.
+    saved_conversation = load_ariella_conversation(session['member_id'])
     # The browser's local cache is per-device and empties on logout/switching
     # devices. When it has no progress at all, resume the member's own
     # server-saved conversation instead of starting over.
     if not trip_state:
-        saved_conversation = load_ariella_conversation(session['member_id'])
         if saved_conversation and (saved_conversation.get('trip_state') or saved_conversation.get('history')):
             history = saved_conversation.get('history') or history
             trip_state = saved_conversation.get('trip_state') or trip_state
+    # Per product owner: a long silent gap is itself a boundary, exactly like
+    # an explicit "new vacation" request - clear unfinished/stale vacation
+    # fields so they can never leak into whatever the customer says next.
+    # upcoming_vacations (loaded further below from the DB, independent of
+    # this reset) still lets Ariella naturally offer to continue a real
+    # saved trip when one exists.
+    # The full transcript is still what gets persisted below (never erase
+    # chat history), but every deterministic fact-scan and the model's own
+    # conversational context for THIS turn use `history`, which a stale
+    # reset below truncates - otherwise destination/date/etc. facts that
+    # were just cleared from trip_state would simply be re-mined straight
+    # back out of the old messages (seen live, in testing this exact fix).
+    history_before_gap = history
+    _idle_minutes = _minutes_since((saved_conversation or {}).get('updated_at'))
+    if _idle_minutes is not None and _idle_minutes >= _STALE_SESSION_MINUTES and _has_vacation_progress(trip_state):
+        trip_state = _reset_stale_trip_state(trip_state, message)
+        history = []
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
@@ -4977,7 +5058,7 @@ def chat_clean():
     # Server-side copy of the conversation so it survives logout and follows
     # the account across devices, not just this browser's local cache.
     try:
-        saved_history = list(history) + [
+        saved_history = list(history_before_gap) + [
             {'role': 'user', 'content': message},
             {'role': 'assistant', 'content': reply or 'אני איתך 😊'},
         ]
