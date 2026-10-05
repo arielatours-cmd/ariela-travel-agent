@@ -1103,7 +1103,22 @@ def _customer_scan_rank(score: dict, answers: dict) -> float:
     if str(answers.get("destination_mode") or "open") not in {"specific", "several"}:
         return float(score.get("score") or 0)
     c = score.get("components") or {}
-    return (
+    # A customer's explicit hard requirement (direct flight only / baggage
+    # included) must never lose to a merely cheaper option that fails it.
+    # The weighted sum below only ever nudges the rank by a few points, so
+    # a slightly cheaper connecting flight could easily outrank the one
+    # direct option the customer actually asked for - seen live for both a
+    # direct-flight and a baggage-included request. Treat a stated
+    # requirement as an overriding tier instead: every offer that satisfies
+    # it ranks above every offer that doesn't, and the weighted sum below
+    # only breaks ties within the same tier.
+    priorities = {str(x) for x in (answers.get("deal_priorities") or []) if x}
+    tier = 0.0
+    if "direct" in priorities and any("ישירה" in r for r in (score.get("reasons") or [])):
+        tier += 1.0
+    if "baggage" in priorities and float(c.get("baggage") or 0) > 0:
+        tier += 0.5
+    return tier * 1_000_000 + (
         float(c.get("route") or 0) * 2.0
         + float(c.get("time_value") or c.get("hours") or 0) * 2.0
         # An explicitly stated flight-time preference is a stronger signal

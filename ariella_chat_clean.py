@@ -854,6 +854,44 @@ def _resolve_ski_destination_airports(state):
     return state
 
 
+def _narrow_ski_gateway_airport(state, message):
+    """A ski resort usually has several candidate gateway airports (see
+    _resolve_ski_destination_airports above), and once set they are never
+    narrowed again by that function. Seen live: the customer asked for
+    "ורונה, שדה קרוב לאתר הסקי, ללא קונקשיין" (Verona specifically, per
+    Ariella's own recommendation) and still got results for every other
+    candidate gateway too, with cheaper connecting flights elsewhere
+    outranking the one Verona option. Once the customer's own message
+    names exactly one of the currently-candidate airports by city/airport
+    name, lock destination_airports down to that one - a named choice is
+    always more specific than the full candidate set."""
+    state = state if isinstance(state, dict) else {}
+    if str(state.get("trip_type") or "").lower() != "ski":
+        return state
+    codes = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
+    if len(codes) <= 1:
+        return state
+    needle = str(message or "").strip().lower()
+    if not needle:
+        return state
+    by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
+    matched = []
+    for code in codes:
+        info = by_code.get(code)
+        if not info:
+            continue
+        names = (
+            str(info.get("city_he") or ""), str(info.get("city_en") or ""),
+            str(info.get("name_he") or ""), str(info.get("name_en") or ""),
+        )
+        if any(name and len(name) >= 3 and name.lower() in needle for name in names):
+            matched.append(code)
+    if len(matched) == 1 and matched != codes:
+        state = dict(state)
+        state["destination_airports"] = matched
+    return state
+
+
 def _required_state_gaps(state):
     """Return the authoritative unanswered decisions Ariella needs for requested services."""
     state = state if isinstance(state, dict) else {}
@@ -4443,6 +4481,9 @@ def chat_clean():
         trip_update = _resolve_destination_airports_from_route(trip_update)
         # A ski trip's gateway is derived from the ski resort catalog instead.
         trip_update = _resolve_ski_destination_airports(trip_update)
+        # Once the customer names one specific gateway among the resort's
+        # several candidates (e.g. "Verona"), stop searching the rest.
+        trip_update = _narrow_ski_gateway_airport(trip_update, message)
         # The customer's name/gender/home airports always come fresh from
         # their registration data, never from client-supplied state, which
         # can be stale or wrong. Loaded before the sessions advance so the
