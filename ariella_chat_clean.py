@@ -3897,6 +3897,37 @@ def chat_clean():
         if _seen_last_assistant and _role == "user":
             _triggering_user_message = str(_item.get("content") or "")
             break
+    # A vague "משהו אחר" ("something else") answering Ariella's own
+    # "continue the upcoming vacation, or is this something else?" framing
+    # (the continuity prompt rule driven by upcoming_vacations, further
+    # below) must not just re-ask the identical question in slightly
+    # different words - seen live, it looped twice in a row with near-
+    # identical phrasing because "something else" alone never cleared the
+    # model's own bar for "a clear request for a new vacation/destination".
+    # Break the loop deterministically: once the customer's answer doesn't
+    # name a concrete destination either, open the question up instead of
+    # repeating the same binary choice again.
+    _previous_offered_continue_or_other = (
+        ("ממשיכים" in last_assistant or "להמשיך" in last_assistant) and "אחר" in last_assistant
+    )
+    _vague_something_else = _normalize_confirm(message).strip() in {
+        "משהו אחר", "דבר אחר", "נושא אחר", "משהו אחר לגמרי", "לא זה", "עניין אחר", "לא קשור",
+    }
+    if _previous_offered_continue_or_other and _vague_something_else and not own_pending_question:
+        if not _deterministic_destination_facts([], message, {}):
+            open_reply = "בטח, ספרי לי - במה אפשר לעזור?"
+            try:
+                saved_history = list(history_before_gap) + [
+                    {'role': 'user', 'content': message},
+                    {'role': 'assistant', 'content': open_reply},
+                ]
+                save_ariella_conversation(session['member_id'], saved_history[-80:], trip_state)
+            except Exception:
+                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+            return jsonify({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': open_reply, 'trip_update': trip_state, 'start_flight_search': False,
+            })
     _previous_asked_new_vacation = (
         "חופשה" in last_assistant and "חדשה" in last_assistant
         and ("הקודמת" in last_assistant or "הנוכחית" in last_assistant or "אותה חופשה" in last_assistant or "למחוק" in last_assistant or "להתחיל" in last_assistant)
@@ -3971,9 +4002,9 @@ def chat_clean():
         flight_only_reset = explicit_flight_only
         pending["reset_scope"] = "flights" if flight_only_reset else "vacation"
         question = (
-            "רוצה שנתחיל טיסה חדשה לגמרי ונמחק את הפרטים הקיימים, או שנשאיר הכול ונשנה רק את מה שביקשת? (כן = להתחיל מחדש, לא = להשאיר ולשנות)"
+            "להתחיל טיסה חדשה מאפס, או להשאיר הכול ולשנות רק מה שביקשת? (כן = מחדש, לא = להשאיר)"
             if flight_only_reset else
-            "רוצה שנתחיל חופשה חדשה לגמרי ונמחק את כל הפרטים שנאספו, או שנשאיר הכול ונשנה רק את מה שביקשת? (כן = להתחיל מחדש, לא = להשאיר ולשנות)"
+            "להתחיל חופשה חדשה מאפס, או להשאיר הכול ולשנות רק מה שביקשת? (כן = מחדש, לא = להשאיר)"
         )
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
