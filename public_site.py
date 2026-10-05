@@ -4020,7 +4020,14 @@ def _apply_trip_change_and_rescan(trip_id: int, title: str, travel_window: str, 
             (title, travel_window, json.dumps(answers, ensure_ascii=False), utc_now_iso(), "change_requeued", trip_id),
         )
         conn.commit()
-    _queue_customer_scan(trip_id, answers, mode="initial")
+    if not _queue_customer_scan(trip_id, answers, mode="initial"):
+        # Another scan for this exact trip is already in flight, so the new
+        # criteria were NOT picked up by a fresh thread here - they were
+        # still persisted above, so the next scheduled paid-tier batch
+        # (run_paid_personal_search_batch) will pick them up, but that can
+        # be up to a day away. Logged so a "customer says nothing happened
+        # after I changed my flight" report is diagnosable instead of silent.
+        print(f"[CUSTOMER-SCAN] trip={trip_id} change_requeued but a scan was already in flight - will catch up on the next scheduled batch", flush=True)
 
 
 def _queue_customer_scan(trip_id: int, scan_answers: dict, mode: str = "initial", choice: str = "") -> bool:
@@ -4276,7 +4283,8 @@ def free_trip_alternative(trip_id):
             (json.dumps(answers, ensure_ascii=False), utc_now_iso(), "alternative_search_queued", trip_id),
         )
         conn.commit()
-    _queue_customer_scan(trip_id, scan_answers, mode=choice, choice=choice)
+    if not _queue_customer_scan(trip_id, scan_answers, mode=choice, choice=choice):
+        print(f"[CUSTOMER-SCAN] trip={trip_id} second-chance scan ({choice}) was already in flight - not re-queued this click", flush=True)
     return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
 
@@ -5142,7 +5150,8 @@ def new_trip():
                     (utc_now_iso(), "external_search_queued", trip_id),
                 )
                 conn.commit()
-            _queue_customer_scan(trip_id, payload, mode="initial")
+            if not _queue_customer_scan(trip_id, payload, mode="initial"):
+                print(f"[CUSTOMER-SCAN] trip={trip_id} external_search_queued but a scan was already in flight - not re-queued this click", flush=True)
 
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
 
