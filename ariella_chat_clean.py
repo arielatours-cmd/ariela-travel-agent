@@ -58,7 +58,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כאשר יש כוונת פעולה קונקרטית, שכבת אריאלה בודקת אילו פרטים הכרחיים חסרים לפי השירותים שהלקוח ביקש בפועל: טיסות, לינה, רכב ו/או תכנון מסלול ואטרקציות.
 - כאשר הלקוח מבקש חופשה/טיול ליעד מסוים, ברירת המחדל היא שטיסות רצויות ואין לשאול 'האם תרצי גם טיסה'. שאלי זאת רק אם ההקשר מצביע שהטיסות אולי כבר סגורות או שהלקוח מבקש במפורש שירות קרקעי בלבד.
 - אחרי שביררת נושא צדדי, חובה לחזור לנושא שהלקוח היה באמצעו לפני כן ולהמשיך ממנו, ולא לנטוש אותו.
-- לכל חופשה יש ארבעה סשנים פנימיים, בסדר קבוע ולא גמיש: טיסות, תכנון מסלול/אטרקציות, לינה, רכב. **טיסות תמיד ראשון** - תכנון מסלול/אטרקציות, לינה ורכב נפתחים רק אחרי שהטיסות הגיעו למצב complete (אושרו ויצאו לסריקה) או declined, אף פעם לא לפני כן, גם אם הלקוח מבקש זאת במפורש. הסדר הזה תקף תמיד, גם אם הלקוח עצמו פתח את השיחה בנושא אחר (למשל ביקש קודם רעיונות למסלול) - ברגע שהטיסות מסתיימות, הסשן הבא שנפתח הוא תמיד תכנון מסלול/אטרקציות, ואחריו לינה, ואז רכב.
+- לכל חופשה יש ארבעה סשנים פנימיים, בסדר קבוע ולא גמיש: טיסות, תכנון מסלול/אטרקציות, לינה, רכב. **טיסות תמיד ראשון** - תכנון מסלול/אטרקציות, לינה ורכב נפתחים רק אחרי שהטיסות הגיעו למצב complete (כל פרטי הטיסה ידועים - הסשן נסגר מעצמו, בלי בקשת אישור בשלב הזה) או declined, אף פעם לא לפני כן, גם אם הלקוח מבקש זאת במפורש. הסדר הזה תקף תמיד, גם אם הלקוח עצמו פתח את השיחה בנושא אחר (למשל ביקש קודם רעיונות למסלול) - ברגע שהטיסות מסתיימות, הסשן הבא שנפתח הוא תמיד תכנון מסלול/אטרקציות, ואחריו לינה, ואז רכב.
 - אם הלקוח מבקש במפורש "גם לינה"/"גם מסלול"/"גם רכב" בזמן שהטיסות עדיין לא complete/declined, אל תעברי לסשן הזה. הביעי קצרות שקלטת את הבקשה ושתחזרי אליה מיד אחרי הטיסות, והמשיכי לברר את הטיסות. הבקשה נשמרת אוטומטית (service_decisions) ותיפתח מעצמה ברגע שהטיסות יסתיימו - אין צורך לשאול עליה שוב.
 - יוצא מן הכלל היחיד לכלל הזה הוא בקשה מפורשת לחזור/לעבור לטיסות עצמן - זה תמיד מותר מיידית, כולל אחרי שכבר עברתם לסשן אחר (זו הדרך שהלקוח חוזר לשנות פרט בטיסה).
 - בכל רגע יש סשן פעיל אחד. אל תעברי מיוזמתך לסשן אחר לפני שסיימת את הנוכחי. כל הודעה עוסקת בתחום אחד בלבד: לעולם אל תשאלי באותה הודעה שאלות על שני תחומים שונים (למשל לינה ורכב). אם הלקוח ביקש תחום חדש בזמן שתחום אחר עוד פתוח, עני רק על התחום שהלקוח ביקש עכשיו, וחזרי לתחום הפתוח רק אחרי שהחדש הושלם. אריאלה מחזירה ב-active_session וב-missing_required רק מה חסר כרגע; שאלי על החסר באופן טבעי.
@@ -80,7 +80,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשאת מאשרת הבנה של תשובה שלילית, עשי זאת בקצרה ואל תחזרי מחדש על המלצה ארוכה שכבר ניתנה. המשיכי מהמידע שכבר נשמר ושאלי רק את השאלה הבאה שחסרה.
 - אל תמציאי תחומי עניין חדשים תוך כדי אישור הבנה. אם הלקוח לא ביקש למשל טבע או אווירה מקומית, אל תוסיפי אותם כאילו נבחרו.
 - יעד, תאריכים, מספר נוסעים, סוג לינה ומספר חדרים אינם שאלות כן/לא כאשר צריך לקבל מהם ערך ממשי; שאלי אותם באופן טבעי רק אם הערך עדיין חסר.
-- המילים "מאשר/מאשרת" שמורות אך ורק לאישור חיפוש הטיסות. לעולם אל תבקשי "כתבי מאשרת" אחרי סיכום של לינה, רכב או מסלול: סכמי אותם בקצרה ושאלי רק אם צריך לתקן משהו - התחום נסגר מעצמו כשכל הפרטים שלו ידועים.
+- המילים "מאשר/מאשרת" שמורות אך ורק לאישור הסופי המשולב (ראו הכלל על כך למטה) - לעולם לא לאישור טיסות, לינה, רכב או מסלול כל אחד בנפרד. לעולם אל תבקשי "כתבי מאשרת" אחרי סיכום של טיסות, לינה, רכב או מסלול בנפרד: סכמי אותם בקצרה ושאלי רק אם צריך לתקן משהו - התחום נסגר מעצמו כשכל הפרטים שלו ידועים, בלי שום בקשת אישור, ועוברים לתחום הבא.
 - מה שהלקוח כבר אישר לא מוצג שוב לאישור ולא מבקשים לאשר אותו מחדש, אלא אם הלקוח שינה בו משהו - ואז מבקשים אישור רק על השינוי.
 - כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
@@ -129,13 +129,13 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
 - אם profile.gender הוא female/נקבה, פני ללקוחה בלשון נקבה יחידה לאורך כל השיחה. אם male/זכר, פנה בלשון זכר יחיד. אל תשתמשי בלשון רבים רק כדי להימנע מבחירת מגדר.
 - אם יש profile.first_name, זהו שם הלקוח האמיתי מהרשמתו לאתר. אפשר (לא חובה) לפנות אליו בשמו הפרטי בהודעת הפתיחה של השיחה או במקום טבעי אחר, כדי שהשיחה תרגיש אישית - אבל אל תשלבי אותו בכל הודעה כאילו זו תבנית קבועה.
-- זרימת הסשנים החדשה: סשן 1 הוא טיסות בלבד. השלימי את כל פרטי הטיסה, הציגי סיכום טיסה ובקשי מאשר/מאשרת בלי לשאול לפני כן על לינה, רכב או אטרקציות.
-- אחרי אישור סיכום הטיסה החיפוש יוצא לסריקה. אל תמשיכי באותה נקודה לשאלות לינה/רכב/אטרקציות לפני ההפניה לסריקה.
-- לאחר סריקת הטיסות, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
+- זרימת הסשנים: סשן 1 הוא טיסות. השלימי את כל פרטי הטיסה באופן טבעי בשיחה - ברגע שהם ידועים הסשן נסגר מעצמו באותו האופן שבו לינה/רכב/מסלול נסגרים מעצמם, **בלי לבקש אישור/מאשר/מאשרת בשלב הזה ובלי להציג אותו כ"סיכום"**, ועוברים ישירות לסשן הבא שהתבקש (תכנון מסלול/אטרקציות, לינה, רכב - לפי הסדר הקבוע). אין יציאה לחיפוש בפועל בשלב הזה, ולכן אין גם צורך באישור נקודתי כאן.
+- המילים "מאשר/מאשרת" וגם הצגת מידע כ"סיכום" שמורות אך ורק לשלב אחד: הרגע שבו כל ארבעת הסשנים (טיסות, מסלול, לינה, רכב) כבר הגיעו ל-complete או declined, ויש בדיוק בקשה אחת מגובשת לאשר. לעולם אל תבקשי "כתבי מאשרת" ואל תציגי "סיכום" אחרי סיום טיסות/לינה/רכב/מסלול בנפרד - כל תחום נסגר מעצמו בשקט כשכל הפרטים שלו ידועים, ועוברים הלאה לתחום הבא בלי שום בקשת אישור.
+- לאחר שהבקשה המלאה אושרה ויצאה לחיפוש, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
 - אם זו אותה חופשה, אל תשאלי שוב יעד, תאריכים, נוסעים או פרטי טיסה שכבר ידועים. שאלי במה ירצה/תרצה להמשיך: לינה, השכרת רכב או תכנון מסלול ואטרקציות, ואז פתחי רק את הסשן שנבחר.
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
-- סיכום הטיסה כולל רק את פרטי הטיסה והבקשה לכתוב מאשר/מאשרת. אין להוסיף בסיכום הסבר על מה יקרה לאחר האישור או על שירותים נוספים, ואין להוסיף הצעה/שאלה פתוחה על פרט אופציונלי נוסף (כמו "יש עוד משהו לגבי הטיסה?") - הסיכום עובר ישר מהפרטים לבקשת מאשר/מאשרת.
-- רק לאחר שכל המידע ההכרחי לשירותים שהתבקשו הושלם, הציגי סיכום קצר ומלא של בקשת החיפוש. בסוף הסיכום: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר. רק המילים מאשר או מאשרת הן אישור לביצוע החיפוש.
+- הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) כולל את כל התחומים שהתבקשו יחד במקום אחד: פרטי הטיסה, ולאחריהם בקצרה פרטי כל תחום נוסף שאושר (מסלול/לינה/רכב - רק מה שבאמת רלוונטי). תחום שסומן declined מוצג בקצרה כ"לא נדרש" (ראו הכלל למעלה על החריג של trip_planning שסומן declined אוטומטית). אין להוסיף בסיכום הסבר על מה יקרה לאחר האישור מעבר לכך, ואין להוסיף הצעה/שאלה פתוחה על פרט אופציונלי נוסף (כמו "יש עוד משהו לגבי הטיסה?") - הסיכום עובר ישר מהפרטים לבקשת מאשר/מאשרת.
+- רק לאחר שכל המידע ההכרחי לכל השירותים שהתבקשו הושלם יחד, הציגי סיכום קצר ומלא של בקשת החיפוש כולה. בסוף הסיכום: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר. רק המילים מאשר או מאשרת הן אישור לביצוע החיפוש.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
@@ -618,36 +618,26 @@ def _session_gaps(state, session):
 
 
 def _advance_sessions(state):
-    """Complete the active session when full, then expose exactly one next session decision."""
+    """Complete the active session when full, then expose exactly one next session decision.
+
+    Per product owner (explicit instruction): the actual flight/lodging/car/
+    route search only ever launches once after EVERY requested domain has
+    reached a final answer (complete or declined) - never earlier. Since
+    nothing executes the moment flights alone finish, flights no longer
+    needs its own separate מאשר/מאשרת approval gate mid-conversation either;
+    it now closes itself exactly like lodging/car/trip_planning do, the
+    moment its own required fields are known ("התחום נסגר מעצמו כשכל
+    הפרטים שלו ידועים" - the same rule the prompt already states for the
+    other three). The single real approval/"מאשר/מאשרת" moment is the
+    ready_for_summary=True branch below, which only fires once ALL FOUR
+    domains are complete/declined - i.e. once there is genuinely one
+    combined request left to confirm, not four separate ones.
+    """
     state = _sessionize_state(state)
     statuses = dict(state.get("session_status") or {})
     active = state.get("active_session")
 
-    # Flights is the one session that must never auto-"complete" just
-    # because its gaps are empty - unlike lodging/car/trip_planning, which
-    # genuinely do close themselves once their details are known (rule:
-    # "התחום נסגר מעצמו כשכל הפרטים שלו ידועים"), flights has its own hard
-    # מאשר/מאשרת approval gate (_approval_trigger/search_confirmed,
-    # applied separately once the customer actually types the exact
-    # word). Treating "no gaps left" as "complete" here skipped that gate
-    # entirely - seen live: a customer who built her day-by-day route
-    # before ever discussing flights had departure_airport/dates/budget/
-    # baggage all incidentally filled in along the way (shared fields, not
-    # flight-specific questions), so by the time she approved the route,
-    # flights' gaps were already empty and this generic rule silently
-    # marked flights "complete" - the flight summary/approval step, and
-    # the actual flight search, never happened at all. Leaving
-    # session_status untouched (still whatever it was - typically
-    # "active") and active_session as "flights" keeps every other
-    # consumer of session_status (the post-route "what's still open?"
-    # check, post_flight_offer, etc.) correctly treating flights as not
-    # yet resolved, while still surfacing missing_required=[] and
-    # ready_for_summary=True below so Tinkerbell knows it's time to
-    # present the summary and ask for approval.
-    flights_ready_for_summary = False
-    if active == "flights" and not _session_gaps(state, active):
-        flights_ready_for_summary = True
-    elif active and not _session_gaps(state, active):
+    if active and not _session_gaps(state, active):
         statuses[active] = "complete"
         active = None
 
@@ -655,6 +645,9 @@ def _advance_sessions(state):
     # pending domain becomes a yes/no decision for Tinkerbell. Fixed order
     # per product owner, regardless of which topic the customer started
     # with: flights, then the itinerary/route, then lodging, then car.
+    # In practice flights is never actually offered this way - a known
+    # destination auto-activates it immediately (see _sessionize_state) -
+    # but the fallback stays correct/harmless for the rare case it isn't.
     next_pending = next((s for s in ("flights","trip_planning","lodging","car") if statuses.get(s) == "pending"), None)
     if not active:
         active = next((s for s in ("flights","trip_planning","lodging","car") if statuses.get(s) == "active"), None)
@@ -664,7 +657,7 @@ def _advance_sessions(state):
     if active:
         state["missing_required"] = _session_gaps(state, active)
         state["next_session"] = None
-        state["ready_for_summary"] = flights_ready_for_summary and active == "flights"
+        state["ready_for_summary"] = False
     elif next_pending:
         state["missing_required"] = []
         state["next_session"] = next_pending
@@ -4800,45 +4793,40 @@ def chat_clean():
         if post_flight_answer and not any(post_flight_answer.values()):
             reply = "בסדר גמור. מעבירה אותך לתוצאות הטיסה - ותמיד אפשר לחזור לכאן כדי להוסיף לינה, רכב או מסלול."
 
-        # Never let Tinkerbell present the final summary/"כתבי מאשרת" request
-        # while a required flight fact is still genuinely missing. The prompt
-        # already says to summarize only once everything requested is
-        # complete - but seen live, it asked for approval anyway with the
-        # budget never having been asked, and only "remembered" to ask for it
-        # after the customer had already said מאשרת. That is confusing on its
-        # own even before anyone tries to confirm it (a summary that turns
-        # out to be incomplete looks like a bug by itself), so catch it here
-        # proactively - not only in the separate approval_gaps handling further
-        # down, which only fires once the customer actually tries to approve.
-        if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
+        # "מאשר/מאשרת" (and the "סיכום" framing that leads into it) may only
+        # ever appear once every one of the four domains - flights included,
+        # per product owner - has reached a final answer (complete or
+        # declined): that's the single real combined-approval moment, not
+        # each domain's own completion. Recomputed fresh here (not trusted
+        # from trip_update["ready_for_summary"], which can still be a turn
+        # stale right after e.g. planning_accept just flipped trip_planning
+        # to "complete" above, before _advance_sessions recomputes it below).
+        # Two mistakes seen live, both caught the same way: (1) Tinkerbell
+        # showed a "סיכום הטיסה: ..." block and asked for approval while a
+        # genuinely required fact (budget, ישיר/קונקשן...) was still
+        # missing; (2) once a single domain's own details were complete, it
+        # asked for the reserved מאשר/מאשרת word for THAT domain alone (a
+        # car or route summary), even though the word is reserved for the
+        # one final combined approval. Never a guess from the word
+        # "סיכום"/"מאשר" alone - only acted on when the authoritative
+        # session_status disagrees.
+        _all_domains_decided_now = all(
+            str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
+            for _s in ("flights", "lodging", "car", "trip_planning")
+        )
+        if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת", "סיכום")) and not _all_domains_decided_now:
             premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
             if premature_gap_question:
                 reply = premature_gap_question
-
-        # "מאשר/מאשרת" is reserved for flight search approval only (see the
-        # TINKERBELL_SYSTEM rule above) precisely so a later "מאשרת" typed
-        # for an unrelated domain can never be misread as approving a brand
-        # new flight search. Seen live anyway: a car summary still closed
-        # with "אם כל הפרטים נכונים, כתבי מאשרת." even though flights were
-        # long since approved and the active session was car, not flights -
-        # the model violating its own instruction rather than a logic gap.
-        # _approval_trigger already refuses to treat this as a flight
-        # approval (post_flight_continuation + active_session != "flights"),
-        # but the customer-facing text itself must not ask for that word in
-        # the first place, or the mix-up risk this rule exists to prevent is
-        # exactly what the wording invites. Strip it here deterministically.
-        if (
-            trip_update.get("post_flight_continuation")
-            and str(trip_update.get("active_session") or "") != "flights"
-        ):
-            for _approval_phrase, _neutral_close in (
-                ("אם כל הפרטים נכונים, כתבי מאשרת.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגידי לי."),
-                ("אם כל הפרטים נכונים, כתוב מאשר.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגיד לי."),
-                ("אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגידו לי."),
-            ):
-                if _approval_phrase in str(reply or ""):
-                    reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
-                    break
+            else:
+                for _approval_phrase, _neutral_close in (
+                    ("אם כל הפרטים נכונים, כתבי מאשרת.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגידי לי."),
+                    ("אם כל הפרטים נכונים, כתוב מאשר.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגיד לי."),
+                    ("אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגידו לי."),
+                ):
+                    if _approval_phrase in str(reply or ""):
+                        reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
+                        break
 
         if planning_accept:
             # Approval closes only the itinerary session. Name whichever of the
@@ -5125,67 +5113,26 @@ def chat_clean():
                     services.append("flights")
                 merged["requested_services"] = services
                 trip_update = merged
-                # The approval turn must not ask any more flight questions. It is a
-                # deterministic handoff message; the browser keeps it visible for 4s
-                # before opening the scan.
+                # By construction this is the single, final approval: it only
+                # ever fires once ready_for_summary is true, which _advance_
+                # sessions only sets once every one of the four domains has
+                # already reached complete/declined (see its docstring -
+                # flights closes itself like the others now, no separate
+                # mid-conversation מאשר/מאשרת gate). There is no "also want
+                # lodging?" offer left to make here; everything requested was
+                # already decided earlier in the conversation. State the
+                # truth: the combined search (whichever domains were
+                # actually wanted) is starting now.
                 remaining_labels = {
                     "lodging":"לינה", "car":"השכרת רכב", "trip_planning":"מסלול ואטרקציות"
                 }
-                # Reassure about a domain the customer might still want even if
-                # they already said no to it earlier (declined), not only one
-                # that's still pending - "you can always come back" is exactly
-                # as true either way. The one exception is trip_planning when a
-                # business/ski trip_type default silently declined it without
-                # ever asking - that was never the customer's own decision to
-                # revisit, and mentioning it here would be confusing.
-                decisions_after_flight = merged.get("service_decisions") if isinstance(merged.get("service_decisions"), dict) else {}
-                def _auto_declined_by_trip_type(service):
-                    d = decisions_after_flight.get(service)
-                    source = d.get("source") if isinstance(d, dict) else None
-                    return source in ("business_trip_default", "ski_trip_default")
-                # Product flow: the flight scan starts now in the background
-                # and Ariella immediately asks about the remaining services in
-                # the same conversation. "No" sends the customer to the
-                # waiting page (flights only); "yes" continues with just the
-                # services she said yes to, each searched as soon as it's
-                # settled, and the waiting page comes once everything is done.
-                def _wanted(service):
-                    d = decisions_after_flight.get(service)
-                    return (d.get("wanted") if isinstance(d, dict) else d) is True
-                # Per product owner: after flights, the remaining domains open
-                # one at a time in a fixed order - route/itinerary, then
-                # lodging, then car - never combined into one "X or Y?"
-                # question, regardless of which topic the customer started
-                # the conversation with. Combining several pending domains
-                # into a single offer is exactly the "לעולם אל תשלבי שני
-                # תחומים pending שונים... באותה שאלה" rule the rest of the
-                # conversation already follows (a short answer to a combined
-                # question is ambiguous about which domain it actually
-                # answered) - this deterministic handoff message used to be
-                # the one place that broke that rule.
-                order = ("trip_planning", "lodging", "car")
-                already_requested = [
-                    s for s in order
-                    if _wanted(s) and statuses_after_flight.get(s) not in ("complete","declined")
+                wanted_extra = [
+                    remaining_labels[s] for s in ("trip_planning", "lodging", "car")
+                    if statuses_after_flight.get(s) == "complete"
                 ]
-                offered = [
-                    s for s in order
-                    if s not in already_requested
-                    and statuses_after_flight.get(s, "pending") == "pending"
-                    and not _auto_declined_by_trip_type(s)
-                ]
-                def _join(labels):
-                    return labels[0] if len(labels) == 1 else " או ".join([", ".join(labels[:-1]), labels[-1]])
-                lead = "הבקשה אושרה והטיסות כבר נסרקות ברקע - התוצאות יתעדכנו בכרטיסיית החופשה."
-                if already_requested:
-                    reply = f"{lead} עכשיו נמשיך ל{_join([remaining_labels[s] for s in already_requested])}, כמו שביקשת. מתחילות?"
-                elif offered:
-                    next_domain = offered[0]
-                    reply = (
-                        f"{lead} בינתיים, תרצי שאעזור גם ב{remaining_labels[next_domain]}? "
-                        "אם לא עכשיו, אעביר אותך לתוצאות, ותמיד אפשר לחזור לכאן בהמשך."
-                    )
-                    merged["post_flight_offer"] = [next_domain]
+                if wanted_extra:
+                    joined = wanted_extra[0] if len(wanted_extra) == 1 else " ו".join([", ".join(wanted_extra[:-1]), wanted_extra[-1]])
+                    reply = f"הבקשה אושרה ואני יוצאת עכשיו לחיפוש המלא - טיסות ו{joined}. אעדכן אותך כשהתוצאות יהיו מוכנות."
                 else:
                     reply = "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
     except Exception as exc:
