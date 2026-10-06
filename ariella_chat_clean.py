@@ -1217,9 +1217,17 @@ def _flight_gap_question(gaps, state=None):
 
 
 def _reset_intent(message):
-    """Detect possible restart/change-of-direction language without deleting state."""
+    """Detect possible restart/change-of-direction language without deleting state.
+
+    Per product owner: a bare "מהתחלה" ("from the beginning") is not on its
+    own a reset signal - seen live, "תשלחי את כל המסלול מהתחלה עם זמני
+    נסיעות" (send the whole ROUTE from its beginning/day 1) wrongly asked
+    "delete everything and start a new vacation?" when the customer just
+    wanted to see the existing itinerary again in full. Only phrases that
+    pair "מהתחלה" with an explicit start/restart verb ("להתחיל"/"נתחיל")
+    are specific enough to mean restarting the vacation itself."""
     msg = str(message or "").strip().lower()
-    phrases = ("חופשה חדשה","טיול חדש","חיפוש חדש","להתחיל מחדש","נתחיל מחדש","מהתחלה","להתחיל מהתחלה","נתחיל מהתחלה","לשנות כיוון")
+    phrases = ("חופשה חדשה","טיול חדש","חיפוש חדש","להתחיל מחדש","נתחיל מחדש","להתחיל מהתחלה","נתחיל מהתחלה","לשנות כיוון")
     return any(p in msg for p in phrases)
 
 def _full_reset_confirmation(message):
