@@ -1477,10 +1477,22 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                 # when the customer continues to the supplier.
                 cabin_map = {"economy":"1", "premium":"2", "business":"3", "first":"4", "any":"1"}
                 requested_class = cabin_map.get(str(answers.get("business_cabin_class") or "economy").lower(), "1") if str(answers.get("vacation_type") or "standard") == "business" else "1"
+                # search_flights' own docstring says "targeted/customer searches
+                # keep full depth" - but this call passed max_outbounds=1, the
+                # SAME cap the public wide-scan uses for broad discovery, which
+                # contradicts that: only Google's #1-ranked outbound flight ever
+                # got its return options expanded, so a specific-destination
+                # customer search could end up with only as many results as
+                # that single outbound's return options - 3, in a case seen
+                # live, even though the customer had a real budget/connection
+                # requirement that excluded all of them. 3 keeps the extra API
+                # cost bounded (at most 2 more requests for a single-date,
+                # single-route search) while giving a customer-specific search
+                # real depth to actually find a compliant option in.
                 if job.get("open_jaw"):
-                    result = search_open_jaw_flights(job["departure"], job["arrival"], job["return_departure"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=1, children=0)
+                    result = search_open_jaw_flights(job["departure"], job["arrival"], job["return_departure"], job["outbound"], job["return"], max_outbounds=3, travel_class=requested_class, adults=1, children=0)
                 else:
-                    result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=1, travel_class=requested_class, adults=1, children=0)
+                    result = search_flights(job["departure"], job["arrival"], job["outbound"], job["return"], max_outbounds=3, travel_class=requested_class, adults=1, children=0)
                 api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
                 completed += 1
                 for message in result.get("expansion_errors") or []:
