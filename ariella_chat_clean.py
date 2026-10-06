@@ -4905,7 +4905,13 @@ def chat_clean():
         # flight-approval case) matches on execution language - and only
         # overrides when the authoritative state genuinely disagrees.
         closing_claim = any(p in str(reply or "") for p in (
-            "הכל סגור", "כל הפרטים", "סגורים עכשיו", "החופשה שלך מוכנה",
+            # "כל הפרטים" alone is too loose: it's a substring of the
+            # ordinary per-domain approval phrasing ("אם כל הפרטים נכונים,
+            # כתבי מאשרת") used on a genuine first-time flight/lodging/car
+            # summary, which must NEVER be treated as a closing claim. The
+            # real source text this was meant to catch was "כל פרטי החופשה
+            # שלך סגורים עכשיו" - match that specific phrase instead.
+            "הכל סגור", "כל פרטי החופשה", "סגורים עכשיו", "החופשה שלך מוכנה",
             "הכל מאושר", "סיימנו", "הכל מוכן", "זה סוגר את כל", "כל התחומים",
             # Seen live: "בסדר גמור. מעבירה אותך לתוצאות הטיסה..." after a
             # lodging request went undetected (car was declined in the same
@@ -4915,12 +4921,46 @@ def chat_clean():
             # every requested domain is actually done, so this text was pure
             # fiction and the customer saw "nothing happened" after it.
             "מעבירה אותך", "מעביר אותך",
+            # Seen live: the route-approval closing line itself ("אני אשלח
+            # לך את כל האינפורמציה לכרטיסיית האטרקציות... מאחלת לך חופשה
+            # נעימה") fired even though flights had never actually been
+            # finished and lodging had never even been asked about -
+            # planning_accept's own "is this really route acceptance"
+            # detection missed the turn, so Tinkerbell's free-form judgment
+            # produced this canned "we're completely done" sign-off on its
+            # own, unchecked. None of the other closing phrases above
+            # happen to appear in this exact wording, so it slipped past
+            # this same safety net - add its own distinguishing phrases.
+            "מאחלת לך חופשה נעימה", "מאחל לך חופשה נעימה", "לכרטיסיית האטרקציות",
         ))
         pending_domain = trip_update.get("next_session") if isinstance(trip_update, dict) else None
+        if not pending_domain and isinstance(trip_update, dict):
+            # next_session is only ever set when NOTHING is active (an
+            # optional domain waiting to be offered). Flights is different:
+            # once it's the one thing left, _advance_sessions puts it
+            # straight into active_session instead (it's mandatory, never
+            # offered as a yes/no choice) - so next_session stays None even
+            # though flights still very much needs attention. Seen live:
+            # active_session was correctly "flights" here, but this check
+            # only looked at next_session, so the wrong "all done" closing
+            # text still won.
+            _still_active = trip_update.get("active_session")
+            if _still_active and (trip_update.get("session_status") or {}).get(_still_active) not in ("complete", "declined"):
+                pending_domain = _still_active
         if closing_claim and pending_domain:
-            remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
-            label = remaining_labels.get(pending_domain, pending_domain)
-            reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}, או שזה הכל להפעם?"
+            # Flights is never an optional "or is that all for now?" offer
+            # the way lodging/car/route are - it must always be resolved
+            # first (fixed session order, per product owner). The generic
+            # yes/no-offer phrasing below would wrongly imply flights can
+            # just be skipped, so it gets the same direct redirect
+            # planning_accept's own success path already uses.
+            if pending_domain == "flights":
+                reply = "עוד דבר אחד לפני שסוגרים - בואי נוודא שגם פרטי הטיסה שלמים."
+                trip_update["active_session"] = "flights"
+            else:
+                remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
+                label = remaining_labels.get(pending_domain, pending_domain)
+                reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}, או שזה הכל להפעם?"
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
