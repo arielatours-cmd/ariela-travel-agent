@@ -2837,20 +2837,19 @@ def ariella_save_trip_draft():
 
 
 def _enrich_approved_attractions(planning, assistant_plan):
-    """Match approved itinerary attractions against Ariella's shipped attraction DB."""
+    """Match approved itinerary attractions against Ariella's shipped attraction DB.
+
+    Reuses itinerary_cards._load_db() rather than keeping its own separate
+    file list - that list had drifted out of sync (missing
+    attractions_malta.json and every attractions_auto_*.json the coverage
+    agent adds for a newly-researched country), so this immediate,
+    right-after-approval enrichment silently found zero matches for a
+    destination the OTHER attraction-matching path (the background
+    itinerary_cards job, shown after a page reload) matched correctly -
+    two different displays for the same approved route, seen live."""
     raw = planning.get("attractions") if isinstance(planning, dict) else []
     raw = raw if isinstance(raw, list) else []
-    records = []
-    for filename in ("attractions.json", "attractions_global30.json", "attractions_global30_extra.json"):
-        path = os.path.join(os.path.dirname(__file__), "data", filename)
-        try:
-            with open(path, "r", encoding="utf-8") as fh:
-                payload = json.load(fh)
-            rows = payload.get("attractions", []) if isinstance(payload, dict) else payload
-            if isinstance(rows, list):
-                records.extend(x for x in rows if isinstance(x, dict))
-        except Exception:
-            logging.exception("Could not load attraction DB file %s", filename)
+    records = itinerary_cards._load_db()
 
     def name_of(x):
         if isinstance(x, dict):
