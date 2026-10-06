@@ -850,6 +850,13 @@ def _offer_meets_selected_conditions(offer, trip):
     if "direct" in priorities and int(offer.get("stops") or 0) != 0:
         return False
 
+    if "max_connections" in priorities:
+        try:
+            if int(offer.get("stops") or 0) > int(answers.get("max_connections")):
+                return False
+        except (TypeError, ValueError):
+            pass
+
     if "baggage" in priorities:
         baggage = offer.get("baggage") or {}
         carry = (baggage.get("carry_on_8kg") or {}).get("included") is True
@@ -1541,6 +1548,12 @@ def _objective_match_details(offer, trip):
     # Fundamental flight conditions first.
     if "direct" in priorities:
         add(_offer_is_direct(offer), "טיסה ישירה", "Direct flight")
+    if "max_connections" in priorities:
+        try:
+            cap = int(answers.get("max_connections"))
+            add(int(offer.get("stops") or 0) <= cap, f"עד {cap} קונקשן/ים", f"Up to {cap} connection(s)")
+        except (TypeError, ValueError):
+            pass
     if "baggage" in priorities:
         b = offer.get("baggage") or {}
         carry = (b.get("carry_on_8kg") or {}).get("included") is True
@@ -3281,6 +3294,18 @@ def ariella_start_flight_search():
     baggage = flight.get("baggage") or []
     if baggage:
         deal_priorities.append("baggage")
+    # A customer-stated cap on connections ("קונקשן אחד זה בסדר, אבל לא
+    # יותר") is a distinct, weaker request than connection_preference=
+    # "direct" (no connection at all) - both must be enforced, never
+    # silently dropped. Seen live: a 1-connection cap was captured by the
+    # extractor into flight.max_connections but nothing downstream ever
+    # read that field, so 2-connection offers were shown as if they matched.
+    try:
+        max_connections = int(flight.get("max_connections")) if flight.get("max_connections") is not None else None
+    except (TypeError, ValueError):
+        max_connections = None
+    if max_connections is not None:
+        deal_priorities.append("max_connections")
 
     # A customer changing a flight criterion (destination and/or dates) that
     # was ALREADY set on an existing, already-approved vacation is different
@@ -3391,6 +3416,7 @@ def ariella_start_flight_search():
         "age_groups": travelers.get("child_ages") or [],
         "holiday_priorities": [],
         "deal_priorities": deal_priorities,
+        "max_connections": max_connections,
         "budget_mode": "limited" if budget.get("amount") else "unlimited",
         "budget_amount": budget.get("amount"),
         "cabin_class": flight.get("cabin") or "any",
