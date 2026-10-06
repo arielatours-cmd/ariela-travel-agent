@@ -774,6 +774,38 @@ def _resolve_destination_airports_from_route(state):
     return state
 
 
+def _resolve_lodging_locations_from_route(state):
+    """An approved day-by-day route already says where the customer sleeps
+    each night (each day's base/city/region) - once lodging search opens
+    for the SAME vacation, pull that straight in instead of asking the
+    customer to repeat what they already told Ariella in trip_planning.
+    Mirrors _resolve_destination_airports_from_route's own extraction of
+    each day's base, this time into lodging.details.locations."""
+    state = state if isinstance(state, dict) else {}
+    lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
+    details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    if details.get("areas") or details.get("locations"):
+        return state
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    planning_details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
+    route = planning_details.get("route") if isinstance(planning_details.get("route"), list) else []
+    names = []
+    for day in route:
+        if isinstance(day, dict):
+            base = day.get("base") or day.get("city") or day.get("region")
+            if base and str(base) not in names:
+                names.append(str(base))
+    if not names:
+        return state
+    state = dict(state)
+    lodging = dict(lodging)
+    details = dict(details)
+    details["locations"] = ", ".join(names)
+    lodging["details"] = details
+    state["lodging"] = lodging
+    return state
+
+
 def _resolve_ski_destination_airports(state):
     """Ski gateway airports come from the ski resort catalog, not the general
     airport catalog: matching a country/resort name against SKI_RESORTS and
@@ -4563,6 +4595,9 @@ def chat_clean():
         # Once the customer names one specific gateway among the resort's
         # several candidates (e.g. "Verona"), stop searching the rest.
         trip_update = _narrow_ski_gateway_airport(trip_update, message)
+        # An approved route already answers "where do you want to stay" -
+        # lodging search on the same vacation must not re-ask it.
+        trip_update = _resolve_lodging_locations_from_route(trip_update)
         # The customer's name/gender/home airports always come fresh from
         # their registration data, never from client-supplied state, which
         # can be stale or wrong. Loaded before the sessions advance so the
