@@ -4815,6 +4815,31 @@ def chat_clean():
             if premature_gap_question:
                 reply = premature_gap_question
 
+        # "מאשר/מאשרת" is reserved for flight search approval only (see the
+        # TINKERBELL_SYSTEM rule above) precisely so a later "מאשרת" typed
+        # for an unrelated domain can never be misread as approving a brand
+        # new flight search. Seen live anyway: a car summary still closed
+        # with "אם כל הפרטים נכונים, כתבי מאשרת." even though flights were
+        # long since approved and the active session was car, not flights -
+        # the model violating its own instruction rather than a logic gap.
+        # _approval_trigger already refuses to treat this as a flight
+        # approval (post_flight_continuation + active_session != "flights"),
+        # but the customer-facing text itself must not ask for that word in
+        # the first place, or the mix-up risk this rule exists to prevent is
+        # exactly what the wording invites. Strip it here deterministically.
+        if (
+            trip_update.get("post_flight_continuation")
+            and str(trip_update.get("active_session") or "") != "flights"
+        ):
+            for _approval_phrase, _neutral_close in (
+                ("אם כל הפרטים נכונים, כתבי מאשרת.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגידי לי."),
+                ("אם כל הפרטים נכונים, כתוב מאשר.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגיד לי."),
+                ("אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגידו לי."),
+            ):
+                if _approval_phrase in str(reply or ""):
+                    reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
+                    break
+
         if planning_accept:
             # Approval closes only the itinerary session. Name whichever of the
             # other three domains are still genuinely open - this must never
