@@ -3758,8 +3758,20 @@ def chat_clean():
             reply = "בסדר, נמשיך עם זה כחופשה נפרדת."
             return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':kept,'start_flight_search':False})
         if choice == "new":
+            # Same "destination stated in the same message" rule as the other
+            # new-vacation resets (new_vacation_language above, and the
+            # _previous_asked_new_vacation confirm branch below) - seen live:
+            # answering "reopen the old vacation or something new?" with
+            # "חופשה חדשה לויאטנם" still lost Vietnam entirely here, because
+            # this branch never looked at the message for a destination at
+            # all, unlike its siblings.
             fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
-            reply = "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?"
+            seed = _deterministic_destination_facts([], message, {})
+            if seed:
+                fresh = _merge_trip_state(fresh, seed)
+            places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
+            reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
+                     if places else "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
             _remember_turn_reset_trip(member_id, history, message, reply, fresh)
             return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
         if isinstance(choice, int) and service in _REOPEN_LABELS:
