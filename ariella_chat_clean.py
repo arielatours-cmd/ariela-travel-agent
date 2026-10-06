@@ -1835,6 +1835,19 @@ def _extract_trip_update(key, model, history, message, state=None):
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
 
+# Common alternate Hebrew spellings/transliterations for a destination
+# already in the airport catalog under a different spelling. Colloquial
+# Hebrew often has more than one accepted transliteration for a foreign
+# name - seen live: the catalog has Vietnam as "וייטנאם" (from
+# static/airports.json), but a customer typing the equally common
+# "ויאטנם" got treated as an unrecognized destination entirely (no
+# substring match either way), silently dropping the destination she
+# had just named. Add more pairs here as they're found live - this is
+# a spelling-variant map, not a full destination list, so it stays small.
+_DESTINATION_SPELLING_ALIASES = {
+    "ויאטנם": "וייטנאם",
+}
+
 
 def _known_destination_names():
     """needle -> display label for every country/city in the real airport
@@ -1861,6 +1874,8 @@ def _known_destination_names():
                 known[he] = he
             if en:
                 known[en.lower()] = en
+    for alias, canonical in _DESTINATION_SPELLING_ALIASES.items():
+        known[alias] = canonical
     # Longer names first so "דרום אפריקה" matches before a shorter,
     # coincidentally-contained needle would.
     _KNOWN_DESTINATION_NAMES_CACHE = dict(sorted(known.items(), key=lambda kv: -len(kv[0])))
