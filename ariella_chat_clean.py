@@ -5162,7 +5162,32 @@ def chat_clean():
         logging.exception("persist_trip_plan computation failed; defaulting to False")
         persist_trip_plan = False
     try:
-        start_flight_search = bool(approval) and bool(trip_update.get('search_confirmed'))
+        # Per product owner: the actual flight scan (the real paid API call)
+        # must not fire the moment flights alone are approved - a customer
+        # who also wants a route can end up changing the flight dates/
+        # gateway once the route is actually built, and an already-launched
+        # scan is wasted (or worse, locks in criteria the route then
+        # contradicts). Defer the launch until EVERY domain the customer
+        # asked for - trip_planning, lodging, car - has reached a final
+        # answer (complete or declined), then launch everything together:
+        # the flight scan, and (via _attach_decided_post_flight_domains in
+        # public_site.py) the lodging/car searches and the approved
+        # itinerary, all in that one combined call. A flights-only customer
+        # sees no change - the other three are already "declined" the
+        # moment that's explicit, so this fires on the very same turn as
+        # approval exactly as it always did.
+        _domains_decided = all(
+            str((trip_update.get('session_status') or {}).get(_svc) or 'pending') in ('complete', 'declined')
+            for _svc in ('trip_planning', 'lodging', 'car')
+        )
+        _combined_search_already_launched = bool(trip_update.get('combined_search_launched'))
+        start_flight_search = (
+            bool(trip_update.get('search_confirmed'))
+            and _domains_decided
+            and not _combined_search_already_launched
+        )
+        if start_flight_search:
+            trip_update['combined_search_launched'] = True
     except Exception:
         logging.exception("start_flight_search computation failed; defaulting to False")
         start_flight_search = False

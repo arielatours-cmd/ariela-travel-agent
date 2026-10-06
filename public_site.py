@@ -3193,6 +3193,103 @@ def _find_duplicate_active_trip(member_id, departure_airport, destination_codes,
     return None
 
 
+def _attach_decided_post_flight_domains(trip_id: int, state: dict, history: list) -> None:
+    """Per product owner: the flight scan itself is now deferred (see
+    ariella_chat_clean.py's start_flight_search gating) until trip_planning/
+    lodging/car are ALL already decided in the same conversation - a
+    customer who wants a route too must be able to let it inform the
+    flight dates/gateway before anything is searched, instead of locking
+    in flight criteria that the route then contradicts.
+
+    Because those domains' own save-trip-plan/save-trip-lodging/
+    save-trip-car endpoints all require an existing trip_id (which this
+    call is the one that creates), their details never went through those
+    endpoints during the deferred conversation - they only ever lived in
+    the chat's own trip_state. Attach and launch each one here, in the
+    same call that creates the trip and queues the flight scan, exactly as
+    if the customer had used those endpoints individually right after
+    flights were approved (the old, non-deferred behavior)."""
+    session_status = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+
+    trip_planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    if session_status.get("trip_planning") == "complete" and trip_planning.get("approved"):
+        assistant_plan = str(trip_planning.get("approved_text") or "").strip()
+        if not assistant_plan:
+            assistant_plan = _most_recent_itinerary_shaped_message(history)
+        if assistant_plan:
+            with _db() as conn:
+                row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+            try:
+                answers = json.loads(row["answers_json"] or "{}") if row else {}
+            except Exception:
+                answers = {}
+            answers["_approved_itinerary"] = {
+                "text": assistant_plan,
+                "approved_at": utc_now_iso(),
+                "planning_state": trip_planning,
+                "attractions": _enrich_approved_attractions(trip_planning, assistant_plan),
+            }
+            answers["_trip_planning_complete"] = True
+            requested = set(answers.get("_requested_services") or [])
+            requested.add("trip_planning")
+            answers["_requested_services"] = sorted(requested)
+            db_status = dict(answers.get("_session_status") or {})
+            db_status["trip_planning"] = "complete"
+            answers["_session_status"] = db_status
+            _save_trip_answers(trip_id, answers)
+            _queue_itinerary_cards(trip_id)
+
+    lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
+    lodging_details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    if session_status.get("lodging") == "complete" and lodging_details:
+        with _db() as conn:
+            row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+        try:
+            answers = json.loads(row["answers_json"] or "{}") if row else {}
+        except Exception:
+            answers = {}
+        answers["lodging_type"] = lodging_details.get("type") or ""
+        answers["lodging_rooms"] = lodging_details.get("rooms")
+        answers["lodging_budget_per_person"] = lodging_details.get("budget")
+        answers["lodging_level"] = lodging_details.get("level") or ""
+        answers["lodging_location"] = lodging_details.get("locations") or lodging_details.get("location") or ""
+        answers.pop("_lodging_search_finished", None)
+        answers.pop("_lodging_search_result", None)
+        requested = set(answers.get("_requested_services") or [])
+        requested.add("lodging")
+        answers["_requested_services"] = sorted(requested)
+        db_status = dict(answers.get("_session_status") or {})
+        db_status["lodging"] = "complete"
+        answers["_session_status"] = db_status
+        _save_trip_answers(trip_id, answers)
+        _queue_lodging_search(trip_id, dict(answers))
+
+    car = state.get("car") if isinstance(state.get("car"), dict) else {}
+    car_details = car.get("details") if isinstance(car.get("details"), dict) else {}
+    if session_status.get("car") == "complete" and car_details:
+        with _db() as conn:
+            row = conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+        try:
+            answers = json.loads(row["answers_json"] or "{}") if row else {}
+        except Exception:
+            answers = {}
+        answers["car_vehicle_type"] = car_details.get("vehicle_type") or ""
+        answers["car_transmission"] = car_details.get("transmission") or ""
+        answers["car_seats"] = car_details.get("seats")
+        answers["car_pickup"] = car_details.get("pickup") or ""
+        answers["car_return"] = car_details.get("return") or ""
+        answers.pop("_car_search_finished", None)
+        answers.pop("_car_search_result", None)
+        requested = set(answers.get("_requested_services") or [])
+        requested.add("car")
+        answers["_requested_services"] = sorted(requested)
+        db_status = dict(answers.get("_session_status") or {})
+        db_status["car"] = "complete"
+        answers["_session_status"] = db_status
+        _save_trip_answers(trip_id, answers)
+        _queue_car_search(trip_id, dict(answers))
+
+
 @site.post("/api/ariella/start-flight-search")
 @login_required
 def ariella_start_flight_search():
@@ -3606,6 +3703,11 @@ def ariella_start_flight_search():
         queued = _queue_customer_scan(trip_id, payload, mode="initial")
         if not queued:
             return jsonify({"status":"error","message":"לא ניתן היה להפעיל את הסריקה כרגע."}), 503
+    # This call only ever fires once trip_planning/lodging/car are ALL
+    # already decided (the chat layer defers it until then) - attach and
+    # launch whichever of them the customer actually wanted, in the same
+    # call that just created this trip and queued its flight scan.
+    _attach_decided_post_flight_domains(trip_id, state, history)
     # The flight session is done; the saved conversation reopens fresh next time.
     reset_ariella_conversation_trip_state(session["member_id"])
     return jsonify({"status":"queued","trip_id":trip_id,"waiting_url":url_for("site.trip_waiting",trip_id=trip_id)})

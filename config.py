@@ -65,7 +65,7 @@ CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
 # {pickup_time}, {return_time} (HH:MM, 10:00 when the customer gave none); it is sent
 # as CJ's standard ?url= deep-link parameter. Blank = partner's home page.
 CAR_RENTAL_AFFILIATE_LINK = os.getenv("CAR_RENTAL_AFFILIATE_LINK", "").strip()
-CAR_RENTAL_PARTNER_NAME = os.getenv("CAR_RENTAL_PARTNER_NAME", "Discover Cars").strip() or "Discover Cars"
+CAR_RENTAL_PARTNER_NAME = os.getenv("CAR_RENTAL_PARTNER_NAME", "VIP Cars").strip() or "VIP Cars"
 CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "").strip()
 # Lodging partner via CJ (Agoda / Trip.com / etc.), same pattern as the car
 # partner: the lodging tab keeps its real Google Hotels results for price
