@@ -1481,6 +1481,66 @@ def _strip_leaked_internal_paragraph(text):
     return rest
 
 
+_ITINERARY_WEEKDAY_RE = re.compile(
+    r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
+)
+_ITINERARY_NUMBERED_DAY_RE = re.compile(r"(?<![א-ת])יום\s+(\d{1,2})(?!\d)")
+_ITINERARY_DATE_BEFORE_WEEKDAY_RE = re.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+# Matches the day-count Tinkerbell states in its one-sentence opener before a
+# day-by-day itinerary ("הנה הצעה ל-4 הימים", "מסלול 5 ימים", "4 ימי טיול").
+_ITINERARY_INTRO_COUNT_RE = re.compile(r"(\d{1,2})(?:[\s-]*ה?ימים\b|[\s-]*ימי\s)")
+
+
+def _itinerary_body_day_count_and_start(text):
+    """Count the real day-by-day entries an itinerary reply actually
+    presents, and where the first one starts - same detection logic used
+    elsewhere in this file to recognize itinerary shape (2+ weekday
+    mentions, or 2+ distinct numbered "יום N" mentions, whichever style is
+    actually used), reused here so the day count checked against is the
+    same one a human reading the message would count."""
+    text = str(text or "")
+    weekday_positions = []
+    for m in _ITINERARY_WEEKDAY_RE.finditer(text):
+        prefix = text[max(0, m.start() - 20):m.start()]
+        if _ITINERARY_DATE_BEFORE_WEEKDAY_RE.search(prefix):
+            continue
+        weekday_positions.append(m.start())
+    numbered = {}
+    for m in _ITINERARY_NUMBERED_DAY_RE.finditer(text):
+        numbered.setdefault(m.group(1), m.start())
+    if len(numbered) > len(weekday_positions):
+        return len(numbered), min(numbered.values())
+    if weekday_positions:
+        return len(weekday_positions), weekday_positions[0]
+    return 0, None
+
+
+def _fix_itinerary_intro_day_count(reply):
+    """Tinkerbell's one-sentence opener before a day-by-day itinerary
+    sometimes states a day count that contradicts the itinerary it then
+    actually presents. Seen live: "הנה הצעה ל-4 הימים" followed by a full
+    five-day plan (יום ראשון...יום חמישי) for dates that were genuinely a
+    5-day/4-night trip (27.6-1.7). The itinerary body itself was built
+    correctly from the approved dates - only the single number in the
+    opening sentence was wrong (most likely the model silently/incorrectly
+    restating "4 nights" as "4 days" instead of 5). Rather than trust the
+    model's own arithmetic in free text, fix that one number to match the
+    itinerary actually presented - the real, visible proof of how many
+    days this is - same deterministic-safety-net philosophy as the other
+    helpers in this file (never trust free text for a fact with exactly
+    one correct, checkable answer)."""
+    text = str(reply or "")
+    count, start = _itinerary_body_day_count_and_start(text)
+    if count < 2 or start is None:
+        return reply
+    intro = text[:start]
+    match = _ITINERARY_INTRO_COUNT_RE.search(intro)
+    if not match or int(match.group(1)) == count:
+        return reply
+    fixed_intro = intro[:match.start(1)] + str(count) + intro[match.end(1):]
+    return fixed_intro + text[start:]
+
+
 def _fix_child_gender_wording(text, state):
     """Deterministic safety net, same philosophy as the two helpers above: a
     prompt instruction alone did not reliably stop the model from inventing a
@@ -4342,9 +4402,26 @@ def chat_clean():
     if trip_state.get("conversation_boundary") == "current_trip":
         history = _current_trip_history(history, trip_state)
 
-    date_conflict = _weekday_date_conflict(message, history)
-    if date_conflict:
-        return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
+    # Seen live: Ariella offered two pre-computed candidate ranges (both
+    # already weekday-validated at generation time), the customer picked
+    # one by replying "27 עד 1.7" (departure day bare, return date in
+    # day.month shorthand), and _weekday_date_conflict's own independent,
+    # naive date-extraction only found the ONE full "D.M" token (1.7 -
+    # the return date) in the message - it has no way to parse a bare day
+    # number like "27" as a date. That single found date then got
+    # positionally zipped against [departure_weekday, return_weekday] as
+    # if it were the departure, producing a false "01.07.2027 is Thursday,
+    # but you wanted Sunday" conflict for a choice that was correct all
+    # along. _deterministic_candidate_choice_facts is the authoritative,
+    # already-validated mechanism for resolving a reply against pre-
+    # computed candidates - when it actually resolves this message, trust
+    # it and skip the separate, more fragile weekday-conflict heuristic
+    # entirely rather than let two independent parsers of the same text
+    # disagree.
+    if not _deterministic_candidate_choice_facts(message, trip_state):
+        date_conflict = _weekday_date_conflict(message, history)
+        if date_conflict:
+            return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     if not key:
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
@@ -4802,6 +4879,7 @@ def chat_clean():
             # model has a transient failure. The next user turn can continue.
             reply = "קלטתי את הפרטים. נמשיך מכאן."
         reply = _fix_child_gender_wording(reply, trip_update)
+        reply = _fix_itinerary_intro_day_count(reply)
         if post_flight_answer and not any(post_flight_answer.values()):
             reply = "בסדר גמור. מעבירה אותך לתוצאות הטיסה - ותמיד אפשר לחזור לכאן כדי להוסיף לינה, רכב או מסלול."
 
