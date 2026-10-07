@@ -101,6 +101,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם חסרים יותר משלושה פרטים, בחרי את 1–3 הפרטים שהכי טבעי לברר עכשיו, המתיני לתשובה, ורק בהודעה הבאה שאלי את היתר.
 - אל תצרפי לשאלה שלוש שאלות ואז תוסיפי בסוף עוד בחירה או שאלה "קטנה". סך כל הדברים שמבקשים מהלקוח להחליט או למסור בהודעה אחת הוא עד שלושה.
 - לטיסות, בדקי בין היתר רק כשחסר ורלוונטי: תקציב לאדם, כבודה, ישירה/קונקשן, מוצא, שדה/שדות יעד ותאריכים.
+- שאלת הכבודה חייבת להשתמש אך ורק במילים האלה, בדיוק כך: "טרולי בלבד", "מזוודה בבטן המטוס", "תיק קטן". לדוגמה: "יש לכם רק טרולי, גם מזוודה בבטן המטוס, או רק תיק קטן?". לעולם אל תנסחי זאת במילים אחרות או מומצאות משלך.
 - שעות יציאה/חזרה מועדפות לטיסה (בוקר/צהריים/ערב) הן שדה אופציונלי בלבד ואינן ברשימת הבדיקה הזו. לעולם אל תשאלי עליהן, לא כשאלה ישירה ולא כהצעה כללית כמו "יש עוד משהו לגבי הטיסה?" או "שעות מועדפות, או שנקבע את זה גמיש?" - גם לא בתוך סיכום הטיסה לפני בקשת מאשר/מאשרת. שמרי אותן רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף.
 - יעד גאוגרפי ושדה תעופה יעד הם שני נתונים נפרדים. אזור אינו מידע חובה. אם הלקוח כתב מדינה או יעד רחב שיכולים להתאים ליותר משדה תעופה אחד (למשל: קפריסין - לרנקה/פאפוס; איטליה - רומא/מילאנו; ספרד - ברצלונה/מדריד; גרמניה - ברלין/מינכן; פולין - קרקוב/ורשה), אל תשאלי קודם "איזה אזור?" רק כדי להשלים מידע ואל תבחרי שדה אחד בעצמך. במקום זה, בשאלה אחת: הציגי בקצרה את שדות התעופה/ערי השער הרלוונטיים, **וגם** ציינו את האפשרות לבקש קודם בניית מסלול (ואז שדה/שדות היעד ייגזרו ממנו) - כדי שהלקוח יידע משתי האפשרויות ולא ייתקע בשלב האישור בלי לדעת שהיה יכול לבקש את זה קודם.
 - גם עיר בודדת (לא רק מדינה/אזור רחב) יכולה להיות משורתת על ידי כמה שדות תעופה אמיתיים (למשל ניו יורק, פריז, לונדון, טוקיו, איסטנבול). כשזה המקרה, מידע מאומת על השדות והשמות שלהם יימסר לך למטה כ"היעד מתאים ליותר משדה תעופה אמיתי אחד" - השתמשי אך ורק ברשימה הזו, אל תוסיפי שדה משלך מהידע הכללי שלך, גם אם הוא נכון במציאות: אם השדה לא ברשימה שקיבלת, אל תזכירי אותו בכלל.
@@ -2335,7 +2336,14 @@ def _deterministic_only_flights_facts(message):
 
 
 def _deterministic_budget_facts(message):
-    """Treat explicit no-budget-limit language as a completed budget decision."""
+    """Treat explicit no-budget-limit language as a completed budget decision,
+    and parse an explicit numeric budget amount directly - never depend on
+    an LLM call alone for a fact this structured (the extractor, or the
+    _budget_answer_by_meaning fallback below, each a single point of
+    failure on their own). Seen live: "טרולי לכל אחד ותקציב של עד 1000
+    לכרטיס" - a perfectly ordinary, common phrasing - was not captured, and
+    Ariella asked for the budget again immediately after the customer had
+    just stated it in the very same message."""
     msg = str(message or "").strip().lower()
     no_limit_phrases = (
         "אין תקציב", "אין לי תקציב", "ללא תקציב", "בלי תקציב", "בלי הגבלה", "ללא הגבלה",
@@ -2344,6 +2352,20 @@ def _deterministic_budget_facts(message):
     )
     if any(p in msg for p in no_limit_phrases):
         return {"budget_per_person":{"amount":None,"currency":None,"status":"unlimited"}}
+    # Either "תקציב ... <number>" (the word itself, a number shortly after -
+    # "עד", "של", "בערך" etc. in between), or a bare "<number> <currency?>
+    # לאדם/לכרטיס/לנוסע" even without the word "תקציב" at all.
+    # The currency word/amount of intervening text varies too much to
+    # require an exact enum right next to the number ("1000 שח לאדם" has no
+    # gershayim, "1000 שקלים בערך לאדם" has an extra word) - same lazy
+    # "any non-digit text within a short window" approach as the תקציב
+    # pattern above, not a fixed phrase list.
+    m = re.search(r"תקציב[^\d]{0,20}?(\d{2,6})", msg) \
+        or re.search(r"(\d{2,6})[^\d]{0,15}?ל(?:כל\s+)?(?:אדם|כרטיס|נוסע|אחד)", msg)
+    if m:
+        amount = int(m.group(1))
+        currency = "USD" if re.search(r"דולר|\$", msg) else "EUR" if re.search(r"יורו|€", msg) else "ILS"
+        return {"budget_per_person": {"amount": amount, "currency": currency, "status": "known"}}
     return {}
 
 
@@ -3026,9 +3048,18 @@ def _deterministic_traveler_facts(message, existing=None):
     # "partner" (בן/בת זוג) is an adult, never a child.
     msg_no_partner = re.sub(r"(?:בן|בת)\s+(?:ה)?זוג\w*", " ", msg)
     # "זוג" as its own word - not "זוגי"/"זוגית" (a double room/bed) and not
-    # "2 זוגות" (four adults).
+    # "2 זוגות" (four adults). Any first-person-possessive mention of a
+    # spouse/partner ("בעלי", "אשתי", "בן/בת הזוג שלי") implies the speaker
+    # plus that spouse are two adults, regardless of where in the sentence
+    # it appears or what exact words surround it - a fixed list of whole-
+    # phrase word orders ("אני ובעלי") doesn't generalize to every natural
+    # phrasing a customer actually uses. Seen live: "חופשה משפחתית עם בעלי
+    # ובת 17 שלי" matched none of the listed phrases (it says "עם בעלי", not
+    # "אני ובעלי"), so adults was silently never set, and the gap re-asked
+    # for travelers again later in the conversation as if nothing had been
+    # said at all.
     if re.search(r"(?<![\u05d0-\u05ea])(?:ו|ל|כ|ה)?זוג(?![\u05d0-\u05ea])", msg_no_partner) \
-            or any(p in msg for p in ("אני ובעלי", "אני ואשתי", "בעלי ואני", "אשתי ואני", "אני ובן הזוג", "אני ובת הזוג")):
+            or re.search(r"בעלי\b|אשתי\b|(?:בן|בת)\s*(?:ה)?זוג(?:י|ה)?\b|(?:ה)?בעל\s+שלי|(?:ה)?אישה\s+שלי", msg):
         facts["adults"] = 2
     m = re.search(r"(\d+)\s*זוגות", msg)
     if m:
