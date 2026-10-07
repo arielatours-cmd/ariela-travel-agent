@@ -2202,7 +2202,18 @@ def _deterministic_candidate_choice_facts(message, state=None):
         # Only matches when exactly one candidate's own (departure_day,
         # return_day) pair appears in that order in the message, so a
         # coincidental lone number elsewhere in a longer reply can't misfire.
-        day_numbers = [int(n) for n in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", msg)]
+        # A "D.M" token (e.g. "1.7") counts as a single day-number (the day),
+        # not two separate bare numbers - otherwise "1.7 עד 27" (seen live:
+        # the customer referencing the return date in day.month shorthand,
+        # then the departure day bare, in REVERSE order) split into [1, 7, 27]
+        # and never lined up against any candidate, so the choice silently
+        # failed to resolve and Tinkerbell was left to free-text its own
+        # guess at the dates - exactly the "never compute dates yourself"
+        # mistake the prompt already warns against, just reached a different
+        # way (no candidate matched, not no candidates at all).
+        day_numbers = []
+        for m in re.finditer(r"(?<!\d)(\d{1,2})\.(\d{1,2})(?!\d)|(?<!\d)(\d{1,2})(?!\d)", msg):
+            day_numbers.append(int(m.group(1) if m.group(1) is not None else m.group(3)))
         if len(day_numbers) >= 2:
             candidate_day_pairs = []
             for candidate in candidates:
@@ -2212,7 +2223,8 @@ def _deterministic_candidate_choice_facts(message, state=None):
             matches = [
                 candidate for candidate, dep_day, ret_day in candidate_day_pairs
                 for i in range(len(day_numbers) - 1)
-                if day_numbers[i] == dep_day and day_numbers[i + 1] == ret_day
+                if (day_numbers[i] == dep_day and day_numbers[i + 1] == ret_day)
+                or (day_numbers[i] == ret_day and day_numbers[i + 1] == dep_day)
             ]
             if len(matches) == 1:
                 chosen = matches[0]
