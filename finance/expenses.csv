@@ -1,5 +1,6 @@
 date,vendor,category,description,amount,currency,recurring,status,notes
-,SerpAPI,סריקות,"Developer plan - 5,000 searches/month",75,USD,monthly,לאמת תאריך,"מחיר מאומת לפי config.py; צריך תאריך חיוב וחשבונית"
+,SerpAPI,סריקות,"Developer plan - 5,000 searches/month",75,USD,monthly,קבוע,"אישרה בעלת העסק 2026-10-08: מתחדש אוטומטית כל חודש; חיוב אחרון ≈235.4 ₪; תאריך חיוב — לאמת"
+,Claude,פיתוח,"Claude — מנוי לכתיבת הקוד",60,ILS,monthly,קבוע,"אישרה בעלת העסק 2026-10-08: עלות חודשית קבועה 60 ₪; תאריך חיוב — לאמת"
 ,Render,אחסון,"Web service + persistent disk 1GB",,USD,monthly,חסר סכום,"render.yaml: ariela-travel-agent-v6"
 ,Anthropic,AI,"Claude API - שיחות אריאלה",,USD,usage,חסר סכום,"לפי חשבונית/קונסולה חודשית"
 ,Meta,WhatsApp,"WhatsApp Business API",,USD,usage,חסר סכום,"לפי שיחות; כרגע whatsapp_enabled=false"
