@@ -21,7 +21,8 @@ wide_searches = A["wide_scan_cap_per_run"] * A["days_per_month"]
 free_lo = U["free_scan_searches_low"] * per_search
 free_hi = U["free_scan_searches_high"] * per_search
 
-rev = {k: v * month_over_period for k, v in A["plan_prices_ils"].items()}
+vat_div = 1 + A.get("vat_rate", 0) if A.get("prices_include_vat") else 1
+rev = {k: v / vat_div * month_over_period for k, v in A["plan_prices_ils"].items()}
 var = {"update": 0.0, "scan": paid_scan_searches * per_search}
 var_multi = paid_scan_searches_multi * per_search
 
@@ -41,7 +42,7 @@ def fixed(wide_on):
 
 print("# סימולציית כלכלת לקוח\n")
 print(f"שער מחויב: {rate} ₪/$ · עלות חיפוש SerpAPI: {per_search:.3f} ₪ "
-      f"(${U['serpapi_pack_usd']}/{U['serpapi_pack_searches']:,}) · כל הסכומים לפני AI ולפני מע\"מ/סליקה\n")
+      f"(${U['serpapi_pack_usd']}/{U['serpapi_pack_searches']:,}) · הכנסה נטו אחרי מע\"מ {A.get('vat_rate', 0):.0%} · לפני AI וסליקה\n")
 
 print("## 1. לקוח בודד שלא משלם\n")
 print(f"- סריקה ראשונה חינם: {U['free_scan_searches_low']}–{U['free_scan_searches_high']} חיפושים = **{ils(free_lo)}–{ils(free_hi)}** (חד-פעמי)")

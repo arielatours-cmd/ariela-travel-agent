@@ -17,7 +17,8 @@
     "today_scenario": "Owner 2026-10-08: no real customers; 2 registered accounts used for development testing. QA searches ~370/month = estimate from SerpAPI dashboard",
     "usd_to_ils": "Actual card charges: SerpAPI $25=77.1, $50=155.5, $75=235.4 ILS; Anthropic $20=63 ILS (3.08–3.15)",
     "serpapi_starter": "SerpAPI plan page screenshot 2026-10-08: Starter $25/month, 1,000 searches/month, 200 searches/hour throughput (Best Effort)",
-    "serpapi_production": "SerpAPI plan page screenshot 2026-10-08: Production $150/month, 15,000 searches/month, 3,000 searches/hour, U.S. Legal Shield"
+    "serpapi_production": "SerpAPI plan page screenshot 2026-10-08: Production $150/month, 15,000 searches/month, 3,000 searches/hour, U.S. Legal Shield",
+    "vat": "Owner 2026-10-08: עוסק מורשה. Rate 18% since 2025-01-01, unchanged for 2026 (vatcalc.com, trykintsugi.com) — confirm with accountant. Prices 19/39 assumed VAT-inclusive (consumer prices in Israel are quoted incl. VAT)"
   },
   "usd_to_ils": 3.14,
   "days_per_month": 30.4,
@@ -115,5 +116,7 @@
       3,
       10
     ]
-  }
+  },
+  "vat_rate": 0.18,
+  "prices_include_vat": true
 }
