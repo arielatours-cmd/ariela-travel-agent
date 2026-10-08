@@ -53,11 +53,11 @@ CREATE INDEX IF NOT EXISTS idx_whatsapp_opt_events_member ON whatsapp_opt_events
 - **נוסח** (פנייה ניטרלית, ברבים):
   > 🎉 *איזה כיף שהצטרפתם!*
   > מעכשיו, פעם ביום, אריאלה תשלח לכם לכאן את הדילים הכי שווים שמצאה — טיסות מנתב"ג במחיר אמיתי, כולל מזוודה.
-  > ✈️ הדילים מגיעים בימים א'–ה' (לא בשבת).
+  > ✈️ הדילים מגיעים כל יום, חוץ משבת.
   > 💬 ובכל רגע אפשר פשוט לכתוב לאריאלה ולתכנן חופשה.
   > רוצים להפסיק? לחיצה אחת על הכפתור למטה 👇
   > [הפסקת הדילים]
-  (ימי השליחה — לפי `schedule_rules.delivery_status`; לבדוק שהנוסח תואם לכלל בפועל לפני ההגשה.)
+  (ימי השליחה — לפי `schedule_rules.delivery_status`: בחורף לא שולחים בשישי עד מוצ"ש, בקיץ לא בשבת. "כל יום חוץ משבת" הוא ניסוח פשוט ללקוח.)
 - ההודעה היא יזומה → נשלחת כתבנית (template) עם כפתור quick reply. עד שיש תבנית מאושרת: לשמור את ההודעה בתור/לוג ולהציג תצוגה מקדימה במסך המנהל — **לא לשלוח**.
 
 ### 4. כפתור בכל הודעת דילים יומית
@@ -100,6 +100,9 @@ CREATE INDEX IF NOT EXISTS idx_whatsapp_opt_events_member ON whatsapp_opt_events
 - סקריפט ב-tools/ (בסגנון הקיים) על DB זמני: תשלום → ברכה; לחיצה מלקוח פעיל / לא פעיל / עם חופשה במעקב / מספר לא מוכר; הצטרפות מחדש.
 - בדיקה ידנית: מתג באתר, תצוגה מקדימה במסך המנהל, שורות `whatsapp_opt_events`.
 - דוח QA_REPORT בסגנון הקיים.
+
+## הערה חשובה למפתח
+הטבלאות `whatsapp_member_links` ו-`whatsapp_conversation_state` נקראות ב-nova_conversation.py וב-nova_whatsapp.py, אבל **לא מצאתי בקוד יצירה שלהן** (`CREATE TABLE`). לפני שמסתמכים על `linked_member_for_phone` — לוודא שהן קיימות במסד בפרודקשן, ואם לא — להוסיף `CREATE TABLE IF NOT EXISTS` ב-`init_db` לפי העמודות שבשימוש. עד אז, `_handle_stop` יעטוף את `linked_member_for_phone` ב-try/except ויעבור ל-`registered_member_for_phone`.
 
 ## מחוץ להיקף
 - חיבור ה-webhook ל-`route_inbound` ושליחה בפועל; הגשת התבניות ל-Meta.
