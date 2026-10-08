@@ -146,6 +146,7 @@
           @media(max-width:520px){.sub-row{font-size:11.5px}}
         </style>
 
+        <button type="button" class="vacation-collapse-toggle">{{ 'לפתיחה' if not loop.first else 'לסגירה' }}</button>
         <div class="vacation-collapsible">
         <div class="vacation-tabs{% if a.get('vacation_type') in ('ski', 'business') %} tabs-3{% endif %}" role="tablist">
           <button class="vacation-tab active" data-tab="flights-{{ trip.id }}">✈ טיסות</button>
@@ -374,7 +375,6 @@
         </div>
         {% endif %}
         </div>
-        <button type="button" class="vacation-collapse-toggle">{{ 'לפתיחה' if not loop.first else 'לסגירה' }}</button>
       </article>
       {% endfor %}
     {% else %}
