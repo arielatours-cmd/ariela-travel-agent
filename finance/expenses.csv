@@ -13,7 +13,7 @@ date,vendor,category,description,amount,currency,recurring,status,notes
 2026-09,SerpAPI,סריקות,"SerpAPI — חיוב 1",155.5,ILS,usage,שולם,"מסרה בעלת העסק 2026-10-08; שני חיובים בספטמבר — לאמת"
 2026-09,OpenAI,AI,"ChatGPT — מנוי",73,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08; אומת ChatGPT; המנוי בוטל — אין חיובים עתידיים"
 2026-09,Anthropic,AI,"Anthropic (API?)",62.2,ILS,usage,שולם,"מסרה בעלת העסק 2026-10-08"
-2026-09,Claude,AI,"Claude (מנוי?)",60,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08; לאמת אם מנוי Claude או API"
+2026-09,Claude,פיתוח,"Claude — מנוי לכתיבת הקוד",60,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08; אומת: מנוי Claude לפיתוח (לא ה-API של אריאלה)"
 2026-09,SerpAPI,סריקות,"SerpAPI — חיוב 2",235.4,ILS,usage,שולם,"מסרה בעלת העסק 2026-10-08; שני חיובים בספטמבר — לאמת"
 2026-10,Render,אחסון,"Web service + disk",22.9,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08"
 2026-10,Anthropic,AI,"Anthropic (API?)",63,ILS,usage,שולם,"מסרה בעלת העסק 2026-10-08"
