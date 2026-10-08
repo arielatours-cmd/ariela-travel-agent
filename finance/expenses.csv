@@ -4,7 +4,6 @@ date,vendor,category,description,amount,currency,recurring,status,notes
 ,Render,אחסון,"Web service + persistent disk 1GB",,USD,monthly,חסר סכום,"render.yaml: ariela-travel-agent-v6"
 ,Anthropic,AI,"Claude API - שיחות אריאלה",,USD,usage,חסר סכום,"לפי חשבונית/קונסולה חודשית"
 ,Meta,WhatsApp,"WhatsApp Business API",,USD,usage,חסר סכום,"לפי שיחות; כרגע whatsapp_enabled=false"
-,Google,אחסון,"Google One 100GB",80,ILS,yearly,קבוע,"צילום מסך מנויים (Google Play) 2026-10-08: התשלום הבא 80 ₪ ב-2027-03-04; אישרה בעלת העסק 2026-10-08: משמש את העסק"
 ,דומיין,אתר,"שם דומיין",,USD,yearly,חסר סכום,
 2026-07,OpenAI,AI,"ChatGPT Plus — מנוי",73,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08; תאריך מדויק לא נמסר; אומת ChatGPT; המנוי בוטל — מסתיים 2026-10-10 (צילום מסך מנויים (Google Play) 2026-10-08); אין חיובים עתידיים"
 2026-08,Render,אחסון,"Web service + disk",15.1,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08"
