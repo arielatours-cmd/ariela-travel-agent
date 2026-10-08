@@ -1,5 +1,5 @@
 date,vendor,category,description,amount,currency,recurring,status,notes
-,SerpAPI,סריקות,"Developer plan - 5,000 searches/month",75,USD,monthly,קבוע,"אישרה בעלת העסק 2026-10-08: מתחדש אוטומטית כל חודש; חיוב אחרון ≈235.4 ₪; תאריך חיוב — לאמת"
+,SerpAPI,סריקות,"חידוש חבילת סריקות — ידני",85,USD,on-demand,לפי החלטה,"מסרה בעלת העסק 2026-10-08: לא מתחדש אוטומטית; החידוש הבא $85 כשתוחלט; מספר החיפושים בחבילה — לאמת; רכישה אחרונה $75 ל-5,000"
 ,Claude,פיתוח,"Claude Pro — מנוי לכתיבת הקוד",59.99,ILS,monthly,קבוע,"צילום מסך מנויים (Google Play) 2026-10-08: התשלום הבא 59.99 ₪ ב-2026-10-21 (חיוב ב-21 לחודש)"
 ,Render,אחסון,"Web service + persistent disk 1GB",,USD,monthly,חסר סכום,"render.yaml: ariela-travel-agent-v6"
 ,Anthropic,AI,"Claude API - שיחות אריאלה",,USD,usage,חסר סכום,"לפי חשבונית/קונסולה חודשית"
