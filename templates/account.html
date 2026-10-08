@@ -41,9 +41,8 @@
             <button type="button" class="vqt-tab vqt-tab-facts" data-vqt="vqt-facts-{{ trip.id }}">פרטי הבקשה</button>
             <button type="button" class="vqt-tab vqt-tab-sub" data-vqt="vqt-sub-{{ trip.id }}">מעקב יומי בתשלום</button>
           </div>
-          <button type="button" class="vacation-collapse-toggle">{{ 'לפתיחה' if not loop.first else 'לסגירה' }}</button>
 
-          <div class="vacation-collapsible">
+          <div>
           <div class="vqt-panel" id="vqt-facts-{{ trip.id }}">
             <ul class="vacation-request-facts">
               <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
@@ -375,6 +374,7 @@
         </div>
         {% endif %}
         </div>
+        <button type="button" class="vacation-collapse-toggle">{{ 'לפתיחה' if not loop.first else 'לסגירה' }}</button>
       </article>
       {% endfor %}
     {% else %}
