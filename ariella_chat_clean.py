@@ -683,6 +683,49 @@ def _advance_sessions(state):
     return state
 
 
+def _reject_unrequested_trip_planning_activation(trip_state, trip_update, message):
+    """trip_planning has no mandatory default the way flights does (a
+    destination alone implies flights are wanted - see _sessionize_state).
+    Lodging/car already require a genuine wanted=true decision before they
+    can go "active" (see the "A 'wanted: True' decision..." comment in
+    _sessionize_state); trip_planning must be held to the exact same bar,
+    but the extractor can still slip and set service_decisions.trip_
+    planning.wanted=true from indirect context (a destination/route name
+    mentioned while discussing something else) without the customer ever
+    actually asking for route help. Seen live: right after a flight
+    summary, Tinkerbell pivoted straight into "בואי נדבר קצת על המסלול...
+    יש לכם העדפה לקצב?" with no yes/no question at all - the session had
+    already gone "active" on its own.
+
+    Only reverts a decision that is genuinely NEW this turn (trip_planning
+    was not already wanted=true before this message) and has no real
+    route/itinerary language anywhere in the customer's own current
+    message - a want recorded on an earlier turn, which is what makes
+    trip_planning activate once flights/whatever came before it closes,
+    is always left alone."""
+    prev_status = str(((trip_state or {}).get("session_status") or {}).get("trip_planning") or "")
+    new_statuses = (trip_update or {}).get("session_status") if isinstance(trip_update, dict) else None
+    if not isinstance(new_statuses, dict) or new_statuses.get("trip_planning") != "active" or prev_status == "active":
+        return trip_update
+    prev_decisions = (trip_state or {}).get("service_decisions") if isinstance(trip_state, dict) else {}
+    prev_decision = prev_decisions.get("trip_planning") if isinstance(prev_decisions, dict) else None
+    prev_wanted = prev_decision.get("wanted") if isinstance(prev_decision, dict) else prev_decision
+    if prev_wanted is True:
+        return trip_update
+    if any(k in str(message or "") for k in ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול", "לתכנן")):
+        return trip_update
+    trip_update = dict(trip_update)
+    statuses = dict(new_statuses)
+    statuses["trip_planning"] = "pending"
+    trip_update["session_status"] = statuses
+    decisions = dict(trip_update.get("service_decisions") or {})
+    decisions.pop("trip_planning", None)
+    trip_update["service_decisions"] = decisions
+    if trip_update.get("active_session") == "trip_planning":
+        trip_update["active_session"] = None
+    return trip_update
+
+
 def _direct_route_available(state):
     """True when the requested destination has a known nonstop route from the selected Israeli origin."""
     state = state if isinstance(state, dict) else {}
@@ -4766,6 +4809,9 @@ def chat_clean():
         # departure default counts toward the flight gaps.
         trip_update["profile"] = _member_profile(session["member_id"])
         trip_update = _apply_home_airport(trip_update)
+        # trip_planning must never silently activate itself without a
+        # genuine customer decision - see the function's own docstring.
+        trip_update = _reject_unrequested_trip_planning_activation(trip_state, trip_update, message)
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
         if trip_update["profile"].get("gender"):
