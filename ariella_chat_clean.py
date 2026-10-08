@@ -382,6 +382,19 @@ def _merge_trip_state(previous, incoming):
         # flags it must never undo a prior True.
         if key in {"search_intent", "ready_for_summary", "search_confirmed"} and old is True and value is False:
             continue
+        # dates.needs_confirmation is the mirror case: once dates are genuinely
+        # settled (False - the exact-dates replace branch above always writes
+        # it False), it must never silently flip back to True except through
+        # that same explicit replace path. Seen live: the extractor's JSON for
+        # an unrelated turn (mid route-planning, nowhere near dates) came back
+        # with needs_confirmation=true - maybe residual/default noise in its
+        # output - and nothing here protected against it, so a resolved,
+        # already-approved date range silently reopened as a "gap" again,
+        # with the exact departure/return still sitting right next to it.
+        # Tinkerbell then re-asked for dates deep into the flight-details
+        # conversation as if the customer had never answered at all.
+        if key == "needs_confirmation" and old is False and value is True:
+            continue
         merged[key] = value
     return merged
 
