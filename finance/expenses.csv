@@ -3,8 +3,6 @@ date,vendor,category,description,amount,currency,recurring,status,notes
 ,Claude,פיתוח,"Claude Pro — מנוי לכתיבת הקוד",59.99,ILS,monthly,קבוע,"צילום מסך מנויים (Google Play) 2026-10-08: התשלום הבא 59.99 ₪ ב-2026-10-21 (חיוב ב-21 לחודש)"
 ,Render,אחסון,"Web service + persistent disk 1GB",22.9,ILS,monthly,קבוע,"render.yaml: ariela-travel-agent-v6; סכום לפי חיוב אוקטובר 2026 (ספטמבר 22.5)"
 ,Anthropic,AI,"Claude API - שיחות אריאלה",,USD,usage,חסר סכום,"לפי חשבונית/קונסולה חודשית"
-,Meta,WhatsApp,"WhatsApp Business API",,USD,usage,חסר סכום,"לפי שיחות; כרגע whatsapp_enabled=false"
-,דומיין,אתר,"שם דומיין",,USD,yearly,חסר סכום,
 2026-07,OpenAI,AI,"ChatGPT Plus — מנוי",73,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08; תאריך מדויק לא נמסר; אומת ChatGPT; המנוי בוטל — מסתיים 2026-10-10 (צילום מסך מנויים (Google Play) 2026-10-08); אין חיובים עתידיים"
 2026-08,Render,אחסון,"Web service + disk",15.1,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08"
 2026-08,OpenAI,AI,"ChatGPT Plus — מנוי",73,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08; אומת ChatGPT; המנוי בוטל — מסתיים 2026-10-10 (צילום מסך מנויים (Google Play) 2026-10-08); אין חיובים עתידיים"
@@ -17,3 +15,8 @@ date,vendor,category,description,amount,currency,recurring,status,notes
 2026-09,SerpAPI,סריקות,"SerpAPI — Developer $75 / 5,000 חיפושים",235.4,ILS,usage,שולם,"מסרה בעלת העסק 2026-10-08: הרכישה האחרונה $75 ל-5,000 (שער משתמע ≈3.14)"
 2026-10,Render,אחסון,"Web service + disk",22.9,ILS,monthly,שולם,"מסרה בעלת העסק 2026-10-08"
 2026-10-03,Anthropic,AI,"Claude API — קרדיט מראש $20 (One-time credit purchase)",63,ILS,usage,שולם,"קבלה Anthropic PBC #2717-5401-1803, חשבונית U11UPFUI-0002: $20 ב-2026-10-03; 63 ₪ בכרטיס (שער ≈3.15)"
+,דומיין,אתר,"דומיין co.il — בסיום הפיתוח",,USD,yearly,עתידי,"הערכה $25–50 לשנה (≈80–160 ₪) לפי רשמים בינלאומיים (domainoffer.net); מחיר רשם ישראלי — לאמת"
+,SerpAPI,סריקות,"Starter — 1,000 חיפושים (הקנייה הבאה לבדיקות)",25,USD,on-demand,עתידי,"מחיר מאומת מעמוד החבילות 2026-10-08; ≈78 ₪"
+,SerpAPI,סריקות,"Production — 15,000 חיפושים (כשהסריקה הרחבה תחזור)",150,USD,monthly,עתידי,"מחיר מאומת מעמוד החבילות 2026-10-08; ≈471 ₪"
+,Meta,WhatsApp,"WhatsApp Business — לפי הודעה (כשיחובר)",,USD,usage,עתידי,"הערכה לישראל: utility ≈$0.0053, marketing ≈$0.0353 להודעה (מחשבון צד ג', תעריף 4/2026); מ-1.10.2026 גם הודעות שירות בתשלום — לאמת מול Meta"
+,סליקה,תשלומים,"ספק סליקה למנויי 19/39 ₪ — עוד לא נבחר",,ILS,usage,עתידי,"אישרה בעלת העסק 2026-10-08: אין ספק סליקה כרגע; עמלה לאחוז מכל תשלום — לקבל הצעה"
