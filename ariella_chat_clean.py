@@ -43,6 +43,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
+- לעולם אל תשתמשי בכינויי חיבה כמו "חמוד/ה", "מתוק/ה", "יקר/ה" כפנייה ללקוח - גם כשהם מנוסחים נכון מגדרית. פנייה מקצועית וחמה בלי כינויי חיבה.
 - סיכום פרטי החופשה מיועד רק לשלב הסיכום הסופי לפני אישור החיפוש, או כאשר יש סתירה/אי-בהירות שדורשת אימות.
 - אל תראייני את הלקוח. אל תנהלי רצף של שאלות איסוף נתונים.
 - missing_required הוא מידע עזר מאריאלה, לא שאלון ולא הוראה לשאול מיד. קודם הביני ועני לבקשה הנוכחית של הלקוח; רק כשפרט חסר באמת נחוץ להמשך, שלבי שאלה עליו באופן טבעי.
@@ -68,7 +69,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם הלקוח רק מוסר מיוזמתו פרט מידע על סשן אחר תוך כדי תשובה על הסשן הפעיל (לא מבקש לעבור), אפשר לשמור אותו ב-state, אך אל תנטשי בגללו את הסשן הפעיל. כשהסשן האחר יגיע, השתמשי במה שכבר נשמר.
 - בכל שלב, ודאי שהלקוח יודע שהוא יכול לחזור ולשנות פרט מסשן קודם שכבר טופל (למשל "רוצה לשנות משהו בטיסה") - זה תמיד אפשרי, לא רק בתגובה לשאלה מפורשת. אפשר להזכיר זאת בקצרה במעברים בין סשנים (למשל "אפשר תמיד לחזור ולשנות פרט בטיסה אם צריך").
 - רק כאשר כל ארבעת הסשנים הם complete או declined אפשר להגיע לסיכום ולאישור הסופי.
-- בסיכום הסופי הציגי את כל ארבעת התחומים. תחום שהלקוח בחר יוצג עם הפרטים הרלוונטיים; תחום שסומן declined **כי הלקוח עצמו כך ענה** יוצג בקצרה כ"לא נדרש" (למשל "רכב שכור: לא נדרש"). כך הלקוח יכול לוודא שגם החלטות שליליות נקלטו נכון. יוצא מן הכלל: תכנון מסלול/אטרקציות שסומן declined אוטומטית בגלל trip_type עסקים/סקי (ולא נשאל כלל, כמו שצוין למעלה) אינו החלטה של הלקוח - אל תציגי אותו בסיכום בכלל, לא כ"לא נדרש" ולא בשום ניסוח אחר, כדי לא ליצור רושם שגוי שזו שאלה שנשאלה ונענתה.
+- בסיכום הסופי הציגי רק את התחומים שהלקוח אכן ביקש וסגר (למשל טיסות, ואם רלוונטי גם מסלול/לינה/רכב) עם הפרטים הרלוונטיים שלהם. תחום שסומן declined (הלקוח ענה שהוא לא רוצה בו, או שסומן אוטומטית כלא רלוונטי לסוג הנסיעה) **אינו מופיע בסיכום בכלל** - לא כ"לא נדרש" ולא בשום ניסוח אחר. הסיכום משקף רק את מה שבאמת מתבצע.
 - אין להפוך את ארבעת התחומים לצ'קליסט או שאלון. אפשר לשלב הצעה או המלצה, לשאול שאלה אחת טבעית, ולהתקדם לפי תשובת הלקוח. המטרה היא שיחה חופשית שבסופה ברור לגבי כל תחום אם הלקוח רוצה בו עזרה או לא.
 - העדיפי שאלת כן/לא רק כאשר מדובר בהחלטה בינארית אמיתית, ובניסוח שיחתי טבעי. לדוגמה: "חשוב לך שהטיסה תהיה ישירה?", "יש לך הגבלת תקציב?", "תרצי שאחפש גם לינה?", "תרצי רכב שכור?".
 - שאלות כן/לא הן כלי לפישוט החלטה, לא מבנה השיחה. אסור לשלוח רצף של שאלות כן/לא או להפוך את השיחה לשאלון. אחרי תשובה המשיכי באופן טבעי לנושא המתאים.
@@ -135,7 +136,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - לאחר שהבקשה המלאה אושרה ויצאה לחיפוש, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
 - אם זו אותה חופשה, אל תשאלי שוב יעד, תאריכים, נוסעים או פרטי טיסה שכבר ידועים. שאלי במה ירצה/תרצה להמשיך: לינה, השכרת רכב או תכנון מסלול ואטרקציות, ואז פתחי רק את הסשן שנבחר.
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
-- הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) כולל את כל התחומים שהתבקשו יחד במקום אחד: פרטי הטיסה, ולאחריהם בקצרה פרטי כל תחום נוסף שאושר (מסלול/לינה/רכב - רק מה שבאמת רלוונטי). תחום שסומן declined מוצג בקצרה כ"לא נדרש" (ראו הכלל למעלה על החריג של trip_planning שסומן declined אוטומטית). אין להוסיף בסיכום הסבר על מה יקרה לאחר האישור מעבר לכך, ואין להוסיף הצעה/שאלה פתוחה על פרט אופציונלי נוסף (כמו "יש עוד משהו לגבי הטיסה?") - הסיכום עובר ישר מהפרטים לבקשת מאשר/מאשרת.
+- הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) כולל במקום אחד רק את התחומים שהלקוח אכן ביקש וסגר: פרטי הטיסה, ולאחריהם בקצרה פרטי כל תחום נוסף שאושר (מסלול/לינה/רכב - רק מה שבאמת רלוונטי). תחום שסומן declined **אינו מופיע בסיכום בכלל** (ראו הכלל למעלה). אם יש לפחות תחום אחד כזה, סיימי את הסיכום (לפני שורת האישור) במשפט תזכורת קצר אחד וכללי - לא רשימה של התחומים הספציפיים - שאפשר תמיד לחזור ולתכנן גם את מה שלא נדרש הפעם. אין להוסיף הסבר נוסף על מה יקרה לאחר האישור מעבר לכך, ואין להוסיף הצעה/שאלה פתוחה על פרט אופציונלי נוסף (כמו "יש עוד משהו לגבי הטיסה?") - התזכורת היא משפט מידע, לא שאלה, והסיכום עובר ישר ממנה לבקשת מאשר/מאשרת.
 - רק לאחר שכל המידע ההכרחי לכל השירותים שהתבקשו הושלם יחד, הציגי סיכום קצר ומלא של בקשת החיפוש כולה. בסוף הסיכום: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר. רק המילים מאשר או מאשרת הן אישור לביצוע החיפוש.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
@@ -381,6 +382,19 @@ def _merge_trip_state(previous, incoming):
         # False is a valid explicit value for some fields, but for cumulative search
         # flags it must never undo a prior True.
         if key in {"search_intent", "ready_for_summary", "search_confirmed"} and old is True and value is False:
+            continue
+        # dates.needs_confirmation is the mirror case: once dates are genuinely
+        # settled (False - the exact-dates replace branch above always writes
+        # it False), it must never silently flip back to True except through
+        # that same explicit replace path. Seen live: the extractor's JSON for
+        # an unrelated turn (mid route-planning, nowhere near dates) came back
+        # with needs_confirmation=true - maybe residual/default noise in its
+        # output - and nothing here protected against it, so a resolved,
+        # already-approved date range silently reopened as a "gap" again,
+        # with the exact departure/return still sitting right next to it.
+        # Tinkerbell then re-asked for dates deep into the flight-details
+        # conversation as if the customer had never answered at all.
+        if key == "needs_confirmation" and old is False and value is True:
             continue
         merged[key] = value
     return merged
@@ -668,6 +682,58 @@ def _advance_sessions(state):
         state["next_session"] = None
         state["ready_for_summary"] = all(v in ("complete","declined") for v in statuses.values())
     return state
+
+
+_TRIP_PLANNING_REQUEST_WORDS = ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול", "לתכנן")
+
+
+def _reject_unrequested_trip_planning_activation(trip_state, trip_update, message, history=None):
+    """trip_planning has no mandatory default the way flights does (a
+    destination alone implies flights are wanted - see _sessionize_state).
+    Lodging/car already require a genuine wanted=true decision before they
+    can go "active" (see the "A 'wanted: True' decision..." comment in
+    _sessionize_state); trip_planning must be held to the exact same bar,
+    but the extractor can still slip and set service_decisions.trip_
+    planning.wanted=true from indirect context (a destination/route name
+    mentioned while discussing something else) without the customer ever
+    actually asking for route help. Seen live, twice: right after a flight
+    summary / right after picking a departure airport, Tinkerbell pivoted
+    straight into "בואי נתכנן את המסלול..." with no yes/no question at
+    all - the session had already gone "active" on its own.
+
+    A first version of this check trusted service_decisions.trip_planning.
+    wanted itself as evidence a want was "already recorded on an earlier
+    turn" - but that is exactly the value the extractor can corrupt, and it
+    can corrupt it quietly on a turn where trip_planning isn't active yet
+    (still gated behind flights), so by the time it does activate the flag
+    already reads wanted=true with nothing genuine behind it. Checked here
+    instead, every time trip_planning newly activates: does ANY user
+    message in the actual conversation (not the extractor's derived flag)
+    contain real route/itinerary language? Declining trip_planning
+    explicitly ("לא רוצה לתכנן מסלול") already works correctly today
+    (lodging/car get asked normally afterward) - this only covers the
+    silent-activation side."""
+    prev_status = str(((trip_state or {}).get("session_status") or {}).get("trip_planning") or "")
+    new_statuses = (trip_update or {}).get("session_status") if isinstance(trip_update, dict) else None
+    if not isinstance(new_statuses, dict) or new_statuses.get("trip_planning") != "active" or prev_status == "active":
+        return trip_update
+    user_texts = [str(message or "")]
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            user_texts.append(str(item.get("content") or ""))
+    combined = " ".join(user_texts)
+    if any(k in combined for k in _TRIP_PLANNING_REQUEST_WORDS):
+        return trip_update
+    trip_update = dict(trip_update)
+    statuses = dict(new_statuses)
+    statuses["trip_planning"] = "pending"
+    trip_update["session_status"] = statuses
+    decisions = dict(trip_update.get("service_decisions") or {})
+    decisions.pop("trip_planning", None)
+    trip_update["service_decisions"] = decisions
+    if trip_update.get("active_session") == "trip_planning":
+        trip_update["active_session"] = None
+    return trip_update
 
 
 def _direct_route_available(state):
@@ -4753,6 +4819,9 @@ def chat_clean():
         # departure default counts toward the flight gaps.
         trip_update["profile"] = _member_profile(session["member_id"])
         trip_update = _apply_home_airport(trip_update)
+        # trip_planning must never silently activate itself without a
+        # genuine customer decision - see the function's own docstring.
+        trip_update = _reject_unrequested_trip_planning_activation(trip_state, trip_update, message, history)
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
         if trip_update["profile"].get("gender"):
