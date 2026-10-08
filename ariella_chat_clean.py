@@ -717,6 +717,17 @@ def _reject_unrequested_trip_planning_activation(trip_state, trip_update, messag
     new_statuses = (trip_update or {}).get("session_status") if isinstance(trip_update, dict) else None
     if not isinstance(new_statuses, dict) or new_statuses.get("trip_planning") != "active" or prev_status == "active":
         return trip_update
+    # A structured "want help with the route too?" offer (post_flight_offer,
+    # asked explicitly once flights/lodging/car close) that the customer
+    # just answered yes to is already a genuine decision by construction -
+    # it must never be reverted just because the customer's own short reply
+    # ("כן בבקשה") doesn't happen to repeat a route keyword. This guard
+    # exists to catch the extractor inventing intent from indirect context,
+    # not to second-guess an explicit deterministic offer/answer pair.
+    decisions_now = trip_update.get("service_decisions") if isinstance(trip_update, dict) else None
+    planning_decision = (decisions_now or {}).get("trip_planning") if isinstance(decisions_now, dict) else None
+    if isinstance(planning_decision, dict) and planning_decision.get("source") == "post_flight_offer":
+        return trip_update
     user_texts = [str(message or "")]
     for item in (history or []):
         if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
@@ -5009,14 +5020,33 @@ def chat_clean():
             if premature_gap_question:
                 reply = premature_gap_question
             else:
-                for _approval_phrase, _neutral_close in (
-                    ("אם כל הפרטים נכונים, כתבי מאשרת.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגידי לי."),
-                    ("אם כל הפרטים נכונים, כתוב מאשר.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגיד לי."),
-                    ("אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת.", "אם הכל נכון אני ממשיכה - ואם יש משהו לתקן, תגידו לי."),
-                ):
-                    if _approval_phrase in str(reply or ""):
-                        reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
-                        break
+                # Flights itself has no real gap left - what's actually still
+                # open is one of the other three domains, not yet decided.
+                # Per Carmit: don't first ask a vague "is everything correct?"
+                # (whose כן/לא answer doesn't even say what it's answering)
+                # and then, once that's settled, ask again for the real
+                # מאשרת - that is two rounds for what should be one. Ask the
+                # single concrete question that's actually still open (do you
+                # want lodging/car/route too?) instead of a generic neutral
+                # close; only once that's answered - and every domain really
+                # is decided - does the one real מאשרת request appear.
+                _next_premature = trip_update.get("next_session")
+                if _next_premature in _POST_FLIGHT_LABELS:
+                    reply = f"מעולה, פרטי הטיסה מלאים. תרצי שאמשיך גם עם {_POST_FLIGHT_LABELS[_next_premature]}?"
+                    trip_update["post_flight_offer"] = [_next_premature]
+                else:
+                    # Not phrased as "is it all correct or do you want to fix
+                    # something?" - that compound question leaves a plain
+                    # כן/לא answer with no way to tell which half it answers.
+                    # A single, non-question continuation instead.
+                    for _approval_phrase, _neutral_close in (
+                        ("אם כל הפרטים נכונים, כתבי מאשרת.", "ממשיכה מכאן - אם יש משהו לתקן, תגידי לי בכל שלב."),
+                        ("אם כל הפרטים נכונים, כתוב מאשר.", "ממשיך מכאן - אם יש משהו לתקן, תגיד לי בכל שלב."),
+                        ("אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת.", "ממשיכה מכאן - אם יש משהו לתקן, תגידו לי בכל שלב."),
+                    ):
+                        if _approval_phrase in str(reply or ""):
+                            reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
+                            break
 
         if planning_accept:
             # Approval closes only the itinerary session. Name whichever of the
