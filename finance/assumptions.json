@@ -12,16 +12,32 @@
     "serpapi_developer": "config.py comment: Developer plan $75 / 5000 searches, checked live with the business owner",
     "caps": "config.py CUSTOMER_SCAN_MAX_API_REQUESTS=120, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS=3 (12 multi-gateway); scanner.py wide scan cap 220",
     "schedule": "scheduler.py: wide scan daily (currently PAUSED), paid 'scan' tier noon search Sun-Fri (never Saturday)",
-    "plans": "config.py PERSONAL_SEARCH_PLANS: update=19 ILS, scan=39 ILS per SEARCH_PERIOD_DAYS=34"
+    "plans": "config.py PERSONAL_SEARCH_PLANS: update=19 ILS, scan=39 ILS per SEARCH_PERIOD_DAYS=34",
+    "serpapi_account_2026-10-08": "SerpAPI dashboard screenshot: Developer $75/month, Active, renewal 2026-10-23, 5,000 plan searches, 4,817 left (183 used), extra credits 0"
   },
   "usd_to_ils": 3.7,
   "days_per_month": 30.4,
   "paid_scan_days_per_month": 26.1,
   "search_period_days": 34,
   "serpapi_plans": [
-    {"name": "Developer", "usd_per_month": 75, "searches": 5000, "verified": true},
-    {"name": "Production", "usd_per_month": 150, "searches": 15000, "verified": false},
-    {"name": "Big Data", "usd_per_month": 275, "searches": 30000, "verified": false}
+    {
+      "name": "Developer",
+      "usd_per_month": 75,
+      "searches": 5000,
+      "verified": true
+    },
+    {
+      "name": "Production",
+      "usd_per_month": 150,
+      "searches": 15000,
+      "verified": false
+    },
+    {
+      "name": "Big Data",
+      "usd_per_month": 275,
+      "searches": 30000,
+      "verified": false
+    }
   ],
   "current_serpapi_plan": "Developer",
   "wide_scan_cap_per_run": 220,
@@ -31,11 +47,38 @@
   "multi_gateway_share": 0.15,
   "free_scan_cap": 120,
   "free_scan_avg_requests": 60,
-  "plan_prices_ils": {"update": 19, "scan": 39},
+  "plan_prices_ils": {
+    "update": 19,
+    "scan": 39
+  },
   "llm_cost_ils_per_conversation": null,
   "scenarios": [
-    {"name": "היום (סריקה רחבה מושהית)", "wide_scan_active": false, "scan_customers": 2, "update_customers": 3, "new_trips_per_month": 20, "manual_qa_requests_per_month": 300, "conversations_per_month": 60},
-    {"name": "השקה (סריקה רחבה פעילה)", "wide_scan_active": true, "scan_customers": 10, "update_customers": 20, "new_trips_per_month": 80, "manual_qa_requests_per_month": 200, "conversations_per_month": 300},
-    {"name": "צמיחה", "wide_scan_active": true, "scan_customers": 50, "update_customers": 100, "new_trips_per_month": 300, "manual_qa_requests_per_month": 100, "conversations_per_month": 1200}
+    {
+      "name": "היום (סריקה רחבה מושהית)",
+      "wide_scan_active": false,
+      "scan_customers": 2,
+      "update_customers": 3,
+      "new_trips_per_month": 20,
+      "manual_qa_requests_per_month": 300,
+      "conversations_per_month": 60
+    },
+    {
+      "name": "השקה (סריקה רחבה פעילה)",
+      "wide_scan_active": true,
+      "scan_customers": 10,
+      "update_customers": 20,
+      "new_trips_per_month": 80,
+      "manual_qa_requests_per_month": 200,
+      "conversations_per_month": 300
+    },
+    {
+      "name": "צמיחה",
+      "wide_scan_active": true,
+      "scan_customers": 50,
+      "update_customers": 100,
+      "new_trips_per_month": 300,
+      "manual_qa_requests_per_month": 100,
+      "conversations_per_month": 1200
+    }
   ]
 }
