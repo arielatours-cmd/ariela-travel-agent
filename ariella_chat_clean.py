@@ -683,7 +683,10 @@ def _advance_sessions(state):
     return state
 
 
-def _reject_unrequested_trip_planning_activation(trip_state, trip_update, message):
+_TRIP_PLANNING_REQUEST_WORDS = ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול", "לתכנן")
+
+
+def _reject_unrequested_trip_planning_activation(trip_state, trip_update, message, history=None):
     """trip_planning has no mandatory default the way flights does (a
     destination alone implies flights are wanted - see _sessionize_state).
     Lodging/car already require a genuine wanted=true decision before they
@@ -692,27 +695,33 @@ def _reject_unrequested_trip_planning_activation(trip_state, trip_update, messag
     but the extractor can still slip and set service_decisions.trip_
     planning.wanted=true from indirect context (a destination/route name
     mentioned while discussing something else) without the customer ever
-    actually asking for route help. Seen live: right after a flight
-    summary, Tinkerbell pivoted straight into "בואי נדבר קצת על המסלול...
-    יש לכם העדפה לקצב?" with no yes/no question at all - the session had
-    already gone "active" on its own.
+    actually asking for route help. Seen live, twice: right after a flight
+    summary / right after picking a departure airport, Tinkerbell pivoted
+    straight into "בואי נתכנן את המסלול..." with no yes/no question at
+    all - the session had already gone "active" on its own.
 
-    Only reverts a decision that is genuinely NEW this turn (trip_planning
-    was not already wanted=true before this message) and has no real
-    route/itinerary language anywhere in the customer's own current
-    message - a want recorded on an earlier turn, which is what makes
-    trip_planning activate once flights/whatever came before it closes,
-    is always left alone."""
+    A first version of this check trusted service_decisions.trip_planning.
+    wanted itself as evidence a want was "already recorded on an earlier
+    turn" - but that is exactly the value the extractor can corrupt, and it
+    can corrupt it quietly on a turn where trip_planning isn't active yet
+    (still gated behind flights), so by the time it does activate the flag
+    already reads wanted=true with nothing genuine behind it. Checked here
+    instead, every time trip_planning newly activates: does ANY user
+    message in the actual conversation (not the extractor's derived flag)
+    contain real route/itinerary language? Declining trip_planning
+    explicitly ("לא רוצה לתכנן מסלול") already works correctly today
+    (lodging/car get asked normally afterward) - this only covers the
+    silent-activation side."""
     prev_status = str(((trip_state or {}).get("session_status") or {}).get("trip_planning") or "")
     new_statuses = (trip_update or {}).get("session_status") if isinstance(trip_update, dict) else None
     if not isinstance(new_statuses, dict) or new_statuses.get("trip_planning") != "active" or prev_status == "active":
         return trip_update
-    prev_decisions = (trip_state or {}).get("service_decisions") if isinstance(trip_state, dict) else {}
-    prev_decision = prev_decisions.get("trip_planning") if isinstance(prev_decisions, dict) else None
-    prev_wanted = prev_decision.get("wanted") if isinstance(prev_decision, dict) else prev_decision
-    if prev_wanted is True:
-        return trip_update
-    if any(k in str(message or "") for k in ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול", "לתכנן")):
+    user_texts = [str(message or "")]
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            user_texts.append(str(item.get("content") or ""))
+    combined = " ".join(user_texts)
+    if any(k in combined for k in _TRIP_PLANNING_REQUEST_WORDS):
         return trip_update
     trip_update = dict(trip_update)
     statuses = dict(new_statuses)
@@ -4811,7 +4820,7 @@ def chat_clean():
         trip_update = _apply_home_airport(trip_update)
         # trip_planning must never silently activate itself without a
         # genuine customer decision - see the function's own docstring.
-        trip_update = _reject_unrequested_trip_planning_activation(trip_state, trip_update, message)
+        trip_update = _reject_unrequested_trip_planning_activation(trip_state, trip_update, message, history)
         # Ariella, not chat history, owns the four-session progression.
         trip_update = _advance_sessions(trip_update)
         if trip_update["profile"].get("gender"):
