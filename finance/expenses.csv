@@ -1,7 +1,7 @@
 date,vendor,category,description,amount,currency,recurring,status,notes
 ,SerpAPI,סריקות,"Developer — 5,000 חיפושים בחודש",75,USD,on-demand,רכישה ידנית,"אישרה בעלת העסק 2026-10-08: לא מתחדש אוטומטית, נדרשת רכישה חוזרת; צילום מסך החשבון: 4,817 מתוך 5,000 נותרו, תאריך תקופה 2026-10-23"
 ,Claude,פיתוח,"Claude Pro — מנוי לכתיבת הקוד",59.99,ILS,monthly,קבוע,"צילום מסך מנויים (Google Play) 2026-10-08: התשלום הבא 59.99 ₪ ב-2026-10-21 (חיוב ב-21 לחודש)"
-,Render,אחסון,"Web service + persistent disk 1GB",,USD,monthly,חסר סכום,"render.yaml: ariela-travel-agent-v6"
+,Render,אחסון,"Web service + persistent disk 1GB",22.9,ILS,monthly,קבוע,"render.yaml: ariela-travel-agent-v6; סכום לפי חיוב אוקטובר 2026 (ספטמבר 22.5)"
 ,Anthropic,AI,"Claude API - שיחות אריאלה",,USD,usage,חסר סכום,"לפי חשבונית/קונסולה חודשית"
 ,Meta,WhatsApp,"WhatsApp Business API",,USD,usage,חסר סכום,"לפי שיחות; כרגע whatsapp_enabled=false"
 ,דומיין,אתר,"שם דומיין",,USD,yearly,חסר סכום,

@@ -1,7 +1,6 @@
 {
   "_note": "Inputs for finance/simulate_costs.py. Every value marked in _verify must be confirmed by the business owner or replaced with a measured number. Yosef updates this file only with verified data and records the source in _sources.",
   "_verify": [
-    "usd_to_ils",
     "serpapi_plans (only Developer is confirmed in config.py)",
     "free_scan_avg_requests",
     "wide_scan_avg_requests_per_run",
@@ -13,9 +12,12 @@
     "caps": "config.py CUSTOMER_SCAN_MAX_API_REQUESTS=120, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS=3 (12 multi-gateway); scanner.py wide scan cap 220",
     "schedule": "scheduler.py: wide scan daily (currently PAUSED), paid 'scan' tier noon search Sun-Fri (never Saturday)",
     "plans": "config.py PERSONAL_SEARCH_PLANS: update=19 ILS, scan=39 ILS per SEARCH_PERIOD_DAYS=34",
-    "serpapi_account_2026-10-08": "SerpAPI dashboard screenshot: Developer $75/month, Active, renewal 2026-10-23, 5,000 plan searches, 4,817 left (183 used), extra credits 0"
+    "serpapi_account_2026-10-08": "SerpAPI dashboard screenshot: Developer $75/month, Active, renewal 2026-10-23, 5,000 plan searches, 4,817 left (183 used), extra credits 0",
+    "unit_economics": "usd_to_ils_charged: SerpAPI $75 charged 235.4 ILS (2026-09), Anthropic $20 charged 63 ILS (2026-10-03); render: Oct 2026 charge 22.9 ILS; claude_pro: subscriptions screenshot 59.99 ILS; testing_searches: SerpAPI dashboard 183 used since ~2026-09-23 (period start not verified) => ~370/month, ESTIMATE; free_scan_searches: low = earlier assumption (unverified), high = CUSTOMER_SCAN_MAX_API_REQUESTS cap; free_users_per_paying_customer: illustrative sensitivity, NOT data",
+    "today_scenario": "Owner 2026-10-08: no real customers; 2 registered accounts used for development testing. QA searches ~370/month = estimate from SerpAPI dashboard",
+    "usd_to_ils": "Actual card charges: SerpAPI $25=77.1, $50=155.5, $75=235.4 ILS; Anthropic $20=63 ILS (3.08–3.15)"
   },
-  "usd_to_ils": 3.7,
+  "usd_to_ils": 3.14,
   "days_per_month": 30.4,
   "paid_scan_days_per_month": 26.1,
   "search_period_days": 34,
@@ -54,13 +56,13 @@
   "llm_cost_ils_per_conversation": null,
   "scenarios": [
     {
-      "name": "היום (סריקה רחבה מושהית)",
+      "name": "היום (אין לקוחות; 2 חשבונות בדיקה; סריקה רחבה מושהית)",
       "wide_scan_active": false,
-      "scan_customers": 2,
-      "update_customers": 3,
-      "new_trips_per_month": 20,
-      "manual_qa_requests_per_month": 300,
-      "conversations_per_month": 60
+      "scan_customers": 0,
+      "update_customers": 0,
+      "new_trips_per_month": 0,
+      "manual_qa_requests_per_month": 370,
+      "conversations_per_month": null
     },
     {
       "name": "השקה (סריקה רחבה פעילה)",
@@ -80,5 +82,28 @@
       "manual_qa_requests_per_month": 100,
       "conversations_per_month": 1200
     }
-  ]
+  ],
+  "unit_economics": {
+    "_note": "Inputs for finance/simulate_unit_economics.py. Sources in _sources.unit_economics.",
+    "usd_to_ils_charged": 3.14,
+    "serpapi_pack_usd": 75,
+    "serpapi_pack_searches": 5000,
+    "render_ils_per_month": 22.9,
+    "claude_pro_ils_per_month": 59.99,
+    "testing_searches_per_month": 370,
+    "free_scan_searches_low": 60,
+    "free_scan_searches_high": 120,
+    "paid_customer_counts": [
+      1,
+      5,
+      10,
+      20,
+      50
+    ],
+    "free_users_per_paying_customer": [
+      0,
+      3,
+      10
+    ]
+  }
 }

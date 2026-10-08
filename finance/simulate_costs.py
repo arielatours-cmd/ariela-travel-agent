@@ -50,7 +50,7 @@ def fixed_monthly_ils(a: dict, expenses: list[dict]) -> tuple[float, list[str]]:
     """Recurring non-SerpAPI costs on record, normalised to a month (ILS)."""
     total, missing = 0.0, []
     for row in expenses:
-        if row.get("vendor") == "SerpAPI" or row.get("recurring") not in ("monthly", "yearly"):
+        if row.get("date") or row.get("vendor") == "SerpAPI" or row.get("recurring") not in ("monthly", "yearly"):
             continue
         if not (row.get("amount") or "").strip():
             missing.append(row.get("vendor") or "?")
