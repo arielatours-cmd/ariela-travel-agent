@@ -10,7 +10,8 @@ from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES, AIRPORT_NAMES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
-from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention, clear_ariella_conversation
+from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention, clear_ariella_conversation, get_setting
+from ai_usage import record_ai_usage, set_ai_usage_context
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -322,7 +323,7 @@ def _weekday_pair_conflict(text, history):
     return None
 
 
-def _post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True):
+def _post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     """system_static is the large, unchanging instruction block (thousands of
     tokens, identical on every call) - marked cacheable so Claude does not
     reprocess it from scratch on every chat turn. system_dynamic is the small
@@ -342,7 +343,9 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
             thinking={'type': 'disabled'},
         )
     except anthropic.APIStatusError as exc:
+        record_ai_usage(source, model, usage=None, error=exc.status_code)
         raise RuntimeError(f'Claude API error {exc.status_code}') from exc
+    record_ai_usage(source, model, usage=response.usage)
     return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
 
@@ -1405,7 +1408,7 @@ UNCLEAR = אי אפשר להבין בבטחה.
         raw = _post_claude(
             key, model, prompt, "", history if isinstance(history, list) else [],
             "question_kind=" + str(question_kind) + "\nתשובת הלקוח: " + str(message or ""),
-            20, include_history=True
+            20, include_history=True, source="classifier"
         ).strip().upper()
         if raw.startswith("NEW"):
             return "new"
@@ -1931,7 +1934,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
             'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
         )
     system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
-    reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
+    reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
     reply = _strip_garbled_lead_token(reply)
@@ -1967,7 +1970,7 @@ def _extract_trip_update(key, model, history, message, state=None):
         # per-phrasing patch can fix a fact that has scrolled out of view.
         # Matches the main conversational call's own history exactly now -
         # same conversation, same memory.
-        raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, 700, include_history=True)
+        raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, 700, include_history=True, source="state_extractor")
         return _parse_trip_update(raw)
     except Exception:
         return {}
@@ -2472,7 +2475,7 @@ def _budget_answer_by_meaning(message, history, state):
         "או {\"budget\": null} אם התשובה לא עונה על שאלת התקציב."
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 40, include_history=False)
+        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 40, include_history=False, source="classifier")
         raw = raw.strip()
         data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
     except Exception:
@@ -3248,7 +3251,7 @@ def _classify_service_request(message, history):
         'החזירי JSON בלבד: {"service": "lodging"|"car"|"trip_planning"|"flights"|null}'
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת: " + last_assistant[-600:] + "\nהודעת הלקוח: " + str(message), 40, include_history=False)
+        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת: " + last_assistant[-600:] + "\nהודעת הלקוח: " + str(message), 40, include_history=False, source="classifier")
         raw = raw.strip()
         service = json.loads(raw[raw.index("{"):raw.rindex("}") + 1]).get("service")
     except Exception:
@@ -3395,7 +3398,7 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
         "החזירי JSON בלבד, בפורמט {\"lodging\": true|false|null, ...} רק עם המפתחות: " + ", ".join(offered) + "."
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 60, include_history=False)
+        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 60, include_history=False, source="classifier")
         raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.strip("`").replace("json", "", 1).strip()
@@ -3828,6 +3831,10 @@ def chat_clean():
     if not session.get('member_id'):
         return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.', 'engine_version': ENGINE_VERSION}), 401
 
+    set_ai_usage_context(
+        member_id=session.get('member_id'),
+        is_test=str(get_setting('qa_test_mode', '0') or '0') == '1',
+    )
     body = request.get_json(silent=True) or {}
     message = str(body.get('message') or '').strip()
     if not message:

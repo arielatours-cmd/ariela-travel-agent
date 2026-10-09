@@ -5,7 +5,7 @@ import threading
 import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from flask import Flask, jsonify, request, redirect
+from flask import Flask, jsonify, request, redirect, Response
 
 # Gunicorn/Flask leave the root logger at its default WARNING level, which
 # silently drops every logging.info() call app-wide (booking diagnostics,
@@ -33,6 +33,7 @@ from public_site import site, _confirm_paid_search
 from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
+from ai_usage import usage_summary, usage_rows, usage_for_conversation
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -264,6 +265,47 @@ def admin_feedback():
     feedback = recent_feedback(500)
     mark_feedback_seen()
     return render_feedback_dashboard(feedback=feedback, token=request.args.get("token", ""))
+
+
+@app.get("/admin/ai-usage")
+def admin_ai_usage():
+    denied = _require_admin()
+    if denied: return denied
+    days = request.args.get("days", 30, type=int)
+    include_test = request.args.get("include_test", "0") == "1"
+    return jsonify({"status": "success", **usage_summary(days=days, include_test=include_test)})
+
+
+@app.get("/admin/ai-usage.csv")
+def admin_ai_usage_csv():
+    denied = _require_admin()
+    if denied: return denied
+    import csv
+    import io
+    days = request.args.get("days", 30, type=int)
+    include_test = request.args.get("include_test", "0") == "1"
+    rows = usage_rows(days=days, include_test=include_test)
+    buffer = io.StringIO()
+    columns = [
+        "id", "created_at", "source", "member_id", "trip_id", "conversation_id", "model",
+        "input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens",
+        "is_test", "error", "estimated_cost_usd",
+    ]
+    writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return Response(buffer.getvalue(), mimetype="text/csv", headers={
+        "Content-Disposition": f"attachment; filename=ai-usage-{days}d.csv"
+    })
+
+
+@app.get("/admin/ai-usage/conversation/<int:conversation_id>")
+def admin_ai_usage_conversation(conversation_id):
+    denied = _require_admin()
+    if denied: return denied
+    rows = usage_for_conversation(conversation_id)
+    return jsonify({"status": "success", "conversation_id": conversation_id, "count": len(rows), "calls": rows})
 
 
 @app.get("/offers-preview")

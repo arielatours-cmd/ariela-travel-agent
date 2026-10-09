@@ -365,6 +365,25 @@ def init_db() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_feedback_created_at
             ON feedback_messages(created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS ai_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                source TEXT NOT NULL,
+                member_id INTEGER,
+                trip_id INTEGER,
+                conversation_id INTEGER,
+                model TEXT NOT NULL,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
+                is_test INTEGER NOT NULL DEFAULT 0,
+                error TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage(created_at);
+            CREATE INDEX IF NOT EXISTS idx_ai_usage_member ON ai_usage(member_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_ai_usage_conversation ON ai_usage(conversation_id);
             """
         )
 
