@@ -22,7 +22,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE, BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, BUSINESS_LEGAL_NAME_EN, BUSINESS_DEALER_TYPE_HE, BUSINESS_DEALER_NUMBER, BUSINESS_ADDRESS_HE, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
@@ -2131,6 +2131,34 @@ def refresh_public_deal_feed(limit=30):
     return snapshot
 
 
+def _business_details() -> dict:
+    """Business legal details for the site footer (task 004a). Each part is
+    shown only when set; the whole line is hidden when there's no legal
+    name in either language and no dealer number - i.e. with no business
+    env vars set at all, the footer looks exactly as it did before this
+    existed."""
+    show = bool(BUSINESS_LEGAL_NAME_HE or BUSINESS_LEGAL_NAME_EN or BUSINESS_DEALER_NUMBER)
+
+    def join_parts(parts):
+        return " · ".join(p for p in parts if p)
+
+    dealer_he = f"{BUSINESS_DEALER_TYPE_HE} {BUSINESS_DEALER_NUMBER}".strip() if (BUSINESS_DEALER_TYPE_HE or BUSINESS_DEALER_NUMBER) else ""
+    dealer_en = f"Licensed Dealer {BUSINESS_DEALER_NUMBER}" if BUSINESS_DEALER_NUMBER else ""
+    return {
+        "show": show,
+        "trade_name": BUSINESS_TRADE_NAME,
+        "legal_name_he": BUSINESS_LEGAL_NAME_HE,
+        "legal_name_en": BUSINESS_LEGAL_NAME_EN,
+        "dealer_type_he": BUSINESS_DEALER_TYPE_HE,
+        "dealer_number": BUSINESS_DEALER_NUMBER,
+        "address_he": BUSINESS_ADDRESS_HE,
+        "address_en": BUSINESS_ADDRESS_EN,
+        "contact_email": BUSINESS_CONTACT_EMAIL,
+        "line_he": join_parts([BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, dealer_he, BUSINESS_ADDRESS_HE, BUSINESS_CONTACT_EMAIL]),
+        "line_en": join_parts([BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_EN, dealer_en, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL]),
+    }
+
+
 @site.app_context_processor
 def inject_site_context():
     requested_lang = request.args.get("lang")
@@ -2152,7 +2180,8 @@ def inject_site_context():
     return {"current_member": _current_member(), "site_lang": lang, "qa_test_mode": qa_test_mode,
             "car_partner_cards": _car_partner_cards,
             "lodging_partner_cards": _lodging_partner_cards,
-            "core_itinerary_text": itinerary_cards.core_itinerary_text}
+            "core_itinerary_text": itinerary_cards.core_itinerary_text,
+            "business": _business_details()}
 
 
 def _lang():
