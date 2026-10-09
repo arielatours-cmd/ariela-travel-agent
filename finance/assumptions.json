@@ -18,7 +18,8 @@
     "usd_to_ils": "Actual card charges: SerpAPI $25=77.1, $50=155.5, $75=235.4 ILS; Anthropic $20=63 ILS (3.08–3.15)",
     "serpapi_starter": "SerpAPI plan page screenshot 2026-10-08: Starter $25/month, 1,000 searches/month, 200 searches/hour throughput (Best Effort)",
     "serpapi_production": "SerpAPI plan page screenshot 2026-10-08: Production $150/month, 15,000 searches/month, 3,000 searches/hour, U.S. Legal Shield",
-    "vat": "Owner 2026-10-08: עוסק מורשה. Rate 18% since 2025-01-01, unchanged for 2026 (vatcalc.com, trykintsugi.com) — confirm with accountant. Prices 19/39 assumed VAT-inclusive (consumer prices in Israel are quoted incl. VAT)"
+    "vat": "Owner 2026-10-08: עוסק מורשה. Rate 18% since 2025-01-01, unchanged for 2026 (vatcalc.com, trykintsugi.com) — confirm with accountant. Prices 19/39 assumed VAT-inclusive (consumer prices in Israel are quoted incl. VAT)",
+    "ai_cost_samples": "Owner screenshots of Anthropic console balance; owner described the conversation type"
   },
   "usd_to_ils": 3.14,
   "days_per_month": 30.4,
@@ -118,5 +119,14 @@
     ]
   },
   "vat_rate": 0.18,
-  "prices_include_vat": true
+  "prices_include_vat": true,
+  "ai_cost_samples": [
+    {
+      "date": "2026-10-08",
+      "type": "שיחת טיסה בלבד (בלי מסלול/רכב/לינה)",
+      "usd": 0.18,
+      "ils": 0.57,
+      "method": "הפרש יתרת קרדיט: $14.72 (8.10 22:52) → $14.54 (9.10 09:48); ייתכן שכולל שימוש אחר בלילה"
+    }
+  ]
 }
