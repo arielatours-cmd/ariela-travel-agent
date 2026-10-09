@@ -384,6 +384,73 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage(created_at);
             CREATE INDEX IF NOT EXISTS idx_ai_usage_member ON ai_usage(member_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_ai_usage_conversation ON ai_usage(conversation_id);
+
+            -- Read/written by nova_conversation.py and nova_whatsapp.py since
+            -- before this table creation existed anywhere in the codebase -
+            -- added here (task 003a) so linked_member_for_phone and friends
+            -- have something to query instead of erroring on a missing
+            -- table the first time WhatsApp inbound routing is wired up.
+            -- Columns match their exact existing INSERT/SELECT usage.
+            CREATE TABLE IF NOT EXISTS whatsapp_member_links (
+                member_id INTEGER PRIMARY KEY,
+                wa_phone_hash TEXT NOT NULL UNIQUE,
+                verified_at TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_member_links_phone ON whatsapp_member_links(wa_phone_hash);
+
+            CREATE TABLE IF NOT EXISTS whatsapp_conversation_state (
+                member_id INTEGER PRIMARY KEY,
+                active_trip_id INTEGER,
+                current_intent TEXT,
+                last_message_at TEXT,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+
+            -- Same gap as the two tables above, same fix: read/written by
+            -- nova_conversation.py's onboarding flow with no prior CREATE
+            -- TABLE anywhere - found while QA-testing task 003a's
+            -- route_inbound button_payload change, which exercises this
+            -- same code path for any non-button message.
+            CREATE TABLE IF NOT EXISTS whatsapp_onboarding_state (
+                wa_phone_hash TEXT PRIMARY KEY,
+                current_step TEXT,
+                data_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS whatsapp_opt_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                event TEXT NOT NULL,
+                source TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_opt_events_member ON whatsapp_opt_events(member_id, id DESC);
+
+            -- Shared by tasks 002a (radar alerts) and 003a (deals welcome/
+            -- stop button) - whichever ships first creates it.
+            CREATE TABLE IF NOT EXISTS whatsapp_outbound_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                body TEXT NOT NULL,
+                buttons_json TEXT NOT NULL DEFAULT '[]',
+                image_url TEXT,
+                ref_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'preview',
+                created_at TEXT NOT NULL,
+                sent_at TEXT,
+                error TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_outbound_queue_created ON whatsapp_outbound_queue(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_outbound_queue_member ON whatsapp_outbound_queue(member_id);
             """
         )
 
@@ -414,6 +481,12 @@ def init_db() -> None:
             conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_in INTEGER NOT NULL DEFAULT 0")
         if "whatsapp_opt_in_at" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_in_at TEXT")
+        if "whatsapp_opt_out_at" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_out_at TEXT")
+        if "whatsapp_opt_out_source" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_out_source TEXT")
+        if "whatsapp_welcome_sent_at" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_welcome_sent_at TEXT")
 
         if "free_scan_count" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN free_scan_count INTEGER NOT NULL DEFAULT 0")
@@ -1749,5 +1822,61 @@ def members_to_notify_on_whatsapp() -> list[dict]:
               AND TRIM(m.phone) <> ''
               AND t.subscription_status = 'active'
             """
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def set_whatsapp_deals_opt(member_id: int, enabled: bool, source: str) -> bool:
+    """Single place that changes members.whatsapp_opt_in - records the
+    opt-in/opt-out event (required under Israeli Telecom Law s.30A) and
+    keeps whatsapp_opt_in_at/whatsapp_opt_out_at/whatsapp_opt_out_source in
+    sync. Returns True only when the state actually changed (so callers can
+    tell a genuine opt-in from a no-op re-confirmation)."""
+    now = utc_now_iso()
+    with connection() as conn:
+        row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
+        if not row:
+            return False
+        currently_on = bool(row["whatsapp_opt_in"])
+        if currently_on == bool(enabled):
+            return False
+        if enabled:
+            conn.execute(
+                "UPDATE members SET whatsapp_opt_in=1, whatsapp_opt_in_at=? WHERE id=?",
+                (now, member_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE members SET whatsapp_opt_in=0, whatsapp_opt_out_at=?, whatsapp_opt_out_source=? WHERE id=?",
+                (now, source, member_id),
+            )
+        conn.execute(
+            "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at) VALUES (?,?,?,?)",
+            (member_id, "opt_in" if enabled else "opt_out", source, now),
+        )
+        conn.commit()
+    return True
+
+
+def queue_whatsapp_message(member_id: int, kind: str, body: str, buttons=None, image_url=None, ref_id=None) -> int:
+    """Shared by tasks 002a/003a/001a - every outbound WhatsApp message (deal
+    alerts, welcome, radar, booking lifecycle) is written here in 'preview'
+    status instead of being sent, until WHATSAPP_DEALS_BUTTONS_ENABLED (or a
+    real send path) exists. Returns the new row id."""
+    import json as _json
+    with connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO whatsapp_outbound_queue(member_id, kind, body, buttons_json, image_url, ref_id, status, created_at)
+               VALUES (?,?,?,?,?,?, 'preview', ?)""",
+            (member_id, kind, body, _json.dumps(buttons or [], ensure_ascii=False), image_url, ref_id, utc_now_iso()),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+
+
+def recent_whatsapp_queue(limit: int = 50) -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM whatsapp_outbound_queue ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
     return [dict(row) for row in rows]

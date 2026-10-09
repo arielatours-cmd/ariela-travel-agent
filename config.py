@@ -9,6 +9,7 @@ _default_db_path = BASE_DIR / "data" / "ariella.db"
 DB_PATH = Path(os.getenv("DB_PATH", str(_default_db_path))).expanduser()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY", "").strip()
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "").strip()
 SCANNER_ENABLED = os.getenv("SCANNER_ENABLED", "true").lower() == "true"
@@ -193,6 +194,10 @@ WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
 WHATSAPP_RECIPIENT = os.getenv("WHATSAPP_RECIPIENT", "").strip()
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
+# Off by default: until the welcome/daily-deals quick-reply templates are
+# approved in Meta, every WhatsApp deals message goes to whatsapp_outbound_queue
+# in 'preview' status only - nothing is ever sent to a real customer.
+WHATSAPP_DEALS_BUTTONS_ENABLED = os.getenv("WHATSAPP_DEALS_BUTTONS_ENABLED", "false").strip().lower() == "true"
 BUSINESS_TRADE_NAME = os.getenv("BUSINESS_TRADE_NAME", "ARIELA AI TRAVEL").strip() or "ARIELA AI TRAVEL"
 BUSINESS_LEGAL_NAME_HE = os.getenv("BUSINESS_LEGAL_NAME_HE", "").strip()
 BUSINESS_LEGAL_NAME_EN = os.getenv("BUSINESS_LEGAL_NAME_EN", "").strip()

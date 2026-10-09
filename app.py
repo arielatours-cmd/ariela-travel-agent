@@ -23,7 +23,7 @@ from database import (
     all_settings, dashboard_stats, business_analytics, get_daily_batch, init_db, latest_scan_run,
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
-    normalize_scan_run_price_groups,
+    normalize_scan_run_price_groups, recent_whatsapp_queue,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 import scanner as _scanner
@@ -34,6 +34,7 @@ from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
 from ai_usage import usage_summary, usage_rows, usage_for_conversation
+from whatsapp_deals_messages import on_whatsapp_deals_paid
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -221,6 +222,23 @@ def admin_confirm_payment():
     return jsonify({"status": "success", "trip_id": trip_id})
 
 
+@app.post("/admin/confirm-whatsapp-payment")
+def admin_confirm_whatsapp_payment():
+    """Manual stand-in for a payment processor's success webhook for the
+    one-time ₪9 WhatsApp deals product - same role as /admin/confirm-payment
+    above, for whatsapp_deals_9 instead of the personal-search plans. A real
+    gateway's callback will call the exact same
+    whatsapp_deals_messages.on_whatsapp_deals_paid function."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    member_id = request.form.get("member_id", type=int) or request.args.get("member_id", type=int)
+    if not member_id:
+        return jsonify({"status": "error", "message": "missing member_id"}), 400
+    changed = on_whatsapp_deals_paid(member_id)
+    return jsonify({"status": "success", "member_id": member_id, "opt_in_changed": changed})
+
+
 @app.get("/admin")
 def admin_dashboard():
     denied = _require_admin()
@@ -306,6 +324,20 @@ def admin_ai_usage_conversation(conversation_id):
     if denied: return denied
     rows = usage_for_conversation(conversation_id)
     return jsonify({"status": "success", "conversation_id": conversation_id, "count": len(rows), "calls": rows})
+
+
+@app.get("/admin/whatsapp-queue")
+def admin_whatsapp_queue():
+    denied = _require_admin()
+    if denied: return denied
+    import json as _json
+    rows = recent_whatsapp_queue(request.args.get("limit", 50, type=int))
+    for row in rows:
+        try:
+            row["buttons"] = _json.loads(row.get("buttons_json") or "[]")
+        except Exception:
+            row["buttons"] = []
+    return jsonify({"status": "success", "count": len(rows), "queue": rows})
 
 
 @app.get("/offers-preview")
