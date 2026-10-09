@@ -4395,8 +4395,40 @@ def chat_clean():
     # A place that is part of the current vacation's own country (e.g.
     # "איטליה" while planning Rome) is never a different destination.
     current_countries = _place_countries(current_places) | set(current_places)
+
+    _HEBREW_PREFIX_LETTERS = "ובכלמשה"
+
+    def _candidate_mentioned(candidate, text):
+        # Plain substring matching treats a known destination name as
+        # "mentioned" even when it's just a few letters inside a longer,
+        # unrelated word - seen live: "לכיוון" (direction/towards) contains
+        # "יוון" (Greece) as a bare substring. A Cyprus-trip customer asking
+        # "וכל יום לנסוע לכיוון אחר?" (can we travel in a different
+        # direction each day?) about splitting up lodging nights got read as
+        # wanting to change the destination to Greece, and landed on a
+        # confusing "change destination and rebuild everything?" prompt that
+        # had nothing to do with her actual question.
+        # Hebrew glues a preposition directly onto the next word with no
+        # space ("ליוון" = "to Greece"), so a bare word-boundary check alone
+        # would also reject that genuine mention. Allow stepping back over
+        # exactly one such prefix letter (ו/ב/כ/ל/מ/ש/ה); beyond that single
+        # letter the preceding character must not be Hebrew at all, or the
+        # match is just a fragment of a longer unrelated word with a
+        # coincidental run of letters in it ("כיוון" swallows "יוון" one
+        # letter in, not at any real word boundary).
+        for m in re.finditer(re.escape(candidate), text):
+            start, end = m.start(), m.end()
+            left = start
+            if left > 0 and text[left - 1] in _HEBREW_PREFIX_LETTERS:
+                left -= 1
+            before_ok = left == 0 or not ("א" <= text[left - 1] <= "ת")
+            after_ok = end == len(text) or not ("א" <= text[end] <= "ת")
+            if before_ok and after_ok:
+                return True
+        return False
+
     for candidate in known_destinations:
-        if candidate in message and current_places and candidate not in current_places:
+        if _candidate_mentioned(candidate, message) and current_places and candidate not in current_places:
             if candidate in current_countries or _place_countries([candidate]) & current_countries:
                 continue
             if any(token in message for token in ("במקום","רוצה לטוס ל","היעד","לשנות")):
@@ -4455,7 +4487,7 @@ def chat_clean():
                 break
         if prior_user_wanted_different_place:
             for candidate in known_destinations:
-                if candidate in message and candidate not in current_places:
+                if _candidate_mentioned(candidate, message) and candidate not in current_places:
                     if candidate in current_countries or _place_countries([candidate]) & current_countries:
                         continue
                     destination_change = candidate
