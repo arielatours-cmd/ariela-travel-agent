@@ -416,6 +416,21 @@ def init_db() -> None:
             -- TABLE anywhere - found while QA-testing task 003a's
             -- route_inbound button_payload change, which exercises this
             -- same code path for any non-button message.
+            CREATE TABLE IF NOT EXISTS trip_alerts_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trip_id INTEGER NOT NULL,
+                member_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                price_ils REAL NOT NULL,
+                previous_price_ils REAL,
+                offer_id INTEGER,
+                message_text TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'preview',
+                FOREIGN KEY(trip_id) REFERENCES trip_requests(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_trip_alerts_trip ON trip_alerts_log(trip_id, id DESC);
+
             CREATE TABLE IF NOT EXISTS whatsapp_onboarding_state (
                 wa_phone_hash TEXT PRIMARY KEY,
                 current_step TEXT,
@@ -476,6 +491,12 @@ def init_db() -> None:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN renewal_reminder_sent_at TEXT")
         if "has_paid_search" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN has_paid_search INTEGER NOT NULL DEFAULT 0")
+        if "alert_baseline_price_ils" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN alert_baseline_price_ils REAL")
+        if "alert_last_price_ils" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN alert_last_price_ils REAL")
+        if "alert_last_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN alert_last_at TEXT")
         member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
         if "whatsapp_opt_in" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_in INTEGER NOT NULL DEFAULT 0")
@@ -1880,3 +1901,23 @@ def recent_whatsapp_queue(limit: int = 50) -> list[dict]:
             "SELECT * FROM whatsapp_outbound_queue ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def latest_trip_alerts(trip_ids: list[int]) -> dict:
+    """The single most recent trip_alerts_log row per trip, for every trip_id
+    given, in one query - the vacation card ("🎯 עדכון אחרון מהרדאר") must
+    never issue one query per trip on the account page. Returns
+    {trip_id: {...row...}}; a trip with no alert yet is simply absent."""
+    clean_ids = [int(x) for x in (trip_ids or []) if str(x).isdigit() or isinstance(x, int)]
+    if not clean_ids:
+        return {}
+    with connection() as conn:
+        rows = conn.execute(
+            f"""SELECT * FROM trip_alerts_log WHERE id IN (
+                   SELECT MAX(id) FROM trip_alerts_log
+                   WHERE trip_id IN ({",".join("?" for _ in clean_ids)})
+                   GROUP BY trip_id
+               )""",
+            clean_ids,
+        ).fetchall()
+    return {int(row["trip_id"]): dict(row) for row in rows}
