@@ -2582,22 +2582,56 @@ def _deterministic_named_decline_facts(message):
     with car neither complete nor declined, so the vacation could never be
     marked fully resolved and the client never navigated to the waiting
     page. Deliberately narrow (exact short phrases only) to avoid
-    misreading a longer sentence that merely mentions the word "רכב"."""
+    misreading a longer sentence that merely mentions the word "רכב".
+
+    Two gaps found live, both in the same exchange: the customer answered
+    an airport-choice question and, in the same message, proactively
+    declined trip_planning before it was ever asked about - "תחפשי
+    בשניהם. לא צריך מסלול כרגע" ("search both. don't need a route right
+    now"). First gap: the "need" alternation only covered the FEMININE
+    "צריכה" (plus "רוצה"/"רוצים") - "צריכה?" as a regex is "צריכ" with an
+    optional trailing ה, which never matches the masculine "צריך" (different
+    final letter, כ vs ך) at all, so a masculine decline was silently
+    ignored regardless of anything else. Second gap: matching required the
+    ENTIRE message to be nothing but the decline phrase (anchored ^...$
+    against the whole string), so bundling it with an unrelated answer in
+    the same message - exactly how a customer naturally writes two things
+    at once - made it invisible. Fixed by checking each sentence clause of
+    the message independently (not just the message as a whole) against a
+    masculine/feminine/plural-covering pattern that also tolerates a
+    trailing "כרגע"/"עכשיו" qualifier."""
     import re
     msg = str(message or "").strip()
-    if not msg or len(msg) > 40:
+    if not msg:
         return {}
+    clauses = [c.strip() for c in re.split(r"[.!?]+", msg) if c.strip()] or [msg]
+    need_word = r"(?:צריך|צריכה|רוצה|רוצים)"
+    qualifier = r"(?:\s+(?:כרגע|עכשיו))?"
     patterns = {
-        "car": (r"^רכב\s+לא\s+נדרש\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+רכב\.?!?$", r"^בלי\s+רכב\.?!?$"),
-        "lodging": (r"^לינה\s+לא\s+נדרש[הת]?\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+לינה\.?!?$", r"^בלי\s+לינה\.?!?$"),
-        "trip_planning": (r"^מסלול\s+לא\s+נדרש\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+מסלול\.?!?$"),
+        "car": (
+            rf"^רכב\s+לא\s+נדרש{qualifier}\.?!?$",
+            rf"^לא\s+{need_word}\s+רכב{qualifier}\.?!?$",
+            r"^בלי\s+רכב\.?!?$",
+        ),
+        "lodging": (
+            rf"^לינה\s+לא\s+נדרש[הת]?{qualifier}\.?!?$",
+            rf"^לא\s+{need_word}\s+לינה{qualifier}\.?!?$",
+            r"^בלי\s+לינה\.?!?$",
+        ),
+        "trip_planning": (
+            rf"^מסלול\s+לא\s+נדרש{qualifier}\.?!?$",
+            rf"^לא\s+{need_word}\s+מסלול{qualifier}\.?!?$",
+        ),
     }
-    for service, service_patterns in patterns.items():
-        if any(re.match(p, msg) for p in service_patterns):
-            return {
-                "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
-                "session_status": {service: "declined"},
-            }
+    for clause in clauses:
+        if len(clause) > 40:
+            continue
+        for service, service_patterns in patterns.items():
+            if any(re.match(p, clause) for p in service_patterns):
+                return {
+                    "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
+                    "session_status": {service: "declined"},
+                }
     return {}
 
 
