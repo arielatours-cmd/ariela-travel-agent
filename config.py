@@ -31,6 +31,10 @@ WIDE_SCAN_DESTINATION_LIMIT = int(os.getenv("WIDE_SCAN_DESTINATION_LIMIT", "30")
 # adds a dedicated daily search just for that customer's request at noon.
 PERSONAL_SEARCH_DAILY_SCAN_HOUR = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_HOUR", "12"))
 PERSONAL_SEARCH_DAILY_SCAN_MINUTE = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MINUTE", "0"))
+CJ_COMMISSIONS_SYNC_HOUR = int(os.getenv("CJ_COMMISSIONS_SYNC_HOUR", "7"))
+CJ_COMMISSIONS_SYNC_MINUTE = int(os.getenv("CJ_COMMISSIONS_SYNC_MINUTE", "30"))
+HOW_WAS_IT_HOUR = int(os.getenv("HOW_WAS_IT_HOUR", "10"))
+HOW_WAS_IT_MINUTE = int(os.getenv("HOW_WAS_IT_MINUTE", "0"))
 # The one-time free scan may explore a whole flexible-date window (up to
 # CUSTOMER_SCAN_MAX_API_REQUESTS). The recurring PAID daily re-scan must not:
 # it already knows the best dates from that first scan, so it only needs to
@@ -55,6 +59,13 @@ PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY = int(os.getenv("PERSO
 # "evergreen" in the CJ dashboard). Leave blank until that link is in hand -
 # lodging search then just links straight to Booking.com, uncredited.
 CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
+# Commission Detail API (task 001a) - detects an actual booking (not just a
+# click) via the commission CJ reports back. Personal Access Token from
+# developers.cj.com; CID is the Publisher account's CID. Sync is off by
+# default even with both set, as an extra explicit switch.
+CJ_API_TOKEN = os.getenv("CJ_API_TOKEN", "").strip()
+CJ_PUBLISHER_ID = os.getenv("CJ_PUBLISHER_ID", "").strip()
+CJ_COMMISSIONS_SYNC_ENABLED = os.getenv("CJ_COMMISSIONS_SYNC_ENABLED", "false").strip().lower() == "true"
 # Car-rental partner via CJ (Discover Cars / EconomyBookings / etc.). There is
 # no priced car API available, so the car tab shows honest "search this
 # partner" cards (no prices) whose button goes out through this CJ tracking

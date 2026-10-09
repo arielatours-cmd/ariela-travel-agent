@@ -416,6 +416,36 @@ def init_db() -> None:
             -- TABLE anywhere - found while QA-testing task 003a's
             -- route_inbound button_payload change, which exercises this
             -- same code path for any non-button message.
+            CREATE TABLE IF NOT EXISTS partner_commissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                network TEXT NOT NULL DEFAULT 'cj',
+                commission_id TEXT NOT NULL,
+                trip_id INTEGER,
+                advertiser_name TEXT,
+                action_status TEXT,
+                sale_amount REAL,
+                commission_amount REAL,
+                currency TEXT,
+                event_date TEXT,
+                posting_date TEXT,
+                raw_json TEXT NOT NULL,
+                first_seen_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(network, commission_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_partner_commissions_trip ON partner_commissions(trip_id);
+
+            CREATE TABLE IF NOT EXISTS trip_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trip_id INTEGER NOT NULL,
+                member_id INTEGER NOT NULL,
+                rating INTEGER NOT NULL,
+                comment TEXT,
+                source TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(trip_id, member_id)
+            );
+
             CREATE TABLE IF NOT EXISTS trip_alerts_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 trip_id INTEGER NOT NULL,
@@ -497,6 +527,16 @@ def init_db() -> None:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN alert_last_price_ils REAL")
         if "alert_last_at" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN alert_last_at TEXT")
+        if "booked_confirmed_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN booked_confirmed_at TEXT")
+        if "booked_source" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN booked_source TEXT")
+        if "booking_cancelled_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN booking_cancelled_at TEXT")
+        if "congrats_queued_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN congrats_queued_at TEXT")
+        if "how_was_it_queued_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN how_was_it_queued_at TEXT")
         member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
         if "whatsapp_opt_in" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_in INTEGER NOT NULL DEFAULT 0")
@@ -1901,6 +1941,96 @@ def recent_whatsapp_queue(limit: int = 50) -> list[dict]:
             "SELECT * FROM whatsapp_outbound_queue ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def upsert_partner_commission(
+    commission_id: str, trip_id, advertiser_name, action_status, sale_amount,
+    commission_amount, currency, event_date, posting_date, raw: dict, network: str = "cj",
+) -> bool:
+    """Upsert one CJ commission row by (network, commission_id). Returns True
+    when this is the FIRST time this commission_id has ever been seen (the
+    caller uses that to decide whether to queue a booking-congrats message -
+    a resync of an already-known commission must never re-trigger it)."""
+    import json as _json
+    now = utc_now_iso()
+    with connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM partner_commissions WHERE network=? AND commission_id=?",
+            (network, commission_id),
+        ).fetchone()
+        conn.execute(
+            """INSERT INTO partner_commissions
+               (network, commission_id, trip_id, advertiser_name, action_status, sale_amount,
+                commission_amount, currency, event_date, posting_date, raw_json, first_seen_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(network, commission_id) DO UPDATE SET
+                 trip_id=excluded.trip_id, advertiser_name=excluded.advertiser_name,
+                 action_status=excluded.action_status, sale_amount=excluded.sale_amount,
+                 commission_amount=excluded.commission_amount, currency=excluded.currency,
+                 event_date=excluded.event_date, posting_date=excluded.posting_date,
+                 raw_json=excluded.raw_json, updated_at=excluded.updated_at""",
+            (network, commission_id, trip_id, advertiser_name, action_status, sale_amount,
+             commission_amount, currency, event_date, posting_date,
+             _json.dumps(raw, ensure_ascii=False), now, now),
+        )
+        conn.commit()
+    return existing is None
+
+
+def trip_has_valid_commission(trip_id: int, exclude_commission_id: str | None = None) -> bool:
+    """True when trip_id has at least one partner_commissions row that is not
+    a cancelled/corrected-to-zero action. Used to decide whether a single
+    cancelled commission should flip the trip to booking_cancelled_at, or
+    whether another valid commission (e.g. hotel vs. car) still covers it."""
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT commission_id, action_status, commission_amount FROM partner_commissions WHERE trip_id=?",
+            (trip_id,),
+        ).fetchall()
+    for row in rows:
+        if exclude_commission_id and row["commission_id"] == exclude_commission_id:
+            continue
+        status = str(row["action_status"] or "").lower()
+        if status in ("cancelled", "canceled", "corrected"):
+            continue
+        amount = row["commission_amount"]
+        if amount is not None and float(amount) <= 0:
+            continue
+        return True
+    return False
+
+
+def recent_partner_commissions(limit: int = 50) -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM partner_commissions ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def save_trip_feedback(trip_id: int, member_id: int, rating: int, source: str, comment: str | None = None) -> None:
+    now = utc_now_iso()
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO trip_feedback (trip_id, member_id, rating, comment, source, created_at)
+               VALUES (?,?,?,?,?,?)
+               ON CONFLICT(trip_id, member_id) DO UPDATE SET
+                 rating=excluded.rating, source=excluded.source, created_at=excluded.created_at,
+                 comment=COALESCE(excluded.comment, trip_feedback.comment)""",
+            (trip_id, member_id, rating, comment, source, now),
+        )
+        conn.commit()
+
+
+def append_trip_feedback_comment(trip_id: int, member_id: int, comment: str) -> bool:
+    """True when a feedback row existed to attach the comment to."""
+    with connection() as conn:
+        cur = conn.execute(
+            "UPDATE trip_feedback SET comment=? WHERE trip_id=? AND member_id=?",
+            (comment, trip_id, member_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
 
 def latest_trip_alerts(trip_ids: list[int]) -> dict:

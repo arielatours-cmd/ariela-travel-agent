@@ -23,7 +23,7 @@ from database import (
     all_settings, dashboard_stats, business_analytics, get_daily_batch, init_db, latest_scan_run,
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
-    normalize_scan_run_price_groups, recent_whatsapp_queue,
+    normalize_scan_run_price_groups, recent_whatsapp_queue, recent_partner_commissions,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 import scanner as _scanner
@@ -35,6 +35,7 @@ from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
 from ai_usage import usage_summary, usage_rows, usage_for_conversation
 from whatsapp_deals_messages import on_whatsapp_deals_paid
+from partner_commissions import sync_cj_commissions
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -338,6 +339,22 @@ def admin_whatsapp_queue():
         except Exception:
             row["buttons"] = []
     return jsonify({"status": "success", "count": len(rows), "queue": rows})
+
+
+@app.post("/admin/cj-sync")
+def admin_cj_sync():
+    denied = _require_admin()
+    if denied: return denied
+    result = sync_cj_commissions(days_back=request.args.get("days_back", 7, type=int))
+    return jsonify({"status": "success", **result})
+
+
+@app.get("/admin/partner-commissions")
+def admin_partner_commissions():
+    denied = _require_admin()
+    if denied: return denied
+    rows = recent_partner_commissions(request.args.get("limit", 50, type=int))
+    return jsonify({"status": "success", "count": len(rows), "commissions": rows})
 
 
 @app.get("/offers-preview")
