@@ -132,12 +132,23 @@
   "measurements": [
     {
       "name": "שיחה מלאה (טיסה+מסלול+רכב+לינה) — 9.10",
-      "status": "בתהליך",
+      "status": "הופסק — באג באמצע השיחה",
       "anthropic_balance_start_usd": 14.54,
       "anthropic_start_time": "2026-10-09 09:48",
       "serpapi_searches_left_checkpoint": 4817,
       "serpapi_checkpoint_time": "2026-10-09 10:09 (במהלך השיחה)",
-      "note": "SerpAPI ללא שינוי מאז 8.10 (4,817) — שיחת הטיסה של 8.10 בערב לא צרכה חיפושים; הסריקה נדחית עד שכל התוכנית מוחלטת (commit aab3d6c)"
+      "note": "SerpAPI ללא שינוי מאז 8.10 (4,817) — שיחת הטיסה של 8.10 בערב לא צרכה חיפושים; הסריקה נדחית עד שכל התוכנית מוחלטת (commit aab3d6c)",
+      "anthropic_balance_end_usd": 14.18,
+      "anthropic_end_time": "2026-10-09 10:28",
+      "partial_cost_usd": 0.36
+    },
+    {
+      "name": "שיחה מלאה — ניסיון 2 (9.10)",
+      "status": "בתהליך",
+      "anthropic_balance_start_usd": 14.18,
+      "anthropic_start_time": "2026-10-09 10:28",
+      "serpapi_searches_left_checkpoint": 4817,
+      "serpapi_checkpoint_time": "2026-10-09 10:09"
     }
   ]
 }
