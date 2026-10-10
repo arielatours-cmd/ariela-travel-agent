@@ -365,6 +365,18 @@ def init_db() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_feedback_created_at
             ON feedback_messages(created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at TEXT,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_password_reset_member
+            ON password_reset_tokens(member_id);
             """
         )
 
