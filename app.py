@@ -24,7 +24,7 @@ from database import (
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
     normalize_scan_run_price_groups, recent_whatsapp_queue, recent_partner_commissions,
-    scan_sharing_stats,
+    scan_sharing_stats, recent_whatsapp_inbound_log,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 import scanner as _scanner
@@ -340,6 +340,16 @@ def admin_whatsapp_queue():
         except Exception:
             row["buttons"] = []
     return jsonify({"status": "success", "count": len(rows), "queue": rows})
+
+
+@app.get("/admin/whatsapp-inbox")
+def admin_whatsapp_inbox():
+    """Task 006a: the last 50 (default) whatsapp_inbound_log rows,
+    in/out, for debugging the inbound Ariella bridge."""
+    denied = _require_admin()
+    if denied: return denied
+    rows = recent_whatsapp_inbound_log(request.args.get("limit", 50, type=int))
+    return jsonify({"status": "success", "count": len(rows), "messages": rows})
 
 
 @app.post("/admin/cj-sync")

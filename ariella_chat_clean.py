@@ -3973,6 +3973,11 @@ def chat_clean():
     set_ai_usage_context(
         member_id=session.get('member_id'),
         is_test=str(get_setting('qa_test_mode', '0') or '0') == '1',
+        # Task 006a: set only by whatsapp_bridge.ariella_turn (via a session
+        # flag, before it calls this exact route through the Flask test
+        # client) - an ordinary website call never sets this, so its own
+        # ai_usage rows are unaffected.
+        channel=('whatsapp' if session.get('ariella_channel') == 'whatsapp' else None),
     )
     body = request.get_json(silent=True) or {}
     message = str(body.get('message') or '').strip()

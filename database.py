@@ -1,4 +1,5 @@
 import json
+import logging
 import sqlite3
 from statistics import median
 from urllib.parse import quote_plus
@@ -384,7 +385,8 @@ def init_db() -> None:
                 cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
                 cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
                 is_test INTEGER NOT NULL DEFAULT 0,
-                error TEXT
+                error TEXT,
+                channel TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage(created_at);
             CREATE INDEX IF NOT EXISTS idx_ai_usage_member ON ai_usage(member_id, created_at);
@@ -413,8 +415,31 @@ def init_db() -> None:
                 current_intent TEXT,
                 last_message_at TEXT,
                 updated_at TEXT NOT NULL,
+                saved_domains_json TEXT NOT NULL DEFAULT '{}',
                 FOREIGN KEY(member_id) REFERENCES members(id)
             );
+
+            -- Task 006a: WhatsApp has no browser localStorage, so the
+            -- trip_form.html JS's own savedDomainsKey guard (never re-POST
+            -- save-trip-lodging/save-trip-car/save-trip-plan - each one
+            -- fires a real search - for a domain already saved for the
+            -- active trip) needs a server-side home. Reset to '{}' whenever
+            -- active_trip_id changes (see whatsapp_bridge.py).
+
+            CREATE TABLE IF NOT EXISTS whatsapp_inbound_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wa_message_id TEXT UNIQUE,
+                phone_hash TEXT NOT NULL,
+                member_id INTEGER,
+                direction TEXT NOT NULL,
+                msg_type TEXT,
+                body TEXT,
+                button_payload TEXT,
+                status TEXT NOT NULL,
+                error TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_inbound_log_created_at ON whatsapp_inbound_log(created_at DESC);
 
             -- Same gap as the two tables above, same fix: read/written by
             -- nova_conversation.py's onboarding flow with no prior CREATE
@@ -584,6 +609,16 @@ def init_db() -> None:
             conn.execute("ALTER TABLE scan_runs ADD COLUMN coverage_groups_completed INTEGER NOT NULL DEFAULT 0")
         if "coverage_groups_total" not in scan_columns:
             conn.execute("ALTER TABLE scan_runs ADD COLUMN coverage_groups_total INTEGER NOT NULL DEFAULT 0")
+
+        # Task 006a: server-side equivalent of trip_form.html's savedDomainsKey
+        # localStorage guard, since WhatsApp has no browser to hold it.
+        wa_state_columns = {row["name"] for row in conn.execute("PRAGMA table_info(whatsapp_conversation_state)").fetchall()}
+        if "saved_domains_json" not in wa_state_columns:
+            conn.execute("ALTER TABLE whatsapp_conversation_state ADD COLUMN saved_domains_json TEXT NOT NULL DEFAULT '{}'")
+
+        ai_usage_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ai_usage)").fetchall()}
+        if "channel" not in ai_usage_columns:
+            conn.execute("ALTER TABLE ai_usage ADD COLUMN channel TEXT")
 
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
@@ -2042,6 +2077,112 @@ def recent_whatsapp_queue(limit: int = 50) -> list[dict]:
             "SELECT * FROM whatsapp_outbound_queue ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+# --- Task 006a: WhatsApp inbound Ariella bridge ---------------------------
+
+def get_whatsapp_conversation_state(member_id: int) -> dict:
+    """active_trip_id mirrors trip_form.html's tripIdKey; saved_domains
+    mirrors its savedDomainsKey (see whatsapp_bridge.py) - both exist only
+    because WhatsApp has no browser localStorage to hold them."""
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT active_trip_id, current_intent, saved_domains_json FROM whatsapp_conversation_state WHERE member_id=?",
+            (int(member_id),),
+        ).fetchone()
+    if not row:
+        return {"active_trip_id": None, "current_intent": None, "saved_domains": {}}
+    try:
+        saved_domains = json.loads(row["saved_domains_json"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        saved_domains = {}
+    return {
+        "active_trip_id": row["active_trip_id"],
+        "current_intent": row["current_intent"],
+        "saved_domains": saved_domains if isinstance(saved_domains, dict) else {},
+    }
+
+
+def set_whatsapp_active_trip(member_id: int, trip_id: int | None) -> None:
+    """A different (or cleared) active trip always resets the saved-domains
+    guard - a trip that was never saved-from before has nothing saved yet."""
+    now = utc_now_iso()
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO whatsapp_conversation_state (member_id,active_trip_id,current_intent,last_message_at,updated_at,saved_domains_json)
+               VALUES(?,?,NULL,?,?,'{}')
+               ON CONFLICT(member_id) DO UPDATE SET
+                 active_trip_id=excluded.active_trip_id,
+                 updated_at=excluded.updated_at,
+                 saved_domains_json='{}'""",
+            (int(member_id), trip_id, now, now),
+        )
+        conn.commit()
+
+
+def mark_whatsapp_domain_saved(member_id: int, domain: str) -> None:
+    state = get_whatsapp_conversation_state(member_id)
+    saved = dict(state.get("saved_domains") or {})
+    saved[domain] = True
+    now = utc_now_iso()
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO whatsapp_conversation_state (member_id,active_trip_id,current_intent,last_message_at,updated_at,saved_domains_json)
+               VALUES(?,NULL,NULL,?,?,?)
+               ON CONFLICT(member_id) DO UPDATE SET
+                 saved_domains_json=excluded.saved_domains_json,
+                 updated_at=excluded.updated_at""",
+            (int(member_id), now, now, json.dumps(saved, ensure_ascii=False)),
+        )
+        conn.commit()
+
+
+def whatsapp_message_already_processed(wa_message_id: str | None) -> bool:
+    """Meta sometimes redelivers the same inbound webhook - an already-logged
+    inbound wa_message_id must never be answered a second time."""
+    if not wa_message_id:
+        return False
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM whatsapp_inbound_log WHERE wa_message_id=? AND direction='in'",
+            (str(wa_message_id),),
+        ).fetchone()
+    return bool(row)
+
+
+def log_whatsapp_message(
+    wa_message_id: str | None, phone_hash: str, member_id: int | None, direction: str,
+    msg_type: str | None, body: str | None, button_payload: str | None,
+    status: str, error: str | None = None,
+) -> None:
+    """Never stores the raw phone number (phone_hash is the caller's
+    nova_conversation._phone_hash) and never raises - a logging failure must
+    never break the actual WhatsApp reply."""
+    try:
+        with connection() as conn:
+            conn.execute(
+                """INSERT OR IGNORE INTO whatsapp_inbound_log
+                   (wa_message_id,phone_hash,member_id,direction,msg_type,body,button_payload,status,error,created_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    wa_message_id, phone_hash, member_id, direction, msg_type,
+                    (str(body or ""))[:4000], button_payload, status, error, utc_now_iso(),
+                ),
+            )
+            conn.commit()
+    except Exception:
+        logging.exception("Failed to log WhatsApp message (status=%s)", status)
+
+
+def recent_whatsapp_inbound_log(limit: int = 50) -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT id, created_at, direction, msg_type,
+                      substr(COALESCE(body,''),1,200) AS body, button_payload, status, member_id, error
+               FROM whatsapp_inbound_log ORDER BY id DESC LIMIT ?""",
+            (max(1, min(int(limit), 200)),),
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def upsert_partner_commission(

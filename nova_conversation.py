@@ -534,40 +534,20 @@ def route_inbound(phone: str, text: str, profile_name: str = "", button_payload:
 
 
 def _route_member(member_id: int, text: str) -> str:
+    """Task 006a: only the two explicit, zero-ambiguity utility commands
+    stay deterministic here - everything else (greetings, "חופשה חדשה",
+    free text, numbered menu choices from before Ariella's own engine was
+    wired in) now goes straight to ariella_turn, the same engine and the
+    same saved conversation the website chat uses."""
     normalized = (text or "").strip().lower()
 
-    if normalized in {"היי", "הי", "שלום", "hello", "hi", "תפריט", "menu", ""}:
+    if normalized in {"תפריט", "menu"}:
         _set_state(member_id, "menu")
         return menu_text(member_id)
 
-    if normalized in {"1", "החופשות שלי", "חופשות", "החופשות"}:
+    if normalized in {"החופשות שלי", "חופשות", "החופשות"}:
         _set_state(member_id, "my_vacations")
         return _vacation_text(member_id)
 
-    if normalized in {"2", "חופשה חדשה", "חדשה", "תכנון חופשה"}:
-        _set_state(member_id, "new_vacation")
-        return (
-            "מעולה. נתחיל חופשה חדשה ✈️\n"
-            "איזה סוג חופשה?\n"
-            "1. חופשה רגילה\n"
-            "2. חופשת סקי\n"
-            "3. נסיעת עסקים\n\n"
-            "בגרסה הזו נובה מזהה ומנהלת את החשבון ב-WhatsApp; "
-            "שאלון החופשה המלא ימשיך במנגנון המשותף לאתר בשלב N3."
-        )
-
-    if normalized in {"3", "להמשיך חופשה קיימת", "המשך חופשה", "להמשיך"}:
-        _set_state(member_id, "continue_vacation")
-        return _vacation_text(member_id)
-
-    if normalized in {"4", "הדילים האחרונים", "דילים", "דילים אחרונים"}:
-        _set_state(member_id, "latest_deals")
-        return (
-            "אני מחוברת לחשבון שלך. הדילים ב-WhatsApp משתמשים באותו דירוג ובאותו DB של האתר, "
-            "בלי סריקה כפולה. בחרי קודם „החופשות שלי” כדי לבחור חופשה."
-        )
-
-    if normalized in {"עזרה", "help", "?"}:
-        return "אפשר לכתוב: החופשות שלי, חופשה חדשה, להמשיך חופשה קיימת, הדילים האחרונים או תפריט."
-
-    return "לא בטוחה למה התכוונת. כתבי „תפריט” ואציג את האפשרויות."
+    from whatsapp_bridge import ariella_turn
+    return ariella_turn(member_id, text)

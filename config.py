@@ -209,6 +209,23 @@ WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
 # approved in Meta, every WhatsApp deals message goes to whatsapp_outbound_queue
 # in 'preview' status only - nothing is ever sent to a real customer.
 WHATSAPP_DEALS_BUTTONS_ENABLED = os.getenv("WHATSAPP_DEALS_BUTTONS_ENABLED", "false").strip().lower() == "true"
+# Task 006a: Ariella answers inbound WhatsApp messages, stage 1 (allowlisted
+# numbers only). Off by default - WHATSAPP_INBOUND_ENABLED=false means no
+# reply is ever sent to anyone, even an allowlisted number (see whatsapp.py).
+WHATSAPP_INBOUND_ENABLED = os.getenv("WHATSAPP_INBOUND_ENABLED", "false").strip().lower() == "true"
+# Comma-separated phone numbers, normalized the same way nova_conversation.
+# canonical_phone does (e.g. "0501234567,972521234567"). Only these numbers
+# ever get a real Ariella reply while this stage is in effect.
+WHATSAPP_INBOUND_ALLOWLIST = [
+    p.strip() for p in os.getenv("WHATSAPP_INBOUND_ALLOWLIST", "").split(",") if p.strip()
+]
+# Already used by whatsapp_coexistence.py (read there directly via os.getenv)
+# for Meta OAuth; also used here (whatsapp.py) to verify the inbound
+# webhook's X-Hub-Signature-256 header.
+META_APP_SECRET = os.getenv("META_APP_SECRET", "").strip()
+# PUBLIC_BASE_URL (above) already serves exactly this purpose (nova_conversation
+# uses it the same way for the deals-page link) - no separate PUBLIC_SITE_URL
+# needed.
 BUSINESS_TRADE_NAME = os.getenv("BUSINESS_TRADE_NAME", "ARIELA AI TRAVEL").strip() or "ARIELA AI TRAVEL"
 BUSINESS_LEGAL_NAME_HE = os.getenv("BUSINESS_LEGAL_NAME_HE", "").strip()
 BUSINESS_LEGAL_NAME_EN = os.getenv("BUSINESS_LEGAL_NAME_EN", "").strip()
