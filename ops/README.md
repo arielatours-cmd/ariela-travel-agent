@@ -5,5 +5,5 @@
 - `check_live.py` — בדיקת /health, עמודים מרכזיים וזמני תגובה. עם `ARIELLA_OPS_TOKEN` — גם סיכום תפעולי.
 - `PROPOSAL_ops_status_endpoint.md` — ההצעה לנקודת סטטוס שתאפשר לערן וליוסף לראות סריקות, שליחות ומכסות.
 
-## דרישה לפני שערן יכול לעבוד
-הסביבה בענן צריכה להרשות גישה לדומיין `ariela-travel-agent.onrender.com` (הגדרות הסביבה → Network access → Allowed domains).
+## מצב נוכחי
+בשלב הפיתוח ערן עושה בקרת תפעול מהקוד (מתזמן, מכסות, הגדרות פריסה). כדי שיבדוק גם את האתר החי, צריך לאשר בסביבה בענן גישה לכתובת `ariela-travel-agent.onrender.com` (הגדרות הסביבה → Network access → Allowed domains). לא צריך דומיין קבוע בשביל זה.
