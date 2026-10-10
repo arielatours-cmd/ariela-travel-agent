@@ -72,3 +72,14 @@ def build_daily_message(deals):
             parts.append("━━━━━━━━━━━━━━━━━━")
         parts.append(format_deal(deal))
     return "\n".join(parts)
+
+
+def build_daily_whatsapp_payload(deals):
+    """Same body as build_daily_message, plus the quick-reply button list
+    every daily deals WhatsApp message must end with (task 003a). Returns
+    {"body": str, "buttons": [...]} - for use once sending is wired up
+    (WHATSAPP_DEALS_BUTTONS_ENABLED); build_daily_message itself is
+    untouched so nothing that already depends on it changes behavior."""
+    body = build_daily_message(deals)
+    buttons = [{"text": "הפסקת הדילים", "payload": "STOP_HOT_DEALS"}] if body else []
+    return {"body": body, "buttons": buttons}

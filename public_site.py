@@ -22,8 +22,8 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment
+from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE, BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, BUSINESS_LEGAL_NAME_EN, BUSINESS_DEALER_TYPE_HE, BUSINESS_DEALER_NUMBER, BUSINESS_ADDRESS_HE, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, latest_trip_alerts
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
 from scoring import (
@@ -33,6 +33,7 @@ from scoring import (
 )
 import booking_demand
 import itinerary_cards
+from radar_alerts import evaluate_trip_alert
 from booker import resolve_booking_target
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 
@@ -2131,6 +2132,34 @@ def refresh_public_deal_feed(limit=30):
     return snapshot
 
 
+def _business_details() -> dict:
+    """Business legal details for the site footer (task 004a). Each part is
+    shown only when set; the whole line is hidden when there's no legal
+    name in either language and no dealer number - i.e. with no business
+    env vars set at all, the footer looks exactly as it did before this
+    existed."""
+    show = bool(BUSINESS_LEGAL_NAME_HE or BUSINESS_LEGAL_NAME_EN or BUSINESS_DEALER_NUMBER)
+
+    def join_parts(parts):
+        return " · ".join(p for p in parts if p)
+
+    dealer_he = f"{BUSINESS_DEALER_TYPE_HE} {BUSINESS_DEALER_NUMBER}".strip() if (BUSINESS_DEALER_TYPE_HE or BUSINESS_DEALER_NUMBER) else ""
+    dealer_en = f"Licensed Dealer {BUSINESS_DEALER_NUMBER}" if BUSINESS_DEALER_NUMBER else ""
+    return {
+        "show": show,
+        "trade_name": BUSINESS_TRADE_NAME,
+        "legal_name_he": BUSINESS_LEGAL_NAME_HE,
+        "legal_name_en": BUSINESS_LEGAL_NAME_EN,
+        "dealer_type_he": BUSINESS_DEALER_TYPE_HE,
+        "dealer_number": BUSINESS_DEALER_NUMBER,
+        "address_he": BUSINESS_ADDRESS_HE,
+        "address_en": BUSINESS_ADDRESS_EN,
+        "contact_email": BUSINESS_CONTACT_EMAIL,
+        "line_he": join_parts([BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, dealer_he, BUSINESS_ADDRESS_HE, BUSINESS_CONTACT_EMAIL]),
+        "line_en": join_parts([BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_EN, dealer_en, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL]),
+    }
+
+
 @site.app_context_processor
 def inject_site_context():
     requested_lang = request.args.get("lang")
@@ -2152,7 +2181,8 @@ def inject_site_context():
     return {"current_member": _current_member(), "site_lang": lang, "qa_test_mode": qa_test_mode,
             "car_partner_cards": _car_partner_cards,
             "lodging_partner_cards": _lodging_partner_cards,
-            "core_itinerary_text": itinerary_cards.core_itinerary_text}
+            "core_itinerary_text": itinerary_cards.core_itinerary_text,
+            "business": _business_details()}
 
 
 def _lang():
@@ -2270,10 +2300,7 @@ def whatsapp_opt_in():
         flash(_msg("כדי לקבל את הדילים לפני כולם ב-WhatsApp יש להירשם תחילה.", "Please join Ariella first to receive WhatsApp deal alerts."), "error")
         return redirect(url_for("site.join"))
     enabled = request.form.get("enabled", "1") == "1"
-    with _db() as conn:
-        conn.execute("UPDATE members SET whatsapp_opt_in=?, whatsapp_opt_in_at=? WHERE id=?",
-                     (1 if enabled else 0, utc_now_iso() if enabled else None, member["id"]))
-        conn.commit()
+    set_whatsapp_deals_opt(member["id"], enabled, "site")
     return redirect(url_for("site.deals"))
 
 @site.get("/about")
@@ -2713,6 +2740,11 @@ def account():
                 "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=82",
             ]
             trip["image_url"] = random.choice(open_destination_images)
+    # One batched query for every trip's latest radar alert (task 002a) -
+    # never one query per trip on this page.
+    radar_alerts_by_trip = latest_trip_alerts([t["id"] for t in trips])
+    for trip in trips:
+        trip["radar_alert"] = radar_alerts_by_trip.get(trip["id"])
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
@@ -4229,6 +4261,10 @@ def run_paid_personal_search_batch() -> dict:
             matches = _customer_deal_choices(refreshed, trip, limit=5)
             if matches:
                 _pin_offer_ids_to_trip(trip_id, answers, matches)
+                try:
+                    evaluate_trip_alert(trip_id)
+                except Exception:
+                    log.exception("Radar alert evaluation failed for trip %s", trip_id)
             with _db() as conn:
                 conn.execute(
                     "UPDATE trip_requests SET free_scan_last_at=?, free_scan_last_status=? WHERE id=?",
@@ -4279,6 +4315,10 @@ def run_personal_vacation_evening_refresh() -> dict:
             matches = _customer_deal_choices(refreshed, trip, limit=5)
             if matches:
                 _pin_offer_ids_to_trip(trip_id, answers, matches)
+                try:
+                    evaluate_trip_alert(trip_id)
+                except Exception:
+                    log.exception("Radar alert evaluation failed for trip %s", trip_id)
                 updated.append(trip_id)
         except Exception:
             log.exception("Evening personal vacation refresh failed for trip %s", trip_id)

@@ -365,6 +365,137 @@ def init_db() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_feedback_created_at
             ON feedback_messages(created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS ai_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                source TEXT NOT NULL,
+                member_id INTEGER,
+                trip_id INTEGER,
+                conversation_id INTEGER,
+                model TEXT NOT NULL,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
+                is_test INTEGER NOT NULL DEFAULT 0,
+                error TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage(created_at);
+            CREATE INDEX IF NOT EXISTS idx_ai_usage_member ON ai_usage(member_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_ai_usage_conversation ON ai_usage(conversation_id);
+
+            -- Read/written by nova_conversation.py and nova_whatsapp.py since
+            -- before this table creation existed anywhere in the codebase -
+            -- added here (task 003a) so linked_member_for_phone and friends
+            -- have something to query instead of erroring on a missing
+            -- table the first time WhatsApp inbound routing is wired up.
+            -- Columns match their exact existing INSERT/SELECT usage.
+            CREATE TABLE IF NOT EXISTS whatsapp_member_links (
+                member_id INTEGER PRIMARY KEY,
+                wa_phone_hash TEXT NOT NULL UNIQUE,
+                verified_at TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_member_links_phone ON whatsapp_member_links(wa_phone_hash);
+
+            CREATE TABLE IF NOT EXISTS whatsapp_conversation_state (
+                member_id INTEGER PRIMARY KEY,
+                active_trip_id INTEGER,
+                current_intent TEXT,
+                last_message_at TEXT,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+
+            -- Same gap as the two tables above, same fix: read/written by
+            -- nova_conversation.py's onboarding flow with no prior CREATE
+            -- TABLE anywhere - found while QA-testing task 003a's
+            -- route_inbound button_payload change, which exercises this
+            -- same code path for any non-button message.
+            CREATE TABLE IF NOT EXISTS partner_commissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                network TEXT NOT NULL DEFAULT 'cj',
+                commission_id TEXT NOT NULL,
+                trip_id INTEGER,
+                advertiser_name TEXT,
+                action_status TEXT,
+                sale_amount REAL,
+                commission_amount REAL,
+                currency TEXT,
+                event_date TEXT,
+                posting_date TEXT,
+                raw_json TEXT NOT NULL,
+                first_seen_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(network, commission_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_partner_commissions_trip ON partner_commissions(trip_id);
+
+            CREATE TABLE IF NOT EXISTS trip_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trip_id INTEGER NOT NULL,
+                member_id INTEGER NOT NULL,
+                rating INTEGER NOT NULL,
+                comment TEXT,
+                source TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(trip_id, member_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS trip_alerts_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trip_id INTEGER NOT NULL,
+                member_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                price_ils REAL NOT NULL,
+                previous_price_ils REAL,
+                offer_id INTEGER,
+                message_text TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'preview',
+                FOREIGN KEY(trip_id) REFERENCES trip_requests(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_trip_alerts_trip ON trip_alerts_log(trip_id, id DESC);
+
+            CREATE TABLE IF NOT EXISTS whatsapp_onboarding_state (
+                wa_phone_hash TEXT PRIMARY KEY,
+                current_step TEXT,
+                data_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS whatsapp_opt_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                event TEXT NOT NULL,
+                source TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_opt_events_member ON whatsapp_opt_events(member_id, id DESC);
+
+            -- Shared by tasks 002a (radar alerts) and 003a (deals welcome/
+            -- stop button) - whichever ships first creates it.
+            CREATE TABLE IF NOT EXISTS whatsapp_outbound_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                body TEXT NOT NULL,
+                buttons_json TEXT NOT NULL DEFAULT '[]',
+                image_url TEXT,
+                ref_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'preview',
+                created_at TEXT NOT NULL,
+                sent_at TEXT,
+                error TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_outbound_queue_created ON whatsapp_outbound_queue(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_whatsapp_outbound_queue_member ON whatsapp_outbound_queue(member_id);
             """
         )
 
@@ -390,11 +521,33 @@ def init_db() -> None:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN renewal_reminder_sent_at TEXT")
         if "has_paid_search" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN has_paid_search INTEGER NOT NULL DEFAULT 0")
+        if "alert_baseline_price_ils" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN alert_baseline_price_ils REAL")
+        if "alert_last_price_ils" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN alert_last_price_ils REAL")
+        if "alert_last_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN alert_last_at TEXT")
+        if "booked_confirmed_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN booked_confirmed_at TEXT")
+        if "booked_source" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN booked_source TEXT")
+        if "booking_cancelled_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN booking_cancelled_at TEXT")
+        if "congrats_queued_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN congrats_queued_at TEXT")
+        if "how_was_it_queued_at" not in trip_columns:
+            conn.execute("ALTER TABLE trip_requests ADD COLUMN how_was_it_queued_at TEXT")
         member_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
         if "whatsapp_opt_in" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_in INTEGER NOT NULL DEFAULT 0")
         if "whatsapp_opt_in_at" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_in_at TEXT")
+        if "whatsapp_opt_out_at" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_out_at TEXT")
+        if "whatsapp_opt_out_source" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_out_source TEXT")
+        if "whatsapp_welcome_sent_at" not in member_columns:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_welcome_sent_at TEXT")
 
         if "free_scan_count" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN free_scan_count INTEGER NOT NULL DEFAULT 0")
@@ -1732,3 +1885,169 @@ def members_to_notify_on_whatsapp() -> list[dict]:
             """
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def set_whatsapp_deals_opt(member_id: int, enabled: bool, source: str) -> bool:
+    """Single place that changes members.whatsapp_opt_in - records the
+    opt-in/opt-out event (required under Israeli Telecom Law s.30A) and
+    keeps whatsapp_opt_in_at/whatsapp_opt_out_at/whatsapp_opt_out_source in
+    sync. Returns True only when the state actually changed (so callers can
+    tell a genuine opt-in from a no-op re-confirmation)."""
+    now = utc_now_iso()
+    with connection() as conn:
+        row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
+        if not row:
+            return False
+        currently_on = bool(row["whatsapp_opt_in"])
+        if currently_on == bool(enabled):
+            return False
+        if enabled:
+            conn.execute(
+                "UPDATE members SET whatsapp_opt_in=1, whatsapp_opt_in_at=? WHERE id=?",
+                (now, member_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE members SET whatsapp_opt_in=0, whatsapp_opt_out_at=?, whatsapp_opt_out_source=? WHERE id=?",
+                (now, source, member_id),
+            )
+        conn.execute(
+            "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at) VALUES (?,?,?,?)",
+            (member_id, "opt_in" if enabled else "opt_out", source, now),
+        )
+        conn.commit()
+    return True
+
+
+def queue_whatsapp_message(member_id: int, kind: str, body: str, buttons=None, image_url=None, ref_id=None) -> int:
+    """Shared by tasks 002a/003a/001a - every outbound WhatsApp message (deal
+    alerts, welcome, radar, booking lifecycle) is written here in 'preview'
+    status instead of being sent, until WHATSAPP_DEALS_BUTTONS_ENABLED (or a
+    real send path) exists. Returns the new row id."""
+    import json as _json
+    with connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO whatsapp_outbound_queue(member_id, kind, body, buttons_json, image_url, ref_id, status, created_at)
+               VALUES (?,?,?,?,?,?, 'preview', ?)""",
+            (member_id, kind, body, _json.dumps(buttons or [], ensure_ascii=False), image_url, ref_id, utc_now_iso()),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+
+
+def recent_whatsapp_queue(limit: int = 50) -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM whatsapp_outbound_queue ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def upsert_partner_commission(
+    commission_id: str, trip_id, advertiser_name, action_status, sale_amount,
+    commission_amount, currency, event_date, posting_date, raw: dict, network: str = "cj",
+) -> bool:
+    """Upsert one CJ commission row by (network, commission_id). Returns True
+    when this is the FIRST time this commission_id has ever been seen (the
+    caller uses that to decide whether to queue a booking-congrats message -
+    a resync of an already-known commission must never re-trigger it)."""
+    import json as _json
+    now = utc_now_iso()
+    with connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM partner_commissions WHERE network=? AND commission_id=?",
+            (network, commission_id),
+        ).fetchone()
+        conn.execute(
+            """INSERT INTO partner_commissions
+               (network, commission_id, trip_id, advertiser_name, action_status, sale_amount,
+                commission_amount, currency, event_date, posting_date, raw_json, first_seen_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(network, commission_id) DO UPDATE SET
+                 trip_id=excluded.trip_id, advertiser_name=excluded.advertiser_name,
+                 action_status=excluded.action_status, sale_amount=excluded.sale_amount,
+                 commission_amount=excluded.commission_amount, currency=excluded.currency,
+                 event_date=excluded.event_date, posting_date=excluded.posting_date,
+                 raw_json=excluded.raw_json, updated_at=excluded.updated_at""",
+            (network, commission_id, trip_id, advertiser_name, action_status, sale_amount,
+             commission_amount, currency, event_date, posting_date,
+             _json.dumps(raw, ensure_ascii=False), now, now),
+        )
+        conn.commit()
+    return existing is None
+
+
+def trip_has_valid_commission(trip_id: int, exclude_commission_id: str | None = None) -> bool:
+    """True when trip_id has at least one partner_commissions row that is not
+    a cancelled/corrected-to-zero action. Used to decide whether a single
+    cancelled commission should flip the trip to booking_cancelled_at, or
+    whether another valid commission (e.g. hotel vs. car) still covers it."""
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT commission_id, action_status, commission_amount FROM partner_commissions WHERE trip_id=?",
+            (trip_id,),
+        ).fetchall()
+    for row in rows:
+        if exclude_commission_id and row["commission_id"] == exclude_commission_id:
+            continue
+        status = str(row["action_status"] or "").lower()
+        if status in ("cancelled", "canceled", "corrected"):
+            continue
+        amount = row["commission_amount"]
+        if amount is not None and float(amount) <= 0:
+            continue
+        return True
+    return False
+
+
+def recent_partner_commissions(limit: int = 50) -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM partner_commissions ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def save_trip_feedback(trip_id: int, member_id: int, rating: int, source: str, comment: str | None = None) -> None:
+    now = utc_now_iso()
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO trip_feedback (trip_id, member_id, rating, comment, source, created_at)
+               VALUES (?,?,?,?,?,?)
+               ON CONFLICT(trip_id, member_id) DO UPDATE SET
+                 rating=excluded.rating, source=excluded.source, created_at=excluded.created_at,
+                 comment=COALESCE(excluded.comment, trip_feedback.comment)""",
+            (trip_id, member_id, rating, comment, source, now),
+        )
+        conn.commit()
+
+
+def append_trip_feedback_comment(trip_id: int, member_id: int, comment: str) -> bool:
+    """True when a feedback row existed to attach the comment to."""
+    with connection() as conn:
+        cur = conn.execute(
+            "UPDATE trip_feedback SET comment=? WHERE trip_id=? AND member_id=?",
+            (comment, trip_id, member_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def latest_trip_alerts(trip_ids: list[int]) -> dict:
+    """The single most recent trip_alerts_log row per trip, for every trip_id
+    given, in one query - the vacation card ("🎯 עדכון אחרון מהרדאר") must
+    never issue one query per trip on the account page. Returns
+    {trip_id: {...row...}}; a trip with no alert yet is simply absent."""
+    clean_ids = [int(x) for x in (trip_ids or []) if str(x).isdigit() or isinstance(x, int)]
+    if not clean_ids:
+        return {}
+    with connection() as conn:
+        rows = conn.execute(
+            f"""SELECT * FROM trip_alerts_log WHERE id IN (
+                   SELECT MAX(id) FROM trip_alerts_log
+                   WHERE trip_id IN ({",".join("?" for _ in clean_ids)})
+                   GROUP BY trip_id
+               )""",
+            clean_ids,
+        ).fetchall()
+    return {int(row["trip_id"]): dict(row) for row in rows}

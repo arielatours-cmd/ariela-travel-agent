@@ -10,7 +10,8 @@ from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES, AIRPORT_NAMES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
-from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention, clear_ariella_conversation
+from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention, clear_ariella_conversation, get_setting
+from ai_usage import record_ai_usage, set_ai_usage_context
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -113,8 +114,9 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - לפני שמציעים שדה תעופה כאופציה ליעד מסוים, ודאי שהוא באמת באותה מדינה שהלקוח ביקש. אם ההצעה היחידה הסבירה היא שדה במדינה שכנה (למשל זאגרב בקרואטיה עבור יעד בסלובניה), חובה לציין זאת במפורש ולתת ללקוח לבחור מדעת, ולא להציג אותו כאילו הוא בתוך היעד המבוקש.
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
+- שאלת גיל הילד/ה היא תמיד על הילד/ה בלבד - "בן/בת כמה הילד/ה?" או ניסוח דומה. לעולם אל תשלבי בה אזכור של גיל ההורים/הזוג/המבוגרים באותו משפט (למשל "כמה הזוג בן, כמה הילד/ה?") - זה ניסוח שבור שאין לו משמעות ומבלבל את הלקוח. גיל המבוגרים אינו רלוונטי לחיפוש ולעולם אינו נשאל.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
-- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה בינארית קצרה וטבעית (למשל "לאסוף ולהחזיר בשדה התעופה, או שעדיף מיקום אחר כמו מרכז העיר?") ושמרי את המיקום שהלקוח בחר בפועל. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב קצרה ועניינית: הציגי את האפשרויות (קטן, משפחתי, משפחתי סטיישן, SUV, ג'יפ, מיניוואן 7 מקומות) ושאלי אם צריך יותר מקומות מאשר מספר הנוסעים - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). את ידני/אוטומטי שאלי כשאלה נפרדת.
+- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה בינארית קצרה וטבעית (למשל "לאסוף ולהחזיר בשדה התעופה, או שעדיף מיקום אחר כמו מרכז העיר?") ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לציין את שמות השדות במפורש ולשאול לאיזה מהם (למשל "לאסוף ולהחזיר בשדה התעופה בלרנקה, בפאפוס, או במקום אחר?"), ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב קצרה ועניינית: הציגי את האפשרויות (קטן, משפחתי, משפחתי סטיישן, SUV, ג'יפ, מיניוואן 7 מקומות) ושאלי אם צריך יותר מקומות מאשר מספר הנוסעים - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). את ידני/אוטומטי שאלי כשאלה נפרדת.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'.
 - חשבון תאריכים הוא דטרמיניסטי: שבוע=7 ימים ושבועיים=14 ימים. אם הלקוח אמר יציאה 20.12 ושבועיים, החזרה היא 3.1; אל תמציאי 7.1 ואל תציעי תאריך חלופי אחרי שהמשך אושר.
@@ -133,6 +135,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם יש profile.first_name, זהו שם הלקוח האמיתי מהרשמתו לאתר. אפשר (לא חובה) לפנות אליו בשמו הפרטי בהודעת הפתיחה של השיחה או במקום טבעי אחר, כדי שהשיחה תרגיש אישית - אבל אל תשלבי אותו בכל הודעה כאילו זו תבנית קבועה.
 - זרימת הסשנים: סשן 1 הוא טיסות. השלימי את כל פרטי הטיסה באופן טבעי בשיחה - ברגע שהם ידועים הסשן נסגר מעצמו באותו האופן שבו לינה/רכב/מסלול נסגרים מעצמם, **בלי לבקש אישור/מאשר/מאשרת בשלב הזה ובלי להציג אותו כ"סיכום"**, ועוברים ישירות לסשן הבא שהתבקש (תכנון מסלול/אטרקציות, לינה, רכב - לפי הסדר הקבוע). אין יציאה לחיפוש בפועל בשלב הזה, ולכן אין גם צורך באישור נקודתי כאן.
 - המילים "מאשר/מאשרת" וגם הצגת מידע כ"סיכום" שמורות אך ורק לשלב אחד: הרגע שבו כל ארבעת הסשנים (טיסות, מסלול, לינה, רכב) כבר הגיעו ל-complete או declined, ויש בדיוק בקשה אחת מגובשת לאשר. לעולם אל תבקשי "כתבי מאשרת" ואל תציגי "סיכום" אחרי סיום טיסות/לינה/רכב/מסלול בנפרד - כל תחום נסגר מעצמו בשקט כשכל הפרטים שלו ידועים, ועוברים הלאה לתחום הבא בלי שום בקשת אישור.
+- "התחום הבא בלי שום בקשת אישור" פירושו תמיד שאלה קונקרטית וממשית, לא סיכום וגם לא ניסוח כמו "אפשר תמיד לחזור ולתכנן גם X בהמשך". ברגע שתחום נסגר (למשל לינה) ויש תחום נוסף ב-session_status שעדיין pending (טרם סומן complete או declined - למשל רכב שעדיין לא נשאלת עליו בכלל), החובה היחידה כעת היא לשאול עליו שאלת כן/לא טבעית וברורה (למשל "רוצה שאסדר גם רכב?") - אסור בשום אופן להתייחס אליו כאילו הוחלט (לא "לא נדרש", לא "אפשר להוסיף בהמשך", ולא כל ניסוח אחר שמרמז על החלטה) כל עוד הוא עדיין pending. ניסוח כזה שמור אך ורק לתחום שבאמת סומן declined על ידי הלקוח במפורש. בלבול בין "עדיין לא נשאל" לבין "נדחה" משאיר את הלקוח בלי שום פעולה ברורה להמשיך בה ועוצר את התקדמות הבקשה כולה.
 - לאחר שהבקשה המלאה אושרה ויצאה לחיפוש, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
 - אם זו אותה חופשה, אל תשאלי שוב יעד, תאריכים, נוסעים או פרטי טיסה שכבר ידועים. שאלי במה ירצה/תרצה להמשיך: לינה, השכרת רכב או תכנון מסלול ואטרקציות, ואז פתחי רק את הסשן שנבחר.
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
@@ -322,7 +325,7 @@ def _weekday_pair_conflict(text, history):
     return None
 
 
-def _post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True):
+def _post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     """system_static is the large, unchanging instruction block (thousands of
     tokens, identical on every call) - marked cacheable so Claude does not
     reprocess it from scratch on every chat turn. system_dynamic is the small
@@ -342,7 +345,9 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
             thinking={'type': 'disabled'},
         )
     except anthropic.APIStatusError as exc:
+        record_ai_usage(source, model, usage=None, error=exc.status_code)
         raise RuntimeError(f'Claude API error {exc.status_code}') from exc
+    record_ai_usage(source, model, usage=response.usage)
     return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
 
@@ -752,20 +757,31 @@ def _direct_route_available(state):
     state = state if isinstance(state, dict) else {}
     destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
     places = destination.get("places") if isinstance(destination.get("places"), list) else []
-    if not places:
+    # destination_airports (the already-resolved IATA gateway codes, e.g.
+    # ["LCA","PFO"] for Cyprus) is the authoritative source once it exists -
+    # `places` is free text ("קפריסין") that only happens to BE an IATA code
+    # when the customer typed one directly, or matches the small Thailand-
+    # city alias list below. Without destination_airports, any destination
+    # resolved from a country/city name (the common case) always fell
+    # through to codes=[] and this returned False unconditionally, so the
+    # direct-vs-connection question never got asked and never made it into
+    # the summary - regardless of whether a real nonstop route existed.
+    destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
+    if not places and not destination_airports:
         return False
     origin = str(state.get("departure_airport") or "TLV").strip().upper()
     aliases = {
         "תאילנד":["BKK","HKT"], "thailand":["BKK","HKT"],
         "בנגקוק":["BKK"], "bangkok":["BKK"], "פוקט":["HKT"], "phuket":["HKT"],
     }
-    codes = []
+    codes = [str(c or "").strip().upper() for c in destination_airports if str(c or "").strip()]
     for place in places:
         raw = str(place or "").strip()
         upper = raw.upper()
         if len(upper) == 3 and upper.isalpha():
             codes.append(upper)
         codes.extend(aliases.get(raw.lower(), aliases.get(raw, [])))
+    codes = list(dict.fromkeys(codes))
     if not codes:
         return False
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
@@ -1405,7 +1421,7 @@ UNCLEAR = אי אפשר להבין בבטחה.
         raw = _post_claude(
             key, model, prompt, "", history if isinstance(history, list) else [],
             "question_kind=" + str(question_kind) + "\nתשובת הלקוח: " + str(message or ""),
-            20, include_history=True
+            20, include_history=True, source="classifier"
         ).strip().upper()
         if raw.startswith("NEW"):
             return "new"
@@ -1931,7 +1947,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
             'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
         )
     system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
-    reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True).strip()
+    reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
     reply = _strip_garbled_lead_token(reply)
@@ -1967,7 +1983,7 @@ def _extract_trip_update(key, model, history, message, state=None):
         # per-phrasing patch can fix a fact that has scrolled out of view.
         # Matches the main conversational call's own history exactly now -
         # same conversation, same memory.
-        raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, 700, include_history=True)
+        raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, 700, include_history=True, source="state_extractor")
         return _parse_trip_update(raw)
     except Exception:
         return {}
@@ -2472,7 +2488,7 @@ def _budget_answer_by_meaning(message, history, state):
         "או {\"budget\": null} אם התשובה לא עונה על שאלת התקציב."
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 40, include_history=False)
+        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 40, include_history=False, source="classifier")
         raw = raw.strip()
         data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
     except Exception:
@@ -2579,22 +2595,56 @@ def _deterministic_named_decline_facts(message):
     with car neither complete nor declined, so the vacation could never be
     marked fully resolved and the client never navigated to the waiting
     page. Deliberately narrow (exact short phrases only) to avoid
-    misreading a longer sentence that merely mentions the word "רכב"."""
+    misreading a longer sentence that merely mentions the word "רכב".
+
+    Two gaps found live, both in the same exchange: the customer answered
+    an airport-choice question and, in the same message, proactively
+    declined trip_planning before it was ever asked about - "תחפשי
+    בשניהם. לא צריך מסלול כרגע" ("search both. don't need a route right
+    now"). First gap: the "need" alternation only covered the FEMININE
+    "צריכה" (plus "רוצה"/"רוצים") - "צריכה?" as a regex is "צריכ" with an
+    optional trailing ה, which never matches the masculine "צריך" (different
+    final letter, כ vs ך) at all, so a masculine decline was silently
+    ignored regardless of anything else. Second gap: matching required the
+    ENTIRE message to be nothing but the decline phrase (anchored ^...$
+    against the whole string), so bundling it with an unrelated answer in
+    the same message - exactly how a customer naturally writes two things
+    at once - made it invisible. Fixed by checking each sentence clause of
+    the message independently (not just the message as a whole) against a
+    masculine/feminine/plural-covering pattern that also tolerates a
+    trailing "כרגע"/"עכשיו" qualifier."""
     import re
     msg = str(message or "").strip()
-    if not msg or len(msg) > 40:
+    if not msg:
         return {}
+    clauses = [c.strip() for c in re.split(r"[.!?]+", msg) if c.strip()] or [msg]
+    need_word = r"(?:צריך|צריכה|רוצה|רוצים)"
+    qualifier = r"(?:\s+(?:כרגע|עכשיו))?"
     patterns = {
-        "car": (r"^רכב\s+לא\s+נדרש\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+רכב\.?!?$", r"^בלי\s+רכב\.?!?$"),
-        "lodging": (r"^לינה\s+לא\s+נדרש[הת]?\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+לינה\.?!?$", r"^בלי\s+לינה\.?!?$"),
-        "trip_planning": (r"^מסלול\s+לא\s+נדרש\.?!?$", r"^לא\s+(צריכה?|רוצה|רוצים)\s+מסלול\.?!?$"),
+        "car": (
+            rf"^רכב\s+לא\s+נדרש{qualifier}\.?!?$",
+            rf"^לא\s+{need_word}\s+רכב{qualifier}\.?!?$",
+            r"^בלי\s+רכב\.?!?$",
+        ),
+        "lodging": (
+            rf"^לינה\s+לא\s+נדרש[הת]?{qualifier}\.?!?$",
+            rf"^לא\s+{need_word}\s+לינה{qualifier}\.?!?$",
+            r"^בלי\s+לינה\.?!?$",
+        ),
+        "trip_planning": (
+            rf"^מסלול\s+לא\s+נדרש{qualifier}\.?!?$",
+            rf"^לא\s+{need_word}\s+מסלול{qualifier}\.?!?$",
+        ),
     }
-    for service, service_patterns in patterns.items():
-        if any(re.match(p, msg) for p in service_patterns):
-            return {
-                "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
-                "session_status": {service: "declined"},
-            }
+    for clause in clauses:
+        if len(clause) > 40:
+            continue
+        for service, service_patterns in patterns.items():
+            if any(re.match(p, clause) for p in service_patterns):
+                return {
+                    "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
+                    "session_status": {service: "declined"},
+                }
     return {}
 
 
@@ -3248,7 +3298,7 @@ def _classify_service_request(message, history):
         'החזירי JSON בלבד: {"service": "lodging"|"car"|"trip_planning"|"flights"|null}'
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת: " + last_assistant[-600:] + "\nהודעת הלקוח: " + str(message), 40, include_history=False)
+        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת: " + last_assistant[-600:] + "\nהודעת הלקוח: " + str(message), 40, include_history=False, source="classifier")
         raw = raw.strip()
         service = json.loads(raw[raw.index("{"):raw.rindex("}") + 1]).get("service")
     except Exception:
@@ -3395,7 +3445,7 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
         "החזירי JSON בלבד, בפורמט {\"lodging\": true|false|null, ...} רק עם המפתחות: " + ", ".join(offered) + "."
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 60, include_history=False)
+        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 60, include_history=False, source="classifier")
         raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.strip("`").replace("json", "", 1).strip()
@@ -3828,6 +3878,10 @@ def chat_clean():
     if not session.get('member_id'):
         return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.', 'engine_version': ENGINE_VERSION}), 401
 
+    set_ai_usage_context(
+        member_id=session.get('member_id'),
+        is_test=str(get_setting('qa_test_mode', '0') or '0') == '1',
+    )
     body = request.get_json(silent=True) or {}
     message = str(body.get('message') or '').strip()
     if not message:
@@ -4354,8 +4408,40 @@ def chat_clean():
     # A place that is part of the current vacation's own country (e.g.
     # "איטליה" while planning Rome) is never a different destination.
     current_countries = _place_countries(current_places) | set(current_places)
+
+    _HEBREW_PREFIX_LETTERS = "ובכלמשה"
+
+    def _candidate_mentioned(candidate, text):
+        # Plain substring matching treats a known destination name as
+        # "mentioned" even when it's just a few letters inside a longer,
+        # unrelated word - seen live: "לכיוון" (direction/towards) contains
+        # "יוון" (Greece) as a bare substring. A Cyprus-trip customer asking
+        # "וכל יום לנסוע לכיוון אחר?" (can we travel in a different
+        # direction each day?) about splitting up lodging nights got read as
+        # wanting to change the destination to Greece, and landed on a
+        # confusing "change destination and rebuild everything?" prompt that
+        # had nothing to do with her actual question.
+        # Hebrew glues a preposition directly onto the next word with no
+        # space ("ליוון" = "to Greece"), so a bare word-boundary check alone
+        # would also reject that genuine mention. Allow stepping back over
+        # exactly one such prefix letter (ו/ב/כ/ל/מ/ש/ה); beyond that single
+        # letter the preceding character must not be Hebrew at all, or the
+        # match is just a fragment of a longer unrelated word with a
+        # coincidental run of letters in it ("כיוון" swallows "יוון" one
+        # letter in, not at any real word boundary).
+        for m in re.finditer(re.escape(candidate), text):
+            start, end = m.start(), m.end()
+            left = start
+            if left > 0 and text[left - 1] in _HEBREW_PREFIX_LETTERS:
+                left -= 1
+            before_ok = left == 0 or not ("א" <= text[left - 1] <= "ת")
+            after_ok = end == len(text) or not ("א" <= text[end] <= "ת")
+            if before_ok and after_ok:
+                return True
+        return False
+
     for candidate in known_destinations:
-        if candidate in message and current_places and candidate not in current_places:
+        if _candidate_mentioned(candidate, message) and current_places and candidate not in current_places:
             if candidate in current_countries or _place_countries([candidate]) & current_countries:
                 continue
             if any(token in message for token in ("במקום","רוצה לטוס ל","היעד","לשנות")):
@@ -4414,7 +4500,7 @@ def chat_clean():
                 break
         if prior_user_wanted_different_place:
             for candidate in known_destinations:
-                if candidate in message and candidate not in current_places:
+                if _candidate_mentioned(candidate, message) and candidate not in current_places:
                     if candidate in current_countries or _place_countries([candidate]) & current_countries:
                         continue
                     destination_change = candidate
@@ -5011,6 +5097,18 @@ def chat_clean():
         # one final combined approval. Never a guess from the word
         # "סיכום"/"מאשר" alone - only acted on when the authoritative
         # session_status disagrees.
+        # Recompute session_status fresh right before this check (not just
+        # relying on whatever _advance_sessions last set, earlier in the
+        # turn) - any state mutation between that earlier call and here
+        # (e.g. a domain's last required detail merging in THIS turn, or a
+        # post-hoc closure like planning_accept below) would otherwise leave
+        # this check reading stale statuses, wrongly concluding a domain is
+        # still open when it just closed - and derailing a genuinely
+        # complete request into the generic fallback close instead of the
+        # real final approval. Seen live: all four domains visibly complete
+        # in Tinkerbell's own summary, yet the reply ended in the neutral
+        # "ממשיכה מכאן" close instead of "כתבי מאשרת".
+        trip_update = _advance_sessions(trip_update)
         _all_domains_decided_now = all(
             str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
             for _s in ("flights", "lodging", "car", "trip_planning")

@@ -5,7 +5,7 @@ import threading
 import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from flask import Flask, jsonify, request, redirect
+from flask import Flask, jsonify, request, redirect, Response
 
 # Gunicorn/Flask leave the root logger at its default WARNING level, which
 # silently drops every logging.info() call app-wide (booking diagnostics,
@@ -23,7 +23,7 @@ from database import (
     all_settings, dashboard_stats, business_analytics, get_daily_batch, init_db, latest_scan_run,
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
-    normalize_scan_run_price_groups,
+    normalize_scan_run_price_groups, recent_whatsapp_queue, recent_partner_commissions,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 import scanner as _scanner
@@ -33,6 +33,9 @@ from public_site import site, _confirm_paid_search
 from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
+from ai_usage import usage_summary, usage_rows, usage_for_conversation
+from whatsapp_deals_messages import on_whatsapp_deals_paid
+from partner_commissions import sync_cj_commissions
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -220,6 +223,23 @@ def admin_confirm_payment():
     return jsonify({"status": "success", "trip_id": trip_id})
 
 
+@app.post("/admin/confirm-whatsapp-payment")
+def admin_confirm_whatsapp_payment():
+    """Manual stand-in for a payment processor's success webhook for the
+    one-time ₪9 WhatsApp deals product - same role as /admin/confirm-payment
+    above, for whatsapp_deals_9 instead of the personal-search plans. A real
+    gateway's callback will call the exact same
+    whatsapp_deals_messages.on_whatsapp_deals_paid function."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    member_id = request.form.get("member_id", type=int) or request.args.get("member_id", type=int)
+    if not member_id:
+        return jsonify({"status": "error", "message": "missing member_id"}), 400
+    changed = on_whatsapp_deals_paid(member_id)
+    return jsonify({"status": "success", "member_id": member_id, "opt_in_changed": changed})
+
+
 @app.get("/admin")
 def admin_dashboard():
     denied = _require_admin()
@@ -264,6 +284,77 @@ def admin_feedback():
     feedback = recent_feedback(500)
     mark_feedback_seen()
     return render_feedback_dashboard(feedback=feedback, token=request.args.get("token", ""))
+
+
+@app.get("/admin/ai-usage")
+def admin_ai_usage():
+    denied = _require_admin()
+    if denied: return denied
+    days = request.args.get("days", 30, type=int)
+    include_test = request.args.get("include_test", "0") == "1"
+    return jsonify({"status": "success", **usage_summary(days=days, include_test=include_test)})
+
+
+@app.get("/admin/ai-usage.csv")
+def admin_ai_usage_csv():
+    denied = _require_admin()
+    if denied: return denied
+    import csv
+    import io
+    days = request.args.get("days", 30, type=int)
+    include_test = request.args.get("include_test", "0") == "1"
+    rows = usage_rows(days=days, include_test=include_test)
+    buffer = io.StringIO()
+    columns = [
+        "id", "created_at", "source", "member_id", "trip_id", "conversation_id", "model",
+        "input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens",
+        "is_test", "error", "estimated_cost_usd",
+    ]
+    writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return Response(buffer.getvalue(), mimetype="text/csv", headers={
+        "Content-Disposition": f"attachment; filename=ai-usage-{days}d.csv"
+    })
+
+
+@app.get("/admin/ai-usage/conversation/<int:conversation_id>")
+def admin_ai_usage_conversation(conversation_id):
+    denied = _require_admin()
+    if denied: return denied
+    rows = usage_for_conversation(conversation_id)
+    return jsonify({"status": "success", "conversation_id": conversation_id, "count": len(rows), "calls": rows})
+
+
+@app.get("/admin/whatsapp-queue")
+def admin_whatsapp_queue():
+    denied = _require_admin()
+    if denied: return denied
+    import json as _json
+    rows = recent_whatsapp_queue(request.args.get("limit", 50, type=int))
+    for row in rows:
+        try:
+            row["buttons"] = _json.loads(row.get("buttons_json") or "[]")
+        except Exception:
+            row["buttons"] = []
+    return jsonify({"status": "success", "count": len(rows), "queue": rows})
+
+
+@app.post("/admin/cj-sync")
+def admin_cj_sync():
+    denied = _require_admin()
+    if denied: return denied
+    result = sync_cj_commissions(days_back=request.args.get("days_back", 7, type=int))
+    return jsonify({"status": "success", **result})
+
+
+@app.get("/admin/partner-commissions")
+def admin_partner_commissions():
+    denied = _require_admin()
+    if denied: return denied
+    rows = recent_partner_commissions(request.args.get("limit", 50, type=int))
+    return jsonify({"status": "success", "count": len(rows), "commissions": rows})
 
 
 @app.get("/offers-preview")

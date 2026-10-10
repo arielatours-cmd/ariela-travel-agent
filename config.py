@@ -9,6 +9,7 @@ _default_db_path = BASE_DIR / "data" / "ariella.db"
 DB_PATH = Path(os.getenv("DB_PATH", str(_default_db_path))).expanduser()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY", "").strip()
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "").strip()
 SCANNER_ENABLED = os.getenv("SCANNER_ENABLED", "true").lower() == "true"
@@ -30,6 +31,10 @@ WIDE_SCAN_DESTINATION_LIMIT = int(os.getenv("WIDE_SCAN_DESTINATION_LIMIT", "30")
 # adds a dedicated daily search just for that customer's request at noon.
 PERSONAL_SEARCH_DAILY_SCAN_HOUR = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_HOUR", "12"))
 PERSONAL_SEARCH_DAILY_SCAN_MINUTE = int(os.getenv("PERSONAL_SEARCH_DAILY_SCAN_MINUTE", "0"))
+CJ_COMMISSIONS_SYNC_HOUR = int(os.getenv("CJ_COMMISSIONS_SYNC_HOUR", "7"))
+CJ_COMMISSIONS_SYNC_MINUTE = int(os.getenv("CJ_COMMISSIONS_SYNC_MINUTE", "30"))
+HOW_WAS_IT_HOUR = int(os.getenv("HOW_WAS_IT_HOUR", "10"))
+HOW_WAS_IT_MINUTE = int(os.getenv("HOW_WAS_IT_MINUTE", "0"))
 # The one-time free scan may explore a whole flexible-date window (up to
 # CUSTOMER_SCAN_MAX_API_REQUESTS). The recurring PAID daily re-scan must not:
 # it already knows the best dates from that first scan, so it only needs to
@@ -54,6 +59,13 @@ PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY = int(os.getenv("PERSO
 # "evergreen" in the CJ dashboard). Leave blank until that link is in hand -
 # lodging search then just links straight to Booking.com, uncredited.
 CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
+# Commission Detail API (task 001a) - detects an actual booking (not just a
+# click) via the commission CJ reports back. Personal Access Token from
+# developers.cj.com; CID is the Publisher account's CID. Sync is off by
+# default even with both set, as an extra explicit switch.
+CJ_API_TOKEN = os.getenv("CJ_API_TOKEN", "").strip()
+CJ_PUBLISHER_ID = os.getenv("CJ_PUBLISHER_ID", "").strip()
+CJ_COMMISSIONS_SYNC_ENABLED = os.getenv("CJ_COMMISSIONS_SYNC_ENABLED", "false").strip().lower() == "true"
 # Car-rental partner via CJ (Discover Cars / EconomyBookings / etc.). There is
 # no priced car API available, so the car tab shows honest "search this
 # partner" cards (no prices) whose button goes out through this CJ tracking
@@ -193,6 +205,19 @@ WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
 WHATSAPP_RECIPIENT = os.getenv("WHATSAPP_RECIPIENT", "").strip()
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
+# Off by default: until the welcome/daily-deals quick-reply templates are
+# approved in Meta, every WhatsApp deals message goes to whatsapp_outbound_queue
+# in 'preview' status only - nothing is ever sent to a real customer.
+WHATSAPP_DEALS_BUTTONS_ENABLED = os.getenv("WHATSAPP_DEALS_BUTTONS_ENABLED", "false").strip().lower() == "true"
+BUSINESS_TRADE_NAME = os.getenv("BUSINESS_TRADE_NAME", "ARIELA AI TRAVEL").strip() or "ARIELA AI TRAVEL"
+BUSINESS_LEGAL_NAME_HE = os.getenv("BUSINESS_LEGAL_NAME_HE", "").strip()
+BUSINESS_LEGAL_NAME_EN = os.getenv("BUSINESS_LEGAL_NAME_EN", "").strip()
+BUSINESS_DEALER_TYPE_HE = os.getenv("BUSINESS_DEALER_TYPE_HE", "").strip()
+BUSINESS_DEALER_NUMBER = os.getenv("BUSINESS_DEALER_NUMBER", "").strip()
+BUSINESS_ADDRESS_HE = os.getenv("BUSINESS_ADDRESS_HE", "").strip()
+BUSINESS_ADDRESS_EN = os.getenv("BUSINESS_ADDRESS_EN", "").strip()
+BUSINESS_CONTACT_EMAIL = os.getenv("BUSINESS_CONTACT_EMAIL", "").strip()
+
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "change-this-before-production")
 FEEDBACK_TO_EMAIL = os.getenv("FEEDBACK_TO_EMAIL", "arielatours@gmail.com").strip()
 MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
