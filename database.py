@@ -194,7 +194,12 @@ def init_db() -> None:
                 last_progress_at TEXT,
                 scan_type TEXT NOT NULL DEFAULT 'general',
                 trip_id INTEGER,
-                api_requests INTEGER NOT NULL DEFAULT 0
+                api_requests INTEGER NOT NULL DEFAULT 0,
+                reused_coverage_keys INTEGER NOT NULL DEFAULT 0,
+                estimated_requests_saved INTEGER NOT NULL DEFAULT 0,
+                stopped_by_cap INTEGER NOT NULL DEFAULT 0,
+                coverage_groups_completed INTEGER NOT NULL DEFAULT 0,
+                coverage_groups_total INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS offers (
@@ -566,6 +571,19 @@ def init_db() -> None:
             conn.execute("ALTER TABLE scan_runs ADD COLUMN trip_id INTEGER")
         if "api_requests" not in scan_columns:
             conn.execute("ALTER TABLE scan_runs ADD COLUMN api_requests INTEGER NOT NULL DEFAULT 0")
+        # Task 007a: measure how much monthly-coverage sharing actually saves,
+        # without changing any scan decision (cap, window, what counts as
+        # coverage) - see run_customer_trip_search in scanner.py.
+        if "reused_coverage_keys" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN reused_coverage_keys INTEGER NOT NULL DEFAULT 0")
+        if "estimated_requests_saved" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN estimated_requests_saved INTEGER NOT NULL DEFAULT 0")
+        if "stopped_by_cap" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN stopped_by_cap INTEGER NOT NULL DEFAULT 0")
+        if "coverage_groups_completed" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN coverage_groups_completed INTEGER NOT NULL DEFAULT 0")
+        if "coverage_groups_total" not in scan_columns:
+            conn.execute("ALTER TABLE scan_runs ADD COLUMN coverage_groups_total INTEGER NOT NULL DEFAULT 0")
 
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
@@ -662,15 +680,39 @@ def normalize_scan_run_price_groups(run_id: int) -> dict:
     return {"run_id": run_id, "updated": updated, "groups": len(references)}
 
 
-def finish_scan_run(run_id: int, completed: int, offers: int, errors: int, error_message: str | None = None, api_requests: int | None = None) -> None:
+def finish_scan_run(
+    run_id: int, completed: int, offers: int, errors: int, error_message: str | None = None,
+    api_requests: int | None = None, reused_coverage_keys: int | None = None,
+    estimated_requests_saved: int | None = None, stopped_by_cap: bool | None = None,
+    coverage_groups_completed: int | None = None, coverage_groups_total: int | None = None,
+) -> None:
+    """The scan-sharing measurement columns (task 007a) are purely
+    observational - every caller that doesn't pass them (the public/daily
+    scans) leaves them at their existing value via COALESCE, exactly like
+    api_requests already does. Only run_customer_trip_search (scanner.py)
+    populates them."""
     normalize_scan_run_price_groups(run_id)
     with connection() as conn:
         row = conn.execute("SELECT searches_planned FROM scan_runs WHERE id=?", (run_id,)).fetchone()
         planned = int(row["searches_planned"] or 0) if row else completed
         status = "success" if errors == 0 and completed >= planned else "partial" if completed > 0 else "failed"
         conn.execute(
-            """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=?,last_progress_at=?,api_requests=COALESCE(?,api_requests) WHERE id=?""",
-            (utc_now_iso(), status, completed, offers, errors, error_message, utc_now_iso(), api_requests, run_id),
+            """UPDATE scan_runs SET finished_at=?,status=?,searches_completed=?,offers_found=?,errors=?,error_message=?,
+               last_progress_at=?,api_requests=COALESCE(?,api_requests),
+               reused_coverage_keys=COALESCE(?,reused_coverage_keys),
+               estimated_requests_saved=COALESCE(?,estimated_requests_saved),
+               stopped_by_cap=COALESCE(?,stopped_by_cap),
+               coverage_groups_completed=COALESCE(?,coverage_groups_completed),
+               coverage_groups_total=COALESCE(?,coverage_groups_total)
+               WHERE id=?""",
+            (
+                utc_now_iso(), status, completed, offers, errors, error_message, utc_now_iso(), api_requests,
+                reused_coverage_keys,
+                estimated_requests_saved,
+                (int(bool(stopped_by_cap)) if stopped_by_cap is not None else None),
+                coverage_groups_completed, coverage_groups_total,
+                run_id,
+            ),
         )
 
 
@@ -1279,6 +1321,65 @@ def recent_scan_runs(limit: int = 20) -> list[dict]:
         ).fetchall()
     return [dict(row) for row in rows]
 
+
+def scan_sharing_stats(days: int = 30) -> dict:
+    """Task 007a: how much monthly-coverage sharing has actually saved,
+    broken down by day and by scan_type, straight from the measurement
+    columns scanner.run_customer_trip_search writes via finish_scan_run.
+    Personal scans only (scan_type LIKE 'personal_%') - every other scan
+    type never populates these columns, so it contributes nothing here,
+    not a gap in the data. Read-only; never changes a scan decision."""
+    days = max(1, min(int(days), 365))
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT started_at, scan_type, reused_coverage_keys, estimated_requests_saved,
+                      stopped_by_cap, coverage_groups_completed, coverage_groups_total
+               FROM scan_runs
+               WHERE scan_type LIKE 'personal_%' AND started_at >= ?
+               ORDER BY started_at""",
+            (cutoff,),
+        ).fetchall()
+
+    def _new_bucket():
+        return {
+            "runs": 0, "runs_with_full_share": 0, "runs_with_partial_share": 0,
+            "estimated_requests_saved": 0, "runs_stopped_by_cap": 0,
+            "coverage_groups_completed": 0, "coverage_groups_total": 0,
+        }
+
+    by_day, by_type = {}, {}
+    for row in rows:
+        day_key = str(row["started_at"])[:10]
+        day = by_day.setdefault(day_key, _new_bucket())
+        kind = by_type.setdefault(str(row["scan_type"] or "unknown"), _new_bucket())
+        reused = int(row["reused_coverage_keys"] or 0)
+        total_groups = int(row["coverage_groups_total"] or 0)
+        for bucket in (day, kind):
+            bucket["runs"] += 1
+            if reused and total_groups and reused >= total_groups:
+                bucket["runs_with_full_share"] += 1
+            elif reused:
+                bucket["runs_with_partial_share"] += 1
+            bucket["estimated_requests_saved"] += int(row["estimated_requests_saved"] or 0)
+            if row["stopped_by_cap"]:
+                bucket["runs_stopped_by_cap"] += 1
+            bucket["coverage_groups_completed"] += int(row["coverage_groups_completed"] or 0)
+            bucket["coverage_groups_total"] += int(row["coverage_groups_total"] or 0)
+
+    def _finalize(store):
+        for bucket in store.values():
+            total = bucket["coverage_groups_total"]
+            bucket["coverage_groups_closed_percent"] = round(bucket["coverage_groups_completed"] / total * 100, 1) if total else None
+        return store
+
+    return {
+        "days": days,
+        "by_day": _finalize(by_day),
+        "by_scan_type": _finalize(by_type),
+        "total_runs": len(rows),
+        "total_estimated_requests_saved": sum(int(row["estimated_requests_saved"] or 0) for row in rows),
+    }
 
 
 def record_site_event(event_type: str, visitor_id: str | None = None, member_id: int | None = None, path: str | None = None) -> None:

@@ -24,6 +24,7 @@ from database import (
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
     normalize_scan_run_price_groups, recent_whatsapp_queue, recent_partner_commissions,
+    scan_sharing_stats,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 import scanner as _scanner
@@ -368,6 +369,26 @@ def admin_partner_commissions():
     if denied: return denied
     rows = recent_partner_commissions(request.args.get("limit", 50, type=int))
     return jsonify({"status": "success", "count": len(rows), "commissions": rows})
+
+
+@app.get("/admin/scan-sharing")
+def admin_scan_sharing():
+    """Task 007a: measurement only, read-only - see database.scan_sharing_stats."""
+    denied = _require_admin()
+    if denied: return denied
+    days = request.args.get("days", 30, type=int)
+    return jsonify({"status": "success", **scan_sharing_stats(days=days)})
+
+
+@app.get("/admin/scan-sharing/history")
+def admin_scan_sharing_history():
+    """Task 007a: one-off retrospective report over existing scan_runs/
+    monthly_scan_coverage history - see tools/report_scan_sharing_history.py
+    for exactly what it computes and its documented approximations."""
+    denied = _require_admin()
+    if denied: return denied
+    from tools.report_scan_sharing_history import generate_report
+    return jsonify({"status": "success", **generate_report()})
 
 
 @app.get("/offers-preview")
