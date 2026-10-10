@@ -333,6 +333,13 @@
       }
       if(data.start_flight_search===true){
         history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
+        // add() above hides the typing indicator - without re-showing it here,
+        // the UI goes visually silent for however long this second fetch takes
+        // (a cold Render instance, or just a slow DB-first/queueing check can
+        // take real seconds), with nothing on screen to show work is still
+        // happening. Seen live: the customer waited, saw nothing, and had no
+        // way to tell a stuck request from one that's simply still running.
+        showTyping();
         // Approval must hand off the complete current-trip conversation. The
         // context-start marker is only for LLM context after a reset; slicing
         // again here could drop the approved summary/dates and block execution.
@@ -349,8 +356,42 @@
           ? data.trip_update
           : JSON.parse(localStorage.getItem(stateKey)||'{}');
         const existingTripId=Number(localStorage.getItem(tripIdKey)||0)||null;
-        const start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:approvedTripState,history:currentTripHistory,existing_trip_id:existingTripId})});
-        const started=await start.json().catch(()=>({}));
+        // trip_update (combined_search_launched:true and post_flight_
+        // continuation:true included) was already saved to localStorage
+        // above, before this fetch even started - those flags exist purely
+        // to mark the approval as settled so a SECOND chat-clean turn
+        // doesn't ask to launch again or re-trigger on a stray "מאשרת". If
+        // this fetch - the one that actually creates the trip and queues
+        // the real search - never completes (a thrown network error, a
+        // timeout, the server simply not responding), both flags are left
+        // permanently stuck true with nothing having actually launched:
+        // every later "מאשרת" repeats the same "approved, starting the
+        // search" text forever with no way to retry (worse,
+        // post_flight_continuation alone makes the backend's own approval
+        // check refuse to recognize a later "מאשרת" at all, since
+        // active_session is no longer "flights" by then). Clear both back
+        // out of the saved state on any failure path below so the next
+        // approval can actually try again.
+        function allowRetryAfterFailedLaunch(){
+          try{
+            const st=JSON.parse(localStorage.getItem(stateKey)||'{}');
+            if(st&&typeof st==='object'){
+              delete st.combined_search_launched;
+              st.post_flight_continuation=false;
+              localStorage.setItem(stateKey,JSON.stringify(st));
+            }
+          }catch(e){}
+        }
+        let start,started;
+        try{
+          start=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_state:approvedTripState,history:currentTripHistory,existing_trip_id:existingTripId})});
+          started=await start.json().catch(()=>({}));
+        }catch(e){
+          allowRetryAfterFailedLaunch();
+          const netErr='התחברות לשרת נכשלה בזמן פתיחת החיפוש. כתבי מאשרת שוב כדי לנסות פעם נוספת.';
+          history.push({role:'assistant',content:netErr,agent:'Ariella'});add('assistant',netErr);save();
+          return;
+        }
         if(start.ok&&['success','queued'].includes(started.status)&&started.waiting_url){
           // The approved trip is now persisted and handed off successfully.
           // End this conversation commit before leaving for the waiting page.
@@ -389,6 +430,7 @@
             await new Promise(resolve=>setTimeout(resolve,4000));
             location.href=started.waiting_url;return;
           }
+          hideTyping();
           return;
         }
         if(start.ok&&started.status==='change_requires_payment'&&started.account_url){
@@ -412,7 +454,8 @@
         }
         // The approval reply was already rendered above. Never append it twice
         // when starting the scan fails; surface the actual handoff error instead.
-        const startError=String(started.message||'לא הצלחתי להתחיל את החיפוש כרגע. נסי שוב בעוד רגע.');
+        allowRetryAfterFailedLaunch();
+        const startError=String(started.message||'לא הצלחתי להתחיל את החיפוש כרגע. כתבי מאשרת שוב כדי לנסות פעם נוספת.');
         history.push({role:'assistant',content:startError,agent:'Ariella'});add('assistant',startError);save();
         return;
       }

@@ -135,3 +135,92 @@ def send_text_message(message: str, recipient: str | None = None) -> dict[str, A
         "recipient_ending": to_number[-4:],
         "meta_response": data,
     }
+
+
+def send_template_message(
+    recipient: str, template_name: str, body_params: list[str] | None = None,
+    buttons: list[dict] | None = None, language_code: str = "he",
+) -> dict[str, Any]:
+    """Send an approved WhatsApp template message with optional quick-reply
+    buttons (payload: {"text": ..., "payload": ...} per button, matching
+    build_daily_whatsapp_payload's shape). Ready for when the welcome/daily-
+    deals templates are approved in Meta - not called anywhere yet while
+    WHATSAPP_DEALS_BUTTONS_ENABLED stays false (task 003a)."""
+    _require_configuration()
+
+    name = (template_name or "").strip()
+    if not name:
+        raise WhatsAppSendError("חסר שם תבנית.")
+
+    to_number = _digits_only(recipient or WHATSAPP_RECIPIENT)
+    if not to_number:
+        raise WhatsAppConfigurationError("מספר הנמען אינו תקין.")
+
+    components = []
+    if body_params:
+        components.append({
+            "type": "body",
+            "parameters": [{"type": "text", "text": str(p)} for p in body_params],
+        })
+    for index, button in enumerate(buttons or []):
+        payload = str((button or {}).get("payload") or "")
+        if not payload:
+            continue
+        components.append({
+            "type": "button",
+            "sub_type": "quick_reply",
+            "index": str(index),
+            "parameters": [{"type": "payload", "payload": payload}],
+        })
+
+    url = (
+        f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/"
+        f"{WHATSAPP_PHONE_NUMBER_ID}/messages"
+    )
+    payload_body = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": to_number,
+        "type": "template",
+        "template": {
+            "name": name,
+            "language": {"code": language_code},
+            "components": components,
+        },
+    }
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload_body, timeout=30)
+    except requests.RequestException as exc:
+        raise WhatsAppSendError(f"שגיאת תקשורת מול Meta: {exc}") from exc
+
+    try:
+        data = response.json()
+    except ValueError:
+        data = {"raw_response": response.text[:1000]}
+
+    if not response.ok:
+        error = data.get("error") if isinstance(data, dict) else None
+        message_text = (
+            error.get("message")
+            if isinstance(error, dict) and error.get("message")
+            else f"Meta החזירה HTTP {response.status_code}"
+        )
+        raise WhatsAppSendError(message_text)
+
+    message_id = None
+    if isinstance(data, dict):
+        messages = data.get("messages") or []
+        if messages and isinstance(messages[0], dict):
+            message_id = messages[0].get("id")
+
+    return {
+        "status": "success",
+        "message_id": message_id,
+        "recipient_ending": to_number[-4:],
+        "meta_response": data,
+    }

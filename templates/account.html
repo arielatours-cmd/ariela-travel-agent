@@ -29,6 +29,14 @@
           </div>
         </header>
 
+        {% if trip.radar_alert %}
+        <div class="radar-alert-box">
+          <strong>🎯 עדכון אחרון מהרדאר</strong>
+          <span class="radar-alert-date" dir="ltr">{{ trip.radar_alert.created_at|ddmmyyyy }}</span>
+          <p>{{ trip.radar_alert.message_text }}</p>
+        </div>
+        {% endif %}
+
         {% set a = trip.answers or {} %}
         {% set deal_priorities = a.get('deal_priorities') or [] %}
         {% set baggage_list = a.get('baggage') or [] %}
@@ -41,9 +49,8 @@
             <button type="button" class="vqt-tab vqt-tab-facts" data-vqt="vqt-facts-{{ trip.id }}">פרטי הבקשה</button>
             <button type="button" class="vqt-tab vqt-tab-sub" data-vqt="vqt-sub-{{ trip.id }}">מעקב יומי בתשלום</button>
           </div>
-          <button type="button" class="vacation-collapse-toggle">{{ 'לפתיחה' if not loop.first else 'לסגירה' }}</button>
 
-          <div class="vacation-collapsible">
+          <div>
           <div class="vqt-panel" id="vqt-facts-{{ trip.id }}">
             <ul class="vacation-request-facts">
               <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
@@ -113,6 +120,10 @@
           </div>
         </div>
         <style>
+          .radar-alert-box{margin-top:10px;padding:10px 14px;border-radius:10px;background:#fff7e8;border:1px solid #eddca4;font-size:12.5px;color:#6d5a2c;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+          .radar-alert-box strong{font-weight:700}
+          .radar-alert-date{color:#9a8a5f;font-size:11.5px}
+          .radar-alert-box p{margin:6px 0 0;width:100%;white-space:pre-line;color:#4a453c;font-size:12px;line-height:1.5}
           .vqt-row{margin-top:10px}
           .vqt-tabs{display:flex;gap:8px}
           .vqt-tab{flex:1 1 50%;min-width:0;border-radius:10px;font-size:12.5px;font-weight:700;padding:9px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -147,6 +158,7 @@
           @media(max-width:520px){.sub-row{font-size:11.5px}}
         </style>
 
+        <button type="button" class="vacation-collapse-toggle">{{ 'לפתיחה' if not loop.first else 'לסגירה' }}</button>
         <div class="vacation-collapsible">
         <div class="vacation-tabs{% if a.get('vacation_type') in ('ski', 'business') %} tabs-3{% endif %}" role="tablist">
           <button class="vacation-tab active" data-tab="flights-{{ trip.id }}">✈ טיסות</button>
