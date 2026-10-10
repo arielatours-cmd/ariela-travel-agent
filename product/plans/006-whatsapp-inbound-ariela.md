@@ -1,9 +1,9 @@
 # תוכנית 006 — לחבר את הוואטסאפ לאריאלה: לקוח כותב, אריאלה עונה
 
-סטטוס: ממתין לאישור
+סטטוס: מאושר — שלב 1
 נוצרה: 2026-10-10
-אושרה: —
-משימת פיתוח: —
+אושרה: 2026-10-10 (שלב 1)
+משימת פיתוח: [006א — אריאלה עונה בוואטסאפ, מספרים מורשים](../dev-tasks/006a-whatsapp-inbound-ariela-stage1.md)
 
 ## הבעיה / ההזדמנות
 - כשלקוח כותב למספר הוואטסאפ, Meta מעבירה את ההודעה לאתר (`/whatsapp-webhook`, whatsapp.py:58). האתר רק מחזיר 200 ומתעלם ממנה ("Inbound message routing will be handled in the next WhatsApp integration phase").
@@ -26,7 +26,7 @@
 
 ## שינויים נדרשים
 ### לוגיקה
-1. **Webhook מלא:** לפענח הודעות `text`, `button` ו-`interactive` (button_reply/list_reply) מה-payload של Meta. לאמת חתימה (`X-Hub-Signature-256` עם `WHATSAPP_APP_SECRET`). להחזיר 200 מיד, ולעבד ב-thread או בתור.
+1. **Webhook מלא:** לפענח הודעות `text`, `button` ו-`interactive` (button_reply/list_reply) מה-payload של Meta. לאמת חתימה (`X-Hub-Signature-256` עם `META_APP_SECRET` (קיים)). להחזיר 200 מיד, ולעבד ב-thread או בתור.
 2. **מניעת כפילויות:** Meta עשויה לשלוח את אותה הודעה פעמיים. לשמור את `message_id` (טבלה `whatsapp_inbound_log`) ולהתעלם מחזרות.
 3. **ניתוב:** כפתורים → `route_inbound` (קיים). טקסט מלקוח מזוהה → **מנוע אריאלה** (במקום התפריט הנוכחי של נובה). מספר לא מוכר → ה-onboarding הקיים, ואחריו אריאלה.
 4. **גשר למנוע אריאלה:** להוציא את ליבת `chat_clean` לפונקציה `ariella_turn(member_id, message, channel)` שטוענת ושומרת את השיחה מהשרת, ומחזירה תשובה ופעולות. האתר וגם הוואטסאפ ישתמשו בה. (חלופה זמנית, פחות נקייה: לקרוא ל-route בתוך `test_request_context` עם session מדומה.)
@@ -40,7 +40,7 @@
 - באתר: שיחה שהתחילה בוואטסאפ מופיעה גם בצ'אט באתר (אותה שיחה שמורה).
 
 ### הגדרות (Render + Meta) — בעלת העסק, בליווי צעד-צעד
-- `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_INBOUND_ALLOWLIST`.
+- `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `META_APP_SECRET` (קיים), `WHATSAPP_INBOUND_ALLOWLIST`.
 - ב-Meta: כתובת ה-webhook (`https://<האתר>/whatsapp-webhook`), אותו verify token, ומינוי לשדה `messages`.
 - לבדוק אם המספר עובד במצב Coexistence עם אפליקציית WhatsApp Business (קיים whatsapp_coexistence.py). אם כן, ההודעות יופיעו גם באפליקציה. צריך להחליט מי עונה: אריאלה או בעלת העסק.
 
@@ -66,3 +66,4 @@
 ## החלטות
 - 2026-10-10 — בעלת העסק ביקשה תוכנית לחיבור, כדי לבדוק התכתבות עם אריאלה בוואטסאפ.
 - 2026-10-10 — בעלת העסק אישרה שהשיחה בוואטסאפ ובאתר היא אותה שיחה (בתנאי שמספר הוואטסאפ זהה למספר שרשום בחשבון).
+- 2026-10-10 — בעלת העסק אישרה את שלב 1. נכתבה משימה 006א. שימו לב: חלק מהזרימה של אריאלה רץ היום ב-JS של הדפדפן (שמירת תוכנית, התחלת חיפוש), והגשר לוואטסאפ צריך לבצע את זה בצד השרת.
