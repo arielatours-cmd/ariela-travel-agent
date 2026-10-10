@@ -5,6 +5,8 @@ from config import (
     DAILY_SEND_HOUR, DAILY_SEND_MINUTE, ISRAEL_TZ,
     WIDE_SCAN_HOUR, WIDE_SCAN_MINUTE,
     PERSONAL_SEARCH_DAILY_SCAN_HOUR, PERSONAL_SEARCH_DAILY_SCAN_MINUTE,
+    CJ_COMMISSIONS_SYNC_HOUR, CJ_COMMISSIONS_SYNC_MINUTE,
+    HOW_WAS_IT_HOUR, HOW_WAS_IT_MINUTE,
 )
 from daily import prepare_daily_batch
 from scanner import run_wide_scan
@@ -116,6 +118,24 @@ def _paid_personal_search_catch_up():
         log.exception("Paid personal search catch-up check failed")
 
 
+def _safe_cj_commissions_sync():
+    try:
+        from partner_commissions import sync_cj_commissions
+        result = sync_cj_commissions()
+        log.info("CJ commission sync complete: %s", result)
+    except Exception:
+        log.exception("CJ commission sync failed")
+
+
+def _safe_how_was_it_queue():
+    try:
+        from trip_lifecycle_messages import queue_how_was_it_messages
+        result = queue_how_was_it_messages()
+        log.info("How-was-it queue complete: %s", result)
+    except Exception:
+        log.exception("How-was-it queue failed")
+
+
 def start_scheduler():
     global _scheduler
     if _scheduler and _scheduler.running:
@@ -142,5 +162,10 @@ def start_scheduler():
     _scheduler.add_job(_paid_personal_search_catch_up, CronTrigger(minute=35, timezone=ISRAEL_TZ), id="paid_personal_search_catch_up", replace_existing=True, max_instances=1, coalesce=True)
     from datetime import timedelta
     _scheduler.add_job(_paid_personal_search_catch_up, "date", run_date=_israel_now() + timedelta(minutes=2), id="paid_personal_search_startup_catch_up", replace_existing=True)
+    # Once per day: CJ commission sync (booking-credit detection, task 001a).
+    # No-ops internally when CJ_COMMISSIONS_SYNC_ENABLED is false/unset.
+    _scheduler.add_job(_safe_cj_commissions_sync, CronTrigger(hour=CJ_COMMISSIONS_SYNC_HOUR, minute=CJ_COMMISSIONS_SYNC_MINUTE, timezone=ISRAEL_TZ), id="cj_commissions_sync", replace_existing=True, max_instances=1, coalesce=True)
+    # Once per day: queue "איך היה?" for trips that returned 2+ days ago.
+    _scheduler.add_job(_safe_how_was_it_queue, CronTrigger(hour=HOW_WAS_IT_HOUR, minute=HOW_WAS_IT_MINUTE, timezone=ISRAEL_TZ), id="how_was_it_queue", replace_existing=True, max_instances=1, coalesce=True)
     _scheduler.start()
     return _scheduler
