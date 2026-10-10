@@ -13,11 +13,13 @@ import hashlib
 import json
 import re
 import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from werkzeug.security import generate_password_hash
 
-from database import connection, utc_now_iso
+from database import connection, utc_now_iso, set_whatsapp_deals_opt, save_trip_feedback, append_trip_feedback_comment
+from config import PUBLIC_BASE_URL
 
 TOKEN_RE = re.compile(r"קוד\s*חיבור\s*:\s*([^\s]+)", re.I)
 
@@ -140,6 +142,15 @@ def _set_state(member_id: int, intent: str, trip_id: int | None = None) -> None:
             (int(member_id), trip_id, intent, now, now),
         )
         conn.commit()
+
+
+def _get_state(member_id: int) -> dict | None:
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT active_trip_id, current_intent, last_message_at FROM whatsapp_conversation_state WHERE member_id=?",
+            (int(member_id),),
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def _onboarding_get(phone: str) -> dict | None:
@@ -371,13 +382,140 @@ def _onboarding_reply(phone: str, text: str, state: dict) -> str:
     return _start_onboarding(phone)
 
 
-def route_inbound(phone: str, text: str, profile_name: str = "") -> str:
-    """Route one verified inbound WhatsApp text message."""
+_DEALS_URL = f"{PUBLIC_BASE_URL}/deals" if PUBLIC_BASE_URL else "/deals"
+
+
+def _member_id_for_phone(phone: str) -> Optional[int]:
+    """linked_member_for_phone/registered_member_for_phone, but tolerant of
+    whatsapp_member_links not existing yet on an older production database
+    (task 003a note: the table had no CREATE TABLE anywhere before this
+    task added one - this keeps _handle_stop working even against a DB that
+    predates that fix)."""
+    try:
+        member_id = linked_member_for_phone(phone)
+    except Exception:
+        member_id = None
+    if member_id:
+        return member_id
+    return registered_member_for_phone(phone)
+
+
+def _handle_stop(phone: str) -> str:
+    """The WhatsApp "הפסקת הדילים" quick-reply button (payload
+    STOP_HOT_DEALS). Per product owner: button only, no keyword detection in
+    free text - stopping the hot-deals service never touches the WhatsApp
+    account link, whatsapp_conversation_state, or mobile_notifications."""
+    member_id = _member_id_for_phone(phone)
+    if not member_id:
+        return (
+            "לא מצאנו שירות דילים פעיל במספר הזה. "
+            f"אם נרשמתם עם מספר אחר - אפשר להפסיק מעמוד הדילים באתר: {_DEALS_URL}"
+        )
+    with connection() as conn:
+        row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
+        was_active = bool(row["whatsapp_opt_in"]) if row else False
+        tracked_trip = conn.execute(
+            "SELECT 1 FROM trip_requests WHERE member_id=? AND subscription_status='active' "
+            "AND mobile_notifications=1 LIMIT 1",
+            (member_id,),
+        ).fetchone()
+    if not was_active:
+        return f"הדילים החמים כבר לא נשלחים אליכם. אפשר להצטרף שוב מעמוד הדילים באתר (תשלום חד־פעמי של 9 ₪): {_DEALS_URL}"
+    set_whatsapp_deals_opt(member_id, False, "whatsapp_button")
+    reply = (
+        "✔️ *הפסקנו לשלוח לכם את הדילים החמים.*\n"
+        f"תמיד אפשר להצטרף שוב מעמוד הדילים באתר (תשלום חד־פעמי של 9 ₪): {_DEALS_URL}\n"
+        "והשיחה עם אריאלה ממשיכה כרגיל - כתבו מתי שרוצים 🌷"
+    )
+    if tracked_trip:
+        reply += "\nעדכוני החופשה שלכם ממשיכים. להפסקה - בכרטיס החופשה באתר."
+    return reply
+
+
+_HOW_WAS_IT_RE = re.compile(r"^HOW_WAS_IT:(\d+):([1-3])$")
+_AWAITING_FEEDBACK_COMMENT_PREFIX = "awaiting_feedback_comment:"
+_FEEDBACK_COMMENT_WINDOW_HOURS = 24
+
+_HOW_WAS_IT_REPLIES = {
+    3: "איזה כיף לשמוע! 😍 אם בא לכם לספר מה הכי אהבתם - כתבו לי, זה עוזר לי להמליץ טוב יותר.",
+    2: "תודה על השיתוף 🙏 מה היה יכול להיות טוב יותר? אפשר לכתוב לי במילה או שתיים.",
+    1: "מצטערת לשמוע 😕 מה לא היה טוב? אשמח לדעת כדי שבפעם הבאה זה יהיה הרבה יותר טוב.",
+}
+
+
+def _handle_how_was_it(phone: str, payload: str) -> str | None:
+    """payload: 'HOW_WAS_IT:{trip_id}:{rating}'. Returns None (ignored, fall
+    through to normal routing) when the payload is malformed or the trip
+    doesn't belong to this phone's member - never from an unknown match."""
+    match = _HOW_WAS_IT_RE.match(payload)
+    if not match:
+        return None
+    trip_id, rating = int(match.group(1)), int(match.group(2))
+    member_id = _member_id_for_phone(phone)
+    if not member_id:
+        return None
+    with connection() as conn:
+        owns_trip = conn.execute(
+            "SELECT 1 FROM trip_requests WHERE id=? AND member_id=?", (trip_id, member_id)
+        ).fetchone()
+    if not owns_trip:
+        return None
+    save_trip_feedback(trip_id, member_id, rating, source="whatsapp_button")
+    _set_state(member_id, f"{_AWAITING_FEEDBACK_COMMENT_PREFIX}{trip_id}", trip_id)
+    return _HOW_WAS_IT_REPLIES[rating]
+
+
+def _maybe_capture_feedback_comment(member_id: int, text: str) -> str | None:
+    """A free-text message arriving within 24h of a HOW_WAS_IT rating is
+    saved as that feedback row's comment. Returns the reply, or None when no
+    such window is open (so the caller continues with normal routing)."""
+    if not text:
+        return None
+    state = _get_state(member_id)
+    if not state:
+        return None
+    intent = str(state.get("current_intent") or "")
+    if not intent.startswith(_AWAITING_FEEDBACK_COMMENT_PREFIX):
+        return None
+    last_at = state.get("last_message_at")
+    try:
+        last_dt = datetime.fromisoformat(str(last_at).replace("Z", "+00:00"))
+        if last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+    if datetime.now(timezone.utc) - last_dt > timedelta(hours=_FEEDBACK_COMMENT_WINDOW_HOURS):
+        return None
+    trip_id = state.get("active_trip_id")
+    if trip_id is None:
+        return None
+    if append_trip_feedback_comment(int(trip_id), member_id, text):
+        _set_state(member_id, "menu")
+        return "תודה, רשמתי ❤️"
+    return None
+
+
+def route_inbound(phone: str, text: str, profile_name: str = "", button_payload: str | None = None) -> str:
+    """Route one verified inbound WhatsApp text message. button_payload (a
+    WhatsApp quick-reply button click) is checked before any other routing -
+    a button press is never free text to interpret."""
     text = (text or "").strip()
+
+    if button_payload == "STOP_HOT_DEALS":
+        return _handle_stop(phone)
+    if button_payload and button_payload.startswith("HOW_WAS_IT:"):
+        reply = _handle_how_was_it(phone, button_payload)
+        if reply is not None:
+            return reply
+        # Malformed payload or a trip that doesn't belong to this phone -
+        # per spec, ignore and continue to normal routing rather than error.
 
     # 1) Existing explicit WA link wins.
     member_id = linked_member_for_phone(phone)
     if member_id:
+        comment_reply = _maybe_capture_feedback_comment(member_id, text)
+        if comment_reply is not None:
+            return comment_reply
         return _route_member(member_id, text)
 
     # 2) Before any browser handoff semantics, identify by registered phone.

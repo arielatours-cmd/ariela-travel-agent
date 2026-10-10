@@ -114,7 +114,7 @@ def _research_and_write(country_he: str, country_en: str, post_claude, key: str,
         return 0
     context = "תוצאות חיפוש אמיתיות (JSON):\n" + json.dumps(search_results, ensure_ascii=False)
     try:
-        raw = post_claude(key, model, _RESEARCH_PROMPT, "", [], context, 3000, include_history=False)
+        raw = post_claude(key, model, _RESEARCH_PROMPT, "", [], context, 3000, include_history=False, source="internal_attractions")
         rows = _parse_json(raw).get("attractions") or []
     except Exception:
         logging.exception("Attraction extraction failed for %s", country_en)
