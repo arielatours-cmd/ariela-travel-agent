@@ -266,6 +266,15 @@ def init_db() -> None:
                 status TEXT NOT NULL DEFAULT 'active'
             );
 
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS trip_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 member_id INTEGER NOT NULL,
