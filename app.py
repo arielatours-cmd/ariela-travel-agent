@@ -35,7 +35,7 @@ from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
 from ai_usage import usage_summary, usage_rows, usage_for_conversation
 from whatsapp_deals_messages import on_whatsapp_deals_paid
-from partner_commissions import sync_cj_commissions
+from partner_commissions import sync_cj_commissions, cj_connection_check
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -347,6 +347,19 @@ def admin_cj_sync():
     if denied: return denied
     result = sync_cj_commissions(days_back=request.args.get("days_back", 7, type=int))
     return jsonify({"status": "success", **result})
+
+
+@app.get("/admin/cj-check")
+def admin_cj_check():
+    """Task 001b: read-only CJ connection/field-name check, openable as a
+    plain GET link from a phone browser - unlike /admin/cj-sync above (POST,
+    and a no-op while CJ_COMMISSIONS_SYNC_ENABLED is false). Never writes to
+    partner_commissions and never queues a message; see
+    partner_commissions.cj_connection_check for the full behavior."""
+    denied = _require_admin()
+    if denied: return denied
+    result = cj_connection_check(days_back=request.args.get("days_back", 31, type=int))
+    return jsonify(result)
 
 
 @app.get("/admin/partner-commissions")

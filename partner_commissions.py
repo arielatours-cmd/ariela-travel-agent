@@ -9,16 +9,19 @@ trip_requests.booked_confirmed_at + a queued "תיהנו בטיול" message.
 IMPORTANT - verification gap, flagged in the QA report: this sandbox has no
 outbound network access to developers.cj.com, so the exact GraphQL field
 names below (publisherCommissions, forPublishers, sinceCommissionDate/
-beforeCommissionDate, and the per-record field names) could NOT be checked
-against CJ's live schema as the task spec required ("לוודא את שמות השדות
-מול התיעוד העדכני של CJ לפני הכתיבה"). They reflect CJ's documented
-Commission Detail API shape at the time this was written. Before setting
-CJ_COMMISSIONS_SYNC_ENABLED=true in production: run one sync_cj_commissions()
-call with real credentials (or an introspection query against
-https://commissions.api.cj.com/query) and confirm the field names in
-_RECORD_FIELDS actually match what CJ returns - a wrong field name fails the
-whole GraphQL query (caught below and logged, never raised), not just that
-field.
+beforeCommissionDate, and the per-record field names in _RECORD_FIELDS)
+could NOT be checked against CJ's live schema as the task spec required
+("לוודא את שמות השדות מול התיעוד העדכני של CJ לפני הכתיבה"). They reflect
+CJ's documented Commission Detail API shape at the time this was written.
+
+Task 001b (see GET /admin/cj-check in app.py / cj_connection_check below)
+is exactly this missing verification step, made runnable with real
+credentials from outside this sandbox: it sends the same query read-only
+(no DB writes, no queued messages, independent of
+CJ_COMMISSIONS_SYNC_ENABLED) and reports which _RECORD_FIELDS actually came
+back, falling back to live schema introspection if a field name is wrong.
+Before setting CJ_COMMISSIONS_SYNC_ENABLED=true in production, open that
+endpoint once and confirm it reports ok:true.
 """
 import json
 import logging
@@ -35,6 +38,15 @@ log = logging.getLogger(__name__)
 
 CJ_GRAPHQL_URL = "https://commissions.api.cj.com/query"
 
+# Generated from _RECORD_FIELDS (not hand-duplicated) so the query body and
+# the field_check/introspection logic in cj_connection_check below can never
+# drift out of sync with each other.
+_RECORD_FIELDS = (
+    "commissionId", "sid", "actionStatus", "advertiserName", "eventDate",
+    "postingDate", "saleAmountPubCurrency", "pubCommissionAmountPubCurrency",
+    "pubCurrency",
+)
+
 _QUERY = """
 query PublisherCommissions($forPublishers: [ID!], $sinceDate: Date!, $beforeDate: Date!) {
   publisherCommissions(
@@ -44,21 +56,216 @@ query PublisherCommissions($forPublishers: [ID!], $sinceDate: Date!, $beforeDate
   ) {
     count
     records {
-      commissionId
-      sid
-      actionStatus
-      advertiserName
-      eventDate
-      postingDate
-      saleAmountPubCurrency
-      pubCommissionAmountPubCurrency
-      pubCurrency
+      %s
     }
   }
 }
-"""
+""" % "\n      ".join(_RECORD_FIELDS)
 
 _CANCELLED_STATUSES = {"cancelled", "canceled", "corrected", "returned"}
+
+
+def _fetch_cj_records(since: str, before: str) -> dict:
+    """One POST to CJ's Commission Detail GraphQL endpoint - returns the raw
+    outcome, never raises. Shared by sync_cj_commissions (which also
+    persists/side-effects on the result) and cj_connection_check (task 001b,
+    strictly read-only), so both send the exact same request shape. Never
+    includes CJ_API_TOKEN in the returned dict."""
+    try:
+        response = requests.post(
+            CJ_GRAPHQL_URL,
+            headers={
+                "Authorization": f"Bearer {CJ_API_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "query": _QUERY,
+                "variables": {
+                    "forPublishers": [CJ_PUBLISHER_ID],
+                    "sinceDate": since,
+                    "beforeDate": before,
+                },
+            },
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        return {"ok": False, "http_status": None, "graphql_errors": [str(exc)], "records": []}
+
+    try:
+        data = response.json()
+    except ValueError:
+        return {
+            "ok": False, "http_status": response.status_code,
+            "graphql_errors": [f"non-JSON response (HTTP {response.status_code})"], "records": [],
+        }
+
+    errors = data.get("errors") or []
+    records = (((data.get("data") or {}).get("publisherCommissions") or {}).get("records")) or []
+    return {
+        "ok": bool(response.ok and not errors),
+        "http_status": response.status_code,
+        "graphql_errors": errors,
+        "records": records,
+    }
+
+
+def _unwrap_type_name(type_ref):
+    """GraphQL wraps a field's type in NON_NULL/LIST layers (e.g.
+    [PublisherCommissionRecord!]!) - walk down to the actual named type."""
+    node = type_ref or {}
+    while node and not node.get("name"):
+        node = node.get("ofType") or {}
+    return node.get("name")
+
+
+def _introspect_query_field_type(field_name: str):
+    """Unwrapped return type name of one field on the schema's root query
+    type - found via __schema.queryType (never a hardcoded "Query" name,
+    since a schema can call its root type anything). Returns None on any
+    failure (network, auth, missing field, etc) - this is a best-effort
+    diagnostic helper, never load-bearing for the real sync."""
+    query = """
+    query IntrospectQueryField {
+      __schema {
+        queryType {
+          fields {
+            name
+            type { kind name ofType { kind name ofType { kind name ofType { kind name } } } }
+          }
+        }
+      }
+    }
+    """
+    try:
+        response = requests.post(
+            CJ_GRAPHQL_URL,
+            headers={"Authorization": f"Bearer {CJ_API_TOKEN}", "Content-Type": "application/json"},
+            json={"query": query}, timeout=30,
+        )
+        data = response.json()
+    except Exception:
+        return None
+    fields = (((data.get("data") or {}).get("__schema") or {}).get("queryType") or {}).get("fields") or []
+    for f in fields:
+        if f.get("name") == field_name:
+            return _unwrap_type_name(f.get("type"))
+    return None
+
+
+def _introspect_type_field_type(type_name: str, field_name: str):
+    """Unwrapped type name of one field on a named (non-root) type - e.g.
+    the type of PublisherCommissions.records. Returns None on any failure."""
+    query = """
+    query IntrospectTypeField($name: String!) {
+      __type(name: $name) {
+        fields {
+          name
+          type { kind name ofType { kind name ofType { kind name ofType { kind name } } } }
+        }
+      }
+    }
+    """
+    try:
+        response = requests.post(
+            CJ_GRAPHQL_URL,
+            headers={"Authorization": f"Bearer {CJ_API_TOKEN}", "Content-Type": "application/json"},
+            json={"query": query, "variables": {"name": type_name}}, timeout=30,
+        )
+        data = response.json()
+    except Exception:
+        return None
+    type_info = ((data.get("data") or {}).get("__type")) or {}
+    for f in (type_info.get("fields") or []):
+        if f.get("name") == field_name:
+            return _unwrap_type_name(f.get("type"))
+    return None
+
+
+def _introspect_type_fields(type_name: str) -> list:
+    """Field names of a named type. Returns [] on any failure."""
+    query = """
+    query IntrospectTypeFields($name: String!) {
+      __type(name: $name) { fields { name } }
+    }
+    """
+    try:
+        response = requests.post(
+            CJ_GRAPHQL_URL,
+            headers={"Authorization": f"Bearer {CJ_API_TOKEN}", "Content-Type": "application/json"},
+            json={"query": query, "variables": {"name": type_name}}, timeout=30,
+        )
+        data = response.json()
+    except Exception:
+        return []
+    type_info = ((data.get("data") or {}).get("__type")) or {}
+    return [f.get("name") for f in (type_info.get("fields") or []) if f.get("name")]
+
+
+def cj_introspect_record_fields() -> list:
+    """Best-effort discovery of the real field names CJ's live schema
+    exposes for one commission record - by walking the schema from the root
+    query field (publisherCommissions) down to its records field's element
+    type, rather than guessing/hardcoding a record type name that might not
+    match CJ's actual schema (exactly the kind of mismatch task 001b exists
+    to catch - e.g. the task spec's own "shopperId" vs this file's "sid").
+    Returns [] if any step fails - diagnostic aid only, never load-bearing."""
+    if not CJ_API_TOKEN:
+        return []
+    payload_type = _introspect_query_field_type("publisherCommissions")
+    if not payload_type:
+        return []
+    record_type = _introspect_type_field_type(payload_type, "records")
+    if not record_type:
+        return []
+    return _introspect_type_fields(record_type)
+
+
+_FIELD_ERROR_HINTS = ("field", "cannot query", "unknown argument", "did not exist", "doesn't exist", "not defined")
+
+
+def cj_connection_check(days_back: int = 31) -> dict:
+    """Read-only diagnostic for task 001b: confirm CJ_API_TOKEN/
+    CJ_PUBLISHER_ID actually work against CJ's live schema and that _QUERY's
+    field names match it - WITHOUT writing to partner_commissions or queuing
+    any message, and regardless of CJ_COMMISSIONS_SYNC_ENABLED (that switch
+    only gates the real recurring sync in sync_cj_commissions above; this
+    check must work to decide whether it's even safe to turn that on).
+    Never returns or logs CJ_API_TOKEN."""
+    if not CJ_API_TOKEN or not CJ_PUBLISHER_ID:
+        return {"ok": False, "message": "CJ_API_TOKEN or CJ_PUBLISHER_ID is not configured"}
+
+    days_back = max(1, min(int(days_back), 31))
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(days=days_back)).date().isoformat()
+    before = now.date().isoformat()
+
+    fetched = _fetch_cj_records(since, before)
+    records = fetched["records"]
+    first_record = records[0] if records else None
+    result = {
+        "ok": fetched["ok"],
+        "http_status": fetched["http_status"],
+        "graphql_errors": fetched["graphql_errors"],
+        "records_count": len(records),
+        "sample": [
+            {k: record.get(k) for k in ("commissionId", "sid", "actionStatus", "advertiserName", "postingDate")}
+            for record in records[:3]
+        ],
+        "field_check": (
+            {field: (field in first_record) for field in _RECORD_FIELDS}
+            if first_record is not None else
+            {field: None for field in _RECORD_FIELDS}
+        ),
+    }
+
+    errors_text = " ".join(
+        str(e.get("message") if isinstance(e, dict) else e) for e in fetched["graphql_errors"]
+    ).lower()
+    if fetched["graphql_errors"] and any(hint in errors_text for hint in _FIELD_ERROR_HINTS):
+        result["hint"] = "שם שדה שגוי. לתקן את _QUERY לפי השגיאה."
+        result["available_fields"] = cj_introspect_record_fields()
+
+    return result
 
 
 def _extract_trip_id(sid: str):
@@ -82,38 +289,12 @@ def sync_cj_commissions(days_back: int = 7) -> dict:
     since = (now - timedelta(days=days_back)).date().isoformat()
     before = now.date().isoformat()
 
-    try:
-        response = requests.post(
-            CJ_GRAPHQL_URL,
-            headers={
-                "Authorization": f"Bearer {CJ_API_TOKEN}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "query": _QUERY,
-                "variables": {
-                    "forPublishers": [CJ_PUBLISHER_ID],
-                    "sinceDate": since,
-                    "beforeDate": before,
-                },
-            },
-            timeout=30,
-        )
-    except requests.RequestException as exc:
-        log.exception("CJ commission sync: network error")
-        return {"status": "error", "message": str(exc)}
+    fetched = _fetch_cj_records(since, before)
+    if not fetched["ok"]:
+        log.error("CJ commission sync failed: HTTP %s, errors=%s", fetched["http_status"], fetched["graphql_errors"])
+        return {"status": "error", "message": str(fetched["graphql_errors"] or fetched["http_status"])}
 
-    try:
-        data = response.json()
-    except ValueError:
-        log.error("CJ commission sync: non-JSON response (HTTP %s)", response.status_code)
-        return {"status": "error", "message": f"HTTP {response.status_code}, non-JSON response"}
-
-    if not response.ok or data.get("errors"):
-        log.error("CJ commission sync failed: HTTP %s, errors=%s", response.status_code, data.get("errors"))
-        return {"status": "error", "message": str(data.get("errors") or response.status_code)}
-
-    records = (((data.get("data") or {}).get("publisherCommissions") or {}).get("records")) or []
+    records = fetched["records"]
     new_commissions = 0
     trips_confirmed = []
     trips_cancelled = []
