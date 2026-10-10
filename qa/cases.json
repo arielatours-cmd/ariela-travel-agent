@@ -1,0 +1,27 @@
+{
+  "_note": "Regression cases for Ariella's deterministic (no-LLM) parsers. 'expect' must be contained in the result (subset match). Add a case for every conversation bug fixed, citing the commit.",
+  "cases": [
+    {"id": "dest-vietnam-misspelling", "fn": "_deterministic_destination_facts", "args": [[], "אני רוצה לטוס לויאטנם"],
+     "expect": {"destination": {"places": ["וייטנאם"], "mode": "specific"}}, "source": "398bcc7"},
+    {"id": "dest-athens", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לאתונה ב-12/12 עד 18/12"],
+     "expect": {"destination": {"places": ["אתונה"]}}},
+    {"id": "travelers-family", "fn": "_deterministic_traveler_facts", "args": ["2 מבוגרים ו-2 ילדים בני 5 ו-8"],
+     "expect": {"travelers": {"adults": 2, "children": 2, "child_ages": [5, 8]}}, "source": "73a5819"},
+    {"id": "travelers-couple", "fn": "_deterministic_traveler_facts", "args": ["אני ובעלי"],
+     "expect": {"travelers": {"adults": 2}}},
+    {"id": "budget-per-person", "fn": "_deterministic_budget_facts", "args": ["תקציב 1500 לאדם"],
+     "expect": {"budget_per_person": {"amount": 1500, "currency": "ILS"}}, "source": "73a5819"},
+    {"id": "budget-unlimited", "fn": "_deterministic_budget_facts", "args": ["אין תקציב"],
+     "expect": {"budget_per_person": {"status": "unlimited"}}},
+    {"id": "baggage-carry-on", "fn": "_deterministic_baggage_facts", "args": ["בלי מזוודה רק טרולי"],
+     "expect": {"flight": {"baggage": ["carry_on_only"]}}},
+    {"id": "only-flights", "fn": "_deterministic_only_flights_facts", "args": ["רק טיסות"],
+     "expect": {"requested_services": ["flights"], "session_status": {"lodging": "declined"}}},
+    {"id": "reset-bare-mehatchala-not-reset", "fn": "_reset_intent", "args": ["תשלחי את כל המסלול מהתחלה עם זמנים"],
+     "expect_falsy": true, "source": "8f5a452"},
+    {"id": "reset-explicit", "fn": "_reset_intent", "args": ["בואי נתחיל מהתחלה"],
+     "expect_truthy": true, "source": "8f5a452"},
+    {"id": "reset-new-vacation", "fn": "_reset_intent", "args": ["חופשה חדשה"],
+     "expect_truthy": true}
+  ]
+}
