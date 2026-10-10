@@ -129,6 +129,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
+- חריג צר אחד לכלל הסגור שלמעלה: ברגע שהלקוח ביקש במפורש תכנון מסלול (trip_planning) והמסלול אושר בפועל, אם destination_airports עדיין כולל יותר משדה תעופה אחד, זו החלטה אמיתית שטרם נשאלה - לא "פתיחה מחדש" של בחירה קיימת. missing_required יכלול במקרה הזה flight.gateway_narrow; שאלי שאלה קונקרטית אחת אם לצמצם לשדה אחד (כדי לחסוך בסריקות) או להמשיך לחפש בשני השדות/בכולם יחד, וציינו את שמות השדות הספציפיים מה-state בלבד. לאחר שהלקוח עונה (שדה ספציפי, או "שניהם"/"כולם"/"אין העדפה"), אל תשאלי שוב - זה נכנס לקטגוריית "שאלה שכבר נענתה" הרגילה.
 - כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
 - אם profile.gender הוא female/נקבה, פני ללקוחה בלשון נקבה יחידה לאורך כל השיחה. אם male/זכר, פנה בלשון זכר יחיד. אל תשתמשי בלשון רבים רק כדי להימנע מבחירת מגדר.
@@ -1014,6 +1015,71 @@ def _narrow_ski_gateway_airport(state, message):
     return state
 
 
+_GATEWAY_KEEP_BOTH_PHRASES = (
+    "שניהם", "גם וגם", "אין העדפה", "לא משנה", "כולם",
+    "את כל השדות", "להשאיר את שניהם", "תשאירי את שניהם", "תשאיר את שניהם",
+)
+
+
+def _narrow_gateway_airport_after_route(state, message):
+    """Per product owner (Carmit, confirmed explicitly): once the customer
+    has explicitly requested trip_planning AND the route is approved, if
+    more than one candidate gateway airport is still open in
+    destination_airports, Ariella goes back and asks whether to narrow down
+    to one specific airport - to save scan budget - instead of silently
+    searching every open gateway. See the "flight.gateway_narrow" gap in
+    _required_state_gaps/_flight_gap_question for the question itself; this
+    function only resolves the customer's one answer to it: a named airport
+    narrows destination_airports down to it, an explicit "keep both/all"
+    answer (שניהם/גם וגם/...) records the decision instead so the question
+    is never asked twice.
+
+    This is a narrow, one-time exception to the "destination_airports
+    already set is closed, never raise an alternative" rule in the system
+    prompt - it only fires in the specific post-route-approval window
+    (planning.approved is True), never otherwise, so it cannot be confused
+    with second-guessing an already-settled choice mid-conversation.
+
+    Deliberately excludes ski trips: _narrow_ski_gateway_airport above
+    already covers gateway-narrowing there on its own terms (any turn, not
+    gated on route approval), since a ski resort's candidate gateways are a
+    different kind of choice than this one.
+    """
+    state = state if isinstance(state, dict) else {}
+    if str(state.get("trip_type") or "").lower() == "ski":
+        return state
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    if not planning.get("approved") or state.get("gateway_narrow_declined"):
+        return state
+    codes = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
+    if len(codes) <= 1:
+        return state
+    needle = str(message or "").strip().lower()
+    if not needle:
+        return state
+    if any(p in needle for p in _GATEWAY_KEEP_BOTH_PHRASES):
+        state = dict(state)
+        state["gateway_narrow_declined"] = True
+        return state
+    by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
+    matched = []
+    for code in codes:
+        info = by_code.get(code)
+        if not info:
+            continue
+        names = (
+            str(info.get("city_he") or ""), str(info.get("city_en") or ""),
+            str(info.get("name_he") or ""), str(info.get("name_en") or ""),
+        )
+        if any(name and len(name) >= 3 and name.lower() in needle for name in names):
+            matched.append(code)
+    if len(matched) == 1 and matched != codes:
+        state = dict(state)
+        state["destination_airports"] = matched
+        state["gateway_narrow_declined"] = True
+    return state
+
+
 def _required_state_gaps(state):
     """Return the authoritative unanswered decisions Ariella needs for requested services."""
     state = state if isinstance(state, dict) else {}
@@ -1073,6 +1139,24 @@ def _required_state_gaps(state):
         is_ski_trip = str(state.get("trip_type") or "").lower() == "ski"
         if (is_ski_trip or destination_mode in {"country","region","area","broad"}) and not destination_airports:
             gaps.append("destination_airports")
+        # Per product owner (Carmit, confirmed explicitly): once the customer
+        # genuinely requested trip_planning and its route is approved, more
+        # than one still-open candidate gateway airport is a real decision
+        # still owed to the customer - ask whether to narrow to one (saves
+        # scan budget) instead of silently searching every candidate.
+        # Deliberately scoped tight: only fires once trip_planning was
+        # actually requested AND its route is approved - never a general
+        # override of "destination_airports already set is closed" (see the
+        # system prompt rule covering that for every other case). Also never
+        # fires once flights itself is already complete/declined: the whole
+        # point is saving scan budget on a search that hasn't run yet, so a
+        # flight search already closed in an earlier turn (route planned
+        # only afterward) must not be reopened to ask this retroactively.
+        flights_status = str((state.get("session_status") or {}).get("flights") or "")
+        if (not is_ski_trip and "trip_planning" in services and planning.get("approved")
+                and len(destination_airports) > 1 and not state.get("gateway_narrow_declined")
+                and flights_status not in ("complete", "declined")):
+            gaps.append("flight.gateway_narrow")
         # Return gateway defaults to the outbound arrival gateway. It is only a
         # separate required fact when the customer explicitly asks for open-jaw.
         return_airports = state.get("return_departure_airports") if isinstance(state.get("return_departure_airports"), list) else []
@@ -1275,6 +1359,14 @@ def _flight_gap_question(gaps, state=None):
     gaps = gaps or []
     if "destination_airports" in gaps:
         return "לפני שאצא לסריקה צריך להשלים את שדה היעד לנחיתה בהלוך. באיזה שדה תרצי לנחות?"
+    if "flight.gateway_narrow" in gaps:
+        codes = (state or {}).get("destination_airports") or []
+        names = _airport_labels(codes)
+        listed = ", ".join(names[:-1]) + " או " + names[-1] if len(names) >= 2 else ", ".join(names)
+        return (
+            f"המסלול אושר! יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). "
+            "תרצי שאצמצם את חיפוש הטיסות לשדה אחד כדי לחסוך בסריקות, או להמשיך לחפש בשניהם?"
+        )
     if "return_departure_airports" in gaps:
         return "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
     if "budget_per_person" in gaps:
@@ -4907,6 +4999,10 @@ def chat_clean():
         # Once the customer names one specific gateway among the resort's
         # several candidates (e.g. "Verona"), stop searching the rest.
         trip_update = _narrow_ski_gateway_airport(trip_update, message)
+        # Once the route is approved and the customer answers the
+        # post-approval "narrow to one gateway or keep both?" question (see
+        # the flight.gateway_narrow gap), resolve that one answer.
+        trip_update = _narrow_gateway_airport_after_route(trip_update, message)
         # An approved route already answers "where do you want to stay" -
         # lodging search on the same vacation must not re-ask it.
         trip_update = _resolve_lodging_locations_from_route(trip_update)
@@ -5261,7 +5357,17 @@ def chat_clean():
             # just be skipped, so it gets the same direct redirect
             # planning_accept's own success path already uses.
             if pending_domain == "flights":
+                # The bare "let's make sure flight details are complete"
+                # line leaves the customer with no way to know what to
+                # actually answer (the same problem already fixed elsewhere
+                # for the approval-gap and premature-מאשר safety nets below)
+                # - append the real concrete question when one is available
+                # (e.g. the new post-route gateway-narrow question), instead
+                # of silently masking it behind this generic redirect.
                 reply = "עוד דבר אחד לפני שסוגרים - בואי נוודא שגם פרטי הטיסה שלמים."
+                concrete_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
+                if concrete_gap_question:
+                    reply += " " + concrete_gap_question
                 trip_update["active_session"] = "flights"
             else:
                 remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
