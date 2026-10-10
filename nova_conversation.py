@@ -549,5 +549,13 @@ def _route_member(member_id: int, text: str) -> str:
         _set_state(member_id, "my_vacations")
         return _vacation_text(member_id)
 
+    if not normalized:
+        # No text at all reaches here only when an unrecognized button/
+        # interactive payload fell through to normal routing (chat-clean
+        # requires a non-empty message) - the menu is a more useful fallback
+        # than an engine call with nothing to say.
+        _set_state(member_id, "menu")
+        return menu_text(member_id)
+
     from whatsapp_bridge import ariella_turn
     return ariella_turn(member_id, text)

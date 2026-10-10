@@ -6,22 +6,23 @@ tracking parameter (see public_site._lodging_partner_url / _car_partner_url),
 and turns a newly-seen, non-cancelled commission into
 trip_requests.booked_confirmed_at + a queued "תיהנו בטיול" message.
 
-IMPORTANT - verification gap, flagged in the QA report: this sandbox has no
-outbound network access to developers.cj.com, so the exact GraphQL field
-names below (publisherCommissions, forPublishers, sinceCommissionDate/
-beforeCommissionDate, and the per-record field names in _RECORD_FIELDS)
-could NOT be checked against CJ's live schema as the task spec required
-("לוודא את שמות השדות מול התיעוד העדכני של CJ לפני הכתיבה"). They reflect
-CJ's documented Commission Detail API shape at the time this was written.
-
-Task 001b (see GET /admin/cj-check in app.py / cj_connection_check below)
-is exactly this missing verification step, made runnable with real
-credentials from outside this sandbox: it sends the same query read-only
-(no DB writes, no queued messages, independent of
-CJ_COMMISSIONS_SYNC_ENABLED) and reports which _RECORD_FIELDS actually came
-back, falling back to live schema introspection if a field name is wrong.
-Before setting CJ_COMMISSIONS_SYNC_ENABLED=true in production, open that
-endpoint once and confirm it reports ok:true.
+Field names/variable types below were verified against CJ's LIVE schema via
+task 001b's GET /admin/cj-check (this sandbox has no outbound network access
+to developers.cj.com/CJ's GraphQL endpoint, so this could only be done from
+outside it, with real credentials, by the business owner). The business
+owner ran it against the real API on 2026-10-10: the connection and
+authentication work; CJ's actual schema differs from this file's original
+(unverified, documentation-based) guess in three ways, now fixed:
+- the tracking field is named `shopperId`, not `sid` (sid=trip{id} is still
+  OUR OWN tracking convention - see _lodging_partner_url/_car_partner_url -
+  only the CJ-side field name was wrong).
+- `pubCurrency` does not exist on the record type at all - removed.
+  pubCommissionAmountPubCurrency/saleAmountPubCurrency are themselves
+  already in the publisher's own currency; USD alternates
+  (pubCommissionAmountUsd/saleAmountUsd) exist too but aren't needed here.
+- the query's variables were declared as GraphQL's built-in `ID`/`Date`
+  types, which don't exist in CJ's schema at all ("cannot be non input
+  type") - CJ expects plain `String`/`[String!]` for all three.
 """
 import json
 import logging
@@ -40,15 +41,15 @@ CJ_GRAPHQL_URL = "https://commissions.api.cj.com/query"
 
 # Generated from _RECORD_FIELDS (not hand-duplicated) so the query body and
 # the field_check/introspection logic in cj_connection_check below can never
-# drift out of sync with each other.
+# drift out of sync with each other. Verified against CJ's live schema via
+# /admin/cj-check (task 001b) - see the module docstring above.
 _RECORD_FIELDS = (
-    "commissionId", "sid", "actionStatus", "advertiserName", "eventDate",
+    "commissionId", "shopperId", "actionStatus", "advertiserName", "eventDate",
     "postingDate", "saleAmountPubCurrency", "pubCommissionAmountPubCurrency",
-    "pubCurrency",
 )
 
 _QUERY = """
-query PublisherCommissions($forPublishers: [ID!], $sinceDate: Date!, $beforeDate: Date!) {
+query PublisherCommissions($forPublishers: [String!], $sinceDate: String!, $beforeDate: String!) {
   publisherCommissions(
     forPublishers: $forPublishers
     sincePostingDate: $sinceDate
@@ -206,9 +207,10 @@ def cj_introspect_record_fields() -> list:
     exposes for one commission record - by walking the schema from the root
     query field (publisherCommissions) down to its records field's element
     type, rather than guessing/hardcoding a record type name that might not
-    match CJ's actual schema (exactly the kind of mismatch task 001b exists
-    to catch - e.g. the task spec's own "shopperId" vs this file's "sid").
-    Returns [] if any step fails - diagnostic aid only, never load-bearing."""
+    match CJ's actual schema. This is exactly how the shopperId-vs-sid and
+    pubCurrency mismatches (see the module docstring) were actually found,
+    live, via /admin/cj-check. Returns [] if any step fails - diagnostic aid
+    only, never load-bearing."""
     if not CJ_API_TOKEN:
         return []
     payload_type = _introspect_query_field_type("publisherCommissions")
@@ -248,7 +250,7 @@ def cj_connection_check(days_back: int = 31) -> dict:
         "graphql_errors": fetched["graphql_errors"],
         "records_count": len(records),
         "sample": [
-            {k: record.get(k) for k in ("commissionId", "sid", "actionStatus", "advertiserName", "postingDate")}
+            {k: record.get(k) for k in ("commissionId", "shopperId", "actionStatus", "advertiserName", "postingDate")}
             for record in records[:3]
         ],
         "field_check": (
@@ -268,10 +270,14 @@ def cj_connection_check(days_back: int = 31) -> dict:
     return result
 
 
-def _extract_trip_id(sid: str):
-    sid = str(sid or "").strip()
-    if sid.startswith("trip") and sid[4:].isdigit():
-        return int(sid[4:])
+def _extract_trip_id(shopper_id: str):
+    """shopper_id is CJ's field name for our own sid=trip{id} tracking value
+    (see public_site._lodging_partner_url/_car_partner_url) - the field name
+    on CJ's side was verified live via /admin/cj-check (task 001b); the
+    trip{id} value format itself is unchanged."""
+    shopper_id = str(shopper_id or "").strip()
+    if shopper_id.startswith("trip") and shopper_id[4:].isdigit():
+        return int(shopper_id[4:])
     return None
 
 
@@ -304,15 +310,18 @@ def sync_cj_commissions(days_back: int = 7) -> dict:
             commission_id = str(record.get("commissionId") or "").strip()
             if not commission_id:
                 continue
-            sid = record.get("sid")
-            trip_id = _extract_trip_id(sid)
+            trip_id = _extract_trip_id(record.get("shopperId"))
             action_status = str(record.get("actionStatus") or "")
             is_new = upsert_partner_commission(
                 commission_id=commission_id, trip_id=trip_id,
                 advertiser_name=record.get("advertiserName"), action_status=action_status,
                 sale_amount=record.get("saleAmountPubCurrency"),
                 commission_amount=record.get("pubCommissionAmountPubCurrency"),
-                currency=record.get("pubCurrency"), event_date=record.get("eventDate"),
+                # No currency-code field exists on CJ's record (pubCurrency,
+                # this file's original guess, does not exist - verified live
+                # via /admin/cj-check) - stored as unknown rather than
+                # guessing a currency this field never actually states.
+                currency=None, event_date=record.get("eventDate"),
                 posting_date=record.get("postingDate"), raw=record,
             )
             if is_new:
