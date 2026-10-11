@@ -37,6 +37,7 @@ from ariella_chat_clean import ariella_chat_clean
 from ai_usage import usage_summary, usage_rows, usage_for_conversation
 from whatsapp_deals_messages import on_whatsapp_deals_paid
 from partner_commissions import sync_cj_commissions, cj_connection_check
+from mailer import mail_check
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -370,6 +371,17 @@ def admin_cj_check():
     denied = _require_admin()
     if denied: return denied
     result = cj_connection_check(days_back=request.args.get("days_back", 31, type=int))
+    return jsonify(result)
+
+
+@app.get("/admin/mail-check")
+def admin_mail_check():
+    """Read-only config check, openable as a plain GET link; pass ?to=<email>
+    to also attempt one real send and see the exact SMTP error if it fails,
+    since mailer.send_email() itself only logs and never raises."""
+    denied = _require_admin()
+    if denied: return denied
+    result = mail_check(test_to=request.args.get("to"))
     return jsonify(result)
 
 
