@@ -127,6 +127,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
 - לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו שתאריך היציאה בתוך אותו חודש (החזרה יכולה להיות בחודש הבא) - לעולם אל תציעי טווח שהיציאה בו בחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
+- תבנית ספציפית ואסורה של הכלל שלמעלה: לעולם אל תנסחי שאלה שעונה על עצמה בתוך הסוגריים או בהמשך אותו משפט - זה מבלבל ומיותר. לדוגמה, אסור: "כמה ימים אתם בקפריסין (1.7-27.6, כלומר 4 לילות)?" - אם התאריכים כבר ידועים, אל תשאלי "כמה ימים", פשוט המשיכי לשאלה הבאה שבאמת חסרה (למשל הסגנון/הקצב). דוגמה נוספת אסורה: "כמה אתם? (זוג עם ילדה בת 17, נכון?)" - אם הרכב הנוסעים כבר ידוע ב-state, אל תשאלי עליו ואל תבקשי אישור עליו כלל; המשיכי ישירות לפרט הבא. אימות/אישור של עובדה שכבר ידועה שמור אך ורק לסיכום הסופי האחד (ראו הכלל על כך למטה), לא לשאלות ביניים.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
 - חריג צר אחד לכלל הסגור שלמעלה: ברגע שהלקוח ביקש במפורש תכנון מסלול (trip_planning) והמסלול אושר בפועל, אם destination_airports עדיין כולל יותר משדה תעופה אחד, זו החלטה אמיתית שטרם נשאלה - לא "פתיחה מחדש" של בחירה קיימת. missing_required יכלול במקרה הזה flight.gateway_narrow; שאלי שאלה קונקרטית אחת אם לצמצם לשדה אחד (כדי לחסוך בסריקות) או להמשיך לחפש בשני השדות/בכולם יחד, וציינו את שמות השדות הספציפיים מה-state בלבד. לאחר שהלקוח עונה (שדה ספציפי, או "שניהם"/"כולם"/"אין העדפה"), אל תשאלי שוב - זה נכנס לקטגוריית "שאלה שכבר נענתה" הרגילה.
@@ -842,7 +843,41 @@ def _resolve_destination_airports_from_route(state):
         names = [str(p) for p in (destination.get("places") or []) if p]
     if not names:
         return state
-    airports = _load_airports()
+    codes = _resolve_destination_airports_from_route_names(_load_airports(), names)
+    if not codes:
+        return state
+    if codes[:4] == (state.get("destination_airports") or []):
+        return state
+    state = dict(state)
+    state["destination_airports"] = codes[:4]
+    return state
+
+
+def _resolve_destination_airports_from_route_names(airports, names):
+    """A city-level match is always more specific than a country-level one -
+    the same precedence _resolve_ski_destination_airports already applies
+    for ski resorts (see its own docstring). Without this, a single day
+    whose base happens to be the country name itself (e.g. a general
+    "touring the island" day tagged "קפריסין", alongside other days that
+    all specifically named "לרנקה") re-widened an otherwise single-city
+    route back to every gateway in the country - seen live: a route built
+    entirely around Larnaca still left destination_airports at both Larnaca
+    and Paphos, so the post-route-approval gateway-narrow question
+    (flight.gateway_narrow) fired and re-asked something the route itself
+    had already settled."""
+    city_codes = []
+    for name in names:
+        needle = str(name).strip().lower()
+        if not needle:
+            continue
+        for airport in airports:
+            city_hay = " ".join(str(airport.get(k) or "") for k in ("city_he", "city_en")).lower()
+            if city_hay and (needle in city_hay or city_hay in needle):
+                code = str(airport.get("code") or "").upper()
+                if code and code not in city_codes:
+                    city_codes.append(code)
+    if city_codes:
+        return city_codes
     codes = []
     for name in names:
         needle = str(name).strip().lower()
@@ -854,13 +889,7 @@ def _resolve_destination_airports_from_route(state):
                 code = str(airport.get("code") or "").upper()
                 if code and code not in codes:
                     codes.append(code)
-    if not codes:
-        return state
-    if codes[:4] == (state.get("destination_airports") or []):
-        return state
-    state = dict(state)
-    state["destination_airports"] = codes[:4]
-    return state
+    return codes
 
 
 def _resolve_lodging_locations_from_route(state):
