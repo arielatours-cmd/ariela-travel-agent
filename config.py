@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 APP_VERSION = "9.7.143-connected-trip"
@@ -238,7 +239,13 @@ BUSINESS_CONTACT_EMAIL = os.getenv("BUSINESS_CONTACT_EMAIL", "").strip()
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "change-this-before-production")
 FEEDBACK_TO_EMAIL = os.getenv("FEEDBACK_TO_EMAIL", "arielatours@gmail.com").strip()
 MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
-MAIL_APP_PASSWORD = os.getenv("MAIL_APP_PASSWORD", "").strip()
+# Google displays App Passwords as 4 space-separated groups (e.g. "abcd efgh
+# ijkl mnop"), and copying that straight from the account page can carry
+# non-breaking spaces (U+00A0) instead of plain ones - .strip() only trims
+# the ends, so a pasted-with-spaces password slips through as 19 "characters"
+# and then crashes smtplib's ASCII auth encoding. Strip ALL whitespace
+# (regular or not - \s is Unicode-aware) so copy-paste can't break this.
+MAIL_APP_PASSWORD = re.sub(r"\s+", "", os.getenv("MAIL_APP_PASSWORD", ""))
 MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
 MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 
