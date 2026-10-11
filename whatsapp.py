@@ -19,11 +19,13 @@ from config import (
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_RECIPIENT,
     WHATSAPP_VERIFY_TOKEN,
+    WHATSAPP_WABA_ID,
 )
 from database import (
     connection, log_whatsapp_message, whatsapp_message_already_processed,
 )
 from public_site import site
+from whatsapp_coexistence import META_APP_ID
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +69,136 @@ def _require_configuration() -> None:
         raise WhatsAppConfigurationError(
             "חסרים משתני סביבה ב-Render: " + ", ".join(status["missing"])
         )
+
+
+def _meta_graph_get(path: str, params: dict | None = None) -> tuple[dict, bool]:
+    """GET helper for subscription_check - Authorization header (never the
+    URL) so the token never lands in a server access log, unlike
+    whatsapp_coexistence.py's onboarding-time calls which pass a short-lived
+    code-exchange token as a request param. Returns (json_body, http_ok)."""
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{path}"
+    headers = {"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"}
+    try:
+        response = requests.get(url, headers=headers, params=params or {}, timeout=20)
+    except requests.RequestException as exc:
+        return {"error": {"message": f"שגיאת תקשורת מול Meta: {exc}"}}, False
+    try:
+        data = response.json()
+    except ValueError:
+        data = {"error": {"message": f"Meta החזירה HTTP {response.status_code} ללא JSON"}}
+    return (data if isinstance(data, dict) else {}), response.ok
+
+
+def _meta_graph_post(path: str) -> tuple[dict, bool]:
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{path}"
+    headers = {"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"}
+    try:
+        response = requests.post(url, headers=headers, timeout=20)
+    except requests.RequestException as exc:
+        return {"error": {"message": f"שגיאת תקשורת מול Meta: {exc}"}}, False
+    try:
+        data = response.json()
+    except ValueError:
+        data = {"error": {"message": f"Meta החזירה HTTP {response.status_code} ללא JSON"}}
+    return (data if isinstance(data, dict) else {}), response.ok
+
+
+def whatsapp_subscription_check(apply: bool = False) -> dict[str, Any]:
+    """Task 006b: read-only (unless apply=True) check of whether this app is
+    subscribed to the configured WABA's messages webhook - the most likely
+    reason Meta never POSTs to /whatsapp-webhook despite every other setting
+    looking correct. Never logs or returns WHATSAPP_ACCESS_TOKEN itself."""
+    result: dict[str, Any] = {
+        "phone": None,
+        "waba_id": None,
+        "subscribed": None,
+        "subscribed_apps": None,
+        "token_ok": True,
+        "errors": [],
+    }
+
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        result["token_ok"] = False
+        result["errors"].append(
+            "WHATSAPP_ACCESS_TOKEN או WHATSAPP_PHONE_NUMBER_ID לא מוגדרים ב-Render."
+        )
+        return result
+
+    phone_data, phone_ok = _meta_graph_get(
+        WHATSAPP_PHONE_NUMBER_ID,
+        {"fields": "id,display_phone_number,verified_name,quality_rating,platform_type,code_verification_status,status"},
+    )
+    if not phone_ok:
+        result["token_ok"] = False
+        result["errors"].append(_safe_meta_error_message(phone_data))
+    else:
+        display = str(phone_data.get("display_phone_number") or "")
+        result["phone"] = {
+            "id": phone_data.get("id"),
+            "display_phone_number_ending": _digits_only(display)[-4:] if display else None,
+            "verified_name": phone_data.get("verified_name"),
+            "quality_rating": phone_data.get("quality_rating"),
+            "platform_type": phone_data.get("platform_type"),
+            "code_verification_status": phone_data.get("code_verification_status"),
+            "status": phone_data.get("status"),
+        }
+
+    waba_id = WHATSAPP_WABA_ID or None
+    if not waba_id and phone_ok:
+        # Best-effort only - the phone-number node doesn't reliably expose
+        # its parent WABA id as a plain field; WHATSAPP_WABA_ID is the
+        # reliable source (see env.example).
+        waba_id = phone_data.get("whatsapp_business_account_id") or None
+    if not waba_id:
+        result["errors"].append(
+            "לא ידוע מזהה ה-WABA - צריך להוסיף WHATSAPP_WABA_ID ב-Render."
+        )
+        return result
+    result["waba_id"] = waba_id
+
+    sub_data, sub_ok = _meta_graph_get(f"{waba_id}/subscribed_apps")
+    if not sub_ok:
+        result["token_ok"] = False
+        result["errors"].append(_safe_meta_error_message(sub_data))
+        return result
+
+    apps = sub_data.get("data") or []
+    app_list = []
+    for item in apps:
+        api_data = item.get("whatsapp_business_api_data") if isinstance(item, dict) else None
+        app_id = (api_data or {}).get("id") or (item or {}).get("id")
+        app_name = (api_data or {}).get("name") or (item or {}).get("name")
+        app_list.append({"id": app_id, "name": app_name})
+    result["subscribed_apps"] = app_list
+    result["subscribed"] = any(str(a.get("id")) == str(META_APP_ID) for a in app_list)
+
+    if apply and not result["subscribed"]:
+        apply_data, apply_ok = _meta_graph_post(f"{waba_id}/subscribed_apps")
+        if not apply_ok:
+            result["applied"] = False
+            result["errors"].append(_safe_meta_error_message(apply_data))
+            return result
+        result["applied"] = True
+        sub_data2, sub_ok2 = _meta_graph_get(f"{waba_id}/subscribed_apps")
+        if sub_ok2:
+            apps2 = sub_data2.get("data") or []
+            app_list2 = []
+            for item in apps2:
+                api_data = item.get("whatsapp_business_api_data") if isinstance(item, dict) else None
+                app_id = (api_data or {}).get("id") or (item or {}).get("id")
+                app_name = (api_data or {}).get("name") or (item or {}).get("name")
+                app_list2.append({"id": app_id, "name": app_name})
+            result["subscribed_apps"] = app_list2
+            result["subscribed"] = any(str(a.get("id")) == str(META_APP_ID) for a in app_list2)
+
+    return result
+
+
+def _safe_meta_error_message(data: dict) -> str:
+    error = data.get("error") if isinstance(data, dict) else None
+    if isinstance(error, dict) and error.get("message"):
+        return str(error["message"])
+    return "Meta החזירה שגיאה לא ידועה."
 
 
 @site.route("/whatsapp-webhook", methods=["GET", "POST"])

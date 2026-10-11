@@ -206,6 +206,11 @@ WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
 WHATSAPP_RECIPIENT = os.getenv("WHATSAPP_RECIPIENT", "").strip()
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
+# Task 006b: the WhatsApp Business Account that owns WHATSAPP_PHONE_NUMBER_ID
+# - needed to check/apply the app's subscription to that WABA's messages
+# webhook (/admin/whatsapp-subscription). Optional: left empty, that check
+# tries to resolve it from the Graph API instead.
+WHATSAPP_WABA_ID = os.getenv("WHATSAPP_WABA_ID", "").strip()
 # Off by default: until the welcome/daily-deals quick-reply templates are
 # approved in Meta, every WhatsApp deals message goes to whatsapp_outbound_queue
 # in 'preview' status only - nothing is ever sent to a real customer.
