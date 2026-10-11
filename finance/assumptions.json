@@ -54,7 +54,7 @@
       "verified": false
     }
   ],
-  "current_serpapi_plan": "Developer",
+  "current_serpapi_plan": "אין מנוי פעיל (בוטל 8.10) — יתרה 4,817 חיפושים",
   "wide_scan_cap_per_run": 220,
   "wide_scan_avg_requests_per_run": 220,
   "paid_scan_requests_single_gateway": 3,

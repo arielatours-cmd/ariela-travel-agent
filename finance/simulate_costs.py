@@ -87,8 +87,11 @@ def report(a: dict, expenses: list[dict]) -> str:
             used = total / plan["searches"] * 100
             note = "" if plan["verified"] else " (מחיר לא מאומת)"
             lines.append(f"- חבילה מתאימה: **{plan['name']}** — ${plan['usd_per_month']} ≈ {fmt(serp_ils)} ₪ לחודש{note}, ניצול {used:.0f}%")
-            if plan["name"] != a["current_serpapi_plan"]:
-                lines.append(f"- ⚠️ החבילה הנוכחית ({a['current_serpapi_plan']}) לא מספיקה לתרחיש הזה")
+            current = next((p for p in a["serpapi_plans"] if p["name"] == a["current_serpapi_plan"]), None)
+            if current and current["searches"] < total:
+                lines.append(f"- ⚠️ החבילה הנוכחית ({current['name']}) לא מספיקה לתרחיש הזה")
+            elif not current:
+                lines.append(f"- מצב נוכחי: {a['current_serpapi_plan']}")
         else:
             lines.append("- ⚠️ אין חבילה ברשימה שמכסה את הנפח — צריך הצעת מחיר")
         lines.append(f"- הכנסה ממנויי חיפוש (חודשי): {fmt(revenue)} ₪")
