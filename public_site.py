@@ -18,7 +18,7 @@ from functools import wraps
 from zoneinfo import ZoneInfo
 
 from flask import (
-    Blueprint, current_app, flash, jsonify, redirect, render_template, request, session, url_for
+    Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -2384,7 +2384,7 @@ def join():
 
 @site.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
-    site_lang = _lang()
+    site_lang = _site_lang()
     message = None
     reset_link = None
     if request.method == "POST":
@@ -2415,7 +2415,7 @@ def forgot_password():
 
 @site.route("/reset-password/<token>", methods=["GET", "POST"])
 def reset_password(token):
-    site_lang = _lang()
+    site_lang = _site_lang()
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     error = None
     with _db() as conn:
