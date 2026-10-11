@@ -93,9 +93,9 @@ member_id = make_member("qa-cj-booking@example.com", "+972500000301")
 trip_id = make_trip(member_id, departure_date=(datetime.now(timezone.utc) + timedelta(days=10)).date().isoformat(),
                      return_date=(datetime.now(timezone.utc) + timedelta(days=17)).date().isoformat())
 records = [{
-    "commissionId": "qa-comm-1", "sid": f"trip{trip_id}", "actionStatus": "NEW",
+    "commissionId": "qa-comm-1", "shopperId": f"trip{trip_id}", "actionStatus": "NEW",
     "advertiserName": "Booking.com", "eventDate": "2026-10-01", "postingDate": "2026-10-02",
-    "saleAmountPubCurrency": 500.0, "pubCommissionAmountPubCurrency": 25.0, "pubCurrency": "ILS",
+    "saleAmountPubCurrency": 500.0, "pubCommissionAmountPubCurrency": 25.0,
 }]
 with patch("requests.post", return_value=fake_cj_response(records)):
     sync_result = partner_commissions.sync_cj_commissions()
@@ -123,9 +123,9 @@ check("exactly one congrats message despite repeat + second commission", congrat
 
 # --- 4. sid not ours -> stored with trip_id=NULL, no message ---
 foreign_records = [{
-    "commissionId": "qa-comm-foreign", "sid": "someoneelse-123", "actionStatus": "NEW",
+    "commissionId": "qa-comm-foreign", "shopperId": "someoneelse-123", "actionStatus": "NEW",
     "advertiserName": "Booking.com", "eventDate": "2026-10-01", "postingDate": "2026-10-02",
-    "saleAmountPubCurrency": 100.0, "pubCommissionAmountPubCurrency": 5.0, "pubCurrency": "ILS",
+    "saleAmountPubCurrency": 100.0, "pubCommissionAmountPubCurrency": 5.0,
 }]
 with patch("requests.post", return_value=fake_cj_response(foreign_records)):
     partner_commissions.sync_cj_commissions()
@@ -138,9 +138,9 @@ check("unrecognized sid stored with trip_id=NULL", foreign_row is not None and f
 member_id2 = make_member("qa-cj-cancel@example.com", "+972500000302")
 trip_id2 = make_trip(member_id2, departure_date="2026-11-01", return_date="2026-11-08")
 cancel_records = [{
-    "commissionId": "qa-comm-cancel", "sid": f"trip{trip_id2}", "actionStatus": "cancelled",
+    "commissionId": "qa-comm-cancel", "shopperId": f"trip{trip_id2}", "actionStatus": "cancelled",
     "advertiserName": "Booking.com", "eventDate": "2026-10-01", "postingDate": "2026-10-02",
-    "saleAmountPubCurrency": 0, "pubCommissionAmountPubCurrency": 0, "pubCurrency": "ILS",
+    "saleAmountPubCurrency": 0, "pubCommissionAmountPubCurrency": 0,
 }]
 with patch("requests.post", return_value=fake_cj_response(cancel_records)):
     partner_commissions.sync_cj_commissions()
@@ -175,6 +175,7 @@ database.set_whatsapp_deals_opt(member_id3, True, "site")  # ensures a members r
 with sqlite3.connect(database.DB_PATH) as conn:
     import hashlib
     phone_hash = hashlib.sha256(nc.canonical_phone("+972500000303").encode()).hexdigest()
+    conn.execute("DELETE FROM whatsapp_member_links WHERE wa_phone_hash=?", (phone_hash,))
     conn.execute(
         "INSERT INTO whatsapp_member_links (member_id, wa_phone_hash, verified_at, status, created_at, updated_at) "
         "VALUES (?,?,datetime('now'),'active',datetime('now'),datetime('now'))",
@@ -200,6 +201,7 @@ check("comment text saved on the feedback row", commented_row["comment"] == "×”×
 other_member = make_member("qa-howwasit-other@example.com", "+972500000304")
 with sqlite3.connect(database.DB_PATH) as conn:
     other_hash = hashlib.sha256(nc.canonical_phone("+972500000304").encode()).hexdigest()
+    conn.execute("DELETE FROM whatsapp_member_links WHERE wa_phone_hash=?", (other_hash,))
     conn.execute(
         "INSERT INTO whatsapp_member_links (member_id, wa_phone_hash, verified_at, status, created_at, updated_at) "
         "VALUES (?,?,datetime('now'),'active',datetime('now'),datetime('now'))",

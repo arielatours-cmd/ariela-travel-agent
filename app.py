@@ -24,6 +24,7 @@ from database import (
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
     normalize_scan_run_price_groups, recent_whatsapp_queue, recent_partner_commissions,
+    scan_sharing_stats, recent_whatsapp_inbound_log,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 import scanner as _scanner
@@ -35,7 +36,7 @@ from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
 from ai_usage import usage_summary, usage_rows, usage_for_conversation
 from whatsapp_deals_messages import on_whatsapp_deals_paid
-from partner_commissions import sync_cj_commissions
+from partner_commissions import sync_cj_commissions, cj_connection_check
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status,
@@ -341,6 +342,16 @@ def admin_whatsapp_queue():
     return jsonify({"status": "success", "count": len(rows), "queue": rows})
 
 
+@app.get("/admin/whatsapp-inbox")
+def admin_whatsapp_inbox():
+    """Task 006a: the last 50 (default) whatsapp_inbound_log rows,
+    in/out, for debugging the inbound Ariella bridge."""
+    denied = _require_admin()
+    if denied: return denied
+    rows = recent_whatsapp_inbound_log(request.args.get("limit", 50, type=int))
+    return jsonify({"status": "success", "count": len(rows), "messages": rows})
+
+
 @app.post("/admin/cj-sync")
 def admin_cj_sync():
     denied = _require_admin()
@@ -349,12 +360,45 @@ def admin_cj_sync():
     return jsonify({"status": "success", **result})
 
 
+@app.get("/admin/cj-check")
+def admin_cj_check():
+    """Task 001b: read-only CJ connection/field-name check, openable as a
+    plain GET link from a phone browser - unlike /admin/cj-sync above (POST,
+    and a no-op while CJ_COMMISSIONS_SYNC_ENABLED is false). Never writes to
+    partner_commissions and never queues a message; see
+    partner_commissions.cj_connection_check for the full behavior."""
+    denied = _require_admin()
+    if denied: return denied
+    result = cj_connection_check(days_back=request.args.get("days_back", 31, type=int))
+    return jsonify(result)
+
+
 @app.get("/admin/partner-commissions")
 def admin_partner_commissions():
     denied = _require_admin()
     if denied: return denied
     rows = recent_partner_commissions(request.args.get("limit", 50, type=int))
     return jsonify({"status": "success", "count": len(rows), "commissions": rows})
+
+
+@app.get("/admin/scan-sharing")
+def admin_scan_sharing():
+    """Task 007a: measurement only, read-only - see database.scan_sharing_stats."""
+    denied = _require_admin()
+    if denied: return denied
+    days = request.args.get("days", 30, type=int)
+    return jsonify({"status": "success", **scan_sharing_stats(days=days)})
+
+
+@app.get("/admin/scan-sharing/history")
+def admin_scan_sharing_history():
+    """Task 007a: one-off retrospective report over existing scan_runs/
+    monthly_scan_coverage history - see tools/report_scan_sharing_history.py
+    for exactly what it computes and its documented approximations."""
+    denied = _require_admin()
+    if denied: return denied
+    from tools.report_scan_sharing_history import generate_report
+    return jsonify({"status": "success", **generate_report()})
 
 
 @app.get("/offers-preview")

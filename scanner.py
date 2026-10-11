@@ -1442,7 +1442,18 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
         # though the customer genuinely searched and got results (matched
         # from the shared pool via _resolved_trip_offers).
         reuse_run_id = create_scan_run(0, scan_type=f"personal_{str(answers.get('vacation_type') or 'standard')}", trip_id=trip_id)
-        finish_scan_run(reuse_run_id, 0, 0, 0)
+        # Task 007a (measurement only, no scan-decision change): every job this
+        # run would have needed was already fresh coverage, so the whole
+        # request's worth of requests was saved. No actual scan ran this turn
+        # to measure a real average cost from, so the formula's own documented
+        # fallback applies - 1 request per skipped job.
+        requests_saved = sum(coverage_expected_all[key] for key in fresh_keys)
+        finish_scan_run(
+            reuse_run_id, 0, 0, 0,
+            reused_coverage_keys=len(fresh_keys), estimated_requests_saved=requests_saved,
+            stopped_by_cap=False, coverage_groups_completed=len(fresh_keys),
+            coverage_groups_total=len(coverage_expected_all),
+        )
         return {"status": "monthly_coverage_reused", "scan_run_id": reuse_run_id, "offers_found": 0, "api_requests": 0, "searches_completed": 0, "errors": 0, "reused_coverage": len(fresh_keys)}
     coverage_expected = Counter(_coverage_key(j) for j in jobs)
     coverage_completed = Counter()
@@ -1583,7 +1594,30 @@ def run_customer_trip_search(trip_id: int, answers: dict, max_api_requests: int 
                 update_scan_progress(run_id, completed, offers_found, errors, api_requests)
     finally:
         api_requests = max(api_requests, _SERPAPI_HTTP_REQUESTS - api_counter_start)
-        finish_scan_run(run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None, api_requests=api_requests)
+        # Task 007a (measurement only - no scan decision below this point
+        # changes because of it): a group only closes if every expected job
+        # in it completed with zero errors - newly_closed mirrors the exact
+        # same test the _mark_coverage_success loop right below uses, so
+        # "coverage_groups_completed" here means the same thing "closed"
+        # means there. fresh_keys were already closed before this run even
+        # started (that's why their jobs were skipped), so the total closed
+        # right now is both together.
+        newly_closed = sum(
+            1 for key, expected in coverage_expected.items()
+            if coverage_completed[key] == expected and coverage_errors[key] == 0
+        )
+        # Average API cost per search actually measured this run; falls back
+        # to the documented default (1 request/job) when nothing ran this
+        # turn to measure a real average from (e.g. every job was skipped).
+        avg_requests_per_search = (api_requests / completed) if completed else 1
+        requests_saved = round(sum(coverage_expected_all[key] for key in fresh_keys) * avg_requests_per_search)
+        finish_scan_run(
+            run_id, completed, offers_found, errors, "; ".join(messages)[:2000] or None, api_requests=api_requests,
+            reused_coverage_keys=len(fresh_keys), estimated_requests_saved=requests_saved,
+            stopped_by_cap=any("עצירת בטיחות" in m for m in messages),
+            coverage_groups_completed=len(fresh_keys) + newly_closed,
+            coverage_groups_total=len(coverage_expected_all),
+        )
     # Only complete, error-free route-month groups become fresh coverage. A successful
     # zero-result group is valid coverage; a stopped/capped/partial group is not.
     for key, expected in coverage_expected.items():
