@@ -49,7 +49,7 @@ _RECORD_FIELDS = (
 )
 
 _QUERY = """
-query PublisherCommissions($forPublishers: [String!], $sinceDate: String!, $beforeDate: String!) {
+query PublisherCommissions($forPublishers: [String!]!, $sinceDate: String!, $beforeDate: String!) {
   publisherCommissions(
     forPublishers: $forPublishers
     sincePostingDate: $sinceDate
