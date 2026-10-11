@@ -245,6 +245,26 @@ def init_db() -> None:
                 FOREIGN KEY(offer_id) REFERENCES offers(id)
             );
 
+            -- Also created lazily by scanner._coverage_connection() (every
+            -- write path already goes through it, so this duplication is
+            -- harmless - IF NOT EXISTS). Needed here too because a read-only
+            -- path (tools/report_scan_sharing_history.py, task 007a) queries
+            -- it directly via sqlite3.connect, with no guarantee any scan
+            -- has ever run yet to have created it - on a brand new database,
+            -- GET /admin/scan-sharing/history 500'd with "no such table"
+            -- before this existed.
+            CREATE TABLE IF NOT EXISTS monthly_scan_coverage (
+                departure_code TEXT NOT NULL,
+                arrival_code TEXT NOT NULL,
+                outbound_month TEXT NOT NULL,
+                return_month TEXT NOT NULL,
+                scanned_at TEXT NOT NULL,
+                status TEXT NOT NULL,
+                offers_found INTEGER NOT NULL DEFAULT 0,
+                api_requests INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (departure_code, arrival_code, outbound_month, return_month)
+            );
+
             CREATE TABLE IF NOT EXISTS daily_batches (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 batch_date TEXT NOT NULL UNIQUE,
