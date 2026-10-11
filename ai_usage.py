@@ -40,15 +40,19 @@ def _pricing_table() -> dict:
     return table
 
 
-def set_ai_usage_context(member_id=None, trip_id=None, conversation_id=None, is_test=None):
+def set_ai_usage_context(member_id=None, trip_id=None, conversation_id=None, is_test=None, channel=None):
     """Called once at the entry point of a chat request, before any
     _post_claude call for that request. Every record_ai_usage call during
     the same request (same thread/async task) picks this up automatically -
     callers deep inside the chat/extraction pipeline never need to thread
-    member_id through every function signature just to log usage."""
+    member_id through every function signature just to log usage.
+
+    channel (task 006a): None for an ordinary website chat-clean call;
+    'whatsapp' when ariella_chat_clean.chat_clean() is invoked from
+    whatsapp_bridge.ariella_turn (see that function's session flag)."""
     _context.set({
         "member_id": member_id, "trip_id": trip_id,
-        "conversation_id": conversation_id, "is_test": bool(is_test),
+        "conversation_id": conversation_id, "is_test": bool(is_test), "channel": channel,
     })
 
 
@@ -174,13 +178,13 @@ def record_ai_usage(source: str, model: str, usage=None, error=None):
                 """INSERT INTO ai_usage(
                     created_at, source, member_id, trip_id, conversation_id, model,
                     input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
-                    is_test, error
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    is_test, error, channel
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     utc_now_iso(), str(source or "other"), ctx.get("member_id"), ctx.get("trip_id"),
                     ctx.get("conversation_id"), str(model or ""), input_tokens, output_tokens,
                     cache_read, cache_write, 1 if ctx.get("is_test") else 0,
-                    str(error) if error else None,
+                    str(error) if error else None, ctx.get("channel"),
                 ),
             )
     except Exception:
