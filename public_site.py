@@ -36,6 +36,7 @@ import itinerary_cards
 from radar_alerts import evaluate_trip_alert
 from booker import resolve_booking_target
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
+from mailer import send_email
 
 
 
@@ -2394,7 +2395,7 @@ def forgot_password():
                    if site_lang == "en" else
                    "אם קיים חשבון עם כתובת האימייל הזו, הוכנו הוראות לאיפוס הסיסמה.")
         with _db() as conn:
-            member = conn.execute("SELECT id FROM members WHERE lower(email)=?", (email,)).fetchone()
+            member = conn.execute("SELECT id, full_name FROM members WHERE lower(email)=?", (email,)).fetchone()
             if member:
                 raw = secrets.token_urlsafe(32)
                 token_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -2407,10 +2408,37 @@ def forgot_password():
                                 VALUES (?,?,?,?)""",
                              (member["id"], token_hash, now.isoformat(), expires.isoformat()))
                 conn.commit()
-                # No email provider is connected yet. Keep the token server-side and
-                # do not expose it in production UI. Email delivery will use this URL later.
+                link = url_for("site.reset_password", token=raw, lang=site_lang, _external=True)
+                first_name = (member["full_name"] or "").strip().split(" ")[0]
+                if site_lang == "en":
+                    subject = "Reset your Ariela password"
+                    greeting = f"Hi {first_name}," if first_name else "Hi,"
+                    body = (
+                        f"{greeting}\n\nWe received a request to reset your Ariela account password.\n"
+                        f"Click the link below to set a new password (valid for 30 minutes):\n{link}\n\n"
+                        "If you didn't request this, you can safely ignore this email."
+                    )
+                else:
+                    subject = "איפוס סיסמה - אריאלה"
+                    greeting = f"היי {first_name}," if first_name else "היי,"
+                    body = (
+                        f"{greeting}\n\nקיבלנו בקשה לאיפוס הסיסמה בחשבון אריאלה שלך.\n"
+                        f"לחצי על הקישור הבא כדי לקבוע סיסמה חדשה (בתוקף ל-30 דקות):\n{link}\n\n"
+                        "אם לא ביקשת איפוס סיסמה, אפשר להתעלם מהמייל הזה."
+                    )
+                try:
+                    send_email(email, subject, body)
+                except Exception:
+                    # send_email's own contract is to never raise - this is a
+                    # defensive backstop only, matching the rest of this
+                    # codebase's pattern for side-effecting calls (logging,
+                    # queueing): a mail-provider failure must never turn a
+                    # password-reset request into a 500 for the customer.
+                    logging.exception("Failed to send password reset email to %s", email)
+                # Debug-only fallback so the link is still visible locally
+                # when no mail provider is configured in this environment.
                 if current_app.config.get("DEBUG"):
-                    reset_link = url_for("site.reset_password", token=raw, lang=site_lang, _external=True)
+                    reset_link = link
     return render_template("forgot_password.html", site_lang=site_lang, message=message, reset_link=reset_link)
 
 @site.route("/reset-password/<token>", methods=["GET", "POST"])
