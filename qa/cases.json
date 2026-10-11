@@ -24,6 +24,8 @@
     {"id": "itinerary-accept-standalone-no", "fn": "_is_itinerary_acceptance", "args": ["לא. זה נשמע מצוין"], "expect_truthy": true, "source": "980f459"},
     {"id": "itinerary-reject-not-suitable", "fn": "_is_itinerary_acceptance", "args": ["לא מתאים לי"], "expect_falsy": true, "source": "980f459"},
     {"id": "itinerary-reject-add-day", "fn": "_is_itinerary_acceptance", "args": ["לא, תוסיפי עוד יום"], "expect_falsy": true, "source": "980f459"},
-    {"id": "post-flight-transfer-me", "fn": "_post_flight_offer_answer", "args": ["תעבירי", {"post_flight_offer": ["lodging", "car"]}], "expect": {"_transfer_to_results": true, "lodging": false, "car": false}, "source": "fd3da47"}
+    {"id": "post-flight-transfer-me", "fn": "_post_flight_offer_answer", "args": ["תעבירי", {"post_flight_offer": ["lodging", "car"]}], "expect": {"_transfer_to_results": true, "lodging": false, "car": false}, "source": "fd3da47"},
+    {"id": "route-gateway-city-beats-country", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "לרנקה"}, {"day": 2, "base": "קפריסין"}, {"day": 3, "base": "לרנקה"}]}}}], "expect": {"destination_airports": ["LCA"]}, "source": "64ffebc"},
+    {"id": "route-gateway-country-only-keeps-all", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "קפריסין"}]}}}], "expect": {"destination_airports": ["LCA", "PFO"]}, "source": "64ffebc"}
   ]
 }
