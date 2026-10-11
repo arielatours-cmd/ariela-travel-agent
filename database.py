@@ -245,6 +245,26 @@ def init_db() -> None:
                 FOREIGN KEY(offer_id) REFERENCES offers(id)
             );
 
+            -- Also created lazily by scanner._coverage_connection() (every
+            -- write path already goes through it, so this duplication is
+            -- harmless - IF NOT EXISTS). Needed here too because a read-only
+            -- path (tools/report_scan_sharing_history.py, task 007a) queries
+            -- it directly via sqlite3.connect, with no guarantee any scan
+            -- has ever run yet to have created it - on a brand new database,
+            -- GET /admin/scan-sharing/history 500'd with "no such table"
+            -- before this existed.
+            CREATE TABLE IF NOT EXISTS monthly_scan_coverage (
+                departure_code TEXT NOT NULL,
+                arrival_code TEXT NOT NULL,
+                outbound_month TEXT NOT NULL,
+                return_month TEXT NOT NULL,
+                scanned_at TEXT NOT NULL,
+                status TEXT NOT NULL,
+                offers_found INTEGER NOT NULL DEFAULT 0,
+                api_requests INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (departure_code, arrival_code, outbound_month, return_month)
+            );
+
             CREATE TABLE IF NOT EXISTS daily_batches (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 batch_date TEXT NOT NULL UNIQUE,
@@ -526,6 +546,18 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_whatsapp_outbound_queue_created ON whatsapp_outbound_queue(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_whatsapp_outbound_queue_member ON whatsapp_outbound_queue(member_id);
+
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at TEXT,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_password_reset_member
+            ON password_reset_tokens(member_id);
             """
         )
 

@@ -49,7 +49,7 @@ _RECORD_FIELDS = (
 )
 
 _QUERY = """
-query PublisherCommissions($forPublishers: [String!], $sinceDate: String!, $beforeDate: String!) {
+query PublisherCommissions($forPublishers: [String!]!, $sinceDate: String!, $beforeDate: String!) {
   publisherCommissions(
     forPublishers: $forPublishers
     sincePostingDate: $sinceDate
@@ -64,6 +64,13 @@ query PublisherCommissions($forPublishers: [String!], $sinceDate: String!, $befo
 """ % "\n      ".join(_RECORD_FIELDS)
 
 _CANCELLED_STATUSES = {"cancelled", "canceled", "corrected", "returned"}
+
+
+def _cj_iso8601(dt) -> str:
+    """CJ's $sinceDate/$beforeDate reject a bare date ("2026-10-04") - the
+    live error, caught via /admin/cj-check: "Expected ISO 8601 datetime,
+    e.g. \"1999-12-31T23:59:59Z\"". Full datetime with a Z suffix, UTC."""
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _fetch_cj_records(since: str, before: str) -> dict:
@@ -238,8 +245,8 @@ def cj_connection_check(days_back: int = 31) -> dict:
 
     days_back = max(1, min(int(days_back), 31))
     now = datetime.now(timezone.utc)
-    since = (now - timedelta(days=days_back)).date().isoformat()
-    before = now.date().isoformat()
+    since = _cj_iso8601(now - timedelta(days=days_back))
+    before = _cj_iso8601(now)
 
     fetched = _fetch_cj_records(since, before)
     records = fetched["records"]
@@ -292,8 +299,8 @@ def sync_cj_commissions(days_back: int = 7) -> dict:
 
     days_back = max(1, min(int(days_back), 31))
     now = datetime.now(timezone.utc)
-    since = (now - timedelta(days=days_back)).date().isoformat()
-    before = now.date().isoformat()
+    since = _cj_iso8601(now - timedelta(days=days_back))
+    before = _cj_iso8601(now)
 
     fetched = _fetch_cj_records(since, before)
     if not fetched["ok"]:
