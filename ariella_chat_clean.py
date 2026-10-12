@@ -156,7 +156,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
 - הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) הוא חובה מוחלטת וללא יוצא מן הכלל, בכל הרכב שירותים שהוא (טיסה בלבד, טיסה+מסלול, כל ארבעת השירותים, וכו') - לעולם אל תסיימי את השיחה בלי אותו סיכום ובלי בקשת אישור, ולעולם אל תציגי רק חלק מהשירותים שאושרו (למשל רק פרטי הטיסה) כש-session_status מראה ששירותים נוספים גם הם complete. מבנה הסיכום, שורה אחר שורה:
   - פתיחה ישירה וענייינית (שם היעד, לא משפט טכני על התהליך - ראו הכלל הבא).
-  - טיסה (אם לא declined): יעד ושדה/שדות תעופה שנבחרו בפועל, תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע, ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, תמיד בש"ח/₪, לעולם לא "ILS").
+  - טיסה (אם לא declined): שלושה שדות נפרדים - "יעד" (המדינה/העיר הכללית שהלקוח ביקש, למשל "כרתים"), "שדה נחיתה" (שדה היעד מ-destination_airports, בפורמט "שם (קוד)" כמו "חאניה (CHQ)"), ו-"שדה המראה בחזרה" (רק אם return_departure_airports שונה מ-destination_airports - מסלול open-jaw שנוחת ויוצא משדות שונים - אחרת לא כותבים שורה נפרדת כלל). אם עדיין יש יותר משדה תעופה אחד אפשרי לנחיתה ולא הוחלט (destination_airports מכיל כמה קודים, או שלא הוחלט כלל), אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("לרנקה (LCA) או פאפוס (PFO)") או שאלו לפני הסיכום. בנוסף: תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע, ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, תמיד בש"ח/₪, לעולם לא "ILS").
   - מסלול/אטרקציות (אם לא declined): תקציר קצר של המבנה שאושר (לא כל הפרטים מחדש).
   - לינה (אם לא declined): אזור/ים, מספר לילות, סוג לינה, רמה, מספר חדרים, תקציב.
   - רכב (אם לא declined): סוג רכב, מיקום ומועד איסוף והחזרה.
@@ -934,6 +934,7 @@ def _resolve_destination_airports_from_route(state):
     # the old "don't override an already-resolved value from a plain
     # destination name" behavior, since a bare destination name is less
     # precise than whatever already got resolved and must not clobber it.
+    route_has_bases = bool(names)
     if not names:
         if state.get("destination_airports"):
             return state
@@ -941,6 +942,25 @@ def _resolve_destination_airports_from_route(state):
         names = [str(p) for p in (destination.get("places") or []) if p]
     if not names:
         return state
+    # Seen live (Shaked, Crete scenario): a route that lands in one base
+    # (e.g. Chania) and ends in a different one (e.g. Heraklion) had both
+    # bases' airports lumped together into destination_airports as if they
+    # were interchangeable arrival candidates - the summary then showed a
+    # single "יעד: הרקליון" with no indication the trip actually lands
+    # somewhere else and flies home from there (an open-jaw route). When the
+    # route's FIRST and LAST day bases resolve to genuinely different
+    # airports, split them: destination_airports is the arrival gateway
+    # (first base), return_departure_airports is the return-leg departure
+    # gateway (last base) - exactly the fields the scanner's own open-jaw
+    # support (scanner.py's is_open_jaw) already expects.
+    if route_has_bases and names[0] != names[-1]:
+        first_codes = _resolve_destination_airports_from_route_names(_load_airports(), [names[0]])
+        last_codes = _resolve_destination_airports_from_route_names(_load_airports(), [names[-1]])
+        if first_codes and last_codes and set(first_codes).isdisjoint(last_codes):
+            state = dict(state)
+            state["destination_airports"] = first_codes[:4]
+            state["return_departure_airports"] = last_codes[:4]
+            return state
     codes = _resolve_destination_airports_from_route_names(_load_airports(), names)
     if not codes:
         return state
