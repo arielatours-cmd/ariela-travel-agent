@@ -2102,6 +2102,17 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - כשהחופשה הפעילה היא עסקים או סקי ואת שואלת אם הלקוח מתכוון לחופשה חדשה לגמרי או להמשיך את זו הקיימת, לעולם אל תציעי "להוסיף גם תכנון מסלול" כאפשרות להמשך אותה חופשה - זה לא רלוונטי לעסקים/סקי (ראי כלל למעלה) גם בתוך שאלת ההבהרה הזו. הצעת ההמשך היחידה הרלוונטית שם היא לינה או רכב.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
+    if state.get("_stale_reset_just_happened"):
+        # Per Shaked's live testing: the customer sees the whole old chat
+        # on screen and Ariella just asked everything from scratch with no
+        # explanation at all (e.g. customer said "2 מבוגרים", Ariella replied
+        # "זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?") - jarring, looks
+        # broken. The vacation fields were genuinely just reset (the
+        # customer went quiet for over an hour mid-planning), so this really
+        # is a fresh start - but the customer doesn't know that yet.
+        continuity += """
+- הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק.
+"""
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
     if upcoming:
@@ -4324,9 +4335,11 @@ def chat_clean():
     # back out of the old messages (seen live, in testing this exact fix).
     history_before_gap = history
     _idle_minutes = _minutes_since((saved_conversation or {}).get('updated_at'))
+    stale_reset_happened = False
     if _idle_minutes is not None and _idle_minutes >= _STALE_SESSION_MINUTES and _has_vacation_progress(trip_state):
         trip_state = _reset_stale_trip_state(trip_state, message)
         history = []
+        stale_reset_happened = True
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
@@ -5510,7 +5523,14 @@ def chat_clean():
             trip_update["trip_planning"] = plan
 
         try:
-            reply = _call_tinkerbell(key, model, history, message, trip_update)
+            # Transient, one-turn-only signal for the welcome-back greeting
+            # below - a shallow copy so it never enters trip_update itself
+            # (which is what gets persisted/returned to the client).
+            state_for_tinkerbell = trip_update
+            if stale_reset_happened:
+                state_for_tinkerbell = dict(trip_update)
+                state_for_tinkerbell["_stale_reset_just_happened"] = True
+            reply = _call_tinkerbell(key, model, history, message, state_for_tinkerbell)
         except Exception as exc:
             logging.exception("Tinkerbell reply failed after state update: %s", exc)
             # Preserve Ariella's newly collected state even if the conversational
