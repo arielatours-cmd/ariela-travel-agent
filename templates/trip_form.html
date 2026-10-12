@@ -264,11 +264,27 @@
       // A long reply (an itinerary/route recommendation) can legitimately take
       // a while, but the browser's fetch has no built-in timeout - without this,
       // a truly stuck backend leaves the customer staring at nothing forever
-      // instead of seeing the "try again" message below. 110s stays under the
-      // server's own 120s worker timeout, so a real server-side timeout is
-      // reported first when that's what actually happened.
+      // instead of seeing the "try again" message below.
+      // Seen live (Shaked, 2026-10-12): under a burst of ~6 simultaneous new
+      // conversations, only 4 gunicorn threads are available, and each chat
+      // turn makes TWO sequential Claude calls (extractor then Tinkerbell) -
+      // a request queued behind others can take well over a minute to even
+      // start. The old 110s value was tuned to stay just under the server's
+      // 120s worker timeout for a SINGLE slow request, but that margin is far
+      // too tight once queueing delay is added on top - 3 of 6 parallel
+      // openers hit this exact abort during that test, even though the
+      // server was still genuinely working (not stuck). Raised well above
+      // the server's own 120s ceiling: a request that is actually being
+      // serviced and truly hangs still gets the server's own timeout/dropped
+      // connection first (an honest signal), while a merely-QUEUED request
+      // (not yet started - gunicorn doesn't time those at all) gets real
+      // room to actually complete instead of being given up on early. This
+      // does not fix the underlying thread/memory capacity limit (4 threads
+      // is the known-stable value after an earlier OOM incident - see
+      // render.yaml) - only a Render plan upgrade with real metrics can
+      // safely raise that.
       const abortController=new AbortController();
-      const abortTimer=setTimeout(()=>abortController.abort(),110000);
+      const abortTimer=setTimeout(()=>abortController.abort(),170000);
       let r;
       try{
         r=await fetch('/api/ariella/chat-clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:context,trip_state:JSON.parse(localStorage.getItem(stateKey)||'{}')}),signal:abortController.signal});

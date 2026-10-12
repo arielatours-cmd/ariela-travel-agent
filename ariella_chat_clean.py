@@ -91,6 +91,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
 - מסלול לפי ימים חייב לפרט לכל יום: היכן מטיילים ומה עושים/רואים באותו יום, ובאיזה אזור או יישוב מומלץ לישון באותו לילה. כאשר יש מעבר בין אזורים, סדרי את היום כך שהנסיעה והאטרקציות הגיוניות יחד.
+- כותרת כל יום במסלול חייבת להיות "יום 1", "יום 2" וכו' (מספר סידורי של היום בטיול בלבד) - לעולם לא "יום ראשון", "יום שני" וכו'. המילים "ראשון"/"שני"/"שלישי" הן גם שמות ימות השבוע בעברית, ושימוש בהן למספור ימי הטיול מתנגש עם ציון יום השבוע האמיתי שמופיע בסוגריים לצד התאריך (למשל "יום 3, 5.3 (חמישי)") ומבלבל את הלקוח לגבי איזה יום בשבוע זה באמת.
 - יום ההגעה ויום החזרה הם ימי חופשה לכל דבר ולא "ימי טיסה" ריקים. אל תכתבי ליום האחרון רק "יום חזרה"/"טיסה הביתה" בלי תוכן. אם שעת טיסת החזור ידועה, תכנני לפניה פעילות שמתאימה לזמן שנשאר (ובקרבת שדה התעופה אם צריך), והשאירי זמן סביר להגעה לשדה. אם השעה לא ידועה, הציעי ליום האחרון פעילות קלה וגמישה וציייני במשפט אחד שאפשר להתאים אותה לשעת הטיסה. אותו עיקרון ליום ההגעה: פעילות קלה שמתאימה לשעת הנחיתה.
 - כשאת מציגה מסלול לפי ימים, ההודעה מתחילה ישר ביום הראשון (לכל היותר משפט פתיחה קצר אחד) ומסתיימת ביום האחרון ובשאלה קצרה אחת אם לשנות משהו. בלי הקדמות, בלי הערות כלליות, הסתייגויות או טיפים לפני הימים או אחריהם - כל מידע רלוונטי שייך לתוך היום שאליו הוא מתייחס.
 - כשמזכירים במסלול שם מקום זר ספציפי (כפר, שכונה, אתר תיירות, הר) שאינו שם היעד/המדינה עצמם - כתבי אותו תמיד בלועזית/באנגלית, בדיוק כפי שהוא מוכר בעולם האמיתי (למשל "Omodos", "Perivolia"), לעולם לא בתעתיק עברי עצמאי. תעתיק עברי שאת ממציאה בעצמך לשם כזה יוצא כמעט תמיד שגוי ומבולבל (נראה כמו ג'יבריש). שם היעד/המדינה הכלליים עצמם ("קפריסין", "לרנקה") ממשיכים כרגיל בעברית כרגיל - זה חל רק על שם מקום ספציפי בתוך המסלול שאת בוחרת להזכיר.
@@ -155,6 +156,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
+- לעולם אל תחשבי בקול בתוך התשובה עצמה - בלי להציע אפשרות אחת ואז לחזור בך ("...או חוף X, לא, בואי נלך על Y"). החליטי מה ההמלצה הסופית לפני שאת כותבת את המשפט, וכתבי רק אותה.
 - אין צורך להזדהות בשם טינקרבל מול הלקוח.
 - אל תשתמשי בכוכביות, Markdown או סימני עיצוב. כתבי טקסט נקי בלבד; ממשק האתר אחראי לעיצוב.
 '''
@@ -5644,12 +5646,29 @@ def chat_clean():
                 ]
                 if remaining:
                     next_domain = remaining[0]
-                    reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
-                    # Remember what was just offered, so a plain "כן"/"לא" next
-                    # turn settles it via _post_flight_offer_answer. Without this
-                    # the "כן" reached the model with no record of the question,
-                    # and it asked about the car all over again (seen live).
-                    trip_update["post_flight_offer"] = [next_domain]
+                    # Seen live (Shaked): "תרצי שאמשיך גם עם לינה?" kept appearing
+                    # even when the customer already said "גם לינה ורכב" in their
+                    # very first message. _sessionize_state already auto-activates
+                    # a domain to "active" (not "pending") once its service_decision
+                    # is wanted=True - this yes/no offer is only a real question
+                    # when the domain is genuinely undecided (still "pending").
+                    # Asking it again for an already-"active" domain re-asks a
+                    # question the customer already answered.
+                    if statuses_after_plan.get(next_domain) == "active":
+                        trip_update["active_session"] = next_domain
+                        trip_update = _advance_sessions(trip_update)
+                        try:
+                            reply = _call_tinkerbell(key, model, history, message, trip_update)
+                        except Exception as exc:
+                            logging.exception("Tinkerbell reply failed on already-decided post-route domain: %s", exc)
+                            reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
+                    else:
+                        reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
+                        # Remember what was just offered, so a plain "כן"/"לא" next
+                        # turn settles it via _post_flight_offer_answer. Without this
+                        # the "כן" reached the model with no record of the question,
+                        # and it asked about the car all over again (seen live).
+                        trip_update["post_flight_offer"] = [next_domain]
                 else:
                     reply = "מצוין, המסלול מאושר."
 
