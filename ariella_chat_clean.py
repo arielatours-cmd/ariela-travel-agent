@@ -3311,7 +3311,7 @@ def _deterministic_departure_airport_facts(message):
     hfa_phrases = ("משדה חיפה", "משדה תעופה חיפה", "hfa")
     if any(p in msg for p in hfa_phrases):
         return {"departure_airport": "HFA"}
-    if re.search(r"(נצא|לצאת|יציאה|טסים|נטוס)[^.,!?]{0,6}מחיפה", msg):
+    if re.search(r"(נצא|לצאת|יציאה|טסים|נטוס|טיסה)[^.,!?]{0,6}מחיפה", msg):
         return {"departure_airport": "HFA"}
     return {}
 
