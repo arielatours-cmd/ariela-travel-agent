@@ -119,6 +119,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה בינארית קצרה וטבעית (למשל "לאסוף ולהחזיר בשדה התעופה, או שעדיף מיקום אחר כמו מרכז העיר?") ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לציין את שמות השדות במפורש ולשאול לאיזה מהם (למשל "לאסוף ולהחזיר בשדה התעופה בלרנקה, בפאפוס, או במקום אחר?"), ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב קצרה ועניינית: הציגי את האפשרויות (קטן, משפחתי, משפחתי סטיישן, SUV, ג'יפ, מיניוואן 7 מקומות) ושאלי אם צריך יותר מקומות מאשר מספר הנוסעים - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). את ידני/אוטומטי שאלי כשאלה נפרדת.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
+- אם car.wanted הוא false (הלקוח דחה רכב שכור במפורש), המסלול הראשון שאת מציעה חייב כבר להתחשב בזה - לא רק אחרי שהלקוח שואל איך מגיעים. בפרט, אל תבני מסלול שמניח נסיעות עצמאיות בין אתרים מרוחקים (למשל כפרים/אזורי יין כמו שאנטי, סן ג'ימיניאנו, וולטרה סביב טוסקנה) כאילו יש רכב - הציעי מבסיס אחד נוח לתחבורה ציבורית/טיולים מאורגנים/רכבות, או ציייני במפורש בתוך הצעת המסלול עצמה איך מגיעים בלי רכב לכל יעד שמוזכר בו.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'.
 - חשבון תאריכים הוא דטרמיניסטי: שבוע=7 ימים ושבועיים=14 ימים. אם הלקוח אמר יציאה 20.12 ושבועיים, החזרה היא 3.1; אל תמציאי 7.1 ואל תציעי תאריך חלופי אחרי שהמשך אושר.
 - כשמשך החופשה הוא בקשה בקירוב ובמקביל יש אילוצי ימי שבוע (למשל יציאה בראשון וחזרה בחמישי), דרגי את טווחי התאריכים לפי המרחק המוחלט מהמשך המבוקש. האפשרות הקרובה ביותר למשך המבוקש מוצגת/מומלצת ראשונה. לדוגמה מול יעד של 14 ימים: 11 ימים עדיפים על 18 ימים כי הסטייה היא 3 לעומת 4. אל תעדיפי אוטומטית חופשה ארוכה יותר. אם נאמר גם חודש/טווח כמו 'באפריל אחרי ה-15', חשבי את התאריכים האפשריים מתוך המגבלה במקום לבקש שוב משך.
@@ -186,6 +187,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - flight.max_connections: כאשר הלקוח מציין מספר עצירות/קונקשנים מקסימלי מותר (לא ישירה דווקא, אבל גם לא ללא הגבלה - למשל "לא יותר מקונקשן אחד", "מקסימום עצירה אחת", "עד 2 קונקשנים"), שמרי כאן מספר שלם (1, 2...). זה שונה מ-connection_preference="direct" (דרישה לטיסה ישירה בלבד) - שדה נפרד לבקשה "קונקשן אחד זה בסדר, אבל לא יותר". כשאין הגבלה מספרית כזו השאירי null.
 - כשתוצאות הטיסות כבר נסרקו ואין טיסה ישירה ליעד (למשל התוצאה המוצגת מסומנת כ"לא כולל: טיסה ישירה"), ציייני זאת ללקוח כעובדה בפה מלא ("שימו לב - לא נמצאה טיסה ישירה ליעד הזה בתאריכים שביקשת, האפשרות הטובה ביותר שנמצאה כוללת קונקשן") ולעולם אל תשאלי שוב אם הלקוח רוצה טיסה ישירה - השאלה הזו רלוונטית רק לפני שיוצאים לסריקה ורק כשבאמת יש אפשרות ישירה אמיתית לבחור בה.
 - כנ"ל עוד לפני הסריקה: אם כבר ציינת ללקוח (מידע כללי שלך או בדיקה שבוצעה) שליעד הזה כמעט אין טיסות ישירות מישראל, אסור לשאול שום שאלת המשך על הקונקשן - לא "ישירה או קונקשן", ולא שאלה דומה כמו "חשוב לך לצמצם את זמן ההמתנה בקונקשן, או שזה גמיש?". ברגע שנקבע שאין אפשרות ישירה אמיתית, הנושא סגור לגמרי ועוברים לשאלה הבאה שבאמת חסרה - אסור להמשיך "לחטט" בפרטי הקונקשן כשאלת נימוס או כברירת מחדל.
+- לפני שיצאה סריקה בפועל, אסור להבטיח ללקוח טיסה ספציפית ("יש לכם טיסה ישירה מנתב"ג לבנגקוק ב-15.7.2027, בדיוק מה שרצית") או לדבר על תקציב מסוים כאילו הוא כבר הושג ("תקציב של 4000 לטיסה ישירה נשמע סביר, אני אדאג לזה") - אלה טענות על תוצאה שעוד לא נבדקה. הנוסח הנכון קודם לסריקה מתייחס לבקשה/להעדפה של הלקוח בלבד ("קלטתי - טיסה ישירה, תקציב עד 4,000 ₪"), לעולם לא כאילו התוצאה כבר נמצאה או מובטחת.
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
@@ -437,6 +439,47 @@ def _merge_trip_state(previous, incoming):
 
 def _state_context(state):
     return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
+
+
+_WEEKDAY_HE_BY_PY = {0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"}
+
+
+def _weekday_lookup_hint(state):
+    """Seen live, twice in the same QA round: Ariella computed a date's
+    day-of-week herself and got it wrong - once shifting an entire route by
+    two days, once reading a route's own day-N numbering ("יום ראשון/שני/
+    שלישי...") as if it meant real weekdays (so day 7 got relabeled "שישי"
+    again, duplicating day 5). A weekday is arithmetic, not something to
+    guess or infer from day-numbering - hand over an exact, pre-computed
+    table for the confirmed trip dates so there is nothing left to compute.
+    Capped at 31 days so an unusually long trip doesn't bloat the prompt."""
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if dates.get("needs_confirmation"):
+        return ""
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    if not dep_raw or not ret_raw:
+        return ""
+    try:
+        dep = date.fromisoformat(dep_raw)
+        ret = date.fromisoformat(ret_raw)
+    except ValueError:
+        return ""
+    span = (ret - dep).days
+    if span < 0 or span > 31:
+        return ""
+    rows = []
+    d = dep
+    while d <= ret:
+        rows.append(f"{d.strftime('%d.%m.%Y')}={_WEEKDAY_HE_BY_PY[d.weekday()]}")
+        d += timedelta(days=1)
+    return (
+        "\nטבלת ימות השבוע האמיתיים לתאריכי הטיול (מחושבת בוודאות - "
+        "לעולם אל תחשבי בעצמך יום בשבוע לתאריך, ואל תתייחסי למספור ימי המסלול "
+        '(כמו "יום 1", "יום 2"...) כאילו הוא שם יום בשבוע - שני המושגים נפרדים לגמרי): '
+        + ", ".join(rows)
+    )
 
 
 def _multi_gateway_hint(state):
@@ -2117,7 +2160,8 @@ def _call_tinkerbell(key, model, history, message, state=None):
                 "אל תטעני בוודאות שיש טיסה ישירה, ואל תטעני גם בוודאות שאין (מסלולים עונתיים או זמינות עשויים להשתנות) - "
                 "אם רלוונטי לשיחה, נסחי זאת כתלוי בתוצאות החיפוש בפועל, ולעולם אל תכתבי 'טיסה ישירה' בסיכום הסופי אלא אם זו עובדה מאומתת מהרשימה הזו."
             )
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
+    weekday_hint_text = _weekday_lookup_hint(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -2302,6 +2346,14 @@ _HEBREW_MONTHS = {
     "יולי": 7, "אוגוסט": 8, "ספטמבר": 9, "אוקטובר": 10, "נובמבר": 11, "דצמבר": 12,
 }
 _HEBREW_MONTH_DATE_RE = r"(?<!\d)(\d{1,2})\s*ב(" + "|".join(_HEBREW_MONTHS) + r")(?:\s+(20\d{2}))?"
+# A departure+return pair sharing one month mention ("10-14 בנובמבר 2026",
+# "מ-3 עד 9 במרץ 2027") - the single-day pattern above only ever catches the
+# SECOND day in these ("14 בנובמבר"), since the first day is never directly
+# followed by "ב<month>" itself.
+_HEBREW_MONTH_RANGE_RE = (
+    r"(?<!\d)(?:מ-?\s*)?(\d{1,2})\s*(?:[-–]|עד)\s*(\d{1,2})\s*ב("
+    + "|".join(_HEBREW_MONTHS) + r")(?:\s+(20\d{2}))?"
+)
 
 
 def _deterministic_date_facts(history, message, state=None):
@@ -2347,6 +2399,21 @@ def _deterministic_date_facts(history, message, state=None):
             year += 1
         try:
             found_with_pos.append((m.start(), date(year, month, day)))
+        except ValueError:
+            pass
+    # "10-14 בנובמבר 2026" / "מ-3 עד 9 במרץ 2027" - a departure+return pair
+    # that only states the month once. Matched separately from the pairs
+    # above, with each day's own exact position (not the whole match's
+    # start) so departure sorts before return relative to any other dates
+    # found elsewhere in the text.
+    for m in re.finditer(_HEBREW_MONTH_RANGE_RE, text):
+        day1, day2, month = int(m.group(1)), int(m.group(2)), _HEBREW_MONTHS[m.group(3)]
+        year = int(m.group(4)) if m.group(4) else today.year
+        if not m.group(4) and (month, day1) < (today.month, today.day):
+            year += 1
+        try:
+            found_with_pos.append((m.start(1), date(year, month, day1)))
+            found_with_pos.append((m.start(2), date(year, month, day2)))
         except ValueError:
             pass
     found_with_pos.sort(key=lambda item: item[0])
