@@ -54,10 +54,10 @@
     {"id": "travelers-hebrew-number-word-two", "fn": "_deterministic_traveler_facts", "args": ["טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027"], "expect": {"travelers": {"adults": 2}}, "source": "live-chat-2026-10-12-s8"},
     {"id": "travelers-hebrew-number-word-plain", "fn": "_deterministic_traveler_facts", "args": ["שני מבוגרים, בלי ילדים"], "expect": {"travelers": {"adults": 2}}, "source": "live-chat-2026-10-12-s8"},
     {"id": "travelers-hebrew-number-word-family", "fn": "_deterministic_traveler_facts", "args": ["משפחה עם שלושה מבוגרים וארבעה ילדים"], "expect": {"travelers": {"adults": 3, "children": 4}}, "source": "live-chat-2026-10-12-s8"},
-    {"id": "travelers-hebrew-number-words-family", "fn": "_deterministic_traveler_facts", "args": ["שלושה מבוגרים ושני ילדים"], "expect": {"travelers": {"adults": 3, "children": 2}}, "source": "live-chat-2026-10-12-s8"},
     {"id": "open-jaw-heraklion-not-lyon", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בחאניה ולחזור מהרקליון"], "expect": {"destination_airports": ["CHQ"], "return_departure_airports": ["HER"]}, "source": "live-chat-2026-10-12-s10"},
     {"id": "open-jaw-chania-short-spelling", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בחניה ולחזור מהרקליון"], "expect": {"destination_airports": ["CHQ"], "return_departure_airports": ["HER"]}, "source": "live-chat-2026-10-12-s10"},
     {"id": "open-jaw-nochtim-chozrim", "fn": "_deterministic_open_jaw_airports", "args": ["נוחתים בחאניה וחוזרים מהרקליון"], "expect": {"open_jaw_requested": true}, "source": "live-chat-2026-10-12-s10"},
-    {"id": "open-jaw-paphos-larnaca-still-works", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בפאפוס ולחזור מלרנקה"], "expect": {"destination_airports": ["PFO"], "return_departure_airports": ["LCA"]}, "source": "guard"}
+    {"id": "open-jaw-paphos-larnaca-still-works", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בפאפוס ולחזור מלרנקה"], "expect": {"destination_airports": ["PFO"], "return_departure_airports": ["LCA"]}, "source": "guard"},
+    {"id": "travelers-hebrew-number-words-family", "fn": "_deterministic_traveler_facts", "args": ["שלושה מבוגרים ושני ילדים"], "expect": {"travelers": {"adults": 3, "children": 2}}, "source": "live-chat-2026-10-12-s8"}
   ]
 }

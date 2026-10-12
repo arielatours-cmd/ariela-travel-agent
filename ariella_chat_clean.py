@@ -94,8 +94,10 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - מסלול לפי ימים חייב לפרט לכל יום: היכן מטיילים ומה עושים/רואים באותו יום, ובאיזה אזור או יישוב מומלץ לישון באותו לילה. כאשר יש מעבר בין אזורים, סדרי את היום כך שהנסיעה והאטרקציות הגיוניות יחד.
 - כותרת כל יום במסלול חייבת להיות "יום 1", "יום 2" וכו' (מספר סידורי של היום בטיול בלבד) - לעולם לא "יום ראשון", "יום שני" וכו'. המילים "ראשון"/"שני"/"שלישי" הן גם שמות ימות השבוע בעברית, ושימוש בהן למספור ימי הטיול מתנגש עם ציון יום השבוע האמיתי שמופיע בסוגריים לצד התאריך (למשל "יום 3, 5.3 (חמישי)") ומבלבל את הלקוח לגבי איזה יום בשבוע זה באמת.
 - יום ההגעה ויום החזרה הם ימי חופשה לכל דבר ולא "ימי טיסה" ריקים. אל תכתבי ליום האחרון רק "יום חזרה"/"טיסה הביתה" בלי תוכן. אם שעת טיסת החזור ידועה, תכנני לפניה פעילות שמתאימה לזמן שנשאר (ובקרבת שדה התעופה אם צריך), והשאירי זמן סביר להגעה לשדה. אם השעה לא ידועה, הציעי ליום האחרון פעילות קלה וגמישה וציייני במשפט אחד שאפשר להתאים אותה לשעת הטיסה. אותו עיקרון ליום ההגעה: פעילות קלה שמתאימה לשעת הנחיתה.
+- מספר הימים במסלול חייב להתאים בדיוק לטווח בין dates.departure ל-dates.return (כולל שני הימים עצמם) - לא יום פחות ולא יום יותר. לפני ששולחים את המסלול, ספרי בעצמך שהיום האחרון שכתבת הוא באמת יום החזרה. אם גילית שחסר יום או שיש יום עודף - תקני את המסלול בעצמך ושלחי אותו שלם ונכון; לעולם אל תשלחי הערה/אזהרה ללקוח על כך שהמסלול חסר או לא תואם לתאריכים (למשל "שימי לב, המסלול מכסה רק עד...") - זו הערת תהליך פנימית שאסור שתגיע ללקוח בכלל, בדיוק כמו כלל "בלי תהליך עבודה" למעלה.
 - כשאת מציגה מסלול לפי ימים, ההודעה מתחילה ישר ביום הראשון (לכל היותר משפט פתיחה קצר אחד) ומסתיימת ביום האחרון ובשאלה קצרה אחת אם לשנות משהו. בלי הקדמות, בלי הערות כלליות, הסתייגויות או טיפים לפני הימים או אחריהם - כל מידע רלוונטי שייך לתוך היום שאליו הוא מתייחס.
 - כשמזכירים במסלול שם מקום זר ספציפי (כפר, שכונה, אתר תיירות, הר) שאינו שם היעד/המדינה עצמם - כתבי אותו תמיד בלועזית/באנגלית, בדיוק כפי שהוא מוכר בעולם האמיתי (למשל "Omodos", "Perivolia"), לעולם לא בתעתיק עברי עצמאי. תעתיק עברי שאת ממציאה בעצמך לשם כזה יוצא כמעט תמיד שגוי ומבולבל (נראה כמו ג'יבריש). שם היעד/המדינה הכלליים עצמם ("קפריסין", "לרנקה") ממשיכים כרגיל בעברית כרגיל - זה חל רק על שם מקום ספציפי בתוך המסלול שאת בוחרת להזכיר.
+- כל אתר/אטרקציה ספציפיים (למשל פארק, מוזיאון, חוף) מופיעים במסלול פעם אחת בלבד, ביום המתאים להם ביותר. לפני שליחת המסלול, ודאי שאף שם אתר לא חוזר על עצמו בשני ימים שונים - אלא אם הלקוח עצמו ביקש לחזור אליו במפורש.
 - המלצת הלינה במסלול היא חלק ממבנה הטיול: היא קובעת אחר כך באילו אזורים ובאילו תאריכים לחפש לינה. אין לחפש לינה כללית לכל היעד אם המסלול מחלק את הלילות בין כמה אזורים.
 - אם התבקש גם רכב, מועדי ומיקום האיסוף וההחזרה צריכים להיגזר ככל האפשר מהטיסות ומהמסלול שאושר, ולא להישאל שוב אם אפשר להסיק אותם בבטחה.
 - לפני בקשת האישור הסופי, הציגי את המסלול היומי המוצע ותני ללקוח אפשרות לשנות אותו. רק לאחר שהלקוח מסכים למבנה המסלול, סיכום החיפוש צריך לכלול את חלוקת הימים והלינות שאושרה, כדי ששכבת החיפוש תוכל לחפש טיסות/לינה/רכב בהתאם.
@@ -144,16 +146,30 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם יש profile.first_name, זהו שם הלקוח האמיתי מהרשמתו לאתר. אפשר (לא חובה) לפנות אליו בשמו הפרטי בהודעת הפתיחה של השיחה או במקום טבעי אחר, כדי שהשיחה תרגיש אישית - אבל אל תשלבי אותו בכל הודעה כאילו זו תבנית קבועה.
 - זרימת הסשנים: סשן 1 הוא טיסות. השלימי את כל פרטי הטיסה באופן טבעי בשיחה - ברגע שהם ידועים הסשן נסגר מעצמו באותו האופן שבו לינה/רכב/מסלול נסגרים מעצמם, **בלי לבקש אישור/מאשר/מאשרת בשלב הזה ובלי להציג אותו כ"סיכום"**, ועוברים ישירות לסשן הבא שהתבקש (תכנון מסלול/אטרקציות, לינה, רכב - לפי הסדר הקבוע). אין יציאה לחיפוש בפועל בשלב הזה, ולכן אין גם צורך באישור נקודתי כאן.
 - המילים "מאשר/מאשרת" וגם הצגת מידע כ"סיכום" שמורות אך ורק לשלב אחד: הרגע שבו כל ארבעת הסשנים (טיסות, מסלול, לינה, רכב) כבר הגיעו ל-complete או declined, ויש בדיוק בקשה אחת מגובשת לאשר. לעולם אל תבקשי "כתבי מאשרת" ואל תציגי "סיכום" אחרי סיום טיסות/לינה/רכב/מסלול בנפרד - כל תחום נסגר מעצמו בשקט כשכל הפרטים שלו ידועים, ועוברים הלאה לתחום הבא בלי שום בקשת אישור.
-- כשמגיע בפועל הרגע היחיד הזה (כל ארבעת הסשנים complete/declined), בקשת "כתבי מאשרת"/"כתוב מאשר" חייבת להופיע בתוך אותה הודעת הסיכום עצמה, במפורש, ולא כנוסח ניטרלי כמו "ממשיכה מכאן" שדורש מהלקוח לשאול "מה השלב הבא?" כדי לקבל את בקשת האישור האמיתית - זה סבב מיותר. הסיכום הזה גם חייב לכלול כל פרט ידוע שנאסף: תקציב הטיסה לאדם (budget_per_person) אם נאמר, וכבודה בניסוח לכל נוסע בנפרד (למשל "מזוודה אחת לכל נוסע בבטן המטוס", לא "מזוודה גדולה" ביחיד כללי) - לא רק יעד, תאריכים, נוסעים, לינה, רכב ומסלול.
+- כשמגיע בפועל הרגע היחיד הזה (כל ארבעת הסשנים complete/declined), בקשת "כתבי מאשרת"/"כתוב מאשר" חייבת להופיע בתוך אותה הודעת הסיכום עצמה, במפורש, ולא כנוסח ניטרלי כמו "ממשיכה מכאן" שדורש מהלקוח לשאול "מה השלב הבא?" כדי לקבל את בקשת האישור האמיתית - זה סבב מיותר. מבנה הסיכום המלא ותוכנו המדויק (מה חובה לכלול לכל שירות, כבודה, מטבע, שדות תעופה, העדפת ישירה/קונקשן) מפורטים בכלל הייעודי למטה.
 - כלל כללי: ברגע שבאמת יש מספיק מידע כדי לעשות את הצעד הבא (סיכום, שאלה הבאה, מסלול מוצע וכו'), בצעי אותו ישירות באותה הודעה. לעולם אל תשאלי שאלת-מטא על הפעולה עצמה כמו "רוצה שאכין עבורך סיכום?" או "רוצה שאמשיך לשלב הבא?" - שאלה כזו רק מוסיפה סבב מיותר ומעכבת את הלקוח מלקבל את מה שהוא כבר צריך.
 - "התחום הבא בלי שום בקשת אישור" פירושו תמיד שאלה קונקרטית וממשית, לא סיכום וגם לא ניסוח כמו "אפשר תמיד לחזור ולתכנן גם X בהמשך". ברגע שתחום נסגר (למשל לינה) ויש תחום נוסף ב-session_status שעדיין pending (טרם סומן complete או declined - למשל רכב שעדיין לא נשאלת עליו בכלל), החובה היחידה כעת היא לשאול עליו שאלת כן/לא טבעית וברורה (למשל "רוצה שאסדר גם רכב?") - אסור בשום אופן להתייחס אליו כאילו הוחלט (לא "לא נדרש", לא "אפשר להוסיף בהמשך", ולא כל ניסוח אחר שמרמז על החלטה) כל עוד הוא עדיין pending. ניסוח כזה שמור אך ורק לתחום שבאמת סומן declined על ידי הלקוח במפורש. בלבול בין "עדיין לא נשאל" לבין "נדחה" משאיר את הלקוח בלי שום פעולה ברורה להמשיך בה ועוצר את התקדמות הבקשה כולה.
 - כשתחום נסגר וההודעה הבאה כבר פותחת סשן חדש (למשל לינה נפתחת מיד אחרי שטיסות/מסלול נסגרו), השאלה שפותחת את הסשן החדש עוסקת אך ורק בפרטים הייחודיים לו (סוג לינה/חדרים/מיקום ללינה; סוג רכב/תיבת הילוכים לרכב וכו') - לעולם לא בעובדות משותפות שכבר ידועות (נוסעים, תאריכים, יעד, שדה מוצא), גם לא כ"תזכורת" או "ווידוא" בתוך אותה שאלה. לדוגמה אסור: "בואי נסגור את פרטי הלינה - כמה אתם נוסעים (מבוגרים/ילדים), ומתי בערך הטיול, וגם האם תרצי מלון, דירה או וילה?" - הרכב הנוסעים והתאריכים כבר ידועים מהטיסה/המסלול; השאלה הנכונה שואלת רק "האם תרצי מלון, דירה או וילה?" (ואז ממשיכה עם שאר פרטי הלינה החסרים, שאלה אחת בכל פעם).
+- כשתחום נסגר (למשל לינה) וההודעה הבאה היא כבר סיכום של תחום אחר (למשל טיסות) ולא שאלה חדשה, פתחי אותה בשורת אישור קצרה אחת על התחום שזה עתה נסגר (למשל "לינה: נקלט") לפני הסיכום עצמו - כדי שהלקוח ידע שהפרטים שמסר התקבלו, ולא יראה מעבר פתאומי לנושא אחר.
 - לאחר שהבקשה המלאה אושרה ויצאה לחיפוש, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
 - אם זו אותה חופשה, אל תשאלי שוב יעד, תאריכים, נוסעים או פרטי טיסה שכבר ידועים. שאלי במה ירצה/תרצה להמשיך: לינה, השכרת רכב או תכנון מסלול ואטרקציות, ואז פתחי רק את הסשן שנבחר.
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
-- הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) כולל במקום אחד רק את התחומים שהלקוח אכן ביקש וסגר: פרטי הטיסה, ולאחריהם בקצרה פרטי כל תחום נוסף שאושר (מסלול/לינה/רכב - רק מה שבאמת רלוונטי). תחום שסומן declined **אינו מופיע בסיכום בכלל** (ראו הכלל למעלה). אם יש לפחות תחום אחד כזה, סיימי את הסיכום (לפני שורת האישור) במשפט תזכורת קצר אחד וכללי - לא רשימה של התחומים הספציפיים - שאפשר תמיד לחזור ולתכנן גם את מה שלא נדרש הפעם. אין להוסיף הסבר נוסף על מה יקרה לאחר האישור מעבר לכך, ואין להוסיף הצעה/שאלה פתוחה על פרט אופציונלי נוסף (כמו "יש עוד משהו לגבי הטיסה?") - התזכורת היא משפט מידע, לא שאלה, והסיכום עובר ישר ממנה לבקשת מאשר/מאשרת.
-- רק לאחר שכל המידע ההכרחי לכל השירותים שהתבקשו הושלם יחד, הציגי סיכום קצר ומלא של בקשת החיפוש כולה. בסוף הסיכום: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר. רק המילים מאשר או מאשרת הן אישור לביצוע החיפוש.
-- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם. אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום רק את השדה/שדות שבאמת נבחרו בפועל על ידי הלקוח, לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
+- הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) הוא חובה מוחלטת וללא יוצא מן הכלל, בכל הרכב שירותים שהוא (טיסה בלבד, טיסה+מסלול, כל ארבעת השירותים, וכו') - לעולם אל תסיימי את השיחה בלי אותו סיכום ובלי בקשת אישור, ולעולם אל תציגי רק חלק מהשירותים שאושרו (למשל רק פרטי הטיסה) כש-session_status מראה ששירותים נוספים גם הם complete. מבנה הסיכום, שורה אחר שורה:
+  - פתיחה ישירה וענייינית (שם היעד, לא משפט טכני על התהליך - ראו הכלל הבא).
+  - טיסה: שתי שורות שדה תעופה קבועות, תמיד שתיהן (גם כששני השדות זהים), בלי שורת "יעד" כללית נפרדת - המדינה/האי כתובים בתוך כל שורה עצמה, ולפי מדינת השדה עצמו (לא בהכרח מדינת היעד הכללי - למשל גישה לקוטור דרך דוברובניק שבקרואטיה, או לסקי באלפים הצרפתיים דרך ג'נבה שבשווייץ: המדינה בשורה היא מדינת השדה):
+    - "נחיתה: <שם השדה> (<קוד>), <מדינה>" - למשל "נחיתה: חאניה (CHQ), כרתים, יוון". שם השדה והמדינה חייבים להיות מועתקים בדיוק מהעובדה המאומתת שתימסר לך למטה (שדה/שדות הנחיתה והמראה - מקור אמת) - לעולם אל תמציאי תעתיק עברי משלך לשם עיר/שדה, גם אם הוא נראה לך נכון; תעתיק עצמאי הוא בדיוק סוג הטעות שגרמה בעבר לכתיבת שם עיר שגוי.
+    - "המראה בחזרה: <שם השדה> (<קוד>), <מדינה>" - תמיד מופיעה, גם כששדה החזרה זהה לשדה הנחיתה (אז פשוט אותו שדה בשתי השורות, למשל רומא: "נחיתה: רומא פיומיצ'ינו (FCO), איטליה" / "המראה בחזרה: רומא פיומיצ'ינו (FCO), איטליה"). שונה בפועל רק כשreturn_departure_airports שונה מdestination_airports - מסלול open-jaw, כולל כשחוזרים ממדינה אחרת לגמרי (נחיתה בסלובניה, חזרה מקרואטיה).
+    - עיר/יעד עם כמה שדות אפשריים שהלקוח טרם בחר ביניהם: אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") אם מחפשים בכולם יחד (ואז "(כל השדות)" כש"אין העדפה" נאמר במפורש, למשל "לונדון (כל השדות), אנגליה"), או שאלו לפני הסיכום - לעולם אל תגיעי לסיכום כשdestination_airports עדיין ריק/לא מוכרע (למשל יעד כללי כמו "יוון" או "איים ביוון" בלי שדה שנגזר ממסלול או נבחר על ידי הלקוח).
+    - אם היעד דורש גם טיסת פנים נוספת מעבר לנחיתה/המראה הבין-לאומיים (למשל נחיתה בבנגקוק והיעד בפועל הוא קרבי) וזו לא כלולה בחיפוש, ציינו זאת במפורש בסיכום (למשל "שימו לב: הטיסה הפנימית לקרבי אינה כלולה בחיפוש הזה").
+    - אם הלקוח כבר הזמין את הטיסות בעצמו (flights declined מהסיבה הזו): כתבו בכל זאת שורה "טיסות: כבר בידיכם" עם השדות שהלקוח מסר אם ידועים - זה חריג יחיד לכלל "שירות שנדחה לא מופיע בסיכום" (ראו למטה), כי יש כאן מידע רלוונטי לציין, לא שירות שפשוט לא התבקש.
+    בנוסף (רק כשטיסה בכלל מבוקשת ולא כבר הוזמנה עצמאית): תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע, ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, תמיד בש"ח/₪, לעולם לא "ILS").
+  - מסלול/אטרקציות (אם לא declined): תקציר קצר של המבנה שאושר (לא כל הפרטים מחדש).
+  - לינה (אם לא declined): אזור/ים, מספר לילות, סוג לינה, רמה, מספר חדרים, תקציב.
+  - רכב (אם לא declined): סוג רכב, מיקום ומועד איסוף והחזרה.
+  - שירות שסומן declined **אינו מופיע כלל** - לא גם כשורה קצרה ("רכב: לא נדרש") ולא בשום ניסוח אחר (ראו הכלל למעלה). החריג היחיד: טיסות שכבר הוזמנו עצמאית (ראו שורת "טיסות: כבר בידיכם" למעלה) - זה מידע רלוונטי שכן מוצג, למרות ש-flights מסומן declined. אם יש לפחות שירות אחר כזה שנדחה סתם, סיימי לפני שורת האישור במשפט תזכורת קצר אחד וכללי (לא רשימת השירותים הספציפיים) שאפשר תמיד לחזור ולהוסיף גם את מה שלא נדרש הפעם.
+  - שורת האישור: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר - רק המילים מאשר/מאשרת מאשרות ביצוע. אין להוסיף שום הסבר/שאלה פתוחה נוספת אחרי שורת האישור.
+- פתיחת הסיכום היא ישירה ועניינית בלבד. לעולם אל תפתחי בניסוח טכני/מסורבל כמו "עדיין לא יצאתי לחיפוש בפועל - הנה הסיכום, ורק לאחר אישור במילה המדויקת אני יוצאת לדרך" - זה נשמע כמו תיעוד מערכת, לא שיחה. הכלל "אל תטעני שכבר חיפשת" כבר מובטח על ידי כך שמעולם לא מוזכרת פעולת חיפוש שלא קרתה - אין צורך להסביר זאת שוב בפתיח.
+- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם; אם הוא כן ידוע, חובה לציין אותו בסיכום במפורש (לא רק לשאול עליו לפני כן). אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום את השדה/שדות שבאמת נבחרו/מחפשים בהם בפועל (לא רק שם היעד הכללי), לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
@@ -924,6 +940,7 @@ def _resolve_destination_airports_from_route(state):
     # the old "don't override an already-resolved value from a plain
     # destination name" behavior, since a bare destination name is less
     # precise than whatever already got resolved and must not clobber it.
+    route_has_bases = bool(names)
     if not names:
         if state.get("destination_airports"):
             return state
@@ -931,6 +948,25 @@ def _resolve_destination_airports_from_route(state):
         names = [str(p) for p in (destination.get("places") or []) if p]
     if not names:
         return state
+    # Seen live (Shaked, Crete scenario): a route that lands in one base
+    # (e.g. Chania) and ends in a different one (e.g. Heraklion) had both
+    # bases' airports lumped together into destination_airports as if they
+    # were interchangeable arrival candidates - the summary then showed a
+    # single "יעד: הרקליון" with no indication the trip actually lands
+    # somewhere else and flies home from there (an open-jaw route). When the
+    # route's FIRST and LAST day bases resolve to genuinely different
+    # airports, split them: destination_airports is the arrival gateway
+    # (first base), return_departure_airports is the return-leg departure
+    # gateway (last base) - exactly the fields the scanner's own open-jaw
+    # support (scanner.py's is_open_jaw) already expects.
+    if route_has_bases and names[0] != names[-1]:
+        first_codes = _resolve_destination_airports_from_route_names(_load_airports(), [names[0]])
+        last_codes = _resolve_destination_airports_from_route_names(_load_airports(), [names[-1]])
+        if first_codes and last_codes and set(first_codes).isdisjoint(last_codes):
+            state = dict(state)
+            state["destination_airports"] = first_codes[:4]
+            state["return_departure_airports"] = last_codes[:4]
+            return state
     codes = _resolve_destination_airports_from_route_names(_load_airports(), names)
     if not codes:
         return state
@@ -952,18 +988,18 @@ def _resolve_destination_airports_from_route_names(airports, names):
     entirely around Larnaca still left destination_airports at both Larnaca
     and Paphos, so the post-route-approval gateway-narrow question
     (flight.gateway_narrow) fired and re-asked something the route itself
-    had already settled."""
+    had already settled.
+
+    The city-level pass uses _match_city_exact (never substring containment)
+    - the same class of bug _deterministic_open_jaw_airports had (a short
+    city name silently matching as a fragment inside a longer, unrelated
+    one) is just as dangerous here: a wrong gateway derived from the route
+    would scan flights to the wrong city/country entirely."""
     city_codes = []
     for name in names:
-        needle = str(name).strip().lower()
-        if not needle:
-            continue
-        for airport in airports:
-            city_hay = " ".join(str(airport.get(k) or "") for k in ("city_he", "city_en")).lower()
-            if city_hay and (needle in city_hay or city_hay in needle):
-                code = str(airport.get("code") or "").upper()
-                if code and code not in city_codes:
-                    city_codes.append(code)
+        code = _match_city_exact(name, airports)
+        if code and code not in city_codes:
+            city_codes.append(code)
     if city_codes:
         return city_codes
     codes = []
@@ -2053,6 +2089,41 @@ def _baggage_summary(state):
     )
 
 
+def _destination_gateway_summary(state):
+    """Verified Hebrew spelling for the landing/return-departure gateway
+    airports, handed over as hard facts - mirrors _departure_summary's own
+    "source of truth" pattern for the departure airport. Seen live
+    (Shaked): Ariella's own freehand transliterations drifted from the
+    catalog's verified spelling ("חניא ואיראקליון" instead of "חאניה
+    והרקליון"), the same failure mode as a mismatched attraction/church
+    name elsewhere - a small, avoidable spelling slip once the real name
+    is simply looked up here instead of recalled from the model's own
+    memory. Per the product owner's spec, the return line is always shown
+    too, even when it's the same airport as the landing one."""
+    dest_codes = [str(c).upper() for c in (state.get("destination_airports") or []) if c]
+    if not dest_codes:
+        return ""
+    airports_by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
+
+    def _fact(code):
+        a = airports_by_code.get(code)
+        if not a:
+            return None
+        city = a.get("city_he") or code
+        country = a.get("country_he") or ""
+        return f"{city} ({code})" + (f", {country}" if country else "")
+
+    dest_facts = [f for f in (_fact(c) for c in dest_codes) if f]
+    if not dest_facts:
+        return ""
+    line = "\nשדה/שדות הנחיתה ביעד (מקור אמת - אל תמציאי תעתיק עברי משלך, השתמשי בדיוק בשם הזה): " + " / ".join(dest_facts) + "."
+    return_codes = [str(c).upper() for c in (state.get("return_departure_airports") or []) if c] or dest_codes
+    return_facts = [f for f in (_fact(c) for c in return_codes) if f]
+    if return_facts:
+        line += "\nשדה/שדות ההמראה בחזרה (מקור אמת, אותו כלל): " + " / ".join(return_facts) + "."
+    return line
+
+
 def _departure_summary(state):
     """The departure airport's exact Hebrew name. Seen live: the customer
     wrote "נתבג", TLV was saved correctly, and the reply still said
@@ -2104,6 +2175,23 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - הלקוח זה עתה אישר את המסלול/האטרקציות המוצעים, אבל יש עוד תחום/ים בחופשה (טיסות/לינה/רכב) שטרם טופלו. אל תסיימי את השיחה, אל תאמרי "מאחלת חופשה נעימה" ואל תבטיחי שליחת מידע לכרטיסייה עדיין.
 - אם המסלול קבע שדה/שדות כניסה ליעד, הם כבר נשמרו ב-destination_airports; אל תשאלי עליהם שוב, רק אשרי אותם בקצרה במידת הצורך. המשיכי כעת ישירות לתחום הפתוח: אם active_session מוגדר, השלימי את missing_required שלו; אם אין active_session, זהו סשן pending הבא ושאלי עליו שאלה בינארית טבעית כרגיל.
 - ברגע שהתחום הפתוח הזה מלא, נהגי לפי כללי הסיכום הרגילים שלו (למשל עבור טיסות: סיכום קצר ובקשת מאשר/מאשרת), ולא לפי נוסח הסיום של תכנון המסלול.
+"""
+    elif all(statuses.get(s) in ("complete", "declined") for s in ("flights", "lodging", "car")):
+        # Seen live (Shaked): the OLD sign-off text below fired even when
+        # flights/lodging/car were ALL already resolved too - meaning route
+        # approval is actually the FOURTH and final domain closing right
+        # now, which per product owner must always produce the real combined
+        # summary + מאשר/מאשרת request, never this casual "I'll send the
+        # info to your card" farewell (that farewell predates the later
+        # product rule that ALL FOUR domains closing - trip_planning
+        # included - always means the one real summary moment, no
+        # exceptions). trip_planning_settled above is still False here
+        # (code only marks it complete in post-processing, after this reply
+        # is drafted) even though the customer's message IS the approval
+        # itself - so check the OTHER three domains directly instead of
+        # relying on trip_planning's own not-yet-updated status.
+        route_handoff = """
+- כאשר הצעת מסלול/אטרקציות והלקוח מאשר אותו במפורש או אומר שהוא מתאים, וגם טיסות וגם לינה וגם רכב כבר complete/declined - זהו בדיוק רגע הסיכום הסופי המשולב (כל ארבעת הסשנים נסגרים עכשיו). אל תסיימי בנוסח "מאחלת חופשה נעימה" ואל תבטיחי שליחת מידע לכרטיסייה בלי אישור. הציגי במקום זה את הסיכום המלא (כולל פרטי הטיסה שכבר נקבעו) ובקשי מאשר/מאשרת, בדיוק לפי כללי הסיכום הסופי המפורטים למטה.
 """
     else:
         route_handoff = """
@@ -2200,7 +2288,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
                 "אם רלוונטי לשיחה, נסחי זאת כתלוי בתוצאות החיפוש בפועל, ולעולם אל תכתבי 'טיסה ישירה' בסיכום הסופי אלא אם זו עובדה מאומתת מהרשימה הזו."
             )
     weekday_hint_text = _weekday_lookup_hint(state)
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -3340,6 +3428,46 @@ def _deterministic_airport_indifference(message, history, state):
     return {"destination_airports": codes}
 
 
+# Short/alternate Hebrew spellings whose airport-catalog entry uses a
+# different (usually fuller) spelling - seen live: "חניה" (the common short
+# spelling of Chania) was never recognized, only the catalog's "חאניה" was.
+_CITY_NAME_ALIASES = {
+    "חניה": "חאניה",
+}
+
+
+def _normalize_place_name(name):
+    """Strip whitespace/hyphens/quote marks so trivial formatting
+    differences ("תל-אביב" vs "תל אביב") don't block a match, without
+    resorting to substring containment (see _match_city_exact)."""
+    import re
+    return re.sub(r"[\s\-'׳״\"]", "", str(name or "").strip().lower())
+
+
+def _match_city_exact(name, airports):
+    """Exact-match (never substring-contains) a captured city name against
+    the airport catalog. Seen live (Shaked): "הרקליון" (Heraklion) silently
+    matched Lyon's airport because "ליון" (Lyon) is a bare substring of
+    "הרקליון" one letter in - a dangerous false match (the return flight
+    would have searched Lyon, France instead of Heraklion, Crete). A short
+    name should never match merely by appearing somewhere inside a longer,
+    different city's name. Alternate spellings are handled through the
+    explicit alias table above instead of loosening the match itself."""
+    needle = _normalize_place_name(name)
+    if not needle:
+        return None
+    candidates = {needle}
+    alias = _CITY_NAME_ALIASES.get(needle)
+    if alias:
+        candidates.add(_normalize_place_name(alias))
+    for airport in airports:
+        for key in ("city_he", "city_en"):
+            hay = _normalize_place_name(airport.get(key))
+            if hay and hay in candidates:
+                return str(airport.get("code") or "").upper()
+    return None
+
+
 def _deterministic_open_jaw_airports(message):
     """Capture an explicit open-jaw answer ("לנחות בפאפוס ולחזור מלרנקה")
     deterministically instead of trusting the extractor to split it into
@@ -3361,25 +3489,18 @@ def _deterministic_open_jaw_airports(message):
     # Every airport this needs to resolve today has a single-word Hebrew
     # city name, so this trades rare multi-word names for correctness on
     # the common case instead of guessing where to stop.
-    arrival_match = re.search(r"לנחות\s+ב([א-ת]+)", msg)
-    return_match = re.search(r"לחזור\s+מ([א-ת]+)", msg)
+    # Seen live (Shaked, Crete scenario): only the literal "לנחות ב"/"לחזור
+    # מ" phrasing was recognized - natural variants like "נוחתים ב... וחוזרים
+    # מ..." or "מתחילים ב... וחוזרים מ..." matched neither cue at all, so the
+    # open-jaw request was silently dropped even though the customer stated
+    # it clearly.
+    arrival_match = re.search(r"(?:לנחות|נוחתים|נוחת|ננחת|נחיתה|מתחילים)\s+ב([א-ת]+)", msg)
+    return_match = re.search(r"(?:לחזור|חוזרים|חוזר|המראה)\s+מ([א-ת]+)", msg)
     if not arrival_match or not return_match:
         return {}
     airports = _load_airports()
-
-    def find_code(name):
-        needle = str(name or "").strip().lower()
-        if not needle:
-            return None
-        for airport in airports:
-            for key in ("city_he", "city_en"):
-                hay = str(airport.get(key) or "").strip().lower()
-                if hay and (needle in hay or hay in needle):
-                    return str(airport.get("code") or "").upper()
-        return None
-
-    arrival_code = find_code(arrival_match.group(1))
-    return_code = find_code(return_match.group(1))
+    arrival_code = _match_city_exact(arrival_match.group(1), airports)
+    return_code = _match_city_exact(return_match.group(1), airports)
     if not arrival_code or not return_code or arrival_code == return_code:
         return {}
     return {
