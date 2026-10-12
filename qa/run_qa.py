@@ -137,6 +137,16 @@ def check_password_reset() -> list[str]:
     return failures
 
 
+def check_mail_password_sanitized() -> list[str]:
+    """9a66847: a Google App Password pasted with (non-breaking) spaces must reach SMTP as 16 clean chars."""
+    pasted = "abcd\u00a0efgh ijkl\u00a0mnop"
+    code = "import config; print(repr(config.MAIL_APP_PASSWORD))"
+    env = {**os.environ, "MAIL_APP_PASSWORD": pasted}
+    out = subprocess.run([sys.executable, "-c", code], cwd=ROOT, env=env, capture_output=True, text=True)
+    got = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else out.stderr.strip()[-200:]
+    return [] if got == repr("abcdefghijklmnop") else [f"MAIL_APP_PASSWORD from {pasted!r} -> {got}, expected 'abcdefghijklmnop'"]
+
+
 def _contains(actual, expected) -> bool:
     if isinstance(expected, dict):
         return isinstance(actual, dict) and all(k in actual and _contains(actual[k], v) for k, v in expected.items())
@@ -180,6 +190,7 @@ def main() -> int:
     route_fail, n_routes = check_routes()
     add("עמודי האתר", route_fail, f" — {n_routes} עמודים × מבקר/מחובר")
     add("איפוס סיסמה (תהליך מלא)", check_password_reset())
+    add("סיסמת המייל לאיפוס (רווחים מהעתקה)", check_mail_password_sanitized())
     case_fail, n_cases = check_cases()
     add("הבנת שיחה (מפענחים דטרמיניסטיים)", case_fail, f" — {n_cases} מקרים")
 
