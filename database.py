@@ -2325,3 +2325,46 @@ def latest_trip_alerts(trip_ids: list[int]) -> dict:
             clean_ids,
         ).fetchall()
     return {int(row["trip_id"]): dict(row) for row in rows}
+
+
+# Every table with its own member_id column (task 008 QA, bug 8: no account
+# deletion existed anywhere - neither customer-facing nor admin - despite
+# privacy law requiring one). Kept as one explicit list, not introspected
+# from sqlite_master, so a table added later without member_id-aware
+# deletion in mind is a visible, deliberate omission here rather than a
+# silent one. ariella_travel_companions/ariella_trip_conversations are
+# defined in travel_agents.py, not here - only their table names are needed.
+_MEMBER_OWNED_TABLES = (
+    "trip_requests", "site_events", "ariella_conversations", "payments",
+    "booking_clicks", "ai_usage", "whatsapp_member_links",
+    "whatsapp_conversation_state", "whatsapp_inbound_log", "trip_feedback",
+    "trip_alerts_log", "whatsapp_opt_events", "whatsapp_outbound_queue",
+    "password_reset_tokens", "ariella_travel_companions",
+    "ariella_trip_conversations",
+)
+
+
+def delete_member_account(member_id: int) -> bool:
+    """Permanently deletes a member and every row of their own data across
+    every table that carries a member_id - the customer's own account-
+    closure request (/account/delete) and the admin equivalent
+    (/admin/delete-member) both call this, so there is exactly one deletion
+    path to keep correct as new member-linked tables appear. destination_
+    trends/monthly_scan_coverage/scan_runs etc. are aggregate/operational
+    data, not personal data about this member, and are deliberately left
+    alone. Returns False (nothing deleted) if the member_id doesn't exist."""
+    member_id = int(member_id)
+    with connection() as conn:
+        exists = conn.execute("SELECT 1 FROM members WHERE id=?", (member_id,)).fetchone()
+        if not exists:
+            return False
+        for table in _MEMBER_OWNED_TABLES:
+            try:
+                conn.execute(f"DELETE FROM {table} WHERE member_id=?", (member_id,))
+            except sqlite3.OperationalError:
+                # A table from this list not yet created in an older/fresh
+                # DB (e.g. a feature not deployed here) - nothing to delete.
+                pass
+        conn.execute("DELETE FROM members WHERE id=?", (member_id,))
+        conn.commit()
+    return True

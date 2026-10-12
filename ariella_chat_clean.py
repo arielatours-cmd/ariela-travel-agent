@@ -137,6 +137,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם יש profile.first_name, זהו שם הלקוח האמיתי מהרשמתו לאתר. אפשר (לא חובה) לפנות אליו בשמו הפרטי בהודעת הפתיחה של השיחה או במקום טבעי אחר, כדי שהשיחה תרגיש אישית - אבל אל תשלבי אותו בכל הודעה כאילו זו תבנית קבועה.
 - זרימת הסשנים: סשן 1 הוא טיסות. השלימי את כל פרטי הטיסה באופן טבעי בשיחה - ברגע שהם ידועים הסשן נסגר מעצמו באותו האופן שבו לינה/רכב/מסלול נסגרים מעצמם, **בלי לבקש אישור/מאשר/מאשרת בשלב הזה ובלי להציג אותו כ"סיכום"**, ועוברים ישירות לסשן הבא שהתבקש (תכנון מסלול/אטרקציות, לינה, רכב - לפי הסדר הקבוע). אין יציאה לחיפוש בפועל בשלב הזה, ולכן אין גם צורך באישור נקודתי כאן.
 - המילים "מאשר/מאשרת" וגם הצגת מידע כ"סיכום" שמורות אך ורק לשלב אחד: הרגע שבו כל ארבעת הסשנים (טיסות, מסלול, לינה, רכב) כבר הגיעו ל-complete או declined, ויש בדיוק בקשה אחת מגובשת לאשר. לעולם אל תבקשי "כתבי מאשרת" ואל תציגי "סיכום" אחרי סיום טיסות/לינה/רכב/מסלול בנפרד - כל תחום נסגר מעצמו בשקט כשכל הפרטים שלו ידועים, ועוברים הלאה לתחום הבא בלי שום בקשת אישור.
+- כשמגיע בפועל הרגע היחיד הזה (כל ארבעת הסשנים complete/declined), בקשת "כתבי מאשרת"/"כתוב מאשר" חייבת להופיע בתוך אותה הודעת הסיכום עצמה, במפורש, ולא כנוסח ניטרלי כמו "ממשיכה מכאן" שדורש מהלקוח לשאול "מה השלב הבא?" כדי לקבל את בקשת האישור האמיתית - זה סבב מיותר. הסיכום הזה גם חייב לכלול כל פרט ידוע שנאסף: תקציב הטיסה לאדם (budget_per_person) אם נאמר, וכבודה בניסוח לכל נוסע בנפרד (למשל "מזוודה אחת לכל נוסע בבטן המטוס", לא "מזוודה גדולה" ביחיד כללי) - לא רק יעד, תאריכים, נוסעים, לינה, רכב ומסלול.
 - "התחום הבא בלי שום בקשת אישור" פירושו תמיד שאלה קונקרטית וממשית, לא סיכום וגם לא ניסוח כמו "אפשר תמיד לחזור ולתכנן גם X בהמשך". ברגע שתחום נסגר (למשל לינה) ויש תחום נוסף ב-session_status שעדיין pending (טרם סומן complete או declined - למשל רכב שעדיין לא נשאלת עליו בכלל), החובה היחידה כעת היא לשאול עליו שאלת כן/לא טבעית וברורה (למשל "רוצה שאסדר גם רכב?") - אסור בשום אופן להתייחס אליו כאילו הוחלט (לא "לא נדרש", לא "אפשר להוסיף בהמשך", ולא כל ניסוח אחר שמרמז על החלטה) כל עוד הוא עדיין pending. ניסוח כזה שמור אך ורק לתחום שבאמת סומן declined על ידי הלקוח במפורש. בלבול בין "עדיין לא נשאל" לבין "נדחה" משאיר את הלקוח בלי שום פעולה ברורה להמשיך בה ועוצר את התקדמות הבקשה כולה.
 - כשתחום נסגר וההודעה הבאה כבר פותחת סשן חדש (למשל לינה נפתחת מיד אחרי שטיסות/מסלול נסגרו), השאלה שפותחת את הסשן החדש עוסקת אך ורק בפרטים הייחודיים לו (סוג לינה/חדרים/מיקום ללינה; סוג רכב/תיבת הילוכים לרכב וכו') - לעולם לא בעובדות משותפות שכבר ידועות (נוסעים, תאריכים, יעד, שדה מוצא), גם לא כ"תזכורת" או "ווידוא" בתוך אותה שאלה. לדוגמה אסור: "בואי נסגור את פרטי הלינה - כמה אתם נוסעים (מבוגרים/ילדים), ומתי בערך הטיול, וגם האם תרצי מלון, דירה או וילה?" - הרכב הנוסעים והתאריכים כבר ידועים מהטיסה/המסלול; השאלה הנכונה שואלת רק "האם תרצי מלון, דירה או וילה?" (ואז ממשיכה עם שאר פרטי הלינה החסרים, שאלה אחת בכל פעם).
 - לאחר שהבקשה המלאה אושרה ויצאה לחיפוש, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
@@ -1564,6 +1565,9 @@ def _fix_known_typos(text):
     text = str(text or "")
     text = re.sub(r'(?<!נ)תב["״]ג', 'נתב"ג', text)
     text = re.sub(r'(?<!נ)בת["״]ג', 'נתב"ג', text)
+    # Seen live: a stray leading י turns "עדיפות" (preference) into the
+    # non-word "יעדיפות" ("...או שיש לך יעדיפות אחרת?").
+    text = re.sub(r'(?<![א-ת])יעדיפות(?![א-ת])', 'עדיפות', text)
     return text
 
 
@@ -2068,7 +2072,26 @@ def _call_tinkerbell(key, model, history, message, state=None):
             'אלה שדות מאומתים - אל תוסיפי או תמציאי שדה אחר משלך. אם destination_airports עדיין ריק, '
             'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
         )
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
+    # Seen live: Ariella stated from her own general knowledge "לכרתים
+    # ברוב המקרים לא מגיעים בטיסה ישירה מישראל" (false - a seasonal direct
+    # route to Heraklion exists), and then the final summary wrote "טיסה
+    # ישירה" anyway, contradicting itself. _direct_route_available already
+    # computes the real answer (it gates the connection-preference
+    # question) - surface it explicitly so a claim about direct-flight
+    # availability is never invented.
+    direct_route_hint_text = ""
+    if has_destination:
+        if _direct_route_available(state):
+            direct_route_hint_text = (
+                "\nליעד ולתאריכים האלה קיימת טיסה ישירה מאומתת מהנמל שנבחר - מותר לציין זאת כעובדה."
+            )
+        else:
+            direct_route_hint_text = (
+                "\nאין רישום של טיסה ישירה מאומתת ליעד ולתאריכים האלה מהנמל שנבחר. "
+                "אל תטעני בוודאות שיש טיסה ישירה, ואל תטעני גם בוודאות שאין (מסלולים עונתיים או זמינות עשויים להשתנות) - "
+                "אם רלוונטי לשיחה, נסחי זאת כתלוי בתוצאות החיפוש בפועל, ולעולם אל תכתבי 'טיסה ישירה' בסיכום הסופי אלא אם זו עובדה מאומתת מהרשימה הזו."
+            )
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -2248,6 +2271,13 @@ def _deterministic_destination_facts(history, message, state=None):
     return {}
 
 
+_HEBREW_MONTHS = {
+    "ינואר": 1, "פברואר": 2, "מרץ": 3, "אפריל": 4, "מאי": 5, "יוני": 6,
+    "יולי": 7, "אוגוסט": 8, "ספטמבר": 9, "אוקטובר": 10, "נובמבר": 11, "דצמבר": 12,
+}
+_HEBREW_MONTH_DATE_RE = r"(?<!\d)(\d{1,2})\s*ב(" + "|".join(_HEBREW_MONTHS) + r")(?:\s+(20\d{2}))?"
+
+
 def _deterministic_date_facts(history, message, state=None):
     """Reinforce explicit dates already present in the conversation without guessing."""
     import re
@@ -2264,19 +2294,38 @@ def _deterministic_date_facts(history, message, state=None):
     ]
     parts.append(str(message or ""))
     text = " ".join(parts)
-    found = []
+    # Collected with each match's position so dates written with a Hebrew
+    # month name ("24 במאי") interleave in the right order with dd/mm/yyyy
+    # ones instead of always sorting after them.
+    found_with_pos = []
     for m in re.finditer(r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](20\d{2})(?!\d)", text):
         try:
-            found.append(date(int(m.group(3)), int(m.group(2)), int(m.group(1))))
+            found_with_pos.append((m.start(), date(int(m.group(3)), int(m.group(2)), int(m.group(1)))))
         except ValueError:
             pass
     for m in re.finditer(r"(?<!\d)(20\d{2})-(\d{1,2})-(\d{1,2})(?!\d)", text):
         try:
-            found.append(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+            found_with_pos.append((m.start(), date(int(m.group(1)), int(m.group(2)), int(m.group(3)))))
         except ValueError:
             pass
+    # Live: "יציאה ב-24 במאי וחזרה ב-31 במאי" matched neither numeric pattern
+    # above, so both dates were silently dropped and the customer was asked
+    # for "exact flight dates" again even though she'd already given them.
+    # No year stated -> same "roll forward to next year if already past"
+    # rule _weekday_date_conflict already uses for a bare day/month.
+    today = date.today()
+    for m in re.finditer(_HEBREW_MONTH_DATE_RE, text):
+        day, month = int(m.group(1)), _HEBREW_MONTHS[m.group(2)]
+        year = int(m.group(3)) if m.group(3) else today.year
+        if not m.group(3) and (month, day) < (today.month, today.day):
+            year += 1
+        try:
+            found_with_pos.append((m.start(), date(year, month, day)))
+        except ValueError:
+            pass
+    found_with_pos.sort(key=lambda item: item[0])
     unique = []
-    for d in found:
+    for _, d in found_with_pos:
         if d not in unique:
             unique.append(d)
     if len(unique) < 2:
@@ -2647,7 +2696,11 @@ def _deterministic_baggage_facts(message):
     # this only ever reads the CUSTOMER's own words, never Ariella's (the
     # system prompt rule, baggage_labels and _flight_gap_question above only
     # ever say "בבטן המטוס" now - "מחסן" isn't a real aviation term at all).
-    if re.search(r"מזוודה\s+למחסן|מזוודה\s+בבטן\s+ה?מטוס|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
+    # "מטוס" and "אחת" are both optional - a live transcript showed "מזוודה
+    # אחת בבטן לכל אחד וטרולי" go unmatched (the old pattern required
+    # "בבטן" immediately after "מזוודה", with no "אחת" in between, and
+    # required "מטוס" right after "בבטן").
+    if re.search(r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
         return {"flight": {"baggage": ["checked_bag"]}}
     if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
         return {"flight": {"baggage": ["personal_item"]}}
@@ -2767,6 +2820,42 @@ def _deterministic_named_decline_facts(message):
                     "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
                     "session_status": {service: "declined"},
                 }
+    return {}
+
+
+def _deterministic_named_accept_facts(message):
+    """Positive counterpart to _deterministic_named_decline_facts above: a
+    message that explicitly lists two or more of trip_planning/lodging/car
+    together ("נשמח גם למסלול טיול, מלון ורכב שכור") is an explicit want for
+    each one named - the same strength as an explicit decline, not merely
+    "mentioned in passing". Seen live: requested_services correctly ended up
+    with all 4 services after an opening message exactly like this, but
+    service_decisions never recorded wanted=True for lodging/car/
+    trip_planning, so _sessionize_state left each one "pending" and it
+    later surfaced as a vague yes/no "תרצי שאמשיך גם עם X?" offer the
+    customer had already answered up front - once for lodging, again for
+    car, each a needless extra round-trip the customer had no reason to
+    expect.
+
+    Deliberately requires 2+ of the three named together in the same clause
+    plus explicit want-framing ("גם"/"רוצה"/"נשמח"/...), so an idle single
+    mention ("לישון במלון יפה") is never mistaken for a formal request."""
+    import re
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    clauses = [c.strip() for c in re.split(r"[.!?]+", msg) if c.strip()] or [msg]
+    service_patterns = {
+        "trip_planning": r"מסלול",
+        "lodging": r"מלון|לינה|דירה|וילה|צימר|אכסניה",
+        "car": r"רכב",
+    }
+    want_framing = r"גם|רוצה|רוצים|נרצה|נשמח|צריך|צריכים|בבקשה"
+    for clause in clauses:
+        matched = [s for s, pat in service_patterns.items() if re.search(pat, clause)]
+        if len(matched) < 2 or not re.search(want_framing, clause):
+            continue
+        return {"service_decisions": {s: {"wanted": True, "source": "explicit_named_accept"} for s in matched}}
     return {}
 
 
@@ -3237,6 +3326,15 @@ def _deterministic_lodging_facts(message, history):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
         elif asked_single_room_confirm and _normalize_confirm(msg).lower() in {"כן", "בטח", "מספיק", "נכון", "כן, מספיק"}:
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
+    elif re.search(r"חדר\s+זוגי(?!ים)", msg) and not re.search(r"\d+\s*חדר", msg):
+        # "חדר זוגי" (singular - one double room) names the room count on its
+        # own, not only as an answer to an explicit "כמה חדרים?" question.
+        # Seen live: the customer wrote "...עד 600 שקל ללילה לחדר זוגי"
+        # describing the nightly budget, and Ariella still asked "כמה חדרים
+        # צריך?" afterward instead of inferring rooms=1 right away. A plural
+        # "חדרים זוגיים" or an explicit number names a different count, so
+        # this only fires for the bare singular phrase.
+        result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
 
     # locations is free text, unlike type/level above - no fixed value list
     # to match against, which is exactly why it had no deterministic writer
@@ -4907,6 +5005,20 @@ def chat_clean():
             trip_update["requested_services"] = list(services)
             trip_update["service_decisions"] = decisions
             trip_update["session_status"] = statuses
+        named_accept = _deterministic_named_accept_facts(message)
+        named_accept_decisions = named_accept.get("service_decisions") if isinstance(named_accept, dict) else None
+        if named_accept_decisions:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service, d in named_accept_decisions.items():
+                # Never let an inferred accept overwrite a decision already
+                # recorded this same turn (e.g. an explicit decline in a
+                # different clause of the same message, handled above).
+                if service not in decisions:
+                    decisions[service] = d
+                services.add(service)
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
         # Safety net for facts that must never be re-asked. This helper already
         # existed but was not wired into the live chat path. Run it before
         # missing-field/session calculation so an explicitly stated destination

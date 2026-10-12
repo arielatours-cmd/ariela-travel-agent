@@ -3,7 +3,7 @@ import os
 import sqlite3
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect, Response
 
@@ -24,7 +24,7 @@ from database import (
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
     normalize_scan_run_price_groups, recent_whatsapp_queue, recent_partner_commissions,
-    scan_sharing_stats, recent_whatsapp_inbound_log,
+    scan_sharing_stats, recent_whatsapp_inbound_log, delete_member_account,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 import scanner as _scanner
@@ -41,10 +41,20 @@ from mailer import mail_check
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status, whatsapp_subscription_check,
+    whatsapp_register_number, whatsapp_request_code, whatsapp_verify_code,
 )
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
+
+# Task 008a: APP_VERSION is a manually-edited constant that's easy to forget
+# to bump, so /health can silently keep reporting a stale version after a
+# real deploy. RENDER_GIT_COMMIT is set automatically by Render on every
+# deploy (empty/unset in local dev) - computed once at process startup so a
+# restart (not just a new deploy) also shows up here.
+_DEPLOYED_COMMIT = (os.getenv("RENDER_GIT_COMMIT") or "").strip()[:7] or None
+_STARTED_AT = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
 app.register_blueprint(site)
 app.register_blueprint(whatsapp_coexistence)
 app.register_blueprint(ariella_chat_v2)
@@ -151,6 +161,7 @@ def health():
         db_error = str(exc)
     return jsonify({
         "status": "ok" if db_ok else "degraded", "version": APP_VERSION,
+        "commit": _DEPLOYED_COMMIT, "deployed_at": _STARTED_AT,
         "serpapi_configured": bool(os.getenv("SERPAPI_API_KEY")),
         "scheduler_enabled": SCHEDULER_ENABLED, "database_ok": db_ok,
         "database_error": db_error, "database_path": str(DB_PATH),
@@ -365,6 +376,42 @@ def admin_whatsapp_subscription():
     return jsonify({"status": "success", **result})
 
 
+@app.get("/admin/whatsapp-number/request-code")
+def admin_whatsapp_number_request_code():
+    """Task 006c step 1: sends a verification SMS/voice code to the number -
+    only with ?confirm=1 (otherwise just explains what would happen, since
+    the business owner operates this from her phone)."""
+    denied = _require_admin()
+    if denied: return denied
+    method = request.args.get("method", "SMS")
+    confirm = request.args.get("confirm", "0") == "1"
+    result = whatsapp_request_code(method=method, confirm=confirm)
+    return jsonify({"status": "success", **result})
+
+
+@app.get("/admin/whatsapp-number/verify-code")
+def admin_whatsapp_number_verify_code():
+    """Task 006c step 2: verifies the code Meta sent in step 1."""
+    denied = _require_admin()
+    if denied: return denied
+    code = request.args.get("code", "")
+    confirm = request.args.get("confirm", "0") == "1"
+    result = whatsapp_verify_code(code, confirm=confirm)
+    return jsonify({"status": "success", **result})
+
+
+@app.get("/admin/whatsapp-number/register")
+def admin_whatsapp_number_register():
+    """Task 006c step 3: registers the verified number directly on the Cloud
+    API using WHATSAPP_REGISTRATION_PIN. Never returns the PIN or the
+    access token."""
+    denied = _require_admin()
+    if denied: return denied
+    confirm = request.args.get("confirm", "0") == "1"
+    result = whatsapp_register_number(confirm=confirm)
+    return jsonify({"status": "success", **result})
+
+
 @app.post("/admin/cj-sync")
 def admin_cj_sync():
     denied = _require_admin()
@@ -395,6 +442,37 @@ def admin_mail_check():
     if denied: return denied
     result = mail_check(test_to=request.args.get("to"))
     return jsonify(result)
+
+
+@app.get("/admin/delete-member")
+def admin_delete_member():
+    """Admin equivalent of the customer-facing /account/delete (task 008 QA,
+    bug 8) - for a support/ops case the customer can't self-serve (e.g. they
+    lost access to their own account), and for cleaning up test accounts.
+    GET with ?member_id=<id> or ?email=<email> only explains what would be
+    deleted; ?confirm=1 actually deletes. Matches the read-by-default,
+    explicit-confirm pattern already used by /admin/whatsapp-number/*."""
+    denied = _require_admin()
+    if denied: return denied
+    member_id = request.args.get("member_id", type=int)
+    email = (request.args.get("email") or "").strip().lower()
+    if not member_id and not email:
+        return jsonify({"status": "error", "message": "נדרש member_id או email."}), 400
+    with connection() as conn:
+        if member_id:
+            row = conn.execute("SELECT id, email, full_name FROM members WHERE id=?", (member_id,)).fetchone()
+        else:
+            row = conn.execute("SELECT id, email, full_name FROM members WHERE lower(email)=?", (email,)).fetchone()
+    if not row:
+        return jsonify({"status": "error", "message": "לא נמצא חשבון תואם."}), 404
+    confirm = request.args.get("confirm", "0") == "1"
+    if not confirm:
+        return jsonify({
+            "status": "success", "would_delete": True, "applied": False,
+            "member_id": row["id"], "email": row["email"], "full_name": row["full_name"],
+        })
+    delete_member_account(row["id"])
+    return jsonify({"status": "success", "applied": True, "member_id": row["id"]})
 
 
 @app.get("/admin/partner-commissions")

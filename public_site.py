@@ -23,7 +23,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE, BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, BUSINESS_LEGAL_NAME_EN, BUSINESS_DEALER_TYPE_HE, BUSINESS_DEALER_NUMBER, BUSINESS_ADDRESS_HE, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, latest_trip_alerts
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, latest_trip_alerts, delete_member_account
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
 from scoring import (
@@ -2350,15 +2350,24 @@ def join():
         preferred_airports = [x.strip().upper() for x in request.form.get("preferred_airports", "").replace(";", ",").split(",") if x.strip()]
         password = request.form.get("password", "")
         consent = request.form.get("consent") == "yes"
+        # Re-filled into the form on every error branch below - never the
+        # password. Seen live: a customer who mistyped one field (or whose
+        # browser autofill left preferred_airports empty) had every other
+        # field wiped too and had to retype the entire form from scratch.
+        form_values = {
+            "full_name": full_name, "email": email, "phone": phone,
+            "country": country, "gender": gender,
+            "preferred_airports": ",".join(preferred_airports),
+        }
         if not full_name or not email or not phone or not password or not preferred_airports:
             flash(_msg("יש למלא שם, כתובת דוא״ל, מספר נייד, סיסמה ולבחור לפחות שדה תעופה אחד.", "Please enter your name, email address, mobile number, password and select at least one departure airport."), "error")
-            return render_template("join.html")
+            return render_template("join.html", form_values=form_values)
         if len(password) < 8:
             flash(_msg("הסיסמה צריכה להכיל לפחות 8 תווים.", "The password must contain at least 8 characters."), "error")
-            return render_template("join.html")
+            return render_template("join.html", form_values=form_values)
         if not consent:
             flash(_msg("יש לאשר את תנאי השימוש ומדיניות הפרטיות.", "Please accept the Terms of Use and Privacy Policy."), "error")
-            return render_template("join.html")
+            return render_template("join.html", form_values=form_values)
 
         with _db() as conn:
             email_match = conn.execute("SELECT 1 FROM members WHERE email=?", (email,)).fetchone()
@@ -2370,7 +2379,7 @@ def join():
                     flash(_msg("כבר קיים חשבון עם כתובת הדוא״ל הזאת.", "An account already exists with this email address."), "error")
                 else:
                     flash(_msg("כבר קיים חשבון עם מספר הטלפון הזה.", "An account already exists with this phone number."), "error")
-                return render_template("join.html", duplicate_account=True)
+                return render_template("join.html", duplicate_account=True, form_values=form_values)
             cur = conn.execute(
                 "INSERT INTO members (full_name,email,phone,password_hash,created_at,status,country,preferred_airports,gender) VALUES(?,?,?,?,?,?,?,?,?)",
                 (full_name, email, phone, generate_password_hash(password), utc_now_iso(), "active", country, json.dumps(preferred_airports), gender or None),
@@ -2536,6 +2545,31 @@ def account_details():
     member = _current_member()
     return render_template("account_details.html", member=member)
 
+
+@site.post("/account/delete")
+@login_required
+def account_delete():
+    """Self-service account closure (privacy law requires it, and there was
+    previously no way at all for a customer to close their account - not
+    here, not in admin). Requires the member's own current password as
+    confirmation, same as any other destructive account action, so a
+    hijacked/left-open session can't be used to erase the account by
+    someone else. Deletes everything via database.delete_member_account -
+    one deletion path, not duplicated SQL here."""
+    member_id = session["member_id"]
+    password = request.form.get("password", "")
+    with _db() as conn:
+        row = conn.execute("SELECT password_hash FROM members WHERE id=?", (member_id,)).fetchone()
+    if not row or not check_password_hash(row["password_hash"], password):
+        flash(_msg("הסיסמה שגויה - החשבון לא נמחק.", "Incorrect password - the account was not deleted."), "error")
+        return redirect(url_for("site.account_details"))
+    delete_member_account(member_id)
+    session.clear()
+    flash(
+        _msg("החשבון וכל המידע המשויך אליו נמחקו לצמיתות.", "Your account and all associated data have been permanently deleted."),
+        "info",
+    )
+    return redirect(url_for("site.home"))
 
 
 @site.get("/book/<int:offer_id>")
