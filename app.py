@@ -359,7 +359,7 @@ def admin_ai_usage_csv():
     columns = [
         "id", "created_at", "source", "member_id", "trip_id", "conversation_id", "model",
         "input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens",
-        "is_test", "error", "estimated_cost_usd",
+        "is_test", "error", "estimated_cost_usd", "thread_id", "call_started_at", "call_duration_ms",
     ]
     writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
     writer.writeheader()

@@ -59,6 +59,8 @@
     {"id": "open-jaw-nochtim-chozrim", "fn": "_deterministic_open_jaw_airports", "args": ["נוחתים בחאניה וחוזרים מהרקליון"], "expect": {"open_jaw_requested": true}, "source": "live-chat-2026-10-12-s10"},
     {"id": "open-jaw-paphos-larnaca-still-works", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בפאפוס ולחזור מלרנקה"], "expect": {"destination_airports": ["PFO"], "return_departure_airports": ["LCA"]}, "source": "guard"},
     {"id": "flights-already-booked-negated-then-already", "fn": "_deterministic_flights_already_booked_facts", "args": ["אנחנו לא צריכים טיסה, כבר הזמנו"], "expect": {"session_status": {"flights": "declined"}}, "source": "live-chat-2026-10-12-round3-tuscany"},
-    {"id": "flights-already-booked-no-misfire-separate-hotel", "fn": "_deterministic_flights_already_booked_facts", "args": ["כבר הזמנו מלון, נשמח גם לטיסה"], "expect": {}, "source": "guard"}
+    {"id": "flights-already-booked-no-misfire-separate-hotel", "fn": "_deterministic_flights_already_booked_facts", "args": ["כבר הזמנו מלון, נשמח גם לטיסה"], "expect": {}, "source": "guard"},
+    {"id": "departure-airport-hfa-noun-tisa", "fn": "_deterministic_departure_airport_facts", "args": ["חופשה רגילה. טיסה מחיפה ללרנקה לי ולבעלי, 15/05/2027 עד 19/05/2027. רק טיסה"], "expect": {"departure_airport": "HFA"}, "source": "live-chat-2026-10-12-shaked-s20"},
+    {"id": "departure-airport-hfa-noun-tisa-bangkok", "fn": "_deterministic_departure_airport_facts", "args": ["טיסה מחיפה לבנגקוק, 10/06/2027 עד 20/06/2027, רק טיסה"], "expect": {"departure_airport": "HFA"}, "source": "live-chat-2026-10-12-shaked-s21"}
   ]
 }
