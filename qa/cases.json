@@ -26,6 +26,8 @@
     {"id": "itinerary-reject-add-day", "fn": "_is_itinerary_acceptance", "args": ["לא, תוסיפי עוד יום"], "expect_falsy": true, "source": "980f459"},
     {"id": "post-flight-transfer-me", "fn": "_post_flight_offer_answer", "args": ["תעבירי", {"post_flight_offer": ["lodging", "car"]}], "expect": {"_transfer_to_results": true, "lodging": false, "car": false}, "source": "fd3da47"},
     {"id": "route-gateway-city-beats-country", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "לרנקה"}, {"day": 2, "base": "קפריסין"}, {"day": 3, "base": "לרנקה"}]}}}], "expect": {"destination_airports": ["LCA"]}, "source": "64ffebc"},
-    {"id": "route-gateway-country-only-keeps-all", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "קפריסין"}]}}}], "expect": {"destination_airports": ["LCA", "PFO"]}, "source": "64ffebc"}
+    {"id": "route-gateway-country-only-keeps-all", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "קפריסין"}]}}}], "expect": {"destination_airports": ["LCA", "PFO"]}, "source": "64ffebc"},
+    {"id": "baggage-checked-short-form", "fn": "_deterministic_baggage_facts", "args": ["מזוודה בבטן לכל אחד"], "expect": {"flight": {"baggage": ["checked_bag"]}}, "source": "live-chat-2026-10-12"},
+    {"id": "baggage-checked-mixed-reply", "fn": "_deterministic_baggage_facts", "args": ["מזוודה אחת בבטן לכל אחד וטרולי. תקציב לטיסה עד 1500 שקל לאדם"], "expect_truthy": true, "source": "live-chat-2026-10-12"}
   ]
 }
