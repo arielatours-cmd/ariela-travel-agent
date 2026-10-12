@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import time
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
@@ -43,6 +44,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - שמות מקומות כתבי תמיד באותיות עבריות בלבד (למשל פליטביצה, קרקה, ספליט, דוברובניק, זאגרב). לעולם אל תשלבי אותיות קיריליות, יווניות או לטיניות בתוך מילה עברית.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
+- כשהלקוח כותב בעברית, כל התשובה כולה בעברית בלבד - אסור לשלב מילה או ביטוי באנגלית (gaps, OK, sure, perfect וכו') במקום שיש לו מקבילה עברית טבעית. היוצאים הבלעדיים מהכלל הזה הם שמות מקומות ספציפיים (כפר/שכונה/אתר/הר) שכבר יש להם כלל נפרד למעלה שאומר להשאיר אותם בלועזית, וקודי שדות תעופה/ערכים טכניים קבועים כמו "direct" ב-flight.connection_preference.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
 - לעולם אל תשתמשי בכינויי חיבה כמו "חמוד/ה", "מתוק/ה", "יקר/ה" כפנייה ללקוח - גם כשהם מנוסחים נכון מגדרית. פנייה מקצועית וחמה בלי כינויי חיבה.
 - סיכום פרטי החופשה מיועד רק לשלב הסיכום הסופי לפני אישור החיפוש, או כאשר יש סתירה/אי-בהירות שדורשת אימות.
@@ -118,6 +120,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה בינארית קצרה וטבעית (למשל "לאסוף ולהחזיר בשדה התעופה, או שעדיף מיקום אחר כמו מרכז העיר?") ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לציין את שמות השדות במפורש ולשאול לאיזה מהם (למשל "לאסוף ולהחזיר בשדה התעופה בלרנקה, בפאפוס, או במקום אחר?"), ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב קצרה ועניינית: הציגי את האפשרויות (קטן, משפחתי, משפחתי סטיישן, SUV, ג'יפ, מיניוואן 7 מקומות) ושאלי אם צריך יותר מקומות מאשר מספר הנוסעים - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). את ידני/אוטומטי שאלי כשאלה נפרדת.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
+- אם car.wanted הוא false (הלקוח דחה רכב שכור במפורש), המסלול הראשון שאת מציעה חייב כבר להתחשב בזה - לא רק אחרי שהלקוח שואל איך מגיעים. בפרט, אל תבני מסלול שמניח נסיעות עצמאיות בין אתרים מרוחקים (למשל כפרים/אזורי יין כמו שאנטי, סן ג'ימיניאנו, וולטרה סביב טוסקנה) כאילו יש רכב - הציעי מבסיס אחד נוח לתחבורה ציבורית/טיולים מאורגנים/רכבות, או ציייני במפורש בתוך הצעת המסלול עצמה איך מגיעים בלי רכב לכל יעד שמוזכר בו.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'.
 - חשבון תאריכים הוא דטרמיניסטי: שבוע=7 ימים ושבועיים=14 ימים. אם הלקוח אמר יציאה 20.12 ושבועיים, החזרה היא 3.1; אל תמציאי 7.1 ואל תציעי תאריך חלופי אחרי שהמשך אושר.
 - כשמשך החופשה הוא בקשה בקירוב ובמקביל יש אילוצי ימי שבוע (למשל יציאה בראשון וחזרה בחמישי), דרגי את טווחי התאריכים לפי המרחק המוחלט מהמשך המבוקש. האפשרות הקרובה ביותר למשך המבוקש מוצגת/מומלצת ראשונה. לדוגמה מול יעד של 14 ימים: 11 ימים עדיפים על 18 ימים כי הסטייה היא 3 לעומת 4. אל תעדיפי אוטומטית חופשה ארוכה יותר. אם נאמר גם חודש/טווח כמו 'באפריל אחרי ה-15', חשבי את התאריכים האפשריים מתוך המגבלה במקום לבקש שוב משך.
@@ -185,6 +188,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - flight.max_connections: כאשר הלקוח מציין מספר עצירות/קונקשנים מקסימלי מותר (לא ישירה דווקא, אבל גם לא ללא הגבלה - למשל "לא יותר מקונקשן אחד", "מקסימום עצירה אחת", "עד 2 קונקשנים"), שמרי כאן מספר שלם (1, 2...). זה שונה מ-connection_preference="direct" (דרישה לטיסה ישירה בלבד) - שדה נפרד לבקשה "קונקשן אחד זה בסדר, אבל לא יותר". כשאין הגבלה מספרית כזו השאירי null.
 - כשתוצאות הטיסות כבר נסרקו ואין טיסה ישירה ליעד (למשל התוצאה המוצגת מסומנת כ"לא כולל: טיסה ישירה"), ציייני זאת ללקוח כעובדה בפה מלא ("שימו לב - לא נמצאה טיסה ישירה ליעד הזה בתאריכים שביקשת, האפשרות הטובה ביותר שנמצאה כוללת קונקשן") ולעולם אל תשאלי שוב אם הלקוח רוצה טיסה ישירה - השאלה הזו רלוונטית רק לפני שיוצאים לסריקה ורק כשבאמת יש אפשרות ישירה אמיתית לבחור בה.
 - כנ"ל עוד לפני הסריקה: אם כבר ציינת ללקוח (מידע כללי שלך או בדיקה שבוצעה) שליעד הזה כמעט אין טיסות ישירות מישראל, אסור לשאול שום שאלת המשך על הקונקשן - לא "ישירה או קונקשן", ולא שאלה דומה כמו "חשוב לך לצמצם את זמן ההמתנה בקונקשן, או שזה גמיש?". ברגע שנקבע שאין אפשרות ישירה אמיתית, הנושא סגור לגמרי ועוברים לשאלה הבאה שבאמת חסרה - אסור להמשיך "לחטט" בפרטי הקונקשן כשאלת נימוס או כברירת מחדל.
+- לפני שיצאה סריקה בפועל, אסור להבטיח ללקוח טיסה ספציפית ("יש לכם טיסה ישירה מנתב"ג לבנגקוק ב-15.7.2027, בדיוק מה שרצית") או לדבר על תקציב מסוים כאילו הוא כבר הושג ("תקציב של 4000 לטיסה ישירה נשמע סביר, אני אדאג לזה") - אלה טענות על תוצאה שעוד לא נבדקה. הנוסח הנכון קודם לסריקה מתייחס לבקשה/להעדפה של הלקוח בלבד ("קלטתי - טיסה ישירה, תקציב עד 4,000 ₪"), לעולם לא כאילו התוצאה כבר נמצאה או מובטחת.
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
@@ -248,7 +252,12 @@ def _weekday_date_conflict(message, history=None):
     import re
     text = str(message or "")
     weekdays = {"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
-    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)"
+    # Seen live: "ושני ילדים בני 8 ו-11, 15/07/2027..." matched "שני" (two)
+    # as the weekday "Monday" paired with the nearby date, purely because
+    # "שני" is both a cardinal number and a weekday name. A real weekday
+    # mention is never immediately followed by the plural noun it would be
+    # quantifying if read as a number instead.
+    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)(?!\s*(?:ילדים|ילדות|מבוגרים|מבוגרות|חדרים|לילות|ימים|שבועות|מקומות|מזוודות|נוסעים|אנשים|שעות|דקות))"
     date_re = r"(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?"
     # Pair a weekday with the nearest date on either side (up to 40 chars).
     pairs = []
@@ -329,28 +338,48 @@ def _weekday_pair_conflict(text, history):
     return None
 
 
+_RETRYABLE_CLAUDE_STATUS_CODES = (429, 529)
+
+
 def _post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     """system_static is the large, unchanging instruction block (thousands of
     tokens, identical on every call) - marked cacheable so Claude does not
     reprocess it from scratch on every chat turn. system_dynamic is the small
     per-turn suffix (current date, accumulated trip state) that must never be
-    cached since it changes every call."""
+    cached since it changes every call.
+
+    QA 2026-10-12: 6 customers messaging at once made 4/6 chat turns fail
+    outright with a "technical glitch". The anthropic SDK client already
+    retries transient errors twice internally (its own default), but a
+    turn makes 1-2 of these calls in sequence (reply + state extraction) and
+    the whole turn dies the moment either one still fails after that - under
+    a genuine burst (several customers' calls landing close together), the
+    SDK's own short internal backoff can still be exhausted. One extra
+    application-level retry, only for 429 (rate_limit_error) and 529
+    (overloaded_error) - the two Anthropic documents as safe/expected to
+    retry - costs a few seconds on an already-failing call instead of
+    failing the customer's entire turn outright."""
     client = _get_anthropic_client(key)
     messages = _conversation(history[-16:] if include_history else [], message)
     system_blocks = [{"type": "text", "text": system_static, "cache_control": {"type": "ephemeral"}}]
     if system_dynamic:
         system_blocks.append({"type": "text", "text": system_dynamic})
-    try:
-        response = client.messages.create(
-            model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
-            # Reply generation and state extraction are both simple, well-specified
-            # tasks (natural conversation, structured JSON) - extended thinking adds
-            # latency here without improving output, so keep it off for speed.
-            thinking={'type': 'disabled'},
-        )
-    except anthropic.APIStatusError as exc:
-        record_ai_usage(source, model, usage=None, error=exc.status_code)
-        raise RuntimeError(f'Claude API error {exc.status_code}') from exc
+    for attempt in range(2):
+        try:
+            response = client.messages.create(
+                model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
+                # Reply generation and state extraction are both simple, well-specified
+                # tasks (natural conversation, structured JSON) - extended thinking adds
+                # latency here without improving output, so keep it off for speed.
+                thinking={'type': 'disabled'},
+            )
+            break
+        except anthropic.APIStatusError as exc:
+            if attempt == 0 and exc.status_code in _RETRYABLE_CLAUDE_STATUS_CODES:
+                time.sleep(2)
+                continue
+            record_ai_usage(source, model, usage=None, error=exc.status_code)
+            raise RuntimeError(f'Claude API error {exc.status_code}') from exc
     record_ai_usage(source, model, usage=response.usage)
     return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
@@ -413,6 +442,47 @@ def _state_context(state):
     return json.dumps(state or {}, ensure_ascii=False, separators=(',', ':'))
 
 
+_WEEKDAY_HE_BY_PY = {0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"}
+
+
+def _weekday_lookup_hint(state):
+    """Seen live, twice in the same QA round: Ariella computed a date's
+    day-of-week herself and got it wrong - once shifting an entire route by
+    two days, once reading a route's own day-N numbering ("יום ראשון/שני/
+    שלישי...") as if it meant real weekdays (so day 7 got relabeled "שישי"
+    again, duplicating day 5). A weekday is arithmetic, not something to
+    guess or infer from day-numbering - hand over an exact, pre-computed
+    table for the confirmed trip dates so there is nothing left to compute.
+    Capped at 31 days so an unusually long trip doesn't bloat the prompt."""
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if dates.get("needs_confirmation"):
+        return ""
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    if not dep_raw or not ret_raw:
+        return ""
+    try:
+        dep = date.fromisoformat(dep_raw)
+        ret = date.fromisoformat(ret_raw)
+    except ValueError:
+        return ""
+    span = (ret - dep).days
+    if span < 0 or span > 31:
+        return ""
+    rows = []
+    d = dep
+    while d <= ret:
+        rows.append(f"{d.strftime('%d.%m.%Y')}={_WEEKDAY_HE_BY_PY[d.weekday()]}")
+        d += timedelta(days=1)
+    return (
+        "\nטבלת ימות השבוע האמיתיים לתאריכי הטיול (מחושבת בוודאות - "
+        "לעולם אל תחשבי בעצמך יום בשבוע לתאריך, ואל תתייחסי למספור ימי המסלול "
+        '(כמו "יום 1", "יום 2"...) כאילו הוא שם יום בשבוע - שני המושגים נפרדים לגמרי): '
+        + ", ".join(rows)
+    )
+
+
 def _multi_gateway_hint(state):
     """When the destination matches a city genuinely served by more than one
     real airport (New York, Paris, London, Tokyo, Istanbul - see
@@ -441,13 +511,22 @@ def _keep_declines(previous, updated, explicit_request=None):
     earlier "want a car" (or return session_status "pending" for it), which
     made Ariella ask about the car again right after the customer declined
     it. Only an explicit request for that service in this very message
-    (_explicit_service_request) reopens it."""
+    (_explicit_service_request) reopens it.
+
+    "flights" was missing from this list below (not an oversight at the
+    time - flights couldn't be declined at all until
+    _deterministic_flights_already_booked_facts was added). Seen live
+    immediately after that landed: a customer who said "יש לנו כבר טיסות...
+    "flights" being absent here let the extractor silently resurrect it a
+    few turns later (while discussing lodging/car, with flights nowhere in
+    the actual conversation) - "לפני הסריקה חסר לי היעד/פרטי הכבודה" asked
+    again and again, an outright loop the customer had no way out of."""
     previous = previous if isinstance(previous, dict) else {}
     updated = updated if isinstance(updated, dict) else {}
     old_decisions = previous.get("service_decisions") if isinstance(previous.get("service_decisions"), dict) else {}
     decisions = dict(updated.get("service_decisions") or {})
     statuses = dict(updated.get("session_status") or {})
-    for s in ("lodging", "car", "trip_planning"):
+    for s in ("flights", "lodging", "car", "trip_planning"):
         old = old_decisions.get(s)
         if not (isinstance(old, dict) and old.get("wanted") is False) and old is not False:
             continue
@@ -1389,7 +1468,7 @@ def _flight_gap_question(gaps, state=None):
     missing" line the customer has no way to act on."""
     gaps = gaps or []
     if "destination_airports" in gaps:
-        return "לפני שאצא לסריקה צריך להשלים את שדה היעד לנחיתה בהלוך. באיזה שדה תרצי לנחות?"
+        return "באיזה שדה תרצי לנחות בהלוך?"
     if "flight.gateway_narrow" in gaps:
         codes = (state or {}).get("destination_airports") or []
         names = _airport_labels(codes)
@@ -1401,29 +1480,29 @@ def _flight_gap_question(gaps, state=None):
     if "return_departure_airports" in gaps:
         return "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
     if "budget_per_person" in gaps:
-        return "לפני הסריקה חסר לי התקציב לאדם. מה התקציב, או שאין מגבלת תקציב?"
+        return "מה התקציב לאדם לטיסה, או שאין מגבלת תקציב?"
     if "departure_airport" in gaps:
-        return "לפני הסריקה חסר לי שדה היציאה. " + _departure_question(state)
+        return _departure_question(state)
     if "trip_type" in gaps:
-        return "רק לפני שממשיכים - זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"
+        return "זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"
     if "destination" in gaps:
-        return "לפני הסריקה חסר לי היעד. לאן תרצי לטוס?"
+        return "לאן תרצי לטוס?"
     if "dates" in gaps:
-        return "לפני הסריקה חסרים לי תאריכי הטיסה המדויקים. מתי תרצי לצאת ולחזור?"
+        return "מתי תרצי לצאת ולחזור?"
     if "travelers" in gaps:
-        return "לפני הסריקה חסר לי הרכב הנוסעים. כמה נוסעים, ומי מבוגר ומי ילד?"
+        return "כמה נוסעים, ומי מבוגר ומי ילד?"
     if "travelers.child_ages" in gaps:
         return "חסר לי הגיל של הילד/ה בהרכב הנוסעים. מה הגיל?"
     if "flight.connection_preference" in gaps:
         return "חשוב לך שהטיסה תהיה ישירה, או שקונקשן בסדר?"
     if "flight.baggage" in gaps:
-        return "לפני הסריקה חסר לי פרטי הכבודה - טרולי בלבד, גם מזוודה בבטן המטוס, או רק תיק?"
+        return "טרולי בלבד, גם מזוודה בבטן המטוס, או רק תיק?"
     missing_service = next((g.split(".",1)[1] for g in gaps if g.startswith("service_decisions.")), None)
     if missing_service:
         labels = {"lodging":"גם לינה","car":"גם רכב שכור","trip_planning":"גם תכנון מסלול ואטרקציות"}
-        return f"רק לפני שממשיכים - תרצי {labels.get(missing_service, missing_service)} לחופשה הזו?"
+        return f"תרצי {labels.get(missing_service, missing_service)} לחופשה הזו?"
     if gaps:
-        return "לפני שאצא לסריקה חסר עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
+        return "חסר לי עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
     return None
 
 
@@ -2091,7 +2170,8 @@ def _call_tinkerbell(key, model, history, message, state=None):
                 "אל תטעני בוודאות שיש טיסה ישירה, ואל תטעני גם בוודאות שאין (מסלולים עונתיים או זמינות עשויים להשתנות) - "
                 "אם רלוונטי לשיחה, נסחי זאת כתלוי בתוצאות החיפוש בפועל, ולעולם אל תכתבי 'טיסה ישירה' בסיכום הסופי אלא אם זו עובדה מאומתת מהרשימה הזו."
             )
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
+    weekday_hint_text = _weekday_lookup_hint(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -2276,6 +2356,14 @@ _HEBREW_MONTHS = {
     "יולי": 7, "אוגוסט": 8, "ספטמבר": 9, "אוקטובר": 10, "נובמבר": 11, "דצמבר": 12,
 }
 _HEBREW_MONTH_DATE_RE = r"(?<!\d)(\d{1,2})\s*ב(" + "|".join(_HEBREW_MONTHS) + r")(?:\s+(20\d{2}))?"
+# A departure+return pair sharing one month mention ("10-14 בנובמבר 2026",
+# "מ-3 עד 9 במרץ 2027") - the single-day pattern above only ever catches the
+# SECOND day in these ("14 בנובמבר"), since the first day is never directly
+# followed by "ב<month>" itself.
+_HEBREW_MONTH_RANGE_RE = (
+    r"(?<!\d)(?:מ-?\s*)?(\d{1,2})\s*(?:[-–]|עד)\s*(\d{1,2})\s*ב("
+    + "|".join(_HEBREW_MONTHS) + r")(?:\s+(20\d{2}))?"
+)
 
 
 def _deterministic_date_facts(history, message, state=None):
@@ -2321,6 +2409,21 @@ def _deterministic_date_facts(history, message, state=None):
             year += 1
         try:
             found_with_pos.append((m.start(), date(year, month, day)))
+        except ValueError:
+            pass
+    # "10-14 בנובמבר 2026" / "מ-3 עד 9 במרץ 2027" - a departure+return pair
+    # that only states the month once. Matched separately from the pairs
+    # above, with each day's own exact position (not the whole match's
+    # start) so departure sorts before return relative to any other dates
+    # found elsewhere in the text.
+    for m in re.finditer(_HEBREW_MONTH_RANGE_RE, text):
+        day1, day2, month = int(m.group(1)), int(m.group(2)), _HEBREW_MONTHS[m.group(3)]
+        year = int(m.group(4)) if m.group(4) else today.year
+        if not m.group(4) and (month, day1) < (today.month, today.day):
+            year += 1
+        try:
+            found_with_pos.append((m.start(1), date(year, month, day1)))
+            found_with_pos.append((m.start(2), date(year, month, day2)))
         except ValueError:
             pass
     found_with_pos.sort(key=lambda item: item[0])
@@ -2793,34 +2896,71 @@ def _deterministic_named_decline_facts(message):
     if not msg:
         return {}
     clauses = [c.strip() for c in re.split(r"[.!?]+", msg) if c.strip()] or [msg]
-    need_word = r"(?:צריך|צריכה|רוצה|רוצים)"
+    need_word = r"(?:צריך|צריכה|צריכים|רוצה|רוצים)"
     qualifier = r"(?:\s+(?:כרגע|עכשיו))?"
-    patterns = {
-        "car": (
-            rf"^רכב\s+לא\s+נדרש{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+רכב{qualifier}\.?!?$",
-            r"^בלי\s+רכב\.?!?$",
-        ),
-        "lodging": (
-            rf"^לינה\s+לא\s+נדרש[הת]?{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+לינה{qualifier}\.?!?$",
-            r"^בלי\s+לינה\.?!?$",
-        ),
-        "trip_planning": (
-            rf"^מסלול\s+לא\s+נדרש{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+מסלול{qualifier}\.?!?$",
-        ),
+    service_words = {
+        "car": r"רכב",
+        "lodging": r"(?:מלון|לינה|דירה|וילה|צימר|אכסניה)",
+        "trip_planning": r"מסלול",
     }
+    service_alt = "|".join(f"(?:{p})" for p in service_words.values())
+    coord_list = r"(?:" + service_alt + r")(?:\s*(?:,|ו)\s*(?:" + service_alt + r"))*"
+
+    def _service_for(word):
+        for svc, pat in service_words.items():
+            if re.fullmatch(pat, word):
+                return svc
+        return None
+
+    # Seen live, second QA round: a customer naming TWO declines together in
+    # one clause ("לינה ורכב לא צריך, יש לנו איפה לישון", "בלי מלון ובלי
+    # רכב, ולא צריך מסלול") got neither service declined - the patterns
+    # below originally matched only ONE fixed service name per fixed
+    # phrase, anchored to the whole clause (^...$), so a coordinated list
+    # ("X ו-Y") or a second negated service further in the same clause was
+    # invisible. Also "רכב לא צריך" (negation word "צריך", not "נדרש",
+    # directly after the service) matched no pattern at all. Rebuilt to
+    # scan each clause for every declined service independently, returning
+    # all of them at once instead of stopping at the first clause/service
+    # that matches.
+    declined = {}
     for clause in clauses:
-        if len(clause) > 40:
+        if len(clause) > 120:
             continue
-        for service, service_patterns in patterns.items():
-            if any(re.match(p, clause) for p in service_patterns):
-                return {
-                    "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
-                    "session_status": {service: "declined"},
-                }
-    return {}
+        # "בלי X" / "ללא X" - every occurrence in the clause, each names one
+        # service ("בלי מלון ובלי רכב").
+        for m in re.finditer(r"(?:בלי|ללא)\s+(" + service_alt + r")", clause):
+            svc = _service_for(m.group(1))
+            if svc:
+                declined[svc] = True
+        # A coordinated list of services directly followed by a shared
+        # trailing negation ("לינה ורכב לא צריך", "רכב לא נדרש").
+        m = re.search(
+            r"(" + coord_list + r")\s*,?\s*(?:לא\s+" + need_word + r"|לא\s+נדרש[ה]?|אינ[ם]?\s+נדרש[ה]?)" + qualifier,
+            clause,
+        )
+        if m:
+            for word in re.findall(service_alt, m.group(1)):
+                svc = _service_for(word)
+                if svc:
+                    declined[svc] = True
+        # A negation stated BEFORE a coordinated list ("לא צריך מסלול",
+        # "ולא צריכים רכב ומלון").
+        m2 = re.search(
+            r"לא\s+" + need_word + r"\s+(" + coord_list + r")" + qualifier,
+            clause,
+        )
+        if m2:
+            for word in re.findall(service_alt, m2.group(1)):
+                svc = _service_for(word)
+                if svc:
+                    declined[svc] = True
+    if not declined:
+        return {}
+    return {
+        "service_decisions": {s: {"wanted": False, "source": "explicit_named_decline"} for s in declined},
+        "session_status": {s: "declined" for s in declined},
+    }
 
 
 def _deterministic_named_accept_facts(message):
@@ -2850,12 +2990,52 @@ def _deterministic_named_accept_facts(message):
         "lodging": r"מלון|לינה|דירה|וילה|צימר|אכסניה",
         "car": r"רכב",
     }
-    want_framing = r"גם|רוצה|רוצים|נרצה|נשמח|צריך|צריכים|בבקשה"
+    # "צריכה" (feminine singular "need") was missing - seen live: "צריכה
+    # טיסה, מסלול ומלון" matched neither alternative, so the message never
+    # registered as an explicit accept and "תרצי שאמשיך גם עם לינה?" still
+    # showed up later even though the customer had already said so upfront.
+    want_framing = r"גם|רוצה|רוצים|נרצה|נשמח|צריך|צריכה|צריכים|בבקשה"
+    # Regression seen live right after the fix above shipped: that same
+    # "צריך"/"צריכה" substring also matches inside its own NEGATION ("לא
+    # צריך", "לא צריכה") - "לינה ורכב לא צריך" and "בלי מלון ובלי רכב, ולא
+    # צריך מסלול" both got read as a REQUEST for those services instead of
+    # a decline of them. A clause containing any negation-of-need cue is
+    # never an accept signal - _deterministic_named_decline_facts handles
+    # declines (including these exact coordinated/multi-service shapes)
+    # separately.
+    negation_cue = r"לא\s+(?:צריך|צריכה|צריכים|רוצה|רוצים)|בלי|ללא|אין\s+צורך"
     for clause in clauses:
+        if re.search(negation_cue, clause):
+            continue
         matched = [s for s, pat in service_patterns.items() if re.search(pat, clause)]
         if len(matched) < 2 or not re.search(want_framing, clause):
             continue
         return {"service_decisions": {s: {"wanted": True, "source": "explicit_named_accept"} for s in matched}}
+    return {}
+
+
+def _deterministic_flights_already_booked_facts(message):
+    """A customer who already holds flights bought elsewhere ("יש לנו כבר
+    טיסות למונטנגרו... נשמח לתכנון מסלול, לינה ורכב שכור") has nothing left
+    for the flights session to search or ask about - it is declined exactly
+    like an explicit "לא צריך רכב" would be (_deterministic_named_decline_
+    facts above), not left pending. Seen live: Ariella still asked for
+    baggage and a flight budget even though there was never going to be a
+    flight search for this trip at all. Destination/dates/travelers in the
+    same message are still picked up normally by the other extractors -
+    this only closes the flights session itself."""
+    import re
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    if re.search(
+        r"(?:כבר\s+(?:יש\s+לנו|יש\s+לי|הזמנו|קנינו|רכשנו)|(?:יש\s+לנו|יש\s+לי|הזמנו|קנינו|רכשנו)\s+כבר)\s*(?:את\s+ה)?טיס",
+        msg,
+    ):
+        return {
+            "service_decisions": {"flights": {"wanted": False, "source": "already_booked_elsewhere"}},
+            "session_status": {"flights": "declined"},
+        }
     return {}
 
 
@@ -5019,6 +5199,20 @@ def chat_clean():
                 services.add(service)
             trip_update["requested_services"] = list(services)
             trip_update["service_decisions"] = decisions
+        already_booked = _deterministic_flights_already_booked_facts(message)
+        already_booked_decisions = already_booked.get("service_decisions") if isinstance(already_booked, dict) else None
+        if already_booked_decisions:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            decisions["flights"] = already_booked_decisions["flights"]
+            services.discard("flights")
+            statuses["flights"] = "declined"
+            if trip_update.get("active_session") == "flights":
+                trip_update["active_session"] = None
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
         # Safety net for facts that must never be re-asked. This helper already
         # existed but was not wired into the live chat path. Run it before
         # missing-field/session calculation so an explicitly stated destination
