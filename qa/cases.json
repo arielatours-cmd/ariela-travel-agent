@@ -42,6 +42,9 @@
     {"id": "flights-already-booked-no-misfire", "fn": "_deterministic_flights_already_booked_facts", "args": ["רוצים לטוס למונטנגרו"], "expect_falsy": true, "source": "shaked-live-2026-10-12"},
     {"id": "dates-hebrew-month-range-dash", "fn": "_deterministic_date_facts", "args": [[], "10-14 בנובמבר 2026", {}], "expect": {"dates": {"departure": "2026-11-10", "return": "2026-11-14"}}, "source": "live-chat-2026-10-12-s1"},
     {"id": "dates-hebrew-month-range-from-to", "fn": "_deterministic_date_facts", "args": [[], "מ-3 עד 9 במרץ 2027", {}], "expect": {"dates": {"departure": "2027-03-03", "return": "2027-03-09"}}, "source": "live-chat-2026-10-12-s2"},
-    {"id": "weekday-lookup-no-dates", "fn": "_weekday_lookup_hint", "args": [{}], "expect": "", "source": "live-chat-2026-10-12"}
+    {"id": "weekday-lookup-no-dates", "fn": "_weekday_lookup_hint", "args": [{}], "expect": "", "source": "live-chat-2026-10-12"},
+    {"id": "keep-declines-protects-flights", "fn": "_keep_declines", "args": [{"service_decisions": {"flights": {"wanted": false, "source": "already_booked_elsewhere"}}, "session_status": {"flights": "declined"}}, {"service_decisions": {}, "session_status": {"flights": "pending"}, "active_session": "flights"}, null], "expect": {"service_decisions": {"flights": {"wanted": false}}, "session_status": {"flights": "declined"}}, "source": "shaked-live-2026-10-12-wave4"},
+    {"id": "keep-declines-flights-explicit-reopen", "fn": "_keep_declines", "args": [{"service_decisions": {"flights": {"wanted": false, "source": "already_booked_elsewhere"}}, "session_status": {"flights": "declined"}}, {"service_decisions": {}, "session_status": {"flights": "pending"}, "active_session": "flights"}, "flights"], "expect": {"session_status": {"flights": "pending"}}, "source": "shaked-live-2026-10-12-wave4"},
+    {"id": "named-accept-feminine-tzricha", "fn": "_deterministic_named_accept_facts", "args": ["צריכה טיסה, מסלול ומלון"], "expect": {"service_decisions": {"trip_planning": {"wanted": true}, "lodging": {"wanted": true}}}, "source": "shaked-live-2026-10-12-wave4"}
   ]
 }

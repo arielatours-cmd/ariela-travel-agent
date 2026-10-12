@@ -510,13 +510,22 @@ def _keep_declines(previous, updated, explicit_request=None):
     earlier "want a car" (or return session_status "pending" for it), which
     made Ariella ask about the car again right after the customer declined
     it. Only an explicit request for that service in this very message
-    (_explicit_service_request) reopens it."""
+    (_explicit_service_request) reopens it.
+
+    "flights" was missing from this list below (not an oversight at the
+    time - flights couldn't be declined at all until
+    _deterministic_flights_already_booked_facts was added). Seen live
+    immediately after that landed: a customer who said "יש לנו כבר טיסות...
+    "flights" being absent here let the extractor silently resurrect it a
+    few turns later (while discussing lodging/car, with flights nowhere in
+    the actual conversation) - "לפני הסריקה חסר לי היעד/פרטי הכבודה" asked
+    again and again, an outright loop the customer had no way out of."""
     previous = previous if isinstance(previous, dict) else {}
     updated = updated if isinstance(updated, dict) else {}
     old_decisions = previous.get("service_decisions") if isinstance(previous.get("service_decisions"), dict) else {}
     decisions = dict(updated.get("service_decisions") or {})
     statuses = dict(updated.get("session_status") or {})
-    for s in ("lodging", "car", "trip_planning"):
+    for s in ("flights", "lodging", "car", "trip_planning"):
         old = old_decisions.get(s)
         if not (isinstance(old, dict) and old.get("wanted") is False) and old is not False:
             continue
@@ -2943,7 +2952,11 @@ def _deterministic_named_accept_facts(message):
         "lodging": r"מלון|לינה|דירה|וילה|צימר|אכסניה",
         "car": r"רכב",
     }
-    want_framing = r"גם|רוצה|רוצים|נרצה|נשמח|צריך|צריכים|בבקשה"
+    # "צריכה" (feminine singular "need") was missing - seen live: "צריכה
+    # טיסה, מסלול ומלון" matched neither alternative, so the message never
+    # registered as an explicit accept and "תרצי שאמשיך גם עם לינה?" still
+    # showed up later even though the customer had already said so upfront.
+    want_framing = r"גם|רוצה|רוצים|נרצה|נשמח|צריך|צריכה|צריכים|בבקשה"
     for clause in clauses:
         matched = [s for s, pat in service_patterns.items() if re.search(pat, clause)]
         if len(matched) < 2 or not re.search(want_framing, clause):
