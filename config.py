@@ -211,6 +211,11 @@ WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
 # webhook (/admin/whatsapp-subscription). Optional: left empty, that check
 # tries to resolve it from the Graph API instead.
 WHATSAPP_WABA_ID = os.getenv("WHATSAPP_WABA_ID", "").strip()
+# Task 006c: 6-digit two-step-verification PIN for registering
+# WHATSAPP_PHONE_NUMBER_ID directly on the Cloud API (register the number to
+# Ariela, no WhatsApp Business app on a phone / no Coexistence). Never
+# logged or returned by /admin/whatsapp-number/*.
+WHATSAPP_REGISTRATION_PIN = os.getenv("WHATSAPP_REGISTRATION_PIN", "").strip()
 # Off by default: until the welcome/daily-deals quick-reply templates are
 # approved in Meta, every WhatsApp deals message goes to whatsapp_outbound_queue
 # in 'preview' status only - nothing is ever sent to a real customer.
