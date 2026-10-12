@@ -24,7 +24,7 @@ from database import (
     recent_feedback, recent_offers, recent_scan_runs, set_setting, get_setting, connection,
     unread_feedback_count, mark_feedback_seen, request_scan_stop, offers_for_scan_run,
     normalize_scan_run_price_groups, recent_whatsapp_queue, recent_partner_commissions,
-    scan_sharing_stats, recent_whatsapp_inbound_log,
+    scan_sharing_stats, recent_whatsapp_inbound_log, delete_member_account,
 )
 from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search_flights
 import scanner as _scanner
@@ -442,6 +442,37 @@ def admin_mail_check():
     if denied: return denied
     result = mail_check(test_to=request.args.get("to"))
     return jsonify(result)
+
+
+@app.get("/admin/delete-member")
+def admin_delete_member():
+    """Admin equivalent of the customer-facing /account/delete (task 008 QA,
+    bug 8) - for a support/ops case the customer can't self-serve (e.g. they
+    lost access to their own account), and for cleaning up test accounts.
+    GET with ?member_id=<id> or ?email=<email> only explains what would be
+    deleted; ?confirm=1 actually deletes. Matches the read-by-default,
+    explicit-confirm pattern already used by /admin/whatsapp-number/*."""
+    denied = _require_admin()
+    if denied: return denied
+    member_id = request.args.get("member_id", type=int)
+    email = (request.args.get("email") or "").strip().lower()
+    if not member_id and not email:
+        return jsonify({"status": "error", "message": "נדרש member_id או email."}), 400
+    with connection() as conn:
+        if member_id:
+            row = conn.execute("SELECT id, email, full_name FROM members WHERE id=?", (member_id,)).fetchone()
+        else:
+            row = conn.execute("SELECT id, email, full_name FROM members WHERE lower(email)=?", (email,)).fetchone()
+    if not row:
+        return jsonify({"status": "error", "message": "לא נמצא חשבון תואם."}), 404
+    confirm = request.args.get("confirm", "0") == "1"
+    if not confirm:
+        return jsonify({
+            "status": "success", "would_delete": True, "applied": False,
+            "member_id": row["id"], "email": row["email"], "full_name": row["full_name"],
+        })
+    delete_member_account(row["id"])
+    return jsonify({"status": "success", "applied": True, "member_id": row["id"]})
 
 
 @app.get("/admin/partner-commissions")
