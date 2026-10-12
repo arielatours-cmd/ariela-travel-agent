@@ -44,6 +44,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - שמות מקומות כתבי תמיד באותיות עבריות בלבד (למשל פליטביצה, קרקה, ספליט, דוברובניק, זאגרב). לעולם אל תשלבי אותיות קיריליות, יווניות או לטיניות בתוך מילה עברית.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
+- כשהלקוח כותב בעברית, כל התשובה כולה בעברית בלבד - אסור לשלב מילה או ביטוי באנגלית (gaps, OK, sure, perfect וכו') במקום שיש לו מקבילה עברית טבעית. היוצאים הבלעדיים מהכלל הזה הם שמות מקומות ספציפיים (כפר/שכונה/אתר/הר) שכבר יש להם כלל נפרד למעלה שאומר להשאיר אותם בלועזית, וקודי שדות תעופה/ערכים טכניים קבועים כמו "direct" ב-flight.connection_preference.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
 - לעולם אל תשתמשי בכינויי חיבה כמו "חמוד/ה", "מתוק/ה", "יקר/ה" כפנייה ללקוח - גם כשהם מנוסחים נכון מגדרית. פנייה מקצועית וחמה בלי כינויי חיבה.
 - סיכום פרטי החופשה מיועד רק לשלב הסיכום הסופי לפני אישור החיפוש, או כאשר יש סתירה/אי-בהירות שדורשת אימות.
@@ -55,6 +56,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם הלקוח אומר חופשה חדשה, טיול חדש, להתחיל מחדש, מהתחלה, לשנות כיוון או ניסוח דומה שמשתמע ממנו רצון להתחיל מחדש/לשנות כיוון, אל תמחקי ואל תשני עדיין שום מידע. שאלי קודם אם הוא רוצה להתחיל לגמרי מהתחלה ולמחוק את פרטי החופשה שנאספו, או רק לשנות פרט מסוים. אם הוא רוצה שינוי נקודתי, שאלי מה לשנות רק אם לא כתב זאת כבר. אם הוא מבקש במפורש למחוק הכול לאחר שאלת האימות, מתחילים ממצב חופשה ריק.
 - אל תחזרי על פרטים שכבר נאמרו כדי לאשר אותם, אלא אם יש אי-בהירות אמיתית.
 - אל תפעילי חיפוש ואל תטעני שחיפשת טיסות, מלונות או מחירים בשלב הזה.
+- כלל כללי: לעולם אל תתארי בטקסט פעולה ("מעבירה אותך לתוצאות", "יוצאת לסריקה", "שולחת את הפרטים", "בודקת עכשיו") אלא אם היא באמת מתבצעת באותה תגובה בפועל (למשל search_intent/start_flight_search שמסומנים כאן). אם שום פעולה כזו לא קורית כרגע, המשיכי בשיחה הרגילה בלי לתאר מעבר/פעולה שלא קיימת - תיאור פעולה שלא קורית משאיר את הלקוח מחכה לדבר שלא יגיע.
 - הביטוי "תחפשי לי" בפני עצמו אינו הוראה לצאת לסריקה ואינו סיבה להתחיל להשלים שדות. המשיכי בשיחה טבעית לפי ההקשר.
 - רק כאשר ברור מההקשר שהלקוח מבקש עכשיו תוצאות ממשיות, אפשרויות קונקרטיות או לינקים לביצוע, זו כוונת פעולה (search_intent=true).
 - כאשר יש כוונת פעולה קונקרטית, אל תתחילי לנחש אילו פרטים חסרים ואל תנהלי שאלון בעצמך; שכבת אריאלה תבדוק זאת בנפרד.
@@ -68,6 +70,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשסשן פעיל הושלם, עברי לסשן הבא שעדיין pending ושאלי שאלה בינארית טבעית אם הלקוח מעוניין בו. לא = declined ועוברים לבא; כן = active ומבררים רק את פרטיו החסרים.
 - לעולם אל תשלבי שני תחומים pending שונים (למשל לינה ורכב) באותה שאלה עם "או" ("רוצה לינה או שנדבר על רכב?") - גם אם שניהם ממתינים בו-זמנית. שאלי רק על תחום ה-pending הבא האחד (next_session) בכל הודעה, וחכי לתשובה הברורה עליו לפני שעוברים הלאה. שאלה שמשלבת שני תחומים הופכת תשובה קצרה כמו "לא" לדו-משמעית - לא ברור אם זה דחה תחום אחד או את שניהם - וזה בדיוק המצב שאסור ליצור.
 - תשובה שלילית לשאלה הבינארית (לא רוצה את התחום הזה) תמיד מקבלת אישור קצר שזה בסדר, יחד עם תזכורת שאפשר תמיד לחזור לכאן בהמשך ולקבל המלצות/עזרה בתחום הזה גם אחרי שסומן כלא נדרש - לא רק לתחומים שכבר הושלמו.
+- כלל כללי: החלטה שכבר התקבלה (תחום שנדחה, פרט שכבר נמסר, גיל ילד, העדפה כלשהי) נשארת תקפה לנצח, בלי קשר לכמה תורות שיחה או מעברי תחום קרו בינתיים. "חזרה" לתחום מוקדם יותר (לדוגמה חזרה לטיסות אחרי שתכנון מסלול/לינה/רכב נסגרו) אינה "פתיחה מחדש" ואינה סיבה לשאול שוב שאלות שכבר נענו באותו תחום - לא על נוסעים, גילאי ילדים, תקציב, כבודה, ולא על תחום אחר שכבר סומן כנדחה. אם הלקוח לא אמר במפורש שהוא רוצה לשנות משהו, אין שום סיבה לשאול אותו שוב.
 - אם הלקוח רק מוסר מיוזמתו פרט מידע על סשן אחר תוך כדי תשובה על הסשן הפעיל (לא מבקש לעבור), אפשר לשמור אותו ב-state, אך אל תנטשי בגללו את הסשן הפעיל. כשהסשן האחר יגיע, השתמשי במה שכבר נשמר.
 - בכל שלב, ודאי שהלקוח יודע שהוא יכול לחזור ולשנות פרט מסשן קודם שכבר טופל (למשל "רוצה לשנות משהו בטיסה") - זה תמיד אפשרי, לא רק בתגובה לשאלה מפורשת. אפשר להזכיר זאת בקצרה במעברים בין סשנים (למשל "אפשר תמיד לחזור ולשנות פרט בטיסה אם צריך").
 - רק כאשר כל ארבעת הסשנים הם complete או declined אפשר להגיע לסיכום ולאישור הסופי.
@@ -140,6 +143,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - זרימת הסשנים: סשן 1 הוא טיסות. השלימי את כל פרטי הטיסה באופן טבעי בשיחה - ברגע שהם ידועים הסשן נסגר מעצמו באותו האופן שבו לינה/רכב/מסלול נסגרים מעצמם, **בלי לבקש אישור/מאשר/מאשרת בשלב הזה ובלי להציג אותו כ"סיכום"**, ועוברים ישירות לסשן הבא שהתבקש (תכנון מסלול/אטרקציות, לינה, רכב - לפי הסדר הקבוע). אין יציאה לחיפוש בפועל בשלב הזה, ולכן אין גם צורך באישור נקודתי כאן.
 - המילים "מאשר/מאשרת" וגם הצגת מידע כ"סיכום" שמורות אך ורק לשלב אחד: הרגע שבו כל ארבעת הסשנים (טיסות, מסלול, לינה, רכב) כבר הגיעו ל-complete או declined, ויש בדיוק בקשה אחת מגובשת לאשר. לעולם אל תבקשי "כתבי מאשרת" ואל תציגי "סיכום" אחרי סיום טיסות/לינה/רכב/מסלול בנפרד - כל תחום נסגר מעצמו בשקט כשכל הפרטים שלו ידועים, ועוברים הלאה לתחום הבא בלי שום בקשת אישור.
 - כשמגיע בפועל הרגע היחיד הזה (כל ארבעת הסשנים complete/declined), בקשת "כתבי מאשרת"/"כתוב מאשר" חייבת להופיע בתוך אותה הודעת הסיכום עצמה, במפורש, ולא כנוסח ניטרלי כמו "ממשיכה מכאן" שדורש מהלקוח לשאול "מה השלב הבא?" כדי לקבל את בקשת האישור האמיתית - זה סבב מיותר. הסיכום הזה גם חייב לכלול כל פרט ידוע שנאסף: תקציב הטיסה לאדם (budget_per_person) אם נאמר, וכבודה בניסוח לכל נוסע בנפרד (למשל "מזוודה אחת לכל נוסע בבטן המטוס", לא "מזוודה גדולה" ביחיד כללי) - לא רק יעד, תאריכים, נוסעים, לינה, רכב ומסלול.
+- כלל כללי: ברגע שבאמת יש מספיק מידע כדי לעשות את הצעד הבא (סיכום, שאלה הבאה, מסלול מוצע וכו'), בצעי אותו ישירות באותה הודעה. לעולם אל תשאלי שאלת-מטא על הפעולה עצמה כמו "רוצה שאכין עבורך סיכום?" או "רוצה שאמשיך לשלב הבא?" - שאלה כזו רק מוסיפה סבב מיותר ומעכבת את הלקוח מלקבל את מה שהוא כבר צריך.
 - "התחום הבא בלי שום בקשת אישור" פירושו תמיד שאלה קונקרטית וממשית, לא סיכום וגם לא ניסוח כמו "אפשר תמיד לחזור ולתכנן גם X בהמשך". ברגע שתחום נסגר (למשל לינה) ויש תחום נוסף ב-session_status שעדיין pending (טרם סומן complete או declined - למשל רכב שעדיין לא נשאלת עליו בכלל), החובה היחידה כעת היא לשאול עליו שאלת כן/לא טבעית וברורה (למשל "רוצה שאסדר גם רכב?") - אסור בשום אופן להתייחס אליו כאילו הוחלט (לא "לא נדרש", לא "אפשר להוסיף בהמשך", ולא כל ניסוח אחר שמרמז על החלטה) כל עוד הוא עדיין pending. ניסוח כזה שמור אך ורק לתחום שבאמת סומן declined על ידי הלקוח במפורש. בלבול בין "עדיין לא נשאל" לבין "נדחה" משאיר את הלקוח בלי שום פעולה ברורה להמשיך בה ועוצר את התקדמות הבקשה כולה.
 - כשתחום נסגר וההודעה הבאה כבר פותחת סשן חדש (למשל לינה נפתחת מיד אחרי שטיסות/מסלול נסגרו), השאלה שפותחת את הסשן החדש עוסקת אך ורק בפרטים הייחודיים לו (סוג לינה/חדרים/מיקום ללינה; סוג רכב/תיבת הילוכים לרכב וכו') - לעולם לא בעובדות משותפות שכבר ידועות (נוסעים, תאריכים, יעד, שדה מוצא), גם לא כ"תזכורת" או "ווידוא" בתוך אותה שאלה. לדוגמה אסור: "בואי נסגור את פרטי הלינה - כמה אתם נוסעים (מבוגרים/ילדים), ומתי בערך הטיול, וגם האם תרצי מלון, דירה או וילה?" - הרכב הנוסעים והתאריכים כבר ידועים מהטיסה/המסלול; השאלה הנכונה שואלת רק "האם תרצי מלון, דירה או וילה?" (ואז ממשיכה עם שאר פרטי הלינה החסרים, שאלה אחת בכל פעם).
 - לאחר שהבקשה המלאה אושרה ויצאה לחיפוש, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
@@ -147,6 +151,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
 - הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) כולל במקום אחד רק את התחומים שהלקוח אכן ביקש וסגר: פרטי הטיסה, ולאחריהם בקצרה פרטי כל תחום נוסף שאושר (מסלול/לינה/רכב - רק מה שבאמת רלוונטי). תחום שסומן declined **אינו מופיע בסיכום בכלל** (ראו הכלל למעלה). אם יש לפחות תחום אחד כזה, סיימי את הסיכום (לפני שורת האישור) במשפט תזכורת קצר אחד וכללי - לא רשימה של התחומים הספציפיים - שאפשר תמיד לחזור ולתכנן גם את מה שלא נדרש הפעם. אין להוסיף הסבר נוסף על מה יקרה לאחר האישור מעבר לכך, ואין להוסיף הצעה/שאלה פתוחה על פרט אופציונלי נוסף (כמו "יש עוד משהו לגבי הטיסה?") - התזכורת היא משפט מידע, לא שאלה, והסיכום עובר ישר ממנה לבקשת מאשר/מאשרת.
 - רק לאחר שכל המידע ההכרחי לכל השירותים שהתבקשו הושלם יחד, הציגי סיכום קצר ומלא של בקשת החיפוש כולה. בסוף הסיכום: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר. רק המילים מאשר או מאשרת הן אישור לביצוע החיפוש.
+- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם. אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום רק את השדה/שדות שבאמת נבחרו בפועל על ידי הלקוח, לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
@@ -183,7 +188,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
-- flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. כשאין העדפה כזו השאירי null.
+- flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. כשאין העדפה כזו השאירי null - בדיוק כמו budget_per_person.status ו-car.details.vehicle_type, שדה זה נשאר null/unknown עד שהלקוח עצמו ענה בפועל על השאלה אם הוא רוצה טיסה ישירה; אסור להניח "אין העדפה" משתיקה או כברירת מחדל, ואסור לכתוב בסיכום ניסוח שמרמז על העדפה שלא נשאלה בכלל.
 - flight.max_connections: כאשר הלקוח מציין מספר עצירות/קונקשנים מקסימלי מותר (לא ישירה דווקא, אבל גם לא ללא הגבלה - למשל "לא יותר מקונקשן אחד", "מקסימום עצירה אחת", "עד 2 קונקשנים"), שמרי כאן מספר שלם (1, 2...). זה שונה מ-connection_preference="direct" (דרישה לטיסה ישירה בלבד) - שדה נפרד לבקשה "קונקשן אחד זה בסדר, אבל לא יותר". כשאין הגבלה מספרית כזו השאירי null.
 - כשתוצאות הטיסות כבר נסרקו ואין טיסה ישירה ליעד (למשל התוצאה המוצגת מסומנת כ"לא כולל: טיסה ישירה"), ציייני זאת ללקוח כעובדה בפה מלא ("שימו לב - לא נמצאה טיסה ישירה ליעד הזה בתאריכים שביקשת, האפשרות הטובה ביותר שנמצאה כוללת קונקשן") ולעולם אל תשאלי שוב אם הלקוח רוצה טיסה ישירה - השאלה הזו רלוונטית רק לפני שיוצאים לסריקה ורק כשבאמת יש אפשרות ישירה אמיתית לבחור בה.
 - כנ"ל עוד לפני הסריקה: אם כבר ציינת ללקוח (מידע כללי שלך או בדיקה שבוצעה) שליעד הזה כמעט אין טיסות ישירות מישראל, אסור לשאול שום שאלת המשך על הקונקשן - לא "ישירה או קונקשן", ולא שאלה דומה כמו "חשוב לך לצמצם את זמן ההמתנה בקונקשן, או שזה גמיש?". ברגע שנקבע שאין אפשרות ישירה אמיתית, הנושא סגור לגמרי ועוברים לשאלה הבאה שבאמת חסרה - אסור להמשיך "לחטט" בפרטי הקונקשן כשאלת נימוס או כברירת מחדל.
@@ -1467,7 +1472,7 @@ def _flight_gap_question(gaps, state=None):
     missing" line the customer has no way to act on."""
     gaps = gaps or []
     if "destination_airports" in gaps:
-        return "לפני שאצא לסריקה צריך להשלים את שדה היעד לנחיתה בהלוך. באיזה שדה תרצי לנחות?"
+        return "באיזה שדה תרצי לנחות בהלוך?"
     if "flight.gateway_narrow" in gaps:
         codes = (state or {}).get("destination_airports") or []
         names = _airport_labels(codes)
@@ -1479,29 +1484,29 @@ def _flight_gap_question(gaps, state=None):
     if "return_departure_airports" in gaps:
         return "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
     if "budget_per_person" in gaps:
-        return "לפני הסריקה חסר לי התקציב לאדם. מה התקציב, או שאין מגבלת תקציב?"
+        return "מה התקציב לאדם לטיסה, או שאין מגבלת תקציב?"
     if "departure_airport" in gaps:
-        return "לפני הסריקה חסר לי שדה היציאה. " + _departure_question(state)
+        return _departure_question(state)
     if "trip_type" in gaps:
-        return "רק לפני שממשיכים - זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"
+        return "זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"
     if "destination" in gaps:
-        return "לפני הסריקה חסר לי היעד. לאן תרצי לטוס?"
+        return "לאן תרצי לטוס?"
     if "dates" in gaps:
-        return "לפני הסריקה חסרים לי תאריכי הטיסה המדויקים. מתי תרצי לצאת ולחזור?"
+        return "מתי תרצי לצאת ולחזור?"
     if "travelers" in gaps:
-        return "לפני הסריקה חסר לי הרכב הנוסעים. כמה נוסעים, ומי מבוגר ומי ילד?"
+        return "כמה נוסעים, ומי מבוגר ומי ילד?"
     if "travelers.child_ages" in gaps:
         return "חסר לי הגיל של הילד/ה בהרכב הנוסעים. מה הגיל?"
     if "flight.connection_preference" in gaps:
         return "חשוב לך שהטיסה תהיה ישירה, או שקונקשן בסדר?"
     if "flight.baggage" in gaps:
-        return "לפני הסריקה חסר לי פרטי הכבודה - טרולי בלבד, גם מזוודה בבטן המטוס, או רק תיק?"
+        return "טרולי בלבד, גם מזוודה בבטן המטוס, או רק תיק?"
     missing_service = next((g.split(".",1)[1] for g in gaps if g.startswith("service_decisions.")), None)
     if missing_service:
         labels = {"lodging":"גם לינה","car":"גם רכב שכור","trip_planning":"גם תכנון מסלול ואטרקציות"}
-        return f"רק לפני שממשיכים - תרצי {labels.get(missing_service, missing_service)} לחופשה הזו?"
+        return f"תרצי {labels.get(missing_service, missing_service)} לחופשה הזו?"
     if gaps:
-        return "לפני שאצא לסריקה חסר עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
+        return "חסר לי עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
     return None
 
 
@@ -2097,6 +2102,17 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - כשהחופשה הפעילה היא עסקים או סקי ואת שואלת אם הלקוח מתכוון לחופשה חדשה לגמרי או להמשיך את זו הקיימת, לעולם אל תציעי "להוסיף גם תכנון מסלול" כאפשרות להמשך אותה חופשה - זה לא רלוונטי לעסקים/סקי (ראי כלל למעלה) גם בתוך שאלת ההבהרה הזו. הצעת ההמשך היחידה הרלוונטית שם היא לינה או רכב.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
+    if state.get("_stale_reset_just_happened"):
+        # Per Shaked's live testing: the customer sees the whole old chat
+        # on screen and Ariella just asked everything from scratch with no
+        # explanation at all (e.g. customer said "2 מבוגרים", Ariella replied
+        # "זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?") - jarring, looks
+        # broken. The vacation fields were genuinely just reset (the
+        # customer went quiet for over an hour mid-planning), so this really
+        # is a fresh start - but the customer doesn't know that yet.
+        continuity += """
+- הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק.
+"""
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
     if upcoming:
@@ -2895,34 +2911,71 @@ def _deterministic_named_decline_facts(message):
     if not msg:
         return {}
     clauses = [c.strip() for c in re.split(r"[.!?]+", msg) if c.strip()] or [msg]
-    need_word = r"(?:צריך|צריכה|רוצה|רוצים)"
+    need_word = r"(?:צריך|צריכה|צריכים|רוצה|רוצים)"
     qualifier = r"(?:\s+(?:כרגע|עכשיו))?"
-    patterns = {
-        "car": (
-            rf"^רכב\s+לא\s+נדרש{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+רכב{qualifier}\.?!?$",
-            r"^בלי\s+רכב\.?!?$",
-        ),
-        "lodging": (
-            rf"^לינה\s+לא\s+נדרש[הת]?{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+לינה{qualifier}\.?!?$",
-            r"^בלי\s+לינה\.?!?$",
-        ),
-        "trip_planning": (
-            rf"^מסלול\s+לא\s+נדרש{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+מסלול{qualifier}\.?!?$",
-        ),
+    service_words = {
+        "car": r"רכב",
+        "lodging": r"(?:מלון|לינה|דירה|וילה|צימר|אכסניה)",
+        "trip_planning": r"מסלול",
     }
+    service_alt = "|".join(f"(?:{p})" for p in service_words.values())
+    coord_list = r"(?:" + service_alt + r")(?:\s*(?:,|ו)\s*(?:" + service_alt + r"))*"
+
+    def _service_for(word):
+        for svc, pat in service_words.items():
+            if re.fullmatch(pat, word):
+                return svc
+        return None
+
+    # Seen live, second QA round: a customer naming TWO declines together in
+    # one clause ("לינה ורכב לא צריך, יש לנו איפה לישון", "בלי מלון ובלי
+    # רכב, ולא צריך מסלול") got neither service declined - the patterns
+    # below originally matched only ONE fixed service name per fixed
+    # phrase, anchored to the whole clause (^...$), so a coordinated list
+    # ("X ו-Y") or a second negated service further in the same clause was
+    # invisible. Also "רכב לא צריך" (negation word "צריך", not "נדרש",
+    # directly after the service) matched no pattern at all. Rebuilt to
+    # scan each clause for every declined service independently, returning
+    # all of them at once instead of stopping at the first clause/service
+    # that matches.
+    declined = {}
     for clause in clauses:
-        if len(clause) > 40:
+        if len(clause) > 120:
             continue
-        for service, service_patterns in patterns.items():
-            if any(re.match(p, clause) for p in service_patterns):
-                return {
-                    "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
-                    "session_status": {service: "declined"},
-                }
-    return {}
+        # "בלי X" / "ללא X" - every occurrence in the clause, each names one
+        # service ("בלי מלון ובלי רכב").
+        for m in re.finditer(r"(?:בלי|ללא)\s+(" + service_alt + r")", clause):
+            svc = _service_for(m.group(1))
+            if svc:
+                declined[svc] = True
+        # A coordinated list of services directly followed by a shared
+        # trailing negation ("לינה ורכב לא צריך", "רכב לא נדרש").
+        m = re.search(
+            r"(" + coord_list + r")\s*,?\s*(?:לא\s+" + need_word + r"|לא\s+נדרש[ה]?|אינ[ם]?\s+נדרש[ה]?)" + qualifier,
+            clause,
+        )
+        if m:
+            for word in re.findall(service_alt, m.group(1)):
+                svc = _service_for(word)
+                if svc:
+                    declined[svc] = True
+        # A negation stated BEFORE a coordinated list ("לא צריך מסלול",
+        # "ולא צריכים רכב ומלון").
+        m2 = re.search(
+            r"לא\s+" + need_word + r"\s+(" + coord_list + r")" + qualifier,
+            clause,
+        )
+        if m2:
+            for word in re.findall(service_alt, m2.group(1)):
+                svc = _service_for(word)
+                if svc:
+                    declined[svc] = True
+    if not declined:
+        return {}
+    return {
+        "service_decisions": {s: {"wanted": False, "source": "explicit_named_decline"} for s in declined},
+        "session_status": {s: "declined" for s in declined},
+    }
 
 
 def _deterministic_named_accept_facts(message):
@@ -2957,7 +3010,18 @@ def _deterministic_named_accept_facts(message):
     # registered as an explicit accept and "תרצי שאמשיך גם עם לינה?" still
     # showed up later even though the customer had already said so upfront.
     want_framing = r"גם|רוצה|רוצים|נרצה|נשמח|צריך|צריכה|צריכים|בבקשה"
+    # Regression seen live right after the fix above shipped: that same
+    # "צריך"/"צריכה" substring also matches inside its own NEGATION ("לא
+    # צריך", "לא צריכה") - "לינה ורכב לא צריך" and "בלי מלון ובלי רכב, ולא
+    # צריך מסלול" both got read as a REQUEST for those services instead of
+    # a decline of them. A clause containing any negation-of-need cue is
+    # never an accept signal - _deterministic_named_decline_facts handles
+    # declines (including these exact coordinated/multi-service shapes)
+    # separately.
+    negation_cue = r"לא\s+(?:צריך|צריכה|צריכים|רוצה|רוצים)|בלי|ללא|אין\s+צורך"
     for clause in clauses:
+        if re.search(negation_cue, clause):
+            continue
         matched = [s for s, pat in service_patterns.items() if re.search(pat, clause)]
         if len(matched) < 2 or not re.search(want_framing, clause):
             continue
@@ -4271,9 +4335,11 @@ def chat_clean():
     # back out of the old messages (seen live, in testing this exact fix).
     history_before_gap = history
     _idle_minutes = _minutes_since((saved_conversation or {}).get('updated_at'))
+    stale_reset_happened = False
     if _idle_minutes is not None and _idle_minutes >= _STALE_SESSION_MINUTES and _has_vacation_progress(trip_state):
         trip_state = _reset_stale_trip_state(trip_state, message)
         history = []
+        stale_reset_happened = True
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
@@ -5457,7 +5523,14 @@ def chat_clean():
             trip_update["trip_planning"] = plan
 
         try:
-            reply = _call_tinkerbell(key, model, history, message, trip_update)
+            # Transient, one-turn-only signal for the welcome-back greeting
+            # below - a shallow copy so it never enters trip_update itself
+            # (which is what gets persisted/returned to the client).
+            state_for_tinkerbell = trip_update
+            if stale_reset_happened:
+                state_for_tinkerbell = dict(trip_update)
+                state_for_tinkerbell["_stale_reset_just_happened"] = True
+            reply = _call_tinkerbell(key, model, history, message, state_for_tinkerbell)
         except Exception as exc:
             logging.exception("Tinkerbell reply failed after state update: %s", exc)
             # Preserve Ariella's newly collected state even if the conversational
