@@ -41,6 +41,7 @@
     {"id": "flights-already-booked-declines-flights-session", "fn": "_deterministic_flights_already_booked_facts", "args": ["יש לנו כבר טיסות למונטנגרו (פודגוריצה) מ-20/06/2027 עד 27/06/2027. נשמח לתכנון מסלול, לינה ורכב שכור"], "expect": {"service_decisions": {"flights": {"wanted": false}}, "session_status": {"flights": "declined"}}, "source": "shaked-live-2026-10-12"},
     {"id": "flights-already-booked-no-misfire", "fn": "_deterministic_flights_already_booked_facts", "args": ["רוצים לטוס למונטנגרו"], "expect_falsy": true, "source": "shaked-live-2026-10-12"},
     {"id": "dates-hebrew-month-range-dash", "fn": "_deterministic_date_facts", "args": [[], "10-14 בנובמבר 2026", {}], "expect": {"dates": {"departure": "2026-11-10", "return": "2026-11-14"}}, "source": "live-chat-2026-10-12-s1"},
-    {"id": "dates-hebrew-month-range-from-to", "fn": "_deterministic_date_facts", "args": [[], "מ-3 עד 9 במרץ 2027", {}], "expect": {"dates": {"departure": "2027-03-03", "return": "2027-03-09"}}, "source": "live-chat-2026-10-12-s2"}
+    {"id": "dates-hebrew-month-range-from-to", "fn": "_deterministic_date_facts", "args": [[], "מ-3 עד 9 במרץ 2027", {}], "expect": {"dates": {"departure": "2027-03-03", "return": "2027-03-09"}}, "source": "live-chat-2026-10-12-s2"},
+    {"id": "weekday-lookup-no-dates", "fn": "_weekday_lookup_hint", "args": [{}], "expect": "", "source": "live-chat-2026-10-12"}
   ]
 }
