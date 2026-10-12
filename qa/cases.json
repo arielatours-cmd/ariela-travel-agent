@@ -42,6 +42,10 @@
     {"id": "flights-already-booked-no-misfire", "fn": "_deterministic_flights_already_booked_facts", "args": ["רוצים לטוס למונטנגרו"], "expect_falsy": true, "source": "shaked-live-2026-10-12"},
     {"id": "dates-hebrew-month-range-dash", "fn": "_deterministic_date_facts", "args": [[], "10-14 בנובמבר 2026", {}], "expect": {"dates": {"departure": "2026-11-10", "return": "2026-11-14"}}, "source": "live-chat-2026-10-12-s1"},
     {"id": "dates-hebrew-month-range-from-to", "fn": "_deterministic_date_facts", "args": [[], "מ-3 עד 9 במרץ 2027", {}], "expect": {"dates": {"departure": "2027-03-03", "return": "2027-03-09"}}, "source": "live-chat-2026-10-12-s2"},
-    {"id": "weekday-lookup-no-dates", "fn": "_weekday_lookup_hint", "args": [{}], "expect": "", "source": "live-chat-2026-10-12"}
+    {"id": "weekday-lookup-no-dates", "fn": "_weekday_lookup_hint", "args": [{}], "expect": "", "source": "live-chat-2026-10-12"},
+    {"id": "named-accept-not-on-decline-lo-tsarich", "fn": "_deterministic_named_accept_facts", "args": ["חופשה רגילה. טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027, ונשמח לתכנון מסלול. לינה ורכב לא צריך, יש לנו איפה לישון"], "expect_falsy": true, "source": "live-chat-2026-10-12-s2 (regression f918821)"},
+    {"id": "named-accept-not-on-decline-bli", "fn": "_deterministic_named_accept_facts", "args": ["חופשה רגילה. אני צריכה רק טיסה לרומא, אני ובעלי, 10-14 בנובמבר 2026. בלי מלון ובלי רכב, ולא צריך מסלול"], "expect_falsy": true, "source": "live-chat-2026-10-12-s1 (regression f918821)"},
+    {"id": "named-decline-in-long-message-lodging-car", "fn": "_deterministic_named_decline_facts", "args": ["חופשה רגילה. טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027, ונשמח לתכנון מסלול. לינה ורכב לא צריך, יש לנו איפה לישון"], "expect": {"session_status": {"lodging": "declined", "car": "declined"}}, "source": "live-chat-2026-10-12-s2"},
+    {"id": "named-decline-in-long-message-car", "fn": "_deterministic_named_decline_facts", "args": ["חופשה רגילה. קפריסין, אני ובעלי וילד בן 6, 12/04/2027 עד 18/04/2027. צריכה טיסה, מסלול ומלון. רכב לא צריך"], "expect": {"session_status": {"car": "declined"}}, "source": "live-chat-2026-10-12-s3"}
   ]
 }
