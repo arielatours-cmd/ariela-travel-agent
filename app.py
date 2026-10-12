@@ -37,9 +37,10 @@ from ariella_chat_clean import ariella_chat_clean
 from ai_usage import usage_summary, usage_rows, usage_for_conversation
 from whatsapp_deals_messages import on_whatsapp_deals_paid
 from partner_commissions import sync_cj_commissions, cj_connection_check
+from mailer import mail_check
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
-    send_text_message, whatsapp_status,
+    send_text_message, whatsapp_status, whatsapp_subscription_check,
 )
 
 app = Flask(__name__)
@@ -352,6 +353,18 @@ def admin_whatsapp_inbox():
     return jsonify({"status": "success", "count": len(rows), "messages": rows})
 
 
+@app.get("/admin/whatsapp-subscription")
+def admin_whatsapp_subscription():
+    """Task 006b: checks whether this app is subscribed to the WABA's
+    messages webhook - read-only by default; ?apply=1 also subscribes it if
+    not already subscribed. Never returns WHATSAPP_ACCESS_TOKEN."""
+    denied = _require_admin()
+    if denied: return denied
+    apply = request.args.get("apply", "0") == "1"
+    result = whatsapp_subscription_check(apply=apply)
+    return jsonify({"status": "success", **result})
+
+
 @app.post("/admin/cj-sync")
 def admin_cj_sync():
     denied = _require_admin()
@@ -370,6 +383,17 @@ def admin_cj_check():
     denied = _require_admin()
     if denied: return denied
     result = cj_connection_check(days_back=request.args.get("days_back", 31, type=int))
+    return jsonify(result)
+
+
+@app.get("/admin/mail-check")
+def admin_mail_check():
+    """Read-only config check, openable as a plain GET link; pass ?to=<email>
+    to also attempt one real send and see the exact SMTP error if it fails,
+    since mailer.send_email() itself only logs and never raises."""
+    denied = _require_admin()
+    if denied: return denied
+    result = mail_check(test_to=request.args.get("to"))
     return jsonify(result)
 
 
