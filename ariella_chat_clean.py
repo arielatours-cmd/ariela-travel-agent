@@ -3999,11 +3999,16 @@ def _deterministic_traveler_facts(message, existing=None):
     # הורים/מבוגרים/נוסעים words - seen live (Shaked, Bansko): "4 חברים"/
     # "ארבעה חברים" matched none of them, so adults was never set and the
     # travelers question looped even after the customer repeated the count.
-    m = re.search(r"(\d+)\s*(?:הורים|מבוגרים|נוסעים|חברים|חברות|אנשים|משפחות)", msg)
+    # Singular forms ("1 מבוגר", "מבוגר אחד") are just as common for a solo
+    # traveler answering "how many" with the number 1 - seen live (Shaked,
+    # New York/Frankfurt): "1 מבוגר" matched nothing since the pattern only
+    # listed the plural "מבוגרים".
+    _adult_unit_words = r"הור(?:ה|ים)|מבוגר(?:ים)?|נוסע(?:ת|ים)?|חבר(?:ה|ים|ות)?|איש|אנשים|משפחה|משפחות"
+    m = re.search(r"(\d+)\s*(?:" + _adult_unit_words + ")", msg)
     if m:
         facts["adults"] = int(m.group(1))
     else:
-        m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:הורים|מבוגרים|נוסעים|חברים|חברות|אנשים|משפחות)", msg)
+        m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:" + _adult_unit_words + ")", msg)
         if m:
             facts["adults"] = _HEBREW_NUMBER_WORDS[m.group(1)]
     # A solo traveler ("אני לבד", "נוסעת לבד", "רק אני", "אדם אחד", "נוסע
