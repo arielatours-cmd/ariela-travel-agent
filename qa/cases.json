@@ -57,6 +57,8 @@
     {"id": "open-jaw-heraklion-not-lyon", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בחאניה ולחזור מהרקליון"], "expect": {"destination_airports": ["CHQ"], "return_departure_airports": ["HER"]}, "source": "live-chat-2026-10-12-s10"},
     {"id": "open-jaw-chania-short-spelling", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בחניה ולחזור מהרקליון"], "expect": {"destination_airports": ["CHQ"], "return_departure_airports": ["HER"]}, "source": "live-chat-2026-10-12-s10"},
     {"id": "open-jaw-nochtim-chozrim", "fn": "_deterministic_open_jaw_airports", "args": ["נוחתים בחאניה וחוזרים מהרקליון"], "expect": {"open_jaw_requested": true}, "source": "live-chat-2026-10-12-s10"},
-    {"id": "open-jaw-paphos-larnaca-still-works", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בפאפוס ולחזור מלרנקה"], "expect": {"destination_airports": ["PFO"], "return_departure_airports": ["LCA"]}, "source": "guard"}
+    {"id": "open-jaw-paphos-larnaca-still-works", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בפאפוס ולחזור מלרנקה"], "expect": {"destination_airports": ["PFO"], "return_departure_airports": ["LCA"]}, "source": "guard"},
+    {"id": "flights-already-booked-negated-then-already", "fn": "_deterministic_flights_already_booked_facts", "args": ["אנחנו לא צריכים טיסה, כבר הזמנו"], "expect": {"session_status": {"flights": "declined"}}, "source": "live-chat-2026-10-12-round3-tuscany"},
+    {"id": "flights-already-booked-no-misfire-separate-hotel", "fn": "_deterministic_flights_already_booked_facts", "args": ["כבר הזמנו מלון, נשמח גם לטיסה"], "expect": {}, "source": "guard"}
   ]
 }

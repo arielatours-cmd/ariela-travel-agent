@@ -156,7 +156,8 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
 - הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) הוא חובה מוחלטת וללא יוצא מן הכלל, בכל הרכב שירותים שהוא (טיסה בלבד, טיסה+מסלול, כל ארבעת השירותים, וכו') - לעולם אל תסיימי את השיחה בלי אותו סיכום ובלי בקשת אישור, ולעולם אל תציגי רק חלק מהשירותים שאושרו (למשל רק פרטי הטיסה) כש-session_status מראה ששירותים נוספים גם הם complete. מבנה הסיכום, שורה אחר שורה:
   - פתיחה ישירה וענייינית (שם היעד, לא משפט טכני על התהליך - ראו הכלל הבא).
-  - טיסה: שתי שורות שדה תעופה קבועות, תמיד שתיהן (גם כששני השדות זהים), בלי שורת "יעד" כללית נפרדת - המדינה/האי כתובים בתוך כל שורה עצמה, ולפי מדינת השדה עצמו (לא בהכרח מדינת היעד הכללי - למשל גישה לקוטור דרך דוברובניק שבקרואטיה, או לסקי באלפים הצרפתיים דרך ג'נבה שבשווייץ: המדינה בשורה היא מדינת השדה):
+  - טיסה: שלוש שורות שדה תעופה קבועות - יציאה מישראל, נחיתה ביעד, המראה בחזרה - תמיד שלושתן, בלי שורת "יעד" כללית נפרדת. המדינה/האי כתובים בתוך שורות הנחיתה/המראה עצמן, ולפי מדינת השדה עצמו (לא בהכרח מדינת היעד הכללי - למשל גישה לקוטור דרך דוברובניק שבקרואטיה, או לסקי באלפים הצרפתיים דרך ג'נבה שבשווייץ: המדינה בשורה היא מדינת השדה):
+    - "יציאה: <שם השדה> (<קוד>)" - שדה היציאה מישראל (נתב"ג כברירת מחדל, או חיפה אם נבחר במפורש) - מועתק בדיוק מהעובדה המאומתת "שדה היציאה" שתימסר לך למטה. לעולם אל תשמיטי את השורה הזו מהסיכום.
     - "נחיתה: <שם השדה> (<קוד>), <מדינה>" - למשל "נחיתה: חאניה (CHQ), כרתים, יוון". שם השדה והמדינה חייבים להיות מועתקים בדיוק מהעובדה המאומתת שתימסר לך למטה (שדה/שדות הנחיתה והמראה - מקור אמת) - לעולם אל תמציאי תעתיק עברי משלך לשם עיר/שדה, גם אם הוא נראה לך נכון; תעתיק עצמאי הוא בדיוק סוג הטעות שגרמה בעבר לכתיבת שם עיר שגוי.
     - "המראה בחזרה: <שם השדה> (<קוד>), <מדינה>" - תמיד מופיעה, גם כששדה החזרה זהה לשדה הנחיתה (אז פשוט אותו שדה בשתי השורות, למשל רומא: "נחיתה: רומא פיומיצ'ינו (FCO), איטליה" / "המראה בחזרה: רומא פיומיצ'ינו (FCO), איטליה"). שונה בפועל רק כשreturn_departure_airports שונה מdestination_airports - מסלול open-jaw, כולל כשחוזרים ממדינה אחרת לגמרי (נחיתה בסלובניה, חזרה מקרואטיה).
     - עיר/יעד עם כמה שדות אפשריים שהלקוח טרם בחר ביניהם: אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") אם מחפשים בכולם יחד (ואז "(כל השדות)" כש"אין העדפה" נאמר במפורש, למשל "לונדון (כל השדות), אנגליה"), או שאלו לפני הסיכום - לעולם אל תגיעי לסיכום כשdestination_airports עדיין ריק/לא מוכרע (למשל יעד כללי כמו "יוון" או "איים ביוון" בלי שדה שנגזר ממסלול או נבחר על ידי הלקוח).
@@ -3172,10 +3173,23 @@ def _deterministic_flights_already_booked_facts(message):
     msg = str(message or "").strip()
     if not msg:
         return {}
-    if re.search(
+    # Seen live (Shaked, Tuscany scenario): "אנחנו לא צריכים טיסה, כבר
+    # הזמנו" never matched - the original pattern required "טיס" to appear
+    # IMMEDIATELY after the "already" phrase ("כבר הזמנו טיסות"), but a
+    # customer who leads with the negation ("לא צריכים טיסה") and only then
+    # explains why ("כבר הזמנו") puts "טיס" and "כבר" in the opposite order,
+    # with nothing directly linking them. Without this second pattern,
+    # flights stayed "pending" forever and the gap question looped.
+    already_adjacent = re.search(
         r"(?:כבר\s+(?:יש\s+לנו|יש\s+לי|הזמנו|קנינו|רכשנו)|(?:יש\s+לנו|יש\s+לי|הזמנו|קנינו|רכשנו)\s+כבר)\s*(?:את\s+ה)?טיס",
         msg,
-    ):
+    )
+    negated_then_already = re.search(
+        r"(?:לא\s+(?:צריך|צריכה|צריכים)|בלי|ללא)\s*(?:את\s+ה)?טיס[^.!?\n]{0,30}"
+        r"(?:כבר\s+(?:יש\s+לנו|יש\s+לי|הזמנו|קנינו|רכשנו)|(?:יש\s+לנו|יש\s+לי|הזמנו|קנינו|רכשנו)\s+כבר)",
+        msg,
+    )
+    if already_adjacent or negated_then_already:
         return {
             "service_decisions": {"flights": {"wanted": False, "source": "already_booked_elsewhere"}},
             "session_status": {"flights": "declined"},
@@ -5765,18 +5779,38 @@ def chat_clean():
                     reply = f"מעולה, פרטי הטיסה מלאים. תרצי שאמשיך גם עם {_POST_FLIGHT_LABELS[_next_premature]}?"
                     trip_update["post_flight_offer"] = [_next_premature]
                 else:
-                    # Not phrased as "is it all correct or do you want to fix
-                    # something?" - that compound question leaves a plain
-                    # כן/לא answer with no way to tell which half it answers.
-                    # A single, non-question continuation instead.
-                    for _approval_phrase, _neutral_close in (
-                        ("אם כל הפרטים נכונים, כתבי מאשרת.", "ממשיכה מכאן - אם יש משהו לתקן, תגידי לי בכל שלב."),
-                        ("אם כל הפרטים נכונים, כתוב מאשר.", "ממשיך מכאן - אם יש משהו לתקן, תגיד לי בכל שלב."),
-                        ("אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת.", "ממשיכה מכאן - אם יש משהו לתקן, תגידו לי בכל שלב."),
-                    ):
-                        if _approval_phrase in str(reply or ""):
-                            reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
-                            break
+                    # Seen live (Shaked): when lodging/car/trip_planning is
+                    # the ACTIVE session (not merely "next" - already being
+                    # filled in, with real gaps left) and the model
+                    # prematurely wrote כתבי מאשרת, this used to fall
+                    # straight through to the generic "ממשיכה מכאן" neutral
+                    # close - a dead end, since nothing then asks the actual
+                    # remaining question for that domain. Unlike flights,
+                    # lodging/car/trip_planning have no dedicated "_gap_
+                    # question" helper - re-ask Tinkerbell now that state
+                    # correctly reflects the real active_session/missing_
+                    # required, so it asks the genuine next question instead.
+                    _active_premature = trip_update.get("active_session")
+                    _active_gap_handled = False
+                    if _active_premature in ("lodging", "car", "trip_planning") and _session_gaps(trip_update, _active_premature):
+                        try:
+                            reply = _call_tinkerbell(key, model, history, message, trip_update)
+                            _active_gap_handled = True
+                        except Exception as exc:
+                            logging.exception("Tinkerbell reply failed on premature-מאשרת active-domain gap: %s", exc)
+                    if not _active_gap_handled:
+                        # Not phrased as "is it all correct or do you want to fix
+                        # something?" - that compound question leaves a plain
+                        # כן/לא answer with no way to tell which half it answers.
+                        # A single, non-question continuation instead.
+                        for _approval_phrase, _neutral_close in (
+                            ("אם כל הפרטים נכונים, כתבי מאשרת.", "ממשיכה מכאן - אם יש משהו לתקן, תגידי לי בכל שלב."),
+                            ("אם כל הפרטים נכונים, כתוב מאשר.", "ממשיך מכאן - אם יש משהו לתקן, תגיד לי בכל שלב."),
+                            ("אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת.", "ממשיכה מכאן - אם יש משהו לתקן, תגידו לי בכל שלב."),
+                        ):
+                            if _approval_phrase in str(reply or ""):
+                                reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
+                                break
 
         if planning_accept:
             # Approval closes only the itinerary session. Name whichever of the
