@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
@@ -388,7 +389,19 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
     system_blocks = [{"type": "text", "text": system_static, "cache_control": {"type": "ephemeral"}}]
     if system_dynamic:
         system_blocks.append({"type": "text", "text": system_dynamic})
+    # Seen live (Shaked, 2026-10-12): a direct concurrency test proved the
+    # web server itself handles true parallel requests fine (/health), yet
+    # Claude calls from different threads never overlap in ai_usage's own
+    # timestamps - strictly serialized, several seconds apart, with zero
+    # exceptions recorded. Timing the actual network call here (not the
+    # whole function) and recording thread_id/call_started_at/duration lets
+    # that be checked directly from /admin/ai-usage.csv: if two threads'
+    # call windows genuinely never overlap, the bottleneck is provably
+    # before this line (queued waiting for something), not the API call
+    # itself or anything after it.
+    thread_id = threading.get_ident()
     for attempt in range(2):
+        call_started = time.time()
         try:
             response = client.messages.create(
                 model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
@@ -410,9 +423,17 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
                 logging.warning("Claude API %s on %s (attempt 1/2) - retrying once after 2s", exc.status_code, source)
                 time.sleep(2)
                 continue
-            record_ai_usage(source, model, usage=None, error=exc.status_code)
+            record_ai_usage(
+                source, model, usage=None, error=exc.status_code,
+                thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
+                call_duration_ms=int((time.time() - call_started) * 1000),
+            )
             raise RuntimeError(f'Claude API error {exc.status_code}') from exc
-    record_ai_usage(source, model, usage=response.usage)
+    record_ai_usage(
+        source, model, usage=response.usage,
+        thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
+        call_duration_ms=int((time.time() - call_started) * 1000),
+    )
     return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
 
