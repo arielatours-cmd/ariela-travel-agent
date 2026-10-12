@@ -158,7 +158,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) הוא חובה מוחלטת וללא יוצא מן הכלל, בכל הרכב שירותים שהוא (טיסה בלבד, טיסה+מסלול, כל ארבעת השירותים, וכו') - לעולם אל תסיימי את השיחה בלי אותו סיכום ובלי בקשת אישור, ולעולם אל תציגי רק חלק מהשירותים שאושרו (למשל רק פרטי הטיסה) כש-session_status מראה ששירותים נוספים גם הם complete. מבנה הסיכום, שורה אחר שורה:
   - פתיחה ישירה וענייינית (שם היעד, לא משפט טכני על התהליך - ראו הכלל הבא).
   - טיסה: שלוש שורות שדה תעופה קבועות - יציאה מישראל, נחיתה ביעד, המראה בחזרה - תמיד שלושתן, בלי שורת "יעד" כללית נפרדת. המדינה/האי כתובים בתוך שורות הנחיתה/המראה עצמן, ולפי מדינת השדה עצמו (לא בהכרח מדינת היעד הכללי - למשל גישה לקוטור דרך דוברובניק שבקרואטיה, או לסקי באלפים הצרפתיים דרך ג'נבה שבשווייץ: המדינה בשורה היא מדינת השדה):
-    - "יציאה: <שם השדה> (<קוד>)" - שדה היציאה מישראל (נתב"ג כברירת מחדל, או חיפה אם נבחר במפורש) - מועתק בדיוק מהעובדה המאומתת "שדה היציאה" שתימסר לך למטה. לעולם אל תשמיטי את השורה הזו מהסיכום.
+    - "יציאה: <שם השדה> (<קוד>)" - שדה היציאה מישראל (נתב"ג כברירת מחדל, או חיפה אם נבחר במפורש) - מועתק בדיוק מהעובדה המאומתת "שדה היציאה" שתימסר לך למטה. לעולם אל תשמיטי את השורה הזו מהסיכום, ולעולם אל תכתבי אותה כשורה חשופה בלי התווית - היא חייבת להתחיל תמיד במילה "יציאה:" בדיוק כמו "נחיתה:" ו"המראה בחזרה:", לא רק שם השדה בסוגריים.
     - "נחיתה: <שם השדה> (<קוד>), <מדינה>" - למשל "נחיתה: חאניה (CHQ), כרתים, יוון". שם השדה והמדינה חייבים להיות מועתקים בדיוק מהעובדה המאומתת שתימסר לך למטה (שדה/שדות הנחיתה והמראה - מקור אמת) - לעולם אל תמציאי תעתיק עברי משלך לשם עיר/שדה, גם אם הוא נראה לך נכון; תעתיק עצמאי הוא בדיוק סוג הטעות שגרמה בעבר לכתיבת שם עיר שגוי.
     - "המראה בחזרה: <שם השדה> (<קוד>), <מדינה>" - תמיד מופיעה, גם כששדה החזרה זהה לשדה הנחיתה (אז פשוט אותו שדה בשתי השורות, למשל רומא: "נחיתה: רומא פיומיצ'ינו (FCO), איטליה" / "המראה בחזרה: רומא פיומיצ'ינו (FCO), איטליה"). שונה בפועל רק כשreturn_departure_airports שונה מdestination_airports - כלומר נוחתים בשדה אחד וחוזרים משדה אחר (לדוגמה נחיתה בחאניה וחזרה מהרקליון), כולל כשחוזרים ממדינה אחרת לגמרי (נחיתה בסלובניה, חזרה מקרואטיה). זו עובדה פנימית בלבד - לעולם אל תשתמשי במונחי תעופה באנגלית כמו "open-jaw" מול הלקוח; תארו זאת בעברית פשוטה ("נוחתים ב-X וחוזרים מ-Y").
     - עיר/יעד עם כמה שדות אפשריים שהלקוח טרם בחר ביניהם: אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") אם מחפשים בכולם יחד (ואז "(כל השדות)" כש"אין העדפה" נאמר במפורש, למשל "לונדון (כל השדות), אנגליה"), או שאלו לפני הסיכום - לעולם אל תגיעי לסיכום כשdestination_airports עדיין ריק/לא מוכרע (למשל יעד כללי כמו "יוון" או "איים ביוון" בלי שדה שנגזר ממסלול או נבחר על ידי הלקוח).
@@ -2234,6 +2234,18 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - כשהחופשה הפעילה היא עסקים או סקי ואת שואלת אם הלקוח מתכוון לחופשה חדשה לגמרי או להמשיך את זו הקיימת, לעולם אל תציעי "להוסיף גם תכנון מסלול" כאפשרות להמשך אותה חופשה - זה לא רלוונטי לעסקים/סקי (ראי כלל למעלה) גם בתוך שאלת ההבהרה הזו. הצעת ההמשך היחידה הרלוונטית שם היא לינה או רכב.
 - דברי כשיחה טבעית ולא כטופס. השתמשי בפרטים שכבר ידועים, הגיבי למה שהלקוח אמר ורק אז שאלי את השאלה הבאה הנחוצה.
 """ + route_handoff
+    if state.get("_force_final_summary_now"):
+        # Retry hook for the opposite of the premature-מאשרת safety net below:
+        # every one of the four domains is genuinely complete/declined right
+        # now, yet the first attempt at this exact reply asked an open
+        # lodging/car/route question (or nothing at all) instead of the
+        # mandatory final summary - seen live (Shaked): flights just became
+        # complete with lodging/car/trip_planning already all declined, and
+        # Tinkerbell asked "want lodging too, or just the flight?" instead of
+        # closing out, with no summary or מאשר/מאשרת at all afterward.
+        continuity += """
+- זהו בדיוק הרגע: כל ארבעת הסשנים (טיסות, לינה, רכב, מסלול) כבר complete או declined - אין שום שאלה פתוחה נוספת לשאול. אסור בשום אופן לשאול שוב על לינה/רכב/מסלול (הם כבר נדחו או הושלמו). חובה להציג עכשיו, במלואו, את הסיכום הסופי בדיוק לפי כללי הסיכום הסופי המפורטים למטה, ולסיים בבקשת מאשר/מאשרת.
+"""
     if state.get("_stale_reset_just_happened"):
         # Per Shaked's live testing: the customer sees the whole old chat
         # on screen and Ariella just asked everything from scratch with no
@@ -2473,6 +2485,59 @@ def _clear_stale_gateway_airports(state):
             new_state[field] = []
             changed = True
     return new_state if changed else state
+
+
+def _guard_unjustified_gateway_narrowing(state, message, history):
+    """A multi-gateway city (London, New York, Paris, Tokyo, Istanbul - see
+    config.MULTI_GATEWAY_CITIES) must never end up narrowed to one specific
+    airport unless the customer actually named it - the system prompt's own
+    "never decide among multiple candidates for the customer" rule, but
+    nothing stopped the extractor itself from silently picking one on its
+    own for a plain destination mention (no route/ski context to anchor it,
+    unlike _resolve_destination_airports_from_route/_resolve_ski_destination_
+    airports, which only ever narrow deliberately). Seen live: a London
+    business trip ended up with destination_airports=['LGW'] with no
+    question ever asked, even though London has 4 real candidate airports."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("gateway_narrow_declined"):
+        return state  # already resolved through the real narrow-after-route flow
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip() for p in (destination.get("places") or []) if str(p).strip()]
+    if not places:
+        return state
+    codes = state.get("destination_airports")
+    if not isinstance(codes, list) or len(codes) != 1:
+        return state
+    options = None
+    for place in places:
+        for city, opts in MULTI_GATEWAY_CITIES.items():
+            if city in place or place in city:
+                options = opts
+                break
+        if options:
+            break
+    if not options:
+        return state
+    option_codes = sorted({str(o.get("code") or "").upper() for o in options if o.get("code")})
+    if codes[0].strip().upper() not in option_codes:
+        return state  # not one of this city's known gateways - leave it (e.g. route-derived)
+    texts = [str(message or "")]
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            texts.append(str(item.get("content") or ""))
+    blob = " ".join(texts).lower()
+    chosen = next((o for o in options if str(o.get("code") or "").upper() == codes[0].strip().upper()), None)
+    name_he = str((chosen or {}).get("name_he") or "")
+    # The last word is the airport's own distinctive name ("גטוויק",
+    # "הית'רו", "סטנסטד") - the generic leading "נמל התעופה" prefix shared
+    # by every airport's name_he must never itself count as a confirmation.
+    name_words = name_he.split()
+    names = [name_he, codes[0].strip()] + ([name_words[-1]] if name_words else [])
+    if any(name and len(name) >= 3 and name.lower() in blob for name in names):
+        return state  # the customer really did name this specific airport
+    state = dict(state)
+    state["destination_airports"] = option_codes
+    return state
 
 
 def _deterministic_destination_facts(history, message, state=None):
@@ -3872,6 +3937,17 @@ def _deterministic_traveler_facts(message, existing=None):
         m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:הורים|מבוגרים|נוסעים)", msg)
         if m:
             facts["adults"] = _HEBREW_NUMBER_WORDS[m.group(1)]
+    # A solo traveler ("אני לבד", "נוסעת לבד", "רק אני", "אדם אחד", "נוסע
+    # אחד") is exactly one adult - seen live twice: Ariella asked "how many
+    # travelers, who's an adult and who's a child?" right after the customer
+    # already said "אני לבד", and separately asked "traveling alone, right?"
+    # just to confirm it instead of treating it as already answered.
+    if "adults" not in facts and re.search(
+        r"(?<![א-ת])לבד(?![א-ת])|(?<![א-ת])רק\s+אני(?![א-ת])|(?<![א-ת])אדם\s+אחד(?![א-ת])"
+        r"|(?<![א-ת])נוסע\s+אחד(?![א-ת])|(?<![א-ת])נוסעת\s+אחת(?![א-ת])",
+        msg,
+    ):
+        facts["adults"] = 1
     return {"travelers": facts} if facts else {}
 
 
@@ -5265,6 +5341,7 @@ def chat_clean():
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _clear_stale_gateway_airports(trip_update)
+        trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
         trip_update = _roll_past_dates(trip_update, message, history)
         trip_update = _split_car_transmission(trip_update)
@@ -5842,6 +5919,28 @@ def chat_clean():
                             if _approval_phrase in str(reply or ""):
                                 reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
                                 break
+
+        # Opposite failure of the premature-מאשרת block above: every one of
+        # the four domains is genuinely complete/declined right now (the one
+        # real final-summary moment), yet the reply just produced is neither
+        # the mandatory summary/approval request nor the route-approval
+        # farewell - it asked an open lodging/car/route question instead, or
+        # some other aside, leaving the conversation with no summary at all.
+        # Seen live (Shaked): Haifa->Bangkok, flights had just become complete
+        # with lodging/car/trip_planning already all declined, and the reply
+        # was "want lodging too, or just the flight this time?" with nothing
+        # resembling a summary before or after it. Re-ask once with an extra
+        # explicit instruction rather than silently leaving the customer with
+        # no path to the approval they're actually waiting for.
+        if _all_domains_decided_now and not any(
+            p in str(reply or "") for p in ("מאשר", "חופשה נעימה")
+        ):
+            try:
+                forced_state = dict(trip_update)
+                forced_state["_force_final_summary_now"] = True
+                reply = _call_tinkerbell(key, model, history, message, forced_state)
+            except Exception as exc:
+                logging.exception("Tinkerbell reply failed on missing-final-summary retry: %s", exc)
 
         if planning_accept:
             # Approval closes only the itinerary session. Name whichever of the
