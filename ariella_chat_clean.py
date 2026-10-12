@@ -156,15 +156,17 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
 - הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) הוא חובה מוחלטת וללא יוצא מן הכלל, בכל הרכב שירותים שהוא (טיסה בלבד, טיסה+מסלול, כל ארבעת השירותים, וכו') - לעולם אל תסיימי את השיחה בלי אותו סיכום ובלי בקשת אישור, ולעולם אל תציגי רק חלק מהשירותים שאושרו (למשל רק פרטי הטיסה) כש-session_status מראה ששירותים נוספים גם הם complete. מבנה הסיכום, שורה אחר שורה:
   - פתיחה ישירה וענייינית (שם היעד, לא משפט טכני על התהליך - ראו הכלל הבא).
-  - טיסה (אם לא declined): שתי שורות שדה תעופה נפרדות, בלי שורת "יעד" כללית נפרדת - המדינה/האי/העיר (לפי מה שהלקוח ביקש) כתובים בתוך כל שורה עצמה:
-    - "נחיתה: <שם השדה> (<קוד>), <מדינה/יעד>" - למשל "נחיתה: חאניה (CHQ), כרתים, יוון".
-    - "המראה בחזרה: <שם השדה> (<קוד>), <מדינה/יעד>" - רק אם return_departure_airports שונה בפועל מ-destination_airports (מסלול open-jaw, כולל כשחוזרים ממדינה אחרת לגמרי - למשל נחיתה בסלובניה וחזרה מקרואטיה); כששדה החזרה זהה לשדה הנחיתה, לא כותבים שורה שנייה כלל.
-    - אם עדיין יש יותר משדה תעופה אחד אפשרי לנחיתה ולא הוחלט (destination_airports מכיל כמה קודים, או שלא הוחלט כלל), אסור להחליט במקום הלקוח - כתבו בשורת הנחיתה את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") או שאלו לפני הסיכום.
-    בנוסף: תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע, ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, תמיד בש"ח/₪, לעולם לא "ILS").
+  - טיסה: שתי שורות שדה תעופה קבועות, תמיד שתיהן (גם כששני השדות זהים), בלי שורת "יעד" כללית נפרדת - המדינה/האי כתובים בתוך כל שורה עצמה, ולפי מדינת השדה עצמו (לא בהכרח מדינת היעד הכללי - למשל גישה לקוטור דרך דוברובניק שבקרואטיה, או לסקי באלפים הצרפתיים דרך ג'נבה שבשווייץ: המדינה בשורה היא מדינת השדה):
+    - "נחיתה: <שם השדה> (<קוד>), <מדינה>" - למשל "נחיתה: חאניה (CHQ), כרתים, יוון".
+    - "המראה בחזרה: <שם השדה> (<קוד>), <מדינה>" - תמיד מופיעה, גם כששדה החזרה זהה לשדה הנחיתה (אז פשוט אותו שדה בשתי השורות, למשל רומא: "נחיתה: רומא פיומיצ'ינו (FCO), איטליה" / "המראה בחזרה: רומא פיומיצ'ינו (FCO), איטליה"). שונה בפועל רק כשreturn_departure_airports שונה מdestination_airports - מסלול open-jaw, כולל כשחוזרים ממדינה אחרת לגמרי (נחיתה בסלובניה, חזרה מקרואטיה).
+    - עיר/יעד עם כמה שדות אפשריים שהלקוח טרם בחר ביניהם: אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") אם מחפשים בכולם יחד (ואז "(כל השדות)" כש"אין העדפה" נאמר במפורש, למשל "לונדון (כל השדות), אנגליה"), או שאלו לפני הסיכום - לעולם אל תגיעי לסיכום כשdestination_airports עדיין ריק/לא מוכרע (למשל יעד כללי כמו "יוון" או "איים ביוון" בלי שדה שנגזר ממסלול או נבחר על ידי הלקוח).
+    - אם היעד דורש גם טיסת פנים נוספת מעבר לנחיתה/המראה הבין-לאומיים (למשל נחיתה בבנגקוק והיעד בפועל הוא קרבי) וזו לא כלולה בחיפוש, ציינו זאת במפורש בסיכום (למשל "שימו לב: הטיסה הפנימית לקרבי אינה כלולה בחיפוש הזה").
+    - אם הלקוח כבר הזמין את הטיסות בעצמו (flights declined מהסיבה הזו): כתבו בכל זאת שורה "טיסות: כבר בידיכם" עם השדות שהלקוח מסר אם ידועים - זה חריג יחיד לכלל "שירות שנדחה לא מופיע בסיכום" (ראו למטה), כי יש כאן מידע רלוונטי לציין, לא שירות שפשוט לא התבקש.
+    בנוסף (רק כשטיסה בכלל מבוקשת ולא כבר הוזמנה עצמאית): תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע, ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, תמיד בש"ח/₪, לעולם לא "ILS").
   - מסלול/אטרקציות (אם לא declined): תקציר קצר של המבנה שאושר (לא כל הפרטים מחדש).
   - לינה (אם לא declined): אזור/ים, מספר לילות, סוג לינה, רמה, מספר חדרים, תקציב.
   - רכב (אם לא declined): סוג רכב, מיקום ומועד איסוף והחזרה.
-  - שירות שסומן declined **אינו מופיע כלל** - לא גם כשורה קצרה ("רכב: לא נדרש") ולא בשום ניסוח אחר (ראו הכלל למעלה). אם יש לפחות שירות אחד כזה, סיימי לפני שורת האישור במשפט תזכורת קצר אחד וכללי (לא רשימת השירותים הספציפיים) שאפשר תמיד לחזור ולהוסיף גם את מה שלא נדרש הפעם.
+  - שירות שסומן declined **אינו מופיע כלל** - לא גם כשורה קצרה ("רכב: לא נדרש") ולא בשום ניסוח אחר (ראו הכלל למעלה). החריג היחיד: טיסות שכבר הוזמנו עצמאית (ראו שורת "טיסות: כבר בידיכם" למעלה) - זה מידע רלוונטי שכן מוצג, למרות ש-flights מסומן declined. אם יש לפחות שירות אחר כזה שנדחה סתם, סיימי לפני שורת האישור במשפט תזכורת קצר אחד וכללי (לא רשימת השירותים הספציפיים) שאפשר תמיד לחזור ולהוסיף גם את מה שלא נדרש הפעם.
   - שורת האישור: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר - רק המילים מאשר/מאשרת מאשרות ביצוע. אין להוסיף שום הסבר/שאלה פתוחה נוספת אחרי שורת האישור.
 - פתיחת הסיכום היא ישירה ועניינית בלבד. לעולם אל תפתחי בניסוח טכני/מסורבל כמו "עדיין לא יצאתי לחיפוש בפועל - הנה הסיכום, ורק לאחר אישור במילה המדויקת אני יוצאת לדרך" - זה נשמע כמו תיעוד מערכת, לא שיחה. הכלל "אל תטעני שכבר חיפשת" כבר מובטח על ידי כך שמעולם לא מוזכרת פעולת חיפוש שלא קרתה - אין צורך להסביר זאת שוב בפתיח.
 - כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם; אם הוא כן ידוע, חובה לציין אותו בסיכום במפורש (לא רק לשאול עליו לפני כן). אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום את השדה/שדות שבאמת נבחרו/מחפשים בהם בפועל (לא רק שם היעד הכללי), לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
@@ -986,18 +988,18 @@ def _resolve_destination_airports_from_route_names(airports, names):
     entirely around Larnaca still left destination_airports at both Larnaca
     and Paphos, so the post-route-approval gateway-narrow question
     (flight.gateway_narrow) fired and re-asked something the route itself
-    had already settled."""
+    had already settled.
+
+    The city-level pass uses _match_city_exact (never substring containment)
+    - the same class of bug _deterministic_open_jaw_airports had (a short
+    city name silently matching as a fragment inside a longer, unrelated
+    one) is just as dangerous here: a wrong gateway derived from the route
+    would scan flights to the wrong city/country entirely."""
     city_codes = []
     for name in names:
-        needle = str(name).strip().lower()
-        if not needle:
-            continue
-        for airport in airports:
-            city_hay = " ".join(str(airport.get(k) or "") for k in ("city_he", "city_en")).lower()
-            if city_hay and (needle in city_hay or city_hay in needle):
-                code = str(airport.get("code") or "").upper()
-                if code and code not in city_codes:
-                    city_codes.append(code)
+        code = _match_city_exact(name, airports)
+        if code and code not in city_codes:
+            city_codes.append(code)
     if city_codes:
         return city_codes
     codes = []
@@ -3391,6 +3393,46 @@ def _deterministic_airport_indifference(message, history, state):
     return {"destination_airports": codes}
 
 
+# Short/alternate Hebrew spellings whose airport-catalog entry uses a
+# different (usually fuller) spelling - seen live: "חניה" (the common short
+# spelling of Chania) was never recognized, only the catalog's "חאניה" was.
+_CITY_NAME_ALIASES = {
+    "חניה": "חאניה",
+}
+
+
+def _normalize_place_name(name):
+    """Strip whitespace/hyphens/quote marks so trivial formatting
+    differences ("תל-אביב" vs "תל אביב") don't block a match, without
+    resorting to substring containment (see _match_city_exact)."""
+    import re
+    return re.sub(r"[\s\-'׳״\"]", "", str(name or "").strip().lower())
+
+
+def _match_city_exact(name, airports):
+    """Exact-match (never substring-contains) a captured city name against
+    the airport catalog. Seen live (Shaked): "הרקליון" (Heraklion) silently
+    matched Lyon's airport because "ליון" (Lyon) is a bare substring of
+    "הרקליון" one letter in - a dangerous false match (the return flight
+    would have searched Lyon, France instead of Heraklion, Crete). A short
+    name should never match merely by appearing somewhere inside a longer,
+    different city's name. Alternate spellings are handled through the
+    explicit alias table above instead of loosening the match itself."""
+    needle = _normalize_place_name(name)
+    if not needle:
+        return None
+    candidates = {needle}
+    alias = _CITY_NAME_ALIASES.get(needle)
+    if alias:
+        candidates.add(_normalize_place_name(alias))
+    for airport in airports:
+        for key in ("city_he", "city_en"):
+            hay = _normalize_place_name(airport.get(key))
+            if hay and hay in candidates:
+                return str(airport.get("code") or "").upper()
+    return None
+
+
 def _deterministic_open_jaw_airports(message):
     """Capture an explicit open-jaw answer ("לנחות בפאפוס ולחזור מלרנקה")
     deterministically instead of trusting the extractor to split it into
@@ -3412,25 +3454,18 @@ def _deterministic_open_jaw_airports(message):
     # Every airport this needs to resolve today has a single-word Hebrew
     # city name, so this trades rare multi-word names for correctness on
     # the common case instead of guessing where to stop.
-    arrival_match = re.search(r"לנחות\s+ב([א-ת]+)", msg)
-    return_match = re.search(r"לחזור\s+מ([א-ת]+)", msg)
+    # Seen live (Shaked, Crete scenario): only the literal "לנחות ב"/"לחזור
+    # מ" phrasing was recognized - natural variants like "נוחתים ב... וחוזרים
+    # מ..." or "מתחילים ב... וחוזרים מ..." matched neither cue at all, so the
+    # open-jaw request was silently dropped even though the customer stated
+    # it clearly.
+    arrival_match = re.search(r"(?:לנחות|נוחתים|נוחת|ננחת|נחיתה|מתחילים)\s+ב([א-ת]+)", msg)
+    return_match = re.search(r"(?:לחזור|חוזרים|חוזר|המראה)\s+מ([א-ת]+)", msg)
     if not arrival_match or not return_match:
         return {}
     airports = _load_airports()
-
-    def find_code(name):
-        needle = str(name or "").strip().lower()
-        if not needle:
-            return None
-        for airport in airports:
-            for key in ("city_he", "city_en"):
-                hay = str(airport.get(key) or "").strip().lower()
-                if hay and (needle in hay or hay in needle):
-                    return str(airport.get("code") or "").upper()
-        return None
-
-    arrival_code = find_code(arrival_match.group(1))
-    return_code = find_code(return_match.group(1))
+    arrival_code = _match_city_exact(arrival_match.group(1), airports)
+    return_code = _match_city_exact(return_match.group(1), airports)
     if not arrival_code or not return_code or arrival_code == return_code:
         return {}
     return {
