@@ -80,9 +80,9 @@
     {"id": "travelers-friends-word", "fn": "_deterministic_traveler_facts", "args": ["ארבעה חברים"], "expect": {"travelers": {"adults": 4}}, "source": "live-chat-2026-10-12-shaked-s61"},
     {"id": "travelers-people-count", "fn": "_deterministic_traveler_facts", "args": ["5 אנשים"], "expect": {"travelers": {"adults": 5}}, "source": "guard"},
     {"id": "travelers-single-adult-digit", "fn": "_deterministic_traveler_facts", "args": ["1 מבוגר"], "expect": {"travelers": {"adults": 1}}, "source": "live-chat-2026-10-12-shaked-s58"},
+    {"id": "dest-ski-val-thorens-tet", "fn": "_deterministic_destination_facts", "args": [[], "חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב", {}], "expect": {"destination": {"places": ["ואל תורנס"]}}, "source": "live-chat-2026-10-12-shaked-s65"},
+    {"id": "budget-total-no-per-person", "fn": "_deterministic_budget_facts", "args": ["מזוודה בבטן המטוס, ישירה, עד 5000 שקל"], "expect": {"budget_per_person": {"amount": 5000, "currency": "ILS"}}, "source": "live-chat-2026-10-12-shaked-s64"},
     {"id": "travelers-hebrew-number-words-family", "fn": "_deterministic_traveler_facts", "args": ["שלושה מבוגרים ושני ילדים"], "expect": {"travelers": {"adults": 3, "children": 2}}, "source": "live-chat-2026-10-12-s8"},
-    {"id": "flights-already-booked-kvar-hizmanu-tisot", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect_truthy": true, "source": "live-chat-2026-10-12-s51"},
-    {"id": "dest-ski-val-thorens-tet", "fn": "_deterministic_destination_facts", "args": [[], "חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב"], "expect_truthy": true, "source": "live-chat-2026-10-12-s65"},
-    {"id": "budget-total-no-per-person", "fn": "_deterministic_budget_facts", "args": ["מזוודה בבטן המטוס, ישירה, עד 5000 שקל"], "expect_truthy": true, "source": "live-chat-2026-10-12-s64"}
+    {"id": "flights-already-booked-kvar-hizmanu-tisot", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect_truthy": true, "source": "live-chat-2026-10-12-s51"}
   ]
 }

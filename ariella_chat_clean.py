@@ -2431,6 +2431,9 @@ _KNOWN_DESTINATION_NAMES_CACHE = None
 # a spelling-variant map, not a full destination list, so it stays small.
 _DESTINATION_SPELLING_ALIASES = {
     "ויאטנם": "וייטנאם",
+    "ואל טורנס": "ואל תורנס",
+    "וואל טורנס": "ואל תורנס",
+    "וואל תורנס": "ואל תורנס",
 }
 
 
@@ -2459,6 +2462,19 @@ def _known_destination_names():
                 known[he] = he
             if en:
                 known[en.lower()] = en
+    # Ski resorts aren't in the airport catalog at all (they're matched
+    # separately in _resolve_ski_destination_airports against SKI_RESORTS),
+    # so a resort name alone never counted as a "known destination" here -
+    # seen live (Shaked, Val Thorens): destination.places stayed empty for
+    # the entire conversation, which in turn left destination_airports
+    # unresolved too.
+    for resort in SKI_RESORTS:
+        he = str(resort.get("resort_he") or "").strip()
+        en = str(resort.get("resort") or "").strip()
+        if he:
+            known[he] = he
+        if en:
+            known[en.lower()] = en
     for alias, canonical in _DESTINATION_SPELLING_ALIASES.items():
         known[alias] = canonical
     # Longer names first so "דרום אפריקה" matches before a shorter,
@@ -3003,8 +3019,14 @@ def _deterministic_budget_facts(message):
     # gershayim, "1000 שקלים בערך לאדם" has an extra word) - same lazy
     # "any non-digit text within a short window" approach as the תקציב
     # pattern above, not a fixed phrase list.
+    # A bare "עד <number> שקל/ש״ח/₪" - no "תקציב" word, no "לאדם" qualifier -
+    # is still an unambiguous budget cap in a travel conversation. Seen live
+    # (Shaked, New York): "עד 5000 שקל" embedded in a mixed message (baggage,
+    # direct flight, budget all in one) matched neither existing pattern, so
+    # the budget was lost and Ariella asked for it again from scratch.
     m = re.search(r"תקציב[^\d]{0,20}?(\d{2,6})", msg) \
-        or re.search(r"(\d{2,6})[^\d]{0,15}?ל(?:כל\s+)?(?:אדם|כרטיס|נוסע|אחד)", msg)
+        or re.search(r"(\d{2,6})[^\d]{0,15}?ל(?:כל\s+)?(?:אדם|כרטיס|נוסע|אחד)", msg) \
+        or re.search(r"עד\s*(\d{2,6})\s*(?:ש\"?ח|שקל|שקלים|₪)", msg)
     if m:
         amount = int(m.group(1))
         currency = "USD" if re.search(r"דולר|\$", msg) else "EUR" if re.search(r"יורו|€", msg) else "ILS"
