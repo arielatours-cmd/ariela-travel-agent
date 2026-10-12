@@ -3,7 +3,7 @@ import os
 import sqlite3
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect, Response
 
@@ -41,10 +41,20 @@ from mailer import mail_check
 from whatsapp import (
     WhatsAppConfigurationError, WhatsAppSendError,
     send_text_message, whatsapp_status, whatsapp_subscription_check,
+    whatsapp_register_number, whatsapp_request_code, whatsapp_verify_code,
 )
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
+
+# Task 008a: APP_VERSION is a manually-edited constant that's easy to forget
+# to bump, so /health can silently keep reporting a stale version after a
+# real deploy. RENDER_GIT_COMMIT is set automatically by Render on every
+# deploy (empty/unset in local dev) - computed once at process startup so a
+# restart (not just a new deploy) also shows up here.
+_DEPLOYED_COMMIT = (os.getenv("RENDER_GIT_COMMIT") or "").strip()[:7] or None
+_STARTED_AT = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
 app.register_blueprint(site)
 app.register_blueprint(whatsapp_coexistence)
 app.register_blueprint(ariella_chat_v2)
@@ -151,6 +161,7 @@ def health():
         db_error = str(exc)
     return jsonify({
         "status": "ok" if db_ok else "degraded", "version": APP_VERSION,
+        "commit": _DEPLOYED_COMMIT, "deployed_at": _STARTED_AT,
         "serpapi_configured": bool(os.getenv("SERPAPI_API_KEY")),
         "scheduler_enabled": SCHEDULER_ENABLED, "database_ok": db_ok,
         "database_error": db_error, "database_path": str(DB_PATH),
@@ -362,6 +373,42 @@ def admin_whatsapp_subscription():
     if denied: return denied
     apply = request.args.get("apply", "0") == "1"
     result = whatsapp_subscription_check(apply=apply)
+    return jsonify({"status": "success", **result})
+
+
+@app.get("/admin/whatsapp-number/request-code")
+def admin_whatsapp_number_request_code():
+    """Task 006c step 1: sends a verification SMS/voice code to the number -
+    only with ?confirm=1 (otherwise just explains what would happen, since
+    the business owner operates this from her phone)."""
+    denied = _require_admin()
+    if denied: return denied
+    method = request.args.get("method", "SMS")
+    confirm = request.args.get("confirm", "0") == "1"
+    result = whatsapp_request_code(method=method, confirm=confirm)
+    return jsonify({"status": "success", **result})
+
+
+@app.get("/admin/whatsapp-number/verify-code")
+def admin_whatsapp_number_verify_code():
+    """Task 006c step 2: verifies the code Meta sent in step 1."""
+    denied = _require_admin()
+    if denied: return denied
+    code = request.args.get("code", "")
+    confirm = request.args.get("confirm", "0") == "1"
+    result = whatsapp_verify_code(code, confirm=confirm)
+    return jsonify({"status": "success", **result})
+
+
+@app.get("/admin/whatsapp-number/register")
+def admin_whatsapp_number_register():
+    """Task 006c step 3: registers the verified number directly on the Cloud
+    API using WHATSAPP_REGISTRATION_PIN. Never returns the PIN or the
+    access token."""
+    denied = _require_admin()
+    if denied: return denied
+    confirm = request.args.get("confirm", "0") == "1"
+    result = whatsapp_register_number(confirm=confirm)
     return jsonify({"status": "success", **result})
 
 
