@@ -2895,34 +2895,71 @@ def _deterministic_named_decline_facts(message):
     if not msg:
         return {}
     clauses = [c.strip() for c in re.split(r"[.!?]+", msg) if c.strip()] or [msg]
-    need_word = r"(?:צריך|צריכה|רוצה|רוצים)"
+    need_word = r"(?:צריך|צריכה|צריכים|רוצה|רוצים)"
     qualifier = r"(?:\s+(?:כרגע|עכשיו))?"
-    patterns = {
-        "car": (
-            rf"^רכב\s+לא\s+נדרש{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+רכב{qualifier}\.?!?$",
-            r"^בלי\s+רכב\.?!?$",
-        ),
-        "lodging": (
-            rf"^לינה\s+לא\s+נדרש[הת]?{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+לינה{qualifier}\.?!?$",
-            r"^בלי\s+לינה\.?!?$",
-        ),
-        "trip_planning": (
-            rf"^מסלול\s+לא\s+נדרש{qualifier}\.?!?$",
-            rf"^לא\s+{need_word}\s+מסלול{qualifier}\.?!?$",
-        ),
+    service_words = {
+        "car": r"רכב",
+        "lodging": r"(?:מלון|לינה|דירה|וילה|צימר|אכסניה)",
+        "trip_planning": r"מסלול",
     }
+    service_alt = "|".join(f"(?:{p})" for p in service_words.values())
+    coord_list = r"(?:" + service_alt + r")(?:\s*(?:,|ו)\s*(?:" + service_alt + r"))*"
+
+    def _service_for(word):
+        for svc, pat in service_words.items():
+            if re.fullmatch(pat, word):
+                return svc
+        return None
+
+    # Seen live, second QA round: a customer naming TWO declines together in
+    # one clause ("לינה ורכב לא צריך, יש לנו איפה לישון", "בלי מלון ובלי
+    # רכב, ולא צריך מסלול") got neither service declined - the patterns
+    # below originally matched only ONE fixed service name per fixed
+    # phrase, anchored to the whole clause (^...$), so a coordinated list
+    # ("X ו-Y") or a second negated service further in the same clause was
+    # invisible. Also "רכב לא צריך" (negation word "צריך", not "נדרש",
+    # directly after the service) matched no pattern at all. Rebuilt to
+    # scan each clause for every declined service independently, returning
+    # all of them at once instead of stopping at the first clause/service
+    # that matches.
+    declined = {}
     for clause in clauses:
-        if len(clause) > 40:
+        if len(clause) > 120:
             continue
-        for service, service_patterns in patterns.items():
-            if any(re.match(p, clause) for p in service_patterns):
-                return {
-                    "service_decisions": {service: {"wanted": False, "source": "explicit_named_decline"}},
-                    "session_status": {service: "declined"},
-                }
-    return {}
+        # "בלי X" / "ללא X" - every occurrence in the clause, each names one
+        # service ("בלי מלון ובלי רכב").
+        for m in re.finditer(r"(?:בלי|ללא)\s+(" + service_alt + r")", clause):
+            svc = _service_for(m.group(1))
+            if svc:
+                declined[svc] = True
+        # A coordinated list of services directly followed by a shared
+        # trailing negation ("לינה ורכב לא צריך", "רכב לא נדרש").
+        m = re.search(
+            r"(" + coord_list + r")\s*,?\s*(?:לא\s+" + need_word + r"|לא\s+נדרש[ה]?|אינ[ם]?\s+נדרש[ה]?)" + qualifier,
+            clause,
+        )
+        if m:
+            for word in re.findall(service_alt, m.group(1)):
+                svc = _service_for(word)
+                if svc:
+                    declined[svc] = True
+        # A negation stated BEFORE a coordinated list ("לא צריך מסלול",
+        # "ולא צריכים רכב ומלון").
+        m2 = re.search(
+            r"לא\s+" + need_word + r"\s+(" + coord_list + r")" + qualifier,
+            clause,
+        )
+        if m2:
+            for word in re.findall(service_alt, m2.group(1)):
+                svc = _service_for(word)
+                if svc:
+                    declined[svc] = True
+    if not declined:
+        return {}
+    return {
+        "service_decisions": {s: {"wanted": False, "source": "explicit_named_decline"} for s in declined},
+        "session_status": {s: "declined" for s in declined},
+    }
 
 
 def _deterministic_named_accept_facts(message):
@@ -2957,7 +2994,18 @@ def _deterministic_named_accept_facts(message):
     # registered as an explicit accept and "תרצי שאמשיך גם עם לינה?" still
     # showed up later even though the customer had already said so upfront.
     want_framing = r"גם|רוצה|רוצים|נרצה|נשמח|צריך|צריכה|צריכים|בבקשה"
+    # Regression seen live right after the fix above shipped: that same
+    # "צריך"/"צריכה" substring also matches inside its own NEGATION ("לא
+    # צריך", "לא צריכה") - "לינה ורכב לא צריך" and "בלי מלון ובלי רכב, ולא
+    # צריך מסלול" both got read as a REQUEST for those services instead of
+    # a decline of them. A clause containing any negation-of-need cue is
+    # never an accept signal - _deterministic_named_decline_facts handles
+    # declines (including these exact coordinated/multi-service shapes)
+    # separately.
+    negation_cue = r"לא\s+(?:צריך|צריכה|צריכים|רוצה|רוצים)|בלי|ללא|אין\s+צורך"
     for clause in clauses:
+        if re.search(negation_cue, clause):
+            continue
         matched = [s for s, pat in service_patterns.items() if re.search(pat, clause)]
         if len(matched) < 2 or not re.search(want_framing, clause):
             continue
