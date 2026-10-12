@@ -97,6 +97,46 @@ def check_routes() -> tuple[list[str], int]:
     return failures, len(urls)
 
 
+def check_password_reset() -> list[str]:
+    """End-to-end forgot/reset flow (GET-only route checks miss POST paths and missing tables)."""
+    import re
+    import sqlite3
+    from werkzeug.security import check_password_hash
+    import app as app_module
+    app = app_module.app
+    failures = []
+    old_debug = app.config.get("DEBUG")
+    app.config["DEBUG"] = True  # the reset link is only rendered in DEBUG (no email provider yet)
+    try:
+        with app.test_client() as c:
+            r = c.post("/forgot-password", data={"email": "QA@example.com"})
+            if r.status_code != 200:
+                return [f"POST /forgot-password (existing member) -> {r.status_code}"]
+            m = re.search(r"(/reset-password/[A-Za-z0-9_-]+)", r.get_data(as_text=True))
+            if not m:
+                return ["POST /forgot-password: no reset link generated for an existing member"]
+            url = m.group(1)
+            status = c.get(url).status_code
+            if status != 200:
+                failures.append(f"GET /reset-password with a valid token -> {status}")
+            r = c.post(url, data={"password": "qa-new-pass", "confirm_password": "qa-new-pass"})
+            if r.status_code != 302:
+                failures.append(f"POST reset-password with a valid token -> {r.status_code}, expected redirect")
+            conn = sqlite3.connect(os.environ["DB_PATH"])
+            pw_hash = conn.execute("SELECT password_hash FROM members WHERE email='qa@example.com'").fetchone()[0]
+            if not check_password_hash(pw_hash, "qa-new-pass"):
+                failures.append("reset-password: the new password was not saved")
+            c.post(url, data={"password": "qa-other-pass", "confirm_password": "qa-other-pass"})
+            pw_hash = conn.execute("SELECT password_hash FROM members WHERE email='qa@example.com'").fetchone()[0]
+            if not check_password_hash(pw_hash, "qa-new-pass"):
+                failures.append("reset-password: a used token changed the password again")
+    except Exception as exc:  # noqa: BLE001
+        failures.append(f"crashed - {type(exc).__name__}: {exc}")
+    finally:
+        app.config["DEBUG"] = old_debug
+    return failures
+
+
 def _contains(actual, expected) -> bool:
     if isinstance(expected, dict):
         return isinstance(actual, dict) and all(k in actual and _contains(actual[k], v) for k, v in expected.items())
@@ -139,6 +179,7 @@ def main() -> int:
     add("שמות לא מוגדרים (קריסות פוטנציאליות)", check_names())
     route_fail, n_routes = check_routes()
     add("עמודי האתר", route_fail, f" — {n_routes} עמודים × מבקר/מחובר")
+    add("איפוס סיסמה (תהליך מלא)", check_password_reset())
     case_fail, n_cases = check_cases()
     add("הבנת שיחה (מפענחים דטרמיניסטיים)", case_fail, f" — {n_cases} מקרים")
 

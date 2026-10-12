@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 APP_VERSION = "9.7.143-connected-trip"
@@ -205,6 +206,11 @@ WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
 WHATSAPP_RECIPIENT = os.getenv("WHATSAPP_RECIPIENT", "").strip()
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
+# Task 006b: the WhatsApp Business Account that owns WHATSAPP_PHONE_NUMBER_ID
+# - needed to check/apply the app's subscription to that WABA's messages
+# webhook (/admin/whatsapp-subscription). Optional: left empty, that check
+# tries to resolve it from the Graph API instead.
+WHATSAPP_WABA_ID = os.getenv("WHATSAPP_WABA_ID", "").strip()
 # Off by default: until the welcome/daily-deals quick-reply templates are
 # approved in Meta, every WhatsApp deals message goes to whatsapp_outbound_queue
 # in 'preview' status only - nothing is ever sent to a real customer.
@@ -238,7 +244,13 @@ BUSINESS_CONTACT_EMAIL = os.getenv("BUSINESS_CONTACT_EMAIL", "").strip()
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "change-this-before-production")
 FEEDBACK_TO_EMAIL = os.getenv("FEEDBACK_TO_EMAIL", "arielatours@gmail.com").strip()
 MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
-MAIL_APP_PASSWORD = os.getenv("MAIL_APP_PASSWORD", "").strip()
+# Google displays App Passwords as 4 space-separated groups (e.g. "abcd efgh
+# ijkl mnop"), and copying that straight from the account page can carry
+# non-breaking spaces (U+00A0) instead of plain ones - .strip() only trims
+# the ends, so a pasted-with-spaces password slips through as 19 "characters"
+# and then crashes smtplib's ASCII auth encoding. Strip ALL whitespace
+# (regular or not - \s is Unicode-aware) so copy-paste can't break this.
+MAIL_APP_PASSWORD = re.sub(r"\s+", "", os.getenv("MAIL_APP_PASSWORD", ""))
 MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
 MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 
