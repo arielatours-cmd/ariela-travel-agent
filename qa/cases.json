@@ -28,6 +28,13 @@
     {"id": "route-gateway-city-beats-country", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "לרנקה"}, {"day": 2, "base": "קפריסין"}, {"day": 3, "base": "לרנקה"}]}}}], "expect": {"destination_airports": ["LCA"]}, "source": "64ffebc"},
     {"id": "route-gateway-country-only-keeps-all", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "קפריסין"}]}}}], "expect": {"destination_airports": ["LCA", "PFO"]}, "source": "64ffebc"},
     {"id": "baggage-checked-short-form", "fn": "_deterministic_baggage_facts", "args": ["מזוודה בבטן לכל אחד"], "expect": {"flight": {"baggage": ["checked_bag"]}}, "source": "live-chat-2026-10-12"},
-    {"id": "baggage-checked-mixed-reply", "fn": "_deterministic_baggage_facts", "args": ["מזוודה אחת בבטן לכל אחד וטרולי. תקציב לטיסה עד 1500 שקל לאדם"], "expect_truthy": true, "source": "live-chat-2026-10-12"}
+    {"id": "baggage-checked-mixed-reply", "fn": "_deterministic_baggage_facts", "args": ["מזוודה אחת בבטן לכל אחד וטרולי. תקציב לטיסה עד 1500 שקל לאדם"], "expect_truthy": true, "source": "live-chat-2026-10-12"},
+    {"id": "dates-hebrew-month-name", "fn": "_deterministic_date_facts", "args": [[], "יציאה ב-24 במאי וחזרה ב-31 במאי", {}], "expect_truthy": true, "source": "live-chat-2026-10-12"},
+    {"id": "named-accept-three-services", "fn": "_deterministic_named_accept_facts", "args": ["נשמח גם למסלול טיול, מלון ורכב שכור"], "expect": {"service_decisions": {"trip_planning": {"wanted": true}, "lodging": {"wanted": true}, "car": {"wanted": true}}}, "source": "live-chat-2026-10-12"},
+    {"id": "named-accept-no-misfire-idle-mention", "fn": "_deterministic_named_accept_facts", "args": ["נשמח לישון במלון יפה"], "expect_falsy": true, "source": "live-chat-2026-10-12"},
+    {"id": "named-accept-no-misfire-single-service", "fn": "_deterministic_named_accept_facts", "args": ["רוצים גם רכב"], "expect_falsy": true, "source": "live-chat-2026-10-12"},
+    {"id": "lodging-rooms-proactive-double-room", "fn": "_deterministic_lodging_facts", "args": ["מלון בוטיק, רמה בינונית-גבוהה, עד 600 שקל ללילה לחדר זוגי. עם ארוחת בוקר", []], "expect": {"lodging": {"details": {"rooms": 1}}}, "source": "live-chat-2026-10-12"},
+    {"id": "lodging-rooms-no-misfire-plural", "fn": "_deterministic_lodging_facts", "args": ["צריך 2 חדרים זוגיים בבקשה", []], "expect_falsy": true, "source": "live-chat-2026-10-12"},
+    {"id": "typo-yaadifut", "fn": "_fix_known_typos", "args": ["או שיש לך יעדיפות אחרת?"], "expect": "או שיש לך עדיפות אחרת?", "source": "live-chat-2026-10-12"}
   ]
 }

@@ -197,6 +197,18 @@ try:
         ]
     if "ניו יורק" in MULTI_GATEWAY_CITIES:
         MULTI_GATEWAY_CITIES["ניו יורק"].append({"code": "EWR", "name_he": "נמל התעופה ניוארק ליברטי"})
+    # כרתים (Crete) by hand, same reason as EWR above: the catalog has no
+    # single "city" entry for an island/region with two real airports -
+    # HER and CHQ are each catalogued under their own town (Heraklion,
+    # Chania), so the city_en grouping above never sees them as one city
+    # and Crete was never treated as multi-gateway at all. Seen live: a
+    # Crete trip had its gateway airport picked silently (Chania) with no
+    # choice ever shown to the customer, even though Heraklion is the
+    # larger, more commonly used gateway for most of the island.
+    MULTI_GATEWAY_CITIES["כרתים"] = [
+        {"code": "HER", "name_he": "נמל התעופה הבינלאומי הרקליון"},
+        {"code": "CHQ", "name_he": "נמל התעופה הבינלאומי חאניה"},
+    ]
     del _airports_catalog, _airport, _code, _name, _by_city, _city_key, _group, _city_he
 except Exception:
     pass
