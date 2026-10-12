@@ -399,6 +399,14 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
             break
         except anthropic.APIStatusError as exc:
             if attempt == 0 and exc.status_code in _RETRYABLE_CLAUDE_STATUS_CODES:
+                # Seen live (Shaked, 2026-10-12): under concurrent load this
+                # retry was firing invisibly - no log, no ai_usage row, no
+                # way to tell "rate-limited but recovered" apart from "never
+                # throttled at all" without re-deriving it from call-timing
+                # forensics after the fact. A real production capacity
+                # question (is the org's Anthropic rate-limit tier too low
+                # for this traffic?) needs this visible going forward.
+                logging.warning("Claude API %s on %s (attempt 1/2) - retrying once after 2s", exc.status_code, source)
                 time.sleep(2)
                 continue
             record_ai_usage(source, model, usage=None, error=exc.status_code)
