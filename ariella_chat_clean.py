@@ -157,7 +157,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
 - הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) הוא חובה מוחלטת וללא יוצא מן הכלל, בכל הרכב שירותים שהוא (טיסה בלבד, טיסה+מסלול, כל ארבעת השירותים, וכו') - לעולם אל תסיימי את השיחה בלי אותו סיכום ובלי בקשת אישור, ולעולם אל תציגי רק חלק מהשירותים שאושרו (למשל רק פרטי הטיסה) כש-session_status מראה ששירותים נוספים גם הם complete. מבנה הסיכום, שורה אחר שורה:
   - פתיחה ישירה וענייינית (שם היעד, לא משפט טכני על התהליך - ראו הכלל הבא).
-  - טיסה: שלוש שורות שדה תעופה קבועות - יציאה מישראל, נחיתה ביעד, המראה בחזרה - תמיד שלושתן, בלי שורת "יעד" כללית נפרדת. המדינה/האי כתובים בתוך שורות הנחיתה/המראה עצמן, ולפי מדינת השדה עצמו (לא בהכרח מדינת היעד הכללי - למשל גישה לקוטור דרך דוברובניק שבקרואטיה, או לסקי באלפים הצרפתיים דרך ג'נבה שבשווייץ: המדינה בשורה היא מדינת השדה):
+  - טיסה: שלוש שורות שדה תעופה קבועות - יציאה מישראל, נחיתה ביעד, המראה בחזרה - תמיד שלושתן, בלי שורת "יעד" כללית נפרדת, ובלי לדחוס אותן לשורה אחת כמו "הלוך-חזור" או "X ↔ Y" - גם בנסיעת עסקים ובכל טיסת הלוך-חזור פשוטה לאותו שדה, לא רק ביעדים מורכבים. המדינה/האי כתובים בתוך שורות הנחיתה/המראה עצמן, ולפי מדינת השדה עצמו (לא בהכרח מדינת היעד הכללי - למשל גישה לקוטור דרך דוברובניק שבקרואטיה, או לסקי באלפים הצרפתיים דרך ג'נבה שבשווייץ: המדינה בשורה היא מדינת השדה):
     - "יציאה: <שם השדה> (<קוד>)" - שדה היציאה מישראל (נתב"ג כברירת מחדל, או חיפה אם נבחר במפורש) - מועתק בדיוק מהעובדה המאומתת "שדה היציאה" שתימסר לך למטה. לעולם אל תשמיטי את השורה הזו מהסיכום, ולעולם אל תכתבי אותה כשורה חשופה בלי התווית - היא חייבת להתחיל תמיד במילה "יציאה:" בדיוק כמו "נחיתה:" ו"המראה בחזרה:", לא רק שם השדה בסוגריים.
     - "נחיתה: <שם השדה> (<קוד>), <מדינה>" - למשל "נחיתה: חאניה (CHQ), כרתים, יוון". שם השדה והמדינה חייבים להיות מועתקים בדיוק מהעובדה המאומתת שתימסר לך למטה (שדה/שדות הנחיתה והמראה - מקור אמת) - לעולם אל תמציאי תעתיק עברי משלך לשם עיר/שדה, גם אם הוא נראה לך נכון; תעתיק עצמאי הוא בדיוק סוג הטעות שגרמה בעבר לכתיבת שם עיר שגוי.
     - "המראה בחזרה: <שם השדה> (<קוד>), <מדינה>" - תמיד מופיעה, גם כששדה החזרה זהה לשדה הנחיתה (אז פשוט אותו שדה בשתי השורות, למשל רומא: "נחיתה: רומא פיומיצ'ינו (FCO), איטליה" / "המראה בחזרה: רומא פיומיצ'ינו (FCO), איטליה"). שונה בפועל רק כשreturn_departure_airports שונה מdestination_airports - כלומר נוחתים בשדה אחד וחוזרים משדה אחר (לדוגמה נחיתה בחאניה וחזרה מהרקליון), כולל כשחוזרים ממדינה אחרת לגמרי (נחיתה בסלובניה, חזרה מקרואטיה). זו עובדה פנימית בלבד - לעולם אל תשתמשי במונחי תעופה באנגלית כמו "open-jaw" מול הלקוח; תארו זאת בעברית פשוטה ("נוחתים ב-X וחוזרים מ-Y").
@@ -533,6 +533,39 @@ def _weekday_lookup_hint(state):
         "לעולם אל תחשבי בעצמך יום בשבוע לתאריך, ואל תתייחסי למספור ימי המסלול "
         '(כמו "יום 1", "יום 2"...) כאילו הוא שם יום בשבוע - שני המושגים נפרדים לגמרי): '
         + ", ".join(rows)
+    )
+
+
+def _total_nights_hint(state):
+    """Seen live, repeatedly (Frankfurt, Cyprus, Montenegro): Ariella counted
+    nights herself from the dates/route and got it wrong - "14-16.3" (2
+    nights) called "one night", and a multi-city route's own days split
+    3+3 when the itinerary she herself built actually gave 3+4. A night
+    count is arithmetic (return date minus departure date), not something
+    to count by eye off a route description - hand over the exact,
+    pre-computed total so there is nothing left to compute for the overall
+    trip length (per-city splits within a route still come from the
+    route's own day boundaries, which Ariella already has)."""
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if dates.get("needs_confirmation"):
+        return ""
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    if not dep_raw or not ret_raw:
+        return ""
+    try:
+        dep = date.fromisoformat(dep_raw)
+        ret = date.fromisoformat(ret_raw)
+    except ValueError:
+        return ""
+    nights = (ret - dep).days
+    if nights <= 0:
+        return ""
+    return (
+        f"\nמספר הלילות הכולל של הטיול (מחושב בוודאות מתאריכי היציאה/החזרה - "
+        f"לעולם אל תספרי זאת בעצמך): {nights} לילות. אם המסלול מתפצל בין כמה ערים/יעדים, "
+        "סכום הלילות בכל הערים חייב להסתכם בדיוק למספר הזה."
     )
 
 
@@ -1116,6 +1149,17 @@ def _resolve_ski_destination_airports(state):
         needle = place.strip().lower()
         if not needle:
             continue
+        # Common Hebrew transliteration variants the catalog doesn't itself
+        # list - seen live: "ואל טורנס" (customer's natural spelling, ט)
+        # never matched the catalog's "ואל תורנס" (ת), so the resort went
+        # entirely unrecognized and the model fell back to its own (wrong)
+        # guess at gateway airports. Longer (double-vav) variants replaced
+        # before the shorter one so they don't partially match each other.
+        needle = (
+            needle.replace("וואל טורנס", "ואל תורנס")
+            .replace("וואל תורנס", "ואל תורנס")
+            .replace("ואל טורנס", "ואל תורנס")
+        )
         for row in SKI_RESORTS:
             # resort_he is the Hebrew transliteration - without it, a Hebrew
             # place string could never match the catalog's English-only
@@ -2330,7 +2374,8 @@ def _call_tinkerbell(key, model, history, message, state=None):
                 "אם רלוונטי לשיחה, נסחי זאת כתלוי בתוצאות החיפוש בפועל, ולעולם אל תכתבי 'טיסה ישירה' בסיכום הסופי אלא אם זו עובדה מאומתת מהרשימה הזו."
             )
     weekday_hint_text = _weekday_lookup_hint(state)
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    nights_hint_text = _total_nights_hint(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
