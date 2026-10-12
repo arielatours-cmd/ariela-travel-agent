@@ -3,7 +3,7 @@ import os
 import sqlite3
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect, Response
 
@@ -46,6 +46,15 @@ from whatsapp import (
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
+
+# Task 008a: APP_VERSION is a manually-edited constant that's easy to forget
+# to bump, so /health can silently keep reporting a stale version after a
+# real deploy. RENDER_GIT_COMMIT is set automatically by Render on every
+# deploy (empty/unset in local dev) - computed once at process startup so a
+# restart (not just a new deploy) also shows up here.
+_DEPLOYED_COMMIT = (os.getenv("RENDER_GIT_COMMIT") or "").strip()[:7] or None
+_STARTED_AT = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
 app.register_blueprint(site)
 app.register_blueprint(whatsapp_coexistence)
 app.register_blueprint(ariella_chat_v2)
@@ -152,6 +161,7 @@ def health():
         db_error = str(exc)
     return jsonify({
         "status": "ok" if db_ok else "degraded", "version": APP_VERSION,
+        "commit": _DEPLOYED_COMMIT, "deployed_at": _STARTED_AT,
         "serpapi_configured": bool(os.getenv("SERPAPI_API_KEY")),
         "scheduler_enabled": SCHEDULER_ENABLED, "database_ok": db_ok,
         "database_error": db_error, "database_path": str(DB_PATH),
