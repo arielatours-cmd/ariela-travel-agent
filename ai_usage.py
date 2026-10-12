@@ -164,9 +164,15 @@ def usage_for_conversation(conversation_id: int) -> list:
         return [_row_to_dict(r) for r in rows]
 
 
-def record_ai_usage(source: str, model: str, usage=None, error=None):
+def record_ai_usage(source: str, model: str, usage=None, error=None, thread_id=None, call_started_at=None, call_duration_ms=None):
     """Writes one ai_usage row. Never raises - a failure here (locked DB,
-    bad data) must never be allowed to fail the chat turn that triggered it."""
+    bad data) must never be allowed to fail the chat turn that triggered it.
+
+    thread_id/call_started_at/call_duration_ms (2026-10-12, Shaked's
+    concurrency investigation): optional - only _post_claude's own calls
+    pass them, timing the actual client.messages.create() network call
+    specifically. Lets /admin/ai-usage.csv answer directly whether
+    different threads' Claude calls genuinely overlap in time."""
     try:
         ctx = _context.get() or {}
         input_tokens = int(getattr(usage, "input_tokens", 0) or 0) if usage is not None else 0
@@ -178,13 +184,14 @@ def record_ai_usage(source: str, model: str, usage=None, error=None):
                 """INSERT INTO ai_usage(
                     created_at, source, member_id, trip_id, conversation_id, model,
                     input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
-                    is_test, error, channel
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    is_test, error, channel, thread_id, call_started_at, call_duration_ms
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     utc_now_iso(), str(source or "other"), ctx.get("member_id"), ctx.get("trip_id"),
                     ctx.get("conversation_id"), str(model or ""), input_tokens, output_tokens,
                     cache_read, cache_write, 1 if ctx.get("is_test") else 0,
                     str(error) if error else None, ctx.get("channel"),
+                    thread_id, call_started_at, call_duration_ms,
                 ),
             )
     except Exception:
