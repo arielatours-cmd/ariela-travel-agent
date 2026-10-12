@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect, Response
+from werkzeug.exceptions import HTTPException
 
 # Gunicorn/Flask leave the root logger at its default WARNING level, which
 # silently drops every logging.info() call app-wide (booking diagnostics,
@@ -59,6 +60,43 @@ app.register_blueprint(site)
 app.register_blueprint(whatsapp_coexistence)
 app.register_blueprint(ariella_chat_v2)
 app.register_blueprint(ariella_chat_clean)
+
+
+@app.errorhandler(Exception)
+def _log_unhandled_exception(exc):
+    # Seen live (Shaked, 2026-10-12): under concurrent chat load, some
+    # requests failed fast (~40s, well under any client timeout) with no
+    # trace anywhere queryable - every known error path inside chat_clean()
+    # (the two Claude calls, every DB write) already has its own try/except
+    # with a graceful fallback, so a genuinely UNHANDLED exception (her
+    # leading suspect: sqlite3.OperationalError "database is locked" from
+    # lock contention under concurrent writes) would only ever have shown up
+    # in Render's own log stream - not accessible from here, and not
+    # queryable without dashboard access. Recording it into ai_usage (already
+    # exposed via /admin/ai-usage.csv) makes the real exception type/message
+    # visible through infrastructure already in use, without needing log
+    # access at all.
+    # Registering for the bare Exception class also intercepts every
+    # intentional HTTPException (404s, _require_admin's 401s via abort,
+    # etc.) - those are normal routing/auth outcomes, not bugs, and must
+    # keep their own status code/body instead of being flattened into a
+    # generic 500 here.
+    if isinstance(exc, HTTPException):
+        return exc
+    logging.exception("Unhandled exception in %s %s", request.method, request.path)
+    try:
+        from ai_usage import record_ai_usage
+        record_ai_usage(
+            source="unhandled_exception",
+            model=f"{request.method} {request.path}",
+            error=f"{type(exc).__name__}: {exc}".strip()[:500],
+        )
+    except Exception:
+        logging.exception("Failed to record unhandled-exception diagnostic row")
+    return jsonify({
+        "status": "error",
+        "message": "שגיאה פנימית זמנית. נסו שוב בעוד רגע.",
+    }), 500
 
 # Din is Ariella's legal/terms verification layer. Scanner functions resolve
 # `insert_offer` from their module globals at runtime, so wrapping it here makes
