@@ -87,6 +87,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אל תמציאי תחומי עניין חדשים תוך כדי אישור הבנה. אם הלקוח לא ביקש למשל טבע או אווירה מקומית, אל תוסיפי אותם כאילו נבחרו.
 - יעד, תאריכים, מספר נוסעים, סוג לינה ומספר חדרים אינם שאלות כן/לא כאשר צריך לקבל מהם ערך ממשי; שאלי אותם באופן טבעי רק אם הערך עדיין חסר.
 - המילים "מאשר/מאשרת" שמורות אך ורק לאישור הסופי המשולב (ראו הכלל על כך למטה) - לעולם לא לאישור טיסות, לינה, רכב או מסלול כל אחד בנפרד. לעולם אל תבקשי "כתבי מאשרת" אחרי סיכום של טיסות, לינה, רכב או מסלול בנפרד: סכמי אותם בקצרה ושאלי רק אם צריך לתקן משהו - התחום נסגר מעצמו כשכל הפרטים שלו ידועים, בלי שום בקשת אישור, ועוברים לתחום הבא.
+- המילה "מאשר"/"מאשרת" (גם כפועל רגיל בתוך משפט, לא רק כבקשת "כתבי מאשרת") היא מילת הפעלה טכנית שהמערכת מזהה ומפעילה סריקה אמיתית בעקבותיה - לעולם אל תשתמשי בה בשום שאלה אחרת, כולל שאלה מזדמנת כמו "...או שאני בונה מסלול X ואת מאשרת?". לשאלת אישור/הסכמה רגילה באמצע שיחה (למשל על בחירת מסלול) השתמשי במילים אחרות לגמרי כמו "מתאים לך?", "בסדר מבחינתך?", "תרצי כך?".
 - מה שהלקוח כבר אישר לא מוצג שוב לאישור ולא מבקשים לאשר אותו מחדש, אלא אם הלקוח שינה בו משהו - ואז מבקשים אישור רק על השינוי.
 - כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
@@ -1206,6 +1207,17 @@ def _required_state_gaps(state):
         wanted = decision.get("wanted") if isinstance(decision, dict) else decision
         if wanted is True:
             services.add(service)
+        elif wanted is False:
+            # Seen live (Shaked, Florence scenario): a customer who already
+            # booked their own flights ("כבר הזמנו טיסות... צריכה רק תכנון
+            # מסלול ולינה") still got asked "לאן תרצי לטוס?" turns later,
+            # answering the LODGING question. requested_services is the raw
+            # extractor's own list from this turn's full-history re-read -
+            # it can re-include "flights" even while service_decisions.flights
+            # correctly stays wanted=False (protected by _keep_declines). An
+            # explicit decline must always win over a stale/re-added
+            # requested_services entry, never just get added-to.
+            services.discard(service)
 
     gaps = []
     destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
@@ -2381,6 +2393,25 @@ _HEBREW_MONTH_RANGE_RE = (
     r"(?<!\d)(?:מ-?\s*)?(\d{1,2})\s*(?:[-–]|עד)\s*(\d{1,2})\s*ב("
     + "|".join(_HEBREW_MONTHS) + r")(?:\s+(20\d{2}))?"
 )
+
+# Seen live (Shaked): "טיסה לברצלונה לשני מבוגרים" never set travelers.adults
+# at all - the only adults parsing was a literal digit match ("2 מבוגרים"),
+# so any Hebrew number WORD ("שני", "שלושה"...) was silently dropped, and
+# Ariella re-asked for traveler counts the customer had already given.
+_HEBREW_NUMBER_WORDS = {
+    "אחד": 1, "אחת": 1,
+    "שני": 2, "שתי": 2, "שניים": 2, "שתיים": 2,
+    "שלושה": 3, "שלוש": 3,
+    "ארבעה": 4, "ארבע": 4,
+    "חמישה": 5, "חמש": 5,
+    "שישה": 6, "שש": 6,
+    "שבעה": 7, "שבע": 7,
+    "שמונה": 8,
+    "תשעה": 9, "תשע": 9,
+    "עשרה": 10, "עשר": 10,
+}
+# Longest-first so "שניים" isn't cut short by a prefix match on "שני".
+_HEBREW_NUMBER_WORD_RE = "|".join(sorted(_HEBREW_NUMBER_WORDS, key=len, reverse=True))
 
 
 def _deterministic_date_facts(history, message, state=None):
@@ -3618,6 +3649,10 @@ def _deterministic_traveler_facts(message, existing=None):
     m = re.search(r"(\d+)\s*(?:ילדים|ילדות)", msg)
     if m:
         child_count, singular = int(m.group(1)), False
+    else:
+        m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:ילדים|ילדות)", msg)
+        if m:
+            child_count, singular = _HEBREW_NUMBER_WORDS[m.group(1)], False
     if child_count is not None and not (singular and existing.get("children")):
         facts["children"] = child_count
 
@@ -3656,8 +3691,13 @@ def _deterministic_traveler_facts(message, existing=None):
         if "children" not in facts:
             facts["children"] = len(ages)
 
-    if re.search(r"2\s*(?:הורים|מבוגרים)", msg):
-        facts["adults"] = 2
+    m = re.search(r"(\d+)\s*(?:הורים|מבוגרים|נוסעים)", msg)
+    if m:
+        facts["adults"] = int(m.group(1))
+    else:
+        m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:הורים|מבוגרים|נוסעים)", msg)
+        if m:
+            facts["adults"] = _HEBREW_NUMBER_WORDS[m.group(1)]
     return {"travelers": facts} if facts else {}
 
 
@@ -5670,7 +5710,21 @@ def chat_clean():
                         # and it asked about the car all over again (seen live).
                         trip_update["post_flight_offer"] = [next_domain]
                 else:
-                    reply = "מצוין, המסלול מאושר."
+                    # Seen live (Shaked, scenario 8 - flights+route only, both
+                    # now resolved): this used to just say "מצוין, המסלול
+                    # מאושר." with NO summary and no מאשר/מאשרת request at
+                    # all - a dead end, since nothing else ever prompts the
+                    # customer again. Everything is now genuinely
+                    # complete/declined, so this is exactly the one real
+                    # summary/approval moment (ready_for_summary=True below) -
+                    # let Tinkerbell actually produce it instead of a bare
+                    # acknowledgement.
+                    trip_update = _advance_sessions(trip_update)
+                    try:
+                        reply = _call_tinkerbell(key, model, history, message, trip_update)
+                    except Exception as exc:
+                        logging.exception("Tinkerbell reply failed on route-approval final summary: %s", exc)
+                        reply = "מצוין, המסלול מאושר."
 
         # Never let the conversation claim it is ready for a final summary when
         # the structured source of truth is missing required facts. This keeps
