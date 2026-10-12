@@ -61,6 +61,8 @@
     {"id": "flights-already-booked-negated-then-already", "fn": "_deterministic_flights_already_booked_facts", "args": ["אנחנו לא צריכים טיסה, כבר הזמנו"], "expect": {"session_status": {"flights": "declined"}}, "source": "live-chat-2026-10-12-round3-tuscany"},
     {"id": "flights-already-booked-no-misfire-separate-hotel", "fn": "_deterministic_flights_already_booked_facts", "args": ["כבר הזמנו מלון, נשמח גם לטיסה"], "expect": {}, "source": "guard"},
     {"id": "departure-airport-hfa-noun-tisa", "fn": "_deterministic_departure_airport_facts", "args": ["חופשה רגילה. טיסה מחיפה ללרנקה לי ולבעלי, 15/05/2027 עד 19/05/2027. רק טיסה"], "expect": {"departure_airport": "HFA"}, "source": "live-chat-2026-10-12-shaked-s20"},
-    {"id": "departure-airport-hfa-noun-tisa-bangkok", "fn": "_deterministic_departure_airport_facts", "args": ["טיסה מחיפה לבנגקוק, 10/06/2027 עד 20/06/2027, רק טיסה"], "expect": {"departure_airport": "HFA"}, "source": "live-chat-2026-10-12-shaked-s21"}
+    {"id": "departure-airport-hfa-noun-tisa-bangkok", "fn": "_deterministic_departure_airport_facts", "args": ["טיסה מחיפה לבנגקוק, 10/06/2027 עד 20/06/2027, רק טיסה"], "expect": {"departure_airport": "HFA"}, "source": "live-chat-2026-10-12-shaked-s21"},
+    {"id": "travelers-child-age-not-from-date", "fn": "_deterministic_traveler_facts", "args": ["חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב"], "expect": {"travelers": {"adults": 2, "children": 2, "child_ages": [9, 12]}}, "source": "live-chat-2026-10-12-shaked-s59"},
+    {"id": "travelers-child-ages-three-no-date-nearby", "fn": "_deterministic_traveler_facts", "args": ["שלושה ילדים בני 9, 12 ו-14"], "expect": {"travelers": {"children": 3, "child_ages": [9, 12, 14]}}, "source": "guard"}
   ]
 }
