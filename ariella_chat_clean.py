@@ -157,7 +157,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - הסיכום הסופי (ברגע שכל ארבעת הסשנים הושלמו, ראו למעלה) הוא חובה מוחלטת וללא יוצא מן הכלל, בכל הרכב שירותים שהוא (טיסה בלבד, טיסה+מסלול, כל ארבעת השירותים, וכו') - לעולם אל תסיימי את השיחה בלי אותו סיכום ובלי בקשת אישור, ולעולם אל תציגי רק חלק מהשירותים שאושרו (למשל רק פרטי הטיסה) כש-session_status מראה ששירותים נוספים גם הם complete. מבנה הסיכום, שורה אחר שורה:
   - פתיחה ישירה וענייינית (שם היעד, לא משפט טכני על התהליך - ראו הכלל הבא).
   - טיסה: שתי שורות שדה תעופה קבועות, תמיד שתיהן (גם כששני השדות זהים), בלי שורת "יעד" כללית נפרדת - המדינה/האי כתובים בתוך כל שורה עצמה, ולפי מדינת השדה עצמו (לא בהכרח מדינת היעד הכללי - למשל גישה לקוטור דרך דוברובניק שבקרואטיה, או לסקי באלפים הצרפתיים דרך ג'נבה שבשווייץ: המדינה בשורה היא מדינת השדה):
-    - "נחיתה: <שם השדה> (<קוד>), <מדינה>" - למשל "נחיתה: חאניה (CHQ), כרתים, יוון".
+    - "נחיתה: <שם השדה> (<קוד>), <מדינה>" - למשל "נחיתה: חאניה (CHQ), כרתים, יוון". שם השדה והמדינה חייבים להיות מועתקים בדיוק מהעובדה המאומתת שתימסר לך למטה (שדה/שדות הנחיתה והמראה - מקור אמת) - לעולם אל תמציאי תעתיק עברי משלך לשם עיר/שדה, גם אם הוא נראה לך נכון; תעתיק עצמאי הוא בדיוק סוג הטעות שגרמה בעבר לכתיבת שם עיר שגוי.
     - "המראה בחזרה: <שם השדה> (<קוד>), <מדינה>" - תמיד מופיעה, גם כששדה החזרה זהה לשדה הנחיתה (אז פשוט אותו שדה בשתי השורות, למשל רומא: "נחיתה: רומא פיומיצ'ינו (FCO), איטליה" / "המראה בחזרה: רומא פיומיצ'ינו (FCO), איטליה"). שונה בפועל רק כשreturn_departure_airports שונה מdestination_airports - מסלול open-jaw, כולל כשחוזרים ממדינה אחרת לגמרי (נחיתה בסלובניה, חזרה מקרואטיה).
     - עיר/יעד עם כמה שדות אפשריים שהלקוח טרם בחר ביניהם: אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") אם מחפשים בכולם יחד (ואז "(כל השדות)" כש"אין העדפה" נאמר במפורש, למשל "לונדון (כל השדות), אנגליה"), או שאלו לפני הסיכום - לעולם אל תגיעי לסיכום כשdestination_airports עדיין ריק/לא מוכרע (למשל יעד כללי כמו "יוון" או "איים ביוון" בלי שדה שנגזר ממסלול או נבחר על ידי הלקוח).
     - אם היעד דורש גם טיסת פנים נוספת מעבר לנחיתה/המראה הבין-לאומיים (למשל נחיתה בבנגקוק והיעד בפועל הוא קרבי) וזו לא כלולה בחיפוש, ציינו זאת במפורש בסיכום (למשל "שימו לב: הטיסה הפנימית לקרבי אינה כלולה בחיפוש הזה").
@@ -2089,6 +2089,41 @@ def _baggage_summary(state):
     )
 
 
+def _destination_gateway_summary(state):
+    """Verified Hebrew spelling for the landing/return-departure gateway
+    airports, handed over as hard facts - mirrors _departure_summary's own
+    "source of truth" pattern for the departure airport. Seen live
+    (Shaked): Ariella's own freehand transliterations drifted from the
+    catalog's verified spelling ("חניא ואיראקליון" instead of "חאניה
+    והרקליון"), the same failure mode as a mismatched attraction/church
+    name elsewhere - a small, avoidable spelling slip once the real name
+    is simply looked up here instead of recalled from the model's own
+    memory. Per the product owner's spec, the return line is always shown
+    too, even when it's the same airport as the landing one."""
+    dest_codes = [str(c).upper() for c in (state.get("destination_airports") or []) if c]
+    if not dest_codes:
+        return ""
+    airports_by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
+
+    def _fact(code):
+        a = airports_by_code.get(code)
+        if not a:
+            return None
+        city = a.get("city_he") or code
+        country = a.get("country_he") or ""
+        return f"{city} ({code})" + (f", {country}" if country else "")
+
+    dest_facts = [f for f in (_fact(c) for c in dest_codes) if f]
+    if not dest_facts:
+        return ""
+    line = "\nשדה/שדות הנחיתה ביעד (מקור אמת - אל תמציאי תעתיק עברי משלך, השתמשי בדיוק בשם הזה): " + " / ".join(dest_facts) + "."
+    return_codes = [str(c).upper() for c in (state.get("return_departure_airports") or []) if c] or dest_codes
+    return_facts = [f for f in (_fact(c) for c in return_codes) if f]
+    if return_facts:
+        line += "\nשדה/שדות ההמראה בחזרה (מקור אמת, אותו כלל): " + " / ".join(return_facts) + "."
+    return line
+
+
 def _departure_summary(state):
     """The departure airport's exact Hebrew name. Seen live: the customer
     wrote "נתבג", TLV was saved correctly, and the reply still said
@@ -2253,7 +2288,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
                 "אם רלוונטי לשיחה, נסחי זאת כתלוי בתוצאות החיפוש בפועל, ולעולם אל תכתבי 'טיסה ישירה' בסיכום הסופי אלא אם זו עובדה מאומתת מהרשימה הזו."
             )
     weekday_hint_text = _weekday_lookup_hint(state)
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
