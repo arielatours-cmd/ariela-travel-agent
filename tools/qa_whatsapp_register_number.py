@@ -88,6 +88,20 @@ with patch.object(whatsapp, "WHATSAPP_ACCESS_TOKEN", "fake-token"), \
     assert r["status"] == "CONNECTED" and r["platform_type"] == "CLOUD_API"
 print("PASS: register (confirm=1) -> POST with messaging_product+pin, then re-checks status -> CONNECTED")
 
+# --- 3b. A generic Meta error message (e.g. request_code's bare "Request code error")
+# gets type/code/subcode/fbtrace_id appended so it's actually diagnosable ---
+with patch.object(whatsapp, "WHATSAPP_ACCESS_TOKEN", "fake-token"), \
+     patch.object(whatsapp, "WHATSAPP_PHONE_NUMBER_ID", "551450234708715"), \
+     patch("requests.post", return_value=_err({"error": {
+         "message": "Request code error", "type": "OAuthException", "code": 133010,
+         "error_subcode": 2593006, "fbtrace_id": "AbCdEfGhIjK",
+     }})):
+    r = whatsapp.whatsapp_request_code(method="SMS", confirm=True)
+    assert r["ok"] is False
+    joined = " ".join(r["errors"])
+    assert "Request code error" in joined and "code=133010" in joined and "subcode=2593006" in joined and "fbtrace_id=AbCdEfGhIjK" in joined, r["errors"]
+print("PASS: a generic Meta error gets type/code/subcode/fbtrace_id appended for real diagnosis")
+
 # --- 4. Meta errors are returned as-is (no secrets); "still linked to app" gets a clear Hebrew hint ---
 with patch.object(whatsapp, "WHATSAPP_ACCESS_TOKEN", "fake-token"), \
      patch.object(whatsapp, "WHATSAPP_PHONE_NUMBER_ID", "551450234708715"), \

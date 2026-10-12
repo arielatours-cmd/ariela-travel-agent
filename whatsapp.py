@@ -196,10 +196,30 @@ def whatsapp_subscription_check(apply: bool = False) -> dict[str, Any]:
 
 
 def _safe_meta_error_message(data: dict) -> str:
+    """Meta's bare error.message is often too generic to diagnose on its own
+    (e.g. request_code's "Request code error" covers many different root
+    causes) - append whatever extra diagnostic fields Meta did send
+    (type/code/error_subcode/error_data.details/fbtrace_id), the same fields
+    whatsapp_coexistence.py's _safe_meta_error already surfaces for the
+    onboarding flow. Never includes WHATSAPP_ACCESS_TOKEN - it was never in
+    this error object to begin with."""
     error = data.get("error") if isinstance(data, dict) else None
-    if isinstance(error, dict) and error.get("message"):
-        return str(error["message"])
-    return "Meta החזירה שגיאה לא ידועה."
+    if not isinstance(error, dict):
+        return "Meta החזירה שגיאה לא ידועה."
+    message = str(error.get("message") or "Meta החזירה שגיאה לא ידועה.")
+    extra = []
+    if error.get("type"):
+        extra.append(f"type={error['type']}")
+    if error.get("code") is not None:
+        extra.append(f"code={error['code']}")
+    if error.get("error_subcode") is not None:
+        extra.append(f"subcode={error['error_subcode']}")
+    details = (error.get("error_data") or {}).get("details") if isinstance(error.get("error_data"), dict) else None
+    if details:
+        extra.append(f"details={details}")
+    if error.get("fbtrace_id"):
+        extra.append(f"fbtrace_id={error['fbtrace_id']}")
+    return f"{message} ({', '.join(extra)})" if extra else message
 
 
 def _meta_graph_post_body(path: str, data: dict | None = None, json_body: dict | None = None) -> tuple[dict, bool]:
