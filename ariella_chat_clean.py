@@ -3284,8 +3284,27 @@ def _deterministic_named_accept_facts(message):
         if re.search(negation_cue, clause):
             continue
         matched = [s for s, pat in service_patterns.items() if re.search(pat, clause)]
-        if len(matched) < 2 or not re.search(want_framing, clause):
+        if len(matched) < 2:
             continue
+        if not re.search(want_framing, clause):
+            # No framing verb at all ("טיסה, לינה ורכב") is still an
+            # explicit request for everything named, when the WHOLE clause
+            # is nothing but that bare list - seen live (Shaked, ski
+            # scenario): this exact phrasing left lodging/car never
+            # recorded as wanted, so the already-answered yes/no offer
+            # ("תרצי שאסדר גם רכב שכור?") resurfaced later as if the
+            # customer had never said anything. A service word embedded in
+            # a longer sentence with no framing (e.g. a passing remark)
+            # must still be rejected, so only a clause that reduces to
+            # nothing once every named service (flights included, even
+            # though it isn't itself part of `matched`) and separators are
+            # stripped out counts as a bare enumeration.
+            stripped = clause
+            for pat in list(service_patterns.values()) + [r"טיסה|טיסות|לטוס|טיסת"]:
+                stripped = re.sub(pat, "", stripped)
+            stripped = re.sub(r"[,\sו-]+", "", stripped)
+            if stripped:
+                continue
         return {"service_decisions": {s: {"wanted": True, "source": "explicit_named_accept"} for s in matched}}
     return {}
 
@@ -3975,11 +3994,21 @@ def _deterministic_traveler_facts(message, existing=None):
         if "children" not in facts:
             facts["children"] = len(ages)
 
-    m = re.search(r"(\d+)\s*(?:הורים|מבוגרים|נוסעים)", msg)
+    # "חברים/חברות" (friends), "אנשים" (people) and "משפחות" (families, each
+    # one an adult-equivalent unit here) count the same way as the existing
+    # הורים/מבוגרים/נוסעים words - seen live (Shaked, Bansko): "4 חברים"/
+    # "ארבעה חברים" matched none of them, so adults was never set and the
+    # travelers question looped even after the customer repeated the count.
+    # Singular forms ("1 מבוגר", "מבוגר אחד") are just as common for a solo
+    # traveler answering "how many" with the number 1 - seen live (Shaked,
+    # New York/Frankfurt): "1 מבוגר" matched nothing since the pattern only
+    # listed the plural "מבוגרים".
+    _adult_unit_words = r"הור(?:ה|ים)|מבוגר(?:ים)?|נוסע(?:ת|ים)?|חבר(?:ה|ים|ות)?|איש|אנשים|משפחה|משפחות"
+    m = re.search(r"(\d+)\s*(?:" + _adult_unit_words + ")", msg)
     if m:
         facts["adults"] = int(m.group(1))
     else:
-        m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:הורים|מבוגרים|נוסעים)", msg)
+        m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:" + _adult_unit_words + ")", msg)
         if m:
             facts["adults"] = _HEBREW_NUMBER_WORDS[m.group(1)]
     # A solo traveler ("אני לבד", "נוסעת לבד", "רק אני", "אדם אחד", "נוסע
@@ -6408,7 +6437,17 @@ def chat_clean():
         # trip, where trip_planning auto-declines) - before the customer ever
         # got to see the summary or approve, silently discarding
         # destination/dates/everything and breaking the actual search.
-        flights_resolved = bool(trip_update.get("post_flight_continuation")) or final_statuses.get("flights") == "declined"
+        #
+        # flights="declined" (e.g. "כבר הזמנו טיסות לפירנצה...") has the
+        # EXACT same flaw and used to be treated as an automatic shortcut
+        # here - seen live (Shaked, Tuscany): the moment the customer's
+        # lodging answer closed the last remaining domain, mid-conversation,
+        # the whole trip reset and the very next reply was "לאן תרצי לטוס?"
+        # (the brand-new-vacation destination question) - the customer never
+        # saw a summary or typed מאשר/מאשרת at all. A declined flights
+        # session needs the exact same real approval gate as a completed
+        # one; it just never goes through a flight search of its own.
+        flights_resolved = bool(trip_update.get("post_flight_continuation"))
         other_domains_resolved = all(
             final_statuses.get(s) in ("complete", "declined")
             or ((final_decisions.get(s) or {}).get("wanted") is False if isinstance(final_decisions.get(s), dict) else final_decisions.get(s) is False)
