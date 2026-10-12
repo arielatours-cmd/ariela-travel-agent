@@ -3994,11 +3994,16 @@ def _deterministic_traveler_facts(message, existing=None):
         if "children" not in facts:
             facts["children"] = len(ages)
 
-    m = re.search(r"(\d+)\s*(?:הורים|מבוגרים|נוסעים)", msg)
+    # "חברים/חברות" (friends), "אנשים" (people) and "משפחות" (families, each
+    # one an adult-equivalent unit here) count the same way as the existing
+    # הורים/מבוגרים/נוסעים words - seen live (Shaked, Bansko): "4 חברים"/
+    # "ארבעה חברים" matched none of them, so adults was never set and the
+    # travelers question looped even after the customer repeated the count.
+    m = re.search(r"(\d+)\s*(?:הורים|מבוגרים|נוסעים|חברים|חברות|אנשים|משפחות)", msg)
     if m:
         facts["adults"] = int(m.group(1))
     else:
-        m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:הורים|מבוגרים|נוסעים)", msg)
+        m = re.search(r"(?:^|\s)(?:ו|ל)?(" + _HEBREW_NUMBER_WORD_RE + r")\s+(?:ה)?(?:הורים|מבוגרים|נוסעים|חברים|חברות|אנשים|משפחות)", msg)
         if m:
             facts["adults"] = _HEBREW_NUMBER_WORDS[m.group(1)]
     # A solo traveler ("אני לבד", "נוסעת לבד", "רק אני", "אדם אחד", "נוסע

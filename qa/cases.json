@@ -75,6 +75,9 @@
     {"id": "total-nights-hint-two-nights", "fn": "_total_nights_hint", "args": [{"dates": {"departure": "2027-03-14", "return": "2027-03-16", "needs_confirmation": false}}], "expect_truthy": true, "source": "live-chat-2026-10-12-shaked-s56"},
     {"id": "named-accept-bare-list-no-framing", "fn": "_deterministic_named_accept_facts", "args": ["חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב"], "expect": {"service_decisions": {"lodging": {"wanted": true}, "car": {"wanted": true}}}, "source": "live-chat-2026-10-12-shaked-s59"},
     {"id": "named-accept-bare-list-no-misfire-mixed-sentence", "fn": "_deterministic_named_accept_facts", "args": ["ראינו תמונות של מלון ורכב ישנים באתר"], "expect": {}, "source": "guard"},
-    {"id": "flights-already-booked-plain-adjacent-still-declines", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect": {"session_status": {"flights": "declined"}}, "source": "live-chat-2026-10-12-shaked-s51"}
+    {"id": "flights-already-booked-plain-adjacent-still-declines", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect": {"session_status": {"flights": "declined"}}, "source": "live-chat-2026-10-12-shaked-s51"},
+    {"id": "travelers-friends-digit", "fn": "_deterministic_traveler_facts", "args": ["4 חברים"], "expect": {"travelers": {"adults": 4}}, "source": "live-chat-2026-10-12-shaked-s61"},
+    {"id": "travelers-friends-word", "fn": "_deterministic_traveler_facts", "args": ["ארבעה חברים"], "expect": {"travelers": {"adults": 4}}, "source": "live-chat-2026-10-12-shaked-s61"},
+    {"id": "travelers-people-count", "fn": "_deterministic_traveler_facts", "args": ["5 אנשים"], "expect": {"travelers": {"adults": 5}}, "source": "guard"}
   ]
 }
