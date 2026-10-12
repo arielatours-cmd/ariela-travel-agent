@@ -11,7 +11,17 @@ services:
     # to its max output length) routinely takes longer than that. Without this,
     # gunicorn kills the request mid-flight and the customer's chat just hangs
     # forever with no error ever reaching the browser ("the conversation got stuck").
-    startCommand: gunicorn --workers 1 --threads 4 --timeout 120 app:app
+    # Threads raised 4->12 (QA 2026-10-12): 6 customers messaging at once already
+    # saturated 4 threads - each chat turn blocks on 1-2 sequential Claude API
+    # calls that routinely take multiple seconds, so a request queued behind
+    # others can sit long enough for the browser's own fetch to time out and
+    # show "technical glitch" while the server keeps processing it anyway (then
+    # the customer's retry lands as a second turn - "it looks like my message
+    # was sent twice"). One process still means genuine CPU-bound work (JSON/
+    # regex parsing) serializes under the GIL regardless of thread count - this
+    # raises the ceiling for the actual bottleneck here, I/O wait on Anthropic/
+    # SQLite, not a claim that concurrency is now unlimited.
+    startCommand: gunicorn --workers 1 --threads 12 --timeout 120 app:app
     healthCheckPath: /health
     autoDeploy: true
     disk:

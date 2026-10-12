@@ -36,7 +36,14 @@
     {"id": "lodging-rooms-proactive-double-room", "fn": "_deterministic_lodging_facts", "args": ["מלון בוטיק, רמה בינונית-גבוהה, עד 600 שקל ללילה לחדר זוגי. עם ארוחת בוקר", []], "expect": {"lodging": {"details": {"rooms": 1}}}, "source": "live-chat-2026-10-12"},
     {"id": "lodging-rooms-no-misfire-plural", "fn": "_deterministic_lodging_facts", "args": ["צריך 2 חדרים זוגיים בבקשה", []], "expect_falsy": true, "source": "live-chat-2026-10-12"},
     {"id": "typo-yaadifut", "fn": "_fix_known_typos", "args": ["או שיש לך יעדיפות אחרת?"], "expect": "או שיש לך עדיפות אחרת?", "source": "live-chat-2026-10-12"},
+<<<<<<< HEAD
     {"id": "weekday-no-misfire-two-children", "fn": "_weekday_date_conflict", "args": ["חופשה רגילה. תאילנד, אני ובעלי ושני ילדים בני 8 ו-11, 15/07/2027 עד 29/07/2027. צריכה הכל - טיסות, מסלול, מלונות ורכב"], "expect_falsy": true, "source": "live-chat-2026-10-12-s4"},
     {"id": "weekday-real-conflict-still-caught", "fn": "_weekday_date_conflict", "args": ["יציאה ביום שני 15/07/2027"], "expect_truthy": true, "source": "live-chat-2026-10-12-s4"}
+=======
+    {"id": "weekday-no-misfire-two-children", "fn": "_weekday_date_conflict", "args": ["תאילנד, אני ובעלי ושני ילדים בני 8 ו-11, 15/07/2027 עד 29/07/2027"], "expect_falsy": true, "source": "shaked-live-2026-10-12"},
+    {"id": "weekday-real-conflict-still-caught", "fn": "_weekday_date_conflict", "args": ["יום שני 15/07/2027"], "expect_truthy": true, "source": "shaked-live-2026-10-12"},
+    {"id": "flights-already-booked-declines-flights-session", "fn": "_deterministic_flights_already_booked_facts", "args": ["יש לנו כבר טיסות למונטנגרו (פודגוריצה) מ-20/06/2027 עד 27/06/2027. נשמח לתכנון מסלול, לינה ורכב שכור"], "expect": {"service_decisions": {"flights": {"wanted": false}}, "session_status": {"flights": "declined"}}, "source": "shaked-live-2026-10-12"},
+    {"id": "flights-already-booked-no-misfire", "fn": "_deterministic_flights_already_booked_facts", "args": ["רוצים לטוס למונטנגרו"], "expect_falsy": true, "source": "shaked-live-2026-10-12"}
+>>>>>>> origin/main
   ]
 }

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import time
 import anthropic
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
@@ -248,7 +249,12 @@ def _weekday_date_conflict(message, history=None):
     import re
     text = str(message or "")
     weekdays = {"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
-    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)"
+    # Seen live: "ושני ילדים בני 8 ו-11, 15/07/2027..." matched "שני" (two)
+    # as the weekday "Monday" paired with the nearby date, purely because
+    # "שני" is both a cardinal number and a weekday name. A real weekday
+    # mention is never immediately followed by the plural noun it would be
+    # quantifying if read as a number instead.
+    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)(?!\s*(?:ילדים|ילדות|מבוגרים|מבוגרות|חדרים|לילות|ימים|שבועות|מקומות|מזוודות|נוסעים|אנשים|שעות|דקות))"
     date_re = r"(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?"
     # Pair a weekday with the nearest date on either side (up to 40 chars).
     pairs = []
@@ -329,28 +335,48 @@ def _weekday_pair_conflict(text, history):
     return None
 
 
+_RETRYABLE_CLAUDE_STATUS_CODES = (429, 529)
+
+
 def _post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     """system_static is the large, unchanging instruction block (thousands of
     tokens, identical on every call) - marked cacheable so Claude does not
     reprocess it from scratch on every chat turn. system_dynamic is the small
     per-turn suffix (current date, accumulated trip state) that must never be
-    cached since it changes every call."""
+    cached since it changes every call.
+
+    QA 2026-10-12: 6 customers messaging at once made 4/6 chat turns fail
+    outright with a "technical glitch". The anthropic SDK client already
+    retries transient errors twice internally (its own default), but a
+    turn makes 1-2 of these calls in sequence (reply + state extraction) and
+    the whole turn dies the moment either one still fails after that - under
+    a genuine burst (several customers' calls landing close together), the
+    SDK's own short internal backoff can still be exhausted. One extra
+    application-level retry, only for 429 (rate_limit_error) and 529
+    (overloaded_error) - the two Anthropic documents as safe/expected to
+    retry - costs a few seconds on an already-failing call instead of
+    failing the customer's entire turn outright."""
     client = _get_anthropic_client(key)
     messages = _conversation(history[-16:] if include_history else [], message)
     system_blocks = [{"type": "text", "text": system_static, "cache_control": {"type": "ephemeral"}}]
     if system_dynamic:
         system_blocks.append({"type": "text", "text": system_dynamic})
-    try:
-        response = client.messages.create(
-            model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
-            # Reply generation and state extraction are both simple, well-specified
-            # tasks (natural conversation, structured JSON) - extended thinking adds
-            # latency here without improving output, so keep it off for speed.
-            thinking={'type': 'disabled'},
-        )
-    except anthropic.APIStatusError as exc:
-        record_ai_usage(source, model, usage=None, error=exc.status_code)
-        raise RuntimeError(f'Claude API error {exc.status_code}') from exc
+    for attempt in range(2):
+        try:
+            response = client.messages.create(
+                model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
+                # Reply generation and state extraction are both simple, well-specified
+                # tasks (natural conversation, structured JSON) - extended thinking adds
+                # latency here without improving output, so keep it off for speed.
+                thinking={'type': 'disabled'},
+            )
+            break
+        except anthropic.APIStatusError as exc:
+            if attempt == 0 and exc.status_code in _RETRYABLE_CLAUDE_STATUS_CODES:
+                time.sleep(2)
+                continue
+            record_ai_usage(source, model, usage=None, error=exc.status_code)
+            raise RuntimeError(f'Claude API error {exc.status_code}') from exc
     record_ai_usage(source, model, usage=response.usage)
     return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
@@ -2859,6 +2885,31 @@ def _deterministic_named_accept_facts(message):
     return {}
 
 
+def _deterministic_flights_already_booked_facts(message):
+    """A customer who already holds flights bought elsewhere ("יש לנו כבר
+    טיסות למונטנגרו... נשמח לתכנון מסלול, לינה ורכב שכור") has nothing left
+    for the flights session to search or ask about - it is declined exactly
+    like an explicit "לא צריך רכב" would be (_deterministic_named_decline_
+    facts above), not left pending. Seen live: Ariella still asked for
+    baggage and a flight budget even though there was never going to be a
+    flight search for this trip at all. Destination/dates/travelers in the
+    same message are still picked up normally by the other extractors -
+    this only closes the flights session itself."""
+    import re
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    if re.search(
+        r"(?:כבר\s+(?:יש\s+לנו|יש\s+לי|הזמנו|קנינו|רכשנו)|(?:יש\s+לנו|יש\s+לי|הזמנו|קנינו|רכשנו)\s+כבר)\s*(?:את\s+ה)?טיס",
+        msg,
+    ):
+        return {
+            "service_decisions": {"flights": {"wanted": False, "source": "already_booked_elsewhere"}},
+            "session_status": {"flights": "declined"},
+        }
+    return {}
+
+
 def _deterministic_period_facts(message, history=None):
     """Parse weekday/month windows ("סוף יוני, ראשון עד חמישי") into exact
     candidate ranges, so Ariella never computes calendar dates herself.
@@ -5019,6 +5070,20 @@ def chat_clean():
                 services.add(service)
             trip_update["requested_services"] = list(services)
             trip_update["service_decisions"] = decisions
+        already_booked = _deterministic_flights_already_booked_facts(message)
+        already_booked_decisions = already_booked.get("service_decisions") if isinstance(already_booked, dict) else None
+        if already_booked_decisions:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            decisions["flights"] = already_booked_decisions["flights"]
+            services.discard("flights")
+            statuses["flights"] = "declined"
+            if trip_update.get("active_session") == "flights":
+                trip_update["active_session"] = None
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
         # Safety net for facts that must never be re-asked. This helper already
         # existed but was not wired into the live chat path. Run it before
         # missing-field/session calculation so an explicitly stated destination
