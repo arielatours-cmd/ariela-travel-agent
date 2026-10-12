@@ -3284,8 +3284,27 @@ def _deterministic_named_accept_facts(message):
         if re.search(negation_cue, clause):
             continue
         matched = [s for s, pat in service_patterns.items() if re.search(pat, clause)]
-        if len(matched) < 2 or not re.search(want_framing, clause):
+        if len(matched) < 2:
             continue
+        if not re.search(want_framing, clause):
+            # No framing verb at all ("טיסה, לינה ורכב") is still an
+            # explicit request for everything named, when the WHOLE clause
+            # is nothing but that bare list - seen live (Shaked, ski
+            # scenario): this exact phrasing left lodging/car never
+            # recorded as wanted, so the already-answered yes/no offer
+            # ("תרצי שאסדר גם רכב שכור?") resurfaced later as if the
+            # customer had never said anything. A service word embedded in
+            # a longer sentence with no framing (e.g. a passing remark)
+            # must still be rejected, so only a clause that reduces to
+            # nothing once every named service (flights included, even
+            # though it isn't itself part of `matched`) and separators are
+            # stripped out counts as a bare enumeration.
+            stripped = clause
+            for pat in list(service_patterns.values()) + [r"טיסה|טיסות|לטוס|טיסת"]:
+                stripped = re.sub(pat, "", stripped)
+            stripped = re.sub(r"[,\sו-]+", "", stripped)
+            if stripped:
+                continue
         return {"service_decisions": {s: {"wanted": True, "source": "explicit_named_accept"} for s in matched}}
     return {}
 
@@ -6408,7 +6427,17 @@ def chat_clean():
         # trip, where trip_planning auto-declines) - before the customer ever
         # got to see the summary or approve, silently discarding
         # destination/dates/everything and breaking the actual search.
-        flights_resolved = bool(trip_update.get("post_flight_continuation")) or final_statuses.get("flights") == "declined"
+        #
+        # flights="declined" (e.g. "כבר הזמנו טיסות לפירנצה...") has the
+        # EXACT same flaw and used to be treated as an automatic shortcut
+        # here - seen live (Shaked, Tuscany): the moment the customer's
+        # lodging answer closed the last remaining domain, mid-conversation,
+        # the whole trip reset and the very next reply was "לאן תרצי לטוס?"
+        # (the brand-new-vacation destination question) - the customer never
+        # saw a summary or typed מאשר/מאשרת at all. A declined flights
+        # session needs the exact same real approval gate as a completed
+        # one; it just never goes through a flight search of its own.
+        flights_resolved = bool(trip_update.get("post_flight_continuation"))
         other_domains_resolved = all(
             final_statuses.get(s) in ("complete", "declined")
             or ((final_decisions.get(s) or {}).get("wanted") is False if isinstance(final_decisions.get(s), dict) else final_decisions.get(s) is False)
