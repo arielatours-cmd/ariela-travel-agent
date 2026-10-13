@@ -38,6 +38,12 @@ def _fake_post_claude(key, model, system_static, system_dynamic, history, messag
 
 
 MARKER = "חזר עכשיו אחרי הפסקה ארוכה"
+# Per Shaked's live report (qa-s73, 2026-10-13): the welcome-back reply used
+# the masculine imperative "בוא נתחיל" for a customer whose profile gender is
+# female ("בואי" was needed). Rather than trust the model to pick the right
+# gendered form every time, the instruction now tells it to avoid the
+# gendered imperative entirely in that part of the message.
+GENDER_NEUTRAL_MARKER = "בוא נתחיל\"/\"בואי נתחיל"
 
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
     # --- 1. Flag set -> welcome-back instruction is injected ---
@@ -45,7 +51,9 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
               "_stale_reset_just_happened": True}
     chat._call_tinkerbell("test-key-not-real", "claude-sonnet-5", [], "שלום", state)
     assert MARKER in captured["system_dynamic"], "welcome-back instruction missing when flag is set"
+    assert GENDER_NEUTRAL_MARKER in captured["system_dynamic"], "gender-neutral-phrasing guard missing when flag is set"
     print("PASS: stale-reset flag set -> welcome-back instruction injected into system_dynamic")
+    print("PASS: stale-reset flag set -> gendered-imperative guard (בוא/בואי נתחיל) injected too")
 
     # --- 2. Flag absent (ordinary turn) -> no welcome-back instruction ---
     captured.clear()

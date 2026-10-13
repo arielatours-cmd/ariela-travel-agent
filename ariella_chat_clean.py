@@ -209,6 +209,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
+- destination.places חייב להירשם בדיוק כפי שהלקוח אמר את שם היעד, גם כשהוא פחות מוכר/נדיר ואפילו כשהוא לא נשמע לך כעיר/יעד ממש - לעולם אסור שישאר ריק רק כי השם לא מוכר לך. זה שונה מ-destination_airports (קוד שדה מאומת), שבאמת נשאר ריק עד שיש מקור אמיתי. אסור בשום אופן "לוותר" על שמירת היעד שהלקוח כן נתן בגלל חשד שאין טיסות/קטלוג ליעד הזה - זו בדיוק הסיבה שגרמה בעבר לשיחה שלמה ללכוד בלופ "לאן תרצי לטוס?" אחרי שהלקוח כבר אמר בבירור לאן.
 - flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. כשאין העדפה כזו השאירי null - בדיוק כמו budget_per_person.status ו-car.details.vehicle_type, שדה זה נשאר null/unknown עד שהלקוח עצמו ענה בפועל על השאלה אם הוא רוצה טיסה ישירה; אסור להניח "אין העדפה" משתיקה או כברירת מחדל, ואסור לכתוב בסיכום ניסוח שמרמז על העדפה שלא נשאלה בכלל.
 - flight.max_connections: כאשר הלקוח מציין מספר עצירות/קונקשנים מקסימלי מותר (לא ישירה דווקא, אבל גם לא ללא הגבלה - למשל "לא יותר מקונקשן אחד", "מקסימום עצירה אחת", "עד 2 קונקשנים"), שמרי כאן מספר שלם (1, 2...). זה שונה מ-connection_preference="direct" (דרישה לטיסה ישירה בלבד) - שדה נפרד לבקשה "קונקשן אחד זה בסדר, אבל לא יותר". כשאין הגבלה מספרית כזו השאירי null.
 - כשתוצאות הטיסות כבר נסרקו ואין טיסה ישירה ליעד (למשל התוצאה המוצגת מסומנת כ"לא כולל: טיסה ישירה"), ציייני זאת ללקוח כעובדה בפה מלא ("שימו לב - לא נמצאה טיסה ישירה ליעד הזה בתאריכים שביקשת, האפשרות הטובה ביותר שנמצאה כוללת קונקשן") ולעולם אל תשאלי שוב אם הלקוח רוצה טיסה ישירה - השאלה הזו רלוונטית רק לפני שיוצאים לסריקה ורק כשבאמת יש אפשרות ישירה אמיתית לבחור בה.
@@ -282,7 +283,16 @@ def _weekday_date_conflict(message, history=None):
     # "שני" is both a cardinal number and a weekday name. A real weekday
     # mention is never immediately followed by the plural noun it would be
     # quantifying if read as a number instead.
-    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)(?!\s*(?:ילדים|ילדות|מבוגרים|מבוגרות|חדרים|לילות|ימים|שבועות|מקומות|מזוודות|נוסעים|אנשים|שעות|דקות))"
+    # Seen live (Shaked, qa-s77): "לחפש בשניהם" ("search in both of them") false-
+    # triggered a weekday/date mismatch because "שני" (Monday) matched inside
+    # "בשניהם" with nothing stopping it mid-word. A real weekday mention is
+    # never immediately followed, with no space, by another Hebrew letter -
+    # that only happens when the match is actually a suffix inside a longer
+    # word ("שניהם", "ראשוני", "חמישייה", "שישייה", "שבתון"...). A single
+    # prefix letter before the weekday (ב/ל/ו/מ/כ, e.g. "לשבת", "בשני") is
+    # normal Hebrew and must stay allowed - only the right-side, no-space
+    # continuation is actually unsafe, so only that side needs the guard.
+    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)(?![֐-׿])(?!\s*(?:ילדים|ילדות|מבוגרים|מבוגרות|חדרים|לילות|ימים|שבועות|מקומות|מזוודות|נוסעים|אנשים|שעות|דקות))"
     date_re = r"(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?"
     # Pair a weekday with the nearest date on either side (up to 40 chars).
     pairs = []
@@ -1391,13 +1401,23 @@ def _required_state_gaps(state):
         # flight search already closed in an earlier turn (route planned
         # only afterward) must not be reopened to ask this retroactively.
         flights_status = str((state.get("session_status") or {}).get("flights") or "")
-        if (not is_ski_trip and "trip_planning" in services and planning.get("approved")
-                and len(destination_airports) > 1 and not state.get("gateway_narrow_declined")
-                and flights_status not in ("complete", "declined")):
-            gaps.append("flight.gateway_narrow")
         # Return gateway defaults to the outbound arrival gateway. It is only a
         # separate required fact when the customer explicitly asks for open-jaw.
         return_airports = state.get("return_departure_airports") if isinstance(state.get("return_departure_airports"), list) else []
+        # An open-jaw already resolved (a distinct, already-settled return
+        # gateway) makes the "one shared airport or search both?" framing of
+        # flight.gateway_narrow nonsensical - the customer already chose two
+        # different airports on purpose. Seen live (Shaked, Cyprus): the
+        # route itself confirmed "land in Paphos, return from Larnaca" (the
+        # customer explicitly said "מתאים ככה"), yet this gap kept firing
+        # with the exact same "יש כמה שדות אפשריים..." question every turn,
+        # because nothing excluded an already-resolved open-jaw from it.
+        open_jaw_already_resolved = bool(return_airports) and set(return_airports) != set(destination_airports)
+        if (not is_ski_trip and "trip_planning" in services and planning.get("approved")
+                and len(destination_airports) > 1 and not state.get("gateway_narrow_declined")
+                and not open_jaw_already_resolved
+                and flights_status not in ("complete", "declined")):
+            gaps.append("flight.gateway_narrow")
         if state.get("open_jaw_requested") and not return_airports:
             gaps.append("return_departure_airports")
         # Ask direct-vs-connection only when a verified nonstop route exists
@@ -1698,6 +1718,30 @@ def _approval_trigger(message, history, state):
     return ("כתבי מאשרת" in assistant_text
             or "כתוב מאשר" in assistant_text
             or "מאשר/מאשרת" in assistant_text)
+
+
+def _flight_approval_still_has_open_domain(statuses_after_flight):
+    """Which non-flight domain (if any) genuinely isn't decided yet, despite
+    the customer having just typed the exact approval word. Seen live
+    (Shaked, qa-s75, Cyprus real-scan test): Tinkerbell's own free-text
+    summary presented lodging and car as already resolved and ended in the
+    real מאשר/מאשרת request, which is exactly what _approval_trigger's
+    recent-assistant-text fallback treats as proof the approval gate was
+    reached - but the authoritative session_status disagreed (lodging
+    stayed "active", car stayed "pending"), so the combined search never
+    actually launched later (start_flight_search requires trip_planning/
+    lodging/car to all be complete/declined) while the reply still claimed
+    "הבקשה אושרה ואני יוצאת עכשיו לחיפוש המלא". Checked explicitly here,
+    before that claim is ever built, instead of trusting the model's own
+    summary text (or _approval_trigger's necessarily looser history-text
+    match) as proof every domain is truly done."""
+    statuses_after_flight = statuses_after_flight if isinstance(statuses_after_flight, dict) else {}
+    return next(
+        (d for d in ("trip_planning", "lodging", "car")
+         if str(statuses_after_flight.get(d) or "pending") not in ("complete", "declined")),
+        None
+    )
+
 
 def _looks_like_approval_typo(message, state=None, history=None):
     """Near-approval text may be clarified, but can never execute a search."""
@@ -2299,7 +2343,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
         # customer went quiet for over an hour mid-planning), so this really
         # is a fresh start - but the customer doesn't know that yet.
         continuity += """
-- הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק.
+- הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק. בחלק שמסביר שמתחילים מחדש, לעולם אל תשתמשי בפנייה בלשון זכר/נקבה שדורשת לדעת את מגדר הלקוח (כמו "בוא נתחיל"/"בואי נתחיל") - גם כשהמגדר ידוע, עדיף ניסוח נייטרלי בגוף ראשון רבים שלא תלוי במגדר בכלל, למשל "נתחיל לתכנן מחדש" או "נמשיך מכאן מהתחלה".
 """
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
@@ -2546,6 +2590,72 @@ def _clear_stale_gateway_airports(state):
             new_state[field] = []
             changed = True
     return new_state if changed else state
+
+
+def _protect_destination_airports_from_car_reply(previous, updated, message):
+    """destination_airports must never be derived from the customer's
+    answer to the CAR pickup/return location question - seen live (Shaked,
+    New York business trip): destination_airports was never asked about
+    separately (a real gap, since New York is a multi-gateway city), but
+    once the customer answered "JFK" to "which airport should the rental
+    car be picked up/returned at", that single-token reply also got
+    written into destination_airports - deciding the flight's own gateway
+    from an answer to a completely different question, with the flight
+    gateway question itself silently skipped."""
+    previous = previous if isinstance(previous, dict) else {}
+    updated = updated if isinstance(updated, dict) else {}
+    prev_codes = previous.get("destination_airports") if isinstance(previous.get("destination_airports"), list) else []
+    new_codes = updated.get("destination_airports") if isinstance(updated.get("destination_airports"), list) else []
+    if prev_codes or not new_codes:
+        return updated
+    if previous.get("active_session") != "car":
+        return updated
+    # A real flight-gateway decision phrased as a full sentence ("תעדיפי
+    # לנחות ב-JFK") is a different, legitimate signal - this only guards
+    # against a bare one-or-two-word reply that is nothing but the answer
+    # to the car question just asked.
+    if len(str(message or "").strip().split()) > 3:
+        return updated
+    updated = dict(updated)
+    updated["destination_airports"] = list(prev_codes)
+    return updated
+
+
+def _protect_lodging_locations_from_car_reply(previous, updated, message):
+    """lodging.details.locations must never be overwritten by the customer's
+    answer to the CAR pickup/return location question - the exact twin of
+    _protect_destination_airports_from_car_reply's bug, one domain over.
+    Seen live (Shaked, qa-s78, Cyprus): lodging was already "complete"
+    (locations="בפאפוס"), yet the answer to "איפה נוח לאסוף את הרכב?"
+    ("בשדה בפאפוס") overwrote lodging.details.locations anyway, because
+    _deterministic_lodging_facts has no way to see which domain is actually
+    active - it only pattern-matches generic location-cue words in the
+    message itself, and a car-pickup question can easily use the same
+    generic words ("איזה אזור", "מיקום") a lodging-area question does."""
+    previous = previous if isinstance(previous, dict) else {}
+    updated = updated if isinstance(updated, dict) else {}
+    prev_locations = ((previous.get("lodging") or {}).get("details") or {}).get("locations") \
+        if isinstance(previous.get("lodging"), dict) else None
+    new_locations = ((updated.get("lodging") or {}).get("details") or {}).get("locations") \
+        if isinstance(updated.get("lodging"), dict) else None
+    if not prev_locations or new_locations == prev_locations:
+        return updated
+    # Only guard a domain that was genuinely already closed - a still-open
+    # lodging conversation legitimately revising its own location answer
+    # must never be blocked.
+    if str((previous.get("session_status") or {}).get("lodging") or "") != "complete":
+        return updated
+    if previous.get("active_session") != "car":
+        return updated
+    if len(str(message or "").strip().split()) > 5:
+        return updated
+    updated = dict(updated)
+    lodging = dict(updated.get("lodging") or {})
+    details = dict(lodging.get("details") or {})
+    details["locations"] = prev_locations
+    lodging["details"] = details
+    updated["lodging"] = lodging
+    return updated
 
 
 def _guard_unjustified_gateway_narrowing(state, message, history):
@@ -3004,10 +3114,15 @@ def _deterministic_budget_facts(message):
     Ariella asked for the budget again immediately after the customer had
     just stated it in the very same message."""
     msg = str(message or "").strip().lower()
+    # "אין תקרה"/"אין מגבלה" (no ceiling/no limit) are as unambiguous as the
+    # existing "בלי הגבלה" phrasing - seen live (Shaked, London): "רק טרולי
+    # לכל אחד, ישירה, אין תקרה" matched none of the existing phrases, so the
+    # budget question was asked again right after the customer answered it.
     no_limit_phrases = (
         "אין תקציב", "אין לי תקציב", "ללא תקציב", "בלי תקציב", "בלי הגבלה", "ללא הגבלה",
         "אין הגבלת תקציב", "ללא הגבלת תקציב", "לא מוגבלת בתקציב",
-        "לא מוגבל בתקציב", "אין מגבלת תקציב"
+        "לא מוגבל בתקציב", "אין מגבלת תקציב", "אין תקרה", "אין מגבלה",
+        "בלי תקרה", "ללא תקרה"
     )
     if any(p in msg for p in no_limit_phrases):
         return {"budget_per_person":{"amount":None,"currency":None,"status":"unlimited"}}
@@ -3310,22 +3425,39 @@ def _deterministic_named_accept_facts(message):
             continue
         if not re.search(want_framing, clause):
             # No framing verb at all ("טיסה, לינה ורכב") is still an
-            # explicit request for everything named, when the WHOLE clause
-            # is nothing but that bare list - seen live (Shaked, ski
-            # scenario): this exact phrasing left lodging/car never
-            # recorded as wanted, so the already-answered yes/no offer
-            # ("תרצי שאסדר גם רכב שכור?") resurfaced later as if the
-            # customer had never said anything. A service word embedded in
-            # a longer sentence with no framing (e.g. a passing remark)
-            # must still be rejected, so only a clause that reduces to
-            # nothing once every named service (flights included, even
-            # though it isn't itself part of `matched`) and separators are
-            # stripped out counts as a bare enumeration.
-            stripped = clause
-            for pat in list(service_patterns.values()) + [r"טיסה|טיסות|לטוס|טיסת"]:
-                stripped = re.sub(pat, "", stripped)
-            stripped = re.sub(r"[,\sו-]+", "", stripped)
-            if stripped:
+            # explicit request for everything named, when the clause is
+            # just an enumeration of the services - seen live (Shaked: ski
+            # "טיסה, לינה ורכב", then business "טיסה, מלון במנהטן ורכב")
+            # - this exact phrasing left lodging/car never recorded as
+            # wanted, so the already-answered yes/no offer ("תרצי שאסדר גם
+            # רכב שכור?") resurfaced later as if the customer had never
+            # said anything. A service word embedded in a longer sentence
+            # with no framing (e.g. a passing remark) must still be
+            # rejected - so split the clause into comma/"ו"-separated
+            # segments (the business example shows one segment can carry a
+            # short qualifier, "מלון במנהטן", not just the bare noun) and
+            # require EVERY segment to be short (<=4 words) and anchored on
+            # exactly one named service; anything else means this isn't
+            # really a bare list.
+            service_root_alt = "|".join(list(service_patterns.values()) + [r"טיסה|טיסות|לטוס|טיסת"])
+            segments = re.split(r",\s*|\s+(?=ו(?:" + service_root_alt + r"))", clause)
+            segments = [s.strip() for s in segments if s.strip()]
+            if not segments:
+                continue
+            all_segments_anchored = True
+            for seg in segments:
+                seg_stripped = re.sub(r"^ו", "", seg).strip()
+                # The service word must anchor the START of the segment
+                # (allowing a single ב/ל/ה prefix letter, e.g. "במנהטן"'s
+                # own "ב" doesn't apply here since the service word itself
+                # comes first) - a service word merely appearing somewhere
+                # inside an unrelated sentence ("ראינו תמונות של מלון...")
+                # must never count, only a short qualifier trailing it.
+                head_match = re.match(r"^(?:ב|ל|ה)?(?:" + service_root_alt + r")", seg_stripped)
+                if not head_match or len(seg.split()) > 4:
+                    all_segments_anchored = False
+                    break
+            if not all_segments_anchored:
                 continue
         return {"service_decisions": {s: {"wanted": True, "source": "explicit_named_accept"} for s in matched}}
     return {}
@@ -3796,6 +3928,59 @@ def _deterministic_car_vehicle_facts(message, history):
     return result
 
 
+_CAR_LOCATION_RE = re.compile(r"(?:ב|מ)?(?:שדה\s+התעופה\s+ב?)?([א-ת]+(?:\s[א-ת]+)?)")
+_CAR_PICKUP_CUE_RE = re.compile(r"(?:איסוף|לאסוף|נאסוף|אאסוף)\w*\s*(?:את\s+)?(?:ה)?(?:רכב\s*)?" + _CAR_LOCATION_RE.pattern)
+_CAR_RETURN_SPLIT_RE = re.compile(r"(?:,|\.|ו)?\s*(?:החזרה|להחזיר|מחזיר\w*|נחזיר\w*)")
+
+
+def _deterministic_car_location_facts(message, history):
+    """car.details.pickup/return (the pickup/return LOCATION - a time is
+    welcome but never required, see _required_state_gaps's own comment on
+    this) have no deterministic writer at all, the exact lodging.details.
+    budget bug one field over. Seen live (Shaked, qa-s79, Cyprus): "איסוף
+    בפאפוס והחזרה בלרנקה" and "איסוף הרכב בשדה התעופה בפאפוס, החזרה בשדה
+    התעופה בלרנקה" both left pickup/return null forever, keeping car
+    "active" with real missing_required gaps that could never close - a
+    customer answering a time question instead ("לפי מה שיתברר בהזמנה")
+    correctly matches nothing here, since that never names a location at
+    all."""
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    result = {}
+    # Split on the return cue first so the pickup capture never swallows the
+    # return clause too ("איסוף ... והחזרה ...").
+    parts = _CAR_RETURN_SPLIT_RE.split(msg, maxsplit=1)
+    pickup_part = parts[0]
+    return_part = parts[1] if len(parts) > 1 else ""
+    pickup_match = _CAR_PICKUP_CUE_RE.search(pickup_part)
+    if pickup_match:
+        result.setdefault("car", {}).setdefault("details", {})["pickup"] = pickup_match.group(1).strip()
+    if return_part:
+        return_match = _CAR_LOCATION_RE.search(return_part)
+        if return_match:
+            result.setdefault("car", {}).setdefault("details", {})["return"] = return_match.group(1).strip()
+    return result
+
+
+_STANDALONE_NUMBERED_DAY_RE = re.compile(r"(?<![א-ת])יום\s+(\d{1,2})(?!\d)")
+_STANDALONE_WEEKDAY_DAY_RE = re.compile(r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?")
+
+
+def _looks_like_itinerary_text(text):
+    """True when text has the day-by-day route shape (2+ distinct "יום <N>"
+    or "יום <weekday>" markers) - the same signal _call_tinkerbell's own
+    local day_mention_count closure already uses to recognize a genuine
+    route proposal, reused here standalone (that one is a local closure,
+    not reachable from outside chat_clean()) wherever a guard needs to
+    tell "this is route-proposal text" from "this merely mentions a region
+    or day in passing"."""
+    text = str(text or "")
+    numbered = {m.group(1) for m in _STANDALONE_NUMBERED_DAY_RE.finditer(text)}
+    weekday_mentions = len(_STANDALONE_WEEKDAY_DAY_RE.findall(text))
+    return max(len(numbered), weekday_mentions) >= 2
+
+
 def _deterministic_lodging_facts(message, history):
     """lodging.details.type/level/rooms have no deterministic writer anywhere
     else - only the LLM's own JSON extraction ever sets them, same gap as
@@ -3879,6 +4064,28 @@ def _deterministic_lodging_facts(message, history):
         # this only fires for the bare singular phrase.
         result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
 
+    # budget has no deterministic writer at all, unlike the per-person flight
+    # budget above (_deterministic_budget_facts) - seen live (Shaked, qa-s77,
+    # Cyprus): "חדר אחד, עד 500 ללילה" correctly set rooms=1 but budget stayed
+    # null, which alone blocked lodging.details.budget_or_level from ever
+    # closing - lodging stayed "active" forever even though every visible
+    # lodging question had been answered, and a LATER unrelated car-pickup
+    # answer then got wrongly captured as a lodging location (see
+    # _protect_destination_airports_from_car_reply's docstring for the twin
+    # "still-active-domain soaks up the next answer" pattern). Lodging budget
+    # is per night, not per person - "ללילה"/"בלילה" is the unambiguous cue
+    # that distinguishes it from the flight budget's "לאדם"/"לכרטיס" cues.
+    if "ליל" in msg:
+        # Any prefix before "ליל"/"לילה" (ל-/ב-/none) names the per-night
+        # rate the same way - "ללילה" ("for the night"), "בלילה" ("at
+        # night"), bare "לילה" all count; only the proximity to a number matters.
+        budget_match = (
+            re.search(r"(\d{2,6})[^\d]{0,15}?ליל", msg)
+            or re.search(r"ליל\w*[^\d]{0,15}?(\d{2,6})", msg)
+        )
+        if budget_match:
+            result.setdefault("lodging", {}).setdefault("details", {})["budget"] = int(budget_match.group(1))
+
     # locations is free text, unlike type/level above - no fixed value list
     # to match against, which is exactly why it had no deterministic writer
     # at all before this. Seen live: the customer volunteered a location
@@ -3894,7 +4101,15 @@ def _deterministic_lodging_facts(message, history):
     # message declare the lodging "done" and then nothing actually happened
     # (no save-trip-lodging call, since the client only fires on a genuine
     # "complete" status in the returned trip_update).
-    asked_area = any(p in prior_assistant for p in ("באיזה אזור", "איפה נוח", "מיקום", "אזור"))
+    # Seen live (Shaked, qa-s79, Cyprus): the cue words below (especially the
+    # bare "אזור") are completely ordinary in a day-by-day ROUTE proposal
+    # too ("יום רגוע באזור המלון", "אזור ההרים") - a plain "מתאים" approving
+    # that route got written into lodging.details.locations as literal text,
+    # even though lodging was still "pending" and the question actually
+    # being answered had nothing to do with lodging at all. Excluded
+    # whenever the prior assistant message is itself itinerary-shaped.
+    asked_area = any(p in prior_assistant for p in ("באיזה אזור", "איפה נוח", "מיקום", "אזור")) \
+        and not _looks_like_itinerary_text(prior_assistant)
     location_cues = ("קרוב ל", "ליד ה", "ליד ל", "במרחק הליכה", "קרוב לאתר", "קרוב למרכז", "לא רחוק מ", "באזור ה", "בלב ")
     if asked_area or any(c in msg for c in location_cues):
         result.setdefault("lodging", {}).setdefault("details", {})["locations"] = msg
@@ -4201,6 +4416,75 @@ def _is_itinerary_acceptance(message):
 _POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
 
 
+_GAP_QUESTION_TEXT = {
+    "car.details.vehicle_type": "איזה סוג/גודל רכב מתאים לכם?",
+    "car.details.transmission": "תעדיפו רכב אוטומטי או ידני?",
+    "car.details.pickup": "באיזה שדה תעופה או עיר תרצו לאסוף את הרכב?",
+    "car.details.return": "ובאיזה שדה תעופה או עיר תרצו להחזיר אותו?",
+    "lodging.details.type": "איזה סוג לינה מתאים לכם (מלון, דירה או וילה)?",
+    "lodging.details.rooms": "כמה חדרים תרצו?",
+    "lodging.details.locations": "באיזה אזור תרצו שהלינה תהיה?",
+    "lodging.details.budget_or_level": "מה התקציב ללילה, או איזו רמת נוחות אתם מחפשים?",
+    "trip_planning.details.style": "ספרו לי מה אתם אוהבים לעשות בחופשה.",
+    "trip_planning.details.pace": "אתם מעדיפים קצב רגוע או פעיל?",
+    "trip_planning.details.route": "ספרו לי קצת על המסלול שאתם מדמיינים.",
+    "trip_planning.approved": "המסלול שהצעתי מתאים לכם, או שתרצו לשנות משהו?",
+}
+
+
+def _premature_approval_fallback_text(trip_update):
+    """Last-resort honest reply when the reserved מאשר/מאשרת phrase had to
+    be stripped from a premature reply and nothing more specific (a real
+    gap question, a post-flight offer) was available to substitute in its
+    place. Seen live (Shaked, qa-s79): the earlier version of this fallback
+    was a single static sentence with no question in it at all - every
+    subsequent customer message (including "מה חסר?") got that exact same
+    text back verbatim, a dead end with no way forward. Ask the actual
+    missing concrete question whenever the specific gap is known; only
+    fall back to a bare statement when nothing more specific is available."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    still_open = trip_update.get("active_session") or trip_update.get("next_session")
+    if still_open in ("lodging", "car", "trip_planning"):
+        for gap in _session_gaps(trip_update, still_open):
+            question = _GAP_QUESTION_TEXT.get(gap)
+            if question:
+                return question
+    label = _POST_FLIGHT_LABELS.get(still_open)
+    detail = f" (חסר עדיין פרט ב{label})" if label else ""
+    return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."
+
+
+_POST_FLIGHT_OFFER_CUES = (
+    "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
+    "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
+    "תרצי עזרה גם", "תרצה עזרה גם", "רוצה עזרה גם",
+    "תרצי שאמשיך גם", "תרצה שאמשיך גם", "רוצה שאמשיך גם",
+)
+_POST_FLIGHT_OFFER_SERVICE_CUES = {
+    "lodging": ("לינה",),
+    "car": ("רכב שכור", "השכרת רכב", "רכב"),
+    "trip_planning": ("מסלול", "אטרקציות"),
+}
+
+
+def _infer_post_flight_offer_from_text(text):
+    """post_flight_offer is supposed to be set by the backend whenever it
+    asks "want help with lodging/car/route too?", so the customer's answer
+    has something concrete to settle against (see _post_flight_offer_answer
+    below). Seen live (Shaked, qa-s78, Cyprus): Tinkerbell asked this exact
+    question in its own free text ("לינה או רכב שכור תרצי שאסדר גם?") with
+    post_flight_offer never set at all - the customer's "שניהם" then had
+    nothing to resolve, lodging only got activated later (by a separate,
+    unrelated "מלון" explicit-request match), and car was never activated
+    at all. When the backend's own bookkeeping is empty, derive which
+    services were actually offered from Ariella's own words instead of
+    leaving the answer with nothing to settle."""
+    text = str(text or "")
+    if not any(cue in text for cue in _POST_FLIGHT_OFFER_CUES):
+        return []
+    return [s for s, cues in _POST_FLIGHT_OFFER_SERVICE_CUES.items() if any(c in text for c in cues)]
+
+
 def _post_flight_offer_answer(message, state, key=None, model=None, history=None):
     """The customer's answer to "the flights are being scanned - want help
     with lodging, car or route too?" (asked right after flight approval).
@@ -4222,7 +4506,14 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
         return {}
     if msg in {"לא", "לא עכשיו", "לא תודה", "לא צריך", "לא צריכה", "לא צריכים", "זהו", "זה הכל", "זה הכול", "סיימנו", "אין צורך"}:
         return {s: False for s in offered}
-    if msg in {"כן", "בטח", "בהחלט", "כולם", "הכל", "הכול", "את הכל", "את הכול", "כן הכל", "כן הכול", "כן בבקשה", "כן, בבקשה"}:
+    # "שניהם" (both of them) - seen live (Shaked, qa-s78, Cyprus): offered
+    # exactly two services (lodging, car), the customer answered "שניהם",
+    # and only lodging ended up requested - car was never added to
+    # requested_services/service_decisions at all, so it stayed "pending"
+    # forever. "שניהם"/"את שניהם" unambiguously means yes to every offered
+    # service, exactly like the existing "כולם"/"הכל" bare-everything replies.
+    if msg in {"כן", "בטח", "בהחלט", "כולם", "הכל", "הכול", "את הכל", "את הכול", "כן הכל", "כן הכול", "כן בבקשה", "כן, בבקשה",
+               "שניהם", "את שניהם", "שתיהן", "את שתיהן", "גם וגם", "גם וגם זה"}:
         return {s: True for s in offered}
     # "תעבירי"/"תעביר אותי" - the customer is asking to actually be taken to
     # the flight results now, exactly the alternative Ariella herself offered
@@ -5437,6 +5728,7 @@ def chat_clean():
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _clear_stale_gateway_airports(trip_update)
+        trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
         trip_update = _roll_past_dates(trip_update, message, history)
@@ -5510,7 +5802,17 @@ def chat_clean():
         # extractor's own decisions above so it authoritatively overrides a
         # misattributed or dropped extraction - see the function's docstring
         # for the live-transcript loop this fixes.
-        post_flight_answer = _post_flight_offer_answer(message, trip_state, key, model, history)
+        post_flight_state = trip_state
+        if not trip_state.get("post_flight_offer"):
+            last_assistant_for_offer = next(
+                (str(x.get("content") or "") for x in reversed(history or [])
+                 if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"), ""
+            )
+            inferred_post_flight_offer = _infer_post_flight_offer_from_text(last_assistant_for_offer)
+            if inferred_post_flight_offer:
+                post_flight_state = dict(trip_state)
+                post_flight_state["post_flight_offer"] = inferred_post_flight_offer
+        post_flight_answer = _post_flight_offer_answer(message, post_flight_state, key, model, history)
         if post_flight_answer.pop("_transfer_to_results", False):
             # The customer asked to be taken to the results now, exactly the
             # alternative Ariella's own offer named - settle it immediately
@@ -5680,7 +5982,9 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_car_vehicle_facts(message, history))
+        trip_update = _merge_trip_state(trip_update, _deterministic_car_location_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
+        trip_update = _protect_lodging_locations_from_car_reply(trip_state, trip_update, message)
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
         # a new plan or continuing the ski trip?") clears trip_type, but the
@@ -5887,7 +6191,22 @@ def chat_clean():
         # time to move on to flights/lodging/car, which made no sense since
         # she was still mid-flight-conversation and had approved nothing like
         # a full itinerary.
-        planning_accept = planning_active and not already_approved \
+        # Seen live (Shaked, qa-s77, Cyprus): Tinkerbell presented a full
+        # numbered day-by-day route ("יום 1, 6.12.2026 (ראשון)"..."יום 6,
+        # 11.12.2026 (שישי)", ending in "מתאים לך המסלול הזה...?") while
+        # trip_planning was still formally "pending" (never activated as
+        # active_session) - the customer's "מתאים" right after it was then
+        # misread as the generic "want help with the route too?" post-flight
+        # offer instead of a real route approval, and trip_planning stayed
+        # open until an extra, unnatural "כבר אישרתי את המסלול" was needed.
+        # planning_active alone is too narrow a gate here: last_assistant_
+        # text (above) already prefers the itinerary-shaped message found by
+        # scanning backward through history, so if IT already looks like a
+        # genuine day-by-day route, that is itself strong, specific evidence
+        # a route was just proposed and is now being answered - regardless
+        # of whatever the backend's own active_session bookkeeping says.
+        itinerary_was_just_presented = day_mention_count(last_assistant_text) >= 2
+        planning_accept = (planning_active or itinerary_was_just_presented) and not already_approved \
             and _is_itinerary_acceptance(message) and day_mention_count(prior_assistant) >= 2
         if planning_accept:
             statuses_plan = dict(trip_update.get("session_status") or {})
@@ -6016,6 +6335,21 @@ def chat_clean():
                                 reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
                                 break
 
+            # Last-resort safety net: whichever attempt above ran (or none
+            # matched), the reserved מאשר/מאשרת phrase must never reach the
+            # customer while a domain is still genuinely undecided. Seen
+            # live (Shaked, qa-s78, Cyprus): active_session was correctly
+            # "car" with real missing_required gaps (pickup/return) - the
+            # retry through Tinkerbell just above should have asked for
+            # them, but the model's own retried reply still contained a
+            # full summary ending in "כתבי מאשרת" regardless, and nothing
+            # re-checked that retried text before accepting it as "handled".
+            # Unlike the exact-phrase replacements above, this is a loose
+            # substring match on purpose - free text has endless equivalent
+            # phrasings, and this is the last line of defense, not the first.
+            if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
+                reply = _premature_approval_fallback_text(trip_update)
+
         # Opposite failure of the premature-מאשרת block above: every one of
         # the four domains is genuinely complete/declined right now (the one
         # real final-summary moment), yet the reply just produced is neither
@@ -6066,7 +6400,16 @@ def chat_clean():
             # skipping that step entirely (the bug seen live: after route
             # approval the flight search never ran at all).
             if statuses_after_plan.get("flights") not in ("complete", "declined"):
+                # The bare "let's make sure flight details are complete" line
+                # leaves the customer with nothing to actually answer - seen
+                # live (Shaked, Cyprus): the turn ended right here with no
+                # question at all. Same fix already applied to the twin
+                # occurrence of this exact line further below (the premature-
+                # מאשרת safety net) - append the real concrete question.
                 reply = "מצוין, המסלול מאושר. בואי נוודא שגם פרטי הטיסה שלמים."
+                concrete_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
+                if concrete_gap_question:
+                    reply += " " + concrete_gap_question
                 trip_update["active_session"] = "flights"
             else:
                 remaining = [
@@ -6328,6 +6671,36 @@ def chat_clean():
                 # line, asked "מה עכשיו?" (what now?), and had no way forward
                 # other than guessing.
                 reply = _flight_gap_question(approval_gaps, trip_update)
+                approval = False
+            elif _flight_approval_still_has_open_domain(statuses_after_flight):
+                # Flights alone are done, but at least one other requested
+                # domain the summary presented as resolved is not actually
+                # complete/declined yet (see _flight_approval_still_has_
+                # open_domain's docstring - this is the exact Shaked/qa-s75
+                # bug). Never emit the "אני יוצאת עכשיו לחיפוש" success claim
+                # here - it would be false, since start_flight_search later
+                # requires every one of trip_planning/lodging/car to be
+                # decided. Re-open that domain and ask Tinkerbell for the
+                # genuine next question instead.
+                _still_open_domain = _flight_approval_still_has_open_domain(statuses_after_flight)
+                merged["search_intent"] = True
+                merged["search_confirmed"] = False
+                merged["ready_for_summary"] = False
+                merged["active_session"] = _still_open_domain
+                trip_update = merged
+                try:
+                    reply = _call_tinkerbell(key, model, history, message, trip_update)
+                except Exception as exc:
+                    logging.exception(
+                        "Tinkerbell reply failed on approval with still-open domain %s: %s",
+                        _still_open_domain, exc
+                    )
+                    _remaining_labels_fallback = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
+                    reply = (
+                        "עדיין לא יצאתי לחיפוש בפועל - נשאר לסגור את "
+                        + _remaining_labels_fallback.get(_still_open_domain, _still_open_domain or "פרט אחד נוסף")
+                        + " לפני שהכל מוכן."
+                    )
                 approval = False
             else:
                 # This whole branch used to end here, with everything below it
