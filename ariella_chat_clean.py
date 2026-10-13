@@ -164,7 +164,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
     - עיר/יעד עם כמה שדות אפשריים שהלקוח טרם בחר ביניהם: אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") אם מחפשים בכולם יחד (ואז "(כל השדות)" כש"אין העדפה" נאמר במפורש, למשל "לונדון (כל השדות), אנגליה"), או שאלו לפני הסיכום - לעולם אל תגיעי לסיכום כשdestination_airports עדיין ריק/לא מוכרע (למשל יעד כללי כמו "יוון" או "איים ביוון" בלי שדה שנגזר ממסלול או נבחר על ידי הלקוח).
     - אם היעד דורש גם טיסת פנים נוספת מעבר לנחיתה/המראה הבין-לאומיים (למשל נחיתה בבנגקוק והיעד בפועל הוא קרבי) וזו לא כלולה בחיפוש, ציינו זאת במפורש בסיכום (למשל "שימו לב: הטיסה הפנימית לקרבי אינה כלולה בחיפוש הזה").
     - אם הלקוח כבר הזמין את הטיסות בעצמו (flights declined מהסיבה הזו): כתבו בכל זאת שורה "טיסות: כבר בידיכם" עם השדות שהלקוח מסר אם ידועים - זה חריג יחיד לכלל "שירות שנדחה לא מופיע בסיכום" (ראו למטה), כי יש כאן מידע רלוונטי לציין, לא שירות שפשוט לא התבקש.
-    בנוסף (רק כשטיסה בכלל מבוקשת ולא כבר הוזמנה עצמאית): תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע, ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, תמיד בש"ח/₪, לעולם לא "ILS").
+    בנוסף (רק כשטיסה בכלל מבוקשת ולא כבר הוזמנה עצמאית): תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע (כתבי זאת תמיד במפורש "לכל נוסע"/"לכל אחד" - לעולם לא כניסוח יחיד כללי כמו "מזוודה גדולה" בלי לציין שזה פר נוסע, שנשמע כאילו יש בסך הכל מזוודה אחת לכל הקבוצה), ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, תמיד בש"ח/₪, לעולם לא "ILS").
   - מסלול/אטרקציות (אם לא declined): תקציר קצר של המבנה שאושר (לא כל הפרטים מחדש).
   - לינה (אם לא declined): אזור/ים, מספר לילות, סוג לינה, רמה, מספר חדרים, תקציב.
   - רכב (אם לא declined): סוג רכב, מיקום ומועד איסוף והחזרה.
@@ -189,7 +189,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - התחילי מה-state הקיים. שמרי כל ערך קיים שלא שונה. לעולם אל תמחקי ערך רק כי לא הוזכר שוב.
 - קיבלת את כל השיחה, לא רק את ההודעה האחרונה. ה-state הוא נקודת הפתיחה שלך, לא גבול הזיכרון שלך: אם הלקוח ציין פרט רלוונטי בכל שלב קודם בשיחה (גם לא בהודעה הנוכחית) והוא עדיין חסר ב-state, זו עובדה אמיתית שפשוט לא נשמרה - כתבי אותה עכשיו לשדה המתאים, בלי לחכות שהלקוח יחזור ויגיד את זה שוב. לעולם אל תסתרי או תחליפי ערך קיים ב-state בלי סיבה מפורשת מהלקוח; כשהלקוח שינה פרט מאוחר יותר בשיחה ("לא, בעצם X"), הגרסה המאוחרת גוברת על המוקדמת לאותו שדה.
 - יש state מרכזי אחד לחופשה. destination, destination_airports, return_departure_airports, departure_airport, dates, travelers, budget_per_person והעדפות טיסה הם מידע משותף בין כל הסשנים. מעבר בין flights/lodging/car/trip_planning לעולם אינו מאפס אותם ולעולם אינו מצדיק לשאול אותם שוב.
-- תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות.
+- תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות. המסלול היומי עצמו (trip_planning.details.route) חייב תמיד מבנה קבוע אחד: מערך של אובייקט אחד לכל יום, ובכל אחד מהם מפתח "base" עם שם העיר/האזור שבו לנים באותו לילה (למשל {"day":1,"base":"פאפוס"}) - בלי קשר לניסוח החופשי שבו באמת כתבת את המסלול ללקוח. זה בדיוק כדי שלינה/רכב שנפתחים אחר כך יוכלו לקרוא את אזורי הלינה ישירות מהמסלול המאושר בלי לשאול את הלקוח שוב.
 - כאשר הלקוח מבקש לעבור לשירות אחר, שאלי רק על missing_required של אותו שירות אחרי קריאת כל המידע המשותף. אל תפתחי שאלון מחדש.
 - session_status כולל תמיד flights/lodging/car/trip_planning, וכל אחד הוא pending/active/complete/declined. אל תסמני complete רק כי הלקוח הזכיר את התחום; אריאלה מחשבת השלמה לפי שדות החובה.
 - active_session הוא הסשן היחיד שטינקרבל משלימה כעת.
@@ -995,15 +995,7 @@ def _resolve_destination_airports_from_route(state):
     # of Innsbruck/Salzburg/Munich).
     if str(state.get("trip_type") or "").lower() == "ski":
         return state
-    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
-    details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
-    route = details.get("route") if isinstance(details.get("route"), list) else []
-    names = []
-    for day in route:
-        if isinstance(day, dict):
-            base = day.get("base") or day.get("city") or day.get("region")
-            if base:
-                names.append(str(base))
+    names = _route_base_names(state)
     # A confirmed day-by-day route is itself the authoritative gateway
     # decision, even when destination_airports already holds a broader set
     # of candidates picked before route planning started (e.g. both Larnaca
@@ -1089,6 +1081,33 @@ def _resolve_destination_airports_from_route_names(airports, names):
     return codes
 
 
+def _route_base_names(state):
+    """The list of distinct per-day bases/cities a saved trip_planning route
+    names, in order - shared by _resolve_destination_airports_from_route,
+    _resolve_lodging_locations_from_route and _understand_open_gap_answer's
+    own reference context, so all three recognize the same route shape the
+    same way. The extractor's own schema for trip_update.trip_planning.
+    details.route (see EXTRACTOR_SYSTEM) asks for a "base" key on each day,
+    but is tolerant of the other names/shapes a free-form model reply has
+    been seen to use instead."""
+    state = state if isinstance(state, dict) else {}
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
+    route = details.get("route") if isinstance(details.get("route"), list) else []
+    names = []
+    for day in route:
+        if isinstance(day, str) and day.strip():
+            if day.strip() not in names:
+                names.append(day.strip())
+            continue
+        if isinstance(day, dict):
+            base = (day.get("base") or day.get("city") or day.get("region")
+                    or day.get("location") or day.get("area") or day.get("place") or day.get("name"))
+            if base and str(base) not in names:
+                names.append(str(base))
+    return names
+
+
 def _resolve_lodging_locations_from_route(state):
     """An approved day-by-day route already says where the customer sleeps
     each night (each day's base/city/region) - once lodging search opens
@@ -1101,15 +1120,7 @@ def _resolve_lodging_locations_from_route(state):
     details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
     if details.get("areas") or details.get("locations"):
         return state
-    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
-    planning_details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
-    route = planning_details.get("route") if isinstance(planning_details.get("route"), list) else []
-    names = []
-    for day in route:
-        if isinstance(day, dict):
-            base = day.get("base") or day.get("city") or day.get("region")
-            if base and str(base) not in names:
-                names.append(str(base))
+    names = _route_base_names(state)
     if not names:
         return state
     state = dict(state)
@@ -1621,9 +1632,16 @@ def _flight_gap_question(gaps, state=None):
         codes = (state or {}).get("destination_airports") or []
         names = _airport_labels(codes)
         listed = ", ".join(names[:-1]) + " או " + names[-1] if len(names) >= 2 else ", ".join(names)
+        # Seen live (Shaked, qa-s83): a leading "המסלול אושר!" here duplicated
+        # the route-approval announcement a caller had often already made one
+        # sentence earlier ("מצוין, המסלול מאושר. בואי נוודא..."), producing
+        # a jarring double "route approved" in the same reply. And "כדי
+        # לחסוך בסריקות" is internal cost-saving reasoning that should never
+        # reach the customer (per the business owner) - the question itself
+        # is self-explanatory without exposing why it's being asked.
         return (
-            f"המסלול אושר! יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). "
-            "תרצי שאצמצם את חיפוש הטיסות לשדה אחד כדי לחסוך בסריקות, או להמשיך לחפש בשניהם?"
+            f"יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). "
+            "תרצי שאצמצם את חיפוש הטיסות לשדה אחד, או להמשיך לחפש בשניהם?"
         )
     if "return_departure_airports" in gaps:
         return "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
@@ -1952,6 +1970,27 @@ def _strip_leaked_internal_paragraph(text):
     return rest
 
 
+def _strip_stray_markdown_markers(text):
+    """CORE_SYSTEM explicitly forbids asterisks/Markdown in Ariella's replies
+    ("אל תשתמשי בכוכביות, Markdown או סימני עיצוב") - the website owns all
+    formatting. Seen live (Shaked, qa-s83): a bare "**" surfaced as its own
+    paragraph in the middle of a reply, between a rhetorical question and
+    Tinkerbell answering it for itself (also itself a violation of the
+    existing "never think out loud inside the reply" rule) - a stray
+    thinking-time separator that leaked into customer-facing text. A
+    paragraph made of nothing but asterisks is never legitimate content, so
+    it is dropped outright; any other literal "**" left over elsewhere in
+    the text is stripped too, same as the instruction already requires."""
+    text = str(text or "")
+    if "*" not in text:
+        return text
+    paragraphs = re.split(r"\n\s*\n", text)
+    kept = [p for p in paragraphs if p.strip() and not re.fullmatch(r"\*+", p.strip())]
+    cleaned = "\n\n".join(kept)
+    cleaned = cleaned.replace("**", "").replace("*", "")
+    return cleaned.strip()
+
+
 _ITINERARY_WEEKDAY_RE = re.compile(
     r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
 )
@@ -2186,8 +2225,13 @@ def _travelers_summary(state):
 
 
 _BAGGAGE_HE = {
-    "carry_on_only": "טרולי בלבד", "carry_on": "טרולי", "checked_bag": "מזוודה גדולה",
-    "checked": "מזוודה גדולה", "personal_item": "תיק אישי בלבד",
+    # Seen live (Shaked, qa-s83): the final summary wrote the bare,
+    # generic-singular "מזוודה גדולה" with no indication it's per passenger -
+    # per the product owner, checked baggage must always read as a per-
+    # passenger fact ("מזוודה לכל נוסע"), never a vague singular that could
+    # be mistaken for exactly one suitcase total regardless of party size.
+    "carry_on_only": "טרולי בלבד", "carry_on": "טרולי", "checked_bag": "מזוודה גדולה לכל נוסע",
+    "checked": "מזוודה גדולה לכל נוסע", "personal_item": "תיק אישי בלבד",
     "none": "ללא כבודה", "no_baggage": "ללא כבודה",
 }
 
@@ -2437,6 +2481,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _repair_foreign_letters_in_hebrew(reply)
     reply = _strip_mixed_script_garble(reply)
     reply = _strip_leaked_internal_paragraph(reply)
+    reply = _strip_stray_markdown_markers(reply)
     return _strip_unconfirmed_airports(reply, state)
 
 
@@ -4039,6 +4084,25 @@ _CAR_PICKUP_CUE_RE = re.compile(r"(?:איסוף|לאסוף|נאסוף|אאסוף
 _CAR_RETURN_SPLIT_RE = re.compile(r"(?:,|\.|ו)?\s*(?:החזרה|להחזיר|מחזיר\w*|נחזיר\w*)")
 
 
+def _is_bare_relative_location_capture(value):
+    """"שדה" (airport/field) on its own is never a real place name - it only
+    ever shows up as the first captured word when the customer used a
+    relative/generic reference instead of naming an actual place (e.g.
+    "שדה שנטוס אליו" = "the airport we fly to", "שדה שנחזור ממנו" = "the
+    airport we return from"). _CAR_LOCATION_RE's airport-prefix group only
+    strips the longer "שדה התעופה ב-" phrasing, so a bare "שדה" immediately
+    followed by a relative clause leaks through as if it were the place name
+    itself. Seen live (Shaked, qa-s83): car.return ended up as the literal,
+    meaningless string "שדה שנטוס". Rather than enumerate every possible
+    relative phrasing (the deterministic parsers are a fast first pass, not
+    the source of truth for this), simply refuse to accept "שדה" as a
+    standalone capture here and let _understand_open_gap_answer's
+    meaning-based layer resolve the relative reference against the real
+    known airports instead."""
+    first_word = str(value or "").strip().split(" ")[0] if str(value or "").strip() else ""
+    return first_word == "שדה"
+
+
 def _deterministic_car_location_facts(message, history):
     """car.details.pickup/return (the pickup/return LOCATION - a time is
     welcome but never required, see _required_state_gaps's own comment on
@@ -4060,11 +4124,11 @@ def _deterministic_car_location_facts(message, history):
     pickup_part = parts[0]
     return_part = parts[1] if len(parts) > 1 else ""
     pickup_match = _CAR_PICKUP_CUE_RE.search(pickup_part)
-    if pickup_match:
+    if pickup_match and not _is_bare_relative_location_capture(pickup_match.group(1)):
         result.setdefault("car", {}).setdefault("details", {})["pickup"] = pickup_match.group(1).strip()
     if return_part:
         return_match = _CAR_LOCATION_RE.search(return_part)
-        if return_match:
+        if return_match and not _is_bare_relative_location_capture(return_match.group(1)):
             result.setdefault("car", {}).setdefault("details", {})["return"] = return_match.group(1).strip()
     return result
 
@@ -4612,6 +4676,16 @@ def _understand_open_gap_answer(key, model, message, history, state):
             reference_lines.append(f"שדה/שדות הנחיתה (הגעה) הידועים: {', '.join(arrival_codes)}")
         if return_codes:
             reference_lines.append(f"שדה/שדות ההמראה בחזרה הידועים: {', '.join(return_codes)}")
+    if "lodging.details.locations" in gaps:
+        # Seen live (Shaked, qa-s83): a confirmed route already splits the
+        # nights between a few named bases, and the customer's answer was
+        # "כמו שכתבת, לפי המסלול" (as you already wrote, per the route) -
+        # without the route's own bases handed over as context here, the
+        # model has nothing concrete to resolve that relative answer to, and
+        # the question got re-asked verbatim instead of being settled.
+        route_bases = _route_base_names(state)
+        if route_bases:
+            reference_lines.append(f"אזורי הלינה לפי המסלול המאושר (לפי סדר הימים): {', '.join(route_bases)}")
 
     gap_lines = "\n".join(f"- {g}: {_GAP_QUESTION_TEXT.get(g, g)}" for g in gaps)
     reference_text = ("\nמידע ידוע רלוונטי:\n" + "\n".join(reference_lines) + "\n") if reference_lines else "\n"
@@ -4623,8 +4697,8 @@ def _understand_open_gap_answer(key, model, message, history, state):
         f"{reference_text}"
         f"השאלה האחרונה שאריאלה שאלה: \"{last_assistant}\"\n"
         f"תשובת הלקוח/ה: \"{msg}\"\n\n"
-        "הביני את משמעות התשובה - כולל תשובות יחסיות (למשל מתייחסות לנחיתה/המראה של הטיסה), "
-        "אישורים כלליים (\"מתאים\", \"שניהם\", \"כמו שאמרת\") ותשובות קצרות שמתייחסות לשאלה. "
+        "הביני את משמעות התשובה - כולל תשובות יחסיות (למשל מתייחסות לנחיתה/המראה של הטיסה, או למסלול שכבר אושר), "
+        "אישורים כלליים (\"מתאים\", \"שניהם\", \"כמו שאמרת\", \"לפי המסלול\") ותשובות קצרות שמתייחסות לשאלה. "
         "בשדה שדורש מקום/שדה תעופה, אם התשובה יחסית, השתמשי במידע הידוע שניתן למעלה כדי להחזיר ערך ממשי - לא תיאור יחסי. "
         "אל תמציאי ערך לשדה שלא ברשימה למעלה, ואל תחזירי שדה שלא ברשימה. "
         "אם יש ספק אמיתי לגבי הכוונה, אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת - נסחי שאלת אימות קצרה שמשקפת את מה שהבנת.\n\n"
