@@ -3928,6 +3928,41 @@ def _deterministic_car_vehicle_facts(message, history):
     return result
 
 
+_CAR_LOCATION_RE = re.compile(r"(?:ב|מ)?(?:שדה\s+התעופה\s+ב?)?([א-ת]+(?:\s[א-ת]+)?)")
+_CAR_PICKUP_CUE_RE = re.compile(r"(?:איסוף|לאסוף|נאסוף|אאסוף)\w*\s*(?:את\s+)?(?:ה)?(?:רכב\s*)?" + _CAR_LOCATION_RE.pattern)
+_CAR_RETURN_SPLIT_RE = re.compile(r"(?:,|\.|ו)?\s*(?:החזרה|להחזיר|מחזיר\w*|נחזיר\w*)")
+
+
+def _deterministic_car_location_facts(message, history):
+    """car.details.pickup/return (the pickup/return LOCATION - a time is
+    welcome but never required, see _required_state_gaps's own comment on
+    this) have no deterministic writer at all, the exact lodging.details.
+    budget bug one field over. Seen live (Shaked, qa-s79, Cyprus): "איסוף
+    בפאפוס והחזרה בלרנקה" and "איסוף הרכב בשדה התעופה בפאפוס, החזרה בשדה
+    התעופה בלרנקה" both left pickup/return null forever, keeping car
+    "active" with real missing_required gaps that could never close - a
+    customer answering a time question instead ("לפי מה שיתברר בהזמנה")
+    correctly matches nothing here, since that never names a location at
+    all."""
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    result = {}
+    # Split on the return cue first so the pickup capture never swallows the
+    # return clause too ("איסוף ... והחזרה ...").
+    parts = _CAR_RETURN_SPLIT_RE.split(msg, maxsplit=1)
+    pickup_part = parts[0]
+    return_part = parts[1] if len(parts) > 1 else ""
+    pickup_match = _CAR_PICKUP_CUE_RE.search(pickup_part)
+    if pickup_match:
+        result.setdefault("car", {}).setdefault("details", {})["pickup"] = pickup_match.group(1).strip()
+    if return_part:
+        return_match = _CAR_LOCATION_RE.search(return_part)
+        if return_match:
+            result.setdefault("car", {}).setdefault("details", {})["return"] = return_match.group(1).strip()
+    return result
+
+
 def _deterministic_lodging_facts(message, history):
     """lodging.details.type/level/rooms have no deterministic writer anywhere
     else - only the LLM's own JSON extraction ever sets them, same gap as
@@ -4355,13 +4390,39 @@ def _is_itinerary_acceptance(message):
 _POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
 
 
+_GAP_QUESTION_TEXT = {
+    "car.details.vehicle_type": "איזה סוג/גודל רכב מתאים לכם?",
+    "car.details.transmission": "תעדיפו רכב אוטומטי או ידני?",
+    "car.details.pickup": "באיזה שדה תעופה או עיר תרצו לאסוף את הרכב?",
+    "car.details.return": "ובאיזה שדה תעופה או עיר תרצו להחזיר אותו?",
+    "lodging.details.type": "איזה סוג לינה מתאים לכם (מלון, דירה או וילה)?",
+    "lodging.details.rooms": "כמה חדרים תרצו?",
+    "lodging.details.locations": "באיזה אזור תרצו שהלינה תהיה?",
+    "lodging.details.budget_or_level": "מה התקציב ללילה, או איזו רמת נוחות אתם מחפשים?",
+    "trip_planning.details.style": "ספרו לי מה אתם אוהבים לעשות בחופשה.",
+    "trip_planning.details.pace": "אתם מעדיפים קצב רגוע או פעיל?",
+    "trip_planning.details.route": "ספרו לי קצת על המסלול שאתם מדמיינים.",
+    "trip_planning.approved": "המסלול שהצעתי מתאים לכם, או שתרצו לשנות משהו?",
+}
+
+
 def _premature_approval_fallback_text(trip_update):
     """Last-resort honest reply when the reserved מאשר/מאשרת phrase had to
     be stripped from a premature reply and nothing more specific (a real
     gap question, a post-flight offer) was available to substitute in its
-    place. Names whichever domain is still open, if known."""
+    place. Seen live (Shaked, qa-s79): the earlier version of this fallback
+    was a single static sentence with no question in it at all - every
+    subsequent customer message (including "מה חסר?") got that exact same
+    text back verbatim, a dead end with no way forward. Ask the actual
+    missing concrete question whenever the specific gap is known; only
+    fall back to a bare statement when nothing more specific is available."""
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     still_open = trip_update.get("active_session") or trip_update.get("next_session")
+    if still_open in ("lodging", "car", "trip_planning"):
+        for gap in _session_gaps(trip_update, still_open):
+            question = _GAP_QUESTION_TEXT.get(gap)
+            if question:
+                return question
     label = _POST_FLIGHT_LABELS.get(still_open)
     detail = f" (חסר עדיין פרט ב{label})" if label else ""
     return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."
@@ -5895,6 +5956,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_car_vehicle_facts(message, history))
+        trip_update = _merge_trip_state(trip_update, _deterministic_car_location_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
         trip_update = _protect_lodging_locations_from_car_reply(trip_state, trip_update, message)
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))

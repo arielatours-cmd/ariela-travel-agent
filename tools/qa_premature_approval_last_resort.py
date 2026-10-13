@@ -51,4 +51,24 @@ text_d = chat._premature_approval_fallback_text(None)
 assert text_d and not any(p in text_d for p in FORBIDDEN), text_d
 print("PASS: non-dict input handled defensively, no crash, no reserved phrase")
 
+# --- 5. Seen live (Shaked, qa-s79): the dead-end regression - once this
+#        fallback fired, every later message (even "מה חסר?") got the exact
+#        same static sentence back verbatim, 3 times in a row, with no
+#        question and no way forward. When the specific gap is known, the
+#        fallback must ask the real missing question instead. ---
+state_car_gap = {
+    "active_session": "car",
+    "car": {"details": {"vehicle_type": "משפחתי", "transmission": "אוטומטי", "pickup": None, "return": None}},
+    "service_decisions": {"car": {"wanted": True}},
+    "requested_services": ["flights", "car"],
+    "destination": {"places": ["קפריסין"]},
+    "dates": {"departure": "2026-12-06", "return": "2026-12-11"},
+    "travelers": {"adults": 2},
+}
+text_e = chat._premature_approval_fallback_text(state_car_gap)
+assert "לאסוף" in text_e, text_e
+assert "עוד לא כל הפרטים נסגרו" not in text_e, "must not fall back to the dead-end generic line when a real gap question exists"
+assert not any(p in text_e for p in FORBIDDEN), text_e
+print("PASS: active_session='car' with a real pickup gap -> asks the actual pickup question, not the dead-end line")
+
 print("\nALL PREMATURE-APPROVAL LAST-RESORT TESTS PASSED")

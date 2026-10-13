@@ -160,6 +160,10 @@
     {"id": "premature-approval-fallback-names-active-domain", "fn": "_premature_approval_fallback_text", "args": [{"active_session": "car", "next_session": null}], "expect_truthy": true, "source": "live-chat-2026-10-13-shaked-s78"},
     {"id": "infer-post-flight-offer-lodging-and-car", "fn": "_infer_post_flight_offer_from_text", "args": ["נהדר, לינה או רכב שכור תרצי שאסדר גם?"], "expect": ["lodging", "car"], "source": "live-chat-2026-10-13-shaked-s78"},
     {"id": "infer-post-flight-offer-no-cue-no-false-positive", "fn": "_infer_post_flight_offer_from_text", "args": ["הלינה והרכב שהזמנת מוכנים"], "expect": [], "source": "guard"},
-    {"id": "infer-post-flight-offer-unrelated-text", "fn": "_infer_post_flight_offer_from_text", "args": ["מה התקציב שלך לטיסה?"], "expect": [], "source": "guard"}
+    {"id": "infer-post-flight-offer-unrelated-text", "fn": "_infer_post_flight_offer_from_text", "args": ["מה התקציב שלך לטיסה?"], "expect": [], "source": "guard"},
+    {"id": "car-pickup-return-combined-sentence", "fn": "_deterministic_car_location_facts", "args": ["איסוף בפאפוס והחזרה בלרנקה", []], "expect": {"car": {"details": {"pickup": "פאפוס", "return": "לרנקה"}}}, "source": "live-chat-2026-10-13-shaked-s79"},
+    {"id": "car-pickup-return-time-answer-no-location", "fn": "_deterministic_car_location_facts", "args": ["לפי מה שיתברר בהזמנה", []], "expect_falsy": true, "source": "live-chat-2026-10-13-shaked-s79"},
+    {"id": "car-pickup-return-verbose-airport-phrasing", "fn": "_deterministic_car_location_facts", "args": ["איסוף הרכב בשדה התעופה בפאפוס, החזרה בשדה התעופה בלרנקה", []], "expect": {"car": {"details": {"pickup": "פאפוס", "return": "לרנקה"}}}, "source": "live-chat-2026-10-13-shaked-s79"},
+    {"id": "premature-approval-fallback-asks-real-question-not-deadend", "fn": "_premature_approval_fallback_text", "args": [{"active_session": "car", "car": {"details": {"vehicle_type": "משפחתי", "transmission": "אוטומטי", "pickup": null, "return": null}}, "service_decisions": {"car": {"wanted": true}}, "requested_services": ["flights", "car"], "destination": {"places": ["קפריסין"]}, "dates": {"departure": "2026-12-06", "return": "2026-12-11"}, "travelers": {"adults": 2}}], "expect": "באיזה שדה תעופה או עיר תרצו לאסוף את הרכב?", "source": "live-chat-2026-10-13-shaked-s79"}
   ]
 }
