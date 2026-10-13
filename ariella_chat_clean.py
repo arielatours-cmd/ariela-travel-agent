@@ -1710,6 +1710,30 @@ def _approval_trigger(message, history, state):
             or "כתוב מאשר" in assistant_text
             or "מאשר/מאשרת" in assistant_text)
 
+
+def _flight_approval_still_has_open_domain(statuses_after_flight):
+    """Which non-flight domain (if any) genuinely isn't decided yet, despite
+    the customer having just typed the exact approval word. Seen live
+    (Shaked, qa-s75, Cyprus real-scan test): Tinkerbell's own free-text
+    summary presented lodging and car as already resolved and ended in the
+    real מאשר/מאשרת request, which is exactly what _approval_trigger's
+    recent-assistant-text fallback treats as proof the approval gate was
+    reached - but the authoritative session_status disagreed (lodging
+    stayed "active", car stayed "pending"), so the combined search never
+    actually launched later (start_flight_search requires trip_planning/
+    lodging/car to all be complete/declined) while the reply still claimed
+    "הבקשה אושרה ואני יוצאת עכשיו לחיפוש המלא". Checked explicitly here,
+    before that claim is ever built, instead of trusting the model's own
+    summary text (or _approval_trigger's necessarily looser history-text
+    match) as proof every domain is truly done."""
+    statuses_after_flight = statuses_after_flight if isinstance(statuses_after_flight, dict) else {}
+    return next(
+        (d for d in ("trip_planning", "lodging", "car")
+         if str(statuses_after_flight.get(d) or "pending") not in ("complete", "declined")),
+        None
+    )
+
+
 def _looks_like_approval_typo(message, state=None, history=None):
     """Near-approval text may be clarified, but can never execute a search."""
     import difflib
@@ -6400,6 +6424,36 @@ def chat_clean():
                 # line, asked "מה עכשיו?" (what now?), and had no way forward
                 # other than guessing.
                 reply = _flight_gap_question(approval_gaps, trip_update)
+                approval = False
+            elif _flight_approval_still_has_open_domain(statuses_after_flight):
+                # Flights alone are done, but at least one other requested
+                # domain the summary presented as resolved is not actually
+                # complete/declined yet (see _flight_approval_still_has_
+                # open_domain's docstring - this is the exact Shaked/qa-s75
+                # bug). Never emit the "אני יוצאת עכשיו לחיפוש" success claim
+                # here - it would be false, since start_flight_search later
+                # requires every one of trip_planning/lodging/car to be
+                # decided. Re-open that domain and ask Tinkerbell for the
+                # genuine next question instead.
+                _still_open_domain = _flight_approval_still_has_open_domain(statuses_after_flight)
+                merged["search_intent"] = True
+                merged["search_confirmed"] = False
+                merged["ready_for_summary"] = False
+                merged["active_session"] = _still_open_domain
+                trip_update = merged
+                try:
+                    reply = _call_tinkerbell(key, model, history, message, trip_update)
+                except Exception as exc:
+                    logging.exception(
+                        "Tinkerbell reply failed on approval with still-open domain %s: %s",
+                        _still_open_domain, exc
+                    )
+                    _remaining_labels_fallback = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
+                    reply = (
+                        "עדיין לא יצאתי לחיפוש בפועל - נשאר לסגור את "
+                        + _remaining_labels_fallback.get(_still_open_domain, _still_open_domain or "פרט אחד נוסף")
+                        + " לפני שהכל מוכן."
+                    )
                 approval = False
             else:
                 # This whole branch used to end here, with everything below it
