@@ -11,6 +11,17 @@ services:
     # to its max output length) routinely takes longer than that. Without this,
     # gunicorn kills the request mid-flight and the customer's chat just hangs
     # forever with no error ever reaching the browser ("the conversation got stuck").
+    # Threads raised 4->12 on 2026-10-12, then rolled straight back here: within
+    # ~10 minutes of that deploy the live instance was crash-looping (/health's
+    # deployed_at changing every few minutes on the same commit, 502s mid-chat)
+    # - almost certainly each of the 12 threads holding a full request's memory
+    # (conversation history, cached system prompt, in-flight Anthropic response)
+    # at once pushed the instance over its memory limit and got OOM-killed,
+    # repeatedly. 4 is the known-stable value; raising it again needs a plan
+    # upgrade with more memory first, confirmed in Render's own metrics/logs
+    # ("Worker exited"/"out of memory"/"SIGKILL"), not just picked by feel.
+    # The retry-on-429/529 added to _post_claude (ariella_chat_clean.py) at the
+    # same time stands regardless - it helps even at 4 threads.
     startCommand: gunicorn --workers 1 --threads 4 --timeout 120 app:app
     healthCheckPath: /health
     autoDeploy: true

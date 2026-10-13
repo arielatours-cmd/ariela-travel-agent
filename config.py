@@ -197,6 +197,18 @@ try:
         ]
     if "ניו יורק" in MULTI_GATEWAY_CITIES:
         MULTI_GATEWAY_CITIES["ניו יורק"].append({"code": "EWR", "name_he": "נמל התעופה ניוארק ליברטי"})
+    # כרתים (Crete) by hand, same reason as EWR above: the catalog has no
+    # single "city" entry for an island/region with two real airports -
+    # HER and CHQ are each catalogued under their own town (Heraklion,
+    # Chania), so the city_en grouping above never sees them as one city
+    # and Crete was never treated as multi-gateway at all. Seen live: a
+    # Crete trip had its gateway airport picked silently (Chania) with no
+    # choice ever shown to the customer, even though Heraklion is the
+    # larger, more commonly used gateway for most of the island.
+    MULTI_GATEWAY_CITIES["כרתים"] = [
+        {"code": "HER", "name_he": "נמל התעופה הבינלאומי הרקליון"},
+        {"code": "CHQ", "name_he": "נמל התעופה הבינלאומי חאניה"},
+    ]
     del _airports_catalog, _airport, _code, _name, _by_city, _city_key, _group, _city_he
 except Exception:
     pass
@@ -211,6 +223,11 @@ WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
 # webhook (/admin/whatsapp-subscription). Optional: left empty, that check
 # tries to resolve it from the Graph API instead.
 WHATSAPP_WABA_ID = os.getenv("WHATSAPP_WABA_ID", "").strip()
+# Task 006c: 6-digit two-step-verification PIN for registering
+# WHATSAPP_PHONE_NUMBER_ID directly on the Cloud API (register the number to
+# Ariela, no WhatsApp Business app on a phone / no Coexistence). Never
+# logged or returned by /admin/whatsapp-number/*.
+WHATSAPP_REGISTRATION_PIN = os.getenv("WHATSAPP_REGISTRATION_PIN", "").strip()
 # Off by default: until the welcome/daily-deals quick-reply templates are
 # approved in Meta, every WhatsApp deals message goes to whatsapp_outbound_queue
 # in 'preview' status only - nothing is ever sent to a real customer.

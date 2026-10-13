@@ -18,6 +18,7 @@ from config import (
     WHATSAPP_INBOUND_ENABLED,
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_RECIPIENT,
+    WHATSAPP_REGISTRATION_PIN,
     WHATSAPP_VERIFY_TOKEN,
     WHATSAPP_WABA_ID,
 )
@@ -195,10 +196,135 @@ def whatsapp_subscription_check(apply: bool = False) -> dict[str, Any]:
 
 
 def _safe_meta_error_message(data: dict) -> str:
+    """Meta's bare error.message is often too generic to diagnose on its own
+    (e.g. request_code's "Request code error" covers many different root
+    causes) - append whatever extra diagnostic fields Meta did send
+    (type/code/error_subcode/error_data.details/fbtrace_id), the same fields
+    whatsapp_coexistence.py's _safe_meta_error already surfaces for the
+    onboarding flow. Never includes WHATSAPP_ACCESS_TOKEN - it was never in
+    this error object to begin with."""
     error = data.get("error") if isinstance(data, dict) else None
-    if isinstance(error, dict) and error.get("message"):
-        return str(error["message"])
-    return "Meta החזירה שגיאה לא ידועה."
+    if not isinstance(error, dict):
+        return "Meta החזירה שגיאה לא ידועה."
+    message = str(error.get("message") or "Meta החזירה שגיאה לא ידועה.")
+    extra = []
+    if error.get("type"):
+        extra.append(f"type={error['type']}")
+    if error.get("code") is not None:
+        extra.append(f"code={error['code']}")
+    if error.get("error_subcode") is not None:
+        extra.append(f"subcode={error['error_subcode']}")
+    details = (error.get("error_data") or {}).get("details") if isinstance(error.get("error_data"), dict) else None
+    if details:
+        extra.append(f"details={details}")
+    if error.get("fbtrace_id"):
+        extra.append(f"fbtrace_id={error['fbtrace_id']}")
+    return f"{message} ({', '.join(extra)})" if extra else message
+
+
+def _meta_graph_post_body(path: str, data: dict | None = None, json_body: dict | None = None) -> tuple[dict, bool]:
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{path}"
+    headers = {"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"}
+    try:
+        response = requests.post(url, headers=headers, data=data, json=json_body, timeout=20)
+    except requests.RequestException as exc:
+        return {"error": {"message": f"שגיאת תקשורת מול Meta: {exc}"}}, False
+    try:
+        body = response.json()
+    except ValueError:
+        body = {"error": {"message": f"Meta החזירה HTTP {response.status_code} ללא JSON"}}
+    return (body if isinstance(body, dict) else {}), response.ok
+
+
+_STILL_LINKED_TO_APP_HINTS = (
+    "already registered", "migrat", "linked to", "on-premise", "onprem", "coexistence",
+)
+
+
+def _maybe_add_still_linked_hint(errors: list, message: str) -> None:
+    lower = message.lower()
+    if any(hint in lower for hint in _STILL_LINKED_TO_APP_HINTS):
+        errors.append("נראה שהמספר עדיין מקושר לאפליקציית WhatsApp Business בטלפון - צריך קודם למחוק משם את החשבון, ואז לנסות שוב.")
+
+
+def whatsapp_request_code(method: str = "SMS", confirm: bool = False) -> dict[str, Any]:
+    """Task 006c, step 1: Meta sends a verification code to the number by
+    SMS or voice call - the first step of registering it directly on the
+    Cloud API (no WhatsApp Business app / Coexistence). Without confirm=True
+    this only explains what would happen - no call to Meta at all, since the
+    business owner operates this from her phone and a stray tap must never
+    trigger a real SMS."""
+    method = (method or "SMS").strip().upper()
+    if method not in ("SMS", "VOICE"):
+        return {"ok": False, "errors": ["method חייב להיות SMS או VOICE."]}
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        return {"ok": False, "errors": ["WHATSAPP_ACCESS_TOKEN או WHATSAPP_PHONE_NUMBER_ID לא מוגדרים ב-Render."]}
+    if not confirm:
+        return {"ok": True, "would_send": True, "method": method, "errors": [],
+                "message": f"לחיצה עם confirm=1 תשלח קוד אימות למספר דרך {method}. שום דבר לא נשלח כרגע."}
+
+    data, ok = _meta_graph_post_body(f"{WHATSAPP_PHONE_NUMBER_ID}/request_code", data={"code_method": method, "language": "he"})
+    if not ok:
+        message = _safe_meta_error_message(data)
+        errors = [message]
+        _maybe_add_still_linked_hint(errors, message)
+        return {"ok": False, "errors": errors}
+    return {"ok": True, "sent": True, "method": method, "errors": []}
+
+
+def whatsapp_verify_code(code: str, confirm: bool = False) -> dict[str, Any]:
+    """Task 006c, step 2: confirm the code Meta sent in step 1."""
+    digits = re.sub(r"\D", "", str(code or ""))
+    if not digits:
+        return {"ok": False, "errors": ["קוד האימות חסר."]}
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        return {"ok": False, "errors": ["WHATSAPP_ACCESS_TOKEN או WHATSAPP_PHONE_NUMBER_ID לא מוגדרים ב-Render."]}
+    if not confirm:
+        return {"ok": True, "would_verify": True, "errors": [],
+                "message": "לחיצה עם confirm=1 תאמת את הקוד מול Meta. שום דבר לא נשלח כרגע."}
+
+    data, ok = _meta_graph_post_body(f"{WHATSAPP_PHONE_NUMBER_ID}/verify_code", data={"code": digits})
+    if not ok:
+        message = _safe_meta_error_message(data)
+        errors = [message]
+        _maybe_add_still_linked_hint(errors, message)
+        return {"ok": False, "errors": errors}
+    return {"ok": True, "verified": True, "errors": []}
+
+
+def whatsapp_register_number(confirm: bool = False) -> dict[str, Any]:
+    """Task 006c, step 3: register the (now verified) number directly on the
+    Cloud API using the business owner's own 2-step-verification PIN - the
+    final step that makes WhatsApp actually deliver messages to our webhook
+    instead of to the WhatsApp Business app. Never logs or returns the PIN
+    or the access token."""
+    if not WHATSAPP_REGISTRATION_PIN:
+        return {"ok": False, "errors": ["WHATSAPP_REGISTRATION_PIN לא מוגדר ב-Render - צריך PIN בן 6 ספרות."]}
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        return {"ok": False, "errors": ["WHATSAPP_ACCESS_TOKEN או WHATSAPP_PHONE_NUMBER_ID לא מוגדרים ב-Render."]}
+    if not confirm:
+        return {"ok": True, "would_register": True, "errors": [],
+                "message": "לחיצה עם confirm=1 תרשום את המספר ישירות ב-Cloud API. שום דבר לא נשלח כרגע."}
+
+    data, ok = _meta_graph_post_body(
+        f"{WHATSAPP_PHONE_NUMBER_ID}/register",
+        json_body={"messaging_product": "whatsapp", "pin": WHATSAPP_REGISTRATION_PIN},
+    )
+    if not ok:
+        message = _safe_meta_error_message(data)
+        errors = [message]
+        _maybe_add_still_linked_hint(errors, message)
+        return {"ok": False, "errors": errors}
+
+    result: dict[str, Any] = {"ok": True, "registered": True, "errors": []}
+    phone_data, phone_ok = _meta_graph_get(
+        WHATSAPP_PHONE_NUMBER_ID, {"fields": "status,platform_type,code_verification_status"}
+    )
+    if phone_ok:
+        result["status"] = phone_data.get("status")
+        result["platform_type"] = phone_data.get("platform_type")
+        result["code_verification_status"] = phone_data.get("code_verification_status")
+    return result
 
 
 @site.route("/whatsapp-webhook", methods=["GET", "POST"])
