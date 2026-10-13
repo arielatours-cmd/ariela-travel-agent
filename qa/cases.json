@@ -92,6 +92,8 @@
     {"id": "dest-chambery", "fn": "_deterministic_destination_facts", "args": [[], "שמברי בבקשה", {}], "expect": {"destination": {"places": ["שמברי"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
     {"id": "dest-grenoble", "fn": "_deterministic_destination_facts", "args": [[], "גרנובל", {}], "expect": {"destination": {"places": ["גרנובל"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
     {"id": "travelers-hebrew-number-words-family", "fn": "_deterministic_traveler_facts", "args": ["שלושה מבוגרים ושני ילדים"], "expect": {"travelers": {"adults": 3, "children": 2}}, "source": "live-chat-2026-10-12-s8"},
-    {"id": "flights-already-booked-kvar-hizmanu-tisot", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect_truthy": true, "source": "live-chat-2026-10-12-s51"}
+    {"id": "flights-already-booked-kvar-hizmanu-tisot", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect_truthy": true, "source": "live-chat-2026-10-12-s51"},
+    {"id": "budget-unlimited-ein-tikra", "fn": "_deterministic_budget_facts", "args": ["רק טרולי לכל אחד, ישירה, אין תקרה"], "expect": {"budget_per_person": {"status": "unlimited"}}, "source": "live-chat-2026-10-13-s71"},
+    {"id": "budget-unlimited-ein-magbala", "fn": "_deterministic_budget_facts", "args": ["אין מגבלה"], "expect": {"budget_per_person": {"status": "unlimited"}}, "source": "live-chat-2026-10-13-s71"}
   ]
 }
