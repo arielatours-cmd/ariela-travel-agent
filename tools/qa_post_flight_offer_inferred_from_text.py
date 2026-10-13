@@ -68,6 +68,19 @@ check("single-service offer (trip_planning) infers just that one", single == ["t
 empty_text = ""
 check("empty text -> empty list, never crashes", chat._infer_post_flight_offer_from_text(empty_text) == [])
 
+# --- 7. qa-s81 SEVERE regression: a multi-domain summary that recaps
+#        already-decided flights/route/lodging before the real new offer
+#        must never have those recapped names misread as being offered
+#        too - only the sentence/clause containing the actual offer cue
+#        counts. Seen live: this flipped an already-approved route and
+#        lodging to declined after a plain "כן, צריך רכב". ---
+recap_then_offer = (
+    "מעולה, הטיסות ללרנקה/פאפוס מסודרות, והמסלול ולינה כבר אושרו. "
+    "תרצי שאסדר גם רכב שכור לנסיעות בין האזורים?"
+)
+check("recap-then-offer summary infers only the real offer (car), not the recapped domains",
+      chat._infer_post_flight_offer_from_text(recap_then_offer) == ["car"])
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)
