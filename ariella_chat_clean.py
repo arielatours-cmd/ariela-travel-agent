@@ -1392,13 +1392,23 @@ def _required_state_gaps(state):
         # flight search already closed in an earlier turn (route planned
         # only afterward) must not be reopened to ask this retroactively.
         flights_status = str((state.get("session_status") or {}).get("flights") or "")
-        if (not is_ski_trip and "trip_planning" in services and planning.get("approved")
-                and len(destination_airports) > 1 and not state.get("gateway_narrow_declined")
-                and flights_status not in ("complete", "declined")):
-            gaps.append("flight.gateway_narrow")
         # Return gateway defaults to the outbound arrival gateway. It is only a
         # separate required fact when the customer explicitly asks for open-jaw.
         return_airports = state.get("return_departure_airports") if isinstance(state.get("return_departure_airports"), list) else []
+        # An open-jaw already resolved (a distinct, already-settled return
+        # gateway) makes the "one shared airport or search both?" framing of
+        # flight.gateway_narrow nonsensical - the customer already chose two
+        # different airports on purpose. Seen live (Shaked, Cyprus): the
+        # route itself confirmed "land in Paphos, return from Larnaca" (the
+        # customer explicitly said "מתאים ככה"), yet this gap kept firing
+        # with the exact same "יש כמה שדות אפשריים..." question every turn,
+        # because nothing excluded an already-resolved open-jaw from it.
+        open_jaw_already_resolved = bool(return_airports) and set(return_airports) != set(destination_airports)
+        if (not is_ski_trip and "trip_planning" in services and planning.get("approved")
+                and len(destination_airports) > 1 and not state.get("gateway_narrow_declined")
+                and not open_jaw_already_resolved
+                and flights_status not in ("complete", "declined")):
+            gaps.append("flight.gateway_narrow")
         if state.get("open_jaw_requested") and not return_airports:
             gaps.append("return_departure_airports")
         # Ask direct-vs-connection only when a verified nonstop route exists
