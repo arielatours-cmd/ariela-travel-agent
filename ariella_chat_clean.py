@@ -3974,6 +3974,28 @@ def _deterministic_lodging_facts(message, history):
         # this only fires for the bare singular phrase.
         result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
 
+    # budget has no deterministic writer at all, unlike the per-person flight
+    # budget above (_deterministic_budget_facts) - seen live (Shaked, qa-s77,
+    # Cyprus): "חדר אחד, עד 500 ללילה" correctly set rooms=1 but budget stayed
+    # null, which alone blocked lodging.details.budget_or_level from ever
+    # closing - lodging stayed "active" forever even though every visible
+    # lodging question had been answered, and a LATER unrelated car-pickup
+    # answer then got wrongly captured as a lodging location (see
+    # _protect_destination_airports_from_car_reply's docstring for the twin
+    # "still-active-domain soaks up the next answer" pattern). Lodging budget
+    # is per night, not per person - "ללילה"/"בלילה" is the unambiguous cue
+    # that distinguishes it from the flight budget's "לאדם"/"לכרטיס" cues.
+    if "ליל" in msg:
+        # Any prefix before "ליל"/"לילה" (ל-/ב-/none) names the per-night
+        # rate the same way - "ללילה" ("for the night"), "בלילה" ("at
+        # night"), bare "לילה" all count; only the proximity to a number matters.
+        budget_match = (
+            re.search(r"(\d{2,6})[^\d]{0,15}?ליל", msg)
+            or re.search(r"ליל\w*[^\d]{0,15}?(\d{2,6})", msg)
+        )
+        if budget_match:
+            result.setdefault("lodging", {}).setdefault("details", {})["budget"] = int(budget_match.group(1))
+
     # locations is free text, unlike type/level above - no fixed value list
     # to match against, which is exactly why it had no deterministic writer
     # at all before this. Seen live: the customer volunteered a location
@@ -5983,7 +6005,22 @@ def chat_clean():
         # time to move on to flights/lodging/car, which made no sense since
         # she was still mid-flight-conversation and had approved nothing like
         # a full itinerary.
-        planning_accept = planning_active and not already_approved \
+        # Seen live (Shaked, qa-s77, Cyprus): Tinkerbell presented a full
+        # numbered day-by-day route ("יום 1, 6.12.2026 (ראשון)"..."יום 6,
+        # 11.12.2026 (שישי)", ending in "מתאים לך המסלול הזה...?") while
+        # trip_planning was still formally "pending" (never activated as
+        # active_session) - the customer's "מתאים" right after it was then
+        # misread as the generic "want help with the route too?" post-flight
+        # offer instead of a real route approval, and trip_planning stayed
+        # open until an extra, unnatural "כבר אישרתי את המסלול" was needed.
+        # planning_active alone is too narrow a gate here: last_assistant_
+        # text (above) already prefers the itinerary-shaped message found by
+        # scanning backward through history, so if IT already looks like a
+        # genuine day-by-day route, that is itself strong, specific evidence
+        # a route was just proposed and is now being answered - regardless
+        # of whatever the backend's own active_session bookkeeping says.
+        itinerary_was_just_presented = day_mention_count(last_assistant_text) >= 2
+        planning_accept = (planning_active or itinerary_was_just_presented) and not already_approved \
             and _is_itinerary_acceptance(message) and day_mention_count(prior_assistant) >= 2
         if planning_accept:
             statuses_plan = dict(trip_update.get("session_status") or {})

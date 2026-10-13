@@ -148,6 +148,10 @@
 {"id": "weekday-no-misfire-rishoni", "fn": "_weekday_date_conflict", "args": ["בדיקה ראשונית לפני הטיסה, 10.12.2026", []], "expect": null, "source": "guard"},
 {"id": "weekday-no-misfire-chamishiya", "fn": "_weekday_date_conflict", "args": ["זה חמישייה של מלונות, 9.12.2026", []], "expect": null, "source": "guard"},
 {"id": "weekday-single-prefix-letter-still-works", "fn": "_weekday_date_conflict", "args": ["לשבת 13.12.2026 יוצאים", []], "expect_truthy": true, "source": "guard"},
+{"id": "lodging-budget-per-night-captured", "fn": "_deterministic_lodging_facts", "args": ["חדר אחד, עד 500 ללילה", [{"role": "assistant", "content": "כמה חדרים תרצי?"}]], "expect": {"lodging": {"details": {"rooms": 1, "budget": 500}}}, "source": "live-chat-2026-10-13-shaked-s77"},
+{"id": "lodging-budget-alt-phrasing-before-number", "fn": "_deterministic_lodging_facts", "args": ["בערך 400 בלילה", []], "expect": {"lodging": {"details": {"budget": 400}}}, "source": "guard"},
+{"id": "lodging-budget-flight-style-must-not-leak", "fn": "_deterministic_lodging_facts", "args": ["עד 5000 שקל לכרטיס", []], "expect_falsy": true, "source": "guard"},
+{"id": "is-itinerary-acceptance-matayim", "fn": "_is_itinerary_acceptance", "args": ["מתאים"], "expect": true, "source": "live-chat-2026-10-13-shaked-s77"},
 {"id": "travelers-hebrew-number-words-family", "fn": "_deterministic_traveler_facts", "args": ["שלושה מבוגרים ושני ילדים"], "expect": {"travelers": {"adults": 3, "children": 2}}, "source": "live-chat-2026-10-12-s8"},
 {"id": "flights-already-booked-kvar-hizmanu-tisot", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect_truthy": true, "source": "live-chat-2026-10-12-s51"}
 ]}
