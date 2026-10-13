@@ -4355,6 +4355,18 @@ def _is_itinerary_acceptance(message):
 _POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
 
 
+def _premature_approval_fallback_text(trip_update):
+    """Last-resort honest reply when the reserved מאשר/מאשרת phrase had to
+    be stripped from a premature reply and nothing more specific (a real
+    gap question, a post-flight offer) was available to substitute in its
+    place. Names whichever domain is still open, if known."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    still_open = trip_update.get("active_session") or trip_update.get("next_session")
+    label = _POST_FLIGHT_LABELS.get(still_open)
+    detail = f" (חסר עדיין פרט ב{label})" if label else ""
+    return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."
+
+
 def _post_flight_offer_answer(message, state, key=None, model=None, history=None):
     """The customer's answer to "the flights are being scanned - want help
     with lodging, car or route too?" (asked right after flight approval).
@@ -6193,6 +6205,21 @@ def chat_clean():
                             if _approval_phrase in str(reply or ""):
                                 reply = str(reply).replace(_approval_phrase, _neutral_close).strip()
                                 break
+
+            # Last-resort safety net: whichever attempt above ran (or none
+            # matched), the reserved מאשר/מאשרת phrase must never reach the
+            # customer while a domain is still genuinely undecided. Seen
+            # live (Shaked, qa-s78, Cyprus): active_session was correctly
+            # "car" with real missing_required gaps (pickup/return) - the
+            # retry through Tinkerbell just above should have asked for
+            # them, but the model's own retried reply still contained a
+            # full summary ending in "כתבי מאשרת" regardless, and nothing
+            # re-checked that retried text before accepting it as "handled".
+            # Unlike the exact-phrase replacements above, this is a loose
+            # substring match on purpose - free text has endless equivalent
+            # phrasings, and this is the last line of defense, not the first.
+            if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
+                reply = _premature_approval_fallback_text(trip_update)
 
         # Opposite failure of the premature-מאשרת block above: every one of
         # the four domains is genuinely complete/declined right now (the one
