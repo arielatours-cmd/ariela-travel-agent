@@ -1,0 +1,41 @@
+# משימת פיתוח 011א — מאגר יעדים מחיפה (Air Haifa) לאימות בקשת לקוח
+
+נוצרה: 2026-10-13 · בקשת בעלת העסק: "לאילו יעדים יש טיסה משדה התעופה חיפה על ידי איר חיפה — שבצלאל יכין בסיס נתונים לאימות בקשת הלקוח"
+תזמון: לפי BACKLOG — אחרי סבב ה-QA של שקד, אלא אם בעלת העסק אומרת להתחיל עכשיו.
+
+## למה
+לקוח שמבקש "טיסה מחיפה ל…" — אריאלה צריכה לדעת אם הקו קיים בכלל, ולא לחפש/להבטיח קו שלא טס. היום יש רק זיהוי "חיפה"→HFA (config.py:147, ariella_chat_clean.py:3134, nova_conversation.py HFA_WORDS) בלי רשימת יעדים.
+
+## הנתונים (נכון לאוקטובר 2026 — לאמת מול airhaifa.com לפני עלייה)
+| IATA | עיר | English | סוג | סטטוס |
+|---|---|---|---|---|
+| ETM | אילת (רמון) | Eilat | פנים | confirmed |
+| LCA | לרנקה | Larnaca | בינ"ל | confirmed |
+| ATH | אתונה | Athens | בינ"ל | confirmed |
+| PFO | פאפוס | Paphos | בינ"ל | to_verify |
+| RHO | רודוס | Rhodes | בינ"ל, עונתי | to_verify |
+| HER | הרקליון (כרתים) | Heraklion | בינ"ל, עונתי | to_verify |
+| JMK | מיקונוס | Mykonos | בינ"ל, עונתי | to_verify |
+| AOK | קרפתוס | Karpathos | בינ"ל, עונתי | to_verify |
+| SOF | סופיה | Sofia | בינ"ל (ב'/ד'/ו', מינואר 2026) | to_verify |
+
+מקורות: flightconnections.com/route-map-airhaifa-e2 (08/2026) · airserviceone.com (סופיה, 01/2026) · 5townscentral.com (חידוש קווים אחרי המלחמה, 04/2026) · he/en Wikipedia (Air Haifa).
+
+## מה לבנות
+1. קובץ נתונים `data/hfa_routes.json`: לכל יעד — `iata`, `city_he`, `city_en`, `country_he`, `carrier: "E2"`, `domestic`, `seasonal`, `status` (confirmed/to_verify/suspended), `source`, `verified_at`, ומילים נרדפות בעברית (כרתים→HER, קפריסין→LCA/PFO, יוון→ATH/RHO/HER/JMK/AOK).
+2. פונקציה `hfa_route_check(dest)` → `served` / `maybe` (to_verify) / `not_served`.
+3. באריאלה, כשמוצא = HFA:
+   - served → ממשיכים כרגיל.
+   - maybe → ממשיכים, ומוסיפים "הקו עונתי — נבדוק זמינות בתאריכים שלכם".
+   - not_served → "מחיפה אין טיסה ישירה ל-X. לבדוק מנתב"ג?" [כן][לא] — לא מחפשים מ-HFA.
+4. במסך המנהל: רשימת היעדים + `verified_at`, כדי שיהיה קל לעדכן.
+
+## בדיקות (לשקד)
+- "טיסה מחיפה לאתונה" → served.
+- "מחיפה לרומא" → not_served + הצעת נתב"ג.
+- "מחיפה לכרתים" → HER, maybe (עונתי).
+- "מתל אביב לרומא" → לא מושפע.
+
+## הערות
+- הקווים משתנים (מלחמה, עונות). אין להציג ללקוח "טיסה מובטחת" — רק בדיקת התאמה.
+- רענון ידני פעם בחודש, או מתוך תוצאות סריקה אמיתיות מ-HFA בהמשך.
