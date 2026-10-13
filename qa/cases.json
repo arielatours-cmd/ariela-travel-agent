@@ -145,6 +145,10 @@
     {"id": "false-search-claim-lodging-active-car-pending", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "complete", "lodging": "active", "car": "pending"}], "expect": "lodging", "source": "live-chat-2026-10-13-shaked-s75"},
     {"id": "false-search-claim-all-domains-decided", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "declined", "lodging": "complete", "car": "declined"}], "expect": null, "source": "live-chat-2026-10-13-shaked-s75"},
     {"id": "false-search-claim-only-car-open", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "declined", "lodging": "declined", "car": "pending"}], "expect": "car", "source": "live-chat-2026-10-13-shaked-s75"},
-    {"id": "false-search-claim-missing-keys-counted-open", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "declined"}], "expect": "lodging", "source": "live-chat-2026-10-13-shaked-s75"}
+    {"id": "false-search-claim-missing-keys-counted-open", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "declined"}], "expect": "lodging", "source": "live-chat-2026-10-13-shaked-s75"},
+    {"id": "weekday-no-misfire-bishneihem", "fn": "_weekday_date_conflict", "args": ["לחפש בשניהם. 6/12/2026 עד 11/12/2026, 2 מבוגרים", []], "expect": null, "source": "live-chat-2026-10-13-shaked-s77"},
+    {"id": "weekday-no-misfire-rishoni", "fn": "_weekday_date_conflict", "args": ["בדיקה ראשונית לפני הטיסה, 10.12.2026", []], "expect": null, "source": "guard"},
+    {"id": "weekday-no-misfire-chamishiya", "fn": "_weekday_date_conflict", "args": ["זה חמישייה של מלונות, 9.12.2026", []], "expect": null, "source": "guard"},
+    {"id": "weekday-single-prefix-letter-still-works", "fn": "_weekday_date_conflict", "args": ["לשבת 13.12.2026 יוצאים", []], "expect_truthy": true, "source": "guard"}
   ]
 }

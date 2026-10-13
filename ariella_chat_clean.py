@@ -283,7 +283,16 @@ def _weekday_date_conflict(message, history=None):
     # "שני" is both a cardinal number and a weekday name. A real weekday
     # mention is never immediately followed by the plural noun it would be
     # quantifying if read as a number instead.
-    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)(?!\s*(?:ילדים|ילדות|מבוגרים|מבוגרות|חדרים|לילות|ימים|שבועות|מקומות|מזוודות|נוסעים|אנשים|שעות|דקות))"
+    # Seen live (Shaked, qa-s77): "לחפש בשניהם" ("search in both of them") false-
+    # triggered a weekday/date mismatch because "שני" (Monday) matched inside
+    # "בשניהם" with nothing stopping it mid-word. A real weekday mention is
+    # never immediately followed, with no space, by another Hebrew letter -
+    # that only happens when the match is actually a suffix inside a longer
+    # word ("שניהם", "ראשוני", "חמישייה", "שישייה", "שבתון"...). A single
+    # prefix letter before the weekday (ב/ל/ו/מ/כ, e.g. "לשבת", "בשני") is
+    # normal Hebrew and must stay allowed - only the right-side, no-space
+    # continuation is actually unsafe, so only that side needs the guard.
+    day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)(?![֐-׿])(?!\s*(?:ילדים|ילדות|מבוגרים|מבוגרות|חדרים|לילות|ימים|שבועות|מקומות|מזוודות|נוסעים|אנשים|שעות|דקות))"
     date_re = r"(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?"
     # Pair a weekday with the nearest date on either side (up to 40 chars).
     pairs = []
