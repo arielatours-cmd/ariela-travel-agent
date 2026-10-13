@@ -130,6 +130,34 @@ check("no real gaps left -> skipped entirely, no model call (cost discipline)", 
 resolved7, clarify7 = call("זה לא JSON בכלל", "פאפוס")
 check("malformed model reply never crashes, resolves nothing", resolved7 == {} and clarify7 is None)
 
+# --- 8. qa-s81 regression: "lodging.details.budget_or_level" is a COMPOSITE
+#        gap name, not a real field path - it must split into the real
+#        budget (numeric) or level (canonical word) field, never be written
+#        back verbatim (which left the gap unable to ever close). ---
+budget_lodging_state = {
+    "active_session": "lodging",
+    "requested_services": ["flights", "lodging"],
+    "service_decisions": {"lodging": {"wanted": True}},
+    "destination": {"places": ["קפריסין"]},
+    "dates": {"departure": "2026-12-06", "return": "2026-12-11"},
+    "travelers": {"adults": 2},
+    "lodging": {"details": {"type": "מלון", "rooms": 1, "locations": "פאפוס", "budget": None, "level": None}},
+}
+budget_history = [{"role": "assistant", "content": "מה התקציב ללילה, או איזו רמת נוחות אתם מחפשים?"}]
+resolved8, _ = call(
+    json.dumps({"resolved": {"lodging.details.budget_or_level": "עד 500 ללילה"}, "clarify": None}),
+    "עד 500 ללילה", state=budget_lodging_state, history=budget_history,
+)
+check("budget_or_level with a digit splits into the real 'budget' field",
+      resolved8 == {"lodging": {"details": {"budget": 500}}})
+
+resolved9, _ = call(
+    json.dumps({"resolved": {"lodging.details.budget_or_level": "יוקרתי בבקשה"}, "clarify": None}),
+    "יוקרתי בבקשה", state=budget_lodging_state, history=budget_history,
+)
+check("budget_or_level with a level word splits into the real 'level' field, canonicalized",
+      resolved9 == {"lodging": {"details": {"level": "יוקרתי"}}})
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

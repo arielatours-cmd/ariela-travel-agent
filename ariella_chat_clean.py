@@ -3973,22 +3973,12 @@ def _deterministic_car_location_facts(message, history):
     return result
 
 
-_STANDALONE_NUMBERED_DAY_RE = re.compile(r"(?<![א-ת])יום\s+(\d{1,2})(?!\d)")
-_STANDALONE_WEEKDAY_DAY_RE = re.compile(r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?")
-
-
-def _looks_like_itinerary_text(text):
-    """True when text has the day-by-day route shape (2+ distinct "יום <N>"
-    or "יום <weekday>" markers) - the same signal _call_tinkerbell's own
-    local day_mention_count closure already uses to recognize a genuine
-    route proposal, reused here standalone (that one is a local closure,
-    not reachable from outside chat_clean()) wherever a guard needs to
-    tell "this is route-proposal text" from "this merely mentions a region
-    or day in passing"."""
-    text = str(text or "")
-    numbered = {m.group(1) for m in _STANDALONE_NUMBERED_DAY_RE.finditer(text)}
-    weekday_mentions = len(_STANDALONE_WEEKDAY_DAY_RE.findall(text))
-    return max(len(numbered), weekday_mentions) >= 2
+_LODGING_LEVEL_VALUES = (
+    ("יוקרתי", "יוקרתי"), ("יוקרה", "יוקרתי"), ("פאר", "יוקרתי"),
+    ("בינוני", "בינוני"), ("בינונית", "בינוני"), ("סטנדרטי", "בינוני"),
+    ("בסיסי", "בסיסי"), ("בסיסית", "בסיסי"),
+    ("חסכוני", "בסיסי"), ("תקציבי", "בסיסי"), ("כלכלי", "בסיסי"), ("זול", "בסיסי"),
+)
 
 
 def _deterministic_lodging_facts(message, history):
@@ -4031,12 +4021,7 @@ def _deterministic_lodging_facts(message, history):
     # literally one of the three options Ariella's own questions offer
     # ("יש לך העדפה (יוקרתי, בינוני, בסיסי)?"), so a customer answering with
     # the system's own vocabulary word was never captured.
-    level_values = (
-        ("יוקרתי", "יוקרתי"), ("יוקרה", "יוקרתי"), ("פאר", "יוקרתי"),
-        ("בינוני", "בינוני"), ("בינונית", "בינוני"), ("סטנדרטי", "בינוני"),
-        ("בסיסי", "בסיסי"), ("בסיסית", "בסיסי"),
-        ("חסכוני", "בסיסי"), ("תקציבי", "בסיסי"), ("כלכלי", "בסיסי"), ("זול", "בסיסי"),
-    )
+    level_values = _LODGING_LEVEL_VALUES
     asked_level = (
         "רמת הנוחות" in prior_assistant
         or ("יוקרתי" in prior_assistant and ("בינונ" in prior_assistant or "חסכונ" in prior_assistant))
@@ -4111,17 +4096,24 @@ def _deterministic_lodging_facts(message, history):
     # message declare the lodging "done" and then nothing actually happened
     # (no save-trip-lodging call, since the client only fires on a genuine
     # "complete" status in the returned trip_update).
-    # Seen live (Shaked, qa-s79, Cyprus): the cue words below (especially the
-    # bare "אזור") are completely ordinary in a day-by-day ROUTE proposal
-    # too ("יום רגוע באזור המלון", "אזור ההרים") - a plain "מתאים" approving
-    # that route got written into lodging.details.locations as literal text,
-    # even though lodging was still "pending" and the question actually
-    # being answered had nothing to do with lodging at all. Excluded
-    # whenever the prior assistant message is itself itinerary-shaped.
-    asked_area = any(p in prior_assistant for p in ("באיזה אזור", "איפה נוח", "מיקום", "אזור")) \
-        and not _looks_like_itinerary_text(prior_assistant)
+    # A generic "was an area question just asked?" check (matching bare
+    # words like "אזור"/"מיקום" in the PRIOR ASSISTANT text) used to live
+    # here too, but proved unfixably fragile across two separate live bugs
+    # (Shaked, qa-s79: those words are ordinary in a day-by-day ROUTE
+    # proposal too, "יום רגוע באזור המלון"; qa-s81: just as ordinary in a
+    # multi-domain SUMMARY recap) - excluding one specific shape of
+    # offending prior-text only ever revealed the next one, exactly what
+    # the business owner's "can't hard-code every phrasing" instruction
+    # describes. Genuinely answering a real lodging-area question (when
+    # lodging is the active domain) is now handled by _understand_open_gap_
+    # answer instead, which only ever looks at the actual answer's meaning
+    # for the field it was explicitly asked about - never a blind keyword
+    # match against whatever Ariella happened to say most recently. Kept
+    # here: an UNPROMPTED volunteered preference, gated on the CUSTOMER's
+    # own distinctive phrasing (not Ariella's prior text), which is what
+    # the next example right above this is about.
     location_cues = ("קרוב ל", "ליד ה", "ליד ל", "במרחק הליכה", "קרוב לאתר", "קרוב למרכז", "לא רחוק מ", "באזור ה", "בלב ")
-    if asked_area or any(c in msg for c in location_cues):
+    if any(c in msg for c in location_cues):
         result.setdefault("lodging", {}).setdefault("details", {})["locations"] = msg
 
     return result
@@ -4561,10 +4553,27 @@ def _understand_open_gap_answer(key, model, message, history, state):
         # the one hard boundary that makes this safe to run unsupervised.
         if gap_key not in gaps:
             continue
-        kind = _GAP_FIELD_KIND.get(gap_key)
         value = str(raw_value).strip() if raw_value is not None else ""
         if not value:
             continue
+        # Seen live (Shaked, qa-s81): "lodging.details.budget_or_level" is a
+        # composite GAP NAME (see _required_state_gaps - it's satisfied by
+        # EITHER real field), not an actual field path. Writing it back
+        # verbatim created a bogus "budget_or_level" key that never matched
+        # what _session_gaps actually checks (lodging.details.budget OR
+        # .level), so the gap could never close. Split it into whichever
+        # real field the value actually names: a digit means a nightly
+        # budget, otherwise match it against the same canonical level
+        # vocabulary _deterministic_lodging_facts already uses.
+        if gap_key == "lodging.details.budget_or_level":
+            m = re.search(r"\d+", value)
+            if m:
+                result.setdefault("lodging", {}).setdefault("details", {})["budget"] = int(m.group(0))
+            else:
+                canon = next((c for w, c in _LODGING_LEVEL_VALUES if w in value), value)
+                result.setdefault("lodging", {}).setdefault("details", {})["level"] = canon
+            continue
+        kind = _GAP_FIELD_KIND.get(gap_key)
         if kind == "number":
             m = re.search(r"\d+", value)
             if not m:
@@ -4623,11 +4632,25 @@ def _infer_post_flight_offer_from_text(text):
     unrelated "מלון" explicit-request match), and car was never activated
     at all. When the backend's own bookkeeping is empty, derive which
     services were actually offered from Ariella's own words instead of
-    leaving the answer with nothing to settle."""
+    leaving the answer with nothing to settle.
+
+    Seen live again (Shaked, qa-s81, severe regression): a multi-domain
+    SUMMARY recapping already-decided flights/route/lodging, ending in the
+    real new offer ("...תרצי שאסדר גם רכב שכור לנסיעות בין האזורים?"),
+    had the service-name search scan the ENTIRE message - so "לינה"/
+    "מסלול", mentioned earlier purely as a recap of what's already settled,
+    got treated as if they were being offered too. The customer's plain
+    "כן, צריך רכב" then settled all three as resolved, flipping an already-
+    approved, complete route and lodging to declined. Service names are now
+    only looked for in the same sentence/clause as the actual offer cue,
+    never the whole message - a long recap and the real offer are never the
+    same sentence."""
     text = str(text or "")
     if not any(cue in text for cue in _POST_FLIGHT_OFFER_CUES):
         return []
-    return [s for s, cues in _POST_FLIGHT_OFFER_SERVICE_CUES.items() if any(c in text for c in cues)]
+    sentences = re.split(r"(?<=[.?!])\s+", text)
+    offer_sentence = next((s for s in sentences if any(cue in s for cue in _POST_FLIGHT_OFFER_CUES)), text)
+    return [s for s, cues in _POST_FLIGHT_OFFER_SERVICE_CUES.items() if any(c in offer_sentence for c in cues)]
 
 
 def _post_flight_offer_answer(message, state, key=None, model=None, history=None):
