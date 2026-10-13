@@ -1348,5 +1348,95 @@
     "country": "VN",
     "country_en": "Vietnam",
     "country_he": "וייטנאם"
+  },
+  {
+    "code": "FLR",
+    "city_en": "Florence",
+    "city_he": "פירנצה",
+    "name_en": "Florence Airport",
+    "name_he": "נמל התעופה פירנצה",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "PSA",
+    "city_en": "Pisa",
+    "city_he": "פיזה",
+    "name_en": "Pisa International Airport",
+    "name_he": "נמל התעופה פיזה",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "LIN",
+    "city_en": "Milan",
+    "city_he": "מילאנו",
+    "name_en": "Milan Linate Airport",
+    "name_he": "נמל התעופה מילאנו לינאטה",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "CIA",
+    "city_en": "Rome",
+    "city_he": "רומא",
+    "name_en": "Rome Ciampino Airport",
+    "name_he": "נמל התעופה רומא צ'מפינו",
+    "country": "IT",
+    "country_en": "Italy",
+    "country_he": "איטליה"
+  },
+  {
+    "code": "BSL",
+    "city_en": "Basel",
+    "city_he": "באזל",
+    "name_en": "EuroAirport Basel Mulhouse Freiburg",
+    "name_he": "נמל התעופה באזל",
+    "country": "CH",
+    "country_en": "Switzerland",
+    "country_he": "שווייץ"
+  },
+  {
+    "code": "PMI",
+    "city_en": "Palma de Mallorca",
+    "city_he": "פלמה דה מיורקה",
+    "name_en": "Palma de Mallorca Airport",
+    "name_he": "נמל התעופה פלמה דה מיורקה",
+    "country": "ES",
+    "country_en": "Spain",
+    "country_he": "ספרד"
+  },
+  {
+    "code": "FAO",
+    "city_en": "Faro",
+    "city_he": "פארו",
+    "name_en": "Faro Airport",
+    "name_he": "נמל התעופה פארו",
+    "country": "PT",
+    "country_en": "Portugal",
+    "country_he": "פורטוגל"
+  },
+  {
+    "code": "CMF",
+    "city_en": "Chambery",
+    "city_he": "שמברי",
+    "name_en": "Chambery Airport",
+    "name_he": "נמל התעופה שמברי",
+    "country": "FR",
+    "country_en": "France",
+    "country_he": "צרפת"
+  },
+  {
+    "code": "GNB",
+    "city_en": "Grenoble",
+    "city_he": "גרנובל",
+    "name_en": "Grenoble-Isere Airport",
+    "name_he": "נמל התעופה גרנובל",
+    "country": "FR",
+    "country_en": "France",
+    "country_he": "צרפת"
   }
 ]
