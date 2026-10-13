@@ -2758,6 +2758,17 @@ _HEBREW_MONTH_RANGE_RE = (
     + "|".join(_HEBREW_MONTHS) + r")(?:\s+(20\d{2}))?"
 )
 
+# The mirror word order of the range above - the month attaches to the
+# FIRST day, not the second ("מה-6 בדצמבר עד ה-11", "נטוס ב-6 בדצמבר
+# ונחזור ב-11"), so the second day never repeats the month at all. Seen
+# live (Shaked, qa-s82, Cyprus): both phrasings returned {} - dates stayed
+# a missing_required gap for three turns even though Ariella had already
+# built a 6.12-11.12 route from the same message.
+_HEBREW_MONTH_DATE_THEN_BARE_DAY_RE = (
+    r"(?<!\d)(\d{1,2})\s*ב(" + "|".join(_HEBREW_MONTHS) + r")(?:\s+(20\d{2}))?"
+    r"\s*(?:ו?עד|[-–]|ו?נחזור\s*ב-?|ו?חוזרים\s*ב-?)\s*(?:ה-?)?(\d{1,2})(?!\d)"
+)
+
 # Seen live (Shaked): "טיסה לברצלונה לשני מבוגרים" never set travelers.adults
 # at all - the only adults parsing was a literal digit match ("2 מבוגרים"),
 # so any Hebrew number WORD ("שני", "שלושה"...) was silently dropped, and
@@ -2836,6 +2847,21 @@ def _deterministic_date_facts(history, message, state=None):
         try:
             found_with_pos.append((m.start(1), date(year, month, day1)))
             found_with_pos.append((m.start(2), date(year, month, day2)))
+        except ValueError:
+            pass
+    # The mirror word order - month attaches to the FIRST day, the second
+    # never repeats it ("מה-6 בדצמבר עד ה-11", "נטוס ב-6 בדצמבר ונחזור
+    # ב-11"). day1 also gets caught separately by the plain single-date
+    # pattern above (harmless - unique() below dedupes by date, not
+    # position), so only day2 is genuinely new information here.
+    for m in re.finditer(_HEBREW_MONTH_DATE_THEN_BARE_DAY_RE, text):
+        day1, month, day2 = int(m.group(1)), _HEBREW_MONTHS[m.group(2)], int(m.group(4))
+        year = int(m.group(3)) if m.group(3) else today.year
+        if not m.group(3) and (month, day1) < (today.month, today.day):
+            year += 1
+        try:
+            found_with_pos.append((m.start(1), date(year, month, day1)))
+            found_with_pos.append((m.start(4), date(year, month, day2)))
         except ValueError:
             pass
     found_with_pos.sort(key=lambda item: item[0])
