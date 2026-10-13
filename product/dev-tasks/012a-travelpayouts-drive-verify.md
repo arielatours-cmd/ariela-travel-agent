@@ -1,0 +1,32 @@
+# משימת פיתוח 012א — סקריפט אימות Travelpayouts בדף הבית בלבד
+
+נוצרה ואושרה: 2026-10-13. בעלת העסק אישרה ("כן מאשרת"), ומבקשת לפתח מיד.
+רקע: Travelpayouts לא מאפשרים לעבור את שלב ההרשמה בלי להתקין את Drive. המטרה היא רק לאמת את האתר. אחרי האימות מכבים את כל ההצבות האוטומטיות ב-Drive. הקישורים יוכנסו ידנית בהמשך: טיסות דרך Trip.com, וגם לינה ורכב.
+
+## מה לבנות
+1. משתנה סביבה חדש: `TRAVELPAYOUTS_DRIVE_SRC`, למשל `https://emrld.ltd/NTg0ODgw.js?t=584880`. אם הוא ריק, לא נטען כלום.
+2. ב-`templates/home.html` בלבד, בתוך `<head>`, מוסיפים את הקטע הבא כשהמשתנה מוגדר:
+   ```html
+   {% if travelpayouts_drive_src %}
+   <script data-noptimize="1" data-cfasync="false" data-no-defer="1" data-cmp-ab="2">
+   (function(){var s=document.createElement("script");s.async=1;s.setAttribute("data-cmp-ab","2");
+   s.src={{ travelpayouts_drive_src|tojson }};document.head.appendChild(s);})();
+   </script>
+   {% endif %}
+   ```
+   (מבוסס על הקוד ש-Travelpayouts נותנים בשלב "Manual installation".)
+3. לא נוגעים ב-base.html ובשאר הדפים. גם לא בדפי תשלום, באזור האישי, בניהול או בצ'ט.
+4. אם יש Content-Security-Policy, להוסיף לו את `emrld.ltd` רק בדף הבית.
+
+## אחרי עלייה (בעלת העסק + אופק)
+- ב-Render: `TRAVELPAYOUTS_DRIVE_SRC=https://emrld.ltd/NTg0ODgw.js?t=584880`.
+- ב-Travelpayouts לוחצים "Check Drive connection".
+- ב-Drive → Settings מכבים את כל ההצבות האוטומטיות (auto-links/widgets/popups).
+- כדי להסיר את הסקריפט לגמרי, מרוקנים את המשתנה ב-Render. לא צריך deploy של קוד.
+
+## בדיקות (לשקד)
+- כשהמשתנה ריק, דף הבית זהה לגרסה הקודמת.
+- כשהמשתנה מוגדר, הסקריפט מופיע בדף הבית בלבד. לבדוק ש-/about, /personal ו-/admin נקיים ממנו.
+
+## פתוח
+- שאלה לדין: האם צריך הודעת עוגיות או עדכון למדיניות הפרטיות בגלל סקריפט של צד שלישי.
