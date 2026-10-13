@@ -32,3 +32,11 @@
   - אם צריך מבעלת העסק את ה-marker או קישור לדוגמה, תבקשו דרך אופק.
 - הגילוי הנאות נשאר אותו דבר, עם "Kiwi.com" במקום שם הספק.
 - נשמר לשלב הבא: Kiwitaxi (העברות משדה התעופה, עמלה של 9–11%).
+
+## עדכון 2026-10-13: שותף לרכב (Surprice, דרך CJ, 7%)
+- קישור המעקב: `https://www.kqzyfj.com/click-101882549-17282238`. הוא מוביל לדף ההזמנה ב-booking-form.surpricemobility.com.
+- אחרי שהגילוי הנאות של 013א עולה, בעלת העסק מגדירה ב-Render:
+  - `CAR_RENTAL_AFFILIATE_LINK` = הקישור שלמעלה
+  - `CAR_RENTAL_PARTNER_NAME` = `Surprice`
+- שורת הגילוי ליד כרטיס הרכב (סעיף 3 במשימה) חייבת לעבוד עם השם Surprice.
+- `CAR_RENTAL_SEARCH_URL_TEMPLATE`: בינתיים ריק. אם Surprice תומכים ב-deep link (CJ ‏?url=), אפשר להוסיף אותו בהמשך.
