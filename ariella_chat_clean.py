@@ -209,6 +209,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
+- destination.places חייב להירשם בדיוק כפי שהלקוח אמר את שם היעד, גם כשהוא פחות מוכר/נדיר ואפילו כשהוא לא נשמע לך כעיר/יעד ממש - לעולם אסור שישאר ריק רק כי השם לא מוכר לך. זה שונה מ-destination_airports (קוד שדה מאומת), שבאמת נשאר ריק עד שיש מקור אמיתי. אסור בשום אופן "לוותר" על שמירת היעד שהלקוח כן נתן בגלל חשד שאין טיסות/קטלוג ליעד הזה - זו בדיוק הסיבה שגרמה בעבר לשיחה שלמה ללכוד בלופ "לאן תרצי לטוס?" אחרי שהלקוח כבר אמר בבירור לאן.
 - flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. כשאין העדפה כזו השאירי null - בדיוק כמו budget_per_person.status ו-car.details.vehicle_type, שדה זה נשאר null/unknown עד שהלקוח עצמו ענה בפועל על השאלה אם הוא רוצה טיסה ישירה; אסור להניח "אין העדפה" משתיקה או כברירת מחדל, ואסור לכתוב בסיכום ניסוח שמרמז על העדפה שלא נשאלה בכלל.
 - flight.max_connections: כאשר הלקוח מציין מספר עצירות/קונקשנים מקסימלי מותר (לא ישירה דווקא, אבל גם לא ללא הגבלה - למשל "לא יותר מקונקשן אחד", "מקסימום עצירה אחת", "עד 2 קונקשנים"), שמרי כאן מספר שלם (1, 2...). זה שונה מ-connection_preference="direct" (דרישה לטיסה ישירה בלבד) - שדה נפרד לבקשה "קונקשן אחד זה בסדר, אבל לא יותר". כשאין הגבלה מספרית כזו השאירי null.
 - כשתוצאות הטיסות כבר נסרקו ואין טיסה ישירה ליעד (למשל התוצאה המוצגת מסומנת כ"לא כולל: טיסה ישירה"), ציייני זאת ללקוח כעובדה בפה מלא ("שימו לב - לא נמצאה טיסה ישירה ליעד הזה בתאריכים שביקשת, האפשרות הטובה ביותר שנמצאה כוללת קונקשן") ולעולם אל תשאלי שוב אם הלקוח רוצה טיסה ישירה - השאלה הזו רלוונטית רק לפני שיוצאים לסריקה ורק כשבאמת יש אפשרות ישירה אמיתית לבחור בה.
@@ -1391,13 +1392,23 @@ def _required_state_gaps(state):
         # flight search already closed in an earlier turn (route planned
         # only afterward) must not be reopened to ask this retroactively.
         flights_status = str((state.get("session_status") or {}).get("flights") or "")
-        if (not is_ski_trip and "trip_planning" in services and planning.get("approved")
-                and len(destination_airports) > 1 and not state.get("gateway_narrow_declined")
-                and flights_status not in ("complete", "declined")):
-            gaps.append("flight.gateway_narrow")
         # Return gateway defaults to the outbound arrival gateway. It is only a
         # separate required fact when the customer explicitly asks for open-jaw.
         return_airports = state.get("return_departure_airports") if isinstance(state.get("return_departure_airports"), list) else []
+        # An open-jaw already resolved (a distinct, already-settled return
+        # gateway) makes the "one shared airport or search both?" framing of
+        # flight.gateway_narrow nonsensical - the customer already chose two
+        # different airports on purpose. Seen live (Shaked, Cyprus): the
+        # route itself confirmed "land in Paphos, return from Larnaca" (the
+        # customer explicitly said "מתאים ככה"), yet this gap kept firing
+        # with the exact same "יש כמה שדות אפשריים..." question every turn,
+        # because nothing excluded an already-resolved open-jaw from it.
+        open_jaw_already_resolved = bool(return_airports) and set(return_airports) != set(destination_airports)
+        if (not is_ski_trip and "trip_planning" in services and planning.get("approved")
+                and len(destination_airports) > 1 and not state.get("gateway_narrow_declined")
+                and not open_jaw_already_resolved
+                and flights_status not in ("complete", "declined")):
+            gaps.append("flight.gateway_narrow")
         if state.get("open_jaw_requested") and not return_airports:
             gaps.append("return_departure_airports")
         # Ask direct-vs-connection only when a verified nonstop route exists
@@ -1698,6 +1709,30 @@ def _approval_trigger(message, history, state):
     return ("כתבי מאשרת" in assistant_text
             or "כתוב מאשר" in assistant_text
             or "מאשר/מאשרת" in assistant_text)
+
+
+def _flight_approval_still_has_open_domain(statuses_after_flight):
+    """Which non-flight domain (if any) genuinely isn't decided yet, despite
+    the customer having just typed the exact approval word. Seen live
+    (Shaked, qa-s75, Cyprus real-scan test): Tinkerbell's own free-text
+    summary presented lodging and car as already resolved and ended in the
+    real מאשר/מאשרת request, which is exactly what _approval_trigger's
+    recent-assistant-text fallback treats as proof the approval gate was
+    reached - but the authoritative session_status disagreed (lodging
+    stayed "active", car stayed "pending"), so the combined search never
+    actually launched later (start_flight_search requires trip_planning/
+    lodging/car to all be complete/declined) while the reply still claimed
+    "הבקשה אושרה ואני יוצאת עכשיו לחיפוש המלא". Checked explicitly here,
+    before that claim is ever built, instead of trusting the model's own
+    summary text (or _approval_trigger's necessarily looser history-text
+    match) as proof every domain is truly done."""
+    statuses_after_flight = statuses_after_flight if isinstance(statuses_after_flight, dict) else {}
+    return next(
+        (d for d in ("trip_planning", "lodging", "car")
+         if str(statuses_after_flight.get(d) or "pending") not in ("complete", "declined")),
+        None
+    )
+
 
 def _looks_like_approval_typo(message, state=None, history=None):
     """Near-approval text may be clarified, but can never execute a search."""
@@ -2299,7 +2334,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
         # customer went quiet for over an hour mid-planning), so this really
         # is a fresh start - but the customer doesn't know that yet.
         continuity += """
-- הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק.
+- הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק. בחלק שמסביר שמתחילים מחדש, לעולם אל תשתמשי בפנייה בלשון זכר/נקבה שדורשת לדעת את מגדר הלקוח (כמו "בוא נתחיל"/"בואי נתחיל") - גם כשהמגדר ידוע, עדיף ניסוח נייטרלי בגוף ראשון רבים שלא תלוי במגדר בכלל, למשל "נתחיל לתכנן מחדש" או "נמשיך מכאן מהתחלה".
 """
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
@@ -2546,6 +2581,35 @@ def _clear_stale_gateway_airports(state):
             new_state[field] = []
             changed = True
     return new_state if changed else state
+
+
+def _protect_destination_airports_from_car_reply(previous, updated, message):
+    """destination_airports must never be derived from the customer's
+    answer to the CAR pickup/return location question - seen live (Shaked,
+    New York business trip): destination_airports was never asked about
+    separately (a real gap, since New York is a multi-gateway city), but
+    once the customer answered "JFK" to "which airport should the rental
+    car be picked up/returned at", that single-token reply also got
+    written into destination_airports - deciding the flight's own gateway
+    from an answer to a completely different question, with the flight
+    gateway question itself silently skipped."""
+    previous = previous if isinstance(previous, dict) else {}
+    updated = updated if isinstance(updated, dict) else {}
+    prev_codes = previous.get("destination_airports") if isinstance(previous.get("destination_airports"), list) else []
+    new_codes = updated.get("destination_airports") if isinstance(updated.get("destination_airports"), list) else []
+    if prev_codes or not new_codes:
+        return updated
+    if previous.get("active_session") != "car":
+        return updated
+    # A real flight-gateway decision phrased as a full sentence ("תעדיפי
+    # לנחות ב-JFK") is a different, legitimate signal - this only guards
+    # against a bare one-or-two-word reply that is nothing but the answer
+    # to the car question just asked.
+    if len(str(message or "").strip().split()) > 3:
+        return updated
+    updated = dict(updated)
+    updated["destination_airports"] = list(prev_codes)
+    return updated
 
 
 def _guard_unjustified_gateway_narrowing(state, message, history):
@@ -3004,10 +3068,15 @@ def _deterministic_budget_facts(message):
     Ariella asked for the budget again immediately after the customer had
     just stated it in the very same message."""
     msg = str(message or "").strip().lower()
+    # "אין תקרה"/"אין מגבלה" (no ceiling/no limit) are as unambiguous as the
+    # existing "בלי הגבלה" phrasing - seen live (Shaked, London): "רק טרולי
+    # לכל אחד, ישירה, אין תקרה" matched none of the existing phrases, so the
+    # budget question was asked again right after the customer answered it.
     no_limit_phrases = (
         "אין תקציב", "אין לי תקציב", "ללא תקציב", "בלי תקציב", "בלי הגבלה", "ללא הגבלה",
         "אין הגבלת תקציב", "ללא הגבלת תקציב", "לא מוגבלת בתקציב",
-        "לא מוגבל בתקציב", "אין מגבלת תקציב"
+        "לא מוגבל בתקציב", "אין מגבלת תקציב", "אין תקרה", "אין מגבלה",
+        "בלי תקרה", "ללא תקרה"
     )
     if any(p in msg for p in no_limit_phrases):
         return {"budget_per_person":{"amount":None,"currency":None,"status":"unlimited"}}
@@ -3310,22 +3379,39 @@ def _deterministic_named_accept_facts(message):
             continue
         if not re.search(want_framing, clause):
             # No framing verb at all ("טיסה, לינה ורכב") is still an
-            # explicit request for everything named, when the WHOLE clause
-            # is nothing but that bare list - seen live (Shaked, ski
-            # scenario): this exact phrasing left lodging/car never
-            # recorded as wanted, so the already-answered yes/no offer
-            # ("תרצי שאסדר גם רכב שכור?") resurfaced later as if the
-            # customer had never said anything. A service word embedded in
-            # a longer sentence with no framing (e.g. a passing remark)
-            # must still be rejected, so only a clause that reduces to
-            # nothing once every named service (flights included, even
-            # though it isn't itself part of `matched`) and separators are
-            # stripped out counts as a bare enumeration.
-            stripped = clause
-            for pat in list(service_patterns.values()) + [r"טיסה|טיסות|לטוס|טיסת"]:
-                stripped = re.sub(pat, "", stripped)
-            stripped = re.sub(r"[,\sו-]+", "", stripped)
-            if stripped:
+            # explicit request for everything named, when the clause is
+            # just an enumeration of the services - seen live (Shaked: ski
+            # "טיסה, לינה ורכב", then business "טיסה, מלון במנהטן ורכב")
+            # - this exact phrasing left lodging/car never recorded as
+            # wanted, so the already-answered yes/no offer ("תרצי שאסדר גם
+            # רכב שכור?") resurfaced later as if the customer had never
+            # said anything. A service word embedded in a longer sentence
+            # with no framing (e.g. a passing remark) must still be
+            # rejected - so split the clause into comma/"ו"-separated
+            # segments (the business example shows one segment can carry a
+            # short qualifier, "מלון במנהטן", not just the bare noun) and
+            # require EVERY segment to be short (<=4 words) and anchored on
+            # exactly one named service; anything else means this isn't
+            # really a bare list.
+            service_root_alt = "|".join(list(service_patterns.values()) + [r"טיסה|טיסות|לטוס|טיסת"])
+            segments = re.split(r",\s*|\s+(?=ו(?:" + service_root_alt + r"))", clause)
+            segments = [s.strip() for s in segments if s.strip()]
+            if not segments:
+                continue
+            all_segments_anchored = True
+            for seg in segments:
+                seg_stripped = re.sub(r"^ו", "", seg).strip()
+                # The service word must anchor the START of the segment
+                # (allowing a single ב/ל/ה prefix letter, e.g. "במנהטן"'s
+                # own "ב" doesn't apply here since the service word itself
+                # comes first) - a service word merely appearing somewhere
+                # inside an unrelated sentence ("ראינו תמונות של מלון...")
+                # must never count, only a short qualifier trailing it.
+                head_match = re.match(r"^(?:ב|ל|ה)?(?:" + service_root_alt + r")", seg_stripped)
+                if not head_match or len(seg.split()) > 4:
+                    all_segments_anchored = False
+                    break
+            if not all_segments_anchored:
                 continue
         return {"service_decisions": {s: {"wanted": True, "source": "explicit_named_accept"} for s in matched}}
     return {}
@@ -5437,6 +5523,7 @@ def chat_clean():
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _clear_stale_gateway_airports(trip_update)
+        trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
         trip_update = _roll_past_dates(trip_update, message, history)
@@ -6066,7 +6153,16 @@ def chat_clean():
             # skipping that step entirely (the bug seen live: after route
             # approval the flight search never ran at all).
             if statuses_after_plan.get("flights") not in ("complete", "declined"):
+                # The bare "let's make sure flight details are complete" line
+                # leaves the customer with nothing to actually answer - seen
+                # live (Shaked, Cyprus): the turn ended right here with no
+                # question at all. Same fix already applied to the twin
+                # occurrence of this exact line further below (the premature-
+                # מאשרת safety net) - append the real concrete question.
                 reply = "מצוין, המסלול מאושר. בואי נוודא שגם פרטי הטיסה שלמים."
+                concrete_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
+                if concrete_gap_question:
+                    reply += " " + concrete_gap_question
                 trip_update["active_session"] = "flights"
             else:
                 remaining = [
@@ -6328,6 +6424,36 @@ def chat_clean():
                 # line, asked "מה עכשיו?" (what now?), and had no way forward
                 # other than guessing.
                 reply = _flight_gap_question(approval_gaps, trip_update)
+                approval = False
+            elif _flight_approval_still_has_open_domain(statuses_after_flight):
+                # Flights alone are done, but at least one other requested
+                # domain the summary presented as resolved is not actually
+                # complete/declined yet (see _flight_approval_still_has_
+                # open_domain's docstring - this is the exact Shaked/qa-s75
+                # bug). Never emit the "אני יוצאת עכשיו לחיפוש" success claim
+                # here - it would be false, since start_flight_search later
+                # requires every one of trip_planning/lodging/car to be
+                # decided. Re-open that domain and ask Tinkerbell for the
+                # genuine next question instead.
+                _still_open_domain = _flight_approval_still_has_open_domain(statuses_after_flight)
+                merged["search_intent"] = True
+                merged["search_confirmed"] = False
+                merged["ready_for_summary"] = False
+                merged["active_session"] = _still_open_domain
+                trip_update = merged
+                try:
+                    reply = _call_tinkerbell(key, model, history, message, trip_update)
+                except Exception as exc:
+                    logging.exception(
+                        "Tinkerbell reply failed on approval with still-open domain %s: %s",
+                        _still_open_domain, exc
+                    )
+                    _remaining_labels_fallback = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
+                    reply = (
+                        "עדיין לא יצאתי לחיפוש בפועל - נשאר לסגור את "
+                        + _remaining_labels_fallback.get(_still_open_domain, _still_open_domain or "פרט אחד נוסף")
+                        + " לפני שהכל מוכן."
+                    )
                 approval = False
             else:
                 # This whole branch used to end here, with everything below it
