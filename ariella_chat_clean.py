@@ -2621,6 +2621,43 @@ def _protect_destination_airports_from_car_reply(previous, updated, message):
     return updated
 
 
+def _protect_lodging_locations_from_car_reply(previous, updated, message):
+    """lodging.details.locations must never be overwritten by the customer's
+    answer to the CAR pickup/return location question - the exact twin of
+    _protect_destination_airports_from_car_reply's bug, one domain over.
+    Seen live (Shaked, qa-s78, Cyprus): lodging was already "complete"
+    (locations="בפאפוס"), yet the answer to "איפה נוח לאסוף את הרכב?"
+    ("בשדה בפאפוס") overwrote lodging.details.locations anyway, because
+    _deterministic_lodging_facts has no way to see which domain is actually
+    active - it only pattern-matches generic location-cue words in the
+    message itself, and a car-pickup question can easily use the same
+    generic words ("איזה אזור", "מיקום") a lodging-area question does."""
+    previous = previous if isinstance(previous, dict) else {}
+    updated = updated if isinstance(updated, dict) else {}
+    prev_locations = ((previous.get("lodging") or {}).get("details") or {}).get("locations") \
+        if isinstance(previous.get("lodging"), dict) else None
+    new_locations = ((updated.get("lodging") or {}).get("details") or {}).get("locations") \
+        if isinstance(updated.get("lodging"), dict) else None
+    if not prev_locations or new_locations == prev_locations:
+        return updated
+    # Only guard a domain that was genuinely already closed - a still-open
+    # lodging conversation legitimately revising its own location answer
+    # must never be blocked.
+    if str((previous.get("session_status") or {}).get("lodging") or "") != "complete":
+        return updated
+    if previous.get("active_session") != "car":
+        return updated
+    if len(str(message or "").strip().split()) > 5:
+        return updated
+    updated = dict(updated)
+    lodging = dict(updated.get("lodging") or {})
+    details = dict(lodging.get("details") or {})
+    details["locations"] = prev_locations
+    lodging["details"] = details
+    updated["lodging"] = lodging
+    return updated
+
+
 def _guard_unjustified_gateway_narrowing(state, message, history):
     """A multi-gateway city (London, New York, Paris, Tokyo, Istanbul - see
     config.MULTI_GATEWAY_CITIES) must never end up narrowed to one specific
@@ -4339,7 +4376,14 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
         return {}
     if msg in {"לא", "לא עכשיו", "לא תודה", "לא צריך", "לא צריכה", "לא צריכים", "זהו", "זה הכל", "זה הכול", "סיימנו", "אין צורך"}:
         return {s: False for s in offered}
-    if msg in {"כן", "בטח", "בהחלט", "כולם", "הכל", "הכול", "את הכל", "את הכול", "כן הכל", "כן הכול", "כן בבקשה", "כן, בבקשה"}:
+    # "שניהם" (both of them) - seen live (Shaked, qa-s78, Cyprus): offered
+    # exactly two services (lodging, car), the customer answered "שניהם",
+    # and only lodging ended up requested - car was never added to
+    # requested_services/service_decisions at all, so it stayed "pending"
+    # forever. "שניהם"/"את שניהם" unambiguously means yes to every offered
+    # service, exactly like the existing "כולם"/"הכל" bare-everything replies.
+    if msg in {"כן", "בטח", "בהחלט", "כולם", "הכל", "הכול", "את הכל", "את הכול", "כן הכל", "כן הכול", "כן בבקשה", "כן, בבקשה",
+               "שניהם", "את שניהם", "שתיהן", "את שתיהן", "גם וגם", "גם וגם זה"}:
         return {s: True for s in offered}
     # "תעבירי"/"תעביר אותי" - the customer is asking to actually be taken to
     # the flight results now, exactly the alternative Ariella herself offered
@@ -5799,6 +5843,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_car_vehicle_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
+        trip_update = _protect_lodging_locations_from_car_reply(trip_state, trip_update, message)
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
         # a new plan or continuing the ski trip?") clears trip_type, but the
