@@ -4840,6 +4840,48 @@ def _premature_approval_fallback_text(trip_update):
     return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."
 
 
+# Each domain's own small, closed vocabulary of topic words - not endless
+# per-phrasing examples, just the fixed set of concepts that belong to that
+# domain's own required facts (mirrors _GAP_FIELD_KIND's bounded scope).
+_CLOSED_DOMAIN_REOPEN_CUES = {
+    "flights": ("ישירה", "קונקשן", "כבודה", "מזוודה", "טרולי"),
+}
+
+
+def _redirect_reopened_closed_domain_question(reply, trip_update):
+    """Seen live (Shaked, qa-s84), confirmed via an actual state dump (not
+    guessed): with active_session="lodging" and real open lodging gaps
+    (rooms/locations), and flights already session_status="complete" with
+    flight.connection_preference already "direct", Tinkerbell still asked
+    "עכשיו נשלים את פרטי הטיסה - חשוב לך שתהיה ישירה, או שקונקשן גם בסדר?" -
+    reopening an already-settled flight fact instead of asking about the
+    real, still-open gap in the domain that is actually active. This isn't
+    a gap-computation bug (the state was correct before and after), just
+    Tinkerbell's own free text drifting off-topic. Mirrors the existing
+    premature-approval safety net: when the reply's topic belongs to a
+    domain that's already complete, while a different domain is active and
+    genuinely still has an open gap, swap in the real gap question for the
+    domain that's actually still open."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    active_domain = str(trip_update.get("active_session") or "")
+    if active_domain not in ("lodging", "car", "trip_planning"):
+        return reply
+    statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+    text = str(reply or "")
+    for closed_domain, cues in _CLOSED_DOMAIN_REOPEN_CUES.items():
+        if closed_domain == active_domain or statuses.get(closed_domain) != "complete":
+            continue
+        if not any(c in text for c in cues):
+            continue
+        gaps = _session_gaps(trip_update, active_domain)
+        if not gaps:
+            continue
+        question = _GAP_QUESTION_TEXT.get(gaps[0])
+        if question:
+            return question
+    return reply
+
+
 _POST_FLIGHT_OFFER_CUES = (
     "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
     "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
@@ -6972,6 +7014,8 @@ def chat_clean():
                 remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                 label = remaining_labels.get(pending_domain, pending_domain)
                 reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}, או שזה הכל להפעם?"
+
+        reply = _redirect_reopened_closed_domain_question(reply, trip_update)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
