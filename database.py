@@ -651,6 +651,19 @@ def init_db() -> None:
         ai_usage_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ai_usage)").fetchall()}
         if "channel" not in ai_usage_columns:
             conn.execute("ALTER TABLE ai_usage ADD COLUMN channel TEXT")
+        # Diagnostic columns (2026-10-12): Shaked's concurrency investigation
+        # needs to see whether different threads' Claude calls actually
+        # overlap in time, or run strictly one-at-a-time despite true
+        # request-level concurrency (already confirmed via a direct /health
+        # test). thread_id + call_started_at + call_duration_ms let that be
+        # read straight back out of the existing /admin/ai-usage.csv export
+        # instead of needing Render's own log stream.
+        if "thread_id" not in ai_usage_columns:
+            conn.execute("ALTER TABLE ai_usage ADD COLUMN thread_id INTEGER")
+        if "call_started_at" not in ai_usage_columns:
+            conn.execute("ALTER TABLE ai_usage ADD COLUMN call_started_at TEXT")
+        if "call_duration_ms" not in ai_usage_columns:
+            conn.execute("ALTER TABLE ai_usage ADD COLUMN call_duration_ms INTEGER")
 
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
