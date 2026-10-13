@@ -1137,7 +1137,7 @@ def _route_base_names(state):
     return names
 
 
-_ROUTE_LODGING_BASE_RE = re.compile(r"לינה\s+(?:באזור\s+|ב)([א-ת]+(?:\s(?!ל)[א-ת]+)?)")
+_ROUTE_LODGING_BASE_RE = re.compile(r"לינה\s+(?:באזור\s+|ב)([א-ת]+(?:\s(?!ל|בערב|בבוקר|בצהריים|בלילה)[א-ת]+)?)")
 
 
 def _extract_route_bases_from_approved_text(text):
@@ -3264,6 +3264,16 @@ def _deterministic_budget_facts(message):
     # (Shaked, New York): "עד 5000 שקל" embedded in a mixed message (baggage,
     # direct flight, budget all in one) matched neither existing pattern, so
     # the budget was lost and Ariella asked for it again from scratch.
+    # "ליל"/"ללילה"/"בלילה" (night/per-night) is lodging.details.budget's own
+    # distinguishing cue, not this per-person flight budget's. Seen live
+    # (Shaked, qa-s87): "עד 500 שקל ללילה" (answering the LODGING budget
+    # question) matched the bare pattern below anyway (it has no "לאדם"
+    # qualifier to rule that out) and clobbered an already-known
+    # budget_per_person=1500 down to 500. Skip every pattern here once
+    # "ליל" appears anywhere in the message - a per-night mention is never
+    # a per-person flight budget.
+    if "ליל" in msg:
+        return {}
     m = re.search(r"תקציב[^\d]{0,20}?(\d{2,6})", msg) \
         or re.search(r"(\d{2,6})[^\d]{0,15}?ל(?:כל\s+)?(?:אדם|כרטיס|נוסע|אחד)", msg) \
         or re.search(r"עד\s*(\d{2,6})\s*(?:ש\"?ח|שקל|שקלים|₪)", msg)
@@ -3288,6 +3298,13 @@ def _budget_answer_by_meaning(message, history, state):
         (str(x.get("content") or "") for x in reversed(history or [])
          if isinstance(x, dict) and x.get("role") == "assistant"), "")
     if "תקציב" not in last_assistant:
+        return {}
+    # "מה התקציב ללילה..." is lodging's own per-night budget question (it
+    # also contains the word "תקציב"), not the flight's per-person one -
+    # see _deterministic_budget_facts's own "ליל" guard for the sibling bug
+    # this mirrors. Skip here too so a still-unknown flight budget can never
+    # get set from an answer to the lodging question instead.
+    if "ליל" in last_assistant:
         return {}
     key = os.getenv("ANTHROPIC_API_KEY", "").strip()
     if not key:
@@ -4299,6 +4316,14 @@ def _deterministic_lodging_facts(message, history):
         # צריך?" afterward instead of inferring rooms=1 right away. A plural
         # "חדרים זוגיים" or an explicit number names a different count, so
         # this only fires for the bare singular phrase.
+        result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
+    elif any(w in msg for w in ("חדר אחד", "חדר גדול אחד")) and not re.search(r"\d+\s*חדר", msg):
+        # Same gap as "חדר זוגי" above, one bare phrase over - seen live
+        # three times in a row (Shaked, qa-s84 then qa-s87): "מלון, חדר אחד"
+        # answering a TYPE question (not "כמה חדרים?") volunteered the room
+        # count unprompted, but this was only ever recognized inside the
+        # asked_rooms branch above, so the combined answer silently dropped
+        # the room count and the customer had to repeat it on a later turn.
         result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
 
     # budget has no deterministic writer at all, unlike the per-person flight
@@ -7076,6 +7101,25 @@ def chat_clean():
                 if concrete_gap_question:
                     reply += " " + concrete_gap_question
                 trip_update["active_session"] = "flights"
+            elif pending_domain == trip_update.get("active_session") and _session_gaps(trip_update, pending_domain):
+                # Seen live (Shaked, qa-s87): with lodging genuinely ACTIVE
+                # (already decided, not an undecided yes/no offer) and a
+                # real open gap (rooms), this used to ask the generic "תרצי
+                # שאעזור גם עם לינה, או שזה הכל להפעם?" anyway - as if
+                # lodging were still an optional domain waiting to be
+                # offered, when it's actually mid-conversation with a known
+                # concrete question still unanswered. pending_domain only
+                # ever reaches here from active_session (see the comment
+                # above locating it) when it is NOT "next_session" - a truly
+                # undecided domain never has gaps to look up this way, so
+                # this branch only ever fires for the genuinely-active case.
+                question = _GAP_QUESTION_TEXT.get(_session_gaps(trip_update, pending_domain)[0])
+                if question:
+                    reply = question
+                else:
+                    remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
+                    label = remaining_labels.get(pending_domain, pending_domain)
+                    reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}, או שזה הכל להפעם?"
             else:
                 remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                 label = remaining_labels.get(pending_domain, pending_domain)
