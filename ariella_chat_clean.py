@@ -3963,6 +3963,24 @@ def _deterministic_car_location_facts(message, history):
     return result
 
 
+_STANDALONE_NUMBERED_DAY_RE = re.compile(r"(?<![א-ת])יום\s+(\d{1,2})(?!\d)")
+_STANDALONE_WEEKDAY_DAY_RE = re.compile(r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?")
+
+
+def _looks_like_itinerary_text(text):
+    """True when text has the day-by-day route shape (2+ distinct "יום <N>"
+    or "יום <weekday>" markers) - the same signal _call_tinkerbell's own
+    local day_mention_count closure already uses to recognize a genuine
+    route proposal, reused here standalone (that one is a local closure,
+    not reachable from outside chat_clean()) wherever a guard needs to
+    tell "this is route-proposal text" from "this merely mentions a region
+    or day in passing"."""
+    text = str(text or "")
+    numbered = {m.group(1) for m in _STANDALONE_NUMBERED_DAY_RE.finditer(text)}
+    weekday_mentions = len(_STANDALONE_WEEKDAY_DAY_RE.findall(text))
+    return max(len(numbered), weekday_mentions) >= 2
+
+
 def _deterministic_lodging_facts(message, history):
     """lodging.details.type/level/rooms have no deterministic writer anywhere
     else - only the LLM's own JSON extraction ever sets them, same gap as
@@ -4083,7 +4101,15 @@ def _deterministic_lodging_facts(message, history):
     # message declare the lodging "done" and then nothing actually happened
     # (no save-trip-lodging call, since the client only fires on a genuine
     # "complete" status in the returned trip_update).
-    asked_area = any(p in prior_assistant for p in ("באיזה אזור", "איפה נוח", "מיקום", "אזור"))
+    # Seen live (Shaked, qa-s79, Cyprus): the cue words below (especially the
+    # bare "אזור") are completely ordinary in a day-by-day ROUTE proposal
+    # too ("יום רגוע באזור המלון", "אזור ההרים") - a plain "מתאים" approving
+    # that route got written into lodging.details.locations as literal text,
+    # even though lodging was still "pending" and the question actually
+    # being answered had nothing to do with lodging at all. Excluded
+    # whenever the prior assistant message is itself itinerary-shaped.
+    asked_area = any(p in prior_assistant for p in ("באיזה אזור", "איפה נוח", "מיקום", "אזור")) \
+        and not _looks_like_itinerary_text(prior_assistant)
     location_cues = ("קרוב ל", "ליד ה", "ליד ל", "במרחק הליכה", "קרוב לאתר", "קרוב למרכז", "לא רחוק מ", "באזור ה", "בלב ")
     if asked_area or any(c in msg for c in location_cues):
         result.setdefault("lodging", {}).setdefault("details", {})["locations"] = msg
