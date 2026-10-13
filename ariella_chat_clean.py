@@ -2345,6 +2345,16 @@ def _call_tinkerbell(key, model, history, message, state=None):
         continuity += """
 - הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק. בחלק שמסביר שמתחילים מחדש, לעולם אל תשתמשי בפנייה בלשון זכר/נקבה שדורשת לדעת את מגדר הלקוח (כמו "בוא נתחיל"/"בואי נתחיל") - גם כשהמגדר ידוע, עדיף ניסוח נייטרלי בגוף ראשון רבים שלא תלוי במגדר בכלל, למשל "נתחיל לתכנן מחדש" או "נמשיך מכאן מהתחלה".
 """
+    if state.get("_gap_clarify_question"):
+        # Per the business owner's explicit instruction (2026-10-13): when
+        # the model that interprets an open answer is genuinely unsure, the
+        # right move is a short confirmation reflecting what it understood -
+        # never a guess, and never a verbatim repeat of the same question.
+        # _understand_open_gap_answer already produced that exact question;
+        # hand it to Tinkerbell to weave into its own natural voice rather
+        # than injecting it raw.
+        continuity += """
+- יש ספק לגבי התשובה האחרונה של הלקוח. אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת. נסחי בקול הטבעי שלך בדיוק את שאלת האימות הבאה (אפשר לנסח מחדש, אך לשמור על אותה המשמעות בדיוק): """ + json.dumps(state.get("_gap_clarify_question"), ensure_ascii=False) + "\n"
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
     if upcoming:
@@ -4432,6 +4442,141 @@ _GAP_QUESTION_TEXT = {
 }
 
 
+# Per the business owner's explicit instruction (2026-10-13): "אי אפשר
+# להגניס אינסוף דוגמאות לקוד... צריך לעבוד עם כללים עקרוניים שינחו את
+# השיחה" (you can't keep stuffing endless examples into the code - need
+# principled rules guiding the conversation instead). trip_planning.
+# approved and trip_planning.details.route are deliberately excluded here:
+# route approval already has its own dedicated, well-tested mechanism
+# (planning_accept/_is_itinerary_acceptance), and the route's own free-text
+# content is built conversationally by Tinkerbell, not a short-answer gap.
+_GAP_FIELD_KIND = {
+    "car.details.pickup": "airport_or_place",
+    "car.details.return": "airport_or_place",
+    "car.details.vehicle_type": "text",
+    "car.details.transmission": "text",
+    "lodging.details.type": "text",
+    "lodging.details.rooms": "number",
+    "lodging.details.locations": "text",
+    "lodging.details.budget_or_level": "text",
+    "trip_planning.details.style": "text",
+    "trip_planning.details.pace": "text",
+}
+
+
+def _resolve_location_value_to_airport_code(value):
+    """Best-effort: turn a free-text place name or an already-correct IATA
+    code into a validated code from the real catalog. Returns None (not an
+    error) when nothing in the catalog matches - the caller then falls back
+    to storing the raw text, exactly like the existing deterministic
+    pickup/return extraction already does, since these fields are free
+    text, not a hard requirement for a catalog code."""
+    value = str(value or "").strip()
+    if not value:
+        return None
+    airports = _load_airports()
+    upper = value.upper()
+    if len(upper) == 3 and upper.isalpha() and any(str(a.get("code") or "").upper() == upper for a in airports):
+        return upper
+    codes = _resolve_destination_airports_from_route_names(airports, [value])
+    return codes[0] if codes else None
+
+
+def _understand_open_gap_answer(key, model, message, history, state):
+    """Per the business owner's explicit instruction (2026-10-13, relayed
+    by Shaked after the qa-s79/s80 Cyprus rounds): stop chasing every
+    possible customer phrasing with new regex/word lists for lodging/car/
+    trip_planning's open-ended gaps - every customer phrases things
+    differently, and it isn't feasible to hard-code them all. Understand
+    the MEANING of the answer with the model instead, including relative
+    answers ("השדה שננחת בו" = the airport we land at) and bare
+    confirmations ("מתאים", "שניהם", "כמו שאמרת") - the deterministic
+    parsers earlier in the pipeline (_deterministic_car_location_facts,
+    _deterministic_lodging_facts...) stay as a fast, free first pass and a
+    safety net, never the primary source; this only runs when a real gap
+    remains after them, and only ever fills a field it was explicitly told
+    about - it can never invent a field or write into a different domain.
+    Per the business owner: when genuinely unsure, ask the customer to
+    confirm with specifics instead of guessing or re-asking the identical
+    question word for word - returned here as "clarify", for the caller to
+    weave into Ariella's own natural reply (never shown raw)."""
+    state = state if isinstance(state, dict) else {}
+    active_domain = state.get("active_session")
+    if active_domain not in ("lodging", "car", "trip_planning"):
+        return {}, None
+    gaps = [g for g in _session_gaps(state, active_domain) if g in _GAP_FIELD_KIND]
+    if not gaps or not key:
+        return {}, None
+    msg = str(message or "").strip()
+    if not msg:
+        return {}, None
+
+    last_assistant = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"), ""
+    )
+
+    reference_lines = []
+    if "car.details.pickup" in gaps or "car.details.return" in gaps:
+        arrival_codes = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
+        return_codes = state.get("return_departure_airports") if isinstance(state.get("return_departure_airports"), list) else arrival_codes
+        if arrival_codes:
+            reference_lines.append(f"שדה/שדות הנחיתה (הגעה) הידועים: {', '.join(arrival_codes)}")
+        if return_codes:
+            reference_lines.append(f"שדה/שדות ההמראה בחזרה הידועים: {', '.join(return_codes)}")
+
+    gap_lines = "\n".join(f"- {g}: {_GAP_QUESTION_TEXT.get(g, g)}" for g in gaps)
+    reference_text = ("\nמידע ידוע רלוונטי:\n" + "\n".join(reference_lines) + "\n") if reference_lines else "\n"
+
+    prompt = (
+        "את עוזרת שמפרשת תשובת לקוח/ה בשיחת תכנון חופשה, ומחליטה אילו מהשדות החסרים הבאים התשובה ממלאת.\n"
+        f"התחום הפעיל כרגע: {active_domain}\n"
+        f"השדות החסרים כרגע (רק אלה מותר למלא):\n{gap_lines}"
+        f"{reference_text}"
+        f"השאלה האחרונה שאריאלה שאלה: \"{last_assistant}\"\n"
+        f"תשובת הלקוח/ה: \"{msg}\"\n\n"
+        "הביני את משמעות התשובה - כולל תשובות יחסיות (למשל מתייחסות לנחיתה/המראה של הטיסה), "
+        "אישורים כלליים (\"מתאים\", \"שניהם\", \"כמו שאמרת\") ותשובות קצרות שמתייחסות לשאלה. "
+        "בשדה שדורש מקום/שדה תעופה, אם התשובה יחסית, השתמשי במידע הידוע שניתן למעלה כדי להחזיר ערך ממשי - לא תיאור יחסי. "
+        "אל תמציאי ערך לשדה שלא ברשימה למעלה, ואל תחזירי שדה שלא ברשימה. "
+        "אם יש ספק אמיתי לגבי הכוונה, אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת - נסחי שאלת אימות קצרה שמשקפת את מה שהבנת.\n\n"
+        "החזירי JSON בלבד, בדיוק בפורמט הזה: "
+        '{"resolved": {"<שם שדה בדיוק מהרשימה>": "<ערך>"}, "clarify": "<שאלת אימות קצרה, או null אם אין ספק>"}'
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "פרש את התשובה הזו.", 200, include_history=False, source="classifier")
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").replace("json", "", 1).strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return {}, None
+
+    resolved_raw = data.get("resolved") if isinstance(data.get("resolved"), dict) else {}
+    clarify = data.get("clarify") if isinstance(data.get("clarify"), str) and data.get("clarify").strip() else None
+
+    result = {}
+    for gap_key, raw_value in resolved_raw.items():
+        # Never apply to a field/domain it wasn't explicitly told about -
+        # the one hard boundary that makes this safe to run unsupervised.
+        if gap_key not in gaps:
+            continue
+        kind = _GAP_FIELD_KIND.get(gap_key)
+        value = str(raw_value).strip() if raw_value is not None else ""
+        if not value:
+            continue
+        if kind == "number":
+            m = re.search(r"\d+", value)
+            if not m:
+                continue
+            value = int(m.group(0))
+        elif kind == "airport_or_place":
+            value = _resolve_location_value_to_airport_code(value) or value
+        domain, field = gap_key.split(".")[0], gap_key.split(".")[-1]
+        result.setdefault(domain, {}).setdefault("details", {})[field] = value
+    return result, clarify
+
+
 def _premature_approval_fallback_text(trip_update):
     """Last-resort honest reply when the reserved מאשר/מאשרת phrase had to
     be stripped from a premature reply and nothing more specific (a real
@@ -5985,6 +6130,16 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _deterministic_car_location_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
         trip_update = _protect_lodging_locations_from_car_reply(trip_state, trip_update, message)
+        # Resolved against trip_update (the current, post-deterministic-
+        # merge state) so the model is only ever handed gaps the fast
+        # deterministic pass above genuinely failed to fill this turn -
+        # never a field it already resolved, which would risk an incorrect
+        # model guess silently overwriting a correct deterministic value.
+        gap_clarify_question = None
+        if str(trip_update.get("active_session") or "") in ("lodging", "car", "trip_planning"):
+            understood_fields, gap_clarify_question = _understand_open_gap_answer(key, model, message, history, trip_update)
+            if understood_fields:
+                trip_update = _merge_trip_state(trip_update, understood_fields)
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(message))
         # A "new vacation" reset (e.g. the customer replying "new" to "is this
         # a new plan or continuing the ski trip?") clears trip_type, but the
@@ -6238,6 +6393,10 @@ def chat_clean():
             if stale_reset_happened:
                 state_for_tinkerbell = dict(trip_update)
                 state_for_tinkerbell["_stale_reset_just_happened"] = True
+            if gap_clarify_question:
+                if state_for_tinkerbell is trip_update:
+                    state_for_tinkerbell = dict(trip_update)
+                state_for_tinkerbell["_gap_clarify_question"] = gap_clarify_question
             reply = _call_tinkerbell(key, model, history, message, state_for_tinkerbell)
         except Exception as exc:
             logging.exception("Tinkerbell reply failed after state update: %s", exc)
