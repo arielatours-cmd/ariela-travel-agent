@@ -4064,6 +4064,43 @@ def _deterministic_trip_planning_pace_facts(message, history):
     return {"trip_planning": {"details": {"pace": pace}}}
 
 
+def _deterministic_connection_preference_facts(message, history):
+    """flight.connection_preference has no deterministic writer at all -
+    only the extractor's own JSON ever sets it, the exact same gap as
+    car.details.vehicle_type/transmission below. Seen live (Shaked,
+    qa-s85): a combined answer ("ישירה, ומזוודה לכל אחד" - direct, and
+    luggage for everyone) to the combined direct/baggage question captured
+    only the baggage half; connection_preference stayed null, so the
+    flights gap this gates (_direct_route_available) could never close
+    even though the customer had in fact just answered it, one turn
+    later. Gated on the prior assistant message actually containing the
+    standard ישירה/קונקשן framing (the exact phrasing _flight_gap_question
+    itself uses), so this never fires on an unrelated mention of either
+    word elsewhere in the conversation."""
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    prior_assistant = ""
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+            prior_assistant = str(item.get("content") or "")
+            break
+    if not ("ישיר" in prior_assistant and "קונקשן" in prior_assistant):
+        return {}
+    # "לא ישירה"/"לא חייב/ת ישירה" names no real preference for direct-only -
+    # it's functionally the same answer as "קונקשן בסדר", not a request for
+    # a direct flight. Checked before the bare "ישיר" match below so the
+    # negation isn't missed.
+    if re.search(r"לא\s+(?:חייב\w*\s+|צריכ\w*\s+)?ישיר", msg):
+        return {"flight": {"connection_preference": "אין העדפה"}}
+    if re.search(r"(?<![א-ת])ישיר\w*(?![א-ת])", msg):
+        return {"flight": {"connection_preference": "direct"}}
+    no_preference_words = ("אין העדפה", "לא משנה", "לא משנה לי", "קונקשן בסדר", "גם בסדר", "בסדר גם")
+    if any(w in msg for w in no_preference_words):
+        return {"flight": {"connection_preference": "אין העדפה"}}
+    return {}
+
+
 def _deterministic_car_vehicle_facts(message, history):
     """car.details.vehicle_type/transmission have no deterministic writer
     anywhere else - only the LLM's own JSON extraction ever sets them, and
@@ -4880,6 +4917,34 @@ def _redirect_reopened_closed_domain_question(reply, trip_update):
         if question:
             return question
     return reply
+
+
+_FLIGHT_FALSE_CLOSURE_CUES = ("הטיסה סגורה", "הטיסה כבר סגורה", "סגורה מבחינתי", "סגור מבחינת הטיסה")
+
+
+def _redirect_false_flight_closure_claim(reply, trip_update):
+    """Seen live (Shaked, qa-s85): after the customer answered the budget
+    question ("עד 1500 לאדם"), Tinkerbell wrote "הטיסה סגורה מבחינתי" (the
+    flight is settled as far as I'm concerned) while active_session was
+    still "flights" and missing_required still genuinely listed
+    'flight.connection_preference' - a real, still-open gap. The flight
+    topic clearly isn't done yet; this is the same failure in spirit as
+    _redirect_reopened_closed_domain_question (Tinkerbell's own free text
+    drifting away from the real state), just the opposite direction -
+    claiming a domain is closed instead of reopening one that already is.
+    Only ever swaps in the real, concrete question; never touches a reply
+    that doesn't make this specific false claim."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    if str(trip_update.get("active_session") or "") != "flights":
+        return reply
+    text = str(reply or "")
+    if not any(c in text for c in _FLIGHT_FALSE_CLOSURE_CUES):
+        return reply
+    gaps = _session_gaps(trip_update, "flights")
+    if not gaps:
+        return reply
+    question = _flight_gap_question(gaps, trip_update)
+    return question or reply
 
 
 _POST_FLIGHT_OFFER_CUES = (
@@ -6420,6 +6485,7 @@ def chat_clean():
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _baggage_answer_by_meaning(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
+        trip_update = _merge_trip_state(trip_update, _deterministic_connection_preference_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
@@ -7016,6 +7082,7 @@ def chat_clean():
                 reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}, או שזה הכל להפעם?"
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
+        reply = _redirect_false_flight_closure_claim(reply, trip_update)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
