@@ -3224,6 +3224,76 @@ def _budget_answer_by_meaning(message, history, state):
     return {}
 
 
+def _baggage_answer_by_meaning(message, history, state):
+    """Mirrors _budget_answer_by_meaning's exact pattern. Seen live
+    (Shaked, qa-s82, Cyprus): "מזוודה לכל אחד" (a direct answer to the
+    baggage question) matched none of _deterministic_baggage_facts's
+    phrases above - they all require a more specific shape ("בבטן המטוס",
+    "גדולה") - so flight.baggage stayed empty and the question was asked
+    again. When the last question was genuinely about baggage and it is
+    still unknown, read the answer by meaning instead of growing the
+    phrase list forever."""
+    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+    if flight.get("baggage"):
+        return {}
+    last_assistant = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and x.get("role") == "assistant"), "")
+    if not any(w in last_assistant for w in ("כבודה", "טרולי", "מזוודה")):
+        return {}
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return {}
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    prompt = (
+        "את מסווגת תשובת לקוח לשאלת כבודה של סוכנת נסיעות. הביני לפי משמעות, בכל ניסוח. "
+        "האפשרויות המדויקות, רק אחת מהן: "
+        "\"carry_on_only\" (טרולי/כבודת עלייה למטוס בלבד, בלי מזוודה בבטן המטוס), "
+        "\"checked_bag\" (יש גם מזוודה בבטן המטוס), "
+        "\"personal_item\" (רק תיק קטן, אפילו לא טרולי), "
+        "\"no_baggage\" (אין שום כבודה בכלל, גם לא תיק), "
+        "או null אם התשובה לא עונה על שאלת הכבודה כלל. "
+        "החזירי JSON בלבד: {\"baggage\": \"<אחת מהאפשרויות למעלה>\"|null}"
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 30, include_history=False, source="classifier")
+        raw = raw.strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return {}
+    value = data.get("baggage")
+    if value in ("carry_on_only", "checked_bag", "personal_item", "no_baggage"):
+        return {"flight": {"baggage": [value]}}
+    return {}
+
+
+def _itinerary_acceptance_by_meaning(message):
+    """Mirrors _budget_answer_by_meaning's exact pattern. Seen live
+    (Shaked, qa-s82, Cyprus): "יפה מאוד, מאשרים את המסלול" is an
+    unambiguous route approval, but matched none of _is_itinerary_
+    acceptance's curated positives (the inflected "מאשרים" vs the listed
+    "מאשר"/"מאשרת", and "יפה מאוד" isn't one of the listed synonyms). Only
+    ever called by the caller right after a genuine day-by-day route was
+    just proposed (gated on day_mention_count there), so a false positive
+    on an unrelated "מעולה" elsewhere in the conversation is not a risk
+    here."""
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return False
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    prompt = (
+        "אריאלה (סוכנת נסיעות) זה עתה הציעה מסלול/אטרקציות יום-יום ללקוח. "
+        "את מסווגת את תשובת הלקוח: true אם היא מאשרת את המסלול כפי שהוא (בכל ניסוח, כולל שגיאות כתיב/סלנג/צורות דקדוקיות שונות), "
+        "false אם היא מבקשת שינוי, שואלת שאלה, או לא ברור שמדובר באישור. "
+        "החזירי מילה אחת בלבד: true או false."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 10, include_history=False, source="classifier")
+        return raw.strip().lower().startswith("true")
+    except Exception:
+        return False
+
+
 def _deterministic_baggage_facts(message):
     """Safety net for flight.baggage: a customer often answers baggage mixed
     into one longer reply that also covers origin airport, direct/connection
@@ -6170,6 +6240,7 @@ def chat_clean():
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
+        trip_update = _merge_trip_state(trip_update, _baggage_answer_by_meaning(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
@@ -6410,8 +6481,16 @@ def chat_clean():
         # a route was just proposed and is now being answered - regardless
         # of whatever the backend's own active_session bookkeeping says.
         itinerary_was_just_presented = day_mention_count(last_assistant_text) >= 2
+        # Seen live (Shaked, qa-s82): "יפה מאוד, מאשרים את המסלול" is an
+        # unambiguous approval, but matched none of _is_itinerary_
+        # acceptance's curated positives (inflected "מאשרים" vs the listed
+        # "מאשר"/"מאשרת", "יפה מאוד" not a listed synonym). Falls back to
+        # meaning-based classification only within this already-gated
+        # context (day_mention_count below already confirms a real route
+        # was just proposed) - never called elsewhere in the conversation.
         planning_accept = (planning_active or itinerary_was_just_presented) and not already_approved \
-            and _is_itinerary_acceptance(message) and day_mention_count(prior_assistant) >= 2
+            and day_mention_count(prior_assistant) >= 2 \
+            and (_is_itinerary_acceptance(message) or _itinerary_acceptance_by_meaning(message))
         if planning_accept:
             statuses_plan = dict(trip_update.get("session_status") or {})
             statuses_plan["trip_planning"] = "complete"
