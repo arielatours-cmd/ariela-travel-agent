@@ -134,6 +134,12 @@
     {"id": "dest-zanzibar", "fn": "_deterministic_destination_facts", "args": [[], "חופשה בזנזיבר", {}], "expect": {"destination": {"places": ["זנזיבר"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
     {"id": "dest-cape-town", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לקייפטאון", {}], "expect": {"destination": {"places": ["קייפטאון"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
     {"id": "dest-las-vegas", "fn": "_deterministic_destination_facts", "args": [[], "טיסה ללאס וגאס", {}], "expect": {"destination": {"places": ["לאס וגאס"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-orlando", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לאורלנדו", {}], "expect": {"destination": {"places": ["אורלנדו"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"}
+    {"id": "dest-orlando", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לאורלנדו", {}], "expect": {"destination": {"places": ["אורלנדו"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
+    {"id": "budget-unlimited-ein-tikra", "fn": "_deterministic_budget_facts", "args": ["רק טרולי לכל אחד, ישירה, אין תקרה"], "expect": {"budget_per_person": {"status": "unlimited"}}, "source": "live-chat-2026-10-13-shaked-s71"},
+    {"id": "budget-unlimited-ein-magbala", "fn": "_deterministic_budget_facts", "args": ["אין מגבלה"], "expect": {"budget_per_person": {"status": "unlimited"}}, "source": "live-chat-2026-10-13-shaked-s71"},
+    {"id": "named-accept-bare-list-with-short-qualifier", "fn": "_deterministic_named_accept_facts", "args": ["טיסה, מלון במנהטן ורכב"], "expect": {"service_decisions": {"lodging": {"wanted": true}, "car": {"wanted": true}}}, "source": "live-chat-2026-10-13-shaked-s72"},
+    {"id": "named-accept-bare-list-no-misfire-sentence-with-verb", "fn": "_deterministic_named_accept_facts", "args": ["ראינו תמונות של מלון ורכב ישנים באתר"], "expect": {}, "source": "guard"},
+    {"id": "protect-destination-airports-from-car-pickup-reply", "fn": "_protect_destination_airports_from_car_reply", "args": [{"active_session": "car", "destination_airports": []}, {"active_session": "car", "destination_airports": ["JFK"]}, "JFK"], "expect": {"destination_airports": []}, "source": "live-chat-2026-10-13-shaked-s72"},
+    {"id": "protect-destination-airports-no-misfire-real-flights-answer", "fn": "_protect_destination_airports_from_car_reply", "args": [{"active_session": "flights", "destination_airports": []}, {"active_session": "flights", "destination_airports": ["JFK"]}, "תעדיפי לנחות ב-JFK"], "expect": {"destination_airports": ["JFK"]}, "source": "guard"}
   ]
 }

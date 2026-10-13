@@ -2549,6 +2549,35 @@ def _clear_stale_gateway_airports(state):
     return new_state if changed else state
 
 
+def _protect_destination_airports_from_car_reply(previous, updated, message):
+    """destination_airports must never be derived from the customer's
+    answer to the CAR pickup/return location question - seen live (Shaked,
+    New York business trip): destination_airports was never asked about
+    separately (a real gap, since New York is a multi-gateway city), but
+    once the customer answered "JFK" to "which airport should the rental
+    car be picked up/returned at", that single-token reply also got
+    written into destination_airports - deciding the flight's own gateway
+    from an answer to a completely different question, with the flight
+    gateway question itself silently skipped."""
+    previous = previous if isinstance(previous, dict) else {}
+    updated = updated if isinstance(updated, dict) else {}
+    prev_codes = previous.get("destination_airports") if isinstance(previous.get("destination_airports"), list) else []
+    new_codes = updated.get("destination_airports") if isinstance(updated.get("destination_airports"), list) else []
+    if prev_codes or not new_codes:
+        return updated
+    if previous.get("active_session") != "car":
+        return updated
+    # A real flight-gateway decision phrased as a full sentence ("תעדיפי
+    # לנחות ב-JFK") is a different, legitimate signal - this only guards
+    # against a bare one-or-two-word reply that is nothing but the answer
+    # to the car question just asked.
+    if len(str(message or "").strip().split()) > 3:
+        return updated
+    updated = dict(updated)
+    updated["destination_airports"] = list(prev_codes)
+    return updated
+
+
 def _guard_unjustified_gateway_narrowing(state, message, history):
     """A multi-gateway city (London, New York, Paris, Tokyo, Istanbul - see
     config.MULTI_GATEWAY_CITIES) must never end up narrowed to one specific
@@ -3005,10 +3034,15 @@ def _deterministic_budget_facts(message):
     Ariella asked for the budget again immediately after the customer had
     just stated it in the very same message."""
     msg = str(message or "").strip().lower()
+    # "אין תקרה"/"אין מגבלה" (no ceiling/no limit) are as unambiguous as the
+    # existing "בלי הגבלה" phrasing - seen live (Shaked, London): "רק טרולי
+    # לכל אחד, ישירה, אין תקרה" matched none of the existing phrases, so the
+    # budget question was asked again right after the customer answered it.
     no_limit_phrases = (
         "אין תקציב", "אין לי תקציב", "ללא תקציב", "בלי תקציב", "בלי הגבלה", "ללא הגבלה",
         "אין הגבלת תקציב", "ללא הגבלת תקציב", "לא מוגבלת בתקציב",
-        "לא מוגבל בתקציב", "אין מגבלת תקציב"
+        "לא מוגבל בתקציב", "אין מגבלת תקציב", "אין תקרה", "אין מגבלה",
+        "בלי תקרה", "ללא תקרה"
     )
     if any(p in msg for p in no_limit_phrases):
         return {"budget_per_person":{"amount":None,"currency":None,"status":"unlimited"}}
@@ -3311,22 +3345,39 @@ def _deterministic_named_accept_facts(message):
             continue
         if not re.search(want_framing, clause):
             # No framing verb at all ("טיסה, לינה ורכב") is still an
-            # explicit request for everything named, when the WHOLE clause
-            # is nothing but that bare list - seen live (Shaked, ski
-            # scenario): this exact phrasing left lodging/car never
-            # recorded as wanted, so the already-answered yes/no offer
-            # ("תרצי שאסדר גם רכב שכור?") resurfaced later as if the
-            # customer had never said anything. A service word embedded in
-            # a longer sentence with no framing (e.g. a passing remark)
-            # must still be rejected, so only a clause that reduces to
-            # nothing once every named service (flights included, even
-            # though it isn't itself part of `matched`) and separators are
-            # stripped out counts as a bare enumeration.
-            stripped = clause
-            for pat in list(service_patterns.values()) + [r"טיסה|טיסות|לטוס|טיסת"]:
-                stripped = re.sub(pat, "", stripped)
-            stripped = re.sub(r"[,\sו-]+", "", stripped)
-            if stripped:
+            # explicit request for everything named, when the clause is
+            # just an enumeration of the services - seen live (Shaked: ski
+            # "טיסה, לינה ורכב", then business "טיסה, מלון במנהטן ורכב")
+            # - this exact phrasing left lodging/car never recorded as
+            # wanted, so the already-answered yes/no offer ("תרצי שאסדר גם
+            # רכב שכור?") resurfaced later as if the customer had never
+            # said anything. A service word embedded in a longer sentence
+            # with no framing (e.g. a passing remark) must still be
+            # rejected - so split the clause into comma/"ו"-separated
+            # segments (the business example shows one segment can carry a
+            # short qualifier, "מלון במנהטן", not just the bare noun) and
+            # require EVERY segment to be short (<=4 words) and anchored on
+            # exactly one named service; anything else means this isn't
+            # really a bare list.
+            service_root_alt = "|".join(list(service_patterns.values()) + [r"טיסה|טיסות|לטוס|טיסת"])
+            segments = re.split(r",\s*|\s+(?=ו(?:" + service_root_alt + r"))", clause)
+            segments = [s.strip() for s in segments if s.strip()]
+            if not segments:
+                continue
+            all_segments_anchored = True
+            for seg in segments:
+                seg_stripped = re.sub(r"^ו", "", seg).strip()
+                # The service word must anchor the START of the segment
+                # (allowing a single ב/ל/ה prefix letter, e.g. "במנהטן"'s
+                # own "ב" doesn't apply here since the service word itself
+                # comes first) - a service word merely appearing somewhere
+                # inside an unrelated sentence ("ראינו תמונות של מלון...")
+                # must never count, only a short qualifier trailing it.
+                head_match = re.match(r"^(?:ב|ל|ה)?(?:" + service_root_alt + r")", seg_stripped)
+                if not head_match or len(seg.split()) > 4:
+                    all_segments_anchored = False
+                    break
+            if not all_segments_anchored:
                 continue
         return {"service_decisions": {s: {"wanted": True, "source": "explicit_named_accept"} for s in matched}}
     return {}
@@ -5438,6 +5489,7 @@ def chat_clean():
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _clear_stale_gateway_airports(trip_update)
+        trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
         trip_update = _roll_past_dates(trip_update, message, history)
