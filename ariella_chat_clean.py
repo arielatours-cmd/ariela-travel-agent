@@ -4367,6 +4367,37 @@ def _premature_approval_fallback_text(trip_update):
     return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."
 
 
+_POST_FLIGHT_OFFER_CUES = (
+    "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
+    "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
+    "תרצי עזרה גם", "תרצה עזרה גם", "רוצה עזרה גם",
+    "תרצי שאמשיך גם", "תרצה שאמשיך גם", "רוצה שאמשיך גם",
+)
+_POST_FLIGHT_OFFER_SERVICE_CUES = {
+    "lodging": ("לינה",),
+    "car": ("רכב שכור", "השכרת רכב", "רכב"),
+    "trip_planning": ("מסלול", "אטרקציות"),
+}
+
+
+def _infer_post_flight_offer_from_text(text):
+    """post_flight_offer is supposed to be set by the backend whenever it
+    asks "want help with lodging/car/route too?", so the customer's answer
+    has something concrete to settle against (see _post_flight_offer_answer
+    below). Seen live (Shaked, qa-s78, Cyprus): Tinkerbell asked this exact
+    question in its own free text ("לינה או רכב שכור תרצי שאסדר גם?") with
+    post_flight_offer never set at all - the customer's "שניהם" then had
+    nothing to resolve, lodging only got activated later (by a separate,
+    unrelated "מלון" explicit-request match), and car was never activated
+    at all. When the backend's own bookkeeping is empty, derive which
+    services were actually offered from Ariella's own words instead of
+    leaving the answer with nothing to settle."""
+    text = str(text or "")
+    if not any(cue in text for cue in _POST_FLIGHT_OFFER_CUES):
+        return []
+    return [s for s, cues in _POST_FLIGHT_OFFER_SERVICE_CUES.items() if any(c in text for c in cues)]
+
+
 def _post_flight_offer_answer(message, state, key=None, model=None, history=None):
     """The customer's answer to "the flights are being scanned - want help
     with lodging, car or route too?" (asked right after flight approval).
@@ -5684,7 +5715,17 @@ def chat_clean():
         # extractor's own decisions above so it authoritatively overrides a
         # misattributed or dropped extraction - see the function's docstring
         # for the live-transcript loop this fixes.
-        post_flight_answer = _post_flight_offer_answer(message, trip_state, key, model, history)
+        post_flight_state = trip_state
+        if not trip_state.get("post_flight_offer"):
+            last_assistant_for_offer = next(
+                (str(x.get("content") or "") for x in reversed(history or [])
+                 if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"), ""
+            )
+            inferred_post_flight_offer = _infer_post_flight_offer_from_text(last_assistant_for_offer)
+            if inferred_post_flight_offer:
+                post_flight_state = dict(trip_state)
+                post_flight_state["post_flight_offer"] = inferred_post_flight_offer
+        post_flight_answer = _post_flight_offer_answer(message, post_flight_state, key, model, history)
         if post_flight_answer.pop("_transfer_to_results", False):
             # The customer asked to be taken to the results now, exactly the
             # alternative Ariella's own offer named - settle it immediately
