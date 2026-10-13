@@ -6129,7 +6129,16 @@ def chat_clean():
             # skipping that step entirely (the bug seen live: after route
             # approval the flight search never ran at all).
             if statuses_after_plan.get("flights") not in ("complete", "declined"):
+                # The bare "let's make sure flight details are complete" line
+                # leaves the customer with nothing to actually answer - seen
+                # live (Shaked, Cyprus): the turn ended right here with no
+                # question at all. Same fix already applied to the twin
+                # occurrence of this exact line further below (the premature-
+                # מאשרת safety net) - append the real concrete question.
                 reply = "מצוין, המסלול מאושר. בואי נוודא שגם פרטי הטיסה שלמים."
+                concrete_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
+                if concrete_gap_question:
+                    reply += " " + concrete_gap_question
                 trip_update["active_session"] = "flights"
             else:
                 remaining = [
