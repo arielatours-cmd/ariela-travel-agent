@@ -980,6 +980,35 @@ def _direct_route_available(state):
         return False
 
 
+def _direct_route_hint_text(state):
+    """Surfaces _direct_route_available's real answer explicitly in
+    Tinkerbell's prompt, so a claim about direct-flight availability is
+    never invented from the model's own general knowledge (seen live:
+    Ariella stated "לכרתים ברוב המקרים לא מגיעים בטיסה ישירה מישראל" - false,
+    a seasonal direct route to Heraklion exists). Seen live again (Shaked,
+    qa-s84): the positive-branch wording used to say "ליעד ולתאריכים האלה
+    קיימת טיסה ישירה מאומתת... מותר לציין זאת כעובדה" - which let the model
+    claim, twice, that a specific flight on the customer's specific dates
+    was already confirmed ("יש לכם טיסה ישירה... לתאריכים האלה"), before any
+    real scan ran. _direct_route_available only confirms a nonstop ROUTE/
+    schedule exists between these airports, never seat availability on any
+    particular date - exactly what a real scan checks. Reworded so the hint
+    can state the route fact without blurring into a date-specific
+    availability promise, matching the existing rule that a specific
+    flight/budget is never promised before a scan actually runs."""
+    if _direct_route_available(state):
+        return (
+            "\nליעד הזה קיים קו טיסה ישיר מאומת מהנמל שנבחר (עובדה כללית על המסלול, לא על תאריך ספציפי) - "
+            "מותר לציין שיש קווים ישירים ליעד. אסור לטעון שטיסה ישירה בתאריכים/בתקציב הספציפיים שהלקוח ביקש כבר אושרה או "
+            "קיימת בפועל - זה נבדק רק בסריקה האמיתית, לפני שהיא רצה יש לנסח זאת כתלוי בבדיקת זמינות."
+        )
+    return (
+        "\nאין רישום של טיסה ישירה מאומתת ליעד ולתאריכים האלה מהנמל שנבחר. "
+        "אל תטעני בוודאות שיש טיסה ישירה, ואל תטעני גם בוודאות שאין (מסלולים עונתיים או זמינות עשויים להשתנות) - "
+        "אם רלוונטי לשיחה, נסחי זאת כתלוי בתוצאות החיפוש בפועל, ולעולם אל תכתבי 'טיסה ישירה' בסיכום הסופי אלא אם זו עובדה מאומתת מהרשימה הזו."
+    )
+
+
 def _resolve_destination_airports_from_route(state):
     """Deterministic safety net: once trip planning has confirmed a day-by-day
     route, derive the flight gateway from it (or from a plain destination name)
@@ -1105,6 +1134,32 @@ def _route_base_names(state):
                     or day.get("location") or day.get("area") or day.get("place") or day.get("name"))
             if base and str(base) not in names:
                 names.append(str(base))
+    return names
+
+
+_ROUTE_LODGING_BASE_RE = re.compile(r"לינה\s+(?:באזור\s+|ב)([א-ת]+(?:\s(?!ל)[א-ת]+)?)")
+
+
+def _extract_route_bases_from_approved_text(text):
+    """Deterministic fallback for when the extractor never actually fills
+    trip_planning.details.route as structured JSON at all - seen live
+    (Shaked, qa-s84): only approved=true and approved_text (free text) got
+    saved, route stayed null, even with the schema now spelled out
+    explicitly in EXTRACTOR_SYSTEM. Rather than keep trusting the model to
+    eventually comply, pull the lodging bases straight out of the approved
+    itinerary text itself: Tinkerbell's own route summaries consistently
+    name each night's base with "לינה ב-X"/"לינה באזור X" wording (this is
+    the system prompt's own documented lodging-structure rule), which is a
+    far more reliable anchor than trying to parse arbitrary day-by-day
+    prose. Called once, at the moment a route is approved, to backfill
+    trip_planning.details.route so _route_base_names keeps working exactly
+    the same regardless of whether the model's own JSON ever cooperates."""
+    text = str(text or "")
+    names = []
+    for m in _ROUTE_LODGING_BASE_RE.finditer(text):
+        name = m.group(1).strip()
+        if name and name not in names:
+            names.append(name)
     return names
 
 
@@ -2459,18 +2514,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     # computes the real answer (it gates the connection-preference
     # question) - surface it explicitly so a claim about direct-flight
     # availability is never invented.
-    direct_route_hint_text = ""
-    if has_destination:
-        if _direct_route_available(state):
-            direct_route_hint_text = (
-                "\nליעד ולתאריכים האלה קיימת טיסה ישירה מאומתת מהנמל שנבחר - מותר לציין זאת כעובדה."
-            )
-        else:
-            direct_route_hint_text = (
-                "\nאין רישום של טיסה ישירה מאומתת ליעד ולתאריכים האלה מהנמל שנבחר. "
-                "אל תטעני בוודאות שיש טיסה ישירה, ואל תטעני גם בוודאות שאין (מסלולים עונתיים או זמינות עשויים להשתנות) - "
-                "אם רלוונטי לשיחה, נסחי זאת כתלוי בתוצאות החיפוש בפועל, ולעולם אל תכתבי 'טיסה ישירה' בסיכום הסופי אלא אם זו עובדה מאומתת מהרשימה הזו."
-            )
+    direct_route_hint_text = _direct_route_hint_text(state) if has_destination else ""
     weekday_hint_text = _weekday_lookup_hint(state)
     nights_hint_text = _total_nights_hint(state)
     system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
@@ -4139,6 +4183,7 @@ _LODGING_LEVEL_VALUES = (
     ("בסיסי", "בסיסי"), ("בסיסית", "בסיסי"),
     ("חסכוני", "בסיסי"), ("תקציבי", "בסיסי"), ("כלכלי", "בסיסי"), ("זול", "בסיסי"),
 )
+_LODGING_TYPE_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר")
 
 
 def _deterministic_lodging_facts(message, history):
@@ -4161,7 +4206,7 @@ def _deterministic_lodging_facts(message, history):
     result = {}
     no_preference_words = ("אין העדפה", "לא משנה", "מה שיש", "לא משנה לי")
 
-    type_values = ["מלון", "דירה", "אפרטמנט", "וילה", "צימר"]
+    type_values = list(_LODGING_TYPE_VALUES)
     asked_type = (
         any(p in prior_assistant for p in ("סוג הלינה", "סוג לינה"))
         or ("מלון" in prior_assistant and ("דירה" in prior_assistant or "וילה" in prior_assistant))
@@ -4700,6 +4745,7 @@ def _understand_open_gap_answer(key, model, message, history, state):
         "הביני את משמעות התשובה - כולל תשובות יחסיות (למשל מתייחסות לנחיתה/המראה של הטיסה, או למסלול שכבר אושר), "
         "אישורים כלליים (\"מתאים\", \"שניהם\", \"כמו שאמרת\", \"לפי המסלול\") ותשובות קצרות שמתייחסות לשאלה. "
         "בשדה שדורש מקום/שדה תעופה, אם התשובה יחסית, השתמשי במידע הידוע שניתן למעלה כדי להחזיר ערך ממשי - לא תיאור יחסי. "
+        "אם תשובה אחת ממלאת בפועל כמה מהשדות החסרים ברשימה בבת אחת (למשל גם רמת נוחות וגם מספר חדרים), מלאי ב-resolved את כולם, לא רק את הראשון שזיהית. "
         "אל תמציאי ערך לשדה שלא ברשימה למעלה, ואל תחזירי שדה שלא ברשימה. "
         "אם יש ספק אמיתי לגבי הכוונה, אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת - נסחי שאלת אימות קצרה שמשקפת את מה שהבנת.\n\n"
         "החזירי JSON בלבד, בדיוק בפורמט הזה: "
@@ -4739,9 +4785,25 @@ def _understand_open_gap_answer(key, model, message, history, state):
             m = re.search(r"\d+", value)
             if m:
                 result.setdefault("lodging", {}).setdefault("details", {})["budget"] = int(m.group(0))
-            else:
-                canon = next((c for w, c in _LODGING_LEVEL_VALUES if w in value), value)
+                continue
+            canon = next((c for w, c in _LODGING_LEVEL_VALUES if w in value), None)
+            if canon:
                 result.setdefault("lodging", {}).setdefault("details", {})["level"] = canon
+                continue
+            # Seen live (Shaked, qa-s84): the model answered this exact gap
+            # with "מלון" (a lodging TYPE word, not a level) and the old code
+            # accepted any unmatched text as a literal level, writing the
+            # nonsense "level: מלון" into state. "מלון"/"דירה"/"וילה" etc.
+            # name a different real field entirely - route them there
+            # instead of dropping them or writing them to the wrong one.
+            type_match = next((t for t in _LODGING_TYPE_VALUES if t in value), None)
+            if type_match:
+                result.setdefault("lodging", {}).setdefault("details", {})["type"] = (
+                    "דירה" if type_match == "אפרטמנט" else type_match
+                )
+            # Neither a number, a known level word, nor a known type word -
+            # there is nothing safe to write for a closed-vocabulary field,
+            # so this one gap simply stays open rather than being guessed.
             continue
         kind = _GAP_FIELD_KIND.get(gap_key)
         if kind == "number":
@@ -6585,6 +6647,12 @@ def chat_clean():
             # become the last non-excluded assistant message in history.
             if last_assistant_text:
                 plan["approved_text"] = last_assistant_text
+                plan_details = dict(plan.get("details") or {})
+                if not plan_details.get("route"):
+                    route_bases = _extract_route_bases_from_approved_text(last_assistant_text)
+                    if route_bases:
+                        plan_details["route"] = [{"base": b} for b in route_bases]
+                        plan["details"] = plan_details
             trip_update["trip_planning"] = plan
 
         try:
