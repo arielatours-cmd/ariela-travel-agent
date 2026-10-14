@@ -3762,7 +3762,26 @@ def ariella_start_flight_search():
         )
     except Exception as exc:
         print(f"[DB-FIRST] diagnostic_error={exc}", flush=True)
-    if existing_matches:
+    # Per the business owner (2026-10-14, found live): with 2+ candidate
+    # destination gateways (an open/unresolved gateway choice - e.g. both
+    # Larnaca and Paphos still candidates), a DB-first match covering only
+    # SOME of them must never short-circuit the real scan. This used to
+    # take the fast "database_match" path (skipping _queue_customer_scan
+    # entirely and declaring _flight_search_finished=True) the moment ANY
+    # one candidate gateway had a fresh match, leaving the other gateway
+    # never searched at all. Seen live: a customer with Larnaca+Paphos as
+    # candidates got shown a single Larnaca result and navigated to her
+    # vacation page, while Paphos was only found much later by an
+    # unrelated general background scan - the exact "don't navigate to the
+    # vacation page until all the scans are done" behavior the business
+    # owner asked for. Only take the fast DB-first path when it already
+    # covers every candidate destination code; otherwise fall through to
+    # queuing the real scan, which searches every candidate gateway in one
+    # combined job (see run_customer_trip_search) and only marks the
+    # search finished once that full pass actually completes.
+    existing_covered_codes = {str(o.get("arrival_code") or "").upper() for o in existing_matches}
+    db_first_covers_all_codes = bool(destination_codes) and set(destination_codes) <= existing_covered_codes
+    if existing_matches and db_first_covers_all_codes:
         matched_ids = [
             int(o.get("offer_id") or o.get("id"))
             for o in existing_matches
@@ -3847,7 +3866,21 @@ def trip_flight_status(trip_id):
     answers = trip.get("answers") or {}
     finished = bool(answers.get("_flight_search_finished"))
     result = answers.get("_flight_search_result") or {}
-    status = "ready" if offers or finished else "searching"
+    # Per the business owner (2026-10-14, found live): with 2+ candidate
+    # destination gateways still open, "ready" must never fire just because
+    # SOME of them already have a matching offer in the shared inventory -
+    # that let the waiting page navigate away with e.g. only a Larnaca
+    # result while Paphos (the other candidate) hadn't actually been
+    # searched yet. Only treat partial offers as "ready" once they already
+    # cover every candidate destination code; otherwise wait for the real
+    # search to actually finish (_flight_search_finished), which only gets
+    # set once every candidate gateway has genuinely been covered.
+    trip_destination_codes = {str(c).upper() for c in _trip_destination_codes(trip) if c}
+    offers_cover_all_codes = bool(offers) and (
+        not trip_destination_codes
+        or trip_destination_codes <= {str(o.get("arrival_code") or "").upper() for o in offers}
+    )
+    status = "ready" if (offers and offers_cover_all_codes) or finished else "searching"
     requested = set(answers.get("_requested_services") or [])
     flight_stage = "complete" if status == "ready" else "searching"
 
