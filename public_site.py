@@ -3150,6 +3150,7 @@ def ariella_save_trip_lodging():
     answers["lodging_budget_per_person"] = details.get("budget")
     answers["lodging_level"] = details.get("level") or ""
     answers["lodging_location"] = details.get("locations") or details.get("location") or ""
+    answers["lodging_location_segments"] = details.get("location_segments") or []
     answers.pop("_lodging_search_finished", None)
     answers.pop("_lodging_search_result", None)
     requested = set(answers.get("_requested_services") or [])
@@ -3349,6 +3350,7 @@ def _attach_decided_post_flight_domains(trip_id: int, state: dict, history: list
         answers["lodging_budget_per_person"] = lodging_details.get("budget")
         answers["lodging_level"] = lodging_details.get("level") or ""
         answers["lodging_location"] = lodging_details.get("locations") or lodging_details.get("location") or ""
+        answers["lodging_location_segments"] = lodging_details.get("location_segments") or []
         answers.pop("_lodging_search_finished", None)
         answers.pop("_lodging_search_result", None)
         requested = set(answers.get("_requested_services") or [])
@@ -3629,6 +3631,7 @@ def ariella_start_flight_search():
         "lodging_budget_per_person": lodging_details.get("budget"),
         "lodging_level": lodging_details.get("level") or "",
         "lodging_location": lodging_details.get("locations") or lodging_details.get("location") or "",
+        "lodging_location_segments": lodging_details.get("location_segments") or [],
         "car_vehicle_type": car_details.get("vehicle_type") or "",
         "car_transmission": car_details.get("transmission") or "",
         "car_seats": car_details.get("seats"),
@@ -4585,8 +4588,6 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
         _save_trip_answers(trip_id, answers)
         return
 
-    info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
-    city = info.get("city_en") or info.get("city_he") or destination_codes[0]
     lodging_type = str(answers.get("lodging_type") or "").strip()
     vacation_rentals = lodging_type in ("וילה", "דירה")
     try:
@@ -4601,29 +4602,85 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
         rooms = max(1, int(answers.get("lodging_rooms") or 1))
     except (TypeError, ValueError):
         rooms = 1
+    budget_pp = answers.get("lodging_budget_per_person")
+
     # A per-person total budget is only a coarse per-night ceiling here (party
     # size over the stay length, with slack) - it steers SerpApi away from
     # wildly over-budget listings; the customer still compares the actual
     # returned prices themselves.
-    max_price = None
-    budget_pp = answers.get("lodging_budget_per_person")
-    if budget_pp:
+    def _max_price_for(date_from: str, date_to: str):
+        if not budget_pp:
+            return None
         try:
-            nights = max(1, (date.fromisoformat(ret) - date.fromisoformat(dep)).days)
-            max_price = int(float(budget_pp) * (adults + children) / nights * 1.3)
+            nights = max(1, (date.fromisoformat(date_to) - date.fromisoformat(date_from)).days)
+            return int(float(budget_pp) * (adults + children) / nights * 1.3)
         except Exception:
-            max_price = None
+            return None
+
+    # Per the business owner (2026-10-14, after a real scan found every
+    # lodging result clustered in a single city although the approved route
+    # spent several nights elsewhere): a multi-city route needs lodging
+    # searched separately for each stop, with that stop's own dates - not
+    # one combined city for the whole trip. lodging.details.location_
+    # segments (computed in ariella_chat_clean.py from the approved route's
+    # own per-stop night breakdown) carries that per-stop breakdown when the
+    # extraction found it; this is a best-effort enhancement, so an empty/
+    # malformed list here just falls through to the single-search behavior
+    # below exactly as before.
+    segments = [
+        s for s in (answers.get("lodging_location_segments") or [])
+        if isinstance(s, dict) and s.get("location") and s.get("date_from") and s.get("date_to")
+    ]
 
     try:
-        result = search_hotels(
-            query=city, checkin_date=dep, checkout_date=ret,
-            adults=adults, children=children, rooms=rooms,
-            max_price=max_price, vacation_rentals=vacation_rentals,
-        )
-        answers["lodging_offers"] = (result.get("hotels") or [])[:10]
-        answers["lodging_searched_at"] = utc_now_iso()
-        answers["lodging_search_error"] = None
-        answers["_lodging_search_result"] = {"status": "ok", "count": len(answers["lodging_offers"])}
+        if segments:
+            # Capped well below what even a long multi-city route would need,
+            # as a sane ceiling on paid calls spent on one trip.
+            all_hotels = []
+            any_ok = False
+            for seg in segments[:6]:
+                try:
+                    seg_result = search_hotels(
+                        query=seg["location"], checkin_date=seg["date_from"], checkout_date=seg["date_to"],
+                        adults=adults, children=children, rooms=rooms,
+                        max_price=_max_price_for(seg["date_from"], seg["date_to"]), vacation_rentals=vacation_rentals,
+                    )
+                    seg_hotels = (seg_result.get("hotels") or [])[:5]
+                    for hotel in seg_hotels:
+                        hotel["segment_location"] = seg["location"]
+                        hotel["segment_dates"] = f"{seg['date_from']} – {seg['date_to']}"
+                    all_hotels.extend(seg_hotels)
+                    any_ok = True
+                except Exception:
+                    logging.exception("Segment lodging search failed for trip %s (%s)", trip_id, seg.get("location"))
+            answers["lodging_offers"] = all_hotels[:15]
+            answers["lodging_searched_at"] = utc_now_iso()
+            answers["lodging_search_error"] = None if any_ok else "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."
+            answers["_lodging_search_result"] = {
+                "status": "ok" if any_ok else "error", "count": len(all_hotels), "segments": len(segments),
+            }
+        else:
+            info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
+            # Seen live (Shaked, qa-s89): this used to always default to the
+            # FIRST (alphabetically sorted) destination airport's city,
+            # completely ignoring lodging_location - the actual multi-area
+            # route string the customer's conversation already captured.
+            # When no richer per-segment breakdown is available, at least
+            # prefer the first named area from that real signal.
+            lodging_location_raw = str(answers.get("lodging_location") or "").strip()
+            city = (
+                lodging_location_raw.split(",")[0].strip() if lodging_location_raw
+                else (info.get("city_en") or info.get("city_he") or destination_codes[0])
+            )
+            result = search_hotels(
+                query=city, checkin_date=dep, checkout_date=ret,
+                adults=adults, children=children, rooms=rooms,
+                max_price=_max_price_for(dep, ret), vacation_rentals=vacation_rentals,
+            )
+            answers["lodging_offers"] = (result.get("hotels") or [])[:10]
+            answers["lodging_searched_at"] = utc_now_iso()
+            answers["lodging_search_error"] = None
+            answers["_lodging_search_result"] = {"status": "ok", "count": len(answers["lodging_offers"])}
     except Exception as exc:
         logging.exception("Lodging search failed for trip %s", trip_id)
         answers["lodging_search_error"] = "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."

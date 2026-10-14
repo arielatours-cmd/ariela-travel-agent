@@ -1185,13 +1185,83 @@ def _extract_route_bases_from_approved_text(text):
     return names
 
 
+_HE_NIGHT_NUMBER_WORDS = {
+    "שני": 2, "שתי": 2, "שניים": 2, "שלושה": 3, "ארבעה": 4, "חמישה": 5,
+    "שישה": 6, "שבעה": 7, "שמונה": 8, "תשעה": 9, "עשרה": 10,
+}
+_ROUTE_INTRO_SEGMENT_RE = re.compile(
+    r"([א-ת]+(?:\s(?!ל|בערב|בבוקר|בצהריים|בלילה)[א-ת]+)?)\s*\(\s*"
+    r"(?:(לילה\s+אחד)|(\d+)\s*לילות|(" + "|".join(_HE_NIGHT_NUMBER_WORDS) + r")\s*לילות)\s*\)"
+)
+
+
+def _extract_route_night_segments_from_approved_text(text):
+    """Per the business owner (2026-10-14): lodging needs a separate
+    location+date range PER STOP on the route (lodging location 1/2/3...,
+    each with its own dates), not one combined area string for the whole
+    trip - so the real search looks for a room in the actual place the
+    customer sleeps each night, not just one city for everything.
+
+    Tinkerbell's own route-approval text commonly opens with exactly this
+    breakdown as a parenthetical per-stop summary ("לרנקה (לילה אחד), פאפוס
+    (שני לילות), לימסול (שני לילות)...") - a far more reliable per-location
+    NIGHT COUNT than the "לינה ב-X" overnight mentions used elsewhere in
+    this file (_extract_route_bases_from_approved_text), which commonly use
+    relative ordinal phrasing ("ללילה הראשון"/"לשני הלילות הבאים") with no
+    hard count at all. Hebrew's own grammar quirk - "לילה אחד" (noun then
+    number, for exactly one) vs "שני לילות"/"3 לילות" (number then noun,
+    for two or more) - needs both word orders handled explicitly.
+
+    Returns an ordered list of (location, nights) pairs, or [] when this
+    specific phrasing isn't found - callers must treat that as "unknown"
+    and never guess at a night count."""
+    text = str(text or "")
+    segments = []
+    for m in _ROUTE_INTRO_SEGMENT_RE.finditer(text):
+        location = m.group(1).strip()
+        if m.group(2):
+            nights = 1
+        elif m.group(3):
+            nights = int(m.group(3))
+        else:
+            nights = _HE_NIGHT_NUMBER_WORDS.get(m.group(4) or "", 0)
+        if location and nights > 0:
+            segments.append((location, nights))
+    return segments
+
+
+def _route_night_segments_to_date_ranges(segments, departure_date):
+    """Turn an ordered (location, nights) list into concrete per-location
+    check-in/check-out dates, walking forward from the trip's own departure
+    date - each segment's check-out is the next segment's check-in, exactly
+    matching how the route itself is actually travelled day by day."""
+    if not segments or not departure_date:
+        return []
+    try:
+        current = date.fromisoformat(str(departure_date)[:10])
+    except Exception:
+        return []
+    ranges = []
+    for location, nights in segments:
+        date_from = current.isoformat()
+        current = current + timedelta(days=nights)
+        ranges.append({"location": location, "date_from": date_from, "date_to": current.isoformat(), "nights": nights})
+    return ranges
+
+
 def _resolve_lodging_locations_from_route(state):
     """An approved day-by-day route already says where the customer sleeps
     each night (each day's base/city/region) - once lodging search opens
     for the SAME vacation, pull that straight in instead of asking the
     customer to repeat what they already told Ariella in trip_planning.
     Mirrors _resolve_destination_airports_from_route's own extraction of
-    each day's base, this time into lodging.details.locations."""
+    each day's base, this time into lodging.details.locations.
+
+    Also computes lodging.details.location_segments (per the business
+    owner, 2026-10-14): a separate location+date range per stop, best-
+    effort from the route's own intro summary - left empty (never guessed)
+    when that specific phrasing isn't found, so callers always have the
+    single combined `locations` string to fall back to."""
     state = state if isinstance(state, dict) else {}
     lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
     details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
@@ -1204,6 +1274,13 @@ def _resolve_lodging_locations_from_route(state):
     lodging = dict(lodging)
     details = dict(details)
     details["locations"] = ", ".join(names)
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    approved_text = (planning.get("details") or {}).get("approved_text") if isinstance(planning.get("details"), dict) else None
+    night_segments = _extract_route_night_segments_from_approved_text(approved_text)
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    date_ranges = _route_night_segments_to_date_ranges(night_segments, dates.get("departure"))
+    if date_ranges:
+        details["location_segments"] = date_ranges
     lodging["details"] = details
     state["lodging"] = lodging
     return state
@@ -5242,6 +5319,52 @@ def _reopenable_trips(member_id, service, message, limit=3):
     return trips
 
 
+def _find_recent_scanned_vacation(member_id, destination_codes, departure_airport, dep, ret, window_days=90):
+    """DB-authoritative duplicate-scan guard (per the business owner,
+    2026-10-14, after Shaked's real-scan testing): once a real paid scan
+    has actually launched for a destination+dates combo, re-describing the
+    same request later - even in a persisted conversation that still
+    thinks of itself as "done" (combined_search_launched already true) -
+    must never spawn another free scan, within a 90-day window. Mirrors
+    _find_duplicate_active_trip's own matching (same origin airport, same
+    destination set, same exact dates) - trip_requests rows only ever get
+    created once a scan is actually launched, so mere existence here is
+    itself the "did we already scan this" signal; the only piece that
+    function doesn't have is the explicit time window. Returns
+    (trip_id, request_name) or None."""
+    dest_set = frozenset(str(c).upper() for c in (destination_codes or []) if c)
+    if not dest_set or not dep or not ret:
+        return None
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.row_factory = sqlite3.Row
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=window_days)).isoformat()
+        rows = conn.execute(
+            "SELECT id, request_name, answers_json FROM trip_requests "
+            "WHERE member_id=? AND status='active' AND created_at>=? ORDER BY id DESC LIMIT 50",
+            (member_id, cutoff),
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return None
+    for row in rows:
+        try:
+            existing = json.loads(row["answers_json"] or "{}")
+        except Exception:
+            continue
+        existing_origins = existing.get("origin_airports") or []
+        existing_origin = str(existing_origins[0] or "").upper() if existing_origins else ""
+        if departure_airport and existing_origin and existing_origin != str(departure_airport).upper():
+            continue
+        existing_dest = frozenset(x for x in str(existing.get("destinations") or "").split(",") if x)
+        if existing_dest != dest_set:
+            continue
+        if (str(existing.get("departure_date") or "")[:10] == str(dep)[:10]
+                and str(existing.get("return_date") or "")[:10] == str(ret)[:10]):
+            return int(row["id"]), str(row["request_name"] or "").strip()
+    return None
+
+
 def _upcoming_vacations(member_id, limit=3):
     """The customer's upcoming active vacations and which of lodging/car/
     route each still lacks - so a customer coming back after "not now"
@@ -5575,6 +5698,48 @@ def chat_clean():
         stale_reset_happened = True
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
+
+    # Per the business owner (2026-10-14, after Shaked's real-scan testing):
+    # once this exact persisted conversation already launched a real paid
+    # scan (combined_search_launched), any further message to it must never
+    # just keep chatting as if still mid-planning - seen live, a customer
+    # re-describing the identical vacation got "זו בדיוק החופשה שכבר
+    # סגרנו... רוצה להמשיך איתה?" and the page then auto-navigated to the
+    # waiting page of an already-finished trip, with no mention of the
+    # existing results or the paid daily-tracking option. The DB (not the
+    # client's own combined_search_launched flag, which only reflects THIS
+    # conversation's belief, not reality) is the source of truth: look up
+    # the real vacation this exact destination+dates already produced and,
+    # if still within the 90-day window the business owner asked for,
+    # short-circuit straight to the existing-vacation message and reset the
+    # conversation - never continue the old thread, never trigger another
+    # free scan.
+    if trip_state.get('combined_search_launched'):
+        _dest_codes = trip_state.get('destination_airports') if isinstance(trip_state.get('destination_airports'), list) else []
+        _dates = trip_state.get('dates') if isinstance(trip_state.get('dates'), dict) else {}
+        _existing = _find_recent_scanned_vacation(
+            session['member_id'], _dest_codes, trip_state.get('departure_airport'),
+            _dates.get('departure'), _dates.get('return'),
+        )
+        if _existing:
+            _trip_id, _label = _existing
+            reply = (
+                f"כבר יש לך חופשה פעילה ל{_label or 'היעד הזה'} בתאריכים האלה, והתוצאות מחכות לך ב\"החופשות שלי\". "
+                "אם תרצי שאמשיך לעקוב ולעדכן אותך על מחירים טובים יותר, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה."
+            )
+            try:
+                saved_history = list(history_before_gap) + [
+                    {'role': 'user', 'content': message},
+                    {'role': 'assistant', 'content': reply},
+                ]
+                save_ariella_conversation(session['member_id'], saved_history[-80:], {})
+            except Exception:
+                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+            return jsonify({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': reply, 'trip_update': {}, 'start_flight_search': False,
+                'redirect_url': f'/account#vacation-{_trip_id}',
+            })
 
     # A customer question about a DIFFERENT/past vacation ("את זוכרת את
     # הטיסה לניו יורק?") must be answered from their real trip history, not
