@@ -2708,7 +2708,31 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - יש ספק לגבי התשובה האחרונה של הלקוח. אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת. נסחי בקול הטבעי שלך בדיוק את שאלת האימות הבאה (אפשר לנסח מחדש, אך לשמור על אותה המשמעות בדיוק): """ + json.dumps(state.get("_gap_clarify_question"), ensure_ascii=False) + "\n"
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
-    if upcoming:
+    # Carmit caught this live (2026-10-14): mid-way through planning a new
+    # Croatia trip, with exact dates just confirmed, Ariella suddenly
+    # claimed "these dates are already fixed from your Cyprus vacation" -
+    # a completely unrelated, unfinished vacation from this same account.
+    # Root cause: this hint used to be built and injected as "source of
+    # truth" on every single turn once any upcoming vacation existed,
+    # regardless of whether the CURRENT conversation's own destination had
+    # anything to do with it. The instruction below only ever told
+    # Tinkerbell to rely on it "when the customer talks about one of these
+    # destinations" - but once an unrelated destination is already active,
+    # that self-gating isn't reliable, and the list becomes exactly the
+    # kind of ambient cross-vacation noise that caused this. The two real,
+    # already-tested use cases for this hint are (a) a genuinely open
+    # conversation with no destination committed yet (the greeting/"want to
+    # continue?" offer below), and (b) the customer explicitly asking to
+    # check their saved vacations - gate the whole hint to just those, so a
+    # different vacation already mid-planning never sees another one's
+    # facts presented as if they were its own. Reopening an existing
+    # vacation to add a missing service is a separate, destination-matched
+    # mechanism (_reopenable_trips/reopen_trip_pending) and is unaffected.
+    _asks_about_saved_vacations = any(
+        cue in str(message or "") for cue in ("בחופשות שלי", "החופשות שלי", "חופשות שלי", "בכרטיס החופשה", "בכרטיסי החופשה")
+    )
+    _upcoming_hint_relevant = not has_destination or _asks_about_saved_vacations
+    if upcoming and _upcoming_hint_relevant:
         listed = "; ".join(
             f"{v.get('name')} ({v.get('window')}"
             + (f", {v.get('travelers')}" if v.get("travelers") else "") + ")"
@@ -2770,7 +2794,14 @@ def _call_tinkerbell(key, model, history, message, state=None):
     weekday_hint_text = _weekday_lookup_hint(state)
     nights_hint_text = _total_nights_hint(state)
     declined_domains_hint_text = _declined_domains_hint(state)
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    # The raw state JSON dump below is a second, separate path that can leak
+    # an irrelevant upcoming_vacations list into the prompt just like the
+    # continuity hint above - exclude it here too when it isn't relevant to
+    # this turn (see the comment above _upcoming_hint_relevant).
+    state_for_context = state
+    if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
+        state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -6039,7 +6070,28 @@ def chat_clean():
     # "תחפשי בחופשות שלי" about New York was answered with "כמה ימים ומי
     # נוסע?" although the New York vacation has both).
     trip_state = dict(trip_state)
-    upcoming = _upcoming_vacations(session['member_id'])
+    # Carmit caught this live (2026-10-14): mid-way through planning a new
+    # Croatia trip, Ariella claimed its just-confirmed September dates were
+    # "already fixed from your Cyprus vacation" - a real but completely
+    # unrelated, unfinished vacation on the same account (actually booked
+    # for June, with a 17-year-old daughter traveler). The raw state JSON
+    # that gets handed to Tinkerbell every turn (_state_context) included
+    # the full upcoming_vacations list the moment ANY such vacation existed
+    # on the account, with no check that it had anything to do with the
+    # destination already active in THIS conversation - so the model
+    # treated an unrelated vacation's facts as if they belonged to the one
+    # being planned. Only attach it when it's actually relevant: a
+    # genuinely open conversation with no destination committed yet (so
+    # Ariella can offer to continue it), or the customer explicitly asking
+    # to check their saved vacations. Reopening an existing vacation to add
+    # a missing service is the separate, destination-matched
+    # _reopenable_trips/reopen_trip_pending mechanism above and is
+    # unaffected.
+    _has_active_destination = bool((trip_state.get("destination") or {}).get("places")) if isinstance(trip_state.get("destination"), dict) else False
+    _asks_about_saved_vacations = any(
+        cue in str(message or "") for cue in ("בחופשות שלי", "החופשות שלי", "חופשות שלי", "בכרטיס החופשה", "בכרטיסי החופשה")
+    )
+    upcoming = _upcoming_vacations(session['member_id']) if (not _has_active_destination or _asks_about_saved_vacations) else []
     if upcoming:
         trip_state["upcoming_vacations"] = upcoming
     else:
