@@ -5888,20 +5888,36 @@ def chat_clean():
 
     # Per the business owner (2026-10-14, after Shaked's real-scan testing):
     # once this exact persisted conversation already launched a real paid
-    # scan (combined_search_launched), any further message to it must never
-    # just keep chatting as if still mid-planning - seen live, a customer
-    # re-describing the identical vacation got "זו בדיוק החופשה שכבר
-    # סגרנו... רוצה להמשיך איתה?" and the page then auto-navigated to the
-    # waiting page of an already-finished trip, with no mention of the
-    # existing results or the paid daily-tracking option. The DB (not the
-    # client's own combined_search_launched flag, which only reflects THIS
-    # conversation's belief, not reality) is the source of truth: look up
-    # the real vacation this exact destination+dates already produced and,
-    # if still within the 90-day window the business owner asked for,
-    # short-circuit straight to the existing-vacation message and reset the
-    # conversation - never continue the old thread, never trigger another
-    # free scan.
-    if trip_state.get('combined_search_launched'):
+    # scan (combined_search_launched), re-describing the SAME trip again
+    # must never trigger another free scan - short-circuit straight to the
+    # existing-vacation message instead. The DB (not the client's own
+    # combined_search_launched flag, which only reflects THIS conversation's
+    # belief, not reality) is the source of truth for whether that scan's
+    # result still exists.
+    #
+    # Seen live (Shaked, round 14, 2026-10-14): this guard used to fire
+    # unconditionally the moment combined_search_launched was still true,
+    # regardless of what the customer's CURRENT message actually asked for -
+    # it fired on "היי, אני רוצה עוד טיסה", "רוצה לתכנן חופשה חדשה", and even
+    # a request for a completely different destination, every time quoting
+    # the PREVIOUS trip's own name, because it compared that stale
+    # trip_state against itself (the very record it had just created)
+    # rather than against the new message. It also turned the separate,
+    # legitimate "reopen an existing vacation to add a missing service" flow
+    # into an unbreakable loop. The flag is only trustworthy as "still the
+    # same trip" when the new message actually names that trip's own
+    # destination again - anything else (a different place, a generic new
+    # request, a bare greeting) is a new request, so the stale flag is
+    # dropped rather than trusted, and can't keep firing on later turns.
+    if trip_state.get('combined_search_launched') and not trip_state.get('reopened_trip_id') and not trip_state.get('reopen_trip_pending'):
+        _old_places = (trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None
+        _old_places = _old_places if isinstance(_old_places, list) else []
+        _mentioned_now = _mentioned_places(message)
+        _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places))
+        if not _same_trip_again:
+            trip_state = dict(trip_state)
+            trip_state.pop('combined_search_launched', None)
+    if trip_state.get('combined_search_launched') and not trip_state.get('reopened_trip_id') and not trip_state.get('reopen_trip_pending'):
         _dest_codes = trip_state.get('destination_airports') if isinstance(trip_state.get('destination_airports'), list) else []
         _dates = trip_state.get('dates') if isinstance(trip_state.get('dates'), dict) else {}
         _existing = _find_recent_scanned_vacation(
