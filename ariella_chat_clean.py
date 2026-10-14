@@ -320,13 +320,28 @@ def _weekday_date_conflict(message, history=None):
     return _weekday_pair_conflict(text, history)
 
 
+_WEEKDAY_PAIR_LODGING_CONTEXT_CUES = ("לישון", "לינה", "באותו מקום", "בסיס לינה", "להישאר")
+
+
 def _weekday_pair_conflict(text, history):
     """Seen live: the customer asked for "ראשון עד חמישי" in one message and
     then replied with a bare "28.6" - in 2027 that's a Monday, so the trip
     went into the summary as Monday-Friday while being described as
     Sunday-Thursday. The same-message check above never sees the weekday
     pair from an earlier message. Check a date-only reply against the
-    weekday pair the customer gave in their recent messages."""
+    weekday pair the customer gave in their recent messages.
+
+    Seen live again (Carmit, 2026-10-14): after she gave an exact, explicit
+    "11 לילות 19.9 עד 30.9" reply, Ariella still asked a confused "did you
+    mean 16.09.2027 or 23.09.2027?" question. Root cause traced directly in
+    this function: it scans ALL of history backward for literally any
+    "weekday עד weekday" phrase with zero context check, and the match it
+    found was "כל 2 ימים לישון באותו מקום רק בסוף שבוע חמישי עד שבת לישון
+    באותו מקום" - a LODGING/route-structure instruction (stay in the same
+    place Thursday-Saturday), never a statement about the trip's own
+    departure/return weekdays. A lodging-grouping sentence is never a travel-
+    date weekday range, so any match whose own message also talks about
+    lodging/staying in place is never trip-date intent and must be skipped."""
     import re
     names = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"]
     day_alt = "ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת"
@@ -338,7 +353,10 @@ def _weekday_pair_conflict(text, history):
     pair = None
     for item in reversed(history or []):
         if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
-            pair = re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?(" + day_alt + r")\s*(?:עד|[-–])\s*(?:יום\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", str(item.get("content") or ""))
+            content = str(item.get("content") or "")
+            if any(cue in content for cue in _WEEKDAY_PAIR_LODGING_CONTEXT_CUES):
+                continue
+            pair = re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?(" + day_alt + r")\s*(?:עד|[-–])\s*(?:יום\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
             if pair:
                 break
     if not pair:
