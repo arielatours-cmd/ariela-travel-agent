@@ -3096,6 +3096,36 @@ def _guard_unjustified_gateway_narrowing(state, message, history):
     return state
 
 
+_DESTINATION_KEEP_NEGATION_CUES = (
+    "אל תמחק", "אל תמחקי", "אל תמחקו", "בלי למחוק", "לא למחוק",
+    "תשאיר את", "תשאירי את", "השאיר את", "השאירי את", "לא רוצה למחוק",
+)
+# Bare "לא <place>" ("not X") - only when "לא" is the word directly adjacent
+# to the place name (optionally after a sentence boundary/whitespace), never
+# merely present somewhere earlier in the same message - that would false-
+# positive on every unrelated "לא" ("לא רוצה תקציב מוגבל, לטוס לרומא" must
+# still pick up Rome).
+_DESTINATION_REJECT_PREFIX_RE = re.compile(r"(?:^|[.,!?;\n]|\s)לא\s*$")
+
+
+def _is_negated_destination_mention(text, match_index):
+    """A place name mentioned right after "don't delete/keep X as is"
+    phrasing (e.g. "אל תמחקי את ניו יורק") or a bare "לא X" ("not X", e.g.
+    "לא ניו יורק. חופשת סקי חדשה לאינסברוק") names the OLD trip being
+    explicitly rejected or preserved untouched - never the new destination
+    being requested. Seen live (Shaked, round 14): both phrasings made the
+    reset-confirmation flow open a "new" vacation to New York - the trip
+    the customer had just explicitly ruled out - instead of Innsbruck, the
+    destination she had actually asked for in the very same or an earlier
+    message. Only the short window immediately before the match matters;
+    the same place name appearing elsewhere in a longer message, unrelated
+    to this phrasing, must still be picked up normally."""
+    window = text[max(0, match_index - 25):match_index]
+    if any(cue in window for cue in _DESTINATION_KEEP_NEGATION_CUES):
+        return True
+    return bool(_DESTINATION_REJECT_PREFIX_RE.search(window))
+
+
 def _deterministic_destination_facts(history, message, state=None):
     """Preserve an explicitly stated destination when extractor output misses it."""
     state = state if isinstance(state, dict) else {}
@@ -3114,8 +3144,10 @@ def _deterministic_destination_facts(history, message, state=None):
     for text in texts:
         text = text.lower()
         for needle, label in known.items():
-            if needle.lower() in text:
-                return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+            idx = text.find(needle.lower())
+            if idx == -1 or _is_negated_destination_mention(text, idx):
+                continue
+            return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
     return {}
 
 
