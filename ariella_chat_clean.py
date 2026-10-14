@@ -579,6 +579,33 @@ def _total_nights_hint(state):
     )
 
 
+def _declined_domains_hint(state):
+    """Seen live (the business owner, 2026-10-14): after declining lodging,
+    car AND trip_planning across several separate turns, the "you can
+    always come back" acknowledgment (per the rule a few lines up about a
+    short reminder after each decline) only named lodging and car -
+    trip_planning, declined earlier in the very same conversation, silently
+    dropped out of Tinkerbell's own free-text recap. The fact was always
+    present in the raw state_context (session_status), but relying on
+    free-text memory of several turns back for an exact, complete list
+    isn't reliable - the same reasoning behind every other hint in this
+    file (weekday table, total nights...). Hand over the authoritative,
+    exact list of every currently-declined domain, so any "you can always
+    come back and add X" reminder is built from this instead of a
+    from-context guess that can quietly drop one."""
+    state = state if isinstance(state, dict) else {}
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
+    declined = [labels[s] for s in ("lodging", "car", "trip_planning") if statuses.get(s) == "declined"]
+    if not declined:
+        return ""
+    return (
+        "\nתחומים שנדחו עד כה בחופשה הזו (עובדה מדויקת מה-state, לא לנחש או לזכור מההקשר): "
+        + ", ".join(declined) + ". כל משפט מסוג \"אפשר תמיד לחזור ולבקש עזרה גם ב-X\" חייב לכלול את "
+        "כל הרשימה הזו במדויק - לא רק את מה שנדחה בתור האחרון."
+    )
+
+
 def _multi_gateway_hint(state):
     """When the destination matches a city genuinely served by more than one
     real airport (New York, Paris, London, Tokyo, Istanbul - see
@@ -2616,7 +2643,8 @@ def _call_tinkerbell(key, model, history, message, state=None):
     direct_route_hint_text = _direct_route_hint_text(state) if has_destination else ""
     weekday_hint_text = _weekday_lookup_hint(state)
     nights_hint_text = _total_nights_hint(state)
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    declined_domains_hint_text = _declined_domains_hint(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
