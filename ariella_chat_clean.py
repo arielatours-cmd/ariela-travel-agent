@@ -93,9 +93,10 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
 - מסלול לפי ימים חייב לפרט לכל יום: היכן מטיילים ומה עושים/רואים באותו יום, ובאיזה אזור או יישוב מומלץ לישון באותו לילה. כאשר יש מעבר בין אזורים, סדרי את היום כך שהנסיעה והאטרקציות הגיוניות יחד.
+- אם הלקוח נותן מגבלה מפורשת על מבנה המסלול (למשל "כל 2 ימים לעבור בסיס לינה", "בסוף השבוע להישאר באותו מקום בלי נסיעות", מספר לילות מוגדר לתחנה מסוימת) - חובה להחיל אותה בדיוק על כל ימי המסלול שאת בונה בפועל, לא רק לאשר אותה במשפט כללי ("מסלול יפה, תני לי לסדר את זה") ואז לבנות מסלול שמתעלם ממנה. לפני ששולחים את הימים עצמם, ספרי בעצמך שחלוקת בסיסי הלינה שבנית אכן עומדת במגבלה שהלקוח ביקש; אם המגבלה לא ברורה מספיק כדי ליישם אותה (למשל סותרת את מספר הימים הכולל), שאלי שאלה קצרה אחת לפני בניית המסלול במקום לבנות ולנחש. דוגמה מעשית לשילוב של "כל 2 ימים בסיס חדש" יחד עם חריגת סוף שבוע קבועה (חמישי-שבת באותו בסיס): בני את הרצף בלוק-בלוק מתחילת המסלול - שני ימים בבסיס א', שני ימים בבסיס ב' וכן הלאה, ובכל פעם שהבלוק הבא נוגע ביום חמישי - עצרי את מחזור ה"כל 2 ימים" באותה נקודה והאריכי את השהייה באותו בסיס עד מוצאי שבת (גם אם זה אומר בסיס בן 3 לילות באותו שבוע), ואז חזרי למחזור הרגיל של כל 2 ימים החל מיום ראשון שאחרי. אל תתעלמי מהחריגה ואל תחילי את כלל "כל 2 ימים" גם על סוף השבוע.
 - כותרת כל יום במסלול חייבת להיות "יום 1", "יום 2" וכו' (מספר סידורי של היום בטיול בלבד) - לעולם לא "יום ראשון", "יום שני" וכו'. המילים "ראשון"/"שני"/"שלישי" הן גם שמות ימות השבוע בעברית, ושימוש בהן למספור ימי הטיול מתנגש עם ציון יום השבוע האמיתי שמופיע בסוגריים לצד התאריך (למשל "יום 3, 5.3 (חמישי)") ומבלבל את הלקוח לגבי איזה יום בשבוע זה באמת.
 - יום ההגעה ויום החזרה הם ימי חופשה לכל דבר ולא "ימי טיסה" ריקים. אל תכתבי ליום האחרון רק "יום חזרה"/"טיסה הביתה" בלי תוכן. אם שעת טיסת החזור ידועה, תכנני לפניה פעילות שמתאימה לזמן שנשאר (ובקרבת שדה התעופה אם צריך), והשאירי זמן סביר להגעה לשדה. אם השעה לא ידועה, הציעי ליום האחרון פעילות קלה וגמישה וציייני במשפט אחד שאפשר להתאים אותה לשעת הטיסה. אותו עיקרון ליום ההגעה: פעילות קלה שמתאימה לשעת הנחיתה.
-- מספר הימים במסלול חייב להתאים בדיוק לטווח בין dates.departure ל-dates.return (כולל שני הימים עצמם) - לא יום פחות ולא יום יותר. לפני ששולחים את המסלול, ספרי בעצמך שהיום האחרון שכתבת הוא באמת יום החזרה. אם גילית שחסר יום או שיש יום עודף - תקני את המסלול בעצמך ושלחי אותו שלם ונכון; לעולם אל תשלחי הערה/אזהרה ללקוח על כך שהמסלול חסר או לא תואם לתאריכים (למשל "שימי לב, המסלול מכסה רק עד...") - זו הערת תהליך פנימית שאסור שתגיע ללקוח בכלל, בדיוק כמו כלל "בלי תהליך עבודה" למעלה.
+- מספר הימים במסלול חייב להתאים בדיוק לטווח בין dates.departure ל-dates.return (כולל שני הימים עצמם) - לא יום פחות ולא יום יותר. לפני ששולחים את המסלול, ספרי בעצמך שהיום האחרון שכתבת הוא באמת יום החזרה. אם גילית שחסר יום או שיש יום עודף - תקני את המסלול בעצמך ושלחי אותו שלם ונכון; לעולם אל תשלחי הערה/אזהרה ללקוח על כך שהמסלול חסר או לא תואם לתאריכים (למשל "שימי לב, המסלול מכסה רק עד...") - זו הערת תהליך פנימית שאסור שתגיע ללקוח בכלל, בדיוק כמו כלל "בלי תהליך עבודה" למעלה. זה חל גם כשמשהו "לא מסתדר" לך לגבי תאריך החזרה/מספר הימים/יום בשבוע - לעולם אל תכתבי ללקוח פסקת "תיקון" או השערה בקול רם כמו "כנראה שההמראה בפועל היא ב-X או שההחזרה כוללת יום נופש נוסף, האם תרצי ככה או ככה?": זו בדיוק אותה הערת תהליך פנימית אסורה, ולרוב מקורה בחישוב יום-בשבוע שגוי שלך (ראי טבלת ימי השבוע האמיתיים שנמסרת לך) ולא בבעיה אמיתית בתאריכים. בדקי שוב בעצמך מול הטבלה והתאריכים המאושרים ותקני בשקט - אל תעבירי את הבלבול הזה ללקוח.
 - כשאת מציגה מסלול לפי ימים, ההודעה מתחילה ישר ביום הראשון (לכל היותר משפט פתיחה קצר אחד) ומסתיימת ביום האחרון ובשאלה קצרה אחת אם לשנות משהו. בלי הקדמות, בלי הערות כלליות, הסתייגויות או טיפים לפני הימים או אחריהם - כל מידע רלוונטי שייך לתוך היום שאליו הוא מתייחס.
 - כשמזכירים במסלול שם מקום זר ספציפי (כפר, שכונה, אתר תיירות, הר) שאינו שם היעד/המדינה עצמם - כתבי אותו תמיד בלועזית/באנגלית, בדיוק כפי שהוא מוכר בעולם האמיתי (למשל "Omodos", "Perivolia"), לעולם לא בתעתיק עברי עצמאי. תעתיק עברי שאת ממציאה בעצמך לשם כזה יוצא כמעט תמיד שגוי ומבולבל (נראה כמו ג'יבריש). שם היעד/המדינה הכלליים עצמם ("קפריסין", "לרנקה") ממשיכים כרגיל בעברית כרגיל - זה חל רק על שם מקום ספציפי בתוך המסלול שאת בוחרת להזכיר.
 - כל אתר/אטרקציה ספציפיים (למשל פארק, מוזיאון, חוף) מופיעים במסלול פעם אחת בלבד, ביום המתאים להם ביותר. לפני שליחת המסלול, ודאי שאף שם אתר לא חוזר על עצמו בשני ימים שונים - אלא אם הלקוח עצמו ביקש לחזור אליו במפורש.
@@ -135,7 +136,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בביטוי יחסי כמו "סוף יוני" יחד עם ימי שבוע/משך, אל תבחרי תאריך אחד בשם הלקוח. אם יש שתי אפשרויות סבירות סמוכות, הציגי את שתיהן ושאלי איזו עדיפה. רק אחרי בחירת הלקוח יש תאריכי יציאה וחזרה סופיים.
 - כשdates.candidate_ranges במצב החופשה המצטבר כבר מכיל תאריכים (מחושבים דטרמיניסטית, לא על ידך), חובה להציג ללקוח בדיוק את התאריכים האלה, מילה במילה, ולעולם לא לחשב או לנחש תאריכים אחרים בעצמך - גם אם הם נראים לך "מתאימים יותר". אל תמציאי טווח שאינו ברשימת candidate_ranges.
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
-- לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו שתאריך היציאה בתוך אותו חודש (החזרה יכולה להיות בחודש הבא) - לעולם אל תציעי טווח שהיציאה בו בחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה.
+- לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו שתאריך היציאה בתוך אותו חודש (החזרה יכולה להיות בחודש הבא) - לעולם אל תציעי טווח שהיציאה בו בחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה. אותו איסור חל גם כשהלקוח ביקש יום בשבוע בודד בלי טווח (למשל "אני רוצה לצאת ביום ראשון") - לעולם אל תנחשי/תחשבי בעצמך איזה תאריך קלנדרי הוא "יום ראשון הקרוב" ותציעי אותו כעובדה מוגמרת; נראה בפועל (20.9.2027, שהוא בעצם יום שני) שהניחוש הזה יוצא שגוי. במקום זאת שאלי את הלקוח לתאריך מדויק, או אם כבר הציע תאריך קונקרטי - בדקי אותו מול טבלת ימי השבוע האמיתיים שנמסרת לך (לא מהזיכרון שלך) לפני שאת מאשרת שהוא אכן חל ביום המבוקש.
 - לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - תבנית ספציפית ואסורה של הכלל שלמעלה: לעולם אל תנסחי שאלה שעונה על עצמה בתוך הסוגריים או בהמשך אותו משפט - זה מבלבל ומיותר. לדוגמה, אסור: "כמה ימים אתם בקפריסין (1.7-27.6, כלומר 4 לילות)?" - אם התאריכים כבר ידועים, אל תשאלי "כמה ימים", פשוט המשיכי לשאלה הבאה שבאמת חסרה (למשל הסגנון/הקצב). דוגמה נוספת אסורה: "כמה אתם? (זוג עם ילדה בת 17, נכון?)" - אם הרכב הנוסעים כבר ידוע ב-state, אל תשאלי עליו ואל תבקשי אישור עליו כלל; המשיכי ישירות לפרט הבא. אימות/אישור של עובדה שכבר ידועה שמור אך ורק לסיכום הסופי האחד (ראו הכלל על כך למטה), לא לשאלות ביניים.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
@@ -319,13 +320,28 @@ def _weekday_date_conflict(message, history=None):
     return _weekday_pair_conflict(text, history)
 
 
+_WEEKDAY_PAIR_LODGING_CONTEXT_CUES = ("לישון", "לינה", "באותו מקום", "בסיס לינה", "להישאר")
+
+
 def _weekday_pair_conflict(text, history):
     """Seen live: the customer asked for "ראשון עד חמישי" in one message and
     then replied with a bare "28.6" - in 2027 that's a Monday, so the trip
     went into the summary as Monday-Friday while being described as
     Sunday-Thursday. The same-message check above never sees the weekday
     pair from an earlier message. Check a date-only reply against the
-    weekday pair the customer gave in their recent messages."""
+    weekday pair the customer gave in their recent messages.
+
+    Seen live again (Carmit, 2026-10-14): after she gave an exact, explicit
+    "11 לילות 19.9 עד 30.9" reply, Ariella still asked a confused "did you
+    mean 16.09.2027 or 23.09.2027?" question. Root cause traced directly in
+    this function: it scans ALL of history backward for literally any
+    "weekday עד weekday" phrase with zero context check, and the match it
+    found was "כל 2 ימים לישון באותו מקום רק בסוף שבוע חמישי עד שבת לישון
+    באותו מקום" - a LODGING/route-structure instruction (stay in the same
+    place Thursday-Saturday), never a statement about the trip's own
+    departure/return weekdays. A lodging-grouping sentence is never a travel-
+    date weekday range, so any match whose own message also talks about
+    lodging/staying in place is never trip-date intent and must be skipped."""
     import re
     names = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"]
     day_alt = "ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת"
@@ -337,7 +353,10 @@ def _weekday_pair_conflict(text, history):
     pair = None
     for item in reversed(history or []):
         if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
-            pair = re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?(" + day_alt + r")\s*(?:עד|[-–])\s*(?:יום\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", str(item.get("content") or ""))
+            content = str(item.get("content") or "")
+            if any(cue in content for cue in _WEEKDAY_PAIR_LODGING_CONTEXT_CUES):
+                continue
+            pair = re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?(" + day_alt + r")\s*(?:עד|[-–])\s*(?:יום\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
             if pair:
                 break
     if not pair:
@@ -546,6 +565,75 @@ def _weekday_lookup_hint(state):
     )
 
 
+_WEEKDAY_HE_RE_ALT = "|".join(sorted(set(_WEEKDAY_HE_BY_PY.values()), key=len, reverse=True))
+_ROUTE_DAY_WEEKDAY_RE = re.compile(
+    r"((?:יום\s*\d+\s*,\s*)?)(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?(\s*\()(" + _WEEKDAY_HE_RE_ALT + r")(\))"
+)
+
+
+def _correct_route_day_weekdays(text, state):
+    """Carmit caught this live (2026-10-14), twice in the same conversation:
+    (1) Ariella had already correctly confirmed "יציאה ביום ראשון... 20.9.2026
+    (ראשון)", but the day-by-day route she built right afterwards opened with
+    "יום 1, 20.9 (שני)" for that exact same date; (2) later, mid-route, she
+    second-guessed herself out loud with "מכיוון שהחזרה היא ב-2.10 (שבת)
+    וטיסה ביום שבת כנראה לא מתאימה לכם..." - 2.10.2026 is actually שישי, so
+    the entire "is there a scheduling problem?" tangent she sent the customer
+    was built on a self-computed weekday that was simply wrong. This despite
+    _weekday_lookup_hint handing her a precomputed, verified table every
+    single turn. Rather than trust prompt-following alone for a
+    customer-facing fact, recompute the real weekday deterministically for
+    every "D.M(.YYYY)? (weekday)" occurrence in the final reply - whether or
+    not it's a "יום N," route header - and fix any mismatch outright. When
+    the year is omitted (as it usually is after day 1), infer it from the
+    confirmed trip departure date: same year unless that produces a date
+    before the departure (a December-into-January route, or - per Carmit's
+    own instruction - a month/day that has already passed this year), in
+    which case it rolls over to the next year."""
+    text = str(text or "")
+    if "(" not in text:
+        return text
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    dep_raw = str(dates.get("departure") or "")[:10]
+    anchor = None
+    if dep_raw:
+        try:
+            anchor = date.fromisoformat(dep_raw)
+        except ValueError:
+            anchor = None
+
+    def _replace(m):
+        prefix, day_s, month_s, year_s, mid, weekday_word, suffix = m.groups()
+        try:
+            day_n, month_n = int(day_s), int(month_s)
+        except ValueError:
+            return m.group(0)
+        if year_s:
+            try:
+                real_date = date(int(year_s), month_n, day_n)
+            except ValueError:
+                return m.group(0)
+        elif anchor is not None:
+            try:
+                real_date = date(anchor.year, month_n, day_n)
+            except ValueError:
+                return m.group(0)
+            if real_date < anchor - timedelta(days=1):
+                try:
+                    real_date = date(anchor.year + 1, month_n, day_n)
+                except ValueError:
+                    return m.group(0)
+        else:
+            return m.group(0)
+        correct_word = _WEEKDAY_HE_BY_PY[real_date.weekday()]
+        if correct_word == weekday_word:
+            return m.group(0)
+        return f"{prefix}{day_s}.{month_s}{('.' + year_s) if year_s else ''}{mid}{correct_word}{suffix}"
+
+    return _ROUTE_DAY_WEEKDAY_RE.sub(_replace, text)
+
+
 def _total_nights_hint(state):
     """Seen live, repeatedly (Frankfurt, Cyprus, Montenegro): Ariella counted
     nights herself from the dates/route and got it wrong - "14-16.3" (2
@@ -576,6 +664,33 @@ def _total_nights_hint(state):
         f"\nמספר הלילות הכולל של הטיול (מחושב בוודאות מתאריכי היציאה/החזרה - "
         f"לעולם אל תספרי זאת בעצמך): {nights} לילות. אם המסלול מתפצל בין כמה ערים/יעדים, "
         "סכום הלילות בכל הערים חייב להסתכם בדיוק למספר הזה."
+    )
+
+
+def _declined_domains_hint(state):
+    """Seen live (the business owner, 2026-10-14): after declining lodging,
+    car AND trip_planning across several separate turns, the "you can
+    always come back" acknowledgment (per the rule a few lines up about a
+    short reminder after each decline) only named lodging and car -
+    trip_planning, declined earlier in the very same conversation, silently
+    dropped out of Tinkerbell's own free-text recap. The fact was always
+    present in the raw state_context (session_status), but relying on
+    free-text memory of several turns back for an exact, complete list
+    isn't reliable - the same reasoning behind every other hint in this
+    file (weekday table, total nights...). Hand over the authoritative,
+    exact list of every currently-declined domain, so any "you can always
+    come back and add X" reminder is built from this instead of a
+    from-context guess that can quietly drop one."""
+    state = state if isinstance(state, dict) else {}
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
+    declined = [labels[s] for s in ("lodging", "car", "trip_planning") if statuses.get(s) == "declined"]
+    if not declined:
+        return ""
+    return (
+        "\nתחומים שנדחו עד כה בחופשה הזו (עובדה מדויקת מה-state, לא לנחש או לזכור מההקשר): "
+        + ", ".join(declined) + ". כל משפט מסוג \"אפשר תמיד לחזור ולבקש עזרה גם ב-X\" חייב לכלול את "
+        "כל הרשימה הזו במדויק - לא רק את מה שנדחה בתור האחרון."
     )
 
 
@@ -1053,7 +1168,29 @@ def _resolve_destination_airports_from_route(state):
     # (first base), return_departure_airports is the return-leg departure
     # gateway (last base) - exactly the fields the scanner's own open-jaw
     # support (scanner.py's is_open_jaw) already expects.
-    if route_has_bases and names[0] != names[-1]:
+    # Seen live (Shaked, qa-s89): a route reconstructed only from overnight
+    # ("לינה ב-X") mentions can never represent a final same-day return leg
+    # to the origin with no overnight stay there - the route genuinely
+    # started AND ended in Larnaca, but the lodging-only extraction's last
+    # mentioned base was Paphos (the last place the customer actually
+    # slept), so this wrongly derived an open-jaw return from Paphos. Never
+    # trust that incomplete source for the gateway split - only a route the
+    # model itself filled in as real structured JSON (which can include a
+    # same-day return day with no lodging implication) is reliable enough
+    # for this.
+    route_reliable_for_gateway_split = route_has_bases and not (
+        (state.get("trip_planning") or {}).get("details") or {}
+    ).get("route_inferred_from_lodging_text")
+    # Seen live again in the same report: the customer explicitly corrected
+    # the return gateway later in the conversation ("ההמראה בחזרה תהיה
+    # מלרנקה"), Ariella even confirmed it in her own reply, but
+    # return_departure_airports stayed the old derived value - because this
+    # function re-runs every turn and unconditionally re-asserted the same
+    # open-jaw split over whatever had just been corrected. Once a return
+    # gateway is already present, this derivation must never re-clobber it;
+    # an approved route's gateway is decided once, same as the comment
+    # above already says for destination_airports.
+    if route_reliable_for_gateway_split and names[0] != names[-1] and not state.get("return_departure_airports"):
         first_codes = _resolve_destination_airports_from_route_names(_load_airports(), [names[0]])
         last_codes = _resolve_destination_airports_from_route_names(_load_airports(), [names[-1]])
         if first_codes and last_codes and set(first_codes).isdisjoint(last_codes):
@@ -1163,13 +1300,83 @@ def _extract_route_bases_from_approved_text(text):
     return names
 
 
+_HE_NIGHT_NUMBER_WORDS = {
+    "שני": 2, "שתי": 2, "שניים": 2, "שלושה": 3, "ארבעה": 4, "חמישה": 5,
+    "שישה": 6, "שבעה": 7, "שמונה": 8, "תשעה": 9, "עשרה": 10,
+}
+_ROUTE_INTRO_SEGMENT_RE = re.compile(
+    r"([א-ת]+(?:\s(?!ל|בערב|בבוקר|בצהריים|בלילה)[א-ת]+)?)\s*\(\s*"
+    r"(?:(לילה\s+אחד)|(\d+)\s*לילות|(" + "|".join(_HE_NIGHT_NUMBER_WORDS) + r")\s*לילות)\s*\)"
+)
+
+
+def _extract_route_night_segments_from_approved_text(text):
+    """Per the business owner (2026-10-14): lodging needs a separate
+    location+date range PER STOP on the route (lodging location 1/2/3...,
+    each with its own dates), not one combined area string for the whole
+    trip - so the real search looks for a room in the actual place the
+    customer sleeps each night, not just one city for everything.
+
+    Tinkerbell's own route-approval text commonly opens with exactly this
+    breakdown as a parenthetical per-stop summary ("לרנקה (לילה אחד), פאפוס
+    (שני לילות), לימסול (שני לילות)...") - a far more reliable per-location
+    NIGHT COUNT than the "לינה ב-X" overnight mentions used elsewhere in
+    this file (_extract_route_bases_from_approved_text), which commonly use
+    relative ordinal phrasing ("ללילה הראשון"/"לשני הלילות הבאים") with no
+    hard count at all. Hebrew's own grammar quirk - "לילה אחד" (noun then
+    number, for exactly one) vs "שני לילות"/"3 לילות" (number then noun,
+    for two or more) - needs both word orders handled explicitly.
+
+    Returns an ordered list of (location, nights) pairs, or [] when this
+    specific phrasing isn't found - callers must treat that as "unknown"
+    and never guess at a night count."""
+    text = str(text or "")
+    segments = []
+    for m in _ROUTE_INTRO_SEGMENT_RE.finditer(text):
+        location = m.group(1).strip()
+        if m.group(2):
+            nights = 1
+        elif m.group(3):
+            nights = int(m.group(3))
+        else:
+            nights = _HE_NIGHT_NUMBER_WORDS.get(m.group(4) or "", 0)
+        if location and nights > 0:
+            segments.append((location, nights))
+    return segments
+
+
+def _route_night_segments_to_date_ranges(segments, departure_date):
+    """Turn an ordered (location, nights) list into concrete per-location
+    check-in/check-out dates, walking forward from the trip's own departure
+    date - each segment's check-out is the next segment's check-in, exactly
+    matching how the route itself is actually travelled day by day."""
+    if not segments or not departure_date:
+        return []
+    try:
+        current = date.fromisoformat(str(departure_date)[:10])
+    except Exception:
+        return []
+    ranges = []
+    for location, nights in segments:
+        date_from = current.isoformat()
+        current = current + timedelta(days=nights)
+        ranges.append({"location": location, "date_from": date_from, "date_to": current.isoformat(), "nights": nights})
+    return ranges
+
+
 def _resolve_lodging_locations_from_route(state):
     """An approved day-by-day route already says where the customer sleeps
     each night (each day's base/city/region) - once lodging search opens
     for the SAME vacation, pull that straight in instead of asking the
     customer to repeat what they already told Ariella in trip_planning.
     Mirrors _resolve_destination_airports_from_route's own extraction of
-    each day's base, this time into lodging.details.locations."""
+    each day's base, this time into lodging.details.locations.
+
+    Also computes lodging.details.location_segments (per the business
+    owner, 2026-10-14): a separate location+date range per stop, best-
+    effort from the route's own intro summary - left empty (never guessed)
+    when that specific phrasing isn't found, so callers always have the
+    single combined `locations` string to fall back to."""
     state = state if isinstance(state, dict) else {}
     lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
     details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
@@ -1182,6 +1389,13 @@ def _resolve_lodging_locations_from_route(state):
     lodging = dict(lodging)
     details = dict(details)
     details["locations"] = ", ".join(names)
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    approved_text = (planning.get("details") or {}).get("approved_text") if isinstance(planning.get("details"), dict) else None
+    night_segments = _extract_route_night_segments_from_approved_text(approved_text)
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    date_ranges = _route_night_segments_to_date_ranges(night_segments, dates.get("departure"))
+    if date_ranges:
+        details["location_segments"] = date_ranges
     lodging["details"] = details
     state["lodging"] = lodging
     return state
@@ -1999,6 +2213,44 @@ def _strip_mixed_script_garble(text):
     return cleaned.strip()
 
 
+def _strip_mixed_hebrew_latin_token(text):
+    """Carmit caught this live (2026-10-14): a day-1 itinerary line read
+    "...כיכר באן יelačić', הקתדרלה..." - the Hebrew letter "י" fused directly
+    onto a Latin place-name fragment ("elačić", from Zagreb's Ban Jelačić
+    Square) inside the same token, with no space or hyphen between them, in
+    the middle of an otherwise normal sentence. _strip_garbled_lead_token
+    already drops exactly this Hebrew+Latin letter-mixing glitch, but only
+    at the very start of a reply; _strip_mixed_script_garble covers mid-text
+    garbles but never counts Hebrew as one of its mixed scripts. This closes
+    that gap for anywhere in the text. The established house style of a
+    Hebrew preposition hyphen-joined to a Latin term ("ב-JFK", "לינה ב-X")
+    is explicitly legitimate and must survive untouched - so a token is only
+    treated as garbled when Hebrew and (possibly accented) Latin letters sit
+    directly adjacent within the same hyphen-free segment of the token, never
+    when a hyphen separates them."""
+    import re
+    text = str(text or "")
+    if not re.search(r"[א-ת]", text) or not re.search(r"[A-Za-zÀ-ɏ]", text):
+        return text
+
+    def _check(m):
+        tok = m.group(0)
+        for segment in tok.split("-"):
+            has_heb = bool(re.search(r"[א-ת]", segment))
+            has_lat = bool(re.search(r"[A-Za-zÀ-ɏ]", segment))
+            if has_heb and has_lat:
+                return ""
+        return tok
+
+    cleaned = re.sub(r"\S+", _check, text)
+    if cleaned == text:
+        return text
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"[ \t]+([.,:;!?])", r"\1", cleaned)
+    cleaned = re.sub(r"(?m)^[ \t]+", "", cleaned)
+    return cleaned.strip()
+
+
 def _strip_leaked_internal_paragraph(text):
     """Deterministic safety net for a recurring model glitch, seen live:
     an occasional stray technical/self-talk sentence ("פורמט תאריך לא ידוע.
@@ -2456,7 +2708,31 @@ def _call_tinkerbell(key, model, history, message, state=None):
 - יש ספק לגבי התשובה האחרונה של הלקוח. אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת. נסחי בקול הטבעי שלך בדיוק את שאלת האימות הבאה (אפשר לנסח מחדש, אך לשמור על אותה המשמעות בדיוק): """ + json.dumps(state.get("_gap_clarify_question"), ensure_ascii=False) + "\n"
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
-    if upcoming:
+    # Carmit caught this live (2026-10-14): mid-way through planning a new
+    # Croatia trip, with exact dates just confirmed, Ariella suddenly
+    # claimed "these dates are already fixed from your Cyprus vacation" -
+    # a completely unrelated, unfinished vacation from this same account.
+    # Root cause: this hint used to be built and injected as "source of
+    # truth" on every single turn once any upcoming vacation existed,
+    # regardless of whether the CURRENT conversation's own destination had
+    # anything to do with it. The instruction below only ever told
+    # Tinkerbell to rely on it "when the customer talks about one of these
+    # destinations" - but once an unrelated destination is already active,
+    # that self-gating isn't reliable, and the list becomes exactly the
+    # kind of ambient cross-vacation noise that caused this. The two real,
+    # already-tested use cases for this hint are (a) a genuinely open
+    # conversation with no destination committed yet (the greeting/"want to
+    # continue?" offer below), and (b) the customer explicitly asking to
+    # check their saved vacations - gate the whole hint to just those, so a
+    # different vacation already mid-planning never sees another one's
+    # facts presented as if they were its own. Reopening an existing
+    # vacation to add a missing service is a separate, destination-matched
+    # mechanism (_reopenable_trips/reopen_trip_pending) and is unaffected.
+    _asks_about_saved_vacations = any(
+        cue in str(message or "") for cue in ("בחופשות שלי", "החופשות שלי", "חופשות שלי", "בכרטיס החופשה", "בכרטיסי החופשה")
+    )
+    _upcoming_hint_relevant = not has_destination or _asks_about_saved_vacations
+    if upcoming and _upcoming_hint_relevant:
         listed = "; ".join(
             f"{v.get('name')} ({v.get('window')}"
             + (f", {v.get('travelers')}" if v.get("travelers") else "") + ")"
@@ -2517,15 +2793,25 @@ def _call_tinkerbell(key, model, history, message, state=None):
     direct_route_hint_text = _direct_route_hint_text(state) if has_destination else ""
     weekday_hint_text = _weekday_lookup_hint(state)
     nights_hint_text = _total_nights_hint(state)
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    declined_domains_hint_text = _declined_domains_hint(state)
+    # The raw state JSON dump below is a second, separate path that can leak
+    # an irrelevant upcoming_vacations list into the prompt just like the
+    # continuity hint above - exclude it here too when it isn't relevant to
+    # this turn (see the comment above _upcoming_hint_relevant).
+    state_for_context = state
+    if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
+        state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
     reply = _strip_garbled_lead_token(reply)
     reply = _repair_foreign_letters_in_hebrew(reply)
     reply = _strip_mixed_script_garble(reply)
+    reply = _strip_mixed_hebrew_latin_token(reply)
     reply = _strip_leaked_internal_paragraph(reply)
     reply = _strip_stray_markdown_markers(reply)
+    reply = _correct_route_day_weekdays(reply, state)
     return _strip_unconfirmed_airports(reply, state)
 
 
@@ -5220,6 +5506,52 @@ def _reopenable_trips(member_id, service, message, limit=3):
     return trips
 
 
+def _find_recent_scanned_vacation(member_id, destination_codes, departure_airport, dep, ret, window_days=90):
+    """DB-authoritative duplicate-scan guard (per the business owner,
+    2026-10-14, after Shaked's real-scan testing): once a real paid scan
+    has actually launched for a destination+dates combo, re-describing the
+    same request later - even in a persisted conversation that still
+    thinks of itself as "done" (combined_search_launched already true) -
+    must never spawn another free scan, within a 90-day window. Mirrors
+    _find_duplicate_active_trip's own matching (same origin airport, same
+    destination set, same exact dates) - trip_requests rows only ever get
+    created once a scan is actually launched, so mere existence here is
+    itself the "did we already scan this" signal; the only piece that
+    function doesn't have is the explicit time window. Returns
+    (trip_id, request_name) or None."""
+    dest_set = frozenset(str(c).upper() for c in (destination_codes or []) if c)
+    if not dest_set or not dep or not ret:
+        return None
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.row_factory = sqlite3.Row
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=window_days)).isoformat()
+        rows = conn.execute(
+            "SELECT id, request_name, answers_json FROM trip_requests "
+            "WHERE member_id=? AND status='active' AND created_at>=? ORDER BY id DESC LIMIT 50",
+            (member_id, cutoff),
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return None
+    for row in rows:
+        try:
+            existing = json.loads(row["answers_json"] or "{}")
+        except Exception:
+            continue
+        existing_origins = existing.get("origin_airports") or []
+        existing_origin = str(existing_origins[0] or "").upper() if existing_origins else ""
+        if departure_airport and existing_origin and existing_origin != str(departure_airport).upper():
+            continue
+        existing_dest = frozenset(x for x in str(existing.get("destinations") or "").split(",") if x)
+        if existing_dest != dest_set:
+            continue
+        if (str(existing.get("departure_date") or "")[:10] == str(dep)[:10]
+                and str(existing.get("return_date") or "")[:10] == str(ret)[:10]):
+            return int(row["id"]), str(row["request_name"] or "").strip()
+    return None
+
+
 def _upcoming_vacations(member_id, limit=3):
     """The customer's upcoming active vacations and which of lodging/car/
     route each still lacks - so a customer coming back after "not now"
@@ -5554,6 +5886,48 @@ def chat_clean():
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
+    # Per the business owner (2026-10-14, after Shaked's real-scan testing):
+    # once this exact persisted conversation already launched a real paid
+    # scan (combined_search_launched), any further message to it must never
+    # just keep chatting as if still mid-planning - seen live, a customer
+    # re-describing the identical vacation got "זו בדיוק החופשה שכבר
+    # סגרנו... רוצה להמשיך איתה?" and the page then auto-navigated to the
+    # waiting page of an already-finished trip, with no mention of the
+    # existing results or the paid daily-tracking option. The DB (not the
+    # client's own combined_search_launched flag, which only reflects THIS
+    # conversation's belief, not reality) is the source of truth: look up
+    # the real vacation this exact destination+dates already produced and,
+    # if still within the 90-day window the business owner asked for,
+    # short-circuit straight to the existing-vacation message and reset the
+    # conversation - never continue the old thread, never trigger another
+    # free scan.
+    if trip_state.get('combined_search_launched'):
+        _dest_codes = trip_state.get('destination_airports') if isinstance(trip_state.get('destination_airports'), list) else []
+        _dates = trip_state.get('dates') if isinstance(trip_state.get('dates'), dict) else {}
+        _existing = _find_recent_scanned_vacation(
+            session['member_id'], _dest_codes, trip_state.get('departure_airport'),
+            _dates.get('departure'), _dates.get('return'),
+        )
+        if _existing:
+            _trip_id, _label = _existing
+            reply = (
+                f"כבר יש לך חופשה פעילה ל{_label or 'היעד הזה'} בתאריכים האלה, והתוצאות מחכות לך ב\"החופשות שלי\". "
+                "אם תרצי שאמשיך לעקוב ולעדכן אותך על מחירים טובים יותר, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה."
+            )
+            try:
+                saved_history = list(history_before_gap) + [
+                    {'role': 'user', 'content': message},
+                    {'role': 'assistant', 'content': reply},
+                ]
+                save_ariella_conversation(session['member_id'], saved_history[-80:], {})
+            except Exception:
+                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+            return jsonify({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': reply, 'trip_update': {}, 'start_flight_search': False,
+                'redirect_url': f'/account#vacation-{_trip_id}',
+            })
+
     # A customer question about a DIFFERENT/past vacation ("את זוכרת את
     # הטיסה לניו יורק?") must be answered from their real trip history, not
     # left for the model to (truthfully) say it has no record of, or worse,
@@ -5696,7 +6070,28 @@ def chat_clean():
     # "תחפשי בחופשות שלי" about New York was answered with "כמה ימים ומי
     # נוסע?" although the New York vacation has both).
     trip_state = dict(trip_state)
-    upcoming = _upcoming_vacations(session['member_id'])
+    # Carmit caught this live (2026-10-14): mid-way through planning a new
+    # Croatia trip, Ariella claimed its just-confirmed September dates were
+    # "already fixed from your Cyprus vacation" - a real but completely
+    # unrelated, unfinished vacation on the same account (actually booked
+    # for June, with a 17-year-old daughter traveler). The raw state JSON
+    # that gets handed to Tinkerbell every turn (_state_context) included
+    # the full upcoming_vacations list the moment ANY such vacation existed
+    # on the account, with no check that it had anything to do with the
+    # destination already active in THIS conversation - so the model
+    # treated an unrelated vacation's facts as if they belonged to the one
+    # being planned. Only attach it when it's actually relevant: a
+    # genuinely open conversation with no destination committed yet (so
+    # Ariella can offer to continue it), or the customer explicitly asking
+    # to check their saved vacations. Reopening an existing vacation to add
+    # a missing service is the separate, destination-matched
+    # _reopenable_trips/reopen_trip_pending mechanism above and is
+    # unaffected.
+    _has_active_destination = bool((trip_state.get("destination") or {}).get("places")) if isinstance(trip_state.get("destination"), dict) else False
+    _asks_about_saved_vacations = any(
+        cue in str(message or "") for cue in ("בחופשות שלי", "החופשות שלי", "חופשות שלי", "בכרטיס החופשה", "בכרטיסי החופשה")
+    )
+    upcoming = _upcoming_vacations(session['member_id']) if (not _has_active_destination or _asks_about_saved_vacations) else []
     if upcoming:
         trip_state["upcoming_vacations"] = upcoming
     else:
@@ -6785,6 +7180,17 @@ def chat_clean():
                     route_bases = _extract_route_bases_from_approved_text(last_assistant_text)
                     if route_bases:
                         plan_details["route"] = [{"base": b} for b in route_bases]
+                        # This route is reconstructed ONLY from overnight
+                        # ("לינה ב-X") mentions - perfectly reliable for
+                        # lodging locations, but it can never capture a
+                        # final same-day return leg to the origin with no
+                        # overnight stay there (e.g. "...2 nights in Paphos,
+                        # then drive back to Larnaca for the flight home" -
+                        # the text extraction only ever sees Paphos as the
+                        # "last" base). Flagged so the open-jaw gateway
+                        # split below never trusts this incomplete source as
+                        # if it were the full day-by-day itinerary.
+                        plan_details["route_inferred_from_lodging_text"] = True
                         plan["details"] = plan_details
             trip_update["trip_planning"] = plan
 
