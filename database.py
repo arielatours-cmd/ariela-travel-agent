@@ -180,7 +180,9 @@ def init_db() -> None:
                 (origin_code,destination_code,destination_name,country_name,valid_from,valid_to,status,source,last_verified_at,notes,created_at,updated_at)
             VALUES
                 ('TLV','BKK','בנגקוק','תאילנד',NULL,NULL,'active','verified_web_2026-09-20','2026-09-20','EL AL / Arkia nonstop route','2026-09-20T00:00:00+00:00','2026-09-20T00:00:00+00:00'),
-                ('TLV','HKT','פוקט','תאילנד','2026-09-10',NULL,'active','verified_web_2026-09-20','2026-09-20','EL AL / Arkia nonstop route','2026-09-20T00:00:00+00:00','2026-09-20T00:00:00+00:00');
+                ('TLV','HKT','פוקט','תאילנד','2026-09-10',NULL,'active','verified_web_2026-09-20','2026-09-20','EL AL / Arkia nonstop route','2026-09-20T00:00:00+00:00','2026-09-20T00:00:00+00:00'),
+                ('TLV','LCA','לרנקה','קפריסין',NULL,NULL,'active','general_knowledge_2026-10-13','2026-10-13','Israir / Arkia / Wizz Air / El Al nonstop route - not individually web-verified this pass, flag for a verified_web pass if found inaccurate','2026-10-13T00:00:00+00:00','2026-10-13T00:00:00+00:00'),
+                ('TLV','PFO','פאפוס','קפריסין',NULL,NULL,'active','general_knowledge_2026-10-13','2026-10-13','Israir / Arkia / Wizz Air nonstop route - not individually web-verified this pass, flag for a verified_web pass if found inaccurate','2026-10-13T00:00:00+00:00','2026-10-13T00:00:00+00:00');
 
             CREATE TABLE IF NOT EXISTS scan_runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
