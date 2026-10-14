@@ -2214,7 +2214,10 @@ def home():
         session["lang"] = "he"
 
     offers = _public_best_available(limit=3)
-    return render_template("home.html", offers=offers)
+    return render_template(
+        "home.html", offers=offers,
+        travelpayouts_drive_src=os.environ.get("TRAVELPAYOUTS_DRIVE_SRC", "").strip() or None,
+    )
 
 
 @site.get("/deals")
