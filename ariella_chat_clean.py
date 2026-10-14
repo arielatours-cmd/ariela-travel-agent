@@ -4699,7 +4699,17 @@ def _deterministic_lodging_facts(message, history):
     # the next example right above this is about.
     location_cues = ("קרוב ל", "ליד ה", "ליד ל", "במרחק הליכה", "קרוב לאתר", "קרוב למרכז", "לא רחוק מ", "באזור ה", "בלב ")
     if any(c in msg for c in location_cues):
-        result.setdefault("lodging", {}).setdefault("details", {})["locations"] = msg
+        # Seen live (Shaked, Bansko ski trip): a combined answer like "דירה
+        # לארבעה, קרוב למעליות, עד 800 ללילה" (room type + location + budget
+        # bundled in one comma-separated message) stored the WHOLE sentence
+        # as locations, and the lodging search then ran a free-text query on
+        # that entire string instead of the destination - returning
+        # apartments in Jordan/Israel that happened to match some word in
+        # it. Keep only the clause(s) that actually contain the location
+        # cue, not type/budget clauses bundled alongside it in the same
+        # message.
+        location_segments = [s.strip() for s in re.split(r"[,.;]\s*", msg) if s.strip() and any(c in s for c in location_cues)]
+        result.setdefault("lodging", {}).setdefault("details", {})["locations"] = ", ".join(location_segments) if location_segments else msg
 
     return result
 
