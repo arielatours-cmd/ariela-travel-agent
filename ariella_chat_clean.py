@@ -93,6 +93,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשהלקוח מבקש שינוי במסלול שהצגת, הציגי את המסלול המעודכן במלואו (כל הימים), לא רק את היום ששונה, ושמרי על כל מה שכבר סוכם: תאריכים, נוסעים, בסיסי לינה ובקשות קודמות.
 - אם הלקוח ביקש מסלול/אטרקציות, אל תסתפקי בסימון התחום או ברשימת שמות של מקומות. אחרי שאספת באופן טבעי את ההעדפות הנחוצות, בני והציגי ללקוח מסלול ממשי לפי ימים לפני הסיכום הסופי ואישור החיפוש.
 - מסלול לפי ימים חייב לפרט לכל יום: היכן מטיילים ומה עושים/רואים באותו יום, ובאיזה אזור או יישוב מומלץ לישון באותו לילה. כאשר יש מעבר בין אזורים, סדרי את היום כך שהנסיעה והאטרקציות הגיוניות יחד.
+- אם הלקוח נותן מגבלה מפורשת על מבנה המסלול (למשל "כל 2 ימים לעבור בסיס לינה", "בסוף השבוע להישאר באותו מקום בלי נסיעות", מספר לילות מוגדר לתחנה מסוימת) - חובה להחיל אותה בדיוק על כל ימי המסלול שאת בונה בפועל, לא רק לאשר אותה במשפט כללי ("מסלול יפה, תני לי לסדר את זה") ואז לבנות מסלול שמתעלם ממנה. לפני ששולחים את הימים עצמם, ספרי בעצמך שחלוקת בסיסי הלינה שבנית אכן עומדת במגבלה שהלקוח ביקש; אם המגבלה לא ברורה מספיק כדי ליישם אותה (למשל סותרת את מספר הימים הכולל), שאלי שאלה קצרה אחת לפני בניית המסלול במקום לבנות ולנחש.
 - כותרת כל יום במסלול חייבת להיות "יום 1", "יום 2" וכו' (מספר סידורי של היום בטיול בלבד) - לעולם לא "יום ראשון", "יום שני" וכו'. המילים "ראשון"/"שני"/"שלישי" הן גם שמות ימות השבוע בעברית, ושימוש בהן למספור ימי הטיול מתנגש עם ציון יום השבוע האמיתי שמופיע בסוגריים לצד התאריך (למשל "יום 3, 5.3 (חמישי)") ומבלבל את הלקוח לגבי איזה יום בשבוע זה באמת.
 - יום ההגעה ויום החזרה הם ימי חופשה לכל דבר ולא "ימי טיסה" ריקים. אל תכתבי ליום האחרון רק "יום חזרה"/"טיסה הביתה" בלי תוכן. אם שעת טיסת החזור ידועה, תכנני לפניה פעילות שמתאימה לזמן שנשאר (ובקרבת שדה התעופה אם צריך), והשאירי זמן סביר להגעה לשדה. אם השעה לא ידועה, הציעי ליום האחרון פעילות קלה וגמישה וציייני במשפט אחד שאפשר להתאים אותה לשעת הטיסה. אותו עיקרון ליום ההגעה: פעילות קלה שמתאימה לשעת הנחיתה.
 - מספר הימים במסלול חייב להתאים בדיוק לטווח בין dates.departure ל-dates.return (כולל שני הימים עצמם) - לא יום פחות ולא יום יותר. לפני ששולחים את המסלול, ספרי בעצמך שהיום האחרון שכתבת הוא באמת יום החזרה. אם גילית שחסר יום או שיש יום עודף - תקני את המסלול בעצמך ושלחי אותו שלם ונכון; לעולם אל תשלחי הערה/אזהרה ללקוח על כך שהמסלול חסר או לא תואם לתאריכים (למשל "שימי לב, המסלול מכסה רק עד...") - זו הערת תהליך פנימית שאסור שתגיע ללקוח בכלל, בדיוק כמו כלל "בלי תהליך עבודה" למעלה.
@@ -544,6 +545,70 @@ def _weekday_lookup_hint(state):
         '(כמו "יום 1", "יום 2"...) כאילו הוא שם יום בשבוע - שני המושגים נפרדים לגמרי): '
         + ", ".join(rows)
     )
+
+
+_WEEKDAY_HE_RE_ALT = "|".join(sorted(set(_WEEKDAY_HE_BY_PY.values()), key=len, reverse=True))
+_ROUTE_DAY_WEEKDAY_RE = re.compile(
+    r"(יום\s*\d+\s*,\s*)(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?(\s*\()(" + _WEEKDAY_HE_RE_ALT + r")(\))"
+)
+
+
+def _correct_route_day_weekdays(text, state):
+    """Carmit caught this live (2026-10-14): in the same conversation where
+    Ariella had already correctly confirmed "יציאה ביום ראשון... 20.9.2026
+    (ראשון)", the day-by-day route she built right afterwards opened with
+    "יום 1, 20.9 (שני)" for that exact same date - a real-weekday mismatch,
+    even though _weekday_lookup_hint hands her a precomputed, verified table
+    every single turn. Rather than trust prompt-following alone for
+    customer-facing dates, recompute the real weekday deterministically for
+    every "יום N, D.M(.YYYY)? (weekday)" row in the final reply and fix any
+    mismatch outright. When the year is omitted (as it usually is after day
+    1), infer it from the confirmed trip departure date: same year unless
+    that produces a date before the departure (a December-into-January route,
+    or - per Carmit's own instruction - a month/day that has already passed
+    this year), in which case it rolls over to the next year."""
+    text = str(text or "")
+    if "יום" not in text or "(" not in text:
+        return text
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    dep_raw = str(dates.get("departure") or "")[:10]
+    anchor = None
+    if dep_raw:
+        try:
+            anchor = date.fromisoformat(dep_raw)
+        except ValueError:
+            anchor = None
+
+    def _replace(m):
+        prefix, day_s, month_s, year_s, mid, weekday_word, suffix = m.groups()
+        try:
+            day_n, month_n = int(day_s), int(month_s)
+        except ValueError:
+            return m.group(0)
+        if year_s:
+            try:
+                real_date = date(int(year_s), month_n, day_n)
+            except ValueError:
+                return m.group(0)
+        elif anchor is not None:
+            try:
+                real_date = date(anchor.year, month_n, day_n)
+            except ValueError:
+                return m.group(0)
+            if real_date < anchor - timedelta(days=1):
+                try:
+                    real_date = date(anchor.year + 1, month_n, day_n)
+                except ValueError:
+                    return m.group(0)
+        else:
+            return m.group(0)
+        correct_word = _WEEKDAY_HE_BY_PY[real_date.weekday()]
+        if correct_word == weekday_word:
+            return m.group(0)
+        return f"{prefix}{day_s}.{month_s}{('.' + year_s) if year_s else ''}{mid}{correct_word}{suffix}"
+
+    return _ROUTE_DAY_WEEKDAY_RE.sub(_replace, text)
 
 
 def _total_nights_hint(state):
@@ -2653,6 +2718,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _strip_mixed_script_garble(reply)
     reply = _strip_leaked_internal_paragraph(reply)
     reply = _strip_stray_markdown_markers(reply)
+    reply = _correct_route_day_weekdays(reply, state)
     return _strip_unconfirmed_airports(reply, state)
 
 
