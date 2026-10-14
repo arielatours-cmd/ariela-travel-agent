@@ -1053,7 +1053,29 @@ def _resolve_destination_airports_from_route(state):
     # (first base), return_departure_airports is the return-leg departure
     # gateway (last base) - exactly the fields the scanner's own open-jaw
     # support (scanner.py's is_open_jaw) already expects.
-    if route_has_bases and names[0] != names[-1]:
+    # Seen live (Shaked, qa-s89): a route reconstructed only from overnight
+    # ("לינה ב-X") mentions can never represent a final same-day return leg
+    # to the origin with no overnight stay there - the route genuinely
+    # started AND ended in Larnaca, but the lodging-only extraction's last
+    # mentioned base was Paphos (the last place the customer actually
+    # slept), so this wrongly derived an open-jaw return from Paphos. Never
+    # trust that incomplete source for the gateway split - only a route the
+    # model itself filled in as real structured JSON (which can include a
+    # same-day return day with no lodging implication) is reliable enough
+    # for this.
+    route_reliable_for_gateway_split = route_has_bases and not (
+        (state.get("trip_planning") or {}).get("details") or {}
+    ).get("route_inferred_from_lodging_text")
+    # Seen live again in the same report: the customer explicitly corrected
+    # the return gateway later in the conversation ("ההמראה בחזרה תהיה
+    # מלרנקה"), Ariella even confirmed it in her own reply, but
+    # return_departure_airports stayed the old derived value - because this
+    # function re-runs every turn and unconditionally re-asserted the same
+    # open-jaw split over whatever had just been corrected. Once a return
+    # gateway is already present, this derivation must never re-clobber it;
+    # an approved route's gateway is decided once, same as the comment
+    # above already says for destination_airports.
+    if route_reliable_for_gateway_split and names[0] != names[-1] and not state.get("return_departure_airports"):
         first_codes = _resolve_destination_airports_from_route_names(_load_airports(), [names[0]])
         last_codes = _resolve_destination_airports_from_route_names(_load_airports(), [names[-1]])
         if first_codes and last_codes and set(first_codes).isdisjoint(last_codes):
@@ -6785,6 +6807,17 @@ def chat_clean():
                     route_bases = _extract_route_bases_from_approved_text(last_assistant_text)
                     if route_bases:
                         plan_details["route"] = [{"base": b} for b in route_bases]
+                        # This route is reconstructed ONLY from overnight
+                        # ("לינה ב-X") mentions - perfectly reliable for
+                        # lodging locations, but it can never capture a
+                        # final same-day return leg to the origin with no
+                        # overnight stay there (e.g. "...2 nights in Paphos,
+                        # then drive back to Larnaca for the flight home" -
+                        # the text extraction only ever sees Paphos as the
+                        # "last" base). Flagged so the open-jaw gateway
+                        # split below never trusts this incomplete source as
+                        # if it were the full day-by-day itinerary.
+                        plan_details["route_inferred_from_lodging_text"] = True
                         plan["details"] = plan_details
             trip_update["trip_planning"] = plan
 
