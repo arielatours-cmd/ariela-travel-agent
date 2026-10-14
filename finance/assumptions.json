@@ -168,9 +168,17 @@
       "status": "בתהליך",
       "serpapi_searches_left_start": 4815,
       "serpapi_start_time": "2026-10-14 08:09",
-      "note": "מ-9.10 (4,817) ירדו 2 חיפושים עד 14.10 בבוקר. טעינה אוטומטית צפויה במהלך הבדיקה (מתחת ל-$5 → משלימה ל-$15); עלות = התחלה − סיום + סכום הטעינה",
+      "note": "מ-9.10 (4,817) ירדו 2 חיפושים עד 14.10 בבוקר. טעינה אוטומטית צפויה במהלך הבדיקה (מתחת ל-$5 → משלימה ל-$15); עלות = התחלה − סיום + סכום הטעינה; בדיקת שקד: AI ≈ $0.72 (5.71 − 15.01 + 10.02), ‏SerpAPI ‏3 חיפושים. בקונסולה מופיע: \"Your Max plan includes $100 a month in API credits\" (Get started) — לא מומש; לברר",
       "anthropic_balance_start_usd": 5.71,
-      "anthropic_start_time": "2026-10-14 08:10"
+      "anthropic_start_time": "2026-10-14 08:10",
+      "shaked_qa": {
+        "anthropic_end_usd": 15.01,
+        "end_time": "2026-10-14 09:11",
+        "auto_reload_usd": 10.02,
+        "ai_cost_usd": 0.72,
+        "serpapi_end": 4812,
+        "serpapi_searches_used": 3
+      }
     }
   ]
 }
