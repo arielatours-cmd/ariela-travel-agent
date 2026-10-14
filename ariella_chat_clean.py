@@ -96,7 +96,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם הלקוח נותן מגבלה מפורשת על מבנה המסלול (למשל "כל 2 ימים לעבור בסיס לינה", "בסוף השבוע להישאר באותו מקום בלי נסיעות", מספר לילות מוגדר לתחנה מסוימת) - חובה להחיל אותה בדיוק על כל ימי המסלול שאת בונה בפועל, לא רק לאשר אותה במשפט כללי ("מסלול יפה, תני לי לסדר את זה") ואז לבנות מסלול שמתעלם ממנה. לפני ששולחים את הימים עצמם, ספרי בעצמך שחלוקת בסיסי הלינה שבנית אכן עומדת במגבלה שהלקוח ביקש; אם המגבלה לא ברורה מספיק כדי ליישם אותה (למשל סותרת את מספר הימים הכולל), שאלי שאלה קצרה אחת לפני בניית המסלול במקום לבנות ולנחש.
 - כותרת כל יום במסלול חייבת להיות "יום 1", "יום 2" וכו' (מספר סידורי של היום בטיול בלבד) - לעולם לא "יום ראשון", "יום שני" וכו'. המילים "ראשון"/"שני"/"שלישי" הן גם שמות ימות השבוע בעברית, ושימוש בהן למספור ימי הטיול מתנגש עם ציון יום השבוע האמיתי שמופיע בסוגריים לצד התאריך (למשל "יום 3, 5.3 (חמישי)") ומבלבל את הלקוח לגבי איזה יום בשבוע זה באמת.
 - יום ההגעה ויום החזרה הם ימי חופשה לכל דבר ולא "ימי טיסה" ריקים. אל תכתבי ליום האחרון רק "יום חזרה"/"טיסה הביתה" בלי תוכן. אם שעת טיסת החזור ידועה, תכנני לפניה פעילות שמתאימה לזמן שנשאר (ובקרבת שדה התעופה אם צריך), והשאירי זמן סביר להגעה לשדה. אם השעה לא ידועה, הציעי ליום האחרון פעילות קלה וגמישה וציייני במשפט אחד שאפשר להתאים אותה לשעת הטיסה. אותו עיקרון ליום ההגעה: פעילות קלה שמתאימה לשעת הנחיתה.
-- מספר הימים במסלול חייב להתאים בדיוק לטווח בין dates.departure ל-dates.return (כולל שני הימים עצמם) - לא יום פחות ולא יום יותר. לפני ששולחים את המסלול, ספרי בעצמך שהיום האחרון שכתבת הוא באמת יום החזרה. אם גילית שחסר יום או שיש יום עודף - תקני את המסלול בעצמך ושלחי אותו שלם ונכון; לעולם אל תשלחי הערה/אזהרה ללקוח על כך שהמסלול חסר או לא תואם לתאריכים (למשל "שימי לב, המסלול מכסה רק עד...") - זו הערת תהליך פנימית שאסור שתגיע ללקוח בכלל, בדיוק כמו כלל "בלי תהליך עבודה" למעלה.
+- מספר הימים במסלול חייב להתאים בדיוק לטווח בין dates.departure ל-dates.return (כולל שני הימים עצמם) - לא יום פחות ולא יום יותר. לפני ששולחים את המסלול, ספרי בעצמך שהיום האחרון שכתבת הוא באמת יום החזרה. אם גילית שחסר יום או שיש יום עודף - תקני את המסלול בעצמך ושלחי אותו שלם ונכון; לעולם אל תשלחי הערה/אזהרה ללקוח על כך שהמסלול חסר או לא תואם לתאריכים (למשל "שימי לב, המסלול מכסה רק עד...") - זו הערת תהליך פנימית שאסור שתגיע ללקוח בכלל, בדיוק כמו כלל "בלי תהליך עבודה" למעלה. זה חל גם כשמשהו "לא מסתדר" לך לגבי תאריך החזרה/מספר הימים/יום בשבוע - לעולם אל תכתבי ללקוח פסקת "תיקון" או השערה בקול רם כמו "כנראה שההמראה בפועל היא ב-X או שההחזרה כוללת יום נופש נוסף, האם תרצי ככה או ככה?": זו בדיוק אותה הערת תהליך פנימית אסורה, ולרוב מקורה בחישוב יום-בשבוע שגוי שלך (ראי טבלת ימי השבוע האמיתיים שנמסרת לך) ולא בבעיה אמיתית בתאריכים. בדקי שוב בעצמך מול הטבלה והתאריכים המאושרים ותקני בשקט - אל תעבירי את הבלבול הזה ללקוח.
 - כשאת מציגה מסלול לפי ימים, ההודעה מתחילה ישר ביום הראשון (לכל היותר משפט פתיחה קצר אחד) ומסתיימת ביום האחרון ובשאלה קצרה אחת אם לשנות משהו. בלי הקדמות, בלי הערות כלליות, הסתייגויות או טיפים לפני הימים או אחריהם - כל מידע רלוונטי שייך לתוך היום שאליו הוא מתייחס.
 - כשמזכירים במסלול שם מקום זר ספציפי (כפר, שכונה, אתר תיירות, הר) שאינו שם היעד/המדינה עצמם - כתבי אותו תמיד בלועזית/באנגלית, בדיוק כפי שהוא מוכר בעולם האמיתי (למשל "Omodos", "Perivolia"), לעולם לא בתעתיק עברי עצמאי. תעתיק עברי שאת ממציאה בעצמך לשם כזה יוצא כמעט תמיד שגוי ומבולבל (נראה כמו ג'יבריש). שם היעד/המדינה הכלליים עצמם ("קפריסין", "לרנקה") ממשיכים כרגיל בעברית כרגיל - זה חל רק על שם מקום ספציפי בתוך המסלול שאת בוחרת להזכיר.
 - כל אתר/אטרקציה ספציפיים (למשל פארק, מוזיאון, חוף) מופיעים במסלול פעם אחת בלבד, ביום המתאים להם ביותר. לפני שליחת המסלול, ודאי שאף שם אתר לא חוזר על עצמו בשני ימים שונים - אלא אם הלקוח עצמו ביקש לחזור אליו במפורש.
@@ -549,26 +549,31 @@ def _weekday_lookup_hint(state):
 
 _WEEKDAY_HE_RE_ALT = "|".join(sorted(set(_WEEKDAY_HE_BY_PY.values()), key=len, reverse=True))
 _ROUTE_DAY_WEEKDAY_RE = re.compile(
-    r"(יום\s*\d+\s*,\s*)(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?(\s*\()(" + _WEEKDAY_HE_RE_ALT + r")(\))"
+    r"((?:יום\s*\d+\s*,\s*)?)(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?(\s*\()(" + _WEEKDAY_HE_RE_ALT + r")(\))"
 )
 
 
 def _correct_route_day_weekdays(text, state):
-    """Carmit caught this live (2026-10-14): in the same conversation where
-    Ariella had already correctly confirmed "יציאה ביום ראשון... 20.9.2026
-    (ראשון)", the day-by-day route she built right afterwards opened with
-    "יום 1, 20.9 (שני)" for that exact same date - a real-weekday mismatch,
-    even though _weekday_lookup_hint hands her a precomputed, verified table
-    every single turn. Rather than trust prompt-following alone for
-    customer-facing dates, recompute the real weekday deterministically for
-    every "יום N, D.M(.YYYY)? (weekday)" row in the final reply and fix any
-    mismatch outright. When the year is omitted (as it usually is after day
-    1), infer it from the confirmed trip departure date: same year unless
-    that produces a date before the departure (a December-into-January route,
-    or - per Carmit's own instruction - a month/day that has already passed
-    this year), in which case it rolls over to the next year."""
+    """Carmit caught this live (2026-10-14), twice in the same conversation:
+    (1) Ariella had already correctly confirmed "יציאה ביום ראשון... 20.9.2026
+    (ראשון)", but the day-by-day route she built right afterwards opened with
+    "יום 1, 20.9 (שני)" for that exact same date; (2) later, mid-route, she
+    second-guessed herself out loud with "מכיוון שהחזרה היא ב-2.10 (שבת)
+    וטיסה ביום שבת כנראה לא מתאימה לכם..." - 2.10.2026 is actually שישי, so
+    the entire "is there a scheduling problem?" tangent she sent the customer
+    was built on a self-computed weekday that was simply wrong. This despite
+    _weekday_lookup_hint handing her a precomputed, verified table every
+    single turn. Rather than trust prompt-following alone for a
+    customer-facing fact, recompute the real weekday deterministically for
+    every "D.M(.YYYY)? (weekday)" occurrence in the final reply - whether or
+    not it's a "יום N," route header - and fix any mismatch outright. When
+    the year is omitted (as it usually is after day 1), infer it from the
+    confirmed trip departure date: same year unless that produces a date
+    before the departure (a December-into-January route, or - per Carmit's
+    own instruction - a month/day that has already passed this year), in
+    which case it rolls over to the next year."""
     text = str(text or "")
-    if "יום" not in text or "(" not in text:
+    if "(" not in text:
         return text
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
@@ -2190,6 +2195,44 @@ def _strip_mixed_script_garble(text):
     return cleaned.strip()
 
 
+def _strip_mixed_hebrew_latin_token(text):
+    """Carmit caught this live (2026-10-14): a day-1 itinerary line read
+    "...כיכר באן יelačić', הקתדרלה..." - the Hebrew letter "י" fused directly
+    onto a Latin place-name fragment ("elačić", from Zagreb's Ban Jelačić
+    Square) inside the same token, with no space or hyphen between them, in
+    the middle of an otherwise normal sentence. _strip_garbled_lead_token
+    already drops exactly this Hebrew+Latin letter-mixing glitch, but only
+    at the very start of a reply; _strip_mixed_script_garble covers mid-text
+    garbles but never counts Hebrew as one of its mixed scripts. This closes
+    that gap for anywhere in the text. The established house style of a
+    Hebrew preposition hyphen-joined to a Latin term ("ב-JFK", "לינה ב-X")
+    is explicitly legitimate and must survive untouched - so a token is only
+    treated as garbled when Hebrew and (possibly accented) Latin letters sit
+    directly adjacent within the same hyphen-free segment of the token, never
+    when a hyphen separates them."""
+    import re
+    text = str(text or "")
+    if not re.search(r"[א-ת]", text) or not re.search(r"[A-Za-zÀ-ɏ]", text):
+        return text
+
+    def _check(m):
+        tok = m.group(0)
+        for segment in tok.split("-"):
+            has_heb = bool(re.search(r"[א-ת]", segment))
+            has_lat = bool(re.search(r"[A-Za-zÀ-ɏ]", segment))
+            if has_heb and has_lat:
+                return ""
+        return tok
+
+    cleaned = re.sub(r"\S+", _check, text)
+    if cleaned == text:
+        return text
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"[ \t]+([.,:;!?])", r"\1", cleaned)
+    cleaned = re.sub(r"(?m)^[ \t]+", "", cleaned)
+    return cleaned.strip()
+
+
 def _strip_leaked_internal_paragraph(text):
     """Deterministic safety net for a recurring model glitch, seen live:
     an occasional stray technical/self-talk sentence ("פורמט תאריך לא ידוע.
@@ -2716,6 +2759,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _strip_garbled_lead_token(reply)
     reply = _repair_foreign_letters_in_hebrew(reply)
     reply = _strip_mixed_script_garble(reply)
+    reply = _strip_mixed_hebrew_latin_token(reply)
     reply = _strip_leaked_internal_paragraph(reply)
     reply = _strip_stray_markdown_markers(reply)
     reply = _correct_route_day_weekdays(reply, state)
