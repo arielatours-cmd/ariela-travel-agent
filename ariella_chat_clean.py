@@ -317,7 +317,16 @@ def _weekday_date_conflict(message, history=None):
         if dt.weekday() != weekdays[day_name]:
             actual = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"][dt.weekday()]
             return f"רק לוודא לפני שממשיכים — {d}.{mo}.{y} יוצא יום {actual}, אבל כתבת יום {day_name}. איזה מהם נכון מבחינתך?"
-    return _weekday_pair_conflict(text, history)
+    candidate = _weekday_pair_conflict(text, history)
+    # Seen live (Carmit, WhatsApp, 15.10.2026 20:24-20:26): she replied with
+    # the exact same dates twice in a row, and this asked the identical
+    # "did you mean X or Y" clarification both times - a loop, since a
+    # repeat of the same answer IS the confirmation, not new information to
+    # re-question. Checked here (not only by the chat-clean route) so the
+    # function itself never hands back a question it just asked.
+    if candidate and _already_asked_weekday_conflict(history, candidate):
+        return None
+    return candidate
 
 
 _WEEKDAY_PAIR_LODGING_CONTEXT_CUES = ("לישון", "לינה", "באותו מקום", "בסיס לינה", "להישאר")
@@ -352,13 +361,29 @@ def _weekday_pair_conflict(text, history):
         return None
     pair = None
     for item in reversed(history or []):
-        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
-            content = str(item.get("content") or "")
-            if any(cue in content for cue in _WEEKDAY_PAIR_LODGING_CONTEXT_CUES):
-                continue
-            pair = re.search(r"(?<![\u05d0-\u05ea])(?:\u05de|\u05de\u05d9\u05d5\u05dd\s+|\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")\s*(?:\u05e2\u05d3|[-\u2013])\s*(?:\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
-            if pair:
-                break
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "").lower()
+        content = str(item.get("content") or "")
+        # Seen live (Shaked, qa-s92, reproducing the owner's WhatsApp loop):
+        # the scan used to run across the WHOLE conversation with no concept
+        # of "that was a different, already-submitted request" - a lodging
+        # aside from a PREVIOUS, already-approved trip kept leaking into a
+        # brand new one. "מאשר"/"מאשרת" (bare, exactly as typed) is the one
+        # reserved word the whole system already treats as the real
+        # activation/finalization of a request (_approval_trigger uses the
+        # same exact match) - hitting it while scanning backward means
+        # everything further back belongs to that earlier, closed request,
+        # not to whatever is being planned now.
+        if role == "user" and content.strip() in ("מאשר", "מאשרת"):
+            break
+        if role != "user":
+            continue
+        if any(cue in content for cue in _WEEKDAY_PAIR_LODGING_CONTEXT_CUES):
+            continue
+        pair = re.search(r"(?<![\u05d0-\u05ea])(?:\u05de|\u05de\u05d9\u05d5\u05dd\s+|\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")\s*(?:\u05e2\u05d3|[-\u2013])\s*(?:\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
+        if pair:
+            break
     if not pair:
         return None
     today = date.today()
@@ -7126,7 +7151,7 @@ def chat_clean():
     # disagree.
     if not _deterministic_candidate_choice_facts(message, trip_state):
         date_conflict = _weekday_date_conflict(message, history)
-        if date_conflict and not _already_asked_weekday_conflict(history, date_conflict):
+        if date_conflict:
             return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     if not key:
