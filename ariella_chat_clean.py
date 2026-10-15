@@ -1955,6 +1955,10 @@ def _reset_intent(message):
     phrases = ("חופשה חדשה","טיול חדש","חיפוש חדש","להתחיל מחדש","נתחיל מחדש","להתחיל מהתחלה","נתחיל מהתחלה","לשנות כיוון")
     return any(p in msg for p in phrases)
 
+_RESET_GATE_YES_RE = re.compile(r"^(?:כן|בטח|בהחלט|כמובן|נכון)(?![א-ת])")
+_RESET_GATE_NO_RE = re.compile(r"^(?:לא)(?![א-ת])")
+
+
 def _full_reset_confirmation(message):
     """Only explicit confirmation after the clarification may clear trip state."""
     msg = str(message or "").strip().lower()
@@ -2088,6 +2092,42 @@ UNCLEAR = אי אפשר להבין בבטחה.
             return "new"
         if raw.startswith("KEEP"):
             return "keep"
+    except Exception:
+        pass
+    return "unclear"
+
+
+def _interpret_yes_no(key, model, history, message, question_text):
+    """Classify a free-form reply to a pending binary yes/no question by its
+    MEANING, never by matching exact wording. Per the business owner's
+    explicit instruction (2026-10-15, after watching Ariella loop on this
+    exact failure): "יש לקוחות שעונים בדיוק... כל אחד מתבטא בצורה אחרת...
+    אתה חייב לשנות את התנאים לפי המשמעות של התשובה ולא לפי המילים
+    המדויקות" (customers all phrase things differently - you must classify
+    by the meaning of the answer, never by exact words). Reuses the exact
+    pattern already established by _interpret_pending_choice for the same
+    purpose. Callers should still try a fast regex/keyword match first for
+    the overwhelmingly common short replies (cheaper, instant, no network
+    round-trip) and only fall back to this when that fast path is
+    genuinely inconclusive - never to replace understanding with more
+    hard-coded words, but to avoid a network call for "כן" alone."""
+    if not key:
+        return "unclear"
+    prompt = (
+        "את מסווגת תשובת לקוח לשאלת כן/לא שאריאלה שאלה. הלקוח יכול לענות בכל ניסוח טבעי משלו, כולל שגיאות כתיב, "
+        "סלנג, או תשובה עם הסבר נוסף סביב ה'כן'/'לא'. השאלה שנשאלה: " + str(question_text or "") + "\n"
+        "החזירי מילה אחת בלבד: YES אם התשובה מאשרת/חיובית במשמעותה, NO אם היא שוללת/שלילית במשמעותה, "
+        "או UNCLEAR אם באמת אי אפשר להבין בבטחה את הכוונה. הביני לפי המשמעות וההקשר - לעולם לא לפי התאמת מילים מדויקת."
+    )
+    try:
+        raw = _post_claude(
+            key, model, prompt, "", history if isinstance(history, list) else [],
+            "תשובת הלקוח: " + str(message or ""), 20, include_history=False, source="classifier"
+        ).strip().upper()
+        if raw.startswith("YES"):
+            return "yes"
+        if raw.startswith("NO"):
+            return "no"
     except Exception:
         pass
     return "unclear"
@@ -3096,6 +3136,36 @@ def _guard_unjustified_gateway_narrowing(state, message, history):
     return state
 
 
+_DESTINATION_KEEP_NEGATION_CUES = (
+    "אל תמחק", "אל תמחקי", "אל תמחקו", "בלי למחוק", "לא למחוק",
+    "תשאיר את", "תשאירי את", "השאיר את", "השאירי את", "לא רוצה למחוק",
+)
+# Bare "לא <place>" ("not X") - only when "לא" is the word directly adjacent
+# to the place name (optionally after a sentence boundary/whitespace), never
+# merely present somewhere earlier in the same message - that would false-
+# positive on every unrelated "לא" ("לא רוצה תקציב מוגבל, לטוס לרומא" must
+# still pick up Rome).
+_DESTINATION_REJECT_PREFIX_RE = re.compile(r"(?:^|[.,!?;\n]|\s)לא\s*$")
+
+
+def _is_negated_destination_mention(text, match_index):
+    """A place name mentioned right after "don't delete/keep X as is"
+    phrasing (e.g. "אל תמחקי את ניו יורק") or a bare "לא X" ("not X", e.g.
+    "לא ניו יורק. חופשת סקי חדשה לאינסברוק") names the OLD trip being
+    explicitly rejected or preserved untouched - never the new destination
+    being requested. Seen live (Shaked, round 14): both phrasings made the
+    reset-confirmation flow open a "new" vacation to New York - the trip
+    the customer had just explicitly ruled out - instead of Innsbruck, the
+    destination she had actually asked for in the very same or an earlier
+    message. Only the short window immediately before the match matters;
+    the same place name appearing elsewhere in a longer message, unrelated
+    to this phrasing, must still be picked up normally."""
+    window = text[max(0, match_index - 25):match_index]
+    if any(cue in window for cue in _DESTINATION_KEEP_NEGATION_CUES):
+        return True
+    return bool(_DESTINATION_REJECT_PREFIX_RE.search(window))
+
+
 def _deterministic_destination_facts(history, message, state=None):
     """Preserve an explicitly stated destination when extractor output misses it."""
     state = state if isinstance(state, dict) else {}
@@ -3114,8 +3184,10 @@ def _deterministic_destination_facts(history, message, state=None):
     for text in texts:
         text = text.lower()
         for needle, label in known.items():
-            if needle.lower() in text:
-                return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+            idx = text.find(needle.lower())
+            if idx == -1 or _is_negated_destination_mention(text, idx):
+                continue
+            return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
     return {}
 
 
@@ -4592,8 +4664,15 @@ def _deterministic_lodging_facts(message, history):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = int(rooms_match.group(1))
         elif any(w in msg for w in ("חדר אחד", "חדר גדול אחד")):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
-        elif asked_single_room_confirm and _normalize_confirm(msg).lower() in {"כן", "בטח", "מספיק", "נכון", "כן, מספיק"}:
+        elif asked_single_room_confirm and (_RESET_GATE_YES_RE.match(_normalize_confirm(msg).lower()) or "מספיק" in msg):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
+    # The single-room confirm check above was unreachable whenever Ariella
+    # asked the direct "חדר זוגי אחד מספיק?" framing WITHOUT ever also
+    # using the "כמה חדרים" wording asked_rooms looks for - which is
+    # exactly the live case the comment above describes. Check it here too,
+    # as its own sibling condition, not only nested under asked_rooms.
+    elif asked_single_room_confirm and (_RESET_GATE_YES_RE.match(_normalize_confirm(msg).lower()) or "מספיק" in msg):
+        result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
     elif re.search(r"חדר\s+זוגי(?!ים)", msg) and not re.search(r"\d+\s*חדר", msg):
         # "חדר זוגי" (singular - one double room) names the room count on its
         # own, not only as an answer to an explicit "כמה חדרים?" question.
@@ -4667,7 +4746,17 @@ def _deterministic_lodging_facts(message, history):
     # the next example right above this is about.
     location_cues = ("קרוב ל", "ליד ה", "ליד ל", "במרחק הליכה", "קרוב לאתר", "קרוב למרכז", "לא רחוק מ", "באזור ה", "בלב ")
     if any(c in msg for c in location_cues):
-        result.setdefault("lodging", {}).setdefault("details", {})["locations"] = msg
+        # Seen live (Shaked, Bansko ski trip): a combined answer like "דירה
+        # לארבעה, קרוב למעליות, עד 800 ללילה" (room type + location + budget
+        # bundled in one comma-separated message) stored the WHOLE sentence
+        # as locations, and the lodging search then ran a free-text query on
+        # that entire string instead of the destination - returning
+        # apartments in Jordan/Israel that happened to match some word in
+        # it. Keep only the clause(s) that actually contain the location
+        # cue, not type/budget clauses bundled alongside it in the same
+        # message.
+        location_segments = [s.strip() for s in re.split(r"[,.;]\s*", msg) if s.strip() and any(c in s for c in location_cues)]
+        result.setdefault("lodging", {}).setdefault("details", {})["locations"] = ", ".join(location_segments) if location_segments else msg
 
     return result
 
@@ -5888,20 +5977,36 @@ def chat_clean():
 
     # Per the business owner (2026-10-14, after Shaked's real-scan testing):
     # once this exact persisted conversation already launched a real paid
-    # scan (combined_search_launched), any further message to it must never
-    # just keep chatting as if still mid-planning - seen live, a customer
-    # re-describing the identical vacation got "זו בדיוק החופשה שכבר
-    # סגרנו... רוצה להמשיך איתה?" and the page then auto-navigated to the
-    # waiting page of an already-finished trip, with no mention of the
-    # existing results or the paid daily-tracking option. The DB (not the
-    # client's own combined_search_launched flag, which only reflects THIS
-    # conversation's belief, not reality) is the source of truth: look up
-    # the real vacation this exact destination+dates already produced and,
-    # if still within the 90-day window the business owner asked for,
-    # short-circuit straight to the existing-vacation message and reset the
-    # conversation - never continue the old thread, never trigger another
-    # free scan.
-    if trip_state.get('combined_search_launched'):
+    # scan (combined_search_launched), re-describing the SAME trip again
+    # must never trigger another free scan - short-circuit straight to the
+    # existing-vacation message instead. The DB (not the client's own
+    # combined_search_launched flag, which only reflects THIS conversation's
+    # belief, not reality) is the source of truth for whether that scan's
+    # result still exists.
+    #
+    # Seen live (Shaked, round 14, 2026-10-14): this guard used to fire
+    # unconditionally the moment combined_search_launched was still true,
+    # regardless of what the customer's CURRENT message actually asked for -
+    # it fired on "היי, אני רוצה עוד טיסה", "רוצה לתכנן חופשה חדשה", and even
+    # a request for a completely different destination, every time quoting
+    # the PREVIOUS trip's own name, because it compared that stale
+    # trip_state against itself (the very record it had just created)
+    # rather than against the new message. It also turned the separate,
+    # legitimate "reopen an existing vacation to add a missing service" flow
+    # into an unbreakable loop. The flag is only trustworthy as "still the
+    # same trip" when the new message actually names that trip's own
+    # destination again - anything else (a different place, a generic new
+    # request, a bare greeting) is a new request, so the stale flag is
+    # dropped rather than trusted, and can't keep firing on later turns.
+    if trip_state.get('combined_search_launched') and not trip_state.get('reopened_trip_id') and not trip_state.get('reopen_trip_pending'):
+        _old_places = (trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None
+        _old_places = _old_places if isinstance(_old_places, list) else []
+        _mentioned_now = _mentioned_places(message)
+        _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places))
+        if not _same_trip_again:
+            trip_state = dict(trip_state)
+            trip_state.pop('combined_search_launched', None)
+    if trip_state.get('combined_search_launched') and not trip_state.get('reopened_trip_id') and not trip_state.get('reopen_trip_pending'):
         _dest_codes = trip_state.get('destination_airports') if isinstance(trip_state.get('destination_airports'), list) else []
         _dates = trip_state.get('dates') if isinstance(trip_state.get('dates'), dict) else {}
         _existing = _find_recent_scanned_vacation(
@@ -6341,10 +6446,33 @@ def chat_clean():
 
     if trip_state.get("reset_pending"):
         msg_norm = str(message or "").strip().lower()
-        yes_answers = {"כן", "כן.", "כן!", "בטח", "בהחלט"}
-        no_answers = {"לא", "לא.", "לא!", "לא תודה"}
+        # Carmit flagged this live (2026-10-15): a tiny exact-string set here
+        # ("כן", "כן.", "כן!", "בטח", "בהחלט") means an unambiguous "yes"
+        # with the customer's own natural elaboration right after it - "כן,
+        # להתחיל חופשה חדשה", "כן, מתאים" - matched NEITHER this set nor the
+        # no-answers one, falling through to a redundant, robotic "just to
+        # confirm, yes or no?" re-ask of the exact same question. Seen live
+        # in two separate QA rounds (A5, C1) as part of the route-approval
+        # loop. A plain word-boundary match on the leading "כן"/"לא" (not
+        # exact-string equality) catches the common phrasing instantly with
+        # no network round-trip. Carmit then made the underlying principle
+        # explicit and general (2026-10-15): "אתה חייב לשנות את התנאים לפי
+        # המשמעות של התשובה ולא לפי המילים המדויקות" - every customer
+        # phrases a yes/no differently, so for anything the fast regex
+        # genuinely can't resolve, ask Claude to classify the MEANING
+        # (_interpret_yes_no) instead of re-asking the same question again.
+        yes_match = bool(_RESET_GATE_YES_RE.match(msg_norm))
+        no_match = bool(_RESET_GATE_NO_RE.match(msg_norm))
+        if not yes_match and not no_match:
+            _reset_question = (
+                "למחוק את פרטי הטיסה ולהתחיל מחדש?" if trip_state.get("reset_scope") == "flights"
+                else "למחוק את כל הפרטים ולהתחיל חופשה חדשה מאפס?"
+            )
+            _intent = _interpret_yes_no(key, model, history, message, _reset_question)
+            yes_match = _intent == "yes"
+            no_match = _intent == "no"
 
-        if msg_norm in yes_answers:
+        if yes_match:
             original_change = str(trip_state.get("reset_change_request") or "").strip()
             if trip_state.get("reset_scope") == "flights":
                 fresh = dict(trip_state)
@@ -6390,7 +6518,7 @@ def chat_clean():
                 'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
             })
 
-        if msg_norm in no_answers:
+        if no_match:
             original_change = str(trip_state.get("reset_change_request") or "").strip()
             kept = dict(trip_state)
             kept["reset_pending"] = False
@@ -6580,7 +6708,21 @@ def chat_clean():
 
     if trip_state.get("destination_change_pending"):
         msg_norm = str(message or "").strip().lower()
-        if msg_norm in {"כן","כן.","כן!","בטח","בהחלט"}:
+        # Same fix as the reset-vacation gate above: a word-boundary match on
+        # the leading כן/לא first (instant, no network round-trip), then
+        # fall back to meaning-based classification (_interpret_yes_no) for
+        # anything that genuinely isn't resolved by it - never re-ask the
+        # same question just because the wording didn't match exactly.
+        _dest_change_yes = bool(_RESET_GATE_YES_RE.match(msg_norm))
+        _dest_change_no = bool(_RESET_GATE_NO_RE.match(msg_norm))
+        if not _dest_change_yes and not _dest_change_no:
+            _intent = _interpret_yes_no(
+                key, model, history, message,
+                "שינוי היעד משנה גם את המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד. למחוק את הפרטים שתלויים ביעד ולבנות אותם מחדש ליעד החדש?",
+            )
+            _dest_change_yes = _intent == "yes"
+            _dest_change_no = _intent == "no"
+        if _dest_change_yes:
             changed = dict(trip_state)
             new_destination = changed.pop("destination_change_pending")
             changed["destination"] = {"places":[new_destination],"mode":"specific","status":"known"}
@@ -6605,7 +6747,7 @@ def chat_clean():
                 'reply':'בסדר. היעד עודכן. את המסלול, הלינה והרכב נבנה מחדש בהתאם ליעד החדש.',
                 'trip_update':changed,'start_flight_search':False
             })
-        if msg_norm in {"לא","לא.","לא!","לא תודה"}:
+        if _dest_change_no:
             kept = dict(trip_state)
             kept.pop("destination_change_pending", None)
             return jsonify({

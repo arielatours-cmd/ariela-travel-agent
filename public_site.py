@@ -4694,17 +4694,42 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
             }
         else:
             info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
+            dest_city = info.get("city_en") or info.get("city_he") or destination_codes[0]
             # Seen live (Shaked, qa-s89): this used to always default to the
             # FIRST (alphabetically sorted) destination airport's city,
             # completely ignoring lodging_location - the actual multi-area
             # route string the customer's conversation already captured.
             # When no richer per-segment breakdown is available, at least
             # prefer the first named area from that real signal.
+            #
+            # Seen live again (Shaked, Bansko ski trip): lodging_location can
+            # hold a free-text AREA preference ("קרוב למעליות" - near the
+            # lifts), never a city on its own - using it as the WHOLE query
+            # in place of the destination dropped all geographic anchoring
+            # and returned apartments in Jordan/Israel that happened to match
+            # some word in it. The area only ever narrows WITHIN the real
+            # destination city, so it must be combined with dest_city, never
+            # substituted for it.
             lodging_location_raw = str(answers.get("lodging_location") or "").strip()
-            city = (
-                lodging_location_raw.split(",")[0].strip() if lodging_location_raw
-                else (info.get("city_en") or info.get("city_he") or destination_codes[0])
-            )
+            area = lodging_location_raw.split(",")[0].strip() if lodging_location_raw else ""
+            # When the area IS ITSELF one of the real candidate destination
+            # cities (a multi-gateway trip like LCA/PFO where the customer
+            # picked "פאפוס" among them), it's already a full, valid
+            # location on its own - appending another gateway's city would
+            # create a contradictory query ("פאפוס, Larnaca"). Only append
+            # dest_city when the area is a vicinity/area modifier that was
+            # never a standalone destination city to begin with.
+            candidate_cities = {
+                str(_AIRPORT_LOCALIZATION.get(code, {}).get(key) or "").strip()
+                for code in destination_codes for key in ("city_en", "city_he")
+            }
+            candidate_cities.discard("")
+            if area and area in candidate_cities:
+                city = area
+            elif area:
+                city = f"{area}, {dest_city}"
+            else:
+                city = dest_city
             result = search_hotels(
                 query=city, checkin_date=dep, checkout_date=ret,
                 adults=adults, children=children, rooms=rooms,
