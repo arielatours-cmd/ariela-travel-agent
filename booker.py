@@ -608,8 +608,8 @@ def kiwi_offer_eligible(offer: dict) -> bool:
     a separate-tickets warning can never be shown reliably. Per Din, the
     Kiwi link is therefore limited to direct flights on both legs; anything
     unknown (missing stop counts, open jaw) is treated as not direct.
-    An offer whose card states that consumer protection applies ("חלה")
-    never gets the Kiwi button next to it.
+    An offer whose consumer protection applies (by status, not by the
+    label's wording) never gets the Kiwi button next to it.
     """
     if not isinstance(offer, dict):
         return False
@@ -617,7 +617,7 @@ def kiwi_offer_eligible(offer: dict) -> bool:
         return False
     if offer.get("open_jaw"):
         return False
-    if str(offer.get("consumer_protection_label") or "").strip() == "חלה":
+    if str(offer.get("consumer_protection_class") or "") == "applies":
         return False
     return bool(offer.get("departure_code") and offer.get("arrival_code"))
 

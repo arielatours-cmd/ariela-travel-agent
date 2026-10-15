@@ -134,7 +134,12 @@ check("unknown return stops -> no Kiwi", booker.kiwi_affiliate_target(offer(retu
 check("open jaw -> no Kiwi", booker.kiwi_affiliate_target(offer(open_jaw=True)) is None)
 
 # --- (c) never next to "consumer protection applies" -------------------------
-check("offer labelled 'חלה' -> no Kiwi button", booker.kiwi_affiliate_target(offer(consumer_protection_label="חלה")) is None)
+check("protection applies (status) -> no Kiwi button",
+      booker.kiwi_affiliate_target(offer(consumer_protection_label="חלה", consumer_protection_class="applies")) is None)
+check("protection applies with different label wording -> still no Kiwi button",
+      booker.kiwi_affiliate_target(offer(consumer_protection_label="חוק הגנת הצרכן בתוקף", consumer_protection_class="applies")) is None)
+check("status 'check' -> Kiwi button allowed",
+      booker.kiwi_affiliate_target(offer(consumer_protection_class="check")) is not None)
 
 # --- (d) no PII to the partner ------------------------------------------------
 pii = {"full_name": "Dana Cohen", "email": "dana@example.com", "phone": "0501234567"}
@@ -183,7 +188,21 @@ for kw in ({"marker": "M"}, {"marker": "M", "trs": "T"}, {"link": "not-a-url"}, 
     check(f"incomplete config {sorted(kw)} -> no Kiwi block at all", kiwi_block(offer(), "he").strip() == "")
 configure(link=SHORT_LINK)
 check("connection flight -> card has no Kiwi block", kiwi_block(offer(stops=1), "he").strip() == "")
-check("'חלה' card -> no Kiwi block", kiwi_block(offer(consumer_protection_label="חלה"), "he").strip() == "")
+check("'applies' card -> no Kiwi block", kiwi_block(offer(consumer_protection_label="חלה", consumer_protection_class="applies"), "he").strip() == "")
+
+# Din's clarification line under the disclosure: real booking_supplier, exact defaults
+he_sup = kiwi_block(offer(booking_supplier="Aegean"), "he")
+check("price note (he) names the real booking supplier",
+      "המחיר והתנאים בכרטיס הם של Aegean. ב-Kiwi.com המחיר והתנאים עשויים להיות שונים." in he_sup)
+check("price note (he) default when supplier is empty",
+      "המחיר והתנאים בכרטיס הם של הספק המומלץ. ב-Kiwi.com המחיר והתנאים עשויים להיות שונים." in kiwi_block(offer(), "he"))
+check("price note (en) names the real booking supplier",
+      "The price and terms on this card are Aegean. On Kiwi.com, price and terms may differ." in kiwi_block(offer(booking_supplier="Aegean"), "en"))
+en_default = kiwi_block(offer(), "en").replace("&#39;", "'")
+check("price note (en) default when supplier is empty",
+      "The price and terms on this card are the recommended provider's. On Kiwi.com, price and terms may differ." in en_default)
+check("price note comes after the disclosure",
+      he_sup.find(HE_DISCLOSURE) < he_sup.find("המחיר והתנאים בכרטיס"))
 
 # --- Route /go/kiwi: transition screen (a), click recorded, no PII (d) --------
 public_site.recent_offers = lambda **kw: [offer(), offer(id=502, offer_id=502, stops=1)]
