@@ -1955,6 +1955,10 @@ def _reset_intent(message):
     phrases = ("חופשה חדשה","טיול חדש","חיפוש חדש","להתחיל מחדש","נתחיל מחדש","להתחיל מהתחלה","נתחיל מהתחלה","לשנות כיוון")
     return any(p in msg for p in phrases)
 
+_RESET_GATE_YES_RE = re.compile(r"^(?:כן|בטח|בהחלט|כמובן|נכון)(?![א-ת])")
+_RESET_GATE_NO_RE = re.compile(r"^(?:לא)(?![א-ת])")
+
+
 def _full_reset_confirmation(message):
     """Only explicit confirmation after the clarification may clear trip state."""
     msg = str(message or "").strip().lower()
@@ -6399,10 +6403,22 @@ def chat_clean():
 
     if trip_state.get("reset_pending"):
         msg_norm = str(message or "").strip().lower()
-        yes_answers = {"כן", "כן.", "כן!", "בטח", "בהחלט"}
-        no_answers = {"לא", "לא.", "לא!", "לא תודה"}
+        # Carmit flagged this live (2026-10-15): a tiny exact-string set here
+        # ("כן", "כן.", "כן!", "בטח", "בהחלט") means an unambiguous "yes"
+        # with the customer's own natural elaboration right after it - "כן,
+        # להתחיל חופשה חדשה", "כן, מתאים" - matched NEITHER this set nor the
+        # no-answers one, falling through to a redundant, robotic "just to
+        # confirm, yes or no?" re-ask of the exact same question. Seen live
+        # in two separate QA rounds (A5, C1) as part of the route-approval
+        # loop. A plain word-boundary match on the leading "כן"/"לא" (not
+        # exact-string equality) catches the natural phrasing without
+        # needing a model round-trip for a binary gate this simple - the
+        # same philosophy the business owner asked for broadly: prefer
+        # understanding real phrasing over hard-coded example words.
+        yes_match = bool(_RESET_GATE_YES_RE.match(msg_norm))
+        no_match = bool(_RESET_GATE_NO_RE.match(msg_norm))
 
-        if msg_norm in yes_answers:
+        if yes_match:
             original_change = str(trip_state.get("reset_change_request") or "").strip()
             if trip_state.get("reset_scope") == "flights":
                 fresh = dict(trip_state)
@@ -6448,7 +6464,7 @@ def chat_clean():
                 'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
             })
 
-        if msg_norm in no_answers:
+        if no_match:
             original_change = str(trip_state.get("reset_change_request") or "").strip()
             kept = dict(trip_state)
             kept["reset_pending"] = False
