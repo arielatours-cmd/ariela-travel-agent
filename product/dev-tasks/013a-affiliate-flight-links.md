@@ -54,3 +54,4 @@
 - **מה ראינו ב-13.10:** Kiwi.com הופיע ב-Travelpayouts תחת My Programs → **Available**, עם כפתור Generate links. הקישור kiwi.tpk.lu/jP2lSLmJ נוצר. לפני כן הופיעה הודעה חתוכה: "Link not generated — this brand provi…".
 - **עד שהאישור מאומת:** בונים הכל מאחורי `TRAVELPAYOUTS_KIWI_LINK`. אם המשתנה ריק, הכפתור לא מוצג. **מומלץ לרוקן אותו ב-Render** עד שיש אישור.
 - **חלופה:** ספק טיסות אחר מ-Travelpayouts, דרך אותו מנגנון. רק שם הספק והמשתנה מתחלפים.
+- **עדכון 15.10, 19:47: בעלת העסק אישרה "קיווי מאושרים".** התוכנית פעילה, ו-TRAVELPAYOUTS_KIWI_LINK יכול להישאר ב-Render. שלמה מבקש ממנה קישור ארוך, כדי לאמת את ה-marker ואת ה-trs לבניית ה-deep link.
