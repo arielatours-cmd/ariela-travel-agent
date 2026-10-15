@@ -5598,6 +5598,26 @@ def _mentioned_places(message):
     return found
 
 
+def _mentions_a_different_place(message, known_places):
+    """Does this message name a place that ISN'T among `known_places`
+    (the current/old trip's own destination)? The shared building block
+    for every "is this still about the same trip, or something else" check
+    in chat_clean() - per the business owner (2026-10-15, after several
+    related round-2 findings: C1, C3, B2, A7's reopen-recognition gap all
+    independently got this wrong in slightly different ways): these gates
+    kept reinventing their own one-off mention-matching logic instead of
+    sharing one, so a message naming the OLD place only to say "this is
+    NOT that" (e.g. "עוד נסיעת עסקים, לאמסטרדם, נפרדת מברלין") kept being
+    misread as confirmation that it's still the old trip, because the old
+    place's own name was technically present in the text somewhere.
+    Mentioning the known place alone is never enough - only a message that
+    ALSO introduces a genuinely different place is actually about that
+    different place. Returns True exactly when such a different place is
+    named."""
+    mentioned = set(_mentioned_places(message))
+    return bool(mentioned - set(known_places or []))
+
+
 def _place_countries(names):
     """Hebrew country for each known city/country name (a country maps to itself)."""
     countries = set()
@@ -6125,11 +6145,10 @@ def chat_clean():
         # was mentioned at all, so it still counted as "same trip again"
         # and fired the false "you already have an active Berlin vacation"
         # message instead of ever reaching the (already correct) new-
-        # destination handling further down. Mentioning the old place is
-        # only a genuine "still talking about the same trip" signal when
-        # the message introduces NO other, different place alongside it -
-        # a message that ALSO names a new place is about that new place.
-        _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places)) and not (set(_mentioned_now) - set(_old_places))
+        # destination handling further down. Uses the shared
+        # _mentions_a_different_place helper (see its own docstring) rather
+        # than a one-off mention check of its own.
+        _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places)) and not _mentions_a_different_place(message, _old_places)
         if not _same_trip_again:
             trip_state = dict(trip_state)
             trip_state.pop('combined_search_launched', None)
