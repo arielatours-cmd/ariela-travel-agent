@@ -661,7 +661,19 @@ def _total_nights_hint(state):
     to count by eye off a route description - hand over the exact,
     pre-computed total so there is nothing left to compute for the overall
     trip length (per-city splits within a route still come from the
-    route's own day boundaries, which Ariella already has)."""
+    route's own day boundaries, which Ariella already has).
+
+    Seen live again (the business owner herself, 15.10.2026, Split-
+    >Dubrovnik, 11 nights / 12 days): even WITH the correct nights count
+    handed over, Ariella also counted "12 days" from her own route's day
+    headers, read the two different NUMBERS as a contradiction, and
+    "corrected" an already-perfectly-correct 12-day route by merging two
+    days together - nearly deleting a real day of the trip. 11 nights and
+    12 days are the same length, not two competing facts to reconcile -
+    she had no explicit statement of that identity, so a right nights
+    count and a right days count looked like a mismatch to her. State both
+    numbers together with the arithmetic identity spelled out, and forbid
+    treating an already-matching route as something to fix."""
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     if dates.get("needs_confirmation"):
@@ -678,10 +690,17 @@ def _total_nights_hint(state):
     nights = (ret - dep).days
     if nights <= 0:
         return ""
+    days = nights + 1
     return (
-        f"\nמספר הלילות הכולל של הטיול (מחושב בוודאות מתאריכי היציאה/החזרה - "
-        f"לעולם אל תספרי זאת בעצמך): {nights} לילות. אם המסלול מתפצל בין כמה ערים/יעדים, "
-        "סכום הלילות בכל הערים חייב להסתכם בדיוק למספר הזה."
+        f"\nאורך הטיול (מחושב בוודאות מתאריכי היציאה/החזרה - לעולם אל תספרי זאת בעצמך "
+        f"ולעולם אל תסתרי מהמספר הזה): {days} ימים ({nights} לילות - זה בדיוק אותו אורך טיול, "
+        "לא שני מספרים שונים: טיול שמתחיל ונגמר באותו יום הוא יום אחד ו-0 לילות, אז ימים תמיד שווים ללילות ועוד 1). "
+        f"בכותרות המסלול ('יום 1', 'יום 2' וכו) דברי תמיד במונח הימים: {days} ימים בדיוק, לא פחות ולא יותר. "
+        "אם המסלול שבנית כבר מכיל בדיוק את מספר הימים הזה - הוא נכון, לעולם אל תצהירי שיש אי-התאמה ואל 'תתקני' אותו "
+        "(מיזוג ימים, מחיקת יום וכו') בלי שהלקוח עצמו ביקש שינוי; טעות אמיתית תתגלה רק אם סופרים את כותרות 'יום N' "
+        "בפועל ומגלים שהן לא מגיעות למספר הזה - לא על ידי השוואה לספירת לילות בנפרד. "
+        "אם המסלול מתפצל בין כמה ערים/יעדים, סכום הלילות בכל הערים (לא הימים) חייב להסתכם בדיוק ל-"
+        f"{nights} לילות."
     )
 
 
