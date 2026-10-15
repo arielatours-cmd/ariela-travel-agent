@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from urllib.parse import parse_qsl, quote, urlsplit
 import logging
 import os
+import re
 import requests
 
 from config import SERPAPI_API_KEY
@@ -559,3 +560,105 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         exact=False,
         note=("הספק לא אפשר כרגע לפתוח את הטיסה כשהיא מלאה מראש עם מספר הנוסעים שבחרתם."
               if personal else "מסלול ההזמנה אצל הספק המומלץ אינו זמין כרגע."))
+
+
+# --- Kiwi.com affiliate link via Travelpayouts (task 013a) -------------------
+# A secondary "check on Kiwi.com too" button. It never replaces the main
+# booking target above, and it never runs Din or changes an offer's
+# consumer-protection label - it only decides whether the button may appear
+# and where it points.
+
+KIWI_PARTNER_NAME = "Kiwi.com"
+KIWI_AFFILIATE_NETWORK = "travelpayouts"
+
+_IATA_RE = re.compile(r"^[A-Z]{3}$")
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_SID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+def _kiwi_config() -> dict:
+    import config  # read at call time so the env-driven values stay testable
+    return {
+        "link": getattr(config, "TRAVELPAYOUTS_KIWI_LINK", "") or "",
+        "marker": getattr(config, "TRAVELPAYOUTS_MARKER", "") or "",
+        "trs": getattr(config, "TRAVELPAYOUTS_TRS", "") or "",
+        "template": getattr(config, "KIWI_SEARCH_URL_TEMPLATE", "") or "",
+    }
+
+
+def _is_https(url: str) -> bool:
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return False
+    return parsed.scheme == "https" and bool(parsed.netloc)
+
+
+def kiwi_offer_eligible(offer: dict) -> bool:
+    """True only for an offer the Kiwi.com button may appear on.
+
+    The flight data carries no self-transfer / virtual-interlining field, so
+    a separate-tickets warning can never be shown reliably. Per Din, the
+    Kiwi link is therefore limited to direct flights on both legs; anything
+    unknown (missing stop counts, open jaw) is treated as not direct.
+    An offer whose card states that consumer protection applies ("חלה")
+    never gets the Kiwi button next to it.
+    """
+    if not isinstance(offer, dict):
+        return False
+    if offer.get("stops") != 0 or offer.get("return_stops") != 0:
+        return False
+    if offer.get("open_jaw"):
+        return False
+    if str(offer.get("consumer_protection_label") or "").strip() == "חלה":
+        return False
+    return bool(offer.get("departure_code") and offer.get("arrival_code"))
+
+
+def kiwi_affiliate_target(offer: dict, *, adults: int = 1, children: int = 0,
+                          sid: str | None = None) -> dict | None:
+    """Where the Kiwi.com button points, or None when it must not be shown.
+
+    Returns {"url", "deep_link", "partner", "network"}. deep_link=True means
+    the URL opens Kiwi's search for this route and these dates; False means
+    the plain Travelpayouts link to Kiwi's home page (the button then says
+    "search on Kiwi.com", never "book"). The only identifier sent is the
+    trip id (sid) - no name, email or phone ever reaches the partner.
+    """
+    if not kiwi_offer_eligible(offer):
+        return None
+    cfg = _kiwi_config()
+    base = {"partner": KIWI_PARTNER_NAME, "network": KIWI_AFFILIATE_NETWORK}
+    if cfg["marker"] and cfg["trs"] and cfg["template"]:
+        values = {
+            "from": str(offer.get("departure_code") or "").upper(),
+            "to": str(offer.get("arrival_code") or "").upper(),
+            "depart": str(offer.get("outbound_date") or "")[:10],
+            "return": str(offer.get("return_date") or "")[:10],
+        }
+        sid_value = str(sid or "")
+        valid = (
+            _IATA_RE.match(values["from"]) and _IATA_RE.match(values["to"])
+            and _ISO_DATE_RE.match(values["depart"]) and _ISO_DATE_RE.match(values["return"])
+            and (not sid_value or _SID_RE.match(sid_value))
+        )
+        if valid:
+            try:
+                url = cfg["template"].format(
+                    marker=quote(cfg["marker"], safe=""), trs=quote(cfg["trs"], safe=""),
+                    sid=sid_value,
+                    adults=max(1, int(adults or 1)), children=max(0, int(children or 0)),
+                    **values,
+                )
+            except (KeyError, IndexError, ValueError, TypeError):
+                logging.warning("KIWI_SEARCH_URL_TEMPLATE is malformed; linking to Kiwi.com home page")
+                url = ""
+            if url and _is_https(url):
+                return {**base, "url": url, "deep_link": True}
+            if url:
+                logging.warning("Kiwi deep link is not a valid https URL; linking to Kiwi.com home page")
+        else:
+            logging.warning("Kiwi deep link skipped: offer is missing a valid route/dates")
+    if cfg["link"] and _is_https(cfg["link"]):
+        return {**base, "url": cfg["link"], "deep_link": False}
+    return None
