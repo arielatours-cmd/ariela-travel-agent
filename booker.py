@@ -155,6 +155,32 @@ def _homepage(value: str | None) -> str | None:
     return None
 
 
+def _looks_like_bare_homepage(url: str | None, fields: list[tuple[str, str]]) -> bool:
+    """Seen live (the business owner herself, 15.10.2026): a booking job
+    logged mode=personal_exact_party_regenerated exact=True - a fresh
+    token WAS obtained and SerpApi's booking_options DID return a
+    structurally valid entry - yet the URL it gave led to nothing more
+    specific than the supplier's own general landing page, with no
+    indication anywhere (query string or POST fields) that this itinerary
+    is attached to it at all. A `together.booking_request` entry from
+    SerpApi is not guaranteed to be a true deep link - claiming exact=True
+    for one that is, in substance, just a homepage promises the customer a
+    completed booking that was never actually prepared. A real supplier
+    deep link always carries real flight/route parameters (in the path,
+    the query string, or POST fields); a bare domain with an empty or
+    root-only path and nothing else never does, regardless of which
+    branch produced it."""
+    if not url or fields:
+        return False
+    try:
+        parsed = urlsplit(str(url))
+    except Exception:
+        return False
+    if parsed.query:
+        return False
+    return (parsed.path or "") in ("", "/")
+
+
 def _request_fields(req: dict) -> list[tuple[str, str]]:
     post = req.get("post_data")
     return parse_qsl(post, keep_blank_values=True) if post else []
@@ -428,10 +454,18 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
             pool = exact_supplier or direct_airline or approved_supplier
             if pool:
                 part, req = min(pool, key=lambda x: float(x[0].get("price") or 10**9))
-                return BookerTarget(url=req.get("url"), fields=_request_fields(req),
-                    supplier=part.get("book_with") or recommended,
-                    mode="personal_exact_party_regenerated" if personal else "recommended_supplier_refreshed",
-                    exact=True)
+                target_url, target_fields = req.get("url"), _request_fields(req)
+                if _looks_like_bare_homepage(target_url, target_fields):
+                    logging.warning(
+                        "resolve_booking_target: booking_options gave a bare homepage "
+                        "for supplier=%r url=%r - refusing to claim exact=True",
+                        part.get("book_with"), target_url,
+                    )
+                else:
+                    return BookerTarget(url=target_url, fields=target_fields,
+                        supplier=part.get("book_with") or recommended,
+                        mode="personal_exact_party_regenerated" if personal else "recommended_supplier_refreshed",
+                        exact=True)
 
             # No combined round-trip option. Budget carriers (Wizz Air, Ryanair,
             # easyJet, ...) commonly sell outbound + return as two separate
@@ -464,13 +498,22 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                 separate_candidates.append((total, departing, dep_req, ret_req))
             if separate_candidates:
                 _, departing, dep_req, ret_req = min(separate_candidates, key=lambda x: x[0])
-                return BookerTarget(
-                    url=dep_req.get("url"), fields=_request_fields(dep_req),
-                    supplier=departing.get("book_with") or recommended,
-                    mode="separate_tickets_two_step", exact=True,
-                    note="הספק מוכר את הטיסה הזו כשני כרטיסים נפרדים - הלוך וחזור. אריאלה פתחה עבורכם קודם את טיסת ההלוך, ותציג בהמשך קישור נפרד להזמנת טיסת החזור.",
-                    second_leg_url=ret_req.get("url"), second_leg_fields=_request_fields(ret_req),
-                )
+                dep_url, dep_fields = dep_req.get("url"), _request_fields(dep_req)
+                ret_url, ret_fields = ret_req.get("url"), _request_fields(ret_req)
+                if _looks_like_bare_homepage(dep_url, dep_fields) or _looks_like_bare_homepage(ret_url, ret_fields):
+                    logging.warning(
+                        "resolve_booking_target: separate-tickets leg gave a bare homepage "
+                        "for supplier=%r - refusing to claim exact=True",
+                        departing.get("book_with"),
+                    )
+                else:
+                    return BookerTarget(
+                        url=dep_url, fields=dep_fields,
+                        supplier=departing.get("book_with") or recommended,
+                        mode="separate_tickets_two_step", exact=True,
+                        note="הספק מוכר את הטיסה הזו כשני כרטיסים נפרדים - הלוך וחזור. אריאלה פתחה עבורכם קודם את טיסת ההלוך, ותציג בהמשך קישור נפרד להזמנת טיסת החזור.",
+                        second_leg_url=ret_url, second_leg_fields=ret_fields,
+                    )
 
             logging.info(
                 "resolve_booking_target: booking_token lookup returned no usable pool "
