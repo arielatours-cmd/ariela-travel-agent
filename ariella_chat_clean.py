@@ -356,9 +356,19 @@ def _weekday_pair_conflict(text, history):
             content = str(item.get("content") or "")
             if any(cue in content for cue in _WEEKDAY_PAIR_LODGING_CONTEXT_CUES):
                 continue
-            pair = re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?(" + day_alt + r")\s*(?:עד|[-–])\s*(?:יום\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
-            if pair:
-                break
+            candidate = re.search(r"(?<![\u05d0-\u05ea])(?:\u05de|\u05de\u05d9\u05d5\u05dd\s+|\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")\s*(?:\u05e2\u05d3|[-\u2013])\s*(?:\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
+            if not candidate:
+                continue
+            # A trip's own departure/return weekday range only ever means
+            # anything once pinned to a real calendar date - a bare
+            # weekday-pair with no date anywhere in the same message (e.g. a
+            # lodging/route-grouping aside worded in ways no fixed cue list
+            # can fully anticipate) is never that, regardless of wording.
+            # Structural check, not another word to chase.
+            if not re.search(r"\d{1,2}[./-]\d{1,2}", content):
+                continue
+            pair = candidate
+            break
     if not pair:
         return None
     today = date.today()
@@ -390,6 +400,29 @@ def _weekday_pair_conflict(text, history):
             return (f"רק לוודא — {dt.strftime('%d.%m.%Y')} יוצא ביום {actual}, וביקשת {pair.group(1)} עד {pair.group(2)}. "
                     f"התכוונת {options_text}? או שנשנה את ימי הנסיעה?")
     return None
+
+
+def _already_asked_weekday_conflict(history, conflict_text):
+    """Seen live (Carmit, WhatsApp, 15.10.2026 20:24-20:26): she replied with
+    the exact same dates twice in a row, and Ariella asked the identical
+    "did you mean X or Y" clarification both times - a loop, since a repeat
+    of the same answer IS the customer's confirmation, not new information
+    to re-question. Compare against the opening clause only (up to "וביקשת"),
+    which already pins down the specific date+weekday pair in question -
+    enough to recognize "we just asked this", without requiring the whole
+    message (suggested alternatives, phrasing) to match verbatim."""
+    if not history or not conflict_text:
+        return False
+    opening = conflict_text.split("וביקשת")[0].strip()
+    if not opening:
+        return False
+    for item in reversed(history):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("role") or "").lower() != "assistant":
+            continue
+        return opening in str(item.get("content") or "")
+    return False
 
 
 _RETRYABLE_CLAUDE_STATUS_CODES = (429, 529)
@@ -7089,7 +7122,7 @@ def chat_clean():
     # disagree.
     if not _deterministic_candidate_choice_facts(message, trip_state):
         date_conflict = _weekday_date_conflict(message, history)
-        if date_conflict:
+        if date_conflict and not _already_asked_weekday_conflict(history, date_conflict):
             return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     if not key:
