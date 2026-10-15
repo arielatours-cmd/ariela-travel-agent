@@ -2915,6 +2915,13 @@ _DESTINATION_SPELLING_ALIASES = {
     "ואל טורנס": "ואל תורנס",
     "וואל טורנס": "ואל תורנס",
     "וואל תורנס": "ואל תורנס",
+    # Seen live (Shaked, qa-s91 round 2, C2): the ski catalog's resort_he for
+    # Saalbach is "זלבאך", but the customer's own natural spelling
+    # ("זאלבאך", with the double-vowel) matched neither it nor the catalog's
+    # English "saalbach" - so the resort name was silently dropped and only
+    # the country ("אוסטריה") survived extraction, even though the message
+    # named the specific resort.
+    "זאלבאך": "זלבאך",
 }
 
 
@@ -2935,14 +2942,19 @@ def _known_destination_names():
     if _KNOWN_DESTINATION_NAMES_CACHE is not None:
         return _KNOWN_DESTINATION_NAMES_CACHE
     known = {}
+    country_needles = set()
     for airport in _load_airports():
         for he_key, en_key in (("country_he", "country_en"), ("city_he", "city_en")):
             he = str(airport.get(he_key) or "").strip()
             en = str(airport.get(en_key) or "").strip()
             if he:
                 known[he] = he
+                if he_key == "country_he":
+                    country_needles.add(he)
             if en:
                 known[en.lower()] = en
+                if en_key == "country_en":
+                    country_needles.add(en.lower())
     # Ski resorts aren't in the airport catalog at all (they're matched
     # separately in _resolve_ski_destination_airports against SKI_RESORTS),
     # so a resort name alone never counted as a "known destination" here -
@@ -2958,9 +2970,18 @@ def _known_destination_names():
             known[en.lower()] = en
     for alias, canonical in _DESTINATION_SPELLING_ALIASES.items():
         known[alias] = canonical
-    # Longer names first so "דרום אפריקה" matches before a shorter,
-    # coincidentally-contained needle would.
-    _KNOWN_DESTINATION_NAMES_CACHE = dict(sorted(known.items(), key=lambda kv: -len(kv[0])))
+    # A specific place (city or resort) is always more specific than a bare
+    # country name, so it must be checked first regardless of string length
+    # - seen live (Shaked, qa-s91 round 2, C2): "חופשת סקי בזאלבאך שבאוסטריה"
+    # names both the resort (via its alias, see _DESTINATION_SPELLING_ALIASES)
+    # and the country in the same sentence; "אוסטריה" is the longer string,
+    # so a pure length sort picked the country and the specific resort was
+    # never recognized at all. Within each tier, longer names still come
+    # first so "דרום אפריקה" matches before a shorter, coincidentally-
+    # contained needle would.
+    _KNOWN_DESTINATION_NAMES_CACHE = dict(sorted(
+        known.items(), key=lambda kv: (kv[0] in country_needles, -len(kv[0]))
+    ))
     return _KNOWN_DESTINATION_NAMES_CACHE
 
 
@@ -6704,6 +6725,16 @@ def chat_clean():
             pending_destination = _deterministic_destination_facts([], original_change, {})
             if pending_destination:
                 fresh = _merge_trip_state(fresh, pending_destination)
+            # Seen live (Shaked, qa-s91 round 2, C2): "אני רוצה לפתוח חופשה
+            # חדשה ונפרדת: חופשת סקי בזאלבאך שבאוסטריה, עם טיסה ולינה"
+            # already states the trip type (ski) - losing it here meant
+            # Ariella asked "regular vacation, business trip, or ski?" right
+            # back, as if the customer had never said. Preserve it exactly
+            # like the destination above, from the very same triggering
+            # message.
+            pending_trip_type = _deterministic_trip_type_facts(original_change)
+            if pending_trip_type:
+                fresh = _merge_trip_state(fresh, pending_trip_type)
             if any(x in original_change.lower() for x in ("מסלול","לתכנן טיול","תכנון טיול","אטרקציות")):
                 fresh['requested_services'] = ['trip_planning']
                 fresh['active_session'] = 'trip_planning'
