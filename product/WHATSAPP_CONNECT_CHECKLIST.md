@@ -10,3 +10,16 @@
 6. Business Settings → Users → System users → Employee → **Assign assets**. נותנים ל-Employee גישת Full control לחשבון הוואטסאפ החדש.
 7. Render → Environment: מעדכנים את `WHATSAPP_PHONE_NUMBER_ID` ואת `WHATSAPP_WABA_ID` לערכים החדשים.
 8. אופק מנחה את השלבים האחרונים: register עם ה-PIN, בדיקת subscription, והודעת בדיקה.
+
+---
+## עדכון 15.10: חסום עד סוף אימות העסק
+- **המצב:** Meta נועלת את פרטי העסק כשהאימות בבדיקה, ולכן אי אפשר לפתוח חשבון וואטסאפ חדש עכשיו.
+- **עקיפה זמנית לבדיקות:** מספר הבדיקה +1 555-162-1759.
+  - Phone Number ID: ‏1295170173670062
+  - Test WABA: ‏1017318837590194
+- **השלבים:**
+  1. ב-API Setup: מוסיפים את הנייד שלה כנמען מאושר.
+  2. נותנים ל-Employee גישה ל-Test WABA.
+  3. ב-Render מעדכנים את ה-IDs ובודקים את ה-ALLOWLIST.
+  4. מריצים subscription?apply=1, ושולחים הודעת בדיקה.
+- **אחרי שהאימות מסתיים:** חוזרים לשלבים 1–8 שלמעלה עם המספר 4389.
