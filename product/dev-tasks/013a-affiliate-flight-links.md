@@ -43,3 +43,8 @@
   - `CAR_RENTAL_PARTNER_NAME` = `Surprice`
 - שורת הגילוי ליד כרטיס הרכב (סעיף 3 במשימה) חייבת לעבוד עם השם Surprice.
 - `CAR_RENTAL_SEARCH_URL_TEMPLATE`: בינתיים ריק. אם Surprice תומכים ב-deep link (CJ ‏?url=), אפשר להוסיף אותו בהמשך.
+
+## עדכון 15.10: marker של Travelpayouts
+- ככל הנראה **marker = 584880**. מקור: סקריפט האימות של Drive, `emrld.ltd/NTg0ODgw.js?t=584880`, כש-NTg0ODgw הוא 584880 בקידוד base64. עדיין צריך לאמת בממשק: Profile, או בקישור ארוך מ-Tools → Links.
+- לקישור deep link צריך גם `trs` (מזהה הפרויקט) ו-`p` (מזהה התוכנית של Kiwi). מבקשים מבעלת העסק, דרך שלמה, קישור ארוך אחד לחיפוש ב-Kiwi, ולוקחים ממנו את התבנית.
+- עד אז הכפתור מוביל לדף הבית, דרך TRAVELPAYOUTS_KIWI_LINK.
