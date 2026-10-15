@@ -5024,6 +5024,56 @@ def _explicit_service_request(message, state):
     return None
 
 
+def _all_requested_services(message, state):
+    """Every one of lodging/car/trip_planning the customer's message
+    requests, not just the first. Seen live (Shaked, qa-s91): "לחזור לחופשה
+    שלי לאיטליה... ולהוסיף לה לינה ורכב" asks for BOTH in the same breath,
+    but the reopen flow only ever captured one service (whichever
+    _explicit_service_request matched first) and silently recorded the
+    other as never requested at all (reopened_trip_not_requested), even
+    though the same sentence asked for it. Same matching rules as
+    _explicit_service_request (request cues, negation, in-progress gating)
+    - just collecting every match instead of returning on the first."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    text = str(message or "").strip().lower()
+    if not text:
+        return []
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    in_progress = bool(state.get("active_session")) or any(v == "active" for v in statuses.values())
+    words = re.findall(r"[א-תa-z\"'׳״]+", text)
+    prefix = r"(?:ו|ה|ל|ש|וה|ול|וש|שה|לה)?"
+    found = []
+    for service, keywords in _SERVICE_KEYWORDS:
+        if service in found:
+            continue
+        for kw in keywords:
+            if service in found:
+                break
+            kw_words = kw.split()
+            n = len(kw_words)
+            first_re = re.compile(r"^" + prefix + re.escape(kw_words[0]) + r"$")
+            for i in range(len(words) - n + 1):
+                if not first_re.match(words[i]) or words[i + 1:i + n] != kw_words[1:]:
+                    continue
+                if any(w in ("לא", "בלי", "אין", "ללא") for w in words[max(0, i - 2):i]):
+                    continue
+                if not in_progress:
+                    found.append(service)
+                    break
+                before = words[max(0, i - 4):i]
+                if service == "lodging" and state.get("active_session") == "trip_planning" and re.search(r"לילה|לילות", text):
+                    continue
+                cues = _STRONG_REQUEST_CUES if state.get("active_session") == "trip_planning" else _REQUEST_CUES
+                if any(w in cues or (w.startswith("ו") and w[1:] in cues) for w in before):
+                    found.append(service)
+                    break
+                if words[i].startswith("ו") and words[i][1:].startswith(kw_words[0]) and i == 0:
+                    found.append(service)
+                    break
+    return found
+
+
 def _is_itinerary_acceptance(message):
     """Did the customer accept the itinerary just proposed? The exact-phrase
     set this replaced missed ordinary approvals ("מאשרת את המסלול", "נשמע
@@ -5678,9 +5728,19 @@ def _upcoming_vacations(member_id, limit=3):
     return result[:limit]
 
 
-def _state_from_trip(trip, service):
+def _state_from_trip(trip, services):
     """Rebuild the conversation state of an already-approved vacation so a
-    customer coming back to add `service` continues from what was agreed."""
+    customer coming back to add a service continues from what was agreed.
+    `services` is every service the customer explicitly asked for in the
+    triggering message (the first one is the active one this turn asks
+    about) - a bare single service string is still accepted for callers
+    that only ever have one. Seen live (Shaked, qa-s91): "...להוסיף לה
+    לינה ורכב" asked for both at once, but passing only the first-detected
+    service here recorded the second as reopened_trip_not_requested (never
+    asked, never wanted) even though the same sentence asked for it."""
+    services = services if isinstance(services, (list, tuple, set)) else [services]
+    services = [s for s in dict.fromkeys(services) if s]
+    service = services[0] if services else None
     answers = trip.get("answers") or {}
     stored = answers.get("_ariella_trip_state")
     if isinstance(stored, dict) and stored:
@@ -5705,6 +5765,17 @@ def _state_from_trip(trip, service):
     for s in ("lodging", "car", "trip_planning"):
         if s == service:
             statuses[s] = "active"
+        elif s in services:
+            # Also explicitly asked for in the same message as `service` -
+            # queue it instead of marking it active (only one session is
+            # ever active at a time) or declined. The normal sessionizer
+            # (_sessionize_state, called every later turn via
+            # _advance_sessions) auto-activates the next wanted:true
+            # "pending" service on its own once `service` closes - the same
+            # mechanism already used for any other multi-service request.
+            if statuses.get(s) != "complete":
+                statuses[s] = "pending"
+            decisions[s] = {"wanted": True, "source": "reopened_trip"}
         elif not _service_missing_on_trip(answers, s):
             statuses[s] = "complete"
         elif statuses.get(s) != "complete":
@@ -5717,10 +5788,11 @@ def _state_from_trip(trip, service):
             # asking on every return visit, even after a "no").
             statuses[s] = "declined"
             decisions[s] = {"wanted": False, "source": "reopened_trip_not_requested"}
-    decisions[service] = {"wanted": True, "source": "reopened_trip"}
-    services = set(state.get("requested_services") or []) | {"flights", service}
+    for s in services:
+        decisions[s] = {"wanted": True, "source": "reopened_trip"}
+    all_requested = set(state.get("requested_services") or []) | {"flights"} | set(services)
     state.update({
-        "session_status": statuses, "service_decisions": decisions, "requested_services": sorted(services),
+        "session_status": statuses, "service_decisions": decisions, "requested_services": sorted(all_requested),
         "active_session": service, "post_flight_continuation": True, "search_confirmed": True,
         "reopened_trip_id": trip["id"],
     })
@@ -6136,7 +6208,8 @@ def chat_clean():
         if isinstance(choice, int) and service in _REOPEN_LABELS:
             chosen = next((t for t in _reopenable_trips(member_id, service, "", limit=20) if t["id"] == options[choice].get("id")), None)
             if chosen:
-                reopened = _state_from_trip(chosen, service)
+                services_wanted = pending_reopen.get("services") or [service]
+                reopened = _state_from_trip(chosen, services_wanted)
                 reopened["profile"] = _member_profile(member_id)
                 reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_REOPEN_FIRST_QUESTION[service]}"
                 _remember_turn_reset_trip(member_id, history, message, reply, reopened)
@@ -6176,11 +6249,21 @@ def chat_clean():
         if not linked_service:
             linked_service = next((s for s in ("trip_planning", "lodging", "car") if s in (trip_state.get("requested_services") or [])), None)
         if linked_service:
+            # Carry every service this open conversation already asked for
+            # (requested_services), not just the one that happened to be
+            # active - otherwise a second co-requested service (seen live:
+            # lodging ורכב together) silently loses its "wanted" status the
+            # moment the vacation is reopened.
+            services_wanted = [s for s in ("trip_planning", "lodging", "car") if s in (trip_state.get("requested_services") or [])] or [linked_service]
+            if linked_service in services_wanted:
+                services_wanted = [linked_service] + [s for s in services_wanted if s != linked_service]
+            else:
+                services_wanted = [linked_service] + services_wanted
             candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places), limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
-                    "service": linked_service, "keep_state": True,
+                    "service": linked_service, "services": services_wanted, "keep_state": True,
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(linked_service, candidates),'trip_update':pending,'start_flight_search':False})
@@ -6188,13 +6271,17 @@ def chat_clean():
     trip_is_empty = not ((trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None) \
         and not trip_state.get("active_session") and not trip_state.get("reset_pending")
     if trip_is_empty:
-        requested_service = _explicit_service_request(message, trip_state) or _classify_service_request(message, history)
+        services_wanted = _all_requested_services(message, trip_state)
+        requested_service = (services_wanted[0] if services_wanted else None) \
+            or _explicit_service_request(message, trip_state) or _classify_service_request(message, history)
         if requested_service in _REOPEN_LABELS:
+            if requested_service not in services_wanted:
+                services_wanted = [requested_service] + services_wanted
             candidates = _reopenable_trips(session['member_id'], requested_service, message, limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
-                    "service": requested_service,
+                    "service": requested_service, "services": services_wanted,
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
