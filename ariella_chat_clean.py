@@ -2006,6 +2006,22 @@ _NEW_AND_SEPARATE_RE = re.compile(
     r"(?<![א-ת])ו?חדש(?:ה)?(?![א-ת]).{0,15}(?<![א-ת])ו?נפרד(?:ת|ים)?(?![א-ת])"
     r"|(?<![א-ת])ו?נפרד(?:ת|ים)?(?![א-ת]).{0,15}(?<![א-ת])ו?חדש(?:ה)?(?![א-ת])"
 )
+# Seen live (Shaked, qa-s92, round 3, A5): right after Ariella HERSELF asked
+# the open either/or question "להמשיך עם בודפשט או תכנון חדש לגמרי?", the
+# customer's own answer "תכנון חדש לגמרי לסיציליה" (entirely new planning)
+# matched neither the fixed phrase list (that only has the one specific
+# "חיפוש חדש לגמרי", not "תכנון חדש לגמרי" or any other noun) nor
+# _NEW_AND_SEPARATE_RE (no "נפרד" anywhere in this reply at all) - so the
+# reset never fired, and the whole old Budapest trip (airports, lodging,
+# declined car) silently survived into what was unambiguously, by the
+# customer's own answer to Ariella's own question, a brand new vacation.
+# "חדש" and "לגמרי" (entirely) together, in either order, is just as
+# explicit a declaration as "נפרד" - not tied to whichever noun they
+# happen to modify ("תכנון", "חיפוש", "מסלול"...).
+_ENTIRELY_NEW_RE = re.compile(
+    r"(?<![א-ת])ו?חדש(?:ה)?(?![א-ת]).{0,15}(?<![א-ת])לגמרי(?![א-ת])"
+    r"|(?<![א-ת])לגמרי(?![א-ת]).{0,15}(?<![א-ת])ו?חדש(?:ה)?(?![א-ת])"
+)
 
 
 def _full_reset_confirmation(message):
@@ -6547,7 +6563,7 @@ def chat_clean():
     _stated_trip_type = (_deterministic_trip_type_facts(message) or {}).get("trip_type")
     new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר")) or bool(
         _stated_trip_type and trip_state.get("trip_type") and _stated_trip_type != trip_state.get("trip_type")
-    ) or bool(_NEW_AND_SEPARATE_RE.search(message or ""))
+    ) or bool(_NEW_AND_SEPARATE_RE.search(message or "")) or bool(_ENTIRELY_NEW_RE.search(message or ""))
     old_trip_committed = bool(trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
     # Own pending questions (new trip vs. destination change) are answered by
     # their own handlers below - "חופשה חדשה" there is the answer, not a new request.
