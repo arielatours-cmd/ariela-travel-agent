@@ -1,185 +1,2884 @@
 {
-  "_note": "Regression cases for Ariella's deterministic (no-LLM) parsers. 'expect' must be contained in the result (subset match). Add a case for every conversation bug fixed, citing the commit.",
-  "cases": [
-    {"id": "dest-vietnam-misspelling", "fn": "_deterministic_destination_facts", "args": [[], "אני רוצה לטוס לויאטנם"], "expect": {"destination": {"places": ["וייטנאם"], "mode": "specific"}}, "source": "398bcc7"},
-    {"id": "dest-athens", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לאתונה ב-12/12 עד 18/12"], "expect": {"destination": {"places": ["אתונה"]}}},
-    {"id": "travelers-family", "fn": "_deterministic_traveler_facts", "args": ["2 מבוגרים ו-2 ילדים בני 5 ו-8"], "expect": {"travelers": {"adults": 2, "children": 2, "child_ages": [5, 8]}}, "source": "73a5819"},
-    {"id": "travelers-couple", "fn": "_deterministic_traveler_facts", "args": ["אני ובעלי"], "expect": {"travelers": {"adults": 2}}},
-    {"id": "budget-per-person", "fn": "_deterministic_budget_facts", "args": ["תקציב 1500 לאדם"], "expect": {"budget_per_person": {"amount": 1500, "currency": "ILS"}}, "source": "73a5819"},
-    {"id": "budget-unlimited", "fn": "_deterministic_budget_facts", "args": ["אין תקציב"], "expect": {"budget_per_person": {"status": "unlimited"}}},
-    {"id": "baggage-carry-on", "fn": "_deterministic_baggage_facts", "args": ["בלי מזוודה רק טרולי"], "expect": {"flight": {"baggage": ["carry_on_only"]}}},
-    {"id": "only-flights", "fn": "_deterministic_only_flights_facts", "args": ["רק טיסות"], "expect": {"requested_services": ["flights"], "session_status": {"lodging": "declined"}}},
-    {"id": "reset-bare-mehatchala-not-reset", "fn": "_reset_intent", "args": ["תשלחי את כל המסלול מהתחלה עם זמנים"], "expect_falsy": true, "source": "8f5a452"},
-    {"id": "reset-explicit", "fn": "_reset_intent", "args": ["בואי נתחיל מהתחלה"], "expect_truthy": true, "source": "8f5a452"},
-    {"id": "reset-new-vacation", "fn": "_reset_intent", "args": ["חופשה חדשה"], "expect_truthy": true},
-    {"id": "named-decline-masculine-compound", "fn": "_deterministic_named_decline_facts", "args": ["תחפשי בשניהם. לא צריך מסלול כרגע"], "expect": {"session_status": {"trip_planning": "declined"}}, "source": "34bb2bd"},
-    {"id": "named-decline-car-not-needed", "fn": "_deterministic_named_decline_facts", "args": ["רכב לא נדרש"], "expect": {"service_decisions": {"car": {"wanted": false}}, "session_status": {"car": "declined"}}, "source": "811dafd"},
-    {"id": "named-decline-no-misfire-long", "fn": "_deterministic_named_decline_facts", "args": ["אני רוצה לשכור רכב גדול כי אנחנו משפחה עם הרבה מזוודות"], "expect_falsy": true, "source": "811dafd"},
-    {"id": "candidate-reversed-shorthand", "fn": "_deterministic_candidate_choice_facts", "args": ["1.7 עד 27", {"dates": {"needs_confirmation": true, "candidate_ranges": ["20.6.2027 - 24.6.2027", "27.6.2027 - 1.7.2027"]}}], "expect": {"dates": {"departure": "2027-06-27", "return": "2027-07-01", "needs_confirmation": false}}, "source": "32a0f76"},
-    {"id": "candidate-short-day-numbers", "fn": "_deterministic_candidate_choice_facts", "args": ["18 עד 22", {"dates": {"needs_confirmation": true, "candidate_ranges": ["18.04.2027–22.04.2027", "25.04.2027–29.04.2027"]}}], "expect": {"dates": {"departure": "2027-04-18", "return": "2027-04-22", "needs_confirmation": false}}, "source": "62af7aa"},
-    {"id": "candidate-short-second", "fn": "_deterministic_candidate_choice_facts", "args": ["25 עד 29", {"dates": {"needs_confirmation": true, "candidate_ranges": ["18.04.2027–22.04.2027", "25.04.2027–29.04.2027"]}}], "expect": {"dates": {"departure": "2027-04-25", "return": "2027-04-29"}}, "source": "62af7aa"},
-    {"id": "candidate-no-misfire", "fn": "_deterministic_candidate_choice_facts", "args": ["יש לי 3 ילדים", {"dates": {"needs_confirmation": true, "candidate_ranges": ["18.04.2027–22.04.2027", "25.04.2027–29.04.2027"]}}], "expect_falsy": true, "source": "62af7aa"},
-    {"id": "dest-new-vacation-cyprus", "fn": "_deterministic_destination_facts", "args": [[], "בואי נתכנן חופשה חדשה לקפריסין"], "expect": {"destination": {"places": ["קפריסין"], "mode": "specific"}}, "source": "c388665"},
-    {"id": "dest-japan-from-catalog", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס ליפן"], "expect": {"destination": {"places": ["יפן"]}}, "source": "c388665"},
-    {"id": "itinerary-accept-standalone-no", "fn": "_is_itinerary_acceptance", "args": ["לא. זה נשמע מצוין"], "expect_truthy": true, "source": "980f459"},
-    {"id": "itinerary-reject-not-suitable", "fn": "_is_itinerary_acceptance", "args": ["לא מתאים לי"], "expect_falsy": true, "source": "980f459"},
-    {"id": "itinerary-reject-add-day", "fn": "_is_itinerary_acceptance", "args": ["לא, תוסיפי עוד יום"], "expect_falsy": true, "source": "980f459"},
-    {"id": "post-flight-transfer-me", "fn": "_post_flight_offer_answer", "args": ["תעבירי", {"post_flight_offer": ["lodging", "car"]}], "expect": {"_transfer_to_results": true, "lodging": false, "car": false}, "source": "fd3da47"},
-    {"id": "route-gateway-city-beats-country", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "לרנקה"}, {"day": 2, "base": "קפריסין"}, {"day": 3, "base": "לרנקה"}]}}}], "expect": {"destination_airports": ["LCA"]}, "source": "64ffebc"},
-    {"id": "route-gateway-country-only-keeps-all", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "קפריסין"}]}}}], "expect": {"destination_airports": ["LCA", "PFO"]}, "source": "64ffebc"},
-    {"id": "baggage-checked-short-form", "fn": "_deterministic_baggage_facts", "args": ["מזוודה בבטן לכל אחד"], "expect": {"flight": {"baggage": ["checked_bag"]}}, "source": "live-chat-2026-10-12"},
-    {"id": "baggage-checked-mixed-reply", "fn": "_deterministic_baggage_facts", "args": ["מזוודה אחת בבטן לכל אחד וטרולי. תקציב לטיסה עד 1500 שקל לאדם"], "expect_truthy": true, "source": "live-chat-2026-10-12"},
-    {"id": "dates-hebrew-month-name", "fn": "_deterministic_date_facts", "args": [[], "יציאה ב-24 במאי וחזרה ב-31 במאי", {}], "expect_truthy": true, "source": "live-chat-2026-10-12"},
-    {"id": "named-accept-three-services", "fn": "_deterministic_named_accept_facts", "args": ["נשמח גם למסלול טיול, מלון ורכב שכור"], "expect": {"service_decisions": {"trip_planning": {"wanted": true}, "lodging": {"wanted": true}, "car": {"wanted": true}}}, "source": "live-chat-2026-10-12"},
-    {"id": "named-accept-no-misfire-idle-mention", "fn": "_deterministic_named_accept_facts", "args": ["נשמח לישון במלון יפה"], "expect_falsy": true, "source": "live-chat-2026-10-12"},
-    {"id": "named-accept-no-misfire-single-service", "fn": "_deterministic_named_accept_facts", "args": ["רוצים גם רכב"], "expect_falsy": true, "source": "live-chat-2026-10-12"},
-    {"id": "lodging-rooms-proactive-double-room", "fn": "_deterministic_lodging_facts", "args": ["מלון בוטיק, רמה בינונית-גבוהה, עד 600 שקל ללילה לחדר זוגי. עם ארוחת בוקר", []], "expect": {"lodging": {"details": {"rooms": 1}}}, "source": "live-chat-2026-10-12"},
-    {"id": "lodging-rooms-no-misfire-plural", "fn": "_deterministic_lodging_facts", "args": ["צריך 2 חדרים זוגיים בבקשה", []], "expect_falsy": true, "source": "live-chat-2026-10-12"},
-    {"id": "typo-yaadifut", "fn": "_fix_known_typos", "args": ["או שיש לך יעדיפות אחרת?"], "expect": "או שיש לך עדיפות אחרת?", "source": "live-chat-2026-10-12"},
-    {"id": "weekday-no-misfire-two-children", "fn": "_weekday_date_conflict", "args": ["תאילנד, אני ובעלי ושני ילדים בני 8 ו-11, 15/07/2027 עד 29/07/2027"], "expect_falsy": true, "source": "shaked-live-2026-10-12"},
-    {"id": "weekday-real-conflict-still-caught", "fn": "_weekday_date_conflict", "args": ["יום שני 15/07/2027"], "expect_truthy": true, "source": "shaked-live-2026-10-12"},
-    {"id": "flights-already-booked-declines-flights-session", "fn": "_deterministic_flights_already_booked_facts", "args": ["יש לנו כבר טיסות למונטנגרו (פודגוריצה) מ-20/06/2027 עד 27/06/2027. נשמח לתכנון מסלול, לינה ורכב שכור"], "expect": {"service_decisions": {"flights": {"wanted": false}}, "session_status": {"flights": "declined"}}, "source": "shaked-live-2026-10-12"},
-    {"id": "flights-already-booked-no-misfire", "fn": "_deterministic_flights_already_booked_facts", "args": ["רוצים לטוס למונטנגרו"], "expect_falsy": true, "source": "shaked-live-2026-10-12"},
-    {"id": "dates-hebrew-month-range-dash", "fn": "_deterministic_date_facts", "args": [[], "10-14 בנובמבר 2026", {}], "expect": {"dates": {"departure": "2026-11-10", "return": "2026-11-14"}}, "source": "live-chat-2026-10-12-s1"},
-    {"id": "dates-hebrew-month-range-from-to", "fn": "_deterministic_date_facts", "args": [[], "מ-3 עד 9 במרץ 2027", {}], "expect": {"dates": {"departure": "2027-03-03", "return": "2027-03-09"}}, "source": "live-chat-2026-10-12-s2"},
-    {"id": "weekday-lookup-no-dates", "fn": "_weekday_lookup_hint", "args": [{}], "expect": "", "source": "live-chat-2026-10-12"},
-    {"id": "keep-declines-protects-flights", "fn": "_keep_declines", "args": [{"service_decisions": {"flights": {"wanted": false, "source": "already_booked_elsewhere"}}, "session_status": {"flights": "declined"}}, {"service_decisions": {}, "session_status": {"flights": "pending"}, "active_session": "flights"}, null], "expect": {"service_decisions": {"flights": {"wanted": false}}, "session_status": {"flights": "declined"}}, "source": "shaked-live-2026-10-12-wave4"},
-    {"id": "keep-declines-flights-explicit-reopen", "fn": "_keep_declines", "args": [{"service_decisions": {"flights": {"wanted": false, "source": "already_booked_elsewhere"}}, "session_status": {"flights": "declined"}}, {"service_decisions": {}, "session_status": {"flights": "pending"}, "active_session": "flights"}, "flights"], "expect": {"session_status": {"flights": "pending"}}, "source": "shaked-live-2026-10-12-wave4"},
-    {"id": "named-accept-feminine-tzricha", "fn": "_deterministic_named_accept_facts", "args": ["צריכה טיסה, מסלול ומלון"], "expect": {"service_decisions": {"trip_planning": {"wanted": true}, "lodging": {"wanted": true}}}, "source": "shaked-live-2026-10-12-wave4"},
-    {"id": "named-accept-not-on-decline-lo-tsarich", "fn": "_deterministic_named_accept_facts", "args": ["חופשה רגילה. טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027, ונשמח לתכנון מסלול. לינה ורכב לא צריך, יש לנו איפה לישון"], "expect_falsy": true, "source": "live-chat-2026-10-12-s2 (regression f918821)"},
-    {"id": "named-accept-not-on-decline-bli", "fn": "_deterministic_named_accept_facts", "args": ["חופשה רגילה. אני צריכה רק טיסה לרומא, אני ובעלי, 10-14 בנובמבר 2026. בלי מלון ובלי רכב, ולא צריך מסלול"], "expect_falsy": true, "source": "live-chat-2026-10-12-s1 (regression f918821)"},
-    {"id": "named-decline-in-long-message-lodging-car", "fn": "_deterministic_named_decline_facts", "args": ["חופשה רגילה. טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027, ונשמח לתכנון מסלול. לינה ורכב לא צריך, יש לנו איפה לישון"], "expect": {"session_status": {"lodging": "declined", "car": "declined"}}, "source": "live-chat-2026-10-12-s2"},
-    {"id": "named-decline-in-long-message-car", "fn": "_deterministic_named_decline_facts", "args": ["חופשה רגילה. קפריסין, אני ובעלי וילד בן 6, 12/04/2027 עד 18/04/2027. צריכה טיסה, מסלול ומלון. רכב לא צריך"], "expect": {"session_status": {"car": "declined"}}, "source": "live-chat-2026-10-12-s3"},
-    {"id": "named-decline-triple-mixed", "fn": "_deterministic_named_decline_facts", "args": ["אני צריכה רק טיסה לרומא, אני ובעלי, 10-14 בנובמבר 2026. בלי מלון ובלי רכב, ולא צריך מסלול"], "expect": {"session_status": {"lodging": "declined", "car": "declined", "trip_planning": "declined"}}, "source": "live-chat-2026-10-12-s1"},
-    {"id": "travelers-hebrew-number-word-two", "fn": "_deterministic_traveler_facts", "args": ["טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027"], "expect": {"travelers": {"adults": 2}}, "source": "live-chat-2026-10-12-s8"},
-    {"id": "travelers-hebrew-number-word-plain", "fn": "_deterministic_traveler_facts", "args": ["שני מבוגרים, בלי ילדים"], "expect": {"travelers": {"adults": 2}}, "source": "live-chat-2026-10-12-s8"},
-    {"id": "travelers-hebrew-number-word-family", "fn": "_deterministic_traveler_facts", "args": ["משפחה עם שלושה מבוגרים וארבעה ילדים"], "expect": {"travelers": {"adults": 3, "children": 4}}, "source": "live-chat-2026-10-12-s8"},
-    {"id": "open-jaw-heraklion-not-lyon", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בחאניה ולחזור מהרקליון"], "expect": {"destination_airports": ["CHQ"], "return_departure_airports": ["HER"]}, "source": "live-chat-2026-10-12-s10"},
-    {"id": "open-jaw-chania-short-spelling", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בחניה ולחזור מהרקליון"], "expect": {"destination_airports": ["CHQ"], "return_departure_airports": ["HER"]}, "source": "live-chat-2026-10-12-s10"},
-    {"id": "open-jaw-nochtim-chozrim", "fn": "_deterministic_open_jaw_airports", "args": ["נוחתים בחאניה וחוזרים מהרקליון"], "expect": {"open_jaw_requested": true}, "source": "live-chat-2026-10-12-s10"},
-    {"id": "open-jaw-paphos-larnaca-still-works", "fn": "_deterministic_open_jaw_airports", "args": ["לנחות בפאפוס ולחזור מלרנקה"], "expect": {"destination_airports": ["PFO"], "return_departure_airports": ["LCA"]}, "source": "guard"},
-    {"id": "flights-already-booked-negated-then-already", "fn": "_deterministic_flights_already_booked_facts", "args": ["אנחנו לא צריכים טיסה, כבר הזמנו"], "expect": {"session_status": {"flights": "declined"}}, "source": "live-chat-2026-10-12-round3-tuscany"},
-    {"id": "flights-already-booked-no-misfire-separate-hotel", "fn": "_deterministic_flights_already_booked_facts", "args": ["כבר הזמנו מלון, נשמח גם לטיסה"], "expect": {}, "source": "guard"},
-    {"id": "departure-airport-hfa-noun-tisa", "fn": "_deterministic_departure_airport_facts", "args": ["חופשה רגילה. טיסה מחיפה ללרנקה לי ולבעלי, 15/05/2027 עד 19/05/2027. רק טיסה"], "expect": {"departure_airport": "HFA"}, "source": "live-chat-2026-10-12-shaked-s20"},
-    {"id": "departure-airport-hfa-noun-tisa-bangkok", "fn": "_deterministic_departure_airport_facts", "args": ["טיסה מחיפה לבנגקוק, 10/06/2027 עד 20/06/2027, רק טיסה"], "expect": {"departure_airport": "HFA"}, "source": "live-chat-2026-10-12-shaked-s21"},
-    {"id": "travelers-child-age-not-from-date", "fn": "_deterministic_traveler_facts", "args": ["חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב"], "expect": {"travelers": {"adults": 2, "children": 2, "child_ages": [9, 12]}}, "source": "live-chat-2026-10-12-shaked-s59"},
-    {"id": "travelers-child-ages-three-no-date-nearby", "fn": "_deterministic_traveler_facts", "args": ["שלושה ילדים בני 9, 12 ו-14"], "expect": {"travelers": {"children": 3, "child_ages": [9, 12, 14]}}, "source": "guard"},
-    {"id": "travelers-solo-ani-levad", "fn": "_deterministic_traveler_facts", "args": ["אני לבד. צריך גם מלון ליד מרכז הכנסים"], "expect": {"travelers": {"adults": 1}}, "source": "live-chat-2026-10-12-shaked-s56"},
-    {"id": "travelers-solo-noseat-levad", "fn": "_deterministic_traveler_facts", "args": ["אני נוסעת לבד"], "expect": {"travelers": {"adults": 1}}, "source": "live-chat-2026-10-12-shaked-s58"},
-    {"id": "travelers-solo-no-misfire-couple", "fn": "_deterministic_traveler_facts", "args": ["אני ובעלי"], "expect": {"travelers": {"adults": 2}}, "source": "guard"},
-    {"id": "gateway-narrow-london-unjustified", "fn": "_guard_unjustified_gateway_narrowing", "args": [{"destination": {"places": ["לונדון"], "mode": "specific"}, "destination_airports": ["LGW"]}, "נוסע ללונדון לכנס עבודה", []], "expect": {"destination_airports": ["LGW", "LHR", "LTN", "STN"]}, "source": "live-chat-2026-10-12-shaked-s57"},
-    {"id": "gateway-narrow-london-explicit-stays", "fn": "_guard_unjustified_gateway_narrowing", "args": [{"destination": {"places": ["לונדון"], "mode": "specific"}, "destination_airports": ["LGW"]}, "תזמיני לי טיסה לשדה גטוויק בלונדון", []], "expect": {"destination_airports": ["LGW"]}, "source": "guard"},
-    {"id": "gateway-narrow-single-gateway-city-untouched", "fn": "_guard_unjustified_gateway_narrowing", "args": [{"destination": {"places": ["לרנקה"]}, "destination_airports": ["LCA"]}, "טיסה ללרנקה", []], "expect": {"destination_airports": ["LCA"]}, "source": "guard"},
-    {"id": "ski-resort-val-thorens-tet-spelling", "fn": "_resolve_ski_destination_airports", "args": [{"trip_type": "ski", "destination": {"places": ["ואל טורנס"], "mode": "specific"}}], "expect": {"destination_airports": ["GVA", "LYS"]}, "source": "live-chat-2026-10-12-shaked-s59"},
-    {"id": "ski-resort-val-thorens-correct-spelling-still-works", "fn": "_resolve_ski_destination_airports", "args": [{"trip_type": "ski", "destination": {"places": ["ואל תורנס"], "mode": "specific"}}], "expect": {"destination_airports": ["GVA", "LYS"]}, "source": "guard"},
-    {"id": "total-nights-hint-two-nights", "fn": "_total_nights_hint", "args": [{"dates": {"departure": "2027-03-14", "return": "2027-03-16", "needs_confirmation": false}}], "expect_truthy": true, "source": "live-chat-2026-10-12-shaked-s56"},
-    {"id": "named-accept-bare-list-no-framing", "fn": "_deterministic_named_accept_facts", "args": ["חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב"], "expect": {"service_decisions": {"lodging": {"wanted": true}, "car": {"wanted": true}}}, "source": "live-chat-2026-10-12-shaked-s59"},
-    {"id": "named-accept-bare-list-no-misfire-mixed-sentence", "fn": "_deterministic_named_accept_facts", "args": ["ראינו תמונות של מלון ורכב ישנים באתר"], "expect": {}, "source": "guard"},
-    {"id": "flights-already-booked-plain-adjacent-still-declines", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect": {"session_status": {"flights": "declined"}}, "source": "live-chat-2026-10-12-shaked-s51"},
-    {"id": "travelers-friends-digit", "fn": "_deterministic_traveler_facts", "args": ["4 חברים"], "expect": {"travelers": {"adults": 4}}, "source": "live-chat-2026-10-12-shaked-s61"},
-    {"id": "travelers-friends-word", "fn": "_deterministic_traveler_facts", "args": ["ארבעה חברים"], "expect": {"travelers": {"adults": 4}}, "source": "live-chat-2026-10-12-shaked-s61"},
-    {"id": "travelers-people-count", "fn": "_deterministic_traveler_facts", "args": ["5 אנשים"], "expect": {"travelers": {"adults": 5}}, "source": "guard"},
-    {"id": "travelers-single-adult-digit", "fn": "_deterministic_traveler_facts", "args": ["1 מבוגר"], "expect": {"travelers": {"adults": 1}}, "source": "live-chat-2026-10-12-shaked-s58"},
-    {"id": "dest-ski-val-thorens-tet", "fn": "_deterministic_destination_facts", "args": [[], "חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב", {}], "expect": {"destination": {"places": ["ואל תורנס"]}}, "source": "live-chat-2026-10-12-shaked-s65"},
-    {"id": "budget-total-no-per-person", "fn": "_deterministic_budget_facts", "args": ["מזוודה בבטן המטוס, ישירה, עד 5000 שקל"], "expect": {"budget_per_person": {"amount": 5000, "currency": "ILS"}}, "source": "live-chat-2026-10-12-shaked-s64"},
-    {"id": "dest-florence", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לפירנצה", {}], "expect": {"destination": {"places": ["פירנצה"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-pisa", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לפיזה", {}], "expect": {"destination": {"places": ["פיזה"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-milan-linate", "fn": "_deterministic_destination_facts", "args": [[], "טיסה למילאנו לינאטה", {}], "expect": {"destination": {"places": ["מילאנו"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-rome-ciampino", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לרומא", {}], "expect": {"destination": {"places": ["רומא"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-basel", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לבאזל", {}], "expect": {"destination": {"places": ["באזל"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-palma-de-mallorca", "fn": "_deterministic_destination_facts", "args": [[], "תזמיני לי לפלמה דה מיורקה", {}], "expect": {"destination": {"places": ["פלמה דה מיורקה"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-faro", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לפארו", {}], "expect": {"destination": {"places": ["פארו"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-chambery", "fn": "_deterministic_destination_facts", "args": [[], "שמברי בבקשה", {}], "expect": {"destination": {"places": ["שמברי"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-grenoble", "fn": "_deterministic_destination_facts", "args": [[], "גרנובל", {}], "expect": {"destination": {"places": ["גרנובל"]}}, "source": "carmit-decision-2026-10-13-catalog-coverage"},
-    {"id": "dest-manchester", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס למנצ'סטר", {}], "expect": {"destination": {"places": ["מנצ'סטר"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-edinburgh", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לאדינבורו", {}], "expect": {"destination": {"places": ["אדינבורו"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-hamburg", "fn": "_deterministic_destination_facts", "args": [[], "טיסה להמבורג", {}], "expect": {"destination": {"places": ["המבורג"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-cologne", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לקלן", {}], "expect": {"destination": {"places": ["קלן"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-stuttgart", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לשטוטגרט", {}], "expect": {"destination": {"places": ["שטוטגרט"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-seville", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לסביליה", {}], "expect": {"destination": {"places": ["סביליה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-bilbao", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לבילבאו", {}], "expect": {"destination": {"places": ["בילבאו"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-valencia", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לולנסיה", {}], "expect": {"destination": {"places": ["ולנסיה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-alicante", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לאליקנטה", {}], "expect": {"destination": {"places": ["אליקנטה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-tenerife", "fn": "_deterministic_destination_facts", "args": [[], "חופשה בטנריף", {}], "expect": {"destination": {"places": ["טנריף"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-gran-canaria", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לגראן קנריה", {}], "expect": {"destination": {"places": ["גראן קנריה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-menorca", "fn": "_deterministic_destination_facts", "args": [[], "חופשה במנורקה", {}], "expect": {"destination": {"places": ["מנורקה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-bari", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לבארי", {}], "expect": {"destination": {"places": ["בארי"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-olbia", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לאוליביה", {}], "expect": {"destination": {"places": ["אוליביה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-gothenburg", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לגטבורג", {}], "expect": {"destination": {"places": ["גטבורג"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-bergen", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לברגן", {}], "expect": {"destination": {"places": ["ברגן"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-reykjavik", "fn": "_deterministic_destination_facts", "args": [[], "חופשה ברייקיאוויק", {}], "expect": {"destination": {"places": ["רייקיאוויק"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-dublin", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לדבלין", {}], "expect": {"destination": {"places": ["דבלין"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-nantes", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לנאנט", {}], "expect": {"destination": {"places": ["נאנט"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-bordeaux", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לבורדו", {}], "expect": {"destination": {"places": ["בורדו"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-zakynthos", "fn": "_deterministic_destination_facts", "args": [[], "חופשה בזאקינתוס", {}], "expect": {"destination": {"places": ["זאקינתוס"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-samos", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לסאמוס", {}], "expect": {"destination": {"places": ["סאמוס"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-lesvos", "fn": "_deterministic_destination_facts", "args": [[], "חופשה בלסבוס", {}], "expect": {"destination": {"places": ["לסבוס"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-skiathos", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לסקיאתוס", {}], "expect": {"destination": {"places": ["סקיאתוס"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-kalamata", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לקלמטה", {}], "expect": {"destination": {"places": ["קלמטה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-skopje", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לסקופיה", {}], "expect": {"destination": {"places": ["סקופיה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-sarajevo", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לסרייבו", {}], "expect": {"destination": {"places": ["סרייבו"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-doha", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לנסוע לדוחה", {}], "expect": {"destination": {"places": ["דוחה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-muscat", "fn": "_deterministic_destination_facts", "args": [[], "טיסה למוסקט", {}], "expect": {"destination": {"places": ["מוסקט"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-shanghai", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לשנגחאי", {}], "expect": {"destination": {"places": ["שנגחאי"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-guangzhou", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לגואנגזו", {}], "expect": {"destination": {"places": ["גואנגזו"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-ho-chi-minh", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס להו צ'י מין סיטי", {}], "expect": {"destination": {"places": ["הו צ'י מין סיטי"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-da-nang", "fn": "_deterministic_destination_facts", "args": [[], "חופשה בדה נאנג", {}], "expect": {"destination": {"places": ["דה נאנג"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-bali", "fn": "_deterministic_destination_facts", "args": [[], "חופשה בבאלי", {}], "expect": {"destination": {"places": ["באלי"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-jakarta", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לג'קרטה", {}], "expect": {"destination": {"places": ["ג'קרטה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-manila", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס למנילה", {}], "expect": {"destination": {"places": ["מנילה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-kuala-lumpur", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לקואלה לומפור", {}], "expect": {"destination": {"places": ["קואלה לומפור"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-osaka", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לאוסקה", {}], "expect": {"destination": {"places": ["אוסקה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-marrakech", "fn": "_deterministic_destination_facts", "args": [[], "מרקש בבקשה", {}], "expect": {"destination": {"places": ["מרקש"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-casablanca", "fn": "_deterministic_destination_facts", "args": [[], "טיסה לקזבלנקה", {}], "expect": {"destination": {"places": ["קזבלנקה"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-zanzibar", "fn": "_deterministic_destination_facts", "args": [[], "חופשה בזנזיבר", {}], "expect": {"destination": {"places": ["זנזיבר"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-cape-town", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לקייפטאון", {}], "expect": {"destination": {"places": ["קייפטאון"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-las-vegas", "fn": "_deterministic_destination_facts", "args": [[], "טיסה ללאס וגאס", {}], "expect": {"destination": {"places": ["לאס וגאס"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "dest-orlando", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לאורלנדו", {}], "expect": {"destination": {"places": ["אורלנדו"]}}, "source": "carmit-decision-2026-10-13-catalog-expansion"},
-    {"id": "budget-unlimited-ein-tikra", "fn": "_deterministic_budget_facts", "args": ["רק טרולי לכל אחד, ישירה, אין תקרה"], "expect": {"budget_per_person": {"status": "unlimited"}}, "source": "live-chat-2026-10-13-shaked-s71"},
-    {"id": "budget-unlimited-ein-magbala", "fn": "_deterministic_budget_facts", "args": ["אין מגבלה"], "expect": {"budget_per_person": {"status": "unlimited"}}, "source": "live-chat-2026-10-13-shaked-s71"},
-    {"id": "named-accept-bare-list-with-short-qualifier", "fn": "_deterministic_named_accept_facts", "args": ["טיסה, מלון במנהטן ורכב"], "expect": {"service_decisions": {"lodging": {"wanted": true}, "car": {"wanted": true}}}, "source": "live-chat-2026-10-13-shaked-s72"},
-    {"id": "named-accept-bare-list-no-misfire-sentence-with-verb", "fn": "_deterministic_named_accept_facts", "args": ["ראינו תמונות של מלון ורכב ישנים באתר"], "expect": {}, "source": "guard"},
-    {"id": "protect-destination-airports-from-car-pickup-reply", "fn": "_protect_destination_airports_from_car_reply", "args": [{"active_session": "car", "destination_airports": []}, {"active_session": "car", "destination_airports": ["JFK"]}, "JFK"], "expect": {"destination_airports": []}, "source": "live-chat-2026-10-13-shaked-s72"},
-    {"id": "protect-destination-airports-no-misfire-real-flights-answer", "fn": "_protect_destination_airports_from_car_reply", "args": [{"active_session": "flights", "destination_airports": []}, {"active_session": "flights", "destination_airports": ["JFK"]}, "תעדיפי לנחות ב-JFK"], "expect": {"destination_airports": ["JFK"]}, "source": "guard"},
-    {"id": "flight-gap-question-after-route-approval-not-empty", "fn": "_flight_gap_question", "args": [["departure_airport", "flight.baggage", "budget_per_person"], {"destination_airports": ["PFO"]}], "expect_truthy": true, "source": "live-chat-2026-10-13-shaked-s75"},
-    {"id": "false-search-claim-lodging-active-car-pending", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "complete", "lodging": "active", "car": "pending"}], "expect": "lodging", "source": "live-chat-2026-10-13-shaked-s75"},
-    {"id": "false-search-claim-all-domains-decided", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "declined", "lodging": "complete", "car": "declined"}], "expect": null, "source": "live-chat-2026-10-13-shaked-s75"},
-    {"id": "false-search-claim-only-car-open", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "declined", "lodging": "declined", "car": "pending"}], "expect": "car", "source": "live-chat-2026-10-13-shaked-s75"},
-    {"id": "false-search-claim-missing-keys-counted-open", "fn": "_flight_approval_still_has_open_domain", "args": [{"flights": "complete", "trip_planning": "declined"}], "expect": "lodging", "source": "live-chat-2026-10-13-shaked-s75"},
-    {"id": "weekday-no-misfire-bishneihem", "fn": "_weekday_date_conflict", "args": ["לחפש בשניהם. 6/12/2026 עד 11/12/2026, 2 מבוגרים", []], "expect": null, "source": "live-chat-2026-10-13-shaked-s77"},
-    {"id": "weekday-no-misfire-rishoni", "fn": "_weekday_date_conflict", "args": ["בדיקה ראשונית לפני הטיסה, 10.12.2026", []], "expect": null, "source": "guard"},
-    {"id": "weekday-no-misfire-chamishiya", "fn": "_weekday_date_conflict", "args": ["זה חמישייה של מלונות, 9.12.2026", []], "expect": null, "source": "guard"},
-    {"id": "weekday-single-prefix-letter-still-works", "fn": "_weekday_date_conflict", "args": ["לשבת 13.12.2026 יוצאים", []], "expect_truthy": true, "source": "guard"},
-    {"id": "lodging-budget-per-night-captured", "fn": "_deterministic_lodging_facts", "args": ["חדר אחד, עד 500 ללילה", [{"role": "assistant", "content": "כמה חדרים תרצי?"}]], "expect": {"lodging": {"details": {"rooms": 1, "budget": 500}}}, "source": "live-chat-2026-10-13-shaked-s77"},
-    {"id": "lodging-budget-alt-phrasing-before-number", "fn": "_deterministic_lodging_facts", "args": ["בערך 400 בלילה", []], "expect": {"lodging": {"details": {"budget": 400}}}, "source": "guard"},
-    {"id": "lodging-budget-flight-style-must-not-leak", "fn": "_deterministic_lodging_facts", "args": ["עד 5000 שקל לכרטיס", []], "expect_falsy": true, "source": "guard"},
-    {"id": "is-itinerary-acceptance-matayim", "fn": "_is_itinerary_acceptance", "args": ["מתאים"], "expect": true, "source": "live-chat-2026-10-13-shaked-s77"},
-    {"id": "post-flight-offer-both-services", "fn": "_post_flight_offer_answer", "args": ["שניהם", {"post_flight_offer": ["lodging", "car"]}], "expect": {"lodging": true, "car": true}, "source": "live-chat-2026-10-13-shaked-s78"},
-    {"id": "protect-lodging-locations-from-car-reply", "fn": "_protect_lodging_locations_from_car_reply", "args": [{"session_status": {"lodging": "complete", "car": "active"}, "active_session": "car", "lodging": {"details": {"locations": "בפאפוס"}}}, {"session_status": {"lodging": "complete", "car": "active"}, "lodging": {"details": {"locations": "בשדה בפאפוס"}}}, "בשדה בפאפוס"], "expect": {"lodging": {"details": {"locations": "בפאפוס"}}}, "source": "live-chat-2026-10-13-shaked-s78"},
-    {"id": "protect-lodging-locations-still-open-not-blocked", "fn": "_protect_lodging_locations_from_car_reply", "args": [{"session_status": {"lodging": "active", "car": "pending"}, "active_session": "lodging", "lodging": {"details": {"locations": "בפאפוס"}}}, {"session_status": {"lodging": "active", "car": "pending"}, "lodging": {"details": {"locations": "ליד הים בלרנקה"}}}, "ליד הים בלרנקה"], "expect": {"lodging": {"details": {"locations": "ליד הים בלרנקה"}}}, "source": "guard"},
-    {"id": "premature-approval-fallback-names-active-domain", "fn": "_premature_approval_fallback_text", "args": [{"active_session": "car", "next_session": null}], "expect_truthy": true, "source": "live-chat-2026-10-13-shaked-s78"},
-    {"id": "infer-post-flight-offer-lodging-and-car", "fn": "_infer_post_flight_offer_from_text", "args": ["נהדר, לינה או רכב שכור תרצי שאסדר גם?"], "expect": ["lodging", "car"], "source": "live-chat-2026-10-13-shaked-s78"},
-    {"id": "infer-post-flight-offer-no-cue-no-false-positive", "fn": "_infer_post_flight_offer_from_text", "args": ["הלינה והרכב שהזמנת מוכנים"], "expect": [], "source": "guard"},
-    {"id": "infer-post-flight-offer-unrelated-text", "fn": "_infer_post_flight_offer_from_text", "args": ["מה התקציב שלך לטיסה?"], "expect": [], "source": "guard"},
-    {"id": "car-pickup-return-combined-sentence", "fn": "_deterministic_car_location_facts", "args": ["איסוף בפאפוס והחזרה בלרנקה", []], "expect": {"car": {"details": {"pickup": "פאפוס", "return": "לרנקה"}}}, "source": "live-chat-2026-10-13-shaked-s79"},
-    {"id": "car-pickup-return-time-answer-no-location", "fn": "_deterministic_car_location_facts", "args": ["לפי מה שיתברר בהזמנה", []], "expect_falsy": true, "source": "live-chat-2026-10-13-shaked-s79"},
-    {"id": "car-pickup-return-verbose-airport-phrasing", "fn": "_deterministic_car_location_facts", "args": ["איסוף הרכב בשדה התעופה בפאפוס, החזרה בשדה התעופה בלרנקה", []], "expect": {"car": {"details": {"pickup": "פאפוס", "return": "לרנקה"}}}, "source": "live-chat-2026-10-13-shaked-s79"},
-    {"id": "premature-approval-fallback-asks-real-question-not-deadend", "fn": "_premature_approval_fallback_text", "args": [{"active_session": "car", "car": {"details": {"vehicle_type": "משפחתי", "transmission": "אוטומטי", "pickup": null, "return": null}}, "service_decisions": {"car": {"wanted": true}}, "requested_services": ["flights", "car"], "destination": {"places": ["קפריסין"]}, "dates": {"departure": "2026-12-06", "return": "2026-12-11"}, "travelers": {"adults": 2}}], "expect": "באיזה שדה תעופה או עיר תרצו לאסוף את הרכב?", "source": "live-chat-2026-10-13-shaked-s79"},
-    {"id": "lodging-locations-not-leaked-from-route-approval", "fn": "_deterministic_lodging_facts", "args": ["מתאים", [{"role": "assistant", "content": "הנה הצעת מסלול: יום 1, 6.12.2026 (ראשון) - נוחתים בפאפוס, מתארגנים ויום רגוע באזור המלון. יום 2, 7.12.2026 (שני) - נסיעה להרי הטרודוס. יום 6, 11.12.2026 (שישי) - חזרה ללרנקה. מתאים לך המסלול הזה, או שתרצי לשנות משהו?"}]], "expect_falsy": true, "source": "live-chat-2026-10-13-shaked-s79"},
-    {"id": "lodging-locations-genuine-area-question-still-works", "fn": "_deterministic_lodging_facts", "args": ["קרוב לים", [{"role": "assistant", "content": "באיזה אזור תרצי שהלינה תהיה?"}]], "expect": {"lodging": {"details": {"locations": "קרוב לים"}}}, "source": "guard"},
-    {"id": "lodging-locations-not-leaked-from-domain-summary-recap", "fn": "_deterministic_lodging_facts", "args": ["כן, צריך רכב", [{"role": "assistant", "content": "תרצי שאסדר גם רכב שכור לנסיעות בין האזורים?"}]], "expect_falsy": true, "source": "live-chat-2026-10-13-shaked-s81"},
-    {"id": "post-flight-offer-infer-ignores-recap-only-real-offer", "fn": "_infer_post_flight_offer_from_text", "args": ["מעולה, הטיסות ללרנקה/פאפוס מסודרות, והמסלול ולינה כבר אושרו. תרצי שאסדר גם רכב שכור לנסיעות בין האזורים?"], "expect": ["car"], "source": "live-chat-2026-10-13-shaked-s81"},
-    {"id": "dates-me-6-bedetsember-ad-ha-11", "fn": "_deterministic_date_facts", "args": [[], "קודם מסלול. מה-6 בדצמבר עד ה-11", {}], "expect": {"dates": {"departure": "2026-12-06", "return": "2026-12-11"}}, "source": "live-chat-2026-10-13-shaked-s82"},
-    {"id": "dates-nituss-6-venahzor-11", "fn": "_deterministic_date_facts", "args": [[], "נטוס ב-6 בדצמבר ונחזור ב-11", {}], "expect": {"dates": {"departure": "2026-12-06", "return": "2026-12-11"}}, "source": "live-chat-2026-10-13-shaked-s82"},
-    {"id": "travelers-hebrew-number-words-family", "fn": "_deterministic_traveler_facts", "args": ["שלושה מבוגרים ושני ילדים"], "expect": {"travelers": {"adults": 3, "children": 2}}, "source": "live-chat-2026-10-12-s8"},
-    {"id": "flights-already-booked-kvar-hizmanu-tisot", "fn": "_deterministic_flights_already_booked_facts", "args": ["חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"], "expect_truthy": true, "source": "live-chat-2026-10-12-s51"},
-    {"id": "route-weekdays-croatia-no-dates-anchor", "fn": "_correct_route_day_weekdays", "args": ["יום 1, 19.9.2027 (ראשון)\nיום 9, 27.9 (שני)\nיום 10, 28.9 (רביעי)\nיום 11, 29.9 (חמישי)", {}], "expect": "יום 1, 19.9.2027 (ראשון)\nיום 9, 27.9 (שני)\nיום 10, 28.9 (שלישי)\nיום 11, 29.9 (רביעי)", "source": "owner-live-2026-10-15-croatia"},
-    {"id": "route-weekdays-with-departure-anchor", "fn": "_correct_route_day_weekdays", "args": ["יום 1, 19.9 (שני)\nיום 2, 20.9 (שני)\nיום 12, 30.9 (שבת)", {"dates": {"departure": "2027-09-19", "return": "2027-09-30"}}], "expect": "יום 1, 19.9 (ראשון)\nיום 2, 20.9 (שני)\nיום 12, 30.9 (חמישי)", "source": "owner-live-2026-10-15-croatia"},
-    {"id": "route-weekdays-december-into-january", "fn": "_correct_route_day_weekdays", "args": ["יום 1, 30.12 (שני)\nיום 4, 2.1 (שני)", {"dates": {"departure": "2026-12-30", "return": "2027-01-03"}}], "expect": "יום 1, 30.12 (רביעי)\nיום 4, 2.1 (שבת)", "source": "owner-live-2026-10-15-croatia"},
-    {"id": "route-weekdays-correct-route-untouched", "fn": "_correct_route_day_weekdays", "args": ["יום 1, 19.9.2027 (ראשון)\nיום 10, 28.9 (שלישי)\nיום 12, 30.9 (חמישי)", {}], "expect": "יום 1, 19.9.2027 (ראשון)\nיום 10, 28.9 (שלישי)\nיום 12, 30.9 (חמישי)", "source": "owner-live-2026-10-15-croatia"},
-    {"id": "nights-hint-11-nights-is-12-days", "fn": "_total_nights_hint", "args": [{"dates": {"departure": "2027-09-19", "return": "2027-09-30"}}], "expect_contains": ["12 ימים (11 לילות", "12 ימים בדיוק"], "source": "owner-live-2026-10-15-croatia"},
-    {"id": "weekday-pair-repeat-same-dates-closes-question", "fn": "_weekday_date_conflict", "args": ["19.9 עד 30.9", [{"role": "user", "content": "בסוף שבוע חמישי עד שבת רוצה להיות בעיר אחת"}, {"role": "user", "content": "זוג +2 טסים בספטמבר 19.9 עד 30.9 12 יום"}, {"role": "assistant", "content": "רק לוודא — 19.09.2027 יוצא ביום ראשון, וביקשת חמישי עד שבת. התכוונת ליום חמישי 16.09.2027 או ליום חמישי 23.09.2027? או שנשנה את ימי הנסיעה?"}]], "expect_falsy": true, "source": "owner-whatsapp-2026-10-15-loop-thu-sat"},
-    {"id": "weekday-pair-from-approved-previous-trip-ignored", "fn": "_weekday_date_conflict", "args": ["זוג +2 טסים בספטמבר 19.9 עד 30.9 12 יום", [{"role": "user", "content": "בסוף שבוע חמישי עד שבת רוצה להיות בעיר אחת"}, {"role": "assistant", "content": "אם כל הפרטים נכונים, כתבי מאשרת."}, {"role": "user", "content": "מאשרת"}, {"role": "assistant", "content": "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."}]], "expect_falsy": true, "source": "owner-whatsapp-2026-10-15-loop-thu-sat"},
-    {"id": "weekday-pair-real-conflict-still-asked", "fn": "_weekday_date_conflict", "args": ["19.9 עד 30.9", [{"role": "user", "content": "אני רוצה לטוס מחמישי עד שבת"}]], "expect_truthy": true, "source": "owner-whatsapp-2026-10-15-loop-thu-sat"}
-  ]
+ "_note": "Regression cases for Ariella's deterministic (no-LLM) parsers. 'expect' must be contained in the result (subset match). Add a case for every conversation bug fixed, citing the commit.",
+ "cases": [
+  {
+   "id": "dest-vietnam-misspelling",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "אני רוצה לטוס לויאטנם"
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "וייטנאם"
+     ],
+     "mode": "specific"
+    }
+   },
+   "source": "398bcc7"
+  },
+  {
+   "id": "dest-athens",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לאתונה ב-12/12 עד 18/12"
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "אתונה"
+     ]
+    }
+   }
+  },
+  {
+   "id": "travelers-family",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "2 מבוגרים ו-2 ילדים בני 5 ו-8"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 2,
+     "children": 2,
+     "child_ages": [
+      5,
+      8
+     ]
+    }
+   },
+   "source": "73a5819"
+  },
+  {
+   "id": "travelers-couple",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "אני ובעלי"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 2
+    }
+   }
+  },
+  {
+   "id": "budget-per-person",
+   "fn": "_deterministic_budget_facts",
+   "args": [
+    "תקציב 1500 לאדם"
+   ],
+   "expect": {
+    "budget_per_person": {
+     "amount": 1500,
+     "currency": "ILS"
+    }
+   },
+   "source": "73a5819"
+  },
+  {
+   "id": "budget-unlimited",
+   "fn": "_deterministic_budget_facts",
+   "args": [
+    "אין תקציב"
+   ],
+   "expect": {
+    "budget_per_person": {
+     "status": "unlimited"
+    }
+   }
+  },
+  {
+   "id": "baggage-carry-on",
+   "fn": "_deterministic_baggage_facts",
+   "args": [
+    "בלי מזוודה רק טרולי"
+   ],
+   "expect": {
+    "flight": {
+     "baggage": [
+      "carry_on_only"
+     ]
+    }
+   }
+  },
+  {
+   "id": "only-flights",
+   "fn": "_deterministic_only_flights_facts",
+   "args": [
+    "רק טיסות"
+   ],
+   "expect": {
+    "requested_services": [
+     "flights"
+    ],
+    "session_status": {
+     "lodging": "declined"
+    }
+   }
+  },
+  {
+   "id": "reset-bare-mehatchala-not-reset",
+   "fn": "_reset_intent",
+   "args": [
+    "תשלחי את כל המסלול מהתחלה עם זמנים"
+   ],
+   "expect_falsy": true,
+   "source": "8f5a452"
+  },
+  {
+   "id": "reset-explicit",
+   "fn": "_reset_intent",
+   "args": [
+    "בואי נתחיל מהתחלה"
+   ],
+   "expect_truthy": true,
+   "source": "8f5a452"
+  },
+  {
+   "id": "reset-new-vacation",
+   "fn": "_reset_intent",
+   "args": [
+    "חופשה חדשה"
+   ],
+   "expect_truthy": true
+  },
+  {
+   "id": "named-decline-masculine-compound",
+   "fn": "_deterministic_named_decline_facts",
+   "args": [
+    "תחפשי בשניהם. לא צריך מסלול כרגע"
+   ],
+   "expect": {
+    "session_status": {
+     "trip_planning": "declined"
+    }
+   },
+   "source": "34bb2bd"
+  },
+  {
+   "id": "named-decline-car-not-needed",
+   "fn": "_deterministic_named_decline_facts",
+   "args": [
+    "רכב לא נדרש"
+   ],
+   "expect": {
+    "service_decisions": {
+     "car": {
+      "wanted": false
+     }
+    },
+    "session_status": {
+     "car": "declined"
+    }
+   },
+   "source": "811dafd"
+  },
+  {
+   "id": "named-decline-no-misfire-long",
+   "fn": "_deterministic_named_decline_facts",
+   "args": [
+    "אני רוצה לשכור רכב גדול כי אנחנו משפחה עם הרבה מזוודות"
+   ],
+   "expect_falsy": true,
+   "source": "811dafd"
+  },
+  {
+   "id": "candidate-reversed-shorthand",
+   "fn": "_deterministic_candidate_choice_facts",
+   "args": [
+    "1.7 עד 27",
+    {
+     "dates": {
+      "needs_confirmation": true,
+      "candidate_ranges": [
+       "20.6.2027 - 24.6.2027",
+       "27.6.2027 - 1.7.2027"
+      ]
+     }
+    }
+   ],
+   "expect": {
+    "dates": {
+     "departure": "2027-06-27",
+     "return": "2027-07-01",
+     "needs_confirmation": false
+    }
+   },
+   "source": "32a0f76"
+  },
+  {
+   "id": "candidate-short-day-numbers",
+   "fn": "_deterministic_candidate_choice_facts",
+   "args": [
+    "18 עד 22",
+    {
+     "dates": {
+      "needs_confirmation": true,
+      "candidate_ranges": [
+       "18.04.2027–22.04.2027",
+       "25.04.2027–29.04.2027"
+      ]
+     }
+    }
+   ],
+   "expect": {
+    "dates": {
+     "departure": "2027-04-18",
+     "return": "2027-04-22",
+     "needs_confirmation": false
+    }
+   },
+   "source": "62af7aa"
+  },
+  {
+   "id": "candidate-short-second",
+   "fn": "_deterministic_candidate_choice_facts",
+   "args": [
+    "25 עד 29",
+    {
+     "dates": {
+      "needs_confirmation": true,
+      "candidate_ranges": [
+       "18.04.2027–22.04.2027",
+       "25.04.2027–29.04.2027"
+      ]
+     }
+    }
+   ],
+   "expect": {
+    "dates": {
+     "departure": "2027-04-25",
+     "return": "2027-04-29"
+    }
+   },
+   "source": "62af7aa"
+  },
+  {
+   "id": "candidate-no-misfire",
+   "fn": "_deterministic_candidate_choice_facts",
+   "args": [
+    "יש לי 3 ילדים",
+    {
+     "dates": {
+      "needs_confirmation": true,
+      "candidate_ranges": [
+       "18.04.2027–22.04.2027",
+       "25.04.2027–29.04.2027"
+      ]
+     }
+    }
+   ],
+   "expect_falsy": true,
+   "source": "62af7aa"
+  },
+  {
+   "id": "dest-new-vacation-cyprus",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "בואי נתכנן חופשה חדשה לקפריסין"
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "קפריסין"
+     ],
+     "mode": "specific"
+    }
+   },
+   "source": "c388665"
+  },
+  {
+   "id": "dest-japan-from-catalog",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס ליפן"
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "יפן"
+     ]
+    }
+   },
+   "source": "c388665"
+  },
+  {
+   "id": "itinerary-accept-standalone-no",
+   "fn": "_is_itinerary_acceptance",
+   "args": [
+    "לא. זה נשמע מצוין"
+   ],
+   "expect_truthy": true,
+   "source": "980f459"
+  },
+  {
+   "id": "itinerary-reject-not-suitable",
+   "fn": "_is_itinerary_acceptance",
+   "args": [
+    "לא מתאים לי"
+   ],
+   "expect_falsy": true,
+   "source": "980f459"
+  },
+  {
+   "id": "itinerary-reject-add-day",
+   "fn": "_is_itinerary_acceptance",
+   "args": [
+    "לא, תוסיפי עוד יום"
+   ],
+   "expect_falsy": true,
+   "source": "980f459"
+  },
+  {
+   "id": "post-flight-transfer-me",
+   "fn": "_post_flight_offer_answer",
+   "args": [
+    "תעבירי",
+    {
+     "post_flight_offer": [
+      "lodging",
+      "car"
+     ]
+    }
+   ],
+   "expect": {
+    "_transfer_to_results": true,
+    "lodging": false,
+    "car": false
+   },
+   "source": "fd3da47"
+  },
+  {
+   "id": "route-gateway-city-beats-country",
+   "fn": "_resolve_destination_airports_from_route",
+   "args": [
+    {
+     "destination": {
+      "places": [
+       "קפריסין"
+      ]
+     },
+     "destination_airports": [
+      "LCA",
+      "PFO"
+     ],
+     "trip_planning": {
+      "details": {
+       "route": [
+        {
+         "day": 1,
+         "base": "לרנקה"
+        },
+        {
+         "day": 2,
+         "base": "קפריסין"
+        },
+        {
+         "day": 3,
+         "base": "לרנקה"
+        }
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "destination_airports": [
+     "LCA"
+    ]
+   },
+   "source": "64ffebc"
+  },
+  {
+   "id": "route-gateway-country-only-keeps-all",
+   "fn": "_resolve_destination_airports_from_route",
+   "args": [
+    {
+     "destination": {
+      "places": [
+       "קפריסין"
+      ]
+     },
+     "destination_airports": [
+      "LCA",
+      "PFO"
+     ],
+     "trip_planning": {
+      "details": {
+       "route": [
+        {
+         "day": 1,
+         "base": "קפריסין"
+        }
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "destination_airports": [
+     "LCA",
+     "PFO"
+    ]
+   },
+   "source": "64ffebc"
+  },
+  {
+   "id": "baggage-checked-short-form",
+   "fn": "_deterministic_baggage_facts",
+   "args": [
+    "מזוודה בבטן לכל אחד"
+   ],
+   "expect": {
+    "flight": {
+     "baggage": [
+      "checked_bag"
+     ]
+    }
+   },
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "baggage-checked-mixed-reply",
+   "fn": "_deterministic_baggage_facts",
+   "args": [
+    "מזוודה אחת בבטן לכל אחד וטרולי. תקציב לטיסה עד 1500 שקל לאדם"
+   ],
+   "expect_truthy": true,
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "dates-hebrew-month-name",
+   "fn": "_deterministic_date_facts",
+   "args": [
+    [],
+    "יציאה ב-24 במאי וחזרה ב-31 במאי",
+    {}
+   ],
+   "expect_truthy": true,
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "named-accept-three-services",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "נשמח גם למסלול טיול, מלון ורכב שכור"
+   ],
+   "expect": {
+    "service_decisions": {
+     "trip_planning": {
+      "wanted": true
+     },
+     "lodging": {
+      "wanted": true
+     },
+     "car": {
+      "wanted": true
+     }
+    }
+   },
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "named-accept-no-misfire-idle-mention",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "נשמח לישון במלון יפה"
+   ],
+   "expect_falsy": true,
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "named-accept-no-misfire-single-service",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "רוצים גם רכב"
+   ],
+   "expect_falsy": true,
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "lodging-rooms-proactive-double-room",
+   "fn": "_deterministic_lodging_facts",
+   "args": [
+    "מלון בוטיק, רמה בינונית-גבוהה, עד 600 שקל ללילה לחדר זוגי. עם ארוחת בוקר",
+    []
+   ],
+   "expect": {
+    "lodging": {
+     "details": {
+      "rooms": 1
+     }
+    }
+   },
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "lodging-rooms-no-misfire-plural",
+   "fn": "_deterministic_lodging_facts",
+   "args": [
+    "צריך 2 חדרים זוגיים בבקשה",
+    []
+   ],
+   "expect_falsy": true,
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "typo-yaadifut",
+   "fn": "_fix_known_typos",
+   "args": [
+    "או שיש לך יעדיפות אחרת?"
+   ],
+   "expect": "או שיש לך עדיפות אחרת?",
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "weekday-no-misfire-two-children",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "תאילנד, אני ובעלי ושני ילדים בני 8 ו-11, 15/07/2027 עד 29/07/2027"
+   ],
+   "expect_falsy": true,
+   "source": "shaked-live-2026-10-12"
+  },
+  {
+   "id": "weekday-real-conflict-still-caught",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "יום שני 15/07/2027"
+   ],
+   "expect_truthy": true,
+   "source": "shaked-live-2026-10-12"
+  },
+  {
+   "id": "flights-already-booked-declines-flights-session",
+   "fn": "_deterministic_flights_already_booked_facts",
+   "args": [
+    "יש לנו כבר טיסות למונטנגרו (פודגוריצה) מ-20/06/2027 עד 27/06/2027. נשמח לתכנון מסלול, לינה ורכב שכור"
+   ],
+   "expect": {
+    "service_decisions": {
+     "flights": {
+      "wanted": false
+     }
+    },
+    "session_status": {
+     "flights": "declined"
+    }
+   },
+   "source": "shaked-live-2026-10-12"
+  },
+  {
+   "id": "flights-already-booked-no-misfire",
+   "fn": "_deterministic_flights_already_booked_facts",
+   "args": [
+    "רוצים לטוס למונטנגרו"
+   ],
+   "expect_falsy": true,
+   "source": "shaked-live-2026-10-12"
+  },
+  {
+   "id": "dates-hebrew-month-range-dash",
+   "fn": "_deterministic_date_facts",
+   "args": [
+    [],
+    "10-14 בנובמבר 2026",
+    {}
+   ],
+   "expect": {
+    "dates": {
+     "departure": "2026-11-10",
+     "return": "2026-11-14"
+    }
+   },
+   "source": "live-chat-2026-10-12-s1"
+  },
+  {
+   "id": "dates-hebrew-month-range-from-to",
+   "fn": "_deterministic_date_facts",
+   "args": [
+    [],
+    "מ-3 עד 9 במרץ 2027",
+    {}
+   ],
+   "expect": {
+    "dates": {
+     "departure": "2027-03-03",
+     "return": "2027-03-09"
+    }
+   },
+   "source": "live-chat-2026-10-12-s2"
+  },
+  {
+   "id": "weekday-lookup-no-dates",
+   "fn": "_weekday_lookup_hint",
+   "args": [
+    {}
+   ],
+   "expect": "",
+   "source": "live-chat-2026-10-12"
+  },
+  {
+   "id": "keep-declines-protects-flights",
+   "fn": "_keep_declines",
+   "args": [
+    {
+     "service_decisions": {
+      "flights": {
+       "wanted": false,
+       "source": "already_booked_elsewhere"
+      }
+     },
+     "session_status": {
+      "flights": "declined"
+     }
+    },
+    {
+     "service_decisions": {},
+     "session_status": {
+      "flights": "pending"
+     },
+     "active_session": "flights"
+    },
+    null
+   ],
+   "expect": {
+    "service_decisions": {
+     "flights": {
+      "wanted": false
+     }
+    },
+    "session_status": {
+     "flights": "declined"
+    }
+   },
+   "source": "shaked-live-2026-10-12-wave4"
+  },
+  {
+   "id": "keep-declines-flights-explicit-reopen",
+   "fn": "_keep_declines",
+   "args": [
+    {
+     "service_decisions": {
+      "flights": {
+       "wanted": false,
+       "source": "already_booked_elsewhere"
+      }
+     },
+     "session_status": {
+      "flights": "declined"
+     }
+    },
+    {
+     "service_decisions": {},
+     "session_status": {
+      "flights": "pending"
+     },
+     "active_session": "flights"
+    },
+    "flights"
+   ],
+   "expect": {
+    "session_status": {
+     "flights": "pending"
+    }
+   },
+   "source": "shaked-live-2026-10-12-wave4"
+  },
+  {
+   "id": "named-accept-feminine-tzricha",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "צריכה טיסה, מסלול ומלון"
+   ],
+   "expect": {
+    "service_decisions": {
+     "trip_planning": {
+      "wanted": true
+     },
+     "lodging": {
+      "wanted": true
+     }
+    }
+   },
+   "source": "shaked-live-2026-10-12-wave4"
+  },
+  {
+   "id": "named-accept-not-on-decline-lo-tsarich",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "חופשה רגילה. טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027, ונשמח לתכנון מסלול. לינה ורכב לא צריך, יש לנו איפה לישון"
+   ],
+   "expect_falsy": true,
+   "source": "live-chat-2026-10-12-s2 (regression f918821)"
+  },
+  {
+   "id": "named-accept-not-on-decline-bli",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "חופשה רגילה. אני צריכה רק טיסה לרומא, אני ובעלי, 10-14 בנובמבר 2026. בלי מלון ובלי רכב, ולא צריך מסלול"
+   ],
+   "expect_falsy": true,
+   "source": "live-chat-2026-10-12-s1 (regression f918821)"
+  },
+  {
+   "id": "named-decline-in-long-message-lodging-car",
+   "fn": "_deterministic_named_decline_facts",
+   "args": [
+    "חופשה רגילה. טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027, ונשמח לתכנון מסלול. לינה ורכב לא צריך, יש לנו איפה לישון"
+   ],
+   "expect": {
+    "session_status": {
+     "lodging": "declined",
+     "car": "declined"
+    }
+   },
+   "source": "live-chat-2026-10-12-s2"
+  },
+  {
+   "id": "named-decline-in-long-message-car",
+   "fn": "_deterministic_named_decline_facts",
+   "args": [
+    "חופשה רגילה. קפריסין, אני ובעלי וילד בן 6, 12/04/2027 עד 18/04/2027. צריכה טיסה, מסלול ומלון. רכב לא צריך"
+   ],
+   "expect": {
+    "session_status": {
+     "car": "declined"
+    }
+   },
+   "source": "live-chat-2026-10-12-s3"
+  },
+  {
+   "id": "named-decline-triple-mixed",
+   "fn": "_deterministic_named_decline_facts",
+   "args": [
+    "אני צריכה רק טיסה לרומא, אני ובעלי, 10-14 בנובמבר 2026. בלי מלון ובלי רכב, ולא צריך מסלול"
+   ],
+   "expect": {
+    "session_status": {
+     "lodging": "declined",
+     "car": "declined",
+     "trip_planning": "declined"
+    }
+   },
+   "source": "live-chat-2026-10-12-s1"
+  },
+  {
+   "id": "travelers-hebrew-number-word-two",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "טיסה לברצלונה לשני מבוגרים מ-3 עד 9 במרץ 2027"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 2
+    }
+   },
+   "source": "live-chat-2026-10-12-s8"
+  },
+  {
+   "id": "travelers-hebrew-number-word-plain",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "שני מבוגרים, בלי ילדים"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 2
+    }
+   },
+   "source": "live-chat-2026-10-12-s8"
+  },
+  {
+   "id": "travelers-hebrew-number-word-family",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "משפחה עם שלושה מבוגרים וארבעה ילדים"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 3,
+     "children": 4
+    }
+   },
+   "source": "live-chat-2026-10-12-s8"
+  },
+  {
+   "id": "open-jaw-heraklion-not-lyon",
+   "fn": "_deterministic_open_jaw_airports",
+   "args": [
+    "לנחות בחאניה ולחזור מהרקליון"
+   ],
+   "expect": {
+    "destination_airports": [
+     "CHQ"
+    ],
+    "return_departure_airports": [
+     "HER"
+    ]
+   },
+   "source": "live-chat-2026-10-12-s10"
+  },
+  {
+   "id": "open-jaw-chania-short-spelling",
+   "fn": "_deterministic_open_jaw_airports",
+   "args": [
+    "לנחות בחניה ולחזור מהרקליון"
+   ],
+   "expect": {
+    "destination_airports": [
+     "CHQ"
+    ],
+    "return_departure_airports": [
+     "HER"
+    ]
+   },
+   "source": "live-chat-2026-10-12-s10"
+  },
+  {
+   "id": "open-jaw-nochtim-chozrim",
+   "fn": "_deterministic_open_jaw_airports",
+   "args": [
+    "נוחתים בחאניה וחוזרים מהרקליון"
+   ],
+   "expect": {
+    "open_jaw_requested": true
+   },
+   "source": "live-chat-2026-10-12-s10"
+  },
+  {
+   "id": "open-jaw-paphos-larnaca-still-works",
+   "fn": "_deterministic_open_jaw_airports",
+   "args": [
+    "לנחות בפאפוס ולחזור מלרנקה"
+   ],
+   "expect": {
+    "destination_airports": [
+     "PFO"
+    ],
+    "return_departure_airports": [
+     "LCA"
+    ]
+   },
+   "source": "guard"
+  },
+  {
+   "id": "flights-already-booked-negated-then-already",
+   "fn": "_deterministic_flights_already_booked_facts",
+   "args": [
+    "אנחנו לא צריכים טיסה, כבר הזמנו"
+   ],
+   "expect": {
+    "session_status": {
+     "flights": "declined"
+    }
+   },
+   "source": "live-chat-2026-10-12-round3-tuscany"
+  },
+  {
+   "id": "flights-already-booked-no-misfire-separate-hotel",
+   "fn": "_deterministic_flights_already_booked_facts",
+   "args": [
+    "כבר הזמנו מלון, נשמח גם לטיסה"
+   ],
+   "expect": {},
+   "source": "guard"
+  },
+  {
+   "id": "departure-airport-hfa-noun-tisa",
+   "fn": "_deterministic_departure_airport_facts",
+   "args": [
+    "חופשה רגילה. טיסה מחיפה ללרנקה לי ולבעלי, 15/05/2027 עד 19/05/2027. רק טיסה"
+   ],
+   "expect": {
+    "departure_airport": "HFA"
+   },
+   "source": "live-chat-2026-10-12-shaked-s20"
+  },
+  {
+   "id": "departure-airport-hfa-noun-tisa-bangkok",
+   "fn": "_deterministic_departure_airport_facts",
+   "args": [
+    "טיסה מחיפה לבנגקוק, 10/06/2027 עד 20/06/2027, רק טיסה"
+   ],
+   "expect": {
+    "departure_airport": "HFA"
+   },
+   "source": "live-chat-2026-10-12-shaked-s21"
+  },
+  {
+   "id": "travelers-child-age-not-from-date",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 2,
+     "children": 2,
+     "child_ages": [
+      9,
+      12
+     ]
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s59"
+  },
+  {
+   "id": "travelers-child-ages-three-no-date-nearby",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "שלושה ילדים בני 9, 12 ו-14"
+   ],
+   "expect": {
+    "travelers": {
+     "children": 3,
+     "child_ages": [
+      9,
+      12,
+      14
+     ]
+    }
+   },
+   "source": "guard"
+  },
+  {
+   "id": "travelers-solo-ani-levad",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "אני לבד. צריך גם מלון ליד מרכז הכנסים"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 1
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s56"
+  },
+  {
+   "id": "travelers-solo-noseat-levad",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "אני נוסעת לבד"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 1
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s58"
+  },
+  {
+   "id": "travelers-solo-no-misfire-couple",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "אני ובעלי"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 2
+    }
+   },
+   "source": "guard"
+  },
+  {
+   "id": "gateway-narrow-london-unjustified",
+   "fn": "_guard_unjustified_gateway_narrowing",
+   "args": [
+    {
+     "destination": {
+      "places": [
+       "לונדון"
+      ],
+      "mode": "specific"
+     },
+     "destination_airports": [
+      "LGW"
+     ]
+    },
+    "נוסע ללונדון לכנס עבודה",
+    []
+   ],
+   "expect": {
+    "destination_airports": [
+     "LGW",
+     "LHR",
+     "LTN",
+     "STN"
+    ]
+   },
+   "source": "live-chat-2026-10-12-shaked-s57"
+  },
+  {
+   "id": "gateway-narrow-london-explicit-stays",
+   "fn": "_guard_unjustified_gateway_narrowing",
+   "args": [
+    {
+     "destination": {
+      "places": [
+       "לונדון"
+      ],
+      "mode": "specific"
+     },
+     "destination_airports": [
+      "LGW"
+     ]
+    },
+    "תזמיני לי טיסה לשדה גטוויק בלונדון",
+    []
+   ],
+   "expect": {
+    "destination_airports": [
+     "LGW"
+    ]
+   },
+   "source": "guard"
+  },
+  {
+   "id": "gateway-narrow-single-gateway-city-untouched",
+   "fn": "_guard_unjustified_gateway_narrowing",
+   "args": [
+    {
+     "destination": {
+      "places": [
+       "לרנקה"
+      ]
+     },
+     "destination_airports": [
+      "LCA"
+     ]
+    },
+    "טיסה ללרנקה",
+    []
+   ],
+   "expect": {
+    "destination_airports": [
+     "LCA"
+    ]
+   },
+   "source": "guard"
+  },
+  {
+   "id": "ski-resort-val-thorens-tet-spelling",
+   "fn": "_resolve_ski_destination_airports",
+   "args": [
+    {
+     "trip_type": "ski",
+     "destination": {
+      "places": [
+       "ואל טורנס"
+      ],
+      "mode": "specific"
+     }
+    }
+   ],
+   "expect": {
+    "destination_airports": [
+     "GVA",
+     "LYS"
+    ]
+   },
+   "source": "live-chat-2026-10-12-shaked-s59"
+  },
+  {
+   "id": "ski-resort-val-thorens-correct-spelling-still-works",
+   "fn": "_resolve_ski_destination_airports",
+   "args": [
+    {
+     "trip_type": "ski",
+     "destination": {
+      "places": [
+       "ואל תורנס"
+      ],
+      "mode": "specific"
+     }
+    }
+   ],
+   "expect": {
+    "destination_airports": [
+     "GVA",
+     "LYS"
+    ]
+   },
+   "source": "guard"
+  },
+  {
+   "id": "total-nights-hint-two-nights",
+   "fn": "_total_nights_hint",
+   "args": [
+    {
+     "dates": {
+      "departure": "2027-03-14",
+      "return": "2027-03-16",
+      "needs_confirmation": false
+     }
+    }
+   ],
+   "expect_truthy": true,
+   "source": "live-chat-2026-10-12-shaked-s56"
+  },
+  {
+   "id": "named-accept-bare-list-no-framing",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב"
+   ],
+   "expect": {
+    "service_decisions": {
+     "lodging": {
+      "wanted": true
+     },
+     "car": {
+      "wanted": true
+     }
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s59"
+  },
+  {
+   "id": "named-accept-bare-list-no-misfire-mixed-sentence",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "ראינו תמונות של מלון ורכב ישנים באתר"
+   ],
+   "expect": {},
+   "source": "guard"
+  },
+  {
+   "id": "flights-already-booked-plain-adjacent-still-declines",
+   "fn": "_deterministic_flights_already_booked_facts",
+   "args": [
+    "חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"
+   ],
+   "expect": {
+    "session_status": {
+     "flights": "declined"
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s51"
+  },
+  {
+   "id": "travelers-friends-digit",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "4 חברים"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 4
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s61"
+  },
+  {
+   "id": "travelers-friends-word",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "ארבעה חברים"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 4
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s61"
+  },
+  {
+   "id": "travelers-people-count",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "5 אנשים"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 5
+    }
+   },
+   "source": "guard"
+  },
+  {
+   "id": "travelers-single-adult-digit",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "1 מבוגר"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 1
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s58"
+  },
+  {
+   "id": "dest-ski-val-thorens-tet",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשת סקי. ואל טורנס, אני ובעלי ושני ילדים בני 9 ו-12, 06/02/2027 עד 13/02/2027. טיסה, לינה ורכב",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "ואל תורנס"
+     ]
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s65"
+  },
+  {
+   "id": "budget-total-no-per-person",
+   "fn": "_deterministic_budget_facts",
+   "args": [
+    "מזוודה בבטן המטוס, ישירה, עד 5000 שקל"
+   ],
+   "expect": {
+    "budget_per_person": {
+     "amount": 5000,
+     "currency": "ILS"
+    }
+   },
+   "source": "live-chat-2026-10-12-shaked-s64"
+  },
+  {
+   "id": "dest-florence",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לפירנצה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "פירנצה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-pisa",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לפיזה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "פיזה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-milan-linate",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה למילאנו לינאטה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "מילאנו"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-rome-ciampino",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לרומא",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "רומא"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-basel",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לבאזל",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "באזל"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-palma-de-mallorca",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "תזמיני לי לפלמה דה מיורקה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "פלמה דה מיורקה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-faro",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לפארו",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "פארו"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-chambery",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "שמברי בבקשה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "שמברי"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-grenoble",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "גרנובל",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "גרנובל"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-coverage"
+  },
+  {
+   "id": "dest-manchester",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס למנצ'סטר",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "מנצ'סטר"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-edinburgh",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לאדינבורו",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "אדינבורו"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-hamburg",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה להמבורג",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "המבורג"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-cologne",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לקלן",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "קלן"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-stuttgart",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לשטוטגרט",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "שטוטגרט"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-seville",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לסביליה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "סביליה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-bilbao",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לבילבאו",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "בילבאו"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-valencia",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לולנסיה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "ולנסיה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-alicante",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לאליקנטה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "אליקנטה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-tenerife",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשה בטנריף",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "טנריף"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-gran-canaria",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לגראן קנריה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "גראן קנריה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-menorca",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשה במנורקה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "מנורקה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-bari",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לבארי",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "בארי"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-olbia",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לאוליביה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "אוליביה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-gothenburg",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לגטבורג",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "גטבורג"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-bergen",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לברגן",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "ברגן"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-reykjavik",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשה ברייקיאוויק",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "רייקיאוויק"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-dublin",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לדבלין",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "דבלין"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-nantes",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לנאנט",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "נאנט"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-bordeaux",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לבורדו",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "בורדו"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-zakynthos",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשה בזאקינתוס",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "זאקינתוס"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-samos",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לסאמוס",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "סאמוס"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-lesvos",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשה בלסבוס",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "לסבוס"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-skiathos",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לסקיאתוס",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "סקיאתוס"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-kalamata",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לקלמטה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "קלמטה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-skopje",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לסקופיה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "סקופיה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-sarajevo",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לסרייבו",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "סרייבו"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-doha",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לנסוע לדוחה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "דוחה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-muscat",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה למוסקט",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "מוסקט"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-shanghai",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לשנגחאי",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "שנגחאי"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-guangzhou",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לגואנגזו",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "גואנגזו"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-ho-chi-minh",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס להו צ'י מין סיטי",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "הו צ'י מין סיטי"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-da-nang",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשה בדה נאנג",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "דה נאנג"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-bali",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשה בבאלי",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "באלי"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-jakarta",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לג'קרטה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "ג'קרטה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-manila",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס למנילה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "מנילה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-kuala-lumpur",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לקואלה לומפור",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "קואלה לומפור"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-osaka",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לאוסקה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "אוסקה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-marrakech",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "מרקש בבקשה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "מרקש"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-casablanca",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה לקזבלנקה",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "קזבלנקה"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-zanzibar",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "חופשה בזנזיבר",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "זנזיבר"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-cape-town",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לקייפטאון",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "קייפטאון"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-las-vegas",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "טיסה ללאס וגאס",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "לאס וגאס"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "dest-orlando",
+   "fn": "_deterministic_destination_facts",
+   "args": [
+    [],
+    "רוצה לטוס לאורלנדו",
+    {}
+   ],
+   "expect": {
+    "destination": {
+     "places": [
+      "אורלנדו"
+     ]
+    }
+   },
+   "source": "carmit-decision-2026-10-13-catalog-expansion"
+  },
+  {
+   "id": "budget-unlimited-ein-tikra",
+   "fn": "_deterministic_budget_facts",
+   "args": [
+    "רק טרולי לכל אחד, ישירה, אין תקרה"
+   ],
+   "expect": {
+    "budget_per_person": {
+     "status": "unlimited"
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s71"
+  },
+  {
+   "id": "budget-unlimited-ein-magbala",
+   "fn": "_deterministic_budget_facts",
+   "args": [
+    "אין מגבלה"
+   ],
+   "expect": {
+    "budget_per_person": {
+     "status": "unlimited"
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s71"
+  },
+  {
+   "id": "named-accept-bare-list-with-short-qualifier",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "טיסה, מלון במנהטן ורכב"
+   ],
+   "expect": {
+    "service_decisions": {
+     "lodging": {
+      "wanted": true
+     },
+     "car": {
+      "wanted": true
+     }
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s72"
+  },
+  {
+   "id": "named-accept-bare-list-no-misfire-sentence-with-verb",
+   "fn": "_deterministic_named_accept_facts",
+   "args": [
+    "ראינו תמונות של מלון ורכב ישנים באתר"
+   ],
+   "expect": {},
+   "source": "guard"
+  },
+  {
+   "id": "protect-destination-airports-from-car-pickup-reply",
+   "fn": "_protect_destination_airports_from_car_reply",
+   "args": [
+    {
+     "active_session": "car",
+     "destination_airports": []
+    },
+    {
+     "active_session": "car",
+     "destination_airports": [
+      "JFK"
+     ]
+    },
+    "JFK"
+   ],
+   "expect": {
+    "destination_airports": []
+   },
+   "source": "live-chat-2026-10-13-shaked-s72"
+  },
+  {
+   "id": "protect-destination-airports-no-misfire-real-flights-answer",
+   "fn": "_protect_destination_airports_from_car_reply",
+   "args": [
+    {
+     "active_session": "flights",
+     "destination_airports": []
+    },
+    {
+     "active_session": "flights",
+     "destination_airports": [
+      "JFK"
+     ]
+    },
+    "תעדיפי לנחות ב-JFK"
+   ],
+   "expect": {
+    "destination_airports": [
+     "JFK"
+    ]
+   },
+   "source": "guard"
+  },
+  {
+   "id": "flight-gap-question-after-route-approval-not-empty",
+   "fn": "_flight_gap_question",
+   "args": [
+    [
+     "departure_airport",
+     "flight.baggage",
+     "budget_per_person"
+    ],
+    {
+     "destination_airports": [
+      "PFO"
+     ]
+    }
+   ],
+   "expect_truthy": true,
+   "source": "live-chat-2026-10-13-shaked-s75"
+  },
+  {
+   "id": "false-search-claim-lodging-active-car-pending",
+   "fn": "_flight_approval_still_has_open_domain",
+   "args": [
+    {
+     "flights": "complete",
+     "trip_planning": "complete",
+     "lodging": "active",
+     "car": "pending"
+    }
+   ],
+   "expect": "lodging",
+   "source": "live-chat-2026-10-13-shaked-s75"
+  },
+  {
+   "id": "false-search-claim-all-domains-decided",
+   "fn": "_flight_approval_still_has_open_domain",
+   "args": [
+    {
+     "flights": "complete",
+     "trip_planning": "declined",
+     "lodging": "complete",
+     "car": "declined"
+    }
+   ],
+   "expect": null,
+   "source": "live-chat-2026-10-13-shaked-s75"
+  },
+  {
+   "id": "false-search-claim-only-car-open",
+   "fn": "_flight_approval_still_has_open_domain",
+   "args": [
+    {
+     "flights": "complete",
+     "trip_planning": "declined",
+     "lodging": "declined",
+     "car": "pending"
+    }
+   ],
+   "expect": "car",
+   "source": "live-chat-2026-10-13-shaked-s75"
+  },
+  {
+   "id": "false-search-claim-missing-keys-counted-open",
+   "fn": "_flight_approval_still_has_open_domain",
+   "args": [
+    {
+     "flights": "complete",
+     "trip_planning": "declined"
+    }
+   ],
+   "expect": "lodging",
+   "source": "live-chat-2026-10-13-shaked-s75"
+  },
+  {
+   "id": "weekday-no-misfire-bishneihem",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "לחפש בשניהם. 6/12/2026 עד 11/12/2026, 2 מבוגרים",
+    []
+   ],
+   "expect": null,
+   "source": "live-chat-2026-10-13-shaked-s77"
+  },
+  {
+   "id": "weekday-no-misfire-rishoni",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "בדיקה ראשונית לפני הטיסה, 10.12.2026",
+    []
+   ],
+   "expect": null,
+   "source": "guard"
+  },
+  {
+   "id": "weekday-no-misfire-chamishiya",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "זה חמישייה של מלונות, 9.12.2026",
+    []
+   ],
+   "expect": null,
+   "source": "guard"
+  },
+  {
+   "id": "weekday-single-prefix-letter-still-works",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "לשבת 13.12.2026 יוצאים",
+    []
+   ],
+   "expect_truthy": true,
+   "source": "guard"
+  },
+  {
+   "id": "lodging-budget-per-night-captured",
+   "fn": "_deterministic_lodging_facts",
+   "args": [
+    "חדר אחד, עד 500 ללילה",
+    [
+     {
+      "role": "assistant",
+      "content": "כמה חדרים תרצי?"
+     }
+    ]
+   ],
+   "expect": {
+    "lodging": {
+     "details": {
+      "rooms": 1,
+      "budget": 500
+     }
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s77"
+  },
+  {
+   "id": "lodging-budget-alt-phrasing-before-number",
+   "fn": "_deterministic_lodging_facts",
+   "args": [
+    "בערך 400 בלילה",
+    []
+   ],
+   "expect": {
+    "lodging": {
+     "details": {
+      "budget": 400
+     }
+    }
+   },
+   "source": "guard"
+  },
+  {
+   "id": "lodging-budget-flight-style-must-not-leak",
+   "fn": "_deterministic_lodging_facts",
+   "args": [
+    "עד 5000 שקל לכרטיס",
+    []
+   ],
+   "expect_falsy": true,
+   "source": "guard"
+  },
+  {
+   "id": "is-itinerary-acceptance-matayim",
+   "fn": "_is_itinerary_acceptance",
+   "args": [
+    "מתאים"
+   ],
+   "expect": true,
+   "source": "live-chat-2026-10-13-shaked-s77"
+  },
+  {
+   "id": "post-flight-offer-both-services",
+   "fn": "_post_flight_offer_answer",
+   "args": [
+    "שניהם",
+    {
+     "post_flight_offer": [
+      "lodging",
+      "car"
+     ]
+    }
+   ],
+   "expect": {
+    "lodging": true,
+    "car": true
+   },
+   "source": "live-chat-2026-10-13-shaked-s78"
+  },
+  {
+   "id": "protect-lodging-locations-from-car-reply",
+   "fn": "_protect_lodging_locations_from_car_reply",
+   "args": [
+    {
+     "session_status": {
+      "lodging": "complete",
+      "car": "active"
+     },
+     "active_session": "car",
+     "lodging": {
+      "details": {
+       "locations": "בפאפוס"
+      }
+     }
+    },
+    {
+     "session_status": {
+      "lodging": "complete",
+      "car": "active"
+     },
+     "lodging": {
+      "details": {
+       "locations": "בשדה בפאפוס"
+      }
+     }
+    },
+    "בשדה בפאפוס"
+   ],
+   "expect": {
+    "lodging": {
+     "details": {
+      "locations": "בפאפוס"
+     }
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s78"
+  },
+  {
+   "id": "protect-lodging-locations-still-open-not-blocked",
+   "fn": "_protect_lodging_locations_from_car_reply",
+   "args": [
+    {
+     "session_status": {
+      "lodging": "active",
+      "car": "pending"
+     },
+     "active_session": "lodging",
+     "lodging": {
+      "details": {
+       "locations": "בפאפוס"
+      }
+     }
+    },
+    {
+     "session_status": {
+      "lodging": "active",
+      "car": "pending"
+     },
+     "lodging": {
+      "details": {
+       "locations": "ליד הים בלרנקה"
+      }
+     }
+    },
+    "ליד הים בלרנקה"
+   ],
+   "expect": {
+    "lodging": {
+     "details": {
+      "locations": "ליד הים בלרנקה"
+     }
+    }
+   },
+   "source": "guard"
+  },
+  {
+   "id": "premature-approval-fallback-names-active-domain",
+   "fn": "_premature_approval_fallback_text",
+   "args": [
+    {
+     "active_session": "car",
+     "next_session": null
+    }
+   ],
+   "expect_truthy": true,
+   "source": "live-chat-2026-10-13-shaked-s78"
+  },
+  {
+   "id": "infer-post-flight-offer-lodging-and-car",
+   "fn": "_infer_post_flight_offer_from_text",
+   "args": [
+    "נהדר, לינה או רכב שכור תרצי שאסדר גם?"
+   ],
+   "expect": [
+    "lodging",
+    "car"
+   ],
+   "source": "live-chat-2026-10-13-shaked-s78"
+  },
+  {
+   "id": "infer-post-flight-offer-no-cue-no-false-positive",
+   "fn": "_infer_post_flight_offer_from_text",
+   "args": [
+    "הלינה והרכב שהזמנת מוכנים"
+   ],
+   "expect": [],
+   "source": "guard"
+  },
+  {
+   "id": "infer-post-flight-offer-unrelated-text",
+   "fn": "_infer_post_flight_offer_from_text",
+   "args": [
+    "מה התקציב שלך לטיסה?"
+   ],
+   "expect": [],
+   "source": "guard"
+  },
+  {
+   "id": "car-pickup-return-combined-sentence",
+   "fn": "_deterministic_car_location_facts",
+   "args": [
+    "איסוף בפאפוס והחזרה בלרנקה",
+    []
+   ],
+   "expect": {
+    "car": {
+     "details": {
+      "pickup": "פאפוס",
+      "return": "לרנקה"
+     }
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s79"
+  },
+  {
+   "id": "car-pickup-return-time-answer-no-location",
+   "fn": "_deterministic_car_location_facts",
+   "args": [
+    "לפי מה שיתברר בהזמנה",
+    []
+   ],
+   "expect_falsy": true,
+   "source": "live-chat-2026-10-13-shaked-s79"
+  },
+  {
+   "id": "car-pickup-return-verbose-airport-phrasing",
+   "fn": "_deterministic_car_location_facts",
+   "args": [
+    "איסוף הרכב בשדה התעופה בפאפוס, החזרה בשדה התעופה בלרנקה",
+    []
+   ],
+   "expect": {
+    "car": {
+     "details": {
+      "pickup": "פאפוס",
+      "return": "לרנקה"
+     }
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s79"
+  },
+  {
+   "id": "premature-approval-fallback-asks-real-question-not-deadend",
+   "fn": "_premature_approval_fallback_text",
+   "args": [
+    {
+     "active_session": "car",
+     "car": {
+      "details": {
+       "vehicle_type": "משפחתי",
+       "transmission": "אוטומטי",
+       "pickup": null,
+       "return": null
+      }
+     },
+     "service_decisions": {
+      "car": {
+       "wanted": true
+      }
+     },
+     "requested_services": [
+      "flights",
+      "car"
+     ],
+     "destination": {
+      "places": [
+       "קפריסין"
+      ]
+     },
+     "dates": {
+      "departure": "2026-12-06",
+      "return": "2026-12-11"
+     },
+     "travelers": {
+      "adults": 2
+     }
+    }
+   ],
+   "expect": "באיזה שדה תעופה או עיר תרצו לאסוף את הרכב?",
+   "source": "live-chat-2026-10-13-shaked-s79"
+  },
+  {
+   "id": "lodging-locations-not-leaked-from-route-approval",
+   "fn": "_deterministic_lodging_facts",
+   "args": [
+    "מתאים",
+    [
+     {
+      "role": "assistant",
+      "content": "הנה הצעת מסלול: יום 1, 6.12.2026 (ראשון) - נוחתים בפאפוס, מתארגנים ויום רגוע באזור המלון. יום 2, 7.12.2026 (שני) - נסיעה להרי הטרודוס. יום 6, 11.12.2026 (שישי) - חזרה ללרנקה. מתאים לך המסלול הזה, או שתרצי לשנות משהו?"
+     }
+    ]
+   ],
+   "expect_falsy": true,
+   "source": "live-chat-2026-10-13-shaked-s79"
+  },
+  {
+   "id": "lodging-locations-genuine-area-question-still-works",
+   "fn": "_deterministic_lodging_facts",
+   "args": [
+    "קרוב לים",
+    [
+     {
+      "role": "assistant",
+      "content": "באיזה אזור תרצי שהלינה תהיה?"
+     }
+    ]
+   ],
+   "expect": {
+    "lodging": {
+     "details": {
+      "locations": "קרוב לים"
+     }
+    }
+   },
+   "source": "guard"
+  },
+  {
+   "id": "lodging-locations-not-leaked-from-domain-summary-recap",
+   "fn": "_deterministic_lodging_facts",
+   "args": [
+    "כן, צריך רכב",
+    [
+     {
+      "role": "assistant",
+      "content": "תרצי שאסדר גם רכב שכור לנסיעות בין האזורים?"
+     }
+    ]
+   ],
+   "expect_falsy": true,
+   "source": "live-chat-2026-10-13-shaked-s81"
+  },
+  {
+   "id": "post-flight-offer-infer-ignores-recap-only-real-offer",
+   "fn": "_infer_post_flight_offer_from_text",
+   "args": [
+    "מעולה, הטיסות ללרנקה/פאפוס מסודרות, והמסלול ולינה כבר אושרו. תרצי שאסדר גם רכב שכור לנסיעות בין האזורים?"
+   ],
+   "expect": [
+    "car"
+   ],
+   "source": "live-chat-2026-10-13-shaked-s81"
+  },
+  {
+   "id": "dates-me-6-bedetsember-ad-ha-11",
+   "fn": "_deterministic_date_facts",
+   "args": [
+    [],
+    "קודם מסלול. מה-6 בדצמבר עד ה-11",
+    {}
+   ],
+   "expect": {
+    "dates": {
+     "departure": "2026-12-06",
+     "return": "2026-12-11"
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s82"
+  },
+  {
+   "id": "dates-nituss-6-venahzor-11",
+   "fn": "_deterministic_date_facts",
+   "args": [
+    [],
+    "נטוס ב-6 בדצמבר ונחזור ב-11",
+    {}
+   ],
+   "expect": {
+    "dates": {
+     "departure": "2026-12-06",
+     "return": "2026-12-11"
+    }
+   },
+   "source": "live-chat-2026-10-13-shaked-s82"
+  },
+  {
+   "id": "travelers-hebrew-number-words-family",
+   "fn": "_deterministic_traveler_facts",
+   "args": [
+    "שלושה מבוגרים ושני ילדים"
+   ],
+   "expect": {
+    "travelers": {
+     "adults": 3,
+     "children": 2
+    }
+   },
+   "source": "live-chat-2026-10-12-s8"
+  },
+  {
+   "id": "flights-already-booked-kvar-hizmanu-tisot",
+   "fn": "_deterministic_flights_already_booked_facts",
+   "args": [
+    "חופשה רגילה. כבר הזמנו טיסות לפירנצה: נוחתים ב-5/9/2027 ב-10:00 וחוזרים ב-12/9/2027 ב-18:00, אני ובעלי. צריכה רק תכנון מסלול בטוסקנה ולינה. בלי רכב"
+   ],
+   "expect_truthy": true,
+   "source": "live-chat-2026-10-12-s51"
+  },
+  {
+   "id": "route-weekdays-croatia-no-dates-anchor",
+   "fn": "_correct_route_day_weekdays",
+   "args": [
+    "יום 1, 19.9.2027 (ראשון)\nיום 9, 27.9 (שני)\nיום 10, 28.9 (רביעי)\nיום 11, 29.9 (חמישי)",
+    {}
+   ],
+   "expect": "יום 1, 19.9.2027 (ראשון)\nיום 9, 27.9 (שני)\nיום 10, 28.9 (שלישי)\nיום 11, 29.9 (רביעי)",
+   "source": "owner-live-2026-10-15-croatia"
+  },
+  {
+   "id": "route-weekdays-with-departure-anchor",
+   "fn": "_correct_route_day_weekdays",
+   "args": [
+    "יום 1, 19.9 (שני)\nיום 2, 20.9 (שני)\nיום 12, 30.9 (שבת)",
+    {
+     "dates": {
+      "departure": "2027-09-19",
+      "return": "2027-09-30"
+     }
+    }
+   ],
+   "expect": "יום 1, 19.9 (ראשון)\nיום 2, 20.9 (שני)\nיום 12, 30.9 (חמישי)",
+   "source": "owner-live-2026-10-15-croatia"
+  },
+  {
+   "id": "route-weekdays-december-into-january",
+   "fn": "_correct_route_day_weekdays",
+   "args": [
+    "יום 1, 30.12 (שני)\nיום 4, 2.1 (שני)",
+    {
+     "dates": {
+      "departure": "2026-12-30",
+      "return": "2027-01-03"
+     }
+    }
+   ],
+   "expect": "יום 1, 30.12 (רביעי)\nיום 4, 2.1 (שבת)",
+   "source": "owner-live-2026-10-15-croatia"
+  },
+  {
+   "id": "route-weekdays-correct-route-untouched",
+   "fn": "_correct_route_day_weekdays",
+   "args": [
+    "יום 1, 19.9.2027 (ראשון)\nיום 10, 28.9 (שלישי)\nיום 12, 30.9 (חמישי)",
+    {}
+   ],
+   "expect": "יום 1, 19.9.2027 (ראשון)\nיום 10, 28.9 (שלישי)\nיום 12, 30.9 (חמישי)",
+   "source": "owner-live-2026-10-15-croatia"
+  },
+  {
+   "id": "nights-hint-11-nights-is-12-days",
+   "fn": "_total_nights_hint",
+   "args": [
+    {
+     "dates": {
+      "departure": "2027-09-19",
+      "return": "2027-09-30"
+     }
+    }
+   ],
+   "expect_contains": [
+    "12 ימים (11 לילות",
+    "12 ימים בדיוק"
+   ],
+   "source": "owner-live-2026-10-15-croatia"
+  },
+  {
+   "id": "weekday-pair-repeat-same-dates-closes-question",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "19.9 עד 30.9",
+    [
+     {
+      "role": "user",
+      "content": "בסוף שבוע חמישי עד שבת רוצה להיות בעיר אחת"
+     },
+     {
+      "role": "user",
+      "content": "זוג +2 טסים בספטמבר 19.9 עד 30.9 12 יום"
+     },
+     {
+      "role": "assistant",
+      "content": "רק לוודא — 19.09.2027 יוצא ביום ראשון, וביקשת חמישי עד שבת. התכוונת ליום חמישי 16.09.2027 או ליום חמישי 23.09.2027? או שנשנה את ימי הנסיעה?"
+     }
+    ]
+   ],
+   "expect_falsy": true,
+   "source": "owner-whatsapp-2026-10-15-loop-thu-sat"
+  },
+  {
+   "id": "weekday-pair-from-approved-previous-trip-ignored",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "זוג +2 טסים בספטמבר 19.9 עד 30.9 12 יום",
+    [
+     {
+      "role": "user",
+      "content": "בסוף שבוע חמישי עד שבת רוצה להיות בעיר אחת"
+     },
+     {
+      "role": "assistant",
+      "content": "אם כל הפרטים נכונים, כתבי מאשרת."
+     },
+     {
+      "role": "user",
+      "content": "מאשרת"
+     },
+     {
+      "role": "assistant",
+      "content": "הבקשה אושרה ואני יוצאת לסריקת טיסות. אעדכן אותך כשהתוצאות יהיו מוכנות."
+     }
+    ]
+   ],
+   "expect_falsy": true,
+   "source": "owner-whatsapp-2026-10-15-loop-thu-sat"
+  },
+  {
+   "id": "weekday-pair-real-conflict-still-asked",
+   "fn": "_weekday_date_conflict",
+   "args": [
+    "19.9 עד 30.9",
+    [
+     {
+      "role": "user",
+      "content": "אני רוצה לטוס מחמישי עד שבת"
+     }
+    ]
+   ],
+   "expect_truthy": true,
+   "source": "owner-whatsapp-2026-10-15-loop-thu-sat"
+  }
+ ]
 }
