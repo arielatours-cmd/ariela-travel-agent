@@ -6423,7 +6423,24 @@ def chat_clean():
     # A request for a genuinely new vacation after a completed/approved trip is
     # a hard boundary, not a field edit. Clear the old structured trip immediately
     # and seed only facts explicitly present in the new request.
-    new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר"))
+    # Seen live (Shaked, qa-s91, round 2, C1 - flagged as a severe data
+    # leak): right after approving a Zurich BUSINESS trip, "אני רוצה חופשת
+    # סקי, טיסה לז'נבה" (I want a SKI vacation, flight to Geneva) never
+    # matched this exact-phrase list at all (it never says the literal
+    # words "חופשה חדשה"), so the committed Zurich/business state was never
+    # cleared - destination_airports stayed ['ZRH'] and trip_type stayed
+    # "business" even after the customer corrected it twice ("לא ציריך!
+    # ז'נבה", "GVA"), and the summary kept reading "נסיעת עסקים לז'נבה".
+    # _deterministic_trip_type_facts already recognizes "חופשת סקי"/"נסיעת
+    # עסקים" etc. by meaning (a separate, richer phrase set than this one) -
+    # the customer explicitly naming a trip type that DIFFERS from the
+    # already-committed trip's own trip_type is exactly as strong a "this is
+    # a new, different vacation" signal as the literal phrases below, so it
+    # must trigger the same hard reset.
+    _stated_trip_type = (_deterministic_trip_type_facts(message) or {}).get("trip_type")
+    new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר")) or bool(
+        _stated_trip_type and trip_state.get("trip_type") and _stated_trip_type != trip_state.get("trip_type")
+    )
     old_trip_committed = bool(trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
     # Own pending questions (new trip vs. destination change) are answered by
     # their own handlers below - "חופשה חדשה" there is the answer, not a new request.
