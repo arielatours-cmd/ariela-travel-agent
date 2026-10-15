@@ -154,6 +154,21 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
     check("a pending reopen-choice flow is also exempt from the duplicate guard",
           "כבר יש לך חופשה פעילה" not in str(data5.get("reply") or ""))
 
+    # --- 6. Shaked, qa-s91 round 2, B2: a message that mentions the OLD
+    #        destination too, but only to say the new request is SEPARATE
+    #        from it ("עוד נסיעת עסקים, לאמסטרדם, נפרדת מברלין" - another
+    #        business trip, to Amsterdam, separate from Berlin) must never
+    #        count as "same trip again" just because the old place name
+    #        also appears in the sentence - a message that ALSO introduces
+    #        a genuinely different place is about that new place. ---
+    r6 = client.post("/api/ariella/chat-clean", json={
+        "message": "יש לי עוד נסיעת עסקים, לאמסטרדם, נפרדת מרומא",
+        "history": [], "trip_state": dict(STALE_ROME_STATE),
+    })
+    data6 = r6.get_json()
+    check("naming the old destination only to say 'separate from it' never triggers the stale duplicate message",
+          "כבר יש לך חופשה פעילה" not in str(data6.get("reply") or ""))
+
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM trip_requests WHERE member_id=?", (member_id,))
     conn.execute("DELETE FROM members WHERE id=?", (member_id,))

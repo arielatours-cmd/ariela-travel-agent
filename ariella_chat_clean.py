@@ -6096,7 +6096,19 @@ def chat_clean():
         _old_places = (trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None
         _old_places = _old_places if isinstance(_old_places, list) else []
         _mentioned_now = _mentioned_places(message)
-        _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places))
+        # Seen live (Shaked, qa-s91 round 2, B2): "יש לי עוד נסיעת עסקים,
+        # לאמסטרדם, נפרדת מברלין" (another business trip, to Amsterdam,
+        # separate from Berlin) mentions the OLD destination (ברלין) too -
+        # not as the intended place, but to explicitly say this is NOT that
+        # trip. The old overlap check only looked at whether the old place
+        # was mentioned at all, so it still counted as "same trip again"
+        # and fired the false "you already have an active Berlin vacation"
+        # message instead of ever reaching the (already correct) new-
+        # destination handling further down. Mentioning the old place is
+        # only a genuine "still talking about the same trip" signal when
+        # the message introduces NO other, different place alongside it -
+        # a message that ALSO names a new place is about that new place.
+        _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places)) and not (set(_mentioned_now) - set(_old_places))
         if not _same_trip_again:
             trip_state = dict(trip_state)
             trip_state.pop('combined_search_launched', None)
