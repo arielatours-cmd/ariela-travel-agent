@@ -602,6 +602,24 @@ def _correct_route_day_weekdays(text, state):
             anchor = date.fromisoformat(dep_raw)
         except ValueError:
             anchor = None
+    # Seen live (the business owner herself, 15.10.2026, Split->Dubrovnik):
+    # a long route built before the flight dates were confirmed (dates.
+    # departure still empty) left `anchor` None, so every "D.M (weekday)"
+    # occurrence silently passed through unchecked - days 10-11 kept the
+    # model's own wrong guesses (skipping Tuesday entirely) while day 9
+    # happened to be right by luck. The route's own first day almost always
+    # DOES carry an explicit year ("20.9.2026"), per this function's whole
+    # reason for existing - use that as a fallback anchor instead of giving
+    # up entirely, before resorting to today's date as the last resort.
+    if anchor is None:
+        first_dated = _ROUTE_DAY_WEEKDAY_RE.search(text)
+        if first_dated and first_dated.group(4):
+            try:
+                anchor = date(int(first_dated.group(4)), int(first_dated.group(3)), int(first_dated.group(2)))
+            except ValueError:
+                anchor = None
+    if anchor is None:
+        anchor = date.today()
 
     def _replace(m):
         prefix, day_s, month_s, year_s, mid, weekday_word, suffix = m.groups()
