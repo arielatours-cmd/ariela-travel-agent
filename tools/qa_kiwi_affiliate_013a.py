@@ -76,6 +76,11 @@ def offer(**over):
 
 
 # --- 1. Nothing configured -> no Kiwi button, site unchanged -----------------
+# Straight from the real (empty) environment, before any test override.
+check("empty env -> all four Kiwi settings empty in config",
+      not any((config.TRAVELPAYOUTS_KIWI_LINK, config.TRAVELPAYOUTS_MARKER,
+               config.TRAVELPAYOUTS_TRS, config.KIWI_SEARCH_URL_TEMPLATE)))
+check("empty env -> no Kiwi target", booker.kiwi_affiliate_target(offer()) is None)
 configure()
 check("nothing configured -> no Kiwi target", booker.kiwi_affiliate_target(offer()) is None)
 
@@ -170,6 +175,12 @@ for deep in (True, False):
 
 configure()
 check("nothing configured -> card has no Kiwi block", kiwi_block(offer(), "he").strip() == "")
+check("nothing configured -> card has no Kiwi block (en)", kiwi_block(offer(), "en").strip() == "")
+# Marker/trs/template alone (no valid short link) is still enough for a deep
+# link; but marker alone, or a broken short link alone, shows nothing.
+for kw in ({"marker": "M"}, {"marker": "M", "trs": "T"}, {"link": "not-a-url"}, {"trs": "T", "template": TEMPLATE}):
+    configure(**kw)
+    check(f"incomplete config {sorted(kw)} -> no Kiwi block at all", kiwi_block(offer(), "he").strip() == "")
 configure(link=SHORT_LINK)
 check("connection flight -> card has no Kiwi block", kiwi_block(offer(stops=1), "he").strip() == "")
 check("'חלה' card -> no Kiwi block", kiwi_block(offer(consumer_protection_label="חלה"), "he").strip() == "")
@@ -201,6 +212,31 @@ configure()
 r = client.get("/go/kiwi/501")
 check("nothing configured -> route redirects away", r.status_code == 302)
 
+# Full deal card (the real macro the site renders), nothing configured vs. set.
+FULL = '{% from "_deal_card.html" import deal_card %}{{ deal_card(o, lang) }}'
+
+
+def full_card(o, lang):
+    with app.test_request_context("/"):
+        return app.jinja_env.from_string(FULL).render(o=o, lang=lang)
+
+
+full_offer = offer(baggage={}, connections=[], return_connections=[], booking_url="https://example.com/b",
+                   departure_city_he="תל אביב", arrival_city_he="אתונה", total_duration_minutes=120)
+configure()
+for lang in ("he", "en"):
+    card = full_card(full_offer, lang)
+    check(f"nothing configured: full {lang} card renders (main booking button kept)", 'data-destination="ATH"' in card and "/book/501" in card)
+    check(f"nothing configured: full {lang} card has no Kiwi UI / disclosure / new text",
+          "kiwi" not in card.lower() and "affiliate-disclosure" not in card and "קישור שותף" not in card and "Affiliate link" not in card)
+configure(link=SHORT_LINK)
+card = full_card(full_offer, "he")
+check("short link set: full card shows Kiwi button + disclosure", "/go/kiwi/501" in card and HE_DISCLOSURE in card)
+configure()
+for path in ("/?lang=he", "/?lang=en", "/deals?lang=he", "/deals?lang=en"):
+    text = client.get(path).get_data(as_text=True)
+    check(f"nothing configured: {path} has no Kiwi UI", "kiwi-affiliate-btn" not in text and "/go/kiwi/" not in text and "Kiwi.com" not in text)
+
 # normal booking flow screen is unchanged: no Kiwi disclosure there
 with app.test_request_context("/"):
     from flask import render_template
@@ -215,12 +251,20 @@ with connection() as conn:
 check("plain supplier click -> affiliate_network empty", last["affiliate_network"] == "")
 
 # --- Legal pages -----------------------------------------------------------------
-for path in ("/terms?lang=he", "/affiliate-disclosure?lang=he", "/terms?lang=en", "/affiliate-disclosure?lang=en"):
+LEGAL = ("/terms?lang=he", "/affiliate-disclosure?lang=he", "/terms?lang=en", "/affiliate-disclosure?lang=en")
+configure()
+for path in LEGAL:
     r = client.get(path)
     text = r.get_data(as_text=True)
-    check(f"{path} renders", r.status_code == 200)
-    check(f"{path} mentions Travelpayouts", "Travelpayouts" in text)
+    check(f"nothing configured: {path} renders with the old copy", r.status_code == 200 and "Travelpayouts" not in text)
+configure(link=SHORT_LINK)
+for path in LEGAL:
+    r = client.get(path)
+    text = r.get_data(as_text=True)
+    check(f"Kiwi on: {path} renders", r.status_code == 200)
+    check(f"Kiwi on: {path} shows Din's copy (mentions Travelpayouts)", "Travelpayouts" in text)
     check(f"{path} never says the price does not change", "המחיר עבורכם לא משתנה" not in text)
+configure()
 for path in ("/terms?lang=he", "/affiliate-disclosure?lang=he", "/deals?lang=he"):
     check(f"{path}: no 'ללא עמלה' claim", "ללא עמלה" not in client.get(path).get_data(as_text=True))
 

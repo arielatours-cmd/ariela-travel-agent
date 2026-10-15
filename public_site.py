@@ -34,7 +34,7 @@ from scoring import (
 import booking_demand
 import itinerary_cards
 from radar_alerts import evaluate_trip_alert
-from booker import resolve_booking_target, kiwi_affiliate_target, KIWI_PARTNER_NAME
+from booker import resolve_booking_target, kiwi_affiliate_target, kiwi_enabled, KIWI_PARTNER_NAME
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 from mailer import send_email
 
@@ -2671,6 +2671,11 @@ def booking_job_status(job_id):
             return jsonify({"status": "failed", "error": "בקשת ההזמנה אינה זמינה עוד."}), 404
         payload = {k: v for k, v in job.items() if k != "created_at"}
     return jsonify(payload)
+
+@site.app_template_global("kiwi_enabled")
+def _kiwi_enabled():
+    return kiwi_enabled()
+
 
 @site.app_template_global("kiwi_button")
 def _kiwi_button(offer):

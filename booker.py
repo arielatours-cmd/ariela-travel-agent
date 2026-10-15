@@ -594,6 +594,13 @@ def _is_https(url: str) -> bool:
     return parsed.scheme == "https" and bool(parsed.netloc)
 
 
+def kiwi_enabled() -> bool:
+    """True once a usable Kiwi link exists (short link, or the full deep-link
+    set). Until then the whole feature stays invisible, legal copy included."""
+    cfg = _kiwi_config()
+    return _is_https(cfg["link"]) or bool(cfg["marker"] and cfg["trs"] and cfg["template"])
+
+
 def kiwi_offer_eligible(offer: dict) -> bool:
     """True only for an offer the Kiwi.com button may appear on.
 
