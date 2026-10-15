@@ -6286,6 +6286,45 @@ def chat_clean():
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
 
+    # Seen live (Shaked, qa-s91, round 2): mid-conversation about one
+    # vacation (Paris), "אני רוצה לחזור לחופשה שלי לאיטליה באפריל ולהוסיף
+    # לה לינה ורכב" named a DIFFERENT destination that is itself one of the
+    # customer's own saved upcoming vacations, in the same breath as asking
+    # to add specific services to it. The plain service-request switch
+    # further below has no idea about destinations at all - it just
+    # attaches whatever service was named to whichever session is already
+    # active, so "לינה ורכב" got silently attached to the CURRENT (Paris)
+    # trip and the Italy vacation was never reached at all. A requested
+    # service alongside a destination that doesn't match the current
+    # conversation but does match one of the customer's own other saved
+    # vacations is always that vacation calling, never a same-trip service
+    # switch - check this before the generic switch gets a chance to claim
+    # it. (Already-handled: trip_is_empty above covers no active
+    # destination at all; pending_reopen covers mid-answer to this exact
+    # offer - this is the third case, a live active destination with a
+    # DIFFERENT one named alongside a service ask.)
+    if not trip_is_empty:
+        _current_dest = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
+        _current_places = _current_dest.get("places") or []
+        _current_countries = _place_countries(_current_places) | set(_current_places)
+        _other_places = [
+            p for p in _mentioned_places(message)
+            if p not in _current_places and p not in _current_countries
+            and not (_place_countries([p]) & _current_countries)
+        ]
+        if _other_places:
+            _services_elsewhere = [s for s in dict.fromkeys(_all_requested_services(message, trip_state)) if s in _REOPEN_LABELS]
+            _reopen_service = _services_elsewhere[0] if _services_elsewhere else None
+            if _reopen_service:
+                _reopen_candidates = _reopenable_trips(session['member_id'], _reopen_service, message, limit=20)
+                if _reopen_candidates:
+                    pending = dict(trip_state)
+                    pending["reopen_trip_pending"] = {
+                        "service": _reopen_service, "services": _services_elsewhere, "keep_state": True,
+                        "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in _reopen_candidates],
+                    }
+                    return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(_reopen_service, _reopen_candidates),'trip_update':pending,'start_flight_search':False})
+
     # The customer's saved vacations, every turn - so Ariella answers from
     # them instead of asking again for facts they already hold (seen live:
     # "תחפשי בחופשות שלי" about New York was answered with "כמה ימים ומי
