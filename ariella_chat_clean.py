@@ -356,19 +356,9 @@ def _weekday_pair_conflict(text, history):
             content = str(item.get("content") or "")
             if any(cue in content for cue in _WEEKDAY_PAIR_LODGING_CONTEXT_CUES):
                 continue
-            candidate = re.search(r"(?<![\u05d0-\u05ea])(?:\u05de|\u05de\u05d9\u05d5\u05dd\s+|\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")\s*(?:\u05e2\u05d3|[-\u2013])\s*(?:\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
-            if not candidate:
-                continue
-            # A trip's own departure/return weekday range only ever means
-            # anything once pinned to a real calendar date - a bare
-            # weekday-pair with no date anywhere in the same message (e.g. a
-            # lodging/route-grouping aside worded in ways no fixed cue list
-            # can fully anticipate) is never that, regardless of wording.
-            # Structural check, not another word to chase.
-            if not re.search(r"\d{1,2}[./-]\d{1,2}", content):
-                continue
-            pair = candidate
-            break
+            pair = re.search(r"(?<![\u05d0-\u05ea])(?:\u05de|\u05de\u05d9\u05d5\u05dd\s+|\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")\s*(?:\u05e2\u05d3|[-\u2013])\s*(?:\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
+            if pair:
+                break
     if not pair:
         return None
     today = date.today()
@@ -5388,6 +5378,20 @@ def _understand_open_gap_answer(key, model, message, history, state):
         # budget, otherwise match it against the same canonical level
         # vocabulary _deterministic_lodging_facts already uses.
         if gap_key == "lodging.details.budget_or_level":
+            # Seen live (Shlomo testing with Carmit, 15.10.2026): "4 כוכבים
+            # ומעלה" ("4 stars and up") answered this exact composite
+            # question and got read as a nightly budget of 4 ILS by the bare
+            # digit-search below - the smallest possible max_price sent to
+            # SerpApi, so every lodging search came back empty. A star
+            # rating is a LEVEL answer, never a price, regardless of which
+            # digit happens to be in it - checked before the generic digit
+            # match, not after, so it can never be misread as one.
+            star_match = re.search(r"(\d)\s*(?:\+)?\s*כוכב", value)
+            if star_match:
+                stars = int(star_match.group(1))
+                canon = "יוקרתי" if stars >= 4 else ("בינוני" if stars == 3 else "בסיסי")
+                result.setdefault("lodging", {}).setdefault("details", {})["level"] = canon
+                continue
             m = re.search(r"\d+", value)
             if m:
                 result.setdefault("lodging", {}).setdefault("details", {})["budget"] = int(m.group(0))
