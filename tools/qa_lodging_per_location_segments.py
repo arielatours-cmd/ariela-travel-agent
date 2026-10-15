@@ -114,7 +114,7 @@ import public_site
 fake_segment_calls = []
 
 
-def fake_search_hotels(query, checkin_date, checkout_date, adults=1, children=0, children_ages=None, rooms=1,
+def fake_search_hotels(query, checkin_date, checkout_date, adults=1, children=0, rooms=1,
                         min_price=None, max_price=None, vacation_rentals=False):
     fake_segment_calls.append({"query": query, "checkin_date": checkin_date, "checkout_date": checkout_date})
     return {"hotels": [{"name": f"Hotel in {query}", "price_per_night_ils": 100}]}
