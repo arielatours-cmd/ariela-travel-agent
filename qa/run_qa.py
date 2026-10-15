@@ -167,6 +167,8 @@ def check_cases() -> tuple[list[str], int]:
             failures.append(f"{case['id']}: expected a match, got {result!r}")
         elif case.get("expect_falsy") and result:
             failures.append(f"{case['id']}: expected no match, got {result!r}")
+        elif "expect_contains" in case and not all(part in str(result) for part in case["expect_contains"]):
+            failures.append(f"{case['id']}: expected to contain {case['expect_contains']}, got {result!r}")
         elif "expect" in case and not _contains(result, case["expect"]):
             failures.append(f"{case['id']}: expected {case['expect']}, got {result!r}")
     return failures, len(data["cases"])
