@@ -17,6 +17,7 @@ tools: Read, Grep, Glob, Write, Edit, Bash
 | שקד | בודקת איכות | session_014tcDKNJwxKfwmLGTPwxnFF | shaked | qa/reports/ |
 | ערן | משמר תפעול | session_01UzUTAykwVjBNUFtahs3U6h | eran | ops/reports/ |
 | בצלאל | מפתח הקוד | session_01Gwq2utxrp9m6FsNRABt3Pe | claude/hi-fxaohg | בקשות מיזוג (PR) ו-commits |
+| אהליאב | מפתח משנה, עובד רק תחת בצלאל | — (לא פונים אליו) | — | דרך הדיווחים של בצלאל בלבד |
 
 שגרת הסוכנים: שקד 06:47 · ערן 07:43 · אופק 08:52 · יוסף ראשון 08:41 · בצלאל לפי משימה.
 
