@@ -1958,6 +1958,17 @@ def _reset_intent(message):
 _RESET_GATE_YES_RE = re.compile(r"^(?:כן|בטח|בהחלט|כמובן|נכון)(?![א-ת])")
 _RESET_GATE_NO_RE = re.compile(r"^(?:לא)(?![א-ת])")
 _OPEN_PLACES_DAY_MENTION_RE = re.compile(r"(?<![א-ת])יום\s+\d{1,2}(?!\d)")
+# Seen live (Shaked, qa-s91 round 2, C3): "עוד חופשת סקי, חדשה ונפרדת"
+# (another ski vacation, new and separate) right after a committed trip of
+# the SAME trip_type (ski) never matched the fixed "חופשה חדשה"/"טיול חדש"
+# phrase list, because "חדשה" there never sits directly next to "חופשה"/
+# "טיול" - the word order/punctuation differs. "new" and "separate"
+# together, anywhere near each other regardless of order, is exactly as
+# explicit a new-vacation declaration as those fixed phrases.
+_NEW_AND_SEPARATE_RE = re.compile(
+    r"(?<![א-ת])ו?חדש(?:ה)?(?![א-ת]).{0,15}(?<![א-ת])ו?נפרד(?:ת|ים)?(?![א-ת])"
+    r"|(?<![א-ת])ו?נפרד(?:ת|ים)?(?![א-ת]).{0,15}(?<![א-ת])ו?חדש(?:ה)?(?![א-ת])"
+)
 
 
 def _full_reset_confirmation(message):
@@ -6437,10 +6448,17 @@ def chat_clean():
     # already-committed trip's own trip_type is exactly as strong a "this is
     # a new, different vacation" signal as the literal phrases below, so it
     # must trigger the same hard reset.
+    # Seen live again (Shaked, same round, C3): "עוד חופשת סקי, חדשה
+    # ונפרדת" (another ski vacation, new and separate) right after a
+    # committed ski trip to Saalbach - the trip_type here is the SAME
+    # (ski), so the check above never fires, and "חדשה ונפרדת" doesn't
+    # match the exact-phrase list either (word order/punctuation differs
+    # from the five fixed phrases below). _NEW_AND_SEPARATE_RE (module-
+    # level, see its own comment) catches this regardless of phrasing.
     _stated_trip_type = (_deterministic_trip_type_facts(message) or {}).get("trip_type")
     new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר")) or bool(
         _stated_trip_type and trip_state.get("trip_type") and _stated_trip_type != trip_state.get("trip_type")
-    )
+    ) or bool(_NEW_AND_SEPARATE_RE.search(message or ""))
     old_trip_committed = bool(trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
     # Own pending questions (new trip vs. destination change) are answered by
     # their own handlers below - "חופשה חדשה" there is the answer, not a new request.
