@@ -1957,6 +1957,7 @@ def _reset_intent(message):
 
 _RESET_GATE_YES_RE = re.compile(r"^(?:כן|בטח|בהחלט|כמובן|נכון)(?![א-ת])")
 _RESET_GATE_NO_RE = re.compile(r"^(?:לא)(?![א-ת])")
+_OPEN_PLACES_DAY_MENTION_RE = re.compile(r"(?<![א-ת])יום\s+\d{1,2}(?!\d)")
 
 
 def _full_reset_confirmation(message):
@@ -6139,7 +6140,25 @@ def chat_clean():
     # again for days and travelers the New York vacation already has).
     # Offer once to attach it to that vacation.
     open_places = (trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None
-    if open_places and not (
+    # Seen live (Shaked, round 14/qa-s91, Sicily): this fired on the
+    # customer's own "מתאים" approving a day-by-day route Ariella had JUST
+    # proposed for the CURRENT, in-progress trip, asking "לאיזו חופשה
+    # להוסיף מסלול ואטרקציות?" instead - because this check only looks at
+    # whether reopenable candidate vacations exist for the active service,
+    # never at whether the customer's message is actually answering
+    # something Ariella just asked HERE. An itinerary reply is never a
+    # "which vacation did you mean" moment - it's always about whatever
+    # route was just shown, so skip this gate entirely when the most
+    # recent assistant message already looks like a day-by-day itinerary
+    # (2+ "יום N" markers), and let the real route-approval handling
+    # further down resolve it instead.
+    _last_assistant_text = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"),
+        "",
+    )
+    _route_just_proposed = len(_OPEN_PLACES_DAY_MENTION_RE.findall(_last_assistant_text)) >= 2
+    if open_places and not _route_just_proposed and not (
         trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
         or trip_state.get("reopened_trip_id") or trip_state.get("reopen_offer_declined")
     ):
