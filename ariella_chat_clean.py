@@ -5634,7 +5634,17 @@ def _find_recent_scanned_vacation(member_id, destination_codes, departure_airpor
         if departure_airport and existing_origin and existing_origin != str(departure_airport).upper():
             continue
         existing_dest = frozenset(x for x in str(existing.get("destinations") or "").split(",") if x)
-        if existing_dest != dest_set:
+        # Seen live (Shaked, round 14 second pass, qa-s91): a repeat of the
+        # EXACT same Paris request slipped past this guard and spawned a
+        # second scan + duplicate vacation, because "שארל דה גול" resolved
+        # to {CDG} the first time and {CDG, ORY} the second (Tinkerbell's
+        # own multi-airport-gateway negotiation is not perfectly
+        # deterministic) - exact set equality then saw two "different"
+        # destinations for the same city. Two destination-code sets that
+        # share even one code in common are never a coincidence - they
+        # both resolved from the same place name - so overlap is the real
+        # signal, not exact equality.
+        if not (existing_dest & dest_set):
             continue
         if (str(existing.get("departure_date") or "")[:10] == str(dep)[:10]
                 and str(existing.get("return_date") or "")[:10] == str(ret)[:10]):
