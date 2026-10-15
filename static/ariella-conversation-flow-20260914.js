@@ -50,6 +50,16 @@ async function syncPostFlightDomains(ts){
  return allResolved;
 }
 async function talk(){const text=input.value.trim();if(!text||busy)return;busy=true;send.disabled=true;input.value='';add('user',text);const prior=history.slice(-24);history.push({role:'user',content:text});save();try{const r=await fetch('/api/ariella/chat-clean',{method:'POST',headers:{'Content-Type':'application/json','X-Ariella-Client':'live-chat-v8'},credentials:'same-origin',cache:'no-store',body:JSON.stringify({message:text,history:prior,profile,trip_state:tripState})});let data={};try{data=await r.json();}catch(e){}if(!r.ok||data.status!=='success')throw new Error(data.message||'chat error');if(!data.engine_version){add('assistant','הגרסה החדשה עדיין נפרסת. רענני בעוד רגע.');return;}document.documentElement.dataset.ariellaEngine=data.engine_version;profile=data.profile||profile;tripState=data.trip_update||tripState;save();
+if(data.redirect_url){
+ // The backend recognized this exact request already produced a real,
+ // still-valid vacation (per the business owner's 90-day duplicate-scan
+ // guard) - show the explanation, then hand off to the account page
+ // instead of continuing this conversation or triggering another scan.
+ const reply=String(data.reply||'').trim();if(reply){add('assistant',reply);history.push({role:'assistant',content:reply});save();}
+ tripState={};tripId=null;savedDomains={};try{save();localStorage.setItem(FINISHED_KEY,'1');}catch(e){}
+ await new Promise(resolve=>setTimeout(resolve,4000));
+ location.assign(data.redirect_url);return;
+}
 if(!tripId&&tripState.search_confirmed&&Array.isArray(tripState.requested_services)&&tripState.requested_services.includes('flights')){
  const sr=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify({trip_state:tripState})});
  const sd=await sr.json().catch(()=>({}));
