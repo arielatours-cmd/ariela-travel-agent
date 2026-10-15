@@ -4631,6 +4631,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
         children = max(0, int(answers.get("children") or 0))
     except (TypeError, ValueError):
         children = 0
+    children_ages = answers.get("age_groups") if isinstance(answers.get("age_groups"), list) else []
     try:
         rooms = max(1, int(answers.get("lodging_rooms") or 1))
     except (TypeError, ValueError):
@@ -4675,7 +4676,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 try:
                     seg_result = search_hotels(
                         query=seg["location"], checkin_date=seg["date_from"], checkout_date=seg["date_to"],
-                        adults=adults, children=children, rooms=rooms,
+                        adults=adults, children=children, children_ages=children_ages, rooms=rooms,
                         max_price=_max_price_for(seg["date_from"], seg["date_to"]), vacation_rentals=vacation_rentals,
                     )
                     seg_hotels = (seg_result.get("hotels") or [])[:5]
@@ -4732,7 +4733,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 city = dest_city
             result = search_hotels(
                 query=city, checkin_date=dep, checkout_date=ret,
-                adults=adults, children=children, rooms=rooms,
+                adults=adults, children=children, children_ages=children_ages, rooms=rooms,
                 max_price=_max_price_for(dep, ret), vacation_rentals=vacation_rentals,
             )
             answers["lodging_offers"] = (result.get("hotels") or [])[:10]
