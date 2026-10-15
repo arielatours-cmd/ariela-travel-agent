@@ -508,11 +508,28 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
     for airline_name in airline_names:
         official_url = OFFICIAL_AIRLINE_BOOKING_FALLBACKS.get(_norm(airline_name))
         if official_url:
-            note = (
-                "אריאלה פתחה עבורכם את מסך ההזמנה של בלו בירד."
-                if _norm(airline_name) in BLUEBIRD_NAMES
-                else "הספק לא מאפשר כרגע העברה מלאה של פרטי ההזמנה. אריאלה פתחה את אתר הספק עצמו — לא את Google."
-            )
+            # Seen live (the business owner herself, 15.10.2026): the deal
+            # card showed "Kiwi.com" as the recommended booking option, but
+            # clicking "go to booking" silently landed on Israir's homepage
+            # instead - because Kiwi.com (an OTA, not an airline) has no
+            # entry here, so the loop moved on to the next name in
+            # airline_names (the actual OPERATING airline) and matched
+            # that instead, with no indication the destination had quietly
+            # changed from what the card promised. Name both suppliers
+            # explicitly whenever they differ, so the customer understands
+            # why they ended up somewhere other than the recommended option
+            # - exactly what the business owner asked for ("say so honestly
+            # instead of promising 'go to booking'").
+            if _norm(airline_name) in BLUEBIRD_NAMES:
+                note = "אריאלה פתחה עבורכם את מסך ההזמנה של בלו בירד."
+            elif recommended and _norm(airline_name) != _norm(recommended):
+                note = (
+                    f"הספק המומלץ ({recommended}) לא מאפשר כרגע הזמנה ישירה דרך אריאלה. "
+                    f"אריאלה פתחה במקומו את אתר {airline_name} (חברת התעופה המפעילה את הטיסה) - "
+                    "יש להזין שם את פרטי הטיסה ומספר הנוסעים בעצמכם."
+                )
+            else:
+                note = "הספק לא מאפשר כרגע העברה מלאה של פרטי ההזמנה. אריאלה פתחה את אתר הספק עצמו — לא את Google."
             return BookerTarget(url=official_url, fields=[],
                 supplier=str(airline_name or recommended), mode="official_airline_fallback",
                 exact=False, note=note)
