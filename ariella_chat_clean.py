@@ -2764,7 +2764,43 @@ def _departure_summary(state):
     line = f"\nשדה היציאה (מקור אמת): {name} ({code}). כשאת מזכירה אותו, כתבי בדיוק \"{name}\"."
     if state.get("departure_airport_source") == "profile":
         line += " הוא נלקח מהשדה שהלקוח בחר בפרטי ההרשמה - אל תשאלי עליו; ציייני אותו בסיכום הטיסה כדי שהלקוח יוכל לשנות אם צריך."
+    if code == "HFA":
+        line += _hfa_route_note(state)
     return line
+
+
+def _hfa_route_note(state):
+    """Task 011a: from Haifa only Air Haifa's destinations exist
+    (data/hfa_routes.json). Never a promise that a flight exists - only
+    whether the requested route is one Air Haifa flies."""
+    from hfa_routes import hfa_route_check, matching_routes
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    dest = [str(c) for c in (state.get("destination_airports") or []) if c] \
+        or [str(p) for p in (destination.get("places") or []) if str(p or "").strip()]
+    if not dest:
+        return ""
+    status = hfa_route_check(dest)
+    label = ", ".join(str(p) for p in (destination.get("places") or []) if str(p or "").strip()) or ", ".join(dest)
+    flown = [r for r in matching_routes(dest) if r.get("status") in ("confirmed", "to_verify")]
+    if status == "served":
+        line = f"\nקו מחיפה ל{label} מופיע ברשימת הקווים של Air Haifa. ממשיכים כרגיל, ואל תבטיחי שיש טיסה בתאריכים - זו רק התאמה לקו."
+        if len(flown) > 1:
+            # A country/region (e.g. יוון): offer exactly the destinations
+            # Air Haifa flies there, nothing else.
+            names = ", ".join(f"{r.get('city_he')} ({r.get('iata')})" for r in flown)
+            line += f" היעדים מחיפה באזור הזה הם בדיוק: {names}. הציעי רק אותם."
+        if flown and all(r.get("seasonal") for r in flown):
+            line += " ציייני ללקוח: \"הקו עונתי — נבדוק זמינות בתאריכים שלכם\"."
+        return line
+    if status == "maybe":
+        seasonal = any(r.get("seasonal") for r in flown)
+        text = "הקו עונתי — נבדוק זמינות בתאריכים שלכם" if seasonal else "הקו עדיין לא מאומת — נבדוק זמינות בתאריכים שלכם"
+        return f"\nהקו מחיפה ל{label} לא מאומת כקו קבוע של Air Haifa. ממשיכים, ואמרי ללקוח במפורש: \"{text}\". אל תבטיחי שיש טיסה."
+    return (
+        f"\nמחיפה אין טיסה ישירה ל{label} (היעד לא ברשימת הקווים של Air Haifa). "
+        f"אל תתחילי חיפוש מחיפה. שאלי את הלקוח בדיוק: \"מחיפה אין טיסה ישירה ל{label}. לבדוק מנתב\"ג?\" "
+        "אם הלקוח עונה כן, שדה היציאה הוא TLV."
+    )
 
 
 def _fix_departure_name(reply, state, history, message):

@@ -2926,3 +2926,8 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 .member-traveler-edit summary,.member-traveler-delete button{cursor:pointer;font-size:13px;color:#123e7a;background:none;border:0;padding:0;text-decoration:underline}
 .member-traveler-edit form{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
 .member-traveler-delete{margin:0}
+
+/* Task 013a: secondary Kiwi.com affiliate button + disclosure on deal cards */
+.ariella-deal-card .deal-price-box .kiwi-affiliate{width:100%;margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.ariella-deal-card .deal-price-box .kiwi-affiliate a.kiwi-affiliate-btn{display:block;width:100%;padding:10px 12px!important;font-size:15px!important;font-weight:700;color:#123e7a!important;background:#fff!important;border:1px solid #123e7a;border-radius:8px;text-decoration:none;box-shadow:none}
+.ariella-deal-card .deal-price-box .affiliate-disclosure,.affiliate-disclosure{margin:0;font-size:12px;line-height:1.5;color:#5f5b55;text-align:start}

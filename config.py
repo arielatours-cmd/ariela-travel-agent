@@ -91,6 +91,21 @@ CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "")
 LODGING_AFFILIATE_LINK = os.getenv("LODGING_AFFILIATE_LINK", "").strip()
 LODGING_PARTNER_NAME = os.getenv("LODGING_PARTNER_NAME", "Agoda").strip() or "Agoda"
 LODGING_SEARCH_URL_TEMPLATE = os.getenv("LODGING_SEARCH_URL_TEMPLATE", "").strip()
+# Flight partner via Travelpayouts: Kiwi.com (task 013a). A secondary
+# "check on Kiwi.com too" button on direct-flight deal cards, next to the
+# unchanged main booking button. TRAVELPAYOUTS_KIWI_LINK is the short
+# tracking link from Travelpayouts (Tools -> Links) to Kiwi's home page - the
+# fallback whenever the route deep link below is not fully configured.
+# The deep link needs all three of: TRAVELPAYOUTS_MARKER, TRAVELPAYOUTS_TRS
+# and KIWI_SEARCH_URL_TEMPLATE - the deep-link format copied as-is from the
+# Travelpayouts Links tool, with the placeholders {marker}, {trs}, {sid},
+# {from}, {to} (IATA), {depart}, {return} (YYYY-MM-DD), {adults}, {children}.
+# No program numbers are hard-coded here; everything comes from Travelpayouts.
+# Only the trip id ({sid}) is ever sent - never a name, email or phone.
+TRAVELPAYOUTS_KIWI_LINK = os.getenv("TRAVELPAYOUTS_KIWI_LINK", "").strip()
+TRAVELPAYOUTS_MARKER = os.getenv("TRAVELPAYOUTS_MARKER", "").strip()
+TRAVELPAYOUTS_TRS = os.getenv("TRAVELPAYOUTS_TRS", "").strip()
+KIWI_SEARCH_URL_TEMPLATE = os.getenv("KIWI_SEARCH_URL_TEMPLATE", "").strip()
 # Sold to the customer as "a month" (never shown as a raw day count) but kept
 # internally at 30 real service days + the 4-day RENEWAL_REMINDER_DAYS_BEFORE
 # buffer, so a customer who reacts slowly to the reminder email still gets

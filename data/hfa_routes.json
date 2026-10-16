@@ -1,0 +1,186 @@
+{
+  "_about": "Task 011a: destinations Air Haifa (E2) flies from Haifa (HFA). Used to check a customer request before searching. status: confirmed / to_verify / suspended / not_served (verified that Air Haifa does not fly there). Refresh manually about once a month; set status=confirmed and verified_at only after checking airhaifa.com.",
+  "routes": [
+    {
+      "iata": "ETM",
+      "city_he": "אילת (רמון)",
+      "city_en": "Eilat",
+      "country_he": "ישראל",
+      "carrier": "E2",
+      "domestic": true,
+      "seasonal": false,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "אילת",
+        "רמון",
+        "שדה רמון",
+        "eilat",
+        "ramon"
+      ]
+    },
+    {
+      "iata": "LCA",
+      "city_he": "לרנקה",
+      "city_en": "Larnaca",
+      "country_he": "קפריסין",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": false,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "לרנקה",
+        "larnaca",
+        "קפריסין",
+        "cyprus"
+      ]
+    },
+    {
+      "iata": "ATH",
+      "city_he": "אתונה",
+      "city_en": "Athens",
+      "country_he": "יוון",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": false,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "אתונה",
+        "athens",
+        "יוון",
+        "greece"
+      ]
+    },
+    {
+      "iata": "SKG",
+      "city_he": "סלוניקי",
+      "city_en": "Thessaloniki",
+      "country_he": "יוון",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": false,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "סלוניקי",
+        "תסלוניקי",
+        "thessaloniki",
+        "יוון",
+        "greece"
+      ]
+    },
+    {
+      "iata": "PFO",
+      "city_he": "פאפוס",
+      "city_en": "Paphos",
+      "country_he": "קפריסין",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": false,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "פאפוס",
+        "פפוס",
+        "paphos",
+        "קפריסין",
+        "cyprus"
+      ]
+    },
+    {
+      "iata": "RHO",
+      "city_he": "רודוס",
+      "city_en": "Rhodes",
+      "country_he": "יוון",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": true,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "רודוס",
+        "rhodes",
+        "יוון",
+        "greece"
+      ]
+    },
+    {
+      "iata": "HER",
+      "city_he": "הרקליון (כרתים)",
+      "city_en": "Heraklion",
+      "country_he": "יוון",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": true,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "הרקליון",
+        "כרתים",
+        "heraklion",
+        "crete",
+        "יוון",
+        "greece"
+      ]
+    },
+    {
+      "iata": "JMK",
+      "city_he": "מיקונוס",
+      "city_en": "Mykonos",
+      "country_he": "יוון",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": true,
+      "status": "not_served",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "מיקונוס",
+        "mykonos"
+      ]
+    },
+    {
+      "iata": "AOK",
+      "city_he": "קרפתוס",
+      "city_en": "Karpathos",
+      "country_he": "יוון",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": true,
+      "status": "not_served",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "קרפתוס",
+        "karpathos"
+      ]
+    },
+    {
+      "iata": "SOF",
+      "city_he": "סופיה",
+      "city_en": "Sofia",
+      "country_he": "בולגריה",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": false,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "סופיה",
+        "sofia",
+        "בולגריה",
+        "bulgaria"
+      ]
+    }
+  ]
+}
