@@ -299,7 +299,19 @@ def _weekday_date_conflict(message, history=None):
     pairs = []
     for m in re.finditer(day_re + r".{0,40}?" + date_re, text):
         pairs.append((m.group(1), m.group(2), m.group(3), m.group(4)))
-    for m in re.finditer(date_re + r".{0,40}?" + day_re, text):
+    # Seen live (business owner, Croatia manual test, 16.10.2026): "ביום
+    # ראשון 19.9 עד חמישי 30.9" - a genuinely correct weekday/date pair on
+    # EACH side ("ראשון"+19.9, "חמישי"+30.9), both already found by the
+    # weekday-then-date scan above. Without the guard below, this reverse
+    # scan then ALSO paired the date 19.9 with the weekday "חמישי" - which
+    # textually follows it within 40 chars, but actually belongs to the
+    # LATER date (30.9) that immediately follows that same weekday, not to
+    # the earlier one. A weekday immediately followed by its own date (the
+    # "weekday DATE" shape the first scan above already covers) is never
+    # also the trailing weekday of an earlier, different date - so skip a
+    # match here whenever the matched weekday is itself followed shortly by
+    # a date of its own.
+    for m in re.finditer(date_re + r".{0,40}?" + day_re + r"(?!.{0,10}?" + date_re + r")", text):
         pairs.append((m.group(4), m.group(1), m.group(2), m.group(3)))
     seen = set()
     for day_name, ds, mos, ys in pairs:
@@ -5450,6 +5462,80 @@ def _all_requested_services(message, state):
     return found
 
 
+_DAY_MENTION_RE = re.compile(
+    r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
+)
+_DAY_MENTION_DATE_BEFORE_RE = re.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+_NUMBERED_DAY_RE = re.compile(r"(?<![א-ת])יום\s+(\d{1,2})(?!\d)")
+
+
+def _day_mention_count(text):
+    """Counts distinct day-by-day itinerary markers ("יום 1 (ראשון)", "יום
+    2:"...) in a piece of text - the same definition chat_clean()'s own
+    inline day_mention_count uses for "does this message actually look like
+    a proposed route", shared here so a module-level safety-net guard can
+    rely on the identical semantics without duplicating them incorrectly."""
+    text = str(text or "")
+    count = 0
+    for m in _DAY_MENTION_RE.finditer(text):
+        prefix = text[max(0, m.start() - 20):m.start()]
+        if _DAY_MENTION_DATE_BEFORE_RE.search(prefix):
+            continue
+        count += 1
+    numbered = {m.group(1) for m in _NUMBERED_DAY_RE.finditer(text)}
+    return max(count, len(numbered))
+
+
+def _guard_premature_route_approval(previous, updated, history):
+    """trip_planning.approved must never become True unless a real day-by-
+    day route (2+ distinct day markers) was actually proposed somewhere in
+    this conversation. Seen live (business owner's manual WhatsApp test,
+    Croatia, 16.10.2026): right at the very start of the conversation,
+    before any route was ever built, Tinkerbell's own reply said "מצוין,
+    המסלול מאושר" in response to "כן. זוג +2" (a travelers-count answer to
+    an unrelated dates/travelers question) - and the extractor, reading
+    that reply as context, faithfully copied the claim into trip_planning.
+    approved=True. The real route then had nowhere to go: once approved is
+    already True, the normal route-approval flow never recognizes the REAL
+    day-by-day route (proposed minutes later) as needing approval at all,
+    and trip_planning.details.route/pace stayed empty forever - Ariella
+    kept asking "מה הקצב?"/"ספרי לי על הטיול" in a loop even after a real
+    route had been presented and accepted.
+
+    This only reverts a NEWLY-claimed approval this turn (never an already-
+    approved decision from a previous turn, which is final and must not be
+    reopened) - and checks the ENTIRE conversation so far for real route
+    evidence, not just a recent window, so a route built up gradually over
+    many turns is never mistaken for "no route ever proposed"."""
+    previous = previous if isinstance(previous, dict) else {}
+    updated = updated if isinstance(updated, dict) else {}
+    planning = updated.get("trip_planning")
+    if not isinstance(planning, dict) or not planning.get("approved"):
+        return updated
+    prev_planning = previous.get("trip_planning")
+    was_already_approved = bool(prev_planning.get("approved")) if isinstance(prev_planning, dict) else False
+    if was_already_approved:
+        return updated
+    # Combine every assistant message in the conversation (not just one
+    # message at a time) before counting - a route proposed incrementally,
+    # a day or two per turn, must still count as real evidence even though
+    # no SINGLE message has 2+ day markers on its own.
+    all_assistant_text = " ".join(
+        str(item.get("content") or "") for item in (history or [])
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant"
+    )
+    has_route_evidence = _day_mention_count(all_assistant_text) >= 2
+    if has_route_evidence:
+        return updated
+    updated = dict(updated)
+    fixed_planning = dict(planning)
+    fixed_planning["approved"] = False
+    fixed_planning.pop("approved_text", None)
+    fixed_planning.pop("enrichment_pending", None)
+    updated["trip_planning"] = fixed_planning
+    return updated
+
+
 def _is_itinerary_acceptance(message):
     """Did the customer accept the itinerary just proposed? The exact-phrase
     set this replaced missed ordinary approvals ("מאשרת את המסלול", "נשמע
@@ -7536,6 +7622,7 @@ def chat_clean():
         # Ariella owns and merges the cumulative state.
         extracted = _extract_trip_update(key, model, history, message, trip_state)
         trip_update = _merge_trip_state(trip_state, extracted)
+        trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
         trip_update = _clear_stale_gateway_airports(trip_update)
         trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
