@@ -6408,8 +6408,55 @@ def chat_clean():
         # than a one-off mention check of its own.
         _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places)) and not _mentions_a_different_place(message, _old_places)
         if not _same_trip_again:
-            trip_state = dict(trip_state)
-            trip_state.pop('combined_search_launched', None)
+            # CRITICAL (Shaked, qa-s97, round 7): a genuinely new/different
+            # destination named here used to only clear combined_search_launched
+            # - every OTHER already-resolved flag from the old, already-launched
+            # trip (post_flight_continuation, search_confirmed, and a
+            # session_status with lodging/car/trip_planning already
+            # complete/declined) silently survived untouched. Destination/dates/
+            # travelers then looked like they were tracking the new vacation fine
+            # (the extractor updates those fields turn by turn as the customer
+            # states them), but the stale resolved flags were still sitting
+            # there - so the very next time anything evaluated "is this trip
+            # fully resolved" (the auto-reset below), it read TRUE instantly,
+            # wiping the brand-new vacation back to blank and firing a flight
+            # search with no real criteria, often with no customer approval at
+            # all. Every sibling "this is actually a new/different vacation"
+            # branch (new_vacation_language above, _previous_asked_new_vacation
+            # below, the reopen "choice==new" branches) already does a full
+            # clean-slate reset instead of a single-key pop for exactly this
+            # reason - this is the one branch that didn't, and it's reached
+            # silently (no magic "new vacation" phrase needed), which is why it
+            # stayed hidden until a real multi-turn conversation hit it. Only
+            # do the full reset when a DIFFERENT destination is actually named
+            # in THIS message alone - a message that names no place at all
+            # (small talk, a thank-you) must not wipe anything, matching the
+            # narrower pop this branch always did for that ambiguous case.
+            # Uses _deterministic_destination_facts (the same catalog
+            # destination-setting already relies on, island/region names
+            # included) rather than _mentioned_places/_mentions_a_different_
+            # place - that pair is also relied on by an unrelated reopen-gate
+            # call a few lines below which passes it the CURRENT trip's own
+            # destination name as if it were customer text (a pre-existing
+            # quirk of that other call, out of scope here); widening its
+            # shared catalog would have silently changed that other call's
+            # behavior too.
+            _new_dest_places = (_deterministic_destination_facts([], message, {}).get("destination") or {}).get("places") or []
+            if _new_dest_places and not (set(_new_dest_places) & set(_old_places)):
+                _old_profile = trip_state.get('profile')
+                _old_gender = trip_state.get('user_gender')
+                trip_state = {
+                    'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
+                    'active_session': None,
+                }
+                if _old_profile:
+                    trip_state['profile'] = _old_profile
+                if _old_gender:
+                    trip_state['user_gender'] = _old_gender
+                trip_state = _merge_trip_state(trip_state, _seed_fresh_trip_from_trigger_message(message))
+            else:
+                trip_state = dict(trip_state)
+                trip_state.pop('combined_search_launched', None)
     if trip_state.get('combined_search_launched') and not trip_state.get('reopened_trip_id') and not trip_state.get('reopen_trip_pending'):
         _dest_codes = trip_state.get('destination_airports') if isinstance(trip_state.get('destination_airports'), list) else []
         _dates = trip_state.get('dates') if isinstance(trip_state.get('dates'), dict) else {}
