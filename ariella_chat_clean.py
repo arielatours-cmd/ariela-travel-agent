@@ -4230,6 +4230,41 @@ def _deterministic_named_decline_facts(message):
                 svc = _service_for(word)
                 if svc:
                     declined[svc] = True
+        # Seen live (Shaked, qa-s97, round 7): "לא צריך לינה ולא רכב" (don't
+        # need lodging and not car) declined ONLY lodging - car was still
+        # asked about ("איזה סוג/גודל רכב?") a turn later. Every pattern
+        # above requires either ONE shared negation in front of a
+        # coordinated list ("לא צריך לינה ורכב") or a single "בלי"/"ללא"
+        # per service - neither covers two services each negated
+        # separately with their OWN "לא", which is exactly how Hebrew
+        # naturally elides the repeated need-word ("לא צריך X ולא Y", not
+        # "לא צריך X ולא צריך Y"). Each "ולא (NEED-word)? SERVICE" after the
+        # first declined service is itself an unambiguous decline of that
+        # service, whether or not it repeats the need-word.
+        for m3 in re.finditer(r"ולא\s*(?:" + need_word + r"\s+)?(" + service_alt + r")", clause):
+            svc = _service_for(m3.group(1))
+            if not svc:
+                continue
+            # Regression found by Shaked reviewing this exact change (PR #51):
+            # since מלון/דירה/וילה/צימר/לינה are all "lodging", a customer
+            # contrasting two TYPES of the same service ("כן, דירה ולא
+            # מלון", "כן, צריך לינה - מלון ולא דירה") had the whole lodging
+            # service wrongly declined - this loop fired on "ולא מלון"/"ולא
+            # דירה" exactly as if a second, DIFFERENT service had been
+            # named. Two guards, as she proposed: (1) only fire when a real
+            # negation was already established earlier in this clause (a
+            # bare "ולא" with nothing preceding it is not itself proof of a
+            # decline - both regression messages have no "לא"/"בלי"/"ללא"
+            # anywhere before it); (2) skip when the word immediately
+            # before "ולא" names the SAME service as the one just matched
+            # (a type contrast, not a second declined service).
+            preceding = clause[:m3.start()].rstrip(" ,-")
+            same_service_before = re.search(r"(" + service_alt + r")\s*$", preceding)
+            if same_service_before and _service_for(same_service_before.group(1)) == svc:
+                continue
+            if not declined and not re.search(r"לא\s+" + need_word + r"|בלי|ללא", preceding):
+                continue
+            declined[svc] = True
     if not declined:
         return {}
     return {
