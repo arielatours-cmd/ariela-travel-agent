@@ -47,7 +47,7 @@
    - בודקים ש-`WHATSAPP_RECIPIENT` עדיין מוגדר (עקיפה, עד שבצלאל יתקן את whatsapp.py:52).
    - `WHATSAPP_REGISTRATION_PIN` כבר קיים, לא נוגעים בו.
    - `WHATSAPP_INBOUND_ALLOWLIST` נשאר בשלב הבדיקות.
-7. **רישום המספר (register) והרשמה ל-webhook (subscription apply):** דרך נתיבי האדמין, **בלי token בכתובת**, בשיטה שבצלאל יקבע (header או POST). עד שזה מוכן, שואלים את שלמה לפני ההרצה.
+7. **רישום המספר (register) והרשמה ל-webhook (subscription apply):** דרך נתיבי האדמין, **בלי token בכתובת**, נכנסים קודם ל-`/admin/login` (טופס, עידו מוסיף אחרי 011א), ואז פותחים את נתיבי register ו-subscription. עד שזה ממוזג, שואלים את שלמה לפני ההרצה.
 8. **בדיקה:**
    - בתוצאה צריך לראות status=CONNECTED, platform_type=CLOUD_API ו-subscribed=true.
    - שולחים "שלום" מהנייד הפרטי ל-058-771-4389, ואריאלה אמורה לענות.
