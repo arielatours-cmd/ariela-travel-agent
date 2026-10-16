@@ -187,5 +187,6 @@
 {"id": "named-decline-lodging-type-contrast-dira-velo-malon", "fn": "_deterministic_named_decline_facts", "args": ["כן, דירה ולא מלון"], "expect_falsy": true, "source": "shaked-pr51-review-2026-10-16"},
 {"id": "named-decline-lodging-type-contrast-malon-velo-dira", "fn": "_deterministic_named_decline_facts", "args": ["כן, צריך לינה - מלון ולא דירה"], "expect_falsy": true, "source": "shaked-pr51-review-2026-10-16"},
 {"id": "dates-meha-ad-ha-month", "fn": "_deterministic_date_facts", "args": [[], "כבר אמרתי, מה-6 עד ה-13 במרץ", {}], "expect": {"dates": {"departure": "2027-03-06", "return": "2027-03-13"}}, "source": "shaked-round8-c3"},
-{"id": "dates-bein-le-month", "fn": "_deterministic_date_facts", "args": [[], "בין 6 ל-13 במרץ", {}], "expect": {"dates": {"departure": "2027-03-06", "return": "2027-03-13"}}, "source": "shaked-round8-c3"}
+{"id": "dates-bein-le-month", "fn": "_deterministic_date_facts", "args": [[], "בין 6 ל-13 במרץ", {}], "expect": {"dates": {"departure": "2027-03-06", "return": "2027-03-13"}}, "source": "shaked-round8-c3"},
+{"id": "weekday-conflict-weekday-before-each-date-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["אני רוצה לטוס לקרואטיה ביום ראשון 19.9 עד חמישי 30.9", []], "expect_falsy": true, "source": "owner-whatsapp-croatia-2026-10-16"}
 ]}
