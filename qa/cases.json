@@ -184,6 +184,9 @@
     {"id": "dest-tisa-me-haifa-le-roma-origin-not-destination", "fn": "_deterministic_destination_facts", "args": [[], "טיסה מחיפה לרומא, 10 עד 14 בנובמבר, שני מבוגרים"], "expect": {"destination": {"places": ["רומא"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
     {"id": "dest-tisa-me-haifa-le-yavan", "fn": "_deterministic_destination_facts", "args": [[], "טיסה מחיפה ליוון, 5 עד 12 ביוני"], "expect": {"destination": {"places": ["יוון"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
     {"id": "dest-tisa-mi-tel-aviv-le-roma", "fn": "_deterministic_destination_facts", "args": [[], "טיסה מתל אביב לרומא"], "expect": {"destination": {"places": ["רומא"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
-    {"id": "dest-latus-me-haifa-le-rodos-still-ok", "fn": "_deterministic_destination_facts", "args": [[], "אני רוצה לטוס מחיפה לרודוס"], "expect": {"destination": {"places": ["רודוס"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"}
+    {"id": "dest-latus-me-haifa-le-rodos-still-ok", "fn": "_deterministic_destination_facts", "args": [[], "אני רוצה לטוס מחיפה לרודוס"], "expect": {"destination": {"places": ["רודוס"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
+    {"id": "dest-crete-recognized-as-island", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לכרתים"], "expect": {"destination": {"places": ["כרתים"]}}, "source": "owner-relay-2026-10-16-shlomo-island-gap"},
+    {"id": "dest-crete-wins-over-bare-country", "fn": "_deterministic_destination_facts", "args": [[], "חופשה ביוון, אולי כרתים"], "expect": {"destination": {"places": ["כרתים"]}}, "source": "owner-relay-2026-10-16-shlomo-island-gap"},
+    {"id": "dest-sicily-recognized-as-island", "fn": "_deterministic_destination_facts", "args": [[], "רוצה חופשה בסיציליה"], "expect": {"destination": {"places": ["סיציליה"]}}, "source": "owner-relay-2026-10-16-shlomo-island-gap"}
   ]
 }

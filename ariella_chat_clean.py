@@ -1331,6 +1331,20 @@ def _resolve_destination_airports_from_route_names(airports, names):
             city_codes.append(code)
     if city_codes:
         return city_codes
+    # An island/region name (e.g. "כרתים") is more specific than a bare
+    # country but names no single city - see _ISLAND_REGION_GATEWAY_AIRPORTS
+    # for why this always returns every one of the island's own gateways,
+    # never just one.
+    region_codes = []
+    for name in names:
+        needle = _normalize_place_name(name)
+        for region, region_airport_codes in _ISLAND_REGION_GATEWAY_AIRPORTS.items():
+            if needle and needle == _normalize_place_name(region):
+                for code in region_airport_codes:
+                    if code not in region_codes:
+                        region_codes.append(code)
+    if region_codes:
+        return region_codes
     codes = []
     for name in names:
         needle = str(name).strip().lower()
@@ -3099,6 +3113,31 @@ _DESTINATION_SPELLING_ALIASES = {
     "זאלבאך": "זלבאך",
 }
 
+# Islands/regions a customer names by the island itself ("כרתים", "סיציליה"),
+# never by any single city on it - unlike a country (which already resolves
+# to every one of its airports via the generic substring fallback in
+# _resolve_destination_airports_from_route_names), a region name needs its
+# own explicit mapping here because it never appears as a country_he or
+# city_he value anywhere in the catalog, so it was silently unrecognized
+# entirely. Seen live (Shaked): Ariella stated as fact "לכרתים ברוב המקרים
+# לא מגיעים בטיסה ישירה מישראל" - false, a seasonal direct route to
+# Heraklion exists - traced back to "כרתים" never being a known destination
+# in the first place, so the real route data could never be reached. Each
+# entry lists EVERY one of the island's own airports already in the catalog
+# (never just one) - Crete alone has two under their own city names
+# (Heraklion AND Chania); aliasing the island to a single city would
+# silently drop the other gateway, the exact over-narrowing mistake
+# _resolve_destination_airports_from_route_names's own docstring already
+# warns against for routes. Add more islands/regions here as they're found
+# live - this is a short, explicit list, not a general geography database.
+_ISLAND_REGION_GATEWAY_AIRPORTS = {
+    "כרתים": ["HER", "CHQ"],
+    "סיציליה": ["CTA", "PMO"],
+    "סרדיניה": ["CAG", "OLB"],
+    "מיורקה": ["PMI"],
+    "טנריפה": ["TFS"],
+}
+
 
 def _known_destination_names():
     """needle -> display label for every country/city in the real airport
@@ -3145,6 +3184,13 @@ def _known_destination_names():
             known[en.lower()] = en
     for alias, canonical in _DESTINATION_SPELLING_ALIASES.items():
         known[alias] = canonical
+    # An island/region name is recognized in its own right - never rewritten
+    # to one of its airport cities (unlike a plain spelling alias above),
+    # since that would silently pick one gateway over the island's other
+    # ones. See _ISLAND_REGION_GATEWAY_AIRPORTS for why resolving it to an
+    # airport code still needs its own list of every gateway on the island.
+    for region in _ISLAND_REGION_GATEWAY_AIRPORTS:
+        known[region] = region
     # A specific place (city or resort) is always more specific than a bare
     # country name, so it must be checked first regardless of string length
     # - seen live (Shaked, qa-s91 round 2, C2): "חופשת סקי בזאלבאך שבאוסטריה"
