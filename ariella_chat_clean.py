@@ -7132,19 +7132,16 @@ def chat_clean():
                 'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
                 'active_session':None
             }
-            pending_destination = _deterministic_destination_facts([], original_change, {})
-            if pending_destination:
-                fresh = _merge_trip_state(fresh, pending_destination)
-            # Seen live (Shaked, qa-s91 round 2, C2): "אני רוצה לפתוח חופשה
-            # חדשה ונפרדת: חופשת סקי בזאלבאך שבאוסטריה, עם טיסה ולינה"
-            # already states the trip type (ski) - losing it here meant
-            # Ariella asked "regular vacation, business trip, or ski?" right
-            # back, as if the customer had never said. Preserve it exactly
-            # like the destination above, from the very same triggering
-            # message.
-            pending_trip_type = _deterministic_trip_type_facts(original_change)
-            if pending_trip_type:
-                fresh = _merge_trip_state(fresh, pending_trip_type)
+            # Seen live (Shaked, qa-s97, round 7, A2): this used to only
+            # re-extract destination and trip_type from original_change -
+            # "חופשה חדשה לגמרי לאיטליה, 10-17 באפריל, שלושה מבוגרים"
+            # (stating dates AND travelers in the very same breath) still
+            # lost both entirely, re-asked a turn later as if never said.
+            # _seed_fresh_trip_from_trigger_message runs the full
+            # deterministic cascade (destination/trip_type/dates/duration/
+            # travelers/departure_airport/budget) instead of just the two
+            # fields this branch used to hand-pick.
+            fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(original_change))
             if any(x in original_change.lower() for x in ("מסלול","לתכנן טיול","תכנון טיול","אטרקציות")):
                 fresh['requested_services'] = ['trip_planning']
                 fresh['active_session'] = 'trip_planning'
@@ -7315,8 +7312,24 @@ def chat_clean():
         else:
             intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
         if intent == "new":
-            fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None,
-                     'destination':{'places':[pending_new_trip],'mode':'specific','status':'known'}}
+            # Seen live (Shaked, qa-s97, round 7, A3): this used to only set
+            # destination (to the already-identified pending_new_trip) -
+            # "חופשה חדשה ונפרדת, 20-25 במרץ, 2+2 ילדים", confirming THIS
+            # exact gate, still lost the dates and travelers stated in the
+            # very same breath, exactly like the sibling bug already fixed
+            # for the generic reset-confirmation gate (A2). Seed the full
+            # deterministic cascade from this message too, same as every
+            # other "new vacation" reset branch - pending_new_trip remains
+            # the destination fallback only if this message's own
+            # extraction doesn't independently confirm one (it was already
+            # positively identified when this gate first fired, from a cue-
+            # adjacency/already-committed heuristic that _deterministic_
+            # destination_facts alone may not always re-derive from this
+            # later confirming message by itself).
+            fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
+            fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
+            if not ((fresh.get('destination') or {}).get('places') if isinstance(fresh.get('destination'), dict) else None):
+                fresh['destination'] = {'places':[pending_new_trip],'mode':'specific','status':'known'}
             reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה תרצי לטוס?"
             _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
             return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
