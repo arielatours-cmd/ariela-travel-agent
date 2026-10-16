@@ -9,15 +9,24 @@ really is Thursday), yet _weekday_date_conflict returned a false alarm:
 insisting 30.9.2027 was Wednesday even after the customer corrected her,
 since the false claim had already entered the conversation history.
 
-Root cause: the function pairs a weekday with the NEAREST date on either
-side within 40 characters. Its weekday-then-date scan correctly found both
-real pairs (ראשון+19.9, חמישי+30.9). But its REVERSE date-then-weekday scan
-then also matched date=19.9 with the weekday "חמישי" - the nearest weekday
-token textually following 19.9 - even though that weekday actually belongs
-to the LATER date (30.9) immediately after it, not to 19.9. Fixed by
-rejecting a date-then-weekday match whenever the matched weekday is itself
-followed shortly by a date of its own (meaning it is the leading weekday of
-THAT date, not the trailing weekday of the one before it).
+Root cause (original, "weekday DATE" phrasing): the function paired a
+weekday with the nearest date via a one-directional scan. A first patch
+added a SECOND, reverse (date-then-weekday) scan for that phrasing, with a
+guard rejecting a date-then-weekday match whenever the matched weekday was
+itself followed shortly by its own date.
+
+Shaked then found the SAME bug in the opposite, "DATE (weekday)" phrasing
+family - "19.9 (ראשון) עד 30.9 (חמישי)", "19.9 ראשון עד 30.9 חמישי", "19.9
+ראשון - 30.9 חמישי" - where the original forward (weekday-then-date) scan
+wrongly skipped past the date immediately BEHIND a weekday and paired it
+with the far date ahead instead, and the reverse scan's own guard then
+rejected the correct pairing too (since that weekday IS followed shortly by
+its own, separate date - the one belonging to the NEXT weekday). No fixed
+scan direction (or one-off guard patch) works for every phrasing.
+
+Fixed with a redesign: for each weekday mention, independently find the
+nearest date on EITHER side (within 40 chars) and pair with whichever is
+closer - no directional scan, no special-casing by format.
 
 Run: python3 tools/qa_weekday_before_each_date_no_cross_pairing.py
 """
@@ -61,6 +70,35 @@ check("regression: two children's ages ('שני ילדים') never false-trigger
       chat._weekday_date_conflict(
           "תאילנד, אני ובעלי ושני ילדים בני 8 ו-11, 15/07/2027 עד 29/07/2027", []
       ) is None)
+
+# --- Shaked's second finding: the opposite "DATE (weekday)" phrasing
+# family, where the date each weekday belongs to sits BEHIND it, not
+# ahead - all genuinely correct, must never false-alarm. ---
+check("DATE (weekday) with parens: no false alarm",
+      chat._weekday_date_conflict(
+          "אני רוצה לטוס לקרואטיה 19.9 (ראשון) עד 30.9 (חמישי)", []
+      ) is None)
+check("DATE weekday, no parens: no false alarm",
+      chat._weekday_date_conflict(
+          "אני רוצה לטוס לקרואטיה 19.9 ראשון עד 30.9 חמישי", []
+      ) is None)
+check("DATE weekday with a dash separator: no false alarm",
+      chat._weekday_date_conflict(
+          "אני רוצה לטוס לקרואטיה 19.9 ראשון - 30.9 חמישי", []
+      ) is None)
+
+# --- Shaked's third finding: free-form, fully natural phrasings must also
+# never false-alarm when both weekdays are genuinely correct. ---
+check("natural phrasing 'מיום X ה-D.M ועד יום Y ה-D.M': no false alarm",
+      chat._weekday_date_conflict(
+          "אני רוצה לטוס לקרואטיה מיום ראשון ה-19.9 ועד יום חמישי ה-30.9", []
+      ) is None)
+
+# --- Regression: a genuine conflict in the "DATE (weekday)" family must
+# still be caught, not swallowed by the redesign. ---
+r3 = chat._weekday_date_conflict("אני רוצה לטוס 19.9 (שלישי) עד 30.9 (חמישי)", [])
+check("regression: a genuine conflict in the DATE (weekday) family is still caught",
+      bool(r3) and "19.9" in r3)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
