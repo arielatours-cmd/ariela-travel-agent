@@ -5076,6 +5076,37 @@ def _deterministic_traveler_facts(message, existing=None):
     return {"travelers": facts} if facts else {}
 
 
+def _seed_fresh_trip_from_trigger_message(message, trigger_user_message=None):
+    """Build the seed facts for a brand-new, blank trip_state out of the
+    single message that triggered the reset (plus, when given, the one
+    user message one turn back that actually asked for it) - never the
+    full history, so an unrelated destination/date from an older, already-
+    finished vacation is never silently adopted.
+
+    Seen live (Shaked, round 4, B2/B3/C2, Croatia): every "start a new and
+    separate vacation" reset only ever seeded the destination from that
+    message, so any OTHER fact stated in the very same breath - trip type
+    ("עוד חופשת סקי, חדשה ונפרדת"), dates, duration, travelers, budget,
+    departure airport - was silently thrown away and asked again a moment
+    later, exactly as if the customer hadn't just said it. Mirrors the
+    fuller deterministic-extraction cascade the normal per-turn flow
+    already runs (destination/trip_type/dates/duration/travelers/airport),
+    just scoped to the one triggering message instead of the whole
+    conversation."""
+    history_for_seed = [{"role": "user", "content": trigger_user_message}] if trigger_user_message else []
+    fresh = {}
+    seed = _deterministic_destination_facts(history_for_seed, message, {})
+    if seed:
+        fresh = _merge_trip_state(fresh, seed)
+    fresh = _merge_trip_state(fresh, _deterministic_trip_type_facts(message))
+    fresh = _merge_trip_state(fresh, _deterministic_date_facts(history_for_seed, message, {}))
+    fresh = _merge_trip_state(fresh, _deterministic_duration_facts(message, fresh))
+    fresh = _merge_trip_state(fresh, _deterministic_traveler_facts(message))
+    fresh = _merge_trip_state(fresh, _deterministic_departure_airport_facts(message))
+    fresh = _merge_trip_state(fresh, _deterministic_budget_facts(message))
+    return fresh
+
+
 _SERVICE_KEYWORDS = (
     ("trip_planning", ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול")),
     # Plurals too - seen live: "אני רוצה שתחפשי לי גם דירות" wasn't
@@ -6411,9 +6442,7 @@ def chat_clean():
             # this branch never looked at the message for a destination at
             # all, unlike its siblings.
             fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
-            seed = _deterministic_destination_facts([], message, {})
-            if seed:
-                fresh = _merge_trip_state(fresh, seed)
+            fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
             places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
             reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
                      if places else "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
@@ -6671,9 +6700,7 @@ def chat_clean():
             'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
             'active_session':None
         }
-        seed = _deterministic_destination_facts([], message, {})
-        if seed:
-            fresh = _merge_trip_state(fresh, seed)
+        fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
         if any(x in msg_lower for x in ("טיסה","טיסות")):
             fresh['requested_services'] = ['flights']
             fresh['active_session'] = 'flights'
@@ -6771,10 +6798,7 @@ def chat_clean():
             # adopted as the new one's destination with nothing said about
             # it this time.
             _fresh_new = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
-            _trigger_history = [{"role": "user", "content": _triggering_user_message}] if _triggering_user_message else []
-            _seed_new = _deterministic_destination_facts(_trigger_history, message, {})
-            if _seed_new:
-                _fresh_new = _merge_trip_state(_fresh_new, _seed_new)
+            _fresh_new = _merge_trip_state(_fresh_new, _seed_fresh_trip_from_trigger_message(message, _triggering_user_message))
             _places_new = ((_fresh_new.get('destination') or {}).get('places') or []) if isinstance(_fresh_new.get('destination'), dict) else []
             _reply_new = (f"בשמחה 😊 מתחילים חופשה חדשה ל{_places_new[0]}. באיזו תקופה תרצי לטוס?"
                           if _places_new else 'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?')
