@@ -3317,6 +3317,28 @@ _DESTINATION_KEEP_NEGATION_CUES = (
 # still pick up Rome).
 _DESTINATION_REJECT_PREFIX_RE = re.compile(r"(?:^|[.,!?;\n]|\s)לא\s*$")
 
+# A known place name directly glued to the Hebrew "from" prefix (מ/מ-,
+# e.g. "מחיפה", "מ-תל אביב") names the DEPARTURE city, never the
+# destination. Only a מ immediately adjacent to the match counts (a word
+# boundary - start of text or a non-Hebrew-letter character - right before
+# it) - a מ elsewhere in the sentence, unrelated to this particular place
+# name, must never suppress an otherwise valid destination mention.
+_DESTINATION_ORIGIN_PREFIX_RE = re.compile(r"(?:^|[^א-ת])מ-?$")
+
+
+def _is_origin_departure_mention(text, match_index):
+    """Seen live (Shaked, round 5, qa-s93): "טיסה מחיפה לרומא" (flight FROM
+    Haifa TO Rome) and "טיסה מתל אביב לרומא" both set the vacation
+    destination to the ORIGIN city instead of Rome - the known-place scan
+    below had zero awareness of the מ.../ל... preposition structure, so
+    any sentence naming an outbound Israeli gateway city (Haifa, Tel Aviv -
+    both valid destinations in their own right, e.g. for a domestic
+    flight) as the departure point got that city treated as the trip's
+    destination. Mirrors _is_negated_destination_mention's own short
+    lookbehind-window approach."""
+    window = text[max(0, match_index - 3):match_index]
+    return bool(_DESTINATION_ORIGIN_PREFIX_RE.search(window))
+
 
 def _is_negated_destination_mention(text, match_index):
     """A place name mentioned right after "don't delete/keep X as is"
@@ -3354,10 +3376,16 @@ def _deterministic_destination_facts(history, message, state=None):
     for text in texts:
         text = text.lower()
         for needle, label in known.items():
-            idx = text.find(needle.lower())
-            if idx == -1 or _is_negated_destination_mention(text, idx):
-                continue
-            return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+            needle_lower = needle.lower()
+            start = 0
+            while True:
+                idx = text.find(needle_lower, start)
+                if idx == -1:
+                    break
+                if _is_negated_destination_mention(text, idx) or _is_origin_departure_mention(text, idx):
+                    start = idx + 1
+                    continue
+                return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
     return {}
 
 
