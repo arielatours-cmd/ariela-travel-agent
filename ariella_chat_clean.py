@@ -1548,6 +1548,11 @@ def _resolve_ski_destination_airports(state):
             .replace("וואל תורנס", "ואל תורנס")
             .replace("ואל טורנס", "ואל תורנס")
         )
+        # Seen live (Shaked, round 6, C2): the catalog lists Saalbach as
+        # "זלבאך", but the customer's own natural spelling ("זאלבאך", with
+        # an extra א, or the shorter "סלבך") never matched it at all - the
+        # same class of bug as Val Thorens above, just for this resort.
+        needle = needle.replace("זאלבאך", "זלבאך").replace("סלבך", "זלבאך")
         for row in SKI_RESORTS:
             # resort_he is the Hebrew transliteration - without it, a Hebrew
             # place string could never match the catalog's English-only
@@ -1579,18 +1584,20 @@ def _resolve_ski_destination_airports(state):
         # destination_airports never got set at all, not even once the
         # customer explicitly typed the airport code itself ("הנחיתה בז'נבה
         # GVA"): Ariella kept asking "באיזה שדה תרצי לנחות?" forever. A
-        # named place that resolves to one of the known mountain-gateway
-        # airports (INN/GVA/SZG/TRN - see _MOUNTAIN_GATEWAY_AIRPORTS), or an
-        # explicit 3-letter code naming one of them directly, is itself a
-        # valid ski gateway even with no specific resort chosen yet.
+        # named place that resolves to any gateway airport appearing in the
+        # ski-resort catalog itself (_SKI_CATALOG_GATEWAY_AIRPORTS - seen
+        # live for Zurich/Munich/Sofia too, round 6, not just the narrower
+        # Geneva/Innsbruck/Salzburg/Turin set), or an explicit 3-letter code
+        # naming one of them directly, is itself a valid ski gateway even
+        # with no specific resort chosen yet.
         airports = _load_airports()
         gateway_codes = []
         for place in places:
             code = _match_city_exact(place, airports)
-            if code and code in _MOUNTAIN_GATEWAY_AIRPORTS and code not in gateway_codes:
+            if code and code in _SKI_CATALOG_GATEWAY_AIRPORTS and code not in gateway_codes:
                 gateway_codes.append(code)
             stripped = place.strip().upper()
-            if stripped in _MOUNTAIN_GATEWAY_AIRPORTS and stripped not in gateway_codes:
+            if stripped in _SKI_CATALOG_GATEWAY_AIRPORTS and stripped not in gateway_codes:
                 gateway_codes.append(stripped)
         if gateway_codes:
             state = dict(state)
@@ -4505,6 +4512,23 @@ def _infer_standard_trip_type(state, message, history):
 # there may well be a ski trip, unlike e.g. Barcelona or Prague which also
 # appear as ski gateways in SKI_RESORTS but are first of all city breaks.
 _MOUNTAIN_GATEWAY_AIRPORTS = {"INN", "GVA", "SZG", "TRN"}
+
+# The FULL set of gateway airports that appear anywhere in SKI_RESORTS -
+# deliberately broader than _MOUNTAIN_GATEWAY_AIRPORTS above, which is kept
+# narrow on purpose to avoid misclassifying an ordinary Barcelona/Prague/
+# Vienna city-break as a ski trip. This set is only ever consulted once
+# trip_type=="ski" is already an established fact (see
+# _resolve_ski_destination_airports's own gateway-city fallback), so that
+# false-positive risk doesn't apply here at all - a confirmed ski trip
+# naming Zurich, Munich or Sofia as its gateway (Shaked, round 6: Saalbach
+# via Munich, Bansko via Sofia) is still a real, valid gateway, never a
+# guess, even though neither airport is "mainly" a mountain gateway city.
+_SKI_CATALOG_GATEWAY_AIRPORTS = frozenset(
+    str(code).strip().upper()
+    for row in SKI_RESORTS
+    for code in (row.get("gateway_airports") or [])
+    if str(code).strip()
+)
 
 
 def _is_possible_ski_place(place):
