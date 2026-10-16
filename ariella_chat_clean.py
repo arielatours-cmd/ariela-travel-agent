@@ -1236,10 +1236,23 @@ def _resolve_destination_airports_from_route(state):
     # precise than whatever already got resolved and must not clobber it.
     route_has_bases = bool(names)
     if not names:
-        if state.get("destination_airports"):
-            return state
         destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
-        names = [str(p) for p in (destination.get("places") or []) if p]
+        plain_names = [str(p) for p in (destination.get("places") or []) if p]
+        if state.get("destination_airports"):
+            # Seen live (Shaked, round 4, A2): a broad COUNTRY-level mention
+            # ("איטליה" alone) resolves to every airport in the country and
+            # gets cut to the first 4 in catalog order (BGY, BLQ, CAG, CTA -
+            # none of them Milan or Venice) - then this early return blocked
+            # ANY later update forever, even once the customer explicitly
+            # named a specific city ("לנחות במילאנו ולחזור מוונציה") in a
+            # later message. Only a genuine CITY-level match among the
+            # current places is specific enough to override what's already
+            # resolved - a bare country name repeated later is no more
+            # precise than before and must still never clobber it (the
+            # original protection this guard existed for).
+            if not any(_match_city_exact(p, _load_airports()) for p in plain_names):
+                return state
+        names = plain_names
     if not names:
         return state
     # Seen live (Shaked, Crete scenario): a route that lands in one base
@@ -1558,6 +1571,31 @@ def _resolve_ski_destination_airports(state):
                 if needle in hay or hay in needle:
                     matched_rows.append(row)
     if not matched_rows:
+        # Seen live (Shaked, round 4, C1, regression): a ski-trip customer
+        # who names the GATEWAY CITY itself ("חופשת סקי, טיסה לז'נבה")
+        # rather than a specific resort has nothing in SKI_RESORTS to match
+        # against - ז'נבה is a gateway city, never a resort name, and
+        # rarely appears inside any resort's own country/resort string - so
+        # destination_airports never got set at all, not even once the
+        # customer explicitly typed the airport code itself ("הנחיתה בז'נבה
+        # GVA"): Ariella kept asking "באיזה שדה תרצי לנחות?" forever. A
+        # named place that resolves to one of the known mountain-gateway
+        # airports (INN/GVA/SZG/TRN - see _MOUNTAIN_GATEWAY_AIRPORTS), or an
+        # explicit 3-letter code naming one of them directly, is itself a
+        # valid ski gateway even with no specific resort chosen yet.
+        airports = _load_airports()
+        gateway_codes = []
+        for place in places:
+            code = _match_city_exact(place, airports)
+            if code and code in _MOUNTAIN_GATEWAY_AIRPORTS and code not in gateway_codes:
+                gateway_codes.append(code)
+            stripped = place.strip().upper()
+            if stripped in _MOUNTAIN_GATEWAY_AIRPORTS and stripped not in gateway_codes:
+                gateway_codes.append(stripped)
+        if gateway_codes:
+            state = dict(state)
+            state["destination_airports"] = gateway_codes
+            return state
         return state
     resort_names = []
     codes = []
@@ -3317,6 +3355,28 @@ _DESTINATION_KEEP_NEGATION_CUES = (
 # still pick up Rome).
 _DESTINATION_REJECT_PREFIX_RE = re.compile(r"(?:^|[.,!?;\n]|\s)לא\s*$")
 
+# A known place name directly glued to the Hebrew "from" prefix (מ/מ-,
+# e.g. "מחיפה", "מ-תל אביב") names the DEPARTURE city, never the
+# destination. Only a מ immediately adjacent to the match counts (a word
+# boundary - start of text or a non-Hebrew-letter character - right before
+# it) - a מ elsewhere in the sentence, unrelated to this particular place
+# name, must never suppress an otherwise valid destination mention.
+_DESTINATION_ORIGIN_PREFIX_RE = re.compile(r"(?:^|[^א-ת])מ-?$")
+
+
+def _is_origin_departure_mention(text, match_index):
+    """Seen live (Shaked, round 5, qa-s93): "טיסה מחיפה לרומא" (flight FROM
+    Haifa TO Rome) and "טיסה מתל אביב לרומא" both set the vacation
+    destination to the ORIGIN city instead of Rome - the known-place scan
+    below had zero awareness of the מ.../ל... preposition structure, so
+    any sentence naming an outbound Israeli gateway city (Haifa, Tel Aviv -
+    both valid destinations in their own right, e.g. for a domestic
+    flight) as the departure point got that city treated as the trip's
+    destination. Mirrors _is_negated_destination_mention's own short
+    lookbehind-window approach."""
+    window = text[max(0, match_index - 3):match_index]
+    return bool(_DESTINATION_ORIGIN_PREFIX_RE.search(window))
+
 
 def _is_negated_destination_mention(text, match_index):
     """A place name mentioned right after "don't delete/keep X as is"
@@ -3354,10 +3414,16 @@ def _deterministic_destination_facts(history, message, state=None):
     for text in texts:
         text = text.lower()
         for needle, label in known.items():
-            idx = text.find(needle.lower())
-            if idx == -1 or _is_negated_destination_mention(text, idx):
-                continue
-            return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+            needle_lower = needle.lower()
+            start = 0
+            while True:
+                idx = text.find(needle_lower, start)
+                if idx == -1:
+                    break
+                if _is_negated_destination_mention(text, idx) or _is_origin_departure_mention(text, idx):
+                    start = idx + 1
+                    continue
+                return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
     return {}
 
 
