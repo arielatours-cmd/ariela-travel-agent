@@ -184,6 +184,8 @@
     {"id": "dest-tisa-me-haifa-le-roma-origin-not-destination", "fn": "_deterministic_destination_facts", "args": [[], "טיסה מחיפה לרומא, 10 עד 14 בנובמבר, שני מבוגרים"], "expect": {"destination": {"places": ["רומא"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
     {"id": "dest-tisa-me-haifa-le-yavan", "fn": "_deterministic_destination_facts", "args": [[], "טיסה מחיפה ליוון, 5 עד 12 ביוני"], "expect": {"destination": {"places": ["יוון"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
     {"id": "dest-tisa-mi-tel-aviv-le-roma", "fn": "_deterministic_destination_facts", "args": [[], "טיסה מתל אביב לרומא"], "expect": {"destination": {"places": ["רומא"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
-    {"id": "dest-latus-me-haifa-le-rodos-still-ok", "fn": "_deterministic_destination_facts", "args": [[], "אני רוצה לטוס מחיפה לרודוס"], "expect": {"destination": {"places": ["רודוס"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"}
+    {"id": "dest-latus-me-haifa-le-rodos-still-ok", "fn": "_deterministic_destination_facts", "args": [[], "אני רוצה לטוס מחיפה לרודוס"], "expect": {"destination": {"places": ["רודוס"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
+    {"id": "named-decline-each-own-negation-lodging-car", "fn": "_deterministic_named_decline_facts", "args": ["לא צריך לינה ולא רכב"], "expect": {"session_status": {"lodging": "declined", "car": "declined"}}, "source": "live-chat-2026-10-16-shaked-s97-a3"},
+    {"id": "named-decline-each-own-negation-repeated-need-word", "fn": "_deterministic_named_decline_facts", "args": ["לא צריך לינה ולא צריך רכב"], "expect": {"session_status": {"lodging": "declined", "car": "declined"}}, "source": "live-chat-2026-10-16-shaked-s97-a3"}
   ]
 }

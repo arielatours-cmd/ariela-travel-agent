@@ -4174,6 +4174,21 @@ def _deterministic_named_decline_facts(message):
                 svc = _service_for(word)
                 if svc:
                     declined[svc] = True
+        # Seen live (Shaked, qa-s97, round 7): "לא צריך לינה ולא רכב" (don't
+        # need lodging and not car) declined ONLY lodging - car was still
+        # asked about ("איזה סוג/גודל רכב?") a turn later. Every pattern
+        # above requires either ONE shared negation in front of a
+        # coordinated list ("לא צריך לינה ורכב") or a single "בלי"/"ללא"
+        # per service - neither covers two services each negated
+        # separately with their OWN "לא", which is exactly how Hebrew
+        # naturally elides the repeated need-word ("לא צריך X ולא Y", not
+        # "לא צריך X ולא צריך Y"). Each "ולא (NEED-word)? SERVICE" after the
+        # first declined service is itself an unambiguous decline of that
+        # service, whether or not it repeats the need-word.
+        for m3 in re.finditer(r"ולא\s*(?:" + need_word + r"\s+)?(" + service_alt + r")", clause):
+            svc = _service_for(m3.group(1))
+            if svc:
+                declined[svc] = True
     if not declined:
         return {}
     return {
