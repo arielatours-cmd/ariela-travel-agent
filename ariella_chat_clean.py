@@ -317,7 +317,16 @@ def _weekday_date_conflict(message, history=None):
         if dt.weekday() != weekdays[day_name]:
             actual = ["שני","שלישי","רביעי","חמישי","שישי","שבת","ראשון"][dt.weekday()]
             return f"רק לוודא לפני שממשיכים — {d}.{mo}.{y} יוצא יום {actual}, אבל כתבת יום {day_name}. איזה מהם נכון מבחינתך?"
-    return _weekday_pair_conflict(text, history)
+    candidate = _weekday_pair_conflict(text, history)
+    # Seen live (Carmit, WhatsApp, 15.10.2026 20:24-20:26): she replied with
+    # the exact same dates twice in a row, and this asked the identical
+    # "did you mean X or Y" clarification both times - a loop, since a
+    # repeat of the same answer IS the confirmation, not new information to
+    # re-question. Checked here (not only by the chat-clean route) so the
+    # function itself never hands back a question it just asked.
+    if candidate and _already_asked_weekday_conflict(history, candidate):
+        return None
+    return candidate
 
 
 _WEEKDAY_PAIR_LODGING_CONTEXT_CUES = ("לישון", "לינה", "באותו מקום", "בסיס לינה", "להישאר")
@@ -352,13 +361,29 @@ def _weekday_pair_conflict(text, history):
         return None
     pair = None
     for item in reversed(history or []):
-        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
-            content = str(item.get("content") or "")
-            if any(cue in content for cue in _WEEKDAY_PAIR_LODGING_CONTEXT_CUES):
-                continue
-            pair = re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?(" + day_alt + r")\s*(?:עד|[-–])\s*(?:יום\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
-            if pair:
-                break
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "").lower()
+        content = str(item.get("content") or "")
+        # Seen live (Shaked, qa-s92, reproducing the owner's WhatsApp loop):
+        # the scan used to run across the WHOLE conversation with no concept
+        # of "that was a different, already-submitted request" - a lodging
+        # aside from a PREVIOUS, already-approved trip kept leaking into a
+        # brand new one. "מאשר"/"מאשרת" (bare, exactly as typed) is the one
+        # reserved word the whole system already treats as the real
+        # activation/finalization of a request (_approval_trigger uses the
+        # same exact match) - hitting it while scanning backward means
+        # everything further back belongs to that earlier, closed request,
+        # not to whatever is being planned now.
+        if role == "user" and content.strip() in ("מאשר", "מאשרת"):
+            break
+        if role != "user":
+            continue
+        if any(cue in content for cue in _WEEKDAY_PAIR_LODGING_CONTEXT_CUES):
+            continue
+        pair = re.search(r"(?<![\u05d0-\u05ea])(?:\u05de|\u05de\u05d9\u05d5\u05dd\s+|\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")\s*(?:\u05e2\u05d3|[-\u2013])\s*(?:\u05d9\u05d5\u05dd\s+)?(" + day_alt + r")(?![\u05d0-\u05ea])", content)
+        if pair:
+            break
     if not pair:
         return None
     today = date.today()
@@ -390,6 +415,29 @@ def _weekday_pair_conflict(text, history):
             return (f"רק לוודא — {dt.strftime('%d.%m.%Y')} יוצא ביום {actual}, וביקשת {pair.group(1)} עד {pair.group(2)}. "
                     f"התכוונת {options_text}? או שנשנה את ימי הנסיעה?")
     return None
+
+
+def _already_asked_weekday_conflict(history, conflict_text):
+    """Seen live (Carmit, WhatsApp, 15.10.2026 20:24-20:26): she replied with
+    the exact same dates twice in a row, and Ariella asked the identical
+    "did you mean X or Y" clarification both times - a loop, since a repeat
+    of the same answer IS the customer's confirmation, not new information
+    to re-question. Compare against the opening clause only (up to "וביקשת"),
+    which already pins down the specific date+weekday pair in question -
+    enough to recognize "we just asked this", without requiring the whole
+    message (suggested alternatives, phrasing) to match verbatim."""
+    if not history or not conflict_text:
+        return False
+    opening = conflict_text.split("וביקשת")[0].strip()
+    if not opening:
+        return False
+    for item in reversed(history):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("role") or "").lower() != "assistant":
+            continue
+        return opening in str(item.get("content") or "")
+    return False
 
 
 _RETRYABLE_CLAUDE_STATUS_CODES = (429, 529)
@@ -602,6 +650,24 @@ def _correct_route_day_weekdays(text, state):
             anchor = date.fromisoformat(dep_raw)
         except ValueError:
             anchor = None
+    # Seen live (the business owner herself, 15.10.2026, Split->Dubrovnik):
+    # a long route built before the flight dates were confirmed (dates.
+    # departure still empty) left `anchor` None, so every "D.M (weekday)"
+    # occurrence silently passed through unchecked - days 10-11 kept the
+    # model's own wrong guesses (skipping Tuesday entirely) while day 9
+    # happened to be right by luck. The route's own first day almost always
+    # DOES carry an explicit year ("20.9.2026"), per this function's whole
+    # reason for existing - use that as a fallback anchor instead of giving
+    # up entirely, before resorting to today's date as the last resort.
+    if anchor is None:
+        first_dated = _ROUTE_DAY_WEEKDAY_RE.search(text)
+        if first_dated and first_dated.group(4):
+            try:
+                anchor = date(int(first_dated.group(4)), int(first_dated.group(3)), int(first_dated.group(2)))
+            except ValueError:
+                anchor = None
+    if anchor is None:
+        anchor = date.today()
 
     def _replace(m):
         prefix, day_s, month_s, year_s, mid, weekday_word, suffix = m.groups()
@@ -643,7 +709,19 @@ def _total_nights_hint(state):
     to count by eye off a route description - hand over the exact,
     pre-computed total so there is nothing left to compute for the overall
     trip length (per-city splits within a route still come from the
-    route's own day boundaries, which Ariella already has)."""
+    route's own day boundaries, which Ariella already has).
+
+    Seen live again (the business owner herself, 15.10.2026, Split-
+    >Dubrovnik, 11 nights / 12 days): even WITH the correct nights count
+    handed over, Ariella also counted "12 days" from her own route's day
+    headers, read the two different NUMBERS as a contradiction, and
+    "corrected" an already-perfectly-correct 12-day route by merging two
+    days together - nearly deleting a real day of the trip. 11 nights and
+    12 days are the same length, not two competing facts to reconcile -
+    she had no explicit statement of that identity, so a right nights
+    count and a right days count looked like a mismatch to her. State both
+    numbers together with the arithmetic identity spelled out, and forbid
+    treating an already-matching route as something to fix."""
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     if dates.get("needs_confirmation"):
@@ -660,10 +738,17 @@ def _total_nights_hint(state):
     nights = (ret - dep).days
     if nights <= 0:
         return ""
+    days = nights + 1
     return (
-        f"\nמספר הלילות הכולל של הטיול (מחושב בוודאות מתאריכי היציאה/החזרה - "
-        f"לעולם אל תספרי זאת בעצמך): {nights} לילות. אם המסלול מתפצל בין כמה ערים/יעדים, "
-        "סכום הלילות בכל הערים חייב להסתכם בדיוק למספר הזה."
+        f"\nאורך הטיול (מחושב בוודאות מתאריכי היציאה/החזרה - לעולם אל תספרי זאת בעצמך "
+        f"ולעולם אל תסתרי מהמספר הזה): {days} ימים ({nights} לילות - זה בדיוק אותו אורך טיול, "
+        "לא שני מספרים שונים: טיול שמתחיל ונגמר באותו יום הוא יום אחד ו-0 לילות, אז ימים תמיד שווים ללילות ועוד 1). "
+        f"בכותרות המסלול ('יום 1', 'יום 2' וכו) דברי תמיד במונח הימים: {days} ימים בדיוק, לא פחות ולא יותר. "
+        "אם המסלול שבנית כבר מכיל בדיוק את מספר הימים הזה - הוא נכון, לעולם אל תצהירי שיש אי-התאמה ואל 'תתקני' אותו "
+        "(מיזוג ימים, מחיקת יום וכו') בלי שהלקוח עצמו ביקש שינוי; טעות אמיתית תתגלה רק אם סופרים את כותרות 'יום N' "
+        "בפועל ומגלים שהן לא מגיעות למספר הזה - לא על ידי השוואה לספירת לילות בנפרד. "
+        "אם המסלול מתפצל בין כמה ערים/יעדים, סכום הלילות בכל הערים (לא הימים) חייב להסתכם בדיוק ל-"
+        f"{nights} לילות."
     )
 
 
@@ -1957,6 +2042,34 @@ def _reset_intent(message):
 
 _RESET_GATE_YES_RE = re.compile(r"^(?:כן|בטח|בהחלט|כמובן|נכון)(?![א-ת])")
 _RESET_GATE_NO_RE = re.compile(r"^(?:לא)(?![א-ת])")
+_OPEN_PLACES_DAY_MENTION_RE = re.compile(r"(?<![א-ת])יום\s+\d{1,2}(?!\d)")
+# Seen live (Shaked, qa-s91 round 2, C3): "עוד חופשת סקי, חדשה ונפרדת"
+# (another ski vacation, new and separate) right after a committed trip of
+# the SAME trip_type (ski) never matched the fixed "חופשה חדשה"/"טיול חדש"
+# phrase list, because "חדשה" there never sits directly next to "חופשה"/
+# "טיול" - the word order/punctuation differs. "new" and "separate"
+# together, anywhere near each other regardless of order, is exactly as
+# explicit a new-vacation declaration as those fixed phrases.
+_NEW_AND_SEPARATE_RE = re.compile(
+    r"(?<![א-ת])ו?חדש(?:ה)?(?![א-ת]).{0,15}(?<![א-ת])ו?נפרד(?:ת|ים)?(?![א-ת])"
+    r"|(?<![א-ת])ו?נפרד(?:ת|ים)?(?![א-ת]).{0,15}(?<![א-ת])ו?חדש(?:ה)?(?![א-ת])"
+)
+# Seen live (Shaked, qa-s92, round 3, A5): right after Ariella HERSELF asked
+# the open either/or question "להמשיך עם בודפשט או תכנון חדש לגמרי?", the
+# customer's own answer "תכנון חדש לגמרי לסיציליה" (entirely new planning)
+# matched neither the fixed phrase list (that only has the one specific
+# "חיפוש חדש לגמרי", not "תכנון חדש לגמרי" or any other noun) nor
+# _NEW_AND_SEPARATE_RE (no "נפרד" anywhere in this reply at all) - so the
+# reset never fired, and the whole old Budapest trip (airports, lodging,
+# declined car) silently survived into what was unambiguously, by the
+# customer's own answer to Ariella's own question, a brand new vacation.
+# "חדש" and "לגמרי" (entirely) together, in either order, is just as
+# explicit a declaration as "נפרד" - not tied to whichever noun they
+# happen to modify ("תכנון", "חיפוש", "מסלול"...).
+_ENTIRELY_NEW_RE = re.compile(
+    r"(?<![א-ת])ו?חדש(?:ה)?(?![א-ת]).{0,15}(?<![א-ת])לגמרי(?![א-ת])"
+    r"|(?<![א-ת])לגמרי(?![א-ת]).{0,15}(?<![א-ת])ו?חדש(?:ה)?(?![א-ת])"
+)
 
 
 def _full_reset_confirmation(message):
@@ -2903,6 +3016,13 @@ _DESTINATION_SPELLING_ALIASES = {
     "ואל טורנס": "ואל תורנס",
     "וואל טורנס": "ואל תורנס",
     "וואל תורנס": "ואל תורנס",
+    # Seen live (Shaked, qa-s91 round 2, C2): the ski catalog's resort_he for
+    # Saalbach is "זלבאך", but the customer's own natural spelling
+    # ("זאלבאך", with the double-vowel) matched neither it nor the catalog's
+    # English "saalbach" - so the resort name was silently dropped and only
+    # the country ("אוסטריה") survived extraction, even though the message
+    # named the specific resort.
+    "זאלבאך": "זלבאך",
 }
 
 
@@ -2923,14 +3043,19 @@ def _known_destination_names():
     if _KNOWN_DESTINATION_NAMES_CACHE is not None:
         return _KNOWN_DESTINATION_NAMES_CACHE
     known = {}
+    country_needles = set()
     for airport in _load_airports():
         for he_key, en_key in (("country_he", "country_en"), ("city_he", "city_en")):
             he = str(airport.get(he_key) or "").strip()
             en = str(airport.get(en_key) or "").strip()
             if he:
                 known[he] = he
+                if he_key == "country_he":
+                    country_needles.add(he)
             if en:
                 known[en.lower()] = en
+                if en_key == "country_en":
+                    country_needles.add(en.lower())
     # Ski resorts aren't in the airport catalog at all (they're matched
     # separately in _resolve_ski_destination_airports against SKI_RESORTS),
     # so a resort name alone never counted as a "known destination" here -
@@ -2946,9 +3071,18 @@ def _known_destination_names():
             known[en.lower()] = en
     for alias, canonical in _DESTINATION_SPELLING_ALIASES.items():
         known[alias] = canonical
-    # Longer names first so "דרום אפריקה" matches before a shorter,
-    # coincidentally-contained needle would.
-    _KNOWN_DESTINATION_NAMES_CACHE = dict(sorted(known.items(), key=lambda kv: -len(kv[0])))
+    # A specific place (city or resort) is always more specific than a bare
+    # country name, so it must be checked first regardless of string length
+    # - seen live (Shaked, qa-s91 round 2, C2): "חופשת סקי בזאלבאך שבאוסטריה"
+    # names both the resort (via its alias, see _DESTINATION_SPELLING_ALIASES)
+    # and the country in the same sentence; "אוסטריה" is the longer string,
+    # so a pure length sort picked the country and the specific resort was
+    # never recognized at all. Within each tier, longer names still come
+    # first so "דרום אפריקה" matches before a shorter, coincidentally-
+    # contained needle would.
+    _KNOWN_DESTINATION_NAMES_CACHE = dict(sorted(
+        known.items(), key=lambda kv: (kv[0] in country_needles, -len(kv[0]))
+    ))
     return _KNOWN_DESTINATION_NAMES_CACHE
 
 
@@ -5023,6 +5157,56 @@ def _explicit_service_request(message, state):
     return None
 
 
+def _all_requested_services(message, state):
+    """Every one of lodging/car/trip_planning the customer's message
+    requests, not just the first. Seen live (Shaked, qa-s91): "לחזור לחופשה
+    שלי לאיטליה... ולהוסיף לה לינה ורכב" asks for BOTH in the same breath,
+    but the reopen flow only ever captured one service (whichever
+    _explicit_service_request matched first) and silently recorded the
+    other as never requested at all (reopened_trip_not_requested), even
+    though the same sentence asked for it. Same matching rules as
+    _explicit_service_request (request cues, negation, in-progress gating)
+    - just collecting every match instead of returning on the first."""
+    import re
+    state = state if isinstance(state, dict) else {}
+    text = str(message or "").strip().lower()
+    if not text:
+        return []
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    in_progress = bool(state.get("active_session")) or any(v == "active" for v in statuses.values())
+    words = re.findall(r"[א-תa-z\"'׳״]+", text)
+    prefix = r"(?:ו|ה|ל|ש|וה|ול|וש|שה|לה)?"
+    found = []
+    for service, keywords in _SERVICE_KEYWORDS:
+        if service in found:
+            continue
+        for kw in keywords:
+            if service in found:
+                break
+            kw_words = kw.split()
+            n = len(kw_words)
+            first_re = re.compile(r"^" + prefix + re.escape(kw_words[0]) + r"$")
+            for i in range(len(words) - n + 1):
+                if not first_re.match(words[i]) or words[i + 1:i + n] != kw_words[1:]:
+                    continue
+                if any(w in ("לא", "בלי", "אין", "ללא") for w in words[max(0, i - 2):i]):
+                    continue
+                if not in_progress:
+                    found.append(service)
+                    break
+                before = words[max(0, i - 4):i]
+                if service == "lodging" and state.get("active_session") == "trip_planning" and re.search(r"לילה|לילות", text):
+                    continue
+                cues = _STRONG_REQUEST_CUES if state.get("active_session") == "trip_planning" else _REQUEST_CUES
+                if any(w in cues or (w.startswith("ו") and w[1:] in cues) for w in before):
+                    found.append(service)
+                    break
+                if words[i].startswith("ו") and words[i][1:].startswith(kw_words[0]) and i == 0:
+                    found.append(service)
+                    break
+    return found
+
+
 def _is_itinerary_acceptance(message):
     """Did the customer accept the itinerary just proposed? The exact-phrase
     set this replaced missed ordinary approvals ("מאשרת את המסלול", "נשמע
@@ -5219,6 +5403,20 @@ def _understand_open_gap_answer(key, model, message, history, state):
         # budget, otherwise match it against the same canonical level
         # vocabulary _deterministic_lodging_facts already uses.
         if gap_key == "lodging.details.budget_or_level":
+            # Seen live (Shlomo testing with Carmit, 15.10.2026): "4 כוכבים
+            # ומעלה" ("4 stars and up") answered this exact composite
+            # question and got read as a nightly budget of 4 ILS by the bare
+            # digit-search below - the smallest possible max_price sent to
+            # SerpApi, so every lodging search came back empty. A star
+            # rating is a LEVEL answer, never a price, regardless of which
+            # digit happens to be in it - checked before the generic digit
+            # match, not after, so it can never be misread as one.
+            star_match = re.search(r"(\d)\s*(?:\+)?\s*כוכב", value)
+            if star_match:
+                stars = int(star_match.group(1))
+                canon = "יוקרתי" if stars >= 4 else ("בינוני" if stars == 3 else "בסיסי")
+                result.setdefault("lodging", {}).setdefault("details", {})["level"] = canon
+                continue
             m = re.search(r"\d+", value)
             if m:
                 result.setdefault("lodging", {}).setdefault("details", {})["budget"] = int(m.group(0))
@@ -5515,6 +5713,26 @@ def _mentioned_places(message):
     return found
 
 
+def _mentions_a_different_place(message, known_places):
+    """Does this message name a place that ISN'T among `known_places`
+    (the current/old trip's own destination)? The shared building block
+    for every "is this still about the same trip, or something else" check
+    in chat_clean() - per the business owner (2026-10-15, after several
+    related round-2 findings: C1, C3, B2, A7's reopen-recognition gap all
+    independently got this wrong in slightly different ways): these gates
+    kept reinventing their own one-off mention-matching logic instead of
+    sharing one, so a message naming the OLD place only to say "this is
+    NOT that" (e.g. "עוד נסיעת עסקים, לאמסטרדם, נפרדת מברלין") kept being
+    misread as confirmation that it's still the old trip, because the old
+    place's own name was technically present in the text somewhere.
+    Mentioning the known place alone is never enough - only a message that
+    ALSO introduces a genuinely different place is actually about that
+    different place. Returns True exactly when such a different place is
+    named."""
+    mentioned = set(_mentioned_places(message))
+    return bool(mentioned - set(known_places or []))
+
+
 def _place_countries(names):
     """Hebrew country for each known city/country name (a country maps to itself)."""
     countries = set()
@@ -5633,7 +5851,17 @@ def _find_recent_scanned_vacation(member_id, destination_codes, departure_airpor
         if departure_airport and existing_origin and existing_origin != str(departure_airport).upper():
             continue
         existing_dest = frozenset(x for x in str(existing.get("destinations") or "").split(",") if x)
-        if existing_dest != dest_set:
+        # Seen live (Shaked, round 14 second pass, qa-s91): a repeat of the
+        # EXACT same Paris request slipped past this guard and spawned a
+        # second scan + duplicate vacation, because "שארל דה גול" resolved
+        # to {CDG} the first time and {CDG, ORY} the second (Tinkerbell's
+        # own multi-airport-gateway negotiation is not perfectly
+        # deterministic) - exact set equality then saw two "different"
+        # destinations for the same city. Two destination-code sets that
+        # share even one code in common are never a coincidence - they
+        # both resolved from the same place name - so overlap is the real
+        # signal, not exact equality.
+        if not (existing_dest & dest_set):
             continue
         if (str(existing.get("departure_date") or "")[:10] == str(dep)[:10]
                 and str(existing.get("return_date") or "")[:10] == str(ret)[:10]):
@@ -5667,9 +5895,19 @@ def _upcoming_vacations(member_id, limit=3):
     return result[:limit]
 
 
-def _state_from_trip(trip, service):
+def _state_from_trip(trip, services):
     """Rebuild the conversation state of an already-approved vacation so a
-    customer coming back to add `service` continues from what was agreed."""
+    customer coming back to add a service continues from what was agreed.
+    `services` is every service the customer explicitly asked for in the
+    triggering message (the first one is the active one this turn asks
+    about) - a bare single service string is still accepted for callers
+    that only ever have one. Seen live (Shaked, qa-s91): "...להוסיף לה
+    לינה ורכב" asked for both at once, but passing only the first-detected
+    service here recorded the second as reopened_trip_not_requested (never
+    asked, never wanted) even though the same sentence asked for it."""
+    services = services if isinstance(services, (list, tuple, set)) else [services]
+    services = [s for s in dict.fromkeys(services) if s]
+    service = services[0] if services else None
     answers = trip.get("answers") or {}
     stored = answers.get("_ariella_trip_state")
     if isinstance(stored, dict) and stored:
@@ -5694,6 +5932,17 @@ def _state_from_trip(trip, service):
     for s in ("lodging", "car", "trip_planning"):
         if s == service:
             statuses[s] = "active"
+        elif s in services:
+            # Also explicitly asked for in the same message as `service` -
+            # queue it instead of marking it active (only one session is
+            # ever active at a time) or declined. The normal sessionizer
+            # (_sessionize_state, called every later turn via
+            # _advance_sessions) auto-activates the next wanted:true
+            # "pending" service on its own once `service` closes - the same
+            # mechanism already used for any other multi-service request.
+            if statuses.get(s) != "complete":
+                statuses[s] = "pending"
+            decisions[s] = {"wanted": True, "source": "reopened_trip"}
         elif not _service_missing_on_trip(answers, s):
             statuses[s] = "complete"
         elif statuses.get(s) != "complete":
@@ -5706,10 +5955,11 @@ def _state_from_trip(trip, service):
             # asking on every return visit, even after a "no").
             statuses[s] = "declined"
             decisions[s] = {"wanted": False, "source": "reopened_trip_not_requested"}
-    decisions[service] = {"wanted": True, "source": "reopened_trip"}
-    services = set(state.get("requested_services") or []) | {"flights", service}
+    for s in services:
+        decisions[s] = {"wanted": True, "source": "reopened_trip"}
+    all_requested = set(state.get("requested_services") or []) | {"flights"} | set(services)
     state.update({
-        "session_status": statuses, "service_decisions": decisions, "requested_services": sorted(services),
+        "session_status": statuses, "service_decisions": decisions, "requested_services": sorted(all_requested),
         "active_session": service, "post_flight_continuation": True, "search_confirmed": True,
         "reopened_trip_id": trip["id"],
     })
@@ -6002,7 +6252,18 @@ def chat_clean():
         _old_places = (trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None
         _old_places = _old_places if isinstance(_old_places, list) else []
         _mentioned_now = _mentioned_places(message)
-        _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places))
+        # Seen live (Shaked, qa-s91 round 2, B2): "יש לי עוד נסיעת עסקים,
+        # לאמסטרדם, נפרדת מברלין" (another business trip, to Amsterdam,
+        # separate from Berlin) mentions the OLD destination (ברלין) too -
+        # not as the intended place, but to explicitly say this is NOT that
+        # trip. The old overlap check only looked at whether the old place
+        # was mentioned at all, so it still counted as "same trip again"
+        # and fired the false "you already have an active Berlin vacation"
+        # message instead of ever reaching the (already correct) new-
+        # destination handling further down. Uses the shared
+        # _mentions_a_different_place helper (see its own docstring) rather
+        # than a one-off mention check of its own.
+        _same_trip_again = bool(_mentioned_now) and bool(set(_mentioned_now) & set(_old_places)) and not _mentions_a_different_place(message, _old_places)
         if not _same_trip_again:
             trip_state = dict(trip_state)
             trip_state.pop('combined_search_launched', None)
@@ -6125,7 +6386,8 @@ def chat_clean():
         if isinstance(choice, int) and service in _REOPEN_LABELS:
             chosen = next((t for t in _reopenable_trips(member_id, service, "", limit=20) if t["id"] == options[choice].get("id")), None)
             if chosen:
-                reopened = _state_from_trip(chosen, service)
+                services_wanted = pending_reopen.get("services") or [service]
+                reopened = _state_from_trip(chosen, services_wanted)
                 reopened["profile"] = _member_profile(member_id)
                 reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_REOPEN_FIRST_QUESTION[service]}"
                 _remember_turn_reset_trip(member_id, history, message, reply, reopened)
@@ -6139,7 +6401,25 @@ def chat_clean():
     # again for days and travelers the New York vacation already has).
     # Offer once to attach it to that vacation.
     open_places = (trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None
-    if open_places and not (
+    # Seen live (Shaked, round 14/qa-s91, Sicily): this fired on the
+    # customer's own "מתאים" approving a day-by-day route Ariella had JUST
+    # proposed for the CURRENT, in-progress trip, asking "לאיזו חופשה
+    # להוסיף מסלול ואטרקציות?" instead - because this check only looks at
+    # whether reopenable candidate vacations exist for the active service,
+    # never at whether the customer's message is actually answering
+    # something Ariella just asked HERE. An itinerary reply is never a
+    # "which vacation did you mean" moment - it's always about whatever
+    # route was just shown, so skip this gate entirely when the most
+    # recent assistant message already looks like a day-by-day itinerary
+    # (2+ "יום N" markers), and let the real route-approval handling
+    # further down resolve it instead.
+    _last_assistant_text = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"),
+        "",
+    )
+    _route_just_proposed = len(_OPEN_PLACES_DAY_MENTION_RE.findall(_last_assistant_text)) >= 2
+    if open_places and not _route_just_proposed and not (
         trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
         or trip_state.get("reopened_trip_id") or trip_state.get("reopen_offer_declined")
     ):
@@ -6147,11 +6427,21 @@ def chat_clean():
         if not linked_service:
             linked_service = next((s for s in ("trip_planning", "lodging", "car") if s in (trip_state.get("requested_services") or [])), None)
         if linked_service:
+            # Carry every service this open conversation already asked for
+            # (requested_services), not just the one that happened to be
+            # active - otherwise a second co-requested service (seen live:
+            # lodging ורכב together) silently loses its "wanted" status the
+            # moment the vacation is reopened.
+            services_wanted = [s for s in ("trip_planning", "lodging", "car") if s in (trip_state.get("requested_services") or [])] or [linked_service]
+            if linked_service in services_wanted:
+                services_wanted = [linked_service] + [s for s in services_wanted if s != linked_service]
+            else:
+                services_wanted = [linked_service] + services_wanted
             candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places), limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
-                    "service": linked_service, "keep_state": True,
+                    "service": linked_service, "services": services_wanted, "keep_state": True,
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(linked_service, candidates),'trip_update':pending,'start_flight_search':False})
@@ -6159,16 +6449,59 @@ def chat_clean():
     trip_is_empty = not ((trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None) \
         and not trip_state.get("active_session") and not trip_state.get("reset_pending")
     if trip_is_empty:
-        requested_service = _explicit_service_request(message, trip_state) or _classify_service_request(message, history)
+        services_wanted = _all_requested_services(message, trip_state)
+        requested_service = (services_wanted[0] if services_wanted else None) \
+            or _explicit_service_request(message, trip_state) or _classify_service_request(message, history)
         if requested_service in _REOPEN_LABELS:
+            if requested_service not in services_wanted:
+                services_wanted = [requested_service] + services_wanted
             candidates = _reopenable_trips(session['member_id'], requested_service, message, limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
-                    "service": requested_service,
+                    "service": requested_service, "services": services_wanted,
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
+
+    # Seen live (Shaked, qa-s91, round 2): mid-conversation about one
+    # vacation (Paris), "אני רוצה לחזור לחופשה שלי לאיטליה באפריל ולהוסיף
+    # לה לינה ורכב" named a DIFFERENT destination that is itself one of the
+    # customer's own saved upcoming vacations, in the same breath as asking
+    # to add specific services to it. The plain service-request switch
+    # further below has no idea about destinations at all - it just
+    # attaches whatever service was named to whichever session is already
+    # active, so "לינה ורכב" got silently attached to the CURRENT (Paris)
+    # trip and the Italy vacation was never reached at all. A requested
+    # service alongside a destination that doesn't match the current
+    # conversation but does match one of the customer's own other saved
+    # vacations is always that vacation calling, never a same-trip service
+    # switch - check this before the generic switch gets a chance to claim
+    # it. (Already-handled: trip_is_empty above covers no active
+    # destination at all; pending_reopen covers mid-answer to this exact
+    # offer - this is the third case, a live active destination with a
+    # DIFFERENT one named alongside a service ask.)
+    if not trip_is_empty:
+        _current_dest = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
+        _current_places = _current_dest.get("places") or []
+        _current_countries = _place_countries(_current_places) | set(_current_places)
+        _other_places = [
+            p for p in _mentioned_places(message)
+            if p not in _current_places and p not in _current_countries
+            and not (_place_countries([p]) & _current_countries)
+        ]
+        if _other_places:
+            _services_elsewhere = [s for s in dict.fromkeys(_all_requested_services(message, trip_state)) if s in _REOPEN_LABELS]
+            _reopen_service = _services_elsewhere[0] if _services_elsewhere else None
+            if _reopen_service:
+                _reopen_candidates = _reopenable_trips(session['member_id'], _reopen_service, message, limit=20)
+                if _reopen_candidates:
+                    pending = dict(trip_state)
+                    pending["reopen_trip_pending"] = {
+                        "service": _reopen_service, "services": _services_elsewhere, "keep_state": True,
+                        "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in _reopen_candidates],
+                    }
+                    return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(_reopen_service, _reopen_candidates),'trip_update':pending,'start_flight_search':False})
 
     # The customer's saved vacations, every turn - so Ariella answers from
     # them instead of asking again for facts they already hold (seen live:
@@ -6268,7 +6601,31 @@ def chat_clean():
     # A request for a genuinely new vacation after a completed/approved trip is
     # a hard boundary, not a field edit. Clear the old structured trip immediately
     # and seed only facts explicitly present in the new request.
-    new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר"))
+    # Seen live (Shaked, qa-s91, round 2, C1 - flagged as a severe data
+    # leak): right after approving a Zurich BUSINESS trip, "אני רוצה חופשת
+    # סקי, טיסה לז'נבה" (I want a SKI vacation, flight to Geneva) never
+    # matched this exact-phrase list at all (it never says the literal
+    # words "חופשה חדשה"), so the committed Zurich/business state was never
+    # cleared - destination_airports stayed ['ZRH'] and trip_type stayed
+    # "business" even after the customer corrected it twice ("לא ציריך!
+    # ז'נבה", "GVA"), and the summary kept reading "נסיעת עסקים לז'נבה".
+    # _deterministic_trip_type_facts already recognizes "חופשת סקי"/"נסיעת
+    # עסקים" etc. by meaning (a separate, richer phrase set than this one) -
+    # the customer explicitly naming a trip type that DIFFERS from the
+    # already-committed trip's own trip_type is exactly as strong a "this is
+    # a new, different vacation" signal as the literal phrases below, so it
+    # must trigger the same hard reset.
+    # Seen live again (Shaked, same round, C3): "עוד חופשת סקי, חדשה
+    # ונפרדת" (another ski vacation, new and separate) right after a
+    # committed ski trip to Saalbach - the trip_type here is the SAME
+    # (ski), so the check above never fires, and "חדשה ונפרדת" doesn't
+    # match the exact-phrase list either (word order/punctuation differs
+    # from the five fixed phrases below). _NEW_AND_SEPARATE_RE (module-
+    # level, see its own comment) catches this regardless of phrasing.
+    _stated_trip_type = (_deterministic_trip_type_facts(message) or {}).get("trip_type")
+    new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר")) or bool(
+        _stated_trip_type and trip_state.get("trip_type") and _stated_trip_type != trip_state.get("trip_type")
+    ) or bool(_NEW_AND_SEPARATE_RE.search(message or "")) or bool(_ENTIRELY_NEW_RE.search(message or ""))
     old_trip_committed = bool(trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
     # Own pending questions (new trip vs. destination change) are answered by
     # their own handlers below - "חופשה חדשה" there is the answer, not a new request.
@@ -6502,6 +6859,16 @@ def chat_clean():
             pending_destination = _deterministic_destination_facts([], original_change, {})
             if pending_destination:
                 fresh = _merge_trip_state(fresh, pending_destination)
+            # Seen live (Shaked, qa-s91 round 2, C2): "אני רוצה לפתוח חופשה
+            # חדשה ונפרדת: חופשת סקי בזאלבאך שבאוסטריה, עם טיסה ולינה"
+            # already states the trip type (ski) - losing it here meant
+            # Ariella asked "regular vacation, business trip, or ski?" right
+            # back, as if the customer had never said. Preserve it exactly
+            # like the destination above, from the very same triggering
+            # message.
+            pending_trip_type = _deterministic_trip_type_facts(original_change)
+            if pending_trip_type:
+                fresh = _merge_trip_state(fresh, pending_trip_type)
             if any(x in original_change.lower() for x in ("מסלול","לתכנן טיול","תכנון טיול","אטרקציות")):
                 fresh['requested_services'] = ['trip_planning']
                 fresh['active_session'] = 'trip_planning'

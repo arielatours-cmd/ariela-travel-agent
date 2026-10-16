@@ -64,11 +64,20 @@ def whatsapp_status() -> dict[str, Any]:
     }
 
 
-def _require_configuration() -> None:
-    status = whatsapp_status()
-    if not status["configured"]:
+def _require_configuration(recipient: str | None = None) -> None:
+    """WHATSAPP_RECIPIENT is only a default for an admin test-send with no
+    explicit recipient - it must never block a reply to a real inbound
+    sender just because that env var happens to be unset."""
+    missing = []
+    if not WHATSAPP_ACCESS_TOKEN:
+        missing.append("WHATSAPP_ACCESS_TOKEN")
+    if not WHATSAPP_PHONE_NUMBER_ID:
+        missing.append("WHATSAPP_PHONE_NUMBER_ID")
+    if not recipient and not WHATSAPP_RECIPIENT:
+        missing.append("WHATSAPP_RECIPIENT")
+    if missing:
         raise WhatsAppConfigurationError(
-            "חסרים משתני סביבה ב-Render: " + ", ".join(status["missing"])
+            "חסרים משתני סביבה ב-Render: " + ", ".join(missing)
         )
 
 
@@ -548,7 +557,7 @@ def _process_webhook_payload(payload: dict) -> None:
 
 
 def send_text_message(message: str, recipient: str | None = None) -> dict[str, Any]:
-    _require_configuration()
+    _require_configuration(recipient)
 
     text = (message or "").strip()
     if not text:
@@ -616,7 +625,7 @@ def send_template_message(
     build_daily_whatsapp_payload's shape). Ready for when the welcome/daily-
     deals templates are approved in Meta - not called anywhere yet while
     WHATSAPP_DEALS_BUTTONS_ENABLED stays false (task 003a)."""
-    _require_configuration()
+    _require_configuration(recipient)
 
     name = (template_name or "").strip()
     if not name:

@@ -107,6 +107,21 @@ found_diff_dest = chat._find_recent_scanned_vacation(TEST_MEMBER_ID, ["ATH"], "T
 check("a genuinely different destination for the same dates is never blocked",
       found_diff_dest is None)
 
+# --- 4b. Seen live (Shaked, round 14 second pass, qa-s91): the SAME Paris
+#         request resolved to {CDG} the first time and {CDG, ORY} the
+#         second ("שארל דה גול" matched both airports non-deterministically)
+#         - an exact-set comparison missed this as a duplicate, spawning a
+#         second scan and a duplicate vacation. Overlapping (not identical)
+#         destination-code sets, with the exact same dates, must still be
+#         caught. ---
+make_trip(5001004, (now - timedelta(days=1)).isoformat(), "CDG", "2026-11-18", "2026-11-22")
+found_overlap = chat._find_recent_scanned_vacation(TEST_MEMBER_ID, ["CDG", "ORY"], "TLV", "2026-11-18", "2026-11-22")
+check("an overlapping-but-not-identical destination-code set is still caught as a duplicate",
+      found_overlap == (5001004, "קפריסין"))
+with sqlite3.connect(database.DB_PATH) as conn:
+    conn.execute("DELETE FROM trip_requests WHERE id=?", (5001004,))
+    conn.commit()
+
 # --- 5. A different member's identical trip is never matched (per-member
 #        isolation) ---
 found_other_member = chat._find_recent_scanned_vacation(TEST_MEMBER_ID + 1, ["LCA", "PFO"], "TLV", "2026-12-06", "2026-12-11")
