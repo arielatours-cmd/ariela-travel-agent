@@ -34,11 +34,13 @@ def _get_anthropic_client(key):
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
-- את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור את 1–3 השאלות הבאות באופן טבעי, בלי להציג שמות שדות פנימיים ללקוח.
+
+**העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה.
+- את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור **שאלה אחת בלבד** - הבאה בתור, בניסוח טבעי משלך, בלי להציג שמות שדות פנימיים ללקוח ובלי להעתיק נוסח קבוע כלשהו.
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
-- כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא איזה סוג נסיעה זו: חופשה רגילה, נסיעת עסקים, או חופשת סקי, בניסוח טבעי. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. חריג: אם מצוין למטה שללקוח יש חופשות פעילות קרובות וההודעה היא פתיחה כללית, קודם הציעי להמשיך עם החופשה הקרובה או לתכנן חדשה, ורק אם בחר חופשה חדשה - שאלי על סוג הנסיעה.
+- כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - מבררת (בשאלה פתוחה אחת משלך, לא נוסח קבוע) איזה סוג נסיעה זו: חופשה רגילה, נסיעת עסקים, או חופשת סקי. הביני מהתשובה החופשית לאיזו משלוש הקטגוריות היא שייכת. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. חריג: אם מצוין למטה שללקוח יש חופשות פעילות קרובות וההודעה היא פתיחה כללית, שאלי קודם שאלת כן/לא אחת על החופשה הקרובה בשמה (למשל "להמשיך עם הטיול ל[יעד]?") - לא "להמשיך עם הקרובה או לתכנן חדשה?". רק אם התשובה שלילית, המשיכי לשאלת סוג הנסיעה.
 - בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
@@ -113,7 +115,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם חסרים יותר משלושה פרטים, בחרי את 1–3 הפרטים שהכי טבעי לברר עכשיו, המתיני לתשובה, ורק בהודעה הבאה שאלי את היתר.
 - אל תצרפי לשאלה שלוש שאלות ואז תוסיפי בסוף עוד בחירה או שאלה "קטנה". סך כל הדברים שמבקשים מהלקוח להחליט או למסור בהודעה אחת הוא עד שלושה.
 - לטיסות, בדקי בין היתר רק כשחסר ורלוונטי: תקציב לאדם, כבודה, ישירה/קונקשן, מוצא, שדה/שדות יעד ותאריכים.
-- שאלת הכבודה חייבת להשתמש אך ורק במילים האלה, בדיוק כך: "טרולי בלבד", "מזוודה בבטן המטוס", "תיק קטן". לדוגמה: "יש לכם רק טרולי, גם מזוודה בבטן המטוס, או רק תיק קטן?". לעולם אל תנסחי זאת במילים אחרות או מומצאות משלך.
+- כשאת מתעדת את תשובת הלקוח לגבי כבודה, תעדי אך ורק באחד מהערכים האלה, בדיוק כך: "טרולי בלבד", "מזוודה בבטן המטוס", "תיק קטן" - לעולם לא ניסוח אחר או מומצא. את השאלה עצמה נסחי בעצמך (שאלה פתוחה אחת, למשל "איזו כבודה תרצו לקחת?") - לא כברירה "X, Y, או Z?".
 - שעות יציאה/חזרה מועדפות לטיסה (בוקר/צהריים/ערב) הן שדה אופציונלי בלבד ואינן ברשימת הבדיקה הזו. לעולם אל תשאלי עליהן, לא כשאלה ישירה ולא כהצעה כללית כמו "יש עוד משהו לגבי הטיסה?" או "שעות מועדפות, או שנקבע את זה גמיש?" - גם לא בתוך סיכום הטיסה לפני בקשת מאשר/מאשרת. שמרי אותן רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף.
 - יעד גאוגרפי ושדה תעופה יעד הם שני נתונים נפרדים. אזור אינו מידע חובה. אם הלקוח כתב מדינה או יעד רחב שיכולים להתאים ליותר משדה תעופה אחד (למשל: קפריסין - לרנקה/פאפוס; איטליה - רומא/מילאנו; ספרד - ברצלונה/מדריד; גרמניה - ברלין/מינכן; פולין - קרקוב/ורשה), אל תשאלי קודם "איזה אזור?" רק כדי להשלים מידע ואל תבחרי שדה אחד בעצמך. במקום זה, בשאלה אחת: הציגי בקצרה את שדות התעופה/ערי השער הרלוונטיים, **וגם** ציינו את האפשרות לבקש קודם בניית מסלול (ואז שדה/שדות היעד ייגזרו ממנו) - כדי שהלקוח יידע משתי האפשרויות ולא ייתקע בשלב האישור בלי לדעת שהיה יכול לבקש את זה קודם.
 - גם עיר בודדת (לא רק מדינה/אזור רחב) יכולה להיות משורתת על ידי כמה שדות תעופה אמיתיים (למשל ניו יורק, פריז, לונדון, טוקיו, איסטנבול). כשזה המקרה, מידע מאומת על השדות והשמות שלהם יימסר לך למטה כ"היעד מתאים ליותר משדה תעופה אמיתי אחד" - השתמשי אך ורק ברשימה הזו, אל תוסיפי שדה משלך מהידע הכללי שלך, גם אם הוא נכון במציאות: אם השדה לא ברשימה שקיבלת, אל תזכירי אותו בכלל.
@@ -126,7 +128,8 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - שאלת גיל הילד/ה היא תמיד על הילד/ה בלבד - "בן/בת כמה הילד/ה?" או ניסוח דומה. לעולם אל תשלבי בה אזכור של גיל ההורים/הזוג/המבוגרים באותו משפט (למשל "כמה הזוג בן, כמה הילד/ה?") - זה ניסוח שבור שאין לו משמעות ומבלבל את הלקוח. גיל המבוגרים אינו רלוונטי לחיפוש ולעולם אינו נשאל.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
-- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה בינארית קצרה וטבעית (למשל "לאסוף ולהחזיר בשדה התעופה, או שעדיף מיקום אחר כמו מרכז העיר?") ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לציין את שמות השדות במפורש ולשאול לאיזה מהם (למשל "לאסוף ולהחזיר בשדה התעופה בלרנקה, בפאפוס, או במקום אחר?"), ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב קצרה ועניינית: הציגי את האפשרויות (קטן, משפחתי, משפחתי סטיישן, SUV, ג'יפ, מיניוואן 7 מקומות) ושאלי אם צריך יותר מקומות מאשר מספר הנוסעים - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). את ידני/אוטומטי שאלי כשאלה נפרדת.
+- אם סוג הלינה הוא דירה (לא מלון ולא וילה), בררי גם כמה חדרי רחצה נדרשים - בשאלה נפרדת משאר פרטי הלינה (שאלה אחת בכל פעם, בניסוח טבעי משלך, לא נוסח קבוע). שמרי את המספר ב-lodging.details.bathrooms (מספר). כשסוג הלינה הוא מלון או וילה, אל תשאלי על כך כלל.
+- לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה פתוחה קצרה וטבעית (לא כברירה בינארית) ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לשאול שאלה פתוחה שמזכירה את שמות השדות בלי לכפות בחירה ביניהם, ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב פתוחה וקצרה - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). ידני/אוטומטי נשאל כשאלת כן/לא נפרדת על אפשרות אחת (למשל "חשוב לכם רכב אוטומטי?"), לא "אוטומטי או ידני?".
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
 - אם car.wanted הוא false (הלקוח דחה רכב שכור במפורש), המסלול הראשון שאת מציעה חייב כבר להתחשב בזה - לא רק אחרי שהלקוח שואל איך מגיעים. בפרט, אל תבני מסלול שמניח נסיעות עצמאיות בין אתרים מרוחקים (למשל כפרים/אזורי יין כמו שאנטי, סן ג'ימיניאנו, וולטרה סביב טוסקנה) כאילו יש רכב - הציעי מבסיס אחד נוח לתחבורה ציבורית/טיולים מאורגנים/רכבות, או ציייני במפורש בתוך הצעת המסלול עצמה איך מגיעים בלי רכב לכל יעד שמוזכר בו.
 - אל תשאלי שוב שום פרט שכבר נאמר בשיחה או קיים במצב החופשה המצטבר. בפרט, ניסוח כמו 'ראשון עד חמישי' כבר קובע את אורך החופשה (4 לילות/5 ימים); אסור לשאול אחר כך 'כמה ימים'.
@@ -3032,7 +3035,8 @@ def _call_tinkerbell(key, model, history, message, state=None):
         gateway_hint_text = (
             f'\nהיעד "{gateway_hint["city"]}" מתאים ליותר משדה תעופה אמיתי אחד: {options_text}. '
             'אלה שדות מאומתים - אל תוסיפי או תמציאי שדה אחר משלך. אם destination_airports עדיין ריק, '
-            'שאלי את הלקוח בשאלה אחת האם לחפש בכולם יחד, רק בשדה מסוים, או בכמה מהם - והשתמשי אך ורק ברשימה הזו.'
+            'שאלי שאלה פתוחה אחת (לא "X, Y או Z?" - נסחי אותה בעצמך) על אילו מהשדות האלה לחפש '
+            '(תשובה אפשרית: שדה מסוים אחד, כמה מהם יחד, או כולם) - והשתמשי אך ורק ברשימה הזו.'
         )
     # Seen live: Ariella stated from her own general knowledge "לכרתים
     # ברוב המקרים לא מגיעים בטיסה ישירה מישראל" (false - a seasonal direct
@@ -4787,7 +4791,12 @@ def _deterministic_connection_preference_facts(message, history):
         if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
             prior_assistant = str(item.get("content") or "")
             break
-    if not ("ישיר" in prior_assistant and "קונקשן" in prior_assistant):
+    # Per the business owner's one-option rule (2026-10-16): Tinkerbell now
+    # phrases this as a single yes/no about direct flights ("חשוב לכם שהטיסה
+    # תהיה ישירה?"), not the old fixed "ישיר... או קונקשן?" wording - so
+    # "קונקשן" is no longer guaranteed to appear at all. "ישיר" alone is
+    # still a precise, unambiguous signal this exact question was just asked.
+    if "ישיר" not in prior_assistant:
         return {}
     # "לא ישירה"/"לא חייב/ת ישירה" names no real preference for direct-only -
     # it's functionally the same answer as "קונקשן בסדר", not a request for
@@ -4799,6 +4808,19 @@ def _deterministic_connection_preference_facts(message, history):
         return {"flight": {"connection_preference": "direct"}}
     no_preference_words = ("אין העדפה", "לא משנה", "לא משנה לי", "קונקשן בסדר", "גם בסדר", "בסדר גם")
     if any(w in msg for w in no_preference_words):
+        return {"flight": {"connection_preference": "אין העדפה"}}
+    # Per the one-option rule, the question is now a plain yes/no ("חשוב לכם
+    # שהטיסה תהיה ישירה?") - a customer answering with a bare "כן"/"לא" and
+    # nothing else (no word like "ישיר" at all) is extremely likely here,
+    # and would otherwise fall through to the extractor's own JSON call,
+    # the exact single-word answer this deterministic writer exists to
+    # protect against losing (see the docstring). "כן" means direct matters;
+    # a bare "לא" to "is direct important to you" means it ISN'T important -
+    # i.e. no real preference - never a request for a connection.
+    bare = _normalize_confirm(msg)
+    if bare in {"כן", "בטח", "בהחלט", "כן בבקשה", "בטח שכן", "למה לא", "מתאים", "אין בעיה", "סבבה", "יאללה"}:
+        return {"flight": {"connection_preference": "direct"}}
+    if bare in {"לא", "לא תודה", "לא צריך", "לא צריכה", "ממש לא"}:
         return {"flight": {"connection_preference": "אין העדפה"}}
     return {}
 
@@ -4849,8 +4871,12 @@ def _deterministic_car_vehicle_facts(message, history):
                     result.setdefault("car", {}).setdefault("details", {})["vehicle_type"] = value
                     break
 
-    # Transmission is asked as its own binary question ("אוטומטי או ידני?").
-    asked_transmission = "אוטומטי" in prior_assistant and "ידני" in prior_assistant
+    # Per the business owner's one-option rule (2026-10-16): Tinkerbell now
+    # phrases this as a single yes/no about automatic ("חשוב לכם רכב
+    # אוטומטי?"), not the old fixed "אוטומטי או ידני?" wording - "ידני" is
+    # no longer guaranteed to appear. "אוטומטי" alone is still a precise,
+    # unambiguous signal this exact question was just asked.
+    asked_transmission = "אוטומטי" in prior_assistant or "ידני" in prior_assistant
     if asked_transmission:
         if "לא משנה" in msg or "אין העדפה" in msg:
             result.setdefault("car", {}).setdefault("details", {})["transmission"] = "לא משנה"
@@ -4858,6 +4884,23 @@ def _deterministic_car_vehicle_facts(message, history):
             result.setdefault("car", {}).setdefault("details", {})["transmission"] = "אוטומטי"
         elif "ידני" in msg:
             result.setdefault("car", {}).setdefault("details", {})["transmission"] = "ידני"
+        else:
+            # Same reasoning as the connection-preference fix above: a bare
+            # "כן"/"לא" to the new single-option phrasing ("חשוב לכם רכב
+            # אוטומטי?") names neither "אוטומטי" nor "ידני" at all. Resolve
+            # it against whichever single option prior_assistant actually
+            # asked about ("כן" -> that option; "לא" -> no real preference,
+            # never an assertion of the opposite option) - only when exactly
+            # one of the two words appeared, so an old-style dual phrasing
+            # ("אוטומטי או ידני?") is never misread as a single option.
+            bare = _normalize_confirm(msg)
+            asked_one = "אוטומטי" if ("אוטומטי" in prior_assistant) != ("ידני" in prior_assistant) and "אוטומטי" in prior_assistant else (
+                "ידני" if ("אוטומטי" in prior_assistant) != ("ידני" in prior_assistant) else None
+            )
+            if asked_one and bare in {"כן", "בטח", "בהחלט", "כן בבקשה", "בטח שכן", "למה לא", "מתאים", "אין בעיה", "סבבה", "יאללה"}:
+                result.setdefault("car", {}).setdefault("details", {})["transmission"] = asked_one
+            elif asked_one and bare in {"לא", "לא תודה", "לא צריך", "לא צריכה", "ממש לא"}:
+                result.setdefault("car", {}).setdefault("details", {})["transmission"] = "לא משנה"
 
     return result
 
@@ -4965,19 +5008,42 @@ def _deterministic_lodging_facts(message, history):
     # literally one of the three options Ariella's own questions offer
     # ("יש לך העדפה (יוקרתי, בינוני, בסיסי)?"), so a customer answering with
     # the system's own vocabulary word was never captured.
+    # Per the one-option-per-question principle (2026-10-16), Ariella no
+    # longer dictates a fixed "רמת הנוחות" phrasing or lists the tiers
+    # together - she phrases this herself, e.g. "איזו רמת נוחות אתם
+    # מחפשים?" (bare "נוחות", no definite article) or a single-option
+    # yes/no about just one tier ("חשוב לכם מלון יוקרתי?"). The gate must
+    # fire on either shape, not just the old combo.
     level_values = _LODGING_LEVEL_VALUES
     asked_level = (
-        "רמת הנוחות" in prior_assistant
-        or ("יוקרתי" in prior_assistant and ("בינונ" in prior_assistant or "חסכונ" in prior_assistant))
+        "נוחות" in prior_assistant
+        or any(word in prior_assistant for word, _ in level_values)
     )
     if asked_level:
         if any(w in msg for w in no_preference_words):
             result.setdefault("lodging", {}).setdefault("details", {})["level"] = "אין העדפה"
         else:
+            matched = False
             for word, canon in level_values:
                 if word in msg:
                     result.setdefault("lodging", {}).setdefault("details", {})["level"] = canon
+                    matched = True
                     break
+            # Same reasoning as the connection-preference/transmission fixes
+            # above: when prior_assistant named exactly one tier as a
+            # single-option yes/no ("חשוב לכם מלון יוקרתי?"), a bare
+            # "כן"/"לא" names no tier word at all. Resolve it against that
+            # one asked-about tier; never against the open "איזו רמת נוחות"
+            # phrasing, where a bare כן/לא doesn't answer the question asked.
+            if not matched:
+                asked_tiers = [canon for word, canon in level_values if word in prior_assistant]
+                asked_one = asked_tiers[0] if len(set(asked_tiers)) == 1 else None
+                if asked_one:
+                    bare = _normalize_confirm(msg)
+                    if bare in {"כן", "בטח", "בהחלט", "כן בבקשה", "בטח שכן", "למה לא", "מתאים", "אין בעיה", "סבבה", "יאללה"}:
+                        result.setdefault("lodging", {}).setdefault("details", {})["level"] = asked_one
+                    elif bare in {"לא", "לא תודה", "לא צריך", "לא צריכה", "ממש לא"}:
+                        result.setdefault("lodging", {}).setdefault("details", {})["level"] = "אין העדפה"
 
     # Rooms is asked as "כמה חדרים" with a one-big-room-or-split framing.
     asked_rooms = any(p in prior_assistant for p in ("כמה חדרים", "חדר אחד גדול", "לחלק לשני חדרים", "חלוקת החדרים"))
@@ -5017,6 +5083,20 @@ def _deterministic_lodging_facts(message, history):
         # asked_rooms branch above, so the combined answer silently dropped
         # the room count and the customer had to repeat it on a later turn.
         result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
+
+    # Per the business owner's instruction (2026-10-16, relayed by Shlomo):
+    # when lodging.details.type is "דירה" (apartment, not a hotel), Ariella
+    # also asks how many bathrooms are needed, in its own separate question
+    # (per the one-option-per-question principle, not a fixed phrasing) -
+    # so there is no single canonical question text to gate on here, only
+    # the field's own natural vocabulary ("חדרי רחצה"/"חדר רחצה"/"שירותים").
+    asked_bathrooms = any(p in prior_assistant for p in ("חדרי רחצה", "חדר רחצה", "שירותים ומקלחת", "חדר שירותים"))
+    if asked_bathrooms:
+        bathrooms_match = re.search(r"(\d+)", msg)
+        if bathrooms_match:
+            result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = int(bathrooms_match.group(1))
+        elif any(w in msg for w in no_preference_words):
+            result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = "אין העדפה"
 
     # budget has no deterministic writer at all, unlike the per-person flight
     # budget above (_deterministic_budget_facts) - seen live (Shaked, qa-s77,
@@ -8339,6 +8419,19 @@ def chat_clean():
         # the structured source of truth is missing required facts. This keeps
         # the visible summary and downstream execution on the same data object.
         trip_update = _advance_sessions(trip_update)
+
+        # Per the business owner's one-option-per-question rule (2026-10-16)
+        # and Shaked's live finding (Athens/Budapest, "שלב 1"): whenever a
+        # session just closed and the next one is being offered as a plain
+        # yes/no (next_session set, nothing yet active), the offer must be
+        # recorded in post_flight_offer on THIS turn - regardless of whether
+        # the reply came from a scripted branch above or from Tinkerbell's
+        # own freely-worded continuation offer. Without this, a customer's
+        # "לא" to a freely-phrased offer had nothing to attach to
+        # (post_flight_offer stayed unset), so the SAME offer was asked
+        # again next turn instead of being understood as a decline.
+        if trip_update.get("next_session") and not trip_update.get("active_session"):
+            trip_update["post_flight_offer"] = [trip_update["next_session"]]
 
         # Deceptive-success safety net: a reply that declares the whole
         # vacation closed/finished must never win over an authoritative
