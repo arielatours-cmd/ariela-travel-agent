@@ -21,7 +21,8 @@
     "vat": "Owner 2026-10-08: עוסק מורשה. Rate 18% since 2025-01-01, unchanged for 2026 (vatcalc.com, trykintsugi.com) — confirm with accountant. Prices 19/39 assumed VAT-inclusive (consumer prices in Israel are quoted incl. VAT)",
     "ai_cost_samples": "Owner screenshots of Anthropic console balance; owner described the conversation type",
     "llm_cost": "Measured 2026-10-09: one full conversation ≈$0.57 (balance diff). Flight-only ≈$0.18. Bug-interrupted attempt ≈$0.36",
-    "anthropic_promo_credit": "Owner via Shlomo 2026-10-14 16:17: redeemed Max plan $100/month promotional API credit in Console (same org as Ariela). Paid balance $14.99 + $100.00 promotional. Auto-reload on (<$5 → $15). Page notes: 'Promotional credits may apply to specific models and products' — verify Ariela's model (ARIELLA_MODEL default claude-sonnet-5) draws from promo, not paid balance."
+    "anthropic_promo_credit": "Owner via Shlomo 2026-10-14 16:17: redeemed Max plan $100/month promotional API credit in Console (same org as Ariela). Paid balance $14.99 + $100.00 promotional. Auto-reload on (<$5 → $15). Page notes: 'Promotional credits may apply to specific models and products' — verify Ariela's model (ARIELLA_MODEL default claude-sonnet-5) draws from promo, not paid balance.",
+    "anthropic_promo_burn": "12.26$ in ~40.5h (14.10 16:17 → 16.10 08:42) ≈ $7.3/day; promo applies to Ariela (paid balance unchanged). Promo monthly reset date — unknown"
   },
   "usd_to_ils": 3.14,
   "days_per_month": 30.4,
@@ -186,5 +187,17 @@
     "usd": 14.99,
     "time": "2026-10-14 16:17",
     "promo_credit_usd": 100.0
-  }
+  },
+  "anthropic_promo_checkpoints": [
+    {
+      "time": "2026-10-14 16:17",
+      "promo_left_usd": 100.0,
+      "paid_usd": 14.99
+    },
+    {
+      "time": "2026-10-16 08:42",
+      "promo_left_usd": 87.74,
+      "paid_usd": 14.99
+    }
+  ]
 }
