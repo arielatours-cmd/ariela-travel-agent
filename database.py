@@ -2137,6 +2137,7 @@ def clear_whatsapp_proactive_off(member_id: int, conn=None) -> None:
         own.execute("UPDATE members SET whatsapp_proactive_off=0 WHERE id=?", (member_id,))
 
 
+# Din WA-6: any real sender MUST re-check members.whatsapp_proactive_off / opt-in immediately before each send.
 def queue_whatsapp_message(member_id: int, kind: str, body: str, buttons=None, image_url=None, ref_id=None) -> int | None:
     """Shared by tasks 002a/003a/001a - every outbound WhatsApp message (deal
     alerts, welcome, radar, booking lifecycle) is written here in 'preview'

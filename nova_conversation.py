@@ -432,7 +432,8 @@ def _handle_keyword_stop(phone: str, word: str) -> str:
     of any kind - deals, alerts, trip lifecycle, renewal - is queued again;
     enforced in queue_whatsapp_message), turns hot deals off (the same
     opt-out _handle_stop does, logged with source='keyword' and the word)
-    and sets mobile_notifications=0 on every trip. The WhatsApp link,
+    and sets mobile_notifications=0 on every trip; messages already in the
+    queue as 'preview' are marked 'cancelled'. The WhatsApp link,
     whatsapp_conversation_state and the chat with Ariella are left alone -
     the customer can keep writing to her. Only an unknown number gets the
     "nothing to remove" reply."""
@@ -451,6 +452,12 @@ def _handle_keyword_stop(phone: str, word: str) -> str:
             (member_id,),
         ).fetchone() is not None
         set_whatsapp_proactive_off(member_id, conn)
+        # Messages already queued but never sent are cancelled (kept as an
+        # audit trail, not deleted) so no later sender treats them as pending.
+        conn.execute(
+            "UPDATE whatsapp_outbound_queue SET status='cancelled' WHERE member_id=? AND status='preview'",
+            (member_id,),
+        )
         conn.execute(
             "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at, detail) VALUES (?,?,?,?,?)",
             (member_id, "proactive_off", "keyword", utc_now_iso(), word),

@@ -210,6 +210,24 @@ before = queued(mid)
 check("Din: after 'הסר', queue_booking_congrats queues nothing", tlm.queue_booking_congrats(congrats_trip) is None and queued(mid) == before)
 tlm.queue_how_was_it_messages()
 check("Din: after 'הסר', queue_how_was_it_messages queues nothing for this member", queued(mid) == before)
+# Din: a message already queued (preview) before the "הסר" is cancelled, not deleted
+mid_q, phone_q = make_member(deals=True, alerts=True)
+pre_trip = booked_trip(mid_q, -10)
+pre_id = tlm.queue_booking_congrats(pre_trip)
+other_id = database.queue_whatsapp_message(make_member(True, True)[0], "radar", "other member")
+nc.route_inbound(phone_q, "הסר")
+with connection() as conn:
+    pre_status = conn.execute("SELECT status FROM whatsapp_outbound_queue WHERE id=?", (pre_id,)).fetchone()
+    other_status = conn.execute("SELECT status FROM whatsapp_outbound_queue WHERE id=?", (other_id,)).fetchone()[0]
+    left_preview = conn.execute("SELECT COUNT(*) FROM whatsapp_outbound_queue WHERE member_id=? AND status='preview'", (mid_q,)).fetchone()[0]
+check("Din: queued booking_congrats (preview) -> status 'cancelled' after 'הסר', row kept",
+      pre_id is not None and pre_status is not None and pre_status[0] == "cancelled")
+check("Din: no 'preview' rows left for that member", left_preview == 0)
+check("Din: another member's queued message stays 'preview'", other_status == "preview")
+src = open(os.path.join(os.path.dirname(__file__), "..", "database.py"), encoding="utf-8").read()
+check("Din WA-6 comment sits right above queue_whatsapp_message",
+      "# Din WA-6: any real sender MUST re-check members.whatsapp_proactive_off / opt-in immediately before each send.\ndef queue_whatsapp_message(" in src)
+
 control, _ = make_member(deals=True, alerts=True)
 c_congrats, c_how = booked_trip(control, -10), booked_trip(control, 5)
 c_before = queued(control)
