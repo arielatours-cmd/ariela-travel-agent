@@ -131,7 +131,21 @@ def _fetch_policy_text(start_url: str) -> tuple[str, list[str]]:
     return " ".join(texts), used
 
 
-def _fare_text(offer: dict) -> str:
+def _displayed_price(offer: dict):
+    flight = offer.get("flight") or {}
+    for value in (flight.get("price"), offer.get("price_ils"), offer.get("price")):
+        if isinstance(value, (int, float)):
+            return float(value)
+    return None
+
+
+def _fare_text(offer: dict) -> tuple[str, bool]:
+    """Return (text, exact) for the fare actually priced on the card.
+
+    Only the fare family whose price matches the displayed price is used - joining
+    Basic + Flex features would let Flex's "free change" leak onto the Basic price.
+    `exact` is True only when such a matching fare family was found.
+    """
     flight = offer.get("flight") or {}
     chunks: list[str] = []
     for key in ("fare_rules", "fare_rule", "ticket_terms", "extensions", "change_cancel"):
@@ -142,16 +156,37 @@ def _fare_text(offer: dict) -> str:
             chunks.extend(str(x) for x in value if x)
         elif isinstance(value, dict):
             chunks.extend(str(x) for x in value.values() if x is not None)
+    price = _displayed_price(offer)
+    exact = False
     for fare in flight.get("fare_options") or offer.get("fare_options") or []:
         if not isinstance(fare, dict):
             continue
+        fare_price = fare.get("price_ils")
+        if price is None or not isinstance(fare_price, (int, float)) or abs(float(fare_price) - price) > 1:
+            continue
+        exact = True
         chunks.append(str(fare.get("name") or ""))
         chunks.extend(str(x) for x in (fare.get("features") or []) if x)
-    return " ".join(chunks)
+    return " ".join(chunks), exact
+
+
+_CHECK = {"label": "יש לבדוק באתר הספק", "status": "check", "confidence": "low"}
+
+# Wording that negates or limits a positive rule ("no full refund", "free
+# cancellation within 24 hours"). Any of these makes the rule uncertain for this
+# fare, so Din falls back to "check" instead of picking a side.
+_UNCERTAIN_CHANGE_RE = re.compile(
+    r"\b(?:no|not|without) (?:a )?(?:full refund|free (?:changes?|cancellation)|change fees?|cancellation fees?)\b"
+    r"|\bnot free\b"
+    r"|\bwithin \d+ ?(?:hours?|hrs?|days?)\b|\b\d+[- ]?(?:hour|hr|day)s?\b"
+    r"|\b(?:only if|only when|up to \d+)\b"
+)
 
 
 def _classify_change_cancel(text: str, exact_fare: bool) -> dict:
     low = text.casefold()
+    if _UNCERTAIN_CHANGE_RE.search(low):
+        return dict(_CHECK)
     # Exact fare/provider statements take precedence over generic airline help text.
     if re.search(r"\b(non[- ]?refundable|no refunds?|not refundable|non[- ]?changeable|changes? not (?:allowed|permitted))\b", low):
         return {"label": "לא ניתן לשינוי או ביטול", "status": "none", "confidence": "high" if exact_fare else "medium"}
@@ -159,22 +194,42 @@ def _classify_change_cancel(text: str, exact_fare: bool) -> dict:
         return {"label": "אפשרי ללא תשלום", "status": "free", "confidence": "high" if exact_fare else "medium"}
     if re.search(r"\b(change fee|changes? (?:are )?(?:allowed|permitted)|cancellation fee|refund fee|refundable with|subject to (?:a )?fee)\b", low):
         return {"label": "אפשרי בתשלום", "status": "paid", "confidence": "high" if exact_fare else "medium"}
-    return {"label": "יש לבדוק באתר הספק", "status": "check", "confidence": "low"}
+    return dict(_CHECK)
+
+
+_LAW_MENTION_RE = re.compile(
+    r"חוק הגנת הצרכן|israeli? consumer protection law|consumer protection law,? 1981"
+)
+# A mention inside a negating or conditional sentence ("does not apply",
+# "applies only to tickets purchased in Israel") is not a statement that the law
+# applies to this purchase.
+_LAW_LIMIT_RE = re.compile(
+    r"אינו חל|אינה חלה|לא חל|לא יחול|בלבד|רק אם|רק כאשר|למעט|אלא אם"
+    r"|does not apply|do not apply|shall not apply|not applicable|n't apply"
+    r"|only (?:if|when|to|for|applies)|except|unless|excluding"
+)
+_LAW_CONTEXT_CHARS = 200
 
 
 def _classify_consumer_protection(text: str) -> dict:
     low = text.casefold()
     # Never infer that Israeli consumer law applies merely because an airline has
-    # a generic refund page. Only explicit references are strong enough.
-    explicit = (
-        "חוק הגנת הצרכן" in text
-        or "israeli consumer protection law" in low
-        or "consumer protection law, 1981" in low
-        or "consumer protection law 1981" in low
-    )
-    if explicit:
+    # a generic refund page. Only an explicit, unqualified reference counts: every
+    # mention must be free of negating/conditional wording within ±200 chars.
+    mentions = list(_LAW_MENTION_RE.finditer(low))
+    if mentions and all(
+        not _LAW_LIMIT_RE.search(low[max(0, m.start() - _LAW_CONTEXT_CHARS):m.end() + _LAW_CONTEXT_CHARS])
+        for m in mentions
+    ):
         return {"status": "applies", "label": "חלה", "confidence": "high"}
-    return {"status": "check", "label": "יש לבדוק באתר הספק", "confidence": "low"}
+    return dict(_CHECK)
+
+
+def _is_generic_homepage(url: str) -> bool:
+    """A bare homepage is not a dedicated consumer-law page; crawling it can find
+    an unrelated mention. Din keeps "check" for carriers mapped to one."""
+    p = urlparse(url)
+    return p.path.strip("/") == "" and not p.query
 
 
 def _cached_airline_check(airline_key: str, start_url: str) -> dict:
@@ -195,18 +250,20 @@ def enrich_offer_legal_terms(offer: dict) -> dict:
         return offer
     flight = offer.get("flight") or {}
     airline = str(flight.get("airline") or offer.get("airline") or "").strip()
-    fare_text = _fare_text(offer)
+    fare_text, exact_fare = _fare_text(offer)
+    # The fare families come from direct-airline booking options only. When the
+    # card sends the customer to an agency, neither the fare rules nor the
+    # airline's consumer-law notice describe that purchase - keep "check".
+    # Unknown (None) is treated like an agency.
+    direct = flight.get("booking_supplier_is_direct") is True
 
-    # If exact fare text is decisive, use it immediately for change/cancel rules.
-    change = _classify_change_cancel(fare_text, exact_fare=True) if fare_text.strip() else {
-        "label": "יש לבדוק באתר הספק", "status": "check", "confidence": "low"
-    }
-    protection = {"status": "check", "label": "יש לבדוק באתר הספק", "confidence": "low"}
+    change = _classify_change_cancel(fare_text, exact_fare=exact_fare) if (direct and fare_text.strip()) else dict(_CHECK)
+    protection = dict(_CHECK)
     sources: list[str] = []
     checked_at = _now_iso()
 
     start_url = _officialish_url(offer)
-    if start_url:
+    if start_url and direct and not _is_generic_homepage(start_url):
         policy = _cached_airline_check(airline.casefold(), start_url)
         checked_at = policy.get("checked_at") or checked_at
         sources = policy.get("source_urls") or []
