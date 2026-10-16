@@ -4743,6 +4743,16 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
     except (TypeError, ValueError):
         rooms = 1
     budget_pp = answers.get("lodging_budget_per_person")
+    # Seen live (Shaked, round 4): a stated minimum comfort level ("4
+    # כוכבים ומעלה") was captured as lodging.details.level but never
+    # actually enforced anywhere - Budapest came back only 4/10 results at
+    # 4-star+, and Zurich returned a 3-star ibis, a hostel, and an
+    # airport-adjacent Radisson despite the customer asking for 4-star+.
+    # "בסיסי" (basic/budget) states no floor at all - any class is a valid
+    # answer to "the cheapest option", so only the two higher tiers map to
+    # an actual enforced minimum.
+    _LODGING_LEVEL_MIN_HOTEL_CLASS = {"יוקרתי": 4, "בינוני": 3}
+    min_hotel_class = _LODGING_LEVEL_MIN_HOTEL_CLASS.get(str(answers.get("lodging_level") or "").strip())
 
     # A per-person total budget is only a coarse per-night ceiling here (party
     # size over the stay length, with slack) - it steers SerpApi away from
@@ -4784,6 +4794,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                         query=seg["location"], checkin_date=seg["date_from"], checkout_date=seg["date_to"],
                         adults=adults, children=children, children_ages=children_ages, rooms=rooms,
                         max_price=_max_price_for(seg["date_from"], seg["date_to"]), vacation_rentals=vacation_rentals,
+                        min_hotel_class=min_hotel_class,
                     )
                     seg_hotels = (seg_result.get("hotels") or [])[:5]
                     for hotel in seg_hotels:
@@ -4856,6 +4867,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 query=city, checkin_date=dep, checkout_date=ret,
                 adults=adults, children=children, children_ages=children_ages, rooms=rooms,
                 max_price=_max_price_for(dep, ret), vacation_rentals=vacation_rentals,
+                min_hotel_class=min_hotel_class,
             )
             answers["lodging_offers"] = (result.get("hotels") or [])[:10]
             answers["lodging_searched_at"] = utc_now_iso()
