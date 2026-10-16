@@ -6874,9 +6874,30 @@ def chat_clean():
     # from the five fixed phrases below). _NEW_AND_SEPARATE_RE (module-
     # level, see its own comment) catches this regardless of phrasing.
     _stated_trip_type = (_deterministic_trip_type_facts(message) or {}).get("trip_type")
-    new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר")) or bool(
+    # Seen live (Shaked, reviewing this exact branch after the B2 fix below
+    # widened it to uncommitted drafts): a trip_type MISMATCH alone is not
+    # an explicit "new and separate vacation" declaration the way the fixed
+    # phrases and _NEW_AND_SEPARATE_RE/_ENTIRELY_NEW_RE are - it just as
+    # easily means the customer is CORRECTING the current, still-open
+    # draft's own type ("רגע, בעצם זו נסיעת עסקים" right after Ariella's own
+    # "חופשה רגילה, נסיעת עסקים או סקי?" question). Treating that as a full
+    # reset wiped the entire open Rome draft on nothing but a type
+    # correction. A trip_type mismatch only counts as new-vacation language
+    # when the OLD trip was already committed (search_confirmed or
+    # post_flight_continuation) - exactly the gate this whole mechanism
+    # used before the B2 fix - since only then is "now it's business, not
+    # regular" clearly about a DIFFERENT trip rather than a correction to
+    # the one still being built.
+    _old_trip_committed_for_type_mismatch = bool(
+        trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
+    )
+    explicit_new_vacation_phrase = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר")) or bool(
+        _NEW_AND_SEPARATE_RE.search(message or "")
+    ) or bool(_ENTIRELY_NEW_RE.search(message or ""))
+    new_vacation_language = explicit_new_vacation_phrase or bool(
         _stated_trip_type and trip_state.get("trip_type") and _stated_trip_type != trip_state.get("trip_type")
-    ) or bool(_NEW_AND_SEPARATE_RE.search(message or "")) or bool(_ENTIRELY_NEW_RE.search(message or ""))
+        and _old_trip_committed_for_type_mismatch
+    )
     # Seen live (Shaked, qa-s97, round 7, B2): this used to additionally
     # require old_trip_committed (search_confirmed or post_flight_
     # continuation) - an explicit "נסיעת עסקים חדשה ונפרדת לאמסטרדם" mid-

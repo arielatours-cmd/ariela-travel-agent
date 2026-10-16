@@ -168,8 +168,44 @@ update3 = data3.get("trip_update") or {}
 check("regression guard: a blank trip_state still gets the gentler restart-confirmation gate, not this hard reset",
       bool(update3.get("reset_pending")) and data3.get("trip_state_reset") is not True)
 
+# --- Regression found by Shaked reviewing this exact change: a BARE
+#     trip_type correction on an uncommitted draft ("רגע, בעצם זו נסיעת
+#     עסקים" right after Ariella's own "חופשה רגילה, נסיעת עסקים או סקי?"
+#     question) is not an explicit "new and separate vacation" declaration
+#     - it's a correction to the SAME draft's own type - and must never
+#     wipe the open Rome draft the way the real new-and-separate statement
+#     above correctly does. ---
+member_id_typecorrect = _make_member("qa-uncommitted-draft-reset-typecorrect@example.com")
+with client.session_transaction() as sess:
+    sess["member_id"] = member_id_typecorrect
+rome_draft_state_for_type_correction = {
+    "destination": {"places": ["רומא"], "mode": "specific", "status": "known"},
+    "trip_type": "standard",
+    "dates": {"departure": "2027-03-01", "return": "2027-03-05", "needs_confirmation": False},
+    "travelers": {"adults": 2, "children": 0, "child_ages": [], "child_genders": []},
+    "active_session": "flights",
+    "session_status": {"flights": "active", "lodging": "pending", "car": "pending", "trip_planning": "pending"},
+}
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: ("{}" if kw.get("source") == "state_extractor" else "הבנתי, נסיעת עסקים.")):
+    r4 = client.post("/api/ariella/chat-clean", json={
+        "message": "רגע, בעצם זו נסיעת עסקים", "history": [
+            {"role": "assistant", "content": "זו חופשה רגילה, נסיעת עסקים או חופשת סקי?"},
+        ],
+        "trip_state": dict(rome_draft_state_for_type_correction),
+    })
+data4 = r4.get_json()
+update4 = data4.get("trip_update") or {}
+check("a bare trip_type correction on an uncommitted draft never hard-resets",
+      data4.get("trip_state_reset") is not True)
+check("the Rome destination survives a bare trip_type correction",
+      "רומא" in ((update4.get("destination") or {}).get("places") or []))
+check("the dates survive a bare trip_type correction",
+      (update4.get("dates") or {}).get("departure") == "2027-03-01")
+check("the travelers survive a bare trip_type correction",
+      (update4.get("travelers") or {}).get("adults") == 2)
+
 with sqlite3.connect(DB) as conn:
-    conn.execute("DELETE FROM members WHERE id IN (?, ?)", (member_id, member_id_blank))
+    conn.execute("DELETE FROM members WHERE id IN (?, ?, ?)", (member_id, member_id_blank, member_id_typecorrect))
     conn.commit()
 
 if FAILED:
