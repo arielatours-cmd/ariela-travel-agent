@@ -104,17 +104,34 @@ no_planning_state = {}
 check("regression: no trip_planning key at all -> guard is a safe no-op",
       chat._guard_premature_route_approval({}, dict(no_planning_state), []) == no_planning_state)
 
-# --- Shaked's root-cause finding: _day_mention_count must not count a
-# weekday-conflict/date-verification clarification ("יוצא ביום X") as real
-# route evidence, since the date isn't always literally adjacent to "יום". ---
+# --- Shaked's root-cause finding, round 1: _day_mention_count must not
+# count a weekday-conflict/date-verification clarification ("יוצא ביום X")
+# as real route evidence, since the date isn't always literally adjacent
+# to "יום". A first fix added a "preceded by יוצא" exclusion to the
+# weekday-name counting - but round 2 (below) found that approach
+# fundamentally can't keep up with how freely Tinkerbell words a date
+# clarification, so weekday-name counting was dropped entirely: only
+# NUMBERED day markers ("יום 1", "יום 2"...) count as route evidence now,
+# matching TINKERBELL_SYSTEM's own mandate that every real route uses
+# numbered headers, never weekday names. ---
 check("_day_mention_count excludes 'יוצא ביום X' date-verification phrasing",
       chat._day_mention_count(
           "19.9.2027 יוצא ביום ראשון, אבל 30.9.2027 יוצא ביום רביעי"
       ) == 0)
 check("_day_mention_count excludes bare 'יוצא יום X' (no 'ב') too",
       chat._day_mention_count("30.9.2027 יוצא יום רביעי") == 0)
-check("_day_mention_count regression: a genuine route built with weekday names still counts",
-      chat._day_mention_count("יום ראשון: הגעה לזאגרב. יום שני: פלטביצה.") >= 2)
+# --- Shaked's round 2: free-form date-clarification phrasings that don't
+# use "יוצא" at all must also never count as route evidence. ---
+check("_day_mention_count excludes 'X הוא יום A ו-Y הוא יום B' phrasing",
+      chat._day_mention_count("19.9.2027 הוא יום ראשון ו-30.9.2027 הוא יום רביעי") == 0)
+check("_day_mention_count excludes 'שימי לב: X זה יום A, ו-Y זה יום B' phrasing",
+      chat._day_mention_count("שימי לב: 19.9 זה יום ראשון, ו-30.9 זה יום רביעי. מתאים?") == 0)
+check("_day_mention_count excludes 'היציאה ביום A והחזרה ביום B' phrasing",
+      chat._day_mention_count("היציאה ביום ראשון והחזרה ביום חמישי, נכון?") == 0)
+check("_day_mention_count regression: a genuine route with NUMBERED day headers still counts",
+      chat._day_mention_count(
+          "יום 1 (19.9, ראשון): הגעה לזאגרב. יום 2 (20.9, שני): פלטביצה."
+      ) >= 2)
 
 # --- Shaked's root-cause finding: this guard alone did NOT fix the live
 # bug. She reproduced it end-to-end (real chat-clean endpoint, mocked

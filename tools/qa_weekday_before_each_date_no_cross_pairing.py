@@ -87,6 +87,13 @@ check("DATE weekday with a dash separator: no false alarm",
           "אני רוצה לטוס לקרואטיה 19.9 ראשון - 30.9 חמישי", []
       ) is None)
 
+# --- Shaked's third finding: free-form, fully natural phrasings must also
+# never false-alarm when both weekdays are genuinely correct. ---
+check("natural phrasing 'מיום X ה-D.M ועד יום Y ה-D.M': no false alarm",
+      chat._weekday_date_conflict(
+          "אני רוצה לטוס לקרואטיה מיום ראשון ה-19.9 ועד יום חמישי ה-30.9", []
+      ) is None)
+
 # --- Regression: a genuine conflict in the "DATE (weekday)" family must
 # still be caught, not swallowed by the redesign. ---
 r3 = chat._weekday_date_conflict("אני רוצה לטוס 19.9 (שלישי) עד 30.9 (חמישי)", [])
