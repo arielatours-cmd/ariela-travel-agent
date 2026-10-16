@@ -302,7 +302,19 @@ def _weekday_date_conflict(message, history=None):
     pairs = []
     for m in re.finditer(day_re + r".{0,40}?" + date_re, text):
         pairs.append((m.group(1), m.group(2), m.group(3), m.group(4)))
-    for m in re.finditer(date_re + r".{0,40}?" + day_re, text):
+    # Seen live (business owner, Croatia manual test, 16.10.2026): "ביום
+    # ראשון 19.9 עד חמישי 30.9" - a genuinely correct weekday/date pair on
+    # EACH side ("ראשון"+19.9, "חמישי"+30.9), both already found by the
+    # weekday-then-date scan above. Without the guard below, this reverse
+    # scan then ALSO paired the date 19.9 with the weekday "חמישי" - which
+    # textually follows it within 40 chars, but actually belongs to the
+    # LATER date (30.9) that immediately follows that same weekday, not to
+    # the earlier one. A weekday immediately followed by its own date (the
+    # "weekday DATE" shape the first scan above already covers) is never
+    # also the trailing weekday of an earlier, different date - so skip a
+    # match here whenever the matched weekday is itself followed shortly by
+    # a date of its own.
+    for m in re.finditer(date_re + r".{0,40}?" + day_re + r"(?!.{0,10}?" + date_re + r")", text):
         pairs.append((m.group(4), m.group(1), m.group(2), m.group(3)))
     seen = set()
     for day_name, ds, mos, ys in pairs:
@@ -5677,7 +5689,7 @@ _GAP_QUESTION_TEXT = {
     "trip_planning.details.style": "ספרו לי מה אתם אוהבים לעשות בחופשה.",
     "trip_planning.details.pace": "חשוב לכם שהקצב יהיה רגוע?",
     "trip_planning.details.route": "ספרו לי קצת על המסלול שאתם מדמיינים.",
-    "trip_planning.approved": "המסלול שהצעתי מתאים לכם, או שתרצו לשנות משהו?",
+    "trip_planning.approved": "המסלול שהצעתי מתאים לכם?",
 }
 
 
@@ -6084,10 +6096,14 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
 
 
 _REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_planning": "מסלול ואטרקציות"}
+# Per the business owner's iron rule (2026-10-16): one question only, open
+# or a single-option yes/no, never several questions or "X or Y" joined
+# together - each entry here now asks only the first thing actually needed,
+# matching _GAP_QUESTION_TEXT's own compliant phrasing for the same field.
 _REOPEN_FIRST_QUESTION = {
-    "lodging": "איזה סוג לינה מתאים לכם (מלון, דירה או וילה), כמה חדרים, ובאיזו רמה?",
-    "car": "איזה רכב מתאים לכם, ואיפה נוח לאסוף ולהחזיר אותו?",
-    "trip_planning": "ספרי לי מה אתם אוהבים לעשות בחופשה, ובאיזה קצב - רגוע או פעיל?",
+    "lodging": "איזה סוג לינה מתאים לכם?",
+    "car": "איזה סוג רכב מתאים לכם?",
+    "trip_planning": "ספרי לי מה אתם אוהבים לעשות בחופשה.",
 }
 _PENDING_KEYS = (
     "ready_for_summary", "search_intent", "missing_required", "next_session", "reset_pending",
@@ -6397,13 +6413,18 @@ def _reopen_question(service, trips):
     destination/date); _pick_reopen_option already matches a free-text
     answer against the full candidate list regardless of how many there
     are."""
+    # Per the business owner's iron rule (2026-10-16): a single question,
+    # never spelled out as "(yes=X, no=Y)" - _pick_reopen_option already
+    # resolves a bare "כן"/"לא" deterministically regardless of the
+    # question's own wording, so dropping the parenthetical changes nothing
+    # about how the answer is understood.
     label = _REOPEN_LABELS[service]
     if len(trips) == 1:
         t = trips[0]
-        return f"להוסיף {label} לחופשה ל{t['name']} ({t['window']})? (כן = לחופשה הזו, לא = חופשה חדשה)"
+        return f"להוסיף {label} לחופשה ל{t['name']} ({t['window']})?"
     if len(trips) == 2:
         lines = "\n".join(f"{i + 1}. {t['name']} ({t['window']})" for i, t in enumerate(trips))
-        return f"לאיזו חופשה להוסיף {label}?\n{lines}\nאו שזו חופשה חדשה?"
+        return f"לאיזו חופשה להוסיף {label}?\n{lines}\nאפשר גם לומר שזו חופשה חדשה."
     return f"יש לך כמה חופשות פעילות במקביל - לאיזו מהן להוסיף {label}? אפשר לציין יעד או תאריך, או להגיד שזו חופשה חדשה."
 
 
@@ -7679,7 +7700,7 @@ def chat_clean():
             })
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':'לשנות את היעד ולבנות מחדש את הפרטים שתלויים בו? כן או לא?',
+            'reply':'לשנות את היעד ולבנות מחדש את הפרטים שתלויים בו?',
             'trip_update':trip_state,'start_flight_search':False
         })
 
@@ -8648,11 +8669,11 @@ def chat_clean():
                 else:
                     remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                     label = remaining_labels.get(pending_domain, pending_domain)
-                    reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}, או שזה הכל להפעם?"
+                    reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}?"
             else:
                 remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                 label = remaining_labels.get(pending_domain, pending_domain)
-                reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}, או שזה הכל להפעם?"
+                reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}?"
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
