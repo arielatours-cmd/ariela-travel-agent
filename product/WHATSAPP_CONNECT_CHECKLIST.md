@@ -33,3 +33,24 @@
 - **מה עצר את התשובות:** חסר WHATSAPP_RECIPIENT (whatsapp.py:52). הגדרנו אותו כעקיפה, ובצלאל מתקן בקוד.
 - **אבטחה:** ה-ADMIN_TOKEN נרשם בלוגים של Render דרך `?token=`, ולכן הוחלף. **מעכשיו אין הוראות עם token בכתובת.**
 - **הבא:** כשאימות העסק יאושר (כ-2 ימי עסקים), עוברים למספר 4389 לפי שלבים 1–8.
+
+---
+## מוכן לביצוע: מעבר למספר 4389 אחרי שאימות העסק מאושר
+**סימן שאפשר להתחיל:** ב-Security Center כתוב שהעסק **Verified**.
+1. **הוספת המספר (רצוי ממחשב):** developers → ARIELA TOURS → WhatsApp → API Setup / Production setup → **Add phone number**. התיק: Ariela TOURS. אתר: https://ariela-travel-agent.onrender.com. מדינה: Israel.
+2. **פרופיל:** שם תצוגה ARIELA TOURS, קטגוריה Travel. אפשר שהשם יעבור בדיקה של Meta, וזה לא חוסם.
+3. **מספר:** ‎+972 58-771-4389. מקבלים את הקוד ב-SMS, ואם לא מגיע, בשיחה קולית.
+4. **מעתיקים את ה-IDs החדשים:** Phone Number ID ו-WABA ID. אלה מזהים ולא סודות, ומעבירים אותם דרך שלמה.
+5. **Assign assets:** System users → Employee → נותנים Full control לחשבון הוואטסאפ החדש. אחרת יופיע שוב 100/33.
+6. **Render:**
+   - מעדכנים את `WHATSAPP_PHONE_NUMBER_ID` ואת `WHATSAPP_WABA_ID` לערכים החדשים.
+   - בודקים ש-`WHATSAPP_RECIPIENT` עדיין מוגדר (עקיפה, עד שבצלאל יתקן את whatsapp.py:52).
+   - `WHATSAPP_REGISTRATION_PIN` כבר קיים, לא נוגעים בו.
+   - `WHATSAPP_INBOUND_ALLOWLIST` נשאר בשלב הבדיקות.
+7. **רישום המספר (register) והרשמה ל-webhook (subscription apply):** דרך נתיבי האדמין, **בלי token בכתובת**, בשיטה שבצלאל יקבע (header או POST). עד שזה מוכן, שואלים את שלמה לפני ההרצה.
+8. **בדיקה:**
+   - בתוצאה צריך לראות status=CONNECTED, platform_type=CLOUD_API ו-subscribed=true.
+   - שולחים "שלום" מהנייד הפרטי ל-058-771-4389, ואריאלה אמורה לענות.
+9. **ניקוי:**
+   - מספר הבדיקה נשאר בצד ולא מפרסמים אותו.
+   - מגישים מחדש את תבניות ה-Meta תחת ה-WABA החדש (ראו whatsapp_templates_draft.md).
