@@ -650,6 +650,13 @@ def init_db() -> None:
         if "saved_domains_json" not in wa_state_columns:
             conn.execute("ALTER TABLE whatsapp_conversation_state ADD COLUMN saved_domains_json TEXT NOT NULL DEFAULT '{}'")
 
+        # Task 003b (Din, anti-spam law s.30A(d)): a free-text stop word turns
+        # off EVERY proactive WhatsApp message, incl. lifecycle/renewal ones.
+        # Checked in queue_whatsapp_message; cleared only by an explicit
+        # customer opt-in (deals or a trip's alerts).
+        member_columns_003b = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
+        if "whatsapp_proactive_off" not in member_columns_003b:
+            conn.execute("ALTER TABLE members ADD COLUMN whatsapp_proactive_off INTEGER NOT NULL DEFAULT 0")
         # Task 003b: the stop word a customer actually sent ("הסר", "stop"...).
         opt_event_columns = {row["name"] for row in conn.execute("PRAGMA table_info(whatsapp_opt_events)").fetchall()}
         if "detail" not in opt_event_columns:
@@ -2086,6 +2093,9 @@ def set_whatsapp_deals_opt(member_id: int, enabled: bool, source: str, detail: s
         row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
         if not row:
             return False
+        if enabled:
+            # An explicit opt-in to deals lifts a free-text "הסר" (task 003b).
+            clear_whatsapp_proactive_off(member_id, conn)
         currently_on = bool(row["whatsapp_opt_in"])
         if currently_on == bool(enabled):
             return False
@@ -2107,13 +2117,39 @@ def set_whatsapp_deals_opt(member_id: int, enabled: bool, source: str, detail: s
     return True
 
 
-def queue_whatsapp_message(member_id: int, kind: str, body: str, buttons=None, image_url=None, ref_id=None) -> int:
+def set_whatsapp_proactive_off(member_id: int, conn=None) -> None:
+    """Task 003b: the member wrote a stop word - no proactive WhatsApp message
+    of any kind is queued for them from now on."""
+    if conn is not None:
+        conn.execute("UPDATE members SET whatsapp_proactive_off=1 WHERE id=?", (member_id,))
+        return
+    with connection() as own:
+        own.execute("UPDATE members SET whatsapp_proactive_off=1 WHERE id=?", (member_id,))
+
+
+def clear_whatsapp_proactive_off(member_id: int, conn=None) -> None:
+    """Task 003b: only an explicit customer action (re-joining deals, turning
+    on a trip's alerts) lifts the stop."""
+    if conn is not None:
+        conn.execute("UPDATE members SET whatsapp_proactive_off=0 WHERE id=?", (member_id,))
+        return
+    with connection() as own:
+        own.execute("UPDATE members SET whatsapp_proactive_off=0 WHERE id=?", (member_id,))
+
+
+def queue_whatsapp_message(member_id: int, kind: str, body: str, buttons=None, image_url=None, ref_id=None) -> int | None:
     """Shared by tasks 002a/003a/001a - every outbound WhatsApp message (deal
     alerts, welcome, radar, booking lifecycle) is written here in 'preview'
     status instead of being sent, until WHATSAPP_DEALS_BUTTONS_ENABLED (or a
-    real send path) exists. Returns the new row id."""
+    real send path) exists. Returns the new row id - or None when the member
+    wrote a stop word (whatsapp_proactive_off, task 003b): this is the one
+    choke point every proactive sender goes through, so the stop covers all
+    of them, including future ones."""
     import json as _json
     with connection() as conn:
+        off = conn.execute("SELECT whatsapp_proactive_off FROM members WHERE id=?", (member_id,)).fetchone()
+        if off and off["whatsapp_proactive_off"]:
+            return None
         cur = conn.execute(
             """INSERT INTO whatsapp_outbound_queue(member_id, kind, body, buttons_json, image_url, ref_id, status, created_at)
                VALUES (?,?,?,?,?,?, 'preview', ?)""",

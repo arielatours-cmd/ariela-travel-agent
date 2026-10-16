@@ -23,7 +23,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE, BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, BUSINESS_LEGAL_NAME_EN, BUSINESS_DEALER_TYPE_HE, BUSINESS_DEALER_NUMBER, BUSINESS_ADDRESS_HE, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, latest_trip_alerts, delete_member_account
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, clear_whatsapp_proactive_off, latest_trip_alerts, delete_member_account
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
 from scoring import (
@@ -3932,6 +3932,10 @@ def toggle_trip_notifications(trip_id):
         row = conn.execute("SELECT status,mobile_notifications FROM trip_requests WHERE id=? AND member_id=?", (trip_id, session["member_id"])).fetchone()
         if row and row["status"] == "active":
             conn.execute("UPDATE trip_requests SET mobile_notifications=? WHERE id=?", (0 if row["mobile_notifications"] else 1, trip_id))
+            if not row["mobile_notifications"]:
+                # Turning a trip's alerts on is an explicit opt-in that lifts
+                # an earlier free-text "הסר" (task 003b).
+                clear_whatsapp_proactive_off(session["member_id"], conn)
             conn.commit()
     return redirect(url_for("site.account"))
 
@@ -5127,6 +5131,9 @@ def _confirm_paid_search(trip_id, provider=None, provider_reference=None):
             "renewal_reminder_sent_at=NULL, has_paid_search=1, mobile_notifications=1 WHERE id=?",
             (now.isoformat(), now.isoformat(), ends.isoformat(), trip_id),
         )
+        # Paying for a trip's tracking turns its alerts on - an explicit
+        # customer opt-in, so it lifts an earlier "הסר" (task 003b).
+        clear_whatsapp_proactive_off(row["member_id"], conn)
         conn.commit()
         member_id = row["member_id"]
     record_payment(member_id, trip_id, plan, plan_info["price_ils"], provider=provider,

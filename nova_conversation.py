@@ -19,7 +19,7 @@ from typing import Optional
 
 from werkzeug.security import generate_password_hash
 
-from database import connection, utc_now_iso, set_whatsapp_deals_opt, save_trip_feedback, append_trip_feedback_comment
+from database import connection, utc_now_iso, set_whatsapp_deals_opt, set_whatsapp_proactive_off, save_trip_feedback, append_trip_feedback_comment
 from config import PUBLIC_BASE_URL
 
 TOKEN_RE = re.compile(r"קוד\s*חיבור\s*:\s*([^\s]+)", re.I)
@@ -427,26 +427,33 @@ def _stop_keyword(text) -> str | None:
 
 
 def _handle_keyword_stop(phone: str, word: str) -> str:
-    """A stop word overrides every conversation state: hot deals off (the
-    same opt-out _handle_stop does, logged with source='keyword' and the
-    word) and mobile_notifications=0 on every trip of the member. The
-    WhatsApp link, whatsapp_conversation_state and the chat with Ariella
-    are left alone - the customer can keep writing to her."""
+    """A stop word overrides every conversation state. For a known member it
+    always sets whatsapp_proactive_off (Din, s.30A(d): no proactive message
+    of any kind - deals, alerts, trip lifecycle, renewal - is queued again;
+    enforced in queue_whatsapp_message), turns hot deals off (the same
+    opt-out _handle_stop does, logged with source='keyword' and the word)
+    and sets mobile_notifications=0 on every trip. The WhatsApp link,
+    whatsapp_conversation_state and the chat with Ariella are left alone -
+    the customer can keep writing to her. Only an unknown number gets the
+    "nothing to remove" reply."""
     member_id = _member_id_for_phone(phone)
-    deals_active = alerts_active = False
-    if member_id:
-        with connection() as conn:
-            row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
-            deals_active = bool(row["whatsapp_opt_in"]) if row else False
-            alerts_active = conn.execute(
-                "SELECT 1 FROM trip_requests WHERE member_id=? AND mobile_notifications=1 LIMIT 1",
-                (member_id,),
-            ).fetchone() is not None
-    if not (deals_active or alerts_active):
-        logging.info("whatsapp stop keyword %r: nothing active for phone %s", word, _phone_hash(phone)[:12])
+    if not member_id:
+        logging.info("whatsapp stop keyword %r: unknown phone %s", word, _phone_hash(phone)[:12])
         return (
             "אין כרגע הודעות יזומות פעילות במספר הזה, אז אין מה להסיר 🙂 "
             f"אם נרשמתם עם מספר אחר, אפשר להפסיק מעמוד הדילים באתר: {_DEALS_URL}"
+        )
+    with connection() as conn:
+        row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
+        deals_active = bool(row["whatsapp_opt_in"]) if row else False
+        alerts_active = conn.execute(
+            "SELECT 1 FROM trip_requests WHERE member_id=? AND mobile_notifications=1 LIMIT 1",
+            (member_id,),
+        ).fetchone() is not None
+        set_whatsapp_proactive_off(member_id, conn)
+        conn.execute(
+            "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at, detail) VALUES (?,?,?,?,?)",
+            (member_id, "proactive_off", "keyword", utc_now_iso(), word),
         )
     if deals_active:
         set_whatsapp_deals_opt(member_id, False, "keyword", detail=word)
@@ -457,16 +464,13 @@ def _handle_keyword_stop(phone: str, word: str) -> str:
                 "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at, detail) VALUES (?,?,?,?,?)",
                 (member_id, "alerts_off", "keyword", utc_now_iso(), word),
             )
-    what = "דילים או התראות" if deals_active and alerts_active else ("דילים" if deals_active else "התראות")
+    reply = "הוסרתם בהצלחה ✅ לא נשלח לכם יותר הודעות יזומות בוואטסאפ (דילים, התראות ועדכוני חופשה). אפשר עדיין לכתוב לי כאן בכל זמן."
     links = []
     if deals_active:
         links.append(f"לחידוש הדילים: {_DEALS_URL}")
     if alerts_active:
         links.append("להפעלת התראות לחופשה: מהאזור האישי באתר.")
-    return (
-        f"הוסרתם בהצלחה ✅ לא נשלח לכם יותר {what} בוואטסאפ. אפשר עדיין לכתוב לי כאן בכל זמן.\n"
-        + " · ".join(links)
-    )
+    return reply + ("\n" + " · ".join(links) if links else "")
 
 
 def _handle_stop(phone: str) -> str:

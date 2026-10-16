@@ -7,6 +7,7 @@ Covers the spec's 7 checks for Shaked, plus the details around them:
   2. "STOP" / "עצור!" -> same as 1
   3. "תעצרי רגע, אני רוצה לשנות תאריך" -> not a stop, normal routing
   4. "הסר" from an unknown number -> "nothing to remove", no DB change
+     (a KNOWN member with nothing active gets the flag + confirmation, Din)
   5. "הסר" in the middle of onboarding -> the stop wins over the state
   6. after "הסר", "שלום" -> Ariella answers as usual
   7. the "הפסקת הדילים" button -> stops deals only, as before
@@ -50,12 +51,11 @@ def fake_route_member(member_id, text):
 
 nc._route_member = fake_route_member  # the Claude conversation, stubbed
 
-BOTH = ("הוסרתם בהצלחה ✅ לא נשלח לכם יותר דילים או התראות בוואטסאפ. אפשר עדיין לכתוב לי כאן בכל זמן.\n"
-        f"לחידוש הדילים: {nc._DEALS_URL} · להפעלת התראות לחופשה: מהאזור האישי באתר.")
-DEALS_ONLY = ("הוסרתם בהצלחה ✅ לא נשלח לכם יותר דילים בוואטסאפ. אפשר עדיין לכתוב לי כאן בכל זמן.\n"
-              f"לחידוש הדילים: {nc._DEALS_URL}")
-ALERTS_ONLY = ("הוסרתם בהצלחה ✅ לא נשלח לכם יותר התראות בוואטסאפ. אפשר עדיין לכתוב לי כאן בכל זמן.\n"
-               "להפעלת התראות לחופשה: מהאזור האישי באתר.")
+HEAD = "הוסרתם בהצלחה ✅ לא נשלח לכם יותר הודעות יזומות בוואטסאפ (דילים, התראות ועדכוני חופשה). אפשר עדיין לכתוב לי כאן בכל זמן."
+BOTH = HEAD + f"\nלחידוש הדילים: {nc._DEALS_URL} · להפעלת התראות לחופשה: מהאזור האישי באתר."
+DEALS_ONLY = HEAD + f"\nלחידוש הדילים: {nc._DEALS_URL}"
+ALERTS_ONLY = HEAD + "\nלהפעלת התראות לחופשה: מהאזור האישי באתר."
+NONE_ACTIVE = HEAD
 NOTHING = ("אין כרגע הודעות יזומות פעילות במספר הזה, אז אין מה להסיר 🙂 "
            f"אם נרשמתם עם מספר אחר, אפשר להפסיק מעמוד הדילים באתר: {nc._DEALS_URL}")
 
@@ -90,6 +90,11 @@ def state(mid):
     return deals, alerts, events, linked
 
 
+def proactive_off(mid):
+    with connection() as conn:
+        return conn.execute("SELECT whatsapp_proactive_off FROM members WHERE id=?", (mid,)).fetchone()[0]
+
+
 def db_snapshot():
     with connection() as conn:
         return tuple(conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
@@ -107,6 +112,7 @@ check("1: opt-out event source='keyword' with the word", {"event": "opt_out", "s
 check("1: alerts-off event recorded too", {"event": "alerts_off", "source": "keyword", "detail": "הסר"} in events)
 check("1: the WhatsApp link is untouched", linked == 1)
 check("1: not passed to the conversation", ROUTED != reply)
+check("1: whatsapp_proactive_off=1", proactive_off(mid) == 1)
 
 # --- 2. "STOP" / "עצור!" and the rest of the list ----------------------------------------
 for word, expected_word in (("STOP", "stop"), ("עצור!", "עצור"), ("  הסירו אותי 🙏", "הסירו אותי"), ("Unsubscribe.", "unsubscribe"),
@@ -141,11 +147,14 @@ snap = db_snapshot()
 reply = nc.route_inbound("+972509999999", "הסר")
 check("4: unknown number -> 'nothing to remove' message", reply == NOTHING)
 check("4: unknown number -> no DB change", db_snapshot() == snap)
-# a known member with nothing active gets the same message and no change
+# Din 16.10: a KNOWN member with nothing active still gets the stop flag and
+# the confirmation - "nothing to remove" is only for an unknown number.
 mid, phone = make_member(deals=False, alerts=False)
-snap = db_snapshot()
-check("4: member with nothing active -> same message", nc.route_inbound(phone, "stop") == NOTHING)
-check("4: member with nothing active -> no DB change", db_snapshot() == snap and state(mid)[2] == [])
+reply = nc.route_inbound(phone, "stop")
+check("Din: known member with nothing active -> confirmation, not 'nothing to remove'", reply == NONE_ACTIVE)
+check("Din: ...and whatsapp_proactive_off=1", proactive_off(mid) == 1)
+check("Din: ...recorded as proactive_off/keyword with the word",
+      {"event": "proactive_off", "source": "keyword", "detail": "stop"} in state(mid)[2])
 
 # --- 5. "הסר" in the middle of onboarding -> the stop wins ---------------------------------
 onboarding_phone = "+972508888888"
@@ -172,6 +181,68 @@ check("7: button -> deals off", not deals and "הפסקנו לשלוח לכם א
 check("7: button -> alerts untouched", alerts == 1)
 check("7: button -> source whatsapp_button, no detail",
       events[-1] == {"event": "opt_out", "source": "whatsapp_button", "detail": None})
+
+# --- Din 16.10 (s.30A(d)): after "הסר" no proactive message of ANY kind is queued --------
+import trip_lifecycle_messages as tlm  # noqa: E402
+import whatsapp_deals_messages as wdm  # noqa: E402
+from datetime import date, timedelta  # noqa: E402
+
+
+def queued(mid):
+    with connection() as conn:
+        return conn.execute("SELECT COUNT(*) FROM whatsapp_outbound_queue WHERE member_id=?", (mid,)).fetchone()[0]
+
+
+def booked_trip(mid, return_days_ago):
+    ret = (date.today() - timedelta(days=return_days_ago)).isoformat()
+    dep = (date.today() - timedelta(days=return_days_ago + 5)).isoformat()
+    with connection() as conn:
+        return int(conn.execute(
+            "INSERT INTO trip_requests (member_id,request_name,travel_window,status,answers_json,created_at,mobile_notifications,booked_confirmed_at) "
+            "VALUES(?,?,?,?,?,datetime('now'),0,datetime('now'))",
+            (mid, "אתונה", "", "active", '{"departure_date": "%s", "return_date": "%s"}' % (dep, ret))).lastrowid)
+
+
+mid, phone = make_member(deals=True, alerts=True)
+congrats_trip, how_trip = booked_trip(mid, -10), booked_trip(mid, 5)
+nc.route_inbound(phone, "הסר")
+before = queued(mid)
+check("Din: after 'הסר', queue_booking_congrats queues nothing", tlm.queue_booking_congrats(congrats_trip) is None and queued(mid) == before)
+tlm.queue_how_was_it_messages()
+check("Din: after 'הסר', queue_how_was_it_messages queues nothing for this member", queued(mid) == before)
+control, _ = make_member(deals=True, alerts=True)
+c_congrats, c_how = booked_trip(control, -10), booked_trip(control, 5)
+c_before = queued(control)
+check("control (no stop): queue_booking_congrats does queue", tlm.queue_booking_congrats(c_congrats) is not None)
+tlm.queue_how_was_it_messages()
+check("control (no stop): how-was-it queued too", queued(control) == c_before + 2)
+check("Din: direct queue_whatsapp_message returns None (radar/deals/any future sender)",
+      database.queue_whatsapp_message(mid, "radar", "x") is None and queued(mid) == before)
+check("Din: a different member is not affected", database.queue_whatsapp_message(make_member(True, True)[0], "radar", "x") is not None)
+
+# Lifted ONLY by an explicit customer action
+import app as app_module  # noqa: E402
+client = app_module.app.test_client()
+with client.session_transaction() as sess:
+    sess["member_id"] = mid
+with connection() as conn:
+    trip_off = conn.execute("SELECT id FROM trip_requests WHERE member_id=? AND mobile_notifications=0 AND booked_confirmed_at IS NULL LIMIT 1", (mid,)).fetchone()[0]
+nc.route_inbound(phone, "שלום")
+check("still off after an ordinary message", proactive_off(mid) == 1)
+client.post(f"/trip/{trip_off}/toggle-notifications")
+check("turning a trip's alerts ON in the account lifts the stop", proactive_off(mid) == 0)
+check("...and messages queue again", database.queue_whatsapp_message(mid, "radar", "x") is not None)
+nc.route_inbound(phone, "הסר")
+client.post(f"/trip/{trip_off}/toggle-notifications")  # already 0 after the stop -> turns ON again
+check("toggle alerts on again -> lifted", proactive_off(mid) == 0)
+nc.route_inbound(phone, "הסר")
+check("turning alerts OFF never lifts it", proactive_off(mid) == 1)
+wdm.on_whatsapp_deals_paid(mid)
+check("re-joining the deals (payment) lifts the stop and queues the welcome",
+      proactive_off(mid) == 0 and queued(mid) > before)
+nc.route_inbound(phone, "הסר")
+database.set_whatsapp_deals_opt(mid, False, "site")
+check("an opt-OUT never lifts it", proactive_off(mid) == 1)
 
 # --- The word list and normalizer ---------------------------------------------------------------
 REQUIRED = ["הסר", "הסירו", "הסירו אותי", "הסר אותי", "עצור", "עצרו", "הפסק", "הפסיקו", "stop", "unsubscribe", "remove"]
