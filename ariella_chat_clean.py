@@ -31,6 +31,43 @@ def _get_anthropic_client(key):
         _anthropic_clients[key] = client
     return client
 
+
+# Per-turn timeout cap + total-turn-duration logging (Eran's 502 diagnosis):
+# render.yaml raises gunicorn's own worker timeout to 120s (a long
+# itinerary/route reply routinely exceeds its 30s default), but that's a
+# blanket, ungraceful kill - no Flask code ever runs, no response reaches
+# the customer, and under concurrent load it surfaces as a bare 502. A
+# single chat turn makes 1 or more sequential Claude calls (the main
+# reply, state extraction, and sometimes a smaller classifier call), none
+# of which previously had ANY timeout - one hung network call could ride
+# the whole request all the way into gunicorn's kill with zero visibility.
+# turn_started is tracked per-thread (gunicorn runs --threads 4; each
+# thread serves one request/chat_clean() call, same assumption _post_claude
+# already makes for thread_id in its own timing diagnostics) so every
+# _post_claude call during this turn can bound itself to whatever budget
+# is actually left, with no call site needing to pass anything through.
+_turn_timing = threading.local()
+_TURN_TIMEOUT_BUDGET_SECONDS = 90.0
+_MIN_CLAUDE_CALL_TIMEOUT_SECONDS = 8.0
+_MAX_CLAUDE_CALL_TIMEOUT_SECONDS = 55.0
+_SLOW_TURN_WARNING_MS = 30_000
+
+
+def _claude_call_timeout():
+    """Remaining per-turn time budget, clamped to a sane per-call range.
+    Every _post_claude call site already wraps it in a try/except with a
+    graceful fallback (a transient API failure was always possible), so a
+    timeout - just another exception - is safe everywhere it's used,
+    including the main conversational reply and state extraction. Falls
+    back to the full budget when called outside of chat_clean()'s own
+    per-turn tracking (e.g. a one-off script or test)."""
+    started = getattr(_turn_timing, "turn_started", None)
+    if started is None:
+        return _TURN_TIMEOUT_BUDGET_SECONDS
+    remaining = _TURN_TIMEOUT_BUDGET_SECONDS - (time.time() - started)
+    return max(_MIN_CLAUDE_CALL_TIMEOUT_SECONDS, min(_MAX_CLAUDE_CALL_TIMEOUT_SECONDS, remaining))
+
+
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
@@ -517,6 +554,9 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
     thread_id = threading.get_ident()
     for attempt in range(2):
         call_started = time.time()
+        # Recomputed per attempt (not once before the loop) so the retry's
+        # own 2s sleep is reflected in what's left of the turn's budget.
+        call_timeout = _claude_call_timeout()
         try:
             response = client.messages.create(
                 model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
@@ -524,6 +564,7 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
                 # tasks (natural conversation, structured JSON) - extended thinking adds
                 # latency here without improving output, so keep it off for speed.
                 thinking={'type': 'disabled'},
+                timeout=call_timeout,
             )
             break
         except anthropic.APIStatusError as exc:
@@ -544,6 +585,17 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
                 call_duration_ms=int((time.time() - call_started) * 1000),
             )
             raise RuntimeError(f'Claude API error {exc.status_code}') from exc
+        except anthropic.APITimeoutError as exc:
+            # Never retried (unlike 429/529 above): a timeout already spent
+            # most of the per-turn budget, and retrying would spend what
+            # little is left, guaranteeing a second timeout right into
+            # gunicorn's own kill instead of a graceful fallback reply.
+            record_ai_usage(
+                source, model, usage=None, error="timeout",
+                thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
+                call_duration_ms=int((time.time() - call_started) * 1000),
+            )
+            raise RuntimeError(f'Claude API call to {source} timed out after {call_timeout:.0f}s') from exc
     record_ai_usage(
         source, model, usage=response.usage,
         thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
@@ -6738,6 +6790,37 @@ def chat_reset_conversation():
 
 @ariella_chat_clean.post('/api/ariella/chat-clean')
 def chat_clean():
+    """Thin per-turn timing wrapper around _chat_clean_impl() (the real
+    engine, unchanged below). Deliberately NOT inlined into the impl's own
+    body: that function has ~2000 lines and dozens of return points, and
+    ariella_chat_v2.py also reaches it directly (`from ariella_chat_clean
+    import chat_clean`) via its own routes for /api/ariella/chat and
+    /api/ariella/chat-clean, which in practice WIN the routing for this
+    exact path over this blueprint's own rule below (see the registration-
+    order note in travel_agents.py, _legacy_ariella_chat_unused) - a
+    Blueprint-scoped before_request/after_request hook on THIS blueprint
+    would silently never fire for real traffic. Wrapping the shared
+    function by name instead works no matter which route dispatches to it."""
+    _turn_timing.turn_started = time.time()
+    try:
+        return _chat_clean_impl()
+    finally:
+        started = _turn_timing.turn_started
+        duration_ms = int((time.time() - started) * 1000)
+        record_ai_usage(
+            "turn_total", "", usage=None,
+            call_started_at=datetime.fromtimestamp(started, tz=timezone.utc).isoformat(),
+            call_duration_ms=duration_ms,
+        )
+        if duration_ms >= _SLOW_TURN_WARNING_MS:
+            logging.warning(
+                "Ariella chat turn took %dms (budget %.0fs) - approaching gunicorn's 120s worker timeout",
+                duration_ms, _TURN_TIMEOUT_BUDGET_SECONDS,
+            )
+        _turn_timing.turn_started = None
+
+
+def _chat_clean_impl():
     if not session.get('member_id'):
         return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.', 'engine_version': ENGINE_VERSION}), 401
 
