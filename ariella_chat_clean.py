@@ -4755,8 +4755,6 @@ def _deterministic_trip_planning_pace_facts(message, history):
         pace = "active"
     elif any(w in msg for w in relaxed_words):
         pace = "relaxed"
-    if not pace:
-        return {}
     # Only apply right after Ariella actually asked about pace, so an
     # unrelated "פעיל"/"רגוע" mention elsewhere in the conversation is never
     # misread as answering a question that was never asked this turn.
@@ -4766,6 +4764,24 @@ def _deterministic_trip_planning_pace_facts(message, history):
             prior_assistant = str(item.get("content") or "")
             break
     if "קצב" not in prior_assistant:
+        return {}
+    if not pace:
+        # Per the one-option-per-question principle (2026-10-16), pace is now
+        # asked as a single-option yes/no ("חשוב לכם שהקצב יהיה רגוע?"), not
+        # the old "רגוע או פעיל?" wording - a bare "כן"/"לא" names neither
+        # word at all. Resolve it against whichever single pace prior_
+        # assistant actually asked about - never both, so an old-style dual
+        # phrasing stays genuinely ambiguous and falls through to the model.
+        asked_active = any(w in prior_assistant for w in active_words)
+        asked_relaxed = any(w in prior_assistant for w in relaxed_words)
+        if asked_active != asked_relaxed:
+            asked_one = "active" if asked_active else "relaxed"
+            bare = _normalize_confirm(msg)
+            if bare in {"כן", "בטח", "בהחלט", "כן בבקשה", "בטח שכן", "למה לא", "מתאים", "אין בעיה", "סבבה", "יאללה"}:
+                pace = asked_one
+            elif bare in {"לא", "לא תודה", "לא צריך", "לא צריכה", "ממש לא"}:
+                pace = "אין העדפה"
+    if not pace:
         return {}
     return {"trip_planning": {"details": {"pace": pace}}}
 
@@ -5568,17 +5584,23 @@ def _approval_message_has_extra_content(message):
 _POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
 
 
+# Per the business owner's decision (2026-10-16, relayed by Shlomo): these
+# fallback texts stay as fixed sentences in this PR (no extra model call is
+# added for them - they only fire as a safety net when a gap genuinely
+# remains), but each one must still comply with the iron rule - one
+# question only, open or a yes/no about a single option, never "X or Y".
+# Several of these were rewritten below for exactly that reason.
 _GAP_QUESTION_TEXT = {
     "car.details.vehicle_type": "איזה סוג/גודל רכב מתאים לכם?",
-    "car.details.transmission": "תעדיפו רכב אוטומטי או ידני?",
-    "car.details.pickup": "באיזה שדה תעופה או עיר תרצו לאסוף את הרכב?",
-    "car.details.return": "ובאיזה שדה תעופה או עיר תרצו להחזיר אותו?",
-    "lodging.details.type": "איזה סוג לינה מתאים לכם (מלון, דירה או וילה)?",
+    "car.details.transmission": "חשוב לכם רכב אוטומטי?",
+    "car.details.pickup": "איפה תרצו לאסוף את הרכב?",
+    "car.details.return": "ואיפה תרצו להחזיר אותו?",
+    "lodging.details.type": "איזה סוג לינה מתאים לכם?",
     "lodging.details.rooms": "כמה חדרים תרצו?",
     "lodging.details.locations": "באיזה אזור תרצו שהלינה תהיה?",
-    "lodging.details.budget_or_level": "מה התקציב ללילה, או איזו רמת נוחות אתם מחפשים?",
+    "lodging.details.budget_or_level": "מה התקציב שלכם ללילה?",
     "trip_planning.details.style": "ספרו לי מה אתם אוהבים לעשות בחופשה.",
-    "trip_planning.details.pace": "אתם מעדיפים קצב רגוע או פעיל?",
+    "trip_planning.details.pace": "חשוב לכם שהקצב יהיה רגוע?",
     "trip_planning.details.route": "ספרו לי קצת על המסלול שאתם מדמיינים.",
     "trip_planning.approved": "המסלול שהצעתי מתאים לכם, או שתרצו לשנות משהו?",
 }
@@ -7318,11 +7340,15 @@ def chat_clean():
             })
 
         # While awaiting this gate, do not let the model reinterpret or mutate
-        # the trip. Keep the question binary and deterministic.
+        # the trip. Keep the question binary and deterministic (the downstream
+        # yes_match/no_match gate below is unchanged) - only the wording
+        # changed, per the business owner's iron rule (2026-10-16): a single
+        # yes/no about one option (the destructive one, since that's the one
+        # that needs confirming), never a spelled-out "X or Y? (yes=X, no=Y)".
         pending = dict(trip_state)
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':('רק כדי לוודא: למחוק הכול ולהתחיל טיסה חדשה, או להשאיר ולשנות רק פרט אחד? (כן = למחוק ולהתחיל מחדש, לא = להשאיר ולשנות)' if trip_state.get("reset_scope") == "flights" else 'רק כדי לוודא: למחוק הכול ולהתחיל חופשה חדשה, או להשאיר ולשנות רק פרט אחד? (כן = למחוק ולהתחיל מחדש, לא = להשאיר ולשנות)'),
+            'reply':('רק כדי לוודא: למחוק הכול ולהתחיל טיסה חדשה?' if trip_state.get("reset_scope") == "flights" else 'רק כדי לוודא: למחוק הכול ולהתחיל חופשה חדשה?'),
             'trip_update':pending,'start_flight_search':False
         })
 
@@ -7485,15 +7511,23 @@ def chat_clean():
             return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                             'reply':'שינוי היעד משנה גם את המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד. למחוק את הפרטים שתלויים ביעד ולבנות אותם מחדש ליעד החדש?',
                             'trip_update':kept,'start_flight_search':False})
+        # Per the business owner's iron rule (2026-10-16): a single yes/no
+        # about one interpretation (the less destructive one - a destination
+        # change within the existing trip), never "X or Y?" - a "לא" below is
+        # read downstream as "it's a new, separate trip" (the intent gate
+        # this reply awaits an answer for is unchanged, only the wording is).
         return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                        'reply':f"רק כדי לוודא - {pending_new_trip}: זו חופשה חדשה ונפרדת, או שינוי יעד בחופשה הנוכחית ל{', '.join(current_places)}?",
+                        'reply':f"רק כדי לוודא - {pending_new_trip}: זה שינוי יעד בחופשה הנוכחית ל{', '.join(current_places)}?",
                         'trip_update':trip_state,'start_flight_search':False})
 
     if possible_new_trip and not trip_state.get("destination_change_pending"):
         pending = dict(trip_state)
         pending["new_trip_pending"] = possible_new_trip
+        # Same iron-rule rewording as pending_new_trip above: single yes/no
+        # about the destination-change interpretation; "לא" means a new,
+        # separate trip. The intent gate awaiting this answer is unchanged.
         return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                        'reply':f"רגע, לפני שממשיכים - {possible_new_trip}: זו חופשה חדשה ונפרדת, או שינוי יעד בחופשה הנוכחית ל{', '.join(current_places)}?"
+                        'reply':f"רגע, לפני שממשיכים - {possible_new_trip}: זה שינוי יעד בחופשה הנוכחית ל{', '.join(current_places)}?"
                                 + ("" if (trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
                                    else f" (החופשה ל{', '.join(current_places)} עוד לא אושרה, אז בחופשה חדשה הפרטים שלה יימחקו.)"),
                         'trip_update':pending,'start_flight_search':False})
