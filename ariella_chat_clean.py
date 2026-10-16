@@ -1236,10 +1236,23 @@ def _resolve_destination_airports_from_route(state):
     # precise than whatever already got resolved and must not clobber it.
     route_has_bases = bool(names)
     if not names:
-        if state.get("destination_airports"):
-            return state
         destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
-        names = [str(p) for p in (destination.get("places") or []) if p]
+        plain_names = [str(p) for p in (destination.get("places") or []) if p]
+        if state.get("destination_airports"):
+            # Seen live (Shaked, round 4, A2): a broad COUNTRY-level mention
+            # ("איטליה" alone) resolves to every airport in the country and
+            # gets cut to the first 4 in catalog order (BGY, BLQ, CAG, CTA -
+            # none of them Milan or Venice) - then this early return blocked
+            # ANY later update forever, even once the customer explicitly
+            # named a specific city ("לנחות במילאנו ולחזור מוונציה") in a
+            # later message. Only a genuine CITY-level match among the
+            # current places is specific enough to override what's already
+            # resolved - a bare country name repeated later is no more
+            # precise than before and must still never clobber it (the
+            # original protection this guard existed for).
+            if not any(_match_city_exact(p, _load_airports()) for p in plain_names):
+                return state
+        names = plain_names
     if not names:
         return state
     # Seen live (Shaked, Crete scenario): a route that lands in one base
@@ -1558,6 +1571,31 @@ def _resolve_ski_destination_airports(state):
                 if needle in hay or hay in needle:
                     matched_rows.append(row)
     if not matched_rows:
+        # Seen live (Shaked, round 4, C1, regression): a ski-trip customer
+        # who names the GATEWAY CITY itself ("חופשת סקי, טיסה לז'נבה")
+        # rather than a specific resort has nothing in SKI_RESORTS to match
+        # against - ז'נבה is a gateway city, never a resort name, and
+        # rarely appears inside any resort's own country/resort string - so
+        # destination_airports never got set at all, not even once the
+        # customer explicitly typed the airport code itself ("הנחיתה בז'נבה
+        # GVA"): Ariella kept asking "באיזה שדה תרצי לנחות?" forever. A
+        # named place that resolves to one of the known mountain-gateway
+        # airports (INN/GVA/SZG/TRN - see _MOUNTAIN_GATEWAY_AIRPORTS), or an
+        # explicit 3-letter code naming one of them directly, is itself a
+        # valid ski gateway even with no specific resort chosen yet.
+        airports = _load_airports()
+        gateway_codes = []
+        for place in places:
+            code = _match_city_exact(place, airports)
+            if code and code in _MOUNTAIN_GATEWAY_AIRPORTS and code not in gateway_codes:
+                gateway_codes.append(code)
+            stripped = place.strip().upper()
+            if stripped in _MOUNTAIN_GATEWAY_AIRPORTS and stripped not in gateway_codes:
+                gateway_codes.append(stripped)
+        if gateway_codes:
+            state = dict(state)
+            state["destination_airports"] = gateway_codes
+            return state
         return state
     resort_names = []
     codes = []
