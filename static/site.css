@@ -2913,3 +2913,8 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 /* Reasons title stays flush to the reading-start edge (right in Hebrew), overriding earlier left-align passes. */
 .deal-card-v970.deal-he .deal-reasons-title{justify-content:flex-start!important;text-align:right!important;padding-left:0!important;padding-right:22px!important}
 .deal-card-v970.deal-en .deal-reasons-title{justify-content:flex-start!important;text-align:left!important;padding-right:0!important;padding-left:22px!important}
+
+/* Task 013a: secondary Kiwi.com affiliate button + disclosure on deal cards */
+.ariella-deal-card .deal-price-box .kiwi-affiliate{width:100%;margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.ariella-deal-card .deal-price-box .kiwi-affiliate a.kiwi-affiliate-btn{display:block;width:100%;padding:10px 12px!important;font-size:15px!important;font-weight:700;color:#123e7a!important;background:#fff!important;border:1px solid #123e7a;border-radius:8px;text-decoration:none;box-shadow:none}
+.ariella-deal-card .deal-price-box .affiliate-disclosure,.affiliate-disclosure{margin:0;font-size:12px;line-height:1.5;color:#5f5b55;text-align:start}

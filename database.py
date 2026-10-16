@@ -650,6 +650,12 @@ def init_db() -> None:
         if "saved_domains_json" not in wa_state_columns:
             conn.execute("ALTER TABLE whatsapp_conversation_state ADD COLUMN saved_domains_json TEXT NOT NULL DEFAULT '{}'")
 
+        # Task 013a: which affiliate network a booking click went through
+        # (travelpayouts / cj); empty for a plain, uncredited supplier link.
+        click_columns = {row["name"] for row in conn.execute("PRAGMA table_info(booking_clicks)").fetchall()}
+        if "affiliate_network" not in click_columns:
+            conn.execute("ALTER TABLE booking_clicks ADD COLUMN affiliate_network TEXT")
+
         ai_usage_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ai_usage)").fetchall()}
         if "channel" not in ai_usage_columns:
             conn.execute("ALTER TABLE ai_usage ADD COLUMN channel TEXT")
@@ -1506,16 +1512,19 @@ def record_booking_click(visitor_id: str | None = None, member_id: int | None = 
                          airline: str | None = None, supplier: str | None = None,
                          price_ils: float | None = None, score: int | None = None,
                          outbound_date: str | None = None, return_date: str | None = None,
-                         booking_url: str | None = None) -> None:
+                         booking_url: str | None = None,
+                         affiliate_network: str | None = None) -> None:
     try:
         with connection() as conn:
             conn.execute(
                 """INSERT INTO booking_clicks(
                     visitor_id,member_id,offer_id,destination_code,airline,supplier,
-                    price_ils,score,outbound_date,return_date,booking_url,clicked_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    price_ils,score,outbound_date,return_date,booking_url,clicked_at,
+                    affiliate_network
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (visitor_id, member_id, offer_id, destination_code, airline, supplier,
-                 price_ils, score, outbound_date, return_date, booking_url, utc_now_iso()),
+                 price_ils, score, outbound_date, return_date, booking_url, utc_now_iso(),
+                 affiliate_network or ""),
             )
     except Exception:
         return

@@ -34,7 +34,7 @@ from scoring import (
 import booking_demand
 import itinerary_cards
 from radar_alerts import evaluate_trip_alert
-from booker import resolve_booking_target
+from booker import resolve_booking_target, kiwi_affiliate_target, kiwi_enabled, KIWI_PARTNER_NAME
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 from mailer import send_email
 
@@ -2672,6 +2672,69 @@ def booking_job_status(job_id):
         payload = {k: v for k, v in job.items() if k != "created_at"}
     return jsonify(payload)
 
+@site.app_template_global("kiwi_enabled")
+def _kiwi_enabled():
+    return kiwi_enabled()
+
+
+@site.app_template_global("kiwi_button")
+def _kiwi_button(offer):
+    """Template helper for the secondary Kiwi.com button on a deal card
+    (a global, since _deal_card.html is imported without context):
+    None when it must not be shown, else whether it opens the exact route
+    search (deep_link) or only Kiwi's home page."""
+    target = kiwi_affiliate_target(offer)
+    return {"deep_link": target["deep_link"]} if target else None
+
+
+@site.get("/go/kiwi/<int:offer_id>")
+def go_kiwi(offer_id):
+    """Task 013a: record the click and pass through a disclosure screen to
+    Kiwi.com (Travelpayouts affiliate link). Only the trip id is sent."""
+    trip_id = request.args.get("trip_id", type=int)
+    answers = None
+    if trip_id and session.get("member_id"):
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+                (trip_id, session["member_id"]),
+            ).fetchone()
+        if row:
+            answers = _trip_dict(row).get("answers") or {}
+    offer = next(
+        (o for o in recent_offers(limit=1500, minimum_score=None)
+         if int(o.get("id") or o.get("offer_id") or 0) == offer_id),
+        None,
+    )
+    if not offer or (answers is None and not _offer_is_publicly_bookable(offer)):
+        return redirect(url_for("site.deals"))
+    adults, children = 1, 0
+    if answers is not None:
+        adults = _int_or(answers.get("adults"), 1) or 1
+        children = _int_or(answers.get("children"), 0)
+    target = kiwi_affiliate_target(
+        offer, adults=adults, children=children,
+        sid=f"trip{trip_id}" if answers is not None else None,
+    )
+    if not target:
+        if answers is not None:
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        return redirect(url_for("site.deals"))
+    record_booking_click(
+        visitor_id=session.get("_ariella_visitor_id"), member_id=session.get("member_id"),
+        offer_id=offer_id, destination_code=offer.get("arrival_code"),
+        airline=offer.get("airline"), supplier=KIWI_PARTNER_NAME,
+        price_ils=offer.get("price_ils"), score=offer.get("score"),
+        outbound_date=offer.get("outbound_date"), return_date=offer.get("return_date"),
+        booking_url=target["url"], affiliate_network=target["network"],
+    )
+    return render_template(
+        "booking_forward.html", action=None, fields=[], method="get",
+        redirect_url=target["url"], affiliate_partner=KIWI_PARTNER_NAME,
+        affiliate_deep_link=target["deep_link"],
+    )
+
+
 @site.get("/account")
 @login_required
 def account():
@@ -5012,7 +5075,7 @@ def book_lodging(trip_id, code):
     record_booking_click(
         member_id=session["member_id"], destination_code=code,
         supplier=LODGING_PARTNER_NAME, outbound_date=answers.get("departure_date"),
-        return_date=answers.get("return_date"), booking_url=url,
+        return_date=answers.get("return_date"), booking_url=url, affiliate_network="cj",
     )
     return redirect(url)
 
@@ -5036,7 +5099,7 @@ def rent_car(trip_id, code):
     record_booking_click(
         member_id=session["member_id"], destination_code=code,
         supplier=CAR_RENTAL_PARTNER_NAME, outbound_date=answers.get("departure_date"),
-        return_date=answers.get("return_date"), booking_url=url,
+        return_date=answers.get("return_date"), booking_url=url, affiliate_network="cj",
     )
     return redirect(url)
 
