@@ -6125,6 +6125,16 @@ def _pick_reopen_option(message, options, key=None, model=None, history=None):
     msg = _normalize_confirm(message).lower()
     if re.search(r"(?<![\u05d0-\u05ea])(?:חדשה|חדש|אחרת)(?![\u05d0-\u05ea])", msg):
         return "new"
+    # Seen live (Shaked, round 6, Sicily): a free-text reply opening with
+    # "לא" ("לא, אני מדברת על הלינה לסיציליה שאנחנו מתכננות עכשיו") fell
+    # through to the model-based fallback below, which read it BACKWARDS -
+    # as accepting the offered vacation instead of declining it - silently
+    # replacing the current, already-approved trip with the wrong one and
+    # losing it entirely. "לא" opening a reply to "add to X? (yes=this
+    # one, no=new)" always means decline, regardless of what follows -
+    # never needs a model's help to tell "no" from "yes" here.
+    if re.search(r"^\s*לא(?!\S)|^\s*לא(?=[\s,.!?])", msg):
+        return "new"
     if len(options) == 1:
         if msg in {"כן", "כן בבקשה", "נכון", "בדיוק", "לזו", "לחופשה הזו", "לאותה חופשה", "בטח", "יאללה"}:
             return 0
@@ -6519,6 +6529,16 @@ def chat_clean():
             # this branch never looked at the message for a destination at
             # all, unlike its siblings.
             fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
+            # Seen live (Shaked, round 6, C3, ski): the message that
+            # actually triggered this reopen offer ("תמליצי לי", stated
+            # alongside the ski type and travelers) is one turn back by the
+            # time the customer declines here - seeding only from THIS
+            # "no" reply (which states nothing new) silently lost the ski
+            # type and traveler count that were said in the very message
+            # that opened this gate in the first place.
+            _trigger_message = pending_reopen.get("trigger_message")
+            if _trigger_message:
+                fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(_trigger_message))
             fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
             places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
             reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
@@ -6576,7 +6596,17 @@ def chat_clean():
     # approval questions is never a "which vacation did you mean" moment,
     # exactly like the day-marker case - skip the gate for all of them.
     _mid_active_session_question = any(q in _last_assistant_text for q in _GAP_QUESTION_TEXT.values())
-    if open_places and not _route_just_proposed and not _mid_active_session_question and not (
+    # Seen live (Shaked, round 6, Sicily): right after the day-by-day route
+    # was approved ("מתאים"), a NEW request in the same breath ("כן, גם
+    # לינה. מלון...") re-opened this exact gate anyway - it only ever
+    # checked whether the last assistant message WAS an in-session
+    # question, never whether a route had already been approved for the
+    # CURRENT destination earlier in this same conversation. An approved
+    # route is unambiguous proof this is deep, concrete, already-committed
+    # progress on the current trip - never a vague "destination merely
+    # mentioned" moment the reopen offer exists for.
+    _route_already_approved = bool((trip_state.get("trip_planning") or {}).get("approved")) if isinstance(trip_state.get("trip_planning"), dict) else False
+    if open_places and not _route_just_proposed and not _mid_active_session_question and not _route_already_approved and not (
         trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
         or trip_state.get("reopened_trip_id") or trip_state.get("reopen_offer_declined")
     ):
@@ -6618,6 +6648,7 @@ def chat_clean():
                 pending["reopen_trip_pending"] = {
                     "service": requested_service, "services": services_wanted,
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
+                    "trigger_message": message,
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
 
