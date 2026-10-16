@@ -1236,10 +1236,23 @@ def _resolve_destination_airports_from_route(state):
     # precise than whatever already got resolved and must not clobber it.
     route_has_bases = bool(names)
     if not names:
-        if state.get("destination_airports"):
-            return state
         destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
-        names = [str(p) for p in (destination.get("places") or []) if p]
+        plain_names = [str(p) for p in (destination.get("places") or []) if p]
+        if state.get("destination_airports"):
+            # Seen live (Shaked, round 4, A2): a broad COUNTRY-level mention
+            # ("איטליה" alone) resolves to every airport in the country and
+            # gets cut to the first 4 in catalog order (BGY, BLQ, CAG, CTA -
+            # none of them Milan or Venice) - then this early return blocked
+            # ANY later update forever, even once the customer explicitly
+            # named a specific city ("לנחות במילאנו ולחזור מוונציה") in a
+            # later message. Only a genuine CITY-level match among the
+            # current places is specific enough to override what's already
+            # resolved - a bare country name repeated later is no more
+            # precise than before and must still never clobber it (the
+            # original protection this guard existed for).
+            if not any(_match_city_exact(p, _load_airports()) for p in plain_names):
+                return state
+        names = plain_names
     if not names:
         return state
     # Seen live (Shaked, Crete scenario): a route that lands in one base
@@ -1558,6 +1571,31 @@ def _resolve_ski_destination_airports(state):
                 if needle in hay or hay in needle:
                     matched_rows.append(row)
     if not matched_rows:
+        # Seen live (Shaked, round 4, C1, regression): a ski-trip customer
+        # who names the GATEWAY CITY itself ("חופשת סקי, טיסה לז'נבה")
+        # rather than a specific resort has nothing in SKI_RESORTS to match
+        # against - ז'נבה is a gateway city, never a resort name, and
+        # rarely appears inside any resort's own country/resort string - so
+        # destination_airports never got set at all, not even once the
+        # customer explicitly typed the airport code itself ("הנחיתה בז'נבה
+        # GVA"): Ariella kept asking "באיזה שדה תרצי לנחות?" forever. A
+        # named place that resolves to one of the known mountain-gateway
+        # airports (INN/GVA/SZG/TRN - see _MOUNTAIN_GATEWAY_AIRPORTS), or an
+        # explicit 3-letter code naming one of them directly, is itself a
+        # valid ski gateway even with no specific resort chosen yet.
+        airports = _load_airports()
+        gateway_codes = []
+        for place in places:
+            code = _match_city_exact(place, airports)
+            if code and code in _MOUNTAIN_GATEWAY_AIRPORTS and code not in gateway_codes:
+                gateway_codes.append(code)
+            stripped = place.strip().upper()
+            if stripped in _MOUNTAIN_GATEWAY_AIRPORTS and stripped not in gateway_codes:
+                gateway_codes.append(stripped)
+        if gateway_codes:
+            state = dict(state)
+            state["destination_airports"] = gateway_codes
+            return state
         return state
     resort_names = []
     codes = []
@@ -3317,6 +3355,28 @@ _DESTINATION_KEEP_NEGATION_CUES = (
 # still pick up Rome).
 _DESTINATION_REJECT_PREFIX_RE = re.compile(r"(?:^|[.,!?;\n]|\s)לא\s*$")
 
+# A known place name directly glued to the Hebrew "from" prefix (מ/מ-,
+# e.g. "מחיפה", "מ-תל אביב") names the DEPARTURE city, never the
+# destination. Only a מ immediately adjacent to the match counts (a word
+# boundary - start of text or a non-Hebrew-letter character - right before
+# it) - a מ elsewhere in the sentence, unrelated to this particular place
+# name, must never suppress an otherwise valid destination mention.
+_DESTINATION_ORIGIN_PREFIX_RE = re.compile(r"(?:^|[^א-ת])מ-?$")
+
+
+def _is_origin_departure_mention(text, match_index):
+    """Seen live (Shaked, round 5, qa-s93): "טיסה מחיפה לרומא" (flight FROM
+    Haifa TO Rome) and "טיסה מתל אביב לרומא" both set the vacation
+    destination to the ORIGIN city instead of Rome - the known-place scan
+    below had zero awareness of the מ.../ל... preposition structure, so
+    any sentence naming an outbound Israeli gateway city (Haifa, Tel Aviv -
+    both valid destinations in their own right, e.g. for a domestic
+    flight) as the departure point got that city treated as the trip's
+    destination. Mirrors _is_negated_destination_mention's own short
+    lookbehind-window approach."""
+    window = text[max(0, match_index - 3):match_index]
+    return bool(_DESTINATION_ORIGIN_PREFIX_RE.search(window))
+
 
 def _is_negated_destination_mention(text, match_index):
     """A place name mentioned right after "don't delete/keep X as is"
@@ -3354,10 +3414,16 @@ def _deterministic_destination_facts(history, message, state=None):
     for text in texts:
         text = text.lower()
         for needle, label in known.items():
-            idx = text.find(needle.lower())
-            if idx == -1 or _is_negated_destination_mention(text, idx):
-                continue
-            return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+            needle_lower = needle.lower()
+            start = 0
+            while True:
+                idx = text.find(needle_lower, start)
+                if idx == -1:
+                    break
+                if _is_negated_destination_mention(text, idx) or _is_origin_departure_mention(text, idx):
+                    start = idx + 1
+                    continue
+                return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
     return {}
 
 
@@ -5076,6 +5142,37 @@ def _deterministic_traveler_facts(message, existing=None):
     return {"travelers": facts} if facts else {}
 
 
+def _seed_fresh_trip_from_trigger_message(message, trigger_user_message=None):
+    """Build the seed facts for a brand-new, blank trip_state out of the
+    single message that triggered the reset (plus, when given, the one
+    user message one turn back that actually asked for it) - never the
+    full history, so an unrelated destination/date from an older, already-
+    finished vacation is never silently adopted.
+
+    Seen live (Shaked, round 4, B2/B3/C2, Croatia): every "start a new and
+    separate vacation" reset only ever seeded the destination from that
+    message, so any OTHER fact stated in the very same breath - trip type
+    ("עוד חופשת סקי, חדשה ונפרדת"), dates, duration, travelers, budget,
+    departure airport - was silently thrown away and asked again a moment
+    later, exactly as if the customer hadn't just said it. Mirrors the
+    fuller deterministic-extraction cascade the normal per-turn flow
+    already runs (destination/trip_type/dates/duration/travelers/airport),
+    just scoped to the one triggering message instead of the whole
+    conversation."""
+    history_for_seed = [{"role": "user", "content": trigger_user_message}] if trigger_user_message else []
+    fresh = {}
+    seed = _deterministic_destination_facts(history_for_seed, message, {})
+    if seed:
+        fresh = _merge_trip_state(fresh, seed)
+    fresh = _merge_trip_state(fresh, _deterministic_trip_type_facts(message))
+    fresh = _merge_trip_state(fresh, _deterministic_date_facts(history_for_seed, message, {}))
+    fresh = _merge_trip_state(fresh, _deterministic_duration_facts(message, fresh))
+    fresh = _merge_trip_state(fresh, _deterministic_traveler_facts(message))
+    fresh = _merge_trip_state(fresh, _deterministic_departure_airport_facts(message))
+    fresh = _merge_trip_state(fresh, _deterministic_budget_facts(message))
+    return fresh
+
+
 _SERVICE_KEYWORDS = (
     ("trip_planning", ("מסלול", "מסלולים", "אטרקציות", "אטרקציה", "תכנון טיול")),
     # Plurals too - seen live: "אני רוצה שתחפשי לי גם דירות" wasn't
@@ -6028,6 +6125,16 @@ def _pick_reopen_option(message, options, key=None, model=None, history=None):
     msg = _normalize_confirm(message).lower()
     if re.search(r"(?<![\u05d0-\u05ea])(?:חדשה|חדש|אחרת)(?![\u05d0-\u05ea])", msg):
         return "new"
+    # Seen live (Shaked, round 6, Sicily): a free-text reply opening with
+    # "לא" ("לא, אני מדברת על הלינה לסיציליה שאנחנו מתכננות עכשיו") fell
+    # through to the model-based fallback below, which read it BACKWARDS -
+    # as accepting the offered vacation instead of declining it - silently
+    # replacing the current, already-approved trip with the wrong one and
+    # losing it entirely. "לא" opening a reply to "add to X? (yes=this
+    # one, no=new)" always means decline, regardless of what follows -
+    # never needs a model's help to tell "no" from "yes" here.
+    if re.search(r"^\s*לא(?!\S)|^\s*לא(?=[\s,.!?])", msg):
+        return "new"
     if len(options) == 1:
         if msg in {"כן", "כן בבקשה", "נכון", "בדיוק", "לזו", "לחופשה הזו", "לאותה חופשה", "בטח", "יאללה"}:
             return 0
@@ -6394,6 +6501,17 @@ def chat_clean():
         service = pending_reopen.get("service")
         choice = _pick_reopen_option(message, options, key, model, history)
         member_id = session['member_id']
+        if choice is None and pending_reopen.get("asked_again"):
+            # Never loop forever asking the same "which vacation" question -
+            # seen live (Shaked, round 4): once this got asked and the
+            # customer's reply didn't parse, every later message (including
+            # real answers to something else entirely) kept re-asking
+            # "רק כדי לוודא" with no way out. If it still doesn't parse
+            # after one re-ask, stop blocking and fall through like an
+            # explicit "new" - the safe default (per product owner: never
+            # guess which old vacation was meant) is to NOT reopen one,
+            # never to guess which.
+            choice = "new"
         if choice == "new" and pending_reopen.get("keep_state"):
             # Offered because an open conversation matched an existing
             # vacation; "no" means keep planning it as a separate trip.
@@ -6411,9 +6529,17 @@ def chat_clean():
             # this branch never looked at the message for a destination at
             # all, unlike its siblings.
             fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
-            seed = _deterministic_destination_facts([], message, {})
-            if seed:
-                fresh = _merge_trip_state(fresh, seed)
+            # Seen live (Shaked, round 6, C3, ski): the message that
+            # actually triggered this reopen offer ("תמליצי לי", stated
+            # alongside the ski type and travelers) is one turn back by the
+            # time the customer declines here - seeding only from THIS
+            # "no" reply (which states nothing new) silently lost the ski
+            # type and traveler count that were said in the very message
+            # that opened this gate in the first place.
+            _trigger_message = pending_reopen.get("trigger_message")
+            if _trigger_message:
+                fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(_trigger_message))
+            fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
             places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
             reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
                      if places else "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
@@ -6428,8 +6554,10 @@ def chat_clean():
                 reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_REOPEN_FIRST_QUESTION[service]}"
                 _remember_turn_reset_trip(member_id, history, message, reply, reopened)
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':reopened,'start_flight_search':False,'reopen_trip_id':chosen['id']})
+        retried = dict(trip_state)
+        retried["reopen_trip_pending"] = dict(pending_reopen, asked_again=True)
         reply = _reopen_question(service, options) if service in _REOPEN_LABELS else "לאיזו חופשה התכוונת?"
-        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':trip_state,'start_flight_search':False})
+        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':retried,'start_flight_search':False})
 
     # An open conversation about a destination that already has an upcoming
     # vacation, but was never linked to it (seen live: "אטרקציות בניו יורק"
@@ -6455,7 +6583,30 @@ def chat_clean():
         "",
     )
     _route_just_proposed = len(_OPEN_PLACES_DAY_MENTION_RE.findall(_last_assistant_text)) >= 2
-    if open_places and not _route_just_proposed and not (
+    # Seen live (Shaked, round 4, A5/A8/C3/C2): the day-marker check above
+    # only protects the single turn right after a full route is proposed -
+    # every OTHER turn of an already-active, already-linked session (style
+    # "ספרו לי מה אתם אוהבים לעשות", pace "קצב רגוע או פעיל", route-approval
+    # "המסלול שהצעתי מתאים לכם") still fell through to this gate, which
+    # re-asked "לאיזו חופשה להוסיף מסלול ואטרקציות?" every single time
+    # instead of letting the real answer ("ים וטבע, קצב רגוע", "תמליצי",
+    # or even "מאשרת" approving the route) continue the conversation - a
+    # loop that never ended because the gate re-fires every turn, not just
+    # the first. Any reply to one of Ariella's own in-session detail/
+    # approval questions is never a "which vacation did you mean" moment,
+    # exactly like the day-marker case - skip the gate for all of them.
+    _mid_active_session_question = any(q in _last_assistant_text for q in _GAP_QUESTION_TEXT.values())
+    # Seen live (Shaked, round 6, Sicily): right after the day-by-day route
+    # was approved ("מתאים"), a NEW request in the same breath ("כן, גם
+    # לינה. מלון...") re-opened this exact gate anyway - it only ever
+    # checked whether the last assistant message WAS an in-session
+    # question, never whether a route had already been approved for the
+    # CURRENT destination earlier in this same conversation. An approved
+    # route is unambiguous proof this is deep, concrete, already-committed
+    # progress on the current trip - never a vague "destination merely
+    # mentioned" moment the reopen offer exists for.
+    _route_already_approved = bool((trip_state.get("trip_planning") or {}).get("approved")) if isinstance(trip_state.get("trip_planning"), dict) else False
+    if open_places and not _route_just_proposed and not _mid_active_session_question and not _route_already_approved and not (
         trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
         or trip_state.get("reopened_trip_id") or trip_state.get("reopen_offer_declined")
     ):
@@ -6497,6 +6648,7 @@ def chat_clean():
                 pending["reopen_trip_pending"] = {
                     "service": requested_service, "services": services_wanted,
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
+                    "trigger_message": message,
                 }
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
 
@@ -6671,9 +6823,7 @@ def chat_clean():
             'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
             'active_session':None
         }
-        seed = _deterministic_destination_facts([], message, {})
-        if seed:
-            fresh = _merge_trip_state(fresh, seed)
+        fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
         if any(x in msg_lower for x in ("טיסה","טיסות")):
             fresh['requested_services'] = ['flights']
             fresh['active_session'] = 'flights'
@@ -6771,10 +6921,7 @@ def chat_clean():
             # adopted as the new one's destination with nothing said about
             # it this time.
             _fresh_new = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
-            _trigger_history = [{"role": "user", "content": _triggering_user_message}] if _triggering_user_message else []
-            _seed_new = _deterministic_destination_facts(_trigger_history, message, {})
-            if _seed_new:
-                _fresh_new = _merge_trip_state(_fresh_new, _seed_new)
+            _fresh_new = _merge_trip_state(_fresh_new, _seed_fresh_trip_from_trigger_message(message, _triggering_user_message))
             _places_new = ((_fresh_new.get('destination') or {}).get('places') or []) if isinstance(_fresh_new.get('destination'), dict) else []
             _reply_new = (f"בשמחה 😊 מתחילים חופשה חדשה ל{_places_new[0]}. באיזו תקופה תרצי לטוס?"
                           if _places_new else 'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?')

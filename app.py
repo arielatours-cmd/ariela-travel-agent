@@ -4,6 +4,7 @@ import logging
 import os
 import sqlite3
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -192,9 +193,53 @@ def _admin_serializer():
     return URLSafeTimedSerializer(app.secret_key, salt="ariella-admin-session")
 
 
+# Shaked's hardening (16.10): with the public default secret key anyone who
+# reads the source could sign an admin cookie, so cookie login is off then.
+_DEFAULT_SECRET_KEY = "change-this-before-production"
+
+
+def _secret_key_is_default() -> bool:
+    return not app.secret_key or app.secret_key == _DEFAULT_SECRET_KEY
+
+
+# Failed /admin/login attempts per client IP (and in total), in memory:
+# Render runs one gunicorn worker (threads share this dict). Only wrong codes
+# count; while an IP is blocked even the right code is refused at the form
+# (the X-Admin-Token header / ?token= still work), and a successful login
+# clears that IP's failures.
+ADMIN_LOGIN_MAX_FAILS_PER_IP = 5
+ADMIN_LOGIN_MAX_FAILS_TOTAL = 50
+ADMIN_LOGIN_WINDOW_SECONDS = 15 * 60
+_admin_login_fails: dict[str, list[float]] = {}
+_admin_login_lock = threading.Lock()
+
+
+def _client_ip() -> str:
+    # Behind Render's proxy remote_addr is the proxy; the LAST X-Forwarded-For
+    # entry is the one the proxy itself appended (earlier ones can be forged).
+    forwarded = [p.strip() for p in (request.headers.get("X-Forwarded-For") or "").split(",") if p.strip()]
+    return forwarded[-1] if forwarded else (request.remote_addr or "unknown")
+
+
+def _admin_login_blocked(ip: str) -> bool:
+    cutoff = time.time() - ADMIN_LOGIN_WINDOW_SECONDS
+    with _admin_login_lock:
+        for key in list(_admin_login_fails):
+            _admin_login_fails[key] = [t for t in _admin_login_fails[key] if t > cutoff]
+            if not _admin_login_fails[key]:
+                del _admin_login_fails[key]
+        total = sum(len(v) for v in _admin_login_fails.values())
+        return len(_admin_login_fails.get(ip, [])) >= ADMIN_LOGIN_MAX_FAILS_PER_IP or total >= ADMIN_LOGIN_MAX_FAILS_TOTAL
+
+
+def _admin_login_record_failure(ip: str) -> None:
+    with _admin_login_lock:
+        _admin_login_fails.setdefault(ip, []).append(time.time())
+
+
 def _admin_cookie_valid() -> bool:
     raw = request.cookies.get(ADMIN_COOKIE)
-    if not raw or not ADMIN_TOKEN:
+    if not raw or not ADMIN_TOKEN or _secret_key_is_default():
         return False
     try:
         data = _admin_serializer().loads(raw, max_age=ADMIN_SESSION_SECONDS)
@@ -262,9 +307,23 @@ def admin_login_form():
 @app.post("/admin/login")
 def admin_login():
     next_path = _safe_admin_next(request.form.get("next"))
+    if _secret_key_is_default():
+        logging.warning("admin login refused: FLASK_SECRET_KEY is the public default")
+        return _admin_login_page(
+            "הכניסה כבויה: FLASK_SECRET_KEY לא הוגדר (ערך ברירת המחדל). יש להגדיר ערך סודי ב-Render.",
+            next_path, status=503)
+    ip = _client_ip()
+    if _admin_login_blocked(ip):
+        logging.warning("admin login rate-limited ip=%s", ip)
+        resp = _admin_login_page("יותר מדי ניסיונות שגויים. נסו שוב בעוד 15 דקות.", next_path, status=429)
+        resp.headers["Retry-After"] = str(ADMIN_LOGIN_WINDOW_SECONDS)
+        return resp
     supplied = str(request.form.get("token") or "")
     if not ADMIN_TOKEN or not hmac.compare_digest(supplied.encode(), ADMIN_TOKEN.encode()):
+        _admin_login_record_failure(ip)
         return _admin_login_page("קוד שגוי", next_path, status=401)
+    with _admin_login_lock:
+        _admin_login_fails.pop(ip, None)
     tag = hmac.new(ADMIN_TOKEN.encode(), b"admin-session", "sha256").hexdigest()
     resp = redirect(next_path)
     resp.set_cookie(

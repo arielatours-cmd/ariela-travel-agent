@@ -63,7 +63,7 @@ check("a single-clause location-only message is preserved unchanged",
       extracted2.get("lodging", {}).get("details", {}).get("locations") == single_clause)
 
 
-def _fake_search_hotels(query, checkin_date, checkout_date, adults=1, children=0, children_ages=None, rooms=1, max_price=None, vacation_rentals=False):
+def _fake_search_hotels(query, checkin_date, checkout_date, adults=1, children=0, children_ages=None, rooms=1, max_price=None, vacation_rentals=False, min_hotel_class=None):
     _fake_search_hotels.last_query = query
     return {"hotels": []}
 
