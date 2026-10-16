@@ -1,14 +1,15 @@
-"""QA for the free-text WhatsApp stop words (Din WA-2, anti-spam law),
-replacing the 8.10 "button only" decision.
+"""QA for task 003b - "הסר" / "עצור" in free text stop WhatsApp messages
+(product/dev-tasks/003b-whatsapp-stop-keywords.md, ofek branch; Din WA-2).
 
-  - a member active for hot deals who writes הסר / עצור / הסירו אותי /
-    stop / unsubscribe -> stopped exactly like the STOP_HOT_DEALS button
-    (same _handle_stop, same reply), no "stop what?" question
-  - a member NOT active for deals who writes the same word -> not
-    intercepted at all, the normal conversation continues, no stop message
-  - an active member writing anything else (incl. a stop word inside a
-    sentence) -> untouched
-  - the button keeps working as before
+Covers the spec's 7 checks for Shaked, plus the details around them:
+  1. "הסר" from a member with deals + alerts -> both off, confirmation with
+     both parts
+  2. "STOP" / "עצור!" -> same as 1
+  3. "תעצרי רגע, אני רוצה לשנות תאריך" -> not a stop, normal routing
+  4. "הסר" from an unknown number -> "nothing to remove", no DB change
+  5. "הסר" in the middle of onboarding -> the stop wins over the state
+  6. after "הסר", "שלום" -> Ariella answers as usual
+  7. the "הפסקת הדילים" button -> stops deals only, as before
 
 Offline, temp DB, the Claude conversation is stubbed.
 Run: python3 tools/qa_whatsapp_stop_keywords.py
@@ -49,86 +50,134 @@ def fake_route_member(member_id, text):
 
 nc._route_member = fake_route_member  # the Claude conversation, stubbed
 
+BOTH = ("הוסרתם בהצלחה ✅ לא נשלח לכם יותר דילים או התראות בוואטסאפ. אפשר עדיין לכתוב לי כאן בכל זמן.\n"
+        f"לחידוש הדילים: {nc._DEALS_URL} · להפעלת התראות לחופשה: מהאזור האישי באתר.")
+DEALS_ONLY = ("הוסרתם בהצלחה ✅ לא נשלח לכם יותר דילים בוואטסאפ. אפשר עדיין לכתוב לי כאן בכל זמן.\n"
+              f"לחידוש הדילים: {nc._DEALS_URL}")
+ALERTS_ONLY = ("הוסרתם בהצלחה ✅ לא נשלח לכם יותר התראות בוואטסאפ. אפשר עדיין לכתוב לי כאן בכל זמן.\n"
+               "להפעלת התראות לחופשה: מהאזור האישי באתר.")
+NOTHING = ("אין כרגע הודעות יזומות פעילות במספר הזה, אז אין מה להסיר 🙂 "
+           f"אם נרשמתם עם מספר אחר, אפשר להפסיק מעמוד הדילים באתר: {nc._DEALS_URL}")
 
-def make_member(email, phone, opt_in):
+_seq = [0]
+
+
+def make_member(deals, alerts, link=True):
+    _seq[0] += 1
+    phone = f"+9725022{_seq[0]:05d}"
     with connection() as conn:
         mid = int(conn.execute(
             "INSERT INTO members (full_name,email,phone,password_hash,created_at,status,whatsapp_opt_in,preferred_airports) "
-            "VALUES('QA',?,?,'x',datetime('now'),'active',0,'[]')", (email, phone)).lastrowid)
-    if opt_in:
+            "VALUES('QA',?,?,'x',datetime('now'),'active',0,'[]')", (f"qa{_seq[0]}@example.com", phone)).lastrowid)
+        for notify in (alerts, False):  # one trip with alerts (if asked) + one without
+            conn.execute(
+                "INSERT INTO trip_requests (member_id,request_name,travel_window,status,answers_json,created_at,mobile_notifications) "
+                "VALUES(?,?,?,?,?,datetime('now'),?)", (mid, "QA", "", "active", "{}", 1 if notify else 0))
+    if deals:
         database.set_whatsapp_deals_opt(mid, True, "payment")
-    nc.ensure_whatsapp_link(mid, phone)
-    return mid
+    if link:
+        nc.ensure_whatsapp_link(mid, phone)
+    return mid, phone
 
 
-def opt_in(mid):
+def state(mid):
     with connection() as conn:
-        return bool(conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (mid,)).fetchone()[0])
+        deals = bool(conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (mid,)).fetchone()[0])
+        alerts = conn.execute("SELECT COUNT(*) FROM trip_requests WHERE member_id=? AND mobile_notifications=1", (mid,)).fetchone()[0]
+        events = [dict(r) for r in conn.execute(
+            "SELECT event, source, detail FROM whatsapp_opt_events WHERE member_id=? ORDER BY id", (mid,)).fetchall()]
+        linked = conn.execute("SELECT COUNT(*) FROM whatsapp_member_links WHERE member_id=? AND status='active'", (mid,)).fetchone()[0]
+    return deals, alerts, events, linked
 
 
-def last_event(mid):
+def db_snapshot():
     with connection() as conn:
-        row = conn.execute("SELECT event, source FROM whatsapp_opt_events WHERE member_id=? ORDER BY id DESC LIMIT 1", (mid,)).fetchone()
-    return dict(row) if row else {}
+        return tuple(conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                     for t in ("members", "trip_requests", "whatsapp_opt_events", "whatsapp_member_links"))
 
 
-ACTIVE_PHONE = "+972501110001"
-active = make_member("qa-active@example.com", ACTIVE_PHONE, True)
-check("setup: active member is opted in and linked", opt_in(active) and nc.linked_member_for_phone(ACTIVE_PHONE) == active)
+# --- 1. "הסר" with deals + alerts -> both off, both parts in the reply ---------------
+mid, phone = make_member(deals=True, alerts=True)
+reply = nc.route_inbound(phone, "הסר")
+deals, alerts, events, linked = state(mid)
+check("1: deals off", not deals)
+check("1: alerts off on every trip (mobile_notifications=0)", alerts == 0)
+check("1: confirmation with both parts, exact text", reply == BOTH)
+check("1: opt-out event source='keyword' with the word", {"event": "opt_out", "source": "keyword", "detail": "הסר"} in events)
+check("1: alerts-off event recorded too", {"event": "alerts_off", "source": "keyword", "detail": "הסר"} in events)
+check("1: the WhatsApp link is untouched", linked == 1)
+check("1: not passed to the conversation", ROUTED != reply)
 
-# The button's reply, as the reference for "exactly like the button".
-button_reply = nc.route_inbound(ACTIVE_PHONE, "", button_payload="STOP_HOT_DEALS")
-check("button still stops (unchanged)", not opt_in(active) and "הפסקנו לשלוח לכם את הדילים החמים" in button_reply)
-check("button event source stays whatsapp_button", last_event(active) == {"event": "opt_out", "source": "whatsapp_button"})
+# --- 2. "STOP" / "עצור!" and the rest of the list ----------------------------------------
+for word, expected_word in (("STOP", "stop"), ("עצור!", "עצור"), ("  הסירו אותי 🙏", "הסירו אותי"), ("Unsubscribe.", "unsubscribe"),
+                            ("remove", "remove"), ("הפסיקו!!", "הפסיקו"), ("הפסק", "הפסק"), ("עצרו", "עצרו"),
+                            ("הסר אותי", "הסר אותי"), ("הסירו", "הסירו"), ("🛑 stop", "stop")):
+    mid, phone = make_member(deals=True, alerts=True)
+    reply = nc.route_inbound(phone, word)
+    deals, alerts, events, _ = state(mid)
+    check(f"2: {word!r} -> deals + alerts off, same confirmation", not deals and alerts == 0 and reply == BOTH)
+    check(f"2: {word!r} -> logged with the normalized word {expected_word!r}",
+          {"event": "opt_out", "source": "keyword", "detail": expected_word} in events)
 
-# --- 1. Active member + each required stop word -> stopped like the button ---------
-REQUIRED = ["הסר", "עצור", "הסירו אותי", "stop", "unsubscribe"]
-VARIANTS = ["STOP", " Stop ", "עצור!", "הסר.", "Unsubscribe", "הסר אותי", "הסירו", "עצרו"]
-for word in REQUIRED + VARIANTS:
-    database.set_whatsapp_deals_opt(active, True, "payment")
+# only one of the two active -> the other part is dropped from the reply
+mid, phone = make_member(deals=True, alerts=False)
+check("deals only -> reply mentions deals only", nc.route_inbound(phone, "הסר") == DEALS_ONLY and not state(mid)[0])
+mid, phone = make_member(deals=False, alerts=True)
+reply = nc.route_inbound(phone, "הסר")
+check("alerts only -> reply mentions alerts only, alerts off", reply == ALERTS_ONLY and state(mid)[1] == 0)
+check("alerts only -> no deals opt-out event", all(e["event"] != "opt_out" for e in state(mid)[2]))
+
+# --- 3. A stop word inside a sentence -> not a stop ---------------------------------------
+mid, phone = make_member(deals=True, alerts=True)
+for text in ("תעצרי רגע, אני רוצה לשנות תאריך", "אל תעצור את החיפוש", "הסר את המזוודה מהחיפוש", "stop over באתונה?"):
     before = len(routed_texts)
-    reply = nc.route_inbound(ACTIVE_PHONE, word)
-    check(f"active + {word!r} -> stopped", not opt_in(active))
-    check(f"active + {word!r} -> same reply as the button", reply == button_reply)
-    check(f"active + {word!r} -> not passed to the conversation", len(routed_texts) == before)
-    check(f"active + {word!r} -> opt-out recorded (source whatsapp_keyword)",
-          last_event(active) == {"event": "opt_out", "source": "whatsapp_keyword"})
+    reply = nc.route_inbound(phone, text)
+    check(f"3: {text!r} -> normal routing", reply == ROUTED and routed_texts[before:] == [text])
+deals, alerts, events, _ = state(mid)
+check("3: nothing stopped", deals and alerts == 1 and all(e["source"] != "keyword" for e in events))
 
-# --- 2. Active member writing something else -> untouched ---------------------------
-database.set_whatsapp_deals_opt(active, True, "payment")
-for text in ("אל תעצור את החיפוש", "מה עם הטיסה לאתונה?", "stop over באתונה זה אפשרי?", "הסר את המזוודה מהחיפוש", "שלום"):
-    before = len(routed_texts)
-    reply = nc.route_inbound(ACTIVE_PHONE, text)
-    check(f"active + {text!r} -> normal conversation", reply == ROUTED and routed_texts[before:] == [text])
-    check(f"active + {text!r} -> still opted in", opt_in(active))
+# --- 4. Unknown number -> "nothing to remove", no DB change ---------------------------------
+snap = db_snapshot()
+reply = nc.route_inbound("+972509999999", "הסר")
+check("4: unknown number -> 'nothing to remove' message", reply == NOTHING)
+check("4: unknown number -> no DB change", db_snapshot() == snap)
+# a known member with nothing active gets the same message and no change
+mid, phone = make_member(deals=False, alerts=False)
+snap = db_snapshot()
+check("4: member with nothing active -> same message", nc.route_inbound(phone, "stop") == NOTHING)
+check("4: member with nothing active -> no DB change", db_snapshot() == snap and state(mid)[2] == [])
 
-# --- 3. Member NOT active for deals -> the word is ordinary conversation ------------
-INACTIVE_PHONE = "+972501110002"
-inactive = make_member("qa-inactive@example.com", INACTIVE_PHONE, False)
-for word in REQUIRED:
-    before = len(routed_texts)
-    reply = nc.route_inbound(INACTIVE_PHONE, word)
-    check(f"not active + {word!r} -> normal conversation continues", reply == ROUTED and routed_texts[before:] == [word])
-    check(f"not active + {word!r} -> no stop message at all",
-          "הדילים החמים כבר לא נשלחים" not in reply and "הפסקנו לשלוח" not in reply)
-check("not active: no opt events written", last_event(inactive) == {})
+# --- 5. "הסר" in the middle of onboarding -> the stop wins ---------------------------------
+onboarding_phone = "+972508888888"
+first = nc.route_inbound(onboarding_phone, "שלום")
+check("5: setup - onboarding started", bool(nc._onboarding_get(onboarding_phone)))
+reply = nc.route_inbound(onboarding_phone, "הסר")
+check("5: stop word during onboarding -> stop reply, not the next onboarding step", reply == NOTHING and reply != first)
+# a linked member in the middle of a conversation state
+mid, phone = make_member(deals=True, alerts=True)
+nc._set_state(mid, "awaiting_feedback_comment:1:2099-01-01T00:00:00+00:00")
+check("5: stop word overrides a member's conversation state", nc.route_inbound(phone, "הסר") == BOTH)
 
-# previously active, already stopped -> the word is not intercepted either
-database.set_whatsapp_deals_opt(active, False, "whatsapp_button")
+# --- 6. After "הסר", "שלום" -> Ariella answers as usual -------------------------------------
 before = len(routed_texts)
-reply = nc.route_inbound(ACTIVE_PHONE, "עצור")
-check("already stopped + 'עצור' -> normal conversation, no 'already stopped' message",
-      reply == ROUTED and routed_texts[before:] == ["עצור"])
+reply = nc.route_inbound(phone, "שלום")
+check("6: after the stop, 'שלום' reaches Ariella as usual", reply == ROUTED and routed_texts[before:] == ["שלום"])
+check("6: the link is still active after the stop", state(mid)[3] == 1)
 
-# --- 4. Unknown phone (no member) -> not intercepted, onboarding as before ----------
-reply = nc.route_inbound("+972501119999", "stop")
-check("unknown phone + 'stop' -> no stop message (onboarding as before)",
-      "לא מצאנו שירות דילים פעיל" not in reply and "הפסקנו לשלוח" not in reply)
+# --- 7. The button stops deals only, as before ----------------------------------------------
+mid, phone = make_member(deals=True, alerts=True)
+reply = nc.route_inbound(phone, "", button_payload="STOP_HOT_DEALS")
+deals, alerts, events, _ = state(mid)
+check("7: button -> deals off", not deals and "הפסקנו לשלוח לכם את הדילים החמים" in reply)
+check("7: button -> alerts untouched", alerts == 1)
+check("7: button -> source whatsapp_button, no detail",
+      events[-1] == {"event": "opt_out", "source": "whatsapp_button", "detail": None})
 
-# --- 5. Keyword matcher itself --------------------------------------------------------
-check("matcher: whole message only", nc._is_stop_keyword("עצור") and not nc._is_stop_keyword("עצור את זה"))
-check("matcher: empty -> no", not nc._is_stop_keyword("") and not nc._is_stop_keyword(None))
-check("required words are all in the list", all(nc._is_stop_keyword(w) for w in REQUIRED))
+# --- The word list and normalizer ---------------------------------------------------------------
+REQUIRED = ["הסר", "הסירו", "הסירו אותי", "הסר אותי", "עצור", "עצרו", "הפסק", "הפסיקו", "stop", "unsubscribe", "remove"]
+check("all 11 spec words are in STOP_KEYWORDS", set(REQUIRED) == set(nc.STOP_KEYWORDS))
+check("normalizer: inner spaces collapsed", nc._stop_keyword("הסירו   אותי") == "הסירו אותי")
+check("normalizer: empty / None -> no stop", nc._stop_keyword("") is None and nc._stop_keyword(None) is None)
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")

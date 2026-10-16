@@ -650,6 +650,11 @@ def init_db() -> None:
         if "saved_domains_json" not in wa_state_columns:
             conn.execute("ALTER TABLE whatsapp_conversation_state ADD COLUMN saved_domains_json TEXT NOT NULL DEFAULT '{}'")
 
+        # Task 003b: the stop word a customer actually sent ("הסר", "stop"...).
+        opt_event_columns = {row["name"] for row in conn.execute("PRAGMA table_info(whatsapp_opt_events)").fetchall()}
+        if "detail" not in opt_event_columns:
+            conn.execute("ALTER TABLE whatsapp_opt_events ADD COLUMN detail TEXT")
+
         ai_usage_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ai_usage)").fetchall()}
         if "channel" not in ai_usage_columns:
             conn.execute("ALTER TABLE ai_usage ADD COLUMN channel TEXT")
@@ -2070,7 +2075,7 @@ def members_to_notify_on_whatsapp() -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def set_whatsapp_deals_opt(member_id: int, enabled: bool, source: str) -> bool:
+def set_whatsapp_deals_opt(member_id: int, enabled: bool, source: str, detail: str | None = None) -> bool:
     """Single place that changes members.whatsapp_opt_in - records the
     opt-in/opt-out event (required under Israeli Telecom Law s.30A) and
     keeps whatsapp_opt_in_at/whatsapp_opt_out_at/whatsapp_opt_out_source in
@@ -2095,8 +2100,8 @@ def set_whatsapp_deals_opt(member_id: int, enabled: bool, source: str) -> bool:
                 (now, source, member_id),
             )
         conn.execute(
-            "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at) VALUES (?,?,?,?)",
-            (member_id, "opt_in" if enabled else "opt_out", source, now),
+            "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at, detail) VALUES (?,?,?,?,?)",
+            (member_id, "opt_in" if enabled else "opt_out", source, now, detail),
         )
         conn.commit()
     return True

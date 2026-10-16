@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -400,39 +401,81 @@ def _member_id_for_phone(phone: str) -> Optional[int]:
     return registered_member_for_phone(phone)
 
 
-# Free-text stop words (Din WA-2, anti-spam law; replaces the 8.10
-# "button only" decision). Matched against the WHOLE message (after
-# trimming, case-insensitive, trailing punctuation ignored) - never as a
-# substring, so "אל תעצור את החיפוש" is ordinary conversation.
-_STOP_KEYWORDS = {
-    "הסר", "עצור", "הסירו אותי", "stop", "unsubscribe",
-    "הסר אותי", "הסירו", "עצרו",
-}
-_STOP_TRIM = " \t\r\n.!?,;:'\"״׳-—–"
+# Task 003b (Din WA-2, anti-spam law; replaces the 8.10 "button only"
+# decision): a free-text stop word stops every proactive WhatsApp message -
+# hot deals AND radar/trip alerts - because the template footer is
+# 'להפסקה: כפתור או "הסר"', including on the Utility templates. Only a
+# message that is ENTIRELY one of these words counts ("תעצרי רגע את
+# החיפוש" is ordinary conversation). One constant, easy to extend.
+STOP_KEYWORDS = frozenset({
+    "הסר", "הסירו", "הסירו אותי", "הסר אותי", "עצור", "עצרו", "הפסק", "הפסיקו",
+    "stop", "unsubscribe", "remove",
+})
 
 
-def _is_stop_keyword(text: str) -> bool:
-    cleaned = re.sub(r"\s+", " ", str(text or "").strip(_STOP_TRIM)).lower()
-    return cleaned in _STOP_KEYWORDS
+def _normalize_stop_text(text) -> str:
+    """Spaces, punctuation and emoji trimmed from both ends, inner
+    whitespace collapsed, case-folded."""
+    cleaned = re.sub(r"^[\W_]+|[\W_]+$", "", str(text or ""))
+    return re.sub(r"\s+", " ", cleaned).casefold()
 
 
-def _hot_deals_active(phone: str) -> bool:
-    """The same condition _handle_stop calls was_active: the member behind
-    this phone currently gets hot deals (whatsapp_opt_in)."""
+def _stop_keyword(text) -> str | None:
+    """The stop word the whole message is, or None."""
+    word = _normalize_stop_text(text)
+    return word if word in STOP_KEYWORDS else None
+
+
+def _handle_keyword_stop(phone: str, word: str) -> str:
+    """A stop word overrides every conversation state: hot deals off (the
+    same opt-out _handle_stop does, logged with source='keyword' and the
+    word) and mobile_notifications=0 on every trip of the member. The
+    WhatsApp link, whatsapp_conversation_state and the chat with Ariella
+    are left alone - the customer can keep writing to her."""
     member_id = _member_id_for_phone(phone)
-    if not member_id:
-        return False
-    with connection() as conn:
-        row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
-    return bool(row["whatsapp_opt_in"]) if row else False
+    deals_active = alerts_active = False
+    if member_id:
+        with connection() as conn:
+            row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
+            deals_active = bool(row["whatsapp_opt_in"]) if row else False
+            alerts_active = conn.execute(
+                "SELECT 1 FROM trip_requests WHERE member_id=? AND mobile_notifications=1 LIMIT 1",
+                (member_id,),
+            ).fetchone() is not None
+    if not (deals_active or alerts_active):
+        logging.info("whatsapp stop keyword %r: nothing active for phone %s", word, _phone_hash(phone)[:12])
+        return (
+            "אין כרגע הודעות יזומות פעילות במספר הזה, אז אין מה להסיר 🙂 "
+            f"אם נרשמתם עם מספר אחר, אפשר להפסיק מעמוד הדילים באתר: {_DEALS_URL}"
+        )
+    if deals_active:
+        set_whatsapp_deals_opt(member_id, False, "keyword", detail=word)
+    if alerts_active:
+        with connection() as conn:
+            conn.execute("UPDATE trip_requests SET mobile_notifications=0 WHERE member_id=? AND mobile_notifications=1", (member_id,))
+            conn.execute(
+                "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at, detail) VALUES (?,?,?,?,?)",
+                (member_id, "alerts_off", "keyword", utc_now_iso(), word),
+            )
+    what = "דילים או התראות" if deals_active and alerts_active else ("דילים" if deals_active else "התראות")
+    links = []
+    if deals_active:
+        links.append(f"לחידוש הדילים: {_DEALS_URL}")
+    if alerts_active:
+        links.append("להפעלת התראות לחופשה: מהאזור האישי באתר.")
+    return (
+        f"הוסרתם בהצלחה ✅ לא נשלח לכם יותר {what} בוואטסאפ. אפשר עדיין לכתוב לי כאן בכל זמן.\n"
+        + " · ".join(links)
+    )
 
 
-def _handle_stop(phone: str, source: str = "whatsapp_button") -> str:
-    """Stops the hot-deals service: the WhatsApp "הפסקת הדילים" quick-reply
-    button (payload STOP_HOT_DEALS), and - only for a member who is active
-    for deals - a free-text stop word (route_inbound). Stopping never
-    touches the WhatsApp account link, whatsapp_conversation_state, or
-    mobile_notifications."""
+def _handle_stop(phone: str) -> str:
+    """The WhatsApp "הפסקת הדילים" quick-reply button (payload
+    STOP_HOT_DEALS): stops the hot deals ONLY (task 003a, kept as is for
+    precise control). A free-text stop word ("הסר", "stop"...) is handled
+    separately by _handle_keyword_stop (task 003b), which also stops trip
+    alerts. Stopping never touches the WhatsApp account link or
+    whatsapp_conversation_state."""
     member_id = _member_id_for_phone(phone)
     if not member_id:
         return (
@@ -449,7 +492,7 @@ def _handle_stop(phone: str, source: str = "whatsapp_button") -> str:
         ).fetchone()
     if not was_active:
         return f"הדילים החמים כבר לא נשלחים אליכם. אפשר להצטרף שוב מעמוד הדילים באתר (תשלום חד־פעמי של 9 ₪): {_DEALS_URL}"
-    set_whatsapp_deals_opt(member_id, False, source)
+    set_whatsapp_deals_opt(member_id, False, "whatsapp_button")
     reply = (
         "✔️ *הפסקנו לשלוח לכם את הדילים החמים.*\n"
         f"תמיד אפשר להצטרף שוב מעמוד הדילים באתר (תשלום חד־פעמי של 9 ₪): {_DEALS_URL}\n"
@@ -531,11 +574,11 @@ def route_inbound(phone: str, text: str, profile_name: str = "", button_payload:
 
     if button_payload == "STOP_HOT_DEALS":
         return _handle_stop(phone)
-    # A free-text stop word acts exactly like the button, but only for a
-    # member who is active for hot deals; for anyone else the same word is
-    # just part of the conversation and is not intercepted at all.
-    if not button_payload and _is_stop_keyword(text) and _hot_deals_active(phone):
-        return _handle_stop(phone, source="whatsapp_keyword")
+    # Task 003b: a free-text stop word overrides every other routing and
+    # conversation state (existing link, onboarding, chat).
+    stop_word = None if button_payload else _stop_keyword(text)
+    if stop_word:
+        return _handle_keyword_stop(phone, stop_word)
     if button_payload and button_payload.startswith("HOW_WAS_IT:"):
         reply = _handle_how_was_it(phone, button_payload)
         if reply is not None:
