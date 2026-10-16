@@ -2138,7 +2138,17 @@ def _approval_trigger(message, history, state):
     """
     msg = str(message or "").strip().lower()
     if msg not in {"מאשר", "מאשרת"}:
-        return False
+        # "כן, מאשרת" / "כן מאשר" ("yes, I confirm") IS the approval word
+        # with a redundant leading "yes" - seen live (Shaked, round 8): this
+        # fell through to the near-miss/typo clarifier ("האם התכוונת
+        # לאשר?") instead of actually approving. Strip a leading "כן" (with
+        # its separating punctuation/whitespace) and recheck against the
+        # same exact two words, so this never widens what counts as
+        # approval beyond "מאשר"/"מאשרת" themselves (a bare "כן" alone
+        # still does not approve).
+        msg = re.sub(r"^כן[\s,.!]*", "", msg)
+        if msg not in {"מאשר", "מאשרת"}:
+            return False
     state = state if isinstance(state, dict) else {}
     # Once the flights were approved and are being scanned, "מאשרת" can only
     # be about a later service (car/lodging/route) - seen live: a car
