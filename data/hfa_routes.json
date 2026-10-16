@@ -1,5 +1,5 @@
 {
-  "_about": "Task 011a: destinations Air Haifa (E2) flies from Haifa (HFA). Used to check a customer request before searching. status: confirmed / to_verify / suspended. Refresh manually about once a month; set status=confirmed and verified_at only after checking airhaifa.com.",
+  "_about": "Task 011a: destinations Air Haifa (E2) flies from Haifa (HFA). Used to check a customer request before searching. status: confirmed / to_verify / suspended / not_served (verified that Air Haifa does not fly there). Refresh manually about once a month; set status=confirmed and verified_at only after checking airhaifa.com.",
   "routes": [
     {
       "iata": "ETM",
@@ -10,8 +10,8 @@
       "domestic": true,
       "seasonal": false,
       "status": "confirmed",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com.",
-      "verified_at": null,
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "אילת",
         "רמון",
@@ -29,8 +29,8 @@
       "domestic": false,
       "seasonal": false,
       "status": "confirmed",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com.",
-      "verified_at": null,
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "לרנקה",
         "larnaca",
@@ -47,11 +47,30 @@
       "domestic": false,
       "seasonal": false,
       "status": "confirmed",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com.",
-      "verified_at": null,
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "אתונה",
         "athens",
+        "יוון",
+        "greece"
+      ]
+    },
+    {
+      "iata": "SKG",
+      "city_he": "סלוניקי",
+      "city_en": "Thessaloniki",
+      "country_he": "יוון",
+      "carrier": "E2",
+      "domestic": false,
+      "seasonal": false,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
+      "synonyms_he": [
+        "סלוניקי",
+        "תסלוניקי",
+        "thessaloniki",
         "יוון",
         "greece"
       ]
@@ -64,9 +83,9 @@
       "carrier": "E2",
       "domestic": false,
       "seasonal": false,
-      "status": "to_verify",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com.",
-      "verified_at": null,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "פאפוס",
         "פפוס",
@@ -83,9 +102,9 @@
       "carrier": "E2",
       "domestic": false,
       "seasonal": true,
-      "status": "to_verify",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com.",
-      "verified_at": null,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "רודוס",
         "rhodes",
@@ -101,9 +120,9 @@
       "carrier": "E2",
       "domestic": false,
       "seasonal": true,
-      "status": "to_verify",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com.",
-      "verified_at": null,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "הרקליון",
         "כרתים",
@@ -121,14 +140,12 @@
       "carrier": "E2",
       "domestic": false,
       "seasonal": true,
-      "status": "to_verify",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com.",
-      "verified_at": null,
+      "status": "not_served",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "מיקונוס",
-        "mykonos",
-        "יוון",
-        "greece"
+        "mykonos"
       ]
     },
     {
@@ -139,14 +156,12 @@
       "carrier": "E2",
       "domestic": false,
       "seasonal": true,
-      "status": "to_verify",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com.",
-      "verified_at": null,
+      "status": "not_served",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "קרפתוס",
-        "karpathos",
-        "יוון",
-        "greece"
+        "karpathos"
       ]
     },
     {
@@ -157,9 +172,9 @@
       "carrier": "E2",
       "domestic": false,
       "seasonal": false,
-      "status": "to_verify",
-      "source": "מחקר אופק 13.10.2026 (flightconnections.com/route-map-airhaifa-e2 08/2026, he/en Wikipedia Air Haifa, 5townscentral.com 04/2026). לא אומת מול airhaifa.com. סופיה: airserviceone.com 01/2026, ב'/ד'/ו' מינואר 2026.",
-      "verified_at": null,
+      "status": "confirmed",
+      "source": "אומת ע\"י בעלת העסק מול airhaifa.com",
+      "verified_at": "2026-10-16",
       "synonyms_he": [
         "סופיה",
         "sofia",

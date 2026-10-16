@@ -2781,10 +2781,19 @@ def _hfa_route_note(state):
         return ""
     status = hfa_route_check(dest)
     label = ", ".join(str(p) for p in (destination.get("places") or []) if str(p or "").strip()) or ", ".join(dest)
+    flown = [r for r in matching_routes(dest) if r.get("status") in ("confirmed", "to_verify")]
     if status == "served":
-        return f"\nקו מחיפה ל{label} מופיע ברשימת הקווים של Air Haifa. ממשיכים כרגיל, ואל תבטיחי שיש טיסה בתאריכים - זו רק התאמה לקו."
+        line = f"\nקו מחיפה ל{label} מופיע ברשימת הקווים של Air Haifa. ממשיכים כרגיל, ואל תבטיחי שיש טיסה בתאריכים - זו רק התאמה לקו."
+        if len(flown) > 1:
+            # A country/region (e.g. יוון): offer exactly the destinations
+            # Air Haifa flies there, nothing else.
+            names = ", ".join(f"{r.get('city_he')} ({r.get('iata')})" for r in flown)
+            line += f" היעדים מחיפה באזור הזה הם בדיוק: {names}. הציעי רק אותם."
+        if flown and all(r.get("seasonal") for r in flown):
+            line += " ציייני ללקוח: \"הקו עונתי — נבדוק זמינות בתאריכים שלכם\"."
+        return line
     if status == "maybe":
-        seasonal = any(r.get("seasonal") for r in matching_routes(dest))
+        seasonal = any(r.get("seasonal") for r in flown)
         text = "הקו עונתי — נבדוק זמינות בתאריכים שלכם" if seasonal else "הקו עדיין לא מאומת — נבדוק זמינות בתאריכים שלכם"
         return f"\nהקו מחיפה ל{label} לא מאומת כקו קבוע של Air Haifa. ממשיכים, ואמרי ללקוח במפורש: \"{text}\". אל תבטיחי שיש טיסה."
     return (

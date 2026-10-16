@@ -37,27 +37,34 @@ from database import connection  # noqa: E402
 # --- Data file -------------------------------------------------------------------
 routes = load_routes()
 codes = [r["iata"] for r in routes]
-check("data/hfa_routes.json has the 9 destinations from the spec",
-      sorted(codes) == sorted(["ETM", "LCA", "ATH", "PFO", "RHO", "HER", "JMK", "AOK", "SOF"]))
+check("data/hfa_routes.json: the 9 spec destinations + SKG (added 16.10)",
+      sorted(codes) == sorted(["ETM", "LCA", "ATH", "SKG", "PFO", "RHO", "HER", "JMK", "AOK", "SOF"]))
 required = {"iata", "city_he", "city_en", "country_he", "carrier", "domestic", "seasonal", "status", "source", "verified_at"}
 check("every route has all the spec fields", all(required <= set(r) for r in routes))
 check("carrier is E2 everywhere", all(r["carrier"] == "E2" for r in routes))
-check("statuses are only confirmed / to_verify / suspended",
-      all(r["status"] in {"confirmed", "to_verify", "suspended"} for r in routes))
+check("statuses are only confirmed / to_verify / suspended / not_served",
+      all(r["status"] in {"confirmed", "to_verify", "suspended", "not_served"} for r in routes))
 by = {r["iata"]: r for r in routes}
-check("confirmed exactly as in Ofek's source (ETM, LCA, ATH); nothing upgraded without verification",
-      sorted(c for c, r in by.items() if r["status"] == "confirmed") == ["ATH", "ETM", "LCA"])
+check("owner-verified 16.10: ETM, LCA, ATH, SKG, PFO, RHO, HER, SOF confirmed",
+      sorted(c for c, r in by.items() if r["status"] == "confirmed") == sorted(["ETM", "LCA", "ATH", "SKG", "PFO", "RHO", "HER", "SOF"]))
+check("JMK and AOK are not_served", by["JMK"]["status"] == "not_served" and by["AOK"]["status"] == "not_served")
+check("SKG fields as given", by["SKG"]["city_he"] == "סלוניקי" and by["SKG"]["city_en"] == "Thessaloniki"
+      and by["SKG"]["country_he"] == "יוון" and by["SKG"]["carrier"] == "E2" and not by["SKG"]["domestic"] and not by["SKG"]["seasonal"])
 check("seasonal: RHO, HER, JMK, AOK", sorted(c for c, r in by.items() if r["seasonal"]) == ["AOK", "HER", "JMK", "RHO"])
-check("verified_at is empty until someone checks airhaifa.com", all(r["verified_at"] is None for r in routes))
+check("every route verified_at 2026-10-16 by the owner against airhaifa.com",
+      all(r["verified_at"] == "2026-10-16" and r["source"] == 'אומת ע"י בעלת העסק מול airhaifa.com' for r in routes))
 check("synonyms: כרתים -> HER", [r["iata"] for r in matching_routes("כרתים")] == ["HER"])
 check("synonyms: קפריסין -> LCA + PFO", sorted(r["iata"] for r in matching_routes("קפריסין")) == ["LCA", "PFO"])
-check("synonyms: יוון -> ATH, RHO, HER, JMK, AOK",
-      sorted(r["iata"] for r in matching_routes("יוון")) == ["AOK", "ATH", "HER", "JMK", "RHO"])
+check("synonyms: יוון / greece -> exactly ATH, SKG, RHO, HER",
+      sorted(r["iata"] for r in matching_routes("יוון")) == ["ATH", "HER", "RHO", "SKG"]
+      and sorted(r["iata"] for r in matching_routes("greece")) == ["ATH", "HER", "RHO", "SKG"])
+check("synonyms: סלוניקי / תסלוניקי -> SKG", hfa_route_check("סלוניקי") == "served" and hfa_route_check("תסלוניקי") == "served")
+check("Mykonos / Karpathos -> not_served", hfa_route_check("מיקונוס") == "not_served" and hfa_route_check("קרפתוס") == "not_served")
 
 # --- hfa_route_check --------------------------------------------------------------
 check("Athens -> served", hfa_route_check("אתונה") == "served" and hfa_route_check("ATH") == "served")
 check("Rome -> not_served", hfa_route_check("רומא") == "not_served" and hfa_route_check(["FCO"]) == "not_served")
-check("Crete -> maybe", hfa_route_check("כרתים") == "maybe" and hfa_route_check(["HER"]) == "maybe")
+check("Crete -> served (confirmed 16.10, seasonal)", hfa_route_check("כרתים") == "served" and hfa_route_check(["HER"]) == "served")
 check("Hebrew prefix (לאתונה) still matches", hfa_route_check("לאתונה") == "served")
 check("a list takes the best status (HER + ATH -> served)", hfa_route_check(["HER", "ATH"]) == "served")
 check("'רמת גן' is not mistaken for רמון/Eilat", hfa_route_check("רמת גן") == "not_served")
@@ -86,13 +93,33 @@ check("case 2: not_served -> 'אין טיסה ישירה' + offer נתב\"ג",
       'מחיפה אין טיסה ישירה לרומא. לבדוק מנתב"ג?' in text)
 check("case 2: tells Ariella not to search from Haifa", "אל תתחילי חיפוש מחיפה" in text)
 
-# --- Case 3: "מחיפה לכרתים" -> HER, maybe (seasonal) -----------------------------------
+# --- Case 3: "מחיפה לכרתים" -> HER, seasonal ---------------------------------------------
+# HER is confirmed since 16.10, so it is served - still seasonal, so the
+# "seasonal - we'll check your dates" note stays.
 dep, text = facts("טיסה מחיפה לכרתים", ["כרתים"])
 check("case 3: departure HFA", dep == "HFA")
-check("case 3: maybe -> seasonal note", "הקו עונתי — נבדוק זמינות בתאריכים שלכם" in text)
+check("case 3: served + seasonal note", "Air Haifa" in text and "הקו עונתי — נבדוק זמינות בתאריכים שלכם" in text)
 dep, text = facts("טיסה מחיפה לפאפוס", ["פאפוס"], ["PFO"])
-check("to_verify but not seasonal (Paphos) -> 'not verified' note instead of 'seasonal'",
-      "הקו עדיין לא מאומת — נבדוק זמינות בתאריכים שלכם" in text)
+check("Paphos (confirmed, not seasonal) -> no seasonal note", "Air Haifa" in text and "עונתי" not in text)
+
+# --- 16.10: "יוון מחיפה" -> exactly ATH / SKG / RHO / HER --------------------------------
+dep, text = facts("טיסה מחיפה ליוון", ["יוון"])
+check("Greece from Haifa: offers exactly ATH, SKG, RHO, HER",
+      "היעדים מחיפה באזור הזה הם בדיוק:" in text
+      and all(f"({c})" in text for c in ("ATH", "SKG", "RHO", "HER"))
+      and "JMK" not in text and "AOK" not in text and "מיקונוס" not in text)
+dep, text = facts("טיסה מחיפה למיקונוס", ["מיקונוס"])
+check("Mykonos from Haifa -> not_served + Ben Gurion offer", 'מחיפה אין טיסה ישירה למיקונוס. לבדוק מנתב"ג?' in text)
+
+# --- the 'maybe' branch (no route is to_verify today) - with a temporary list ---------
+import hfa_routes  # noqa: E402
+_real_load = hfa_routes.load_routes
+hfa_routes.load_routes = lambda: [dict(r, status="to_verify") if r["iata"] in ("HER", "PFO") else r for r in _real_load()]
+dep, text = facts("טיסה מחיפה לכרתים", ["כרתים"])
+check("to_verify + seasonal -> maybe, seasonal note", hfa_route_check("כרתים") == "maybe" and "הקו עונתי — נבדוק זמינות בתאריכים שלכם" in text)
+dep, text = facts("טיסה מחיפה לפאפוס", ["פאפוס"])
+check("to_verify, not seasonal -> 'not verified' note", "הקו עדיין לא מאומת — נבדוק זמינות בתאריכים שלכם" in text)
+hfa_routes.load_routes = _real_load
 
 # --- Case 4: "מתל אביב לרומא" -> unaffected -------------------------------------------
 dep, text = facts("טיסה מנתב\"ג לרומא", ["רומא"], ["FCO"])
@@ -143,7 +170,7 @@ check("guard sits in ariella_start_flight_search (HFA + not_served -> 400)",
 r = client.get("/admin/hfa-routes?token=qa-token")
 page = r.get_data(as_text=True)
 check("admin: /admin/hfa-routes renders", r.status_code == 200)
-check("admin: lists all 9 destinations with verified_at column",
+check("admin: lists all 10 destinations with verified_at column",
       all(c in page for c in codes) and "verified_at" in page)
 r = app.test_client().get("/admin/hfa-routes")
 check("admin: protected without the admin token", r.status_code in (302, 401, 403))

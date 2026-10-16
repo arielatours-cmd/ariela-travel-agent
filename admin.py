@@ -936,12 +936,12 @@ HFA_ROUTES_HTML = r"""
 .back{display:inline-block;margin:14px 0 18px;color:#263a70;font-weight:800;text-decoration:none}
 .table-wrap{overflow-x:auto;background:#fff;border-radius:12px;box-shadow:0 2px 10px #0000000d}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}th{background:#fbf8f1}
-.st{font-weight:800}.st-confirmed{color:#1f7a3a}.st-to_verify{color:#a26a00}.st-suspended{color:#a12b2b}
+.st{font-weight:800}.st-confirmed{color:#1f7a3a}.st-to_verify{color:#a26a00}.st-suspended{color:#a12b2b}.st-not_served{color:#6b7280}
 .src{color:var(--muted);font-size:12px;max-width:340px}
 </style></head>
 <body><div class="wrap">
 <h1>יעדים מחיפה (Air Haifa)</h1>
-<div class="muted">המקור: data/hfa_routes.json. אריאלה בודקת מולו בקשה לטיסה מחיפה: confirmed ← ממשיכים, to_verify ← ממשיכים עם "נבדוק זמינות", יעד שלא ברשימה ← מציעים נתב"ג ולא מחפשים מחיפה. לעדכן ידנית פעם בחודש מול airhaifa.com, ולשנות ל-confirmed רק אחרי בדיקה (ולמלא verified_at).</div>
+<div class="muted">המקור: data/hfa_routes.json. אריאלה בודקת מולו בקשה לטיסה מחיפה: confirmed ← ממשיכים, to_verify ← ממשיכים עם "נבדוק זמינות", not_served או יעד שלא ברשימה ← מציעים נתב"ג ולא מחפשים מחיפה. לעדכן ידנית פעם בחודש מול airhaifa.com, ולשנות ל-confirmed רק אחרי בדיקה (ולמלא verified_at).</div>
 <a class="back" href="/admin/scans{% if token %}?token={{ token }}{% endif %}">→ חזרה לסריקות</a>
 <div class="table-wrap"><table>
 <thead><tr><th>IATA</th><th>עיר</th><th>מדינה</th><th>סוג</th><th>סטטוס</th><th>verified_at</th><th>מקור</th></tr></thead>
