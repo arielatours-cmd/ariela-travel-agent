@@ -6566,8 +6566,24 @@ def chat_clean():
                     trip_state['user_gender'] = _old_gender
                 trip_state = _merge_trip_state(trip_state, _seed_fresh_trip_from_trigger_message(message))
             else:
+                # Seen live (Shaked, qa-s97, verifying PR #48 on 90f39b5):
+                # even the ambiguous/unrecognized case must never let a
+                # launch fire on stale criteria. Popping ONLY
+                # combined_search_launched here used to leave search_
+                # confirmed still True from the OLD, already-launched trip
+                # - so the very next turn's start_flight_search computation
+                # (bool(search_confirmed) and all domains resolved and not
+                # combined_search_launched) read True immediately, launching
+                # a real flight search with no destination, no dates,
+                # nothing. post_flight_continuation is deliberately left
+                # alone: it's what lets the separate, already-tested
+                # trip_fully_resolved auto-cleanup (further below in this
+                # same function) still recognize this as a finished trip
+                # and wipe it to a proper clean slate - clearing it here
+                # too would silently suppress that cleanup instead.
                 trip_state = dict(trip_state)
                 trip_state.pop('combined_search_launched', None)
+                trip_state.pop('search_confirmed', None)
     if trip_state.get('combined_search_launched') and not trip_state.get('reopened_trip_id') and not trip_state.get('reopen_trip_pending'):
         _dest_codes = trip_state.get('destination_airports') if isinstance(trip_state.get('destination_airports'), list) else []
         _dates = trip_state.get('dates') if isinstance(trip_state.get('dates'), dict) else {}
@@ -6969,14 +6985,64 @@ def chat_clean():
     # from the five fixed phrases below). _NEW_AND_SEPARATE_RE (module-
     # level, see its own comment) catches this regardless of phrasing.
     _stated_trip_type = (_deterministic_trip_type_facts(message) or {}).get("trip_type")
-    new_vacation_language = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר")) or bool(
+    # Seen live (Shaked, reviewing this exact branch after the B2 fix below
+    # widened it to uncommitted drafts): a trip_type MISMATCH alone is not
+    # an explicit "new and separate vacation" declaration the way the fixed
+    # phrases and _NEW_AND_SEPARATE_RE/_ENTIRELY_NEW_RE are - it just as
+    # easily means the customer is CORRECTING the current, still-open
+    # draft's own type ("רגע, בעצם זו נסיעת עסקים" right after Ariella's own
+    # "חופשה רגילה, נסיעת עסקים או סקי?" question). Treating that as a full
+    # reset wiped the entire open Rome draft on nothing but a type
+    # correction. A trip_type mismatch only counts as new-vacation language
+    # when the OLD trip was already committed (search_confirmed or
+    # post_flight_continuation) - exactly the gate this whole mechanism
+    # used before the B2 fix - since only then is "now it's business, not
+    # regular" clearly about a DIFFERENT trip rather than a correction to
+    # the one still being built.
+    _old_trip_committed_for_type_mismatch = bool(
+        trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
+    )
+    explicit_new_vacation_phrase = any(x in msg_lower for x in ("חופשה חדשה","טיול חדש","חיפוש חדש לגמרי","חופשה אחרת","טיול אחר")) or bool(
+        _NEW_AND_SEPARATE_RE.search(message or "")
+    ) or bool(_ENTIRELY_NEW_RE.search(message or ""))
+    new_vacation_language = explicit_new_vacation_phrase or bool(
         _stated_trip_type and trip_state.get("trip_type") and _stated_trip_type != trip_state.get("trip_type")
-    ) or bool(_NEW_AND_SEPARATE_RE.search(message or "")) or bool(_ENTIRELY_NEW_RE.search(message or ""))
-    old_trip_committed = bool(trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
+        and _old_trip_committed_for_type_mismatch
+    )
+    # Seen live (Shaked, qa-s97, round 7, B2): this used to additionally
+    # require old_trip_committed (search_confirmed or post_flight_
+    # continuation) - an explicit "נסיעת עסקים חדשה ונפרדת לאמסטרדם" mid-
+    # conversation about an still-open, NEVER-approved Rome draft matched
+    # new_vacation_language (trip_type differs: business vs the Rome
+    # draft's own) but old_trip_committed was False, so the hard reset
+    # never fired at all - the message fell through to the ordinary
+    # extractor merge, which (per its own "never erase a value not
+    # mentioned again" rule) kept Rome's budget (1200), baggage
+    # (carry_on_only) and direct-flight preference right alongside the new
+    # Amsterdam destination, with flights silently marked "complete" before
+    # ever asking about any of them for the new trip. An explicit, strong
+    # "new and separate vacation" signal is exactly as much a hard boundary
+    # when the old trip was still just an open draft as when it was
+    # already approved and launched - the customer is declaring
+    # independence from whatever they were doing either way.
+    #
+    # Checked via an existing destination specifically (not the broader
+    # _has_vacation_progress) - by this point in the turn, trip_state can
+    # already carry fields THIS SAME message derived earlier (requested
+    # service classification sets active_session/session_status before this
+    # line runs), which _has_vacation_progress reads as "progress" even on
+    # an originally blank trip_state, wrongly triggering this hard reset
+    # instead of the gentler generic restart-confirmation gate further
+    # below meant for that case (seen live via this file's own regression
+    # suite). A destination already on trip_state is the real, precise
+    # signal of "there is an old trip's preferences to actually clear" -
+    # the leaked budget/baggage/connection fields Shaked found are always
+    # attached to that old destination, never to a same-turn-only field.
+    old_trip_has_destination = bool((trip_state.get("destination") or {}).get("places")) if isinstance(trip_state.get("destination"), dict) else False
     # Own pending questions (new trip vs. destination change) are answered by
     # their own handlers below - "חופשה חדשה" there is the answer, not a new request.
     own_pending_question = bool(trip_state.get("new_trip_pending") or trip_state.get("reopen_trip_pending"))
-    if new_vacation_language and old_trip_committed and not own_pending_question:
+    if new_vacation_language and old_trip_has_destination and not own_pending_question:
         fresh = {
             'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
             'active_session':None
