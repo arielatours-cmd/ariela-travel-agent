@@ -17,7 +17,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _TMP = tempfile.mkdtemp(prefix="ariella-qa-admin-login-")
 TOKEN = "qa-admin-token-123"
 os.environ.update({"DB_PATH": os.path.join(_TMP, "qa.db"), "SCHEDULER_ENABLED": "false",
-                   "SCANNER_ENABLED": "false", "ADMIN_TOKEN": TOKEN, "RENDER": "true"})
+                   "SCANNER_ENABLED": "false", "ADMIN_TOKEN": TOKEN, "RENDER": "true",
+                   # a real (non-default) key: with the public default the
+                   # login is refused - see tools/qa_admin_login_hardening.py
+                   "FLASK_SECRET_KEY": "qa-secret-key-not-the-default"})
 for key in ("SERPAPI_API_KEY", "ANTHROPIC_API_KEY", "WHATSAPP_ACCESS_TOKEN"):
     os.environ.pop(key, None)
 
