@@ -4,8 +4,8 @@ Per product/dev-tasks/010a-customer-profile.md (ofek branch), stage 1 only.
 Acceptance criteria covered (on a temporary DB, offline):
   1. child 9 -> one row; 6 months later girl 16 -> two rows; a year later
      boy 10 -> the existing row is updated, no third row
-  2. two ungendered children 9 and 10, then "boy 10" -> new row with
-     needs_review=1, no merge
+  2. two ungendered children 9 and 10, then "boy 10" -> both candidates
+     flagged needs_review=1, no merge and no new row (decision 16.10)
   3. a child who did not travel this time stays on the list
   4. delete from "My profile" sets deleted_at and the row never comes back;
      deleting the account deletes everything
@@ -105,22 +105,30 @@ mp.sync_trip_travelers(m2, {"adults": 1, "child_ages": [9, 10], "child_genders":
 check("2: two ungendered children -> two rows", len(rows(m2, children_only=True)) == 2)
 mp.sync_trip_travelers(m2, {"adults": 1, "child_ages": [10], "child_genders": ["male"]}, "2026-03-15")
 kids2 = rows(m2, children_only=True)
-check("2: 'boy of 10' matching both -> a new third row", len(kids2) == 3)
-check("2: the new row has needs_review=1", kids2[-1]["needs_review"] == 1 and kids2[-1]["gender"] == "male")
-check("2: the two original rows were not changed (no merge)",
-      [k["age_at_record"] for k in kids2[:2]] == [9, 10] and all(k["gender"] is None for k in kids2[:2]))
+check("2: 'boy of 10' matching both -> NO new row (decision 16.10)", len(kids2) == 2)
+check("2: both candidates flagged needs_review=1", [k["needs_review"] for k in kids2] == [1, 1])
+check("2: the two rows were not changed (no merge)",
+      [k["age_at_record"] for k in kids2] == [9, 10] and all(k["gender"] is None for k in kids2))
 labels = [t["label"] for t in mp.list_travelers(m2, "2026-03-15")]
-check("2: labels are honest about unknown gender", "ילד/ה, בערך בגיל 9" in labels and "ילד, בערך בן 10" in labels)
+check("2: labels are honest about unknown gender", "ילד/ה, בערך בגיל 9" in labels and "ילד/ה, בערך בגיל 10" in labels)
 
-# Twins (same gender + age): by the spec every match is ambiguous, so each
-# vacation adds flagged rows instead of merging - documented spec behaviour,
-# raised with Bezalel as an open question.
+# Twins (decision 16.10): indistinguishable candidates + the same number of
+# matching children on the vacation -> paired one-to-one, no review.
 m2b = make_member("qa2b@example.com")
-mp.sync_trip_travelers(m2b, {"adults": 2, "child_ages": [8, 8], "child_genders": ["female", "female"]}, "2026-03-01")
-mp.sync_trip_travelers(m2b, {"adults": 2, "child_ages": [8, 8], "child_genders": ["female", "female"]}, "2026-04-01")
+for when, age in (("2026-03-01", 7), ("2026-06-01", 7), ("2027-04-01", 8)):
+    mp.sync_trip_travelers(m2b, {"adults": 2, "child_ages": [age, age], "child_genders": ["female", "female"]}, when)
 twins = rows(m2b, children_only=True)
-check("twins (spec): ambiguous -> new rows flagged needs_review, originals untouched",
-      len(twins) == 4 and [t["needs_review"] for t in twins] == [0, 0, 1, 1])
+check("twins of 7, three vacations -> 2 child rows, not 6", len(twins) == 2)
+check("twins: none flagged needs_review", all(t["needs_review"] == 0 for t in twins))
+check("twins: both updated on the last vacation (age 8)", all(t["age_at_record"] == 8 and t["last_travelled_at"] == "2027-04-01" for t in twins))
+m2c = make_member("qa2c@example.com")
+mp.sync_trip_travelers(m2c, {"adults": 2, "child_ages": [7, 7], "child_genders": ["male", "male"]}, "2026-03-01")
+mp.sync_trip_travelers(m2c, {"adults": 2, "child_ages": [7], "child_genders": ["male"]}, "2026-05-01")
+tw = rows(m2c, children_only=True)
+check("twins, only one travels -> counts differ -> both flagged, no new row",
+      len(tw) == 2 and [t["needs_review"] for t in tw] == [1, 1])
+mp.sync_trip_travelers(m2c, {"adults": 2, "child_ages": [7, 7, 7], "child_genders": ["male", "male", "male"]}, "2026-06-01")
+check("three boys of 7 vs two stored twins -> flagged, list does not grow", len(rows(m2c, children_only=True)) == 2)
 
 # --- grown child -> adult --------------------------------------------------------
 m5 = make_member("qa5@example.com")
@@ -171,9 +179,11 @@ r = owner.post(f"/account/travelers/{girl_id}/delete")
 gone = next(x for x in rows(m1, include_deleted=True) if x["id"] == girl_id)
 check("4: delete -> deleted_at set (soft delete)", r.status_code == 302 and gone["deleted_at"] is not None)
 check("4: deleted row not listed", girl_id not in [t["id"] for t in mp.list_travelers(m1)])
+check("4 (Din): deleted row has every personal field NULL",
+      all(gone[f] is None for f in ("first_name", "relationship", "gender", "age_at_record", "age_recorded_at")))
 mp.sync_trip_travelers(m1, {"adults": 2, "child_ages": [17], "child_genders": ["female"]}, "2027-07-20")
 gone_again = next(x for x in rows(m1, include_deleted=True) if x["id"] == girl_id)
-check("4: a later vacation never revives the deleted row", gone_again["deleted_at"] is not None and gone_again["age_at_record"] == 16)
+check("4: a later vacation never revives the deleted row", gone_again["deleted_at"] is not None and gone_again["age_at_record"] is None)
 check("4: deleting twice -> 404", owner.post(f"/account/travelers/{girl_id}/delete").status_code == 404)
 check("4: profile page no longer shows the deleted row",
       f"/account/travelers/{girl_id}/delete" not in owner.get("/account").get_data(as_text=True))
@@ -200,9 +210,18 @@ check("migration: companion copied once as an adult (init_db run twice)",
       and migrated[0]["relationship"] == "partner")
 with connection() as conn:
     still = conn.execute("SELECT COUNT(*) FROM ariella_travel_companions WHERE member_id=?", (m6,)).fetchone()[0]
-check("migration: the old table is kept", still == 1)
+check("migration: the old table is kept (row still there before any delete)", still == 1)
 mp.sync_trip_travelers(m6, {"adults": 2, "child_ages": []}, "2026-05-01")
 check("migration: a named companion counts as the second adult (no unnamed duplicate)", len(rows(m6)) == 1)
+noa = rows(m6)[0]
+check("delete a named traveller -> 200/redirect", client_for(m6).post(f"/account/travelers/{noa['id']}/delete").status_code == 302)
+noa_after = rows(m6, include_deleted=True)[0]
+check("delete (Din): name, relationship and all personal fields are NULL",
+      all(noa_after[f] is None for f in ("first_name", "relationship", "gender", "age_at_record", "age_recorded_at"))
+      and noa_after["deleted_at"] is not None)
+with connection() as conn:
+    left = conn.execute("SELECT COUNT(*) FROM ariella_travel_companions WHERE member_id=? AND first_name='Noa'", (m6,)).fetchone()[0]
+check("delete (Din): the matching ariella_travel_companions row is gone", left == 0)
 
 # --- Hook + privacy ------------------------------------------------------------------
 src = open(os.path.join(os.path.dirname(__file__), "..", "public_site.py"), encoding="utf-8").read()
@@ -212,6 +231,9 @@ for path in ("/privacy?lang=he", "/privacy?lang=en"):
     text = app.test_client().get(path).get_data(as_text=True)
     check(f"{path} explains the saved traveller list and the right to delete it",
           ("מה אריאלה זוכרת עליי" in text) if path.endswith("he") else ("What Ariella remembers about me" in text))
+    check(f"{path} carries Din's exact wording",
+          ("מחיקת נוסע מוחקת את פרטיו, ומחיקת החשבון מוחקת את כל הרשימה." in text) if path.endswith("he")
+          else ("Deleting a traveler deletes their details, and deleting your account deletes the whole list." in text))
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")

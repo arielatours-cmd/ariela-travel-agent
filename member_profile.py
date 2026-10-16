@@ -4,7 +4,8 @@ member travels with (member_travelers, created in database.init_db).
 Only facts the customer actually said are stored: how many adults, each
 child's age and, when given, gender. Nothing is guessed. Children are matched
 across vacations by gender + estimated current age; when the match is
-ambiguous a new row is added with needs_review=1 instead of merging. The list
+ambiguous the existing candidates are flagged needs_review=1 - the list
+never grows because of uncertainty. The list
 only grows - a child who did not travel this time stays on it - and the
 customer can correct an age or delete a row from "My Vacations".
 """
@@ -97,36 +98,71 @@ def sync_trip_travelers(member_id: int, travelers: dict, trip_date=None) -> None
             (member_id,),
         ).fetchall()]
         used: set[int] = set()
-
+        kids = []
         for index, raw_age in enumerate(ages):
             age = _int_or_none(raw_age)
-            if age is None:
-                continue
-            gender = _gender_or_none(genders[index] if index < len(genders) else None)
-            matches = [
+            if age is not None:
+                kids.append((age, _gender_or_none(genders[index] if index < len(genders) else None)))
+        done = [False] * len(kids)
+
+        def candidates_for(age, gender):
+            return [
                 row for row in existing
                 if row["id"] not in used
                 and (row["gender"] is None or gender is None or row["gender"] == gender)
                 and (est := estimated_age(row, today)) is not None
                 and abs(est - age) <= 1
             ]
-            if len(matches) == 1:
-                row = matches[0]
-                used.add(row["id"])
-                conn.execute(
-                    """UPDATE member_travelers SET age_at_record=?, age_recorded_at=?, last_travelled_at=?,
-                           kind=?, gender=COALESCE(gender, ?) WHERE id=?""",
-                    (age, today_iso, today_iso, _child_kind(age), gender, row["id"]),
-                )
-                continue
-            cur = conn.execute(
-                """INSERT INTO member_travelers(member_id, kind, gender, age_at_record, age_recorded_at,
-                       source, needs_review, last_travelled_at, created_at)
-                   VALUES(?, ?, ?, ?, ?, 'said_in_chat', ?, ?, ?)""",
-                (member_id, _child_kind(age), gender, age, today_iso,
-                 1 if len(matches) > 1 else 0, today_iso, now),
+
+        def record(row, age, gender):
+            used.add(row["id"])
+            conn.execute(
+                """UPDATE member_travelers SET age_at_record=?, age_recorded_at=?, last_travelled_at=?,
+                       kind=?, gender=COALESCE(gender, ?) WHERE id=?""",
+                (age, today_iso, today_iso, _child_kind(age), gender, row["id"]),
             )
-            used.add(int(cur.lastrowid))
+
+        for i, (age, gender) in enumerate(kids):
+            if done[i]:
+                continue
+            matches = candidates_for(age, gender)
+            if not matches:
+                # No candidate at all: the only case that adds a new row.
+                cur = conn.execute(
+                    """INSERT INTO member_travelers(member_id, kind, gender, age_at_record, age_recorded_at,
+                           source, needs_review, last_travelled_at, created_at)
+                       VALUES(?, ?, ?, ?, ?, 'said_in_chat', 0, ?, ?)""",
+                    (member_id, _child_kind(age), gender, age, today_iso, today_iso, now),
+                )
+                used.add(int(cur.lastrowid))
+                done[i] = True
+                continue
+            if len(matches) == 1:
+                record(matches[0], age, gender)
+                done[i] = True
+                continue
+            # Several candidates. Product decision 16.10 (Ofek): when they are
+            # indistinguishable (same gender, same estimated age, no name) and
+            # this vacation has exactly as many matching children, pair them
+            # one-to-one (twins). Otherwise flag the candidates for review -
+            # never add a row because of uncertainty.
+            ests = {estimated_age(row, today) for row in matches}
+            same = len({row["gender"] for row in matches}) == 1 and len(ests) == 1 \
+                and not any(row.get("first_name") for row in matches)
+            similar = [j for j, (a, g) in enumerate(kids)
+                       if not done[j] and g == gender and abs(a - age) <= 1 and abs(a - next(iter(ests))) <= 1] \
+                if same else []
+            if same and len(similar) == len(matches):
+                for row, j in zip(matches, similar):
+                    record(row, kids[j][0], kids[j][1])
+                    done[j] = True
+                continue
+            # Flagged candidates stay available to the vacation's other
+            # children, so a similar child later in the list is linked to
+            # them too instead of becoming a new row.
+            for row in matches:
+                conn.execute("UPDATE member_travelers SET needs_review=1 WHERE id=?", (row["id"],))
+            done[i] = True
 
         adults = _int_or_none(travelers.get("adults")) or 0
         known_adults = 1 + conn.execute(  # 1 = the account holder
@@ -205,11 +241,30 @@ def update_traveler(member_id: int, traveler_id: int, age=None, gender=None) -> 
 
 
 def delete_traveler(member_id: int, traveler_id: int) -> bool:
-    """Soft delete: deleted_at is set, so the row never comes back in the
-    list or in matching. False when the row is not theirs."""
+    """Deletes the traveller's details (Din): every personal field is wiped
+    and deleted_at is set, so the row never comes back in the list or in
+    matching. A named traveller's row in ariella_travel_companions (the
+    older store the name came from) is deleted too. False when the row is
+    not theirs."""
+    import sqlite3
     with connection() as conn:
-        cur = conn.execute(
-            "UPDATE member_travelers SET deleted_at=? WHERE id=? AND member_id=? AND deleted_at IS NULL",
-            (utc_now_iso(), traveler_id, member_id),
+        row = conn.execute(
+            "SELECT first_name FROM member_travelers WHERE id=? AND member_id=? AND deleted_at IS NULL",
+            (traveler_id, member_id),
+        ).fetchone()
+        if not row:
+            return False
+        conn.execute(
+            """UPDATE member_travelers SET deleted_at=?, first_name=NULL, relationship=NULL, gender=NULL,
+                   age_at_record=NULL, age_recorded_at=NULL WHERE id=?""",
+            (utc_now_iso(), traveler_id),
         )
-        return cur.rowcount > 0
+        if row["first_name"]:
+            try:
+                conn.execute(
+                    "DELETE FROM ariella_travel_companions WHERE member_id=? AND first_name=?",
+                    (member_id, row["first_name"]),
+                )
+            except sqlite3.OperationalError:
+                pass  # the older table does not exist in this DB
+        return True
