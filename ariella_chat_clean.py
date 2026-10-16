@@ -415,8 +415,14 @@ def _weekday_pair_conflict(text, history):
             if not options:
                 options = [before]
             options_text = " או ".join(f"ליום {want} {x.strftime('%d.%m.%Y')}" for x in options)
+            # Per the business owner's iron rule (2026-10-16, Shaked's
+            # review of fe486a5): a single question only - the date-
+            # interpretation confirmation - not also "or should we change
+            # the travel days?" bolted on as a second question in the same
+            # message. A decline naturally continues into that same
+            # follow-up on the next turn, same as any other decline.
             return (f"רק לוודא — {dt.strftime('%d.%m.%Y')} יוצא ביום {actual}, וביקשת {pair.group(1)} עד {pair.group(2)}. "
-                    f"התכוונת {options_text}? או שנשנה את ימי הנסיעה?")
+                    f"התכוונת {options_text}?")
     return None
 
 
@@ -1951,7 +1957,11 @@ def _departure_question(state):
     options = (state or {}).get("departure_options") or []
     names = _airport_labels(options)
     if len(names) == 1:
-        return f"נטוס מ{names[0]}, או משדה אחר?"
+        # Per the business owner's iron rule (2026-10-16): a single yes/no
+        # about the one known option, not "X, or another airport?" - a
+        # decline still falls through to the extractor/general conversation
+        # to name a different airport, same as before this wording change.
+        return f"נטוס מ{names[0]}?"
     if names:
         return "מאיזה שדה נטוס - " + ", ".join(names[:-1]) + " או " + names[-1] + "?"
     return "מאיזה שדה תעופה תרצי לטוס?"
@@ -2048,18 +2058,27 @@ def _flight_gap_question(gaps, state=None):
         # לחסוך בסריקות" is internal cost-saving reasoning that should never
         # reach the customer (per the business owner) - the question itself
         # is self-explanatory without exposing why it's being asked.
+        # Per the business owner's iron rule (2026-10-16): one open question,
+        # not "narrow to one, or keep searching both?" - the possible answer
+        # shapes are given as a separate, non-question sentence.
         return (
-            f"יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). "
-            "תרצי שאצמצם את חיפוש הטיסות לשדה אחד, או להמשיך לחפש בשניהם?"
+            f"יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). לאיזה מהם תרצי שאחפש? "
+            "אפשר גם שדה מסוים אחד ואפשר גם בשניהם יחד."
         )
     if "return_departure_airports" in gaps:
         return "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
     if "budget_per_person" in gaps:
-        return "מה התקציב לאדם לטיסה, או שאין מגבלת תקציב?"
+        # Open question - "no budget limit" is still a perfectly natural
+        # free-form answer, already recognized regardless of how the
+        # question was phrased (see _deterministic_budget_facts).
+        return "מה התקציב שלך לאדם לטיסה?"
     if "departure_airport" in gaps:
         return _departure_question(state)
     if "trip_type" in gaps:
-        return "זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"
+        # Open question - the three categories are a classification the
+        # extractor derives from the free answer, not words that must
+        # appear in the question itself (see _deterministic_trip_type_facts).
+        return "איזה סוג נסיעה זו?"
     if "destination" in gaps:
         return "לאן תרצי לטוס?"
     if "dates" in gaps:
@@ -2069,9 +2088,14 @@ def _flight_gap_question(gaps, state=None):
     if "travelers.child_ages" in gaps:
         return "חסר לי הגיל של הילד/ה בהרכב הנוסעים. מה הגיל?"
     if "flight.connection_preference" in gaps:
-        return "חשוב לך שהטיסה תהיה ישירה, או שקונקשן בסדר?"
+        # Single-option yes/no - matches _deterministic_connection_
+        # preference_facts' own gate exactly.
+        return "חשוב לך שהטיסה תהיה ישירה?"
     if "flight.baggage" in gaps:
-        return "טרולי בלבד, גם מזוודה בבטן המטוס, או רק תיק?"
+        # Open question - the three canonical storage values are still the
+        # only ones ever written to flight.baggage (see _baggage_answer_
+        # by_meaning), just never dictated as the question's own wording.
+        return "איזו כבודה תרצו לקחת?"
     missing_service = next((g.split(".",1)[1] for g in gaps if g.startswith("service_decisions.")), None)
     if missing_service:
         labels = {"lodging":"גם לינה","car":"גם רכב שכור","trip_planning":"גם תכנון מסלול ואטרקציות"}
@@ -4737,6 +4761,33 @@ def _deterministic_open_jaw_airports(message):
     }
 
 
+def _last_question_clause(text):
+    """Per Shaked's live finding (round on fe486a5, 2026-10-16): under the
+    one-question-per-message principle, Tinkerbell's message can combine a
+    STATEMENT with a completely different question ("אין כרגע אפשרות
+    מאומתת לטיסה ישירה ישראל-בודפשט... תרצי שאעזור גם עם בניית מסלול?") -
+    one question, fully compliant with the rule. But a deterministic gate
+    that checks for a topic word (e.g. "ישיר") ANYWHERE in the whole prior
+    assistant message wrongly treats the customer's answer to the ACTUAL
+    question (about a route) as if it answered the unrelated statement
+    instead - a bare "לא" to "want a route?" was misread as "no preference"
+    on direct flights, overwriting a preference the customer stated earlier
+    in the conversation and never revisited. The deterministic writers
+    below must only recognize the question that was actually asked - the
+    clause after the last sentence break before the final "?" - never a
+    topic merely mentioned earlier in the same message."""
+    text = str(text or "")
+    qpos = text.rfind("?")
+    if qpos == -1:
+        return text
+    start = 0
+    for sep in (".", "!", "\n"):
+        idx = text.rfind(sep, 0, qpos)
+        if idx + 1 > start:
+            start = idx + 1
+    return text[start:qpos + 1].strip()
+
+
 def _deterministic_trip_planning_pace_facts(message, history):
     """trip_planning.details.pace has no deterministic writer anywhere else -
     only the LLM's own JSON extraction ever sets it, and when that silently
@@ -4763,7 +4814,11 @@ def _deterministic_trip_planning_pace_facts(message, history):
         if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
             prior_assistant = str(item.get("content") or "")
             break
-    if "קצב" not in prior_assistant:
+    # Gate on the actual question asked (see _last_question_clause's
+    # docstring) - not any earlier statement in the same message that merely
+    # mentions "קצב"/a pace word while asking about something else entirely.
+    last_question = _last_question_clause(prior_assistant)
+    if "קצב" not in last_question:
         return {}
     if not pace:
         # Per the one-option-per-question principle (2026-10-16), pace is now
@@ -4772,8 +4827,8 @@ def _deterministic_trip_planning_pace_facts(message, history):
         # word at all. Resolve it against whichever single pace prior_
         # assistant actually asked about - never both, so an old-style dual
         # phrasing stays genuinely ambiguous and falls through to the model.
-        asked_active = any(w in prior_assistant for w in active_words)
-        asked_relaxed = any(w in prior_assistant for w in relaxed_words)
+        asked_active = any(w in last_question for w in active_words)
+        asked_relaxed = any(w in last_question for w in relaxed_words)
         if asked_active != asked_relaxed:
             asked_one = "active" if asked_active else "relaxed"
             bare = _normalize_confirm(msg)
@@ -4811,8 +4866,14 @@ def _deterministic_connection_preference_facts(message, history):
     # phrases this as a single yes/no about direct flights ("חשוב לכם שהטיסה
     # תהיה ישירה?"), not the old fixed "ישיר... או קונקשן?" wording - so
     # "קונקשן" is no longer guaranteed to appear at all. "ישיר" alone is
-    # still a precise, unambiguous signal this exact question was just asked.
-    if "ישיר" not in prior_assistant:
+    # still a precise, unambiguous signal this exact question was just asked
+    # - but only when it appears in the question actually asked (see
+    # _last_question_clause's docstring for the live Budapest finding this
+    # fixes: a flight-gap statement mentioning "ישיר" earlier in the SAME
+    # message, immediately followed by a wholly different question about a
+    # route, must never be read as asking about direct flights).
+    last_question = _last_question_clause(prior_assistant)
+    if "ישיר" not in last_question:
         return {}
     # "לא ישירה"/"לא חייב/ת ישירה" names no real preference for direct-only -
     # it's functionally the same answer as "קונקשן בסדר", not a request for
@@ -4860,6 +4921,13 @@ def _deterministic_car_vehicle_facts(message, history):
             break
 
     result = {}
+    # Gate every check below on the question actually asked (see
+    # _last_question_clause's docstring) - never on an earlier statement in
+    # the same message that happens to mention a topic word while asking
+    # about something else entirely (seen live, Shaked: "רכב קטן אוטומטי
+    # נרשם. תרצי שאחפש גם לינה?" + "לא" wrongly set transmission, when the
+    # actual question asked was about lodging).
+    last_question = _last_question_clause(prior_assistant)
 
     # Canonical vehicle_type values (system prompt) - check the more
     # specific "משפחתי סטיישן" before the bare "משפחתי" so it isn't
@@ -4875,8 +4943,8 @@ def _deterministic_car_vehicle_facts(message, history):
     # question, regardless of how the sentence around them was phrased.
     category_menu_words = ("קטן", "משפחתי", "סטיישן", "suv", "ג'יפ", "מיניוואן", "יוקרה")
     asked_vehicle_type = (
-        any(p in prior_assistant for p in ("סוג הרכב", "סוג רכב", "קטגוריית הרכב", "קטגוריה של הרכב", "סוג/גודל רכב"))
-        or sum(1 for w in category_menu_words if w in prior_assistant.lower()) >= 3
+        any(p in last_question for p in ("סוג הרכב", "סוג רכב", "קטגוריית הרכב", "קטגוריה של הרכב", "סוג/גודל רכב"))
+        or sum(1 for w in category_menu_words if w in last_question.lower()) >= 3
     )
     if asked_vehicle_type:
         if any(w in msg for w in no_preference_words):
@@ -4892,7 +4960,7 @@ def _deterministic_car_vehicle_facts(message, history):
     # אוטומטי?"), not the old fixed "אוטומטי או ידני?" wording - "ידני" is
     # no longer guaranteed to appear. "אוטומטי" alone is still a precise,
     # unambiguous signal this exact question was just asked.
-    asked_transmission = "אוטומטי" in prior_assistant or "ידני" in prior_assistant
+    asked_transmission = "אוטומטי" in last_question or "ידני" in last_question
     if asked_transmission:
         if "לא משנה" in msg or "אין העדפה" in msg:
             result.setdefault("car", {}).setdefault("details", {})["transmission"] = "לא משנה"
@@ -4910,8 +4978,8 @@ def _deterministic_car_vehicle_facts(message, history):
             # one of the two words appeared, so an old-style dual phrasing
             # ("אוטומטי או ידני?") is never misread as a single option.
             bare = _normalize_confirm(msg)
-            asked_one = "אוטומטי" if ("אוטומטי" in prior_assistant) != ("ידני" in prior_assistant) and "אוטומטי" in prior_assistant else (
-                "ידני" if ("אוטומטי" in prior_assistant) != ("ידני" in prior_assistant) else None
+            asked_one = "אוטומטי" if ("אוטומטי" in last_question) != ("ידני" in last_question) and "אוטומטי" in last_question else (
+                "ידני" if ("אוטומטי" in last_question) != ("ידני" in last_question) else None
             )
             if asked_one and bare in {"כן", "בטח", "בהחלט", "כן בבקשה", "בטח שכן", "למה לא", "מתאים", "אין בעיה", "סבבה", "יאללה"}:
                 result.setdefault("car", {}).setdefault("details", {})["transmission"] = asked_one
@@ -5003,11 +5071,18 @@ def _deterministic_lodging_facts(message, history):
 
     result = {}
     no_preference_words = ("אין העדפה", "לא משנה", "מה שיש", "לא משנה לי")
+    # Gate every check below on the question actually asked (see
+    # _last_question_clause's docstring) - never on an earlier statement in
+    # the same message that happens to mention a topic word while asking
+    # about something else entirely (seen live, Shaked: "מלון 4 כוכבים
+    # יוקרתי במרכז - נרשם. תרצי גם רכב שכור?" + "כן"/"לא" wrongly set
+    # lodging level, when the actual question asked was about a car).
+    last_question = _last_question_clause(prior_assistant)
 
     type_values = list(_LODGING_TYPE_VALUES)
     asked_type = (
-        any(p in prior_assistant for p in ("סוג הלינה", "סוג לינה"))
-        or ("מלון" in prior_assistant and ("דירה" in prior_assistant or "וילה" in prior_assistant))
+        any(p in last_question for p in ("סוג הלינה", "סוג לינה"))
+        or ("מלון" in last_question and ("דירה" in last_question or "וילה" in last_question))
     )
     if asked_type:
         if any(w in msg for w in no_preference_words):
@@ -5032,8 +5107,8 @@ def _deterministic_lodging_facts(message, history):
     # fire on either shape, not just the old combo.
     level_values = _LODGING_LEVEL_VALUES
     asked_level = (
-        "נוחות" in prior_assistant
-        or any(word in prior_assistant for word, _ in level_values)
+        "נוחות" in last_question
+        or any(word in last_question for word, _ in level_values)
     )
     if asked_level:
         if any(w in msg for w in no_preference_words):
@@ -5052,7 +5127,7 @@ def _deterministic_lodging_facts(message, history):
             # one asked-about tier; never against the open "איזו רמת נוחות"
             # phrasing, where a bare כן/לא doesn't answer the question asked.
             if not matched:
-                asked_tiers = [canon for word, canon in level_values if word in prior_assistant]
+                asked_tiers = [canon for word, canon in level_values if word in last_question]
                 asked_one = asked_tiers[0] if len(set(asked_tiers)) == 1 else None
                 if asked_one:
                     bare = _normalize_confirm(msg)
@@ -5062,11 +5137,11 @@ def _deterministic_lodging_facts(message, history):
                         result.setdefault("lodging", {}).setdefault("details", {})["level"] = "אין העדפה"
 
     # Rooms is asked as "כמה חדרים" with a one-big-room-or-split framing.
-    asked_rooms = any(p in prior_assistant for p in ("כמה חדרים", "חדר אחד גדול", "לחלק לשני חדרים", "חלוקת החדרים"))
+    asked_rooms = any(p in last_question for p in ("כמה חדרים", "חדר אחד גדול", "לחלק לשני חדרים", "חלוקת החדרים"))
     # A direct "is one room enough?" framing ("חדר זוגי אחד מספיק?") gets a
     # plain "כן" answer, which names no number at all - seen live: that
     # left rooms unset even though the customer had just confirmed it.
-    asked_single_room_confirm = bool(re.search(r"חדר\s+\S*\s*אחד\s+מספיק", prior_assistant))
+    asked_single_room_confirm = bool(re.search(r"חדר\s+\S*\s*אחד\s+מספיק", last_question))
     if asked_rooms:
         rooms_match = re.search(r"(\d+)\s*חדר", msg)
         if rooms_match:
@@ -5106,7 +5181,7 @@ def _deterministic_lodging_facts(message, history):
     # (per the one-option-per-question principle, not a fixed phrasing) -
     # so there is no single canonical question text to gate on here, only
     # the field's own natural vocabulary ("חדרי רחצה"/"חדר רחצה"/"שירותים").
-    asked_bathrooms = any(p in prior_assistant for p in ("חדרי רחצה", "חדר רחצה", "שירותים ומקלחת", "חדר שירותים"))
+    asked_bathrooms = any(p in last_question for p in ("חדרי רחצה", "חדר רחצה", "שירותים ומקלחת", "חדר שירותים"))
     if asked_bathrooms:
         bathrooms_match = re.search(r"(\d+)", msg)
         if bathrooms_match:
@@ -7480,6 +7555,18 @@ def chat_clean():
             intent = "new"
         elif any(w in msg_norm for w in ("שינוי", "לשנות", "הנוכחית", "במקום", "להחליף")):
             intent = "keep"
+        # Per the business owner's iron rule (2026-10-16), this question is
+        # now phrased as a single yes/no ("זה שינוי יעד בחופשה הנוכחית
+        # ל-X?") - a bare "כן"/"לא" names neither "שינוי" nor "חדשה" at all,
+        # and without a deterministic fast path here it depends entirely on
+        # one model call correctly inferring the question's own polarity
+        # from context (Shaked, non-blocking review note on fe486a5). "כן"
+        # confirms the destination-change reading (keep); "לא" means it's a
+        # new, separate trip.
+        elif msg_norm in {"כן", "בטח", "בהחלט", "כן בבקשה", "בטח שכן", "למה לא", "מתאים", "אין בעיה", "סבבה", "יאללה"}:
+            intent = "keep"
+        elif msg_norm in {"לא", "לא תודה", "לא צריך", "לא צריכה", "ממש לא"}:
+            intent = "new"
         else:
             intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
         if intent == "new":
