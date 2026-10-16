@@ -4800,8 +4800,23 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 "status": "ok" if any_ok else "error", "count": len(all_hotels), "segments": len(segments),
             }
         else:
-            info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
-            dest_city = info.get("city_en") or info.get("city_he") or destination_codes[0]
+            # Seen live (Shaked, round 4, C2 Saalbach, and the business
+            # owner's own report of the same bug for Bansko): a ski trip's
+            # destination_airports deliberately holds GATEWAY codes (MUC,
+            # SZG, INN, GVA...) that are often a different city entirely
+            # from the resort itself - but this fell back to the gateway
+            # AIRPORT'S OWN CITY (e.g. "Munich") as the lodging search
+            # query, since that's all destination_codes[0] ever resolves
+            # to. The real resort name (already resolved and saved by
+            # _resolve_ski_destination_airports as ski_resort_names) is
+            # always the right lodging search anchor for a ski trip -
+            # never the gateway city.
+            ski_resort_names = answers.get("ski_resort_names") or []
+            if str(answers.get("vacation_type") or "standard") == "ski" and ski_resort_names:
+                dest_city = ski_resort_names[0]
+            else:
+                info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
+                dest_city = info.get("city_en") or info.get("city_he") or destination_codes[0]
             # Seen live (Shaked, qa-s89): this used to always default to the
             # FIRST (alphabetically sorted) destination airport's city,
             # completely ignoring lodging_location - the actual multi-area
