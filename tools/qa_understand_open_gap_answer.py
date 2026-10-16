@@ -158,6 +158,33 @@ resolved9, _ = call(
 check("budget_or_level with a level word splits into the real 'level' field, canonicalized",
       resolved9 == {"lodging": {"details": {"level": "יוקרתי"}}})
 
+# --- 9b. Live bug (Shlomo testing with Carmit, 15.10.2026): "4 כוכבים
+#         ומעלה" ("4 stars and up") answered this exact composite question.
+#         The bare-digit branch above used to read the "4" as a 4 ILS
+#         nightly budget - the smallest possible max_price sent to SerpApi,
+#         so every lodging search for the trip came back empty. A star
+#         rating must resolve to the real 'level' field, never 'budget'. ---
+resolved9b, _ = call(
+    json.dumps({"resolved": {"lodging.details.budget_or_level": "4 כוכבים ומעלה"}, "clarify": None}),
+    "4 כוכבים ומעלה", state=budget_lodging_state, history=budget_history,
+)
+check("budget_or_level with '4 כוכבים ומעלה' resolves to level, never to a 4-ILS budget",
+      resolved9b == {"lodging": {"details": {"level": "יוקרתי"}}})
+
+resolved9c, _ = call(
+    json.dumps({"resolved": {"lodging.details.budget_or_level": "3 כוכבים בערך"}, "clarify": None}),
+    "3 כוכבים בערך", state=budget_lodging_state, history=budget_history,
+)
+check("3 כוכבים maps to the mid-tier 'בינוני' level, not a 3-ILS budget",
+      resolved9c == {"lodging": {"details": {"level": "בינוני"}}})
+
+resolved9d, _ = call(
+    json.dumps({"resolved": {"lodging.details.budget_or_level": "2 כוכבים מספיק"}, "clarify": None}),
+    "2 כוכבים מספיק", state=budget_lodging_state, history=budget_history,
+)
+check("2 כוכבים maps to the 'בסיסי' level, not a 2-ILS budget",
+      resolved9d == {"lodging": {"details": {"level": "בסיסי"}}})
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

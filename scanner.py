@@ -734,7 +734,7 @@ def search_open_jaw_flights(departure: str, outbound_arrival: str, return_depart
     }
 
 
-def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int = 1, children: int = 0, rooms: int = 1, min_price: int | None = None, max_price: int | None = None, vacation_rentals: bool = False) -> dict:
+def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int = 1, children: int = 0, children_ages: list | None = None, rooms: int = 1, min_price: int | None = None, max_price: int | None = None, vacation_rentals: bool = False) -> dict:
     """Real, live lodging results via SerpApi's google_hotels engine - the
     same vendor/API key already used for flights. Booking.com's own
     affiliate program (CJ) does not expose a priced Demand API, only a
@@ -750,7 +750,16 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
     mode instead of traditional hotels - set it when the customer's stated
     lodging type (lodging.details.type) is "וילה"/"דירה" rather than "מלון",
     so the results actually match what they asked for instead of always
-    returning hotels."""
+    returning hotels.
+
+    Seen live (Shaked, qa-s92, a ski trip with one child): every lodging
+    search with children>0 came back "the search failed". Per SerpApi's own
+    google_hotels reference, children_ages is required to list exactly as
+    many ages as `children` the moment children>0 - we were sending
+    children=1 with no ages at all, a parameter mismatch the API rejects.
+    Only sent when both a positive children count AND a matching list of
+    ages are available; otherwise the request is still sent without either,
+    same as before, rather than guessing an age."""
     params = {
         "engine": "google_hotels",
         "api_key": _api_key(),
@@ -763,6 +772,9 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
         "gl": "il",
         "hl": "he",
     }
+    valid_ages = [int(a) for a in (children_ages or []) if isinstance(a, (int, float, str)) and str(a).strip().isdigit()]
+    if children and valid_ages and len(valid_ages) == int(children):
+        params["children_ages"] = ",".join(str(max(1, min(17, a))) for a in valid_ages)
     if vacation_rentals:
         params["vacation_rentals"] = "true"
     if min_price:
