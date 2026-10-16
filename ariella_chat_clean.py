@@ -5465,6 +5465,26 @@ def _is_itinerary_acceptance(message):
     return any(re.search(r"(?<![\u05d0-\u05ea])" + re.escape(p) + r"(?![\u05d0-\u05ea])", msg) for p in positives)
 
 
+def _approval_message_has_extra_content(message):
+    """A bare route-approval word ("מתאים"/"כן"/...) carries nothing beyond
+    the approval itself - not worth an extra classifier call. But the exact
+    same message often also answers the very next question in one go
+    ("כן, מלון 4 כוכבים במרכז" - approves the route AND states a lodging
+    preference at once, seen live Shaked round 8, London). Strips the known
+    bare-acceptance words (same set _is_itinerary_acceptance's positives
+    uses) and reports whether anything substantive is left."""
+    msg = _normalize_confirm(message).strip().lower()
+    for p in (
+        "כן", "מאשר", "מאשרת", "מתאים", "מתאימה", "מעולה", "מצוין", "מצויין", "אחלה",
+        "נשמע טוב", "נשמע מעולה", "נשמע אחלה", "נשמע סבבה", "נשמע מושלם", "סבבה",
+        "אהבתי", "מושלם", "יופי", "בדיוק", "נהדר", "מדהים", "סגור", "סגרנו", "יאללה",
+        "טוב מאוד", "בסדר גמור", "perfect",
+    ):
+        msg = msg.replace(p, "")
+    remainder = "".join(ch for ch in msg if ch.isalnum())
+    return len(remainder) >= 3
+
+
 _POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
 
 
@@ -8246,12 +8266,58 @@ def chat_clean():
                             logging.exception("Tinkerbell reply failed on already-decided post-route domain: %s", exc)
                             reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
                     else:
-                        reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
-                        # Remember what was just offered, so a plain "כן"/"לא" next
-                        # turn settles it via _post_flight_offer_answer. Without this
-                        # the "כן" reached the model with no record of the question,
-                        # and it asked about the car all over again (seen live).
-                        trip_update["post_flight_offer"] = [next_domain]
+                        # Seen live (Shaked, round 8, London): the SAME message
+                        # that approves the route can already answer the very
+                        # offer about to be asked ("כן, מלון 4 כוכבים במרכז" -
+                        # approves the route AND states a lodging preference at
+                        # once). Blindly asking the yes/no offer here silently
+                        # discarded those details. Only worth the extra
+                        # classifier call when the message actually carries
+                        # something beyond a bare acceptance word.
+                        same_message_answer = {}
+                        if _approval_message_has_extra_content(message):
+                            same_message_answer = _post_flight_offer_answer(
+                                message, {"post_flight_offer": [next_domain]}, key, model, history
+                            )
+                        decided = same_message_answer.get(next_domain)
+                        if decided is True:
+                            statuses_after_plan[next_domain] = "active"
+                            trip_update["session_status"] = statuses_after_plan
+                            services_now = set(trip_update.get("requested_services") or [])
+                            services_now.add(next_domain)
+                            trip_update["requested_services"] = list(services_now)
+                            decisions_now = dict(trip_update.get("service_decisions") or {})
+                            decisions_now[next_domain] = {"wanted": True, "source": "post_flight_offer"}
+                            trip_update["service_decisions"] = decisions_now
+                            trip_update["active_session"] = next_domain
+                            trip_update = _advance_sessions(trip_update)
+                            try:
+                                reply = _call_tinkerbell(key, model, history, message, trip_update)
+                            except Exception as exc:
+                                logging.exception("Tinkerbell reply failed on same-message post-route domain answer: %s", exc)
+                                reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
+                        elif decided is False:
+                            statuses_after_plan[next_domain] = "declined"
+                            trip_update["session_status"] = statuses_after_plan
+                            services_now = set(trip_update.get("requested_services") or [])
+                            services_now.discard(next_domain)
+                            trip_update["requested_services"] = list(services_now)
+                            decisions_now = dict(trip_update.get("service_decisions") or {})
+                            decisions_now[next_domain] = {"wanted": False, "source": "post_flight_offer"}
+                            trip_update["service_decisions"] = decisions_now
+                            trip_update = _advance_sessions(trip_update)
+                            try:
+                                reply = _call_tinkerbell(key, model, history, message, trip_update)
+                            except Exception as exc:
+                                logging.exception("Tinkerbell reply failed on same-message post-route decline: %s", exc)
+                                reply = "מצוין, המסלול מאושר."
+                        else:
+                            reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
+                            # Remember what was just offered, so a plain "כן"/"לא" next
+                            # turn settles it via _post_flight_offer_answer. Without this
+                            # the "כן" reached the model with no record of the question,
+                            # and it asked about the car all over again (seen live).
+                            trip_update["post_flight_offer"] = [next_domain]
                 else:
                     # Seen live (Shaked, scenario 8 - flights+route only, both
                     # now resolved): this used to just say "מצוין, המסלול
