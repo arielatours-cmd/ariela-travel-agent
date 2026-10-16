@@ -14,7 +14,7 @@ from werkzeug.exceptions import HTTPException
 # configured before any other module logs anything.
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard
+from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard, render_hfa_routes_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
     MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY, DESTINATIONS,
@@ -335,6 +335,15 @@ def admin_feedback():
     feedback = recent_feedback(500)
     mark_feedback_seen()
     return render_feedback_dashboard(feedback=feedback, token=request.args.get("token", ""))
+
+
+@app.get("/admin/hfa-routes")
+def admin_hfa_routes():
+    """Task 011a: the Haifa (Air Haifa) destination list with verified_at."""
+    denied = _require_admin()
+    if denied: return denied
+    from hfa_routes import load_routes
+    return render_hfa_routes_dashboard(routes=load_routes(), token=request.args.get("token", ""))
 
 
 @app.get("/admin/ai-usage")
