@@ -80,6 +80,36 @@ with patch.object(scanner, "_serpapi_request", side_effect=fake_request), patch.
     check("3-star-and-up keeps the budget 3-star option but still drops the unclassed hostel",
           "Budget 3 star (ibis-like)" in names_3plus and "Hostel (MEININGER-like), no class" not in names_3plus)
 
+FAKE_RENTALS = {
+    "properties": [
+        {"name": "Apartment A", "rate_per_night": {"extracted_lowest": 200}},
+        {"name": "Apartment B", "rate_per_night": {"extracted_lowest": 250}},
+    ]
+}
+
+
+def fake_request_rentals(params):
+    captured_params.clear()
+    captured_params.update(params)
+    return FAKE_RENTALS
+
+
+with patch.object(scanner, "_serpapi_request", side_effect=fake_request_rentals), patch.object(scanner, "_api_key", return_value="test-key"):
+    # --- Rejected on first review (Shaked, round 6, PR #41): SerpApi's
+    # vacation_rentals mode (apartments/villas) mostly never returns a
+    # hotel_class at all, so applying the star filter there dropped
+    # almost every listing - a perfectly reasonable "דירה ברמה בינונית"
+    # request came back with 0 results. A stated comfort level only means
+    # something for actual hotels; it must never be applied (neither as
+    # the SerpApi request param nor the client-side re-check) in rentals
+    # mode. ---
+    result_rentals = scanner.search_hotels("Budapest", "2027-01-10", "2027-01-15", adults=2,
+                                            vacation_rentals=True, min_hotel_class=3)
+    check("vacation_rentals mode never sends the hotel_class request param, even with a stated level",
+          "hotel_class" not in captured_params)
+    check("vacation_rentals mode never filters out unclassed apartments - both are returned",
+          len(result_rentals["hotels"]) == 2)
+
 # --- public_site.py's level -> min_hotel_class mapping and wiring ---
 import public_site
 

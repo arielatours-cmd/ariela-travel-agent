@@ -791,7 +791,14 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
         params["min_price"] = str(int(min_price))
     if max_price:
         params["max_price"] = str(int(max_price))
-    if min_hotel_class and 2 <= int(min_hotel_class) <= 5:
+    # Seen live (Shaked, round 6): hotel_class is a HOTEL star rating -
+    # SerpApi's vacation_rentals mode (apartments/villas) mostly doesn't
+    # return it at all, so filtering by it there dropped almost every
+    # listing to zero results for a perfectly reasonable "רמה בינונית/
+    # יוקרתית" apartment request. A stated comfort level only ever means
+    # something for actual hotels; never apply it (neither as the SerpApi
+    # request param nor the client-side re-check below) in rentals mode.
+    if min_hotel_class and not vacation_rentals and 2 <= int(min_hotel_class) <= 5:
         params["hotel_class"] = ",".join(str(c) for c in range(int(min_hotel_class), 6))
     data = _serpapi_request(params)
     properties = data.get("properties") or []
@@ -822,12 +829,14 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
             "amenities": prop.get("amenities") or [],
             "nearby_places": [p.get("name") for p in (prop.get("nearby_places") or []) if isinstance(p, dict) and p.get("name")][:3],
         })
-    if min_hotel_class and 2 <= int(min_hotel_class) <= 5:
+    if min_hotel_class and not vacation_rentals and 2 <= int(min_hotel_class) <= 5:
         # Never trust the upstream filter alone to be exhaustive - drop
         # anything SerpApi still returned below the stated minimum. A
         # hotel with no class at all (hotel_class_num is None) can't be
         # verified to meet the minimum, so it's excluded too - never
-        # silently assumed to pass.
+        # silently assumed to pass. Skipped entirely in vacation_rentals
+        # mode (see above) - never zero out a perfectly good apartment
+        # search just because SerpApi never sends it a star class.
         results = [r for r in results if (r.get("hotel_class_num") or 0) >= int(min_hotel_class)]
     return {
         "query": query,
