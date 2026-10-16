@@ -55,6 +55,8 @@
             <ul class="vacation-request-facts">
               <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
               {% if a.get('origin_airports') %}<li><b>שדה יציאה:</b> {{ a.get('origin_airports')|join(', ') }}</li>{% endif %}
+              {% if a.get('destinations') %}<li><b>שדה נחיתה:</b> {{ a.get('destinations').replace('/', ',').replace(';', ',').split(',')|map('trim')|reject('equalto', '')|join(', ') }}</li>{% endif %}
+              {% if a.get('return_departure_airports') %}<li><b>שדה המראה בחזור:</b> {{ a.get('return_departure_airports')|join(', ') }}</li>{% endif %}
               <li><b>נוסעים:</b> {{ a.get('adults', 1) }} מבוגרים{% if a.get('children') %}, {{ a.get('children') }} ילדים{% if ages %} (גילאים: {{ ages|join(', ') }}){% endif %}{% endif %}</li>
               {% if a.get('budget_mode') == 'limited' and a.get('budget_amount') %}
                 <li><b>תקציב:</b> עד ₪{{ a.get('budget_amount')|int }} לאדם</li>
