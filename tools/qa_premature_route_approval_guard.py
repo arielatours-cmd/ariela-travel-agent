@@ -104,6 +104,64 @@ no_planning_state = {}
 check("regression: no trip_planning key at all -> guard is a safe no-op",
       chat._guard_premature_route_approval({}, dict(no_planning_state), []) == no_planning_state)
 
+# --- Shaked's root-cause finding: _day_mention_count must not count a
+# weekday-conflict/date-verification clarification ("יוצא ביום X") as real
+# route evidence, since the date isn't always literally adjacent to "יום". ---
+check("_day_mention_count excludes 'יוצא ביום X' date-verification phrasing",
+      chat._day_mention_count(
+          "19.9.2027 יוצא ביום ראשון, אבל 30.9.2027 יוצא ביום רביעי"
+      ) == 0)
+check("_day_mention_count excludes bare 'יוצא יום X' (no 'ב') too",
+      chat._day_mention_count("30.9.2027 יוצא יום רביעי") == 0)
+check("_day_mention_count regression: a genuine route built with weekday names still counts",
+      chat._day_mention_count("יום ראשון: הגעה לזאגרב. יום שני: פלטביצה.") >= 2)
+
+# --- Shaked's root-cause finding: this guard alone did NOT fix the live
+# bug. She reproduced it end-to-end (real chat-clean endpoint, mocked
+# extractor returning "{}") and found the actual culprit is the SEPARATE
+# deterministic planning_accept gate inside chat_clean() itself, whose own
+# inline day_mention_count() wrongly counted "19.9.2027 יוצא ביום ראשון,
+# אבל 30.9.2027 יוצא ביום רביעי" (a date-verification/conflict
+# clarification Ariella sent along with the dates/travelers question) as
+# 2 genuine route-day markers - so "כן. זוג +2" (answering the travelers
+# question) satisfied planning_accept's day_mention_count(prior_assistant)
+# >= 2 check and got misread as itinerary approval, regardless of this
+# guard. Fixed by excluding "יום <weekday>" mentions immediately preceded
+# by "יוצא" (with an optional "ב") from BOTH the inline day_mention_count
+# in chat_clean() and this module's own _day_mention_count - reproduced
+# here through the real endpoint, not just the unit-level guard above,
+# per her methodology.
+import database
+database.init_db()
+import app as app_module
+from unittest.mock import patch
+
+
+def _fake_post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source in ("state_extractor", "classifier"):
+        return "{}"
+    return "תשובה לדוגמה."
+
+
+client = app_module.app.test_client()
+LIVE_E2E_HISTORY = [
+    {"role": "assistant", "content": "זו חופשה רגילה, נסיעת עסקים, או חופשת סקי?"},
+    {"role": "user", "content": "רגילה"},
+    {"role": "assistant", "content": (
+        "19.9.2027 יוצא ביום ראשון, אבל 30.9.2027 יוצא ביום רביעי - "
+        "איזה תאריכים בדיוק? ובינתיים, כמה נוסעים אתם, ויש ילדים בהרכב?"
+    )},
+]
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
+    r_live = client.post("/api/ariella/chat-clean", json={
+        "message": "כן. זוג +2",
+        "history": LIVE_E2E_HISTORY,
+        "trip_state": {"trip_type": "standard", "trip_planning": {"interested": True, "details": {}}},
+    })
+tu_live = (r_live.get_json() or {}).get("trip_update") or {}
+check("e2e exact live repro: 'כן. זוג +2' never gets misread as route approval",
+      (tu_live.get("trip_planning") or {}).get("approved") is not True)
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

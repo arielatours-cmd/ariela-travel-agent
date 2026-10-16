@@ -124,7 +124,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - לפני שמציעים שדה תעופה כאופציה ליעד מסוים, ודאי שהוא באמת באותה מדינה שהלקוח ביקש. אם ההצעה היחידה הסבירה היא שדה במדינה שכנה (למשל זאגרב בקרואטיה עבור יעד בסלובניה), חובה לציין זאת במפורש ולתת ללקוח לבחור מדעת, ולא להציג אותו כאילו הוא בתוך היעד המבוקש.
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
-- כשגיל הילד/ה טרם נמסר, בררי גיל ומגדר באותה שאלה פתוחה אחת, בניסוח טבעי משלך (לדוגמה "ספרי לי על הילדים - בן או בת ובאיזה גיל"), לא כשאלה קבועה ולא בשתי שאלות נפרדות. לעולם אל תשלבי בה אזכור של גיל ההורים/הזוג/המבוגרים באותו משפט (למשל "כמה הזוג בן, כמה הילד/ה?") - זה ניסוח שבור שאין לו משמעות ומבלבל את הלקוח. גיל המבוגרים אינו רלוונטי לחיפוש ולעולם אינו נשאל. אם child_ages כבר קיים במצב החופשה המצטבר אך child_genders חסר/null, מותרת שאלת השלמה אחת על המגדר בלבד ("בן או בת?" או דומה) - לעולם אל תחזרי על שאלת הגיל כשהוא כבר ידוע.
+- כשגיל הילד/ה טרם נמסר, בררי גיל ומגדר באותה שאלה פתוחה אחת בלבד, בניסוח טבעי משלך (לדוגמה "ספרי לי על הילדים - בן או בת ובאיזה גיל"), לא כשאלה קבועה ולא בשתי שאלות נפרדות. לעולם אל תשלבי בה אזכור של גיל ההורים/הזוג/המבוגרים באותו משפט (למשל "כמה הזוג בן, כמה הילד/ה?") - זה ניסוח שבור שאין לו משמעות ומבלבל את הלקוח. גיל המבוגרים אינו רלוונטי לחיפוש ולעולם אינו נשאל. לעולם אל תחזרי על שאלת הגיל כשהוא כבר ידוע. אין שאלת המשך נפרדת על המגדר: אם הלקוח ענה רק עם גילאים ולא ציין מגדר, לעולם אל תשאלי שוב על המגדר - המשיכי הלאה עם מה שיש.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה בינארית קצרה וטבעית (למשל "לאסוף ולהחזיר בשדה התעופה, או שעדיף מיקום אחר כמו מרכז העיר?") ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לציין את שמות השדות במפורש ולשאול לאיזה מהם (למשל "לאסוף ולהחזיר בשדה התעופה בלרנקה, בפאפוס, או במקום אחר?"), ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב קצרה ועניינית: הציגי את האפשרויות (קטן, משפחתי, משפחתי סטיישן, SUV, ג'יפ, מיניוואן 7 מקומות) ושאלי אם צריך יותר מקומות מאשר מספר הנוסעים - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). את ידני/אוטומטי שאלי כשאלה נפרדת.
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
@@ -295,24 +295,41 @@ def _weekday_date_conflict(message, history=None):
     # continuation is actually unsafe, so only that side needs the guard.
     day_re = r"(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)(?![֐-׿])(?!\s*(?:ילדים|ילדות|מבוגרים|מבוגרות|חדרים|לילות|ימים|שבועות|מקומות|מזוודות|נוסעים|אנשים|שעות|דקות))"
     date_re = r"(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?"
-    # Pair a weekday with the nearest date on either side (up to 40 chars).
+    # Pair each weekday mention with its NEAREST date, on whichever side
+    # (before or after) is textually closer, capped at 40 chars. A single
+    # directional scan ("weekday then next date forward") got this wrong
+    # for "19.9 (ראשון) עד 30.9 (חמישי)", "19.9 ראשון עד 30.9 חמישי" and
+    # "19.9 ראשון - 30.9 חמישי" (Shaked's finding, re-repro of the Croatia
+    # manual test): scanning forward from "ראשון" skips right past the
+    # 19.9 immediately preceding it and finds the FAR date 30.9 instead,
+    # since 19.9 lies behind it, not ahead. A prior fix added a second,
+    # reverse (date-then-weekday) scan for the opposite phrasing ("ביום
+    # ראשון 19.9 עד חמישי 30.9"), but the two directional scans can't both
+    # be right at once for every phrasing - "19.9 (ראשון)" needs חמישי's
+    # nearest date to be BEHIND it while ראשון's nearest date is also
+    # behind it, something no single fixed scan direction captures.
+    # Nearest-wins, checked independently per weekday mention, handles
+    # every phrasing variant without special-casing the format.
     pairs = []
-    for m in re.finditer(day_re + r".{0,40}?" + date_re, text):
-        pairs.append((m.group(1), m.group(2), m.group(3), m.group(4)))
-    # Seen live (business owner, Croatia manual test, 16.10.2026): "ביום
-    # ראשון 19.9 עד חמישי 30.9" - a genuinely correct weekday/date pair on
-    # EACH side ("ראשון"+19.9, "חמישי"+30.9), both already found by the
-    # weekday-then-date scan above. Without the guard below, this reverse
-    # scan then ALSO paired the date 19.9 with the weekday "חמישי" - which
-    # textually follows it within 40 chars, but actually belongs to the
-    # LATER date (30.9) that immediately follows that same weekday, not to
-    # the earlier one. A weekday immediately followed by its own date (the
-    # "weekday DATE" shape the first scan above already covers) is never
-    # also the trailing weekday of an earlier, different date - so skip a
-    # match here whenever the matched weekday is itself followed shortly by
-    # a date of its own.
-    for m in re.finditer(date_re + r".{0,40}?" + day_re + r"(?!.{0,10}?" + date_re + r")", text):
-        pairs.append((m.group(4), m.group(1), m.group(2), m.group(3)))
+    date_matches = list(re.finditer(date_re, text))
+    for dm in re.finditer(day_re, text):
+        day_name = dm.group(1)
+        best = None
+        best_dist = None
+        for dt_m in date_matches:
+            if dt_m.start() >= dm.end():
+                dist = dt_m.start() - dm.end()
+            elif dt_m.end() <= dm.start():
+                dist = dm.start() - dt_m.end()
+            else:
+                continue
+            if dist > 40:
+                continue
+            if best_dist is None or dist < best_dist:
+                best_dist = dist
+                best = dt_m
+        if best is not None:
+            pairs.append((day_name, best.group(1), best.group(2), best.group(3)))
     seen = set()
     for day_name, ds, mos, ys in pairs:
         sig=(day_name,ds,mos,ys)
@@ -5466,6 +5483,15 @@ _DAY_MENTION_RE = re.compile(
     r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
 )
 _DAY_MENTION_DATE_BEFORE_RE = re.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+# "19.9.2027 יוצא ביום ראשון" states which weekday a date falls on (a
+# date-verification/conflict sentence), not a day-by-day plan - seen live
+# (Shaked's root-cause finding, Croatia re-repro): the date doesn't always
+# sit immediately before "יום" (there's "יוצא ב" in between, and sometimes
+# no date at all nearby, e.g. "אבל 30.9.2027 יוצא ביום רביעי" where the
+# weekday follows "יוצא" with its own date even further back), so excluding
+# only a literally-adjacent date missed this phrasing entirely and let a
+# weekday-conflict clarification get miscounted as real route evidence.
+_DAY_MENTION_VERIFY_BEFORE_RE = re.compile(r"יוצא\s*ב?\s*$")
 _NUMBERED_DAY_RE = re.compile(r"(?<![א-ת])יום\s+(\d{1,2})(?!\d)")
 
 
@@ -5479,7 +5505,7 @@ def _day_mention_count(text):
     count = 0
     for m in _DAY_MENTION_RE.finditer(text):
         prefix = text[max(0, m.start() - 20):m.start()]
-        if _DAY_MENTION_DATE_BEFORE_RE.search(prefix):
+        if _DAY_MENTION_DATE_BEFORE_RE.search(prefix) or _DAY_MENTION_VERIFY_BEFORE_RE.search(prefix):
             continue
         count += 1
     numbered = {m.group(1) for m in _NUMBERED_DAY_RE.finditer(text)}
@@ -8043,6 +8069,14 @@ def chat_clean():
             r"יום\s+(?:\d{1,2}\s*)?\(?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)\)?"
         )
         _date_just_before_re = _re_itinerary.compile(r"\d{1,2}\.\d{1,2}\.\d{2,4}\s*\(?$")
+        # "19.9.2027 יוצא ביום ראשון, אבל 30.9.2027 יוצא ביום רביעי" states
+        # which weekday a date falls on (a date-verification/conflict
+        # clarification), not a day-by-day plan - seen live (business
+        # owner's Croatia re-repro): the date isn't always literally
+        # adjacent to "יום" (there's "יוצא ב" in between), so this sentence
+        # was wrongly counted as 2 genuine route-day markers and let a bare
+        # "כן" answering an unrelated question be misread as route approval.
+        _verify_before_re = _re_itinerary.compile(r"יוצא\s*ב?\s*$")
 
         # Itineraries are just as often numbered ("יום 1: הגעה...", "יום 2:
         # פליטביצה") with no weekday at all - seen live in the Croatia test:
@@ -8056,7 +8090,7 @@ def chat_clean():
             count = 0
             for m in _day_mention_re.finditer(text):
                 prefix = text[max(0, m.start() - 20):m.start()]
-                if _date_just_before_re.search(prefix):
+                if _date_just_before_re.search(prefix) or _verify_before_re.search(prefix):
                     continue
                 count += 1
             numbered = {m.group(1) for m in _numbered_day_re.finditer(text)}

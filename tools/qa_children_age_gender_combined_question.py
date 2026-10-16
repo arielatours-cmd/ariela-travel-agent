@@ -7,10 +7,14 @@ separate questions, and never re-asking the age once it is already known.
 Live bug (Croatia, trip 258, 16.10): child_ages was already saved
 ("9 ו-11" given at 15:52), yet at 16:10 Ariella asked again "עוד שתי
 שאלות: ... ובת כמה ובן כמה הילדים (רק כדי לדעת את המגדר)?" - re-asking the
-already-known ages just to get at the gender. The business owner's fix is
-a prompt principle: ask age+gender together up front; if only the age is
-missing gender, ask ONE follow-up about gender alone, without repeating
-the age question.
+already-known ages just to get at the gender.
+
+The business owner's FIRST fix attempt still allowed one follow-up
+question about gender alone when only ages were known. She then EXPLICITLY
+RETRACTED that part (same day): "גיל ומין הילדים נשאלים בשאלה אחת בלבד. אין
+שאלת המשך נפרדת. אם הלקוח ענה רק עם גילאים, אריאלה לא שואלת שוב, וממשיכה
+הלאה עם מה שיש." - no follow-up gender-only question is allowed at all,
+ever; if gender wasn't given alongside age, Ariella proceeds without it.
 
 This only checks the principle is present in TINKERBELL_SYSTEM and that
 the existing travelers.child_ages gap computation (which already never
@@ -43,8 +47,10 @@ check("prompt instructs asking age and gender together in one open question",
       "גיל ומגדר באותה שאלה פתוחה אחת" in prompt)
 check("prompt explicitly forbids re-asking age once child_ages is already known",
       "לעולם אל תחזרי על שאלת הגיל כשהוא כבר ידוע" in prompt)
-check("prompt still allows a single gender-only follow-up when only ages are known",
-      "מותרת שאלת השלמה אחת על המגדר בלבד" in prompt)
+check("prompt's retraction is applied: NO gender-only follow-up question is allowed at all",
+      "מותרת שאלת השלמה אחת על המגדר בלבד" not in prompt)
+check("prompt explicitly forbids a separate follow-up question about gender",
+      "אין שאלת המשך נפרדת על המגדר" in prompt)
 
 # Regression: travelers.child_ages gap computation never required gender,
 # and must still not after this prompt-only change (no code path touched).
