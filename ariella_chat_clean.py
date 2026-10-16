@@ -1331,6 +1331,20 @@ def _resolve_destination_airports_from_route_names(airports, names):
             city_codes.append(code)
     if city_codes:
         return city_codes
+    # An island/region name (e.g. "כרתים") is more specific than a bare
+    # country but names no single city - see _ISLAND_REGION_GATEWAY_AIRPORTS
+    # for why this always returns every one of the island's own gateways,
+    # never just one.
+    region_codes = []
+    for name in names:
+        needle = _normalize_place_name(name)
+        for region, region_airport_codes in _ISLAND_REGION_GATEWAY_AIRPORTS.items():
+            if needle and needle == _normalize_place_name(region):
+                for code in region_airport_codes:
+                    if code not in region_codes:
+                        region_codes.append(code)
+    if region_codes:
+        return region_codes
     codes = []
     for name in names:
         needle = str(name).strip().lower()
@@ -2138,7 +2152,17 @@ def _approval_trigger(message, history, state):
     """
     msg = str(message or "").strip().lower()
     if msg not in {"מאשר", "מאשרת"}:
-        return False
+        # "כן, מאשרת" / "כן מאשר" ("yes, I confirm") IS the approval word
+        # with a redundant leading "yes" - seen live (Shaked, round 8): this
+        # fell through to the near-miss/typo clarifier ("האם התכוונת
+        # לאשר?") instead of actually approving. Strip a leading "כן" (with
+        # its separating punctuation/whitespace) and recheck against the
+        # same exact two words, so this never widens what counts as
+        # approval beyond "מאשר"/"מאשרת" themselves (a bare "כן" alone
+        # still does not approve).
+        msg = re.sub(r"^כן[\s,.!]*", "", msg)
+        if msg not in {"מאשר", "מאשרת"}:
+            return False
     state = state if isinstance(state, dict) else {}
     # Once the flights were approved and are being scanned, "מאשרת" can only
     # be about a later service (car/lodging/route) - seen live: a car
@@ -3099,6 +3123,31 @@ _DESTINATION_SPELLING_ALIASES = {
     "זאלבאך": "זלבאך",
 }
 
+# Islands/regions a customer names by the island itself ("כרתים", "סיציליה"),
+# never by any single city on it - unlike a country (which already resolves
+# to every one of its airports via the generic substring fallback in
+# _resolve_destination_airports_from_route_names), a region name needs its
+# own explicit mapping here because it never appears as a country_he or
+# city_he value anywhere in the catalog, so it was silently unrecognized
+# entirely. Seen live (Shaked): Ariella stated as fact "לכרתים ברוב המקרים
+# לא מגיעים בטיסה ישירה מישראל" - false, a seasonal direct route to
+# Heraklion exists - traced back to "כרתים" never being a known destination
+# in the first place, so the real route data could never be reached. Each
+# entry lists EVERY one of the island's own airports already in the catalog
+# (never just one) - Crete alone has two under their own city names
+# (Heraklion AND Chania); aliasing the island to a single city would
+# silently drop the other gateway, the exact over-narrowing mistake
+# _resolve_destination_airports_from_route_names's own docstring already
+# warns against for routes. Add more islands/regions here as they're found
+# live - this is a short, explicit list, not a general geography database.
+_ISLAND_REGION_GATEWAY_AIRPORTS = {
+    "כרתים": ["HER", "CHQ"],
+    "סיציליה": ["CTA", "PMO"],
+    "סרדיניה": ["CAG", "OLB"],
+    "מיורקה": ["PMI"],
+    "טנריפה": ["TFS"],
+}
+
 
 def _known_destination_names():
     """needle -> display label for every country/city in the real airport
@@ -3145,6 +3194,13 @@ def _known_destination_names():
             known[en.lower()] = en
     for alias, canonical in _DESTINATION_SPELLING_ALIASES.items():
         known[alias] = canonical
+    # An island/region name is recognized in its own right - never rewritten
+    # to one of its airport cities (unlike a plain spelling alias above),
+    # since that would silently pick one gateway over the island's other
+    # ones. See _ISLAND_REGION_GATEWAY_AIRPORTS for why resolving it to an
+    # airport code still needs its own list of every gateway on the island.
+    for region in _ISLAND_REGION_GATEWAY_AIRPORTS:
+        known[region] = region
     # A specific place (city or resort) is always more specific than a bare
     # country name, so it must be checked first regardless of string length
     # - seen live (Shaked, qa-s91 round 2, C2): "חופשת סקי בזאלבאך שבאוסטריה"
@@ -4174,6 +4230,41 @@ def _deterministic_named_decline_facts(message):
                 svc = _service_for(word)
                 if svc:
                     declined[svc] = True
+        # Seen live (Shaked, qa-s97, round 7): "לא צריך לינה ולא רכב" (don't
+        # need lodging and not car) declined ONLY lodging - car was still
+        # asked about ("איזה סוג/גודל רכב?") a turn later. Every pattern
+        # above requires either ONE shared negation in front of a
+        # coordinated list ("לא צריך לינה ורכב") or a single "בלי"/"ללא"
+        # per service - neither covers two services each negated
+        # separately with their OWN "לא", which is exactly how Hebrew
+        # naturally elides the repeated need-word ("לא צריך X ולא Y", not
+        # "לא צריך X ולא צריך Y"). Each "ולא (NEED-word)? SERVICE" after the
+        # first declined service is itself an unambiguous decline of that
+        # service, whether or not it repeats the need-word.
+        for m3 in re.finditer(r"ולא\s*(?:" + need_word + r"\s+)?(" + service_alt + r")", clause):
+            svc = _service_for(m3.group(1))
+            if not svc:
+                continue
+            # Regression found by Shaked reviewing this exact change (PR #51):
+            # since מלון/דירה/וילה/צימר/לינה are all "lodging", a customer
+            # contrasting two TYPES of the same service ("כן, דירה ולא
+            # מלון", "כן, צריך לינה - מלון ולא דירה") had the whole lodging
+            # service wrongly declined - this loop fired on "ולא מלון"/"ולא
+            # דירה" exactly as if a second, DIFFERENT service had been
+            # named. Two guards, as she proposed: (1) only fire when a real
+            # negation was already established earlier in this clause (a
+            # bare "ולא" with nothing preceding it is not itself proof of a
+            # decline - both regression messages have no "לא"/"בלי"/"ללא"
+            # anywhere before it); (2) skip when the word immediately
+            # before "ולא" names the SAME service as the one just matched
+            # (a type contrast, not a second declined service).
+            preceding = clause[:m3.start()].rstrip(" ,-")
+            same_service_before = re.search(r"(" + service_alt + r")\s*$", preceding)
+            if same_service_before and _service_for(same_service_before.group(1)) == svc:
+                continue
+            if not declined and not re.search(r"לא\s+" + need_word + r"|בלי|ללא", preceding):
+                continue
+            declined[svc] = True
     if not declined:
         return {}
     return {
@@ -5372,6 +5463,26 @@ def _is_itinerary_acceptance(message):
         "בדיוק", "נהדר", "מדהים", "סגור", "סגרנו", "יאללה", "טוב מאוד", "בסדר גמור", "perfect",
     )
     return any(re.search(r"(?<![\u05d0-\u05ea])" + re.escape(p) + r"(?![\u05d0-\u05ea])", msg) for p in positives)
+
+
+def _approval_message_has_extra_content(message):
+    """A bare route-approval word ("מתאים"/"כן"/...) carries nothing beyond
+    the approval itself - not worth an extra classifier call. But the exact
+    same message often also answers the very next question in one go
+    ("כן, מלון 4 כוכבים במרכז" - approves the route AND states a lodging
+    preference at once, seen live Shaked round 8, London). Strips the known
+    bare-acceptance words (same set _is_itinerary_acceptance's positives
+    uses) and reports whether anything substantive is left."""
+    msg = _normalize_confirm(message).strip().lower()
+    for p in (
+        "כן", "מאשר", "מאשרת", "מתאים", "מתאימה", "מעולה", "מצוין", "מצויין", "אחלה",
+        "נשמע טוב", "נשמע מעולה", "נשמע אחלה", "נשמע סבבה", "נשמע מושלם", "סבבה",
+        "אהבתי", "מושלם", "יופי", "בדיוק", "נהדר", "מדהים", "סגור", "סגרנו", "יאללה",
+        "טוב מאוד", "בסדר גמור", "perfect",
+    ):
+        msg = msg.replace(p, "")
+    remainder = "".join(ch for ch in msg if ch.isalnum())
+    return len(remainder) >= 3
 
 
 _POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
@@ -7152,19 +7263,16 @@ def chat_clean():
                 'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
                 'active_session':None
             }
-            pending_destination = _deterministic_destination_facts([], original_change, {})
-            if pending_destination:
-                fresh = _merge_trip_state(fresh, pending_destination)
-            # Seen live (Shaked, qa-s91 round 2, C2): "אני רוצה לפתוח חופשה
-            # חדשה ונפרדת: חופשת סקי בזאלבאך שבאוסטריה, עם טיסה ולינה"
-            # already states the trip type (ski) - losing it here meant
-            # Ariella asked "regular vacation, business trip, or ski?" right
-            # back, as if the customer had never said. Preserve it exactly
-            # like the destination above, from the very same triggering
-            # message.
-            pending_trip_type = _deterministic_trip_type_facts(original_change)
-            if pending_trip_type:
-                fresh = _merge_trip_state(fresh, pending_trip_type)
+            # Seen live (Shaked, qa-s97, round 7, A2): this used to only
+            # re-extract destination and trip_type from original_change -
+            # "חופשה חדשה לגמרי לאיטליה, 10-17 באפריל, שלושה מבוגרים"
+            # (stating dates AND travelers in the very same breath) still
+            # lost both entirely, re-asked a turn later as if never said.
+            # _seed_fresh_trip_from_trigger_message runs the full
+            # deterministic cascade (destination/trip_type/dates/duration/
+            # travelers/departure_airport/budget) instead of just the two
+            # fields this branch used to hand-pick.
+            fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(original_change))
             if any(x in original_change.lower() for x in ("מסלול","לתכנן טיול","תכנון טיול","אטרקציות")):
                 fresh['requested_services'] = ['trip_planning']
                 fresh['active_session'] = 'trip_planning'
@@ -7335,8 +7443,24 @@ def chat_clean():
         else:
             intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
         if intent == "new":
-            fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None,
-                     'destination':{'places':[pending_new_trip],'mode':'specific','status':'known'}}
+            # Seen live (Shaked, qa-s97, round 7, A3): this used to only set
+            # destination (to the already-identified pending_new_trip) -
+            # "חופשה חדשה ונפרדת, 20-25 במרץ, 2+2 ילדים", confirming THIS
+            # exact gate, still lost the dates and travelers stated in the
+            # very same breath, exactly like the sibling bug already fixed
+            # for the generic reset-confirmation gate (A2). Seed the full
+            # deterministic cascade from this message too, same as every
+            # other "new vacation" reset branch - pending_new_trip remains
+            # the destination fallback only if this message's own
+            # extraction doesn't independently confirm one (it was already
+            # positively identified when this gate first fired, from a cue-
+            # adjacency/already-committed heuristic that _deterministic_
+            # destination_facts alone may not always re-derive from this
+            # later confirming message by itself).
+            fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
+            fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
+            if not ((fresh.get('destination') or {}).get('places') if isinstance(fresh.get('destination'), dict) else None):
+                fresh['destination'] = {'places':[pending_new_trip],'mode':'specific','status':'known'}
             reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה תרצי לטוס?"
             _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
             return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
@@ -8208,12 +8332,58 @@ def chat_clean():
                             logging.exception("Tinkerbell reply failed on already-decided post-route domain: %s", exc)
                             reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
                     else:
-                        reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
-                        # Remember what was just offered, so a plain "כן"/"לא" next
-                        # turn settles it via _post_flight_offer_answer. Without this
-                        # the "כן" reached the model with no record of the question,
-                        # and it asked about the car all over again (seen live).
-                        trip_update["post_flight_offer"] = [next_domain]
+                        # Seen live (Shaked, round 8, London): the SAME message
+                        # that approves the route can already answer the very
+                        # offer about to be asked ("כן, מלון 4 כוכבים במרכז" -
+                        # approves the route AND states a lodging preference at
+                        # once). Blindly asking the yes/no offer here silently
+                        # discarded those details. Only worth the extra
+                        # classifier call when the message actually carries
+                        # something beyond a bare acceptance word.
+                        same_message_answer = {}
+                        if _approval_message_has_extra_content(message):
+                            same_message_answer = _post_flight_offer_answer(
+                                message, {"post_flight_offer": [next_domain]}, key, model, history
+                            )
+                        decided = same_message_answer.get(next_domain)
+                        if decided is True:
+                            statuses_after_plan[next_domain] = "active"
+                            trip_update["session_status"] = statuses_after_plan
+                            services_now = set(trip_update.get("requested_services") or [])
+                            services_now.add(next_domain)
+                            trip_update["requested_services"] = list(services_now)
+                            decisions_now = dict(trip_update.get("service_decisions") or {})
+                            decisions_now[next_domain] = {"wanted": True, "source": "post_flight_offer"}
+                            trip_update["service_decisions"] = decisions_now
+                            trip_update["active_session"] = next_domain
+                            trip_update = _advance_sessions(trip_update)
+                            try:
+                                reply = _call_tinkerbell(key, model, history, message, trip_update)
+                            except Exception as exc:
+                                logging.exception("Tinkerbell reply failed on same-message post-route domain answer: %s", exc)
+                                reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
+                        elif decided is False:
+                            statuses_after_plan[next_domain] = "declined"
+                            trip_update["session_status"] = statuses_after_plan
+                            services_now = set(trip_update.get("requested_services") or [])
+                            services_now.discard(next_domain)
+                            trip_update["requested_services"] = list(services_now)
+                            decisions_now = dict(trip_update.get("service_decisions") or {})
+                            decisions_now[next_domain] = {"wanted": False, "source": "post_flight_offer"}
+                            trip_update["service_decisions"] = decisions_now
+                            trip_update = _advance_sessions(trip_update)
+                            try:
+                                reply = _call_tinkerbell(key, model, history, message, trip_update)
+                            except Exception as exc:
+                                logging.exception("Tinkerbell reply failed on same-message post-route decline: %s", exc)
+                                reply = "מצוין, המסלול מאושר."
+                        else:
+                            reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
+                            # Remember what was just offered, so a plain "כן"/"לא" next
+                            # turn settles it via _post_flight_offer_answer. Without this
+                            # the "כן" reached the model with no record of the question,
+                            # and it asked about the car all over again (seen live).
+                            trip_update["post_flight_offer"] = [next_domain]
                 else:
                     # Seen live (Shaked, scenario 8 - flights+route only, both
                     # now resolved): this used to just say "מצוין, המסלול
