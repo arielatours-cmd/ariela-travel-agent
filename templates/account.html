@@ -400,6 +400,30 @@
         <a class="ariella-return-button" href="{{ url_for('site.new_trip') }}">אריאלה שלי</a>
       </div>
     {% endif %}
+    {% if member_travelers %}
+    <details class="member-profile" id="my-profile">
+      <summary>מה אריאלה זוכרת עליי</summary>
+      <p class="member-profile-intro">הנוסעים שסיפרתם עליהם בחופשות קודמות. אפשר לתקן גיל או למחוק.</p>
+      <ul class="member-travelers">
+        {% for t in member_travelers %}
+        <li class="member-traveler{% if t.needs_review %} needs-review{% endif %}">
+          <span class="member-traveler-label">{{ t.label }}</span>
+          {% if t.needs_review %}<small class="member-traveler-review">ייתכן שזה אותו ילד, תקנו אם צריך</small>{% endif %}
+          {% if not t.is_adult %}
+          <details class="member-traveler-edit"><summary>תיקון גיל</summary>
+            <form method="post" action="{{ url_for('site.update_member_traveler', traveler_id=t.id) }}">
+              <label>גיל <input type="number" name="age" min="0" max="17" value="{{ t.estimated_age if t.estimated_age is not none else '' }}"></label>
+              <label>מגדר <select name="gender"><option value=""{% if not t.gender %} selected{% endif %}>לא צוין</option><option value="male"{% if t.gender == 'male' %} selected{% endif %}>בן</option><option value="female"{% if t.gender == 'female' %} selected{% endif %}>בת</option></select></label>
+              <button type="submit">שמירה</button>
+            </form>
+          </details>
+          {% endif %}
+          <form method="post" action="{{ url_for('site.delete_member_traveler', traveler_id=t.id) }}" class="member-traveler-delete"><button type="submit">מחיקה</button></form>
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
   </div>
 </section>
 
