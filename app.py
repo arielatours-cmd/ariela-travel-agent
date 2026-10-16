@@ -1,3 +1,5 @@
+import hmac
+import html
 import logging
 import os
 import sqlite3
@@ -7,6 +9,8 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect, Response
 from werkzeug.exceptions import HTTPException
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from urllib.parse import quote
 
 # Gunicorn/Flask leave the root logger at its default WARNING level, which
 # silently drops every logging.info() call app-wide (booking diagnostics,
@@ -174,8 +178,38 @@ if SCHEDULER_ENABLED and os.getenv("WERKZEUG_RUN_MAIN") != "true":
     start_scheduler()
 
 
+# Admin login (so the token no longer has to sit in ?token= URLs, which end
+# up in Render's request logs). The login is its own signed cookie rather
+# than a flag in the site-wide Flask session: it is SameSite=Strict, so a
+# link or form on another site can never carry it - several admin actions
+# are plain GETs (e.g. /admin/delete-member). Path "/" because the admin
+# dashboard also calls protected routes outside /admin (/scan, /scan-stop...).
+ADMIN_COOKIE = "ariella_admin"
+ADMIN_SESSION_SECONDS = 12 * 60 * 60
+
+
+def _admin_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt="ariella-admin-session")
+
+
+def _admin_cookie_valid() -> bool:
+    raw = request.cookies.get(ADMIN_COOKIE)
+    if not raw or not ADMIN_TOKEN:
+        return False
+    try:
+        data = _admin_serializer().loads(raw, max_age=ADMIN_SESSION_SECONDS)
+    except (BadSignature, SignatureExpired):
+        return False
+    # Rotating ADMIN_TOKEN logs every existing admin session out.
+    expected = hmac.new(ADMIN_TOKEN.encode(), b"admin-session", "sha256").hexdigest()
+    return isinstance(data, dict) and data.get("is_admin") is True \
+        and hmac.compare_digest(str(data.get("token_tag") or ""), expected)
+
+
 def _authorized() -> bool:
     if not ADMIN_TOKEN:
+        return True
+    if _admin_cookie_valid():
         return True
     supplied = request.headers.get("X-Admin-Token") or request.args.get("token", "")
     return supplied == ADMIN_TOKEN
@@ -183,8 +217,70 @@ def _authorized() -> bool:
 
 def _require_admin():
     if not _authorized():
+        # A browser opening an admin page gets the login form instead of a
+        # bare 401; API/script callers keep the 401 JSON exactly as before.
+        if request.method == "GET" and request.accept_mimetypes.best == "text/html":
+            return redirect("/admin/login?next=" + quote(request.path, safe="/"))
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     return None
+
+
+_ADMIN_LOGIN_HTML = """<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>אריאלה — כניסת מנהל</title><style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;background:#f5f7fb;font-family:Arial,sans-serif;color:#182033}
+form{width:min(380px,100%);background:#fff;padding:26px 22px;border-radius:14px;box-shadow:0 4px 24px #0000001a;display:flex;flex-direction:column;gap:12px}
+h1{margin:0 0 4px;font-size:22px}input{padding:12px;font-size:16px;border:1px solid #d8dde6;border-radius:8px;direction:ltr}
+button{padding:12px;font-size:16px;font-weight:800;border:0;border-radius:8px;background:#b8892e;color:#fff;cursor:pointer}
+.err{color:#a12b2b;margin:0}</style></head><body>
+<form method="post" action="/admin/login" autocomplete="off"><h1>כניסת מנהל</h1>
+{error}<label for="token">קוד מנהל</label>
+<input id="token" name="token" type="password" required autofocus>
+<input type="hidden" name="next" value="{next}"><button type="submit">כניסה</button></form></body></html>"""
+
+
+def _safe_admin_next(value) -> str:
+    value = str(value or "")
+    return value if value.startswith("/admin") and not value.startswith("/admin/login") and "//" not in value else "/admin"
+
+
+def _admin_login_page(error="", next_path="/admin", status=200):
+    body = _ADMIN_LOGIN_HTML.replace("{error}", f'<p class="err">{html.escape(error)}</p>' if error else "") \
+        .replace("{next}", html.escape(_safe_admin_next(next_path)))
+    resp = Response(body, status=status, mimetype="text/html")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.get("/admin/login")
+def admin_login_form():
+    if ADMIN_TOKEN and _admin_cookie_valid():
+        return redirect(_safe_admin_next(request.args.get("next")))
+    return _admin_login_page(next_path=request.args.get("next"))
+
+
+@app.post("/admin/login")
+def admin_login():
+    next_path = _safe_admin_next(request.form.get("next"))
+    supplied = str(request.form.get("token") or "")
+    if not ADMIN_TOKEN or not hmac.compare_digest(supplied.encode(), ADMIN_TOKEN.encode()):
+        return _admin_login_page("קוד שגוי", next_path, status=401)
+    tag = hmac.new(ADMIN_TOKEN.encode(), b"admin-session", "sha256").hexdigest()
+    resp = redirect(next_path)
+    resp.set_cookie(
+        ADMIN_COOKIE, _admin_serializer().dumps({"is_admin": True, "token_tag": tag}),
+        max_age=ADMIN_SESSION_SECONDS, path="/", httponly=True, samesite="Strict",
+        secure=request.is_secure or bool(os.getenv("RENDER")),
+    )
+    return resp
+
+
+@app.route("/admin/logout", methods=["GET", "POST"])
+def admin_logout():
+    resp = redirect("/admin/login")
+    resp.delete_cookie(ADMIN_COOKIE, path="/", httponly=True, samesite="Strict",
+                       secure=request.is_secure or bool(os.getenv("RENDER")))
+    return resp
 
 
 @app.get("/health")
