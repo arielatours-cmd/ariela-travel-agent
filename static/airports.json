@@ -20,6 +20,16 @@
     "country_he": "ישראל"
   },
   {
+    "code": "ETM",
+    "city_en": "Eilat",
+    "city_he": "אילת",
+    "name_en": "Ramon Airport",
+    "name_he": "נמל התעופה רמון",
+    "country": "IL",
+    "country_en": "Israel",
+    "country_he": "ישראל"
+  },
+  {
     "code": "TIA",
     "city_en": "Tirana",
     "city_he": "טירנה",
