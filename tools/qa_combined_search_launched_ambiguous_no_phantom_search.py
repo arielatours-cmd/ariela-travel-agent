@@ -5,14 +5,20 @@ start_flight_search=True in the same response, with destination=None - a
 real flight search launched with absolutely no criteria (no destination,
 no dates), and no "מאשרת" from the customer at all.
 
-Root cause: Sicily isn't recognized as a destination on main yet (that's
-the separate, still-open PR #47 - this file reproduces the bug with ANY
-unrecognized/ambiguous message, not Sicily specifically, so it stands on
-its own regardless of PR #47's status). When the combined_search_launched
-guard's _deterministic_destination_facts check (PR #48) can't find a
-genuinely different destination in the message, it falls to the
-"ambiguous" branch, which used to pop ONLY combined_search_launched -
-leaving search_confirmed still True from the OLD, already-launched trip.
+Root cause: at the time this was written, Sicily wasn't recognized as a
+destination on main yet, so this reproduced with ANY unrecognized/
+ambiguous message, Sicily included. PR #47 has since merged Sicily (and
+other islands/regions) into the recognized catalog - the original message
+now takes the OTHER branch of this same guard (a genuinely-recognized new
+destination), not the ambiguous one this file tests, so the message below
+was changed to one that still names no destination at all ("לתכנן חופשה"
+with nothing further), keeping this file testing the ambiguous/
+unrecognized branch it was written for regardless of the catalog's
+contents. When the combined_search_launched guard's
+_deterministic_destination_facts check (PR #48) can't find a genuinely
+different destination in the message, it falls to the "ambiguous" branch,
+which used to pop ONLY combined_search_launched - leaving search_confirmed
+still True from the OLD, already-launched trip.
 The very next computation in this same function, start_flight_search =
 bool(trip_update.get('search_confirmed')) and all-domains-resolved and
 not combined_search_launched, then read True immediately: search_confirmed
@@ -97,7 +103,7 @@ with client.session_transaction() as sess:
 #     never launch a phantom flight search with no real criteria ---
 with patch.object(chat, "_post_claude", side_effect=_fake_extractor_nothing):
     r = client.post("/api/ariella/chat-clean", json={
-        "message": "היי, רוצה לתכנן חופשה בסיציליה", "history": [],
+        "message": "היי, רוצה לתכנן חופשה", "history": [],
         "trip_state": _finished_trip_state("לונדון"),
     })
 data = r.get_json()
