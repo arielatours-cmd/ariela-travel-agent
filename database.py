@@ -560,6 +560,27 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_password_reset_member
             ON password_reset_tokens(member_id);
+
+            -- Task 010a stage 1: the member's cumulative list of fellow
+            -- travellers (member_profile.py). Ages are stored with the date
+            -- they were recorded, so the current age can be estimated.
+            CREATE TABLE IF NOT EXISTS member_travelers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                first_name TEXT,
+                relationship TEXT,
+                gender TEXT,
+                age_at_record INTEGER,
+                age_recorded_at TEXT,
+                source TEXT NOT NULL,
+                needs_review INTEGER NOT NULL DEFAULT 0,
+                last_travelled_at TEXT,
+                created_at TEXT NOT NULL,
+                deleted_at TEXT,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_member_travelers_member ON member_travelers(member_id);
             """
         )
 
@@ -662,6 +683,12 @@ def init_db() -> None:
         if "detail" not in opt_event_columns:
             conn.execute("ALTER TABLE whatsapp_opt_events ADD COLUMN detail TEXT")
 
+        # Task 013a: which affiliate network a booking click went through
+        # (travelpayouts / cj); empty for a plain, uncredited supplier link.
+        click_columns = {row["name"] for row in conn.execute("PRAGMA table_info(booking_clicks)").fetchall()}
+        if "affiliate_network" not in click_columns:
+            conn.execute("ALTER TABLE booking_clicks ADD COLUMN affiliate_network TEXT")
+
         ai_usage_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ai_usage)").fetchall()}
         if "channel" not in ai_usage_columns:
             conn.execute("ALTER TABLE ai_usage ADD COLUMN channel TEXT")
@@ -703,6 +730,33 @@ def init_db() -> None:
         conn.execute("DELETE FROM offers WHERE UPPER(COALESCE(airline,'')) LIKE 'QA %' OR payload_json LIKE '%\"qa_test_deal\": true%' OR payload_json LIKE '%דיל בדיקה QA%'")
         conn.execute("DELETE FROM scan_runs WHERE LOWER(COALESCE(scan_type,'')) LIKE 'qa%' AND id NOT IN (SELECT DISTINCT scan_run_id FROM offers)")
         conn.execute("INSERT INTO settings(key,value) VALUES('qa_test_mode','0') ON CONFLICT(key) DO UPDATE SET value='0'")
+
+        _migrate_companions_to_member_travelers(conn)
+
+
+def _migrate_companions_to_member_travelers(conn) -> None:
+    """Task 010a, one-time: copy the named companions travel_agents.py saved
+    in ariella_travel_companions into member_travelers as adults. The old
+    table is kept. Runs once (settings flag); if the old table does not
+    exist yet there is nothing to copy and the flag stays unset."""
+    if conn.execute("SELECT 1 FROM settings WHERE key='member_travelers_migrated'").fetchone():
+        return
+    try:
+        rows = conn.execute(
+            "SELECT member_id, first_name, relationship, created_at, last_travelled_at "
+            "FROM ariella_travel_companions ORDER BY id"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return
+    for row in rows:
+        conn.execute(
+            """INSERT INTO member_travelers(member_id, kind, first_name, relationship, source,
+                   last_travelled_at, created_at)
+               VALUES(?, 'adult', ?, ?, 'said_in_chat', ?, ?)""",
+            (row["member_id"], row["first_name"], row["relationship"],
+             row["last_travelled_at"], row["created_at"] or utc_now_iso()),
+        )
+    conn.execute("INSERT INTO settings(key,value) VALUES('member_travelers_migrated', ?)", (utc_now_iso(),))
 
 
 def create_scan_run(searches_planned: int, scan_type: str = "general", trip_id: int | None = None) -> int:
@@ -1518,16 +1572,19 @@ def record_booking_click(visitor_id: str | None = None, member_id: int | None = 
                          airline: str | None = None, supplier: str | None = None,
                          price_ils: float | None = None, score: int | None = None,
                          outbound_date: str | None = None, return_date: str | None = None,
-                         booking_url: str | None = None) -> None:
+                         booking_url: str | None = None,
+                         affiliate_network: str | None = None) -> None:
     try:
         with connection() as conn:
             conn.execute(
                 """INSERT INTO booking_clicks(
                     visitor_id,member_id,offer_id,destination_code,airline,supplier,
-                    price_ils,score,outbound_date,return_date,booking_url,clicked_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    price_ils,score,outbound_date,return_date,booking_url,clicked_at,
+                    affiliate_network
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (visitor_id, member_id, offer_id, destination_code, airline, supplier,
-                 price_ils, score, outbound_date, return_date, booking_url, utc_now_iso()),
+                 price_ils, score, outbound_date, return_date, booking_url, utc_now_iso(),
+                 affiliate_network or ""),
             )
     except Exception:
         return
@@ -2397,7 +2454,7 @@ _MEMBER_OWNED_TABLES = (
     "whatsapp_conversation_state", "whatsapp_inbound_log", "trip_feedback",
     "trip_alerts_log", "whatsapp_opt_events", "whatsapp_outbound_queue",
     "password_reset_tokens", "ariella_travel_companions",
-    "ariella_trip_conversations",
+    "ariella_trip_conversations", "member_travelers", "member_preferences",
 )
 
 
