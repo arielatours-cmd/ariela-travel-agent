@@ -5887,10 +5887,21 @@ def _place_codes(names):
     }
 
 
-def _reopenable_trips(member_id, service, message, limit=3):
+def _reopenable_trips(member_id, service, message, limit=3, country_match=True):
     """The customer's upcoming active vacations that don't have `service`
     yet - candidates for "add lodging/car/route to an existing vacation".
-    If the message names a place, only vacations to that place count."""
+    If the message names a place, only vacations to that place count.
+
+    country_match: whether a candidate in the same COUNTRY as a mentioned
+    place counts too, not just an exact city/code match. Correct when
+    `message` is the customer's own free text (they may well say "my Italy
+    vacation" with no city at all) - but seen live (Shlomo, round 6,
+    Sicily): when `message` is actually the CURRENT trip's own destination
+    places (the open_places gate's use), this let an unrelated OLD
+    vacation in the same country (Rome) match a brand-new request for the
+    CURRENT one (Sicily) just because both happen to be in Italy. Pass
+    False there - the current destination is always already specific, so
+    loosening to country level there is never justified."""
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.row_factory = sqlite3.Row
@@ -5936,7 +5947,7 @@ def _reopenable_trips(member_id, service, message, limit=3):
             if not (
                 set(trip_places) & set(mentioned)
                 or any(m in name for m in mentioned)
-                or _place_countries(trip_places) & mentioned_countries
+                or (country_match and _place_countries(trip_places) & mentioned_countries)
                 or trip_codes & _place_codes(mentioned)
             ):
                 continue
@@ -6624,7 +6635,7 @@ def chat_clean():
                 services_wanted = [linked_service] + [s for s in services_wanted if s != linked_service]
             else:
                 services_wanted = [linked_service] + services_wanted
-            candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places), limit=20)
+            candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places), limit=20, country_match=False)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
