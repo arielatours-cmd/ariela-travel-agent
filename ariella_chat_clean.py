@@ -6394,6 +6394,17 @@ def chat_clean():
         service = pending_reopen.get("service")
         choice = _pick_reopen_option(message, options, key, model, history)
         member_id = session['member_id']
+        if choice is None and pending_reopen.get("asked_again"):
+            # Never loop forever asking the same "which vacation" question -
+            # seen live (Shaked, round 4): once this got asked and the
+            # customer's reply didn't parse, every later message (including
+            # real answers to something else entirely) kept re-asking
+            # "רק כדי לוודא" with no way out. If it still doesn't parse
+            # after one re-ask, stop blocking and fall through like an
+            # explicit "new" - the safe default (per product owner: never
+            # guess which old vacation was meant) is to NOT reopen one,
+            # never to guess which.
+            choice = "new"
         if choice == "new" and pending_reopen.get("keep_state"):
             # Offered because an open conversation matched an existing
             # vacation; "no" means keep planning it as a separate trip.
@@ -6428,8 +6439,10 @@ def chat_clean():
                 reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_REOPEN_FIRST_QUESTION[service]}"
                 _remember_turn_reset_trip(member_id, history, message, reply, reopened)
                 return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':reopened,'start_flight_search':False,'reopen_trip_id':chosen['id']})
+        retried = dict(trip_state)
+        retried["reopen_trip_pending"] = dict(pending_reopen, asked_again=True)
         reply = _reopen_question(service, options) if service in _REOPEN_LABELS else "לאיזו חופשה התכוונת?"
-        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':trip_state,'start_flight_search':False})
+        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':retried,'start_flight_search':False})
 
     # An open conversation about a destination that already has an upcoming
     # vacation, but was never linked to it (seen live: "אטרקציות בניו יורק"
@@ -6455,7 +6468,20 @@ def chat_clean():
         "",
     )
     _route_just_proposed = len(_OPEN_PLACES_DAY_MENTION_RE.findall(_last_assistant_text)) >= 2
-    if open_places and not _route_just_proposed and not (
+    # Seen live (Shaked, round 4, A5/A8/C3/C2): the day-marker check above
+    # only protects the single turn right after a full route is proposed -
+    # every OTHER turn of an already-active, already-linked session (style
+    # "ספרו לי מה אתם אוהבים לעשות", pace "קצב רגוע או פעיל", route-approval
+    # "המסלול שהצעתי מתאים לכם") still fell through to this gate, which
+    # re-asked "לאיזו חופשה להוסיף מסלול ואטרקציות?" every single time
+    # instead of letting the real answer ("ים וטבע, קצב רגוע", "תמליצי",
+    # or even "מאשרת" approving the route) continue the conversation - a
+    # loop that never ended because the gate re-fires every turn, not just
+    # the first. Any reply to one of Ariella's own in-session detail/
+    # approval questions is never a "which vacation did you mean" moment,
+    # exactly like the day-marker case - skip the gate for all of them.
+    _mid_active_session_question = any(q in _last_assistant_text for q in _GAP_QUESTION_TEXT.values())
+    if open_places and not _route_just_proposed and not _mid_active_session_question and not (
         trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation")
         or trip_state.get("reopened_trip_id") or trip_state.get("reopen_offer_declined")
     ):
