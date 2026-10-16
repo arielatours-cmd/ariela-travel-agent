@@ -186,6 +186,11 @@
     {"id": "dest-tisa-mi-tel-aviv-le-roma", "fn": "_deterministic_destination_facts", "args": [[], "טיסה מתל אביב לרומא"], "expect": {"destination": {"places": ["רומא"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
     {"id": "dest-latus-me-haifa-le-rodos-still-ok", "fn": "_deterministic_destination_facts", "args": [[], "אני רוצה לטוס מחיפה לרודוס"], "expect": {"destination": {"places": ["רודוס"]}}, "source": "live-chat-2026-10-16-shaked-s95-haifa"},
     {"id": "named-decline-each-own-negation-lodging-car", "fn": "_deterministic_named_decline_facts", "args": ["לא צריך לינה ולא רכב"], "expect": {"session_status": {"lodging": "declined", "car": "declined"}}, "source": "live-chat-2026-10-16-shaked-s97-a3"},
-    {"id": "named-decline-each-own-negation-repeated-need-word", "fn": "_deterministic_named_decline_facts", "args": ["לא צריך לינה ולא צריך רכב"], "expect": {"session_status": {"lodging": "declined", "car": "declined"}}, "source": "live-chat-2026-10-16-shaked-s97-a3"}
+    {"id": "named-decline-each-own-negation-repeated-need-word", "fn": "_deterministic_named_decline_facts", "args": ["לא צריך לינה ולא צריך רכב"], "expect": {"session_status": {"lodging": "declined", "car": "declined"}}, "source": "live-chat-2026-10-16-shaked-s97-a3"},
+    {"id": "dest-crete-recognized-as-island", "fn": "_deterministic_destination_facts", "args": [[], "רוצה לטוס לכרתים"], "expect": {"destination": {"places": ["כרתים"]}}, "source": "owner-relay-2026-10-16-shlomo-island-gap"},
+    {"id": "dest-crete-wins-over-bare-country", "fn": "_deterministic_destination_facts", "args": [[], "חופשה ביוון, אולי כרתים"], "expect": {"destination": {"places": ["כרתים"]}}, "source": "owner-relay-2026-10-16-shlomo-island-gap"},
+    {"id": "dest-sicily-recognized-as-island", "fn": "_deterministic_destination_facts", "args": [[], "רוצה חופשה בסיציליה"], "expect": {"destination": {"places": ["סיציליה"]}}, "source": "owner-relay-2026-10-16-shlomo-island-gap"},
+    {"id": "named-decline-lodging-type-contrast-dira-velo-malon", "fn": "_deterministic_named_decline_facts", "args": ["כן, דירה ולא מלון"], "expect_falsy": true, "source": "shaked-pr51-review-2026-10-16"},
+    {"id": "named-decline-lodging-type-contrast-malon-velo-dira", "fn": "_deterministic_named_decline_facts", "args": ["כן, צריך לינה - מלון ולא דירה"], "expect_falsy": true, "source": "shaked-pr51-review-2026-10-16"}
   ]
 }

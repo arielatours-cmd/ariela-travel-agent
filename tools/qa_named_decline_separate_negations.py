@@ -65,6 +65,15 @@ check("regression: 'בלי X ובלי Y, ולא צריך Z' (triple mixed shape)
       decline("בלי מלון ובלי רכב, ולא צריך מסלול").get("session_status")
       == {"lodging": "declined", "car": "declined", "trip_planning": "declined"})
 
+# --- Regression found by Shaked reviewing this exact change (PR #51,
+#     2026-10-16): מלון/דירה/וילה/צימר/לינה are all "lodging", so a
+#     same-service TYPE CONTRAST ("דירה ולא מלון") wrongly declined the
+#     whole lodging service instead of just naming a type preference ---
+check("'כן, דירה ולא מלון' is a type preference, not a lodging decline",
+      decline("כן, דירה ולא מלון") == {})
+check("'כן, צריך לינה - מלון ולא דירה' is a type preference, not a decline",
+      decline("כן, צריך לינה - מלון ולא דירה") == {})
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

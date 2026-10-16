@@ -1331,6 +1331,20 @@ def _resolve_destination_airports_from_route_names(airports, names):
             city_codes.append(code)
     if city_codes:
         return city_codes
+    # An island/region name (e.g. "כרתים") is more specific than a bare
+    # country but names no single city - see _ISLAND_REGION_GATEWAY_AIRPORTS
+    # for why this always returns every one of the island's own gateways,
+    # never just one.
+    region_codes = []
+    for name in names:
+        needle = _normalize_place_name(name)
+        for region, region_airport_codes in _ISLAND_REGION_GATEWAY_AIRPORTS.items():
+            if needle and needle == _normalize_place_name(region):
+                for code in region_airport_codes:
+                    if code not in region_codes:
+                        region_codes.append(code)
+    if region_codes:
+        return region_codes
     codes = []
     for name in names:
         needle = str(name).strip().lower()
@@ -2138,7 +2152,17 @@ def _approval_trigger(message, history, state):
     """
     msg = str(message or "").strip().lower()
     if msg not in {"מאשר", "מאשרת"}:
-        return False
+        # "כן, מאשרת" / "כן מאשר" ("yes, I confirm") IS the approval word
+        # with a redundant leading "yes" - seen live (Shaked, round 8): this
+        # fell through to the near-miss/typo clarifier ("האם התכוונת
+        # לאשר?") instead of actually approving. Strip a leading "כן" (with
+        # its separating punctuation/whitespace) and recheck against the
+        # same exact two words, so this never widens what counts as
+        # approval beyond "מאשר"/"מאשרת" themselves (a bare "כן" alone
+        # still does not approve).
+        msg = re.sub(r"^כן[\s,.!]*", "", msg)
+        if msg not in {"מאשר", "מאשרת"}:
+            return False
     state = state if isinstance(state, dict) else {}
     # Once the flights were approved and are being scanned, "מאשרת" can only
     # be about a later service (car/lodging/route) - seen live: a car
@@ -3099,6 +3123,31 @@ _DESTINATION_SPELLING_ALIASES = {
     "זאלבאך": "זלבאך",
 }
 
+# Islands/regions a customer names by the island itself ("כרתים", "סיציליה"),
+# never by any single city on it - unlike a country (which already resolves
+# to every one of its airports via the generic substring fallback in
+# _resolve_destination_airports_from_route_names), a region name needs its
+# own explicit mapping here because it never appears as a country_he or
+# city_he value anywhere in the catalog, so it was silently unrecognized
+# entirely. Seen live (Shaked): Ariella stated as fact "לכרתים ברוב המקרים
+# לא מגיעים בטיסה ישירה מישראל" - false, a seasonal direct route to
+# Heraklion exists - traced back to "כרתים" never being a known destination
+# in the first place, so the real route data could never be reached. Each
+# entry lists EVERY one of the island's own airports already in the catalog
+# (never just one) - Crete alone has two under their own city names
+# (Heraklion AND Chania); aliasing the island to a single city would
+# silently drop the other gateway, the exact over-narrowing mistake
+# _resolve_destination_airports_from_route_names's own docstring already
+# warns against for routes. Add more islands/regions here as they're found
+# live - this is a short, explicit list, not a general geography database.
+_ISLAND_REGION_GATEWAY_AIRPORTS = {
+    "כרתים": ["HER", "CHQ"],
+    "סיציליה": ["CTA", "PMO"],
+    "סרדיניה": ["CAG", "OLB"],
+    "מיורקה": ["PMI"],
+    "טנריפה": ["TFS"],
+}
+
 
 def _known_destination_names():
     """needle -> display label for every country/city in the real airport
@@ -3145,6 +3194,13 @@ def _known_destination_names():
             known[en.lower()] = en
     for alias, canonical in _DESTINATION_SPELLING_ALIASES.items():
         known[alias] = canonical
+    # An island/region name is recognized in its own right - never rewritten
+    # to one of its airport cities (unlike a plain spelling alias above),
+    # since that would silently pick one gateway over the island's other
+    # ones. See _ISLAND_REGION_GATEWAY_AIRPORTS for why resolving it to an
+    # airport code still needs its own list of every gateway on the island.
+    for region in _ISLAND_REGION_GATEWAY_AIRPORTS:
+        known[region] = region
     # A specific place (city or resort) is always more specific than a bare
     # country name, so it must be checked first regardless of string length
     # - seen live (Shaked, qa-s91 round 2, C2): "חופשת סקי בזאלבאך שבאוסטריה"
@@ -4187,8 +4243,28 @@ def _deterministic_named_decline_facts(message):
         # service, whether or not it repeats the need-word.
         for m3 in re.finditer(r"ולא\s*(?:" + need_word + r"\s+)?(" + service_alt + r")", clause):
             svc = _service_for(m3.group(1))
-            if svc:
-                declined[svc] = True
+            if not svc:
+                continue
+            # Regression found by Shaked reviewing this exact change (PR #51):
+            # since מלון/דירה/וילה/צימר/לינה are all "lodging", a customer
+            # contrasting two TYPES of the same service ("כן, דירה ולא
+            # מלון", "כן, צריך לינה - מלון ולא דירה") had the whole lodging
+            # service wrongly declined - this loop fired on "ולא מלון"/"ולא
+            # דירה" exactly as if a second, DIFFERENT service had been
+            # named. Two guards, as she proposed: (1) only fire when a real
+            # negation was already established earlier in this clause (a
+            # bare "ולא" with nothing preceding it is not itself proof of a
+            # decline - both regression messages have no "לא"/"בלי"/"ללא"
+            # anywhere before it); (2) skip when the word immediately
+            # before "ולא" names the SAME service as the one just matched
+            # (a type contrast, not a second declined service).
+            preceding = clause[:m3.start()].rstrip(" ,-")
+            same_service_before = re.search(r"(" + service_alt + r")\s*$", preceding)
+            if same_service_before and _service_for(same_service_before.group(1)) == svc:
+                continue
+            if not declined and not re.search(r"לא\s+" + need_word + r"|בלי|ללא", preceding):
+                continue
+            declined[svc] = True
     if not declined:
         return {}
     return {
@@ -7101,19 +7177,16 @@ def chat_clean():
                 'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},
                 'active_session':None
             }
-            pending_destination = _deterministic_destination_facts([], original_change, {})
-            if pending_destination:
-                fresh = _merge_trip_state(fresh, pending_destination)
-            # Seen live (Shaked, qa-s91 round 2, C2): "אני רוצה לפתוח חופשה
-            # חדשה ונפרדת: חופשת סקי בזאלבאך שבאוסטריה, עם טיסה ולינה"
-            # already states the trip type (ski) - losing it here meant
-            # Ariella asked "regular vacation, business trip, or ski?" right
-            # back, as if the customer had never said. Preserve it exactly
-            # like the destination above, from the very same triggering
-            # message.
-            pending_trip_type = _deterministic_trip_type_facts(original_change)
-            if pending_trip_type:
-                fresh = _merge_trip_state(fresh, pending_trip_type)
+            # Seen live (Shaked, qa-s97, round 7, A2): this used to only
+            # re-extract destination and trip_type from original_change -
+            # "חופשה חדשה לגמרי לאיטליה, 10-17 באפריל, שלושה מבוגרים"
+            # (stating dates AND travelers in the very same breath) still
+            # lost both entirely, re-asked a turn later as if never said.
+            # _seed_fresh_trip_from_trigger_message runs the full
+            # deterministic cascade (destination/trip_type/dates/duration/
+            # travelers/departure_airport/budget) instead of just the two
+            # fields this branch used to hand-pick.
+            fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(original_change))
             if any(x in original_change.lower() for x in ("מסלול","לתכנן טיול","תכנון טיול","אטרקציות")):
                 fresh['requested_services'] = ['trip_planning']
                 fresh['active_session'] = 'trip_planning'
@@ -7284,8 +7357,24 @@ def chat_clean():
         else:
             intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
         if intent == "new":
-            fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None,
-                     'destination':{'places':[pending_new_trip],'mode':'specific','status':'known'}}
+            # Seen live (Shaked, qa-s97, round 7, A3): this used to only set
+            # destination (to the already-identified pending_new_trip) -
+            # "חופשה חדשה ונפרדת, 20-25 במרץ, 2+2 ילדים", confirming THIS
+            # exact gate, still lost the dates and travelers stated in the
+            # very same breath, exactly like the sibling bug already fixed
+            # for the generic reset-confirmation gate (A2). Seed the full
+            # deterministic cascade from this message too, same as every
+            # other "new vacation" reset branch - pending_new_trip remains
+            # the destination fallback only if this message's own
+            # extraction doesn't independently confirm one (it was already
+            # positively identified when this gate first fired, from a cue-
+            # adjacency/already-committed heuristic that _deterministic_
+            # destination_facts alone may not always re-derive from this
+            # later confirming message by itself).
+            fresh = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
+            fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
+            if not ((fresh.get('destination') or {}).get('places') if isinstance(fresh.get('destination'), dict) else None):
+                fresh['destination'] = {'places':[pending_new_trip],'mode':'specific','status':'known'}
             reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה תרצי לטוס?"
             _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
             return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
