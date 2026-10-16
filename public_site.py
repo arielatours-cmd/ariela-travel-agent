@@ -33,6 +33,7 @@ from scoring import (
 )
 import booking_demand
 import itinerary_cards
+from hfa_routes import hfa_route_check
 from radar_alerts import evaluate_trip_alert
 from booker import resolve_booking_target
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
@@ -3447,6 +3448,10 @@ def ariella_start_flight_search():
     flight = state.get("flight") or {}
     budget = state.get("budget_per_person") or {}
     departure_airport = str(state.get("departure_airport") or "TLV").upper()
+    # Task 011a: from Haifa only Air Haifa's routes exist - never search
+    # HFA -> a destination it does not fly to (data/hfa_routes.json).
+    if departure_airport == "HFA" and destination_codes and hfa_route_check(destination_codes) == "not_served":
+        return jsonify({"status": "error", "message": "מחיפה אין טיסה ישירה ליעד הזה. אפשר לבקש מאריאלה לבדוק מנתב\"ג."}), 400
     # Execution uses the approved structured state as the sole source of truth.
     # Never rebuild approved dates from prose/history at handoff time.
     dep = _chat_iso_date(dates.get("departure"))

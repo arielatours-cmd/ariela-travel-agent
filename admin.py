@@ -500,6 +500,7 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
   <label>מוצא
     <select id="adminScanOrigin"><option value="">הכל</option><option value="TLV">TLV – נתב״ג</option><option value="HFA">HFA – חיפה</option></select>
   </label>
+  <a class="hfa-routes-link" href="/admin/hfa-routes{% if token %}?token={{ token }}{% endif %}">✈ יעדים מחיפה (Air Haifa)</a>
 </div>
 <div class="table-wrap scans-table-wrap">
 <table class="scans">
@@ -920,3 +921,37 @@ FEEDBACK_DASHBOARD_HTML = r"""
 
 def render_feedback_dashboard(*, feedback, token=""):
     return render_template_string(FEEDBACK_DASHBOARD_HTML, feedback=feedback, token=token)
+
+
+HFA_ROUTES_HTML = r"""
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>אריאלה — יעדים מחיפה</title>
+<style>
+:root{--bg:#f5f7fb;--text:#182033;--muted:#697386;--line:#e7eaf0;--gold:#b8892e}
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:var(--bg);margin:0;color:var(--text)}
+.wrap{width:min(1100px,96%);margin:auto;padding:20px 8px 35px}h1{margin:0 0 6px}.muted{color:var(--muted);line-height:1.6}
+.back{display:inline-block;margin:14px 0 18px;color:#263a70;font-weight:800;text-decoration:none}
+.table-wrap{overflow-x:auto;background:#fff;border-radius:12px;box-shadow:0 2px 10px #0000000d}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}th{background:#fbf8f1}
+.st{font-weight:800}.st-confirmed{color:#1f7a3a}.st-to_verify{color:#a26a00}.st-suspended{color:#a12b2b}
+.src{color:var(--muted);font-size:12px;max-width:340px}
+</style></head>
+<body><div class="wrap">
+<h1>יעדים מחיפה (Air Haifa)</h1>
+<div class="muted">המקור: data/hfa_routes.json. אריאלה בודקת מולו בקשה לטיסה מחיפה: confirmed ← ממשיכים, to_verify ← ממשיכים עם "נבדוק זמינות", יעד שלא ברשימה ← מציעים נתב"ג ולא מחפשים מחיפה. לעדכן ידנית פעם בחודש מול airhaifa.com, ולשנות ל-confirmed רק אחרי בדיקה (ולמלא verified_at).</div>
+<a class="back" href="/admin/scans{% if token %}?token={{ token }}{% endif %}">→ חזרה לסריקות</a>
+<div class="table-wrap"><table>
+<thead><tr><th>IATA</th><th>עיר</th><th>מדינה</th><th>סוג</th><th>סטטוס</th><th>verified_at</th><th>מקור</th></tr></thead>
+<tbody>
+{% for r in routes %}<tr><td dir="ltr"><strong>{{ r.iata }}</strong></td><td>{{ r.city_he }}<br><small class="muted" dir="ltr">{{ r.city_en }}</small></td><td>{{ r.country_he }}</td><td>{{ 'פנים' if r.domestic else 'בינ"ל' }}{% if r.seasonal %}, עונתי{% endif %}</td><td class="st st-{{ r.status }}">{{ r.status }}</td><td dir="ltr">{{ r.verified_at or '—' }}</td><td class="src">{{ r.source }}</td></tr>
+{% else %}<tr><td colspan="7">הקובץ data/hfa_routes.json חסר או ריק.</td></tr>{% endfor %}
+</tbody></table></div>
+</div></body></html>
+"""
+
+
+def render_hfa_routes_dashboard(*, routes, token=""):
+    return render_template_string(HFA_ROUTES_HTML, routes=routes, token=token)
