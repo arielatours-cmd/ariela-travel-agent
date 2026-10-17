@@ -8757,6 +8757,76 @@ def _queue_route_build(member_id: int, channel: str | None, message: str, histor
         return job_id
 
 
+def _route_build_async_enabled() -> bool:
+    """Default OFF - everything behaves exactly like today unless this is
+    explicitly turned on. Stage 2 only (detection + a quick ack reply);
+    there is no polling endpoint or in-chat "building..." indicator yet
+    (stage 3), so turning this on before stage 3 ships leaves the customer
+    with only the ack sentence until their NEXT message, which is when the
+    real route (already saved server-side once the job finishes - see
+    _run_chat_turn_engine's own persistence, unchanged) naturally surfaces.
+    Fine for controlled testing, not for production traffic."""
+    return str(os.getenv("ROUTE_BUILD_ASYNC", "0") or "0").strip() == "1"
+
+
+def _turn_expected_to_build_route(trip_state: dict) -> bool:
+    """Task 016a's one state-based signal for "this turn is about to make
+    Tinkerbell attempt a full day-by-day route" - the first draft, or a
+    rebuild after something upstream invalidated the one already proposed.
+    Never a turn that's just asking a trip_planning clarifying question
+    (style/pace) or waiting on "מאשרת" for a route already shown.
+
+    Reuses _session_gaps/_sessionize_state - the SAME gap list that already
+    decides what Tinkerbell's own system prompt asks for next - instead of
+    guessing from the message text (no phrase list): once style+pace are
+    both known and only the route itself is still missing, this exact
+    condition is what lets Tinkerbell move from asking questions to
+    proposing a route, whether that's the very first attempt or a repeat
+    after an earlier reset cleared the route along with everything else.
+    Per Ofek's spec: must never miss a real route-build turn - a narrower,
+    phrase-based detector risks exactly that, so this intentionally stays
+    on the broader, correct-by-construction state check."""
+    if not isinstance(trip_state, dict):
+        return False
+    probe = _sessionize_state(dict(trip_state))
+    if probe.get("active_session") != "trip_planning":
+        return False
+    return _session_gaps(probe, "trip_planning") == ["trip_planning.details.route"]
+
+
+_ROUTE_ACK_SYSTEM = (
+    "את אריאלה. הלקוח ביקש שתבני לו עכשיו מסלול יומי מלא לחופשה, וזה ייקח כמה "
+    "שניות. הודיעי לו במשפט אחד קצר וחם שאת בונה את המסלול עכשיו. בלי שאלה, "
+    "בלי כפתורים, ובלי לפרט שום דבר על המסלול עצמו - רק הודעה שאת עליו."
+)
+_ROUTE_ACK_FALLBACK_TEXT = "אני בונה לכם עכשיו את המסלול המלא, זה ייקח רגע 😊"
+_ROUTE_ACK_TIMEOUT_SECONDS = 8.0
+
+
+def _route_build_ack_reply(message: str) -> str:
+    """Task 016a: the short, fast, Ariella-voiced acknowledgement sent
+    immediately while the real route builds in the background - NOT the
+    real reply. max_tokens=60 and its own fixed ~8s timeout (not the normal
+    per-request budget, which would let this ride the website's full 90s
+    instead of returning fast), per Ofek's spec. A hardcoded fallback
+    sentence covers the call itself failing - never another model call."""
+    key = os.getenv('ANTHROPIC_API_KEY', '').strip()
+    model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
+    prior_budget = getattr(_turn_timing, "budget_seconds", None)
+    _turn_timing.budget_seconds = _ROUTE_ACK_TIMEOUT_SECONDS
+    try:
+        reply = _post_claude(
+            key, model, _ROUTE_ACK_SYSTEM, "", [], message, 60,
+            include_history=False, source="route_ack",
+        ).strip()
+        return reply or _ROUTE_ACK_FALLBACK_TEXT
+    except Exception:
+        logging.exception("route_ack call failed - falling back to the hardcoded sentence")
+        return _ROUTE_ACK_FALLBACK_TEXT
+    finally:
+        _turn_timing.budget_seconds = prior_budget
+
+
 def _chat_clean_impl():
     """Thin Flask-facing shell: auth check, request-body parsing, and
     member_id/channel capture only. All real turn-processing logic lives in
@@ -8785,16 +8855,44 @@ def _chat_clean_impl():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
+
+    if _route_build_async_enabled():
+        # Resolve against the SAME saved-conversation/stale-reset logic the
+        # engine itself applies, so detection sees the real trip_state this
+        # turn will actually run against - not the browser's possibly-stale
+        # copy. Harmless to resolve twice: _run_chat_turn_engine below (sync
+        # path) or the background job (async path) each redo this on an
+        # already-resolved state, which is a no-op (see _resolve_turn_inputs).
+        resolved_history, resolved_trip_state, _, _ = _resolve_turn_inputs(member_id, message, list(history), dict(trip_state))
+        # A job already building for this member (DB-backed, so this also
+        # catches one still marked 'building' from before a restart) means
+        # this turn's message isn't queued/replayed yet (that's stage 5) -
+        # safest known behavior today is to fall through to the normal
+        # synchronous path rather than silently drop it.
+        if _turn_expected_to_build_route(resolved_trip_state) and open_route_job_for_member(member_id) is None:
+            job_id = _queue_route_build(member_id, channel, message, resolved_history, resolved_trip_state)
+            if job_id is not None:
+                return jsonify({
+                    'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                    'reply': _route_build_ack_reply(message), 'trip_update': resolved_trip_state,
+                    'start_flight_search': False, 'route_build_job_id': job_id,
+                })
+
     return _run_chat_turn_engine(member_id, message, history, trip_state, channel)
 
 
-def _run_chat_turn_engine(member_id, message, history, trip_state, channel=None):
-    """The real per-turn engine (unchanged behavior from the old
-    _chat_clean_impl body below this point) - extracted so a background
-    thread (task 016a) can run the exact same code path a synchronous
-    request runs today, against plain parameters instead of session/request.
-    `channel` is carried through for later stages (WhatsApp ack wiring);
-    nothing below reads it yet."""
+def _resolve_turn_inputs(member_id, message, history, trip_state):
+    """Resolve the effective history/trip_state for this turn: fall back to
+    the member's own server-saved conversation when the caller sent none,
+    and apply the stale-session reset when the gap since last contact is
+    long enough. Shared by _run_chat_turn_engine (the real per-turn work,
+    unchanged - this is exactly what used to be inline at its own top) and
+    task 016a's background-build detection in _chat_clean_impl, which needs
+    this SAME resolved trip_state to decide sync vs async before any heavy
+    processing starts. Calling it twice for the same turn (detection, then
+    again inside the engine once dispatched) is intentionally harmless -
+    once trip_state is non-empty the resume-from-saved branch below is a
+    no-op, and the stale reset is idempotent against an already-reset state."""
     # Always consult the server-side record, even when the browser already
     # sent its own trip_state - it's the only place that carries a reliable,
     # server-controlled "when did we last actually talk" timestamp (the
@@ -8826,6 +8924,17 @@ def _run_chat_turn_engine(member_id, message, history, trip_state, channel=None)
         trip_state = _reset_stale_trip_state(trip_state, message)
         history = []
         stale_reset_happened = True
+    return history, trip_state, history_before_gap, stale_reset_happened
+
+
+def _run_chat_turn_engine(member_id, message, history, trip_state, channel=None):
+    """The real per-turn engine (unchanged behavior from the old
+    _chat_clean_impl body below this point) - extracted so a background
+    thread (task 016a) can run the exact same code path a synchronous
+    request runs today, against plain parameters instead of session/request.
+    `channel` is carried through for later stages (WhatsApp ack wiring);
+    nothing below reads it yet."""
+    history, trip_state, history_before_gap, stale_reset_happened = _resolve_turn_inputs(member_id, message, history, trip_state)
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
