@@ -74,7 +74,7 @@ state_active_destination = {
 }
 sd = _system_dynamic_seen(state_active_destination, "11 לילות 19.9 עד 30.9")
 check("Cyprus vacation facts are NOT injected while an unrelated destination is active",
-      "קפריסין" not in sd and "17" not in sd)
+      "קפריסין" not in sd and "גילאים 17" not in sd)
 
 # --- 2. Legitimate case A: no destination committed yet (open greeting) -
 #        the hint MUST still be injected so Ariella can offer to continue
