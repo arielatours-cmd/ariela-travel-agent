@@ -370,6 +370,32 @@ check("no-buttons rule: a confirm hint never contains '['",
 check("no-buttons rule: a correction hint never contains '['",
       "[" not in chat._guided_correction_hint("התאריכים", "יציאה ב-10.11.2026"))
 
+# --- 12. (Shaked, 2026-10-17, regression against 8a58d4e) Model call fails
+#     on the very FIRST turn, on a message carrying BOTH dates and
+#     travelers facts at once ("טסים זוג לרומא בין ה-10 ל-14 בנובמבר"):
+#     the fail-safe must widen regex_fallback_fields to every unanswered
+#     guided field, not just the one live field ("dates"), or the other
+#     field's regex gets silently suppressed too (it's nominally covered
+#     by the flag, yet never actually attempted this turn) - exactly what
+#     Shaked's own table showed happening to "travelers" across 4/5 of
+#     her test messages. ---
+member12 = _make_member("qa-guided-s12@example.com")
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: (
+        "{}" if kw.get("source") == "state_extractor"
+        else (_ for _ in ()).throw(RuntimeError("simulated model failure")) if kw.get("source") == "guided_extract"
+        else "תשובה לדוגמה."
+)):
+    r12 = _post("שלום, טסים זוג לרומא בין ה-10 ל-14 בנובמבר", [], dict(ROME_STATE), member12)
+tu12 = r12.get("trip_update") or {}
+check("scenario 12 (Shaked regression): turn-1 model failure never crashes the request",
+      r12.get("status") == "success")
+check("scenario 12 (Shaked regression): travelers still gets filled via the widened regex fallback",
+      ((tu12.get("travelers") or {}).get("adults") == 2))
+check("scenario 12 (Shaked regression): current_question stays 'dates' (still unanswered, no crash)",
+      (tu12.get("guided") or {}).get("current_question") == "dates")
+check("scenario 12 (Shaked regression): a hint is still set so Tinkerbell asks in her own words",
+      bool(tu12.get("_guided_ask_hint")))
+
 with sqlite3.connect(DB) as conn:
     conn.execute(
         "DELETE FROM members WHERE email LIKE 'qa-guided-%@example.com'"

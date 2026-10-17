@@ -7315,16 +7315,26 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
 
     result = _guided_extract_answer(key, model, current_question, message, history, trip_update)
     if result is None:
-        # Fail-safe (spec section 5, last row): the structured extraction
-        # call itself failed - let the old regex run too for this one
-        # message, but still steer Tinkerbell to ask in her own words
-        # regardless of whether the regex finds anything.
+        # Fail-safe (spec section 5, last row) - Shaked caught a real
+        # regression here (2026-10-17, against 8a58d4e): when the
+        # structured call fails for the CURRENT field, only that field
+        # fell back to its regex. Any OTHER guided-covered field not yet
+        # answered (e.g. travelers, mentioned in the same first message
+        # while "dates" is still the live field) never got a guided
+        # attempt THIS TURN either - yet its regex was also suppressed,
+        # just for nominally being covered by the flag. Net effect: a
+        # fact main's regex would have caught got silently dropped. Fix:
+        # every dates/travelers field still unanswered falls back too,
+        # not just current_question - exactly like main, whenever the
+        # model call itself fails.
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
+        fallback_fields = {f for f in ("dates", "travelers") if f in guided_steps and f not in answered}
+        fallback_fields.add(current_question)
         return {
             "trip_update": trip_update,
             "dynamic_hint": _guided_ask_hint(current_question, attempts),
-            "regex_fallback_fields": {current_question},
+            "regex_fallback_fields": fallback_fields,
         }
     status = str(result.get("status") or "")
     if status == "other_topic":
