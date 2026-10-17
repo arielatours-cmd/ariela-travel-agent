@@ -234,7 +234,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
     - עיר/יעד עם כמה שדות אפשריים שהלקוח טרם בחר ביניהם: אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") אם מחפשים בכולם יחד (ואז "(כל השדות)" כש"אין העדפה" נאמר במפורש, למשל "לונדון (כל השדות), אנגליה"), או שאלו לפני הסיכום - לעולם אל תגיעי לסיכום כשdestination_airports עדיין ריק/לא מוכרע (למשל יעד כללי כמו "יוון" או "איים ביוון" בלי שדה שנגזר ממסלול או נבחר על ידי הלקוח).
     - אם היעד דורש גם טיסת פנים נוספת מעבר לנחיתה/המראה הבין-לאומיים (למשל נחיתה בבנגקוק והיעד בפועל הוא קרבי) וזו לא כלולה בחיפוש, ציינו זאת במפורש בסיכום (למשל "שימו לב: הטיסה הפנימית לקרבי אינה כלולה בחיפוש הזה").
     - אם הלקוח כבר הזמין את הטיסות בעצמו (flights declined מהסיבה הזו): כתבו בכל זאת שורה "טיסות: כבר בידיכם" עם השדות שהלקוח מסר אם ידועים - זה חריג יחיד לכלל "שירות שנדחה לא מופיע בסיכום" (ראו למטה), כי יש כאן מידע רלוונטי לציין, לא שירות שפשוט לא התבקש.
-    בנוסף (רק כשטיסה בכלל מבוקשת ולא כבר הוזמנה עצמאית): תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע (כתבי זאת תמיד במפורש "לכל נוסע"/"לכל אחד" - לעולם לא כניסוח יחיד כללי כמו "מזוודה גדולה" בלי לציין שזה פר נוסע, שנשמע כאילו יש בסך הכל מזוודה אחת לכל הקבוצה), ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, תמיד בש"ח/₪, לעולם לא "ILS").
+    בנוסף (רק כשטיסה בכלל מבוקשת ולא כבר הוזמנה עצמאית): תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע (כתבי זאת תמיד במפורש "לכל נוסע"/"לכל אחד" - לעולם לא כניסוח יחיד כללי כמו "מזוודה גדולה" בלי לציין שזה פר נוסע, שנשמע כאילו יש בסך הכל מזוודה אחת לכל הקבוצה), ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, במטבע שהלקוח בפועל ציין - ש"ח/₪ אם שקלים, יורו/€ אם יורו, פאונד אם לירות שטרלינג, דולר/$ אם דולר - לעולם לא קוד המטבע הגולמי כמו "ILS"/"GBP"/"EUR"/"USD", ולעולם לא ברירת מחדל לש"ח כשהלקוח ציין מטבע אחר).
   - מסלול/אטרקציות (אם לא declined): תקציר קצר של המבנה שאושר (לא כל הפרטים מחדש).
   - לינה (אם לא declined): אזור/ים, מספר לילות, סוג לינה, רמה, מספר חדרים, תקציב.
   - רכב (אם לא declined): סוג רכב, מיקום ומועד איסוף והחזרה.
@@ -2196,6 +2196,22 @@ def _flight_baggage_line(flight):
     return "כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage)
 
 
+# Per Shaked's stage-2 run-5 finding (London, 4/5, ba101e4): the customer
+# said "עד 250 פאונד" (GBP), budget_per_person.currency correctly became
+# "GBP", but the final summary read "תקציב: עד 250 ₪ לאדם" - the model
+# defaulted to the ILS symbol regardless of the real currency. Used both
+# to render a Hebrew-friendly currency name (never the bare 3-letter
+# code "GBP") and to detect when an already-present budget line in a
+# reply names the WRONG currency (_ensure_flight_summary_completeness).
+_CURRENCY_HE_NAMES = {"ILS": "שקלים", "EUR": "יורו", "GBP": "פאונד", "USD": "דולר"}
+_CURRENCY_MARKERS = {
+    "ILS": r"₪|ש\"ח|שקל",
+    "EUR": r"יורו|€",
+    "GBP": r"פאונד|ליש\"ט|£",
+    "USD": r"דולר|\$",
+}
+
+
 def _flight_budget_line(budget):
     """The one-line budget summary fact (including the explicit-unlimited
     case), or None when nothing is known yet. Factored out of
@@ -2205,7 +2221,9 @@ def _flight_budget_line(budget):
     if budget.get("status") == "unlimited":
         return "תקציב: ללא הגבלה"
     if budget.get("amount"):
-        return f"תקציב לאדם: {budget.get('amount')} {budget.get('currency') or '₪'}"
+        currency_raw = budget.get("currency") or "ILS"
+        currency_label = _CURRENCY_HE_NAMES.get(str(currency_raw).upper(), currency_raw)
+        return f"תקציב לאדם: {budget.get('amount')} {currency_label}"
     return None
 
 
@@ -2294,13 +2312,42 @@ def _ensure_flight_summary_completeness(reply, state):
     _flight_baggage_line/_flight_connection_line - the exact same wording
     _flight_summary_text itself would use) is missing, right before the
     approval-request sentence. Never touches a fact that is already
-    mentioned, however it was phrased."""
+    mentioned, however it was phrased.
+
+    Also corrects a budget line that IS present but names the wrong
+    currency (Shaked, stage-2 run-5, London: a GBP amount summarized
+    with the ILS symbol) - see the dedicated comment below."""
     text = str(reply or "")
     if not any(p in text for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
         return reply
     state = state if isinstance(state, dict) else {}
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
     budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
+
+    # Per Shaked's stage-2 run-5 finding (London, 4/5, ba101e4): a budget
+    # line can be PRESENT but name the WRONG currency ("תקציב: עד 250 ₪
+    # לאדם" when state actually holds {"amount": 250, "currency": "GBP"})
+    # - a bare "תקציב" substring check alone treats this as already
+    # covered. When the real currency is known, the sentence carrying
+    # "תקציב" must name THAT currency; if it instead names a different
+    # one, the whole sentence is replaced with the correct fixed line, in
+    # the exact place it already was (never moved, never duplicated).
+    if budget.get("amount"):
+        real_currency = str(budget.get("currency") or "ILS").upper()
+        real_markers = _CURRENCY_MARKERS.get(real_currency)
+        if real_markers:
+            sentences = _split_sentences(text)
+            for i, (s, term) in enumerate(sentences):
+                if "תקציב" not in s:
+                    continue
+                if not re.search(real_markers, s) and any(
+                    re.search(m, s) for c, m in _CURRENCY_MARKERS.items() if c != real_currency
+                ):
+                    leading_ws = s[: len(s) - len(s.lstrip())]
+                    sentences[i] = (f"{leading_ws}{_flight_budget_line(budget)}{term}", term)
+                    text = "".join(s for s, _t in sentences)
+                break
+
     missing = []
     if "תקציב" not in text:
         line = _flight_budget_line(budget)
@@ -2315,7 +2362,11 @@ def _ensure_flight_summary_completeness(reply, state):
         if line:
             missing.append(line)
     if not missing:
-        return reply
+        # Per the currency-mismatch fix above: `text` may already differ
+        # from the original `reply` (a corrected currency line) even when
+        # nothing else is missing - returning the pristine `reply` here
+        # would silently discard that correction.
+        return text
     sentences = _split_sentences(text)
     target_i = next(
         (i for i, (s, _term) in enumerate(sentences)

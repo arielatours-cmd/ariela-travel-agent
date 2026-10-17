@@ -139,6 +139,51 @@ check("a known numeric budget amount (not unlimited) is completed the "
       ))
 
 
+# === Shaked's stage-2 run-5 finding (London, 4/5, ba101e4): a budget
+#     line that IS present but names the WRONG currency ===
+
+check("_flight_budget_line renders a Hebrew-friendly currency name, "
+      "never the bare 3-letter code",
+      chat._flight_budget_line({"amount": 250, "currency": "GBP"}) == "תקציב לאדם: 250 פאונד"
+      and chat._flight_budget_line({"amount": 500, "currency": "EUR"}) == "תקציב לאדם: 500 יורו"
+      and chat._flight_budget_line({"amount": 300, "currency": "USD"}) == "תקציב לאדם: 300 דולר")
+check("_flight_budget_line stays backward compatible with an already-"
+      "symbol currency value (e.g. '₪' itself, not a 3-letter code)",
+      chat._flight_budget_line({"amount": 1500, "currency": "₪"}) == "תקציב לאדם: 1500 ₪")
+
+check("Shaked's exact stage-2 run-5 repro (London, ba101e4): the "
+      "customer said 'עד 250 פאונד' (GBP), but the summary wrote the "
+      "ILS symbol ('תקציב: עד 250 ₪ לאדם') - the wrong-currency line is "
+      "replaced with the correct one, in the same place it already was",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: יעד לונדון. תקציב: עד 250 ₪ לאדם. אם כל הפרטים נכונים, כתבי מאשרת.",
+          {"budget_per_person": {"amount": 250, "currency": "GBP"}, "user_gender": "female"},
+      ) == "הסיכום: יעד לונדון. תקציב לאדם: 250 פאונד. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("the same currency-mismatch fix applies to EUR too",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: יעד פריז. תקציב: עד 500 ₪ לאדם. אם כל הפרטים נכונים, כתבי מאשרת.",
+          {"budget_per_person": {"amount": 500, "currency": "EUR"}, "user_gender": "female"},
+      ) == "הסיכום: יעד פריז. תקציב לאדם: 500 יורו. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("a budget line that ALREADY names the correct currency is left "
+      "completely untouched - no false positive on the real fix",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: יעד לונדון. תקציב לאדם: 250 פאונד. אם כל הפרטים נכונים, כתבי מאשרת.",
+          {"budget_per_person": {"amount": 250, "currency": "GBP"}, "user_gender": "female"},
+      ) == "הסיכום: יעד לונדון. תקציב לאדם: 250 פאונד. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("a correct ILS budget line (using the ₪ symbol) is never flagged "
+      "as a mismatch against itself",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: יעד תל אביב. תקציב לאדם: 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.",
+          {"budget_per_person": {"amount": 1500, "currency": "ILS"}, "user_gender": "female"},
+      ) == "הסיכום: יעד תל אביב. תקציב לאדם: 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("a correct GBP budget line using 'ליש\"ט' (the other recognized "
+      "GBP marker, not 'פאונד') is also recognized as already correct",
+      "ליש" in chat._ensure_flight_summary_completeness(
+          'הסיכום: תקציב לאדם: 250 ליש"ט. אם כל הפרטים נכונים, כתבי מאשרת.',
+          {"budget_per_person": {"amount": 250, "currency": "GBP"}, "user_gender": "female"},
+      ))
+
+
 # === End-to-end via _call_tinkerbell: the fix actually applies to a real
 #     model reply, not just the unit-level function ===
 
@@ -158,6 +203,24 @@ check("end-to-end via _call_tinkerbell: Shaked's exact stage-2 run-4 "
       "back with 'תקציב: ללא הגבלה' through the real reply pipeline, not "
       "just the unit-level function",
       "תקציב: ללא הגבלה" in e2e_reply)
+
+
+def _fake_post_claude_wrong_currency(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return "{}"
+    return "הסיכום: יעד לונדון. תקציב: עד 250 ₪ לאדם. אם כל הפרטים נכונים, כתבי מאשרת."
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_wrong_currency):
+    e2e_currency_reply = chat._call_tinkerbell(
+        "test-key", "test-model", [], "עד 250 פאונד",
+        {"budget_per_person": {"amount": 250, "currency": "GBP"}, "user_gender": "female"},
+    )
+check("end-to-end via _call_tinkerbell: Shaked's exact stage-2 run-5 "
+      "repro (London) - a model reply that names the wrong currency - "
+      "comes back with the correct 'תקציב לאדם: 250 פאונד' through the "
+      "real reply pipeline, not just the unit-level function",
+      "תקציב לאדם: 250 פאונד" in e2e_currency_reply and "₪" not in e2e_currency_reply)
 
 
 if FAILED:
