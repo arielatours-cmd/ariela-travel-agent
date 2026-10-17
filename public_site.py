@@ -2391,6 +2391,7 @@ def join():
             )
             member_id = int(cur.lastrowid)
             conn.commit()
+        session.permanent = True
         session["member_id"] = member_id
         return redirect(url_for("site.account", welcome="1"))
     return render_template("join.html")
@@ -2498,6 +2499,7 @@ def login():
         if not row or not check_password_hash(row["password_hash"], password):
             flash("The email address or password is incorrect." if _lang() == "en" else "כתובת הדוא״ל או הסיסמה אינם נכונים.", "error")
             return render_template("login.html")
+        session.permanent = True
         session["member_id"] = int(row["id"])
         next_url = request.args.get("next")
         return redirect(next_url or url_for("site.account"))
