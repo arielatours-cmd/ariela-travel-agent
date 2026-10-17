@@ -21,12 +21,22 @@ offer skipping its plain yes/no entirely in favor of route content ("יש
 לך רעיון למסלול..., או שתרצי שאציע?", V3). A free-text instruction alone
 isn't reliable - fixed with a deterministic post-generation check,
 _enforce_one_option_question, wired into _call_tinkerbell's own reply
-pipeline (so every call site gets it for free): when the model's last
-question clause contains " או " in exactly one of these two narrow,
-well-defined situations (the plain next-domain yes/no offer, or the
-baggage question), it is replaced with the already-approved fixed
-phrasing used elsewhere (_flight_gap_question's own text for the same two
-cases) - any earlier statement sentence in the same reply is kept as-is.
+pipeline (so every call site gets it for free).
+
+First version scoped the fix to just these two situations (baggage +
+next-domain offer). Per the business owner (relayed by Shlomo, same PR
+review): the one-question rule has no baggage-only exception - "מלון,
+דירה או וילה?" is just as much a violation as the baggage one, in every
+service. Generalized to _TOPIC_QUESTION_RULES, a topic-keyword ->
+already-approved-fixed-text table (reusing _GAP_QUESTION_TEXT's own
+car/lodging/route wording and _flight_gap_question's budget/direct
+wording) checked in a fixed order - most specific first, so a question
+that mixes two topics (a CAR question that happens to mention
+"מזוודות" - Shaked's own finding on the first version of this fix, see
+below) resolves to the one it's actually about rather than the generic
+baggage branch grabbing it by keyword collision alone. A question whose
+topic matches none of the known keywords is left as-is rather than
+guessing a fallback.
 
 Bug 3 (V3): a customer who wrote "אני טס" (clearly male) got addressed in
 feminine mid-conversation ("טסה ללונדון לבד... איזו כבודה תצטרכי?") even
@@ -99,25 +109,30 @@ check("the same fix generalizes to a lodging continuation offer",
 check("the fixed next-domain offer text is gender-neutral (infinitive verb "
       "form) - never guesses the customer's gender the way bug #3 did",
       not any(w in q for w in ("תרצי", "תרצה") for q in chat._OFFER_DOMAIN_QUESTIONS.values()))
-check("regression (Shaked's PR #59 review): a genuine CAR-domain luggage-"
-      "capacity question is NOT wrongly rewritten into the flight baggage "
-      "question just because it shares the same 'מזוודות' keyword",
+check("Shaked's exact PR #59 finding: a genuine CAR-domain luggage-"
+      "capacity question that happens to mention 'מזוודות' now resolves "
+      "to the correct car-topic open question (not the baggage one) - "
+      "the car keyword is checked before the baggage keywords",
       chat._enforce_one_option_question(
           "מעולה. איזה רכב מתאים - כזה שיכיל את כל המזוודות, או משהו קטן?",
-          {"active_session": "car", "flight": {"baggage": []}},
-      ) == "מעולה. איזה רכב מתאים - כזה שיכיל את כל המזוודות, או משהו קטן?")
-check("the baggage fix still fires normally while flights is the active "
-      "session and flight.baggage is genuinely still empty",
+          {"active_session": "car"},
+      ) == "מעולה. איזה סוג/גודל רכב מתאים לכם?")
+check("the baggage topic still fires normally for a flights-domain "
+      "question with no competing 'רכב' keyword",
       chat._enforce_one_option_question(
-          "איזו כבודה תרצו - טרולי, מזוודה, או תיק קטן?",
-          {"active_session": "flights", "flight": {"baggage": []}},
+          "איזו כבודה תרצו - טרולי, מזוודה, או תיק קטן?", {"active_session": "flights"},
       ) == "איזו כבודה תרצו לקחת?")
-check("the baggage fix does not fire again once flight.baggage is already "
-      "answered (no open gap left to ask about)",
+check("per the business owner's rule (any 'X או Y' is a violation, in "
+      "every service): a budget question phrased as two alternatives "
+      "gets the fixed open question too",
       chat._enforce_one_option_question(
-          "רק לוודא - טרולי בלבד, או גם מזוודה?",
-          {"active_session": "flights", "flight": {"baggage": ["carry_on_only"]}},
-      ) == "רק לוודא - טרולי בלבד, או גם מזוודה?")
+          "מה התקציב שלכם - עד 3000 לאדם, או שאתם פתוחים ליותר?", {}
+      ) == "מה התקציב שלך לאדם לטיסה?")
+check("a direct-flight question phrased as two alternatives gets the "
+      "fixed yes/no",
+      chat._enforce_one_option_question(
+          "חשוב לכם טיסה ישירה, או שקונקשן גם בסדר?", {}
+      ) == "חשוב לך שהטיסה תהיה ישירה?")
 check("a leading statement sentence in the same reply is preserved, only "
       "the offending question clause is replaced",
       chat._enforce_one_option_question(
@@ -127,24 +142,26 @@ check("a reply with no '?' at all is returned unchanged",
       chat._enforce_one_option_question("מעולה, נרשם.", {}) == "מעולה, נרשם.")
 check("a reply whose last question has no ' או ' at all is left untouched",
       chat._enforce_one_option_question("איזו כבודה תרצו לקחת?", {}) == "איזו כבודה תרצו לקחת?")
-check("regression: a legitimate multi-option lodging-type question (not "
-      "a binary X-or-Y preference, and not baggage/offer) is left untouched",
+check("per the business owner's correction: a multi-option lodging-type "
+      "question IS a violation too (not an allowed exception) and now "
+      "gets the fixed open question",
       chat._enforce_one_option_question(
           "האם תרצי מלון, דירה או וילה?", {}
-      ) == "האם תרצי מלון, דירה או וילה?")
-check("the domain-offer fix only fires while the domain is still a plain "
-      "offer (active_session empty) - once it's already active, a free "
-      "X-or-Y slip there is left alone rather than risk breaking real "
-      "mid-domain content",
+      ) == "איזה סוג לינה מתאים לכם?")
+check("the next-domain offer text is used only while the domain is still "
+      "a plain offer (active_session empty) - once it's already active, "
+      "a free X-or-Y slip there falls through to the generic route-topic "
+      "question instead of the 'do you want this domain at all' offer "
+      "text (which would be the wrong question to re-ask)",
       chat._enforce_one_option_question(
           "יש לך רעיון למה בא לך לעשות, או שתרצי שאציע לך מסלול מגוון?",
           {"post_flight_offer": ["trip_planning"], "active_session": "trip_planning"},
-      ) == "יש לך רעיון למה בא לך לעשות, או שתרצי שאציע לך מסלול מגוון?")
-check("two domains offered at once (len != 1, itself a separate violation "
-      "of the one-domain-per-offer rule) is not papered over by this fix",
+      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+check("a reply with no recognizable topic keyword at all is left "
+      "unchanged rather than guessing a fallback",
       chat._enforce_one_option_question(
-          "רוצים לינה או רכב?", {"post_flight_offer": ["lodging", "car"], "active_session": None},
-      ) == "רוצים לינה או רכב?")
+          "תרצו לשמוע סיפור על היעד, או שנמשיך הלאה?", {}
+      ) == "תרצו לשמוע סיפור על היעד, או שנמשיך הלאה?")
 
 
 # === Bug 3: explicit gender hint ===

@@ -4927,6 +4927,26 @@ _OFFER_DOMAIN_QUESTIONS = {
 }
 
 
+# Per the business owner (relayed by Shlomo, PR #59 review): ANY "X או Y"
+# question is a rule violation, in every service - not just baggage and
+# the next-domain offer. "מלון, דירה או וילה?" is just as much a violation
+# as "טרולי, מזוודה, או תיק קטן?"; both name their options inside a closed
+# multiple-choice instead of asking one open question. Topic keywords map
+# to the one real open/yes-no question already approved for that gap
+# elsewhere in this file (_GAP_QUESTION_TEXT, _flight_gap_question) -
+# checked in this order (most specific first) so a question that mixes
+# two topics (a car question that happens to mention "מזוודות" - exactly
+# Shaked's PR #59 finding) resolves to the one it's actually about.
+_TOPIC_QUESTION_RULES = (
+    (("תקציב",), "מה התקציב שלך לאדם לטיסה?"),
+    (("ישירה", "ישיר"), "חשוב לך שהטיסה תהיה ישירה?"),
+    (("רכב",), "איזה סוג/גודל רכב מתאים לכם?"),
+    (("כבוד", "מזווד", "טרולי", "תיק קטן"), "איזו כבודה תרצו לקחת?"),
+    (("לינה", "מלון", "דירה", "וילה"), "איזה סוג לינה מתאים לכם?"),
+    (("מסלול", "קצב"), "ספרו לי מה אתם אוהבים לעשות בחופשה."),
+)
+
+
 def _enforce_one_option_question(reply, state):
     """The one-question/never-"X או Y" rule (see TINKERBELL_SYSTEM's own
     opening principle) is stated as a free-text instruction, which isn't
@@ -4936,11 +4956,14 @@ def _enforce_one_option_question(reply, state):
     trip_planning as the next session skipped the plain yes/no entirely in
     favor of diving into route content ("יש לך רעיון למסלול..., או שתרצי
     שאציע לך מסלול מגוון?"). Both are narrow, well-defined moments with an
-    already-approved fixed phrasing used elsewhere (_flight_gap_question's
-    baggage/missing_service branches) - when the model's own last question
-    violates the rule in exactly one of these two situations, swap just
-    that question clause for the fixed text, leaving any earlier statement
-    sentence in the same reply untouched."""
+    already-approved fixed phrasing used elsewhere - when the model's own
+    last question violates the rule, swap just that question clause for
+    the fixed text, leaving any earlier statement sentence in the same
+    reply untouched. Checks the next-domain offer first (state-driven,
+    exact), then falls back to topic keywords (_TOPIC_QUESTION_RULES) for
+    any other "X או Y" violation, in any service - per the business owner,
+    the rule is not baggage-specific. A reply whose topic matches none of
+    the known keywords is left as-is rather than guessing a fallback."""
     text = str(reply or "")
     qpos = text.rfind("?")
     if qpos == -1:
@@ -4961,25 +4984,11 @@ def _enforce_one_option_question(reply, state):
         and not (state or {}).get("active_session")
     ):
         fixed = _OFFER_DOMAIN_QUESTIONS[offered[0]]
-    # Stems, not whole words - "מזוודות" (plural) doesn't contain the
-    # singular "מזוודה" as a substring (ה -> ות). "תיק קטן" (not the bare,
-    # generic "תיק") matches the live failing phrasing (V4), which names
-    # the personal-item option without ever saying "כבודה" at all.
-    #
-    # Scoped to the flights domain specifically (active_session is flights
-    # or still unset, and flight.baggage itself is still empty) - seen live
-    # (Shaked, review on this same PR): a CAR question genuinely about
-    # luggage capacity ("איזה רכב מתאים - כזה שיכיל את כל המזוודות, או
-    # משהו קטן?", answering car.details.luggage_capacity_confirmed) matched
-    # the same keywords and got wrongly rewritten into the flight baggage
-    # question instead. Those words are only ever this rule's baggage
-    # question when flights actually still has that gap open.
-    elif (
-        any(w in last_q for w in ("כבוד", "מזווד", "טרולי", "תיק קטן"))
-        and str((state or {}).get("active_session") or "") in ("", "flights")
-        and not ((state or {}).get("flight") or {}).get("baggage")
-    ):
-        fixed = "איזו כבודה תרצו לקחת?"
+    else:
+        for keywords, question in _TOPIC_QUESTION_RULES:
+            if any(w in last_q for w in keywords):
+                fixed = question
+                break
     if not fixed:
         return reply
     prefix = text[:start].strip()
