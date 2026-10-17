@@ -63,23 +63,23 @@ if(data.redirect_url){
 if(!tripId&&tripState.search_confirmed&&Array.isArray(tripState.requested_services)&&tripState.requested_services.includes('flights')){
  const sr=await fetch('/api/ariella/start-flight-search',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify({trip_state:tripState})});
  const sd=await sr.json().catch(()=>({}));
- if(!sr.ok||!sd.waiting_url||!['queued','duplicate_active_trip'].includes(sd.status))throw new Error(sd.message||'search queue error');
+ if(!sr.ok||!sd.account_url||!['queued','duplicate_active_trip'].includes(sd.status))throw new Error(sd.message||'search queue error');
  if(sd.status==='duplicate_active_trip'){
   // An identical active trip already exists with its own results - nothing
   // new to gather here, go straight to it as before.
   tripState={};tripId=null;savedDomains={};try{save();localStorage.setItem(FINISHED_KEY,'1');}catch(e){}
   if(sd.message){add('assistant',String(sd.message));await new Promise(resolve=>setTimeout(resolve,4000));}
-  location.assign(sd.waiting_url);return;
+  location.assign(sd.account_url);return;
  }
  tripId=sd.trip_id;save();
  const resolvedNow=await syncPostFlightDomains(tripState);
- if(resolvedNow){tripState={};tripId=null;savedDomains={};try{save();localStorage.setItem(FINISHED_KEY,'1');}catch(e){}location.assign(sd.waiting_url);return;}
+ if(resolvedNow){tripState={};tripId=null;savedDomains={};try{save();localStorage.setItem(FINISHED_KEY,'1');}catch(e){}location.assign(sd.account_url);return;}
  const reply=String(data.reply||'').trim();if(reply){add('assistant',reply);history.push({role:'assistant',content:reply});save();}
  return;
 }
 if(tripId){
  const resolvedNow=await syncPostFlightDomains(tripState);
- if(resolvedNow){const waitingUrl='/trip/'+tripId+'/waiting';tripState={};tripId=null;savedDomains={};try{save();localStorage.setItem(FINISHED_KEY,'1');}catch(e){}location.assign(waitingUrl);return;}
+ if(resolvedNow){const accountUrl='/account#vacation-'+tripId;tripState={};tripId=null;savedDomains={};try{save();localStorage.setItem(FINISHED_KEY,'1');}catch(e){}location.assign(accountUrl);return;}
 }
 const reply=String(data.reply||'').trim();if(reply){add('assistant',reply);history.push({role:'assistant',content:reply});save();}}catch(e){add('assistant','יש כרגע תקלה זמנית בחיבור. נסי שוב בעוד רגע.');}finally{busy=false;send.disabled=false;input.focus();}}
 send.addEventListener('click',e=>{e.preventDefault();talk();});input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();talk();}});start();}

@@ -3660,7 +3660,7 @@ def ariella_start_flight_search():
                     _apply_trip_change_and_rescan(existing_trip_id, title, travel_window, change_payload)
                     return jsonify({
                         "status": "queued", "trip_id": existing_trip_id,
-                        "waiting_url": url_for("site.trip_waiting", trip_id=existing_trip_id),
+                        "account_url": url_for("site.account") + f"#vacation-{existing_trip_id}",
                         "message": "מעדכנת את החופשה שלך לפרטים החדשים וסורקת מחדש.",
                     })
                 return jsonify({
@@ -3682,7 +3682,7 @@ def ariella_start_flight_search():
         return jsonify({
             "status": "duplicate_active_trip",
             "trip_id": duplicate_trip_id,
-            "waiting_url": url_for("site.trip_waiting", trip_id=duplicate_trip_id),
+            "account_url": url_for("site.account") + f"#vacation-{duplicate_trip_id}",
             "message": "כבר יש לך חיפוש פעיל לטיסה הזו. מעבירה אותך לתוצאות הקיימות — ואם תרצי עדכון מחיר יומי טרי, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה.",
         })
 
@@ -3937,7 +3937,7 @@ def ariella_start_flight_search():
     _attach_decided_post_flight_domains(trip_id, state, history)
     # The flight session is done; the saved conversation reopens fresh next time.
     reset_ariella_conversation_trip_state(session["member_id"])
-    return jsonify({"status":"queued","trip_id":trip_id,"waiting_url":url_for("site.trip_waiting",trip_id=trip_id)})
+    return jsonify({"status":"queued","trip_id":trip_id,"account_url":url_for("site.account")+f"#vacation-{trip_id}"})
 
 
 @site.get("/trip/<int:trip_id>/waiting")
