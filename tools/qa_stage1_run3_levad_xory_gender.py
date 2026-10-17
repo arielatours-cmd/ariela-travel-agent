@@ -77,6 +77,25 @@ applies. Added an explicit required phrasing for both known values to
 the summary-structure rule, naming the live failing phrasing as a
 forbidden example.
 
+Stage-1 run-5 (Shaked, 17.10.2026, qa/reports/2026-10-17-stage1-run5.md,
+commit 06e2253): 4/5 on main 6586a1b. One failure, X2/Paris: right after
+the budget question (flights' own last gap) was answered, the reply came
+back as a bare "מעולה, פרטי הטיסה סגורים." with no question at all - the
+customer had to ask "מה עכשיו?" herself. Root cause: _enforce_one_option_
+question's active_session branch, finding no gap left for "flights" (it
+had just closed on this very turn), silently dropped the question
+instead of falling through to the next-domain offer that the SAME state
+snapshot's post_flight_offer/next_session already correctly named
+("trip_planning") - Tinkerbell's own reply had almost certainly free-
+worded exactly that offer as another "X או Y" violation. Fixed per the
+business owner's standing rule (relayed by Shlomo): a turn before the
+final summary must never end with no question. The active_session
+branch now falls through to the next-domain offer when its own gap list
+is empty, and the function's own last resort - when nothing usable is
+found anywhere - returns the original reply entirely unchanged (still a
+violation, but a real question) rather than ever dropping to a bare
+statement.
+
 Run: python3 tools/qa_stage1_run3_levad_xory_gender.py
 """
 import os
@@ -268,14 +287,32 @@ check("a reply with no '?' at all is returned unchanged",
 check("a reply whose last question has no ' או ' at all is left untouched",
       chat._enforce_one_option_question("איזו כבודה תרצו לקחת?", {}) == "איזו כבודה תרצו לקחת?")
 FLIGHTS_STATE_NO_GAPS = dict(FLIGHTS_STATE, budget_per_person={"amount": 3000})
-check("active_session set but genuinely no gap left (the session is about "
-      "to close) - the question is dropped, the earlier statement kept",
+check("per Shaked's stage-1 run-5 finding (Paris): active_session set but "
+      "genuinely no gap left, AND no next-domain offer in the state either "
+      "- the rule 'never end a turn with no question at all' means the "
+      "original reply is returned completely unchanged, not dropped",
       chat._enforce_one_option_question(
           "מעולה, הכל ידוע. עוד שאלה סתם, X או Y?", FLIGHTS_STATE_NO_GAPS,
-      ) == "מעולה, הכל ידוע.")
+      ) == "מעולה, הכל ידוע. עוד שאלה סתם, X או Y?")
 check("same no-gap case with no leading statement at all - returns the "
       "original reply unchanged rather than emitting an empty string",
       chat._enforce_one_option_question("X או Y?", FLIGHTS_STATE_NO_GAPS) == "X או Y?")
+check("Shaked's exact stage-1 run-5 repro (Paris, 06e2253): flights' last "
+      "gap (budget) just answered - active_session snapshot still reads "
+      "'flights' with no gaps left, but the SAME snapshot already has "
+      "post_flight_offer/next_session='trip_planning' set. Tinkerbell's "
+      "own 'X או Y' reply must resolve to the trip_planning offer, never "
+      "drop to a bare 'פרטי הטיסה סגורים.' with no question at all",
+      chat._enforce_one_option_question(
+          "מעולה, פרטי הטיסה סגורים. רוצה שאציע מסלול לטיול, או שכבר יש לך רעיון משלך?",
+          dict(FLIGHTS_STATE_NO_GAPS, post_flight_offer=["trip_planning"], next_session="trip_planning"),
+      ) == "מעולה, פרטי הטיסה סגורים. לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("the same Paris repro also resolves correctly when only next_session "
+      "is set (post_flight_offer not yet populated on this snapshot)",
+      chat._enforce_one_option_question(
+          "פרטי הטיסה סגורים. רוצה שאציע מסלול, או שכבר יש לך רעיון?",
+          dict(FLIGHTS_STATE_NO_GAPS, next_session="trip_planning"),
+      ) == "פרטי הטיסה סגורים. לתכנן גם מסלול ואטרקציות לחופשה הזו?")
 
 
 # === Bug 3: explicit gender hint ===
