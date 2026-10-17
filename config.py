@@ -286,6 +286,15 @@ MAIL_APP_PASSWORD = re.sub(r"\s+", "", os.getenv("MAIL_APP_PASSWORD", ""))
 MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
 MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 
+# Plan 014 (guided, model-based extraction instead of regex phrase lists).
+# Per Shlomo's request (2026-10-17): the business owner shouldn't need
+# Render access to turn on fields that are already approved and tested -
+# so the code itself defaults to ON for them, and the Render env var is
+# only an emergency override (set it to turn fields off, or to test a
+# different subset temporarily; setting it to an empty string is the
+# kill switch). Extend this list only as each field passes Shaked's QA.
+GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers"
+
 # Deployment helpers materialize source changes during the build. Importing those
 # mutation scripts at application startup made a second process try to patch the
 # same files again and could prevent the Deals page/app from starting.
