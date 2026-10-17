@@ -2,6 +2,7 @@ import hmac
 import html
 import logging
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -342,6 +343,62 @@ def admin_logout():
     return resp
 
 
+_GUNICORN_CONFIG_CACHE = None
+
+
+def _detect_gunicorn_config():
+    """Read-only, best-effort detection of the gunicorn MASTER process's
+    actual --timeout/--threads flags, via /proc/*/cmdline. Seen live
+    (Shlomo, stage-2 run-4 502 investigation): a 502 during itinerary
+    building came back after exactly gunicorn's documented DEFAULT
+    timeout (30s), not the 120s render.yaml configures for this exact
+    scenario - strong evidence that file may not even be the one
+    actually applied to the live service (its own service name doesn't
+    match). Exposing the real, in-effect values directly answers that
+    without depending on manually checking Render's dashboard.
+
+    A gunicorn worker is forked from the master, not exec'd, so the
+    worker process (this one) can still read the master's own cmdline
+    out of /proc - no secrets, no shelling out, just a few filesystem
+    reads. Cached after the first successful detection (the running
+    command line never changes without a restart, and re-scanning all of
+    /proc on every /health call would add latency for no benefit).
+
+    Deliberately returns only the two parsed integers, never the raw
+    command line, a file path, or an environment variable. Any failure
+    (no /proc, permission denied, gunicorn not found, anything
+    unexpected) is reported as (None, None) - this must never be the
+    reason /health itself fails."""
+    global _GUNICORN_CONFIG_CACHE
+    if _GUNICORN_CONFIG_CACHE is not None:
+        return _GUNICORN_CONFIG_CACHE
+    timeout_val = None
+    threads_val = None
+    try:
+        for pid in os.listdir("/proc"):
+            if not pid.isdigit():
+                continue
+            try:
+                with open(f"/proc/{pid}/cmdline", "rb") as f:
+                    raw = f.read()
+            except OSError:
+                continue
+            cmdline = [p.decode("utf-8", "replace") for p in raw.split(b"\0") if p]
+            if not cmdline or "gunicorn" not in cmdline[0]:
+                continue
+            joined = " ".join(cmdline)
+            m = re.search(r"--timeout[=\s]+(\d+)", joined)
+            timeout_val = int(m.group(1)) if m else 30
+            m = re.search(r"--threads[=\s]+(\d+)", joined)
+            threads_val = int(m.group(1)) if m else 1
+            break
+    except Exception:
+        timeout_val = None
+        threads_val = None
+    _GUNICORN_CONFIG_CACHE = (timeout_val, threads_val)
+    return _GUNICORN_CONFIG_CACHE
+
+
 @app.get("/health")
 def health():
     db_ok = True
@@ -352,6 +409,10 @@ def health():
     except Exception as exc:
         db_ok = False
         db_error = str(exc)
+    try:
+        gunicorn_timeout, gunicorn_threads = _detect_gunicorn_config()
+    except Exception:
+        gunicorn_timeout, gunicorn_threads = None, None
     return jsonify({
         "status": "ok" if db_ok else "degraded", "version": APP_VERSION,
         "commit": _DEPLOYED_COMMIT, "deployed_at": _STARTED_AT,
@@ -361,6 +422,7 @@ def health():
         "database_persistent_path": str(DB_PATH).startswith("/var/data/"),
         "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
         "admin_protected": bool(ADMIN_TOKEN), "whatsapp": whatsapp_status(),
+        "gunicorn_timeout": gunicorn_timeout, "gunicorn_threads": gunicorn_threads,
     })
 
 
