@@ -7021,6 +7021,299 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
     return {s: data.get(s) for s in offered if isinstance(data.get(s), bool)}
 
 
+# Task 014a (plan 014, stage 1, approved by the business owner 2026-10-16 -
+# "quality of understanding comes before cost savings"): replaces the
+# regex-based dates/travelers extraction with a guided, one-question-at-a-
+# time flow understood by the model, behind GUIDED_EXTRACTION_STEPS. Empty
+# (default) env var -> this whole mechanism never engages and every
+# existing regex path (_deterministic_date_facts, _deterministic_duration_
+# facts, _deterministic_traveler_facts) behaves exactly as before.
+def _guided_extraction_steps():
+    raw = os.getenv("GUIDED_EXTRACTION_STEPS", "").strip()
+    if not raw:
+        return set()
+    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers")}
+
+
+def _guided_extraction_model():
+    # Per the business owner: pick for quality, not cost - defaults to the
+    # same model Tinkerbell's own replies already use, never a cheaper one.
+    return os.getenv("GUIDED_EXTRACTION_MODEL", "").strip() or os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+
+
+# Per the business owner's iron rule (2026-10-16, relayed via Shlomo -
+# "she's already asked for this before"): every question Ariella shows is
+# either open, or yes/no about exactly ONE option - never "A or B?" (her
+# own examples: "relaxed or active pace?", "direct or connecting?"). None
+# of these guided texts may join two answer choices with "או" inside the
+# question itself; a finite set of choices is offered as bracketed quick-
+# replies AFTER an open question, never phrased as a forced pick between
+# them (see _GUIDED_CHOICE_OPTIONS below).
+_GUIDED_QUESTION_TEXT = {
+    "dates": "מתי תרצו לצאת, ולכמה לילות? (למשל: 10 בנובמבר, 5 לילות)",
+    "travelers": "מי נוסע? (למשל: 2 מבוגרים וילד בן 7)",
+}
+_GUIDED_UNCLEAR_RETRY_TEXT = {
+    "dates": "לא הצלחתי להבין את התאריכים - אפשר לכתוב, למשל, \"10 בנובמבר, 5 לילות\"?",
+    "travelers": "לא הצלחתי להבין מי נוסע - אפשר לכתוב, למשל, \"2 מבוגרים וילד בן 7\"?",
+}
+# Spec section 5 ("unclear" row, after 2 attempts, updated by Ofek
+# 2026-10-16 per the one-option rule above): the SAME open question,
+# repeated, with a finite set of bracketed quick-reply suggestions below
+# it - never phrased as "X or Y?" inside the question sentence itself.
+_GUIDED_CHOICE_OPTIONS = {
+    "dates": "באיזו תקופה תרצו לטוס? [נובמבר-דצמבר] [ינואר-פברואר] [מרץ-אפריל] [מאי-יוני] [יולי-אוגוסט] [ספטמבר-אוקטובר]",
+    "travelers": "מה ההרכב שלכם? [נוסע יחיד] [זוג] [זוג וילד אחד] [משפחה עם 2+ ילדים]",
+}
+
+
+def _guided_field_known_with_confidence(field, state):
+    """Spec section 3: a field already stated earlier, with confidence,
+    is never asked about again. Mirrors the same presence checks the rest
+    of this file already uses for these two fields."""
+    state = state if isinstance(state, dict) else {}
+    if field == "dates":
+        dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+        return bool(dates.get("departure") and dates.get("return"))
+    if field == "travelers":
+        travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+        return travelers.get("adults") is not None
+    return False
+
+
+def _guided_extract_answer(key, model, field, message, history, state):
+    """014a guided-question extraction call (source=guided_extract, per
+    spec section 4). Returns the parsed JSON dict, or None on any failure -
+    the caller then falls back to the existing regex for this one message
+    (spec section 5's fail-safe row), never crashing the turn."""
+    if not key or field not in ("dates", "travelers"):
+        return None
+    state = state if isinstance(state, dict) else {}
+    current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    current_travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    recent = " | ".join(
+        f"{x.get('role')}: {x.get('content')}" for x in (history or [])[-4:]
+        if isinstance(x, dict) and x.get("content")
+    )
+    today_str = date.today().isoformat()
+    if field == "dates":
+        prompt = (
+            "אריאלה (סוכנת נסיעות) שאלה את הלקוח מתי לטוס ולכמה לילות. חלצי "
+            "מתשובת הלקוח תאריכים, בהתחשב בהקשר.\n"
+            f"היום: {today_str}.\n"
+            f"מצב נוכחי - תאריכים: {json.dumps(current_dates, ensure_ascii=False)}, "
+            f"נוסעים: {json.dumps(current_travelers, ensure_ascii=False)}.\n"
+            f"4 ההודעות האחרונות: {recent}\n"
+            "כללים: אסור להמציא נתון חסר - אם חסר, השאירי null והחזירי "
+            "confidence:\"low\". departure לא יכול להיות בעבר. return חייב "
+            "להיות אחרי departure. אם ניתן מספר לילות בלי תאריך חזרה מפורש, "
+            "השאירי return null ומלאי nights - החישוב ייעשה בקוד, לא אצלך. "
+            "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי "
+            "להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, "
+            "נושא אחר) - status=\"other_topic\". אם ההודעה מתקנת תאריך "
+            "שכבר נקבע - status=\"answered\" ומלאי correction.\n"
+            "החזירי JSON בלבד, בדיוק במבנה: "
+            '{"status":"answered|unclear|other_topic","departure":"YYYY-MM-DD"|null,'
+            '"return":"YYYY-MM-DD"|null,"nights":int|null,"period":"טקסט חופשי"|null,'
+            '"flexibility_days":int|null,"confidence":"high|low",'
+            '"also_mentioned":{"travelers":{...}|null},'
+            '"correction":{"field":"...","old":"...","new":"..."}|null}'
+        )
+    else:
+        prompt = (
+            "אריאלה (סוכנת נסיעות) שאלה את הלקוח מי נוסע. חלצי מתשובת הלקוח "
+            "את הרכב הנוסעים, בהתחשב בהקשר.\n"
+            f"מצב נוכחי - נוסעים: {json.dumps(current_travelers, ensure_ascii=False)}, "
+            f"תאריכים: {json.dumps(current_dates, ensure_ascii=False)}.\n"
+            f"4 ההודעות האחרונות: {recent}\n"
+            "כללים: \"זוג\" = 2 מבוגרים. \"אני והבן שלי בן 9\" = 1 מבוגר, 1 "
+            "ילד, child_ages=[9], child_genders=[\"male\"]. אסור להמציא נתון "
+            "חסר - אם חסר, null ו-confidence:\"low\". also_mentioned: רק "
+            "פרטי תאריכים שנאמרו במפורש באותה הודעה. אם ההודעה לא עונה על "
+            "השאלה הזו בכלל - status=\"other_topic\". אם ההודעה מתקנת "
+            "מספר נוסעים שכבר נקבע - status=\"answered\" ומלאי correction.\n"
+            "החזירי JSON בלבד, בדיוק במבנה: "
+            '{"status":"answered|unclear|other_topic","adults":int|null,'
+            '"children":int|null,"child_ages":[int,...],'
+            '"child_genders":["male"|"female"|null,...],"infants":int|null,'
+            '"confidence":"high|low","also_mentioned":{"dates":{...}|null},'
+            '"correction":{"field":"...","old":"...","new":"..."}|null}'
+        )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 300, include_history=False, source="guided_extract")
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").replace("json", "", 1).strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+        if not isinstance(data, dict) or data.get("status") not in ("answered", "unclear", "other_topic"):
+            return None
+        return data
+    except Exception:
+        logging.warning("guided_extract: failed to parse model response for field=%s - falling back to regex", field)
+        return None
+
+
+def _guided_field_update_and_confirm(field, result):
+    """Builds the _merge_trip_state fragment for a resolved guided answer,
+    plus the one-line low-confidence confirmation text (spec section 5,
+    "answered + low" row: "רק לוודא: ...?")."""
+    result = result if isinstance(result, dict) else {}
+    if field == "dates":
+        departure = result.get("departure")
+        ret = result.get("return")
+        nights = result.get("nights")
+        period = result.get("period")
+        if departure and not ret and isinstance(nights, int) and nights > 0:
+            try:
+                ret = (date.fromisoformat(departure) + timedelta(days=nights)).isoformat()
+            except Exception:
+                ret = None
+        fragment = {}
+        if departure:
+            fragment["departure"] = departure
+        if ret:
+            fragment["return"] = ret
+        if period and not (departure and ret):
+            fragment["period"] = period
+        if departure and ret:
+            fragment["needs_confirmation"] = False
+            fragment["candidate_ranges"] = []
+        if not fragment:
+            return {}, None
+        if departure and ret:
+            confirm = f"רק לוודא: יוצאים ב-{_he_date_window(departure)} וחוזרים ב-{_he_date_window(ret)}?"
+        elif period:
+            confirm = f"רק לוודא: מתכננים לתקופת {period}?"
+        else:
+            confirm = "רק לוודא את התאריכים?"
+        # Per the business owner's one-option rule: a yes/no confirmation
+        # about the ONE extracted value, with its two real answers as
+        # bracketed quick-replies - never "is it X or did you mean Y?".
+        confirm += " [כן] [לתקן]"
+        return {"dates": fragment}, confirm
+    if field == "travelers":
+        fragment = {}
+        for k in ("adults", "children", "infants"):
+            v = result.get(k)
+            if isinstance(v, int):
+                fragment[k] = v
+        ages = result.get("child_ages")
+        genders = result.get("child_genders")
+        if isinstance(ages, list) and ages:
+            fragment["child_ages"] = ages
+        if isinstance(genders, list) and genders:
+            fragment["child_genders"] = genders
+        if not fragment:
+            return {}, None
+        if fragment.get("adults") is not None:
+            parts = ["מבוגר אחד" if fragment["adults"] == 1 else f"{fragment['adults']} מבוגרים"]
+            if fragment.get("children"):
+                parts.append("ילד אחד" if fragment["children"] == 1 else f"{fragment['children']} ילדים")
+            confirm = "רק לוודא: " + " ו".join(parts) + "?"
+        else:
+            confirm = "רק לוודא את מספר הנוסעים?"
+        confirm += " [כן] [לתקן]"
+        return {"travelers": fragment}, confirm
+    return {}, None
+
+
+def _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps):
+    """014a orchestrator. Returns None when there is nothing for the
+    guided flow to do this turn (flag off for every relevant field, or
+    both already answered/known) - the caller then runs its entire
+    existing cascade completely unchanged. Otherwise returns
+    {"trip_update": ..., "reply": <text-or-None>}: a non-empty reply is
+    this turn's ENTIRE response (the caller returns it immediately, same
+    as every other early-gate branch in chat_clean()); a None reply means
+    state changed (a field got filled via also_mentioned/correction, or
+    the message was an "other_topic" aside) but the normal cascade should
+    still run for the rest of this message."""
+    model = _guided_extraction_model()
+    guided = dict(trip_state.get("guided") or {}) if isinstance(trip_state.get("guided"), dict) else {}
+    answered = list(guided.get("answered") or [])
+    current_question = guided.get("current_question")
+    attempts = int(guided.get("attempts") or 0)
+    changed = False
+
+    for f in ("dates", "travelers"):
+        if f in guided_steps and f not in answered and _guided_field_known_with_confidence(f, trip_update):
+            answered.append(f)
+            changed = True
+    if current_question not in guided_steps:
+        current_question = None
+
+    if current_question:
+        result = _guided_extract_answer(key, model, current_question, message, history, trip_update)
+        if result is None:
+            # Fail-safe (spec section 5, last row): leave the guided state
+            # exactly as it was and let the caller run the existing regex
+            # for this one message instead, as if the flag didn't cover
+            # this field this turn.
+            guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "reply": None, "regex_fallback_fields": {current_question}}
+        status = str(result.get("status") or "")
+        if status == "other_topic":
+            guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "reply": None} if changed else None
+        if status == "unclear":
+            attempts += 1
+            guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+            trip_update["guided"] = guided
+            reply = (_GUIDED_CHOICE_OPTIONS if attempts >= 2 else _GUIDED_UNCLEAR_RETRY_TEXT).get(
+                current_question, _GUIDED_QUESTION_TEXT.get(current_question)
+            )
+            return {"trip_update": trip_update, "reply": reply}
+        # status == "answered"
+        fragment, confirm_text = _guided_field_update_and_confirm(current_question, result)
+        if fragment:
+            trip_update = _merge_trip_state(trip_update, fragment)
+        also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
+        other_field = "travelers" if current_question == "dates" else "dates"
+        also_data = also.get(other_field)
+        if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered:
+            also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
+            if also_fragment:
+                trip_update = _merge_trip_state(trip_update, also_fragment)
+                answered.append(other_field)
+        confidence = str(result.get("confidence") or "")
+        if confidence != "high" or not fragment:
+            # Low confidence (or nothing usable extracted despite status=
+            # "answered") - confirm before writing it down as settled;
+            # the question stays open until the customer confirms/corrects.
+            guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "reply": confirm_text or _GUIDED_QUESTION_TEXT.get(current_question)}
+        answered.append(current_question)
+        changed = True
+        if result.get("correction"):
+            field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים"}.get(
+                (result.get("correction") or {}).get("field"), "הפרטים"
+            )
+            statuses = dict(trip_update.get("session_status") or {})
+            if statuses.get("flights") == "complete":
+                # A field a closed flight session already relied on just
+                # changed - reopen it so the summary reflects the new value
+                # before the customer ever approves against stale data.
+                statuses["flights"] = "active"
+                trip_update["session_status"] = statuses
+                trip_update["ready_for_summary"] = False
+            guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "reply": f"עדכנתי את {field_label}."}
+        current_question = None
+
+    next_field = next((f for f in ("dates", "travelers") if f in guided_steps and f not in answered), None)
+    guided["current_question"] = next_field
+    guided["attempts"] = 0
+    guided["answered"] = answered
+    trip_update["guided"] = guided
+    if next_field:
+        return {"trip_update": trip_update, "reply": _GUIDED_QUESTION_TEXT[next_field]}
+    return {"trip_update": trip_update, "reply": None} if changed else None
+
+
 _REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_planning": "מסלול ואטרקציות"}
 # Per the business owner's iron rule (2026-10-16): one question only, open
 # or a single-option yes/no, never several questions or "X or Y" joined
@@ -8941,18 +9234,48 @@ def _chat_clean_impl():
             trip_update,
             _deterministic_destination_facts(history, message, trip_state)
         )
-        trip_update = _merge_trip_state(
-            trip_update,
-            _deterministic_date_facts(history, message, trip_state)
-        )
+
+        # Task 014a: once GUIDED_EXTRACTION_STEPS covers dates/travelers,
+        # this is the source of truth for them instead of the regex below -
+        # see _handle_guided_extraction_turn's own docstring. Empty flag
+        # (the default) -> guided_steps is empty -> nothing here ever runs,
+        # zero behavior change.
+        guided_steps = _guided_extraction_steps()
+        _guided_regex_fallback_fields = set()
+        if guided_steps:
+            guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
+            if guided_turn is not None:
+                trip_update = guided_turn["trip_update"]
+                _guided_regex_fallback_fields = guided_turn.get("regex_fallback_fields") or set()
+                if guided_turn.get("reply"):
+                    try:
+                        saved_history = list(history_before_gap) + [
+                            {'role': 'user', 'content': message},
+                            {'role': 'assistant', 'content': guided_turn["reply"]},
+                        ]
+                        save_ariella_conversation(session['member_id'], saved_history[-80:], trip_update)
+                    except Exception:
+                        logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+                    return jsonify({
+                        'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                        'reply': guided_turn["reply"], 'trip_update': trip_update, 'start_flight_search': False,
+                    })
+
+        if "dates" not in guided_steps or "dates" in _guided_regex_fallback_fields:
+            trip_update = _merge_trip_state(
+                trip_update,
+                _deterministic_date_facts(history, message, trip_state)
+            )
         # Closed exact dates are sticky. Once the customer has an authoritative
         # departure+return range, an unrelated later turn (route, attractions,
         # car, lodging, "sounds good", etc.) must never reopen date selection.
         # Dates may change only when the current message itself contains a new
         # deterministic date fact/range.
         prior_dates = trip_state.get("dates") if isinstance(trip_state.get("dates"), dict) else {}
-        current_date_facts = _deterministic_date_facts([], message, {})
-        current_dates = current_date_facts.get("dates") if isinstance(current_date_facts, dict) and isinstance(current_date_facts.get("dates"), dict) else {}
+        current_dates = {}
+        if "dates" not in guided_steps or "dates" in _guided_regex_fallback_fields:
+            current_date_facts = _deterministic_date_facts([], message, {})
+            current_dates = current_date_facts.get("dates") if isinstance(current_date_facts, dict) and isinstance(current_date_facts.get("dates"), dict) else {}
         # An explicit new date range in the CURRENT customer message overrides the
         # old approved range. Sticky dates protect against unrelated turns only;
         # they must never block a correction such as "change it to 23-27 May 2027".
@@ -9023,9 +9346,11 @@ def _chat_clean_impl():
                 if isinstance(_item, dict) and str(_item.get("role") or "").lower() == "user":
                     trip_update = _merge_trip_state(trip_update, _deterministic_trip_type_facts(_item.get("content")))
                     break
-        trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message, trip_state.get("travelers")))
+        if "travelers" not in guided_steps or "travelers" in _guided_regex_fallback_fields:
+            trip_update = _merge_trip_state(trip_update, _deterministic_traveler_facts(message, trip_state.get("travelers")))
         trip_update = _merge_trip_state(trip_update, _infer_standard_trip_type(trip_update, message, history))
-        trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
+        if "dates" not in guided_steps or "dates" in _guided_regex_fallback_fields:
+            trip_update = _merge_trip_state(trip_update, _deterministic_duration_facts(message, trip_state))
         # If Ariella's immediately previous reply proposed one concrete date range
         # and the customer simply continued (e.g. supplied the airport), accept it.
         trip_update = _merge_trip_state(trip_update, _accept_assistant_single_date_proposal(history, message, trip_state))
