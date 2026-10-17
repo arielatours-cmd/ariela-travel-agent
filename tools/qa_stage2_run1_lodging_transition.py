@@ -326,6 +326,37 @@ check("_baggage_summary still uses the per-passenger phrasing (qa-s83's "
       "לכל נוסע" in chat._baggage_summary({"flight": {"baggage": ["checked_bag"]}}))
 
 
+# === Bug 2a-follow-up (Shaked, 2026-10-17, 014a stage-1 run-1, Budapest Z5):
+#     a shared bag stated WITHOUT the literal word "משותפת" still never got
+#     baggage_shared=True - "מזוודה אחת לכולנו" has none of the old explicit
+#     patterns. Per the business owner's standing directive (general rules,
+#     not more phrase-chasing): a suitcase count SMALLER than the traveler
+#     count can never be "one per person" and must be shared, whatever words
+#     surround it. traveler_count is the new, optional second argument. ===
+check("Shaked's exact Budapest Z5 repro: 'מזוודה אחת לכולנו' with 3 "
+      "travelers (couple + a 3-year-old) sets baggage_shared=True via the "
+      "general count rule - no new literal phrase was added for 'לכולנו'",
+      chat._deterministic_baggage_facts("טרולי לכל אחד ועוד מזוודה אחת לכולנו", 3) == {
+          "flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_shared": True},
+      })
+check("same general rule catches 'שתי מזוודות לכולנו' (count=2) for a "
+      "party of 4 - 2 < 4, so it cannot be one-per-person",
+      chat._deterministic_baggage_facts("שתי מזוודות לכולנו", 4).get("flight", {}).get("baggage_shared") is True)
+check("'מזוודה אחת לכל זוג' for a solo traveler (count=1) does NOT trigger "
+      "the rule - sharing needs more than one traveler in the first place",
+      chat._deterministic_baggage_facts("מזוודה אחת לכל זוג", 1).get("flight", {}).get("baggage_shared") is None)
+check("an exact one-bag-per-person count ('ארבע מזוודות' for 4 travelers) "
+      "is NOT marked shared - 4 is not smaller than 4, stays per-passenger",
+      chat._deterministic_baggage_facts("ארבע מזוודות", 4).get("flight", {}).get("baggage_shared") is None)
+check("with no traveler_count given at all (back-compat, existing call "
+      "sites with only the message positional arg), the new rule never "
+      "fires and behavior is unchanged from before this fix",
+      chat._deterministic_baggage_facts("מזוודה אחת לכולנו").get("flight", {}).get("baggage_shared") is None)
+check("a genuinely multi-bag statement bigger than the party ('שתי "
+      "מזוודות' for a solo traveler) is never mistaken for shared",
+      chat._deterministic_baggage_facts("שתי מזוודות", 1).get("flight", {}).get("baggage_shared") is None)
+
+
 # === Bug 2b: internal terminology ("בשדה הפנימי", "מתועד כ-") must never
 #     reach a customer-facing reply ===
 
