@@ -1389,6 +1389,42 @@ def _gender_hint_text(state):
     return ""
 
 
+# Task 014b (accessibility, spec section 5): once a need is known, every
+# service adapts its own phrasing - never a blanket mention, and never a
+# promise that can't be verified with the actual supplier.
+_ACCESSIBILITY_SERVICE_HINT = {
+    "flight": (
+        "המלצה לבקש ליווי או כיסא גלגלים בשדה ובחברת התעופה, ומידע על עגלת תינוק "
+        "(נמסרת בשער ברוב החברות) - לוודא מול חברת התעופה, בלי להבטיח."
+    ),
+    "trip_planning": "מסלול עם פחות הליכה ופחות מדרגות, אתרים נגישים, וקצב רגוע.",
+    "lodging": (
+        "חדר נגיש, מעלית, קומה נמוכה, ועריסה לתינוק אם רלוונטי - לפי מה שמופיע בתוצאות עצמן; "
+        "אם אין מידע על כך, לומר שצריך לוודא מול המלון, בלי להבטיח."
+    ),
+    "car": "מקום לעגלה או לכיסא גלגלים, וכיסא בטיחות לתינוק אם רלוונטי.",
+}
+
+
+def _accessibility_hint_text(state):
+    """Only engages once GUIDED_EXTRACTION_STEPS covers "accessibility" and
+    the customer actually said yes - a blank/"no" accessibility field never
+    changes a single word of any reply (spec section 5)."""
+    state = state if isinstance(state, dict) else {}
+    if "accessibility" not in _guided_extraction_steps():
+        return ""
+    acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
+    if acc.get("needed") is not True:
+        return ""
+    need_text = acc.get("details") or ", ".join(acc.get("needs") or []) or "התאמה מיוחדת"
+    service_hint = _ACCESSIBILITY_SERVICE_HINT.get(str(state.get("active_session") or ""), "")
+    hint = f"\nללקוח יש צורך בנגישות/התאמה שצוין בשיחה: {need_text}. התייחסי אליו בתשובה הזו."
+    if service_hint:
+        hint += f" {service_hint}"
+    hint += " אין להבטיח דבר שלא ניתן לוודא מול הספק בפועל."
+    return hint
+
+
 def _resolve_destination_airports_from_route(state):
     """Deterministic safety net: once trip planning has confirmed a day-by-day
     route, derive the flight gateway from it (or from a plain destination name)
@@ -3503,6 +3539,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     nights_hint_text = _total_nights_hint(state)
     declined_domains_hint_text = _declined_domains_hint(state)
     gender_hint_text = _gender_hint_text(state)
+    accessibility_hint_text = _accessibility_hint_text(state)
     # The raw state JSON dump below is a second, separate path that can leak
     # an irrelevant upcoming_vacations list into the prompt just like the
     # continuity hint above - exclude it here too when it isn't relevant to
@@ -3510,7 +3547,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     state_for_context = state
     if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
         state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + gender_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + gender_hint_text + accessibility_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -7032,7 +7069,7 @@ def _guided_extraction_steps():
     raw = os.getenv("GUIDED_EXTRACTION_STEPS", "").strip()
     if not raw:
         return set()
-    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers")}
+    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers", "accessibility")}
 
 
 def _guided_extraction_model():
@@ -7052,10 +7089,12 @@ def _guided_extraction_model():
 _GUIDED_QUESTION_TEXT = {
     "dates": "מתי תרצו לצאת, ולכמה לילות? (למשל: 10 בנובמבר, 5 לילות)",
     "travelers": "מי נוסע? (למשל: 2 מבוגרים וילד בן 7)",
+    "accessibility": "יש מישהו מהנוסעים שצריך התאמה מיוחדת בדרך? (למשל עגלת תינוק, כיסא גלגלים)",
 }
 _GUIDED_UNCLEAR_RETRY_TEXT = {
     "dates": "לא הצלחתי להבין את התאריכים - אפשר לכתוב, למשל, \"10 בנובמבר, 5 לילות\"?",
     "travelers": "לא הצלחתי להבין מי נוסע - אפשר לכתוב, למשל, \"2 מבוגרים וילד בן 7\"?",
+    "accessibility": "סליחה, לא הבנתי - יש מישהו מהנוסעים שצריך התאמה מיוחדת בדרך?",
 }
 # Spec section 5 ("unclear" row, after 2 attempts, updated by Ofek
 # 2026-10-16 per the one-option rule above): the SAME open question,
@@ -7064,7 +7103,14 @@ _GUIDED_UNCLEAR_RETRY_TEXT = {
 _GUIDED_CHOICE_OPTIONS = {
     "dates": "באיזו תקופה תרצו לטוס? [נובמבר-דצמבר] [ינואר-פברואר] [מרץ-אפריל] [מאי-יוני] [יולי-אוגוסט] [ספטמבר-אוקטובר]",
     "travelers": "מה ההרכב שלכם? [נוסע יחיד] [זוג] [זוג וילד אחד] [משפחה עם 2+ ילדים]",
+    "accessibility": "יש מישהו מהנוסעים שצריך התאמה מיוחדת בדרך? (למשל עגלת תינוק, כיסא גלגלים) [כן] [לא]",
 }
+# Task 014b (accessibility, approved by the business owner 2026-10-17):
+# asked once, right after the travelers question resolves. "Yes" with no
+# detail yet gets ONE open follow-up instead of re-asking the yes/no -
+# this is that follow-up's text (spec section 3).
+_GUIDED_ACCESSIBILITY_DETAIL_TEXT = "ספרו לי מה יעזור לכם בדרך."
+_GUIDED_ACCESSIBILITY_NEED_VALUES = ("stroller", "wheelchair", "reduced_mobility", "infant", "other")
 
 
 def _guided_field_known_with_confidence(field, state):
@@ -7078,17 +7124,32 @@ def _guided_field_known_with_confidence(field, state):
     if field == "travelers":
         travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
         return travelers.get("adults") is not None
+    if field == "accessibility":
+        acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
+        if acc.get("needed") is False:
+            return True
+        return acc.get("needed") is True and bool(acc.get("needs") or acc.get("details"))
     return False
 
 
-def _guided_extract_answer(key, model, field, message, history, state):
-    """014a guided-question extraction call (source=guided_extract, per
-    spec section 4). Returns the parsed JSON dict, or None on any failure -
-    the caller then falls back to the existing regex for this one message
-    (spec section 5's fail-safe row), never crashing the turn."""
-    if not key or field not in ("dates", "travelers"):
+def _accessibility_awaiting_detail(state):
+    """True once the customer said "yes" but hasn't given the actual need
+    yet - the next guided turn must ask the open follow-up (spec section 3),
+    not repeat the yes/no question."""
+    acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
+    return acc.get("needed") is True and not (acc.get("needs") or acc.get("details"))
+
+
+def _guided_extract_answer(key, model, field, message, history, state, guided_steps=None):
+    """014a/014b guided-question extraction call (source=guided_extract,
+    per spec section 4). Returns the parsed JSON dict, or None on any
+    failure - the caller then falls back to the existing regex for this
+    one message (spec section 5's fail-safe row), never crashing the
+    turn."""
+    if not key or field not in ("dates", "travelers", "accessibility"):
         return None
     state = state if isinstance(state, dict) else {}
+    guided_steps = guided_steps or set()
     current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     current_travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
     recent = " | ".join(
@@ -7096,7 +7157,22 @@ def _guided_extract_answer(key, model, field, message, history, state):
         if isinstance(x, dict) and x.get("content")
     )
     today_str = date.today().isoformat()
+    # Task 014b: once accessibility is part of this flag, a customer can
+    # volunteer it unprompted while answering the dates/travelers question
+    # (spec section 4: "also_mentioned adds accessibility too") - captured
+    # the same way the dates/travelers fields already catch each other.
+    ask_also_accessibility = "accessibility" in guided_steps and not _guided_field_known_with_confidence("accessibility", state)
     if field == "dates":
+        also_mentioned_schema = '"also_mentioned":{"travelers":{...}|null'
+        also_mentioned_rule = "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי להשלים בעצמך."
+        if ask_also_accessibility:
+            also_mentioned_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
+            also_mentioned_rule += (
+                " אם הלקוח הזכיר מיוזמתו צורך בנגישות/התאמה (למשל עגלת תינוק, "
+                "כיסא גלגלים, קושי בהליכה) - מלאי גם את also_mentioned.accessibility, "
+                "עם הצורך המעשי בלבד, בלי אבחנה רפואית."
+            )
+        also_mentioned_schema += "}"
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מתי לטוס ולכמה לילות. חלצי "
             "מתשובת הלקוח תאריכים, בהתחשב בהקשר.\n"
@@ -7108,18 +7184,27 @@ def _guided_extract_answer(key, model, field, message, history, state):
             "confidence:\"low\". departure לא יכול להיות בעבר. return חייב "
             "להיות אחרי departure. אם ניתן מספר לילות בלי תאריך חזרה מפורש, "
             "השאירי return null ומלאי nights - החישוב ייעשה בקוד, לא אצלך. "
-            "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי "
-            "להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, "
-            "נושא אחר) - status=\"other_topic\". אם ההודעה מתקנת תאריך "
+            f"{also_mentioned_rule} אם ההודעה לא עונה על השאלה הזו בכלל (שאלה "
+            "אחרת, נושא אחר) - status=\"other_topic\". אם ההודעה מתקנת תאריך "
             "שכבר נקבע - status=\"answered\" ומלאי correction.\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic","departure":"YYYY-MM-DD"|null,'
             '"return":"YYYY-MM-DD"|null,"nights":int|null,"period":"טקסט חופשי"|null,'
             '"flexibility_days":int|null,"confidence":"high|low",'
-            '"also_mentioned":{"travelers":{...}|null},'
+            f'{also_mentioned_schema},'
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
         )
-    else:
+    elif field == "travelers":
+        also_mentioned_schema = '"also_mentioned":{"dates":{...}|null'
+        also_mentioned_rule = "also_mentioned: רק פרטי תאריכים שנאמרו במפורש באותה הודעה."
+        if ask_also_accessibility:
+            also_mentioned_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
+            also_mentioned_rule += (
+                " אם הלקוח הזכיר מיוזמתו צורך בנגישות/התאמה (למשל עגלת תינוק, "
+                "כיסא גלגלים, קושי בהליכה) - מלאי גם את also_mentioned.accessibility, "
+                "עם הצורך המעשי בלבד, בלי אבחנה רפואית."
+            )
+        also_mentioned_schema += "}"
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מי נוסע. חלצי מתשובת הלקוח "
             "את הרכב הנוסעים, בהתחשב בהקשר.\n"
@@ -7128,17 +7213,61 @@ def _guided_extract_answer(key, model, field, message, history, state):
             f"4 ההודעות האחרונות: {recent}\n"
             "כללים: \"זוג\" = 2 מבוגרים. \"אני והבן שלי בן 9\" = 1 מבוגר, 1 "
             "ילד, child_ages=[9], child_genders=[\"male\"]. אסור להמציא נתון "
-            "חסר - אם חסר, null ו-confidence:\"low\". also_mentioned: רק "
-            "פרטי תאריכים שנאמרו במפורש באותה הודעה. אם ההודעה לא עונה על "
-            "השאלה הזו בכלל - status=\"other_topic\". אם ההודעה מתקנת "
-            "מספר נוסעים שכבר נקבע - status=\"answered\" ומלאי correction.\n"
+            f"חסר - אם חסר, null ו-confidence:\"low\". {also_mentioned_rule} "
+            "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\". "
+            "אם ההודעה מתקנת מספר נוסעים שכבר נקבע - status=\"answered\" "
+            "ומלאי correction.\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic","adults":int|null,'
             '"children":int|null,"child_ages":[int,...],'
             '"child_genders":["male"|"female"|null,...],"infants":int|null,'
-            '"confidence":"high|low","also_mentioned":{"dates":{...}|null},'
+            '"confidence":"high|low",'
+            f'{also_mentioned_schema},'
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
         )
+    else:
+        # accessibility (task 014b). Two distinct sub-questions share this
+        # one field name (spec section 3): the initial yes/no, and - only
+        # once the customer said "yes" with no detail yet - a single open
+        # follow-up asking what would actually help. Which one is live is
+        # read from state, never tracked separately, same principle as
+        # dates/travelers (the code always knows what it just asked).
+        awaiting_detail = _accessibility_awaiting_detail(state)
+        if awaiting_detail:
+            prompt = (
+                "אריאלה (סוכנת נסיעות) שאלה את הלקוח שאלה פתוחה: מה יעזור "
+                "להם בדרך, אחרי שהלקוח ענה שכן יש צורך בהתאמה (נגישות).\n"
+                f"4 ההודעות האחרונות: {recent}\n"
+                "כללים: רשמי רק את הצורך המעשי (כיסא גלגלים, עגלת תינוק, "
+                "קושי בהליכה ארוכה וכד') - **בלי אבחנה או מצב רפואי**. אם "
+                "הלקוח כותב סיבה רפואית (למשל שם מחלה), סכמי אותה לצורך "
+                "מעשי בלבד, בלי לכתוב את השם הרפואי עצמו. needs היא רשימה "
+                f"מתוך הערכים: {', '.join(_GUIDED_ACCESSIBILITY_NEED_VALUES)}. "
+                "אסור להמציא - אם לא ברור מה בדיוק צריך, confidence:\"low\". "
+                "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
+                "החזירי JSON בלבד, בדיוק במבנה: "
+                '{"status":"answered|unclear|other_topic","needed":true,'
+                '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
+                '"details":"תיאור קצר של הצורך בלבד"|null,"confidence":"high|low",'
+                '"also_mentioned":null,"correction":null}'
+            )
+        else:
+            prompt = (
+                "אריאלה (סוכנת נסיעות) שאלה את הלקוח שאלת כן/לא: האם מישהו "
+                "מהנוסעים צריך התאמה (נגישות) לאורך הטיסה או הטיול - למשל "
+                "עגלת תינוק, כיסא גלגלים או קושי בהליכה.\n"
+                f"4 ההודעות האחרונות: {recent}\n"
+                "כללים: אם הלקוח ציין בתשובה גם את הצורך עצמו (למשל \"כן, יש "
+                "לנו עגלה\" או \"אבא שלי בכיסא גלגלים\"), מלאי גם את needs/"
+                "details מיד - אסור להמציא צורך שלא נאמר. בלי אבחנה או מצב "
+                "רפואי - אם נכתבה סיבה רפואית, סכמי אותה לצורך מעשי בלבד. "
+                "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
+                "החזירי JSON בלבד, בדיוק במבנה: "
+                '{"status":"answered|unclear|other_topic","needed":true|false|null,'
+                '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
+                '"details":"תיאור קצר של הצורך בלבד"|null,"confidence":"high|low",'
+                '"also_mentioned":null,"correction":null}'
+            )
     try:
         raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 300, include_history=False, source="guided_extract")
         raw = raw.strip()
@@ -7214,6 +7343,22 @@ def _guided_field_update_and_confirm(field, result):
             confirm = "רק לוודא את מספר הנוסעים?"
         confirm += " [כן] [לתקן]"
         return {"travelers": fragment}, confirm
+    if field == "accessibility":
+        needed = result.get("needed")
+        if needed is None:
+            return {}, None
+        needs = [n for n in (result.get("needs") or []) if n in _GUIDED_ACCESSIBILITY_NEED_VALUES] if isinstance(result.get("needs"), list) else []
+        details = result.get("details") if isinstance(result.get("details"), str) and result.get("details").strip() else None
+        acc = {"asked": True, "needed": needed}
+        if needed:
+            if needs:
+                acc["needs"] = needs
+            if details:
+                acc["details"] = details
+        # No confirmation line here by design (spec doesn't call for one) -
+        # the yes/no question itself, and the single open follow-up when
+        # "yes" has no detail yet, are the only two turns this field takes.
+        return {"accessibility": acc}, None
     return {}, None
 
 
@@ -7235,7 +7380,10 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     attempts = int(guided.get("attempts") or 0)
     changed = False
 
-    for f in ("dates", "travelers"):
+    # Order matters: task 014b asks accessibility only once both dates and
+    # travelers are resolved (spec section 3, "immediately after the
+    # travelers question") - never before, whatever order guided_steps lists.
+    for f in ("dates", "travelers", "accessibility"):
         if f in guided_steps and f not in answered and _guided_field_known_with_confidence(f, trip_update):
             answered.append(f)
             changed = True
@@ -7243,7 +7391,7 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         current_question = None
 
     if current_question:
-        result = _guided_extract_answer(key, model, current_question, message, history, trip_update)
+        result = _guided_extract_answer(key, model, current_question, message, history, trip_update, guided_steps)
         if result is None:
             # Fail-safe (spec section 5, last row): leave the guided state
             # exactly as it was and let the caller run the existing regex
@@ -7257,54 +7405,95 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
             trip_update["guided"] = guided
             return {"trip_update": trip_update, "reply": None} if changed else None
-        if status == "unclear":
-            attempts += 1
-            guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
-            trip_update["guided"] = guided
-            reply = (_GUIDED_CHOICE_OPTIONS if attempts >= 2 else _GUIDED_UNCLEAR_RETRY_TEXT).get(
-                current_question, _GUIDED_QUESTION_TEXT.get(current_question)
-            )
-            return {"trip_update": trip_update, "reply": reply}
-        # status == "answered"
-        fragment, confirm_text = _guided_field_update_and_confirm(current_question, result)
-        if fragment:
-            trip_update = _merge_trip_state(trip_update, fragment)
-        also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
-        other_field = "travelers" if current_question == "dates" else "dates"
-        also_data = also.get(other_field)
-        if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered:
-            also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
-            if also_fragment:
-                trip_update = _merge_trip_state(trip_update, also_fragment)
-                answered.append(other_field)
-        confidence = str(result.get("confidence") or "")
-        if confidence != "high" or not fragment:
-            # Low confidence (or nothing usable extracted despite status=
-            # "answered") - confirm before writing it down as settled;
-            # the question stays open until the customer confirms/corrects.
-            guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
-            trip_update["guided"] = guided
-            return {"trip_update": trip_update, "reply": confirm_text or _GUIDED_QUESTION_TEXT.get(current_question)}
-        answered.append(current_question)
-        changed = True
-        if result.get("correction"):
-            field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים"}.get(
-                (result.get("correction") or {}).get("field"), "הפרטים"
-            )
-            statuses = dict(trip_update.get("session_status") or {})
-            if statuses.get("flights") == "complete":
-                # A field a closed flight session already relied on just
-                # changed - reopen it so the summary reflects the new value
-                # before the customer ever approves against stale data.
-                statuses["flights"] = "active"
-                trip_update["session_status"] = statuses
-                trip_update["ready_for_summary"] = False
-            guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
-            trip_update["guided"] = guided
-            return {"trip_update": trip_update, "reply": f"עדכנתי את {field_label}."}
-        current_question = None
 
-    next_field = next((f for f in ("dates", "travelers") if f in guided_steps and f not in answered), None)
+        if current_question == "accessibility":
+            # Task 014b: this one field name covers two different turns -
+            # the yes/no, and (only once "yes" came back with no need yet)
+            # a single open follow-up - which one is live is read straight
+            # from state (_accessibility_awaiting_detail), same principle
+            # as every other guided field: the code always knows what it
+            # just asked, never re-derives it from the reply's wording.
+            awaiting_detail_before = _accessibility_awaiting_detail(trip_update)
+            if status == "unclear":
+                attempts += 1
+                guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+                trip_update["guided"] = guided
+                if awaiting_detail_before:
+                    reply = _GUIDED_ACCESSIBILITY_DETAIL_TEXT
+                else:
+                    reply = (_GUIDED_CHOICE_OPTIONS if attempts >= 2 else _GUIDED_UNCLEAR_RETRY_TEXT).get("accessibility")
+                return {"trip_update": trip_update, "reply": reply}
+            # status == "answered"
+            fragment, _ = _guided_field_update_and_confirm("accessibility", result)
+            if fragment:
+                trip_update = _merge_trip_state(trip_update, fragment)
+            confidence = str(result.get("confidence") or "")
+            if not fragment or confidence != "high" or not _guided_field_known_with_confidence("accessibility", trip_update):
+                # Nothing usable, low confidence, or a bare "yes" with no
+                # need specified yet - stay on this field. _accessibility_
+                # awaiting_detail now reads the just-merged state, so once
+                # "needed" turned True this turn it correctly asks the open
+                # follow-up next, instead of repeating the yes/no.
+                guided["current_question"], guided["attempts"], guided["answered"] = "accessibility", 0, answered
+                trip_update["guided"] = guided
+                reply = _GUIDED_ACCESSIBILITY_DETAIL_TEXT if _accessibility_awaiting_detail(trip_update) else _GUIDED_QUESTION_TEXT["accessibility"]
+                return {"trip_update": trip_update, "reply": reply}
+            answered.append("accessibility")
+            changed = True
+            current_question = None
+        else:
+            if status == "unclear":
+                attempts += 1
+                guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+                trip_update["guided"] = guided
+                reply = (_GUIDED_CHOICE_OPTIONS if attempts >= 2 else _GUIDED_UNCLEAR_RETRY_TEXT).get(
+                    current_question, _GUIDED_QUESTION_TEXT.get(current_question)
+                )
+                return {"trip_update": trip_update, "reply": reply}
+            # status == "answered"
+            fragment, confirm_text = _guided_field_update_and_confirm(current_question, result)
+            if fragment:
+                trip_update = _merge_trip_state(trip_update, fragment)
+            also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
+            also_candidates = ["travelers", "accessibility"] if current_question == "dates" else ["dates", "accessibility"]
+            for other_field in also_candidates:
+                also_data = also.get(other_field)
+                if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered:
+                    # Spec section 3: a customer who volunteers it unprompted
+                    # gets it filled via also_mentioned and the question is
+                    # skipped entirely - taken as final, no follow-up turn.
+                    also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
+                    if also_fragment:
+                        trip_update = _merge_trip_state(trip_update, also_fragment)
+                        answered.append(other_field)
+            confidence = str(result.get("confidence") or "")
+            if confidence != "high" or not fragment:
+                # Low confidence (or nothing usable extracted despite status=
+                # "answered") - confirm before writing it down as settled;
+                # the question stays open until the customer confirms/corrects.
+                guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
+                trip_update["guided"] = guided
+                return {"trip_update": trip_update, "reply": confirm_text or _GUIDED_QUESTION_TEXT.get(current_question)}
+            answered.append(current_question)
+            changed = True
+            if result.get("correction"):
+                field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים"}.get(
+                    (result.get("correction") or {}).get("field"), "הפרטים"
+                )
+                statuses = dict(trip_update.get("session_status") or {})
+                if statuses.get("flights") == "complete":
+                    # A field a closed flight session already relied on just
+                    # changed - reopen it so the summary reflects the new value
+                    # before the customer ever approves against stale data.
+                    statuses["flights"] = "active"
+                    trip_update["session_status"] = statuses
+                    trip_update["ready_for_summary"] = False
+                guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
+                trip_update["guided"] = guided
+                return {"trip_update": trip_update, "reply": f"עדכנתי את {field_label}."}
+            current_question = None
+
+    next_field = next((f for f in ("dates", "travelers", "accessibility") if f in guided_steps and f not in answered), None)
     guided["current_question"] = next_field
     guided["attempts"] = 0
     guided["answered"] = answered
