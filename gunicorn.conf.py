@@ -3,8 +3,32 @@
 Historical source-rewrite hooks were removed because the corrections are now
 part of the repository. Re-running them after every worker fork can reject a
 valid newer code shape and prevent the service from booting.
+
+Per Shlomo/Eran (17.10.2026, stage-2 run-5+ 502 investigation): the live
+/health endpoint (PR #69) reported gunicorn_timeout=30, gunicorn_threads=1 -
+gunicorn's own bare defaults - proving the deployed Start Command does NOT
+actually pass --timeout/--threads/--workers, whatever render.yaml's
+startCommand says. Rather than wait on tracking down and fixing the real
+Start Command (a separate, Render-dashboard-level change outside this
+repo's control), these are set directly here instead: this file is already
+confirmed loaded regardless of the Start Command (post_worker_init below
+only ever ran because gunicorn is loading it), so they take effect no
+matter what flags the Start Command does or doesn't pass.
+
+threads is capped at 4, not higher - raising it to 12 on 2026-10-12 made
+the live instance OOM-crash-loop within ~10 minutes (each thread holds a
+full request's memory - conversation history, cached system prompt, an
+in-flight Anthropic response - at once), confirmed in Render's own
+metrics/logs ("Worker exited"/"out of memory"/"SIGKILL"). 4 is the
+known-stable value; raising it again needs a plan upgrade with more memory
+first. workers stays at 1 because the in-process scheduler (daily/scan
+jobs) must run only once.
 """
 import os
+
+workers = 1
+threads = 4
+timeout = 120
 
 
 def post_worker_init(worker):
