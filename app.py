@@ -1,12 +1,17 @@
+import hmac
+import html
 import logging
 import os
 import sqlite3
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect, Response
 from werkzeug.exceptions import HTTPException
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from urllib.parse import quote
 
 # Gunicorn/Flask leave the root logger at its default WARNING level, which
 # silently drops every logging.info() call app-wide (booking diagnostics,
@@ -14,7 +19,7 @@ from werkzeug.exceptions import HTTPException
 # configured before any other module logs anything.
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard
+from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard, render_hfa_routes_dashboard
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
     MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY, DESTINATIONS,
@@ -174,8 +179,82 @@ if SCHEDULER_ENABLED and os.getenv("WERKZEUG_RUN_MAIN") != "true":
     start_scheduler()
 
 
+# Admin login (so the token no longer has to sit in ?token= URLs, which end
+# up in Render's request logs). The login is its own signed cookie rather
+# than a flag in the site-wide Flask session: it is SameSite=Strict, so a
+# link or form on another site can never carry it - several admin actions
+# are plain GETs (e.g. /admin/delete-member). Path "/" because the admin
+# dashboard also calls protected routes outside /admin (/scan, /scan-stop...).
+ADMIN_COOKIE = "ariella_admin"
+ADMIN_SESSION_SECONDS = 12 * 60 * 60
+
+
+def _admin_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt="ariella-admin-session")
+
+
+# Shaked's hardening (16.10): with the public default secret key anyone who
+# reads the source could sign an admin cookie, so cookie login is off then.
+_DEFAULT_SECRET_KEY = "change-this-before-production"
+
+
+def _secret_key_is_default() -> bool:
+    return not app.secret_key or app.secret_key == _DEFAULT_SECRET_KEY
+
+
+# Failed /admin/login attempts per client IP (and in total), in memory:
+# Render runs one gunicorn worker (threads share this dict). Only wrong codes
+# count; while an IP is blocked even the right code is refused at the form
+# (the X-Admin-Token header / ?token= still work), and a successful login
+# clears that IP's failures.
+ADMIN_LOGIN_MAX_FAILS_PER_IP = 5
+ADMIN_LOGIN_MAX_FAILS_TOTAL = 50
+ADMIN_LOGIN_WINDOW_SECONDS = 15 * 60
+_admin_login_fails: dict[str, list[float]] = {}
+_admin_login_lock = threading.Lock()
+
+
+def _client_ip() -> str:
+    # Behind Render's proxy remote_addr is the proxy; the LAST X-Forwarded-For
+    # entry is the one the proxy itself appended (earlier ones can be forged).
+    forwarded = [p.strip() for p in (request.headers.get("X-Forwarded-For") or "").split(",") if p.strip()]
+    return forwarded[-1] if forwarded else (request.remote_addr or "unknown")
+
+
+def _admin_login_blocked(ip: str) -> bool:
+    cutoff = time.time() - ADMIN_LOGIN_WINDOW_SECONDS
+    with _admin_login_lock:
+        for key in list(_admin_login_fails):
+            _admin_login_fails[key] = [t for t in _admin_login_fails[key] if t > cutoff]
+            if not _admin_login_fails[key]:
+                del _admin_login_fails[key]
+        total = sum(len(v) for v in _admin_login_fails.values())
+        return len(_admin_login_fails.get(ip, [])) >= ADMIN_LOGIN_MAX_FAILS_PER_IP or total >= ADMIN_LOGIN_MAX_FAILS_TOTAL
+
+
+def _admin_login_record_failure(ip: str) -> None:
+    with _admin_login_lock:
+        _admin_login_fails.setdefault(ip, []).append(time.time())
+
+
+def _admin_cookie_valid() -> bool:
+    raw = request.cookies.get(ADMIN_COOKIE)
+    if not raw or not ADMIN_TOKEN or _secret_key_is_default():
+        return False
+    try:
+        data = _admin_serializer().loads(raw, max_age=ADMIN_SESSION_SECONDS)
+    except (BadSignature, SignatureExpired):
+        return False
+    # Rotating ADMIN_TOKEN logs every existing admin session out.
+    expected = hmac.new(ADMIN_TOKEN.encode(), b"admin-session", "sha256").hexdigest()
+    return isinstance(data, dict) and data.get("is_admin") is True \
+        and hmac.compare_digest(str(data.get("token_tag") or ""), expected)
+
+
 def _authorized() -> bool:
     if not ADMIN_TOKEN:
+        return True
+    if _admin_cookie_valid():
         return True
     supplied = request.headers.get("X-Admin-Token") or request.args.get("token", "")
     return supplied == ADMIN_TOKEN
@@ -183,8 +262,84 @@ def _authorized() -> bool:
 
 def _require_admin():
     if not _authorized():
+        # A browser opening an admin page gets the login form instead of a
+        # bare 401; API/script callers keep the 401 JSON exactly as before.
+        if request.method == "GET" and request.accept_mimetypes.best == "text/html":
+            return redirect("/admin/login?next=" + quote(request.path, safe="/"))
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     return None
+
+
+_ADMIN_LOGIN_HTML = """<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>אריאלה — כניסת מנהל</title><style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;background:#f5f7fb;font-family:Arial,sans-serif;color:#182033}
+form{width:min(380px,100%);background:#fff;padding:26px 22px;border-radius:14px;box-shadow:0 4px 24px #0000001a;display:flex;flex-direction:column;gap:12px}
+h1{margin:0 0 4px;font-size:22px}input{padding:12px;font-size:16px;border:1px solid #d8dde6;border-radius:8px;direction:ltr}
+button{padding:12px;font-size:16px;font-weight:800;border:0;border-radius:8px;background:#b8892e;color:#fff;cursor:pointer}
+.err{color:#a12b2b;margin:0}</style></head><body>
+<form method="post" action="/admin/login" autocomplete="off"><h1>כניסת מנהל</h1>
+{error}<label for="token">קוד מנהל</label>
+<input id="token" name="token" type="password" required autofocus>
+<input type="hidden" name="next" value="{next}"><button type="submit">כניסה</button></form></body></html>"""
+
+
+def _safe_admin_next(value) -> str:
+    value = str(value or "")
+    return value if value.startswith("/admin") and not value.startswith("/admin/login") and "//" not in value else "/admin"
+
+
+def _admin_login_page(error="", next_path="/admin", status=200):
+    body = _ADMIN_LOGIN_HTML.replace("{error}", f'<p class="err">{html.escape(error)}</p>' if error else "") \
+        .replace("{next}", html.escape(_safe_admin_next(next_path)))
+    resp = Response(body, status=status, mimetype="text/html")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.get("/admin/login")
+def admin_login_form():
+    if ADMIN_TOKEN and _admin_cookie_valid():
+        return redirect(_safe_admin_next(request.args.get("next")))
+    return _admin_login_page(next_path=request.args.get("next"))
+
+
+@app.post("/admin/login")
+def admin_login():
+    next_path = _safe_admin_next(request.form.get("next"))
+    if _secret_key_is_default():
+        logging.warning("admin login refused: FLASK_SECRET_KEY is the public default")
+        return _admin_login_page(
+            "הכניסה כבויה: FLASK_SECRET_KEY לא הוגדר (ערך ברירת המחדל). יש להגדיר ערך סודי ב-Render.",
+            next_path, status=503)
+    ip = _client_ip()
+    if _admin_login_blocked(ip):
+        logging.warning("admin login rate-limited ip=%s", ip)
+        resp = _admin_login_page("יותר מדי ניסיונות שגויים. נסו שוב בעוד 15 דקות.", next_path, status=429)
+        resp.headers["Retry-After"] = str(ADMIN_LOGIN_WINDOW_SECONDS)
+        return resp
+    supplied = str(request.form.get("token") or "")
+    if not ADMIN_TOKEN or not hmac.compare_digest(supplied.encode(), ADMIN_TOKEN.encode()):
+        _admin_login_record_failure(ip)
+        return _admin_login_page("קוד שגוי", next_path, status=401)
+    with _admin_login_lock:
+        _admin_login_fails.pop(ip, None)
+    tag = hmac.new(ADMIN_TOKEN.encode(), b"admin-session", "sha256").hexdigest()
+    resp = redirect(next_path)
+    resp.set_cookie(
+        ADMIN_COOKIE, _admin_serializer().dumps({"is_admin": True, "token_tag": tag}),
+        max_age=ADMIN_SESSION_SECONDS, path="/", httponly=True, samesite="Strict",
+        secure=request.is_secure or bool(os.getenv("RENDER")),
+    )
+    return resp
+
+
+@app.route("/admin/logout", methods=["GET", "POST"])
+def admin_logout():
+    resp = redirect("/admin/login")
+    resp.delete_cookie(ADMIN_COOKIE, path="/", httponly=True, samesite="Strict",
+                       secure=request.is_secure or bool(os.getenv("RENDER")))
+    return resp
 
 
 @app.get("/health")
@@ -335,6 +490,15 @@ def admin_feedback():
     feedback = recent_feedback(500)
     mark_feedback_seen()
     return render_feedback_dashboard(feedback=feedback, token=request.args.get("token", ""))
+
+
+@app.get("/admin/hfa-routes")
+def admin_hfa_routes():
+    """Task 011a: the Haifa (Air Haifa) destination list with verified_at."""
+    denied = _require_admin()
+    if denied: return denied
+    from hfa_routes import load_routes
+    return render_hfa_routes_dashboard(routes=load_routes(), token=request.args.get("token", ""))
 
 
 @app.get("/admin/ai-usage")
