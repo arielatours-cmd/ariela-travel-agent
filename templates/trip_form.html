@@ -294,7 +294,6 @@
       // Captured before any reset below clears it: the vacation whose flight
       // scan is already running, if this conversation is past approval.
       const postFlightTripId=Number(localStorage.getItem(tripIdKey)||0);
-      const postFlightReopened=localStorage.getItem(reopenedKey)==='1';
       if(data.trip_state_reset===true){
         // A new vacation is a hard structured-state boundary. Visible chat may
         // remain for the customer, but no prior vacation id/commit/state is allowed
@@ -408,9 +407,9 @@
           history.push({role:'assistant',content:netErr,agent:'Ariella'});add('assistant',netErr);save();
           return;
         }
-        if(start.ok&&['success','queued'].includes(started.status)&&started.waiting_url){
+        if(start.ok&&['success','queued'].includes(started.status)&&started.account_url){
           // The approved trip is now persisted and handed off successfully.
-          // End this conversation commit before leaving for the waiting page.
+          // End this conversation commit before leaving for the vacation card.
           // Ordinary refreshes during an active conversation still preserve state.
           try{
             // Preserve the visible customer conversation. Only close the finished
@@ -439,12 +438,12 @@
           // already completed successfully by this point.
           // The flight scan is running in the background. Stay in the chat:
           // the reply just shown asks about lodging/car/route. Only when
-          // there is nothing left to ask about go straight to the waiting page.
+          // there is nothing left to ask about go straight to the vacation card.
           const apSt=(approvedTripState&&approvedTripState.session_status)||{};
           const nothingLeft=['lodging','car','trip_planning'].every(d=>apSt[d]==='complete'||apSt[d]==='declined');
           if(nothingLeft){
             await new Promise(resolve=>setTimeout(resolve,4000));
-            location.href=started.waiting_url;return;
+            location.href=started.account_url;return;
           }
           hideTyping();
           return;
@@ -459,14 +458,14 @@
           await new Promise(resolve=>setTimeout(resolve,4000));
           location.href=started.account_url;return;
         }
-        if(start.ok&&started.status==='duplicate_active_trip'&&started.waiting_url){
+        if(start.ok&&started.status==='duplicate_active_trip'&&started.account_url){
           // The customer already has an active vacation for this exact
           // origin/destination/dates. Explain why, then hand off to the
           // existing results instead of spending another free scan.
           const dupMsg=String(started.message||'כבר יש לך חיפוש פעיל לחופשה הזו.');
           history.push({role:'assistant',content:dupMsg,agent:'Ariella'});add('assistant',dupMsg);save();
           await new Promise(resolve=>setTimeout(resolve,4000));
-          location.href=started.waiting_url;return;
+          location.href=started.account_url;return;
         }
         // The approval reply was already rendered above. Never append it twice
         // when starting the scan fails; surface the actual handoff error instead.
@@ -481,12 +480,11 @@
         const finished=await syncPostFlight(postFlightTripId,ts,convo);
         if(finished){
           history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
-          const reopened=postFlightReopened;
           try{localStorage.removeItem(tripIdKey);localStorage.removeItem(savedDomainsKey);localStorage.removeItem(reopenedKey);localStorage.setItem(committedKey,'1');}catch(e){}
           await new Promise(resolve=>setTimeout(resolve,2500));
           // A return visit only added services - the flights were handled
-          // before, so the waiting page shows just what was asked for now.
-          location.href='/trip/'+postFlightTripId+'/waiting'+(reopened?'?reopen=1':'');return;
+          // before, so the vacation card shows just what was asked for now.
+          location.href='/account#vacation-'+postFlightTripId;return;
         }
       }
       history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();

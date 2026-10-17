@@ -213,7 +213,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
   - שירות שסומן declined **אינו מופיע כלל** - לא גם כשורה קצרה ("רכב: לא נדרש") ולא בשום ניסוח אחר (ראו הכלל למעלה). החריג היחיד: טיסות שכבר הוזמנו עצמאית (ראו שורת "טיסות: כבר בידיכם" למעלה) - זה מידע רלוונטי שכן מוצג, למרות ש-flights מסומן declined. אם יש לפחות שירות אחר כזה שנדחה סתם, סיימי לפני שורת האישור במשפט תזכורת קצר אחד וכללי (לא רשימת השירותים הספציפיים) שאפשר תמיד לחזור ולהוסיף גם את מה שלא נדרש הפעם.
   - שורת האישור: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר - רק המילים מאשר/מאשרת מאשרות ביצוע. אין להוסיף שום הסבר/שאלה פתוחה נוספת אחרי שורת האישור.
 - פתיחת הסיכום היא ישירה ועניינית בלבד. לעולם אל תפתחי בניסוח טכני/מסורבל כמו "עדיין לא יצאתי לחיפוש בפועל - הנה הסיכום, ורק לאחר אישור במילה המדויקת אני יוצאת לדרך" - זה נשמע כמו תיעוד מערכת, לא שיחה. הכלל "אל תטעני שכבר חיפשת" כבר מובטח על ידי כך שמעולם לא מוזכרת פעולת חיפוש שלא קרתה - אין צורך להסביר זאת שוב בפתיח.
-- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם; אם הוא כן ידוע, חובה לציין אותו בסיכום במפורש (לא רק לשאול עליו לפני כן). אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום את השדה/שדות שבאמת נבחרו/מחפשים בהם בפועל (לא רק שם היעד הכללי), לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
+- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם; אם הוא כן ידוע, חובה לציין אותו בסיכום במפורש (לא רק לשאול עליו לפני כן), בניסוח ישיר שתואם בדיוק את הערך הידוע - "direct" כותבים "מעדיפים טיסה ישירה", וכשהערך הוא "אין העדפה" כותבים בדיוק "אין העדפה לטיסה ישירה" (לא "ישירה, בהתאם לזמינות בפועל" או כל ניסוח אחר שמרמז בטעות על העדפה לישירה שלא קיימת - "אין העדפה" פירושו שקונקשן מתאים בדיוק כמו טיסה ישירה, לא שהכל תלוי בזמינות). אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום את השדה/שדות שבאמת נבחרו/מחפשים בהם בפועל (לא רק שם היעד הכללי), לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
@@ -1300,6 +1300,31 @@ def _direct_route_hint_text(state):
     )
 
 
+def _gender_hint_text(state):
+    """Rule 188 (profile.gender -> לשון זכר/נקבה) is a free-text instruction
+    pointing at a key buried deep inside the full state JSON dump - not
+    reliably followed on its own. Seen live (Shaked, stage-1 run-3): a
+    customer who wrote "אני טס" (clearly male) got addressed in feminine
+    mid-conversation ("טסה ללונדון לבד... איזו כבודה תצטרכי?") even though
+    user_gender was correctly set (the final approval line used the correct
+    "כתוב מאשר"). Surfaced here as its own explicit sentence, the same way
+    _direct_route_hint_text/_multi_gateway_hint force compliance on other
+    facts the free generation tends to drop when they're just one more
+    field in a large JSON blob."""
+    gender = str((state or {}).get("user_gender") or "").strip().lower()
+    if gender == "male":
+        return (
+            "\nמגדר הלקוח ידוע: זכר. פני אליו בלשון זכר יחיד בכל משפט בתשובה הזו - "
+            "כל פועל/סיומת (לדוגמה \"תצטרך\", לא \"תצטרכי\"; \"טס\", לא \"טסה\") - בלי יוצא מן הכלל."
+        )
+    if gender == "female":
+        return (
+            "\nמגדר הלקוחה ידוע: נקבה. פני אליה בלשון נקבה יחידה בכל משפט בתשובה הזו - "
+            "כל פועל/סיומת (לדוגמה \"תצטרכי\", לא \"תצטרך\"; \"טסה\", לא \"טס\") - בלי יוצא מן הכלל."
+        )
+    return ""
+
+
 def _resolve_destination_airports_from_route(state):
     """Deterministic safety net: once trip planning has confirmed a day-by-day
     route, derive the flight gateway from it (or from a plain destination name)
@@ -2171,8 +2196,12 @@ def _flight_gap_question(gaps, state=None):
     if "budget_per_person" in gaps:
         # Open question - "no budget limit" is still a perfectly natural
         # free-form answer, already recognized regardless of how the
-        # question was phrased (see _deterministic_budget_facts).
-        return "מה התקציב שלך לאדם לטיסה?"
+        # question was phrased (see _deterministic_budget_facts). Plural
+        # ("שלכם", not "שלך") per Shaked's stage-1 run-4 review - this is a
+        # generic fixed text reused for any party size, matching every
+        # other fixed question in this file (_GAP_QUESTION_TEXT etc.), not
+        # a free-generated line addressed to one known customer.
+        return "מה התקציב שלכם לאדם לטיסה?"
     if "departure_airport" in gaps:
         return _departure_question(state)
     if "trip_type" in gaps:
@@ -2190,8 +2219,9 @@ def _flight_gap_question(gaps, state=None):
         return "חסר לי הגיל של הילד/ה בהרכב הנוסעים. מה הגיל?"
     if "flight.connection_preference" in gaps:
         # Single-option yes/no - matches _deterministic_connection_
-        # preference_facts' own gate exactly.
-        return "חשוב לך שהטיסה תהיה ישירה?"
+        # preference_facts' own gate exactly. Plural per Shaked's stage-1
+        # run-4 review, same reasoning as budget_per_person above.
+        return "חשוב לכם שהטיסה תהיה ישירה?"
     if "flight.baggage" in gaps:
         # Open question - the three canonical storage values are still the
         # only ones ever written to flight.baggage (see _baggage_answer_
@@ -3174,6 +3204,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     weekday_hint_text = _weekday_lookup_hint(state)
     nights_hint_text = _total_nights_hint(state)
     declined_domains_hint_text = _declined_domains_hint(state)
+    gender_hint_text = _gender_hint_text(state)
     # The raw state JSON dump below is a second, separate path that can leak
     # an irrelevant upcoming_vacations list into the prompt just like the
     # continuity hint above - exclude it here too when it isn't relevant to
@@ -3181,7 +3212,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     state_for_context = state
     if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
         state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + gender_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -3192,6 +3223,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _strip_leaked_internal_paragraph(reply)
     reply = _strip_stray_markdown_markers(reply)
     reply = _correct_route_day_weekdays(reply, state)
+    reply = _enforce_one_option_question(reply, state)
     return _strip_unconfirmed_airports(reply, state)
 
 
@@ -4889,6 +4921,258 @@ def _last_question_clause(text):
     return text[start:qpos + 1].strip()
 
 
+# Infinitive verb forms ("לסדר"/"לתכנן") - not "תרצי"/"תרצה" - so the fixed
+# text itself never needs to guess the customer's gender. Per the business
+# owner (relayed by Shlomo, same round as this fix): a gendered fixed
+# fallback is exactly the bug #3 mismatch it would be standing in for.
+_OFFER_DOMAIN_QUESTIONS = {
+    "lodging": "לסדר גם לינה לחופשה הזו?",
+    "car": "לסדר גם רכב שכור לחופשה הזו?",
+    "trip_planning": "לתכנן גם מסלול ואטרקציות לחופשה הזו?",
+}
+
+# Per Shaked's stage-1 run-6 finding (Athens, 4/5): a reply can bundle TWO
+# gap questions into a single sentence joined by "ו" ("...איזו כבודה
+# תצטרכו, ויש הגבלת תקציב לאדם?") instead of the "X או Y" shape the rest of
+# this function already watches for - still exactly one "?", so the " או "
+# check alone missed it entirely. A comma directly followed by "ו" fused to
+# a question word/pronoun marks the start of that smuggled-in second
+# question, same as "או" marks a smuggled-in second option.
+_BUNDLED_AND_QUESTION_RE = re.compile(r",\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b")
+
+# Per Shaked's review of the FIRST multi-question version of this function
+# (PR #64, same day): splitting on a bare "." treated the periods inside a
+# date like "15.4.2027" as sentence boundaries, and rebuilding the message
+# by joining stripped fragments with single spaces then mangled it into
+# "15. 4. 2027" and silently dropped every real newline/blank line in the
+# original reply. A period/exclamation/question-mark only ends a sentence
+# here when it is NOT immediately between two digits (a date separator)
+# AND is followed by whitespace or the end of the string; a bare newline
+# is always its own boundary (so paragraph breaks are never lost).
+_SENTENCE_BOUNDARY_RE = re.compile(r"(?<!\d)[.!?](?!\d)(?=\s|$)|\n")
+
+# Per the same review: a day-by-day itinerary body ("יום 1 (15.4, חמישי):
+# נחיתה...") can legitimately contain its own rhetorical "?" ("מה יותר כיף
+# מאוכל טוב?") that is never a real gap-question - and with style/pace
+# already known, _session_gaps(state, "trip_planning") is empty, so the
+# generic lookup has nothing real to offer and would otherwise re-ask for
+# style/pace instead of the one real pending action (approving the route
+# just presented), a genuine loop risk. Detected by the itinerary's own
+# day marker, scoped to the trip_planning domain only.
+_ITINERARY_DAY_RE = re.compile(r"יום\s*\d+")
+_TRIP_PLANNING_APPROVAL_QUESTION = "המסלול שהצעתי מתאים לכם?"
+
+
+def _append_fixed_question(prefix, fixed):
+    """Join a kept-statements prefix with the one replacement question,
+    without ever re-spacing or trimming the prefix's own original trailing
+    whitespace/newlines (see _split_sentences) - a blank line the customer
+    already saw stays a blank line. Adds a single space only when the
+    prefix doesn't already end in whitespace; an empty prefix returns the
+    fixed question alone."""
+    if not prefix:
+        return fixed
+    return f"{prefix}{fixed}" if prefix[-1].isspace() else f"{prefix} {fixed}"
+
+
+def _split_sentences(text):
+    """Split text into (sentence_text, terminator) pairs using
+    _SENTENCE_BOUNDARY_RE, WITHOUT stripping or discarding any character -
+    each sentence_text already carries its own leading whitespace/newlines
+    exactly as they appeared in the original string, so re-joining a subset
+    of them with "".join reproduces the untouched original spacing. The
+    final fragment (after the last boundary, if the text doesn't end on
+    one) is kept with terminator ""."""
+    spans = []
+    start = 0
+    for m in _SENTENCE_BOUNDARY_RE.finditer(text):
+        end = m.end()
+        spans.append((text[start:end], m.group()))
+        start = end
+    if start < len(text):
+        spans.append((text[start:], ""))
+    return spans
+
+
+def _enforce_one_option_question(reply, state):
+    """The one-question/never-"X או Y" rule (see TINKERBELL_SYSTEM's own
+    opening principle) is stated as a free-text instruction, which isn't
+    reliably followed on its own - seen live (Shaked, stage-1 run-3, 2 of 5
+    scenarios): the baggage question still enumerated options ("...רק תיק
+    קטן, או שיש גם מזוודות?") on an ordinary first ask, and offering
+    trip_planning as the next session skipped the plain yes/no entirely in
+    favor of diving into route content ("יש לך רעיון למסלול..., או שתרצי
+    שאציע לך מסלול מגוון?").
+
+    First version (per the business owner, relayed by Shlomo, PR #59
+    review) generalized this to a fixed topic-keyword table covering every
+    service. Per Shaked's own review of THAT version: keyword matching is
+    exactly as unreliable as free generation, just differently so - a
+    lodging question mentioning "רכב"/"חניה" (car parking) or "מזוודות"
+    (suitcase-space) got rewritten into the wrong domain's question
+    entirely, and a car pickup-location question got rewritten into "what
+    vehicle type" - a question already answered, risking an actual loop.
+    Replaced with the state itself: when active_session names a real
+    session, the fixed text is the one _session_gaps(state, active_session)
+    actually still needs for THAT session - the exact field the real
+    missing_required pipeline would ask about next, never guessed from
+    words that merely appear in the model's own (already-wrong) phrasing.
+    flights reuses _flight_gap_question's own richer field->question
+    mapping (covers budget/baggage/connection_preference, not just
+    _GAP_QUESTION_TEXT's simpler domains); lodging/car/trip_planning use
+    _GAP_QUESTION_TEXT directly.
+
+    Per Shaked's stage-1 run-5 finding (Paris, 4/5): once budget - flights'
+    own last gap - was answered, the reply came back as a bare "פרטי
+    הטיסה סגורים." with NO question at all, and the customer had to ask
+    "מה עכשיו?" herself. Root cause: the state this function sees for a
+    turn is a snapshot from mid-turn (before _advance_sessions has caught
+    up to flights having just closed), so active_session could still read
+    "flights" even though _session_gaps(state, "flights") is already
+    empty and the real next step - per post_flight_offer/next_session,
+    already set correctly on the SAME snapshot - is to offer trip_planning.
+    Tinkerbell apparently free-worded exactly that offer as its own "X או
+    Y", which the active_session branch then matched on an empty gap list
+    and silently dropped instead of replacing. Per the business owner's
+    standing rule (relayed by Shlomo): a turn before the final summary
+    must never end with no question at all. Fixed in two parts: (1) a
+    "no gap left" active_session falls through to the same next-domain
+    offer the no-active_session branch already handles, since closing a
+    domain with nothing left to ask is exactly when that offer is due; (2)
+    if nothing usable is found anywhere, the original reply is returned
+    completely unchanged (a still-"X או Y" but present question) rather
+    than ever dropped to a bare statement.
+
+    Per Shaked's stage-1 run-6 finding (Athens, 4/5, main 595e29b): a reply
+    can also violate the one-question rule without ever writing "או" -
+    "...רק עוד שני פרטים קטנים לטיסה - איזו כבודה תצטרכו, ויש הגבלת
+    תקציב לאדם?" bundles the baggage AND budget gap-questions into one
+    sentence joined by "ו", with a single "?" that the " או " check never
+    sees. _BUNDLED_AND_QUESTION_RE catches the comma-plus-fused-"ו" seam
+    where the smuggled-in second question starts.
+
+    Per the business owner's follow-up on that same finding (relayed by
+    Shlomo): the rule is "one question at a time", full stop - not
+    specifically about "או" or "ו". Two questions written as fully
+    separate sentences, each with its own "?" (e.g. "חשוב לכם שהטיסה
+    תהיה ישירה? איזו כבודה תרצו לקחת?"), is exactly the same violation
+    and was previously invisible to this function entirely, since the
+    old version only ever looked at the single sentence containing the
+    LAST "?" - an earlier, already fully-formed question sentence sat
+    untouched in what it treated as a plain "prefix". Generalized: every
+    sentence in the reply is now classified as a question (ends in "?")
+    or a statement (any other terminator), and the violation is either
+    more than one question sentence, or exactly one that is itself
+    bundled (the "או"/_BUNDLED_AND_QUESTION_RE cases above). A normal
+    reply with exactly one, unbundled question - including the final
+    pre-"מאשר/ת" summary's own single confirmation question - has exactly
+    one question sentence and is never touched.
+
+    Per Shaked's review of that SAME-day generalization (still PR #64):
+    two further live bugs, both from rebuilding the message out of
+    stripped-and-rejoined fragments rather than only ever removing
+    exactly the question spans from the ORIGINAL string:
+    (a) splitting on a bare "." treated the periods inside a date like
+    "15.4.2027" as sentence boundaries, and single-space-joining the
+    fragments mangled it into "15. 4. 2027" while silently dropping every
+    real newline/blank line in the reply. Fixed: _split_sentences uses
+    _SENTENCE_BOUNDARY_RE, which only counts "." / "!" / "?" as a
+    boundary when it is NOT directly between two digits (a date
+    separator) and IS followed by whitespace or end-of-string; a bare
+    "\n" is always its own boundary. Statement spans are kept and
+    concatenated with "".join (never " ".join) since each span already
+    carries its own original leading whitespace/newlines - nothing is
+    ever stripped or re-spaced.
+    (b) a day-by-day itinerary's own body can legitimately contain a
+    rhetorical "?" ("מה יותר כיף מאוכל טוב?") that is not a real
+    gap-question - with active_session="trip_planning" and style/pace
+    already known, _session_gaps is empty, so the generic lookup had
+    nothing real to offer and instead re-asked for style from scratch,
+    a genuine loop risk, while also deleting real itinerary content
+    (dates, day lines) caught up in the same rebuild. Fixed: when the
+    reply contains a day marker ("יום 1", "יום 2", ...) and
+    active_session is "trip_planning", the itinerary body is never
+    touched at all - only the LAST question sentence is ever a
+    candidate for replacement, and only with the fixed trip_planning
+    approval confirmation (_TRIP_PLANNING_APPROVAL_QUESTION), never a
+    _session_gaps lookup."""
+    text = str(reply or "")
+    if "?" not in text:
+        return reply
+
+    state = state if isinstance(state, dict) else {}
+    sentences = _split_sentences(text)
+    question_idx = [i for i, (_, term) in enumerate(sentences) if term == "?"]
+    if not question_idx:
+        return reply
+
+    if _ITINERARY_DAY_RE.search(text) and state.get("active_session") == "trip_planning":
+        last_i = question_idx[-1]
+        last_q = sentences[last_i][0]
+        violates = len(question_idx) > 1 or " או " in last_q or bool(_BUNDLED_AND_QUESTION_RE.search(last_q))
+        if not violates:
+            return reply
+        prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i != last_i)
+        return _append_fixed_question(prefix, _TRIP_PLANNING_APPROVAL_QUESTION)
+
+    bundled = False
+    if len(question_idx) == 1:
+        only_q = sentences[question_idx[0]][0]
+        bundled = (" או " in only_q) or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
+    if len(question_idx) <= 1 and not bundled:
+        return reply
+
+    fixed = None
+    offered = state.get("post_flight_offer")
+    active_session = state.get("active_session")
+
+    def _next_domain_offer():
+        # Per Shaked's PR #59 review: post_flight_offer should never legally
+        # list more than one domain (rule 112 - ask about exactly one
+        # pending domain per message) - but if it ever does, collapse the
+        # illegal double offer down to the first domain in order, rather
+        # than leaving the "X או Y" violation untouched.
+        if isinstance(offered, list) and offered and offered[0] in _OFFER_DOMAIN_QUESTIONS:
+            return _OFFER_DOMAIN_QUESTIONS[offered[0]]
+        next_session = state.get("next_session")
+        if next_session in _OFFER_DOMAIN_QUESTIONS:
+            return _OFFER_DOMAIN_QUESTIONS[next_session]
+        return None
+
+    if not active_session:
+        fixed = _next_domain_offer()
+    elif active_session in ("flights", "lodging", "car", "trip_planning"):
+        gaps = _session_gaps(state, active_session)
+        if active_session == "flights":
+            fixed = _flight_gap_question(gaps, state) if gaps else None
+        else:
+            fixed = next((_GAP_QUESTION_TEXT[g] for g in gaps if g in _GAP_QUESTION_TEXT), None)
+        if not fixed:
+            # The domain this snapshot still names as active has, in
+            # reality, just run out of gaps (closing this very turn) -
+            # whatever the model was actually trying to ask is the next
+            # domain's offer, per the Paris finding above.
+            fixed = _next_domain_offer()
+    if not fixed:
+        if len(question_idx) > 1:
+            # Per the business owner's further follow-up on this same PR
+            # #64 round (relayed by Shlomo): when NO state-driven
+            # replacement exists at all (no gap, no offer) for a reply
+            # that bundles multiple fully separate question sentences,
+            # returning the whole reply untouched would leave every extra
+            # question in place too. Keep only the FIRST question
+            # sentence and drop the ones after it - not a single other
+            # character is touched. (A single, possibly-bundled question
+            # sentence with no fixed replacement keeps the Paris rule
+            # below unchanged: never drop the only question there is.)
+            drop = set(question_idx[1:])
+            return "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
+        return reply
+    question_idx_set = set(question_idx)
+    prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i not in question_idx_set)
+    return _append_fixed_question(prefix, fixed)
+
+
 def _deterministic_trip_planning_pace_facts(message, history):
     """trip_planning.details.pace has no deterministic writer anywhere else -
     only the LLM's own JSON extraction ever sets it, and when that silently
@@ -4984,7 +5268,16 @@ def _deterministic_connection_preference_facts(message, history):
         return {"flight": {"connection_preference": "אין העדפה"}}
     if re.search(r"(?<![א-ת])ישיר\w*(?![א-ת])", msg):
         return {"flight": {"connection_preference": "direct"}}
-    no_preference_words = ("אין העדפה", "לא משנה", "לא משנה לי", "קונקשן בסדר", "גם בסדר", "בסדר גם")
+    # "לא חשוב"/"גם וגם" added per Shlomo's stage-1 run-4 review: the live
+    # W2/Paris case saved connection_preference="direct" when the customer
+    # actually expressed indifference - these two phrasings weren't
+    # recognized by this deterministic writer at all, so they fell through
+    # to the LLM extractor instead (the unreliable path this function
+    # exists to avoid - see the function's own docstring).
+    no_preference_words = (
+        "אין העדפה", "לא משנה", "לא משנה לי", "לא חשוב", "גם וגם",
+        "קונקשן בסדר", "גם בסדר", "בסדר גם",
+    )
     if any(w in msg for w in no_preference_words):
         return {"flight": {"connection_preference": "אין העדפה"}}
     # Per the one-option rule, the question is now a plain yes/no ("חשוב לכם
@@ -5496,8 +5789,18 @@ def _deterministic_traveler_facts(message, existing=None):
     # travelers, who's an adult and who's a child?" right after the customer
     # already said "אני לבד", and separately asked "traveling alone, right?"
     # just to confirm it instead of treating it as already answered.
+    # "לבד" alone is too loose - seen live (Shaked, stage-1 run-3): "נסתדר
+    # לבד" (we'll manage on our own, answering the ROUTE offer - a couple
+    # with a daughter) and "תבני לבד"/"אני אסתדר לבד עם זה" (go ahead and
+    # build it yourself/I'll handle it myself) all matched the bare word and
+    # silently overwrote a real travelers count down to a solo adult. "לבד"
+    # only actually states a solo traveler when it directly follows "אני" or
+    # a travel verb ("טס/ה", "נוסע/ת") - never after an unrelated verb like
+    # "נסתדר"/"תבני"/"אסתדר".
     if "adults" not in facts and re.search(
-        r"(?<![א-ת])לבד(?![א-ת])|(?<![א-ת])רק\s+אני(?![א-ת])|(?<![א-ת])אדם\s+אחד(?![א-ת])"
+        r"(?<![א-ת])אני\s+לבד(?![א-ת])"
+        r"|(?<![א-ת])(?:טס|טסה|טסים|נוסע|נוסעת|נוסעים)\s+לבד(?![א-ת])"
+        r"|(?<![א-ת])רק\s+אני(?![א-ת])|(?<![א-ת])אדם\s+אחד(?![א-ת])"
         r"|(?<![א-ת])נוסע\s+אחד(?![א-ת])|(?<![א-ת])נוסעת\s+אחת(?![א-ת])",
         msg,
     ):
