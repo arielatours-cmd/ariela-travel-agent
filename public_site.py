@@ -2834,12 +2834,19 @@ def account():
                     "Ski vacation — Ariella chooses a ski resort",
                 )
         elif destination_codes:
+            # The card shows the destination COUNTRY, not the individual
+            # airport city names - a Croatia trip with DBV+SPU gateways
+            # should read "קרואטיה", not "דוברובניק • ספליט". Dedup by
+            # country so a multi-gateway trip within one country still
+            # shows a single name.
             labels = []
             for code in destination_codes:
                 info = _AIRPORT_LOCALIZATION.get(code, {})
-                city_he = info.get("city_he") or code
-                city_en = info.get("city_en") or code
-                labels.append(f"{city_en} ({code})" if _lang() == "en" else city_he)
+                country_he = info.get("country_he") or info.get("city_he") or code
+                country_en = info.get("country_en") or info.get("city_en") or code
+                label = country_en if _lang() == "en" else country_he
+                if label not in labels:
+                    labels.append(label)
             trip["destination_display"] = " • ".join(labels)
         else:
             trip["destination_display"] = trip.get("request_name") or _msg("חופשה", "Vacation")

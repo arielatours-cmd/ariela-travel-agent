@@ -31,11 +31,49 @@ def _get_anthropic_client(key):
         _anthropic_clients[key] = client
     return client
 
+
+# Per-turn timeout cap + total-turn-duration logging (Eran's 502 diagnosis):
+# render.yaml raises gunicorn's own worker timeout to 120s (a long
+# itinerary/route reply routinely exceeds its 30s default), but that's a
+# blanket, ungraceful kill - no Flask code ever runs, no response reaches
+# the customer, and under concurrent load it surfaces as a bare 502. A
+# single chat turn makes 1 or more sequential Claude calls (the main
+# reply, state extraction, and sometimes a smaller classifier call), none
+# of which previously had ANY timeout - one hung network call could ride
+# the whole request all the way into gunicorn's kill with zero visibility.
+# turn_started is tracked per-thread (gunicorn runs --threads 4; each
+# thread serves one request/chat_clean() call, same assumption _post_claude
+# already makes for thread_id in its own timing diagnostics) so every
+# _post_claude call during this turn can bound itself to whatever budget
+# is actually left, with no call site needing to pass anything through.
+_turn_timing = threading.local()
+_TURN_TIMEOUT_BUDGET_SECONDS = 90.0
+_MIN_CLAUDE_CALL_TIMEOUT_SECONDS = 8.0
+_MAX_CLAUDE_CALL_TIMEOUT_SECONDS = 55.0
+_SLOW_TURN_WARNING_MS = 30_000
+
+
+def _claude_call_timeout():
+    """Remaining per-turn time budget, clamped to a sane per-call range.
+    Every _post_claude call site already wraps it in a try/except with a
+    graceful fallback (a transient API failure was always possible), so a
+    timeout - just another exception - is safe everywhere it's used,
+    including the main conversational reply and state extraction. Falls
+    back to the full budget when called outside of chat_clean()'s own
+    per-turn tracking (e.g. a one-off script or test)."""
+    started = getattr(_turn_timing, "turn_started", None)
+    if started is None:
+        return _TURN_TIMEOUT_BUDGET_SECONDS
+    remaining = _TURN_TIMEOUT_BUDGET_SECONDS - (time.time() - started)
+    return max(_MIN_CLAUDE_CALL_TIMEOUT_SECONDS, min(_MAX_CLAUDE_CALL_TIMEOUT_SECONDS, remaining))
+
+
 TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריאלה כבר פתחה את השיחה; מכאן את משוחחת עם הלקוח באופן חופשי וטבעי עד שלב ההזמנה.
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
 
 **העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה.
+**שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תתעדי את התשובה בשדה הפנימי בהתאם (ראי בהמשך) - השדה הפנימי אינו קשור לניסוח השאלה שהלקוח רואה.**
 - את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור **שאלה אחת בלבד** - הבאה בתור, בניסוח טבעי משלך, בלי להציג שמות שדות פנימיים ללקוח ובלי להעתיק נוסח קבוע כלשהו.
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
@@ -115,7 +153,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם חסרים יותר משלושה פרטים, בחרי את 1–3 הפרטים שהכי טבעי לברר עכשיו, המתיני לתשובה, ורק בהודעה הבאה שאלי את היתר.
 - אל תצרפי לשאלה שלוש שאלות ואז תוסיפי בסוף עוד בחירה או שאלה "קטנה". סך כל הדברים שמבקשים מהלקוח להחליט או למסור בהודעה אחת הוא עד שלושה.
 - לטיסות, בדקי בין היתר רק כשחסר ורלוונטי: תקציב לאדם, כבודה, ישירה/קונקשן, מוצא, שדה/שדות יעד ותאריכים.
-- כשאת מתעדת את תשובת הלקוח לגבי כבודה, תעדי אך ורק באחד מהערכים האלה, בדיוק כך: "טרולי בלבד", "מזוודה בבטן המטוס", "תיק קטן" - לעולם לא ניסוח אחר או מומצא. את השאלה עצמה נסחי בעצמך (שאלה פתוחה אחת, למשל "איזו כבודה תרצו לקחת?") - לא כברירה "X, Y, או Z?".
+- כשאת מתעדת את תשובת הלקוח לגבי כבודה, תעדי אך ורק באחד מהערכים האלה, בדיוק כך: "טרולי בלבד", "מזוודה בבטן המטוס", "תיק קטן" - לעולם לא ניסוח אחר או מומצא. ניסוח השאלה עצמה נקבע למעלה (העיקרון הראשון) - אין קשר בין שלוש הקטגוריות האלה לניסוח השאלה שהלקוח רואה.
 - שעות יציאה/חזרה מועדפות לטיסה (בוקר/צהריים/ערב) הן שדה אופציונלי בלבד ואינן ברשימת הבדיקה הזו. לעולם אל תשאלי עליהן, לא כשאלה ישירה ולא כהצעה כללית כמו "יש עוד משהו לגבי הטיסה?" או "שעות מועדפות, או שנקבע את זה גמיש?" - גם לא בתוך סיכום הטיסה לפני בקשת מאשר/מאשרת. שמרי אותן רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף.
 - יעד גאוגרפי ושדה תעופה יעד הם שני נתונים נפרדים. אזור אינו מידע חובה. אם הלקוח כתב מדינה או יעד רחב שיכולים להתאים ליותר משדה תעופה אחד (למשל: קפריסין - לרנקה/פאפוס; איטליה - רומא/מילאנו; ספרד - ברצלונה/מדריד; גרמניה - ברלין/מינכן; פולין - קרקוב/ורשה), אל תשאלי קודם "איזה אזור?" רק כדי להשלים מידע ואל תבחרי שדה אחד בעצמך. במקום זה, בשאלה אחת: הציגי בקצרה את שדות התעופה/ערי השער הרלוונטיים, **וגם** ציינו את האפשרות לבקש קודם בניית מסלול (ואז שדה/שדות היעד ייגזרו ממנו) - כדי שהלקוח יידע משתי האפשרויות ולא ייתקע בשלב האישור בלי לדעת שהיה יכול לבקש את זה קודם.
 - גם עיר בודדת (לא רק מדינה/אזור רחב) יכולה להיות משורתת על ידי כמה שדות תעופה אמיתיים (למשל ניו יורק, פריז, לונדון, טוקיו, איסטנבול). כשזה המקרה, מידע מאומת על השדות והשמות שלהם יימסר לך למטה כ"היעד מתאים ליותר משדה תעופה אמיתי אחד" - השתמשי אך ורק ברשימה הזו, אל תוסיפי שדה משלך מהידע הכללי שלך, גם אם הוא נכון במציאות: אם השדה לא ברשימה שקיבלת, אל תזכירי אותו בכלל.
@@ -517,6 +555,9 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
     thread_id = threading.get_ident()
     for attempt in range(2):
         call_started = time.time()
+        # Recomputed per attempt (not once before the loop) so the retry's
+        # own 2s sleep is reflected in what's left of the turn's budget.
+        call_timeout = _claude_call_timeout()
         try:
             response = client.messages.create(
                 model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
@@ -524,6 +565,7 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
                 # tasks (natural conversation, structured JSON) - extended thinking adds
                 # latency here without improving output, so keep it off for speed.
                 thinking={'type': 'disabled'},
+                timeout=call_timeout,
             )
             break
         except anthropic.APIStatusError as exc:
@@ -544,6 +586,17 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
                 call_duration_ms=int((time.time() - call_started) * 1000),
             )
             raise RuntimeError(f'Claude API error {exc.status_code}') from exc
+        except anthropic.APITimeoutError as exc:
+            # Never retried (unlike 429/529 above): a timeout already spent
+            # most of the per-turn budget, and retrying would spend what
+            # little is left, guaranteeing a second timeout right into
+            # gunicorn's own kill instead of a graceful fallback reply.
+            record_ai_usage(
+                source, model, usage=None, error="timeout",
+                thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
+                call_duration_ms=int((time.time() - call_started) * 1000),
+            )
+            raise RuntimeError(f'Claude API call to {source} timed out after {call_timeout:.0f}s') from exc
     record_ai_usage(
         source, model, usage=response.usage,
         thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
@@ -6738,6 +6791,37 @@ def chat_reset_conversation():
 
 @ariella_chat_clean.post('/api/ariella/chat-clean')
 def chat_clean():
+    """Thin per-turn timing wrapper around _chat_clean_impl() (the real
+    engine, unchanged below). Deliberately NOT inlined into the impl's own
+    body: that function has ~2000 lines and dozens of return points, and
+    ariella_chat_v2.py also reaches it directly (`from ariella_chat_clean
+    import chat_clean`) via its own routes for /api/ariella/chat and
+    /api/ariella/chat-clean, which in practice WIN the routing for this
+    exact path over this blueprint's own rule below (see the registration-
+    order note in travel_agents.py, _legacy_ariella_chat_unused) - a
+    Blueprint-scoped before_request/after_request hook on THIS blueprint
+    would silently never fire for real traffic. Wrapping the shared
+    function by name instead works no matter which route dispatches to it."""
+    _turn_timing.turn_started = time.time()
+    try:
+        return _chat_clean_impl()
+    finally:
+        started = _turn_timing.turn_started
+        duration_ms = int((time.time() - started) * 1000)
+        record_ai_usage(
+            "turn_total", "", usage=None,
+            call_started_at=datetime.fromtimestamp(started, tz=timezone.utc).isoformat(),
+            call_duration_ms=duration_ms,
+        )
+        if duration_ms >= _SLOW_TURN_WARNING_MS:
+            logging.warning(
+                "Ariella chat turn took %dms (budget %.0fs) - approaching gunicorn's 120s worker timeout",
+                duration_ms, _TURN_TIMEOUT_BUDGET_SECONDS,
+            )
+        _turn_timing.turn_started = None
+
+
+def _chat_clean_impl():
     if not session.get('member_id'):
         return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.', 'engine_version': ENGINE_VERSION}), 401
 
@@ -7939,7 +8023,33 @@ def chat_clean():
             if inferred_post_flight_offer:
                 post_flight_state = dict(trip_state)
                 post_flight_state["post_flight_offer"] = inferred_post_flight_offer
-        post_flight_answer = _post_flight_offer_answer(message, post_flight_state, key, model, history)
+        # Seen live (Shaked, stage-1 run 2, 16.10.2026, 4/5 scenarios): flights
+        # became complete and post_flight_offer got set to the next domain on
+        # ONE turn, but Tinkerbell's own reply that same turn actually asked
+        # the OPTIONAL direct-flight question instead of the real continuation
+        # offer. The customer's answer to THAT question ("בטח"/"לא צריך"/
+        # "סבבה, עדיף ישירה") then got misread as settling post_flight_offer
+        # (still sitting in state from last turn) instead of answering the
+        # question actually just asked - trip_planning got silently activated
+        # or declined without ever being asked about, and the real offer only
+        # arrived later, after lodging/car. Same bug class _last_question_
+        # clause already exists for: a bare reply binds to whatever topic is
+        # merely pending in state, not to the question the customer is
+        # actually looking at. If the last assistant message's own last
+        # question is plainly one of flights' own remaining optional
+        # questions (direct/baggage/budget - never genuinely post_flight_
+        # offer topics), this message answers THAT, not the stale offer -
+        # _deterministic_connection_preference_facts and friends (below)
+        # already handle it correctly; post_flight_offer stays pending for a
+        # turn where Tinkerbell actually asks it.
+        last_assistant_question = _last_question_clause(next(
+            (str(x.get("content") or "") for x in reversed(history or [])
+             if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"), ""
+        ))
+        if any(w in last_assistant_question for w in ("ישיר", "כבודה", "תקציב")):
+            post_flight_answer = {}
+        else:
+            post_flight_answer = _post_flight_offer_answer(message, post_flight_state, key, model, history)
         if post_flight_answer.pop("_transfer_to_results", False):
             # The customer asked to be taken to the results now, exactly the
             # alternative Ariella's own offer named - settle it immediately
