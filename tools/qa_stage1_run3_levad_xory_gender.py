@@ -99,6 +99,25 @@ check("the same fix generalizes to a lodging continuation offer",
 check("the fixed next-domain offer text is gender-neutral (infinitive verb "
       "form) - never guesses the customer's gender the way bug #3 did",
       not any(w in q for w in ("תרצי", "תרצה") for q in chat._OFFER_DOMAIN_QUESTIONS.values()))
+check("regression (Shaked's PR #59 review): a genuine CAR-domain luggage-"
+      "capacity question is NOT wrongly rewritten into the flight baggage "
+      "question just because it shares the same 'מזוודות' keyword",
+      chat._enforce_one_option_question(
+          "מעולה. איזה רכב מתאים - כזה שיכיל את כל המזוודות, או משהו קטן?",
+          {"active_session": "car", "flight": {"baggage": []}},
+      ) == "מעולה. איזה רכב מתאים - כזה שיכיל את כל המזוודות, או משהו קטן?")
+check("the baggage fix still fires normally while flights is the active "
+      "session and flight.baggage is genuinely still empty",
+      chat._enforce_one_option_question(
+          "איזו כבודה תרצו - טרולי, מזוודה, או תיק קטן?",
+          {"active_session": "flights", "flight": {"baggage": []}},
+      ) == "איזו כבודה תרצו לקחת?")
+check("the baggage fix does not fire again once flight.baggage is already "
+      "answered (no open gap left to ask about)",
+      chat._enforce_one_option_question(
+          "רק לוודא - טרולי בלבד, או גם מזוודה?",
+          {"active_session": "flights", "flight": {"baggage": ["carry_on_only"]}},
+      ) == "רק לוודא - טרולי בלבד, או גם מזוודה?")
 check("a leading statement sentence in the same reply is preserved, only "
       "the offending question clause is replaced",
       chat._enforce_one_option_question(

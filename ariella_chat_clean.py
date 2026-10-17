@@ -4965,7 +4965,20 @@ def _enforce_one_option_question(reply, state):
     # singular "מזוודה" as a substring (ה -> ות). "תיק קטן" (not the bare,
     # generic "תיק") matches the live failing phrasing (V4), which names
     # the personal-item option without ever saying "כבודה" at all.
-    elif any(w in last_q for w in ("כבוד", "מזווד", "טרולי", "תיק קטן")):
+    #
+    # Scoped to the flights domain specifically (active_session is flights
+    # or still unset, and flight.baggage itself is still empty) - seen live
+    # (Shaked, review on this same PR): a CAR question genuinely about
+    # luggage capacity ("איזה רכב מתאים - כזה שיכיל את כל המזוודות, או
+    # משהו קטן?", answering car.details.luggage_capacity_confirmed) matched
+    # the same keywords and got wrongly rewritten into the flight baggage
+    # question instead. Those words are only ever this rule's baggage
+    # question when flights actually still has that gap open.
+    elif (
+        any(w in last_q for w in ("כבוד", "מזווד", "טרולי", "תיק קטן"))
+        and str((state or {}).get("active_session") or "") in ("", "flights")
+        and not ((state or {}).get("flight") or {}).get("baggage")
+    ):
         fixed = "איזו כבודה תרצו לקחת?"
     if not fixed:
         return reply
