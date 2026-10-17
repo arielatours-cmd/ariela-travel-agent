@@ -342,6 +342,52 @@ def admin_logout():
     return resp
 
 
+def _detect_gunicorn_config():
+    """Read the gunicorn worker's ACTUAL resolved --timeout/--threads,
+    as gunicorn/conf.py's post_worker_init hook recorded them into this
+    exact worker process's own environment right after gunicorn finished
+    computing them (worker.cfg.timeout/worker.cfg.threads) - never
+    re-derived from a command line.
+
+    Per Shaked's PR #69 review (stage-2 run-4 502 investigation): an
+    earlier version of this function scanned /proc/*/cmdline instead, and
+    had two separate problems she caught by actually running the exact
+    command render.yaml specifies and testing against it. (1) gunicorn is
+    itself a Python script, so a PROCESS's cmdline[0] is the interpreter
+    path ("/usr/bin/python3"), not "gunicorn" - the old check ("gunicorn"
+    not in cmdline[0]) always skipped the real master process, and the
+    test's own mocked /proc data started directly with "gunicorn"
+    (unrealistic), hiding exactly this bug. (2) even fixed, a value set
+    via GUNICORN_CMD_ARGS, a short "-t"/"-w" flag, or a gunicorn.conf.py
+    setting never appears as a literal "--timeout"/"--threads" substring
+    in the command line at all - the function would have silently
+    reported the code's own hardcoded fallback (30/1) as if it were the
+    real value, exactly backwards on the one question this field exists
+    to answer.
+
+    gunicorn's own post_worker_init hook runs in this same worker process
+    after gunicorn has already resolved the real values from WHATEVER
+    source actually set them (CLI flag, env var, or config file) - there
+    is no more authoritative place to read them from. Requires gunicorn
+    to actually be invoked with --config gunicorn.conf.py (or -c) for the
+    hook to ever run; under the Flask dev server, or gunicorn invoked
+    without that flag, the two env vars are simply never set, and this
+    correctly reports (None, None) rather than guessing. Deliberately
+    returns only the two parsed integers, never a raw command line, a
+    file path, or any other environment variable. Any failure (bad/
+    missing env var, anything unexpected) is reported as (None, None) -
+    this must never be the reason /health itself fails."""
+    def _parse_int(raw):
+        try:
+            return int(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            return None
+    return (
+        _parse_int(os.getenv("ARIELLA_GUNICORN_TIMEOUT")),
+        _parse_int(os.getenv("ARIELLA_GUNICORN_THREADS")),
+    )
+
+
 @app.get("/health")
 def health():
     db_ok = True
@@ -352,6 +398,10 @@ def health():
     except Exception as exc:
         db_ok = False
         db_error = str(exc)
+    try:
+        gunicorn_timeout, gunicorn_threads = _detect_gunicorn_config()
+    except Exception:
+        gunicorn_timeout, gunicorn_threads = None, None
     return jsonify({
         "status": "ok" if db_ok else "degraded", "version": APP_VERSION,
         "commit": _DEPLOYED_COMMIT, "deployed_at": _STARTED_AT,
@@ -361,6 +411,7 @@ def health():
         "database_persistent_path": str(DB_PATH).startswith("/var/data/"),
         "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
         "admin_protected": bool(ADMIN_TOKEN), "whatsapp": whatsapp_status(),
+        "gunicorn_timeout": gunicorn_timeout, "gunicorn_threads": gunicorn_threads,
     })
 
 
