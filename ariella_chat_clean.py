@@ -3403,6 +3403,14 @@ def _call_tinkerbell(key, model, history, message, state=None):
         continuity += """
 - הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק. בחלק שמסביר שמתחילים מחדש, לעולם אל תשתמשי בפנייה בלשון זכר/נקבה שדורשת לדעת את מגדר הלקוח (כמו "בוא נתחיל"/"בואי נתחיל") - גם כשהמגדר ידוע, עדיף ניסוח נייטרלי בגוף ראשון רבים שלא תלוי במגדר בכלל, למשל "נתחיל לתכנן מחדש" או "נמשיך מכאן מהתחלה".
 """
+    if state.get("_guided_ask_hint"):
+        # Task 014a (rebuilt 2026-10-17 per the business owner's final
+        # decision): the code never sends a fixed sentence as the reply -
+        # it only decides which fact to find out next (guided.current_
+        # question), and hands this one free-text principle to Tinkerbell.
+        # She composes the actual question/retry/confirmation herself, in
+        # her own voice, with no quick-reply buttons ever.
+        continuity += "\n- " + str(state.get("_guided_ask_hint")) + "\n"
     if state.get("_gap_clarify_question"):
         # Per the business owner's explicit instruction (2026-10-13): when
         # the model that interprets an open answer is genuinely unsure, the
@@ -7029,7 +7037,13 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
 # existing regex path (_deterministic_date_facts, _deterministic_duration_
 # facts, _deterministic_traveler_facts) behaves exactly as before.
 def _guided_extraction_steps():
-    raw = os.getenv("GUIDED_EXTRACTION_STEPS", "").strip()
+    # Per Shlomo's request (2026-10-17): defaults to ON for approved fields
+    # via config.GUIDED_EXTRACTION_STEPS_DEFAULT, so turning this on in
+    # production never needs a Render env var. The env var, when actually
+    # set (including to an empty string), always overrides the code
+    # default - that's the emergency kill switch/override path.
+    from config import GUIDED_EXTRACTION_STEPS_DEFAULT
+    raw = os.getenv("GUIDED_EXTRACTION_STEPS", GUIDED_EXTRACTION_STEPS_DEFAULT).strip()
     if not raw:
         return set()
     return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers")}
@@ -7041,30 +7055,51 @@ def _guided_extraction_model():
     return os.getenv("GUIDED_EXTRACTION_MODEL", "").strip() or os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
 
 
-# Per the business owner's iron rule (2026-10-16, relayed via Shlomo -
-# "she's already asked for this before"): every question Ariella shows is
-# either open, or yes/no about exactly ONE option - never "A or B?" (her
-# own examples: "relaxed or active pace?", "direct or connecting?"). None
-# of these guided texts may join two answer choices with "או" inside the
-# question itself; a finite set of choices is offered as bracketed quick-
-# replies AFTER an open question, never phrased as a forced pick between
-# them (see _GUIDED_CHOICE_OPTIONS below).
-_GUIDED_QUESTION_TEXT = {
-    "dates": "מתי תרצו לצאת, ולכמה לילות? (למשל: 10 בנובמבר, 5 לילות)",
-    "travelers": "מי נוסע? (למשל: 2 מבוגרים וילד בן 7)",
+# Rebuilt 2026-10-17 per Shaked's rejection of the previous version (two
+# blocking bugs, see _handle_guided_extraction_turn's docstring) and the
+# business owner's two final decisions relayed the same day: (1) the code
+# never sends a fixed sentence as Ariella's reply - PRODUCT_RULES §2 ("free
+# conversation") and the 014a/014b specs both say the code decides WHICH
+# fact to find out, never the wording; Ariella composes the actual
+# question/retry/confirmation herself, in her main reply call, steered by
+# a short free-text hint in trip_update["_guided_ask_hint"] (woven into
+# system_dynamic by _call_tinkerbell, the same mechanism _gap_clarify_
+# question already used). (2) No quick-reply buttons anywhere, ever - not
+# even after repeated unclear answers, not even a plain yes/no choice.
+# These dicts now hold short FIELD DESCRIPTIONS for building that hint,
+# never full question text and never shown to the customer verbatim.
+_GUIDED_FIELD_HINT_DESCRIPTION = {
+    "dates": "מתי הלקוח רוצה לטוס, ולכמה לילות",
+    "travelers": "מי נוסע - כמה מבוגרים, ילדים וגילאים",
 }
-_GUIDED_UNCLEAR_RETRY_TEXT = {
-    "dates": "לא הצלחתי להבין את התאריכים - אפשר לכתוב, למשל, \"10 בנובמבר, 5 לילות\"?",
-    "travelers": "לא הצלחתי להבין מי נוסע - אפשר לכתוב, למשל, \"2 מבוגרים וילד בן 7\"?",
-}
-# Spec section 5 ("unclear" row, after 2 attempts, updated by Ofek
-# 2026-10-16 per the one-option rule above): the SAME open question,
-# repeated, with a finite set of bracketed quick-reply suggestions below
-# it - never phrased as "X or Y?" inside the question sentence itself.
-_GUIDED_CHOICE_OPTIONS = {
-    "dates": "באיזו תקופה תרצו לטוס? [נובמבר-דצמבר] [ינואר-פברואר] [מרץ-אפריל] [מאי-יוני] [יולי-אוגוסט] [ספטמבר-אוקטובר]",
-    "travelers": "מה ההרכב שלכם? [נוסע יחיד] [זוג] [זוג וילד אחד] [משפחה עם 2+ ילדים]",
-}
+
+
+def _guided_ask_hint(field, attempts):
+    desc = _GUIDED_FIELD_HINT_DESCRIPTION.get(field, field)
+    if attempts and attempts >= 1:
+        return (
+            f"הפרט הבא עדיין חסר, ובניסיון הקודם לא הובן: {desc}. שאלי שוב שאלה אחת "
+            "ויחידה על הפרט הזה, פתוחה, בניסוח שונה מהפעם הקודמת ועם דוגמה אחרת - "
+            "לעולם לא כפתורי בחירה ולא חזרה מילה במילה על הניסוח הקודם."
+        )
+    return (
+        f"הפרט הבא לברר אצל הלקוח: {desc}. שאלי על כך שאלה אחת ויחידה, פתוחה, "
+        "בניסוח שלך - חם וטבעי, בלי כפתורים."
+    )
+
+
+def _guided_confirm_hint(field, confirm_desc):
+    if not confirm_desc:
+        return _guided_ask_hint(field, 0)
+    return (
+        f"חילצת מתשובת הלקוח: {confirm_desc} - אבל לא בביטחון מלא. ודאי עם הלקוח "
+        "בשאלה קצרה אחת, כן/לא, על הפרט הזה בלבד, בניסוח שלך ובלי כפתורים."
+    )
+
+
+def _guided_correction_hint(label, confirm_desc):
+    value_text = f" ל{confirm_desc}" if confirm_desc else ""
+    return f"הלקוח עדכן את {label}{value_text} - ציייני לו בקצרה במשפט אחד שהעדכון נקלט, לא כשאלה."
 
 
 def _guided_field_known_with_confidence(field, state):
@@ -7155,8 +7190,10 @@ def _guided_extract_answer(key, model, field, message, history, state):
 
 def _guided_field_update_and_confirm(field, result):
     """Builds the _merge_trip_state fragment for a resolved guided answer,
-    plus the one-line low-confidence confirmation text (spec section 5,
-    "answered + low" row: "רק לוודא: ...?")."""
+    plus a short, plain-text DESCRIPTION of the value just extracted (never
+    a question, never shown to the customer verbatim) - the caller weaves
+    it into a hint for Tinkerbell to phrase in her own words (spec section
+    5, "answered + low" row)."""
     result = result if isinstance(result, dict) else {}
     if field == "dates":
         departure = result.get("departure")
@@ -7181,16 +7218,12 @@ def _guided_field_update_and_confirm(field, result):
         if not fragment:
             return {}, None
         if departure and ret:
-            confirm = f"רק לוודא: יוצאים ב-{_he_date_window(departure)} וחוזרים ב-{_he_date_window(ret)}?"
+            desc = f"יציאה ב-{_he_date_window(departure)} וחזרה ב-{_he_date_window(ret)}"
         elif period:
-            confirm = f"רק לוודא: מתכננים לתקופת {period}?"
+            desc = f"תקופת {period}"
         else:
-            confirm = "רק לוודא את התאריכים?"
-        # Per the business owner's one-option rule: a yes/no confirmation
-        # about the ONE extracted value, with its two real answers as
-        # bracketed quick-replies - never "is it X or did you mean Y?".
-        confirm += " [כן] [לתקן]"
-        return {"dates": fragment}, confirm
+            desc = "התאריכים שצוינו"
+        return {"dates": fragment}, desc
     if field == "travelers":
         fragment = {}
         for k in ("adults", "children", "infants"):
@@ -7209,25 +7242,52 @@ def _guided_field_update_and_confirm(field, result):
             parts = ["מבוגר אחד" if fragment["adults"] == 1 else f"{fragment['adults']} מבוגרים"]
             if fragment.get("children"):
                 parts.append("ילד אחד" if fragment["children"] == 1 else f"{fragment['children']} ילדים")
-            confirm = "רק לוודא: " + " ו".join(parts) + "?"
+            desc = " ו".join(parts)
         else:
-            confirm = "רק לוודא את מספר הנוסעים?"
-        confirm += " [כן] [לתקן]"
-        return {"travelers": fragment}, confirm
+            desc = "מספר הנוסעים שצוין"
+        return {"travelers": fragment}, desc
     return {}, None
 
 
 def _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps):
-    """014a orchestrator. Returns None when there is nothing for the
-    guided flow to do this turn (flag off for every relevant field, or
-    both already answered/known) - the caller then runs its entire
-    existing cascade completely unchanged. Otherwise returns
-    {"trip_update": ..., "reply": <text-or-None>}: a non-empty reply is
-    this turn's ENTIRE response (the caller returns it immediately, same
-    as every other early-gate branch in chat_clean()); a None reply means
-    state changed (a field got filled via also_mentioned/correction, or
-    the message was an "other_topic" aside) but the normal cascade should
-    still run for the rest of this message."""
+    """014a orchestrator - rebuilt 2026-10-17 after Shaked rejected the
+    previous version with two blocking findings, confirmed live against
+    #74/#75 through /api/ariella/chat-clean:
+
+    1. A fact already given in the very FIRST message ("טסים זוג לרומא בין
+       ה-10 ל-14 בנובמבר") got marked answered, yet the reply still asked
+       the canned dates question again - because extraction only ran once
+       guided.current_question was already set from a PRIOR turn; on the
+       very first turn there was no current_question yet, so the message
+       was never actually handed to _guided_extract_answer at all.
+    2. For the same reason, when the model failed on that first turn,
+       regex_fallback_fields never got populated either (it's only set
+       inside the current_question branch) - the old regex was ALSO
+       skipped (guided_steps already covers "dates"), so nothing captured
+       the message's facts at all.
+
+    Fixed here by always resolving a live field (continuing one from a
+    prior turn, or picking the next unanswered one right now) BEFORE
+    deciding whether extraction is needed - extraction against the
+    CURRENT message always runs for whichever field is live, including on
+    the very first turn.
+
+    Also rebuilt per the business owner's two final decisions (2026-10-17,
+    relayed via Shlomo/Ofek): the code never sends a fixed sentence as the
+    reply, and never offers quick-reply buttons. This function only ever
+    returns a short, free-text, non-user-facing HINT - via trip_update[
+    "_guided_ask_hint"] - describing what fact to find out, or what to
+    confirm, in Hebrew; Tinkerbell composes the actual question/retry/
+    follow-up/confirmation herself, in her own main reply call, which
+    always still runs (this function never short-circuits the request,
+    unlike the previous version).
+
+    Returns None only when there is truly nothing to do (every covered
+    field already resolved, nothing changed this turn). Otherwise returns
+    {"trip_update": ..., "dynamic_hint": <str-or-None>, "regex_fallback_
+    fields": <set, optional>} - the caller merges trip_update, and when
+    dynamic_hint is set, passes it along to Tinkerbell's own reply call
+    (never substituting for it)."""
     model = _guided_extraction_model()
     guided = dict(trip_state.get("guided") or {}) if isinstance(trip_state.get("guided"), dict) else {}
     answered = list(guided.get("answered") or [])
@@ -7239,79 +7299,88 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         if f in guided_steps and f not in answered and _guided_field_known_with_confidence(f, trip_update):
             answered.append(f)
             changed = True
-    if current_question not in guided_steps:
+    if current_question and current_question not in guided_steps:
         current_question = None
+    if not current_question:
+        # Resolve the live field BEFORE deciding anything else, so the
+        # extraction call below always runs against this message too -
+        # including the very first turn, when nothing was asked yet.
+        current_question = next((f for f in ("dates", "travelers") if f in guided_steps and f not in answered), None)
+        attempts = 0
 
-    if current_question:
-        result = _guided_extract_answer(key, model, current_question, message, history, trip_update)
-        if result is None:
-            # Fail-safe (spec section 5, last row): leave the guided state
-            # exactly as it was and let the caller run the existing regex
-            # for this one message instead, as if the flag didn't cover
-            # this field this turn.
-            guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
-            trip_update["guided"] = guided
-            return {"trip_update": trip_update, "reply": None, "regex_fallback_fields": {current_question}}
-        status = str(result.get("status") or "")
-        if status == "other_topic":
-            guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
-            trip_update["guided"] = guided
-            return {"trip_update": trip_update, "reply": None} if changed else None
-        if status == "unclear":
-            attempts += 1
-            guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
-            trip_update["guided"] = guided
-            reply = (_GUIDED_CHOICE_OPTIONS if attempts >= 2 else _GUIDED_UNCLEAR_RETRY_TEXT).get(
-                current_question, _GUIDED_QUESTION_TEXT.get(current_question)
-            )
-            return {"trip_update": trip_update, "reply": reply}
-        # status == "answered"
-        fragment, confirm_text = _guided_field_update_and_confirm(current_question, result)
-        if fragment:
-            trip_update = _merge_trip_state(trip_update, fragment)
-        also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
-        other_field = "travelers" if current_question == "dates" else "dates"
-        also_data = also.get(other_field)
-        if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered:
-            also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
-            if also_fragment:
-                trip_update = _merge_trip_state(trip_update, also_fragment)
-                answered.append(other_field)
-        confidence = str(result.get("confidence") or "")
-        if confidence != "high" or not fragment:
-            # Low confidence (or nothing usable extracted despite status=
-            # "answered") - confirm before writing it down as settled;
-            # the question stays open until the customer confirms/corrects.
-            guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
-            trip_update["guided"] = guided
-            return {"trip_update": trip_update, "reply": confirm_text or _GUIDED_QUESTION_TEXT.get(current_question)}
-        answered.append(current_question)
-        changed = True
-        if result.get("correction"):
-            field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים"}.get(
-                (result.get("correction") or {}).get("field"), "הפרטים"
-            )
-            statuses = dict(trip_update.get("session_status") or {})
-            if statuses.get("flights") == "complete":
-                # A field a closed flight session already relied on just
-                # changed - reopen it so the summary reflects the new value
-                # before the customer ever approves against stale data.
-                statuses["flights"] = "active"
-                trip_update["session_status"] = statuses
-                trip_update["ready_for_summary"] = False
-            guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
-            trip_update["guided"] = guided
-            return {"trip_update": trip_update, "reply": f"עדכנתי את {field_label}."}
-        current_question = None
+    if not current_question:
+        guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
+        trip_update["guided"] = guided
+        return {"trip_update": trip_update, "dynamic_hint": None} if changed else None
+
+    result = _guided_extract_answer(key, model, current_question, message, history, trip_update)
+    if result is None:
+        # Fail-safe (spec section 5, last row): the structured extraction
+        # call itself failed - let the old regex run too for this one
+        # message, but still steer Tinkerbell to ask in her own words
+        # regardless of whether the regex finds anything.
+        guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+        trip_update["guided"] = guided
+        return {
+            "trip_update": trip_update,
+            "dynamic_hint": _guided_ask_hint(current_question, attempts),
+            "regex_fallback_fields": {current_question},
+        }
+    status = str(result.get("status") or "")
+    if status == "other_topic":
+        guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+        trip_update["guided"] = guided
+        return {"trip_update": trip_update, "dynamic_hint": None} if changed else None
+    if status == "unclear":
+        attempts += 1
+        guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+        trip_update["guided"] = guided
+        return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(current_question, attempts)}
+    # status == "answered"
+    fragment, confirm_desc = _guided_field_update_and_confirm(current_question, result)
+    if fragment:
+        trip_update = _merge_trip_state(trip_update, fragment)
+    also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
+    other_field = "travelers" if current_question == "dates" else "dates"
+    also_data = also.get(other_field)
+    if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered:
+        also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
+        if also_fragment:
+            trip_update = _merge_trip_state(trip_update, also_fragment)
+            answered.append(other_field)
+    confidence = str(result.get("confidence") or "")
+    if confidence != "high" or not fragment:
+        # Low confidence (or nothing usable extracted despite status=
+        # "answered") - confirm before writing it down as settled; the
+        # question stays open until the customer confirms/corrects.
+        guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
+        trip_update["guided"] = guided
+        return {"trip_update": trip_update, "dynamic_hint": _guided_confirm_hint(current_question, confirm_desc)}
+    answered.append(current_question)
+    changed = True
+    if result.get("correction"):
+        field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים"}.get(
+            (result.get("correction") or {}).get("field"), "הפרטים"
+        )
+        statuses = dict(trip_update.get("session_status") or {})
+        if statuses.get("flights") == "complete":
+            # A field a closed flight session already relied on just
+            # changed - reopen it so the summary reflects the new value
+            # before the customer ever approves against stale data.
+            statuses["flights"] = "active"
+            trip_update["session_status"] = statuses
+            trip_update["ready_for_summary"] = False
+        guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
+        trip_update["guided"] = guided
+        return {"trip_update": trip_update, "dynamic_hint": _guided_correction_hint(field_label, confirm_desc)}
+    current_question = None
 
     next_field = next((f for f in ("dates", "travelers") if f in guided_steps and f not in answered), None)
     guided["current_question"] = next_field
     guided["attempts"] = 0
     guided["answered"] = answered
     trip_update["guided"] = guided
-    if next_field:
-        return {"trip_update": trip_update, "reply": _GUIDED_QUESTION_TEXT[next_field]}
-    return {"trip_update": trip_update, "reply": None} if changed else None
+    return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(next_field, 0) if next_field else None}
 
 
 _REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_planning": "מסלול ואטרקציות"}
@@ -9247,19 +9316,16 @@ def _chat_clean_impl():
             if guided_turn is not None:
                 trip_update = guided_turn["trip_update"]
                 _guided_regex_fallback_fields = guided_turn.get("regex_fallback_fields") or set()
-                if guided_turn.get("reply"):
-                    try:
-                        saved_history = list(history_before_gap) + [
-                            {'role': 'user', 'content': message},
-                            {'role': 'assistant', 'content': guided_turn["reply"]},
-                        ]
-                        save_ariella_conversation(session['member_id'], saved_history[-80:], trip_update)
-                    except Exception:
-                        logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
-                    return jsonify({
-                        'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                        'reply': guided_turn["reply"], 'trip_update': trip_update, 'start_flight_search': False,
-                    })
+                # Per the business owner's final decision (2026-10-17): the
+                # code never sends a fixed sentence - it only steers
+                # Tinkerbell's own upcoming reply call via this one hint
+                # key (the same mechanism _gap_clarify_question already
+                # uses), and the normal cascade always continues from here.
+                guided_hint = guided_turn.get("dynamic_hint")
+                if guided_hint:
+                    trip_update["_guided_ask_hint"] = guided_hint
+                else:
+                    trip_update.pop("_guided_ask_hint", None)
 
         if "dates" not in guided_steps or "dates" in _guided_regex_fallback_fields:
             trip_update = _merge_trip_state(

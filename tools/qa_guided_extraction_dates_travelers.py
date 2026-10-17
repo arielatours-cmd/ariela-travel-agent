@@ -1,15 +1,27 @@
-"""QA for task 014a (plan 014, stage 1, approved by the business owner
-2026-10-16 - "understanding quality before cost savings"): a guided,
-one-question-at-a-time flow for dates and travelers, understood by the
-model instead of regex, entirely behind GUIDED_EXTRACTION_STEPS.
+"""QA for task 014a (plan 014, stage 1) - rebuilt 2026-10-17 after Shaked
+rejected the previous version (fa6210d-era #74/#75) with two blocking
+findings, plus the business owner's two final decisions the same day:
 
-Spec: product/dev-tasks/014a-guided-basics-dates-travelers.md (ofek branch).
-
-Covers Ofek's 10 scenarios (spec section 7) with the flag on, plus the
-mandatory zero-regression check with the flag unset (the default) - every
-existing qa/cases.json case for _deterministic_date_facts/_deterministic_
-duration_facts/_deterministic_traveler_facts must still pass unchanged,
-proving the new mechanism never engages unless explicitly turned on.
+1. (Shaked, blocking) A fact given in the very FIRST message was marked
+   "answered" yet the canned question was asked again anyway - extraction
+   only ran once a guided question had already been asked on a PRIOR turn.
+   Fixed: extraction against the current message now always runs for
+   whichever field is live, including on the very first turn.
+2. (Shaked, blocking) When the model failed on that first turn, the old
+   regex never ran either (same root cause) - nothing captured the
+   message's facts at all. Fixed by the same change.
+3. (Ofek/Shlomo, PRODUCT_RULES §2 "free conversation"): the code never
+   sends a fixed sentence as Ariella's reply. It only sets guided.
+   current_question and a short hint in trip_update["_guided_ask_hint"];
+   Tinkerbell composes the actual question/retry/confirmation herself in
+   her own main reply call (mocked here as "תשובה לדוגמה." throughout -
+   this suite tests the STATE/HINT contract, not Tinkerbell's wording).
+4. (business owner, final) No quick-reply buttons anywhere, ever - not
+   even after repeated unclear answers.
+5. (Shlomo) GUIDED_EXTRACTION_STEPS now defaults ON for approved fields
+   via config.GUIDED_EXTRACTION_STEPS_DEFAULT - the Render env var is only
+   an emergency override/kill-switch, so "flag off" tests now need to SET
+   the env var to "" explicitly, not just leave it unset.
 
 Run: python3 tools/qa_guided_extraction_dates_travelers.py
 """
@@ -83,50 +95,88 @@ def _fake_post_claude_factory(guided_response):
 
 
 # =====================================================================
-# WITHOUT THE FLAG: must be a complete no-op (section 7's mandatory check)
+# Default ON (Shlomo's request): with no env var at all, both fields are
+# covered via config.GUIDED_EXTRACTION_STEPS_DEFAULT.
 # =====================================================================
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
-check("flag unset -> _guided_extraction_steps() is empty",
-      chat._guided_extraction_steps() == set())
+import config as _config
+check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers",
+      chat._guided_extraction_steps() == {"dates", "travelers"})
+check("the Render env var, when actually set, overrides the code default (empty = kill switch)",
+      (lambda: (os.environ.__setitem__("GUIDED_EXTRACTION_STEPS", ""), chat._guided_extraction_steps() == set(), os.environ.pop("GUIDED_EXTRACTION_STEPS", None))[1])())
 
+# =====================================================================
+# WITHOUT THE FLAG (env var explicitly set to "", the kill switch): a
+# complete no-op, same as the old all-off default.
+# =====================================================================
+os.environ["GUIDED_EXTRACTION_STEPS"] = ""
 member0 = _make_member("qa-guided-flagoff@example.com")
 with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: (
         "{}" if kw.get("source") == "state_extractor" else "תשובה לדוגמה."
 )):
     r0 = _post("10.11.2026 עד 15.11.2026", [], dict(ROME_STATE), member0)
 tu0 = r0.get("trip_update") or {}
-check("flag off: regex still fills dates exactly as before (no guided interference)",
+check("flag off (kill switch): regex still fills dates exactly as before (no guided interference)",
       (tu0.get("dates") or {}).get("departure") == "2026-11-10"
       and (tu0.get("dates") or {}).get("return") == "2026-11-15")
 check("flag off: no 'guided' field appears in trip_update at all",
       "guided" not in tu0)
+check("flag off: no guided hint ever set",
+      "_guided_ask_hint" not in tu0)
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE id=?", (member0,))
     conn.commit()
 
 # =====================================================================
-# WITH THE FLAG: Ofek's 10 scenarios
+# WITH THE FLAG explicitly set (dates,travelers - same as the default,
+# set explicitly here so every scenario below is self-contained)
 # =====================================================================
 os.environ["GUIDED_EXTRACTION_STEPS"] = "dates,travelers"
 check("flag set -> _guided_extraction_steps() covers both fields",
       chat._guided_extraction_steps() == {"dates", "travelers"})
 
-# --- Proactive ask (spec section 3): the very first message after the
-#     destination is known, with no guided question pending yet, gets the
-#     dates question - not the regular free-text flow. ---
-member_proactive = _make_member("qa-guided-proactive@example.com")
-with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: (
-        "{}" if kw.get("source") == "state_extractor" else "תשובה לדוגמה."
-)):
-    r_proactive = _post("אני רוצה לטוס לרומא", [], dict(ROME_STATE), member_proactive)
-tu_proactive = r_proactive.get("trip_update") or {}
-check("proactive ask: the dates guided question is asked on the very first eligible turn",
-      r_proactive.get("reply") == chat._GUIDED_QUESTION_TEXT["dates"])
-check("proactive ask: current_question is set to dates",
-      (tu_proactive.get("guided") or {}).get("current_question") == "dates")
+# --- Turn-1 fix (Shaked's blocking finding #1): a fact already given in
+#     the very FIRST message (no guided question ever asked yet) is
+#     recognized immediately - extraction runs against this message even
+#     though current_question was never set before this turn. ---
+member_turn1 = _make_member("qa-guided-turn1@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "departure": "2026-11-10", "return": "2026-11-14",
+    "nights": None, "period": None, "flexibility_days": None, "confidence": "high",
+    "also_mentioned": {"travelers": {"adults": 2, "children": 0, "child_ages": [], "child_genders": []}},
+    "correction": None,
+})):
+    r_turn1 = _post("שלום, טסים זוג לרומא בין ה-10 ל-14 בנובמבר", [], dict(ROME_STATE), member_turn1)
+tu_turn1 = r_turn1.get("trip_update") or {}
+check("turn-1 fix: dates filled on the very first message, no guided question ever asked before",
+      (tu_turn1.get("dates") or {}).get("departure") == "2026-11-10"
+      and (tu_turn1.get("dates") or {}).get("return") == "2026-11-14")
+check("turn-1 fix: travelers filled too, via also_mentioned in the SAME first-message call",
+      (tu_turn1.get("travelers") or {}).get("adults") == 2)
+check("turn-1 fix: both fields marked answered - no redundant question about either",
+      set((tu_turn1.get("guided") or {}).get("answered") or []) == {"dates", "travelers"})
+check("turn-1 fix: nothing left to ask -> no guided hint set (normal conversation continues)",
+      not tu_turn1.get("_guided_ask_hint"))
 
-# --- 1. "10 בנובמבר ל-5 לילות" -> departure/return computed in code ---
+# --- Turn-1 fail-safe (Shaked's blocking finding #2): when the model
+#     fails on the very first turn, the old regex still runs - previously
+#     it silently captured nothing at all in this exact case. ---
+member_turn1fail = _make_member("qa-guided-turn1fail@example.com")
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: (
+        "{}" if kw.get("source") == "state_extractor"
+        else ("not valid json {{{" if kw.get("source") == "guided_extract" else "תשובה לדוגמה.")
+)):
+    r_turn1fail = _post("20.12.2026 עד 27.12.2026", [], dict(ROME_STATE), member_turn1fail)
+tu_turn1fail = r_turn1fail.get("trip_update") or {}
+check("turn-1 fail-safe: broken guided JSON on the FIRST turn still falls back to the regex and fills dates",
+      (tu_turn1fail.get("dates") or {}).get("departure") == "2026-12-20"
+      and (tu_turn1fail.get("dates") or {}).get("return") == "2026-12-27")
+check("turn-1 fail-safe: a hint is still set so Tinkerbell tries in her own words regardless",
+      bool(tu_turn1fail.get("_guided_ask_hint")))
+
+# --- 1. "10 בנובמבר ל-5 לילות" -> departure/return computed in code,
+#     advances to travelers with a hint (no fixed question text) ---
 member1 = _make_member("qa-guided-s1@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "departure": "2026-11-10", "return": None, "nights": 5,
@@ -140,10 +190,15 @@ tu1 = r1.get("trip_update") or {}
 check("scenario 1: departure=2026-11-10", (tu1.get("dates") or {}).get("departure") == "2026-11-10")
 check("scenario 1: return computed as 2026-11-15 (5 nights, in code not the model)",
       (tu1.get("dates") or {}).get("return") == "2026-11-15")
-check("scenario 1: next guided question (travelers) is asked",
+check("scenario 1: next guided question (travelers) is queued",
       (tu1.get("guided") or {}).get("current_question") == "travelers")
+check("scenario 1: the hint describes travelers, not a fixed question",
+      "נוסע" in str(tu1.get("_guided_ask_hint") or ""))
+check("scenario 1: the reply is Tinkerbell's own (mocked) text, never a dict-literal question",
+      r1.get("reply") == "תשובה לדוגמה.")
 
-# --- 2. "באמצע נובמבר, בערך שבוע" -> low confidence, confirm, no invented exact date ---
+# --- 2. "באמצע נובמבר, בערך שבוע" -> low confidence, confirm hint, no
+#     invented exact date ---
 member2 = _make_member("qa-guided-s2@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "departure": None, "return": None, "nights": None,
@@ -156,8 +211,10 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu2 = r2.get("trip_update") or {}
 check("scenario 2: low confidence -> no exact departure/return invented",
       not (tu2.get("dates") or {}).get("departure") and not (tu2.get("dates") or {}).get("return"))
-check("scenario 2: a one-line confirmation is asked, question stays open",
-      "לוודא" in str(r2.get("reply") or "") and (tu2.get("guided") or {}).get("current_question") == "dates")
+check("scenario 2: a confirm hint is set, question stays open",
+      "ודא" in str(tu2.get("_guided_ask_hint") or "") and (tu2.get("guided") or {}).get("current_question") == "dates")
+check("scenario 2: confirm hint never offers buttons",
+      "[" not in str(tu2.get("_guided_ask_hint") or ""))
 
 # --- 3. "14-16 במרץ" -> 2 nights (regression: a previously-fixed bug in
 #        the existing fallback regex - this task never touches it) ---
@@ -226,7 +283,8 @@ check("scenario 6: travelers question is skipped (already answered)",
       "travelers" in ((tu6.get("guided") or {}).get("answered") or [])
       and (tu6.get("guided") or {}).get("current_question") != "travelers")
 
-# --- 7. correction after travelers already set -> "עדכנתי: 3 נוסעים" ---
+# --- 7. correction after travelers already set -> a confirmation hint
+#     naming the update, never "עדכנתי את X." as a literal reply ---
 member7 = _make_member("qa-guided-s7@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "adults": 3, "children": 0, "child_ages": [],
@@ -241,10 +299,11 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu7 = r7.get("trip_update") or {}
 check("scenario 7: travelers corrected to 3 adults",
       (tu7.get("travelers") or {}).get("adults") == 3)
-check("scenario 7: a one-line confirmation names the update",
-      "עדכנתי" in str(r7.get("reply") or ""))
+check("scenario 7: the hint tells Tinkerbell to confirm the update in one sentence, not a fixed reply",
+      "עדכן" in str(tu7.get("_guided_ask_hint") or "") and r7.get("reply") == "תשובה לדוגמה.")
 
-# --- 8. "אין לי מושג" twice -> after the second, choice options are offered ---
+# --- 8. "אין לי מושג" twice -> no buttons ever; attempts increments and
+#     the hint explicitly asks for a different open phrasing + example ---
 member8 = _make_member("qa-guided-s8@example.com")
 unclear = {
     "status": "unclear", "departure": None, "return": None, "nights": None,
@@ -262,10 +321,13 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory(un
 tu8b = r8b.get("trip_update") or {}
 check("scenario 8: attempts incremented to 1 after the first 'no idea'",
       (tu8a.get("guided") or {}).get("attempts") == 1)
-check("scenario 8: choice options offered after the second 'no idea'",
-      r8b.get("reply") == chat._GUIDED_CHOICE_OPTIONS["dates"] and (tu8b.get("guided") or {}).get("attempts") == 2)
+check("scenario 8: attempts incremented to 2 after the second 'no idea' - never buttons",
+      (tu8b.get("guided") or {}).get("attempts") == 2 and "[" not in str(tu8b.get("_guided_ask_hint") or ""))
+check("scenario 8: the retry hint explicitly asks for a different phrasing/example, never a repeat",
+      "שונה" in str(tu8b.get("_guided_ask_hint") or "") or "אחר" in str(tu8b.get("_guided_ask_hint") or ""))
 
-# --- 9. "כמה עולה מלון שם?" during the dates question -> other_topic, question stays open ---
+# --- 9. "כמה עולה מלון שם?" during the dates question -> other_topic,
+#     question stays open, no hint forced onto an unrelated reply ---
 member9 = _make_member("qa-guided-s9@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "other_topic", "departure": None, "return": None, "nights": None,
@@ -278,10 +340,11 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu9 = r9.get("trip_update") or {}
 check("scenario 9: dates question stays open (current_question unchanged)",
       (tu9.get("guided") or {}).get("current_question") == "dates")
-check("scenario 9: the normal routing answered the actual message (not the canned guided question)",
-      str(r9.get("reply") or "") != chat._GUIDED_QUESTION_TEXT["dates"])
+check("scenario 9: no guided hint forced onto this unrelated message - normal routing handles it",
+      not tu9.get("_guided_ask_hint"))
 
-# --- 10. Broken JSON from the model -> falls back to the existing regex, no crash ---
+# --- 10. Broken JSON from the model on a FOLLOW-UP turn -> falls back to
+#     the existing regex, no crash, and a hint is still set ---
 member10 = _make_member("qa-guided-s10@example.com")
 with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: (
         "{}" if kw.get("source") == "state_extractor"
@@ -296,36 +359,16 @@ check("scenario 10: broken guided JSON never crashes the turn",
 check("scenario 10: falls back to the existing regex and still fills the date correctly",
       (tu10.get("dates") or {}).get("departure") == "2026-11-10")
 
-# --- 11. Business owner's one-option rule (2026-10-16, relayed via Shlomo/
-#     Ofek): every guided text is an open question, or yes/no about exactly
-#     ONE option - never "A or B?" joined by "או" inside the question
-#     sentence. A finite choice set is offered as bracketed quick-replies
-#     after an open question, never as a forced either/or pick. ---
-import re as _re_rule11
-
-
-def _is_single_option_or_open(text):
-    text = str(text or "")
-    # Strip bracketed quick-reply suggestions before checking the question
-    # sentence itself - "[X] [Y]" after the question is the allowed way to
-    # offer several answers, not a violation of the rule.
-    question_part = _re_rule11.sub(r"\s*\[[^\]]*\]", "", text).strip()
-    # The forbidden shape: two answer choices joined by a bare "או" inside
-    # the question sentence itself (e.g. "ישירה או קונקשן?", "קצב רגוע או
-    # פעיל?"). A choice-of-month/example list after an explicit "למשל"
-    # (such as) is illustrative, not a forced pick, so it's exempt.
-    if "למשל" in question_part:
-        return True
-    return " או " not in question_part
-
-
-for key_name, text in {**chat._GUIDED_QUESTION_TEXT, **chat._GUIDED_UNCLEAR_RETRY_TEXT, **chat._GUIDED_CHOICE_OPTIONS}.items():
-    check(f"one-option rule: {key_name!r} text has no bare 'X או Y?' inside the question",
-          _is_single_option_or_open(text))
-
-frag11, confirm11 = chat._guided_field_update_and_confirm("dates", {"departure": "2026-11-10", "return": "2026-11-15"})
-check("one-option rule: the low-confidence confirmation is yes/no about ONE value, with [כן] [לתקן] as quick-replies",
-      confirm11.endswith("[כן] [לתקן]") and _is_single_option_or_open(confirm11))
+# --- 11. No buttons, ever, anywhere in the hint-building machinery -
+#     scan every hint a representative set of calls can produce. ---
+check("no-buttons rule: a fresh-ask hint never contains '['",
+      "[" not in chat._guided_ask_hint("dates", 0))
+check("no-buttons rule: a retry hint (attempts>=1) never contains '['",
+      "[" not in chat._guided_ask_hint("dates", 1) and "[" not in chat._guided_ask_hint("travelers", 2))
+check("no-buttons rule: a confirm hint never contains '['",
+      "[" not in chat._guided_confirm_hint("dates", "יציאה ב-10.11.2026 וחזרה ב-15.11.2026"))
+check("no-buttons rule: a correction hint never contains '['",
+      "[" not in chat._guided_correction_hint("התאריכים", "יציאה ב-10.11.2026"))
 
 with sqlite3.connect(DB) as conn:
     conn.execute(
