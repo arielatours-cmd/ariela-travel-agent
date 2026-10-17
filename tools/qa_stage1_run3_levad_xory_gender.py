@@ -479,6 +479,17 @@ check("the same 'וגם' detector also fires with nothing recognized right "
           "ספרו לי מה אתם אוהבים לעשות בחופשה, וגם תרצו שקט?",
           PLANNING_STATE,
       ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+check("Shaked's exact stage-2 run-4 repro (Budapest, 3/5, a3b1240): style "
+      "AND pace bundled with 'ואם' and NO comma at all before the seam "
+      "('...תוכלו לספר לי מה אתם אוהבים לעשות בחופשה ואם חשוב לכם קצב "
+      "רגוע?') - both comma-anchored alternatives require a comma, which "
+      "this phrasing never has. Resolves to the real single next gap "
+      "(style, unanswered), leading statement sentence kept as-is",
+      chat._enforce_one_option_question(
+          "מעולה! כדי לתכנן את המסלול - תוכלו לספר לי מה אתם אוהבים לעשות "
+          "בחופשה ואם חשוב לכם קצב רגוע?",
+          PLANNING_STATE,
+      ) == "מעולה! ספרו לי מה אתם אוהבים לעשות בחופשה.")
 
 # -- Shlomo's follow-up: two FULLY SEPARATE '?' sentences (no "או"/"ו" at "
 #    all) - the generalized, sentence-classifying version of the check --

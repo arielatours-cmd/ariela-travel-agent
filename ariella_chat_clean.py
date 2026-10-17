@@ -2157,6 +2157,58 @@ def _departure_question(state):
     return "מאיזה שדה תעופה תרצי לטוס?"
 
 
+def _flight_connection_line(flight):
+    """The one-line connection-preference summary fact, or None when it
+    isn't known yet. Factored out of _flight_summary_text so the same
+    exact wording is available to _ensure_flight_summary_completeness."""
+    connection = str((flight or {}).get("connection_preference") or "").lower()
+    if not connection:
+        return None
+    return "טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן"
+
+
+def _flight_baggage_line(flight):
+    """The one-line baggage summary fact, or None when nothing is known
+    yet. Factored out of _flight_summary_text so the same exact wording
+    (including the shared-suitcase and self-contradiction overrides) is
+    available to _ensure_flight_summary_completeness."""
+    flight = flight if isinstance(flight, dict) else {}
+    baggage = flight.get("baggage") or []
+    if not baggage:
+        return None
+    baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה בבטן המטוס", "personal_item": "תיק קטן בלבד"}
+    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): the
+    # customer said "מזוודה אחת משותפת" (ONE suitcase, shared by the whole
+    # party) but the summary read as if every passenger had their own -
+    # checked_bag's label must never default to a per-passenger assumption
+    # when the customer explicitly said otherwise.
+    if flight.get("baggage_shared") and "checked_bag" in baggage:
+        baggage_labels = dict(baggage_labels, checked_bag="מזוודה אחת משותפת לכל הנוסעים")
+    # Per Shaked's PR #65 review: "carry_on_only" literally means "ONLY a
+    # carry-on, no checked bag" (see the system prompt's own definition),
+    # so once checked_bag is ALSO in the same list, "טרולי בלבד" directly
+    # contradicts the checked_bag label sitting right next to it in the
+    # same sentence ("טרולי בלבד, כולל מזוודה..."). Drop the "בלבד" (only)
+    # framing in exactly that combination - the fact worth stating is that
+    # everyone brings a carry-on too, not that it's the ONLY thing.
+    if "checked_bag" in baggage and "carry_on_only" in baggage:
+        baggage_labels = dict(baggage_labels, carry_on_only="טרולי לכל נוסע")
+    return "כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage)
+
+
+def _flight_budget_line(budget):
+    """The one-line budget summary fact (including the explicit-unlimited
+    case), or None when nothing is known yet. Factored out of
+    _flight_summary_text so the same exact wording is available to
+    _ensure_flight_summary_completeness."""
+    budget = budget if isinstance(budget, dict) else {}
+    if budget.get("status") == "unlimited":
+        return "תקציב: ללא הגבלה"
+    if budget.get("amount"):
+        return f"תקציב לאדם: {budget.get('amount')} {budget.get('currency') or '₪'}"
+    return None
+
+
 def _flight_summary_text(state):
     """Deterministic flight-request summary built straight from state - the
     honest fallback when the claims_execution safety net catches Tinkerbell
@@ -2195,29 +2247,12 @@ def _flight_summary_text(state):
         if children:
             party += (f" ו-{children} ילדים" if children != 1 else " וילד אחד")
         lines.append("נוסעים: " + party)
-    connection = str(flight.get("connection_preference") or "").lower()
-    if connection:
-        lines.append("טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן")
-    baggage = flight.get("baggage") or []
-    baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה בבטן המטוס", "personal_item": "תיק קטן בלבד"}
-    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): the
-    # customer said "מזוודה אחת משותפת" (ONE suitcase, shared by the whole
-    # party) but the summary read as if every passenger had their own -
-    # checked_bag's label must never default to a per-passenger assumption
-    # when the customer explicitly said otherwise.
-    if flight.get("baggage_shared") and "checked_bag" in baggage:
-        baggage_labels = dict(baggage_labels, checked_bag="מזוודה אחת משותפת לכל הנוסעים")
-    # Per Shaked's PR #65 review: "carry_on_only" literally means "ONLY a
-    # carry-on, no checked bag" (see the system prompt's own definition),
-    # so once checked_bag is ALSO in the same list, "טרולי בלבד" directly
-    # contradicts the checked_bag label sitting right next to it in the
-    # same sentence ("טרולי בלבד, כולל מזוודה..."). Drop the "בלבד" (only)
-    # framing in exactly that combination - the fact worth stating is that
-    # everyone brings a carry-on too, not that it's the ONLY thing.
-    if "checked_bag" in baggage and "carry_on_only" in baggage:
-        baggage_labels = dict(baggage_labels, carry_on_only="טרולי לכל נוסע")
-    if baggage:
-        lines.append("כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage))
+    connection_line = _flight_connection_line(flight)
+    if connection_line:
+        lines.append(connection_line)
+    baggage_line = _flight_baggage_line(flight)
+    if baggage_line:
+        lines.append(baggage_line)
     dep_time_pref = str(flight.get("departure_time_preference") or "").strip()
     ret_time_pref = str(flight.get("return_time_preference") or "").strip()
     if dep_time_pref or ret_time_pref:
@@ -2227,10 +2262,9 @@ def _flight_summary_text(state):
         if ret_time_pref:
             parts.append(f"חזור {ret_time_pref}")
         lines.append("שעת טיסה מועדפת: " + ", ".join(parts))
-    if budget.get("status") == "unlimited":
-        lines.append("תקציב: ללא הגבלה")
-    elif budget.get("amount"):
-        lines.append(f"תקציב לאדם: {budget.get('amount')} {budget.get('currency') or '₪'}")
+    budget_line = _flight_budget_line(budget)
+    if budget_line:
+        lines.append(budget_line)
     if not lines:
         return None
 
@@ -2242,6 +2276,59 @@ def _flight_summary_text(state):
     else:
         approval_line = "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת."
     return "סיכום בקשת הטיסה:\n" + "\n".join(lines) + "\n\n" + approval_line
+
+
+def _ensure_flight_summary_completeness(reply, state):
+    """Deterministic safety net, same philosophy as the other helpers in
+    this file: Tinkerbell's own final "כתבי מאשרת" summary is free text,
+    and a fact already collected in state can simply be left out of it.
+    Seen live (Shaked, stage-2 run-4, Paris): the customer explicitly said
+    "אין הגבלה" and flight.budget_per_person.status became "unlimited",
+    but the final summary reply had no budget line at all - earlier turns
+    in the same run correctly produced "תקציב: ללא הגבלה" for the exact
+    same fact, so this isn't a missing capability, just an inconsistent
+    free-text omission. Checks the three flight facts Shaked named
+    (budget including the explicit-unlimited case, baggage, direct/
+    connection preference) against their marker words already present in
+    the reply, and appends whichever fixed line (_flight_budget_line/
+    _flight_baggage_line/_flight_connection_line - the exact same wording
+    _flight_summary_text itself would use) is missing, right before the
+    approval-request sentence. Never touches a fact that is already
+    mentioned, however it was phrased."""
+    text = str(reply or "")
+    if not any(p in text for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
+        return reply
+    state = state if isinstance(state, dict) else {}
+    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+    budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
+    missing = []
+    if "תקציב" not in text:
+        line = _flight_budget_line(budget)
+        if line:
+            missing.append(line)
+    if "כבודה" not in text:
+        line = _flight_baggage_line(flight)
+        if line:
+            missing.append(line)
+    if "ישיר" not in text and "קונקשן" not in text:
+        line = _flight_connection_line(flight)
+        if line:
+            missing.append(line)
+    if not missing:
+        return reply
+    sentences = _split_sentences(text)
+    target_i = next(
+        (i for i, (s, _term) in enumerate(sentences)
+         if any(p in s for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת"))),
+        None,
+    )
+    if target_i is None:
+        return text + "\n" + "\n".join(missing)
+    insertion = "\n".join(missing) + "\n"
+    prefix = "".join(s for s, _term in sentences[:target_i])
+    rest = "".join(s for s, _term in sentences[target_i:])
+    sep = "" if (not prefix or prefix[-1].isspace()) else "\n"
+    return f"{prefix}{sep}{insertion}{rest}"
 
 
 def _flight_gap_question(gaps, state=None):
@@ -3358,6 +3445,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _strip_stray_markdown_markers(reply)
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
+    reply = _ensure_flight_summary_completeness(reply, state)
     return _strip_unconfirmed_airports(reply, state)
 
 
@@ -5187,7 +5275,15 @@ _OFFER_DOMAIN_WORDS = {
 # them, so the original fused-prefix alternation never matched. "וגם" is
 # itself as strong a smuggled-second-question signal as the fused form,
 # with or without a recognized question word right after it.
-_BUNDLED_AND_QUESTION_RE = re.compile(r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b")
+# Per Shaked's stage-2 run-4 finding (Budapest, 3/5, a3b1240): "...תוכלו
+# לספר לי מה אתם אוהבים לעשות בחופשה ואם חשוב לכם קצב רגוע?" bundles style
+# and pace the same way, but with NO comma at all before the "ו" seam -
+# both comma-anchored alternatives above require a comma. "ו" fused
+# directly to "אם"/"האם"/"גם" and surrounded by plain whitespace is just as
+# strong a smuggled-second-question signal even without one.
+_BUNDLED_AND_QUESTION_RE = re.compile(
+    r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם)\s"
+)
 
 # Per Shaked's stage-2 run-2 finding (London, 0/5, 2f9b859): the one-option
 # iron rule is violated by a single, non-bundled question too, when it
