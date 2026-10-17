@@ -9,13 +9,19 @@
 > …אפשר לעיין ברשימה, לתקן גיל או למחוק נוסע בכל עת באזור האישי, תחת "מה אריאלה זוכרת עליי". מחיקת נוסע מוחקת את פרטיו, ומחיקת החשבון מוחקת את כל הרשימה.
 
 **מוצע:**
-> כדי לא לשאול אתכם שוב בכל חופשה, Ariella שומרת בחשבון רשימה של הנוסעים שסיפרתם עליהם: מספר המבוגרים, ולגבי ילדים גיל ומגדר (אם ציינתם). שם וקשר משפחתי (למשל "בן/בת זוג") נשמרים רק אם אמרתם אותם ואישרתם לשמור. אפשר לבקש לעיין ברשימה, לתקן פרט או למחוק נוסע בפנייה אלינו דרך עמוד "צור קשר", ונטפל בבקשה לאחר אימות זהות. מחיקת החשבון מוחקת את כל הרשימה.
+> כדי לא לשאול אתכם שוב בכל חופשה, Ariella שומרת בחשבון רשימה של הנוסעים שסיפרתם עליהם: מספר המבוגרים, ולגבי ילדים גיל ומגדר (אם ציינתם). שם וקשר משפחתי (למשל "בן/בת זוג") נשמרים רק אם אמרתם אותם ואישרתם לשמור. אפשר לבקש לעיין ברשימה, לתקן פרט או למחוק נוסע בפנייה אלינו דרך עמוד "יצירת קשר", ונטפל בבקשה בתוך 30 ימים לאחר אימות זהותכם. מחיקת החשבון מוחקת את כל הרשימה.
 
 ## הנוסח באנגלית
 **מוצע:**
-> So you are not asked again on every vacation, Ariella keeps a list in your account of the travelers you told it about: the number of adults, and each child's age and gender (if you gave them). A name and family relationship (e.g. "partner") are kept only if you said them and agreed to save them. You may ask to view the list, correct a detail or delete a traveler by contacting us through the Contact page; we will handle the request after verifying your identity. Deleting your account deletes the whole list.
+> So you are not asked again on every vacation, Ariella keeps a list in your account of the travelers you told it about: the number of adults, and each child's age and gender (if you gave them). A name and family relationship (e.g. "partner") are kept only if you said them and agreed to save them. You may ask to view the list, correct a detail or delete a traveler by contacting us through the Contact page; we will handle the request within 30 days after verifying your identity. Deleting your account deletes the whole list.
 
 ## שאלות לדין
 1. האם פנייה דרך עמוד צור קשר, עם אימות זהות, מספיקה לזכות העיון והתיקון לפי חוק הגנת הפרטיות, כשאין עיון עצמי באזור האישי?
 2. האם צריך לציין זמן טיפול, למשל "תוך 30 יום"?
 3. האם צריך להודיע ללקוחות קיימים על השינוי? הכרטיסייה כבר הייתה באתר.
+
+## ✅ אושר על ידי דין (17.10), עם תיקונים
+- **שם העמוד:** "יצירת קשר".
+- **זמן טיפול:** "בתוך 30 ימים לאחר אימות זהותכם". עו"ד עוד יאמת את המועד המדויק לפי התקנות.
+- **הודעה ללקוחות קיימים:** לא נמצאה חובה. מעדכנים את תאריך "עודכן" במדיניות, וההחלטה הסופית אצל עו"ד.
+- **תנאי בקוד, באותו PR:** מסלול בניהול שמאפשר למחוק נוסע לפי בקשת לקוח, דרך `delete_traveler` הקיימת.
