@@ -125,6 +125,43 @@ single confirmation question - has exactly one question sentence and is
 never touched, so the confirmation question is never at risk of being
 dropped.
 
+Shaked's review of that SAME generalization (still 17.10.2026, PR #64):
+two further live bugs, both from reconstructing the reply out of stripped-
+and-rejoined sentence fragments rather than only ever excising the
+question spans from the ORIGINAL string. (1) Splitting on a bare "."
+treated the periods inside a date like "15.4.2027" as sentence
+boundaries, and single-space-joining the stripped fragments mangled it
+into "15. 4. 2027" while silently dropping every real newline/blank line
+in the reply. Fixed: _split_sentences only counts "." / "!" / "?" as a
+boundary when it is NOT directly between two digits and IS followed by
+whitespace or end-of-string; kept statement spans are concatenated with
+"".join (never " ".join, never .strip()), since each span already carries
+its own original surrounding whitespace. (2) A day-by-day itinerary's own
+body can legitimately contain a rhetorical "?" ("מה יותר כיף מאוכל טוב?")
+that is not a real gap-question - with style/pace already known
+(_session_gaps empty), the generic lookup had nothing real to offer and
+instead replaced the real confirmation question with a wrong, from-
+scratch style question while also destroying real itinerary content
+(dates, day lines) caught up in the same rebuild - a genuine loop risk,
+per her report. Fixed: when the reply contains a day marker ("יום 1",
+"יום 2", ...) and active_session is "trip_planning", the itinerary body -
+rhetorical "?" included - is left completely untouched; only the LAST
+question sentence is ever a candidate for replacement, and only with the
+fixed trip_planning approval confirmation, never a _session_gaps lookup.
+
+Shlomo's further follow-up on that same PR #64 round: when NO state-driven
+replacement exists at all (no gap, no offer anywhere in the state) for a
+reply bundling multiple fully separate question sentences, returning the
+whole reply untouched (the prior behavior) leaves every extra question in
+place too. Fixed: in exactly that case, the FIRST question sentence is
+kept exactly as written and every question sentence after it is dropped -
+not a single other character is touched. A single, possibly-"או"-bundled
+question sentence with no fixed replacement is unaffected by this (the
+Paris rule still applies: never drop the only question there is). Also
+added, per his explicit request: character-identity checks (.startswith,
+not just whole-string ==) confirming the kept itinerary/date portion of
+the output is an exact byte-for-byte prefix of the original input.
+
 Run: python3 tools/qa_stage1_run3_levad_xory_gender.py
 """
 import os
@@ -422,6 +459,126 @@ check("per Shlomo's explicit caution: a normal final-summary reply with "
           {"active_session": None},
       ) == "אז לסיכום: טיסה לאתונה, 1-10 במאי, שני מבוגרים, מלון במרכז "
            "העיר. את מאשרת את ההזמנה?")
+
+# -- Shaked's PR #64 review (same day): the generalized version above still
+#    rebuilt the message by stripping/rejoining fragments, which mangled
+#    dates and dropped itinerary content - fixed by a digit-safe sentence
+#    splitter that only ever splices OUT the question spans, keeping every
+#    other character (including newlines) exactly as the original string --
+
+check("Shaked's exact PR #64 review repro (dates): splitting on a bare '.' "
+      "used to treat the periods inside '15.4.2027' as sentence boundaries "
+      "and single-space-joining the fragments mangled it into "
+      "'15. 4. 2027' while dropping the blank line entirely. Now the date "
+      "and the blank line before the kept question both survive untouched",
+      chat._enforce_one_option_question(
+          "טיסה לאתונה 15.4.2027–19.4.2027, 3 נוסעות.\n\n"
+          "איזו כבודה תצטרכו? ומה התקציב?",
+          FLIGHTS_STATE_BOTH_OPEN,
+      ) == "טיסה לאתונה 15.4.2027–19.4.2027, 3 נוסעות.\n\n"
+           "מה התקציב שלכם לאדם לטיסה?")
+
+PLANNING_STATE_ITINERARY_KNOWN = {
+    "active_session": "trip_planning",
+    "trip_planning": {"details": {"style": "תרבות ואוכל", "pace": "רגוע"}},
+    "destination": {"places": ["אתונה"]},
+    "dates": {"departure": "2027-04-15", "return": "2027-04-19"},
+    "travelers": {"adults": 2},
+    "trip_type": "vacation",
+}
+check("Shaked's exact PR #64 review repro (itinerary): active_session="
+      "'trip_planning' with style/pace already known (_session_gaps empty) "
+      "- the OLD version rebuilt the whole message, destroying the day "
+      "lines/dates and replacing the real confirmation question with a "
+      "wrong, from-scratch style question (a genuine loop risk, per her "
+      "report). The day-marker ('יום 1'/'יום 2') scoped special case now "
+      "leaves the entire itinerary body - including its own rhetorical "
+      "'?' ('מה יותר כיף מאוכל טוב?') - completely untouched, and replaces "
+      "only the real trailing confirmation question with the fixed "
+      "trip_planning approval text, never a _session_gaps lookup",
+      chat._enforce_one_option_question(
+          "יום 1 (15.4, חמישי): נחיתה. מה יותר כיף מאוכל טוב? טברנה "
+          "בפלאקה.\nיום 2 (16.4, שישי): אקרופוליס.\n\nהמסלול מתאים לכם?",
+          PLANNING_STATE_ITINERARY_KNOWN,
+      ) == "יום 1 (15.4, חמישי): נחיתה. מה יותר כיף מאוכל טוב? טברנה "
+           "בפלאקה.\nיום 2 (16.4, שישי): אקרופוליס.\n\n"
+           "המסלול שהצעתי מתאים לכם?")
+check("the same itinerary case also resolves correctly when the trailing "
+      "confirmation question is itself an 'X או Y' violation - still only "
+      "that last sentence is replaced, the itinerary body untouched",
+      chat._enforce_one_option_question(
+          "יום 1 (15.4, חמישי): נחיתה. מה יותר כיף מאוכל טוב? טברנה "
+          "בפלאקה.\nיום 2 (16.4, שישי): אקרופוליס.\n\n"
+          "המסלול מתאים לכם, או שתרצו שינוי?",
+          PLANNING_STATE_ITINERARY_KNOWN,
+      ) == "יום 1 (15.4, חמישי): נחיתה. מה יותר כיף מאוכל טוב? טברנה "
+           "בפלאקה.\nיום 2 (16.4, שישי): אקרופוליס.\n\n"
+           "המסלול שהצעתי מתאים לכם?")
+check("a non-itinerary message with no day marker at all is NOT routed "
+      "through the itinerary special case, even with active_session="
+      "'trip_planning' - falls through to the ordinary state-driven path",
+      chat._enforce_one_option_question(
+          "אתם מעדיפים קצב רגוע או פעיל?", PLANNING_STATE,
+      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+
+# -- per Shlomo's explicit request: character-by-character identity checks
+#    on the KEPT portion, not just overall-string equality, on both a real
+#    itinerary and a message with dates --
+
+_ITINERARY_INPUT = (
+    "יום 1 (15.4, חמישי): נחיתה. מה יותר כיף מאוכל טוב? טברנה "
+    "בפלאקה.\nיום 2 (16.4, שישי): אקרופוליס.\n\nהמסלול מתאים לכם?"
+)
+_ITINERARY_BODY = (
+    "יום 1 (15.4, חמישי): נחיתה. מה יותר כיף מאוכל טוב? טברנה "
+    "בפלאקה.\nיום 2 (16.4, שישי): אקרופוליס."
+)
+check("character-by-character: the itinerary body (both day lines, the "
+      "dates, the embedded rhetorical '?', and the original '\\n' between "
+      "them) is an EXACT prefix of the fixed output, byte for byte - not "
+      "merely 'the same when compared as whole strings'",
+      chat._enforce_one_option_question(
+          _ITINERARY_INPUT, PLANNING_STATE_ITINERARY_KNOWN,
+      ).startswith(_ITINERARY_BODY)
+      and _ITINERARY_INPUT.startswith(_ITINERARY_BODY))
+
+_DATES_INPUT = "טיסה לאתונה 15.4.2027–19.4.2027, 3 נוסעות.\n\nאיזו כבודה תצטרכו? ומה התקציב?"
+_DATES_PREFIX = "טיסה לאתונה 15.4.2027–19.4.2027, 3 נוסעות.\n\n"
+check("character-by-character: the date range and the blank line before "
+      "it are an EXACT prefix of the fixed output, byte for byte - the "
+      "two periods inside '15.4.2027' and the '\\n\\n' are untouched",
+      chat._enforce_one_option_question(
+          _DATES_INPUT, FLIGHTS_STATE_BOTH_OPEN,
+      ).startswith(_DATES_PREFIX)
+      and _DATES_INPUT.startswith(_DATES_PREFIX))
+
+# -- Shlomo's further follow-up (same PR #64 round): when NO state-driven
+#    replacement exists at all for a reply bundling multiple fully
+#    separate questions, keep only the FIRST question and drop the rest,
+#    rather than returning the whole reply with every question intact --
+
+check("Shlomo's exact edge case: two fully separate questions, but no gap "
+      "and no offer anywhere in the state (fixed stays None) - the first "
+      "question is kept exactly as written, the second is dropped, no "
+      "other character is touched",
+      chat._enforce_one_option_question(
+          "חשוב לכם שהטיסה תהיה ישירה? איזו כבודה תרצו לקחת?",
+          {"active_session": None},
+      ) == "חשוב לכם שהטיסה תהיה ישירה?")
+check("the same no-fixed-found rule keeps any leading statement sentence "
+      "untouched too, dropping only the extra trailing question(s)",
+      chat._enforce_one_option_question(
+          "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה? איזו כבודה תרצו לקחת? "
+          "ומתי תרצו לטוס?",
+          {"active_session": None},
+      ) == "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה?")
+check("a SINGLE bundled 'X או Y' question with no fixed replacement found "
+      "still follows the Paris rule unchanged - there is only one "
+      "question to begin with, so nothing is dropped, the whole reply is "
+      "returned exactly as-is",
+      chat._enforce_one_option_question(
+          "מעולה, הכל ידוע. עוד שאלה סתם, X או Y?", FLIGHTS_STATE_NO_GAPS,
+      ) == "מעולה, הכל ידוע. עוד שאלה סתם, X או Y?")
 
 
 # === Bug 3: explicit gender hint ===

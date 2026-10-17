@@ -4940,6 +4940,59 @@ _OFFER_DOMAIN_QUESTIONS = {
 # question, same as "או" marks a smuggled-in second option.
 _BUNDLED_AND_QUESTION_RE = re.compile(r",\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b")
 
+# Per Shaked's review of the FIRST multi-question version of this function
+# (PR #64, same day): splitting on a bare "." treated the periods inside a
+# date like "15.4.2027" as sentence boundaries, and rebuilding the message
+# by joining stripped fragments with single spaces then mangled it into
+# "15. 4. 2027" and silently dropped every real newline/blank line in the
+# original reply. A period/exclamation/question-mark only ends a sentence
+# here when it is NOT immediately between two digits (a date separator)
+# AND is followed by whitespace or the end of the string; a bare newline
+# is always its own boundary (so paragraph breaks are never lost).
+_SENTENCE_BOUNDARY_RE = re.compile(r"(?<!\d)[.!?](?!\d)(?=\s|$)|\n")
+
+# Per the same review: a day-by-day itinerary body ("יום 1 (15.4, חמישי):
+# נחיתה...") can legitimately contain its own rhetorical "?" ("מה יותר כיף
+# מאוכל טוב?") that is never a real gap-question - and with style/pace
+# already known, _session_gaps(state, "trip_planning") is empty, so the
+# generic lookup has nothing real to offer and would otherwise re-ask for
+# style/pace instead of the one real pending action (approving the route
+# just presented), a genuine loop risk. Detected by the itinerary's own
+# day marker, scoped to the trip_planning domain only.
+_ITINERARY_DAY_RE = re.compile(r"יום\s*\d+")
+_TRIP_PLANNING_APPROVAL_QUESTION = "המסלול שהצעתי מתאים לכם?"
+
+
+def _append_fixed_question(prefix, fixed):
+    """Join a kept-statements prefix with the one replacement question,
+    without ever re-spacing or trimming the prefix's own original trailing
+    whitespace/newlines (see _split_sentences) - a blank line the customer
+    already saw stays a blank line. Adds a single space only when the
+    prefix doesn't already end in whitespace; an empty prefix returns the
+    fixed question alone."""
+    if not prefix:
+        return fixed
+    return f"{prefix}{fixed}" if prefix[-1].isspace() else f"{prefix} {fixed}"
+
+
+def _split_sentences(text):
+    """Split text into (sentence_text, terminator) pairs using
+    _SENTENCE_BOUNDARY_RE, WITHOUT stripping or discarding any character -
+    each sentence_text already carries its own leading whitespace/newlines
+    exactly as they appeared in the original string, so re-joining a subset
+    of them with "".join reproduces the untouched original spacing. The
+    final fragment (after the last boundary, if the text doesn't end on
+    one) is kept with terminator ""."""
+    spans = []
+    start = 0
+    for m in _SENTENCE_BOUNDARY_RE.finditer(text):
+        end = m.end()
+        spans.append((text[start:end], m.group()))
+        start = end
+    if start < len(text):
+        spans.append((text[start:], ""))
+    return spans
+
 
 def _enforce_one_option_question(reply, state):
     """The one-question/never-"X או Y" rule (see TINKERBELL_SYSTEM's own
@@ -5010,36 +5063,65 @@ def _enforce_one_option_question(reply, state):
     sentence in the reply is now classified as a question (ends in "?")
     or a statement (any other terminator), and the violation is either
     more than one question sentence, or exactly one that is itself
-    bundled (the "או"/_BUNDLED_AND_QUESTION_RE cases above). On a
-    violation, ALL statement sentences are kept, in order, and EVERY
-    question sentence - not just the last one - is replaced by the
-    single fixed question the state-driven lookup below resolves to
-    (the real first gap in the active topic), never a guess at which of
-    the original questions to keep. A normal reply with exactly one,
-    unbundled question - including the final pre-"מאשר/ת" summary's own
-    single confirmation question - has exactly one question sentence and
-    is never touched."""
+    bundled (the "או"/_BUNDLED_AND_QUESTION_RE cases above). A normal
+    reply with exactly one, unbundled question - including the final
+    pre-"מאשר/ת" summary's own single confirmation question - has exactly
+    one question sentence and is never touched.
+
+    Per Shaked's review of that SAME-day generalization (still PR #64):
+    two further live bugs, both from rebuilding the message out of
+    stripped-and-rejoined fragments rather than only ever removing
+    exactly the question spans from the ORIGINAL string:
+    (a) splitting on a bare "." treated the periods inside a date like
+    "15.4.2027" as sentence boundaries, and single-space-joining the
+    fragments mangled it into "15. 4. 2027" while silently dropping every
+    real newline/blank line in the reply. Fixed: _split_sentences uses
+    _SENTENCE_BOUNDARY_RE, which only counts "." / "!" / "?" as a
+    boundary when it is NOT directly between two digits (a date
+    separator) and IS followed by whitespace or end-of-string; a bare
+    "\n" is always its own boundary. Statement spans are kept and
+    concatenated with "".join (never " ".join) since each span already
+    carries its own original leading whitespace/newlines - nothing is
+    ever stripped or re-spaced.
+    (b) a day-by-day itinerary's own body can legitimately contain a
+    rhetorical "?" ("מה יותר כיף מאוכל טוב?") that is not a real
+    gap-question - with active_session="trip_planning" and style/pace
+    already known, _session_gaps is empty, so the generic lookup had
+    nothing real to offer and instead re-asked for style from scratch,
+    a genuine loop risk, while also deleting real itinerary content
+    (dates, day lines) caught up in the same rebuild. Fixed: when the
+    reply contains a day marker ("יום 1", "יום 2", ...) and
+    active_session is "trip_planning", the itinerary body is never
+    touched at all - only the LAST question sentence is ever a
+    candidate for replacement, and only with the fixed trip_planning
+    approval confirmation (_TRIP_PLANNING_APPROVAL_QUESTION), never a
+    _session_gaps lookup."""
     text = str(reply or "")
     if "?" not in text:
         return reply
-    parts = re.split(r"([.!?\n])", text)
-    sentences = []
-    for i in range(0, len(parts) - 1, 2):
-        chunk = parts[i].strip()
-        if chunk:
-            sentences.append((chunk, parts[i + 1]))
-    if len(parts) % 2 == 1 and parts[-1].strip():
-        sentences.append((parts[-1].strip(), ""))
-
-    question_sentences = [s for s, term in sentences if term == "?"]
-    bundled = False
-    if len(question_sentences) == 1:
-        only_q = question_sentences[0]
-        bundled = (" או " in only_q) or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
-    if len(question_sentences) <= 1 and not bundled:
-        return reply
 
     state = state if isinstance(state, dict) else {}
+    sentences = _split_sentences(text)
+    question_idx = [i for i, (_, term) in enumerate(sentences) if term == "?"]
+    if not question_idx:
+        return reply
+
+    if _ITINERARY_DAY_RE.search(text) and state.get("active_session") == "trip_planning":
+        last_i = question_idx[-1]
+        last_q = sentences[last_i][0]
+        violates = len(question_idx) > 1 or " או " in last_q or bool(_BUNDLED_AND_QUESTION_RE.search(last_q))
+        if not violates:
+            return reply
+        prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i != last_i)
+        return _append_fixed_question(prefix, _TRIP_PLANNING_APPROVAL_QUESTION)
+
+    bundled = False
+    if len(question_idx) == 1:
+        only_q = sentences[question_idx[0]][0]
+        bundled = (" או " in only_q) or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
+    if len(question_idx) <= 1 and not bundled:
+        return reply
+
     fixed = None
     offered = state.get("post_flight_offer")
     active_session = state.get("active_session")
@@ -5072,9 +5154,23 @@ def _enforce_one_option_question(reply, state):
             # domain's offer, per the Paris finding above.
             fixed = _next_domain_offer()
     if not fixed:
+        if len(question_idx) > 1:
+            # Per the business owner's further follow-up on this same PR
+            # #64 round (relayed by Shlomo): when NO state-driven
+            # replacement exists at all (no gap, no offer) for a reply
+            # that bundles multiple fully separate question sentences,
+            # returning the whole reply untouched would leave every extra
+            # question in place too. Keep only the FIRST question
+            # sentence and drop the ones after it - not a single other
+            # character is touched. (A single, possibly-bundled question
+            # sentence with no fixed replacement keeps the Paris rule
+            # below unchanged: never drop the only question there is.)
+            drop = set(question_idx[1:])
+            return "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
         return reply
-    prefix = " ".join(s + term for s, term in sentences if term != "?").strip()
-    return f"{prefix} {fixed}".strip() if prefix else fixed
+    question_idx_set = set(question_idx)
+    prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i not in question_idx_set)
+    return _append_fixed_question(prefix, fixed)
 
 
 def _deterministic_trip_planning_pace_facts(message, history):
