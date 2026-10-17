@@ -2167,6 +2167,32 @@ def _flight_connection_line(flight):
     return "טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן"
 
 
+def _checked_bag_label(detail):
+    """Builds the checked-bag summary label from structured {count, unit}
+    data (added 2026-10-17 per Shaked's review of #78/the 014a baggage
+    field: a bare shared/not-shared boolean silently dropped the actual
+    COUNT and the real UNIT the customer stated - "שתי מזוודות לכולנו" and
+    "מזוודה אחת לכל זוג" both collapsed to the same "one shared suitcase"
+    label. unit is one of "per_person"/"per_couple"/"total"/None (quantity
+    stated but the split is genuinely unclear - never guessed as "one").
+    Falls back to the classic per-passenger phrasing with no detail at all."""
+    detail = detail if isinstance(detail, dict) else {}
+    count = detail.get("count")
+    count = count if isinstance(count, int) and count > 0 else None
+    unit = detail.get("unit")
+    if unit == "total":
+        return "מזוודה אחת משותפת לכל הנוסעים" if not count or count == 1 else f"{count} מזוודות משותפות לכל הנוסעים"
+    if unit == "per_couple":
+        return "מזוודה אחת לכל זוג" if not count or count == 1 else f"{count} מזוודות לכל זוג"
+    if unit == "per_person":
+        return "מזוודה גדולה לכל נוסע" if not count or count == 1 else f"{count} מזוודות לכל נוסע"
+    if count and count > 1:
+        # A real count was stated but how it splits across the party is
+        # genuinely unclear - state the number honestly rather than guess.
+        return f"{count} מזוודות"
+    return "מזוודה גדולה לכל נוסע"
+
+
 def _flight_baggage_line(flight):
     """The one-line baggage summary fact, or None when nothing is known
     yet. Factored out of _flight_summary_text so the same exact wording
@@ -2177,13 +2203,13 @@ def _flight_baggage_line(flight):
     if not baggage:
         return None
     baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה בבטן המטוס", "personal_item": "תיק קטן בלבד"}
-    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): the
-    # customer said "מזוודה אחת משותפת" (ONE suitcase, shared by the whole
-    # party) but the summary read as if every passenger had their own -
-    # checked_bag's label must never default to a per-passenger assumption
-    # when the customer explicitly said otherwise.
-    if flight.get("baggage_shared") and "checked_bag" in baggage:
-        baggage_labels = dict(baggage_labels, checked_bag="מזוודה אחת משותפת לכל הנוסעים")
+    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648), extended
+    # 2026-10-17 to carry count/unit, not just shared/not-shared: the
+    # customer's checked-bag phrasing must never default to a flat
+    # per-passenger assumption when they said otherwise.
+    baggage_detail = flight.get("baggage_detail") if isinstance(flight.get("baggage_detail"), dict) else {}
+    if "checked_bag" in baggage and baggage_detail.get("checked_bag"):
+        baggage_labels = dict(baggage_labels, checked_bag=_checked_bag_label(baggage_detail.get("checked_bag")))
     # Per Shaked's PR #65 review: "carry_on_only" literally means "ONLY a
     # carry-on, no checked bag" (see the system prompt's own definition),
     # so once checked_bag is ALSO in the same list, "טרולי בלבד" directly
@@ -3210,11 +3236,12 @@ def _baggage_summary(state):
     the customer again whether they're taking big suitcases."""
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
     baggage = flight.get("baggage") if isinstance(flight.get("baggage"), list) else []
-    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): a
-    # customer who explicitly said ONE shared suitcase (not one per
-    # passenger) must never be summarized with the generic per-passenger
-    # checked_bag label - that reads as if everyone brought their own.
-    _he = dict(_BAGGAGE_HE, checked_bag="מזוודה אחת משותפת לכל הנוסעים", checked="מזוודה אחת משותפת לכל הנוסעים") if flight.get("baggage_shared") else _BAGGAGE_HE
+    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648), extended
+    # 2026-10-17 to carry count/unit, not just shared/not-shared: a
+    # customer's checked-bag phrasing (count AND how it's split across the
+    # party) must never collapse to the generic per-passenger label.
+    checked_bag_detail = (flight.get("baggage_detail") or {}).get("checked_bag") if isinstance(flight.get("baggage_detail"), dict) else None
+    _he = dict(_BAGGAGE_HE, checked_bag=_checked_bag_label(checked_bag_detail), checked=_checked_bag_label(checked_bag_detail)) if checked_bag_detail else _BAGGAGE_HE
     # Per Shaked's PR #65 review: "carry_on_only" means "ONLY a carry-on,
     # no checked bag" - once checked_bag is ALSO present, "טרולי בלבד"
     # directly contradicts the checked_bag label right next to it.
@@ -4538,16 +4565,18 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     suitcase from the final summary entirely. Now every matching value is
     collected into one list instead of returning on the first hit.
 
-    traveler_count (added 2026-10-17, Shaked's 014a stage-1 run-1 finding,
-    Budapest Z5): a GENERAL rule, not another literal phrase to chase - "X
-    מזוודה(ות) לכולנו/לכולם/לכל המשפחה" is just as much a shared-suitcase
-    statement as the literal word "משותפת" this function already looked for,
-    and there is no end to the ways a customer can phrase "for all of us".
-    Whenever the party has more than one traveler and the message states an
-    explicit suitcase COUNT that is smaller than the traveler count, one
-    suitcase cannot possibly be "one per person" (that would require the
-    count to equal the traveler count) - so it must be shared, independent of
-    which words surround it."""
+    traveler_count (2026-10-17, Shaked's 014a stage-1 run-1 finding,
+    Budapest Z5, extended the same day after her #78 review): this is only
+    the FAIL-SAFE path now - baggage's primary path is the 014 guided-
+    extraction field (_guided_extract_answer/field="baggage"), which asks
+    the model directly for a per-item {type, count, unit}. This regex only
+    runs when that call itself fails. It still tries to recover count/unit
+    (never just a bare shared/not-shared flag - a customer saying "שתי
+    מזוודות לכולנו" or "מזוודה אחת לכל זוג" loses real information if only
+    a boolean survives), using unit WORDS when present ("לכל זוג"/"לכולנו"/
+    "לכולם"/"לכל המשפחה"/"משותפת"/"לכל אחד"/"לכל נוסע"), and falling back
+    to the general count-vs-traveler-count inference only when no unit
+    word is present at all."""
     import re
     msg = str(message or "")
     if not msg.strip():
@@ -4570,44 +4599,61 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     # "מטוס" and "אחת" are both optional - a live transcript showed "מזוודה
     # אחת בבטן לכל אחד וטרולי" go unmatched (the old pattern required
     # "בבטן" immediately after "מזוודה", with no "אחת" in between, and
-    # required "מטוס" right after "בבטן"). "מזוודה (אחת) (גדולה) משותפת"
-    # (a (one) (large) SHARED suitcase) is just as unambiguous a checked-bag
-    # statement as "...בבטן המטוס" - per the Budapest finding above, a
-    # shared suitcase is never phrased with "בבטן" at all.
-    shared_checked_bag = bool(re.search(r"מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg))
-    checked_bag_mentioned = shared_checked_bag or bool(re.search(
-        r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg
+    # required "מטוס" right after "בבטן").
+    checked_bag_mentioned = bool(re.search(
+        r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה"
+        r"|מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg
     ))
-    if not shared_checked_bag:
+    checked_bag_detail = {}
+    # Explicit count near "מזוודה/מזוודות" - either order ("מזוודה אחת" or
+    # "שתי מזוודות"), reusing the same general number-word parser the
+    # travelers/lodging parsers already use.
+    bag_count_match = (
+        # No leading \b before "מזוודה" - Hebrew commonly prefixes it with
+        # the conjunction "ו" directly, no space ("ומזוודה" = "and a
+        # suitcase"), which a leading \b would block entirely.
+        re.search(r"מזוודה\s+(אחת|אחד)\b", msg)
+        or re.search(r"\b(" + _HEBREW_NUMBER_WORD_RE + r"|\d{1,2})\s*מזוודות?\b", msg)
+    )
+    bag_count = None
+    if bag_count_match:
+        group = bag_count_match.group(1)
+        bag_count = 1 if group in ("אחת", "אחד") else (int(group) if group.isdigit() else _HEBREW_NUMBER_WORDS.get(group))
+        checked_bag_mentioned = True
+    # Unit words - checked directly, never requiring "משותפת" specifically.
+    if re.search(r"לכל\s+זוג", msg):
+        checked_bag_detail["unit"] = "per_couple"
+        checked_bag_mentioned = True
+    elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
+        checked_bag_detail["unit"] = "total"
+        checked_bag_mentioned = True
+    elif re.search(r"לכל\s+אחד|לכל\s+נוסע|לכל\s+אדם", msg) and bag_count_match:
+        # Only when a bag count was actually found near "מזוודה" - "טרולי
+        # לכל אחד" alone must never be misread as a per-person CHECKED bag.
+        checked_bag_detail["unit"] = "per_person"
+    elif bag_count is not None:
         try:
-            count = max(0, int(traveler_count or 0))
+            party = max(0, int(traveler_count or 0))
         except (TypeError, ValueError):
-            count = 0
-        if count > 1:
-            bag_count_match = (
-                re.search(r"\bמזוודה\s+(אחת|אחד)\b", msg)
-                or re.search(r"\b(" + _HEBREW_NUMBER_WORD_RE + r"|\d{1,2})\s*מזוודות?\b", msg)
-            )
-            if bag_count_match:
-                group = bag_count_match.group(1)
-                bag_count = 1 if group in ("אחת", "אחד") else (int(group) if group.isdigit() else _HEBREW_NUMBER_WORDS.get(group, 0))
-                if bag_count and bag_count < count:
-                    shared_checked_bag = True
-                    checked_bag_mentioned = True
+            party = 0
+        if party > 1 and bag_count < party:
+            # No unit word at all, but the general rule still holds: a
+            # count smaller than the party can never be "one per person".
+            checked_bag_detail["unit"] = "total"
+    if bag_count is not None:
+        checked_bag_detail["count"] = bag_count
     if checked_bag_mentioned:
         values.append("checked_bag")
     if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
         values.append("personal_item")
     if values:
         result = {"flight": {"baggage": values}}
-        if shared_checked_bag:
-            # Per Shaked's stage-2 run-1 finding (Budapest): ONE suitcase
-            # shared by the whole party is a materially different fact from
-            # one per passenger, and the summary must say so - see
-            # _BAGGAGE_HE/_baggage_summary and _state_context's own
-            # baggage_labels, both of which otherwise default checked_bag
-            # to a per-passenger phrasing.
-            result["flight"]["baggage_shared"] = True
+        if "checked_bag" in values and checked_bag_detail:
+            # Per Shaked's stage-2 run-1 and 014a stage-1 findings: the
+            # actual count and how it splits across the party are real
+            # facts the summary must state, not just shared/not-shared -
+            # see _checked_bag_label/_flight_baggage_line/_baggage_summary.
+            result["flight"]["baggage_detail"] = {"checked_bag": checked_bag_detail}
         return result
     return {}
 
@@ -7190,29 +7236,35 @@ def _guided_extract_answer(key, model, field, message, history, state):
                 pass
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח איזה כבודה לוקחים. חלצי "
-            "מתשובת הלקוח את סוגי הכבודה, ואם מזוודה כלשהי משותפת לכל "
-            "הקבוצה או אחת לכל נוסע.\n"
+            "מתשובת הלקוח את פריטי הכבודה - לכל פריט: סוג, כמות (אם נאמרה), "
+            "ואיך היא מתחלקת בין הנוסעים.\n"
             f"מספר נוסעים בקבוצה: {travelers_total or 'לא ידוע'}.\n"
             f"מצב נוכחי - כבודה: {json.dumps(current_flight.get('baggage'), ensure_ascii=False)}.\n"
             f"4 ההודעות האחרונות: {recent}\n"
-            "כללים: values היא רשימה מתוך הערכים האלה בדיוק: \"carry_on_only\" "
-            "(טרולי/כבודת עלייה בלבד, בלי מזוודה בבטן המטוס), \"checked_bag\" "
-            "(יש גם מזוודה בבטן המטוס), \"personal_item\" (תיק קטן בלבד, "
-            "אפילו לא טרולי), \"no_baggage\" (אין שום כבודה בכלל, כולל לא "
-            "תיק - שמור אך ורק למקרה הזה, לא ל\"טרולי בלבד\" שאומר בדיוק "
-            "ההפך). shared הוא true רק אם ברור מהתשובה שמזוודה (לרוב "
-            "checked_bag) אחת משותפת לכל הקבוצה (למשל כמות קטנה ממספר "
-            "הנוסעים, או מילים כמו \"לכולנו\"/\"לכולם\"/\"משותפת\"), אחרת "
-            "false. אסור להמציא נתון חסר - אם לא ברור, values=null ו-"
-            "confidence:\"low\". also_mentioned: רק פרטי תאריכים/נוסעים "
-            "שנאמרו במפורש באותה הודעה, בלי להשלים בעצמך. אם ההודעה לא "
-            "עונה על השאלה הזו בכלל (שאלה אחרת, נושא אחר) - "
-            "status=\"other_topic\". אם ההודעה מתקנת כבודה שכבר נקבעה - "
-            "status=\"answered\" ומלאי correction.\n"
+            "כללים: items היא רשימת פריטים, כל אחד {\"type\",\"count\",\"unit\"} - "
+            "יכול להיות יותר מפריט אחד באותה הודעה (למשל \"טרולי לכל אחד "
+            "ומזוודה אחת לכל המשפחה\" הם שני פריטים). type הוא אחד מהערכים "
+            "האלה בדיוק: \"carry_on_only\" (טרולי/כבודת עלייה), \"checked_bag\" "
+            "(מזוודה בבטן המטוס), \"personal_item\" (תיק קטן בלבד). count הוא "
+            "המספר שצוין (כולל מספרים במילים כמו \"שתי מזוודות\"=2, \"אחת\"=1) "
+            "או null אם לא צוין מספר. unit מתאר איך הכמות מתחלקת: "
+            "\"per_person\" (לכל נוסע/אדם בנפרד), \"per_couple\" (לכל זוג), "
+            "\"total\" (סך הכול לכל הקבוצה ביחד - \"לכולנו\"/\"לכולם\"/\"לכל "
+            "המשפחה\"/\"משותפת\" הם כולם total), או null אם לא ברור מהניסוח "
+            "איך זה מתחלק (במקרה הזה שמרי את count כפי שנאמר, אל תנחשי unit). "
+            "אם אין שום כבודה בכלל - no_baggage:true (items ריקה אז). אסור "
+            "להמציא כמות או חלוקה שלא נאמרה. אם לא ברור בכלל אילו פריטים "
+            "נלקחים, items=null ו-confidence:\"low\". also_mentioned: רק "
+            "פרטי תאריכים/נוסעים שנאמרו במפורש באותה הודעה, בלי להשלים "
+            "בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, נושא "
+            "אחר) - status=\"other_topic\". אם ההודעה מתקנת כבודה שכבר "
+            "נקבעה - status=\"answered\" ומלאי correction.\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic",'
-            '"values":["carry_on_only"|"checked_bag"|"personal_item"|"no_baggage",...]|null,'
-            '"shared":true|false|null,"confidence":"high|low",'
+            '"no_baggage":true|false,'
+            '"items":[{"type":"carry_on_only"|"checked_bag"|"personal_item",'
+            '"count":int|null,"unit":"per_person"|"per_couple"|"total"|null},...]|null,'
+            '"confidence":"high|low",'
             '"also_mentioned":{"dates":{...}|null,"travelers":{...}|null},'
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
         )
@@ -7332,20 +7384,42 @@ def _guided_field_update_and_confirm(field, result):
             desc = "מספר הנוסעים שצוין"
         return {"travelers": fragment}, desc
     if field == "baggage":
-        values = result.get("values")
-        if not isinstance(values, list) or not values:
+        # Per Shlomo/Shaked (2026-10-17, after her review of #78): a bare
+        # shared/not-shared boolean silently drops the actual COUNT and
+        # the UNIT it's split by ("שתי מזוודות לכולנו" and "מזוודה אחת לכל
+        # זוג" both collapsed to the same label). Each item now carries its
+        # own {type, count, unit} straight from the model.
+        if result.get("no_baggage"):
+            return {"flight": {"baggage": ["no_baggage"], "baggage_detail": {}}}, "ללא כבודה"
+        items = result.get("items")
+        if not isinstance(items, list) or not items:
             return {}, None
-        values = [v for v in values if v in ("carry_on_only", "checked_bag", "personal_item", "no_baggage")]
+        valid_types = ("carry_on_only", "checked_bag", "personal_item")
+        valid_units = ("per_person", "per_couple", "total")
+        values = []
+        baggage_detail = {}
+        labels = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type")
+            if item_type not in valid_types or item_type in values:
+                continue
+            values.append(item_type)
+            if item_type != "checked_bag":
+                labels.append(_BAGGAGE_HE.get(item_type, item_type))
+                continue
+            count = item.get("count")
+            count = count if isinstance(count, int) and count > 0 else None
+            unit = item.get("unit") if item.get("unit") in valid_units else None
+            if count is not None or unit is not None:
+                baggage_detail["checked_bag"] = {"count": count, "unit": unit}
+            labels.append(_checked_bag_label(baggage_detail.get("checked_bag")))
         if not values:
             return {}, None
         fragment = {"baggage": values}
-        shared = bool(result.get("shared"))
-        if shared and "checked_bag" in values:
-            fragment["baggage_shared"] = True
-        labels = [
-            ("מזוודה אחת משותפת לכל הנוסעים" if shared and v == "checked_bag" else _BAGGAGE_HE.get(v, v))
-            for v in values
-        ]
+        if baggage_detail:
+            fragment["baggage_detail"] = baggage_detail
         desc = " ו".join(labels)
         return {"flight": fragment}, desc
     return {}, None

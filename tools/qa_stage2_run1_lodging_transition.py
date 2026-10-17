@@ -306,55 +306,69 @@ check("confirms the gap existed before this fix: _deterministic_named_"
 
 
 # === Bug 2a: "מזוודה אחת משותפת" (one SHARED suitcase) must never be
-#     summarized as if every passenger had their own ===
+#     summarized as if every passenger had their own. Migrated 2026-10-17
+#     (Shaked's review of #78/the 014a baggage field) from a bare
+#     baggage_shared boolean to flight.baggage_detail.checked_bag =
+#     {count, unit} - a boolean lost the actual COUNT and the real UNIT
+#     ("לכל זוג" vs "לכולנו" vs an unclear split) a customer stated. ===
 
 check("Shaked's exact Budapest repro: 'טרולי לכל אחד ומזוודה אחת משותפת' "
       "sets BOTH values (not just carry_on_only, the dropped-value half of "
-      "this already fixed separately) AND flags baggage_shared=True",
+      "this already fixed separately) AND the shared detail, with count=1 "
+      "correctly recovered from 'מזוודה אחת'",
       chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת משותפת") == {
-          "flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_shared": True},
+          "flight": {
+              "baggage": ["carry_on_only", "checked_bag"],
+              "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}},
+          },
       })
-check("an ordinary (non-shared) checked-bag phrase does NOT set "
-      "baggage_shared - the per-passenger phrasing remains the default",
-      chat._deterministic_baggage_facts("יש לנו מזוודה בבטן המטוס").get("flight", {}).get("baggage_shared") is None)
+check("an ordinary (non-shared) checked-bag phrase does NOT set a "
+      "baggage_detail - the per-passenger phrasing remains the default",
+      not chat._deterministic_baggage_facts("יש לנו מזוודה בבטן המטוס").get("flight", {}).get("baggage_detail"))
 check("_baggage_summary (car-session context) says 'משותפת', never the "
-      "per-passenger phrasing, when baggage_shared is set",
-      "משותפת" in chat._baggage_summary({"flight": {"baggage": ["checked_bag"], "baggage_shared": True}})
-      and "לכל נוסע" not in chat._baggage_summary({"flight": {"baggage": ["checked_bag"], "baggage_shared": True}}))
+      "per-passenger phrasing, when baggage_detail.checked_bag.unit is total",
+      "משותפת" in chat._baggage_summary({"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total"}}}})
+      and "לכל נוסע" not in chat._baggage_summary({"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total"}}}}))
 check("_baggage_summary still uses the per-passenger phrasing (qa-s83's "
-      "own fix) when baggage_shared is NOT set - no regression",
+      "own fix) when there is no baggage_detail - no regression",
       "לכל נוסע" in chat._baggage_summary({"flight": {"baggage": ["checked_bag"]}}))
 
 
-# === Bug 2a-follow-up (Shaked, 2026-10-17, 014a stage-1 run-1, Budapest Z5):
-#     a shared bag stated WITHOUT the literal word "משותפת" still never got
-#     baggage_shared=True - "מזוודה אחת לכולנו" has none of the old explicit
-#     patterns. Per the business owner's standing directive (general rules,
-#     not more phrase-chasing): a suitcase count SMALLER than the traveler
-#     count can never be "one per person" and must be shared, whatever words
-#     surround it. traveler_count is the new, optional second argument. ===
+# === Bug 2a-follow-up (Shaked, 2026-10-17, 014a stage-1 run-1, Budapest Z5,
+#     then reviewed again the same day): a shared bag stated WITHOUT the
+#     literal word "משותפת" still never got flagged - "מזוודה אחת לכולנו"
+#     has none of the old explicit patterns. Her SECOND review (of the
+#     first fix, #78) found that a bare shared/not-shared flag still lost
+#     the actual COUNT and the real UNIT ("לכל זוג" vs "לכולנו" collapsed
+#     to the same label) - see qa_guided_extraction_baggage_014a.py for the
+#     full set of her exact phrases against both the guided field (primary
+#     path) and this regex (fail-safe only). These few stay here as the
+#     general boundary checks (count-vs-party heuristic when no unit word
+#     is present at all). ===
 check("Shaked's exact Budapest Z5 repro: 'מזוודה אחת לכולנו' with 3 "
-      "travelers (couple + a 3-year-old) sets baggage_shared=True via the "
-      "general count rule - no new literal phrase was added for 'לכולנו'",
+      "travelers (couple + a 3-year-old) is flagged total via the unit "
+      "word itself ('לכולנו'), with count=1 preserved",
       chat._deterministic_baggage_facts("טרולי לכל אחד ועוד מזוודה אחת לכולנו", 3) == {
-          "flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_shared": True},
+          "flight": {
+              "baggage": ["carry_on_only", "checked_bag"],
+              "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}},
+          },
       })
-check("same general rule catches 'שתי מזוודות לכולנו' (count=2) for a "
-      "party of 4 - 2 < 4, so it cannot be one-per-person",
-      chat._deterministic_baggage_facts("שתי מזוודות לכולנו", 4).get("flight", {}).get("baggage_shared") is True)
-check("'מזוודה אחת לכל זוג' for a solo traveler (count=1) does NOT trigger "
-      "the rule - sharing needs more than one traveler in the first place",
-      chat._deterministic_baggage_facts("מזוודה אחת לכל זוג", 1).get("flight", {}).get("baggage_shared") is None)
-check("an exact one-bag-per-person count ('ארבע מזוודות' for 4 travelers) "
-      "is NOT marked shared - 4 is not smaller than 4, stays per-passenger",
-      chat._deterministic_baggage_facts("ארבע מזוודות", 4).get("flight", {}).get("baggage_shared") is None)
+check("'מזוודה אחת לכל זוג' for a solo traveler (count=1) does NOT infer "
+      "'total' from the count-vs-party fallback - sharing needs more than "
+      "one traveler in the first place (the explicit 'לכל זוג' unit word "
+      "still applies on its own, regardless of party size)",
+      chat._deterministic_baggage_facts("מזוודה אחת לכל זוג", 1).get("flight", {}).get("baggage_detail", {}).get("checked_bag", {}).get("unit") == "per_couple")
+check("an exact one-bag-per-person count ('ארבע מזוודות' for 4 travelers, "
+      "no unit word) is NOT inferred as total - 4 is not smaller than 4",
+      chat._deterministic_baggage_facts("ארבע מזוודות", 4).get("flight", {}).get("baggage_detail", {}).get("checked_bag", {}).get("unit") is None)
 check("with no traveler_count given at all (back-compat, existing call "
-      "sites with only the message positional arg), the new rule never "
-      "fires and behavior is unchanged from before this fix",
-      chat._deterministic_baggage_facts("מזוודה אחת לכולנו").get("flight", {}).get("baggage_shared") is None)
+      "sites with only the message positional arg), the count-vs-party "
+      "fallback never fires, but an explicit unit word still does",
+      chat._deterministic_baggage_facts("מזוודה אחת לכולנו").get("flight", {}).get("baggage_detail", {}).get("checked_bag", {}).get("unit") == "total")
 check("a genuinely multi-bag statement bigger than the party ('שתי "
-      "מזוודות' for a solo traveler) is never mistaken for shared",
-      chat._deterministic_baggage_facts("שתי מזוודות", 1).get("flight", {}).get("baggage_shared") is None)
+      "מזוודות' for a solo traveler, no unit word) is never inferred as total",
+      chat._deterministic_baggage_facts("שתי מזוודות", 1).get("flight", {}).get("baggage_detail", {}).get("checked_bag", {}).get("unit") is None)
 
 
 # === Bug 2b: internal terminology ("בשדה הפנימי", "מתועד כ-") must never
@@ -447,7 +461,7 @@ with sqlite3.connect(DB) as conn:
 #    own label in the same sentence. Dropped the "בלבד" framing in exactly
 #    that combination. --
 
-_COMBINED_STATE = {"flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_shared": True}}
+_COMBINED_STATE = {"flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total"}}}}
 check("Shaked's exact self-contradiction repro (_flight_summary_text): "
       "carry_on_only reads 'לכל נוסע', never 'בלבד', once checked_bag is "
       "also in the list",
