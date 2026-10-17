@@ -242,6 +242,45 @@ check("per Shaked/Shlomo's follow-up: two domains illegally bundled into "
           "רוצים לינה או רכב?", {"post_flight_offer": ["lodging", "car"], "active_session": None},
       ) == "לסדר גם לינה לחופשה הזו?")
 
+OFFER_TRIP_PLANNING_STATE = {"post_flight_offer": ["trip_planning"], "active_session": None}
+check("Shaked's exact stage-2 run-3 repro (Rome/Athens/Budapest, 1/5, "
+      "7f02bd4): flights just closed, state correctly calls for the plain "
+      "trip_planning offer, but the reply asks a trip_planning DETAIL/style "
+      "question instead ('...יש סגנון מסוים שהכי מדבר אליכם בטיול הזה?') - "
+      "exactly one '?', no 'או'/'ו'/option-list bundling at all, so none of "
+      "the earlier checks caught this. Replaced with the real fixed offer",
+      chat._enforce_one_option_question(
+          "...יש סגנון מסוים שהכי מדבר אליכם בטיול הזה?",
+          OFFER_TRIP_PLANNING_STATE,
+      ) == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("the same repro with a fused leading statement (no sentence boundary "
+      "before the question) also resolves correctly",
+      chat._enforce_one_option_question(
+          "בוא נדבר רגע על המסלול באתונה - מה הכי מדבר אליכן בטיול הזה?",
+          OFFER_TRIP_PLANNING_STATE,
+      ) == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("a correctly-phrased offer (names the domain, uses an offer verb) "
+      "survives completely unchanged - no false positive on the real fix",
+      chat._enforce_one_option_question(
+          "מעולה, פרטי הטיסה סגורים. לתכנן גם מסלול ואטרקציות לחופשה הזו?",
+          OFFER_TRIP_PLANNING_STATE,
+      ) == "מעולה, פרטי הטיסה סגורים. לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("Shaked's Paris secondary finding: a reply can get the domain word "
+      "and offer verb right ('בא לכם... מסלול...') while still bundling in "
+      "ANOTHER domain's specifics ('איפה לישון כל לילה', lodging content) - "
+      "still replaced, since a plain offer never mentions another domain",
+      chat._enforce_one_option_question(
+          "בא לכם שנבנה יחד מסלול יומי לטיול - אטרקציות, איפה לישון כל לילה "
+          "וכו׳?",
+          OFFER_TRIP_PLANNING_STATE,
+      ) == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("the same new check applies to a lodging offer too - a detail "
+      "question slipped in instead of the plain offer is replaced",
+      chat._enforce_one_option_question(
+          "איזה סוג לינה מתאים לכם?",
+          {"post_flight_offer": ["lodging"], "active_session": None},
+      ) == "לסדר גם לינה לחופשה הזו?")
+
 # -- mid-domain (active_session set): the real next gap for that session,
 #    not a keyword guess. Each case below is Shaked's own stage-1 run-3
 #    review finding on the previous (keyword-based) version. --
@@ -650,6 +689,17 @@ e2e_reply, _ = _captured_system_dynamic(
 check("end-to-end via _call_tinkerbell: V3's exact bad reply comes back fixed, "
       "with gender-neutral phrasing",
       e2e_reply == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+
+e2e_stage2run3_reply, _ = _captured_system_dynamic(
+    "אין לי רעיון, מה את ממליצה?",
+    {"post_flight_offer": ["trip_planning"], "active_session": None, "destination": {"places": ["רומא"]}},
+    "...יש סגנון מסוים שהכי מדבר אליכם בטיול הזה?",
+)
+check("end-to-end via _call_tinkerbell: Shaked's exact stage-2 run-3 repro "
+      "(Rome, 7f02bd4) - a trip_planning style question instead of the "
+      "plain offer - comes back fixed through the real reply pipeline, not "
+      "just the unit-level function",
+      e2e_stage2run3_reply == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
 
 e2e_baggage_reply, _ = _captured_system_dynamic(
     "היי", dict(FLIGHTS_STATE_BAGGAGE_OPEN),
