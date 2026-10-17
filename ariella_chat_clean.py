@@ -1300,6 +1300,31 @@ def _direct_route_hint_text(state):
     )
 
 
+def _gender_hint_text(state):
+    """Rule 188 (profile.gender -> לשון זכר/נקבה) is a free-text instruction
+    pointing at a key buried deep inside the full state JSON dump - not
+    reliably followed on its own. Seen live (Shaked, stage-1 run-3): a
+    customer who wrote "אני טס" (clearly male) got addressed in feminine
+    mid-conversation ("טסה ללונדון לבד... איזו כבודה תצטרכי?") even though
+    user_gender was correctly set (the final approval line used the correct
+    "כתוב מאשר"). Surfaced here as its own explicit sentence, the same way
+    _direct_route_hint_text/_multi_gateway_hint force compliance on other
+    facts the free generation tends to drop when they're just one more
+    field in a large JSON blob."""
+    gender = str((state or {}).get("user_gender") or "").strip().lower()
+    if gender == "male":
+        return (
+            "\nמגדר הלקוח ידוע: זכר. פני אליו בלשון זכר יחיד בכל משפט בתשובה הזו - "
+            "כל פועל/סיומת (לדוגמה \"תצטרך\", לא \"תצטרכי\"; \"טס\", לא \"טסה\") - בלי יוצא מן הכלל."
+        )
+    if gender == "female":
+        return (
+            "\nמגדר הלקוחה ידוע: נקבה. פני אליה בלשון נקבה יחידה בכל משפט בתשובה הזו - "
+            "כל פועל/סיומת (לדוגמה \"תצטרכי\", לא \"תצטרך\"; \"טסה\", לא \"טס\") - בלי יוצא מן הכלל."
+        )
+    return ""
+
+
 def _resolve_destination_airports_from_route(state):
     """Deterministic safety net: once trip planning has confirmed a day-by-day
     route, derive the flight gateway from it (or from a plain destination name)
@@ -3174,6 +3199,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     weekday_hint_text = _weekday_lookup_hint(state)
     nights_hint_text = _total_nights_hint(state)
     declined_domains_hint_text = _declined_domains_hint(state)
+    gender_hint_text = _gender_hint_text(state)
     # The raw state JSON dump below is a second, separate path that can leak
     # an irrelevant upcoming_vacations list into the prompt just like the
     # continuity hint above - exclude it here too when it isn't relevant to
@@ -3181,7 +3207,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     state_for_context = state
     if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
         state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + gender_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -3192,6 +3218,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _strip_leaked_internal_paragraph(reply)
     reply = _strip_stray_markdown_markers(reply)
     reply = _correct_route_day_weekdays(reply, state)
+    reply = _enforce_one_option_question(reply, state)
     return _strip_unconfirmed_airports(reply, state)
 
 
@@ -4889,6 +4916,76 @@ def _last_question_clause(text):
     return text[start:qpos + 1].strip()
 
 
+# Infinitive verb forms ("לסדר"/"לתכנן") - not "תרצי"/"תרצה" - so the fixed
+# text itself never needs to guess the customer's gender. Per the business
+# owner (relayed by Shlomo, same round as this fix): a gendered fixed
+# fallback is exactly the bug #3 mismatch it would be standing in for.
+_OFFER_DOMAIN_QUESTIONS = {
+    "lodging": "לסדר גם לינה לחופשה הזו?",
+    "car": "לסדר גם רכב שכור לחופשה הזו?",
+    "trip_planning": "לתכנן גם מסלול ואטרקציות לחופשה הזו?",
+}
+
+
+def _enforce_one_option_question(reply, state):
+    """The one-question/never-"X או Y" rule (see TINKERBELL_SYSTEM's own
+    opening principle) is stated as a free-text instruction, which isn't
+    reliably followed on its own - seen live (Shaked, stage-1 run-3, 2 of 5
+    scenarios): the baggage question still enumerated options ("...רק תיק
+    קטן, או שיש גם מזוודות?") on an ordinary first ask, and offering
+    trip_planning as the next session skipped the plain yes/no entirely in
+    favor of diving into route content ("יש לך רעיון למסלול..., או שתרצי
+    שאציע לך מסלול מגוון?"). Both are narrow, well-defined moments with an
+    already-approved fixed phrasing used elsewhere (_flight_gap_question's
+    baggage/missing_service branches) - when the model's own last question
+    violates the rule in exactly one of these two situations, swap just
+    that question clause for the fixed text, leaving any earlier statement
+    sentence in the same reply untouched."""
+    text = str(reply or "")
+    qpos = text.rfind("?")
+    if qpos == -1:
+        return reply
+    start = 0
+    for sep in (".", "!", "\n"):
+        idx = text.rfind(sep, 0, qpos)
+        if idx + 1 > start:
+            start = idx + 1
+    last_q = text[start:qpos + 1].strip()
+    if " או " not in last_q:
+        return reply
+
+    fixed = None
+    offered = (state or {}).get("post_flight_offer") if isinstance(state, dict) else None
+    if (
+        isinstance(offered, list) and len(offered) == 1 and offered[0] in _OFFER_DOMAIN_QUESTIONS
+        and not (state or {}).get("active_session")
+    ):
+        fixed = _OFFER_DOMAIN_QUESTIONS[offered[0]]
+    # Stems, not whole words - "מזוודות" (plural) doesn't contain the
+    # singular "מזוודה" as a substring (ה -> ות). "תיק קטן" (not the bare,
+    # generic "תיק") matches the live failing phrasing (V4), which names
+    # the personal-item option without ever saying "כבודה" at all.
+    #
+    # Scoped to the flights domain specifically (active_session is flights
+    # or still unset, and flight.baggage itself is still empty) - seen live
+    # (Shaked, review on this same PR): a CAR question genuinely about
+    # luggage capacity ("איזה רכב מתאים - כזה שיכיל את כל המזוודות, או
+    # משהו קטן?", answering car.details.luggage_capacity_confirmed) matched
+    # the same keywords and got wrongly rewritten into the flight baggage
+    # question instead. Those words are only ever this rule's baggage
+    # question when flights actually still has that gap open.
+    elif (
+        any(w in last_q for w in ("כבוד", "מזווד", "טרולי", "תיק קטן"))
+        and str((state or {}).get("active_session") or "") in ("", "flights")
+        and not ((state or {}).get("flight") or {}).get("baggage")
+    ):
+        fixed = "איזו כבודה תרצו לקחת?"
+    if not fixed:
+        return reply
+    prefix = text[:start].strip()
+    return f"{prefix} {fixed}".strip() if prefix else fixed
+
+
 def _deterministic_trip_planning_pace_facts(message, history):
     """trip_planning.details.pace has no deterministic writer anywhere else -
     only the LLM's own JSON extraction ever sets it, and when that silently
@@ -5496,8 +5593,18 @@ def _deterministic_traveler_facts(message, existing=None):
     # travelers, who's an adult and who's a child?" right after the customer
     # already said "אני לבד", and separately asked "traveling alone, right?"
     # just to confirm it instead of treating it as already answered.
+    # "לבד" alone is too loose - seen live (Shaked, stage-1 run-3): "נסתדר
+    # לבד" (we'll manage on our own, answering the ROUTE offer - a couple
+    # with a daughter) and "תבני לבד"/"אני אסתדר לבד עם זה" (go ahead and
+    # build it yourself/I'll handle it myself) all matched the bare word and
+    # silently overwrote a real travelers count down to a solo adult. "לבד"
+    # only actually states a solo traveler when it directly follows "אני" or
+    # a travel verb ("טס/ה", "נוסע/ת") - never after an unrelated verb like
+    # "נסתדר"/"תבני"/"אסתדר".
     if "adults" not in facts and re.search(
-        r"(?<![א-ת])לבד(?![א-ת])|(?<![א-ת])רק\s+אני(?![א-ת])|(?<![א-ת])אדם\s+אחד(?![א-ת])"
+        r"(?<![א-ת])אני\s+לבד(?![א-ת])"
+        r"|(?<![א-ת])(?:טס|טסה|טסים|נוסע|נוסעת|נוסעים)\s+לבד(?![א-ת])"
+        r"|(?<![א-ת])רק\s+אני(?![א-ת])|(?<![א-ת])אדם\s+אחד(?![א-ת])"
         r"|(?<![א-ת])נוסע\s+אחד(?![א-ת])|(?<![א-ת])נוסעת\s+אחת(?![א-ת])",
         msg,
     ):

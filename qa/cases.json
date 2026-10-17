@@ -191,6 +191,9 @@
     {"id": "dest-crete-wins-over-bare-country", "fn": "_deterministic_destination_facts", "args": [[], "חופשה ביוון, אולי כרתים"], "expect": {"destination": {"places": ["כרתים"]}}, "source": "owner-relay-2026-10-16-shlomo-island-gap"},
     {"id": "dest-sicily-recognized-as-island", "fn": "_deterministic_destination_facts", "args": [[], "רוצה חופשה בסיציליה"], "expect": {"destination": {"places": ["סיציליה"]}}, "source": "owner-relay-2026-10-16-shlomo-island-gap"},
     {"id": "named-decline-lodging-type-contrast-dira-velo-malon", "fn": "_deterministic_named_decline_facts", "args": ["כן, דירה ולא מלון"], "expect_falsy": true, "source": "shaked-pr51-review-2026-10-16"},
-    {"id": "named-decline-lodging-type-contrast-malon-velo-dira", "fn": "_deterministic_named_decline_facts", "args": ["כן, צריך לינה - מלון ולא דירה"], "expect_falsy": true, "source": "shaked-pr51-review-2026-10-16"}
+    {"id": "named-decline-lodging-type-contrast-malon-velo-dira", "fn": "_deterministic_named_decline_facts", "args": ["כן, צריך לינה - מלון ולא דירה"], "expect_falsy": true, "source": "shaked-pr51-review-2026-10-16"},
+    {"id": "travelers-nistader-levad-not-solo", "fn": "_deterministic_traveler_facts", "args": ["נסתדר לבד"], "expect_falsy": true, "source": "shaked-stage1-run3-v5"},
+    {"id": "travelers-tivni-levad-not-solo", "fn": "_deterministic_traveler_facts", "args": ["תבני לבד"], "expect_falsy": true, "source": "shaked-round8-b2"},
+    {"id": "travelers-ani-levad-is-solo", "fn": "_deterministic_traveler_facts", "args": ["אני טס לבד"], "expect": {"travelers": {"adults": 1}}, "source": "shaked-stage1-run3-guard"}
   ]
 }
