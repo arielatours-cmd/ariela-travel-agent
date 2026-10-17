@@ -4518,7 +4518,7 @@ def _itinerary_acceptance_by_meaning(message):
         return False
 
 
-def _deterministic_baggage_facts(message):
+def _deterministic_baggage_facts(message, traveler_count=None):
     """Safety net for flight.baggage: a customer often answers baggage mixed
     into one longer reply that also covers origin airport, direct/connection
     preference and budget all at once. The extractor sometimes drops just the
@@ -4536,7 +4536,18 @@ def _deterministic_baggage_facts(message):
     לכל אחד ומזוודה אחת משותפת" (a carry-on each PLUS one shared suitcase)
     matched only the carry-on pattern and silently dropped the shared
     suitcase from the final summary entirely. Now every matching value is
-    collected into one list instead of returning on the first hit."""
+    collected into one list instead of returning on the first hit.
+
+    traveler_count (added 2026-10-17, Shaked's 014a stage-1 run-1 finding,
+    Budapest Z5): a GENERAL rule, not another literal phrase to chase - "X
+    מזוודה(ות) לכולנו/לכולם/לכל המשפחה" is just as much a shared-suitcase
+    statement as the literal word "משותפת" this function already looked for,
+    and there is no end to the ways a customer can phrase "for all of us".
+    Whenever the party has more than one traveler and the message states an
+    explicit suitcase COUNT that is smaller than the traveler count, one
+    suitcase cannot possibly be "one per person" (that would require the
+    count to equal the traveler count) - so it must be shared, independent of
+    which words surround it."""
     import re
     msg = str(message or "")
     if not msg.strip():
@@ -4564,7 +4575,26 @@ def _deterministic_baggage_facts(message):
     # statement as "...בבטן המטוס" - per the Budapest finding above, a
     # shared suitcase is never phrased with "בבטן" at all.
     shared_checked_bag = bool(re.search(r"מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg))
-    if shared_checked_bag or re.search(r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
+    checked_bag_mentioned = shared_checked_bag or bool(re.search(
+        r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg
+    ))
+    if not shared_checked_bag:
+        try:
+            count = max(0, int(traveler_count or 0))
+        except (TypeError, ValueError):
+            count = 0
+        if count > 1:
+            bag_count_match = (
+                re.search(r"\bמזוודה\s+(אחת|אחד)\b", msg)
+                or re.search(r"\b(" + _HEBREW_NUMBER_WORD_RE + r"|\d{1,2})\s*מזוודות?\b", msg)
+            )
+            if bag_count_match:
+                group = bag_count_match.group(1)
+                bag_count = 1 if group in ("אחת", "אחד") else (int(group) if group.isdigit() else _HEBREW_NUMBER_WORDS.get(group, 0))
+                if bag_count and bag_count < count:
+                    shared_checked_bag = True
+                    checked_bag_mentioned = True
+    if checked_bag_mentioned:
         values.append("checked_bag")
     if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
         values.append("personal_item")
@@ -9388,7 +9418,14 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _baggage_answer_by_meaning(message, history, trip_update))
-        trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
+        _baggage_travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
+        try:
+            _baggage_traveler_count = sum(
+                max(0, int(_baggage_travelers.get(k) or 0)) for k in ("adults", "children", "infants")
+            )
+        except (TypeError, ValueError):
+            _baggage_traveler_count = 0
+        trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message, _baggage_traveler_count))
         trip_update = _merge_trip_state(trip_update, _deterministic_connection_preference_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
