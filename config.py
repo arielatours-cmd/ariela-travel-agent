@@ -251,6 +251,15 @@ WHATSAPP_DEALS_BUTTONS_ENABLED = os.getenv("WHATSAPP_DEALS_BUTTONS_ENABLED", "fa
 # numbers only). Off by default - WHATSAPP_INBOUND_ENABLED=false means no
 # reply is ever sent to anyone, even an allowlisted number (see whatsapp.py).
 WHATSAPP_INBOUND_ENABLED = os.getenv("WHATSAPP_INBOUND_ENABLED", "false").strip().lower() == "true"
+
+# Per the business owner (relayed by Shlomo): a customer typing one thought
+# across several separate WhatsApp texts a few seconds apart must be
+# answered once, not as N racing chat turns. Consecutive inbound text
+# messages from the same phone number arriving within this many seconds of
+# each other are combined into a single Ariella turn (see whatsapp.py's
+# debounce queue) instead of each firing its own overlapping
+# route_inbound/ariella_turn call against the same saved conversation state.
+WHATSAPP_DEBOUNCE_SECONDS = float(os.getenv("WHATSAPP_DEBOUNCE_SECONDS", "3"))
 # Comma-separated phone numbers, normalized the same way nova_conversation.
 # canonical_phone does (e.g. "0501234567,972521234567"). Only these numbers
 # ever get a real Ariella reply while this stage is in effect.
