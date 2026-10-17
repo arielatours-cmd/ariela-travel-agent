@@ -4931,6 +4931,15 @@ _OFFER_DOMAIN_QUESTIONS = {
     "trip_planning": "לתכנן גם מסלול ואטרקציות לחופשה הזו?",
 }
 
+# Per Shaked's stage-1 run-6 finding (Athens, 4/5): a reply can bundle TWO
+# gap questions into a single sentence joined by "ו" ("...איזו כבודה
+# תצטרכו, ויש הגבלת תקציב לאדם?") instead of the "X או Y" shape the rest of
+# this function already watches for - still exactly one "?", so the " או "
+# check alone missed it entirely. A comma directly followed by "ו" fused to
+# a question word/pronoun marks the start of that smuggled-in second
+# question, same as "או" marks a smuggled-in second option.
+_BUNDLED_AND_QUESTION_RE = re.compile(r",\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b")
+
 
 def _enforce_one_option_question(reply, state):
     """The one-question/never-"X או Y" rule (see TINKERBELL_SYSTEM's own
@@ -4979,18 +4988,55 @@ def _enforce_one_option_question(reply, state):
     domain with nothing left to ask is exactly when that offer is due; (2)
     if nothing usable is found anywhere, the original reply is returned
     completely unchanged (a still-"X או Y" but present question) rather
-    than ever dropped to a bare statement."""
+    than ever dropped to a bare statement.
+
+    Per Shaked's stage-1 run-6 finding (Athens, 4/5, main 595e29b): a reply
+    can also violate the one-question rule without ever writing "או" -
+    "...רק עוד שני פרטים קטנים לטיסה - איזו כבודה תצטרכו, ויש הגבלת
+    תקציב לאדם?" bundles the baggage AND budget gap-questions into one
+    sentence joined by "ו", with a single "?" that the " או " check never
+    sees. _BUNDLED_AND_QUESTION_RE catches the comma-plus-fused-"ו" seam
+    where the smuggled-in second question starts.
+
+    Per the business owner's follow-up on that same finding (relayed by
+    Shlomo): the rule is "one question at a time", full stop - not
+    specifically about "או" or "ו". Two questions written as fully
+    separate sentences, each with its own "?" (e.g. "חשוב לכם שהטיסה
+    תהיה ישירה? איזו כבודה תרצו לקחת?"), is exactly the same violation
+    and was previously invisible to this function entirely, since the
+    old version only ever looked at the single sentence containing the
+    LAST "?" - an earlier, already fully-formed question sentence sat
+    untouched in what it treated as a plain "prefix". Generalized: every
+    sentence in the reply is now classified as a question (ends in "?")
+    or a statement (any other terminator), and the violation is either
+    more than one question sentence, or exactly one that is itself
+    bundled (the "או"/_BUNDLED_AND_QUESTION_RE cases above). On a
+    violation, ALL statement sentences are kept, in order, and EVERY
+    question sentence - not just the last one - is replaced by the
+    single fixed question the state-driven lookup below resolves to
+    (the real first gap in the active topic), never a guess at which of
+    the original questions to keep. A normal reply with exactly one,
+    unbundled question - including the final pre-"מאשר/ת" summary's own
+    single confirmation question - has exactly one question sentence and
+    is never touched."""
     text = str(reply or "")
-    qpos = text.rfind("?")
-    if qpos == -1:
+    if "?" not in text:
         return reply
-    start = 0
-    for sep in (".", "!", "\n"):
-        idx = text.rfind(sep, 0, qpos)
-        if idx + 1 > start:
-            start = idx + 1
-    last_q = text[start:qpos + 1].strip()
-    if " או " not in last_q:
+    parts = re.split(r"([.!?\n])", text)
+    sentences = []
+    for i in range(0, len(parts) - 1, 2):
+        chunk = parts[i].strip()
+        if chunk:
+            sentences.append((chunk, parts[i + 1]))
+    if len(parts) % 2 == 1 and parts[-1].strip():
+        sentences.append((parts[-1].strip(), ""))
+
+    question_sentences = [s for s, term in sentences if term == "?"]
+    bundled = False
+    if len(question_sentences) == 1:
+        only_q = question_sentences[0]
+        bundled = (" או " in only_q) or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
+    if len(question_sentences) <= 1 and not bundled:
         return reply
 
     state = state if isinstance(state, dict) else {}
@@ -5027,7 +5073,7 @@ def _enforce_one_option_question(reply, state):
             fixed = _next_domain_offer()
     if not fixed:
         return reply
-    prefix = text[:start].strip()
+    prefix = " ".join(s + term for s, term in sentences if term != "?").strip()
     return f"{prefix} {fixed}".strip() if prefix else fixed
 
 

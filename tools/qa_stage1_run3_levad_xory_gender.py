@@ -96,6 +96,35 @@ found anywhere - returns the original reply entirely unchanged (still a
 violation, but a real question) rather than ever dropping to a bare
 statement.
 
+Stage-1 run-6 (Shaked, 17.10.2026, qa/reports/2026-10-17-stage1-run6.md,
+main 595e29b): 4/5. The Paris fix held (no X/Y questions, no question-less
+replies). One new failure, Y4/Athens, first message: "חופשה מעולה לאתונה!
+רק עוד שני פרטים קטנים לטיסה - איזו כבודה תצטרכו, ויש הגבלת תקציב
+לאדם?" - two gap-questions (baggage, budget) bundled into one sentence
+joined by "ו" instead of "או", so _enforce_one_option_question's " או "
+check never caught it (still exactly one "?").
+
+Shlomo's follow-up (same day, relaying the business owner's correction):
+the rule is "one question at a time", not specifically about "או"/"ו" -
+two questions written as fully separate sentences, each with its own "?",
+is the same violation and was invisible to the OLD version for a deeper
+reason than just missing a keyword: that version only ever inspected the
+single sentence containing the LAST "?", so an earlier, already complete
+question sentence was never even looked at - it sat untouched in what the
+function treated as a plain leading "statement". Generalized:
+_enforce_one_option_question now classifies every sentence in the reply
+as a question (ends in "?") or a statement, and the violation is either
+more than one question sentence, or exactly one that is itself bundled
+(the "או"/_BUNDLED_AND_QUESTION_RE cases). On a violation, every
+statement sentence is kept and EVERY question sentence - not just the
+last - is replaced by the one fixed question the existing state-driven
+lookup resolves to (the real first gap in the active topic, same
+mechanism as before, unchanged). A normal reply with exactly one,
+unbundled question - including the final pre-"מאשר/ת" summary's own
+single confirmation question - has exactly one question sentence and is
+never touched, so the confirmation question is never at risk of being
+dropped.
+
 Run: python3 tools/qa_stage1_run3_levad_xory_gender.py
 """
 import os
@@ -313,6 +342,86 @@ check("the same Paris repro also resolves correctly when only next_session "
           "פרטי הטיסה סגורים. רוצה שאציע מסלול, או שכבר יש לך רעיון?",
           dict(FLIGHTS_STATE_NO_GAPS, next_session="trip_planning"),
       ) == "פרטי הטיסה סגורים. לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+
+# -- Stage-1 run-6 (Athens): two gap questions bundled with "ו", not "או" --
+
+FLIGHTS_STATE_BOTH_OPEN = dict(BASE_STATE, active_session="flights", requested_services=["flights"])
+check("Shaked's exact stage-1 run-6 repro (Athens, 595e29b): baggage AND "
+      "budget bundled into one sentence joined by 'ו' ('...איזו כבודה "
+      "תצטרכו, ויש הגבלת תקציב לאדם?'), never writing 'או' at all - the "
+      "old ' או ' check alone missed this entirely. Resolves to the real "
+      "single next gap (budget_per_person, checked first in "
+      "_flight_gap_question's own priority order) same as an 'או' case",
+      chat._enforce_one_option_question(
+          "חופשה מעולה לאתונה! רק עוד שני פרטים קטנים לטיסה - איזו כבודה "
+          "תצטרכו, ויש הגבלת תקציב לאדם?",
+          FLIGHTS_STATE_BOTH_OPEN,
+      ) == "חופשה מעולה לאתונה! מה התקציב שלכם לאדם לטיסה?")
+check("the bundled-'ו' detector also fires on a lodging-domain bundle "
+      "('וכמה'), resolving through the same state-driven lookup",
+      chat._enforce_one_option_question(
+          "איזה סוג לינה מתאים לכם, וכמה חדרים תרצו?", LODGING_STATE,
+      ) == "איזה סוג לינה מתאים לכם?")
+check("an ordinary 'ו' that does not fuse into one of the recognized "
+      "question-word seams is left untouched - no false positive on a "
+      "plain conjunction inside a single real question",
+      chat._enforce_one_option_question(
+          "איזו כבודה תרצו לקחת ולסדר מראש?", {}
+      ) == "איזו כבודה תרצו לקחת ולסדר מראש?")
+
+# -- Shlomo's follow-up: two FULLY SEPARATE '?' sentences (no "או"/"ו" at "
+#    all) - the generalized, sentence-classifying version of the check --
+
+FLIGHTS_STATE_DIRECT_AND_BAGGAGE = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
+                                         budget_per_person={"amount": 3000})
+with patch.object(chat, "_direct_route_available", return_value=True):
+    check("Shlomo's suggested combo (direct-flight + baggage): two fully "
+          "separate '?' sentences, no 'או'/'ו' bundling at all - the OLD "
+          "version only ever looked at the sentence containing the LAST "
+          "'?', so the first, already-complete question sentence would "
+          "have sat untouched as a 'prefix'. Now both are recognized as "
+          "questions and collapsed to the one real next gap "
+          "(flight.connection_preference, checked before flight.baggage "
+          "in _flight_gap_question's own order)",
+          chat._enforce_one_option_question(
+              "חשוב לכם שהטיסה תהיה ישירה? איזו כבודה תרצו לקחת?",
+              FLIGHTS_STATE_DIRECT_AND_BAGGAGE,
+          ) == "חשוב לכם שהטיסה תהיה ישירה?")
+
+FLIGHTS_STATE_DATES_TRAVELERS = dict(
+    trip_type="vacation",
+    destination={"places": ["אתונה"], "mode": "specific", "status": "known"},
+    destination_airports=["ATH"], departure_airport="TLV",
+    budget_per_person={"amount": 3000},
+    active_session="flights", requested_services=["flights"],
+)
+check("Shlomo's second suggested combo (dates + travelers): two fully "
+      "separate '?' sentences collapse to the one real next gap (dates, "
+      "checked before travelers in _flight_gap_question's own order)",
+      chat._enforce_one_option_question(
+          "מתי תרצו לטוס? כמה נוסעים, ומי מבוגר ומי ילד?",
+          FLIGHTS_STATE_DATES_TRAVELERS,
+      ) == "מתי תרצי לצאת ולחזור?")
+with patch.object(chat, "_direct_route_available", return_value=True):
+    check("a leading statement sentence survives when two fully separate "
+          "question sentences follow it - the statement is kept, both "
+          "original questions are dropped, and the one real gap question "
+          "is appended",
+          chat._enforce_one_option_question(
+              "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה? איזו כבודה תרצו לקחת?",
+              FLIGHTS_STATE_DIRECT_AND_BAGGAGE,
+          ) == "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה?")
+check("per Shlomo's explicit caution: a normal final-summary reply with "
+      "exactly one, unbundled confirmation question is never touched - "
+      "no active_session, no post_flight_offer/next_session, so even "
+      "though this is 'more than a sentence', it has exactly one "
+      "question sentence and the generalized check leaves it alone",
+      chat._enforce_one_option_question(
+          "אז לסיכום: טיסה לאתונה, 1-10 במאי, שני מבוגרים, מלון במרכז "
+          "העיר. את מאשרת את ההזמנה?",
+          {"active_session": None},
+      ) == "אז לסיכום: טיסה לאתונה, 1-10 במאי, שני מבוגרים, מלון במרכז "
+           "העיר. את מאשרת את ההזמנה?")
 
 
 # === Bug 3: explicit gender hint ===
