@@ -197,6 +197,9 @@
     {"id": "dates-bein-le-month", "fn": "_deterministic_date_facts", "args": [[], "בין 6 ל-13 במרץ", {}], "expect": {"dates": {"departure": "2027-03-06", "return": "2027-03-13"}}, "source": "shaked-round8-c3"},
     {"id": "weekday-conflict-weekday-before-each-date-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["אני רוצה לטוס לקרואטיה ביום ראשון 19.9 עד חמישי 30.9", []], "expect_falsy": true, "source": "owner-whatsapp-croatia-2026-10-16"},
     {"id": "weekday-conflict-day-in-parens-after-each-date-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 (ראשון) עד 30.9 (חמישי)", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"},
-    {"id": "weekday-conflict-day-after-each-date-dash-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 ראשון - 30.9 חמישי", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"}
+    {"id": "weekday-conflict-day-after-each-date-dash-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 ראשון - 30.9 חמישי", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"},
+    {"id": "travelers-nistader-levad-not-solo", "fn": "_deterministic_traveler_facts", "args": ["נסתדר לבד"], "expect_falsy": true, "source": "shaked-stage1-run3-v5"},
+    {"id": "travelers-tivni-levad-not-solo", "fn": "_deterministic_traveler_facts", "args": ["תבני לבד"], "expect_falsy": true, "source": "shaked-round8-b2"},
+    {"id": "travelers-ani-levad-is-solo", "fn": "_deterministic_traveler_facts", "args": ["אני טס לבד"], "expect": {"travelers": {"adults": 1}}, "source": "shaked-stage1-run3-guard"}
   ]
 }
