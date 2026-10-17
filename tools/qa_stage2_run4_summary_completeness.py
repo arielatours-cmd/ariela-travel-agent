@@ -184,6 +184,54 @@ check("a correct GBP budget line using 'ליש\"ט' (the other recognized "
       ))
 
 
+# === Shaked's PR #70 review (same day): the flight-budget scope must
+#     never match lodging/car's OWN budget line ===
+
+BUDGET_WITH_LODGING_STATE = {"budget_per_person": {"amount": 1500, "currency": "ILS"}, "user_gender": "female"}
+check("Shaked's exact PR #70 review repro 1: the flight budget is "
+      "genuinely MISSING from the summary, but a lodging budget line "
+      "('תקציב ללינה: עד 200 יורו ללילה') IS present - the old bare "
+      "'תקציב' substring check wrongly treated the flight budget as "
+      "already covered, and the currency-mismatch fix then destroyed "
+      "the lodging line entirely (replacing it with the flight's). Both "
+      "lines must now survive, in the correct place",
+      (lambda fixed: "תקציב ללינה: עד 200 יורו ללילה" in fixed
+       and "תקציב לאדם: 1500 שקלים" in fixed)(
+          chat._ensure_flight_summary_completeness(
+              "הסיכום: יעד X. תקציב ללינה: עד 200 יורו ללילה. אם כל הפרטים נכונים, כתבי מאשרת.",
+              BUDGET_WITH_LODGING_STATE,
+          )
+      ))
+check("Shaked's exact PR #70 review repro 2: the lodging budget line "
+      "comes BEFORE the flight's own (already-correct) budget line - "
+      "the lodging line must survive completely untouched, and the "
+      "already-correct flight line is never duplicated or replaced",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: לינה: מלון, תקציב עד 200 יורו ללילה. טיסה: טרולי לכל נוסע, "
+          "תקציב 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.",
+          BUDGET_WITH_LODGING_STATE,
+      ) == "הסיכום: לינה: מלון, תקציב עד 200 יורו ללילה. טיסה: טרולי לכל נוסע, "
+           "תקציב 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("Shaked's carried-over #68 baggage finding: 'טיסה: טרולי לכל "
+      "נוסע, תקציב 1500 ₪' never says the literal word 'כבודה', but DOES "
+      "name the baggage value itself ('טרולי') - no second, "
+      "contradicting 'כבודה: טרולי בלבד' line is added",
+      "כבודה: טרולי בלבד" not in chat._ensure_flight_summary_completeness(
+          "טיסה: טרולי לכל נוסע, תקציב 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.",
+          dict(BUDGET_WITH_LODGING_STATE, flight={"baggage": ["carry_on_only"]}),
+      ))
+check("a car budget line ('תקציב לרכב: עד 150 ליום') is also correctly "
+      "excluded from the flight-budget scope - the missing flight "
+      "budget still gets added, the car line survives",
+      (lambda fixed: "תקציב לרכב: עד 150 ליום" in fixed
+       and "תקציב לאדם: 1500 שקלים" in fixed)(
+          chat._ensure_flight_summary_completeness(
+              "הסיכום: תקציב לרכב: עד 150 ליום. אם כל הפרטים נכונים, כתבי מאשרת.",
+              BUDGET_WITH_LODGING_STATE,
+          )
+      ))
+
+
 # === End-to-end via _call_tinkerbell: the fix actually applies to a real
 #     model reply, not just the unit-level function ===
 

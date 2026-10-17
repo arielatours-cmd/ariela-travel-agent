@@ -2316,7 +2316,25 @@ def _ensure_flight_summary_completeness(reply, state):
 
     Also corrects a budget line that IS present but names the wrong
     currency (Shaked, stage-2 run-5, London: a GBP amount summarized
-    with the ILS symbol) - see the dedicated comment below."""
+    with the ILS symbol) - see the dedicated comment below.
+
+    Per Shaked's PR #70 review (stage-2 run-5 follow-up): once a summary
+    mentions lodging/car alongside flights, their own budget lines ("תקציב
+    ללינה: עד 200 יורו ללילה") also contain the word "תקציב" - a bare
+    search for the FIRST "תקציב" sentence found the LODGING line instead
+    of the flight's, and both "completed" the wrong thing (declared the
+    flight budget already covered when it was genuinely missing) and
+    "corrected" the wrong thing (overwrote the lodging line with the
+    flight's budget, destroying it and placing flight info inside the
+    lodging paragraph). _flight_budget_sentence_index below is scoped to
+    a sentence that mentions "תקציב" but NONE of lodging/car's own budget
+    markers, for both checks to share. Same root cause, smaller scale,
+    for baggage: "טיסה: טרולי לכל נוסע, תקציב 1500 ₪" never says the
+    literal word "כבודה" at all, so the "missing" check added a second,
+    contradicting "כבודה: טרולי בלבד" line alongside a correct "לכל
+    נוסע" that was already there - checking for the baggage VALUE words
+    themselves (טרולי/מזוודה/תיק), not only the "כבודה" label, fixes
+    this the same way."""
     text = str(reply or "")
     if not any(p in text for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")):
         return reply
@@ -2324,12 +2342,21 @@ def _ensure_flight_summary_completeness(reply, state):
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
     budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
 
+    def _flight_budget_sentence_index(sentences):
+        for i, (s, _term) in enumerate(sentences):
+            if "תקציב" not in s:
+                continue
+            if re.search(r"לינה|ללילה|לילה|מלון|דירה|רכב|ליום", s):
+                continue
+            return i
+        return None
+
     # Per Shaked's stage-2 run-5 finding (London, 4/5, ba101e4): a budget
     # line can be PRESENT but name the WRONG currency ("תקציב: עד 250 ₪
     # לאדם" when state actually holds {"amount": 250, "currency": "GBP"})
     # - a bare "תקציב" substring check alone treats this as already
-    # covered. When the real currency is known, the sentence carrying
-    # "תקציב" must name THAT currency; if it instead names a different
+    # covered. When the real currency is known, the FLIGHT budget
+    # sentence must name THAT currency; if it instead names a different
     # one, the whole sentence is replaced with the correct fixed line, in
     # the exact place it already was (never moved, never duplicated).
     if budget.get("amount"):
@@ -2337,23 +2364,22 @@ def _ensure_flight_summary_completeness(reply, state):
         real_markers = _CURRENCY_MARKERS.get(real_currency)
         if real_markers:
             sentences = _split_sentences(text)
-            for i, (s, term) in enumerate(sentences):
-                if "תקציב" not in s:
-                    continue
+            i = _flight_budget_sentence_index(sentences)
+            if i is not None:
+                s, term = sentences[i]
                 if not re.search(real_markers, s) and any(
                     re.search(m, s) for c, m in _CURRENCY_MARKERS.items() if c != real_currency
                 ):
                     leading_ws = s[: len(s) - len(s.lstrip())]
                     sentences[i] = (f"{leading_ws}{_flight_budget_line(budget)}{term}", term)
                     text = "".join(s for s, _t in sentences)
-                break
 
     missing = []
-    if "תקציב" not in text:
+    if _flight_budget_sentence_index(_split_sentences(text)) is None:
         line = _flight_budget_line(budget)
         if line:
             missing.append(line)
-    if "כבודה" not in text:
+    if "כבודה" not in text and not re.search(r"טרולי|מזוודה|תיק", text):
         line = _flight_baggage_line(flight)
         if line:
             missing.append(line)
