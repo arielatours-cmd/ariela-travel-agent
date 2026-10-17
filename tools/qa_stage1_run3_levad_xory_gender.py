@@ -352,6 +352,19 @@ check("run-4 bug 2: the summary instruction now dictates the exact "
       'אין העדפה לטיסה ישירה' in chat.TINKERBELL_SYSTEM
       and 'בהתאם לזמינות בפועל' in chat.TINKERBELL_SYSTEM)
 
+# Per Shlomo's explicit follow-up: a summary-wording fix alone doesn't help
+# if the underlying STATE was mis-extracted in the first place (the live
+# W2/Paris case saved connection_preference="direct" from an indifferent
+# answer) - this proves the deterministic writer itself saves the right
+# value, not just that the summary phrases a correct value correctly.
+DIRECT_QUESTION_HISTORY = [{"role": "assistant", "content": "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה?"}]
+for _msg in ("לא משנה לנו", "לא חשוב", "גם וגם", "לא חשוב לנו"):
+    check(f"_deterministic_connection_preference_facts('{_msg}') saves "
+          "connection_preference='אין העדפה' in the STATE itself (not "
+          "'direct', not left to the LLM extractor to decide)",
+          chat._deterministic_connection_preference_facts(_msg, DIRECT_QUESTION_HISTORY)
+          == {"flight": {"connection_preference": "אין העדפה"}})
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

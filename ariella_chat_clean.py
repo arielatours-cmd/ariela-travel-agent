@@ -5097,7 +5097,16 @@ def _deterministic_connection_preference_facts(message, history):
         return {"flight": {"connection_preference": "אין העדפה"}}
     if re.search(r"(?<![א-ת])ישיר\w*(?![א-ת])", msg):
         return {"flight": {"connection_preference": "direct"}}
-    no_preference_words = ("אין העדפה", "לא משנה", "לא משנה לי", "קונקשן בסדר", "גם בסדר", "בסדר גם")
+    # "לא חשוב"/"גם וגם" added per Shlomo's stage-1 run-4 review: the live
+    # W2/Paris case saved connection_preference="direct" when the customer
+    # actually expressed indifference - these two phrasings weren't
+    # recognized by this deterministic writer at all, so they fell through
+    # to the LLM extractor instead (the unreliable path this function
+    # exists to avoid - see the function's own docstring).
+    no_preference_words = (
+        "אין העדפה", "לא משנה", "לא משנה לי", "לא חשוב", "גם וגם",
+        "קונקשן בסדר", "גם בסדר", "בסדר גם",
+    )
     if any(w in msg for w in no_preference_words):
         return {"flight": {"connection_preference": "אין העדפה"}}
     # Per the one-option rule, the question is now a plain yes/no ("חשוב לכם
