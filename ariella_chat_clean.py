@@ -5,14 +5,18 @@ import re
 import threading
 import time
 import anthropic
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from flask import Blueprint, jsonify, request, session
 from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES, AIRPORT_NAMES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
-from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention, clear_ariella_conversation, get_setting
+from database import (
+    save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state,
+    find_member_trip_by_mention, clear_ariella_conversation, get_setting,
+    create_route_job, get_route_job, open_route_job_for_member, update_route_job,
+    append_route_job_queued_message,
+)
 from ai_usage import record_ai_usage, set_ai_usage_context
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
@@ -90,7 +94,12 @@ def _claude_call_timeout():
     started = getattr(_turn_timing, "turn_started", None)
     if started is None:
         return _TURN_TIMEOUT_BUDGET_SECONDS
-    remaining = _TURN_TIMEOUT_BUDGET_SECONDS - (time.time() - started)
+    # Task 016a: a background route-build thread sets its own, larger
+    # budget_seconds (its 150s absolute timeout, not the website's 90s
+    # per-request one) before calling the engine - unset for every ordinary
+    # synchronous request, so this is a no-op everywhere else.
+    budget = getattr(_turn_timing, "budget_seconds", _TURN_TIMEOUT_BUDGET_SECONDS)
+    remaining = budget - (time.time() - started)
     if remaining <= 0:
         return 0.0
     return max(_MIN_CLAUDE_CALL_TIMEOUT_SECONDS, min(_MAX_CLAUDE_CALL_TIMEOUT_SECONDS, remaining))
@@ -8681,18 +8690,93 @@ def chat_clean():
         _turn_timing.turn_started = None
 
 
+# Task 016a (ROUTE_BUILD_ASYNC): background route-build dispatch. One open
+# job per member at a time, same dict+lock+is_alive() dedup shape as
+# _queue_lodging_search/_queue_car_search in public_site.py - the
+# difference here is the job itself is recorded in the route_jobs DB table
+# (not just this in-memory dict), so it survives the request that queued it
+# and a restart can at least detect a stale 'building' row (stage 5) instead
+# of losing track of it outright.
+_route_build_threads = {}
+_route_build_threads_lock = threading.Lock()
+_ROUTE_BUILD_TIMEOUT_SECONDS = 150.0
+
+
+def _run_route_build_job(job_id: int, member_id: int, message: str, history: list, trip_state: dict, channel: str | None) -> None:
+    """Runs _run_chat_turn_engine - the exact same turn-processing code path
+    a synchronous request runs - in whatever thread calls this, then records
+    the result (or failure) on the job row. Not Flask-request-bound: pushes
+    its own app context (needed only because _run_chat_turn_engine's many
+    return sites call jsonify(), which needs current_app) and gives itself
+    the background job's own 150s budget via _turn_timing.budget_seconds,
+    separate from the website's normal 90s per-request budget."""
+    from app import app as _flask_app  # lazy: app.py imports this module first, so app doesn't exist yet at module load time
+    _turn_timing.turn_started = time.time()
+    _turn_timing.budget_seconds = _ROUTE_BUILD_TIMEOUT_SECONDS
+    try:
+        with _flask_app.app_context():
+            result = _run_chat_turn_engine(member_id, message, history, trip_state, channel)
+        response = result[0] if isinstance(result, tuple) else result
+        payload = response.get_json() if hasattr(response, "get_json") else None
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"route build returned a non-JSON result: {type(response)!r}")
+        update_route_job(
+            job_id,
+            status="ready",
+            result_reply=payload.get("reply") or "",
+            result_trip_update=payload.get("trip_update") if isinstance(payload.get("trip_update"), dict) else {},
+        )
+    except Exception as exc:
+        logging.exception("Background route build failed for member %s (job %s)", member_id, job_id)
+        update_route_job(job_id, status="failed", error=str(exc)[:500])
+    finally:
+        with _route_build_threads_lock:
+            _route_build_threads.pop(member_id, None)
+        _turn_timing.turn_started = None
+        _turn_timing.budget_seconds = None
+
+
+def _queue_route_build(member_id: int, channel: str | None, message: str, history: list, trip_state: dict):
+    """Start a background route-build job for this member, unless one is
+    already building. Returns the new job's id, or None when an existing
+    build is still in flight (caller should poll/attach to that one rather
+    than starting a second)."""
+    with _route_build_threads_lock:
+        current = _route_build_threads.get(member_id)
+        if current and current.is_alive():
+            return None
+        job_id = create_route_job(member_id, channel or "website", message, list(history), dict(trip_state))
+        thread = threading.Thread(
+            target=_run_route_build_job,
+            args=(job_id, member_id, message, list(history), dict(trip_state), channel),
+            daemon=True,
+            name=f"ariella-route-build-{member_id}",
+        )
+        _route_build_threads[member_id] = thread
+        thread.start()
+        return job_id
+
+
 def _chat_clean_impl():
+    """Thin Flask-facing shell: auth check, request-body parsing, and
+    member_id/channel capture only. All real turn-processing logic lives in
+    _run_chat_turn_engine() below, which takes plain parameters instead of
+    reading Flask's session/request directly - task 016a (ROUTE_BUILD_ASYNC)
+    needs that same engine callable from a background thread, which has
+    neither a request nor (without an explicit push) the member's session."""
     if not session.get('member_id'):
         return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.', 'engine_version': ENGINE_VERSION}), 401
 
+    member_id = session.get('member_id')
+    channel = 'whatsapp' if session.get('ariella_channel') == 'whatsapp' else None
     set_ai_usage_context(
-        member_id=session.get('member_id'),
+        member_id=member_id,
         is_test=str(get_setting('qa_test_mode', '0') or '0') == '1',
         # Task 006a: set only by whatsapp_bridge.ariella_turn (via a session
         # flag, before it calls this exact route through the Flask test
         # client) - an ordinary website call never sets this, so its own
         # ai_usage rows are unaffected.
-        channel=('whatsapp' if session.get('ariella_channel') == 'whatsapp' else None),
+        channel=channel,
     )
     body = request.get_json(silent=True) or {}
     message = str(body.get('message') or '').strip()
@@ -8701,11 +8785,21 @@ def _chat_clean_impl():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
+    return _run_chat_turn_engine(member_id, message, history, trip_state, channel)
+
+
+def _run_chat_turn_engine(member_id, message, history, trip_state, channel=None):
+    """The real per-turn engine (unchanged behavior from the old
+    _chat_clean_impl body below this point) - extracted so a background
+    thread (task 016a) can run the exact same code path a synchronous
+    request runs today, against plain parameters instead of session/request.
+    `channel` is carried through for later stages (WhatsApp ack wiring);
+    nothing below reads it yet."""
     # Always consult the server-side record, even when the browser already
     # sent its own trip_state - it's the only place that carries a reliable,
     # server-controlled "when did we last actually talk" timestamp (the
     # client's own copy has none), needed below for the stale-session reset.
-    saved_conversation = load_ariella_conversation(session['member_id'])
+    saved_conversation = load_ariella_conversation(member_id)
     # The browser's local cache is per-device and empties on logout/switching
     # devices. When it has no progress at all, resume the member's own
     # server-saved conversation instead of starting over.
@@ -8828,7 +8922,7 @@ def _chat_clean_impl():
         _dest_codes = trip_state.get('destination_airports') if isinstance(trip_state.get('destination_airports'), list) else []
         _dates = trip_state.get('dates') if isinstance(trip_state.get('dates'), dict) else {}
         _existing = _find_recent_scanned_vacation(
-            session['member_id'], _dest_codes, trip_state.get('departure_airport'),
+            member_id, _dest_codes, trip_state.get('departure_airport'),
             _dates.get('departure'), _dates.get('return'),
         )
         if _existing:
@@ -8842,9 +8936,9 @@ def _chat_clean_impl():
                     {'role': 'user', 'content': message},
                     {'role': 'assistant', 'content': reply},
                 ]
-                save_ariella_conversation(session['member_id'], saved_history[-80:], {})
+                save_ariella_conversation(member_id, saved_history[-80:], {})
             except Exception:
-                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+                logging.exception("Failed to persist Ariella conversation for member %s", member_id)
             return jsonify({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': reply, 'trip_update': {}, 'start_flight_search': False,
@@ -8875,7 +8969,6 @@ def _chat_clean_impl():
                 str(trip.get('travel_window') or ''),
             )
 
-        member_id = session.get('member_id')
         matches = find_member_trip_by_mention(member_id, message) if member_id else []
         if len(matches) == 1:
             trip = matches[0]
@@ -8914,7 +9007,6 @@ def _chat_clean_impl():
         options = pending_reopen.get("options") or []
         service = pending_reopen.get("service")
         choice = _pick_reopen_option(message, options, key, model, history)
-        member_id = session['member_id']
         if choice is None and pending_reopen.get("asked_again"):
             # Never loop forever asking the same "which vacation" question -
             # seen live (Shaked, round 4): once this got asked and the
@@ -9038,7 +9130,7 @@ def _chat_clean_impl():
                 services_wanted = [linked_service] + [s for s in services_wanted if s != linked_service]
             else:
                 services_wanted = [linked_service] + services_wanted
-            candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places), limit=20)
+            candidates = _reopenable_trips(member_id, linked_service, " ".join(str(p) for p in open_places), limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
@@ -9056,7 +9148,7 @@ def _chat_clean_impl():
         if requested_service in _REOPEN_LABELS:
             if requested_service not in services_wanted:
                 services_wanted = [requested_service] + services_wanted
-            candidates = _reopenable_trips(session['member_id'], requested_service, message, limit=20)
+            candidates = _reopenable_trips(member_id, requested_service, message, limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
@@ -9096,7 +9188,7 @@ def _chat_clean_impl():
             _services_elsewhere = [s for s in dict.fromkeys(_all_requested_services(message, trip_state)) if s in _REOPEN_LABELS]
             _reopen_service = _services_elsewhere[0] if _services_elsewhere else None
             if _reopen_service:
-                _reopen_candidates = _reopenable_trips(session['member_id'], _reopen_service, message, limit=20)
+                _reopen_candidates = _reopenable_trips(member_id, _reopen_service, message, limit=20)
                 if _reopen_candidates:
                     pending = dict(trip_state)
                     pending["reopen_trip_pending"] = {
@@ -9131,7 +9223,7 @@ def _chat_clean_impl():
     _asks_about_saved_vacations = any(
         cue in str(message or "") for cue in ("בחופשות שלי", "החופשות שלי", "חופשות שלי", "בכרטיס החופשה", "בכרטיסי החופשה")
     )
-    upcoming = _upcoming_vacations(session['member_id']) if (not _has_active_destination or _asks_about_saved_vacations) else []
+    upcoming = _upcoming_vacations(member_id) if (not _has_active_destination or _asks_about_saved_vacations) else []
     if upcoming:
         trip_state["upcoming_vacations"] = upcoming
     else:
@@ -9246,7 +9338,7 @@ def _chat_clean_impl():
         places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
         reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
                  if places else "בשמחה. מתחילים חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
-        _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
+        _remember_turn_reset_trip(member_id, history, message, reply, fresh)
         return jsonify({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
@@ -9307,9 +9399,9 @@ def _chat_clean_impl():
                     {'role': 'user', 'content': message},
                     {'role': 'assistant', 'content': open_reply},
                 ]
-                save_ariella_conversation(session['member_id'], saved_history[-80:], trip_state)
+                save_ariella_conversation(member_id, saved_history[-80:], trip_state)
             except Exception:
-                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+                logging.exception("Failed to persist Ariella conversation for member %s", member_id)
             return jsonify({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': open_reply, 'trip_update': trip_state, 'start_flight_search': False,
@@ -9339,7 +9431,7 @@ def _chat_clean_impl():
             _places_new = ((_fresh_new.get('destination') or {}).get('places') or []) if isinstance(_fresh_new.get('destination'), dict) else []
             _reply_new = (f"בשמחה 😊 מתחילים חופשה חדשה ל{_places_new[0]}. באיזו תקופה תרצי לטוס?"
                           if _places_new else 'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?')
-            _remember_turn_reset_trip(session['member_id'], history, message, _reply_new, _fresh_new)
+            _remember_turn_reset_trip(member_id, history, message, _reply_new, _fresh_new)
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':_reply_new,
@@ -9473,7 +9565,7 @@ def _chat_clean_impl():
                 reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה תרצי לנסוע?"
             else:
                 reply = 'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?'
-            _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
+            _remember_turn_reset_trip(member_id, history, message, reply, fresh)
             return jsonify({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
@@ -9668,7 +9760,7 @@ def _chat_clean_impl():
             if not ((fresh.get('destination') or {}).get('places') if isinstance(fresh.get('destination'), dict) else None):
                 fresh['destination'] = {'places':[pending_new_trip],'mode':'specific','status':'known'}
             reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה תרצי לטוס?"
-            _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
+            _remember_turn_reset_trip(member_id, history, message, reply, fresh)
             return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
         if intent == "keep":
             kept = dict(trip_state)
@@ -9934,9 +10026,9 @@ def _chat_clean_impl():
                     {'role': 'user', 'content': message},
                     {'role': 'assistant', 'content': transfer_reply},
                 ]
-                save_ariella_conversation(session['member_id'], saved_history[-80:], trip_update)
+                save_ariella_conversation(member_id, saved_history[-80:], trip_update)
             except Exception:
-                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+                logging.exception("Failed to persist Ariella conversation for member %s", member_id)
             return jsonify({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': transfer_reply, 'trip_update': trip_update, 'start_flight_search': False,
@@ -10228,7 +10320,7 @@ def _chat_clean_impl():
         # their registration data, never from client-supplied state, which
         # can be stale or wrong. Loaded before the sessions advance so the
         # departure default counts toward the flight gaps.
-        trip_update["profile"] = _member_profile(session["member_id"])
+        trip_update["profile"] = _member_profile(member_id)
         trip_update = _apply_home_airport(trip_update)
         # trip_planning must never silently activate itself without a
         # genuine customer decision - see the function's own docstring.
@@ -11293,9 +11385,9 @@ def _chat_clean_impl():
             {'role': 'user', 'content': message},
             {'role': 'assistant', 'content': reply or 'אני איתך 😊'},
         ]
-        save_ariella_conversation(session['member_id'], saved_history[-80:], trip_update)
+        save_ariella_conversation(member_id, saved_history[-80:], trip_update)
     except Exception:
-        logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
+        logging.exception("Failed to persist Ariella conversation for member %s", member_id)
 
     return jsonify({
         'status': 'success',
