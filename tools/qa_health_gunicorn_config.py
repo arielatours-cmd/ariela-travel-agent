@@ -40,6 +40,17 @@ demonstrably executing in production ("re-running them after every
 worker fork can reject a valid newer code shape and prevent the service
 from booting").
 
+FOLLOW-UP (17.10.2026, Shlomo/Eran): the fixed /health itself then
+reported gunicorn_timeout=30/gunicorn_threads=1 from the LIVE service -
+gunicorn's own bare defaults - proving the real deployed Start Command
+does not actually pass --timeout/--threads/--workers at all, whatever
+render.yaml's startCommand says. Rather than wait on tracking down and
+changing the real Start Command (a Render-dashboard-level change outside
+this repo), workers/threads/timeout are now set directly as module-level
+settings in gunicorn.conf.py itself - since that file is already
+confirmed loaded regardless of the Start Command, these take effect no
+matter what flags it does or doesn't pass.
+
 Run: python3 tools/qa_health_gunicorn_config.py
 """
 import os
@@ -178,14 +189,19 @@ else:
           and b'"gunicorn_threads":4' in body)
 
     body2 = _run_real_gunicorn_and_fetch_health([], 8767)
-    check("Shlomo's exact concern: the BARE Start Command 'gunicorn "
-          "app:app' (no --workers/--threads/--timeout, no -c/--config "
-          "flag at all) still loads gunicorn.conf.py and runs the hook - "
-          "gunicorn auto-discovers gunicorn.conf.py in the working "
-          "directory with no flag needed. Reports gunicorn's own real "
-          "resolved defaults (timeout=30, threads=1), never null/null",
-          body2 is not None and b'"gunicorn_timeout":30' in body2
-          and b'"gunicorn_threads":1' in body2)
+    check("Shlomo/Eran's exact live finding (17.10.2026): the BARE Start "
+          "Command 'gunicorn app:app' (no --workers/--threads/--timeout, "
+          "no -c/--config flag at all) - confirmed via live /health that "
+          "this IS what the real deployed Start Command does, despite "
+          "render.yaml's own startCommand saying otherwise - still loads "
+          "gunicorn.conf.py (gunicorn auto-discovers it in the working "
+          "directory with no flag needed) and now reports the values "
+          "HARDCODED there (timeout=120, threads=4), not gunicorn's own "
+          "bare defaults (30/1) and never null/null. This is what makes "
+          "the fix work regardless of whatever the Start Command does or "
+          "doesn't pass",
+          body2 is not None and b'"gunicorn_timeout":120' in body2
+          and b'"gunicorn_threads":4' in body2)
 
 
 if FAILED:
