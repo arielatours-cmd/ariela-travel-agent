@@ -9,10 +9,12 @@ decisions (relayed via Shlomo/Ofek the same day):
    confirmation herself in her own main reply call (mocked here as
    "תשובה לדוגמה." throughout - this suite tests the STATE/HINT contract).
 2. No quick-reply buttons anywhere, ever.
-3. GUIDED_EXTRACTION_STEPS now defaults ON for dates/travelers via
-   config.GUIDED_EXTRACTION_STEPS_DEFAULT - lodging is NOT yet in that
-   default (not approved by Shaked yet), so it must always be requested
-   explicitly via the env var in these tests.
+3. GUIDED_EXTRACTION_STEPS now defaults ON for dates/travelers/baggage/
+   lodging via config.GUIDED_EXTRACTION_STEPS_DEFAULT (lodging added live
+   in this same PR, per Shlomo 2026-10-17 - Shaked approves every 014
+   field before its PR merges regardless, so a separate Render env var
+   gate first adds no safety). Most scenarios below still set the env var
+   explicitly anyway, to stay independent of that default's exact value.
 
 Same guided mechanism already built for dates/travelers, now covering
 lodging's own required facts (type, rooms, bathrooms when relevant,
@@ -115,8 +117,8 @@ os.environ["GUIDED_EXTRACTION_STEPS"] = "lodging"
 check("flag set -> _guided_extraction_steps() covers lodging",
       chat._guided_extraction_steps() == {"lodging"})
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
-check("lodging is NOT yet in the code-level default (not approved by Shaked yet)",
-      "lodging" not in chat._guided_extraction_steps())
+check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) now covers lodging too",
+      chat._guided_extraction_steps() == {"dates", "travelers", "baggage", "lodging"})
 os.environ["GUIDED_EXTRACTION_STEPS"] = "lodging"
 
 member_no_lodging = _make_member("qa-014a-lodging-notrequested@example.com")
