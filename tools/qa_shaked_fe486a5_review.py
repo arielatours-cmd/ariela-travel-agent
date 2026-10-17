@@ -100,11 +100,11 @@ check("_departure_question (single known airport) no longer offers 'X, or anothe
 check("flight.gateway_narrow fallback is one open question, info given separately",
       not has_dictated_or(chat._flight_gap_question(["flight.gateway_narrow"], {"destination_airports": ["LCA", "PFO"]}).split(".")[1]))
 check("budget_per_person fallback is a plain open question",
-      chat._flight_gap_question(["budget_per_person"], {}) == "מה התקציב שלך לאדם לטיסה?")
+      chat._flight_gap_question(["budget_per_person"], {}) == "מה התקציב שלכם לאדם לטיסה?")
 check("trip_type fallback is a plain open question (no dictated categories)",
       chat._flight_gap_question(["trip_type"], {}) == "איזה סוג נסיעה זו?")
 check("flight.connection_preference fallback is a single-option yes/no",
-      chat._flight_gap_question(["flight.connection_preference"], {}) == "חשוב לך שהטיסה תהיה ישירה?")
+      chat._flight_gap_question(["flight.connection_preference"], {}) == "חשוב לכם שהטיסה תהיה ישירה?")
 check("flight.baggage fallback is a plain open question",
       chat._flight_gap_question(["flight.baggage"], {}) == "איזו כבודה תרצו לקחת?")
 

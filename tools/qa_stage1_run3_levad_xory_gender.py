@@ -18,25 +18,38 @@ free generation still produced an enumerated/binary question on an
 ordinary first ask - the baggage question again ("...רק תיק קטן, או שיש
 גם מזוודות?", V4) and, new this round, the trip_planning continuation
 offer skipping its plain yes/no entirely in favor of route content ("יש
-לך רעיון למסלול..., או שתרצי שאציע?", V3). A free-text instruction alone
-isn't reliable - fixed with a deterministic post-generation check,
-_enforce_one_option_question, wired into _call_tinkerbell's own reply
-pipeline (so every call site gets it for free).
+לך רעיון למסלול..., או שתרצי שאציע?", V3).
 
-First version scoped the fix to just these two situations (baggage +
-next-domain offer). Per the business owner (relayed by Shlomo, same PR
-review): the one-question rule has no baggage-only exception - "מלון,
-דירה או וילה?" is just as much a violation as the baggage one, in every
-service. Generalized to _TOPIC_QUESTION_RULES, a topic-keyword ->
-already-approved-fixed-text table (reusing _GAP_QUESTION_TEXT's own
-car/lodging/route wording and _flight_gap_question's budget/direct
-wording) checked in a fixed order - most specific first, so a question
-that mixes two topics (a CAR question that happens to mention
-"מזוודות" - Shaked's own finding on the first version of this fix, see
-below) resolves to the one it's actually about rather than the generic
-baggage branch grabbing it by keyword collision alone. A question whose
-topic matches none of the known keywords is left as-is rather than
-guessing a fallback.
+This went through three iterations of _enforce_one_option_question,
+wired into _call_tinkerbell's own reply pipeline (so every call site
+gets it for free):
+
+1. First version scoped the fix to just these two narrow situations
+   (baggage + next-domain offer).
+2. Per the business owner (relayed by Shlomo, PR #59 review): the rule
+   has no baggage-only exception - "מלון, דירה או וילה?" is just as much
+   a violation as the baggage one, in every service. Generalized to a
+   fixed topic-keyword table.
+3. Per Shaked's own review of THAT version: keyword matching is exactly
+   as unreliable as free generation, just differently so - a lodging
+   question mentioning "רכב"/"חניה" (car parking) or "מזוודות" got
+   rewritten into the wrong domain's question entirely, and a car
+   pickup-location question got rewritten into "what vehicle type" - a
+   question already answered, risking an actual loop. Replaced with the
+   state itself: when active_session names a real session, the fixed
+   text is whatever _session_gaps(state, active_session) actually still
+   needs for THAT session - the exact field the real missing_required
+   pipeline would ask about next, never guessed from words that merely
+   appear in the model's own (already-wrong) phrasing. flights reuses
+   _flight_gap_question's own richer mapping; lodging/car/trip_planning
+   use _GAP_QUESTION_TEXT directly. No mapped gap left -> the question is
+   dropped (any earlier statement kept), never guessed.
+
+Also fixed in this same round (Shaked's review): _flight_gap_question's
+budget_per_person/flight.connection_preference texts were singular
+("שלך"/"לך") while every other fixed text in this file is plural
+("לכם") - inconsistent, and reads oddly addressed to a couple/family.
+Pluralized to match.
 
 Bug 3 (V3): a customer who wrote "אני טס" (clearly male) got addressed in
 feminine mid-conversation ("טסה ללונדון לבד... איזו כבודה תצטרכי?") even
@@ -51,26 +64,18 @@ Stage-1 run-4 (Shaked, 17.10.2026, qa/reports/2026-10-17-stage1-run4.md,
 commit 4234cb8): 4/5 on main 9f0c7db (before this branch's generalization
 reached main). One failure, W2/Paris:
 
-Bug 4a: the live budget question ("יש לכם תקציב מסוים לאדם לטיסה, או
-שנחפש את המחיר הכי טוב שיש?") wasn't caught - 9f0c7db only had the first,
-narrow version of _enforce_one_option_question (baggage + next-domain
-offer only), not yet the _TOPIC_QUESTION_RULES generalization already on
-this branch. Already fixed here; no further change needed, just
-confirmed with a test using Shaked's exact live wording.
+Bug 4a: the live budget question wasn't caught on 9f0c7db - it only had
+the first, narrow version of _enforce_one_option_question. Already fixed
+here by the state-driven redesign above; confirmed with Shaked's exact
+live wording.
 
 Bug 4b: the customer answered "לא משנה לנו" to the direct-flight
 question (flight.connection_preference correctly stored as "אין העדפה"),
 but the final summary read "טיסה ישירה: בהתאם לזמינות בפועל" - a vague
 paraphrase that reads as if a preference for direct still conditionally
-applies, when the true fact is indifference (connecting is exactly as
-fine as direct). The summary-structure rule already said to state
-connection_preference "explicitly" when known, but left the exact wording
-to free generation. Added an explicit required phrasing for both known
-values ("מעדיפים טיסה ישירה" / "אין העדפה לטיסה ישירה"), naming the
-live failing phrasing as a forbidden example - the same escalation this
-file's Bug 2 already needed once for baggage before a prompt-only fix
-proved insufficient there too, so a deterministic post-processor for the
-summary itself is the fallback if this recurs.
+applies. Added an explicit required phrasing for both known values to
+the summary-structure rule, naming the live failing phrasing as a
+forbidden example.
 
 Run: python3 tools/qa_stage1_run3_levad_xory_gender.py
 """
@@ -93,6 +98,19 @@ def check(name, cond):
         FAILED.append(name)
 
 
+# A realistic, otherwise-complete trip state - every shared fact known, so
+# _session_gaps for whichever domain is under test reflects only that
+# domain's own remaining fields, exactly like a real mid-conversation turn.
+BASE_STATE = {
+    "destination": {"places": ["פריז"], "mode": "specific", "status": "known"},
+    "destination_airports": ["CDG"],
+    "dates": {"departure": "2027-05-01", "return": "2027-05-10"},
+    "travelers": {"adults": 2},
+    "trip_type": "vacation",
+    "departure_airport": "TLV",
+}
+
+
 # === Bug 1: "לבד" solo-traveler false positives ===
 
 check("'נסתדר לבד' (V5 live repro) is NOT read as a solo traveler",
@@ -112,13 +130,10 @@ check("an existing real count ('זוג' = 2 adults) is never downgraded by a "
       chat._deterministic_traveler_facts("זוג, נסתדר לבד עם המסלול") == {"travelers": {"adults": 2}})
 
 
-# === Bug 2: deterministic one-option-question enforcer ===
+# === Bug 2: deterministic one-option-question enforcer (state-driven) ===
 
-check("baggage X/Y question gets replaced with the fixed open question, "
-      "the earlier statement sentence kept as-is",
-      chat._enforce_one_option_question(
-          "מעולה, נרשם. כל אחת מכן לוקחת רק תיק קטן, או שיש גם מזוודות?", {}
-      ) == "מעולה, נרשם. איזו כבודה תרצו לקחת?")
+# -- the next-domain offer moment (active_session empty) - unchanged --
+
 check("trip_planning X/Y continuation offer gets replaced with the fixed "
       "yes/no, the earlier statement sentence kept as-is",
       chat._enforce_one_option_question(
@@ -134,59 +149,6 @@ check("the same fix generalizes to a lodging continuation offer",
 check("the fixed next-domain offer text is gender-neutral (infinitive verb "
       "form) - never guesses the customer's gender the way bug #3 did",
       not any(w in q for w in ("תרצי", "תרצה") for q in chat._OFFER_DOMAIN_QUESTIONS.values()))
-check("Shaked's exact PR #59 finding: a genuine CAR-domain luggage-"
-      "capacity question that happens to mention 'מזוודות' now resolves "
-      "to the correct car-topic open question (not the baggage one) - "
-      "the car keyword is checked before the baggage keywords",
-      chat._enforce_one_option_question(
-          "מעולה. איזה רכב מתאים - כזה שיכיל את כל המזוודות, או משהו קטן?",
-          {"active_session": "car"},
-      ) == "מעולה. איזה סוג/גודל רכב מתאים לכם?")
-check("the baggage topic still fires normally for a flights-domain "
-      "question with no competing 'רכב' keyword",
-      chat._enforce_one_option_question(
-          "איזו כבודה תרצו - טרולי, מזוודה, או תיק קטן?", {"active_session": "flights"},
-      ) == "איזו כבודה תרצו לקחת?")
-check("per the business owner's rule (any 'X או Y' is a violation, in "
-      "every service): a budget question phrased as two alternatives "
-      "gets the fixed open question too",
-      chat._enforce_one_option_question(
-          "מה התקציב שלכם - עד 3000 לאדם, או שאתם פתוחים ליותר?", {}
-      ) == "מה התקציב שלך לאדם לטיסה?")
-check("a direct-flight question phrased as two alternatives gets the "
-      "fixed yes/no",
-      chat._enforce_one_option_question(
-          "חשוב לכם טיסה ישירה, או שקונקשן גם בסדר?", {}
-      ) == "חשוב לך שהטיסה תהיה ישירה?")
-check("a leading statement sentence in the same reply is preserved, only "
-      "the offending question clause is replaced",
-      chat._enforce_one_option_question(
-          "מעולה, נרשם. איזו כבודה תרצו לקחת - טרולי, מזוודה, או תיק קטן?", {}
-      ) == "מעולה, נרשם. איזו כבודה תרצו לקחת?")
-check("a reply with no '?' at all is returned unchanged",
-      chat._enforce_one_option_question("מעולה, נרשם.", {}) == "מעולה, נרשם.")
-check("a reply whose last question has no ' או ' at all is left untouched",
-      chat._enforce_one_option_question("איזו כבודה תרצו לקחת?", {}) == "איזו כבודה תרצו לקחת?")
-check("per the business owner's correction: a multi-option lodging-type "
-      "question IS a violation too (not an allowed exception) and now "
-      "gets the fixed open question",
-      chat._enforce_one_option_question(
-          "האם תרצי מלון, דירה או וילה?", {}
-      ) == "איזה סוג לינה מתאים לכם?")
-check("the next-domain offer text is used only while the domain is still "
-      "a plain offer (active_session empty) - once it's already active, "
-      "a free X-or-Y slip there falls through to the generic route-topic "
-      "question instead of the 'do you want this domain at all' offer "
-      "text (which would be the wrong question to re-ask)",
-      chat._enforce_one_option_question(
-          "יש לך רעיון למה בא לך לעשות, או שתרצי שאציע לך מסלול מגוון?",
-          {"post_flight_offer": ["trip_planning"], "active_session": "trip_planning"},
-      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
-check("a reply with no recognizable topic keyword at all is left "
-      "unchanged rather than guessing a fallback",
-      chat._enforce_one_option_question(
-          "תרצו לשמוע סיפור על היעד, או שנמשיך הלאה?", {}
-      ) == "תרצו לשמוע סיפור על היעד, או שנמשיך הלאה?")
 check("per Shaked/Shlomo's follow-up: two domains illegally bundled into "
       "one offer (post_flight_offer should never list more than one - "
       "rule 112) collapses to the first domain in order, rather than "
@@ -194,16 +156,126 @@ check("per Shaked/Shlomo's follow-up: two domains illegally bundled into "
       chat._enforce_one_option_question(
           "רוצים לינה או רכב?", {"post_flight_offer": ["lodging", "car"], "active_session": None},
       ) == "לסדר גם לינה לחופשה הזו?")
-check("Shaked's follow-up repro: a lodging-type question mid-domain "
-      "(active_session='lodging') still gets the fixed open question",
+
+# -- mid-domain (active_session set): the real next gap for that session,
+#    not a keyword guess. Each case below is Shaked's own stage-1 run-3
+#    review finding on the previous (keyword-based) version. --
+
+CAR_STATE = dict(BASE_STATE, active_session="car", requested_services=["flights", "car"])
+check("Shaked's PR #59 finding: a genuine CAR-domain luggage-capacity "
+      "question that mentions 'מזוודות' resolves to the real open car "
+      "gap (vehicle_type, still unanswered) - not the baggage question",
       chat._enforce_one_option_question(
-          "איזה סוג לינה מתאים לכם - מלון, דירה או וילה?", {"active_session": "lodging"},
-      ) == "איזה סוג לינה מתאים לכם?")
-check("Shaked's follow-up repro: a car-type question mid-domain "
-      "(active_session='car') still gets the fixed open question",
+          "מעולה. איזה רכב מתאים - כזה שיכיל את כל המזוודות, או משהו קטן?", CAR_STATE,
+      ) == "מעולה. איזה סוג/גודל רכב מתאים לכם?")
+check("car pickup-location X/Y resolves to the real open gap too, which "
+      "while vehicle_type is still unanswered is genuinely vehicle_type - "
+      "steering back to the actual next question, not the one Tinkerbell "
+      "jumped ahead to",
       chat._enforce_one_option_question(
-          "איזה רכב - קטן, משפחתי או SUV?", {"active_session": "car"},
+          "לאסוף את הרכב בשדה התעופה, או במרכז העיר?", CAR_STATE,
       ) == "איזה סוג/גודל רכב מתאים לכם?")
+CAR_STATE_VEHICLE_KNOWN = dict(CAR_STATE, car={"details": {"vehicle_type": "משפחתי", "transmission": "אוטומטי"}})
+check("Shaked's PR #60 review finding: once vehicle_type is genuinely "
+      "already answered, the SAME pickup-location question correctly "
+      "resolves to the pickup question - never re-asks vehicle type "
+      "(the loop risk she flagged)",
+      chat._enforce_one_option_question(
+          "לאסוף את הרכב בשדה התעופה, או במרכז העיר?", CAR_STATE_VEHICLE_KNOWN,
+      ) == "איפה תרצו לאסוף את הרכב?")
+
+LODGING_STATE = dict(BASE_STATE, active_session="lodging", requested_services=["flights", "lodging"])
+check("Shaked's PR #60 review finding: a lodging question mentioning "
+      "'חניה לרכב' (car parking) resolves to the real open lodging gap "
+      "(type, still unanswered) - not a car-topic question",
+      chat._enforce_one_option_question(
+          "תרצו דירה עם חניה לרכב, או שלא צריך חניה?", LODGING_STATE,
+      ) == "איזה סוג לינה מתאים לכם?")
+check("a lodging question mentioning 'מזוודות' (suitcase space) resolves "
+      "to the real open lodging gap too - not the baggage question",
+      chat._enforce_one_option_question(
+          "דירה עם מקום לכל המזוודות, או משהו קטן יותר?", LODGING_STATE,
+      ) == "איזה סוג לינה מתאים לכם?")
+check("per the business owner's correction: a multi-option lodging-type "
+      "question IS a violation too (not an allowed exception) and now "
+      "gets the fixed open question",
+      chat._enforce_one_option_question(
+          "איזה סוג לינה מתאים לכם - מלון, דירה או וילה?", LODGING_STATE,
+      ) == "איזה סוג לינה מתאים לכם?")
+LODGING_STATE_TYPE_KNOWN = dict(LODGING_STATE, lodging={"details": {"type": "דירה"}})
+check("Shaked's PR #60 review finding: 'כמה חדרים - אחד או שניים?' (not "
+      "caught at all by the old keyword table, which has no rooms entry) "
+      "now resolves correctly once type is answered and rooms is the "
+      "real next gap",
+      chat._enforce_one_option_question(
+          "כמה חדרים - אחד או שניים?", LODGING_STATE_TYPE_KNOWN,
+      ) == "כמה חדרים תרצו?")
+
+PLANNING_STATE = dict(BASE_STATE, active_session="trip_planning", requested_services=["flights", "trip_planning"])
+check("Shaked's PR #60 review finding: a pace question ('קצב רגוע או "
+      "פעיל?') resolves to the real open trip_planning gap - which while "
+      "style is still unanswered is genuinely style, not pace (the gap "
+      "order the real missing_required pipeline itself uses)",
+      chat._enforce_one_option_question(
+          "אתם מעדיפים קצב רגוע או פעיל?", PLANNING_STATE,
+      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+PLANNING_STATE_STYLE_KNOWN = dict(PLANNING_STATE, trip_planning={"details": {"style": "תרבות ואוכל"}})
+check("once style is genuinely answered, the same pace question "
+      "correctly resolves to the real pace gap",
+      chat._enforce_one_option_question(
+          "אתם מעדיפים קצב רגוע או פעיל?", PLANNING_STATE_STYLE_KNOWN,
+      ) == "חשוב לכם שהקצב יהיה רגוע?")
+
+FLIGHTS_STATE = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
+                      flight={"baggage": ["carry_on_only"]})
+check("a budget question phrased as two alternatives gets the fixed open "
+      "question, now correctly pluralized ('שלכם', not 'שלך')",
+      chat._enforce_one_option_question(
+          "יש לכם תקציב מסוים לאדם לטיסה, או שנחפש את המחיר הכי טוב שיש?", FLIGHTS_STATE,
+      ) == "מה התקציב שלכם לאדם לטיסה?")
+check("_flight_gap_question's connection_preference text is pluralized "
+      "('לכם', not 'לך') - the flight.connection_preference gap itself "
+      "only ever fires with a verified direct route in the DB "
+      "(_direct_route_available), so this is checked at the function "
+      "level directly rather than through a seeded state",
+      chat._flight_gap_question(["flight.connection_preference"], {}) == "חשוב לכם שהטיסה תהיה ישירה?")
+FLIGHTS_STATE_BAGGAGE_OPEN = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
+                                   budget_per_person={"amount": 3000})
+check("the baggage topic still fires correctly for a flights-domain "
+      "question when baggage is genuinely the real open gap",
+      chat._enforce_one_option_question(
+          "איזו כבודה תרצו - טרולי, מזוודה, או תיק קטן?", FLIGHTS_STATE_BAGGAGE_OPEN,
+      ) == "איזו כבודה תרצו לקחת?")
+
+# -- no active_session and no matching offer: left unchanged (no guessing) --
+
+check("a reply with ' או ' but no active_session and no matching offer "
+      "is left unchanged - nothing to anchor a state-driven fix to",
+      chat._enforce_one_option_question(
+          "תרצו לשמוע סיפור על היעד, או שנמשיך הלאה?", {}
+      ) == "תרצו לשמוע סיפור על היעד, או שנמשיך הלאה?")
+
+# -- general mechanics --
+
+check("a leading statement sentence in the same reply is preserved, only "
+      "the offending question clause is replaced",
+      chat._enforce_one_option_question(
+          "מעולה, נרשם. איזו כבודה תרצו לקחת - טרולי, מזוודה, או תיק קטן?",
+          FLIGHTS_STATE_BAGGAGE_OPEN,
+      ) == "מעולה, נרשם. איזו כבודה תרצו לקחת?")
+check("a reply with no '?' at all is returned unchanged",
+      chat._enforce_one_option_question("מעולה, נרשם.", {}) == "מעולה, נרשם.")
+check("a reply whose last question has no ' או ' at all is left untouched",
+      chat._enforce_one_option_question("איזו כבודה תרצו לקחת?", {}) == "איזו כבודה תרצו לקחת?")
+FLIGHTS_STATE_NO_GAPS = dict(FLIGHTS_STATE, budget_per_person={"amount": 3000})
+check("active_session set but genuinely no gap left (the session is about "
+      "to close) - the question is dropped, the earlier statement kept",
+      chat._enforce_one_option_question(
+          "מעולה, הכל ידוע. עוד שאלה סתם, X או Y?", FLIGHTS_STATE_NO_GAPS,
+      ) == "מעולה, הכל ידוע.")
+check("same no-gap case with no leading statement at all - returns the "
+      "original reply unchanged rather than emitting an empty string",
+      chat._enforce_one_option_question("X או Y?", FLIGHTS_STATE_NO_GAPS) == "X או Y?")
 
 
 # === Bug 3: explicit gender hint ===
@@ -242,10 +314,11 @@ check("end-to-end via _call_tinkerbell: V3's exact bad reply comes back fixed, "
       e2e_reply == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
 
 e2e_baggage_reply, _ = _captured_system_dynamic(
-    "היי", {"destination": {"places": ["אתונה"]}},
+    "היי", dict(FLIGHTS_STATE_BAGGAGE_OPEN),
     "כל אחת מכן לוקחת רק תיק קטן, או שיש גם מזוודות?",
 )
-check("end-to-end via _call_tinkerbell: V4's exact bad baggage reply comes back fixed",
+check("end-to-end via _call_tinkerbell: V4's exact bad baggage reply comes "
+      "back fixed, with a real flights-domain baggage gap open",
       e2e_baggage_reply == "איזו כבודה תרצו לקחת?")
 
 _, sd_male = _captured_system_dynamic(
@@ -265,12 +338,11 @@ check("end-to-end via _call_tinkerbell: no gender hint text leaks in when "
 
 # === Stage-1 run-4 (Shaked, 17.10.2026, 4234cb8, 4/5 on 9f0c7db): W2/Paris ===
 
-check("run-4's exact live budget question (W2, Paris) - not caught on "
-      "9f0c7db since the topic table didn't exist there yet - is already "
-      "fixed on this branch via the budget topic rule",
+check("run-4's exact live budget question (W2, Paris) resolves correctly "
+      "once the state-driven redesign is in place",
       chat._enforce_one_option_question(
-          "יש לכם תקציב מסוים לאדם לטיסה, או שנחפש את המחיר הכי טוב שיש?", {}
-      ) == "מה התקציב שלך לאדם לטיסה?")
+          "יש לכם תקציב מסוים לאדם לטיסה, או שנחפש את המחיר הכי טוב שיש?", FLIGHTS_STATE,
+      ) == "מה התקציב שלכם לאדם לטיסה?")
 check("run-4 bug 2: the summary instruction now dictates the exact "
       "phrasing for a known 'אין העדפה' connection_preference, forbidding "
       "the misleading 'בהתאם לזמינות בפועל' paraphrase the live reply used "

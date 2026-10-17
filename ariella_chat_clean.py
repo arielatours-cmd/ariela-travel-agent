@@ -2196,8 +2196,12 @@ def _flight_gap_question(gaps, state=None):
     if "budget_per_person" in gaps:
         # Open question - "no budget limit" is still a perfectly natural
         # free-form answer, already recognized regardless of how the
-        # question was phrased (see _deterministic_budget_facts).
-        return "מה התקציב שלך לאדם לטיסה?"
+        # question was phrased (see _deterministic_budget_facts). Plural
+        # ("שלכם", not "שלך") per Shaked's stage-1 run-4 review - this is a
+        # generic fixed text reused for any party size, matching every
+        # other fixed question in this file (_GAP_QUESTION_TEXT etc.), not
+        # a free-generated line addressed to one known customer.
+        return "מה התקציב שלכם לאדם לטיסה?"
     if "departure_airport" in gaps:
         return _departure_question(state)
     if "trip_type" in gaps:
@@ -2215,8 +2219,9 @@ def _flight_gap_question(gaps, state=None):
         return "חסר לי הגיל של הילד/ה בהרכב הנוסעים. מה הגיל?"
     if "flight.connection_preference" in gaps:
         # Single-option yes/no - matches _deterministic_connection_
-        # preference_facts' own gate exactly.
-        return "חשוב לך שהטיסה תהיה ישירה?"
+        # preference_facts' own gate exactly. Plural per Shaked's stage-1
+        # run-4 review, same reasoning as budget_per_person above.
+        return "חשוב לכם שהטיסה תהיה ישירה?"
     if "flight.baggage" in gaps:
         # Open question - the three canonical storage values are still the
         # only ones ever written to flight.baggage (see _baggage_answer_
@@ -4927,26 +4932,6 @@ _OFFER_DOMAIN_QUESTIONS = {
 }
 
 
-# Per the business owner (relayed by Shlomo, PR #59 review): ANY "X או Y"
-# question is a rule violation, in every service - not just baggage and
-# the next-domain offer. "מלון, דירה או וילה?" is just as much a violation
-# as "טרולי, מזוודה, או תיק קטן?"; both name their options inside a closed
-# multiple-choice instead of asking one open question. Topic keywords map
-# to the one real open/yes-no question already approved for that gap
-# elsewhere in this file (_GAP_QUESTION_TEXT, _flight_gap_question) -
-# checked in this order (most specific first) so a question that mixes
-# two topics (a car question that happens to mention "מזוודות" - exactly
-# Shaked's PR #59 finding) resolves to the one it's actually about.
-_TOPIC_QUESTION_RULES = (
-    (("תקציב",), "מה התקציב שלך לאדם לטיסה?"),
-    (("ישירה", "ישיר"), "חשוב לך שהטיסה תהיה ישירה?"),
-    (("רכב",), "איזה סוג/גודל רכב מתאים לכם?"),
-    (("כבוד", "מזווד", "טרולי", "תיק קטן"), "איזו כבודה תרצו לקחת?"),
-    (("לינה", "מלון", "דירה", "וילה"), "איזה סוג לינה מתאים לכם?"),
-    (("מסלול", "קצב"), "ספרו לי מה אתם אוהבים לעשות בחופשה."),
-)
-
-
 def _enforce_one_option_question(reply, state):
     """The one-question/never-"X או Y" rule (see TINKERBELL_SYSTEM's own
     opening principle) is stated as a free-text instruction, which isn't
@@ -4955,15 +4940,29 @@ def _enforce_one_option_question(reply, state):
     קטן, או שיש גם מזוודות?") on an ordinary first ask, and offering
     trip_planning as the next session skipped the plain yes/no entirely in
     favor of diving into route content ("יש לך רעיון למסלול..., או שתרצי
-    שאציע לך מסלול מגוון?"). Both are narrow, well-defined moments with an
-    already-approved fixed phrasing used elsewhere - when the model's own
-    last question violates the rule, swap just that question clause for
-    the fixed text, leaving any earlier statement sentence in the same
-    reply untouched. Checks the next-domain offer first (state-driven,
-    exact), then falls back to topic keywords (_TOPIC_QUESTION_RULES) for
-    any other "X או Y" violation, in any service - per the business owner,
-    the rule is not baggage-specific. A reply whose topic matches none of
-    the known keywords is left as-is rather than guessing a fallback."""
+    שאציע לך מסלול מגוון?").
+
+    First version (per the business owner, relayed by Shlomo, PR #59
+    review) generalized this to a fixed topic-keyword table covering every
+    service. Per Shaked's own review of THAT version: keyword matching is
+    exactly as unreliable as free generation, just differently so - a
+    lodging question mentioning "רכב"/"חניה" (car parking) or "מזוודות"
+    (suitcase-space) got rewritten into the wrong domain's question
+    entirely, and a car pickup-location question got rewritten into "what
+    vehicle type" - a question already answered, risking an actual loop.
+    Replaced with the state itself: when active_session names a real
+    session, the fixed text is the one _session_gaps(state, active_session)
+    actually still needs for THAT session - the exact field the real
+    missing_required pipeline would ask about next, never guessed from
+    words that merely appear in the model's own (already-wrong) phrasing.
+    flights reuses _flight_gap_question's own richer field->question
+    mapping (covers budget/baggage/connection_preference, not just
+    _GAP_QUESTION_TEXT's simpler domains); lodging/car/trip_planning use
+    _GAP_QUESTION_TEXT directly. If active_session genuinely has no mapped
+    gap left (the session would already be closing), the question clause
+    is dropped rather than guessed - any earlier statement sentence in the
+    reply is kept. The one state-driven case that predates this redesign
+    (the next-domain offer, when nothing is active yet) is unchanged."""
     text = str(reply or "")
     qpos = text.rfind("?")
     if qpos == -1:
@@ -4977,11 +4976,13 @@ def _enforce_one_option_question(reply, state):
     if " או " not in last_q:
         return reply
 
+    state = state if isinstance(state, dict) else {}
     fixed = None
-    offered = (state or {}).get("post_flight_offer") if isinstance(state, dict) else None
+    offered = state.get("post_flight_offer")
+    active_session = state.get("active_session")
     if (
         isinstance(offered, list) and offered and offered[0] in _OFFER_DOMAIN_QUESTIONS
-        and not (state or {}).get("active_session")
+        and not active_session
     ):
         # Per Shaked's PR #59 review: post_flight_offer should never legally
         # list more than one domain (rule 112 - ask about exactly one
@@ -4989,14 +4990,15 @@ def _enforce_one_option_question(reply, state):
         # illegal double offer down to the first domain in order, rather
         # than leaving the "X או Y" violation untouched.
         fixed = _OFFER_DOMAIN_QUESTIONS[offered[0]]
-    else:
-        for keywords, question in _TOPIC_QUESTION_RULES:
-            if any(w in last_q for w in keywords):
-                fixed = question
-                break
-    if not fixed:
-        return reply
+    elif active_session in ("flights", "lodging", "car", "trip_planning"):
+        gaps = _session_gaps(state, active_session)
+        if active_session == "flights":
+            fixed = _flight_gap_question(gaps, state) if gaps else None
+        else:
+            fixed = next((_GAP_QUESTION_TEXT[g] for g in gaps if g in _GAP_QUESTION_TEXT), None)
     prefix = text[:start].strip()
+    if not fixed:
+        return prefix if prefix else reply
     return f"{prefix} {fixed}".strip() if prefix else fixed
 
 
