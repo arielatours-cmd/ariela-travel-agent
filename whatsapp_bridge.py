@@ -20,6 +20,7 @@ stands in for them instead.
 from __future__ import annotations
 
 import logging
+import time
 
 from config import PUBLIC_BASE_URL
 from database import (
@@ -63,6 +64,52 @@ def _post_json(client, path: str, payload: dict) -> dict:
         return {"_http_status": 0}
 
 
+def _get_json(client, path: str) -> dict:
+    try:
+        resp = client.get(path)
+        data = resp.get_json(silent=True) or {}
+        data["_http_status"] = resp.status_code
+        return data
+    except Exception:
+        log.exception("WhatsApp bridge: GET %s failed", path)
+        return {"_http_status": 0}
+
+
+def _poll_and_send_route_build(client, phone: str, phone_hash_val: str, job_id: int) -> None:
+    """Task 016a Stage 4: the webhook that eventually called us is already
+    fully async (whatsapp.py's own inbound handler answers Meta immediately
+    and does all real work, this included, in a background thread - see
+    that module's own docstring/comment), so there is no HTTP-timeout
+    pressure here. Blocking THIS thread until the background route-build
+    job finishes is therefore safe and simple: no separate outbound queue
+    or second webhook round-trip needed, unlike the website (which can't
+    hold its own HTTP response open past Cloudflare's ~30s edge limit).
+
+    Sends the real route as its own message once ready, mirroring Ofek's
+    spec section 4 (_reply_and_log + _split_for_whatsapp, via the existing
+    helper - never a second, parallel implementation of WhatsApp sending).
+    If the 24h customer-initiated reply window has somehow closed by the
+    time this finishes (not expected - the real build takes minutes, not
+    hours), _reply_and_log's own existing error handling already logs the
+    failure and the route stays saved in the conversation (the background
+    job already persisted it via _run_chat_turn_engine, independent of
+    whether this send succeeds) - no separate handling needed here."""
+    from whatsapp import _reply_and_log
+    from ariella_chat_clean import _ROUTE_BUILD_TIMEOUT_SECONDS
+
+    deadline = time.time() + _ROUTE_BUILD_TIMEOUT_SECONDS
+    while time.time() < deadline:
+        data = _get_json(client, f"/api/ariella/route-status/{job_id}")
+        if data.get("status") == "ready":
+            reply = str(data.get("reply") or "").strip() or "המסלול מוכן!"
+            _reply_and_log(phone, phone_hash_val, reply)
+            return
+        if (data.get("stages") or {}).get("plan") == "failed":
+            break
+        time.sleep(2)
+    _reply_and_log(phone, phone_hash_val, "היה קושי בבניית המסלול. אפשר לכתוב \"תציעי מסלול\" כדי לנסות שוב.")
+
+
 def _waiting_link(waiting_url: str | None) -> str:
     if not waiting_url:
         return ""
@@ -98,10 +145,17 @@ def _sync_post_flight(client, member_id: int, trip_id: int, trip_update: dict, h
     return f"\n\nהחופשה שלך מוכנה - אפשר לראות את הפרטים כאן: {link}" if link else ""
 
 
-def ariella_turn(member_id: int, message: str) -> str:
+def ariella_turn(member_id: int, message: str, phone: str | None = None) -> str | None:
     """One WhatsApp turn through Ariella's real chat-clean engine. Never
     raises - any failure returns a short apology so the customer always gets
-    *some* reply, matching the rest of nova_conversation.py's own style."""
+    *some* reply, matching the rest of nova_conversation.py's own style.
+
+    Returns None only for task 016a's route-build turns (ROUTE_BUILD_ASYNC):
+    those send the quick ack AND the eventual real route as two separate
+    messages themselves (_poll_and_send_route_build), since the two are
+    minutes apart - a single string return, sent once by the caller, can't
+    represent that. The caller (whatsapp.py's _process_one_message) must
+    skip its own reply-send when this returns None."""
     try:
         saved = load_ariella_conversation(member_id) or {}
         history = saved.get("history") or []
@@ -121,6 +175,17 @@ def ariella_turn(member_id: int, message: str) -> str:
             {"role": "user", "content": message},
             {"role": "assistant", "content": reply},
         ]
+
+        route_build_job_id = data.get("route_build_job_id")
+        if route_build_job_id and phone:
+            from whatsapp import _reply_and_log, _phone_hash_for_log
+            phone_hash_val = _phone_hash_for_log(phone)
+            # reply here is only the quick ack (Stage 2) - sent as its own
+            # free-form message now; the real route follows once the
+            # background job finishes, as a second message.
+            _reply_and_log(phone, phone_hash_val, reply)
+            _poll_and_send_route_build(client, phone, phone_hash_val, route_build_job_id)
+            return None
 
         if data.get("reopen_trip_id"):
             set_whatsapp_active_trip(member_id, int(data["reopen_trip_id"]))

@@ -577,7 +577,7 @@ def _maybe_capture_feedback_comment(member_id: int, text: str) -> str | None:
     return None
 
 
-def route_inbound(phone: str, text: str, profile_name: str = "", button_payload: str | None = None) -> str:
+def route_inbound(phone: str, text: str, profile_name: str = "", button_payload: str | None = None) -> str | None:
     """Route one verified inbound WhatsApp text message. button_payload (a
     WhatsApp quick-reply button click) is checked before any other routing -
     a button press is never free text to interpret."""
@@ -603,7 +603,7 @@ def route_inbound(phone: str, text: str, profile_name: str = "", button_payload:
         comment_reply = _maybe_capture_feedback_comment(member_id, text)
         if comment_reply is not None:
             return comment_reply
-        return _route_member(member_id, text)
+        return _route_member(member_id, text, phone)
 
     # 2) Before any browser handoff semantics, identify by registered phone.
     registered_id = registered_member_for_phone(phone)
@@ -620,7 +620,7 @@ def route_inbound(phone: str, text: str, profile_name: str = "", button_payload:
     return _start_onboarding(phone, profile_name)
 
 
-def _route_member(member_id: int, text: str) -> str:
+def _route_member(member_id: int, text: str, phone: str | None = None) -> str | None:
     """Task 006a: only the two explicit, zero-ambiguity utility commands
     stay deterministic here - everything else (greetings, "חופשה חדשה",
     free text, numbered menu choices from before Ariella's own engine was
@@ -645,4 +645,4 @@ def _route_member(member_id: int, text: str) -> str:
         return menu_text(member_id)
 
     from whatsapp_bridge import ariella_turn
-    return ariella_turn(member_id, text)
+    return ariella_turn(member_id, text, phone)

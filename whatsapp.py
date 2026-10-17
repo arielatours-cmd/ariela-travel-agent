@@ -529,7 +529,12 @@ def _process_one_message(message: dict, profile_name: str) -> None:
         log.exception("WhatsApp inbound: route_inbound failed")
         reply = "קרתה תקלה זמנית, ננסה שוב בעוד רגע 🙏"
 
-    _reply_and_log(phone, phone_hash_val, reply)
+    # Task 016a (ROUTE_BUILD_ASYNC): None means ariella_turn already sent
+    # both the quick ack and (once ready) the real route itself, as two
+    # separate messages minutes apart - never send a third, empty-text one
+    # here.
+    if reply is not None:
+        _reply_and_log(phone, phone_hash_val, reply)
 
 
 def _process_change_value(value: dict) -> None:
