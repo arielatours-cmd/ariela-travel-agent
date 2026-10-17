@@ -139,6 +139,99 @@ check("a known numeric budget amount (not unlimited) is completed the "
       ))
 
 
+# === Shaked's stage-2 run-5 finding (London, 4/5, ba101e4): a budget
+#     line that IS present but names the WRONG currency ===
+
+check("_flight_budget_line renders a Hebrew-friendly currency name, "
+      "never the bare 3-letter code",
+      chat._flight_budget_line({"amount": 250, "currency": "GBP"}) == "תקציב לאדם: 250 פאונד"
+      and chat._flight_budget_line({"amount": 500, "currency": "EUR"}) == "תקציב לאדם: 500 יורו"
+      and chat._flight_budget_line({"amount": 300, "currency": "USD"}) == "תקציב לאדם: 300 דולר")
+check("_flight_budget_line stays backward compatible with an already-"
+      "symbol currency value (e.g. '₪' itself, not a 3-letter code)",
+      chat._flight_budget_line({"amount": 1500, "currency": "₪"}) == "תקציב לאדם: 1500 ₪")
+
+check("Shaked's exact stage-2 run-5 repro (London, ba101e4): the "
+      "customer said 'עד 250 פאונד' (GBP), but the summary wrote the "
+      "ILS symbol ('תקציב: עד 250 ₪ לאדם') - the wrong-currency line is "
+      "replaced with the correct one, in the same place it already was",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: יעד לונדון. תקציב: עד 250 ₪ לאדם. אם כל הפרטים נכונים, כתבי מאשרת.",
+          {"budget_per_person": {"amount": 250, "currency": "GBP"}, "user_gender": "female"},
+      ) == "הסיכום: יעד לונדון. תקציב לאדם: 250 פאונד. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("the same currency-mismatch fix applies to EUR too",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: יעד פריז. תקציב: עד 500 ₪ לאדם. אם כל הפרטים נכונים, כתבי מאשרת.",
+          {"budget_per_person": {"amount": 500, "currency": "EUR"}, "user_gender": "female"},
+      ) == "הסיכום: יעד פריז. תקציב לאדם: 500 יורו. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("a budget line that ALREADY names the correct currency is left "
+      "completely untouched - no false positive on the real fix",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: יעד לונדון. תקציב לאדם: 250 פאונד. אם כל הפרטים נכונים, כתבי מאשרת.",
+          {"budget_per_person": {"amount": 250, "currency": "GBP"}, "user_gender": "female"},
+      ) == "הסיכום: יעד לונדון. תקציב לאדם: 250 פאונד. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("a correct ILS budget line (using the ₪ symbol) is never flagged "
+      "as a mismatch against itself",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: יעד תל אביב. תקציב לאדם: 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.",
+          {"budget_per_person": {"amount": 1500, "currency": "ILS"}, "user_gender": "female"},
+      ) == "הסיכום: יעד תל אביב. תקציב לאדם: 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("a correct GBP budget line using 'ליש\"ט' (the other recognized "
+      "GBP marker, not 'פאונד') is also recognized as already correct",
+      "ליש" in chat._ensure_flight_summary_completeness(
+          'הסיכום: תקציב לאדם: 250 ליש"ט. אם כל הפרטים נכונים, כתבי מאשרת.',
+          {"budget_per_person": {"amount": 250, "currency": "GBP"}, "user_gender": "female"},
+      ))
+
+
+# === Shaked's PR #70 review (same day): the flight-budget scope must
+#     never match lodging/car's OWN budget line ===
+
+BUDGET_WITH_LODGING_STATE = {"budget_per_person": {"amount": 1500, "currency": "ILS"}, "user_gender": "female"}
+check("Shaked's exact PR #70 review repro 1: the flight budget is "
+      "genuinely MISSING from the summary, but a lodging budget line "
+      "('תקציב ללינה: עד 200 יורו ללילה') IS present - the old bare "
+      "'תקציב' substring check wrongly treated the flight budget as "
+      "already covered, and the currency-mismatch fix then destroyed "
+      "the lodging line entirely (replacing it with the flight's). Both "
+      "lines must now survive, in the correct place",
+      (lambda fixed: "תקציב ללינה: עד 200 יורו ללילה" in fixed
+       and "תקציב לאדם: 1500 שקלים" in fixed)(
+          chat._ensure_flight_summary_completeness(
+              "הסיכום: יעד X. תקציב ללינה: עד 200 יורו ללילה. אם כל הפרטים נכונים, כתבי מאשרת.",
+              BUDGET_WITH_LODGING_STATE,
+          )
+      ))
+check("Shaked's exact PR #70 review repro 2: the lodging budget line "
+      "comes BEFORE the flight's own (already-correct) budget line - "
+      "the lodging line must survive completely untouched, and the "
+      "already-correct flight line is never duplicated or replaced",
+      chat._ensure_flight_summary_completeness(
+          "הסיכום: לינה: מלון, תקציב עד 200 יורו ללילה. טיסה: טרולי לכל נוסע, "
+          "תקציב 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.",
+          BUDGET_WITH_LODGING_STATE,
+      ) == "הסיכום: לינה: מלון, תקציב עד 200 יורו ללילה. טיסה: טרולי לכל נוסע, "
+           "תקציב 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.")
+check("Shaked's carried-over #68 baggage finding: 'טיסה: טרולי לכל "
+      "נוסע, תקציב 1500 ₪' never says the literal word 'כבודה', but DOES "
+      "name the baggage value itself ('טרולי') - no second, "
+      "contradicting 'כבודה: טרולי בלבד' line is added",
+      "כבודה: טרולי בלבד" not in chat._ensure_flight_summary_completeness(
+          "טיסה: טרולי לכל נוסע, תקציב 1500 ₪. אם כל הפרטים נכונים, כתבי מאשרת.",
+          dict(BUDGET_WITH_LODGING_STATE, flight={"baggage": ["carry_on_only"]}),
+      ))
+check("a car budget line ('תקציב לרכב: עד 150 ליום') is also correctly "
+      "excluded from the flight-budget scope - the missing flight "
+      "budget still gets added, the car line survives",
+      (lambda fixed: "תקציב לרכב: עד 150 ליום" in fixed
+       and "תקציב לאדם: 1500 שקלים" in fixed)(
+          chat._ensure_flight_summary_completeness(
+              "הסיכום: תקציב לרכב: עד 150 ליום. אם כל הפרטים נכונים, כתבי מאשרת.",
+              BUDGET_WITH_LODGING_STATE,
+          )
+      ))
+
+
 # === End-to-end via _call_tinkerbell: the fix actually applies to a real
 #     model reply, not just the unit-level function ===
 
@@ -158,6 +251,24 @@ check("end-to-end via _call_tinkerbell: Shaked's exact stage-2 run-4 "
       "back with 'תקציב: ללא הגבלה' through the real reply pipeline, not "
       "just the unit-level function",
       "תקציב: ללא הגבלה" in e2e_reply)
+
+
+def _fake_post_claude_wrong_currency(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return "{}"
+    return "הסיכום: יעד לונדון. תקציב: עד 250 ₪ לאדם. אם כל הפרטים נכונים, כתבי מאשרת."
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_wrong_currency):
+    e2e_currency_reply = chat._call_tinkerbell(
+        "test-key", "test-model", [], "עד 250 פאונד",
+        {"budget_per_person": {"amount": 250, "currency": "GBP"}, "user_gender": "female"},
+    )
+check("end-to-end via _call_tinkerbell: Shaked's exact stage-2 run-5 "
+      "repro (London) - a model reply that names the wrong currency - "
+      "comes back with the correct 'תקציב לאדם: 250 פאונד' through the "
+      "real reply pipeline, not just the unit-level function",
+      "תקציב לאדם: 250 פאונד" in e2e_currency_reply and "₪" not in e2e_currency_reply)
 
 
 if FAILED:
