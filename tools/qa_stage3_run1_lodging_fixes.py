@@ -56,9 +56,22 @@
    be asked more than twice in the same conversation. Fixed with a
    deterministic safety net (_apply_lodging_ask_limit_fallback) that counts
    how many prior assistant turns already asked about a given still-open
-   lodging gap (reusing each gap's own existing cue words) and, once that
-   reaches 2, force-closes it with the same "אין העדפה" sentinel a genuine
-   no-preference answer already uses everywhere downstream.
+   lodging gap and, once that reaches 2, force-closes it.
+
+   Shaked's review of the FIRST version of #6 (real Paris history, s3a2):
+   checking the cue word anywhere in the whole assistant message false-
+   positived on ordinary non-question narrative text (a route proposal's
+   own "...במלון באזור מרכזי", and a plain recommendation sentence with NO
+   "?" at all) - lodging.details.locations got force-closed as "אין
+   העדפה" WITHOUT EVER ACTUALLY BEING ASKED, the exact Rome bug (#3) this
+   PR exists to fix, just reached a different way. Fixed: only the
+   message's own real question clause counts (via _last_question_clause),
+   and a message with no "?" at all is skipped entirely. Also, per Shaked
+   and Shlomo together: force-closing to "אין העדפה" when the customer
+   genuinely replied something (just not in a shape the field's own parser
+   recognized) throws that answer away - the raw reply text right after
+   the LAST matched question is now saved as the field's value instead;
+   "אין העדפה" is reserved for when there truly was no reply at all.
 
 Run: python3 tools/qa_stage3_run1_lodging_fixes.py
 """
@@ -257,14 +270,18 @@ check("regression (PR #72): a parenthetical example-list open question "
 
 
 # === Shlomo's follow-up: deterministic "never ask the same field more
-#     than twice" safety net, independent of any one field's own parser ===
+#     than twice" safety net, independent of any one field's own parser.
+#     Fixed per Shaked's PR #73 review (real Paris history, s3a2): only the
+#     message's own real question clause counts (never a narrative mention
+#     with no "?" at all), and a genuine customer reply after the last ask
+#     is saved as raw text rather than overwritten as "אין העדפה" ===
 
-def _history_asking_twice(question_text):
+def _history_asking_twice(question_text, last_reply="עדיין לא ברור"):
     return [
         {"role": "assistant", "content": question_text},
         {"role": "user", "content": "משהו שלא נקלט"},
         {"role": "assistant", "content": question_text},
-        {"role": "user", "content": "עדיין לא נקלט"},
+        {"role": "user", "content": last_reply},
     ]
 
 
@@ -273,20 +290,35 @@ state_budget_loop = {
     "lodging": {"details": {"type": "מלון", "rooms": 2, "locations": "מרכז"}},
 }
 out_budget_loop = chat._apply_lodging_ask_limit_fallback(
-    state_budget_loop, _history_asking_twice("מה התקציב שלכם ללילה?"))
-check("Shlomo's follow-up: the lodging budget question asked twice without "
-      "a captured answer force-closes via level='אין העדפה' (Paris hit 13x)",
-      out_budget_loop["lodging"]["details"].get("level") == "אין העדפה")
+    state_budget_loop, _history_asking_twice("מה התקציב שלכם ללילה?", "בערך 400 איכשהו"))
+check("Shlomo's follow-up: the lodging budget question asked twice saves "
+      "the customer's own raw last reply rather than guessing/discarding it "
+      "(Paris hit 13x)",
+      out_budget_loop["lodging"]["details"].get("level") == "בערך 400 איכשהו")
 
 state_rooms_loop = {
     "requested_services": ["lodging"], "session_status": {},
     "lodging": {"details": {"type": "מלון", "locations": "מרכז", "level": "אין העדפה"}},
 }
 out_rooms_loop = chat._apply_lodging_ask_limit_fallback(
-    state_rooms_loop, _history_asking_twice("כמה חדרים תרצו?"))
-check("Shlomo's follow-up: 'כמה חדרים תרצו?' asked twice force-closes rooms "
-      "(Budapest hit 4x)",
-      out_rooms_loop["lodging"]["details"].get("rooms") == "אין העדפה")
+    state_rooms_loop, _history_asking_twice("כמה חדרים תרצו?", "לא בטוחה כמה בדיוק"))
+check("Shlomo's follow-up: 'כמה חדרים תרצו?' asked twice saves the raw "
+      "last reply into rooms (Budapest hit 4x)",
+      out_rooms_loop["lodging"]["details"].get("rooms") == "לא בטוחה כמה בדיוק")
+
+state_no_reply = {
+    "requested_services": ["lodging"], "session_status": {},
+    "lodging": {"details": {"type": "מלון", "rooms": 2, "locations": "מרכז"}},
+}
+out_no_reply = chat._apply_lodging_ask_limit_fallback(
+    state_no_reply, [
+        {"role": "assistant", "content": "מה התקציב שלכם ללילה?"},
+        {"role": "user", "content": ""},
+        {"role": "assistant", "content": "מה התקציב שלכם ללילה?"},
+    ])
+check("Shlomo's follow-up: 'אין העדפה' is still the fallback when the "
+      "customer truly never replied to the last ask at all",
+      out_no_reply["lodging"]["details"].get("level") == "אין העדפה")
 
 state_once = {
     "requested_services": ["lodging"], "session_status": {},
@@ -308,6 +340,48 @@ check("regression: a gap that's already genuinely closed (real budget set) "
       "is never touched even if the question text appears twice in history",
       out_already["lodging"]["details"].get("budget") == 400
       and "level" not in out_already["lodging"]["details"])
+
+# === Shaked's exact PR #73 review repro: a route proposal's own narrative
+#     text ("...במלון באזור מרכזי") and a plain non-question recommendation
+#     ("הכי הגיוני להישאר באזור מרכזי אחד", no "?" at all) must NEVER be
+#     counted as if they were real "where do you want to stay" questions -
+#     this is the exact mechanism that silently force-closed
+#     lodging.details.locations in Paris (s3a2) without it ever being asked ===
+
+state_paris_repro = {
+    "requested_services": ["lodging", "trip_planning"], "session_status": {},
+    "lodging": {"details": {"type": "דירה", "rooms": 2, "level": "אין העדפה"}},
+}
+history_paris_repro = [
+    {"role": "assistant", "content": "הנה הצעה למסלול: יום 1 - שיטוט במרכז העיר, "
+                                      "התארגנות במלון באזור מרכזי. המסלול מתאים לכם?"},
+    {"role": "user", "content": "כן, מתאים"},
+    {"role": "assistant", "content": "מעולה. בפריז, עם כל האטרקציות הפזורות במרכז, "
+                                      "הכי הגיוני להישאר באזור מרכזי אחד."},
+    {"role": "user", "content": "סבבה"},
+]
+out_paris_repro = chat._apply_lodging_ask_limit_fallback(state_paris_repro, history_paris_repro)
+check("Shaked's PR #73 review repro: a route narrative mentioning 'אזור' "
+      "(inside its own question about the ROUTE, not lodging) and a "
+      "recommendation sentence with NO '?' at all never force-close "
+      "lodging.details.locations - it still isn't genuinely asked",
+      "locations" not in out_paris_repro["lodging"]["details"])
+
+state_rome_repro = {
+    "requested_services": ["lodging"], "session_status": {},
+    "lodging": {"details": {"type": "מלון", "rooms": 2}},
+}
+history_rome_repro = [
+    {"role": "assistant", "content": "תקציב הטיסה עד 2000 ש״ח, והחופשה כוללת 4 לילות ברומא. "
+                                      "חשוב לכם טיסה ישירה?"},
+    {"role": "user", "content": "כן"},
+]
+out_rome_repro = chat._apply_lodging_ask_limit_fallback(state_rome_repro, history_rome_repro)
+check("regression: 'תקציב הטיסה... 4 לילות' (both cue words present, but "
+      "in an earlier STATEMENT clause, not the actual question asked - a "
+      "direct-flight question) never force-closes the lodging budget gap",
+      "level" not in out_rome_repro["lodging"]["details"]
+      and "budget" not in out_rome_repro["lodging"]["details"])
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

@@ -1756,37 +1756,68 @@ def _apply_lodging_ask_limit_fallback(state, history):
     deterministic parser, with nothing else to stop the same question
     being asked again and again. Rather than keep chasing every possible
     phrasing one bug report at a time, this counts how many PRIOR assistant
-    turns already asked about a given still-open gap (reusing the exact
-    cue words each gap's own parser gates on above) and, once that count
-    reaches 2, force-closes the gap with the same "אין העדפה" ("no
-    preference"/flexible) sentinel _deterministic_lodging_facts already
-    writes for a genuine no-preference answer - never a guessed real value,
-    and already handled correctly everywhere downstream (closes
-    missing_required, degrades to a sane default in the real search call,
-    and is described in natural language by the free-text summary)."""
+    turns already ASKED about a given still-open gap and, once that count
+    reaches 2, force-closes it - but never with a guessed real value.
+
+    Per Shaked's review of the FIRST version (real Paris history, s3a2):
+    checking the cue word anywhere in the whole assistant message false-
+    positived on ordinary non-question text that merely mentions the same
+    word - a day-by-day route proposal's own narrative ("...במלון באזור
+    מרכזי") and a plain recommendation sentence with no "?" at all ("הכי
+    הגיוני להישאר באזור מרכזי אחד") both got counted as if they were real
+    "where do you want to stay" questions, so lodging.details.locations
+    was force-closed as "אין העדפה" WITHOUT EVER ACTUALLY BEING ASKED -
+    exactly the Rome bug this whole PR exists to fix, just reached a
+    different way. Fixed: only ever look at the message's own real
+    question clause (_last_question_clause - the same "what was actually
+    asked" scoping _deterministic_lodging_facts's own asked_* gates already
+    use), and skip any message with no "?" at all entirely rather than
+    falling back to treating its last sentence as a question.
+
+    Per the same review, and Shlomo's follow-up: force-closing to "אין
+    העדפה" when the customer genuinely answered something (just not in a
+    shape the field's own parser recognized) throws that answer away and
+    shows "no preference" in the final summary for a preference she did
+    state. When the user turn right after the LAST matched question has
+    real content, that raw text is saved as the field's value instead -
+    "אין העדפה" is reserved for when there truly was no reply to react to
+    at all."""
     state = state if isinstance(state, dict) else {}
     if "lodging" not in (state.get("requested_services") or []):
         return state
     gaps = set(_session_gaps(state, "lodging"))
     if not gaps:
         return state
-    assistant_msgs = [
-        str(m.get("content") or "") for m in (history or [])
-        if isinstance(m, dict) and str(m.get("role") or "").lower() == "assistant"
-    ]
-    if not assistant_msgs:
-        return state
+    history = history or []
     lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
     details = dict(lodging.get("details") or {})
     changed = False
     for gap, asked_in in _LODGING_GAP_ASKED_IN_MESSAGE.items():
         if gap not in gaps:
             continue
-        count = sum(1 for m in assistant_msgs if asked_in(m))
-        if count >= 2:
-            field = "level" if gap == "lodging.details.budget_or_level" else gap.split(".")[-1]
-            details[field] = "אין העדפה"
-            changed = True
+        last_match_i = None
+        count = 0
+        for i, m in enumerate(history):
+            if not (isinstance(m, dict) and str(m.get("role") or "").lower() == "assistant"):
+                continue
+            content = str(m.get("content") or "")
+            if "?" not in content:
+                continue
+            if asked_in(_last_question_clause(content)):
+                count += 1
+                last_match_i = i
+        if count < 2:
+            continue
+        field = "level" if gap == "lodging.details.budget_or_level" else gap.split(".")[-1]
+        reply = None
+        if last_match_i is not None and last_match_i + 1 < len(history):
+            nxt = history[last_match_i + 1]
+            if isinstance(nxt, dict) and str(nxt.get("role") or "").lower() == "user":
+                reply_text = str(nxt.get("content") or "").strip()
+                if reply_text:
+                    reply = reply_text
+        details[field] = reply if reply else "אין העדפה"
+        changed = True
     if not changed:
         return state
     state = dict(state)
