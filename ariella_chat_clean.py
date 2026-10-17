@@ -11513,3 +11513,39 @@ def _run_chat_turn_engine(member_id, message, history, trip_state, channel=None)
         'trip_state_reset': trip_state_reset,
         'resolved_trip_state': resolved_trip_state,
     })
+
+
+@ariella_chat_clean.get('/api/ariella/route-status/<int:job_id>')
+def route_build_status(job_id):
+    """Task 016a Stage 3: polling endpoint for a background route build,
+    mirroring /trip/<id>/flight-status's own {status, stages:{...}} shape
+    (trip_flight_status, public_site.py) so the in-chat indicator can reuse
+    the same polling idea trip_waiting.html already uses. There is no
+    trip_id yet at this point (the route hasn't been approved/saved as a
+    trip) - a job belongs to the member directly, so membership is checked
+    against route_jobs.member_id instead.
+
+    A job still 'building' past its own 150s absolute timeout (Ofek's
+    spec, section 6) is reported as failed here even if the background
+    thread technically hasn't updated the row yet - the thread enforces
+    this on its own via the same budget, but the client must never be left
+    polling forever if that somehow lags."""
+    if not session.get('member_id'):
+        return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.'}), 401
+    job = get_route_job(job_id)
+    if not job or job.get('member_id') != session['member_id']:
+        return jsonify({'status': 'missing'}), 404
+
+    stage = {'ready': 'complete', 'failed': 'failed'}.get(job['status'], 'searching')
+    if stage == 'searching':
+        elapsed_seconds = (_minutes_since(job.get('started_at')) or 0) * 60
+        if elapsed_seconds >= _ROUTE_BUILD_TIMEOUT_SECONDS:
+            stage = 'failed'
+
+    response = {'status': job['status'], 'stages': {'plan': stage}, 'all_done': stage in ('complete', 'failed')}
+    if job['status'] == 'ready':
+        response['reply'] = job.get('result_reply') or ''
+        response['trip_update'] = job.get('result_trip_update') or {}
+    elif stage == 'failed':
+        response['error'] = job.get('error') or 'timeout'
+    return jsonify(response)
