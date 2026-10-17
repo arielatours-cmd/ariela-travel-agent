@@ -2,7 +2,6 @@ import hmac
 import html
 import logging
 import os
-import re
 import sqlite3
 import threading
 import time
@@ -343,60 +342,50 @@ def admin_logout():
     return resp
 
 
-_GUNICORN_CONFIG_CACHE = None
-
-
 def _detect_gunicorn_config():
-    """Read-only, best-effort detection of the gunicorn MASTER process's
-    actual --timeout/--threads flags, via /proc/*/cmdline. Seen live
-    (Shlomo, stage-2 run-4 502 investigation): a 502 during itinerary
-    building came back after exactly gunicorn's documented DEFAULT
-    timeout (30s), not the 120s render.yaml configures for this exact
-    scenario - strong evidence that file may not even be the one
-    actually applied to the live service (its own service name doesn't
-    match). Exposing the real, in-effect values directly answers that
-    without depending on manually checking Render's dashboard.
+    """Read the gunicorn worker's ACTUAL resolved --timeout/--threads,
+    as gunicorn/conf.py's post_worker_init hook recorded them into this
+    exact worker process's own environment right after gunicorn finished
+    computing them (worker.cfg.timeout/worker.cfg.threads) - never
+    re-derived from a command line.
 
-    A gunicorn worker is forked from the master, not exec'd, so the
-    worker process (this one) can still read the master's own cmdline
-    out of /proc - no secrets, no shelling out, just a few filesystem
-    reads. Cached after the first successful detection (the running
-    command line never changes without a restart, and re-scanning all of
-    /proc on every /health call would add latency for no benefit).
+    Per Shaked's PR #69 review (stage-2 run-4 502 investigation): an
+    earlier version of this function scanned /proc/*/cmdline instead, and
+    had two separate problems she caught by actually running the exact
+    command render.yaml specifies and testing against it. (1) gunicorn is
+    itself a Python script, so a PROCESS's cmdline[0] is the interpreter
+    path ("/usr/bin/python3"), not "gunicorn" - the old check ("gunicorn"
+    not in cmdline[0]) always skipped the real master process, and the
+    test's own mocked /proc data started directly with "gunicorn"
+    (unrealistic), hiding exactly this bug. (2) even fixed, a value set
+    via GUNICORN_CMD_ARGS, a short "-t"/"-w" flag, or a gunicorn.conf.py
+    setting never appears as a literal "--timeout"/"--threads" substring
+    in the command line at all - the function would have silently
+    reported the code's own hardcoded fallback (30/1) as if it were the
+    real value, exactly backwards on the one question this field exists
+    to answer.
 
-    Deliberately returns only the two parsed integers, never the raw
-    command line, a file path, or an environment variable. Any failure
-    (no /proc, permission denied, gunicorn not found, anything
-    unexpected) is reported as (None, None) - this must never be the
-    reason /health itself fails."""
-    global _GUNICORN_CONFIG_CACHE
-    if _GUNICORN_CONFIG_CACHE is not None:
-        return _GUNICORN_CONFIG_CACHE
-    timeout_val = None
-    threads_val = None
-    try:
-        for pid in os.listdir("/proc"):
-            if not pid.isdigit():
-                continue
-            try:
-                with open(f"/proc/{pid}/cmdline", "rb") as f:
-                    raw = f.read()
-            except OSError:
-                continue
-            cmdline = [p.decode("utf-8", "replace") for p in raw.split(b"\0") if p]
-            if not cmdline or "gunicorn" not in cmdline[0]:
-                continue
-            joined = " ".join(cmdline)
-            m = re.search(r"--timeout[=\s]+(\d+)", joined)
-            timeout_val = int(m.group(1)) if m else 30
-            m = re.search(r"--threads[=\s]+(\d+)", joined)
-            threads_val = int(m.group(1)) if m else 1
-            break
-    except Exception:
-        timeout_val = None
-        threads_val = None
-    _GUNICORN_CONFIG_CACHE = (timeout_val, threads_val)
-    return _GUNICORN_CONFIG_CACHE
+    gunicorn's own post_worker_init hook runs in this same worker process
+    after gunicorn has already resolved the real values from WHATEVER
+    source actually set them (CLI flag, env var, or config file) - there
+    is no more authoritative place to read them from. Requires gunicorn
+    to actually be invoked with --config gunicorn.conf.py (or -c) for the
+    hook to ever run; under the Flask dev server, or gunicorn invoked
+    without that flag, the two env vars are simply never set, and this
+    correctly reports (None, None) rather than guessing. Deliberately
+    returns only the two parsed integers, never a raw command line, a
+    file path, or any other environment variable. Any failure (bad/
+    missing env var, anything unexpected) is reported as (None, None) -
+    this must never be the reason /health itself fails."""
+    def _parse_int(raw):
+        try:
+            return int(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            return None
+    return (
+        _parse_int(os.getenv("ARIELLA_GUNICORN_TIMEOUT")),
+        _parse_int(os.getenv("ARIELLA_GUNICORN_THREADS")),
+    )
 
 
 @app.get("/health")
