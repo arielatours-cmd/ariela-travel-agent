@@ -549,6 +549,35 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_whatsapp_outbound_queue_created ON whatsapp_outbound_queue(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_whatsapp_outbound_queue_member ON whatsapp_outbound_queue(member_id);
 
+            -- Task 016a (ROUTE_BUILD_ASYNC): a full day-by-day itinerary
+            -- build runs in a background thread instead of inline in the
+            -- chat request, to survive the ~30s Render/Cloudflare edge
+            -- timeout. Recorded in the DB, not just an in-memory dict, so
+            -- a deploy/restart mid-build is detectable (status stays
+            -- 'building' with a stale started_at) rather than silently
+            -- losing the job. One open ('building') row per member_id at
+            -- a time - enforced in code (_queue_route_build), not by a
+            -- partial unique index, since SQLite's version here predates
+            -- reliable partial-index support in this project's style.
+            CREATE TABLE IF NOT EXISTS route_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                channel TEXT NOT NULL DEFAULT 'website',
+                status TEXT NOT NULL DEFAULT 'building',
+                attempt INTEGER NOT NULL DEFAULT 1,
+                message TEXT NOT NULL,
+                history_json TEXT NOT NULL,
+                trip_state_json TEXT NOT NULL,
+                queued_messages_json TEXT NOT NULL DEFAULT '[]',
+                result_reply TEXT,
+                result_trip_update_json TEXT,
+                error TEXT,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_route_jobs_member ON route_jobs(member_id, id DESC);
+
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 member_id INTEGER NOT NULL,
@@ -1972,6 +2001,144 @@ def clear_ariella_conversation(member_id: int) -> None:
         conn.execute("DELETE FROM ariella_conversations WHERE member_id=?", (member_id,))
 
 
+def create_route_job(member_id: int, channel: str, message: str, history: list, trip_state: dict) -> int:
+    """Start a new background route-build job (task 016a). Returns its id.
+
+    Caller is responsible for checking open_route_job_for_member() first -
+    this always inserts a fresh row, it does not dedup."""
+    with connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO route_jobs
+               (member_id, channel, status, attempt, message, history_json, trip_state_json, started_at)
+               VALUES (?, ?, 'building', 1, ?, ?, ?, ?)""",
+            (
+                member_id,
+                channel,
+                message,
+                json.dumps(history, ensure_ascii=False),
+                json.dumps(trip_state, ensure_ascii=False),
+                utc_now_iso(),
+            ),
+        )
+        return cur.lastrowid
+
+
+def get_route_job(job_id: int) -> dict | None:
+    with connection() as conn:
+        row = conn.execute("SELECT * FROM route_jobs WHERE id=?", (job_id,)).fetchone()
+    if not row:
+        return None
+    return _route_job_row_to_dict(row)
+
+
+def open_route_job_for_member(member_id: int) -> dict | None:
+    """The member's currently-building job, if any - used to decide whether
+    a new chat turn should start a fresh background build or instead queue
+    onto/poll the one already running, surviving across requests and
+    restarts since this is DB-backed rather than an in-memory dict."""
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM route_jobs WHERE member_id=? AND status='building' ORDER BY id DESC LIMIT 1",
+            (member_id,),
+        ).fetchone()
+    if not row:
+        return None
+    return _route_job_row_to_dict(row)
+
+
+def update_route_job(
+    job_id: int,
+    status: str | None = None,
+    result_reply: str | None = None,
+    result_trip_update: dict | None = None,
+    error: str | None = None,
+    attempt: int | None = None,
+) -> None:
+    """Partial update of a route job - only the given fields are touched.
+    Passing status='ready' or status='failed' also stamps finished_at."""
+    fields = []
+    params: list = []
+    if status is not None:
+        fields.append("status=?")
+        params.append(status)
+        if status in ("ready", "failed"):
+            fields.append("finished_at=?")
+            params.append(utc_now_iso())
+    if result_reply is not None:
+        fields.append("result_reply=?")
+        params.append(result_reply)
+    if result_trip_update is not None:
+        fields.append("result_trip_update_json=?")
+        params.append(json.dumps(result_trip_update, ensure_ascii=False))
+    if error is not None:
+        fields.append("error=?")
+        params.append(error)
+    if attempt is not None:
+        fields.append("attempt=?")
+        params.append(attempt)
+    if not fields:
+        return
+    params.append(job_id)
+    with connection() as conn:
+        conn.execute(f"UPDATE route_jobs SET {', '.join(fields)} WHERE id=?", params)
+
+
+def append_route_job_queued_message(job_id: int, message: str) -> None:
+    """Record a customer message that arrived while this job's build was
+    still running, so it can be replayed in order once the route is ready
+    instead of being silently dropped or answered out of turn."""
+    with connection() as conn:
+        row = conn.execute("SELECT queued_messages_json FROM route_jobs WHERE id=?", (job_id,)).fetchone()
+        if not row:
+            return
+        try:
+            queued = json.loads(row["queued_messages_json"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            queued = []
+        queued.append(message)
+        conn.execute(
+            "UPDATE route_jobs SET queued_messages_json=? WHERE id=?",
+            (json.dumps(queued, ensure_ascii=False), job_id),
+        )
+
+
+def _route_job_row_to_dict(row) -> dict:
+    try:
+        history = json.loads(row["history_json"] or "[]")
+    except (TypeError, json.JSONDecodeError):
+        history = []
+    try:
+        trip_state = json.loads(row["trip_state_json"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        trip_state = {}
+    try:
+        queued_messages = json.loads(row["queued_messages_json"] or "[]")
+    except (TypeError, json.JSONDecodeError):
+        queued_messages = []
+    result_trip_update = None
+    if row["result_trip_update_json"]:
+        try:
+            result_trip_update = json.loads(row["result_trip_update_json"])
+        except (TypeError, json.JSONDecodeError):
+            result_trip_update = None
+    return {
+        "id": row["id"],
+        "member_id": row["member_id"],
+        "channel": row["channel"],
+        "status": row["status"],
+        "attempt": row["attempt"],
+        "message": row["message"],
+        "history": history,
+        "trip_state": trip_state,
+        "queued_messages": queued_messages,
+        "result_reply": row["result_reply"],
+        "result_trip_update": result_trip_update,
+        "error": row["error"],
+        "started_at": row["started_at"],
+        "finished_at": row["finished_at"],
+    }
+
+
 def find_member_trip_by_mention(member_id: int, message: str, limit: int = 30) -> list[dict]:
     """Look up the member's own past/other saved vacations by name, for a
     customer question like "את זוכרת את הטיסה לניו יורק?" about a DIFFERENT
@@ -2455,6 +2622,7 @@ _MEMBER_OWNED_TABLES = (
     "trip_alerts_log", "whatsapp_opt_events", "whatsapp_outbound_queue",
     "password_reset_tokens", "ariella_travel_companions",
     "ariella_trip_conversations", "member_travelers", "member_preferences",
+    "route_jobs",
 )
 
 
