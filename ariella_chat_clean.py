@@ -1694,7 +1694,14 @@ def _resolve_lodging_locations_from_route(state):
     if details.get("areas") or details.get("locations"):
         return state
     names = _route_base_names(state)
-    if not names:
+    # Seen live (Shaked, Rome): a single-base route (one city/landmark the
+    # whole stay revolves around) got auto-filled as if it were a real
+    # "lodging spread across these areas" fact - but staying in one place
+    # the whole trip says nothing about which NEIGHBORHOOD within it the
+    # customer wants, so the question still needs asking. Two or more
+    # distinct bases is the genuine "the route already answers this" case
+    # this auto-fill exists for (e.g. the 2026-10-14 multi-stop decision).
+    if len(names) < 2:
         return state
     state = dict(state)
     lodging = dict(lodging)
@@ -7122,7 +7129,7 @@ def _guided_extraction_steps():
     raw = os.getenv("GUIDED_EXTRACTION_STEPS", GUIDED_EXTRACTION_STEPS_DEFAULT).strip()
     if not raw:
         return set()
-    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers", "baggage")}
+    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers", "baggage", "lodging")}
 
 
 def _guided_extraction_model():
@@ -7153,7 +7160,63 @@ _GUIDED_FIELD_HINT_DESCRIPTION = {
     # dates/travelers - the model decides shared/per-passenger, not another
     # literal phrase added to a list.
     "baggage": "איזה כבודה לוקחים (טרולי/מזוודה בבטן/תיק קטן בלבד), ואם המזוודה משותפת לכל הקבוצה או אחת לכל נוסע",
+    "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה או צימר",
+    "lodging_rooms": "כמה חדרים נדרשים ללינה",
+    "lodging_bathrooms": "כמה חדרי רחצה נדרשים בדירה",
+    "lodging_locations": "באיזה אזור/שכונה הלקוח רוצה שהלינה תהיה",
+    "lodging_budget_or_level": "מה התקציב ללילה",
 }
+# Task 014a extended to lodging (PR2, per Shlomo's sequencing 2026-10-17):
+# one flag value ("lodging") drives all five sub-questions below, in this
+# fixed order - same principle as accessibility bundling its own two
+# sub-stages under one name. Unlike accessibility, lodging fields need no
+# special hint-building of their own: the generic _guided_ask_hint/
+# _guided_confirm_hint/_guided_correction_hint already work for them via
+# the field descriptions above.
+_LODGING_GUIDED_SUBFIELDS = ("lodging_type", "lodging_rooms", "lodging_bathrooms", "lodging_locations", "lodging_budget_or_level")
+_LODGING_GUIDED_CORRECTION_LABELS = {
+    "lodging_type": "סוג הלינה", "lodging_rooms": "מספר החדרים",
+    "lodging_bathrooms": "מספר חדרי הרחצה", "lodging_locations": "אזור הלינה",
+    "lodging_budget_or_level": "התקציב ללינה",
+}
+
+
+def _lodging_details(state):
+    lodging = state.get("lodging") if isinstance(state, dict) and isinstance(state.get("lodging"), dict) else {}
+    details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    return details
+
+
+def _lodging_type_is_apartment_like(type_value):
+    """Mirrors the TINKERBELL_SYSTEM instruction (line ~197): a hotel or
+    villa is never asked about bathroom count; an apartment/zimmer-style
+    unit (or a type that isn't known yet) is."""
+    value = str(type_value or "").strip()
+    return value not in ("מלון", "וילה")
+
+
+def _guided_field_applies(field, state):
+    """Lodging's guided questions only make sense once lodging is actually
+    part of this vacation - a flights-only trip must never be asked about
+    lodging type. Baggage only applies once flights are requested (see
+    _guided_baggage_applies). Universal fields (dates/travelers) always
+    apply."""
+    if field in _LODGING_GUIDED_SUBFIELDS:
+        state = state if isinstance(state, dict) else {}
+        services = state.get("requested_services")
+        return isinstance(services, list) and "lodging" in services
+    if field == "baggage":
+        return _guided_baggage_applies(state)
+    return True
+
+
+def _guided_step_covers(field, guided_steps):
+    """Maps an individual guided field name back to the flag token that
+    enables it - the five lodging sub-fields all share one flag value
+    ("lodging")."""
+    if field in _LODGING_GUIDED_SUBFIELDS:
+        return "lodging" in guided_steps
+    return field in guided_steps
 
 
 def _guided_ask_hint(field, attempts):
@@ -7208,7 +7271,100 @@ def _guided_field_known_with_confidence(field, state):
     if field == "baggage":
         flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
         return bool(flight.get("baggage"))
+    if field == "lodging_type":
+        return bool(_lodging_details(state).get("type"))
+    if field == "lodging_rooms":
+        details = _lodging_details(state)
+        return details.get("rooms") is not None or details.get("bedrooms") is not None
+    if field == "lodging_bathrooms":
+        details = _lodging_details(state)
+        if not _lodging_type_is_apartment_like(details.get("type")):
+            return True
+        return details.get("bathrooms") is not None
+    if field == "lodging_locations":
+        details = _lodging_details(state)
+        return bool(details.get("areas") or details.get("locations"))
+    if field == "lodging_budget_or_level":
+        details = _lodging_details(state)
+        return bool(details.get("budget") or details.get("level"))
     return False
+
+
+_LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר")
+
+
+# Each lodging prompt's also_mentioned uses the SAME shape _guided_field_
+# update_and_confirm already expects for that field (a nested dict keyed by
+# guided-field name), so applying it is one uniform loop - no per-field
+# translation layer, same principle as dates/travelers also_mentioned.
+_LODGING_ALSO_MENTIONED_SCHEMA = (
+    '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"אין העדפה"}|null,'
+    '"lodging_rooms":{"value":int}|null,"lodging_bathrooms":{"value":int}|null,'
+    '"lodging_locations":{"value":"..."}|null,'
+    '"lodging_budget_or_level":{"budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null}|null}'
+)
+
+
+def _lodging_guided_prompt(field, state, recent):
+    details = _lodging_details(state)
+    state_line = f"מצב נוכחי - פרטי לינה: {json.dumps(details, ensure_ascii=False)}.\n"
+    also_mentioned_rule = (
+        "also_mentioned: פרטי לינה אחרים (סוג/מספר חדרים/חדרי רחצה/תקציב או רמה/אזור) שנאמרו במפורש "
+        "באותה הודעה, בלי להשלים בעצמך - בצורת האובייקט בדיוק כפי שמוגדר למטה."
+    )
+    other_topic_rule = "אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, נושא אחר) - status=\"other_topic\"."
+    if field == "lodging_type":
+        label = "איזה סוג לינה מתאים לו"
+        rules = (
+            "כללים: value הוא בדיוק אחת מהמילים: מלון, דירה, וילה, צימר, אין העדפה (לא מילה אחרת ולא "
+            "תיאור חופשי - \"אפרטמנט\" נחשב \"דירה\"). אסור להמציא - אם לא ברור, value=null ו-confidence:"
+            "\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","value":"מלון"|"דירה"|"וילה"|"צימר"|"אין העדפה"|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת סוג לינה שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_type\"."
+    elif field == "lodging_rooms":
+        label = "כמה חדרים נדרשים"
+        rules = (
+            "כללים: value הוא מספר שלם של חדרים (כולל מספרים במילים כמו \"שני חדרים\"=2). אסור להמציא - "
+            "אם לא ברור, value=null ו-confidence:\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","value":int|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת מספר חדרים שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_rooms\"."
+    elif field == "lodging_bathrooms":
+        label = "כמה חדרי רחצה נדרשים בדירה"
+        rules = (
+            "כללים: value הוא מספר שלם של חדרי רחצה/שירותים (כולל מספרים במילים). אסור להמציא - אם לא "
+            "ברור, value=null ו-confidence:\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","value":int|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת מספר חדרי רחצה שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_bathrooms\"."
+    elif field == "lodging_locations":
+        label = "באיזה אזור/שכונה תרצה שהלינה תהיה"
+        rules = (
+            "כללים: value הוא תיאור חופשי קצר של האזור/השכונה, או \"אין העדפה\" אם נאמר שאין העדפה. "
+            "אסור להמציא - אם לא ברור, value=null ו-confidence:\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","value":"טקסט חופשי קצר"|"אין העדפה"|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת אזור שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_locations\"."
+    else:
+        label = "מה התקציב ללילה, או איזו רמת לינה מתאימה"
+        rules = (
+            "כללים: חלצי אחד בלבד - budget (מספר, בדרך כלל יורו ללילה) או level (יוקרתי/בינוני/בסיסי), "
+            "לפי מה שנאמר. דירוג כוכבים (למשל \"4 כוכבים\") הוא תמיד level, לא budget - 4+ כוכבים=יוקרתי, "
+            "3 כוכבים=בינוני, פחות=בסיסי. \"אין הגבלה\"/\"לא משנה\" = level=\"אין העדפה\", budget=null. "
+            "אסור להמציא - אם לא ברור, שני השדות null ו-confidence:\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת תקציב/רמה שכבר נקבעו - status=\"answered\" ומלאי correction עם field=\"lodging_budget_or_level\"."
+    return (
+        f"אריאלה (סוכנת נסיעות) שאלה את הלקוח {label} (לינה). חלצי את התשובה, בהתחשב בהקשר.\n"
+        f"{state_line}"
+        f"4 ההודעות האחרונות: {recent}\n"
+        f"{rules} {also_mentioned_rule} {other_topic_rule} {correction_rule}\n"
+        f"החזירי JSON בלבד, בדיוק במבנה: {schema}"
+        f'"also_mentioned":{_LODGING_ALSO_MENTIONED_SCHEMA}|null,'
+        '"correction":{"field":"...","old":"...","new":"..."}|null}'
+    )
 
 
 def _guided_extract_answer(key, model, field, message, history, state):
@@ -7216,7 +7372,7 @@ def _guided_extract_answer(key, model, field, message, history, state):
     spec section 4). Returns the parsed JSON dict, or None on any failure -
     the caller then falls back to the existing regex for this one message
     (spec section 5's fail-safe row), never crashing the turn."""
-    if not key or field not in ("dates", "travelers", "baggage"):
+    if not key or field not in ("dates", "travelers", "baggage") + _LODGING_GUIDED_SUBFIELDS:
         return None
     state = state if isinstance(state, dict) else {}
     current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
@@ -7268,6 +7424,8 @@ def _guided_extract_answer(key, model, field, message, history, state):
             '"also_mentioned":{"dates":{...}|null,"travelers":{...}|null},'
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
         )
+    elif field in _LODGING_GUIDED_SUBFIELDS:
+        prompt = _lodging_guided_prompt(field, state, recent)
     elif field == "dates":
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מתי לטוס ולכמה לילות. חלצי "
@@ -7422,6 +7580,49 @@ def _guided_field_update_and_confirm(field, result):
             fragment["baggage_detail"] = baggage_detail
         desc = " ו".join(labels)
         return {"flight": fragment}, desc
+    if field == "lodging_type":
+        value = result.get("value")
+        if value not in _LODGING_TYPE_CANON_VALUES and value != "אין העדפה":
+            return {}, None
+        canon = "דירה" if value == "אפרטמנט" else value
+        desc = f"סוג לינה - {canon}" if canon != "אין העדפה" else "אין העדפה לסוג לינה"
+        return {"lodging": {"details": {"type": canon}}}, desc
+    if field == "lodging_rooms":
+        value = result.get("value")
+        if not isinstance(value, int) or value <= 0:
+            return {}, None
+        desc = "חדר אחד" if value == 1 else f"{value} חדרים"
+        return {"lodging": {"details": {"rooms": value}}}, desc
+    if field == "lodging_bathrooms":
+        value = result.get("value")
+        if not isinstance(value, int) or value <= 0:
+            return {}, None
+        desc = "חדר רחצה אחד" if value == 1 else f"{value} חדרי רחצה"
+        return {"lodging": {"details": {"bathrooms": value}}}, desc
+    if field == "lodging_locations":
+        value = result.get("value")
+        if not (isinstance(value, str) and value.strip()):
+            return {}, None
+        value = value.strip()
+        desc = f"אזור הלינה - {value}" if value != "אין העדפה" else "אין העדפה לאזור"
+        return {"lodging": {"details": {"locations": value}}}, desc
+    if field == "lodging_budget_or_level":
+        budget = result.get("budget")
+        level = result.get("level")
+        fragment = {}
+        if isinstance(budget, int) and budget > 0:
+            fragment["budget"] = budget
+        elif isinstance(level, str) and level.strip() in ("יוקרתי", "בינוני", "בסיסי", "אין העדפה"):
+            fragment["level"] = level.strip()
+        if not fragment:
+            return {}, None
+        if fragment.get("level") == "אין העדפה":
+            desc = "אין הגבלת תקציב"
+        elif "budget" in fragment:
+            desc = f"תקציב של {fragment['budget']} ללילה"
+        else:
+            desc = f"רמת לינה {fragment['level']}"
+        return {"lodging": {"details": fragment}}, desc
     return {}, None
 
 
@@ -7474,23 +7675,25 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     # Added 2026-10-17 (business owner's decision, relayed via Shlomo, after
     # Shaked's 014a stage-1 run-1): baggage joins dates/travelers here as a
     # real guided field - unlike those two (universal to every trip), it
-    # only applies once flights are actually requested.
-    guided_order = ("dates", "travelers", "baggage")
-
-    def _field_applies(f):
-        return _guided_baggage_applies(trip_update) if f == "baggage" else True
-
+    # only applies once flights are actually requested (_guided_field_applies).
+    # Extended the same day (PR2) with the five lodging sub-fields, which
+    # share one flag ("lodging") via _guided_step_covers.
+    guided_order = ("dates", "travelers", "baggage") + _LODGING_GUIDED_SUBFIELDS
     for f in guided_order:
-        if f in guided_steps and f not in answered and _field_applies(f) and _guided_field_known_with_confidence(f, trip_update):
+        if (_guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update)
+                and f not in answered and _guided_field_known_with_confidence(f, trip_update)):
             answered.append(f)
             changed = True
-    if current_question and current_question not in guided_steps:
+    if current_question and not _guided_step_covers(current_question, guided_steps):
         current_question = None
     if not current_question:
         # Resolve the live field BEFORE deciding anything else, so the
         # extraction call below always runs against this message too -
         # including the very first turn, when nothing was asked yet.
-        current_question = next((f for f in guided_order if f in guided_steps and f not in answered and _field_applies(f)), None)
+        current_question = next(
+            (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+            None,
+        )
         attempts = 0
 
     if not current_question:
@@ -7500,21 +7703,24 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
 
     result = _guided_extract_answer(key, model, current_question, message, history, trip_update)
     if result is None:
-        # Fail-safe (spec section 5, last row) - Shaked caught a real
         # regression here (2026-10-17, against 8a58d4e): when the
         # structured call fails for the CURRENT field, only that field
         # fell back to its regex. Any OTHER guided-covered field not yet
-        # answered (e.g. travelers, mentioned in the same first message
-        # while "dates" is still the live field) never got a guided
-        # attempt THIS TURN either - yet its regex was also suppressed,
-        # just for nominally being covered by the flag. Net effect: a
-        # fact main's regex would have caught got silently dropped. Fix:
-        # every guided field still unanswered (and applicable) falls back
+        # answered (e.g. travelers, baggage, or a lodging subfield,
+        # mentioned in the same message while a different field is still
+        # live) never got a guided attempt THIS TURN either - yet its
+        # regex was also suppressed, just for nominally being covered by
+        # the flag. Net effect: a fact main's regex would have caught got
+        # silently dropped. Fix: every field still unanswered (and still
+        # applicable, e.g. lodging/baggage only when requested) falls back
         # too, not just current_question - exactly like main, whenever the
         # model call itself fails.
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
-        fallback_fields = {f for f in guided_order if f in guided_steps and f not in answered and _field_applies(f)}
+        fallback_fields = {
+            f for f in guided_order
+            if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered
+        }
         fallback_fields.add(current_question)
         return {
             "trip_update": trip_update,
@@ -7536,11 +7742,20 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     if fragment:
         trip_update = _merge_trip_state(trip_update, fragment)
     also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
+    # Any OTHER field in the full guided_order can turn up in also_mentioned -
+    # not just a narrow dates<->travelers swap or within-lodging set. A field
+    # the live question's own prompt never asked about (e.g. a lodging
+    # sub-field while "baggage" is live) simply has no key in also at all, so
+    # this degrades to a no-op for it; harmless, and avoids a per-field
+    # candidate list going stale every time a new guided field is added.
     for other_field in guided_order:
         if other_field == current_question:
             continue
         also_data = also.get(other_field)
-        if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered and _field_applies(other_field):
+        if isinstance(also_data, dict) and also_data and _guided_step_covers(other_field, guided_steps) and other_field not in answered and _guided_field_applies(other_field, trip_update):
+            # A customer who volunteers another field unprompted gets it
+            # filled via also_mentioned and that question is skipped
+            # entirely - taken as final, no separate confirmation turn.
             also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
             if also_fragment:
                 trip_update = _merge_trip_state(trip_update, also_fragment)
@@ -7556,15 +7771,22 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     answered.append(current_question)
     changed = True
     if result.get("correction"):
-        field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים", "baggage": "הכבודה"}.get(
+        field_label = dict(
+            {"dates": "התאריכים", "travelers": "מספר הנוסעים", "baggage": "הכבודה"},
+            **_LODGING_GUIDED_CORRECTION_LABELS,
+        ).get(
             (result.get("correction") or {}).get("field"), "הפרטים"
         )
+        # Dates/travelers invalidate a closed FLIGHT search; a lodging
+        # field invalidates a closed LODGING search - never the other
+        # domain's status.
+        reopen_domain = "lodging" if current_question in _LODGING_GUIDED_SUBFIELDS else "flights"
         statuses = dict(trip_update.get("session_status") or {})
-        if statuses.get("flights") == "complete":
-            # A field a closed flight session already relied on just
-            # changed - reopen it so the summary reflects the new value
-            # before the customer ever approves against stale data.
-            statuses["flights"] = "active"
+        if statuses.get(reopen_domain) == "complete":
+            # A field a closed session already relied on just changed -
+            # reopen it so the summary reflects the new value before the
+            # customer ever approves against stale data.
+            statuses[reopen_domain] = "active"
             trip_update["session_status"] = statuses
             trip_update["ready_for_summary"] = False
         guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
@@ -7572,7 +7794,10 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         return {"trip_update": trip_update, "dynamic_hint": _guided_correction_hint(field_label, confirm_desc)}
     current_question = None
 
-    next_field = next((f for f in guided_order if f in guided_steps and f not in answered and _field_applies(f)), None)
+    next_field = next(
+        (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+        None,
+    )
     guided["current_question"] = next_field
     guided["attempts"] = 0
     guided["answered"] = answered
@@ -9591,7 +9816,12 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_car_vehicle_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_car_location_facts(message, history))
-        trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
+        # Task 014a extended to lodging: once GUIDED_EXTRACTION_STEPS covers
+        # "lodging", the guided flow above is the source of truth for all
+        # five lodging sub-fields instead of this regex - same zero-change-
+        # when-off principle as dates/travelers.
+        if "lodging" not in guided_steps or (_guided_regex_fallback_fields & set(_LODGING_GUIDED_SUBFIELDS)):
+            trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
         trip_update = _protect_lodging_locations_from_car_reply(trip_state, trip_update, message)
         # Resolved against trip_update (the current, post-deterministic-
         # merge state) so the model is only ever handed gaps the fast
