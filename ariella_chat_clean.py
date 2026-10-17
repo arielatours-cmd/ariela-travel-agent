@@ -7076,7 +7076,7 @@ def _guided_extraction_steps():
     raw = os.getenv("GUIDED_EXTRACTION_STEPS", GUIDED_EXTRACTION_STEPS_DEFAULT).strip()
     if not raw:
         return set()
-    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers")}
+    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers", "baggage")}
 
 
 def _guided_extraction_model():
@@ -7101,6 +7101,12 @@ def _guided_extraction_model():
 _GUIDED_FIELD_HINT_DESCRIPTION = {
     "dates": "מתי הלקוח רוצה לטוס, ולכמה לילות",
     "travelers": "מי נוסע - כמה מבוגרים, ילדים וגילאים",
+    # Added 2026-10-17 per the business owner's explicit decision (relayed
+    # via Shlomo), after Shaked's 014a stage-1 run-1 (Budapest Z5): baggage
+    # moves from a plain regex safety net into a real guided field, same as
+    # dates/travelers - the model decides shared/per-passenger, not another
+    # literal phrase added to a list.
+    "baggage": "איזה כבודה לוקחים (טרולי/מזוודה בבטן/תיק קטן בלבד), ואם המזוודה משותפת לכל הקבוצה או אחת לכל נוסע",
 }
 
 
@@ -7132,10 +7138,20 @@ def _guided_correction_hint(label, confirm_desc):
     return f"הלקוח עדכן את {label}{value_text} - ציייני לו בקצרה במשפט אחד שהעדכון נקלט, לא כשאלה."
 
 
+def _guided_baggage_applies(state):
+    """Baggage only makes sense once flights are actually part of this
+    vacation - unlike dates/travelers (universal to every trip), a
+    lodging/car-only booking must never be asked about carry-on vs.
+    checked bags."""
+    state = state if isinstance(state, dict) else {}
+    services = state.get("requested_services")
+    return isinstance(services, list) and "flights" in services
+
+
 def _guided_field_known_with_confidence(field, state):
     """Spec section 3: a field already stated earlier, with confidence,
     is never asked about again. Mirrors the same presence checks the rest
-    of this file already uses for these two fields."""
+    of this file already uses for these fields."""
     state = state if isinstance(state, dict) else {}
     if field == "dates":
         dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
@@ -7143,6 +7159,9 @@ def _guided_field_known_with_confidence(field, state):
     if field == "travelers":
         travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
         return travelers.get("adults") is not None
+    if field == "baggage":
+        flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+        return bool(flight.get("baggage"))
     return False
 
 
@@ -7151,7 +7170,7 @@ def _guided_extract_answer(key, model, field, message, history, state):
     spec section 4). Returns the parsed JSON dict, or None on any failure -
     the caller then falls back to the existing regex for this one message
     (spec section 5's fail-safe row), never crashing the turn."""
-    if not key or field not in ("dates", "travelers"):
+    if not key or field not in ("dates", "travelers", "baggage"):
         return None
     state = state if isinstance(state, dict) else {}
     current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
@@ -7161,7 +7180,43 @@ def _guided_extract_answer(key, model, field, message, history, state):
         if isinstance(x, dict) and x.get("content")
     )
     today_str = date.today().isoformat()
-    if field == "dates":
+    if field == "baggage":
+        current_flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+        travelers_total = 0
+        for k in ("adults", "children", "infants"):
+            try:
+                travelers_total += max(0, int(current_travelers.get(k) or 0))
+            except (TypeError, ValueError):
+                pass
+        prompt = (
+            "אריאלה (סוכנת נסיעות) שאלה את הלקוח איזה כבודה לוקחים. חלצי "
+            "מתשובת הלקוח את סוגי הכבודה, ואם מזוודה כלשהי משותפת לכל "
+            "הקבוצה או אחת לכל נוסע.\n"
+            f"מספר נוסעים בקבוצה: {travelers_total or 'לא ידוע'}.\n"
+            f"מצב נוכחי - כבודה: {json.dumps(current_flight.get('baggage'), ensure_ascii=False)}.\n"
+            f"4 ההודעות האחרונות: {recent}\n"
+            "כללים: values היא רשימה מתוך הערכים האלה בדיוק: \"carry_on_only\" "
+            "(טרולי/כבודת עלייה בלבד, בלי מזוודה בבטן המטוס), \"checked_bag\" "
+            "(יש גם מזוודה בבטן המטוס), \"personal_item\" (תיק קטן בלבד, "
+            "אפילו לא טרולי), \"no_baggage\" (אין שום כבודה בכלל, כולל לא "
+            "תיק - שמור אך ורק למקרה הזה, לא ל\"טרולי בלבד\" שאומר בדיוק "
+            "ההפך). shared הוא true רק אם ברור מהתשובה שמזוודה (לרוב "
+            "checked_bag) אחת משותפת לכל הקבוצה (למשל כמות קטנה ממספר "
+            "הנוסעים, או מילים כמו \"לכולנו\"/\"לכולם\"/\"משותפת\"), אחרת "
+            "false. אסור להמציא נתון חסר - אם לא ברור, values=null ו-"
+            "confidence:\"low\". also_mentioned: רק פרטי תאריכים/נוסעים "
+            "שנאמרו במפורש באותה הודעה, בלי להשלים בעצמך. אם ההודעה לא "
+            "עונה על השאלה הזו בכלל (שאלה אחרת, נושא אחר) - "
+            "status=\"other_topic\". אם ההודעה מתקנת כבודה שכבר נקבעה - "
+            "status=\"answered\" ומלאי correction.\n"
+            "החזירי JSON בלבד, בדיוק במבנה: "
+            '{"status":"answered|unclear|other_topic",'
+            '"values":["carry_on_only"|"checked_bag"|"personal_item"|"no_baggage",...]|null,'
+            '"shared":true|false|null,"confidence":"high|low",'
+            '"also_mentioned":{"dates":{...}|null,"travelers":{...}|null},'
+            '"correction":{"field":"...","old":"...","new":"..."}|null}'
+        )
+    elif field == "dates":
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מתי לטוס ולכמה לילות. חלצי "
             "מתשובת הלקוח תאריכים, בהתחשב בהקשר.\n"
@@ -7276,6 +7331,23 @@ def _guided_field_update_and_confirm(field, result):
         else:
             desc = "מספר הנוסעים שצוין"
         return {"travelers": fragment}, desc
+    if field == "baggage":
+        values = result.get("values")
+        if not isinstance(values, list) or not values:
+            return {}, None
+        values = [v for v in values if v in ("carry_on_only", "checked_bag", "personal_item", "no_baggage")]
+        if not values:
+            return {}, None
+        fragment = {"baggage": values}
+        shared = bool(result.get("shared"))
+        if shared and "checked_bag" in values:
+            fragment["baggage_shared"] = True
+        labels = [
+            ("מזוודה אחת משותפת לכל הנוסעים" if shared and v == "checked_bag" else _BAGGAGE_HE.get(v, v))
+            for v in values
+        ]
+        desc = " ו".join(labels)
+        return {"flight": fragment}, desc
     return {}, None
 
 
@@ -7325,8 +7397,17 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     attempts = int(guided.get("attempts") or 0)
     changed = False
 
-    for f in ("dates", "travelers"):
-        if f in guided_steps and f not in answered and _guided_field_known_with_confidence(f, trip_update):
+    # Added 2026-10-17 (business owner's decision, relayed via Shlomo, after
+    # Shaked's 014a stage-1 run-1): baggage joins dates/travelers here as a
+    # real guided field - unlike those two (universal to every trip), it
+    # only applies once flights are actually requested.
+    guided_order = ("dates", "travelers", "baggage")
+
+    def _field_applies(f):
+        return _guided_baggage_applies(trip_update) if f == "baggage" else True
+
+    for f in guided_order:
+        if f in guided_steps and f not in answered and _field_applies(f) and _guided_field_known_with_confidence(f, trip_update):
             answered.append(f)
             changed = True
     if current_question and current_question not in guided_steps:
@@ -7335,7 +7416,7 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # Resolve the live field BEFORE deciding anything else, so the
         # extraction call below always runs against this message too -
         # including the very first turn, when nothing was asked yet.
-        current_question = next((f for f in ("dates", "travelers") if f in guided_steps and f not in answered), None)
+        current_question = next((f for f in guided_order if f in guided_steps and f not in answered and _field_applies(f)), None)
         attempts = 0
 
     if not current_question:
@@ -7354,12 +7435,12 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # attempt THIS TURN either - yet its regex was also suppressed,
         # just for nominally being covered by the flag. Net effect: a
         # fact main's regex would have caught got silently dropped. Fix:
-        # every dates/travelers field still unanswered falls back too,
-        # not just current_question - exactly like main, whenever the
+        # every guided field still unanswered (and applicable) falls back
+        # too, not just current_question - exactly like main, whenever the
         # model call itself fails.
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
-        fallback_fields = {f for f in ("dates", "travelers") if f in guided_steps and f not in answered}
+        fallback_fields = {f for f in guided_order if f in guided_steps and f not in answered and _field_applies(f)}
         fallback_fields.add(current_question)
         return {
             "trip_update": trip_update,
@@ -7381,13 +7462,15 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     if fragment:
         trip_update = _merge_trip_state(trip_update, fragment)
     also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
-    other_field = "travelers" if current_question == "dates" else "dates"
-    also_data = also.get(other_field)
-    if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered:
-        also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
-        if also_fragment:
-            trip_update = _merge_trip_state(trip_update, also_fragment)
-            answered.append(other_field)
+    for other_field in guided_order:
+        if other_field == current_question:
+            continue
+        also_data = also.get(other_field)
+        if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered and _field_applies(other_field):
+            also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
+            if also_fragment:
+                trip_update = _merge_trip_state(trip_update, also_fragment)
+                answered.append(other_field)
     confidence = str(result.get("confidence") or "")
     if confidence != "high" or not fragment:
         # Low confidence (or nothing usable extracted despite status=
@@ -7399,7 +7482,7 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     answered.append(current_question)
     changed = True
     if result.get("correction"):
-        field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים"}.get(
+        field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים", "baggage": "הכבודה"}.get(
             (result.get("correction") or {}).get("field"), "הפרטים"
         )
         statuses = dict(trip_update.get("session_status") or {})
@@ -7415,7 +7498,7 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         return {"trip_update": trip_update, "dynamic_hint": _guided_correction_hint(field_label, confirm_desc)}
     current_question = None
 
-    next_field = next((f for f in ("dates", "travelers") if f in guided_steps and f not in answered), None)
+    next_field = next((f for f in guided_order if f in guided_steps and f not in answered and _field_applies(f)), None)
     guided["current_question"] = next_field
     guided["attempts"] = 0
     guided["answered"] = answered
@@ -9418,14 +9501,15 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _baggage_answer_by_meaning(message, history, trip_update))
-        _baggage_travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
-        try:
-            _baggage_traveler_count = sum(
-                max(0, int(_baggage_travelers.get(k) or 0)) for k in ("adults", "children", "infants")
-            )
-        except (TypeError, ValueError):
-            _baggage_traveler_count = 0
-        trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message, _baggage_traveler_count))
+        if "baggage" not in guided_steps or "baggage" in _guided_regex_fallback_fields:
+            _baggage_travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
+            try:
+                _baggage_traveler_count = sum(
+                    max(0, int(_baggage_travelers.get(k) or 0)) for k in ("adults", "children", "infants")
+                )
+            except (TypeError, ValueError):
+                _baggage_traveler_count = 0
+            trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message, _baggage_traveler_count))
         trip_update = _merge_trip_state(trip_update, _deterministic_connection_preference_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
