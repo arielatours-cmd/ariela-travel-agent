@@ -2260,6 +2260,39 @@ def _flight_budget_line(budget):
     return None
 
 
+def _he_date_ddmmyyyy(iso) -> str:
+    iso = str(iso or "")[:10]
+    parts = iso.split("-")
+    return f"{parts[2]}.{parts[1]}.{parts[0]}" if len(parts) == 3 else iso
+
+
+def _flight_dates_line(dates) -> str | None:
+    """The one-line dates summary fact, or None when either end isn't known
+    yet. Factored out of _flight_summary_text so the same exact wording and
+    date format is available to _ensure_flight_summary_completeness (stage-3
+    run-2, Shaked: Athens - dates were in state but missing from Tinkerbell's
+    own free-text summary)."""
+    dates = dates if isinstance(dates, dict) else {}
+    dep, ret = dates.get("departure"), dates.get("return")
+    if not (dep and ret):
+        return None
+    return f"תאריכים: {_he_date_ddmmyyyy(dep)} – {_he_date_ddmmyyyy(ret)}"
+
+
+def _flight_travelers_line(travelers) -> str | None:
+    """The one-line travelers summary fact, or None when not known yet.
+    Factored out the same way as _flight_dates_line, for the same reason."""
+    travelers = travelers if isinstance(travelers, dict) else {}
+    adults = travelers.get("adults")
+    if not adults:
+        return None
+    children = int(travelers.get("children") or 0)
+    party = f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"
+    if children:
+        party += (f" ו-{children} ילדים" if children != 1 else " וילד אחד")
+    return "נוסעים: " + party
+
+
 def _flight_summary_text(state):
     """Deterministic flight-request summary built straight from state - the
     honest fallback when the claims_execution safety net catches Tinkerbell
@@ -2277,27 +2310,18 @@ def _flight_summary_text(state):
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
     budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
 
-    def he_date(iso):
-        iso = str(iso or "")[:10]
-        parts = iso.split("-")
-        return f"{parts[2]}.{parts[1]}.{parts[0]}" if len(parts) == 3 else iso
-
     lines = []
     if places:
         lines.append("יעד: " + ", ".join(places))
-    dep, ret = dates.get("departure"), dates.get("return")
-    if dep and ret:
-        lines.append(f"תאריכים: {he_date(dep)} – {he_date(ret)}")
+    dates_line = _flight_dates_line(dates)
+    if dates_line:
+        lines.append(dates_line)
     departure_airport = state.get("departure_airport")
     if departure_airport:
         lines.append(f"שדה יציאה: {departure_airport}")
-    adults = travelers.get("adults")
-    children = int(travelers.get("children") or 0)
-    if adults:
-        party = f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"
-        if children:
-            party += (f" ו-{children} ילדים" if children != 1 else " וילד אחד")
-        lines.append("נוסעים: " + party)
+    travelers_line = _flight_travelers_line(travelers)
+    if travelers_line:
+        lines.append(travelers_line)
     connection_line = _flight_connection_line(flight)
     if connection_line:
         lines.append(connection_line)
@@ -2407,6 +2431,22 @@ def _ensure_flight_summary_completeness(reply, state):
                     sentences[i] = (f"{leading_ws}{_flight_budget_line(budget)}{term}", term)
                     text = "".join(s for s, _t in sentences)
 
+    # Stage-3 run-2 (Shaked, Rome): Tinkerbell's own free text claimed "אין
+    # העדפה לטיסה ישירה" - the exact canonical phrase the system prompt
+    # itself mandates for a genuinely-known "no preference" - while state's
+    # flight.connection_preference was actually still unset. The system
+    # prompt already explicitly forbids this (never assume "no preference"
+    # for an unasked question), but a probabilistic model can still miss
+    # it; this is the same class of fact-vs-text mismatch the currency
+    # check above already corrects for budget, just a removal instead of a
+    # replacement (there's no correct line to state when the fact itself
+    # isn't known at all).
+    if not flight.get("connection_preference"):
+        sentences = _split_sentences(text)
+        kept = [(s, term) for s, term in sentences if "אין העדפה לטיסה ישירה" not in s]
+        if len(kept) != len(sentences):
+            text = "".join(s for s, _t in kept)
+
     missing = []
     if _flight_budget_sentence_index(_split_sentences(text)) is None:
         line = _flight_budget_line(budget)
@@ -2414,6 +2454,19 @@ def _ensure_flight_summary_completeness(reply, state):
             missing.append(line)
     if "כבודה" not in text and not re.search(r"טרולי|מזוודה|תיק", text):
         line = _flight_baggage_line(flight)
+        if line:
+            missing.append(line)
+    # Stage-3 run-2 (Shaked, Athens): dates genuinely known in state went
+    # missing from Tinkerbell's own free-text summary - same inconsistent-
+    # omission class as budget/baggage above, just never checked before.
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text):
+        line = _flight_dates_line(dates)
+        if line:
+            missing.append(line)
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    if "מבוגר" not in text and "נוסעים" not in text:
+        line = _flight_travelers_line(travelers)
         if line:
             missing.append(line)
     if "ישיר" not in text and "קונקשן" not in text:
@@ -6925,6 +6978,40 @@ def _premature_approval_fallback_text(trip_update):
     return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."
 
 
+def _final_summary_fallback_text(trip_update):
+    """Last-resort honest reply for the opposite failure of the function
+    above: every one of the four domains (flights/lodging/car/trip_planning)
+    is genuinely complete/declined, yet neither Tinkerbell's first reply nor
+    the forced _force_final_summary_now retry produced the mandatory final
+    summary/approval request. Seen live (Shaked, stage-3 run-2, Paris): right
+    after the customer declined the car, with trip_planning already complete
+    from earlier in the same conversation, the retried reply STILL re-asked
+    the route style/pace question and rebuilt an already-approved route -
+    the single retry above is not a guarantee, and unlike the premature-
+    מאשרת safety net above, nothing used to catch a second failure here.
+    State alone (every domain decided) already proves a real summary is
+    owed regardless of what the free text says, so a reply that reopens a
+    closed domain must never reach the customer. Never invents lodging/car/
+    route text (no deterministic builder exists for those yet, and guessing
+    risks being wrong) - shows whatever of the summary can be built safely
+    (the flight details, exactly as the mid-flow מאשר/מאשרת fallback above
+    already composes them) plus a plain, true statement that nothing else
+    is left open, and asks for the one real approval."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    intro = "כל הפרטים של הטיסה, הלינה, הרכב והמסלול כבר סגורים - אין עוד מה לתכנן או לשנות."
+    summary = _flight_summary_text(trip_update)
+    if summary:
+        return f"{intro}\n\n{summary}"
+    gender = str(trip_update.get("user_gender") or "").lower()
+    if gender == "male":
+        ask = "אם הכול נכון, כתוב מאשר כדי שאשלח את כל הפרטים לכרטיס החופשה שלך."
+    elif gender == "female":
+        ask = "אם הכול נכון, כתבי מאשרת כדי שאשלח את כל הפרטים לכרטיס החופשה שלך."
+    else:
+        ask = "אם הכול נכון, יש לרשום מאשר/מאשרת כדי שאשלח את כל הפרטים לכרטיס החופשה שלך."
+    return f"{intro} {ask}"
+
+
 # Each domain's own small, closed vocabulary of topic words - not endless
 # per-phrasing examples, just the fixed set of concepts that belong to that
 # domain's own required facts (mirrors _GAP_FIELD_KIND's bounded scope).
@@ -7483,12 +7570,39 @@ def _guided_extract_answer(key, model, field, message, history, state):
         return None
 
 
-def _guided_field_update_and_confirm(field, result):
+def _level_stated_in_message(level, raw_message):
+    """State-based guard (Shaked/Shlomo, stage-3 run-2, Rome): also_mentioned
+    may only record a value the customer actually said. Reuses the exact
+    canonical vocabulary _deterministic_lodging_facts/_required_state_gaps
+    already use for this same field (_LODGING_LEVEL_VALUES, the star-rating
+    pattern, and the general no-preference wording) rather than inventing a
+    new phrase list - a purely descriptive phrase like "מלון קטן ונעים" (no
+    budget/level/star word at all) matches none of them and is rejected."""
+    msg = str(raw_message or "")
+    if level == "אין העדפה":
+        return any(w in msg for w in ("אין העדפה", "לא משנה", "מה שיש", "לא משנה לי"))
+    if any(word in msg for word, canon in _LODGING_LEVEL_VALUES if canon == level):
+        return True
+    star_match = re.search(r"(\d)\s*(?:\+)?\s*כוכב", msg)
+    if star_match:
+        stars = int(star_match.group(1))
+        canon = "יוקרתי" if stars >= 4 else ("בינוני" if stars == 3 else "בסיסי")
+        return canon == level
+    return False
+
+
+def _guided_field_update_and_confirm(field, result, raw_message=None):
     """Builds the _merge_trip_state fragment for a resolved guided answer,
     plus a short, plain-text DESCRIPTION of the value just extracted (never
     a question, never shown to the customer verbatim) - the caller weaves
     it into a hint for Tinkerbell to phrase in her own words (spec section
-    5, "answered + low" row)."""
+    5, "answered + low" row).
+
+    raw_message, when passed, is the customer's own current-turn text. Used
+    only to validate a lodging level pulled from also_mentioned (see
+    _level_stated_in_message) - the direct-answer call site never passes it,
+    since there the model is already answering the exact budget/level
+    question asked, not inferring it from an unrelated answer."""
     result = result if isinstance(result, dict) else {}
     if field == "dates":
         departure = result.get("departure")
@@ -7613,7 +7727,9 @@ def _guided_field_update_and_confirm(field, result):
         if isinstance(budget, int) and budget > 0:
             fragment["budget"] = budget
         elif isinstance(level, str) and level.strip() in ("יוקרתי", "בינוני", "בסיסי", "אין העדפה"):
-            fragment["level"] = level.strip()
+            level = level.strip()
+            if raw_message is None or _level_stated_in_message(level, raw_message):
+                fragment["level"] = level
         if not fragment:
             return {}, None
         if fragment.get("level") == "אין העדפה":
@@ -7756,7 +7872,7 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             # A customer who volunteers another field unprompted gets it
             # filled via also_mentioned and that question is skipped
             # entirely - taken as final, no separate confirmation turn.
-            also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
+            also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data, raw_message=message)
             if also_fragment:
                 trip_update = _merge_trip_state(trip_update, also_fragment)
                 answered.append(other_field)
@@ -10245,6 +10361,14 @@ def _chat_clean_impl():
                 reply = _call_tinkerbell(key, model, history, message, forced_state)
             except Exception as exc:
                 logging.exception("Tinkerbell reply failed on missing-final-summary retry: %s", exc)
+            # The retry above is not a guarantee (seen live, Shaked, Paris -
+            # see _final_summary_fallback_text's own docstring for the exact
+            # transcript). Never let a reply that still isn't the real final
+            # summary/approval reach the customer once state alone already
+            # proves every domain is decided - mirrors the premature-מאשרת
+            # safety net's own last-resort deterministic substitution below.
+            if not any(p in str(reply or "") for p in ("מאשר", "חופשה נעימה")):
+                reply = _final_summary_fallback_text(trip_update)
 
         if planning_accept:
             # Per Shaked's stage-2 run-1 finding (4/5, main 5b46648): a bare
