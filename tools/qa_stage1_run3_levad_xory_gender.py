@@ -47,6 +47,31 @@ dump, not reliably followed on its own. Fixed by surfacing it as its own
 explicit sentence (_gender_hint_text), the same pattern already used for
 _direct_route_hint_text/_multi_gateway_hint.
 
+Stage-1 run-4 (Shaked, 17.10.2026, qa/reports/2026-10-17-stage1-run4.md,
+commit 4234cb8): 4/5 on main 9f0c7db (before this branch's generalization
+reached main). One failure, W2/Paris:
+
+Bug 4a: the live budget question ("יש לכם תקציב מסוים לאדם לטיסה, או
+שנחפש את המחיר הכי טוב שיש?") wasn't caught - 9f0c7db only had the first,
+narrow version of _enforce_one_option_question (baggage + next-domain
+offer only), not yet the _TOPIC_QUESTION_RULES generalization already on
+this branch. Already fixed here; no further change needed, just
+confirmed with a test using Shaked's exact live wording.
+
+Bug 4b: the customer answered "לא משנה לנו" to the direct-flight
+question (flight.connection_preference correctly stored as "אין העדפה"),
+but the final summary read "טיסה ישירה: בהתאם לזמינות בפועל" - a vague
+paraphrase that reads as if a preference for direct still conditionally
+applies, when the true fact is indifference (connecting is exactly as
+fine as direct). The summary-structure rule already said to state
+connection_preference "explicitly" when known, but left the exact wording
+to free generation. Added an explicit required phrasing for both known
+values ("מעדיפים טיסה ישירה" / "אין העדפה לטיסה ישירה"), naming the
+live failing phrasing as a forbidden example - the same escalation this
+file's Bug 2 already needed once for baggage before a prompt-only fix
+proved insufficient there too, so a deterministic post-processor for the
+summary itself is the fallback if this recurs.
+
 Run: python3 tools/qa_stage1_run3_levad_xory_gender.py
 """
 import os
@@ -236,6 +261,24 @@ _, sd_none = _captured_system_dynamic(
 check("end-to-end via _call_tinkerbell: no gender hint text leaks in when "
       "user_gender is unknown",
       "מגדר" not in sd_none)
+
+
+# === Stage-1 run-4 (Shaked, 17.10.2026, 4234cb8, 4/5 on 9f0c7db): W2/Paris ===
+
+check("run-4's exact live budget question (W2, Paris) - not caught on "
+      "9f0c7db since the topic table didn't exist there yet - is already "
+      "fixed on this branch via the budget topic rule",
+      chat._enforce_one_option_question(
+          "יש לכם תקציב מסוים לאדם לטיסה, או שנחפש את המחיר הכי טוב שיש?", {}
+      ) == "מה התקציב שלך לאדם לטיסה?")
+check("run-4 bug 2: the summary instruction now dictates the exact "
+      "phrasing for a known 'אין העדפה' connection_preference, forbidding "
+      "the misleading 'בהתאם לזמינות בפועל' paraphrase the live reply used "
+      "(the customer answered 'לא משנה לנו', state held 'אין העדפה', but "
+      "the summary read 'טיסה ישירה: בהתאם לזמינות בפועל' as if a "
+      "preference for direct still applied)",
+      'אין העדפה לטיסה ישירה' in chat.TINKERBELL_SYSTEM
+      and 'בהתאם לזמינות בפועל' in chat.TINKERBELL_SYSTEM)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
