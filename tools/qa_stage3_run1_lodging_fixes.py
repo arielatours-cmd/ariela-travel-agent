@@ -1,21 +1,15 @@
 """QA for Shaked's stage-3 run-1 findings (ad2f793, 1/5 - London passed), relayed
-17.10.2026. Five separate failures, fixed together in ariella_chat_clean.py:
+17.10.2026, plus the business owner's two rounds of follow-up on this same PR
+(#73) - all fixed together in ariella_chat_clean.py:
 
 1. Paris (worst - 13x loop, never reached a summary): "אין הגבלה" answering
    the lodging per-night budget question ("מה התקציב שלכם ללילה?") set
    neither lodging.details.budget nor .level, so budget_or_level could never
-   close. Fixed: _deterministic_lodging_facts now recognizes a no-limit
-   answer gated on the actual question asked (תקציב+ליל both in
-   last_question) and closes the gap via level="אין העדפה" (budget itself
-   stays null - the correct no-price-cap search behavior).
+   close.
 
 2. Paris/Athens: apartment bathrooms - "שני חדרי רחצה" (spelled-out "two")
-   wasn't parsed (bare digit regex only), and in Athens the question was
-   never asked at all (purely prompt-driven, no real gap enforcing it).
-   Fixed: spelled-out Hebrew number support for the bathrooms answer, and a
-   real missing_required gap (lodging.details.bathrooms) gated on
-   type=="דירה", plus a prompt instruction that the count appears in the
-   final summary.
+   wasn't parsed, and in Athens the question was never asked at all (purely
+   prompt-driven, no real gap enforcing it).
 
 3. Rome: the approved route's own text ("לינה באזור הר הפלטינו" - a
    landmark mentioned in the day's narrative, never a customer choice) got
@@ -28,50 +22,57 @@
 
 4. Budapest: "חדר משפחתי אחד עם עריסה" (one family room, descriptive word
    between "חדר" and the spelled-out "אחד") never matched the exact-phrase
-   rooms check, so "כמה חדרים תרצו?" was asked 4 times. Fixed: a Hebrew
-   number-word-near-"חדר" regex, tolerating a few words in between.
+   rooms check, so "כמה חדרים תרצו?" was asked 4 times.
 
 5. Rome + Budapest: a bundled two-topic question evaded
    _enforce_one_option_question in two different ways neither existing
    check caught:
-   (a) Rome - "לגבی מספר החדרים והתקציב ללילה, מה יתאים לכם?" is ONE
-       question sentence (no "או"/"ו" between two question clauses) whose
-       own lead-in already names two different still-open lodging topics
-       (rooms AND budget). Fixed: a state-gap-driven topic-keyword check for
-       the lodging domain specifically (mutually exclusive - bathrooms
-       checked before the bare "חדר" rooms check).
+   (a) Rome - "לגבי מספר החדרים והתקציב ללילה, מה יתאים לכם?" is ONE
+       question sentence whose own lead-in already names two different
+       still-open lodging topics (rooms AND budget). Fixed: a state-gap-
+       driven topic-keyword check for the lodging domain specifically
+       (mutually exclusive - bathrooms checked before the bare "חדר" rooms
+       check).
    (b) Budapest - "ספרו לי... מה אתם אוהבים לעשות בחופשה, וגם האם חשוב לכם
        קצב רגוע..." has NO "?" anywhere at all, so the function's very first
        line ("if '?' not in text: return reply") let it straight through.
-       Fixed: a narrower bundling regex (_BUNDLED_NO_QMARK_RE, requires an
-       actual question word right after "וגם" to rule out an ordinary
-       statement like "אישרתי את הטיסה, וגם את המלון.") plus a check that
-       the text before it already reads as an open question - when both
-       hold, the smuggled clause is truncated and the remaining single
+       Fixed: a narrower bundling regex (_BUNDLED_NO_QMARK_RE) plus a check
+       that the text before it already reads as an open question - when
+       both hold, the smuggled clause is truncated and the remaining single
        question goes through the exact same resolution path as every other
        case in this function.
 
-6. Shlomo's follow-up on this same report (17.10.2026): regardless of why
-   any one parser missed a specific phrasing, no lodging field should ever
-   be asked more than twice in the same conversation. Fixed with a
-   deterministic safety net (_apply_lodging_ask_limit_fallback) that counts
-   how many prior assistant turns already asked about a given still-open
-   lodging gap and, once that reaches 2, force-closes it.
+6. Shlomo's follow-up: regardless of why any one parser missed a specific
+   phrasing, no lodging field should ever be asked more than twice in a row.
 
-   Shaked's review of the FIRST version of #6 (real Paris history, s3a2):
-   checking the cue word anywhere in the whole assistant message false-
-   positived on ordinary non-question narrative text (a route proposal's
-   own "...במלון באזור מרכזי", and a plain recommendation sentence with NO
-   "?" at all) - lodging.details.locations got force-closed as "אין
-   העדפה" WITHOUT EVER ACTUALLY BEING ASKED, the exact Rome bug (#3) this
-   PR exists to fix, just reached a different way. Fixed: only the
-   message's own real question clause counts (via _last_question_clause),
-   and a message with no "?" at all is skipped entirely. Also, per Shaked
-   and Shlomo together: force-closing to "אין העדפה" when the customer
-   genuinely replied something (just not in a shape the field's own parser
-   recognized) throws that answer away - the raw reply text right after
-   the LAST matched question is now saved as the field's value instead;
-   "אין העדפה" is reserved for when there truly was no reply at all.
+ARCHITECTURAL CORRECTION, ROUND 1 (business owner, 17.10.2026, relayed by
+Shlomo, after reviewing the first version of #1/#2/#4/#6): "כלל גורף, לא
+אפשרויות ביטויים" - stop fixing individual cases with growing phrase/word
+lists; use general state-driven rules instead. #6's ask-limit counter
+(originally scanning assistant message text for topic words) became PURELY
+state-driven (_apply_lodging_ask_limit_fallback): it compares
+_session_gaps(trip_state, "lodging")'s first entry (the one gap Ariella's
+own question-selection pipeline would ask about this turn) against
+_session_gaps(trip_update, "lodging") after the message was processed - no
+message text is ever inspected for keywords.
+
+ARCHITECTURAL CORRECTION, ROUND 2 (Shaked's follow-up review, same day): a
+round-1 attempt to fix #1/#2/#4 with model-based (LLM classifier) calls per
+field was ALSO rejected - Shaked tested further phrasings ("שתי מקלחות",
+"שלושה", "לפחות שניים" for bathrooms; "שני חדרים", "2", "שלושה חדרי שינה",
+"סוויטה אחת", "חדר לנו וחדר לילדים" for rooms; "עד 300 יורו", "בלי מגבלה",
+"גמיש", "מה שצריך" for budget; "במרכז העיר", "לא משנה" for locations) and
+proposed ONE fully general, deterministic rule instead, which Shlomo
+confirmed matches the business owner's decision exactly: identify the ONE
+lodging gap _session_gaps names first (the gap Ariella's pipeline would
+have asked about last turn); if the reply isn't itself a question, save a
+value for that exact gap ALREADY ON THE FIRST REPLY - a number if the reply
+names one (via ONE shared number reader, _first_number_in_text, covering
+digits and Hebrew number words in both genders - not a list per field),
+otherwise the raw reply text. No per-field phrase list anywhere, and no
+model call needed for this. Implemented as _capture_lodging_gap_answer,
+with _apply_lodging_ask_limit_fallback kept as a backup safety net for
+whatever it still doesn't resolve (e.g. a reply that looks like a question).
 
 Run: python3 tools/qa_stage3_run1_lodging_fixes.py
 """
@@ -100,52 +101,89 @@ def gaps_for(services, lodging_details, extra=None):
     return chat._required_state_gaps(st)
 
 
-# === #1: Paris - lodging budget "no limit" ===
-
-history_budget = [{"role": "assistant", "content": "מה התקציב שלכם ללילה?"}]
-for phrase in ("אין הגבלה", "ללא הגבלה", "אין תקרה", "לא מוגבל"):
-    facts = chat._deterministic_lodging_facts(phrase, history_budget)
-    check(f"Shaked's Paris finding: '{phrase}' answering the lodging budget "
-          "question closes the gap via level='אין העדפה' (budget stays null "
-          "- the correct no-price-cap search behavior), never stuck open",
-          facts.get("lodging", {}).get("details", {}).get("level") == "אין העדפה"
-          and facts.get("lodging", {}).get("details", {}).get("budget") is None)
-
-check("the composite gap actually closes end to end once level is set this way",
-      "lodging.details.budget_or_level" not in gaps_for(
-          ["lodging"], {"type": "דירה", "rooms": 1, "bathrooms": 1, "locations": "מרכז", "level": "אין העדפה"}))
-
-# Regression: a genuine numeric nightly budget answer is untouched by the new check.
-facts_numeric = chat._deterministic_lodging_facts("עד 500 ללילה", history_budget)
-check("regression: a real numeric nightly budget answer still sets budget, "
-      "not level - the no-limit branch never short-circuits it",
-      facts_numeric.get("lodging", {}).get("details", {}).get("budget") == 500
-      and "level" not in facts_numeric.get("lodging", {}).get("details", {}))
-
-# Regression: the no-limit phrases must not fire when the budget question
-# wasn't actually the one just asked (gated on last_question, never blind).
-history_other = [{"role": "assistant", "content": "איזה סוג לינה מתאים לכם?"}]
-facts_ungated = chat._deterministic_lodging_facts("אין הגבלה", history_other)
-check("regression: 'אין הגבלה' answering an UNRELATED lodging question "
-      "(type, not budget) never sets level - gated on the real question asked",
-      "level" not in facts_ungated.get("lodging", {}).get("details", {}))
+LODGING_SVC = {
+    "requested_services": ["lodging"], "session_status": {},
+    "destination": {"places": ["רומא"]},
+    "dates": {"departure": "2027-06-01", "return": "2027-06-10", "needs_confirmation": False},
+    "travelers": {"adults": 2},
+}
 
 
-# === #2: apartment bathrooms ===
+def _state(details, ask_counts=None):
+    lodging = {"details": dict(details)}
+    if ask_counts:
+        lodging["ask_counts"] = dict(ask_counts)
+    return dict(LODGING_SVC, lodging=lodging)
 
-history_bath = [{"role": "assistant", "content": "כמה חדרי רחצה תרצו בדירה?"}]
-check("Shaked's Paris finding: 'שני חדרי רחצה' (spelled-out 'two') parsed as bathrooms=2",
-      chat._deterministic_lodging_facts("שני חדרי רחצה", history_bath)
-      .get("lodging", {}).get("details", {}).get("bathrooms") == 2)
-check("regression: a bare digit answer ('2 חדרי רחצה') still works",
-      chat._deterministic_lodging_facts("2 חדרי רחצה", history_bath)
-      .get("lodging", {}).get("details", {}).get("bathrooms") == 2)
-check("regression: 'אחד' (one) still parses as bathrooms=1",
-      chat._deterministic_lodging_facts("חדר רחצה אחד מספיק", history_bath)
-      .get("lodging", {}).get("details", {}).get("bathrooms") == 1)
+
+# === #1/#2/#4, round-2 correction: ONE fully general rule
+#     (_capture_lodging_gap_answer), no per-field phrase list, no model
+#     call. Covers Shaked's exact second-round test phrasings. ===
+
+# Bathrooms: the one open gap once type/rooms/locations are known.
+bath_state = _state({"type": "דירה", "rooms": 2, "locations": "מרכז"})
+for phrase, expected in [("שתי מקלחות", 2), ("שלושה", 3), ("לפחות שניים", 2), ("2 מקלחות", 2)]:
+    out = chat._capture_lodging_gap_answer(bath_state, bath_state, phrase)
+    check(f"Shaked's round-2 bathrooms phrasing '{phrase}' -> bathrooms={expected}, "
+          "via the one shared number reader - no phrase list",
+          out["lodging"]["details"].get("bathrooms") == expected)
+
+# Rooms: the one open gap once type/bathrooms/locations are known.
+rooms_state = _state({"type": "דירה", "bathrooms": 1, "locations": "מרכז"})
+for phrase, expected in [("שני חדרים", 2), ("2", 2), ("שלושה חדרי שינה", 3), ("סוויטה אחת", 1)]:
+    out = chat._capture_lodging_gap_answer(rooms_state, rooms_state, phrase)
+    check(f"Shaked's round-2 rooms phrasing '{phrase}' -> rooms={expected}, "
+          "via the one shared number reader - no phrase list",
+          out["lodging"]["details"].get("rooms") == expected)
+check("Shaked's round-2 rooms phrasing 'חדר לנו וחדר לילדים' (no number at "
+      "all) -> the raw reply text is saved rather than dropped - a genuinely "
+      "unparseable answer must never silently vanish",
+      chat._capture_lodging_gap_answer(rooms_state, rooms_state, "חדר לנו וחדר לילדים")
+      ["lodging"]["details"].get("rooms") == "חדר לנו וחדר לילדים")
+
+# Budget: the one open gap once type/rooms/bathrooms/locations are known.
+budget_state = _state({"type": "דירה", "rooms": 2, "bathrooms": 1, "locations": "מרכז"})
+out_budget_numeric = chat._capture_lodging_gap_answer(budget_state, budget_state, "עד 300 יורו")
+check("Shaked's round-2 budget phrasing 'עד 300 יורו' -> budget=300",
+      out_budget_numeric["lodging"]["details"].get("budget") == 300)
+for phrase in ("בלי מגבלה", "גמיש", "מה שצריך"):
+    out = chat._capture_lodging_gap_answer(budget_state, budget_state, phrase)
+    check(f"Shaked's round-2 budget phrasing '{phrase}' (no number) -> the "
+          "raw text is saved as level (a free-text field) - budget itself "
+          "stays null, which is the correct no-price-cap search behavior "
+          "regardless of the exact wording",
+          out["lodging"]["details"].get("budget") is None
+          and out["lodging"]["details"].get("level") == phrase)
+
+# Locations: the one open gap once type/rooms/bathrooms are known.
+loc_state = _state({"type": "דירה", "rooms": 2, "bathrooms": 1})
+for phrase in ("במרכז העיר", "לא משנה"):
+    out = chat._capture_lodging_gap_answer(loc_state, loc_state, phrase)
+    check(f"Shaked's round-2 locations phrasing '{phrase}' -> saved as the "
+          "raw reply text (locations has always been free text)",
+          out["lodging"]["details"].get("locations") == phrase)
+
+# Regressions: the mechanism must never fire when it shouldn't.
+check("regression: a reply that looks like a question is never captured as "
+      "an answer (e.g. the customer asking something back instead)",
+      "bathrooms" not in chat._capture_lodging_gap_answer(
+          bath_state, bath_state, "כמה בדרך כלל אנשים לוקחים?")["lodging"]["details"])
+check("regression: nothing happens once the gap is already resolved (e.g. "
+      "an earlier deterministic parser or the real extractor already set "
+      "it this very turn) - the generic rule never overwrites a real value",
+      chat._capture_lodging_gap_answer(
+          bath_state, _state({"type": "דירה", "rooms": 2, "locations": "מרכז", "bathrooms": 2}), "שתי מקלחות"
+      )["lodging"]["details"].get("bathrooms") == 2)
+check("regression: with no open lodging gap at all, the state passes "
+      "through completely untouched",
+      chat._capture_lodging_gap_answer(
+          _state({"type": "דירה", "rooms": 2, "bathrooms": 1, "locations": "מרכז", "budget": 300}),
+          _state({"type": "דירה", "rooms": 2, "bathrooms": 1, "locations": "מרכז", "budget": 300}),
+          "משהו",
+      )["lodging"]["details"].get("budget") == 300)
 
 check("Shaked's Athens finding: an apartment (type='דירה') with no bathrooms "
-      "set is now a real missing_required gap, not left to the model's memory",
+      "set is a real missing_required gap, not left to the model's memory",
       "lodging.details.bathrooms" in gaps_for(
           ["lodging"], {"type": "דירה", "rooms": 3, "locations": "מרכז", "budget": 500}))
 check("a hotel/villa never requires the bathrooms gap at all",
@@ -156,6 +194,25 @@ check("a hotel/villa never requires the bathrooms gap at all",
 check("once bathrooms is set, the apartment gap closes",
       "lodging.details.bathrooms" not in gaps_for(
           ["lodging"], {"type": "דירה", "rooms": 3, "locations": "מרכז", "budget": 500, "bathrooms": 2}))
+
+# The pre-existing, specific deterministic parsers (unrelated to this PR's
+# correction - they predate it) still work exactly as before.
+history_rooms = [{"role": "assistant", "content": "כמה חדרים תרצו?"}]
+history_bath = [{"role": "assistant", "content": "כמה חדרי רחצה תרצו בדירה?"}]
+check("regression: a plain digit answer ('3 חדרים') still works deterministically",
+      chat._deterministic_lodging_facts("3 חדרים", history_rooms)
+      .get("lodging", {}).get("details", {}).get("rooms") == 3)
+check("regression: the exact bare 'חדר אחד' phrase still works deterministically",
+      chat._deterministic_lodging_facts("חדר אחד", history_rooms)
+      .get("lodging", {}).get("details", {}).get("rooms") == 1)
+check("regression: 'חדר זוגי' (double room, singular) still infers rooms=1 "
+      "deterministically even when volunteered outside the rooms question",
+      chat._deterministic_lodging_facts("עד 600 שקל ללילה לחדר זוגי", [])
+      .get("lodging", {}).get("details", {}).get("rooms") == 1)
+check("regression: a bare digit bathrooms answer ('2 חדרי רחצה') still "
+      "works deterministically",
+      chat._deterministic_lodging_facts("2 חדרי רחצה", history_bath)
+      .get("lodging", {}).get("details", {}).get("bathrooms") == 2)
 
 
 # === #3: Rome - invented lodging region from route ===
@@ -187,25 +244,6 @@ check("regression: an already-known lodging.details.locations is never "
       "overwritten by the route, single or multi-base alike",
       chat._resolve_lodging_locations_from_route(state_already_set)
       .get("lodging", {}).get("details", {}).get("locations") == "קרוב למרכז")
-
-
-# === #4: Budapest - rooms with a descriptive word in between ===
-
-history_rooms = [{"role": "assistant", "content": "כמה חדרים תרצו?"}]
-check("Shaked's Budapest finding: 'חדר משפחתי אחד עם עריסה' (descriptive "
-      "word between 'חדר' and the spelled-out 'אחד') parsed as rooms=1",
-      chat._deterministic_lodging_facts("חדר משפחתי אחד עם עריסה", history_rooms)
-      .get("lodging", {}).get("details", {}).get("rooms") == 1)
-check("regression: a plain digit answer ('3 חדרים') still works",
-      chat._deterministic_lodging_facts("3 חדרים", history_rooms)
-      .get("lodging", {}).get("details", {}).get("rooms") == 3)
-check("regression: the exact bare 'חדר אחד' phrase still works unchanged",
-      chat._deterministic_lodging_facts("חדר אחד", history_rooms)
-      .get("lodging", {}).get("details", {}).get("rooms") == 1)
-check("regression: 'חדר זוגי' (double room, singular) still infers rooms=1 "
-      "even when volunteered outside the rooms question",
-      chat._deterministic_lodging_facts("עד 600 שקל ללילה לחדר זוגי", [])
-      .get("lodging", {}).get("details", {}).get("rooms") == 1)
 
 
 # === #5a: Rome - single question sentence bundling two lodging topics ===
@@ -246,8 +284,7 @@ check("Shaked's Budapest finding: a bundled two-question message with NO "
       out_budapest == "ספרו לי מה אתם אוהבים לעשות בחופשה?")
 
 check("regression: an ordinary statement with ', וגם' and no '?' at all is "
-      "never mistaken for a bundled question (no question word right after "
-      "'וגם', and no interrogative opener before it)",
+      "never mistaken for a bundled question",
       chat._enforce_one_option_question("אישרתי את הטיסה, וגם את המלון.", {}) ==
       "אישרתי את הטיסה, וגם את המלון.")
 
@@ -256,8 +293,6 @@ check("regression: a plain reply with no '?' and no bundling cue at all "
       chat._enforce_one_option_question("מעולה, פרטי הטיסה נקלטו.", {}) ==
       "מעולה, פרטי הטיסה נקלטו.")
 
-# Carried-over regression from the prior PR (#72): the parenthetical
-# example-list case must still be allowed (never re-flagged as bundled).
 check("regression (PR #72): a parenthetical example-list open question "
       "still survives completely unchanged",
       chat._enforce_one_option_question(
@@ -269,119 +304,71 @@ check("regression (PR #72): a parenthetical example-list open question "
            "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?")
 
 
-# === Shlomo's follow-up: deterministic "never ask the same field more
-#     than twice" safety net, independent of any one field's own parser.
-#     Fixed per Shaked's PR #73 review (real Paris history, s3a2): only the
-#     message's own real question clause counts (never a narrative mention
-#     with no "?" at all), and a genuine customer reply after the last ask
-#     is saved as raw text rather than overwritten as "אין העדפה" ===
+# === #6: deterministic "never ask the same field more than twice" backup
+#     safety net - PURELY STATE-DRIVEN: no message text is ever inspected
+#     for keywords. Only ever needed for whatever _capture_lodging_gap_
+#     answer above didn't resolve (e.g. a reply that looked like a
+#     question each time). ===
 
-def _history_asking_twice(question_text, last_reply="עדיין לא ברור"):
-    return [
-        {"role": "assistant", "content": question_text},
-        {"role": "user", "content": "משהו שלא נקלט"},
-        {"role": "assistant", "content": question_text},
-        {"role": "user", "content": last_reply},
-    ]
+# Turn 1: budget is the one open gap, still open after this message (looked
+# like a question, so the general-answer capture above skipped it) -> count 1.
+trip_state_1 = _state({"type": "מלון", "rooms": 2, "locations": "מרכז"})
+trip_update_1 = _state({"type": "מלון", "rooms": 2, "locations": "מרכז"})
+out1 = chat._apply_lodging_ask_limit_fallback(trip_state_1, trip_update_1, "כמה זה בערך?")
+check("Shlomo's follow-up, turn 1: the first unanswered ask is just "
+      "recorded (count=1) - never force-closed after only one ask",
+      out1["lodging"]["details"].get("level") is None
+      and out1["lodging"].get("ask_counts", {}).get("lodging.details.budget_or_level") == 1)
 
+# Turn 2: same gap still open, now reaches 2 -> force-closes with the
+# customer's own raw reply to THIS turn (never "אין העדפה" when she said
+# something real) - this is the true last-resort case: _capture_lodging_
+# gap_answer itself would normally already have saved an ordinary reply, so
+# this only still fires when every earlier mechanism found nothing usable.
+trip_state_2 = out1
+trip_update_2 = _state({"type": "מלון", "rooms": 2, "locations": "מרכז"},
+                        ask_counts={"lodging.details.budget_or_level": 1})
+out2 = chat._apply_lodging_ask_limit_fallback(trip_state_2, trip_update_2, "???")
+check("Shlomo's follow-up, turn 2: reaching 2 unanswered asks saves the "
+      "customer's own raw reply from THIS turn, not a guessed 'אין העדפה' "
+      "(Paris hit 13x before this safety net existed)",
+      out2["lodging"]["details"].get("level") == "???")
 
-state_budget_loop = {
-    "requested_services": ["lodging"], "session_status": {},
-    "lodging": {"details": {"type": "מלון", "rooms": 2, "locations": "מרכז"}},
-}
-out_budget_loop = chat._apply_lodging_ask_limit_fallback(
-    state_budget_loop, _history_asking_twice("מה התקציב שלכם ללילה?", "בערך 400 איכשהו"))
-check("Shlomo's follow-up: the lodging budget question asked twice saves "
-      "the customer's own raw last reply rather than guessing/discarding it "
-      "(Paris hit 13x)",
-      out_budget_loop["lodging"]["details"].get("level") == "בערך 400 איכשהו")
-
-state_rooms_loop = {
-    "requested_services": ["lodging"], "session_status": {},
-    "lodging": {"details": {"type": "מלון", "locations": "מרכז", "level": "אין העדפה"}},
-}
-out_rooms_loop = chat._apply_lodging_ask_limit_fallback(
-    state_rooms_loop, _history_asking_twice("כמה חדרים תרצו?", "לא בטוחה כמה בדיוק"))
-check("Shlomo's follow-up: 'כמה חדרים תרצו?' asked twice saves the raw "
-      "last reply into rooms (Budapest hit 4x)",
-      out_rooms_loop["lodging"]["details"].get("rooms") == "לא בטוחה כמה בדיוק")
-
-state_no_reply = {
-    "requested_services": ["lodging"], "session_status": {},
-    "lodging": {"details": {"type": "מלון", "rooms": 2, "locations": "מרכז"}},
-}
-out_no_reply = chat._apply_lodging_ask_limit_fallback(
-    state_no_reply, [
-        {"role": "assistant", "content": "מה התקציב שלכם ללילה?"},
-        {"role": "user", "content": ""},
-        {"role": "assistant", "content": "מה התקציב שלכם ללילה?"},
-    ])
+out2_empty = chat._apply_lodging_ask_limit_fallback(
+    trip_state_2,
+    _state({"type": "מלון", "rooms": 2, "locations": "מרכז"}, ask_counts={"lodging.details.budget_or_level": 1}),
+    "",
+)
 check("Shlomo's follow-up: 'אין העדפה' is still the fallback when the "
-      "customer truly never replied to the last ask at all",
-      out_no_reply["lodging"]["details"].get("level") == "אין העדפה")
+      "customer truly gave no reply at all",
+      out2_empty["lodging"]["details"].get("level") == "אין העדפה")
 
-state_once = {
-    "requested_services": ["lodging"], "session_status": {},
-    "lodging": {"details": {"type": "מלון", "rooms": 2, "locations": "מרכז"}},
-}
-out_once = chat._apply_lodging_ask_limit_fallback(
-    state_once, [{"role": "assistant", "content": "מה התקציב שלכם ללילה?"}])
-check("regression: asked only ONCE never force-closes the gap - the normal "
-      "parsers still get their fair first (and second) chance",
-      "level" not in out_once["lodging"]["details"])
+trip_state_resolved = _state({"type": "מלון", "rooms": 2, "locations": "מרכז"})
+trip_update_resolved = _state({"type": "מלון", "rooms": 2, "locations": "מרכז", "budget": 400})
+out_resolved = chat._apply_lodging_ask_limit_fallback(trip_state_resolved, trip_update_resolved, "400 שקל ללילה")
+check("regression: a gap resolved by this very turn's reply is left "
+      "completely alone - the real parsers/generic capture get full credit",
+      out_resolved["lodging"]["details"].get("budget") == 400
+      and "level" not in out_resolved["lodging"]["details"])
 
-state_already_answered = {
-    "requested_services": ["lodging"], "session_status": {},
-    "lodging": {"details": {"type": "מלון", "rooms": 2, "locations": "מרכז", "budget": 400}},
-}
-out_already = chat._apply_lodging_ask_limit_fallback(
-    state_already_answered, _history_asking_twice("מה התקציב שלכם ללילה?"))
-check("regression: a gap that's already genuinely closed (real budget set) "
-      "is never touched even if the question text appears twice in history",
-      out_already["lodging"]["details"].get("budget") == 400
-      and "level" not in out_already["lodging"]["details"])
+trip_state_paris = _state({"type": "דירה", "rooms": 2, "bathrooms": 1, "level": "אין העדפה"})
+trip_update_paris = _state({"type": "דירה", "rooms": 2, "bathrooms": 1, "level": "אין העדפה"})
+out_paris = chat._apply_lodging_ask_limit_fallback(
+    trip_state_paris, trip_update_paris,
+    "מעולה. בפריז, עם כל האטרקציות הפזורות במרכז, הכי הגיוני להישאר באזור מרכזי אחד.")
+check("Shaked's PR #73 review concern: since locations is still genuinely "
+      "open and is the FIRST real gap by state (not asked about in that "
+      "message's actual content), it correctly starts tracking it as an "
+      "open ask rather than being skipped or wrongly force-closed by text",
+      "locations" not in out_paris["lodging"]["details"]
+      and out_paris["lodging"].get("ask_counts", {}).get("lodging.details.locations") == 1)
 
-# === Shaked's exact PR #73 review repro: a route proposal's own narrative
-#     text ("...במלון באזור מרכזי") and a plain non-question recommendation
-#     ("הכי הגיוני להישאר באזור מרכזי אחד", no "?" at all) must NEVER be
-#     counted as if they were real "where do you want to stay" questions -
-#     this is the exact mechanism that silently force-closed
-#     lodging.details.locations in Paris (s3a2) without it ever being asked ===
+check("regression: lodging untouched when lodging isn't even a requested service",
+      chat._apply_lodging_ask_limit_fallback(
+          {"requested_services": [], "lodging": {"details": {}}},
+          {"requested_services": [], "lodging": {"details": {}}}, "כן",
+      ) == {"requested_services": [], "lodging": {"details": {}}})
 
-state_paris_repro = {
-    "requested_services": ["lodging", "trip_planning"], "session_status": {},
-    "lodging": {"details": {"type": "דירה", "rooms": 2, "level": "אין העדפה"}},
-}
-history_paris_repro = [
-    {"role": "assistant", "content": "הנה הצעה למסלול: יום 1 - שיטוט במרכז העיר, "
-                                      "התארגנות במלון באזור מרכזי. המסלול מתאים לכם?"},
-    {"role": "user", "content": "כן, מתאים"},
-    {"role": "assistant", "content": "מעולה. בפריז, עם כל האטרקציות הפזורות במרכז, "
-                                      "הכי הגיוני להישאר באזור מרכזי אחד."},
-    {"role": "user", "content": "סבבה"},
-]
-out_paris_repro = chat._apply_lodging_ask_limit_fallback(state_paris_repro, history_paris_repro)
-check("Shaked's PR #73 review repro: a route narrative mentioning 'אזור' "
-      "(inside its own question about the ROUTE, not lodging) and a "
-      "recommendation sentence with NO '?' at all never force-close "
-      "lodging.details.locations - it still isn't genuinely asked",
-      "locations" not in out_paris_repro["lodging"]["details"])
-
-state_rome_repro = {
-    "requested_services": ["lodging"], "session_status": {},
-    "lodging": {"details": {"type": "מלון", "rooms": 2}},
-}
-history_rome_repro = [
-    {"role": "assistant", "content": "תקציב הטיסה עד 2000 ש״ח, והחופשה כוללת 4 לילות ברומא. "
-                                      "חשוב לכם טיסה ישירה?"},
-    {"role": "user", "content": "כן"},
-]
-out_rome_repro = chat._apply_lodging_ask_limit_fallback(state_rome_repro, history_rome_repro)
-check("regression: 'תקציב הטיסה... 4 לילות' (both cue words present, but "
-      "in an earlier STATEMENT clause, not the actual question asked - a "
-      "direct-flight question) never force-closes the lodging budget gap",
-      "level" not in out_rome_repro["lodging"]["details"]
-      and "budget" not in out_rome_repro["lodging"]["details"])
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

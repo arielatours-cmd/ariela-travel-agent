@@ -1726,105 +1726,149 @@ def _resolve_lodging_locations_from_route(state):
     return state
 
 
-# Per Shlomo's follow-up on stage-3 run-1 (17.10.2026) - the same cue words
-# _deterministic_lodging_facts above gates each field's own answer-parsing
-# on, reused here so the ask-limit check below recognizes the exact same
-# question shapes that function does, nothing broader.
-_LODGING_GAP_ASKED_IN_MESSAGE = {
-    "lodging.details.type": lambda m: (
-        any(p in m for p in ("סוג לינה", "סוג הלינה"))
-        or ("מלון" in m and ("דירה" in m or "וילה" in m))
-    ),
-    "lodging.details.rooms": lambda m: any(
-        p in m for p in ("כמה חדרים", "חדר אחד גדול", "לחלק לשני חדרים", "חלוקת החדרים")
-    ),
-    "lodging.details.bathrooms": lambda m: any(
-        p in m for p in ("חדרי רחצה", "חדר רחצה", "שירותים ומקלחת", "חדר שירותים")
-    ),
-    "lodging.details.locations": lambda m: any(p in m for p in ("אזור", "מיקום")),
-    "lodging.details.budget_or_level": lambda m: "תקציב" in m and "ליל" in m,
-}
+def _first_number_in_text(text):
+    """A single shared number reader for every lodging field (rooms,
+    bathrooms, nightly budget) - a digit, or a Hebrew number word from the
+    one shared _HEBREW_NUMBER_WORDS vocabulary (already covers both
+    masculine and feminine forms: "שני"/"שתי", "שלושה"/"שלוש", etc. - the
+    same dictionary already used for travelers/children counts). One
+    reader for every field, per the business owner's instruction
+    (17.10.2026, relayed by Shlomo): no per-field phrase list, ever."""
+    text = str(text or "")
+    m = re.search(r"\d+", text)
+    if m:
+        return int(m.group(0))
+    m2 = re.search(r"\b(" + _HEBREW_NUMBER_WORD_RE + r")\b", text)
+    if m2:
+        return _HEBREW_NUMBER_WORDS[m2.group(1)]
+    return None
 
 
-def _apply_lodging_ask_limit_fallback(state, history):
-    """Deterministic safety net, independent of any one field's own parser:
-    no lodging field should ever be asked more than twice in the same
-    conversation. Seen live (Shaked, stage-3 run-1): the lodging per-night
-    budget question was asked 13 times in Paris, "כמה חדרים תרצו?" 4 times
-    in Budapest - in both cases because one specific answer phrasing
-    ("אין הגבלה", "חדר משפחתי אחד עם עריסה") slipped past that field's own
-    deterministic parser, with nothing else to stop the same question
-    being asked again and again. Rather than keep chasing every possible
-    phrasing one bug report at a time, this counts how many PRIOR assistant
-    turns already ASKED about a given still-open gap and, once that count
-    reaches 2, force-closes it - but never with a guessed real value.
-
-    Per Shaked's review of the FIRST version (real Paris history, s3a2):
-    checking the cue word anywhere in the whole assistant message false-
-    positived on ordinary non-question text that merely mentions the same
-    word - a day-by-day route proposal's own narrative ("...במלון באזור
-    מרכזי") and a plain recommendation sentence with no "?" at all ("הכי
-    הגיוני להישאר באזור מרכזי אחד") both got counted as if they were real
-    "where do you want to stay" questions, so lodging.details.locations
-    was force-closed as "אין העדפה" WITHOUT EVER ACTUALLY BEING ASKED -
-    exactly the Rome bug this whole PR exists to fix, just reached a
-    different way. Fixed: only ever look at the message's own real
-    question clause (_last_question_clause - the same "what was actually
-    asked" scoping _deterministic_lodging_facts's own asked_* gates already
-    use), and skip any message with no "?" at all entirely rather than
-    falling back to treating its last sentence as a question.
-
-    Per the same review, and Shlomo's follow-up: force-closing to "אין
-    העדפה" when the customer genuinely answered something (just not in a
-    shape the field's own parser recognized) throws that answer away and
-    shows "no preference" in the final summary for a preference she did
-    state. When the user turn right after the LAST matched question has
-    real content, that raw text is saved as the field's value instead -
-    "אין העדפה" is reserved for when there truly was no reply to react to
-    at all."""
-    state = state if isinstance(state, dict) else {}
-    if "lodging" not in (state.get("requested_services") or []):
-        return state
-    gaps = set(_session_gaps(state, "lodging"))
-    if not gaps:
-        return state
-    history = history or []
-    lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
+def _capture_lodging_gap_answer(trip_state, trip_update, message):
+    """General rule (business owner, 17.10.2026, relayed by Shlomo and
+    Shaked, replacing the per-field phrase lists this PR originally added
+    for "אין הגבלה"/spelled-out bathroom and room counts): identify the ONE
+    lodging gap _session_gaps(trip_state, "lodging") names first - the
+    exact gap Ariella's own question-selection pipeline would have asked
+    about last turn, never guessed from the message. If this turn's reply
+    doesn't look like a question itself, and nothing upstream (the real
+    extractor, or _deterministic_lodging_facts's own specific parsers) has
+    already resolved that exact gap, save a value for it ALREADY ON THIS
+    FIRST REPLY, never waiting for a second ask:
+    - rooms/bathrooms/nightly budget: the first number the reply names (via
+      _first_number_in_text, digits or spelled-out words - one shared
+      reader, not a list per field) if any; otherwise the customer's own
+      raw reply text (level/type/locations are free-text fields already,
+      and a non-numeric rooms/bathrooms answer degrades safely downstream -
+      see public_site.py's own int-parsing fallback to a sane default).
+    - type/locations: always the raw reply text (already free-text fields;
+      no number concept applies to them).
+    Directly covers Shaked's second-round review list ("שתי מקלחות"/
+    "שלושה"/"לפחות שניים" for bathrooms; "שני חדרים"/"2"/"שלושה חדרי שינה"/
+    "סוויטה אחת"/"חדר לנו וחדר לילדים" for rooms; "עד 300 יורו"/"בלי
+    מגבלה"/"גמיש"/"מה שצריך" for budget; "במרכז העיר"/"לא משנה" for
+    locations) without a single new phrase added anywhere - every one of
+    them either names a number the shared reader finds, or becomes the raw
+    answer text, which is exactly correct for a free-text field and
+    degrades safely (no price cap / a sane room-count default) wherever a
+    structured value was expected instead."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    gaps_before = _session_gaps(trip_state, "lodging")
+    if not gaps_before:
+        return trip_update
+    gap = gaps_before[0]
+    if gap not in set(_session_gaps(trip_update, "lodging")):
+        return trip_update
+    msg = str(message or "").strip()
+    if not msg or "?" in msg:
+        return trip_update
+    field = "level" if gap == "lodging.details.budget_or_level" else gap.split(".")[-1]
+    lodging = trip_update.get("lodging") if isinstance(trip_update.get("lodging"), dict) else {}
     details = dict(lodging.get("details") or {})
-    changed = False
-    for gap, asked_in in _LODGING_GAP_ASKED_IN_MESSAGE.items():
-        if gap not in gaps:
-            continue
-        last_match_i = None
-        count = 0
-        for i, m in enumerate(history):
-            if not (isinstance(m, dict) and str(m.get("role") or "").lower() == "assistant"):
-                continue
-            content = str(m.get("content") or "")
-            if "?" not in content:
-                continue
-            if asked_in(_last_question_clause(content)):
-                count += 1
-                last_match_i = i
-        if count < 2:
-            continue
-        field = "level" if gap == "lodging.details.budget_or_level" else gap.split(".")[-1]
-        reply = None
-        if last_match_i is not None and last_match_i + 1 < len(history):
-            nxt = history[last_match_i + 1]
-            if isinstance(nxt, dict) and str(nxt.get("role") or "").lower() == "user":
-                reply_text = str(nxt.get("content") or "").strip()
-                if reply_text:
-                    reply = reply_text
-        details[field] = reply if reply else "אין העדפה"
-        changed = True
-    if not changed:
-        return state
-    state = dict(state)
+    if gap == "lodging.details.budget_or_level":
+        number = _first_number_in_text(msg)
+        if number is not None:
+            details["budget"] = number
+        else:
+            details["level"] = msg
+    elif field in ("rooms", "bathrooms"):
+        number = _first_number_in_text(msg)
+        details[field] = number if number is not None else msg
+    else:
+        details[field] = msg
+    trip_update = dict(trip_update)
     lodging = dict(lodging)
     lodging["details"] = details
-    state["lodging"] = lodging
-    return state
+    trip_update["lodging"] = lodging
+    return trip_update
+
+
+def _apply_lodging_ask_limit_fallback(trip_state, trip_update, message):
+    """Deterministic safety net, independent of any one field's own parser:
+    no lodging field should ever be asked more than twice in a row. Seen
+    live (Shaked, stage-3 run-1): the lodging per-night budget question was
+    asked 13 times in Paris, "כמה חדרים תרצו?" 4 times in Budapest - in both
+    cases because one specific answer phrasing slipped past that field's
+    own understanding, with nothing else to stop the same question being
+    asked again and again.
+
+    Per the business owner's explicit instruction (17.10.2026, relayed by
+    Shlomo, following Shaked's review of the first version): a first
+    version of this safety net counted by scanning assistant message TEXT
+    for topic words (e.g. "אזור"/"מיקום" for locations) - which false-
+    positived on ordinary non-question narrative text (a route proposal's
+    own "...במלון באזור מרכזי", and a plain recommendation sentence with NO
+    "?" at all, "הכי הגיוני להישאר באזור מרכזי אחד") and force-closed
+    lodging.details.locations WITHOUT IT EVER ACTUALLY BEING ASKED -
+    exactly the Rome bug (#3) this whole PR exists to fix, reached a
+    different way. Per the same instruction: fixes from now on are general,
+    state-driven rules, never growing word/phrase lists to recognize a
+    given field.
+
+    Fixed, entirely state-driven - no message text is ever inspected for
+    keywords: _session_gaps(trip_state, "lodging")'s own FIRST entry is,
+    structurally, the one gap Ariella's own question-selection pipeline
+    (_enforce_one_option_question's fixed-text resolution, _GAP_QUESTION_
+    TEXT) would pick to ask about this turn - the real mechanism that
+    decides what to ask, not a guess from the message. If that same gap is
+    STILL open after this message was processed, that counts as one more
+    unanswered ask (tracked in lodging.ask_counts, alongside the real
+    facts); once it reaches 2, the gap is force-closed - using the
+    customer's own raw reply (this turn's `message`) when there is one,
+    since force-closing to "אין העדפה" when she genuinely said something
+    (just not in a shape any parser recognized) would throw her answer away
+    and misreport "no preference" in the final summary. "אין העדפה" is
+    reserved for when there truly was no reply at all."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    if "lodging" not in (trip_update.get("requested_services") or []):
+        return trip_update
+    gaps_before = _session_gaps(trip_state, "lodging")
+    if not gaps_before:
+        return trip_update
+    asked_gap = gaps_before[0]
+    if asked_gap not in set(_session_gaps(trip_update, "lodging")):
+        return trip_update
+    lodging_before = trip_state.get("lodging") if isinstance(trip_state.get("lodging"), dict) else {}
+    counts = dict(lodging_before.get("ask_counts") or {})
+    count = counts.get(asked_gap, 0) + 1
+    lodging_update = trip_update.get("lodging") if isinstance(trip_update.get("lodging"), dict) else {}
+    details = dict(lodging_update.get("details") or {})
+    new_counts = dict(counts)
+    if count >= 2:
+        field = "level" if asked_gap == "lodging.details.budget_or_level" else asked_gap.split(".")[-1]
+        reply_text = str(message or "").strip()
+        details[field] = reply_text if reply_text else "אין העדפה"
+        new_counts.pop(asked_gap, None)
+    else:
+        new_counts[asked_gap] = count
+    trip_update = dict(trip_update)
+    lodging_update = dict(lodging_update)
+    lodging_update["details"] = details
+    lodging_update["ask_counts"] = new_counts
+    trip_update["lodging"] = lodging_update
+    return trip_update
 
 
 def _resolve_ski_destination_airports(state):
@@ -6200,26 +6244,12 @@ def _deterministic_lodging_facts(message, history):
     # plain "כן" answer, which names no number at all - seen live: that
     # left rooms unset even though the customer had just confirmed it.
     asked_single_room_confirm = bool(re.search(r"חדר\s+\S*\s*אחד\s+מספיק", last_question))
-    # Per Shaked's stage-3 run-1 finding (Budapest): "חדר משפחתי אחד עם
-    # עריסה" ("one family room with a crib") was never recognized as
-    # rooms=1 - the exact "חדר אחד" substring check above requires the
-    # number word directly after "חדר", but here a descriptive word
-    # ("משפחתי") sits in between, and the digit regex needs an actual
-    # digit, not a spelled-out one. "כמה חדרים תרצו?" was then asked 4
-    # times in the same conversation. Reuses the same _HEBREW_NUMBER_WORDS
-    # vocabulary already used for travelers/children counts, tolerating up
-    # to a few descriptive words between "חדר" and the number word.
-    rooms_word_match = re.search(
-        r"חדר\w*(?:\s+\S+){0,3}?\s+(" + _HEBREW_NUMBER_WORD_RE + r")\b", msg
-    )
     if asked_rooms:
         rooms_match = re.search(r"(\d+)\s*חדר", msg)
         if rooms_match:
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = int(rooms_match.group(1))
         elif any(w in msg for w in ("חדר אחד", "חדר גדול אחד")):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
-        elif rooms_word_match:
-            result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = _HEBREW_NUMBER_WORDS[rooms_word_match.group(1)]
         elif asked_single_room_confirm and (_RESET_GATE_YES_RE.match(_normalize_confirm(msg).lower()) or "מספיק" in msg):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
     # The single-room confirm check above was unreachable whenever Ariella
@@ -6258,48 +6288,8 @@ def _deterministic_lodging_facts(message, history):
         bathrooms_match = re.search(r"(\d+)", msg)
         if bathrooms_match:
             result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = int(bathrooms_match.group(1))
-        else:
-            # Per Shaked's stage-3 run-1 finding (Paris): "שני חדרי רחצה"
-            # ("two bathrooms") answered this exact question but the bare
-            # digit regex above needs an actual digit, not a spelled-out
-            # Hebrew number word, so the answer was silently dropped and
-            # the question was asked again.
-            bathrooms_word_match = re.search(
-                r"(" + _HEBREW_NUMBER_WORD_RE + r")\s*(?:\S+\s+){0,2}?(?:חדרי\s+רחצה|חדר\s+רחצה|שירותים|מקלחת)",
-                msg,
-            ) or re.search(
-                r"(?:חדרי\s+רחצה|חדר\s+רחצה|שירותים|מקלחת)\s*(?:\S+\s+){0,2}?(" + _HEBREW_NUMBER_WORD_RE + r")\b",
-                msg,
-            )
-            if bathrooms_word_match:
-                result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = _HEBREW_NUMBER_WORDS[bathrooms_word_match.group(1)]
-            elif any(w in msg for w in no_preference_words):
-                result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = "אין העדפה"
-
-    # Per Shaked's stage-3 run-1 finding (Paris, the worst of 5 - the
-    # question repeated 13 times and the conversation never reached a
-    # summary): "אין הגבלה" answering "מה התקציב שלכם ללילה?" set neither
-    # budget nor level, so lodging.details.budget_or_level could never
-    # close - unlike the flight per-person budget's own no-limit phrases
-    # (_deterministic_budget_facts), there was no equivalent for lodging's
-    # per-night budget at all. Gated on the actual question asked (never a
-    # blind keyword match - same reasoning as asked_type/asked_level
-    # above): when the last question named both "תקציב" and "ליל"/"ללילה"
-    # (lodging's own per-night budget question, per the gap hint text
-    # "מה התקציב שלכם ללילה?"), a no-limit answer closes the composite gap
-    # by setting level to "אין העדפה" - budget itself stays null, which is
-    # exactly the search behavior a real no-limit answer calls for (no
-    # price ceiling applied). Checked before the numeric "ליל" branch below
-    # so a genuine numeric answer is never short-circuited by this.
-    asked_budget = "תקציב" in last_question and "ליל" in last_question
-    budget_no_limit_words = (
-        "אין הגבלה", "ללא הגבלה", "בלי הגבלה", "אין תקרה", "ללא תקרה", "בלי תקרה",
-        "אין מגבלה", "אין מגבלת תקציב", "ללא מגבלת תקציב", "לא מוגבל", "תקציב פתוח",
-    )
-    if asked_budget and not re.search(r"\d", msg) and (
-        any(w in msg for w in no_preference_words) or any(w in msg for w in budget_no_limit_words)
-    ):
-        result.setdefault("lodging", {}).setdefault("details", {})["level"] = "אין העדפה"
+        elif any(w in msg for w in no_preference_words):
+            result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = "אין העדפה"
 
     # budget has no deterministic writer at all, unlike the per-person flight
     # budget above (_deterministic_budget_facts) - seen live (Shaked, qa-s77,
@@ -9325,13 +9315,19 @@ def _chat_clean_impl():
         # An approved route already answers "where do you want to stay" -
         # lodging search on the same vacation must not re-ask it.
         trip_update = _resolve_lodging_locations_from_route(trip_update)
-        # Per Shlomo's follow-up on stage-3 run-1 (17.10.2026): a
-        # deterministic safety net, independent of any one field's own
-        # parser - no lodging field should ever be asked more than twice in
-        # the same conversation regardless of why a parser missed a given
-        # phrasing. Directly bounds the pathological repeat loops Paris
-        # (budget, asked 13x) and Budapest (rooms, asked 4x) hit this run.
-        trip_update = _apply_lodging_ask_limit_fallback(trip_update, history)
+        # Per the business owner's general rule (17.10.2026, relayed by
+        # Shlomo/Shaked): identify the one lodging gap actually asked about
+        # last turn by STATE (_session_gaps order), and save the customer's
+        # answer to it already on the first reply - a number if the reply
+        # names one (rooms/bathrooms/budget), otherwise the raw text. No
+        # per-field phrase list, ever.
+        trip_update = _capture_lodging_gap_answer(trip_state, trip_update, message)
+        # Backup safety net for whatever the above still doesn't resolve
+        # (e.g. this turn's reply looked like a question) - no lodging
+        # field should ever be asked more than twice in a row. Purely
+        # state-driven as well (trip_state is this turn's PRIOR snapshot) -
+        # never scans message text for topic words.
+        trip_update = _apply_lodging_ask_limit_fallback(trip_state, trip_update, message)
         # The customer's name/gender/home airports always come fresh from
         # their registration data, never from client-supplied state, which
         # can be stale or wrong. Loaded before the sessions advance so the
