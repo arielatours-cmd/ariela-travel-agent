@@ -638,6 +638,29 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
                 call_duration_ms=int((time.time() - call_started) * 1000),
             )
             raise RuntimeError(f'Claude API call to {source} timed out after {call_timeout:.0f}s') from exc
+        except anthropic.APIConnectionError as exc:
+            # Per the business owner (relayed by Shlomo, same round as the
+            # max_retries=0 fix above): removing the SDK's own default
+            # internal retrying means THIS loop is now the only safety net
+            # for a transient connection failure (DNS hiccup, reset
+            # connection, etc. - anything that is neither an HTTP status
+            # error nor a timeout, which anthropic.APITimeoutError above
+            # already catches first, since it is itself a subclass of this
+            # one and Python matches except clauses top-to-bottom). Retry
+            # once, same policy as 429/529, but ONLY while real budget
+            # still remains - unlike a timeout, a connection error costs
+            # almost no time itself, so a retry here does not reintroduce
+            # the compounding-latency problem max_retries=0 fixed.
+            if attempt == 0 and _claude_call_timeout() > 0:
+                logging.warning("Claude API connection error on %s (attempt 1/2) - retrying once after 2s", source)
+                time.sleep(2)
+                continue
+            record_ai_usage(
+                source, model, usage=None, error="connection_error",
+                thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
+                call_duration_ms=int((time.time() - call_started) * 1000),
+            )
+            raise RuntimeError(f'Claude API connection error on {source}') from exc
     record_ai_usage(
         source, model, usage=response.usage,
         thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
@@ -2184,6 +2207,15 @@ def _flight_summary_text(state):
     # when the customer explicitly said otherwise.
     if flight.get("baggage_shared") and "checked_bag" in baggage:
         baggage_labels = dict(baggage_labels, checked_bag="מזוודה אחת משותפת לכל הנוסעים")
+    # Per Shaked's PR #65 review: "carry_on_only" literally means "ONLY a
+    # carry-on, no checked bag" (see the system prompt's own definition),
+    # so once checked_bag is ALSO in the same list, "טרולי בלבד" directly
+    # contradicts the checked_bag label sitting right next to it in the
+    # same sentence ("טרולי בלבד, כולל מזוודה..."). Drop the "בלבד" (only)
+    # framing in exactly that combination - the fact worth stating is that
+    # everyone brings a carry-on too, not that it's the ONLY thing.
+    if "checked_bag" in baggage and "carry_on_only" in baggage:
+        baggage_labels = dict(baggage_labels, carry_on_only="טרולי לכל נוסע")
     if baggage:
         lines.append("כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage))
     dep_time_pref = str(flight.get("departure_time_preference") or "").strip()
@@ -3004,6 +3036,11 @@ def _baggage_summary(state):
     # passenger) must never be summarized with the generic per-passenger
     # checked_bag label - that reads as if everyone brought their own.
     _he = dict(_BAGGAGE_HE, checked_bag="מזוודה אחת משותפת לכל הנוסעים", checked="מזוודה אחת משותפת לכל הנוסעים") if flight.get("baggage_shared") else _BAGGAGE_HE
+    # Per Shaked's PR #65 review: "carry_on_only" means "ONLY a carry-on,
+    # no checked bag" - once checked_bag is ALSO present, "טרולי בלבד"
+    # directly contradicts the checked_bag label right next to it.
+    if "checked_bag" in baggage and "carry_on_only" in baggage:
+        _he = dict(_he, carry_on_only="טרולי לכל נוסע")
     labels = [_he.get(str(b), str(b)) for b in baggage if b]
     if not labels:
         return ""
@@ -4440,7 +4477,14 @@ def _deterministic_active_service_decline_facts(trip_state, message):
         "lodging": r"(?:כבר\s+)?יש\s+ל(?:נו|י)\s+(?:כבר\s+)?(?:מקום|איפה)\s+ל(?:ינ|יש)ון|סידרנו\s+(?:כבר\s+)?לינה|הזמנו\s+(?:כבר\s+)?מלון",
         "car": r"(?:כבר\s+)?יש\s+ל(?:נו|י)\s+(?:כבר\s+)?רכב|סידרנו\s+(?:כבר\s+)?רכב|הזמנו\s+(?:כבר\s+)?רכב",
     }
-    if compact in dismiss_phrases or re.search(already_have_re[active], msg):
+    # Per Shaked's PR #65 review (non-blocking, fixed anyway since it's in
+    # this same new function): "כבר יש לנו איפה לישון בלילה הראשון, צריך
+    # לשאר הלילות" states a PARTIAL arrangement, not a full decline - the
+    # customer still needs help for the remaining nights. A continuing-need
+    # word anywhere else in the message means this is not a full decline,
+    # whatever the "already have" clause says on its own.
+    continuing_need = re.search(r"צריך|צריכה|צריכים|עדיין", msg)
+    if compact in dismiss_phrases or (re.search(already_have_re[active], msg) and not continuing_need):
         return {
             "service_decisions": {active: {"wanted": False, "source": "explicit_active_decline"}},
             "session_status": {active: "declined"},
@@ -9133,14 +9177,25 @@ def _chat_clean_impl():
             # its own recognizable "source" string; only the raw model
             # extraction leaves service_decisions untagged. That is the
             # real, reliable signal here - not whether the message happens
-            # to contain a lodging/car noun (an early version of this fix
-            # used exactly that check and broke "כן, רק טיסות ומסלול, שום
+            # to contain a lodging/car noun ALONE (an early version of this
+            # fix used only that check and broke "כן, רק טיסות ומסלול, שום
             # דבר אחר", whose legitimate _deterministic_only_flights_facts
-            # decline never names "לינה"/"רכב" either). A same-turn change
-            # to lodging/car's status is reverted back to how it stood
-            # before this turn ONLY when its service_decisions entry carries
-            # no recognized source tag - i.e. it came straight from the
-            # model's own JSON, never a deterministic function.
+            # decline never names "לינה"/"רכב" either).
+            #
+            # Per Shaked's own review of THAT version: the source-tag check
+            # alone has the opposite failure - "מושלם. לינה כבר יש לנו" in
+            # the SAME message as the route approval IS a genuine decision
+            # the raw extraction got right (the customer explicitly named
+            # lodging and stated it's already arranged), yet it carries no
+            # recognized tag either, so it was being wrongly reverted back
+            # to pending, re-asking a question already answered (rule 3:
+            # never re-ask a settled decision). The two checks are not
+            # alternatives, they are a conjunction: revert ONLY when the
+            # message doesn't name the service by noun AND the decision
+            # carries no recognized source tag - "רק טיסות" is already
+            # covered by its own tag regardless of the noun check, and
+            # "לינה כבר יש לנו" is protected by the noun check regardless of
+            # the (absent) tag.
             _known_explicit_decision_sources = {
                 "explicit_only_flights", "explicit_short_decline", "explicit_active_decline",
                 "explicit_named_decline", "explicit_named_accept", "already_booked_elsewhere",
@@ -9148,10 +9203,13 @@ def _chat_clean_impl():
                 "explicit_request_deferred_to_after_flights", "explicit_request",
                 "post_flight_offer", "destination_trip_intent",
             }
+            _service_name_words = {"lodging": r"מלון|לינה|דירה|וילה|צימר|אכסניה|לישון", "car": r"רכב"}
             for _svc in ("lodging", "car"):
                 _prior_status = str((trip_state.get("session_status") or {}).get(_svc) or "pending")
                 _now_status = str((trip_update.get("session_status") or {}).get(_svc) or "pending")
                 if _prior_status == _now_status:
+                    continue
+                if re.search(_service_name_words[_svc], str(message or "")):
                     continue
                 _now_decision = (trip_update.get("service_decisions") or {}).get(_svc)
                 _now_source = _now_decision.get("source") if isinstance(_now_decision, dict) else None

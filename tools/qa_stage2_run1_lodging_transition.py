@@ -88,6 +88,36 @@ old 8s floor) once genuinely out of budget - _post_claude fails fast on
 that without ever reaching the SDK. See tools/qa_per_turn_timeout_cap_and_
 duration_logging.py for the dedicated coverage of both.
 
+Shaked's same-day review of PR #65 found 2 blocking regressions in the
+fixes above:
+
+1. "מושלם. לינה כבר יש לנו" (perfect, we already have lodging) in the
+   SAME message as a route approval is a genuine, CORRECT decision the
+   raw extraction got right - the customer explicitly named lodging and
+   said it's arranged - yet it carries no recognized source tag either,
+   so the source-tag-only revert guard wrongly reverted it back to
+   pending, re-asking a question already answered. Fixed: the revert now
+   requires BOTH conditions - the message doesn't name the service by
+   noun AND the decision carries no recognized source tag. "רק טיסות" is
+   still protected by its own tag regardless of the noun check, and "לינה
+   כבר יש לנו" is now protected by the noun check regardless of the
+   (absent) tag - the two checks are a conjunction, not alternatives.
+
+2. The final summary still read "טרולי בלבד, מזוודה אחת משותפת לכל
+   הנוסעים" for "טרולי לכל אחד ומזוודה אחת משותפת" - self-contradictory,
+   since "carry_on_only" literally means "ONLY a carry-on, no checked
+   bag" (the system prompt's own definition), directly contradicting the
+   checked_bag label sitting right next to it. Fixed: when checked_bag is
+   ALSO in the list, carry_on_only's label drops the "בלבד" (only)
+   framing - "טרולי לכל נוסע" instead - in both baggage-label sites.
+
+Also fixed, though explicitly marked non-blocking by Shaked (it's in the
+same new function from this same PR): "כבר יש לנו איפה לישון בלילה
+הראשון, צריך לשאר הלילות" (we already have it for night 1, still need
+the rest) was read as a full lodging decline. A continuing-need word
+("צריך"/"עדיין") anywhere else in the message now means this is a
+PARTIAL arrangement, not a full decline.
+
 Run: python3 tools/qa_stage2_run1_lodging_transition.py
 """
 import os
@@ -317,6 +347,85 @@ check("if the ENTIRE reply is nothing but the leaked sentence, the "
 check("also catches 'ה-state'/'ה-session' leaking into a reply",
       chat._strip_internal_terminology_leak("מעולה. ה-state מעודכן. יש עוד משהו?")
       == "מעולה. יש עוד משהו?")
+
+
+# === Shaked's PR #65 review (same day): 2 blocking regressions in the
+#     bug-1 fix above ===
+
+# -- Regression 1: a same-message lodging decline during route approval
+#    ("מושלם. לינה כבר יש לנו") was wrongly reverted back to pending by
+#    the source-tag check alone, re-asking a question already answered.
+#    The revert now requires BOTH the message not naming the service AND
+#    no recognized source tag. --
+
+member_id2 = _make_member("qa-stage2-review-fix@example.com")
+with client.session_transaction() as sess:
+    sess["member_id"] = member_id2
+
+
+def _fake_post_claude_untagged_lodging_decline(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        # Mirrors the raw model extraction correctly reading an explicit,
+        # same-message decline - no "source" tag, since only the
+        # deterministic helper functions ever add one.
+        return json.dumps({"trip_update": {
+            "service_decisions": {"lodging": {"wanted": False}},
+            "session_status": {"lodging": "declined"},
+        }})
+    return "תשובה לדוגמה."
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_untagged_lodging_decline):
+    r_review1 = client.post("/api/ariella/chat-clean", json={
+        "message": "מושלם. לינה כבר יש לנו", "history": HISTORY, "trip_state": dict(STATE_BEFORE_APPROVAL),
+    })
+data_review1 = r_review1.get_json()
+check("Shaked's exact regression repro: an untagged but CORRECT same-"
+      "message lodging decline (the message names 'לינה' explicitly) "
+      "survives the revert guard - lodging stays declined",
+      (data_review1.get("trip_update") or {}).get("session_status", {}).get("lodging") == "declined")
+check("the reply correctly moves on to the car offer, not a repeated "
+      "lodging question",
+      "תרצי שאמשיך גם עם השכרת רכב" in str(data_review1.get("reply") or "")
+      and "תרצי שאמשיך גם עם לינה" not in str(data_review1.get("reply") or ""))
+
+with sqlite3.connect(DB) as conn:
+    conn.execute("DELETE FROM members WHERE id=?", (member_id2,))
+    conn.commit()
+
+# -- Regression 2: "carry_on_only" ("טרולי בלבד") literally means "ONLY a
+#    carry-on, no checked bag" - contradicts sitting next to checked_bag's
+#    own label in the same sentence. Dropped the "בלבד" framing in exactly
+#    that combination. --
+
+_COMBINED_STATE = {"flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_shared": True}}
+check("Shaked's exact self-contradiction repro (_flight_summary_text): "
+      "carry_on_only reads 'לכל נוסע', never 'בלבד', once checked_bag is "
+      "also in the list",
+      "טרולי לכל נוסע" in chat._flight_summary_text(_COMBINED_STATE)
+      and "טרולי בלבד" not in chat._flight_summary_text(_COMBINED_STATE))
+check("the same fix applies to _baggage_summary (car-session context)",
+      "טרולי לכל נוסע" in chat._baggage_summary(_COMBINED_STATE)
+      and "טרולי בלבד" not in chat._baggage_summary(_COMBINED_STATE))
+check("regression: carry_on_only ALONE (no checked_bag) still reads "
+      "'בלבד' - the fix only applies to the combined case",
+      "טרולי בלבד" in chat._flight_summary_text({"flight": {"baggage": ["carry_on_only"]}}))
+
+# -- Non-blocking item fixed anyway (same new function): a PARTIAL lodging
+#    arrangement ("כבר יש לנו איפה לישון בלילה הראשון, צריך לשאר הלילות")
+#    must not be read as a full decline --
+
+check("a partial 'already have it for night 1, still need the rest' "
+      "message is NOT read as a full lodging decline",
+      chat._deterministic_active_service_decline_facts(
+          {"active_session": "lodging"},
+          "כבר יש לנו איפה לישון בלילה הראשון, צריך לשאר הלילות",
+      ) == {})
+check("the plain 'already have lodging' phrase (no continuing-need word) "
+      "still declines it as before - no regression",
+      chat._deterministic_active_service_decline_facts(
+          {"active_session": "lodging"}, "כבר יש לנו איפה לישון",
+      ).get("session_status") == {"lodging": "declined"})
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

@@ -21,6 +21,25 @@ Fixed:
    visibility into creeping slowness before it becomes a 120s gunicorn
    kill, not after.
 
+Stage-2 run-1 addition (Eran's 502 diagnosis, relayed by Shlomo): the
+per-turn ceiling still didn't actually bound wall-clock time, because the
+shared Anthropic client had no max_retries - the SDK's own hidden default
+retrying (invisible to this file's own deliberate retry loop) could
+silently multiply a single call's real duration by up to 3x. Fixed:
+max_retries=0 on client construction (see check 2c below).
+
+Same-day follow-up (relayed by Shlomo, after the max_retries=0 fix
+shipped in PR #65): removing the SDK's own default retrying means
+_post_claude's own loop is now the ONLY safety net left for a transient
+connection failure (DNS hiccup, reset connection, etc.) - previously the
+SDK quietly covered this. Fixed: a new except anthropic.APIConnectionError
+clause (placed after APITimeoutError, which is itself a SUBCLASS of
+APIConnectionError and so must keep matching first) retries once, same
+policy as 429/529, but ONLY while real budget still remains - a
+connection error costs almost no time itself (unlike a timeout), so
+retrying it doesn't reintroduce the compounding-latency problem
+max_retries=0 fixed in the first place.
+
 Run: python3 tools/qa_per_turn_timeout_cap_and_duration_logging.py
 """
 import os
@@ -157,6 +176,61 @@ check("a timeout is never retried - exactly one attempt", calls6["n"] == 1)
 check("a timeout never sleeps (unlike the 429/529 retry path)", not mock_sleep6.called)
 check("a timeout logs ai_usage with error='timeout'",
       mock_usage6.call_args.kwargs.get("error") == "timeout")
+
+# --- 6b. A connection error (NOT a timeout) IS retried once, same policy
+#         as 429/529, as long as real budget remains - per Shlomo's
+#         follow-up after max_retries=0 shipped: the SDK's own default
+#         retrying used to quietly cover exactly this, and removing it
+#         means _post_claude's own loop must now do it instead. ---
+calls6b = {"n": 0}
+
+
+def fake_create_conn_error_then_ok(**kwargs):
+    calls6b["n"] += 1
+    if calls6b["n"] == 1:
+        raise anthropic.APIConnectionError(request=MagicMock())
+    return _ok_response("recovered after retry")
+
+
+client6b = MagicMock()
+client6b.messages.create.side_effect = fake_create_conn_error_then_ok
+acc._turn_timing.turn_started = time.time()
+with patch.object(acc, "_get_anthropic_client", return_value=client6b), \
+     patch.object(acc, "record_ai_usage"), \
+     patch("time.sleep") as mock_sleep6b:
+    result6b = acc._post_claude("fake-key", "claude-x", "system", "", [], "hi", 100, source="test")
+check("a connection error with budget remaining retries once and succeeds",
+      result6b == "recovered after retry" and calls6b["n"] == 2)
+check("the connection-error retry sleeps 2s, same as the 429/529 path",
+      mock_sleep6b.called)
+acc._turn_timing.turn_started = None
+
+# --- 6c. A connection error with NO budget remaining is never retried -
+#         fails fast instead (the budget-exhausted check at the top of
+#         the loop already prevents even attempting the call) ---
+calls6c = {"n": 0}
+
+
+def fake_create_conn_error_always(**kwargs):
+    calls6c["n"] += 1
+    raise anthropic.APIConnectionError(request=MagicMock())
+
+
+client6c = MagicMock()
+client6c.messages.create.side_effect = fake_create_conn_error_always
+acc._turn_timing.turn_started = time.time() - 1000
+with patch.object(acc, "_get_anthropic_client", return_value=client6c), \
+     patch.object(acc, "record_ai_usage") as mock_usage6c, \
+     patch("time.sleep") as mock_sleep6c:
+    try:
+        acc._post_claude("fake-key", "claude-x", "system", "", [], "hi", 100, source="test")
+        assert False, "expected RuntimeError"
+    except RuntimeError as e:
+        check("an exhausted-budget connection error raises RuntimeError naming the budget",
+              "budget" in str(e).lower())
+check("an exhausted-budget connection error is never retried - the SDK is never reached at all",
+      calls6c["n"] == 0 and not mock_sleep6c.called)
+acc._turn_timing.turn_started = None
 
 # --- 7. End-to-end: the real chat-clean endpoint, with the main reply
 #        timing out - the customer still gets the existing graceful
