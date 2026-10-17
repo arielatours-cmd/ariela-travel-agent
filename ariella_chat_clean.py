@@ -4916,7 +4916,15 @@ def _last_question_clause(text):
     return text[start:qpos + 1].strip()
 
 
-_OFFER_DOMAIN_LABELS = {"lodging": "גם לינה", "car": "גם רכב שכור", "trip_planning": "גם תכנון מסלול ואטרקציות"}
+# Infinitive verb forms ("לסדר"/"לתכנן") - not "תרצי"/"תרצה" - so the fixed
+# text itself never needs to guess the customer's gender. Per the business
+# owner (relayed by Shlomo, same round as this fix): a gendered fixed
+# fallback is exactly the bug #3 mismatch it would be standing in for.
+_OFFER_DOMAIN_QUESTIONS = {
+    "lodging": "לסדר גם לינה לחופשה הזו?",
+    "car": "לסדר גם רכב שכור לחופשה הזו?",
+    "trip_planning": "לתכנן גם מסלול ואטרקציות לחופשה הזו?",
+}
 
 
 def _enforce_one_option_question(reply, state):
@@ -4949,10 +4957,10 @@ def _enforce_one_option_question(reply, state):
     fixed = None
     offered = (state or {}).get("post_flight_offer") if isinstance(state, dict) else None
     if (
-        isinstance(offered, list) and len(offered) == 1 and offered[0] in _OFFER_DOMAIN_LABELS
+        isinstance(offered, list) and len(offered) == 1 and offered[0] in _OFFER_DOMAIN_QUESTIONS
         and not (state or {}).get("active_session")
     ):
-        fixed = f"תרצי {_OFFER_DOMAIN_LABELS[offered[0]]} לחופשה הזו?"
+        fixed = _OFFER_DOMAIN_QUESTIONS[offered[0]]
     # Stems, not whole words - "מזוודות" (plural) doesn't contain the
     # singular "מזוודה" as a substring (ה -> ות). "תיק קטן" (not the bare,
     # generic "תיק") matches the live failing phrasing (V4), which names

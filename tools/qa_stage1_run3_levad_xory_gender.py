@@ -90,12 +90,15 @@ check("trip_planning X/Y continuation offer gets replaced with the fixed "
           "מצוין, הטיסה מוכנה. בואי נדבר על המסלול ביעד - יש לך רעיון למה בא לך "
           "לעשות בלונדון, או שתרצי שאציע לך מסלול מגוון?",
           {"post_flight_offer": ["trip_planning"], "active_session": None},
-      ) == "מצוין, הטיסה מוכנה. תרצי גם תכנון מסלול ואטרקציות לחופשה הזו?")
+      ) == "מצוין, הטיסה מוכנה. לתכנן גם מסלול ואטרקציות לחופשה הזו?")
 check("the same fix generalizes to a lodging continuation offer",
       chat._enforce_one_option_question(
           "מצוין, המסלול מאושר. רוצים שאני אסדר גם לינה, או שכבר יש לכם משהו?",
           {"post_flight_offer": ["lodging"], "active_session": None},
-      ) == "מצוין, המסלול מאושר. תרצי גם לינה לחופשה הזו?")
+      ) == "מצוין, המסלול מאושר. לסדר גם לינה לחופשה הזו?")
+check("the fixed next-domain offer text is gender-neutral (infinitive verb "
+      "form) - never guesses the customer's gender the way bug #3 did",
+      not any(w in q for w in ("תרצי", "תרצה") for q in chat._OFFER_DOMAIN_QUESTIONS.values()))
 check("a leading statement sentence in the same reply is preserved, only "
       "the offending question clause is replaced",
       chat._enforce_one_option_question(
@@ -156,8 +159,9 @@ e2e_reply, _ = _captured_system_dynamic(
     {"post_flight_offer": ["trip_planning"], "active_session": None, "destination": {"places": ["לונדון"]}},
     "בואי נדבר על המסלול ביעד - יש לך רעיון למה בא לך לעשות בלונדון, או שתרצי שאציע לך מסלול מגוון?",
 )
-check("end-to-end via _call_tinkerbell: V3's exact bad reply comes back fixed",
-      e2e_reply == "תרצי גם תכנון מסלול ואטרקציות לחופשה הזו?")
+check("end-to-end via _call_tinkerbell: V3's exact bad reply comes back fixed, "
+      "with gender-neutral phrasing",
+      e2e_reply == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
 
 e2e_baggage_reply, _ = _captured_system_dynamic(
     "היי", {"destination": {"places": ["אתונה"]}},
