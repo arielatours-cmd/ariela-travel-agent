@@ -569,9 +569,11 @@ def init_db() -> None:
                 history_json TEXT NOT NULL,
                 trip_state_json TEXT NOT NULL,
                 queued_messages_json TEXT NOT NULL DEFAULT '[]',
+                queued_replies_json TEXT NOT NULL DEFAULT '[]',
                 result_reply TEXT,
                 result_trip_update_json TEXT,
                 error TEXT,
+                retry_resolved INTEGER NOT NULL DEFAULT 0,
                 started_at TEXT NOT NULL,
                 finished_at TEXT,
                 FOREIGN KEY(member_id) REFERENCES members(id)
@@ -662,6 +664,11 @@ def init_db() -> None:
             conn.execute("ALTER TABLE members ADD COLUMN whatsapp_opt_out_source TEXT")
         if "whatsapp_welcome_sent_at" not in member_columns:
             conn.execute("ALTER TABLE members ADD COLUMN whatsapp_welcome_sent_at TEXT")
+        route_job_columns = {row["name"] for row in conn.execute("PRAGMA table_info(route_jobs)").fetchall()}
+        if "queued_replies_json" not in route_job_columns:
+            conn.execute("ALTER TABLE route_jobs ADD COLUMN queued_replies_json TEXT NOT NULL DEFAULT '[]'")
+        if "retry_resolved" not in route_job_columns:
+            conn.execute("ALTER TABLE route_jobs ADD COLUMN retry_resolved INTEGER NOT NULL DEFAULT 0")
 
         if "free_scan_count" not in trip_columns:
             conn.execute("ALTER TABLE trip_requests ADD COLUMN free_scan_count INTEGER NOT NULL DEFAULT 0")
@@ -2046,6 +2053,21 @@ def open_route_job_for_member(member_id: int) -> dict | None:
     return _route_job_row_to_dict(row)
 
 
+def most_recent_route_job_for_member(member_id: int) -> dict | None:
+    """The member's single most recent route job regardless of status - used
+    to detect a just-failed build (status='failed', retry_resolved=0) whose
+    customer-facing retry question is still pending an answer, independent
+    of open_route_job_for_member (which only ever returns a 'building' row)."""
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM route_jobs WHERE member_id=? ORDER BY id DESC LIMIT 1",
+            (member_id,),
+        ).fetchone()
+    if not row:
+        return None
+    return _route_job_row_to_dict(row)
+
+
 def update_route_job(
     job_id: int,
     status: str | None = None,
@@ -2053,6 +2075,8 @@ def update_route_job(
     result_trip_update: dict | None = None,
     error: str | None = None,
     attempt: int | None = None,
+    queued_replies: list | None = None,
+    retry_resolved: bool | None = None,
 ) -> None:
     """Partial update of a route job - only the given fields are touched.
     Passing status='ready' or status='failed' also stamps finished_at."""
@@ -2076,6 +2100,12 @@ def update_route_job(
     if attempt is not None:
         fields.append("attempt=?")
         params.append(attempt)
+    if queued_replies is not None:
+        fields.append("queued_replies_json=?")
+        params.append(json.dumps(queued_replies, ensure_ascii=False))
+    if retry_resolved is not None:
+        fields.append("retry_resolved=?")
+        params.append(1 if retry_resolved else 0)
     if not fields:
         return
     params.append(job_id)
@@ -2115,6 +2145,10 @@ def _route_job_row_to_dict(row) -> dict:
         queued_messages = json.loads(row["queued_messages_json"] or "[]")
     except (TypeError, json.JSONDecodeError):
         queued_messages = []
+    try:
+        queued_replies = json.loads(row["queued_replies_json"] or "[]")
+    except (TypeError, json.JSONDecodeError):
+        queued_replies = []
     result_trip_update = None
     if row["result_trip_update_json"]:
         try:
@@ -2131,9 +2165,11 @@ def _route_job_row_to_dict(row) -> dict:
         "history": history,
         "trip_state": trip_state,
         "queued_messages": queued_messages,
+        "queued_replies": queued_replies,
         "result_reply": row["result_reply"],
         "result_trip_update": result_trip_update,
         "error": row["error"],
+        "retry_resolved": bool(row["retry_resolved"]),
         "started_at": row["started_at"],
         "finished_at": row["finished_at"],
     }

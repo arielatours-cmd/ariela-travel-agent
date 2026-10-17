@@ -15,7 +15,7 @@ from database import (
     save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state,
     find_member_trip_by_mention, clear_ariella_conversation, get_setting,
     create_route_job, get_route_job, open_route_job_for_member, update_route_job,
-    append_route_job_queued_message,
+    append_route_job_queued_message, most_recent_route_job_for_member,
 )
 from ai_usage import record_ai_usage, set_ai_usage_context
 
@@ -2650,23 +2650,31 @@ def _user_gender_from_approval(message, state):
     return (state or {}).get("user_gender")
 
 
+def _is_approval_word(message) -> bool:
+    """The literal, exact approval trigger word (מאשר/מאשרת), with a
+    redundant leading "כן" stripped - never widened beyond these two words
+    (a bare "כן" alone is not approval). Factored out of _approval_trigger
+    so task 016a's premature-approval-during-route-build check (which has
+    no flight-summary state to gate against - it only needs the literal
+    word itself) can reuse the exact same word-matching rule instead of
+    duplicating it."""
+    msg = str(message or "").strip().lower()
+    if msg in {"מאשר", "מאשרת"}:
+        return True
+    # "כן, מאשרת" / "כן מאשר" ("yes, I confirm") IS the approval word with a
+    # redundant leading "yes" - seen live (Shaked, round 8): this fell
+    # through to the near-miss/typo clarifier ("האם התכוונת לאשר?") instead
+    # of actually approving.
+    msg = re.sub(r"^כן[\s,.!]*", "", msg)
+    return msg in {"מאשר", "מאשרת"}
+
+
 def _approval_trigger(message, history, state):
     """Exact approval executes after the flight summary was visibly presented.
     Do not depend on a stale ready_for_summary flag from the previous HTTP turn.
     """
-    msg = str(message or "").strip().lower()
-    if msg not in {"מאשר", "מאשרת"}:
-        # "כן, מאשרת" / "כן מאשר" ("yes, I confirm") IS the approval word
-        # with a redundant leading "yes" - seen live (Shaked, round 8): this
-        # fell through to the near-miss/typo clarifier ("האם התכוונת
-        # לאשר?") instead of actually approving. Strip a leading "כן" (with
-        # its separating punctuation/whitespace) and recheck against the
-        # same exact two words, so this never widens what counts as
-        # approval beyond "מאשר"/"מאשרת" themselves (a bare "כן" alone
-        # still does not approve).
-        msg = re.sub(r"^כן[\s,.!]*", "", msg)
-        if msg not in {"מאשר", "מאשרת"}:
-            return False
+    if not _is_approval_word(message):
+        return False
     state = state if isinstance(state, dict) else {}
     # Once the flights were approved and are being scanned, "מאשרת" can only
     # be about a later service (car/lodging/route) - seen live: a car
@@ -8702,6 +8710,18 @@ _route_build_threads_lock = threading.Lock()
 _ROUTE_BUILD_TIMEOUT_SECONDS = 150.0
 
 
+def _engine_result_payload(result) -> dict:
+    """Unwraps _run_chat_turn_engine's Flask-shaped return (jsonify(...) or
+    (jsonify(...), status)) into the plain dict every one of its ~30 return
+    sites always carries. Raises if that assumption is somehow violated,
+    which the caller treats as a genuine engine failure."""
+    response = result[0] if isinstance(result, tuple) else result
+    payload = response.get_json() if hasattr(response, "get_json") else None
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"engine returned a non-JSON result: {type(response)!r}")
+    return payload
+
+
 def _run_route_build_job(job_id: int, member_id: int, message: str, history: list, trip_state: dict, channel: str | None) -> None:
     """Runs _run_chat_turn_engine - the exact same turn-processing code path
     a synchronous request runs - in whatever thread calls this, then records
@@ -8709,26 +8729,82 @@ def _run_route_build_job(job_id: int, member_id: int, message: str, history: lis
     its own app context (needed only because _run_chat_turn_engine's many
     return sites call jsonify(), which needs current_app) and gives itself
     the background job's own 150s budget via _turn_timing.budget_seconds,
-    separate from the website's normal 90s per-request budget."""
+    separate from the website's normal 90s per-request budget.
+
+    Per Ofek's spec section 6: a genuine failure (exception, broken JSON,
+    timeout) gets exactly ONE automatic retry before being recorded as
+    failed - tracked via the job row's own `attempt` column. Once the main
+    route itself succeeds, any message that arrived WHILE this job was
+    building (queued_messages, appended by _chat_clean_impl) is replayed in
+    order through the same engine, each one's reply collected into
+    queued_replies - the route is shown first, these corrections/follow-ups
+    surface right after, never silently dropped and never answered out of
+    turn (spec section 6, first row)."""
     from app import app as _flask_app  # lazy: app.py imports this module first, so app doesn't exist yet at module load time
     _turn_timing.turn_started = time.time()
     _turn_timing.budget_seconds = _ROUTE_BUILD_TIMEOUT_SECONDS
     try:
-        with _flask_app.app_context():
-            result = _run_chat_turn_engine(member_id, message, history, trip_state, channel)
-        response = result[0] if isinstance(result, tuple) else result
-        payload = response.get_json() if hasattr(response, "get_json") else None
-        if not isinstance(payload, dict):
-            raise RuntimeError(f"route build returned a non-JSON result: {type(response)!r}")
+        payload = None
+        last_error = None
+        for attempt in (1, 2):
+            if attempt == 2:
+                update_route_job(job_id, attempt=2)
+            try:
+                with _flask_app.app_context():
+                    result = _run_chat_turn_engine(member_id, message, history, trip_state, channel)
+                payload = _engine_result_payload(result)
+                break
+            except Exception as exc:
+                last_error = exc
+                logging.warning("Route build attempt %s failed for member %s (job %s): %s", attempt, member_id, job_id, exc)
+        if payload is None:
+            raise last_error or RuntimeError("route build failed with no payload")
+
+        current_history = list(history) + [
+            {"role": "user", "content": message},
+            {"role": "assistant", "content": str(payload.get("reply") or "")},
+        ]
+        current_trip_state = payload.get("trip_update") if isinstance(payload.get("trip_update"), dict) else trip_state
+
+        # Drain queued_messages (re-read fresh - more could have arrived
+        # after this thread started with its own frozen copy) sequentially
+        # through the same engine, each building on the previous one's
+        # result - exactly like a normal multi-turn conversation.
+        queued_replies = []
+        job_now = get_route_job(job_id) or {}
+        for queued_message in job_now.get("queued_messages") or []:
+            try:
+                with _flask_app.app_context():
+                    queued_result = _run_chat_turn_engine(member_id, queued_message, current_history, current_trip_state, channel)
+                queued_payload = _engine_result_payload(queued_result)
+            except Exception:
+                logging.exception("Replaying a queued message failed for member %s (job %s) - skipping it", member_id, job_id)
+                continue
+            queued_reply = str(queued_payload.get("reply") or "")
+            queued_replies.append(queued_reply)
+            current_history = current_history + [
+                {"role": "user", "content": queued_message},
+                {"role": "assistant", "content": queued_reply},
+            ]
+            if isinstance(queued_payload.get("trip_update"), dict):
+                current_trip_state = queued_payload["trip_update"]
+
         update_route_job(
             job_id,
             status="ready",
             result_reply=payload.get("reply") or "",
-            result_trip_update=payload.get("trip_update") if isinstance(payload.get("trip_update"), dict) else {},
+            result_trip_update=current_trip_state if isinstance(current_trip_state, dict) else {},
+            queued_replies=queued_replies,
         )
     except Exception as exc:
         logging.exception("Background route build failed for member %s (job %s)", member_id, job_id)
-        update_route_job(job_id, status="failed", error=str(exc)[:500])
+        # Per Ofek's spec section 6: a genuine (double) failure gets ONE
+        # yes/no question (no buttons) asking whether to try again - composed
+        # here, once, and stored as this failed job's own result_reply so
+        # both channels' polling/send code just show it like any other
+        # reply, instead of a generic hardcoded line.
+        retry_question = _route_build_failure_retry_question_reply()
+        update_route_job(job_id, status="failed", error=str(exc)[:500], result_reply=retry_question)
     finally:
         with _route_build_threads_lock:
             _route_build_threads.pop(member_id, None)
@@ -8803,9 +8879,9 @@ _ROUTE_ACK_FALLBACK_TEXT = "אני בונה לכם עכשיו את המסלול 
 _ROUTE_ACK_TIMEOUT_SECONDS = 8.0
 
 
-def _route_build_ack_reply(message: str) -> str:
-    """Task 016a: the short, fast, Ariella-voiced acknowledgement sent
-    immediately while the real route builds in the background - NOT the
+def _quick_ack_reply(system_prompt: str, fallback_text: str, message: str, source: str = "route_ack") -> str:
+    """Shared shape for task 016a's several short, fast, Ariella-voiced
+    asides sent while a background route build is in flight - never the
     real reply. max_tokens=60 and its own fixed ~8s timeout (not the normal
     per-request budget, which would let this ride the website's full 90s
     instead of returning fast), per Ofek's spec. A hardcoded fallback
@@ -8816,15 +8892,79 @@ def _route_build_ack_reply(message: str) -> str:
     _turn_timing.budget_seconds = _ROUTE_ACK_TIMEOUT_SECONDS
     try:
         reply = _post_claude(
-            key, model, _ROUTE_ACK_SYSTEM, "", [], message, 60,
-            include_history=False, source="route_ack",
+            key, model, system_prompt, "", [], message, 60,
+            include_history=False, source=source,
         ).strip()
-        return reply or _ROUTE_ACK_FALLBACK_TEXT
+        return reply or fallback_text
     except Exception:
-        logging.exception("route_ack call failed - falling back to the hardcoded sentence")
-        return _ROUTE_ACK_FALLBACK_TEXT
+        logging.exception("%s call failed - falling back to the hardcoded sentence", source)
+        return fallback_text
     finally:
         _turn_timing.budget_seconds = prior_budget
+
+
+def _route_build_ack_reply(message: str) -> str:
+    """The initial "I'm building your route" ack (Ofek's spec section 3)."""
+    return _quick_ack_reply(_ROUTE_ACK_SYSTEM, _ROUTE_ACK_FALLBACK_TEXT, message, source="route_ack")
+
+
+_ROUTE_BUILD_QUEUED_MESSAGE_ACK_SYSTEM = (
+    "את אריאלה. הלקוח כתב לך הודעה בזמן שאת בונה לו מסלול יומי מלא, וזה עדיין "
+    "לא מוכן. הודיעי לו במשפט אחד קצר וחם שקלטת, ושתתייחסי לזה ברגע שהמסלול "
+    "מוכן. בלי שאלה, בלי כפתורים, ובלי לפרט שום דבר על המסלול עצמו."
+)
+_ROUTE_BUILD_QUEUED_MESSAGE_ACK_FALLBACK_TEXT = "קלטתי, אני עדיין בונה את המסלול - אתייחס לזה ברגע שהוא מוכן 😊"
+
+
+def _route_build_queued_message_ack_reply(message: str) -> str:
+    """Task 016a Stage 5: a short aside for a message that arrives WHILE a
+    route is still building (spec section 6, first row) - the message
+    itself is queued separately (append_route_job_queued_message) and
+    replayed once the route is ready; this is only the immediate aside."""
+    return _quick_ack_reply(
+        _ROUTE_BUILD_QUEUED_MESSAGE_ACK_SYSTEM, _ROUTE_BUILD_QUEUED_MESSAGE_ACK_FALLBACK_TEXT,
+        message, source="route_build_queued_ack",
+    )
+
+
+_ROUTE_BUILD_PREMATURE_APPROVAL_SYSTEM = (
+    "את אריאלה. הלקוח כתב 'מאשרת'/'מאשר', אבל את עדיין בונה לו את המסלול "
+    "היומי ועוד לא הראית לו אותו - אי אפשר לאשר מסלול שעוד לא הוצג. הודיעי "
+    "לו במשפט אחד קצר וחם שהמסלול כמעט מוכן, ושתציגי אותו לאישור ברגע שהוא "
+    "מוכן. בלי שאלה, בלי כפתורים."
+)
+_ROUTE_BUILD_PREMATURE_APPROVAL_FALLBACK_TEXT = "המסלול כמעט מוכן - אציג לך אותו לאישור ברגע שהוא מוכן 😊"
+
+
+_ROUTE_BUILD_FAILURE_RETRY_SYSTEM = (
+    "את אריאלה. הייתה בעיה טכנית בבניית המסלול היומי של הלקוח, אחרי שכבר "
+    "ניסית פעמיים. הודיעי לו בחום שהייתה בעיה, ושאלי שאלת כן/לא אחת ויחידה "
+    "אם לנסות שוב לבנות את המסלול. בלי כפתורים, ובלי שום שאלה נוספת."
+)
+_ROUTE_BUILD_FAILURE_RETRY_FALLBACK_TEXT = "הייתה לי בעיה טכנית בבניית המסלול. לנסות שוב?"
+
+
+def _route_build_failure_retry_question_reply() -> str:
+    """Task 016a Stage 5: composed once, when a route build genuinely fails
+    after its one automatic retry (spec section 6, fourth row) - stored as
+    the failed job's own result_reply so both channels show this exact
+    question, and the customer's next message is interpreted as the answer
+    (_chat_clean_impl, via _interpret_yes_no)."""
+    return _quick_ack_reply(
+        _ROUTE_BUILD_FAILURE_RETRY_SYSTEM, _ROUTE_BUILD_FAILURE_RETRY_FALLBACK_TEXT,
+        "(הבניה נכשלה פעמיים)", source="route_build_failure_retry_question",
+    )
+
+
+def _route_build_premature_approval_ack_reply(message: str) -> str:
+    """Task 016a Stage 5: "מאשרת" arriving while the route is still being
+    built (spec section 6, third row) - never queued for replay (approving
+    a route the customer hasn't seen yet would be meaningless once it
+    finally appears; a genuine approval needs a fresh "מאשרת" after)."""
+    return _quick_ack_reply(
+        _ROUTE_BUILD_PREMATURE_APPROVAL_SYSTEM, _ROUTE_BUILD_PREMATURE_APPROVAL_FALLBACK_TEXT,
+        message, source="route_build_premature_approval_ack",
+    )
 
 
 def _chat_clean_impl():
@@ -8864,12 +9004,65 @@ def _chat_clean_impl():
         # path) or the background job (async path) each redo this on an
         # already-resolved state, which is a no-op (see _resolve_turn_inputs).
         resolved_history, resolved_trip_state, _, _ = _resolve_turn_inputs(member_id, message, list(history), dict(trip_state))
-        # A job already building for this member (DB-backed, so this also
-        # catches one still marked 'building' from before a restart) means
-        # this turn's message isn't queued/replayed yet (that's stage 5) -
-        # safest known behavior today is to fall through to the normal
-        # synchronous path rather than silently drop it.
-        if _turn_expected_to_build_route(resolved_trip_state) and open_route_job_for_member(member_id) is None:
+
+        # Spec section 6, fourth row: a build that genuinely failed (after
+        # its one automatic retry) left a yes/no "try again?" question as
+        # that job's own result_reply - this member's very next message is
+        # its answer, by MEANING (never exact wording), classified the same
+        # way every other yes/no gate in this file already is.
+        last_job = most_recent_route_job_for_member(member_id)
+        if last_job and last_job.get("status") == "failed" and not last_job.get("retry_resolved"):
+            key = os.getenv('ANTHROPIC_API_KEY', '').strip()
+            model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
+            answer = _interpret_yes_no(key, model, resolved_history, message, last_job.get("result_reply") or "")
+            if answer == "yes":
+                update_route_job(last_job["id"], retry_resolved=True)
+                job_id = _queue_route_build(member_id, channel, last_job.get("message") or message, last_job.get("history") or [], last_job.get("trip_state") or {})
+                if job_id is not None:
+                    return jsonify({
+                        'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                        'reply': _route_build_ack_reply(message), 'trip_update': resolved_trip_state,
+                        'start_flight_search': False, 'route_build_job_id': job_id,
+                    })
+            else:
+                # "no", or "unclear" (no established re-ask mechanic exists
+                # for this one-off question - documented limitation, see the
+                # PR description): never auto-retry a build the customer
+                # didn't clearly ask for. This exact message goes through
+                # the ordinary synchronous engine, not back into route-build
+                # detection (which would otherwise immediately redispatch a
+                # build, since trip_state still looks exactly like one).
+                update_route_job(last_job["id"], retry_resolved=True)
+                return _run_chat_turn_engine(member_id, message, history, trip_state, channel)
+
+        open_job = open_route_job_for_member(member_id)
+        if open_job is not None:
+            # Spec section 6, sixth row: a 'building' row left over from a
+            # dead process (restart/deploy mid-build) past the 150s absolute
+            # timeout is reclaimed as a failure here too, not just by the
+            # polling endpoint - otherwise this member could never start a
+            # new build at all until the stale row happened to age out some
+            # other way.
+            elapsed_seconds = (_minutes_since(open_job.get("started_at")) or 0) * 60
+            if elapsed_seconds >= _ROUTE_BUILD_TIMEOUT_SECONDS:
+                update_route_job(open_job["id"], status="failed", error="stale building row (restart/deploy recovery)",
+                                  result_reply=_route_build_failure_retry_question_reply())
+                open_job = None
+
+        if open_job is not None:
+            # Spec section 6, second and third rows: never silently drop a
+            # message that arrives while a build is genuinely still running.
+            if _is_approval_word(message):
+                reply = _route_build_premature_approval_ack_reply(message)
+            else:
+                append_route_job_queued_message(open_job["id"], message)
+                reply = _route_build_queued_message_ack_reply(message)
+            return jsonify({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': reply, 'trip_update': resolved_trip_state, 'start_flight_search': False,
+            })
+
+        if _turn_expected_to_build_route(resolved_trip_state):
             job_id = _queue_route_build(member_id, channel, message, resolved_history, resolved_trip_state)
             if job_id is not None:
                 return jsonify({
@@ -11546,6 +11739,18 @@ def route_build_status(job_id):
     if job['status'] == 'ready':
         response['reply'] = job.get('result_reply') or ''
         response['trip_update'] = job.get('result_trip_update') or {}
+        # Spec section 6, first row: messages queued while this job was
+        # still building are replayed through the engine once it's ready
+        # (_run_route_build_job) - each one's own reply, in order, shown
+        # right after the route itself.
+        response['queued_replies'] = job.get('queued_replies') or []
     elif stage == 'failed':
         response['error'] = job.get('error') or 'timeout'
+        # The real build thread already composed a yes/no retry question
+        # (_route_build_failure_retry_question_reply) and stored it as this
+        # job's own result_reply; a row still 'building' in the DB but
+        # already past the absolute timeout (detected above, not yet
+        # updated by its own thread) has none yet, so falls back to the
+        # same hardcoded sentence the thread itself would use.
+        response['reply'] = job.get('result_reply') or _ROUTE_BUILD_FAILURE_RETRY_FALLBACK_TEXT
     return jsonify(response)

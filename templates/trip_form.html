@@ -219,16 +219,26 @@
       }
       const realReply=String(data.reply||'').trim()||'המסלול מוכן!';
       history.push({role:'assistant',content:realReply,agent:'Tinkerbell'});add('assistant',realReply);save();
+      // Task 016a stage 5: a message sent while the route was still
+      // building is replayed through the engine once it's ready - the
+      // route itself is shown first (above), then each of these in order.
+      const queuedReplies=Array.isArray(data.queued_replies)?data.queued_replies:[];
+      for(const extra of queuedReplies){
+        const text=String(extra||'').trim();
+        if(!text)continue;
+        history.push({role:'assistant',content:text,agent:'Tinkerbell'});add('assistant',text);save();
+      }
       return;
     }
     const failed=data&&data.stages&&data.stages.plan==='failed';
     if(failed||tries>=ROUTE_BUILD_MAX_POLLS){
       hideRouteBuildIndicator();
       try{localStorage.removeItem(routeJobIdKey);}catch(e){}
-      // Stage 5 (not built yet) is where a real failure gets one automatic
-      // retry and then a yes/no "try again?" question per Ofek's spec -
-      // for now this just surfaces honestly instead of polling forever.
-      const errMsg='היה קושי בבניית המסלול. אפשר לכתוב "תציעי מסלול" כדי לנסות שוב.';
+      // Task 016a stage 5: a genuine failure (after one automatic retry,
+      // server-side) already composed its own yes/no "try again?" question
+      // (in Ariella's own words) as data.reply - the customer's next typed
+      // message answers it (interpreted by meaning in _chat_clean_impl).
+      const errMsg=String(data&&data.reply||'').trim()||'היה קושי בבניית המסלול. אפשר לכתוב "תציעי מסלול" כדי לנסות שוב.';
       history.push({role:'assistant',content:errMsg,agent:'Tinkerbell'});add('assistant',errMsg);save();
       return;
     }

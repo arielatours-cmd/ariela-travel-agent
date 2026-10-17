@@ -98,16 +98,30 @@ def _poll_and_send_route_build(client, phone: str, phone_hash_val: str, job_id: 
     from ariella_chat_clean import _ROUTE_BUILD_TIMEOUT_SECONDS
 
     deadline = time.time() + _ROUTE_BUILD_TIMEOUT_SECONDS
+    data = {}
     while time.time() < deadline:
         data = _get_json(client, f"/api/ariella/route-status/{job_id}")
         if data.get("status") == "ready":
             reply = str(data.get("reply") or "").strip() or "המסלול מוכן!"
             _reply_and_log(phone, phone_hash_val, reply)
+            # Task 016a Stage 5: a message sent while the route was still
+            # building is replayed through the engine once it's ready - the
+            # route itself was just sent above, then each of these follows
+            # in order as its own message.
+            for extra in data.get("queued_replies") or []:
+                extra_text = str(extra or "").strip()
+                if extra_text:
+                    _reply_and_log(phone, phone_hash_val, extra_text)
             return
         if (data.get("stages") or {}).get("plan") == "failed":
             break
         time.sleep(2)
-    _reply_and_log(phone, phone_hash_val, "היה קושי בבניית המסלול. אפשר לכתוב \"תציעי מסלול\" כדי לנסות שוב.")
+    # Task 016a Stage 5: a genuine failure (after one automatic retry,
+    # server-side) already composed its own yes/no "try again?" question (in
+    # Ariella's own words) as data.reply - the customer's next message
+    # answers it (interpreted by meaning in _chat_clean_impl).
+    retry_question = str(data.get("reply") or "").strip() or "היה קושי בבניית המסלול. אפשר לכתוב \"תציעי מסלול\" כדי לנסות שוב."
+    _reply_and_log(phone, phone_hash_val, retry_question)
 
 
 def _waiting_link(waiting_url: str | None) -> str:
