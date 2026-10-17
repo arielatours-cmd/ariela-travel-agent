@@ -194,7 +194,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - כשגיל הילד/ה טרם נמסר, בררי גיל ומגדר באותה שאלה פתוחה אחת בלבד, בניסוח טבעי משלך (לדוגמה "ספרי לי על הילדים - בן או בת ובאיזה גיל"), לא כשאלה קבועה ולא בשתי שאלות נפרדות. לעולם אל תשלבי בה אזכור של גיל ההורים/הזוג/המבוגרים באותו משפט (למשל "כמה הזוג בן, כמה הילד/ה?") - זה ניסוח שבור שאין לו משמעות ומבלבל את הלקוח. גיל המבוגרים אינו רלוונטי לחיפוש ולעולם אינו נשאל. לעולם אל תחזרי על שאלת הגיל כשהוא כבר ידוע. אין שאלת המשך נפרדת על המגדר: אם הלקוח ענה רק עם גילאים ולא ציין מגדר, לעולם אל תשאלי שוב על המגדר - המשיכי הלאה עם מה שיש.
 - ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
-- אם סוג הלינה הוא דירה (לא מלון ולא וילה), בררי גם כמה חדרי רחצה נדרשים - בשאלה נפרדת משאר פרטי הלינה (שאלה אחת בכל פעם, בניסוח טבעי משלך, לא נוסח קבוע). שמרי את המספר ב-lodging.details.bathrooms (מספר). כשסוג הלינה הוא מלון או וילה, אל תשאלי על כך כלל.
+- אם סוג הלינה הוא דירה (לא מלון ולא וילה), בררי גם כמה חדרי רחצה נדרשים - בשאלה נפרדת משאר פרטי הלינה (שאלה אחת בכל פעם, בניסוח טבעי משלך, לא נוסח קבוע). שמרי את המספר ב-lodging.details.bathrooms (מספר). כשסוג הלינה הוא מלון או וילה, אל תשאלי על כך כלל. בדירה, מספר חדרי הרחצה חייב להופיע בסיכום הסופי לצד שאר פרטי הלינה (למשל "חדרי רחצה: 2").
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה פתוחה קצרה וטבעית (לא כברירה בינארית) ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לשאול שאלה פתוחה שמזכירה את שמות השדות בלי לכפות בחירה ביניהם, ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב פתוחה וקצרה - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). ידני/אוטומטי נשאל כשאלת כן/לא נפרדת על אפשרות אחת (למשל "חשוב לכם רכב אוטומטי?"), לא "אוטומטי או ידני?".
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
 - אם car.wanted הוא false (הלקוח דחה רכב שכור במפורש), המסלול הראשון שאת מציעה חייב כבר להתחשב בזה - לא רק אחרי שהלקוח שואל איך מגיעים. בפרט, אל תבני מסלול שמניח נסיעות עצמאיות בין אתרים מרוחקים (למשל כפרים/אזורי יין כמו שאנטי, סן ג'ימיניאנו, וולטרה סביב טוסקנה) כאילו יש רכב - הציעי מבסיס אחד נוח לתחבורה ציבורית/טיולים מאורגנים/רכבות, או ציייני במפורש בתוך הצעת המסלול עצמה איך מגיעים בלי רכב לכל יעד שמוזכר בו.
@@ -1694,7 +1694,21 @@ def _resolve_lodging_locations_from_route(state):
     if details.get("areas") or details.get("locations"):
         return state
     names = _route_base_names(state)
-    if not names:
+    # Per Shaked's stage-3 run-1 finding (Rome): a single-destination trip's
+    # route text mentioned "לינה באזור הר הפלטינו" (a landmark, as part of a
+    # day's narrative/recommendation - never an actual customer choice), and
+    # this got auto-promoted straight into lodging.details.locations, so the
+    # customer was never asked for a lodging area at all and the final
+    # summary read "לינה: אזור הר הפלטינו" - a region invented from the
+    # route, exactly what the business owner says must never happen.
+    # This whole mechanism exists for the GENUINELY multi-stop case (the
+    # business owner, 2026-10-14): a real touring route with several
+    # distinct overnight bases, where re-asking area per stop the route
+    # already answered would be redundant. A single base brings none of
+    # that benefit and is far more likely a stray "לינה ב-X" mention picked
+    # up by the regex fallback than an actual confirmed area - only ever
+    # auto-fill once there are at least two genuinely distinct bases.
+    if len(names) < 2:
         return state
     state = dict(state)
     lodging = dict(lodging)
@@ -1707,6 +1721,76 @@ def _resolve_lodging_locations_from_route(state):
     date_ranges = _route_night_segments_to_date_ranges(night_segments, dates.get("departure"))
     if date_ranges:
         details["location_segments"] = date_ranges
+    lodging["details"] = details
+    state["lodging"] = lodging
+    return state
+
+
+# Per Shlomo's follow-up on stage-3 run-1 (17.10.2026) - the same cue words
+# _deterministic_lodging_facts above gates each field's own answer-parsing
+# on, reused here so the ask-limit check below recognizes the exact same
+# question shapes that function does, nothing broader.
+_LODGING_GAP_ASKED_IN_MESSAGE = {
+    "lodging.details.type": lambda m: (
+        any(p in m for p in ("סוג לינה", "סוג הלינה"))
+        or ("מלון" in m and ("דירה" in m or "וילה" in m))
+    ),
+    "lodging.details.rooms": lambda m: any(
+        p in m for p in ("כמה חדרים", "חדר אחד גדול", "לחלק לשני חדרים", "חלוקת החדרים")
+    ),
+    "lodging.details.bathrooms": lambda m: any(
+        p in m for p in ("חדרי רחצה", "חדר רחצה", "שירותים ומקלחת", "חדר שירותים")
+    ),
+    "lodging.details.locations": lambda m: any(p in m for p in ("אזור", "מיקום")),
+    "lodging.details.budget_or_level": lambda m: "תקציב" in m and "ליל" in m,
+}
+
+
+def _apply_lodging_ask_limit_fallback(state, history):
+    """Deterministic safety net, independent of any one field's own parser:
+    no lodging field should ever be asked more than twice in the same
+    conversation. Seen live (Shaked, stage-3 run-1): the lodging per-night
+    budget question was asked 13 times in Paris, "כמה חדרים תרצו?" 4 times
+    in Budapest - in both cases because one specific answer phrasing
+    ("אין הגבלה", "חדר משפחתי אחד עם עריסה") slipped past that field's own
+    deterministic parser, with nothing else to stop the same question
+    being asked again and again. Rather than keep chasing every possible
+    phrasing one bug report at a time, this counts how many PRIOR assistant
+    turns already asked about a given still-open gap (reusing the exact
+    cue words each gap's own parser gates on above) and, once that count
+    reaches 2, force-closes the gap with the same "אין העדפה" ("no
+    preference"/flexible) sentinel _deterministic_lodging_facts already
+    writes for a genuine no-preference answer - never a guessed real value,
+    and already handled correctly everywhere downstream (closes
+    missing_required, degrades to a sane default in the real search call,
+    and is described in natural language by the free-text summary)."""
+    state = state if isinstance(state, dict) else {}
+    if "lodging" not in (state.get("requested_services") or []):
+        return state
+    gaps = set(_session_gaps(state, "lodging"))
+    if not gaps:
+        return state
+    assistant_msgs = [
+        str(m.get("content") or "") for m in (history or [])
+        if isinstance(m, dict) and str(m.get("role") or "").lower() == "assistant"
+    ]
+    if not assistant_msgs:
+        return state
+    lodging = state.get("lodging") if isinstance(state.get("lodging"), dict) else {}
+    details = dict(lodging.get("details") or {})
+    changed = False
+    for gap, asked_in in _LODGING_GAP_ASKED_IN_MESSAGE.items():
+        if gap not in gaps:
+            continue
+        count = sum(1 for m in assistant_msgs if asked_in(m))
+        if count >= 2:
+            field = "level" if gap == "lodging.details.budget_or_level" else gap.split(".")[-1]
+            details[field] = "אין העדפה"
+            changed = True
+    if not changed:
+        return state
+    state = dict(state)
+    lodging = dict(lodging)
     lodging["details"] = details
     state["lodging"] = lodging
     return state
@@ -2051,6 +2135,17 @@ def _required_state_gaps(state):
             gaps.append("lodging.details.type")
         if not (lodging_details.get("bedrooms") or lodging_details.get("rooms")):
             gaps.append("lodging.details.rooms")
+        # Per Shaked's stage-3 run-1 finding (Athens): a 3-bedroom apartment
+        # never got a bathrooms question at all, and the field was missing
+        # from the final summary - the business owner's instruction to ask
+        # this for an apartment (2026-10-16) lived only in the system
+        # prompt, with nothing to reliably enforce Tinkerbell actually
+        # asking it. A real missing_required gap, gated on type already
+        # being "דירה" (an apartment, not a hotel/villa - matches the
+        # prompt's own rule), makes it as unskippable as every other
+        # lodging fact instead of depending on the model remembering.
+        if lodging_details.get("type") == "דירה" and not lodging_details.get("bathrooms"):
+            gaps.append("lodging.details.bathrooms")
         if not (lodging_details.get("areas") or lodging_details.get("locations")):
             gaps.append("lodging.details.locations")
         if not (lodging_details.get("budget") or lodging_details.get("level")):
@@ -5362,6 +5457,18 @@ _BUNDLED_AND_QUESTION_RE = re.compile(
     r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם)\s"
 )
 
+# Per Shaked's stage-3 run-1 finding (Budapest): used only when the whole
+# reply has NO "?" at all (see _enforce_one_option_question's own early-exit
+# handling) - narrower than _BUNDLED_AND_QUESTION_RE's bare ",\s*וגם\b"
+# alternative, which alone is too weak a signal without a "?" anywhere to
+# confirm this is a question at all (an ordinary statement like "אישרתי את
+# הטיסה, וגם את המלון." would otherwise false-positive). Requires an actual
+# question word immediately after "וגם", exactly the shape of the live
+# repro ("...בחופשה, וגם האם חשוב לכם קצב רגוע...").
+_BUNDLED_NO_QMARK_RE = re.compile(
+    r",\s*וגם\s+(?:האם|מה|כמה|חשוב|איזה|יש)\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם)\s"
+)
+
 # Per the business owner's explicit instruction (relayed via Shlomo,
 # 17.10.2026): a single open question that illustrates its answer with a
 # parenthetical example list ("מה אתם אוהבים לעשות בחופשה (תרבות, שופינג,
@@ -5543,6 +5650,31 @@ def _enforce_one_option_question(reply, state):
     remain violations."""
     text = str(reply or "")
     if "?" not in text:
+        # Per Shaked's stage-3 run-1 finding (Budapest): "ספרו לי... מה אתם
+        # אוהבים לעשות בחופשה, וגם האם חשוב לכם קצב רגוע או עמוס יותר - כי
+        # יש לכם ילדה קטנה" bundles the style AND pace questions exactly
+        # like _BUNDLED_AND_QUESTION_RE already catches elsewhere, but ends
+        # as a statement/explanation with NO "?" anywhere at all - every
+        # check below keys off sentences ending in "?", so this entire
+        # function used to bail out immediately and let it straight
+        # through. Narrower than _BUNDLED_AND_QUESTION_RE (requires a
+        # question word right after "וגם", not just the bare comma) to
+        # avoid mistaking an ordinary statement like "אישרתי את הטיסה, וגם
+        # את המלון." for a bundled question - and only fires when the text
+        # before the match already reads as an open question itself (names
+        # an interrogative word or a known open-question opener), the same
+        # confidence bar the rest of this function assumes by only ever
+        # looking at real question sentences. When both hold, truncate at
+        # the smuggled clause and let the single remaining question (now
+        # ending in its own synthesized "?") go through the exact same
+        # resolution path as every other case here.
+        m = _BUNDLED_NO_QMARK_RE.search(text)
+        if m:
+            prefix = text[:m.start()].rstrip()
+            if prefix and any(w in prefix for w in (
+                "מה ", "איזה ", "כמה ", "האם ", "ספרו לי", "ספרי לי", "ספר לי", "תוכלו", "תוכל", "תוכלי",
+            )):
+                return _enforce_one_option_question(prefix + "?", state)
         return reply
 
     state = state if isinstance(state, dict) else {}
@@ -5572,6 +5704,31 @@ def _enforce_one_option_question(reply, state):
             (" או " in only_q)
             or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
         )
+        # Per Shaked's stage-3 run-1 finding (Rome): "לגבי מספר החדרים
+        # והתקציב ללילה, מה יתאים לכם?" bundles the rooms AND budget gaps
+        # into a single generic closing question ("מה יתאים לכם?") - not
+        # two separate question clauses joined by "או"/"ו" the checks above
+        # look for, but one question whose own LEAD-IN already names two
+        # different still-open lodging topics. Detected by the state's own
+        # real gap vocabulary (never a blind keyword list) - mutually
+        # exclusive classification (bathrooms checked before the bare
+        # "חדר" rooms check, since "חדרי רחצה" also contains "חדר") so a
+        # single genuine bathrooms-only question is never double-counted.
+        if not bundled and active_session == "lodging":
+            _lodging_gaps_now = set(_session_gaps(state, "lodging"))
+            _topics = set()
+            if ("חדרי רחצה" in only_q or "חדר רחצה" in only_q) and "lodging.details.bathrooms" in _lodging_gaps_now:
+                _topics.add("lodging.details.bathrooms")
+            elif "חדר" in only_q and "lodging.details.rooms" in _lodging_gaps_now:
+                _topics.add("lodging.details.rooms")
+            if ("תקציב" in only_q or "רמת נוחות" in only_q) and "lodging.details.budget_or_level" in _lodging_gaps_now:
+                _topics.add("lodging.details.budget_or_level")
+            if ("אזור" in only_q or "מיקום" in only_q) and "lodging.details.locations" in _lodging_gaps_now:
+                _topics.add("lodging.details.locations")
+            if ("סוג לינה" in only_q or "סוג הלינה" in only_q) and "lodging.details.type" in _lodging_gaps_now:
+                _topics.add("lodging.details.type")
+            if len(_topics) >= 2:
+                bundled = True
         # Per Shaked's stage-2 run-3 finding (Rome/Athens/Budapest, 1/5,
         # 7f02bd4): flights just closed with post_flight_offer=
         # ['trip_planning']/next_session='trip_planning'/active_session=
@@ -6012,12 +6169,26 @@ def _deterministic_lodging_facts(message, history):
     # plain "כן" answer, which names no number at all - seen live: that
     # left rooms unset even though the customer had just confirmed it.
     asked_single_room_confirm = bool(re.search(r"חדר\s+\S*\s*אחד\s+מספיק", last_question))
+    # Per Shaked's stage-3 run-1 finding (Budapest): "חדר משפחתי אחד עם
+    # עריסה" ("one family room with a crib") was never recognized as
+    # rooms=1 - the exact "חדר אחד" substring check above requires the
+    # number word directly after "חדר", but here a descriptive word
+    # ("משפחתי") sits in between, and the digit regex needs an actual
+    # digit, not a spelled-out one. "כמה חדרים תרצו?" was then asked 4
+    # times in the same conversation. Reuses the same _HEBREW_NUMBER_WORDS
+    # vocabulary already used for travelers/children counts, tolerating up
+    # to a few descriptive words between "חדר" and the number word.
+    rooms_word_match = re.search(
+        r"חדר\w*(?:\s+\S+){0,3}?\s+(" + _HEBREW_NUMBER_WORD_RE + r")\b", msg
+    )
     if asked_rooms:
         rooms_match = re.search(r"(\d+)\s*חדר", msg)
         if rooms_match:
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = int(rooms_match.group(1))
         elif any(w in msg for w in ("חדר אחד", "חדר גדול אחד")):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
+        elif rooms_word_match:
+            result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = _HEBREW_NUMBER_WORDS[rooms_word_match.group(1)]
         elif asked_single_room_confirm and (_RESET_GATE_YES_RE.match(_normalize_confirm(msg).lower()) or "מספיק" in msg):
             result.setdefault("lodging", {}).setdefault("details", {})["rooms"] = 1
     # The single-room confirm check above was unreachable whenever Ariella
@@ -6056,8 +6227,48 @@ def _deterministic_lodging_facts(message, history):
         bathrooms_match = re.search(r"(\d+)", msg)
         if bathrooms_match:
             result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = int(bathrooms_match.group(1))
-        elif any(w in msg for w in no_preference_words):
-            result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = "אין העדפה"
+        else:
+            # Per Shaked's stage-3 run-1 finding (Paris): "שני חדרי רחצה"
+            # ("two bathrooms") answered this exact question but the bare
+            # digit regex above needs an actual digit, not a spelled-out
+            # Hebrew number word, so the answer was silently dropped and
+            # the question was asked again.
+            bathrooms_word_match = re.search(
+                r"(" + _HEBREW_NUMBER_WORD_RE + r")\s*(?:\S+\s+){0,2}?(?:חדרי\s+רחצה|חדר\s+רחצה|שירותים|מקלחת)",
+                msg,
+            ) or re.search(
+                r"(?:חדרי\s+רחצה|חדר\s+רחצה|שירותים|מקלחת)\s*(?:\S+\s+){0,2}?(" + _HEBREW_NUMBER_WORD_RE + r")\b",
+                msg,
+            )
+            if bathrooms_word_match:
+                result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = _HEBREW_NUMBER_WORDS[bathrooms_word_match.group(1)]
+            elif any(w in msg for w in no_preference_words):
+                result.setdefault("lodging", {}).setdefault("details", {})["bathrooms"] = "אין העדפה"
+
+    # Per Shaked's stage-3 run-1 finding (Paris, the worst of 5 - the
+    # question repeated 13 times and the conversation never reached a
+    # summary): "אין הגבלה" answering "מה התקציב שלכם ללילה?" set neither
+    # budget nor level, so lodging.details.budget_or_level could never
+    # close - unlike the flight per-person budget's own no-limit phrases
+    # (_deterministic_budget_facts), there was no equivalent for lodging's
+    # per-night budget at all. Gated on the actual question asked (never a
+    # blind keyword match - same reasoning as asked_type/asked_level
+    # above): when the last question named both "תקציב" and "ליל"/"ללילה"
+    # (lodging's own per-night budget question, per the gap hint text
+    # "מה התקציב שלכם ללילה?"), a no-limit answer closes the composite gap
+    # by setting level to "אין העדפה" - budget itself stays null, which is
+    # exactly the search behavior a real no-limit answer calls for (no
+    # price ceiling applied). Checked before the numeric "ליל" branch below
+    # so a genuine numeric answer is never short-circuited by this.
+    asked_budget = "תקציב" in last_question and "ליל" in last_question
+    budget_no_limit_words = (
+        "אין הגבלה", "ללא הגבלה", "בלי הגבלה", "אין תקרה", "ללא תקרה", "בלי תקרה",
+        "אין מגבלה", "אין מגבלת תקציב", "ללא מגבלת תקציב", "לא מוגבל", "תקציב פתוח",
+    )
+    if asked_budget and not re.search(r"\d", msg) and (
+        any(w in msg for w in no_preference_words) or any(w in msg for w in budget_no_limit_words)
+    ):
+        result.setdefault("lodging", {}).setdefault("details", {})["level"] = "אין העדפה"
 
     # budget has no deterministic writer at all, unlike the per-person flight
     # budget above (_deterministic_budget_facts) - seen live (Shaked, qa-s77,
@@ -6610,6 +6821,7 @@ _GAP_QUESTION_TEXT = {
     "car.details.return": "ואיפה תרצו להחזיר אותו?",
     "lodging.details.type": "איזה סוג לינה מתאים לכם?",
     "lodging.details.rooms": "כמה חדרים תרצו?",
+    "lodging.details.bathrooms": "כמה חדרי רחצה תרצו בדירה?",
     "lodging.details.locations": "באיזה אזור תרצו שהלינה תהיה?",
     "lodging.details.budget_or_level": "מה התקציב שלכם ללילה?",
     "trip_planning.details.style": "ספרו לי מה אתם אוהבים לעשות בחופשה.",
@@ -6634,6 +6846,7 @@ _GAP_FIELD_KIND = {
     "car.details.transmission": "text",
     "lodging.details.type": "text",
     "lodging.details.rooms": "number",
+    "lodging.details.bathrooms": "number",
     "lodging.details.locations": "text",
     "lodging.details.budget_or_level": "text",
     "trip_planning.details.style": "text",
@@ -9081,6 +9294,13 @@ def _chat_clean_impl():
         # An approved route already answers "where do you want to stay" -
         # lodging search on the same vacation must not re-ask it.
         trip_update = _resolve_lodging_locations_from_route(trip_update)
+        # Per Shlomo's follow-up on stage-3 run-1 (17.10.2026): a
+        # deterministic safety net, independent of any one field's own
+        # parser - no lodging field should ever be asked more than twice in
+        # the same conversation regardless of why a parser missed a given
+        # phrasing. Directly bounds the pathological repeat loops Paris
+        # (budget, asked 13x) and Budapest (rooms, asked 4x) hit this run.
+        trip_update = _apply_lodging_ask_limit_fallback(trip_update, history)
         # The customer's name/gender/home airports always come fresh from
         # their registration data, never from client-supplied state, which
         # can be stale or wrong. Loaded before the sessions advance so the
