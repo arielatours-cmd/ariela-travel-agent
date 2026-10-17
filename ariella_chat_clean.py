@@ -4980,9 +4980,14 @@ def _enforce_one_option_question(reply, state):
     fixed = None
     offered = (state or {}).get("post_flight_offer") if isinstance(state, dict) else None
     if (
-        isinstance(offered, list) and len(offered) == 1 and offered[0] in _OFFER_DOMAIN_QUESTIONS
+        isinstance(offered, list) and offered and offered[0] in _OFFER_DOMAIN_QUESTIONS
         and not (state or {}).get("active_session")
     ):
+        # Per Shaked's PR #59 review: post_flight_offer should never legally
+        # list more than one domain (rule 112 - ask about exactly one
+        # pending domain per message) - but if it ever does, collapse the
+        # illegal double offer down to the first domain in order, rather
+        # than leaving the "X או Y" violation untouched.
         fixed = _OFFER_DOMAIN_QUESTIONS[offered[0]]
     else:
         for keywords, question in _TOPIC_QUESTION_RULES:

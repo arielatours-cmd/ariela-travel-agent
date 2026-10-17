@@ -162,6 +162,23 @@ check("a reply with no recognizable topic keyword at all is left "
       chat._enforce_one_option_question(
           "תרצו לשמוע סיפור על היעד, או שנמשיך הלאה?", {}
       ) == "תרצו לשמוע סיפור על היעד, או שנמשיך הלאה?")
+check("per Shaked/Shlomo's follow-up: two domains illegally bundled into "
+      "one offer (post_flight_offer should never list more than one - "
+      "rule 112) collapses to the first domain in order, rather than "
+      "leaving the violation untouched",
+      chat._enforce_one_option_question(
+          "רוצים לינה או רכב?", {"post_flight_offer": ["lodging", "car"], "active_session": None},
+      ) == "לסדר גם לינה לחופשה הזו?")
+check("Shaked's follow-up repro: a lodging-type question mid-domain "
+      "(active_session='lodging') still gets the fixed open question",
+      chat._enforce_one_option_question(
+          "איזה סוג לינה מתאים לכם - מלון, דירה או וילה?", {"active_session": "lodging"},
+      ) == "איזה סוג לינה מתאים לכם?")
+check("Shaked's follow-up repro: a car-type question mid-domain "
+      "(active_session='car') still gets the fixed open question",
+      chat._enforce_one_option_question(
+          "איזה רכב - קטן, משפחתי או SUV?", {"active_session": "car"},
+      ) == "איזה סוג/גודל רכב מתאים לכם?")
 
 
 # === Bug 3: explicit gender hint ===
