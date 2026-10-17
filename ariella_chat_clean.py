@@ -4958,11 +4958,28 @@ def _enforce_one_option_question(reply, state):
     flights reuses _flight_gap_question's own richer field->question
     mapping (covers budget/baggage/connection_preference, not just
     _GAP_QUESTION_TEXT's simpler domains); lodging/car/trip_planning use
-    _GAP_QUESTION_TEXT directly. If active_session genuinely has no mapped
-    gap left (the session would already be closing), the question clause
-    is dropped rather than guessed - any earlier statement sentence in the
-    reply is kept. The one state-driven case that predates this redesign
-    (the next-domain offer, when nothing is active yet) is unchanged."""
+    _GAP_QUESTION_TEXT directly.
+
+    Per Shaked's stage-1 run-5 finding (Paris, 4/5): once budget - flights'
+    own last gap - was answered, the reply came back as a bare "פרטי
+    הטיסה סגורים." with NO question at all, and the customer had to ask
+    "מה עכשיו?" herself. Root cause: the state this function sees for a
+    turn is a snapshot from mid-turn (before _advance_sessions has caught
+    up to flights having just closed), so active_session could still read
+    "flights" even though _session_gaps(state, "flights") is already
+    empty and the real next step - per post_flight_offer/next_session,
+    already set correctly on the SAME snapshot - is to offer trip_planning.
+    Tinkerbell apparently free-worded exactly that offer as its own "X או
+    Y", which the active_session branch then matched on an empty gap list
+    and silently dropped instead of replacing. Per the business owner's
+    standing rule (relayed by Shlomo): a turn before the final summary
+    must never end with no question at all. Fixed in two parts: (1) a
+    "no gap left" active_session falls through to the same next-domain
+    offer the no-active_session branch already handles, since closing a
+    domain with nothing left to ask is exactly when that offer is due; (2)
+    if nothing usable is found anywhere, the original reply is returned
+    completely unchanged (a still-"X או Y" but present question) rather
+    than ever dropped to a bare statement."""
     text = str(reply or "")
     qpos = text.rfind("?")
     if qpos == -1:
@@ -4980,25 +4997,37 @@ def _enforce_one_option_question(reply, state):
     fixed = None
     offered = state.get("post_flight_offer")
     active_session = state.get("active_session")
-    if (
-        isinstance(offered, list) and offered and offered[0] in _OFFER_DOMAIN_QUESTIONS
-        and not active_session
-    ):
+
+    def _next_domain_offer():
         # Per Shaked's PR #59 review: post_flight_offer should never legally
         # list more than one domain (rule 112 - ask about exactly one
         # pending domain per message) - but if it ever does, collapse the
         # illegal double offer down to the first domain in order, rather
         # than leaving the "X או Y" violation untouched.
-        fixed = _OFFER_DOMAIN_QUESTIONS[offered[0]]
+        if isinstance(offered, list) and offered and offered[0] in _OFFER_DOMAIN_QUESTIONS:
+            return _OFFER_DOMAIN_QUESTIONS[offered[0]]
+        next_session = state.get("next_session")
+        if next_session in _OFFER_DOMAIN_QUESTIONS:
+            return _OFFER_DOMAIN_QUESTIONS[next_session]
+        return None
+
+    if not active_session:
+        fixed = _next_domain_offer()
     elif active_session in ("flights", "lodging", "car", "trip_planning"):
         gaps = _session_gaps(state, active_session)
         if active_session == "flights":
             fixed = _flight_gap_question(gaps, state) if gaps else None
         else:
             fixed = next((_GAP_QUESTION_TEXT[g] for g in gaps if g in _GAP_QUESTION_TEXT), None)
-    prefix = text[:start].strip()
+        if not fixed:
+            # The domain this snapshot still names as active has, in
+            # reality, just run out of gaps (closing this very turn) -
+            # whatever the model was actually trying to ask is the next
+            # domain's offer, per the Paris finding above.
+            fixed = _next_domain_offer()
     if not fixed:
-        return prefix if prefix else reply
+        return reply
+    prefix = text[:start].strip()
     return f"{prefix} {fixed}".strip() if prefix else fixed
 
 
