@@ -213,7 +213,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
   - שירות שסומן declined **אינו מופיע כלל** - לא גם כשורה קצרה ("רכב: לא נדרש") ולא בשום ניסוח אחר (ראו הכלל למעלה). החריג היחיד: טיסות שכבר הוזמנו עצמאית (ראו שורת "טיסות: כבר בידיכם" למעלה) - זה מידע רלוונטי שכן מוצג, למרות ש-flights מסומן declined. אם יש לפחות שירות אחר כזה שנדחה סתם, סיימי לפני שורת האישור במשפט תזכורת קצר אחד וכללי (לא רשימת השירותים הספציפיים) שאפשר תמיד לחזור ולהוסיף גם את מה שלא נדרש הפעם.
   - שורת האישור: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר - רק המילים מאשר/מאשרת מאשרות ביצוע. אין להוסיף שום הסבר/שאלה פתוחה נוספת אחרי שורת האישור.
 - פתיחת הסיכום היא ישירה ועניינית בלבד. לעולם אל תפתחי בניסוח טכני/מסורבל כמו "עדיין לא יצאתי לחיפוש בפועל - הנה הסיכום, ורק לאחר אישור במילה המדויקת אני יוצאת לדרך" - זה נשמע כמו תיעוד מערכת, לא שיחה. הכלל "אל תטעני שכבר חיפשת" כבר מובטח על ידי כך שמעולם לא מוזכרת פעולת חיפוש שלא קרתה - אין צורך להסביר זאת שוב בפתיח.
-- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם; אם הוא כן ידוע, חובה לציין אותו בסיכום במפורש (לא רק לשאול עליו לפני כן). אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום את השדה/שדות שבאמת נבחרו/מחפשים בהם בפועל (לא רק שם היעד הכללי), לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
+- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם; אם הוא כן ידוע, חובה לציין אותו בסיכום במפורש (לא רק לשאול עליו לפני כן), בניסוח ישיר שתואם בדיוק את הערך הידוע - "direct" כותבים "מעדיפים טיסה ישירה", וכשהערך הוא "אין העדפה" כותבים בדיוק "אין העדפה לטיסה ישירה" (לא "ישירה, בהתאם לזמינות בפועל" או כל ניסוח אחר שמרמז בטעות על העדפה לישירה שלא קיימת - "אין העדפה" פירושו שקונקשן מתאים בדיוק כמו טיסה ישירה, לא שהכל תלוי בזמינות). אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום את השדה/שדות שבאמת נבחרו/מחפשים בהם בפועל (לא רק שם היעד הכללי), לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
@@ -2196,8 +2196,12 @@ def _flight_gap_question(gaps, state=None):
     if "budget_per_person" in gaps:
         # Open question - "no budget limit" is still a perfectly natural
         # free-form answer, already recognized regardless of how the
-        # question was phrased (see _deterministic_budget_facts).
-        return "מה התקציב שלך לאדם לטיסה?"
+        # question was phrased (see _deterministic_budget_facts). Plural
+        # ("שלכם", not "שלך") per Shaked's stage-1 run-4 review - this is a
+        # generic fixed text reused for any party size, matching every
+        # other fixed question in this file (_GAP_QUESTION_TEXT etc.), not
+        # a free-generated line addressed to one known customer.
+        return "מה התקציב שלכם לאדם לטיסה?"
     if "departure_airport" in gaps:
         return _departure_question(state)
     if "trip_type" in gaps:
@@ -2215,8 +2219,9 @@ def _flight_gap_question(gaps, state=None):
         return "חסר לי הגיל של הילד/ה בהרכב הנוסעים. מה הגיל?"
     if "flight.connection_preference" in gaps:
         # Single-option yes/no - matches _deterministic_connection_
-        # preference_facts' own gate exactly.
-        return "חשוב לך שהטיסה תהיה ישירה?"
+        # preference_facts' own gate exactly. Plural per Shaked's stage-1
+        # run-4 review, same reasoning as budget_per_person above.
+        return "חשוב לכם שהטיסה תהיה ישירה?"
     if "flight.baggage" in gaps:
         # Open question - the three canonical storage values are still the
         # only ones ever written to flight.baggage (see _baggage_answer_
@@ -4935,12 +4940,29 @@ def _enforce_one_option_question(reply, state):
     קטן, או שיש גם מזוודות?") on an ordinary first ask, and offering
     trip_planning as the next session skipped the plain yes/no entirely in
     favor of diving into route content ("יש לך רעיון למסלול..., או שתרצי
-    שאציע לך מסלול מגוון?"). Both are narrow, well-defined moments with an
-    already-approved fixed phrasing used elsewhere (_flight_gap_question's
-    baggage/missing_service branches) - when the model's own last question
-    violates the rule in exactly one of these two situations, swap just
-    that question clause for the fixed text, leaving any earlier statement
-    sentence in the same reply untouched."""
+    שאציע לך מסלול מגוון?").
+
+    First version (per the business owner, relayed by Shlomo, PR #59
+    review) generalized this to a fixed topic-keyword table covering every
+    service. Per Shaked's own review of THAT version: keyword matching is
+    exactly as unreliable as free generation, just differently so - a
+    lodging question mentioning "רכב"/"חניה" (car parking) or "מזוודות"
+    (suitcase-space) got rewritten into the wrong domain's question
+    entirely, and a car pickup-location question got rewritten into "what
+    vehicle type" - a question already answered, risking an actual loop.
+    Replaced with the state itself: when active_session names a real
+    session, the fixed text is the one _session_gaps(state, active_session)
+    actually still needs for THAT session - the exact field the real
+    missing_required pipeline would ask about next, never guessed from
+    words that merely appear in the model's own (already-wrong) phrasing.
+    flights reuses _flight_gap_question's own richer field->question
+    mapping (covers budget/baggage/connection_preference, not just
+    _GAP_QUESTION_TEXT's simpler domains); lodging/car/trip_planning use
+    _GAP_QUESTION_TEXT directly. If active_session genuinely has no mapped
+    gap left (the session would already be closing), the question clause
+    is dropped rather than guessed - any earlier statement sentence in the
+    reply is kept. The one state-driven case that predates this redesign
+    (the next-domain offer, when nothing is active yet) is unchanged."""
     text = str(reply or "")
     qpos = text.rfind("?")
     if qpos == -1:
@@ -4954,35 +4976,29 @@ def _enforce_one_option_question(reply, state):
     if " או " not in last_q:
         return reply
 
+    state = state if isinstance(state, dict) else {}
     fixed = None
-    offered = (state or {}).get("post_flight_offer") if isinstance(state, dict) else None
+    offered = state.get("post_flight_offer")
+    active_session = state.get("active_session")
     if (
-        isinstance(offered, list) and len(offered) == 1 and offered[0] in _OFFER_DOMAIN_QUESTIONS
-        and not (state or {}).get("active_session")
+        isinstance(offered, list) and offered and offered[0] in _OFFER_DOMAIN_QUESTIONS
+        and not active_session
     ):
+        # Per Shaked's PR #59 review: post_flight_offer should never legally
+        # list more than one domain (rule 112 - ask about exactly one
+        # pending domain per message) - but if it ever does, collapse the
+        # illegal double offer down to the first domain in order, rather
+        # than leaving the "X או Y" violation untouched.
         fixed = _OFFER_DOMAIN_QUESTIONS[offered[0]]
-    # Stems, not whole words - "מזוודות" (plural) doesn't contain the
-    # singular "מזוודה" as a substring (ה -> ות). "תיק קטן" (not the bare,
-    # generic "תיק") matches the live failing phrasing (V4), which names
-    # the personal-item option without ever saying "כבודה" at all.
-    #
-    # Scoped to the flights domain specifically (active_session is flights
-    # or still unset, and flight.baggage itself is still empty) - seen live
-    # (Shaked, review on this same PR): a CAR question genuinely about
-    # luggage capacity ("איזה רכב מתאים - כזה שיכיל את כל המזוודות, או
-    # משהו קטן?", answering car.details.luggage_capacity_confirmed) matched
-    # the same keywords and got wrongly rewritten into the flight baggage
-    # question instead. Those words are only ever this rule's baggage
-    # question when flights actually still has that gap open.
-    elif (
-        any(w in last_q for w in ("כבוד", "מזווד", "טרולי", "תיק קטן"))
-        and str((state or {}).get("active_session") or "") in ("", "flights")
-        and not ((state or {}).get("flight") or {}).get("baggage")
-    ):
-        fixed = "איזו כבודה תרצו לקחת?"
-    if not fixed:
-        return reply
+    elif active_session in ("flights", "lodging", "car", "trip_planning"):
+        gaps = _session_gaps(state, active_session)
+        if active_session == "flights":
+            fixed = _flight_gap_question(gaps, state) if gaps else None
+        else:
+            fixed = next((_GAP_QUESTION_TEXT[g] for g in gaps if g in _GAP_QUESTION_TEXT), None)
     prefix = text[:start].strip()
+    if not fixed:
+        return prefix if prefix else reply
     return f"{prefix} {fixed}".strip() if prefix else fixed
 
 
@@ -5081,7 +5097,16 @@ def _deterministic_connection_preference_facts(message, history):
         return {"flight": {"connection_preference": "אין העדפה"}}
     if re.search(r"(?<![א-ת])ישיר\w*(?![א-ת])", msg):
         return {"flight": {"connection_preference": "direct"}}
-    no_preference_words = ("אין העדפה", "לא משנה", "לא משנה לי", "קונקשן בסדר", "גם בסדר", "בסדר גם")
+    # "לא חשוב"/"גם וגם" added per Shlomo's stage-1 run-4 review: the live
+    # W2/Paris case saved connection_preference="direct" when the customer
+    # actually expressed indifference - these two phrasings weren't
+    # recognized by this deterministic writer at all, so they fell through
+    # to the LLM extractor instead (the unreliable path this function
+    # exists to avoid - see the function's own docstring).
+    no_preference_words = (
+        "אין העדפה", "לא משנה", "לא משנה לי", "לא חשוב", "גם וגם",
+        "קונקשן בסדר", "גם בסדר", "בסדר גם",
+    )
     if any(w in msg for w in no_preference_words):
         return {"flight": {"connection_preference": "אין העדפה"}}
     # Per the one-option rule, the question is now a plain yes/no ("חשוב לכם
