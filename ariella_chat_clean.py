@@ -24,10 +24,25 @@ _anthropic_clients = {}
 def _get_anthropic_client(key):
     """A fresh anthropic.Anthropic(...) per call opens a new connection pool
     (a TLS handshake) every single chat turn. Reuse one client per API key
-    for the life of the process instead."""
+    for the life of the process instead.
+
+    Per Eran's 502 diagnosis (relayed by Shlomo, stage-2 run-1): the SDK's
+    OWN default internal retrying (on timeouts/connection errors, separate
+    from and invisible to the application-level retry loop in
+    _post_claude below) was silently multiplying a single call's real
+    wall-clock time by up to 3x - a call given a 55s timeout could take
+    up to ~165s before the SDK gave up and raised, blowing straight
+    through _TURN_TIMEOUT_BUDGET_SECONDS (90s) and into gunicorn's own
+    hard worker kill (a bare 502, no graceful fallback ever reached).
+    _post_claude already implements its own deliberate, narrower retry
+    policy (one extra attempt, only for 429/529, never for a timeout -
+    see its own docstring) specifically to respect the turn's time
+    budget; the SDK's default retrying undid that policy underneath it
+    without ever being asked to. max_retries=0 makes _post_claude's own
+    loop the only one that ever runs."""
     client = _anthropic_clients.get(key)
     if client is None:
-        client = anthropic.Anthropic(api_key=key)
+        client = anthropic.Anthropic(api_key=key, max_retries=0)
         _anthropic_clients[key] = client
     return client
 
@@ -60,11 +75,24 @@ def _claude_call_timeout():
     timeout - just another exception - is safe everywhere it's used,
     including the main conversational reply and state extraction. Falls
     back to the full budget when called outside of chat_clean()'s own
-    per-turn tracking (e.g. a one-off script or test)."""
+    per-turn tracking (e.g. a one-off script or test).
+
+    Per Eran's 502 diagnosis (relayed by Shlomo, stage-2 run-1): once the
+    budget is ALREADY exhausted (a prior call in this same turn used it
+    all up), this used to still floor the result at
+    _MIN_CLAUDE_CALL_TIMEOUT_SECONDS (8s) - meaning a turn making 2-3
+    sequential calls (main reply, state extraction, sometimes a
+    classifier) kept spending another 8+ guaranteed seconds on EACH call
+    after the real budget was already gone, compounding well past
+    _TURN_TIMEOUT_BUDGET_SECONDS. 0 (meaning "already out of time, don't
+    even try") is now a real, distinct return value - _post_claude below
+    fails fast on it instead of ever making the call."""
     started = getattr(_turn_timing, "turn_started", None)
     if started is None:
         return _TURN_TIMEOUT_BUDGET_SECONDS
     remaining = _TURN_TIMEOUT_BUDGET_SECONDS - (time.time() - started)
+    if remaining <= 0:
+        return 0.0
     return max(_MIN_CLAUDE_CALL_TIMEOUT_SECONDS, min(_MAX_CLAUDE_CALL_TIMEOUT_SECONDS, remaining))
 
 
@@ -73,7 +101,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
 
 **העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה.
-**שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תתעדי את התשובה בשדה הפנימי בהתאם (ראי בהמשך) - השדה הפנימי אינו קשור לניסוח השאלה שהלקוח רואה.**
+**שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תביני מהתשובה שלו למה הכוונה - בלי קשר לניסוח השאלה שהוא ראה, ובלי להזכיר לו בשום צורה איך זה נשמר אצלך.**
 - את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור **שאלה אחת בלבד** - הבאה בתור, בניסוח טבעי משלך, בלי להציג שמות שדות פנימיים ללקוח ובלי להעתיק נוסח קבוע כלשהו.
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
@@ -84,7 +112,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
 - שמות מקומות כתבי תמיד באותיות עבריות בלבד (למשל פליטביצה, קרקה, ספליט, דוברובניק, זאגרב). לעולם אל תשלבי אותיות קיריליות, יווניות או לטיניות בתוך מילה עברית.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
-- לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד.
+- לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד. אותו איסור חל גם על מינוח פנימי בעברית - "שדה", "השדה הפנימי", "state", "session", "מתועד כ-", "משתנה" וכל ביטוי אחר שחושף ללקוח איך המידע מאוחסן אצלך. גם כשאת מתקנת או מדייקת תשובה קודמת של הלקוח, נסחי זאת כמשפט רגיל על החופשה עצמה (למשל "רק לוודא - אתם לוקחים גם מזוודה בבטן המטוס, נכון?"), לעולם לא במונחים של "השדה"/"זה מתועד כ-".
 - כשהלקוח כותב בעברית, כל התשובה כולה בעברית בלבד - אסור לשלב מילה או ביטוי באנגלית (gaps, OK, sure, perfect וכו') במקום שיש לו מקבילה עברית טבעית. היוצאים הבלעדיים מהכלל הזה הם שמות מקומות ספציפיים (כפר/שכונה/אתר/הר) שכבר יש להם כלל נפרד למעלה שאומר להשאיר אותם בלועזית, וקודי שדות תעופה/ערכים טכניים קבועים כמו "direct" ב-flight.connection_preference.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
 - לעולם אל תשתמשי בכינויי חיבה כמו "חמוד/ה", "מתוק/ה", "יקר/ה" כפנייה ללקוח - גם כשהם מנוסחים נכון מגדרית. פנייה מקצועית וחמה בלי כינויי חיבה.
@@ -558,6 +586,19 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
         # Recomputed per attempt (not once before the loop) so the retry's
         # own 2s sleep is reflected in what's left of the turn's budget.
         call_timeout = _claude_call_timeout()
+        if call_timeout <= 0:
+            # Per Eran's 502 diagnosis (relayed by Shlomo, stage-2 run-1):
+            # the turn's budget is already fully spent by an earlier call
+            # this same turn - making this call anyway, even at the old 8s
+            # floor, only ever adds more time on top of a turn that's
+            # already over budget, for a reply the customer waited through
+            # gunicorn's hard kill for regardless. Fail fast instead.
+            record_ai_usage(
+                source, model, usage=None, error="budget_exhausted",
+                thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
+                call_duration_ms=0,
+            )
+            raise RuntimeError(f'Claude API call to {source} skipped - turn time budget already exhausted')
         try:
             response = client.messages.create(
                 model=model, max_tokens=max_tokens, system=system_blocks, messages=messages,
@@ -2136,6 +2177,13 @@ def _flight_summary_text(state):
         lines.append("טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן")
     baggage = flight.get("baggage") or []
     baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה בבטן המטוס", "personal_item": "תיק קטן בלבד"}
+    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): the
+    # customer said "מזוודה אחת משותפת" (ONE suitcase, shared by the whole
+    # party) but the summary read as if every passenger had their own -
+    # checked_bag's label must never default to a per-passenger assumption
+    # when the customer explicitly said otherwise.
+    if flight.get("baggage_shared") and "checked_bag" in baggage:
+        baggage_labels = dict(baggage_labels, checked_bag="מזוודה אחת משותפת לכל הנוסעים")
     if baggage:
         lines.append("כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage))
     dep_time_pref = str(flight.get("departure_time_preference") or "").strip()
@@ -2731,6 +2779,35 @@ def _fix_itinerary_intro_day_count(reply):
     return fixed_intro + text[start:]
 
 
+_INTERNAL_LEAK_RE = re.compile(r"שדה\s+פנימי|שדה\s+הפנימי|מתועד\s+כ|מתועד\s+בתור|ה-?state\b|ה-?session\b|משתנה\s+פנימי", re.IGNORECASE)
+
+
+def _strip_internal_terminology_leak(reply):
+    """Deterministic safety net, same philosophy as the other helpers in
+    this file: TINKERBELL_SYSTEM's own prompt instruction (never expose
+    internal representation words - "שדה"/state/session/"מתועד כ-" - to
+    the customer) did not reliably stop the model from doing exactly that
+    live (Shaked, stage-2 run-1, Budapest) - "רק נדייק - בשדה הפנימי זה
+    מתועד כ'טרולי בלבד'..." leaked straight into a customer-facing reply,
+    echoing almost verbatim the very internal-field language an earlier
+    version of the baggage-question rule above used to use (now reworded
+    to avoid exactly this, but kept here too as a backstop - the same
+    defense-in-depth pattern this file always uses for a prompt rule that
+    free text alone can't reliably guarantee). Removes only the
+    offending sentence via _split_sentences - never the whole reply - so
+    one leaked aside doesn't cost the customer an otherwise-fine message;
+    if removing it would leave nothing at all, the original reply is
+    returned completely unchanged rather than ever emitting an empty
+    string."""
+    text = str(reply or "")
+    if not _INTERNAL_LEAK_RE.search(text):
+        return reply
+    sentences = _split_sentences(text)
+    kept = [s for s, _term in sentences if not _INTERNAL_LEAK_RE.search(s)]
+    fixed = "".join(kept).strip()
+    return fixed if fixed else reply
+
+
 def _fix_child_gender_wording(text, state):
     """Deterministic safety net, same philosophy as the two helpers above: a
     prompt instruction alone did not reliably stop the model from inventing a
@@ -2922,7 +2999,12 @@ def _baggage_summary(state):
     the customer again whether they're taking big suitcases."""
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
     baggage = flight.get("baggage") if isinstance(flight.get("baggage"), list) else []
-    labels = [_BAGGAGE_HE.get(str(b), str(b)) for b in baggage if b]
+    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): a
+    # customer who explicitly said ONE shared suitcase (not one per
+    # passenger) must never be summarized with the generic per-passenger
+    # checked_bag label - that reads as if everyone brought their own.
+    _he = dict(_BAGGAGE_HE, checked_bag="מזוודה אחת משותפת לכל הנוסעים", checked="מזוודה אחת משותפת לכל הנוסעים") if flight.get("baggage_shared") else _BAGGAGE_HE
+    labels = [_he.get(str(b), str(b)) for b in baggage if b]
     if not labels:
         return ""
     return (
@@ -4218,19 +4300,33 @@ def _deterministic_baggage_facts(message):
     baggage part of a message like that, so Tinkerbell asks about baggage
     again next turn - even after it was already answered, sometimes more than
     once in a row. Matches only clear, unambiguous phrasing to avoid false
-    positives; order matters, since "carry-on only" phrasing must be checked
-    before a bare "no baggage" match ("רק טרולי" means a trolley, not nothing)."""
+    positives; "no baggage at all" is checked first and wins outright, being
+    mutually exclusive with every other value and never at risk of
+    overlapping with them ("שום"/"בכלל" only ever appear in a genuine
+    "nothing at all" statement).
+
+    Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): flight.
+    baggage is a LIST (a customer can carry more than one kind at once), but
+    this function used to return on the FIRST pattern that matched - "טרולי
+    לכל אחד ומזוודה אחת משותפת" (a carry-on each PLUS one shared suitcase)
+    matched only the carry-on pattern and silently dropped the shared
+    suitcase from the final summary entirely. Now every matching value is
+    collected into one list instead of returning on the first hit."""
     import re
     msg = str(message or "")
     if not msg.strip():
         return {}
+    if re.search(r"אין\s+לי\s+שום\s+כבודה|בלי\s+שום\s+כבודה|בלי\s+כבודה\s+בכלל", msg):
+        return {"flight": {"baggage": ["no_baggage"]}}
+
+    values = []
     # "X מספיק" ("X is enough") is as unambiguous a sufficiency statement as
     # "רק X"/"X בלבד" - seen live: "טרולי מספיק" answered the exact baggage
     # question (טרולי בלבד/גם מזוודה בבטן המטוס/רק תיק) and matched none of
     # the patterns below, so the same question was asked again verbatim
     # forever.
     if re.search(r"רק\s+טרולי|טרולי\s+בלבד|טרולי\s+לכל\s+אחד|רק\s+כבודת\s+עלי|טרולי\s+מספיק", msg):
-        return {"flight": {"baggage": ["carry_on_only"]}}
+        values.append("carry_on_only")
     # "מזוודה למחסן" is kept alongside the correct "בטן המטוס" phrasing -
     # this only ever reads the CUSTOMER's own words, never Ariella's (the
     # system prompt rule, baggage_labels and _flight_gap_question above only
@@ -4238,13 +4334,26 @@ def _deterministic_baggage_facts(message):
     # "מטוס" and "אחת" are both optional - a live transcript showed "מזוודה
     # אחת בבטן לכל אחד וטרולי" go unmatched (the old pattern required
     # "בבטן" immediately after "מזוודה", with no "אחת" in between, and
-    # required "מטוס" right after "בבטן").
-    if re.search(r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
-        return {"flight": {"baggage": ["checked_bag"]}}
+    # required "מטוס" right after "בבטן"). "מזוודה (אחת) (גדולה) משותפת"
+    # (a (one) (large) SHARED suitcase) is just as unambiguous a checked-bag
+    # statement as "...בבטן המטוס" - per the Budapest finding above, a
+    # shared suitcase is never phrased with "בבטן" at all.
+    shared_checked_bag = bool(re.search(r"מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg))
+    if shared_checked_bag or re.search(r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
+        values.append("checked_bag")
     if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
-        return {"flight": {"baggage": ["personal_item"]}}
-    if re.search(r"אין\s+לי\s+שום\s+כבודה|בלי\s+שום\s+כבודה|בלי\s+כבודה\s+בכלל", msg):
-        return {"flight": {"baggage": ["no_baggage"]}}
+        values.append("personal_item")
+    if values:
+        result = {"flight": {"baggage": values}}
+        if shared_checked_bag:
+            # Per Shaked's stage-2 run-1 finding (Budapest): ONE suitcase
+            # shared by the whole party is a materially different fact from
+            # one per passenger, and the summary must say so - see
+            # _BAGGAGE_HE/_baggage_summary and _state_context's own
+            # baggage_labels, both of which otherwise default checked_bag
+            # to a per-passenger phrasing.
+            result["flight"]["baggage_shared"] = True
+        return result
     return {}
 
 
@@ -4296,6 +4405,47 @@ def _deterministic_service_decline_facts(history, message):
         "service_decisions": {service: {"wanted": False, "source": "explicit_short_decline"}},
         "session_status": {service: "declined"},
     }
+
+
+def _deterministic_active_service_decline_facts(trip_state, message):
+    """Per Shaked's stage-2 run-1 finding (secondary result under bug 1,
+    Athens loop): once lodging/car is genuinely ACTIVE (mid-session, a
+    detail question like "what type of lodging" already asked), a customer
+    declining it without literally naming the service noun or using
+    "לא"/"בלי"/"ללא" ("עזבי", "כבר יש לנו איפה לישון") matched neither
+    _deterministic_named_decline_facts (requires an exact service noun -
+    מלון/לינה/דירה/וילה/צימר/אכסניה - "לישון"/"לישון בו" isn't one of them)
+    nor _deterministic_service_decline_facts (requires an exact short
+    phrase AND Ariella's own prior message to name the service). The
+    session stayed "active" regardless of the customer's actual words, and
+    with nothing ever marking it declined, the same two detail questions
+    (type -> rooms -> type...) kept repeating forever - an outright loop.
+
+    Scoped tightly to when lodging/car is genuinely the active session
+    right now, per trip_state as it stood BEFORE this turn (never fires
+    elsewhere) - safe to recognize looser "already arranged
+    elsewhere"/"never mind" phrasing without a service noun, since there is
+    no ambiguity about which service a reply mid-that-session is about."""
+    msg = str(message or "").strip()
+    if not msg:
+        return {}
+    active = str((trip_state or {}).get("active_session") or "") if isinstance(trip_state, dict) else ""
+    if active not in ("lodging", "car"):
+        return {}
+    compact = " ".join(msg.split())
+    dismiss_phrases = {
+        "עזבי", "עזוב", "עזבי את זה", "עזוב את זה", "תשכחי מזה", "תשכח מזה",
+    }
+    already_have_re = {
+        "lodging": r"(?:כבר\s+)?יש\s+ל(?:נו|י)\s+(?:כבר\s+)?(?:מקום|איפה)\s+ל(?:ינ|יש)ון|סידרנו\s+(?:כבר\s+)?לינה|הזמנו\s+(?:כבר\s+)?מלון",
+        "car": r"(?:כבר\s+)?יש\s+ל(?:נו|י)\s+(?:כבר\s+)?רכב|סידרנו\s+(?:כבר\s+)?רכב|הזמנו\s+(?:כבר\s+)?רכב",
+    }
+    if compact in dismiss_phrases or re.search(already_have_re[active], msg):
+        return {
+            "service_decisions": {active: {"wanted": False, "source": "explicit_active_decline"}},
+            "session_status": {active: "declined"},
+        }
+    return {}
 
 
 def _deterministic_named_decline_facts(message):
@@ -8419,6 +8569,22 @@ def _chat_clean_impl():
             trip_update["requested_services"] = list(services)
             trip_update["service_decisions"] = decisions
             trip_update["session_status"] = statuses
+        active_service_decline = _deterministic_active_service_decline_facts(trip_state, message)
+        active_decline_decisions = active_service_decline.get("service_decisions") if isinstance(active_service_decline, dict) else None
+        if active_decline_decisions:
+            decisions = dict(trip_update.get("service_decisions") or {})
+            statuses = dict(trip_update.get("session_status") or {})
+            services = set(trip_update.get("requested_services") or [])
+            for service, d in active_decline_decisions.items():
+                decisions[service] = d
+                if (d.get("wanted") if isinstance(d, dict) else d) is False:
+                    services.discard(service)
+                    statuses[service] = "declined"
+                    if trip_update.get("active_session") == service:
+                        trip_update["active_session"] = None
+            trip_update["requested_services"] = list(services)
+            trip_update["service_decisions"] = decisions
+            trip_update["session_status"] = statuses
         named_decline = _deterministic_named_decline_facts(message)
         named_decline_decisions = named_decline.get("service_decisions") if isinstance(named_decline, dict) else None
         if named_decline_decisions:
@@ -8821,6 +8987,7 @@ def _chat_clean_impl():
             reply = "קלטתי את הפרטים. נמשיך מכאן."
         reply = _fix_child_gender_wording(reply, trip_update)
         reply = _fix_itinerary_intro_day_count(reply)
+        reply = _strip_internal_terminology_leak(reply)
         if post_flight_answer and not any(post_flight_answer.values()):
             reply = "בסדר גמור. מעבירה אותך לתוצאות הטיסה - ותמיד אפשר לחזור לכאן כדי להוסיף לינה, רכב או מסלול."
 
@@ -8948,6 +9115,67 @@ def _chat_clean_impl():
                 logging.exception("Tinkerbell reply failed on missing-final-summary retry: %s", exc)
 
         if planning_accept:
+            # Per Shaked's stage-2 run-1 finding (4/5, main 5b46648): a bare
+            # route-approval message ("מושלם, מתאים לנו", "סבבה, אהבנו",
+            # "נראה טוב") never names lodging or car at all, yet by this
+            # point in the turn lodging/car's session_status sometimes
+            # already reads "active" or "declined" instead of the genuinely
+            # still-undecided "pending" it was before this turn started -
+            # live transcripts showed this on 4 of 5 route-approval replies,
+            # only "מעולה, מתאים" (London) leaving it correctly untouched.
+            # The main structured extraction call is almost certainly
+            # misreading a bare route approval as ALSO implying "nothing
+            # else is needed" (over-applying the system prompt's "only X
+            # is wanted" rule) - but every DETERMINISTIC function in this
+            # file that legitimately decides lodging/car on the customer's
+            # behalf (an explicit "רק טיסות", a same-message answer, an
+            # explicit named decline/accept, etc.) tags its decision with
+            # its own recognizable "source" string; only the raw model
+            # extraction leaves service_decisions untagged. That is the
+            # real, reliable signal here - not whether the message happens
+            # to contain a lodging/car noun (an early version of this fix
+            # used exactly that check and broke "כן, רק טיסות ומסלול, שום
+            # דבר אחר", whose legitimate _deterministic_only_flights_facts
+            # decline never names "לינה"/"רכב" either). A same-turn change
+            # to lodging/car's status is reverted back to how it stood
+            # before this turn ONLY when its service_decisions entry carries
+            # no recognized source tag - i.e. it came straight from the
+            # model's own JSON, never a deterministic function.
+            _known_explicit_decision_sources = {
+                "explicit_only_flights", "explicit_short_decline", "explicit_active_decline",
+                "explicit_named_decline", "explicit_named_accept", "already_booked_elsewhere",
+                "reopened_trip", "reopened_trip_not_requested",
+                "explicit_request_deferred_to_after_flights", "explicit_request",
+                "post_flight_offer", "destination_trip_intent",
+            }
+            for _svc in ("lodging", "car"):
+                _prior_status = str((trip_state.get("session_status") or {}).get(_svc) or "pending")
+                _now_status = str((trip_update.get("session_status") or {}).get(_svc) or "pending")
+                if _prior_status == _now_status:
+                    continue
+                _now_decision = (trip_update.get("service_decisions") or {}).get(_svc)
+                _now_source = _now_decision.get("source") if isinstance(_now_decision, dict) else None
+                if _now_source in _known_explicit_decision_sources:
+                    continue
+                _statuses_fix = dict(trip_update.get("session_status") or {})
+                _statuses_fix[_svc] = _prior_status
+                trip_update["session_status"] = _statuses_fix
+                _decisions_fix = dict(trip_update.get("service_decisions") or {})
+                _prior_decision = (trip_state.get("service_decisions") or {}).get(_svc)
+                if _prior_decision is not None:
+                    _decisions_fix[_svc] = _prior_decision
+                else:
+                    _decisions_fix.pop(_svc, None)
+                trip_update["service_decisions"] = _decisions_fix
+                _services_fix = set(trip_update.get("requested_services") or [])
+                if _prior_status in ("active", "complete"):
+                    _services_fix.add(_svc)
+                else:
+                    _services_fix.discard(_svc)
+                trip_update["requested_services"] = list(_services_fix)
+                if trip_update.get("active_session") == _svc and _prior_status not in ("active", "complete"):
+                    trip_update["active_session"] = None
+
             # Approval closes only the itinerary session. Name whichever of the
             # other three domains are still genuinely open - this must never
             # assume flights was already handled. trip_planning can be the

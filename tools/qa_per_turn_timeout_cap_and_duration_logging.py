@@ -49,10 +49,16 @@ acc._turn_timing.turn_started = None
 check("no turn tracked: falls back to the full per-turn budget",
       acc._claude_call_timeout() == acc._TURN_TIMEOUT_BUDGET_SECONDS)
 
-# --- 2. Turn budget already exhausted -> clamped to the floor, never 0/negative ---
+# --- 2. Turn budget already exhausted -> 0 (never the old minimum floor) ---
+# Per Eran's 502 diagnosis (relayed by Shlomo, stage-2 run-1): flooring
+# this at _MIN_CLAUDE_CALL_TIMEOUT_SECONDS (8s) meant a turn making several
+# sequential calls kept spending another 8+ guaranteed seconds on EACH
+# call after the real budget was already gone, compounding well past
+# _TURN_TIMEOUT_BUDGET_SECONDS. 0 is now the real, distinct "don't even
+# try" signal - see check 2b below for _post_claude failing fast on it.
 acc._turn_timing.turn_started = time.time() - 1000
-check("exhausted budget: clamped to the minimum per-call timeout, never <= 0",
-      acc._claude_call_timeout() == acc._MIN_CLAUDE_CALL_TIMEOUT_SECONDS)
+check("exhausted budget: returns 0, not the old minimum-timeout floor",
+      acc._claude_call_timeout() == 0.0)
 
 # --- 3. Fresh turn -> remaining budget exceeds the per-call ceiling, clamped down ---
 acc._turn_timing.turn_started = time.time()
@@ -66,6 +72,37 @@ check("partway through a turn: a real mid-range value, not either clamp",
       acc._MIN_CLAUDE_CALL_TIMEOUT_SECONDS < mid_budget < acc._MAX_CLAUDE_CALL_TIMEOUT_SECONDS)
 
 acc._turn_timing.turn_started = None
+
+# --- 2b. _post_claude fails fast on an already-exhausted budget - never
+#         makes the API call at all, never floors to the old 8s ---
+client2b = MagicMock()
+acc._turn_timing.turn_started = time.time() - 1000
+with patch.object(acc, "_get_anthropic_client", return_value=client2b), \
+     patch.object(acc, "record_ai_usage") as mock_usage2b:
+    try:
+        acc._post_claude("fake-key", "claude-x", "system", "", [], "hi", 100, source="test")
+        assert False, "expected RuntimeError"
+    except RuntimeError as e:
+        check("an exhausted-budget call raises RuntimeError naming the budget",
+              "budget" in str(e).lower())
+check("an exhausted-budget call never reaches the SDK at all",
+      not client2b.messages.create.called)
+check("an exhausted-budget call logs ai_usage with error='budget_exhausted'",
+      mock_usage2b.call_args.kwargs.get("error") == "budget_exhausted")
+check("an exhausted-budget call logs call_duration_ms=0 (no time spent calling)",
+      mock_usage2b.call_args.kwargs.get("call_duration_ms") == 0)
+acc._turn_timing.turn_started = None
+
+# --- 2c. The shared Anthropic client is created with max_retries=0, so the
+#         SDK's own hidden internal retrying can never again multiply a
+#         single call's real wall-clock time underneath _post_claude's own
+#         deliberate, narrower retry policy (per Eran's 502 diagnosis) ---
+acc._anthropic_clients.clear()
+with patch.object(acc.anthropic, "Anthropic") as mock_anthropic_ctor:
+    acc._get_anthropic_client("fake-key-2b")
+check("the Anthropic client is constructed with max_retries=0",
+      mock_anthropic_ctor.call_args.kwargs.get("max_retries") == 0)
+acc._anthropic_clients.clear()
 
 
 def _ok_response(text="ok reply"):
