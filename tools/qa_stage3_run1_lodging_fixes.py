@@ -74,6 +74,26 @@ model call needed for this. Implemented as _capture_lodging_gap_answer,
 with _apply_lodging_ask_limit_fallback kept as a backup safety net for
 whatever it still doesn't resolve (e.g. a reply that looks like a question).
 
+ARCHITECTURAL CORRECTION, ROUND 3 (Shaked's follow-up review, real Rome
+history s3a1): round 2's _capture_lodging_gap_answer assumed
+_session_gaps(trip_state, "lodging")'s first entry is always the gap
+Ariella actually just asked about - but Ariella picks her OWN order among
+open lodging gaps in natural conversation (type, then AREA, then rooms,
+then budget in Rome) rather than the fixed _session_gaps order (rooms,
+locations, budget), so a customer's area answer got misattributed to rooms
+(gaps_before[0] at the time), and rooms would then never genuinely be
+asked at all. Fixed in two required parts: (1) _enforce_one_option_question
+now forces every single lodging question to match gaps[0]'s own topic
+(reusing the same topic classifier that already catches bundled
+rooms+budget questions, generalized from "2+ topics" to "any recognized
+topic that isn't gaps[0]") - so Ariella's own question is always kept in
+sync with the state's real order going forward. (2) a second, independent
+guard in _capture_lodging_gap_answer itself: never attribute an answer to
+gaps_before[0] if upstream processing already changed some OTHER lodging
+field this very turn - a sign the reply was about something else, so
+guessing on top of an attribution another mechanism already made is
+exactly the mistake that caused this.
+
 Run: python3 tools/qa_stage3_run1_lodging_fixes.py
 """
 import os
@@ -302,6 +322,55 @@ check("regression (PR #72): a parenthetical example-list open question "
            "session_status": {}, "trip_planning": {"details": {}}},
       ) == "מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, "
            "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?")
+
+
+# === ROUND 3: Shaked's follow-up review (real Rome history, s3a1) - Ariella
+#     picks her OWN order among open lodging gaps (type, then AREA, then
+#     rooms, then budget) rather than the fixed _session_gaps order (rooms,
+#     locations, budget), so an area answer got misattributed to rooms.
+#     Fixed in two parts, both required. ===
+
+# Part 1: _enforce_one_option_question now forces every single lodging
+# question to match gaps[0]'s own topic, not just catch multi-topic bundling.
+state_type_known = {
+    "active_session": "lodging", "requested_services": ["lodging"], "session_status": {},
+    "destination": {"places": ["רומא"]},
+    "dates": {"departure": "2027-06-01", "return": "2027-06-10", "needs_confirmation": False},
+    "travelers": {"adults": 2},
+    "lodging": {"details": {"type": "מלון"}},
+}
+check("Shaked's round-3 finding (Rome): Ariella asking about the AREA "
+      "first (gaps=[rooms, locations, budget], so gaps[0]='rooms') gets "
+      "force-corrected to the real next gap (rooms), never left as-is",
+      chat._enforce_one_option_question("באיזה אזור תרצו שהלינה תהיה?", state_type_known)
+      == "כמה חדרים תרצו?")
+check("regression: when Ariella asks about gaps[0] itself (rooms here), "
+      "her own natural phrasing is left completely untouched",
+      chat._enforce_one_option_question("כמה חדרים תרצו בלינה?", state_type_known)
+      == "כמה חדרים תרצו בלינה?")
+
+# Part 2: _capture_lodging_gap_answer never misattributes to gaps_before[0]
+# when upstream processing already changed a DIFFERENT lodging field this
+# turn - a second layer of protection beyond part 1.
+trip_state_rome = _state({"type": "מלון"})
+trip_update_locations_filled = _state({"type": "מלון", "locations": "במרכז, ליד הפנתיאון"})
+out_rome_guard = chat._capture_lodging_gap_answer(
+    trip_state_rome, trip_update_locations_filled, "במרכז, ליד הפנתיאון")
+check("Shaked's round-3 finding (Rome): when the real extractor already "
+      "set locations this turn (a DIFFERENT field than gaps_before[0]= "
+      "rooms), the generic capture never also writes rooms from the same "
+      "reply - no double/wrong attribution",
+      "rooms" not in out_rome_guard["lodging"]["details"]
+      and out_rome_guard["lodging"]["details"].get("locations") == "במרכז, ליד הפנתיאון")
+
+check("regression: the budget_or_level composite gap's own two sub-fields "
+      "(budget/level) never trigger the 'other field changed' guard "
+      "against each other",
+      chat._capture_lodging_gap_answer(
+          _state({"type": "מלון", "rooms": 2, "locations": "מרכז"}),
+          _state({"type": "מלון", "rooms": 2, "locations": "מרכז"}),
+          "עד 300 יורו",
+      )["lodging"]["details"].get("budget") == 300)
 
 
 # === #6: deterministic "never ask the same field more than twice" backup

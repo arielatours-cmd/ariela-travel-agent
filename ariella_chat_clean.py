@@ -1771,7 +1771,25 @@ def _capture_lodging_gap_answer(trip_state, trip_update, message):
     them either names a number the shared reader finds, or becomes the raw
     answer text, which is exactly correct for a free-text field and
     degrades safely (no price cap / a sane room-count default) wherever a
-    structured value was expected instead."""
+    structured value was expected instead.
+
+    Per Shaked's THIRD-round review (real Rome history, s3a1): Ariella
+    picks her own order among the open lodging gaps in natural
+    conversation (type, then AREA, then rooms, then budget here) rather
+    than the fixed _session_gaps order (rooms, locations, budget) - so
+    gaps_before[0] ("rooms") did NOT actually match what she'd just asked
+    ("באיזה אזור...") at all, and the customer's area answer got
+    misattributed to rooms. Fixed in two parts, both required:
+    (1) _enforce_one_option_question now forces every single lodging
+    question to match gaps[0]'s own topic (reusing the same topic
+    classifier that already catches bundled rooms+budget questions) - so
+    going forward, whatever lodging question is actually sent always does
+    agree with gaps_before[0] seen here next turn. (2) as a second layer
+    of protection, below: never capture into THIS gap's field if upstream
+    processing already changed some OTHER lodging field this very turn -
+    that's a sign the reply was about something else entirely, not
+    gaps_before[0], and guessing on top of an attribution some other
+    mechanism already made is exactly the mistake that caused this."""
     trip_state = trip_state if isinstance(trip_state, dict) else {}
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     gaps_before = _session_gaps(trip_state, "lodging")
@@ -1786,6 +1804,19 @@ def _capture_lodging_gap_answer(trip_state, trip_update, message):
     field = "level" if gap == "lodging.details.budget_or_level" else gap.split(".")[-1]
     lodging = trip_update.get("lodging") if isinstance(trip_update.get("lodging"), dict) else {}
     details = dict(lodging.get("details") or {})
+    # Per Shaked's PR #73 review (real Rome history, s3a1): if this very
+    # turn's upstream processing (the real extractor, or
+    # _deterministic_lodging_facts's own specific parsers) already changed
+    # some OTHER lodging detail, the reply was about THAT field, not
+    # necessarily the one gaps_before[0] names - never guess an attribution
+    # on top of one upstream already made. The topic-matching fix in
+    # _enforce_one_option_question (same review) keeps this case rare going
+    # forward (Ariella's own question is now always forced to match
+    # gaps_before[0]), but this guard protects the capture itself too.
+    prior_details = trip_state.get("lodging", {}).get("details", {}) if isinstance(trip_state.get("lodging"), dict) else {}
+    own_fields = {"budget", "level"} if gap == "lodging.details.budget_or_level" else {field}
+    if any(k not in own_fields and details.get(k) != prior_details.get(k) for k in set(prior_details) | set(details)):
+        return trip_update
     if gap == "lodging.details.budget_or_level":
         number = _first_number_in_text(msg)
         if number is not None:
@@ -5790,7 +5821,10 @@ def _enforce_one_option_question(reply, state):
         # "חדר" rooms check, since "חדרי רחצה" also contains "חדר") so a
         # single genuine bathrooms-only question is never double-counted.
         if not bundled and active_session == "lodging":
-            _lodging_gaps_now = set(_session_gaps(state, "lodging"))
+            _lodging_gaps_ordered = [
+                g for g in _session_gaps(state, "lodging") if g.startswith("lodging.details.")
+            ]
+            _lodging_gaps_now = set(_lodging_gaps_ordered)
             _topics = set()
             if ("חדרי רחצה" in only_q or "חדר רחצה" in only_q) and "lodging.details.bathrooms" in _lodging_gaps_now:
                 _topics.add("lodging.details.bathrooms")
@@ -5803,6 +5837,21 @@ def _enforce_one_option_question(reply, state):
             if ("סוג לינה" in only_q or "סוג הלינה" in only_q) and "lodging.details.type" in _lodging_gaps_now:
                 _topics.add("lodging.details.type")
             if len(_topics) >= 2:
+                bundled = True
+            # Per Shaked's PR #73 review (real Rome history, s3a1): Ariella
+            # picks her OWN order among the open lodging gaps (here: type,
+            # then AREA, then rooms, then budget) rather than the fixed
+            # _session_gaps order (rooms, locations, budget) - so a reply to
+            # the area question the customer actually just answered got
+            # attributed to rooms (gaps[0] at the time) by the next turn's
+            # state-driven capture, since nothing here ever verified the
+            # single lodging question Ariella asked matches gaps[0] at all.
+            # A single, recognized, non-bundled topic that ISN'T gaps[0] is
+            # exactly as much a violation as asking two topics at once -
+            # Ariella's own choice of lodging question must always agree
+            # with the state's real order, so the next turn's answer is
+            # never misattributed.
+            elif _topics and _lodging_gaps_ordered and next(iter(_topics)) != _lodging_gaps_ordered[0]:
                 bundled = True
         # Per Shaked's stage-2 run-3 finding (Rome/Athens/Budapest, 1/5,
         # 7f02bd4): flights just closed with post_flight_offer=
