@@ -101,7 +101,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
 
 **העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה.
-**שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תביני מהתשובה שלו למה הכוונה - בלי קשר לניסוח השאלה שהוא ראה, ובלי להזכיר לו בשום צורה איך זה נשמר אצלך.**
+**שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תביני מהתשובה שלו למה הכוונה - בלי קשר לניסוח השאלה שהוא ראה, ובלי להזכיר לו בשום צורה איך זה נשמר אצלך. אותו עיקרון חל על כל שאלה פתוחה בכל תחום, לא רק כבודה - גם "מה הסגנון שהכי מדבר אליכם בטיול הזה (תרבות ומוזיאונים, שופינג, אווירה לוקאלית, אוכל וכו')?" אסורה באותה מידה: שאלה פתוחה אמיתית לעולם אינה מפרטת דוגמאות לתשובה בתוך גוף השאלה, גם לא בסוגריים ו"וכו'" - למשל "ספרו לי מה אתם אוהבים לעשות בחופשה?" בלי שום דוגמה.**
 - את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור **שאלה אחת בלבד** - הבאה בתור, בניסוח טבעי משלך, בלי להציג שמות שדות פנימיים ללקוח ובלי להעתיק נוסח קבוע כלשהו.
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
@@ -221,7 +221,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כלל כללי: ברגע שבאמת יש מספיק מידע כדי לעשות את הצעד הבא (סיכום, שאלה הבאה, מסלול מוצע וכו'), בצעי אותו ישירות באותה הודעה. לעולם אל תשאלי שאלת-מטא על הפעולה עצמה כמו "רוצה שאכין עבורך סיכום?" או "רוצה שאמשיך לשלב הבא?" - שאלה כזו רק מוסיפה סבב מיותר ומעכבת את הלקוח מלקבל את מה שהוא כבר צריך.
 - "התחום הבא בלי שום בקשת אישור" פירושו תמיד שאלה קונקרטית וממשית, לא סיכום וגם לא ניסוח כמו "אפשר תמיד לחזור ולתכנן גם X בהמשך". ברגע שתחום נסגר (למשל לינה) ויש תחום נוסף ב-session_status שעדיין pending (טרם סומן complete או declined - למשל רכב שעדיין לא נשאלת עליו בכלל), החובה היחידה כעת היא לשאול עליו שאלת כן/לא טבעית וברורה (למשל "רוצה שאסדר גם רכב?") - אסור בשום אופן להתייחס אליו כאילו הוחלט (לא "לא נדרש", לא "אפשר להוסיף בהמשך", ולא כל ניסוח אחר שמרמז על החלטה) כל עוד הוא עדיין pending. ניסוח כזה שמור אך ורק לתחום שבאמת סומן declined על ידי הלקוח במפורש. בלבול בין "עדיין לא נשאל" לבין "נדחה" משאיר את הלקוח בלי שום פעולה ברורה להמשיך בה ועוצר את התקדמות הבקשה כולה.
 - כשתחום נסגר וההודעה הבאה כבר פותחת סשן חדש (למשל לינה נפתחת מיד אחרי שטיסות/מסלול נסגרו), השאלה שפותחת את הסשן החדש עוסקת אך ורק בפרטים הייחודיים לו (סוג לינה/חדרים/מיקום ללינה; סוג רכב/תיבת הילוכים לרכב וכו') - לעולם לא בעובדות משותפות שכבר ידועות (נוסעים, תאריכים, יעד, שדה מוצא), גם לא כ"תזכורת" או "ווידוא" בתוך אותה שאלה. לדוגמה אסור: "בואי נסגור את פרטי הלינה - כמה אתם נוסעים (מבוגרים/ילדים), ומתי בערך הטיול, וגם האם תרצי מלון, דירה או וילה?" - הרכב הנוסעים והתאריכים כבר ידועים מהטיסה/המסלול; השאלה הנכונה שואלת רק "האם תרצי מלון, דירה או וילה?" (ואז ממשיכה עם שאר פרטי הלינה החסרים, שאלה אחת בכל פעם).
-- כשתחום נסגר (למשל לינה) וההודעה הבאה היא כבר סיכום של תחום אחר (למשל טיסות) ולא שאלה חדשה, פתחי אותה בשורת אישור קצרה אחת על התחום שזה עתה נסגר (למשל "לינה: נקלט") לפני הסיכום עצמו - כדי שהלקוח ידע שהפרטים שמסר התקבלו, ולא יראה מעבר פתאומי לנושא אחר.
+- כשתחום נסגר (למשל לינה) וההודעה הבאה היא כבר סיכום של תחום אחר (למשל טיסות) ולא שאלה חדשה, פתחי אותה במשפט טבעי קצר אחד שמאשר שהתחום שזה עתה נסגר התקבל (לדוגמה: "מעולה, סגרנו גם את פרטי הלינה." או "פרטי הלינה נקלטו.") לפני הסיכום עצמו - לעולם לא בפורמט תווית-ערך כמו "לינה: נקלט" (זה ניסוח פנימי, לא משפט ללקוח) - כדי שהלקוח ידע שהפרטים שמסר התקבלו, ולא יראה מעבר פתאומי לנושא אחר.
 - לאחר שהבקשה המלאה אושרה ויצאה לחיפוש, אם הלקוח חוזר לשיחה, פרטי החופשה שכבר נאספו נשמרים. שאלי תחילה האם ממשיכים עם אותה חופשה או שמדובר בחופשה חדשה.
 - אם זו אותה חופשה, אל תשאלי שוב יעד, תאריכים, נוסעים או פרטי טיסה שכבר ידועים. שאלי במה ירצה/תרצה להמשיך: לינה, השכרת רכב או תכנון מסלול ואטרקציות, ואז פתחי רק את הסשן שנבחר.
 - אם זו חופשה חדשה, רק אז מתחילים מחדש מסשן הטיסות ואוספים state חדש.
@@ -2811,7 +2811,22 @@ def _fix_itinerary_intro_day_count(reply):
     return fixed_intro + text[start:]
 
 
-_INTERNAL_LEAK_RE = re.compile(r"שדה\s+פנימי|שדה\s+הפנימי|מתועד\s+כ|מתועד\s+בתור|ה-?state\b|ה-?session\b|משתנה\s+פנימי", re.IGNORECASE)
+# The domain-label-leak alternative (e.g. "לינה: נקלט") catches a second,
+# narrower leak: the system prompt's own suggested acknowledgment example
+# ("כשתחום נסגר... פתחי אותה בשורת אישור... (למשל 'לינה: נקלט')") used to
+# give a literal copy-pasteable "domain: word" template, which the model
+# echoed verbatim into a customer-facing reply (Shaked, stage-2 run-2,
+# Budapest: "לינה: נקלט שנסגור את הפרטים."). The prompt instruction itself
+# was reworded to a full natural-sentence example instead (same fix
+# philosophy as the baggage-field wording above), with this as the
+# backstop. Scoped to "נקלט"/"נקלטה" right after the colon specifically,
+# so it never matches a real summary line's "domain: content" format
+# (e.g. "לינה: מלון 4 כוכבים במרכז"), which is legitimate and must survive.
+_INTERNAL_LEAK_RE = re.compile(
+    r"שדה\s+פנימי|שדה\s+הפנימי|מתועד\s+כ|מתועד\s+בתור|ה-?state\b|ה-?session\b|משתנה\s+פנימי"
+    r"|(?:לינה|רכב|טיסות|מסלול)\s*:\s*נקלט(?:ה)?\b",
+    re.IGNORECASE,
+)
 
 
 def _strip_internal_terminology_leak(reply):
@@ -5132,7 +5147,26 @@ _OFFER_DOMAIN_QUESTIONS = {
 # check alone missed it entirely. A comma directly followed by "ו" fused to
 # a question word/pronoun marks the start of that smuggled-in second
 # question, same as "או" marks a smuggled-in second option.
-_BUNDLED_AND_QUESTION_RE = re.compile(r",\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b")
+#
+# Per Shaked's stage-2 run-2 finding (Budapest, 0/5, 2f9b859): "ספרו לי מה
+# אתם אוהבים לעשות בחופשה, וגם האם חשוב לכם שהקצב יהיה רגוע?" bundles the
+# same way but with "וגם" (not a bare "ו") before the seam - the "ו" here
+# isn't fused directly to the question word ("האם"), "גם" sits between
+# them, so the original fused-prefix alternation never matched. "וגם" is
+# itself as strong a smuggled-second-question signal as the fused form,
+# with or without a recognized question word right after it.
+_BUNDLED_AND_QUESTION_RE = re.compile(r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b")
+
+# Per Shaked's stage-2 run-2 finding (London, 0/5, 2f9b859): the one-option
+# iron rule is violated by a single, non-bundled question too, when it
+# enumerates a list of example answers in parentheses instead of just
+# asking the open question ("מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות
+# ומוזיאונים, שופינג, אווירה לוקאלית, אוכל, נוף וטבע וכו')?" - one "?", no
+# "או"/"ו" bundling at all, so neither existing check caught it). A
+# parenthetical with at least one internal comma is an enumerated example
+# list, not a single clarifying aside (a genuine aside like "(מבוגרים/
+# ילדים)" uses "/", never a comma, to separate its items).
+_OPTION_LIST_IN_QUESTION_RE = re.compile(r"\([^()]*,[^()]*\)")
 
 # Per Shaked's review of the FIRST multi-question version of this function
 # (PR #64, same day): splitting on a bare "." treated the periods inside a
@@ -5289,7 +5323,17 @@ def _enforce_one_option_question(reply, state):
     touched at all - only the LAST question sentence is ever a
     candidate for replacement, and only with the fixed trip_planning
     approval confirmation (_TRIP_PLANNING_APPROVAL_QUESTION), never a
-    _session_gaps lookup."""
+    _session_gaps lookup.
+
+    Per Shaked's stage-2 run-2 finding (London, 0/5, 2f9b859): a single,
+    non-bundled question can still violate the iron rule by enumerating a
+    list of example answers in parentheses ("מה הסגנון שהכי מדבר אלייך
+    בטיול הזה (תרבות ומוזיאונים, שופינג, אווירה לוקאלית, אוכל, נוף וטבע
+    וכו')?") - exactly one "?", no "או"/"ו" bundling, so this was invisible
+    to both checks above. _OPTION_LIST_IN_QUESTION_RE (a parenthetical
+    with an internal comma) now counts as the same kind of violation as
+    "או"/_BUNDLED_AND_QUESTION_RE, resolving through the identical
+    state-driven lookup (here: trip_planning's real open gap, style)."""
     text = str(reply or "")
     if "?" not in text:
         return reply
@@ -5303,7 +5347,11 @@ def _enforce_one_option_question(reply, state):
     if _ITINERARY_DAY_RE.search(text) and state.get("active_session") == "trip_planning":
         last_i = question_idx[-1]
         last_q = sentences[last_i][0]
-        violates = len(question_idx) > 1 or " או " in last_q or bool(_BUNDLED_AND_QUESTION_RE.search(last_q))
+        violates = (
+            len(question_idx) > 1 or " או " in last_q
+            or bool(_BUNDLED_AND_QUESTION_RE.search(last_q))
+            or bool(_OPTION_LIST_IN_QUESTION_RE.search(last_q))
+        )
         if not violates:
             return reply
         prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i != last_i)
@@ -5312,7 +5360,11 @@ def _enforce_one_option_question(reply, state):
     bundled = False
     if len(question_idx) == 1:
         only_q = sentences[question_idx[0]][0]
-        bundled = (" או " in only_q) or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
+        bundled = (
+            (" או " in only_q)
+            or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
+            or bool(_OPTION_LIST_IN_QUESTION_RE.search(only_q))
+        )
     if len(question_idx) <= 1 and not bundled:
         return reply
 
@@ -6310,26 +6362,6 @@ def _is_itinerary_acceptance(message):
         "בדיוק", "נהדר", "מדהים", "סגור", "סגרנו", "יאללה", "טוב מאוד", "בסדר גמור", "perfect",
     )
     return any(re.search(r"(?<![\u05d0-\u05ea])" + re.escape(p) + r"(?![\u05d0-\u05ea])", msg) for p in positives)
-
-
-def _approval_message_has_extra_content(message):
-    """A bare route-approval word ("מתאים"/"כן"/...) carries nothing beyond
-    the approval itself - not worth an extra classifier call. But the exact
-    same message often also answers the very next question in one go
-    ("כן, מלון 4 כוכבים במרכז" - approves the route AND states a lodging
-    preference at once, seen live Shaked round 8, London). Strips the known
-    bare-acceptance words (same set _is_itinerary_acceptance's positives
-    uses) and reports whether anything substantive is left."""
-    msg = _normalize_confirm(message).strip().lower()
-    for p in (
-        "כן", "מאשר", "מאשרת", "מתאים", "מתאימה", "מעולה", "מצוין", "מצויין", "אחלה",
-        "נשמע טוב", "נשמע מעולה", "נשמע אחלה", "נשמע סבבה", "נשמע מושלם", "סבבה",
-        "אהבתי", "מושלם", "יופי", "בדיוק", "נהדר", "מדהים", "סגור", "סגרנו", "יאללה",
-        "טוב מאוד", "בסדר גמור", "perfect",
-    ):
-        msg = msg.replace(p, "")
-    remainder = "".join(ch for ch in msg if ch.isalnum())
-    return len(remainder) >= 3
 
 
 _POST_FLIGHT_LABELS = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "תכנון מסלול ואטרקציות"}
@@ -9301,11 +9333,25 @@ def _chat_clean_impl():
                         # offer about to be asked ("כן, מלון 4 כוכבים במרכז" -
                         # approves the route AND states a lodging preference at
                         # once). Blindly asking the yes/no offer here silently
-                        # discarded those details. Only worth the extra
-                        # classifier call when the message actually carries
-                        # something beyond a bare acceptance word.
+                        # discarded those details.
+                        #
+                        # Per Shaked's stage-2 run-2 finding (0/5, 2f9b859):
+                        # gating this on "has extra content" (any 3+ alnum
+                        # chars left after stripping bare-acceptance words)
+                        # was too loose - "מושלם, מתאים לנו" has nothing to do
+                        # with lodging/car at all, yet "לנו" alone survived
+                        # the strip and triggered the classifier, which then
+                        # had to guess at a decision from a message that
+                        # never mentioned the service, and its tagged
+                        # "post_flight_offer" source (a recognized explicit-
+                        # decision tag) made the earlier revert guard leave
+                        # the hallucinated result in place. Only worth the
+                        # extra classifier call when the message actually
+                        # names the domain being decided.
                         same_message_answer = {}
-                        if _approval_message_has_extra_content(message):
+                        if next_domain in _service_name_words and re.search(
+                            _service_name_words[next_domain], str(message or "")
+                        ):
                             same_message_answer = _post_flight_offer_answer(
                                 message, {"post_flight_offer": [next_domain]}, key, model, history
                             )

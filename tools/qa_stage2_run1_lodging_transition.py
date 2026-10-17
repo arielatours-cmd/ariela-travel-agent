@@ -348,6 +348,24 @@ check("also catches 'ה-state'/'ה-session' leaking into a reply",
       chat._strip_internal_terminology_leak("מעולה. ה-state מעודכן. יש עוד משהו?")
       == "מעולה. יש עוד משהו?")
 
+# === Shaked's stage-2 run-2 finding (Budapest, 0/5, 2f9b859): a SECOND,
+#     narrower internal-terminology leak - the system prompt's own
+#     suggested acknowledgment example ("לינה: נקלט") echoed verbatim ===
+check("Shaked's exact stage-2 run-2 leak repro ('לינה: נקלט שנסגור את "
+      "הפרטים.') is stripped, keeping the real summary that follows",
+      chat._strip_internal_terminology_leak(
+          "לינה: נקלט שנסגור את הפרטים. עכשיו הסיכום לטיסות: טיסה ישירה "
+          "מתל אביב."
+      ) == "עכשיו הסיכום לטיסות: טיסה ישירה מתל אביב.")
+check("the same leak pattern is also caught for car/flights/trip_planning",
+      chat._strip_internal_terminology_leak("רכב: נקלט. עוד משהו?")
+      == "עוד משהו?")
+check("a LEGITIMATE summary line using the same 'domain: content' colon "
+      "format is never touched - only the bare 'נקלט'/'נקלטה' acknowledgment "
+      "is scoped, not real summary content after the colon",
+      chat._strip_internal_terminology_leak("לינה: מלון 4 כוכבים במרכז בודפשט.")
+      == "לינה: מלון 4 כוכבים במרכז בודפשט.")
+
 
 # === Shaked's PR #65 review (same day): 2 blocking regressions in the
 #     bug-1 fix above ===

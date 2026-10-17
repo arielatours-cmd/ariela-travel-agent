@@ -311,6 +311,24 @@ check("once style is genuinely answered, the same pace question "
           "אתם מעדיפים קצב רגוע או פעיל?", PLANNING_STATE_STYLE_KNOWN,
       ) == "חשוב לכם שהקצב יהיה רגוע?")
 
+check("Shaked's exact stage-2 run-2 repro (London, 0/5, 2f9b859): a SINGLE "
+      "question, no 'או' and no 'ו' bundling at all, still violates the "
+      "iron rule by listing example answers in parentheses ('מה הסגנון "
+      "שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, אווירה "
+      "לוקאלית, אוכל, נוף וטבע וכו׳)?') - resolves to the real open "
+      "trip_planning gap (style)",
+      chat._enforce_one_option_question(
+          "מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, "
+          "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?",
+          PLANNING_STATE,
+      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+check("a parenthetical aside with no internal comma ('/' separated, like "
+      "'מבוגרים/ילדים') is never treated as an example-list violation - "
+      "no false positive on a genuine single question",
+      chat._enforce_one_option_question(
+          "כמה אתם נוסעים (מבוגרים/ילדים)?", {}
+      ) == "כמה אתם נוסעים (מבוגרים/ילדים)?")
+
 FLIGHTS_STATE = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
                       flight={"baggage": ["carry_on_only"]})
 check("a budget question phrased as two alternatives gets the fixed open "
@@ -405,6 +423,23 @@ check("an ordinary 'ו' that does not fuse into one of the recognized "
       chat._enforce_one_option_question(
           "איזו כבודה תרצו לקחת ולסדר מראש?", {}
       ) == "איזו כבודה תרצו לקחת ולסדר מראש?")
+
+check("Shaked's exact stage-2 run-2 repro (Budapest, 2f9b859): style AND "
+      "pace bundled with 'וגם' - not a bare fused 'ו' - before the question "
+      "word ('ספרו לי מה אתם אוהבים לעשות בחופשה, וגם האם חשוב לכם שהקצב "
+      "יהיה רגוע?'), which the fused-prefix-only regex missed entirely. "
+      "Resolves to the real single next gap (style, unanswered)",
+      chat._enforce_one_option_question(
+          "ספרו לי מה אתם אוהבים לעשות בחופשה, וגם האם חשוב לכם שהקצב "
+          "יהיה רגוע?",
+          PLANNING_STATE,
+      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+check("the same 'וגם' detector also fires with nothing recognized right "
+      "after it ('וגם' alone, no question word)",
+      chat._enforce_one_option_question(
+          "ספרו לי מה אתם אוהבים לעשות בחופשה, וגם תרצו שקט?",
+          PLANNING_STATE,
+      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
 
 # -- Shlomo's follow-up: two FULLY SEPARATE '?' sentences (no "או"/"ו" at "
 #    all) - the generalized, sentence-classifying version of the check --
