@@ -101,7 +101,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
 
 **העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה.
-**שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תביני מהתשובה שלו למה הכוונה - בלי קשר לניסוח השאלה שהוא ראה, ובלי להזכיר לו בשום צורה איך זה נשמר אצלך. אותו עיקרון חל על כל שאלה פתוחה בכל תחום, לא רק כבודה - גם "מה הסגנון שהכי מדבר אליכם בטיול הזה (תרבות ומוזיאונים, שופינג, אווירה לוקאלית, אוכל וכו')?" אסורה באותה מידה: שאלה פתוחה אמיתית לעולם אינה מפרטת דוגמאות לתשובה בתוך גוף השאלה, גם לא בסוגריים ו"וכו'" - למשל "ספרו לי מה אתם אוהבים לעשות בחופשה?" בלי שום דוגמה.**
+**שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תביני מהתשובה שלו למה הכוונה - בלי קשר לניסוח השאלה שהוא ראה, ובלי להזכיר לו בשום צורה איך זה נשמר אצלך.**
 - את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור **שאלה אחת בלבד** - הבאה בתור, בניסוח טבעי משלך, בלי להציג שמות שדות פנימיים ללקוח ובלי להעתיק נוסח קבוע כלשהו.
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
@@ -5362,16 +5362,16 @@ _BUNDLED_AND_QUESTION_RE = re.compile(
     r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם)\s"
 )
 
-# Per Shaked's stage-2 run-2 finding (London, 0/5, 2f9b859): the one-option
-# iron rule is violated by a single, non-bundled question too, when it
-# enumerates a list of example answers in parentheses instead of just
-# asking the open question ("מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות
-# ומוזיאונים, שופינג, אווירה לוקאלית, אוכל, נוף וטבע וכו')?" - one "?", no
-# "או"/"ו" bundling at all, so neither existing check caught it). A
-# parenthetical with at least one internal comma is an enumerated example
-# list, not a single clarifying aside (a genuine aside like "(מבוגרים/
-# ילדים)" uses "/", never a comma, to separate its items).
-_OPTION_LIST_IN_QUESTION_RE = re.compile(r"\([^()]*,[^()]*\)")
+# Per the business owner's explicit instruction (relayed via Shlomo,
+# 17.10.2026): a single open question that illustrates its answer with a
+# parenthetical example list ("מה אתם אוהבים לעשות בחופשה (תרבות, שופינג,
+# אוכל, טבע וכו')?") is allowed - it needs that context for the customer's
+# profile later, and it is not really "a question" demanding one of the
+# listed items verbatim; the customer may answer however they like. Only
+# "או" bundling and two questions in one message stay forbidden. The
+# _OPTION_LIST_IN_QUESTION_RE check (and the prompt rule generalizing the
+# baggage example to this case) that previously flagged this as a
+# violation (added for Shaked's London finding) has been removed.
 
 # Per Shaked's review of the FIRST multi-question version of this function
 # (PR #64, same day): splitting on a bare "." treated the periods inside a
@@ -5530,15 +5530,17 @@ def _enforce_one_option_question(reply, state):
     approval confirmation (_TRIP_PLANNING_APPROVAL_QUESTION), never a
     _session_gaps lookup.
 
-    Per Shaked's stage-2 run-2 finding (London, 0/5, 2f9b859): a single,
-    non-bundled question can still violate the iron rule by enumerating a
-    list of example answers in parentheses ("מה הסגנון שהכי מדבר אלייך
-    בטיול הזה (תרבות ומוזיאונים, שופינג, אווירה לוקאלית, אוכל, נוף וטבע
-    וכו')?") - exactly one "?", no "או"/"ו" bundling, so this was invisible
-    to both checks above. _OPTION_LIST_IN_QUESTION_RE (a parenthetical
-    with an internal comma) now counts as the same kind of violation as
-    "או"/_BUNDLED_AND_QUESTION_RE, resolving through the identical
-    state-driven lookup (here: trip_planning's real open gap, style)."""
+    Per the business owner's explicit instruction (relayed via Shlomo,
+    17.10.2026): a single open question that illustrates its answer with
+    a parenthetical example list ("מה הסגנון שהכי מדבר אלייך בטיול הזה
+    (תרבות ומוזיאונים, שופינג, אווירה לוקאלית, אוכל, נוף וטבע וכו')?") is
+    allowed - the business needs that context for the customer's profile
+    later, and it isn't really "a question" demanding one of the listed
+    items verbatim; the customer may answer however they like. The
+    parenthetical-example-list check added for Shaked's stage-2 run-2
+    London finding (0/5, 2f9b859) has been removed; only "או"/
+    _BUNDLED_AND_QUESTION_RE bundling and more than one question sentence
+    remain violations."""
     text = str(reply or "")
     if "?" not in text:
         return reply
@@ -5555,7 +5557,6 @@ def _enforce_one_option_question(reply, state):
         violates = (
             len(question_idx) > 1 or " או " in last_q
             or bool(_BUNDLED_AND_QUESTION_RE.search(last_q))
-            or bool(_OPTION_LIST_IN_QUESTION_RE.search(last_q))
         )
         if not violates:
             return reply
@@ -5570,7 +5571,6 @@ def _enforce_one_option_question(reply, state):
         bundled = (
             (" או " in only_q)
             or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
-            or bool(_OPTION_LIST_IN_QUESTION_RE.search(only_q))
         )
         # Per Shaked's stage-2 run-3 finding (Rome/Athens/Budapest, 1/5,
         # 7f02bd4): flights just closed with post_flight_offer=

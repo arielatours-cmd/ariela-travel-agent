@@ -6,7 +6,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request, redirect, Response
 from werkzeug.exceptions import HTTPException
@@ -52,6 +52,19 @@ from whatsapp import (
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
+
+# Per the business owner's decision (relayed via Shlomo, 17.10.2026): members
+# were being logged out of the public site every time the browser closed,
+# because session["member_id"] (public_site.py's join/login routes) was set
+# without session.permanent, so Flask defaulted to a non-permanent, browser-
+# session-only cookie with no PERMANENT_SESSION_LIFETIME to extend it even
+# if it had been. Approved lifetime: 30 days. This does not affect
+# /admin/login, which signs its own separate cookie (ADMIN_COOKIE) rather
+# than using Flask's session at all.
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Task 008a: APP_VERSION is a manually-edited constant that's easy to forget
 # to bump, so /health can silently keep reporting a stale version after a

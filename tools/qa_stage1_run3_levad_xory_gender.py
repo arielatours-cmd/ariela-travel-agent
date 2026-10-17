@@ -350,17 +350,20 @@ check("once style is genuinely answered, the same pace question "
           "אתם מעדיפים קצב רגוע או פעיל?", PLANNING_STATE_STYLE_KNOWN,
       ) == "חשוב לכם שהקצב יהיה רגוע?")
 
-check("Shaked's exact stage-2 run-2 repro (London, 0/5, 2f9b859): a SINGLE "
-      "question, no 'או' and no 'ו' bundling at all, still violates the "
-      "iron rule by listing example answers in parentheses ('מה הסגנון "
-      "שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, אווירה "
-      "לוקאלית, אוכל, נוף וטבע וכו׳)?') - resolves to the real open "
-      "trip_planning gap (style)",
+check("per the business owner's explicit reversal (relayed via Shlomo, "
+      "17.10.2026) of Shaked's stage-2 run-2 repro (London, 0/5, "
+      "2f9b859): a SINGLE question with a parenthetical example list "
+      "('מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, "
+      "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?') is NOT a violation - the "
+      "business needs that context for the customer's profile later, and "
+      "it isn't a closed list of answer options the way 'או'/'ו' bundling "
+      "is - so it now survives completely unchanged, no replacement",
       chat._enforce_one_option_question(
           "מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, "
           "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?",
           PLANNING_STATE,
-      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+      ) == "מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, "
+           "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?")
 check("a parenthetical aside with no internal comma ('/' separated, like "
       "'מבוגרים/ילדים') is never treated as an example-list violation - "
       "no false positive on a genuine single question",
