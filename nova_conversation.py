@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -18,7 +19,7 @@ from typing import Optional
 
 from werkzeug.security import generate_password_hash
 
-from database import connection, utc_now_iso, set_whatsapp_deals_opt, save_trip_feedback, append_trip_feedback_comment
+from database import connection, utc_now_iso, set_whatsapp_deals_opt, set_whatsapp_proactive_off, save_trip_feedback, append_trip_feedback_comment
 from config import PUBLIC_BASE_URL
 
 TOKEN_RE = re.compile(r"קוד\s*חיבור\s*:\s*([^\s]+)", re.I)
@@ -400,11 +401,92 @@ def _member_id_for_phone(phone: str) -> Optional[int]:
     return registered_member_for_phone(phone)
 
 
+# Task 003b (Din WA-2, anti-spam law; replaces the 8.10 "button only"
+# decision): a free-text stop word stops every proactive WhatsApp message -
+# hot deals AND radar/trip alerts - because the template footer is
+# 'להפסקה: כפתור או "הסר"', including on the Utility templates. Only a
+# message that is ENTIRELY one of these words counts ("תעצרי רגע את
+# החיפוש" is ordinary conversation). One constant, easy to extend.
+STOP_KEYWORDS = frozenset({
+    "הסר", "הסירו", "הסירו אותי", "הסר אותי", "עצור", "עצרו", "הפסק", "הפסיקו",
+    "stop", "unsubscribe", "remove",
+})
+
+
+def _normalize_stop_text(text) -> str:
+    """Spaces, punctuation and emoji trimmed from both ends, inner
+    whitespace collapsed, case-folded."""
+    cleaned = re.sub(r"^[\W_]+|[\W_]+$", "", str(text or ""))
+    return re.sub(r"\s+", " ", cleaned).casefold()
+
+
+def _stop_keyword(text) -> str | None:
+    """The stop word the whole message is, or None."""
+    word = _normalize_stop_text(text)
+    return word if word in STOP_KEYWORDS else None
+
+
+def _handle_keyword_stop(phone: str, word: str) -> str:
+    """A stop word overrides every conversation state. For a known member it
+    always sets whatsapp_proactive_off (Din, s.30A(d): no proactive message
+    of any kind - deals, alerts, trip lifecycle, renewal - is queued again;
+    enforced in queue_whatsapp_message), turns hot deals off (the same
+    opt-out _handle_stop does, logged with source='keyword' and the word)
+    and sets mobile_notifications=0 on every trip; messages already in the
+    queue as 'preview' are marked 'cancelled'. The WhatsApp link,
+    whatsapp_conversation_state and the chat with Ariella are left alone -
+    the customer can keep writing to her. Only an unknown number gets the
+    "nothing to remove" reply."""
+    member_id = _member_id_for_phone(phone)
+    if not member_id:
+        logging.info("whatsapp stop keyword %r: unknown phone %s", word, _phone_hash(phone)[:12])
+        return (
+            "אין כרגע הודעות יזומות פעילות במספר הזה, אז אין מה להסיר 🙂 "
+            f"אם נרשמתם עם מספר אחר, אפשר להפסיק מעמוד הדילים באתר: {_DEALS_URL}"
+        )
+    with connection() as conn:
+        row = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id,)).fetchone()
+        deals_active = bool(row["whatsapp_opt_in"]) if row else False
+        alerts_active = conn.execute(
+            "SELECT 1 FROM trip_requests WHERE member_id=? AND mobile_notifications=1 LIMIT 1",
+            (member_id,),
+        ).fetchone() is not None
+        set_whatsapp_proactive_off(member_id, conn)
+        # Messages already queued but never sent are cancelled (kept as an
+        # audit trail, not deleted) so no later sender treats them as pending.
+        conn.execute(
+            "UPDATE whatsapp_outbound_queue SET status='cancelled' WHERE member_id=? AND status='preview'",
+            (member_id,),
+        )
+        conn.execute(
+            "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at, detail) VALUES (?,?,?,?,?)",
+            (member_id, "proactive_off", "keyword", utc_now_iso(), word),
+        )
+    if deals_active:
+        set_whatsapp_deals_opt(member_id, False, "keyword", detail=word)
+    if alerts_active:
+        with connection() as conn:
+            conn.execute("UPDATE trip_requests SET mobile_notifications=0 WHERE member_id=? AND mobile_notifications=1", (member_id,))
+            conn.execute(
+                "INSERT INTO whatsapp_opt_events(member_id, event, source, created_at, detail) VALUES (?,?,?,?,?)",
+                (member_id, "alerts_off", "keyword", utc_now_iso(), word),
+            )
+    reply = "הוסרתם בהצלחה ✅ לא נשלח לכם יותר הודעות יזומות בוואטסאפ (דילים, התראות ועדכוני חופשה). אפשר עדיין לכתוב לי כאן בכל זמן."
+    links = []
+    if deals_active:
+        links.append(f"לחידוש הדילים: {_DEALS_URL}")
+    if alerts_active:
+        links.append("להפעלת התראות לחופשה: מהאזור האישי באתר.")
+    return reply + ("\n" + " · ".join(links) if links else "")
+
+
 def _handle_stop(phone: str) -> str:
     """The WhatsApp "הפסקת הדילים" quick-reply button (payload
-    STOP_HOT_DEALS). Per product owner: button only, no keyword detection in
-    free text - stopping the hot-deals service never touches the WhatsApp
-    account link, whatsapp_conversation_state, or mobile_notifications."""
+    STOP_HOT_DEALS): stops the hot deals ONLY (task 003a, kept as is for
+    precise control). A free-text stop word ("הסר", "stop"...) is handled
+    separately by _handle_keyword_stop (task 003b), which also stops trip
+    alerts. Stopping never touches the WhatsApp account link or
+    whatsapp_conversation_state."""
     member_id = _member_id_for_phone(phone)
     if not member_id:
         return (
@@ -503,6 +585,11 @@ def route_inbound(phone: str, text: str, profile_name: str = "", button_payload:
 
     if button_payload == "STOP_HOT_DEALS":
         return _handle_stop(phone)
+    # Task 003b: a free-text stop word overrides every other routing and
+    # conversation state (existing link, onboarding, chat).
+    stop_word = None if button_payload else _stop_keyword(text)
+    if stop_word:
+        return _handle_keyword_stop(phone, stop_word)
     if button_payload and button_payload.startswith("HOW_WAS_IT:"):
         reply = _handle_how_was_it(phone, button_payload)
         if reply is not None:

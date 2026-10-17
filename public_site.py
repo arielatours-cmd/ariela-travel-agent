@@ -18,12 +18,12 @@ from functools import wraps
 from zoneinfo import ZoneInfo
 
 from flask import (
-    Blueprint, current_app, flash, jsonify, redirect, render_template, request, session, url_for
+    Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE, BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, BUSINESS_LEGAL_NAME_EN, BUSINESS_DEALER_TYPE_HE, BUSINESS_DEALER_NUMBER, BUSINESS_ADDRESS_HE, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, latest_trip_alerts, delete_member_account
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, clear_whatsapp_proactive_off, latest_trip_alerts, delete_member_account
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
 from scoring import (
@@ -33,8 +33,10 @@ from scoring import (
 )
 import booking_demand
 import itinerary_cards
+import member_profile
+from hfa_routes import hfa_route_check
 from radar_alerts import evaluate_trip_alert
-from booker import resolve_booking_target
+from booker import resolve_booking_target, kiwi_affiliate_target, kiwi_enabled, KIWI_PARTNER_NAME
 from ski_catalog import SKI_RESORTS as _EMBEDDED_SKI_RESORTS
 from mailer import send_email
 
@@ -2672,6 +2674,69 @@ def booking_job_status(job_id):
         payload = {k: v for k, v in job.items() if k != "created_at"}
     return jsonify(payload)
 
+@site.app_template_global("kiwi_enabled")
+def _kiwi_enabled():
+    return kiwi_enabled()
+
+
+@site.app_template_global("kiwi_button")
+def _kiwi_button(offer):
+    """Template helper for the secondary Kiwi.com button on a deal card
+    (a global, since _deal_card.html is imported without context):
+    None when it must not be shown, else whether it opens the exact route
+    search (deep_link) or only Kiwi's home page."""
+    target = kiwi_affiliate_target(offer)
+    return {"deep_link": target["deep_link"]} if target else None
+
+
+@site.get("/go/kiwi/<int:offer_id>")
+def go_kiwi(offer_id):
+    """Task 013a: record the click and pass through a disclosure screen to
+    Kiwi.com (Travelpayouts affiliate link). Only the trip id is sent."""
+    trip_id = request.args.get("trip_id", type=int)
+    answers = None
+    if trip_id and session.get("member_id"):
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT * FROM trip_requests WHERE id=? AND member_id=?",
+                (trip_id, session["member_id"]),
+            ).fetchone()
+        if row:
+            answers = _trip_dict(row).get("answers") or {}
+    offer = next(
+        (o for o in recent_offers(limit=1500, minimum_score=None)
+         if int(o.get("id") or o.get("offer_id") or 0) == offer_id),
+        None,
+    )
+    if not offer or (answers is None and not _offer_is_publicly_bookable(offer)):
+        return redirect(url_for("site.deals"))
+    adults, children = 1, 0
+    if answers is not None:
+        adults = _int_or(answers.get("adults"), 1) or 1
+        children = _int_or(answers.get("children"), 0)
+    target = kiwi_affiliate_target(
+        offer, adults=adults, children=children,
+        sid=f"trip{trip_id}" if answers is not None else None,
+    )
+    if not target:
+        if answers is not None:
+            return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+        return redirect(url_for("site.deals"))
+    record_booking_click(
+        visitor_id=session.get("_ariella_visitor_id"), member_id=session.get("member_id"),
+        offer_id=offer_id, destination_code=offer.get("arrival_code"),
+        airline=offer.get("airline"), supplier=KIWI_PARTNER_NAME,
+        price_ils=offer.get("price_ils"), score=offer.get("score"),
+        outbound_date=offer.get("outbound_date"), return_date=offer.get("return_date"),
+        booking_url=target["url"], affiliate_network=target["network"],
+    )
+    return render_template(
+        "booking_forward.html", action=None, fields=[], method="get",
+        redirect_url=target["url"], affiliate_partner=KIWI_PARTNER_NAME,
+        affiliate_deep_link=target["deep_link"],
+    )
+
+
 @site.get("/account")
 @login_required
 def account():
@@ -2769,12 +2834,19 @@ def account():
                     "Ski vacation — Ariella chooses a ski resort",
                 )
         elif destination_codes:
+            # The card shows the destination COUNTRY, not the individual
+            # airport city names - a Croatia trip with DBV+SPU gateways
+            # should read "קרואטיה", not "דוברובניק • ספליט". Dedup by
+            # country so a multi-gateway trip within one country still
+            # shows a single name.
             labels = []
             for code in destination_codes:
                 info = _AIRPORT_LOCALIZATION.get(code, {})
-                city_he = info.get("city_he") or code
-                city_en = info.get("city_en") or code
-                labels.append(f"{city_en} ({code})" if _lang() == "en" else city_he)
+                country_he = info.get("country_he") or info.get("city_he") or code
+                country_en = info.get("country_en") or info.get("city_en") or code
+                label = country_en if _lang() == "en" else country_he
+                if label not in labels:
+                    labels.append(label)
             trip["destination_display"] = " • ".join(labels)
         else:
             trip["destination_display"] = trip.get("request_name") or _msg("חופשה", "Vacation")
@@ -2810,11 +2882,38 @@ def account():
     radar_alerts_by_trip = latest_trip_alerts([t["id"] for t in trips])
     for trip in trips:
         trip["radar_alert"] = radar_alerts_by_trip.get(trip["id"])
+    try:
+        member_travelers = member_profile.list_travelers(member_id)
+    except Exception:
+        logging.exception("member_profile.list_travelers failed member=%s", member_id)
+        member_travelers = []
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
         personal_search_plans=PERSONAL_SEARCH_PLANS,
+        member_travelers=member_travelers,
     )
+
+
+@site.post("/account/travelers/<int:traveler_id>/update")
+@login_required
+def update_member_traveler(traveler_id):
+    """Task 010a: the customer corrects a remembered traveller's age/gender."""
+    if not member_profile.update_traveler(
+        session["member_id"], traveler_id,
+        age=request.form.get("age"), gender=request.form.get("gender"),
+    ):
+        abort(404)
+    return redirect(url_for("site.account") + "#my-profile")
+
+
+@site.post("/account/travelers/<int:traveler_id>/delete")
+@login_required
+def delete_member_traveler(traveler_id):
+    """Task 010a: the customer removes a remembered traveller (soft delete)."""
+    if not member_profile.delete_traveler(session["member_id"], traveler_id):
+        abort(404)
+    return redirect(url_for("site.account") + "#my-profile")
 
 
 
@@ -3447,6 +3546,10 @@ def ariella_start_flight_search():
     flight = state.get("flight") or {}
     budget = state.get("budget_per_person") or {}
     departure_airport = str(state.get("departure_airport") or "TLV").upper()
+    # Task 011a: from Haifa only Air Haifa's routes exist - never search
+    # HFA -> a destination it does not fly to (data/hfa_routes.json).
+    if departure_airport == "HFA" and destination_codes and hfa_route_check(destination_codes) == "not_served":
+        return jsonify({"status": "error", "message": "מחיפה אין טיסה ישירה ליעד הזה. אפשר לבקש מאריאלה לבדוק מנתב\"ג."}), 400
     # Execution uses the approved structured state as the sole source of truth.
     # Never rebuild approved dates from prose/history at handoff time.
     dep = _chat_iso_date(dates.get("departure"))
@@ -3709,6 +3812,12 @@ def ariella_start_flight_search():
         )
         trip_id = int(cur.lastrowid)
         conn.commit()
+    # Task 010a: fold this vacation's travellers into the member's cumulative
+    # list. Never allowed to break the flight search itself.
+    try:
+        member_profile.sync_trip_travelers(session["member_id"], travelers)
+    except Exception:
+        logging.exception("member_profile.sync_trip_travelers failed trip=%s", trip_id)
     if payload.get("_approved_itinerary"):
         _queue_itinerary_cards(trip_id)
 
@@ -3932,6 +4041,10 @@ def toggle_trip_notifications(trip_id):
         row = conn.execute("SELECT status,mobile_notifications FROM trip_requests WHERE id=? AND member_id=?", (trip_id, session["member_id"])).fetchone()
         if row and row["status"] == "active":
             conn.execute("UPDATE trip_requests SET mobile_notifications=? WHERE id=?", (0 if row["mobile_notifications"] else 1, trip_id))
+            if not row["mobile_notifications"]:
+                # Turning a trip's alerts on is an explicit opt-in that lifts
+                # an earlier free-text "הסר" (task 003b).
+                clear_whatsapp_proactive_off(session["member_id"], conn)
             conn.commit()
     return redirect(url_for("site.account"))
 
@@ -4637,6 +4750,16 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
     except (TypeError, ValueError):
         rooms = 1
     budget_pp = answers.get("lodging_budget_per_person")
+    # Seen live (Shaked, round 4): a stated minimum comfort level ("4
+    # כוכבים ומעלה") was captured as lodging.details.level but never
+    # actually enforced anywhere - Budapest came back only 4/10 results at
+    # 4-star+, and Zurich returned a 3-star ibis, a hostel, and an
+    # airport-adjacent Radisson despite the customer asking for 4-star+.
+    # "בסיסי" (basic/budget) states no floor at all - any class is a valid
+    # answer to "the cheapest option", so only the two higher tiers map to
+    # an actual enforced minimum.
+    _LODGING_LEVEL_MIN_HOTEL_CLASS = {"יוקרתי": 4, "בינוני": 3}
+    min_hotel_class = _LODGING_LEVEL_MIN_HOTEL_CLASS.get(str(answers.get("lodging_level") or "").strip())
 
     # A per-person total budget is only a coarse per-night ceiling here (party
     # size over the stay length, with slack) - it steers SerpApi away from
@@ -4678,6 +4801,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                         query=seg["location"], checkin_date=seg["date_from"], checkout_date=seg["date_to"],
                         adults=adults, children=children, children_ages=children_ages, rooms=rooms,
                         max_price=_max_price_for(seg["date_from"], seg["date_to"]), vacation_rentals=vacation_rentals,
+                        min_hotel_class=min_hotel_class,
                     )
                     seg_hotels = (seg_result.get("hotels") or [])[:5]
                     for hotel in seg_hotels:
@@ -4694,8 +4818,23 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 "status": "ok" if any_ok else "error", "count": len(all_hotels), "segments": len(segments),
             }
         else:
-            info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
-            dest_city = info.get("city_en") or info.get("city_he") or destination_codes[0]
+            # Seen live (Shaked, round 4, C2 Saalbach, and the business
+            # owner's own report of the same bug for Bansko): a ski trip's
+            # destination_airports deliberately holds GATEWAY codes (MUC,
+            # SZG, INN, GVA...) that are often a different city entirely
+            # from the resort itself - but this fell back to the gateway
+            # AIRPORT'S OWN CITY (e.g. "Munich") as the lodging search
+            # query, since that's all destination_codes[0] ever resolves
+            # to. The real resort name (already resolved and saved by
+            # _resolve_ski_destination_airports as ski_resort_names) is
+            # always the right lodging search anchor for a ski trip -
+            # never the gateway city.
+            ski_resort_names = answers.get("ski_resort_names") or []
+            if str(answers.get("vacation_type") or "standard") == "ski" and ski_resort_names:
+                dest_city = ski_resort_names[0]
+            else:
+                info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {})
+                dest_city = info.get("city_en") or info.get("city_he") or destination_codes[0]
             # Seen live (Shaked, qa-s89): this used to always default to the
             # FIRST (alphabetically sorted) destination airport's city,
             # completely ignoring lodging_location - the actual multi-area
@@ -4735,6 +4874,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 query=city, checkin_date=dep, checkout_date=ret,
                 adults=adults, children=children, children_ages=children_ages, rooms=rooms,
                 max_price=_max_price_for(dep, ret), vacation_rentals=vacation_rentals,
+                min_hotel_class=min_hotel_class,
             )
             answers["lodging_offers"] = (result.get("hotels") or [])[:10]
             answers["lodging_searched_at"] = utc_now_iso()
@@ -5012,7 +5152,7 @@ def book_lodging(trip_id, code):
     record_booking_click(
         member_id=session["member_id"], destination_code=code,
         supplier=LODGING_PARTNER_NAME, outbound_date=answers.get("departure_date"),
-        return_date=answers.get("return_date"), booking_url=url,
+        return_date=answers.get("return_date"), booking_url=url, affiliate_network="cj",
     )
     return redirect(url)
 
@@ -5036,7 +5176,7 @@ def rent_car(trip_id, code):
     record_booking_click(
         member_id=session["member_id"], destination_code=code,
         supplier=CAR_RENTAL_PARTNER_NAME, outbound_date=answers.get("departure_date"),
-        return_date=answers.get("return_date"), booking_url=url,
+        return_date=answers.get("return_date"), booking_url=url, affiliate_network="cj",
     )
     return redirect(url)
 
@@ -5127,6 +5267,9 @@ def _confirm_paid_search(trip_id, provider=None, provider_reference=None):
             "renewal_reminder_sent_at=NULL, has_paid_search=1, mobile_notifications=1 WHERE id=?",
             (now.isoformat(), now.isoformat(), ends.isoformat(), trip_id),
         )
+        # Paying for a trip's tracking turns its alerts on - an explicit
+        # customer opt-in, so it lifts an earlier "הסר" (task 003b).
+        clear_whatsapp_proactive_off(row["member_id"], conn)
         conn.commit()
         member_id = row["member_id"]
     record_payment(member_id, trip_id, plan, plan_info["price_ils"], provider=provider,

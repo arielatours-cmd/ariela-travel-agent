@@ -2913,3 +2913,21 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 /* Reasons title stays flush to the reading-start edge (right in Hebrew), overriding earlier left-align passes. */
 .deal-card-v970.deal-he .deal-reasons-title{justify-content:flex-start!important;text-align:right!important;padding-left:0!important;padding-right:22px!important}
 .deal-card-v970.deal-en .deal-reasons-title{justify-content:flex-start!important;text-align:left!important;padding-right:0!important;padding-left:22px!important}
+
+/* Task 010a: "What Ariella remembers about me" on the account page */
+.member-profile{margin:28px 0 8px;padding:14px 18px;background:#fffaf2;border:1px solid #e2cfa6;border-radius:12px}
+.member-profile>summary{cursor:pointer;font-weight:800;color:#17283f}
+.member-profile-intro{margin:10px 0;font-size:14px;color:#5f5b55}
+.member-travelers{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.member-traveler{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 0;border-top:1px solid #eadfca}
+.member-traveler-label{font-weight:700}
+.member-traveler-review{flex-basis:100%;font-size:13px;color:#8a6a2c}
+.member-traveler.needs-review{background:#fdf6e8}
+.member-traveler-edit summary,.member-traveler-delete button{cursor:pointer;font-size:13px;color:#123e7a;background:none;border:0;padding:0;text-decoration:underline}
+.member-traveler-edit form{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
+.member-traveler-delete{margin:0}
+
+/* Task 013a: secondary Kiwi.com affiliate button + disclosure on deal cards */
+.ariella-deal-card .deal-price-box .kiwi-affiliate{width:100%;margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.ariella-deal-card .deal-price-box .kiwi-affiliate a.kiwi-affiliate-btn{display:block;width:100%;padding:10px 12px!important;font-size:15px!important;font-weight:700;color:#123e7a!important;background:#fff!important;border:1px solid #123e7a;border-radius:8px;text-decoration:none;box-shadow:none}
+.ariella-deal-card .deal-price-box .affiliate-disclosure,.affiliate-disclosure{margin:0;font-size:12px;line-height:1.5;color:#5f5b55;text-align:start}
