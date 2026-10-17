@@ -5140,6 +5140,38 @@ _OFFER_DOMAIN_QUESTIONS = {
     "trip_planning": "לתכנן גם מסלול ואטרקציות לחופשה הזו?",
 }
 
+
+def _pending_offer_domain(state):
+    """Which domain, if any, state unambiguously says is next up for the
+    plain yes/no offer - shared by _enforce_one_option_question's
+    violation check and its fixed-text resolution, so both agree on
+    exactly the same domain."""
+    offered = state.get("post_flight_offer")
+    # Per Shaked's PR #59 review: post_flight_offer should never legally
+    # list more than one domain (rule 112 - ask about exactly one pending
+    # domain per message) - but if it ever does, collapse the illegal
+    # double offer down to the first domain in order, rather than leaving
+    # the "X או Y" violation untouched.
+    if isinstance(offered, list) and offered and offered[0] in _OFFER_DOMAIN_QUESTIONS:
+        return offered[0]
+    next_session = state.get("next_session")
+    if next_session in _OFFER_DOMAIN_QUESTIONS:
+        return next_session
+    return None
+
+
+# Per Shaked's stage-2 run-3 finding: whether a free-text question is
+# ALREADY the correct domain offer (so it must be left alone) - it needs
+# to both name the domain and use an offer verb ("תרצו"/"רוצים"/"בא לכם",
+# or the fixed texts' own "לתכנן"/"לסדר"), not just happen to mention the
+# domain in passing while actually asking something else.
+_OFFER_VERB_RE = re.compile(r"תרצ|רוצ|בא לכם|לתכנן|לסדר")
+_OFFER_DOMAIN_WORDS = {
+    "lodging": r"מלון|לינה|דירה|וילה|צימר|אכסניה|לישון",
+    "car": r"רכב",
+    "trip_planning": r"מסלול|אטרקציות",
+}
+
 # Per Shaked's stage-1 run-6 finding (Athens, 4/5): a reply can bundle TWO
 # gap questions into a single sentence joined by "ו" ("...איזו כבודה
 # תצטרכו, ויש הגבלת תקציב לאדם?") instead of the "X או Y" shape the rest of
@@ -5357,6 +5389,8 @@ def _enforce_one_option_question(reply, state):
         prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i != last_i)
         return _append_fixed_question(prefix, _TRIP_PLANNING_APPROVAL_QUESTION)
 
+    active_session = state.get("active_session")
+
     bundled = False
     if len(question_idx) == 1:
         only_q = sentences[question_idx[0]][0]
@@ -5365,25 +5399,48 @@ def _enforce_one_option_question(reply, state):
             or bool(_BUNDLED_AND_QUESTION_RE.search(only_q))
             or bool(_OPTION_LIST_IN_QUESTION_RE.search(only_q))
         )
+        # Per Shaked's stage-2 run-3 finding (Rome/Athens/Budapest, 1/5,
+        # 7f02bd4): flights just closed with post_flight_offer=
+        # ['trip_planning']/next_session='trip_planning'/active_session=
+        # None - state correctly calls for the plain yes/no offer - but
+        # Tinkerbell's free-text reply jumped straight into a trip_planning
+        # DETAIL question instead ("מה הכי מדבר אליכם בטיול הזה?", a style
+        # question). Exactly one "?", no "או"/"ו"/option-list bundling at
+        # all, so none of the checks above caught it - this is a single,
+        # well-formed question that is simply the WRONG question entirely.
+        # When no active_session names a real domain and the state
+        # unambiguously calls for a specific pending offer, the sole
+        # question must actually BE that offer (name the domain AND use an
+        # offer verb, e.g. "לתכנן גם מסלול...?") - anything else is this
+        # same violation, just without "או"/"ו" marking it.
+        if not bundled and not active_session:
+            _pending_domain = _pending_offer_domain(state)
+            if _pending_domain:
+                # Per the Paris secondary finding (same report): a reply
+                # can get the verb+domain-word check right while still
+                # smuggling in ANOTHER domain's specifics ("בא לכם שנבנה
+                # יחד מסלול יומי... איפה לישון כל לילה?" - correctly offers
+                # trip_planning by name, but also bundles lodging content
+                # into the same offer, pre-empting a question that hasn't
+                # been asked yet). A plain offer never mentions a domain
+                # other than the one actually being offered.
+                _other_domain_mentioned = any(
+                    d != _pending_domain and re.search(words, only_q)
+                    for d, words in _OFFER_DOMAIN_WORDS.items()
+                )
+                if _other_domain_mentioned or not (
+                    _OFFER_VERB_RE.search(only_q)
+                    and re.search(_OFFER_DOMAIN_WORDS[_pending_domain], only_q)
+                ):
+                    bundled = True
     if len(question_idx) <= 1 and not bundled:
         return reply
 
     fixed = None
-    offered = state.get("post_flight_offer")
-    active_session = state.get("active_session")
 
     def _next_domain_offer():
-        # Per Shaked's PR #59 review: post_flight_offer should never legally
-        # list more than one domain (rule 112 - ask about exactly one
-        # pending domain per message) - but if it ever does, collapse the
-        # illegal double offer down to the first domain in order, rather
-        # than leaving the "X או Y" violation untouched.
-        if isinstance(offered, list) and offered and offered[0] in _OFFER_DOMAIN_QUESTIONS:
-            return _OFFER_DOMAIN_QUESTIONS[offered[0]]
-        next_session = state.get("next_session")
-        if next_session in _OFFER_DOMAIN_QUESTIONS:
-            return _OFFER_DOMAIN_QUESTIONS[next_session]
-        return None
+        domain = _pending_offer_domain(state)
+        return _OFFER_DOMAIN_QUESTIONS[domain] if domain else None
 
     if not active_session:
         fixed = _next_domain_offer()
