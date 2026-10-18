@@ -1694,14 +1694,28 @@ def _resolve_lodging_locations_from_route(state):
     if details.get("areas") or details.get("locations"):
         return state
     names = _route_base_names(state)
-    if not names:
+    # Seen live (Shaked, Rome): a single-base route (one city/landmark the
+    # whole stay revolves around) got auto-filled as if it were a real
+    # "lodging spread across these areas" fact - but staying in one place
+    # the whole trip says nothing about which NEIGHBORHOOD within it the
+    # customer wants, so the question still needs asking. Two or more
+    # distinct bases is the genuine "the route already answers this" case
+    # this auto-fill exists for (e.g. the 2026-10-14 multi-stop decision).
+    if len(names) < 2:
         return state
     state = dict(state)
     lodging = dict(lodging)
     details = dict(details)
     details["locations"] = ", ".join(names)
     planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
-    approved_text = (planning.get("details") or {}).get("approved_text") if isinstance(planning.get("details"), dict) else None
+    # Pre-existing path bug, found by Shaked while reviewing PR #81's own
+    # (identical) mistake: approved_text is stored directly on trip_planning
+    # itself (trip_update["trip_planning"]["approved_text"] = ...), never
+    # nested under trip_planning.details - this always read None, so
+    # location_segments was silently empty for every route-derived lodging
+    # search, with no sign anything had failed (date_ranges below just
+    # stayed empty and the line below was skipped).
+    approved_text = planning.get("approved_text")
     night_segments = _extract_route_night_segments_from_approved_text(approved_text)
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     date_ranges = _route_night_segments_to_date_ranges(night_segments, dates.get("departure"))
@@ -2167,6 +2181,32 @@ def _flight_connection_line(flight):
     return "טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן"
 
 
+def _checked_bag_label(detail):
+    """Builds the checked-bag summary label from structured {count, unit}
+    data (added 2026-10-17 per Shaked's review of #78/the 014a baggage
+    field: a bare shared/not-shared boolean silently dropped the actual
+    COUNT and the real UNIT the customer stated - "שתי מזוודות לכולנו" and
+    "מזוודה אחת לכל זוג" both collapsed to the same "one shared suitcase"
+    label. unit is one of "per_person"/"per_couple"/"total"/None (quantity
+    stated but the split is genuinely unclear - never guessed as "one").
+    Falls back to the classic per-passenger phrasing with no detail at all."""
+    detail = detail if isinstance(detail, dict) else {}
+    count = detail.get("count")
+    count = count if isinstance(count, int) and count > 0 else None
+    unit = detail.get("unit")
+    if unit == "total":
+        return "מזוודה אחת משותפת לכל הנוסעים" if not count or count == 1 else f"{count} מזוודות משותפות לכל הנוסעים"
+    if unit == "per_couple":
+        return "מזוודה אחת לכל זוג" if not count or count == 1 else f"{count} מזוודות לכל זוג"
+    if unit == "per_person":
+        return "מזוודה גדולה לכל נוסע" if not count or count == 1 else f"{count} מזוודות לכל נוסע"
+    if count and count > 1:
+        # A real count was stated but how it splits across the party is
+        # genuinely unclear - state the number honestly rather than guess.
+        return f"{count} מזוודות"
+    return "מזוודה גדולה לכל נוסע"
+
+
 def _flight_baggage_line(flight):
     """The one-line baggage summary fact, or None when nothing is known
     yet. Factored out of _flight_summary_text so the same exact wording
@@ -2177,13 +2217,13 @@ def _flight_baggage_line(flight):
     if not baggage:
         return None
     baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה בבטן המטוס", "personal_item": "תיק קטן בלבד"}
-    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): the
-    # customer said "מזוודה אחת משותפת" (ONE suitcase, shared by the whole
-    # party) but the summary read as if every passenger had their own -
-    # checked_bag's label must never default to a per-passenger assumption
-    # when the customer explicitly said otherwise.
-    if flight.get("baggage_shared") and "checked_bag" in baggage:
-        baggage_labels = dict(baggage_labels, checked_bag="מזוודה אחת משותפת לכל הנוסעים")
+    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648), extended
+    # 2026-10-17 to carry count/unit, not just shared/not-shared: the
+    # customer's checked-bag phrasing must never default to a flat
+    # per-passenger assumption when they said otherwise.
+    baggage_detail = flight.get("baggage_detail") if isinstance(flight.get("baggage_detail"), dict) else {}
+    if "checked_bag" in baggage and baggage_detail.get("checked_bag"):
+        baggage_labels = dict(baggage_labels, checked_bag=_checked_bag_label(baggage_detail.get("checked_bag")))
     # Per Shaked's PR #65 review: "carry_on_only" literally means "ONLY a
     # carry-on, no checked bag" (see the system prompt's own definition),
     # so once checked_bag is ALSO in the same list, "טרולי בלבד" directly
@@ -2227,6 +2267,39 @@ def _flight_budget_line(budget):
     return None
 
 
+def _he_date_ddmmyyyy(iso) -> str:
+    iso = str(iso or "")[:10]
+    parts = iso.split("-")
+    return f"{parts[2]}.{parts[1]}.{parts[0]}" if len(parts) == 3 else iso
+
+
+def _flight_dates_line(dates) -> str | None:
+    """The one-line dates summary fact, or None when either end isn't known
+    yet. Factored out of _flight_summary_text so the same exact wording and
+    date format is available to _ensure_flight_summary_completeness (stage-3
+    run-2, Shaked: Athens - dates were in state but missing from Tinkerbell's
+    own free-text summary)."""
+    dates = dates if isinstance(dates, dict) else {}
+    dep, ret = dates.get("departure"), dates.get("return")
+    if not (dep and ret):
+        return None
+    return f"תאריכים: {_he_date_ddmmyyyy(dep)} – {_he_date_ddmmyyyy(ret)}"
+
+
+def _flight_travelers_line(travelers) -> str | None:
+    """The one-line travelers summary fact, or None when not known yet.
+    Factored out the same way as _flight_dates_line, for the same reason."""
+    travelers = travelers if isinstance(travelers, dict) else {}
+    adults = travelers.get("adults")
+    if not adults:
+        return None
+    children = int(travelers.get("children") or 0)
+    party = f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"
+    if children:
+        party += (f" ו-{children} ילדים" if children != 1 else " וילד אחד")
+    return "נוסעים: " + party
+
+
 def _flight_summary_text(state):
     """Deterministic flight-request summary built straight from state - the
     honest fallback when the claims_execution safety net catches Tinkerbell
@@ -2244,27 +2317,18 @@ def _flight_summary_text(state):
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
     budget = state.get("budget_per_person") if isinstance(state.get("budget_per_person"), dict) else {}
 
-    def he_date(iso):
-        iso = str(iso or "")[:10]
-        parts = iso.split("-")
-        return f"{parts[2]}.{parts[1]}.{parts[0]}" if len(parts) == 3 else iso
-
     lines = []
     if places:
         lines.append("יעד: " + ", ".join(places))
-    dep, ret = dates.get("departure"), dates.get("return")
-    if dep and ret:
-        lines.append(f"תאריכים: {he_date(dep)} – {he_date(ret)}")
+    dates_line = _flight_dates_line(dates)
+    if dates_line:
+        lines.append(dates_line)
     departure_airport = state.get("departure_airport")
     if departure_airport:
         lines.append(f"שדה יציאה: {departure_airport}")
-    adults = travelers.get("adults")
-    children = int(travelers.get("children") or 0)
-    if adults:
-        party = f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"
-        if children:
-            party += (f" ו-{children} ילדים" if children != 1 else " וילד אחד")
-        lines.append("נוסעים: " + party)
+    travelers_line = _flight_travelers_line(travelers)
+    if travelers_line:
+        lines.append(travelers_line)
     connection_line = _flight_connection_line(flight)
     if connection_line:
         lines.append(connection_line)
@@ -2374,6 +2438,22 @@ def _ensure_flight_summary_completeness(reply, state):
                     sentences[i] = (f"{leading_ws}{_flight_budget_line(budget)}{term}", term)
                     text = "".join(s for s, _t in sentences)
 
+    # Stage-3 run-2 (Shaked, Rome): Tinkerbell's own free text claimed "אין
+    # העדפה לטיסה ישירה" - the exact canonical phrase the system prompt
+    # itself mandates for a genuinely-known "no preference" - while state's
+    # flight.connection_preference was actually still unset. The system
+    # prompt already explicitly forbids this (never assume "no preference"
+    # for an unasked question), but a probabilistic model can still miss
+    # it; this is the same class of fact-vs-text mismatch the currency
+    # check above already corrects for budget, just a removal instead of a
+    # replacement (there's no correct line to state when the fact itself
+    # isn't known at all).
+    if not flight.get("connection_preference"):
+        sentences = _split_sentences(text)
+        kept = [(s, term) for s, term in sentences if "אין העדפה לטיסה ישירה" not in s]
+        if len(kept) != len(sentences):
+            text = "".join(s for s, _t in kept)
+
     missing = []
     if _flight_budget_sentence_index(_split_sentences(text)) is None:
         line = _flight_budget_line(budget)
@@ -2381,6 +2461,19 @@ def _ensure_flight_summary_completeness(reply, state):
             missing.append(line)
     if "כבודה" not in text and not re.search(r"טרולי|מזוודה|תיק", text):
         line = _flight_baggage_line(flight)
+        if line:
+            missing.append(line)
+    # Stage-3 run-2 (Shaked, Athens): dates genuinely known in state went
+    # missing from Tinkerbell's own free-text summary - same inconsistent-
+    # omission class as budget/baggage above, just never checked before.
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text):
+        line = _flight_dates_line(dates)
+        if line:
+            missing.append(line)
+    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
+    if "מבוגר" not in text and "נוסעים" not in text:
+        line = _flight_travelers_line(travelers)
         if line:
             missing.append(line)
     if "ישיר" not in text and "קונקשן" not in text:
@@ -3210,11 +3303,12 @@ def _baggage_summary(state):
     the customer again whether they're taking big suitcases."""
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
     baggage = flight.get("baggage") if isinstance(flight.get("baggage"), list) else []
-    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648): a
-    # customer who explicitly said ONE shared suitcase (not one per
-    # passenger) must never be summarized with the generic per-passenger
-    # checked_bag label - that reads as if everyone brought their own.
-    _he = dict(_BAGGAGE_HE, checked_bag="מזוודה אחת משותפת לכל הנוסעים", checked="מזוודה אחת משותפת לכל הנוסעים") if flight.get("baggage_shared") else _BAGGAGE_HE
+    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648), extended
+    # 2026-10-17 to carry count/unit, not just shared/not-shared: a
+    # customer's checked-bag phrasing (count AND how it's split across the
+    # party) must never collapse to the generic per-passenger label.
+    checked_bag_detail = (flight.get("baggage_detail") or {}).get("checked_bag") if isinstance(flight.get("baggage_detail"), dict) else None
+    _he = dict(_BAGGAGE_HE, checked_bag=_checked_bag_label(checked_bag_detail), checked=_checked_bag_label(checked_bag_detail)) if checked_bag_detail else _BAGGAGE_HE
     # Per Shaked's PR #65 review: "carry_on_only" means "ONLY a carry-on,
     # no checked bag" - once checked_bag is ALSO present, "טרולי בלבד"
     # directly contradicts the checked_bag label right next to it.
@@ -4518,7 +4612,7 @@ def _itinerary_acceptance_by_meaning(message):
         return False
 
 
-def _deterministic_baggage_facts(message):
+def _deterministic_baggage_facts(message, traveler_count=None):
     """Safety net for flight.baggage: a customer often answers baggage mixed
     into one longer reply that also covers origin airport, direct/connection
     preference and budget all at once. The extractor sometimes drops just the
@@ -4536,7 +4630,20 @@ def _deterministic_baggage_facts(message):
     לכל אחד ומזוודה אחת משותפת" (a carry-on each PLUS one shared suitcase)
     matched only the carry-on pattern and silently dropped the shared
     suitcase from the final summary entirely. Now every matching value is
-    collected into one list instead of returning on the first hit."""
+    collected into one list instead of returning on the first hit.
+
+    traveler_count (2026-10-17, Shaked's 014a stage-1 run-1 finding,
+    Budapest Z5, extended the same day after her #78 review): this is only
+    the FAIL-SAFE path now - baggage's primary path is the 014 guided-
+    extraction field (_guided_extract_answer/field="baggage"), which asks
+    the model directly for a per-item {type, count, unit}. This regex only
+    runs when that call itself fails. It still tries to recover count/unit
+    (never just a bare shared/not-shared flag - a customer saying "שתי
+    מזוודות לכולנו" or "מזוודה אחת לכל זוג" loses real information if only
+    a boolean survives), using unit WORDS when present ("לכל זוג"/"לכולנו"/
+    "לכולם"/"לכל המשפחה"/"משותפת"/"לכל אחד"/"לכל נוסע"), and falling back
+    to the general count-vs-traveler-count inference only when no unit
+    word is present at all."""
     import re
     msg = str(message or "")
     if not msg.strip():
@@ -4559,25 +4666,79 @@ def _deterministic_baggage_facts(message):
     # "מטוס" and "אחת" are both optional - a live transcript showed "מזוודה
     # אחת בבטן לכל אחד וטרולי" go unmatched (the old pattern required
     # "בבטן" immediately after "מזוודה", with no "אחת" in between, and
-    # required "מטוס" right after "בבטן"). "מזוודה (אחת) (גדולה) משותפת"
-    # (a (one) (large) SHARED suitcase) is just as unambiguous a checked-bag
-    # statement as "...בבטן המטוס" - per the Budapest finding above, a
-    # shared suitcase is never phrased with "בבטן" at all.
-    shared_checked_bag = bool(re.search(r"מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg))
-    if shared_checked_bag or re.search(r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה", msg):
+    # required "מטוס" right after "בבטן").
+    # Per Shlomo/Shaked (#81 review): "מזוודות?\s+גדול" (meant to combine
+    # singular/plural "big suitcase(s)") never actually matched the singular
+    # spelling at all - the trailing "?" only makes the plural's own final
+    # letter (ת) optional, so it covered "מזוודו גדול" (not a real word) or
+    # "מזוודות גדול" (plural), never "מזוודה גדולה" (singular, ending in ה -
+    # the common prefix is "מזווד", then either ה or ות). This was the exact
+    # repro: "מזוודה גדולה לכל אחד מאיתנו" never set checked_bag_mentioned
+    # at all, so baggage went unrecorded entirely for that message.
+    checked_bag_mentioned = bool(re.search(
+        r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזווד(?:ה|ות)\s+גדול|יש\s+ל(נו|י)\s+מזוודה"
+        r"|מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg
+    ))
+    checked_bag_detail = {}
+    # Explicit count near "מזוודה/מזוודות" - either order ("מזוודה אחת" or
+    # "שתי מזוודות"), reusing the same general number-word parser the
+    # travelers/lodging parsers already use.
+    bag_count_match = (
+        # No leading \b before "מזוודה" - Hebrew commonly prefixes it with
+        # the conjunction "ו" directly, no space ("ומזוודה" = "and a
+        # suitcase"), which a leading \b would block entirely.
+        re.search(r"מזוודה\s+(אחת|אחד)\b", msg)
+        or re.search(r"\b(" + _HEBREW_NUMBER_WORD_RE + r"|\d{1,2})\s*מזוודות?\b", msg)
+    )
+    bag_count = None
+    if bag_count_match:
+        group = bag_count_match.group(1)
+        bag_count = 1 if group in ("אחת", "אחד") else (int(group) if group.isdigit() else _HEBREW_NUMBER_WORDS.get(group))
+        checked_bag_mentioned = True
+    # Unit words - checked directly, never requiring "משותפת" specifically.
+    if re.search(r"לכל\s+זוג", msg):
+        checked_bag_detail["unit"] = "per_couple"
+        checked_bag_mentioned = True
+    elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
+        checked_bag_detail["unit"] = "total"
+        checked_bag_mentioned = True
+    elif re.search(r"לכל\s+אחד|לכל\s+נוסע|לכל\s+אדם", msg) and checked_bag_mentioned:
+        # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
+        # גדולה לכל אחד מאיתנו" (a big suitcase for each of us) has no
+        # explicit digit next to "מזוודה" at all, so the old gate here
+        # (requiring bag_count_match) dropped the unit entirely - baggage
+        # still got ["checked_bag"], but with no baggage_detail at all, so
+        # the per-passenger fact the customer actually stated was lost.
+        # checked_bag_mentioned already requires a "מזוודה"-word match (see
+        # above) - that's what actually rules out "טרולי לכל אחד" (which
+        # never matches any of those patterns and so never reaches this
+        # branch's effect anyway, since values only gets "checked_bag" when
+        # checked_bag_mentioned is true); requiring a redundant explicit
+        # digit on top of that was over-strict and is what this fixes.
+        checked_bag_detail["unit"] = "per_person"
+    elif bag_count is not None:
+        try:
+            party = max(0, int(traveler_count or 0))
+        except (TypeError, ValueError):
+            party = 0
+        if party > 1 and bag_count < party:
+            # No unit word at all, but the general rule still holds: a
+            # count smaller than the party can never be "one per person".
+            checked_bag_detail["unit"] = "total"
+    if bag_count is not None:
+        checked_bag_detail["count"] = bag_count
+    if checked_bag_mentioned:
         values.append("checked_bag")
     if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
         values.append("personal_item")
     if values:
         result = {"flight": {"baggage": values}}
-        if shared_checked_bag:
-            # Per Shaked's stage-2 run-1 finding (Budapest): ONE suitcase
-            # shared by the whole party is a materially different fact from
-            # one per passenger, and the summary must say so - see
-            # _BAGGAGE_HE/_baggage_summary and _state_context's own
-            # baggage_labels, both of which otherwise default checked_bag
-            # to a per-passenger phrasing.
-            result["flight"]["baggage_shared"] = True
+        if "checked_bag" in values and checked_bag_detail:
+            # Per Shaked's stage-2 run-1 and 014a stage-1 findings: the
+            # actual count and how it splits across the party are real
+            # facts the summary must state, not just shared/not-shared -
+            # see _checked_bag_label/_flight_baggage_line/_baggage_summary.
+            result["flight"]["baggage_detail"] = {"checked_bag": checked_bag_detail}
         return result
     return {}
 
@@ -5655,6 +5816,27 @@ def _enforce_one_option_question(reply, state):
     question_idx_set = set(question_idx)
     prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i not in question_idx_set)
     return _append_fixed_question(prefix, fixed)
+
+
+# Per Shlomo/Shaked (#81, 3rd review round): a single general lookup for
+# EVERY internal-English-token field a customer-facing summary line might
+# print, not a one-off check scoped to "pace" alone - any OTHER field that
+# gets a deterministic code-side writer storing a canonical English value
+# (the way _deterministic_trip_planning_pace_facts already does for pace)
+# is covered here automatically too, with no special-casing per field name.
+# A value that isn't one of these known internal tokens (already Hebrew, or
+# anything else) is returned unchanged by _to_hebrew_display below - never
+# guessed at, never altered.
+_INTERNAL_TOKEN_TO_HEBREW = {"active": "פעיל", "relaxed": "רגוע"}
+
+
+def _to_hebrew_display(value):
+    """Translates a known internal English token to its Hebrew customer-
+    facing equivalent (_INTERNAL_TOKEN_TO_HEBREW); any other value (already
+    Hebrew, or not a recognized internal token at all) passes through
+    unchanged."""
+    value = str(value or "").strip()
+    return _INTERNAL_TOKEN_TO_HEBREW.get(value, value)
 
 
 def _deterministic_trip_planning_pace_facts(message, history):
@@ -6842,6 +7024,191 @@ def _premature_approval_fallback_text(trip_update):
     return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."
 
 
+def _lodging_summary_line(state):
+    """The one-line lodging summary fact, or None when lodging has no
+    details to show. Reuses _guided_field_update_and_confirm's own per-
+    field descriptions (the exact phrasing already shown to the customer
+    turn-by-turn while lodging was being filled in) rather than inventing
+    new wording for the same facts."""
+    details = _lodging_details(state)
+    if not details:
+        return None
+    parts = []
+    for field, result in (
+        ("lodging_type", {"value": details.get("type")}),
+        ("lodging_rooms", {"value": details.get("rooms")}),
+        ("lodging_bathrooms", {"value": details.get("bathrooms")}),
+        ("lodging_locations", {"value": details.get("locations")}),
+        ("lodging_budget_or_level", {"budget": details.get("budget"), "level": details.get("level")}),
+    ):
+        _, desc = _guided_field_update_and_confirm(field, result)
+        if desc:
+            parts.append(desc)
+    if not parts:
+        return None
+    return "לינה: " + ", ".join(parts)
+
+
+def _car_summary_line(state):
+    """The one-line car summary fact, or None when car has no details to
+    show."""
+    state = state if isinstance(state, dict) else {}
+    car = state.get("car") if isinstance(state.get("car"), dict) else {}
+    details = car.get("details") if isinstance(car.get("details"), dict) else {}
+    if not details:
+        return None
+    parts = []
+    vehicle_type = str(details.get("vehicle_type") or "").strip()
+    if vehicle_type and vehicle_type != "אין העדפה":
+        parts.append(vehicle_type)
+    transmission = str(details.get("transmission") or "").strip()
+    if transmission and transmission not in ("אין העדפה", "לא משנה"):
+        parts.append(transmission)
+    pickup = details.get("pickup")
+    if pickup:
+        parts.append(f"איסוף: {pickup}")
+    ret = details.get("return")
+    if ret:
+        parts.append(f"החזרה: {ret}")
+    if not parts:
+        return None
+    return "רכב: " + ", ".join(parts)
+
+
+def _route_summary_line(state):
+    """The one-line route summary fact, or None when no route was ever
+    approved.
+
+    First version of this function (PR #81) copied trip_planning.details.
+    approved_text verbatim, on the theory that reusing the customer's own
+    already-approved text beats inventing new prose. Shaked's review (same
+    PR) found two problems with that: (1) a real path bug - approved_text
+    is actually stored on trip_planning itself (see line ~10310, "plan =
+    dict(trip_update.get('trip_planning') or {}); plan['approved_text'] =
+    ..."), never nested under trip_planning.details, so this always read
+    None in production and the route line never appeared at all; (2) even
+    with the right path, approved_text is the FULL original multi-day
+    proposal, ending in Tinkerbell's own "...מתאים לכם?" question - wrong
+    both for length and for leaving a dangling question inside a summary
+    that is supposed to end in the approval request. Rebuilt as a genuinely
+    short line built only from already-known structured facts (day count,
+    pace, style, and the route's own base/city names via
+    _route_base_names) - no narrative text, no question, nothing invented."""
+    state = state if isinstance(state, dict) else {}
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    if not str(planning.get("approved_text") or "").strip():
+        return None
+    details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
+    route = details.get("route") if isinstance(details.get("route"), list) else []
+    parts = []
+    day_count = len(route) if route else None
+    if day_count is None:
+        # Per Shaked's 2nd-round-2 review: no route list stored for this
+        # trip (details.route empty) must not mean "no day count at all" -
+        # the trip's own already-known dates say exactly how many days the
+        # approved route spans.
+        dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+        dep, ret = dates.get("departure"), dates.get("return")
+        if dep and ret:
+            try:
+                day_count = (date.fromisoformat(str(ret)[:10]) - date.fromisoformat(str(dep)[:10])).days + 1
+            except Exception:
+                day_count = None
+    if day_count:
+        parts.append("יום מסלול אחד" if day_count == 1 else f"{day_count} ימי מסלול")
+    # Per Shaked's 2nd-round-2 review: pace is stored as the extractor's own
+    # internal English token (_deterministic_trip_planning_pace_facts writes
+    # literally "active"/"relaxed", never Hebrew) - printing it verbatim
+    # leaked the English word "relaxed" straight at the customer. Per
+    # Shlomo's follow-up (3rd review round): run EVERY field this line
+    # prints through the same general translator (_to_hebrew_display), not
+    # just pace alone - style has no known internal-token writer today, but
+    # this way any field that gains one later is covered automatically,
+    # with no new per-field special-casing. A value that isn't a
+    # recognized internal token (already Hebrew, or anything else) passes
+    # through unchanged.
+    pace = _to_hebrew_display(details.get("pace"))
+    if pace and pace != "אין העדפה":
+        parts.append(f"קצב {pace}")
+    style = _to_hebrew_display(details.get("style"))
+    if style:
+        parts.append(style)
+    bases = _route_base_names(state)
+    if bases:
+        parts.append("עצירות: " + ", ".join(bases))
+    if not parts:
+        return None
+    return "מסלול: " + ", ".join(parts)
+
+
+def _final_summary_fallback_text(trip_update):
+    """Last-resort honest reply for the opposite failure of the function
+    above: every one of the four domains (flights/lodging/car/trip_planning)
+    is genuinely complete/declined, yet neither Tinkerbell's first reply nor
+    the forced _force_final_summary_now retry produced the mandatory final
+    summary/approval request. Seen live (Shaked, stage-3 run-2, Paris): right
+    after the customer declined the car, with trip_planning already complete
+    from earlier in the same conversation, the retried reply STILL re-asked
+    the route style/pace question and rebuilt an already-approved route -
+    the single retry above is not a guarantee, and unlike the premature-
+    מאשרת safety net above, nothing used to catch a second failure here.
+    State alone (every domain decided) already proves a real summary is
+    owed regardless of what the free text says, so a reply that reopens a
+    closed domain must never reach the customer.
+
+    Per Shaked's own review of the first version of this function (PR #81):
+    (1) a fixed, hardcoded intro sentence is exactly the kind of canned text
+    the business owner doesn't want - removed entirely; (2) the summary
+    must be genuinely complete (lodging/car/route too, not flights alone) -
+    criterion 5 - so every domain already decided now contributes its own
+    line, each reusing wording already established elsewhere in the code
+    (_guided_field_update_and_confirm's own per-field descriptions for
+    lodging, and the route's own previously-approved text verbatim) rather
+    than inventing anything new."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+    destination = trip_update.get("destination") if isinstance(trip_update.get("destination"), dict) else {}
+    places = [str(p) for p in (destination.get("places") or []) if str(p or "").strip()]
+    dates = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+    travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
+    flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
+    budget = trip_update.get("budget_per_person") if isinstance(trip_update.get("budget_per_person"), dict) else {}
+
+    lines = []
+    if places:
+        lines.append("יעד: " + ", ".join(places))
+    for line in (
+        _flight_dates_line(dates), _flight_travelers_line(travelers),
+        _flight_connection_line(flight), _flight_baggage_line(flight),
+        _flight_budget_line(budget),
+    ):
+        if line:
+            lines.append(line)
+    if statuses.get("lodging") == "complete":
+        line = _lodging_summary_line(trip_update)
+        if line:
+            lines.append(line)
+    if statuses.get("car") == "complete":
+        line = _car_summary_line(trip_update)
+        if line:
+            lines.append(line)
+    if statuses.get("trip_planning") == "complete":
+        line = _route_summary_line(trip_update)
+        if line:
+            lines.append(line)
+
+    gender = str(trip_update.get("user_gender") or "").lower()
+    if gender == "male":
+        approval_line = "אם כל הפרטים נכונים, כתוב מאשר."
+    elif gender == "female":
+        approval_line = "אם כל הפרטים נכונים, כתבי מאשרת."
+    else:
+        approval_line = "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת."
+    if not lines:
+        return approval_line
+    return "סיכום החופשה:\n" + "\n".join(lines) + "\n\n" + approval_line
+
+
 # Each domain's own small, closed vocabulary of topic words - not endless
 # per-phrasing examples, just the fixed set of concepts that belong to that
 # domain's own required facts (mirrors _GAP_FIELD_KIND's bounded scope).
@@ -7046,7 +7413,7 @@ def _guided_extraction_steps():
     raw = os.getenv("GUIDED_EXTRACTION_STEPS", GUIDED_EXTRACTION_STEPS_DEFAULT).strip()
     if not raw:
         return set()
-    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers")}
+    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers", "baggage", "lodging")}
 
 
 def _guided_extraction_model():
@@ -7071,7 +7438,69 @@ def _guided_extraction_model():
 _GUIDED_FIELD_HINT_DESCRIPTION = {
     "dates": "מתי הלקוח רוצה לטוס, ולכמה לילות",
     "travelers": "מי נוסע - כמה מבוגרים, ילדים וגילאים",
+    # Added 2026-10-17 per the business owner's explicit decision (relayed
+    # via Shlomo), after Shaked's 014a stage-1 run-1 (Budapest Z5): baggage
+    # moves from a plain regex safety net into a real guided field, same as
+    # dates/travelers - the model decides shared/per-passenger, not another
+    # literal phrase added to a list.
+    "baggage": "איזה כבודה לוקחים (טרולי/מזוודה בבטן/תיק קטן בלבד), ואם המזוודה משותפת לכל הקבוצה או אחת לכל נוסע",
+    "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה או צימר",
+    "lodging_rooms": "כמה חדרים נדרשים ללינה",
+    "lodging_bathrooms": "כמה חדרי רחצה נדרשים בדירה",
+    "lodging_locations": "באיזה אזור/שכונה הלקוח רוצה שהלינה תהיה",
+    "lodging_budget_or_level": "מה התקציב ללילה",
 }
+# Task 014a extended to lodging (PR2, per Shlomo's sequencing 2026-10-17):
+# one flag value ("lodging") drives all five sub-questions below, in this
+# fixed order - same principle as accessibility bundling its own two
+# sub-stages under one name. Unlike accessibility, lodging fields need no
+# special hint-building of their own: the generic _guided_ask_hint/
+# _guided_confirm_hint/_guided_correction_hint already work for them via
+# the field descriptions above.
+_LODGING_GUIDED_SUBFIELDS = ("lodging_type", "lodging_rooms", "lodging_bathrooms", "lodging_locations", "lodging_budget_or_level")
+_LODGING_GUIDED_CORRECTION_LABELS = {
+    "lodging_type": "סוג הלינה", "lodging_rooms": "מספר החדרים",
+    "lodging_bathrooms": "מספר חדרי הרחצה", "lodging_locations": "אזור הלינה",
+    "lodging_budget_or_level": "התקציב ללינה",
+}
+
+
+def _lodging_details(state):
+    lodging = state.get("lodging") if isinstance(state, dict) and isinstance(state.get("lodging"), dict) else {}
+    details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    return details
+
+
+def _lodging_type_is_apartment_like(type_value):
+    """Mirrors the TINKERBELL_SYSTEM instruction (line ~197): a hotel or
+    villa is never asked about bathroom count; an apartment/zimmer-style
+    unit (or a type that isn't known yet) is."""
+    value = str(type_value or "").strip()
+    return value not in ("מלון", "וילה")
+
+
+def _guided_field_applies(field, state):
+    """Lodging's guided questions only make sense once lodging is actually
+    part of this vacation - a flights-only trip must never be asked about
+    lodging type. Baggage only applies once flights are requested (see
+    _guided_baggage_applies). Universal fields (dates/travelers) always
+    apply."""
+    if field in _LODGING_GUIDED_SUBFIELDS:
+        state = state if isinstance(state, dict) else {}
+        services = state.get("requested_services")
+        return isinstance(services, list) and "lodging" in services
+    if field == "baggage":
+        return _guided_baggage_applies(state)
+    return True
+
+
+def _guided_step_covers(field, guided_steps):
+    """Maps an individual guided field name back to the flag token that
+    enables it - the five lodging sub-fields all share one flag value
+    ("lodging")."""
+    if field in _LODGING_GUIDED_SUBFIELDS:
+        return "lodging" in guided_steps
+    return field in guided_steps
 
 
 def _guided_ask_hint(field, attempts):
@@ -7102,10 +7531,20 @@ def _guided_correction_hint(label, confirm_desc):
     return f"הלקוח עדכן את {label}{value_text} - ציייני לו בקצרה במשפט אחד שהעדכון נקלט, לא כשאלה."
 
 
+def _guided_baggage_applies(state):
+    """Baggage only makes sense once flights are actually part of this
+    vacation - unlike dates/travelers (universal to every trip), a
+    lodging/car-only booking must never be asked about carry-on vs.
+    checked bags."""
+    state = state if isinstance(state, dict) else {}
+    services = state.get("requested_services")
+    return isinstance(services, list) and "flights" in services
+
+
 def _guided_field_known_with_confidence(field, state):
     """Spec section 3: a field already stated earlier, with confidence,
     is never asked about again. Mirrors the same presence checks the rest
-    of this file already uses for these two fields."""
+    of this file already uses for these fields."""
     state = state if isinstance(state, dict) else {}
     if field == "dates":
         dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
@@ -7113,7 +7552,103 @@ def _guided_field_known_with_confidence(field, state):
     if field == "travelers":
         travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
         return travelers.get("adults") is not None
+    if field == "baggage":
+        flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+        return bool(flight.get("baggage"))
+    if field == "lodging_type":
+        return bool(_lodging_details(state).get("type"))
+    if field == "lodging_rooms":
+        details = _lodging_details(state)
+        return details.get("rooms") is not None or details.get("bedrooms") is not None
+    if field == "lodging_bathrooms":
+        details = _lodging_details(state)
+        if not _lodging_type_is_apartment_like(details.get("type")):
+            return True
+        return details.get("bathrooms") is not None
+    if field == "lodging_locations":
+        details = _lodging_details(state)
+        return bool(details.get("areas") or details.get("locations"))
+    if field == "lodging_budget_or_level":
+        details = _lodging_details(state)
+        return bool(details.get("budget") or details.get("level"))
     return False
+
+
+_LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר")
+
+
+# Each lodging prompt's also_mentioned uses the SAME shape _guided_field_
+# update_and_confirm already expects for that field (a nested dict keyed by
+# guided-field name), so applying it is one uniform loop - no per-field
+# translation layer, same principle as dates/travelers also_mentioned.
+_LODGING_ALSO_MENTIONED_SCHEMA = (
+    '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"אין העדפה"}|null,'
+    '"lodging_rooms":{"value":int}|null,"lodging_bathrooms":{"value":int}|null,'
+    '"lodging_locations":{"value":"..."}|null,'
+    '"lodging_budget_or_level":{"budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null}|null}'
+)
+
+
+def _lodging_guided_prompt(field, state, recent):
+    details = _lodging_details(state)
+    state_line = f"מצב נוכחי - פרטי לינה: {json.dumps(details, ensure_ascii=False)}.\n"
+    also_mentioned_rule = (
+        "also_mentioned: פרטי לינה אחרים (סוג/מספר חדרים/חדרי רחצה/תקציב או רמה/אזור) שנאמרו במפורש "
+        "באותה הודעה, בלי להשלים בעצמך - בצורת האובייקט בדיוק כפי שמוגדר למטה."
+    )
+    other_topic_rule = "אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, נושא אחר) - status=\"other_topic\"."
+    if field == "lodging_type":
+        label = "איזה סוג לינה מתאים לו"
+        rules = (
+            "כללים: value הוא בדיוק אחת מהמילים: מלון, דירה, וילה, צימר, אין העדפה (לא מילה אחרת ולא "
+            "תיאור חופשי - \"אפרטמנט\" נחשב \"דירה\"). אסור להמציא - אם לא ברור, value=null ו-confidence:"
+            "\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","value":"מלון"|"דירה"|"וילה"|"צימר"|"אין העדפה"|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת סוג לינה שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_type\"."
+    elif field == "lodging_rooms":
+        label = "כמה חדרים נדרשים"
+        rules = (
+            "כללים: value הוא מספר שלם של חדרים (כולל מספרים במילים כמו \"שני חדרים\"=2). אסור להמציא - "
+            "אם לא ברור, value=null ו-confidence:\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","value":int|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת מספר חדרים שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_rooms\"."
+    elif field == "lodging_bathrooms":
+        label = "כמה חדרי רחצה נדרשים בדירה"
+        rules = (
+            "כללים: value הוא מספר שלם של חדרי רחצה/שירותים (כולל מספרים במילים). אסור להמציא - אם לא "
+            "ברור, value=null ו-confidence:\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","value":int|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת מספר חדרי רחצה שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_bathrooms\"."
+    elif field == "lodging_locations":
+        label = "באיזה אזור/שכונה תרצה שהלינה תהיה"
+        rules = (
+            "כללים: value הוא תיאור חופשי קצר של האזור/השכונה, או \"אין העדפה\" אם נאמר שאין העדפה. "
+            "אסור להמציא - אם לא ברור, value=null ו-confidence:\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","value":"טקסט חופשי קצר"|"אין העדפה"|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת אזור שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_locations\"."
+    else:
+        label = "מה התקציב ללילה, או איזו רמת לינה מתאימה"
+        rules = (
+            "כללים: חלצי אחד בלבד - budget (מספר, בדרך כלל יורו ללילה) או level (יוקרתי/בינוני/בסיסי), "
+            "לפי מה שנאמר. דירוג כוכבים (למשל \"4 כוכבים\") הוא תמיד level, לא budget - 4+ כוכבים=יוקרתי, "
+            "3 כוכבים=בינוני, פחות=בסיסי. \"אין הגבלה\"/\"לא משנה\" = level=\"אין העדפה\", budget=null. "
+            "אסור להמציא - אם לא ברור, שני השדות null ו-confidence:\"low\"."
+        )
+        schema = '{"status":"answered|unclear|other_topic","budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null,"confidence":"high|low",'
+        correction_rule = "אם ההודעה מתקנת תקציב/רמה שכבר נקבעו - status=\"answered\" ומלאי correction עם field=\"lodging_budget_or_level\"."
+    return (
+        f"אריאלה (סוכנת נסיעות) שאלה את הלקוח {label} (לינה). חלצי את התשובה, בהתחשב בהקשר.\n"
+        f"{state_line}"
+        f"4 ההודעות האחרונות: {recent}\n"
+        f"{rules} {also_mentioned_rule} {other_topic_rule} {correction_rule}\n"
+        f"החזירי JSON בלבד, בדיוק במבנה: {schema}"
+        f'"also_mentioned":{_LODGING_ALSO_MENTIONED_SCHEMA}|null,'
+        '"correction":{"field":"...","old":"...","new":"..."}|null}'
+    )
 
 
 def _guided_extract_answer(key, model, field, message, history, state):
@@ -7121,7 +7656,7 @@ def _guided_extract_answer(key, model, field, message, history, state):
     spec section 4). Returns the parsed JSON dict, or None on any failure -
     the caller then falls back to the existing regex for this one message
     (spec section 5's fail-safe row), never crashing the turn."""
-    if not key or field not in ("dates", "travelers"):
+    if not key or field not in ("dates", "travelers", "baggage") + _LODGING_GUIDED_SUBFIELDS:
         return None
     state = state if isinstance(state, dict) else {}
     current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
@@ -7131,7 +7666,51 @@ def _guided_extract_answer(key, model, field, message, history, state):
         if isinstance(x, dict) and x.get("content")
     )
     today_str = date.today().isoformat()
-    if field == "dates":
+    if field == "baggage":
+        current_flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+        travelers_total = 0
+        for k in ("adults", "children", "infants"):
+            try:
+                travelers_total += max(0, int(current_travelers.get(k) or 0))
+            except (TypeError, ValueError):
+                pass
+        prompt = (
+            "אריאלה (סוכנת נסיעות) שאלה את הלקוח איזה כבודה לוקחים. חלצי "
+            "מתשובת הלקוח את פריטי הכבודה - לכל פריט: סוג, כמות (אם נאמרה), "
+            "ואיך היא מתחלקת בין הנוסעים.\n"
+            f"מספר נוסעים בקבוצה: {travelers_total or 'לא ידוע'}.\n"
+            f"מצב נוכחי - כבודה: {json.dumps(current_flight.get('baggage'), ensure_ascii=False)}.\n"
+            f"4 ההודעות האחרונות: {recent}\n"
+            "כללים: items היא רשימת פריטים, כל אחד {\"type\",\"count\",\"unit\"} - "
+            "יכול להיות יותר מפריט אחד באותה הודעה (למשל \"טרולי לכל אחד "
+            "ומזוודה אחת לכל המשפחה\" הם שני פריטים). type הוא אחד מהערכים "
+            "האלה בדיוק: \"carry_on_only\" (טרולי/כבודת עלייה), \"checked_bag\" "
+            "(מזוודה בבטן המטוס), \"personal_item\" (תיק קטן בלבד). count הוא "
+            "המספר שצוין (כולל מספרים במילים כמו \"שתי מזוודות\"=2, \"אחת\"=1) "
+            "או null אם לא צוין מספר. unit מתאר איך הכמות מתחלקת: "
+            "\"per_person\" (לכל נוסע/אדם בנפרד), \"per_couple\" (לכל זוג), "
+            "\"total\" (סך הכול לכל הקבוצה ביחד - \"לכולנו\"/\"לכולם\"/\"לכל "
+            "המשפחה\"/\"משותפת\" הם כולם total), או null אם לא ברור מהניסוח "
+            "איך זה מתחלק (במקרה הזה שמרי את count כפי שנאמר, אל תנחשי unit). "
+            "אם אין שום כבודה בכלל - no_baggage:true (items ריקה אז). אסור "
+            "להמציא כמות או חלוקה שלא נאמרה. אם לא ברור בכלל אילו פריטים "
+            "נלקחים, items=null ו-confidence:\"low\". also_mentioned: רק "
+            "פרטי תאריכים/נוסעים שנאמרו במפורש באותה הודעה, בלי להשלים "
+            "בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, נושא "
+            "אחר) - status=\"other_topic\". אם ההודעה מתקנת כבודה שכבר "
+            "נקבעה - status=\"answered\" ומלאי correction.\n"
+            "החזירי JSON בלבד, בדיוק במבנה: "
+            '{"status":"answered|unclear|other_topic",'
+            '"no_baggage":true|false,'
+            '"items":[{"type":"carry_on_only"|"checked_bag"|"personal_item",'
+            '"count":int|null,"unit":"per_person"|"per_couple"|"total"|null},...]|null,'
+            '"confidence":"high|low",'
+            '"also_mentioned":{"dates":{...}|null,"travelers":{...}|null},'
+            '"correction":{"field":"...","old":"...","new":"..."}|null}'
+        )
+    elif field in _LODGING_GUIDED_SUBFIELDS:
+        prompt = _lodging_guided_prompt(field, state, recent)
+    elif field == "dates":
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מתי לטוס ולכמה לילות. חלצי "
             "מתשובת הלקוח תאריכים, בהתחשב בהקשר.\n"
@@ -7188,12 +7767,39 @@ def _guided_extract_answer(key, model, field, message, history, state):
         return None
 
 
-def _guided_field_update_and_confirm(field, result):
+def _level_stated_in_message(level, raw_message):
+    """State-based guard (Shaked/Shlomo, stage-3 run-2, Rome): also_mentioned
+    may only record a value the customer actually said. Reuses the exact
+    canonical vocabulary _deterministic_lodging_facts/_required_state_gaps
+    already use for this same field (_LODGING_LEVEL_VALUES, the star-rating
+    pattern, and the general no-preference wording) rather than inventing a
+    new phrase list - a purely descriptive phrase like "מלון קטן ונעים" (no
+    budget/level/star word at all) matches none of them and is rejected."""
+    msg = str(raw_message or "")
+    if level == "אין העדפה":
+        return any(w in msg for w in ("אין העדפה", "לא משנה", "מה שיש", "לא משנה לי"))
+    if any(word in msg for word, canon in _LODGING_LEVEL_VALUES if canon == level):
+        return True
+    star_match = re.search(r"(\d)\s*(?:\+)?\s*כוכב", msg)
+    if star_match:
+        stars = int(star_match.group(1))
+        canon = "יוקרתי" if stars >= 4 else ("בינוני" if stars == 3 else "בסיסי")
+        return canon == level
+    return False
+
+
+def _guided_field_update_and_confirm(field, result, raw_message=None):
     """Builds the _merge_trip_state fragment for a resolved guided answer,
     plus a short, plain-text DESCRIPTION of the value just extracted (never
     a question, never shown to the customer verbatim) - the caller weaves
     it into a hint for Tinkerbell to phrase in her own words (spec section
-    5, "answered + low" row)."""
+    5, "answered + low" row).
+
+    raw_message, when passed, is the customer's own current-turn text. Used
+    only to validate a lodging level pulled from also_mentioned (see
+    _level_stated_in_message) - the direct-answer call site never passes it,
+    since there the model is already answering the exact budget/level
+    question asked, not inferring it from an unrelated answer."""
     result = result if isinstance(result, dict) else {}
     if field == "dates":
         departure = result.get("departure")
@@ -7246,6 +7852,94 @@ def _guided_field_update_and_confirm(field, result):
         else:
             desc = "מספר הנוסעים שצוין"
         return {"travelers": fragment}, desc
+    if field == "baggage":
+        # Per Shlomo/Shaked (2026-10-17, after her review of #78): a bare
+        # shared/not-shared boolean silently drops the actual COUNT and
+        # the UNIT it's split by ("שתי מזוודות לכולנו" and "מזוודה אחת לכל
+        # זוג" both collapsed to the same label). Each item now carries its
+        # own {type, count, unit} straight from the model.
+        if result.get("no_baggage"):
+            return {"flight": {"baggage": ["no_baggage"], "baggage_detail": {}}}, "ללא כבודה"
+        items = result.get("items")
+        if not isinstance(items, list) or not items:
+            return {}, None
+        valid_types = ("carry_on_only", "checked_bag", "personal_item")
+        valid_units = ("per_person", "per_couple", "total")
+        values = []
+        baggage_detail = {}
+        labels = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type")
+            if item_type not in valid_types or item_type in values:
+                continue
+            values.append(item_type)
+            if item_type != "checked_bag":
+                labels.append(_BAGGAGE_HE.get(item_type, item_type))
+                continue
+            count = item.get("count")
+            count = count if isinstance(count, int) and count > 0 else None
+            unit = item.get("unit") if item.get("unit") in valid_units else None
+            if count is not None or unit is not None:
+                baggage_detail["checked_bag"] = {"count": count, "unit": unit}
+            labels.append(_checked_bag_label(baggage_detail.get("checked_bag")))
+        if not values:
+            return {}, None
+        fragment = {"baggage": values}
+        if baggage_detail:
+            fragment["baggage_detail"] = baggage_detail
+        desc = " ו".join(labels)
+        return {"flight": fragment}, desc
+    if field == "lodging_type":
+        value = result.get("value")
+        if value not in _LODGING_TYPE_CANON_VALUES and value != "אין העדפה":
+            return {}, None
+        canon = "דירה" if value == "אפרטמנט" else value
+        desc = f"סוג לינה - {canon}" if canon != "אין העדפה" else "אין העדפה לסוג לינה"
+        return {"lodging": {"details": {"type": canon}}}, desc
+    if field == "lodging_rooms":
+        value = result.get("value")
+        if not isinstance(value, int) or value <= 0:
+            return {}, None
+        # Per Shaked's PR #81 review: "חדר שינה" (bedroom) is unambiguous
+        # about what's being counted; the bare "חדר" (room) the previous
+        # wording used could be misread as counting all rooms, not just
+        # bedrooms - lodging.details.rooms always means bedrooms.
+        desc = "חדר שינה אחד" if value == 1 else f"{value} חדרי שינה"
+        return {"lodging": {"details": {"rooms": value}}}, desc
+    if field == "lodging_bathrooms":
+        value = result.get("value")
+        if not isinstance(value, int) or value <= 0:
+            return {}, None
+        desc = "חדר רחצה אחד" if value == 1 else f"{value} חדרי רחצה"
+        return {"lodging": {"details": {"bathrooms": value}}}, desc
+    if field == "lodging_locations":
+        value = result.get("value")
+        if not (isinstance(value, str) and value.strip()):
+            return {}, None
+        value = value.strip()
+        desc = f"אזור הלינה - {value}" if value != "אין העדפה" else "אין העדפה לאזור"
+        return {"lodging": {"details": {"locations": value}}}, desc
+    if field == "lodging_budget_or_level":
+        budget = result.get("budget")
+        level = result.get("level")
+        fragment = {}
+        if isinstance(budget, int) and budget > 0:
+            fragment["budget"] = budget
+        elif isinstance(level, str) and level.strip() in ("יוקרתי", "בינוני", "בסיסי", "אין העדפה"):
+            level = level.strip()
+            if raw_message is None or _level_stated_in_message(level, raw_message):
+                fragment["level"] = level
+        if not fragment:
+            return {}, None
+        if fragment.get("level") == "אין העדפה":
+            desc = "אין הגבלת תקציב"
+        elif "budget" in fragment:
+            desc = f"תקציב של {fragment['budget']} ללילה"
+        else:
+            desc = f"רמת לינה {fragment['level']}"
+        return {"lodging": {"details": fragment}}, desc
     return {}, None
 
 
@@ -7295,17 +7989,28 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     attempts = int(guided.get("attempts") or 0)
     changed = False
 
-    for f in ("dates", "travelers"):
-        if f in guided_steps and f not in answered and _guided_field_known_with_confidence(f, trip_update):
+    # Added 2026-10-17 (business owner's decision, relayed via Shlomo, after
+    # Shaked's 014a stage-1 run-1): baggage joins dates/travelers here as a
+    # real guided field - unlike those two (universal to every trip), it
+    # only applies once flights are actually requested (_guided_field_applies).
+    # Extended the same day (PR2) with the five lodging sub-fields, which
+    # share one flag ("lodging") via _guided_step_covers.
+    guided_order = ("dates", "travelers", "baggage") + _LODGING_GUIDED_SUBFIELDS
+    for f in guided_order:
+        if (_guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update)
+                and f not in answered and _guided_field_known_with_confidence(f, trip_update)):
             answered.append(f)
             changed = True
-    if current_question and current_question not in guided_steps:
+    if current_question and not _guided_step_covers(current_question, guided_steps):
         current_question = None
     if not current_question:
         # Resolve the live field BEFORE deciding anything else, so the
         # extraction call below always runs against this message too -
         # including the very first turn, when nothing was asked yet.
-        current_question = next((f for f in ("dates", "travelers") if f in guided_steps and f not in answered), None)
+        current_question = next(
+            (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+            None,
+        )
         attempts = 0
 
     if not current_question:
@@ -7315,21 +8020,24 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
 
     result = _guided_extract_answer(key, model, current_question, message, history, trip_update)
     if result is None:
-        # Fail-safe (spec section 5, last row) - Shaked caught a real
         # regression here (2026-10-17, against 8a58d4e): when the
         # structured call fails for the CURRENT field, only that field
         # fell back to its regex. Any OTHER guided-covered field not yet
-        # answered (e.g. travelers, mentioned in the same first message
-        # while "dates" is still the live field) never got a guided
-        # attempt THIS TURN either - yet its regex was also suppressed,
-        # just for nominally being covered by the flag. Net effect: a
-        # fact main's regex would have caught got silently dropped. Fix:
-        # every dates/travelers field still unanswered falls back too,
-        # not just current_question - exactly like main, whenever the
+        # answered (e.g. travelers, baggage, or a lodging subfield,
+        # mentioned in the same message while a different field is still
+        # live) never got a guided attempt THIS TURN either - yet its
+        # regex was also suppressed, just for nominally being covered by
+        # the flag. Net effect: a fact main's regex would have caught got
+        # silently dropped. Fix: every field still unanswered (and still
+        # applicable, e.g. lodging/baggage only when requested) falls back
+        # too, not just current_question - exactly like main, whenever the
         # model call itself fails.
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
-        fallback_fields = {f for f in ("dates", "travelers") if f in guided_steps and f not in answered}
+        fallback_fields = {
+            f for f in guided_order
+            if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered
+        }
         fallback_fields.add(current_question)
         return {
             "trip_update": trip_update,
@@ -7351,13 +8059,24 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     if fragment:
         trip_update = _merge_trip_state(trip_update, fragment)
     also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
-    other_field = "travelers" if current_question == "dates" else "dates"
-    also_data = also.get(other_field)
-    if isinstance(also_data, dict) and also_data and other_field in guided_steps and other_field not in answered:
-        also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data)
-        if also_fragment:
-            trip_update = _merge_trip_state(trip_update, also_fragment)
-            answered.append(other_field)
+    # Any OTHER field in the full guided_order can turn up in also_mentioned -
+    # not just a narrow dates<->travelers swap or within-lodging set. A field
+    # the live question's own prompt never asked about (e.g. a lodging
+    # sub-field while "baggage" is live) simply has no key in also at all, so
+    # this degrades to a no-op for it; harmless, and avoids a per-field
+    # candidate list going stale every time a new guided field is added.
+    for other_field in guided_order:
+        if other_field == current_question:
+            continue
+        also_data = also.get(other_field)
+        if isinstance(also_data, dict) and also_data and _guided_step_covers(other_field, guided_steps) and other_field not in answered and _guided_field_applies(other_field, trip_update):
+            # A customer who volunteers another field unprompted gets it
+            # filled via also_mentioned and that question is skipped
+            # entirely - taken as final, no separate confirmation turn.
+            also_fragment, _ = _guided_field_update_and_confirm(other_field, also_data, raw_message=message)
+            if also_fragment:
+                trip_update = _merge_trip_state(trip_update, also_fragment)
+                answered.append(other_field)
     confidence = str(result.get("confidence") or "")
     if confidence != "high" or not fragment:
         # Low confidence (or nothing usable extracted despite status=
@@ -7369,15 +8088,22 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     answered.append(current_question)
     changed = True
     if result.get("correction"):
-        field_label = {"dates": "התאריכים", "travelers": "מספר הנוסעים"}.get(
+        field_label = dict(
+            {"dates": "התאריכים", "travelers": "מספר הנוסעים", "baggage": "הכבודה"},
+            **_LODGING_GUIDED_CORRECTION_LABELS,
+        ).get(
             (result.get("correction") or {}).get("field"), "הפרטים"
         )
+        # Dates/travelers invalidate a closed FLIGHT search; a lodging
+        # field invalidates a closed LODGING search - never the other
+        # domain's status.
+        reopen_domain = "lodging" if current_question in _LODGING_GUIDED_SUBFIELDS else "flights"
         statuses = dict(trip_update.get("session_status") or {})
-        if statuses.get("flights") == "complete":
-            # A field a closed flight session already relied on just
-            # changed - reopen it so the summary reflects the new value
-            # before the customer ever approves against stale data.
-            statuses["flights"] = "active"
+        if statuses.get(reopen_domain) == "complete":
+            # A field a closed session already relied on just changed -
+            # reopen it so the summary reflects the new value before the
+            # customer ever approves against stale data.
+            statuses[reopen_domain] = "active"
             trip_update["session_status"] = statuses
             trip_update["ready_for_summary"] = False
         guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
@@ -7385,7 +8111,10 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         return {"trip_update": trip_update, "dynamic_hint": _guided_correction_hint(field_label, confirm_desc)}
     current_question = None
 
-    next_field = next((f for f in ("dates", "travelers") if f in guided_steps and f not in answered), None)
+    next_field = next(
+        (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+        None,
+    )
     guided["current_question"] = next_field
     guided["attempts"] = 0
     guided["answered"] = answered
@@ -9321,7 +10050,20 @@ def _chat_clean_impl():
         # zero behavior change.
         guided_steps = _guided_extraction_steps()
         _guided_regex_fallback_fields = set()
-        if guided_steps:
+        # Per Shaked/Shlomo (stage-3 run-3, Berlin: a genuine production loop -
+        # the same guided question asked 10 times in a row after the customer
+        # had already declined the car, with every other domain already
+        # complete/declined too): once every domain is decided, there is
+        # nothing left to guide - the only correct reply from here on is the
+        # final summary, never another guided question. State alone (every
+        # domain already decided) is enough to know this, regardless of
+        # whatever the guided dispatcher's own internal bookkeeping still
+        # thinks is outstanding.
+        _all_domains_already_decided = all(
+            str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
+            for _s in ("flights", "lodging", "car", "trip_planning")
+        )
+        if guided_steps and not _all_domains_already_decided:
             guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
             if guided_turn is not None:
                 trip_update = guided_turn["trip_update"]
@@ -9388,7 +10130,15 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
         trip_update = _merge_trip_state(trip_update, _baggage_answer_by_meaning(message, history, trip_update))
-        trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message))
+        if "baggage" not in guided_steps or "baggage" in _guided_regex_fallback_fields:
+            _baggage_travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
+            try:
+                _baggage_traveler_count = sum(
+                    max(0, int(_baggage_travelers.get(k) or 0)) for k in ("adults", "children", "infants")
+                )
+            except (TypeError, ValueError):
+                _baggage_traveler_count = 0
+            trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message, _baggage_traveler_count))
         trip_update = _merge_trip_state(trip_update, _deterministic_connection_preference_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
@@ -9396,7 +10146,12 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_update, _deterministic_trip_planning_pace_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_car_vehicle_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_car_location_facts(message, history))
-        trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
+        # Task 014a extended to lodging: once GUIDED_EXTRACTION_STEPS covers
+        # "lodging", the guided flow above is the source of truth for all
+        # five lodging sub-fields instead of this regex - same zero-change-
+        # when-off principle as dates/travelers.
+        if "lodging" not in guided_steps or (_guided_regex_fallback_fields & set(_LODGING_GUIDED_SUBFIELDS)):
+            trip_update = _merge_trip_state(trip_update, _deterministic_lodging_facts(message, history))
         trip_update = _protect_lodging_locations_from_car_reply(trip_state, trip_update, message)
         # Resolved against trip_update (the current, post-deterministic-
         # merge state) so the model is only ever handed gaps the fast
@@ -9820,6 +10575,14 @@ def _chat_clean_impl():
                 reply = _call_tinkerbell(key, model, history, message, forced_state)
             except Exception as exc:
                 logging.exception("Tinkerbell reply failed on missing-final-summary retry: %s", exc)
+            # The retry above is not a guarantee (seen live, Shaked, Paris -
+            # see _final_summary_fallback_text's own docstring for the exact
+            # transcript). Never let a reply that still isn't the real final
+            # summary/approval reach the customer once state alone already
+            # proves every domain is decided - mirrors the premature-מאשרת
+            # safety net's own last-resort deterministic substitution below.
+            if not any(p in str(reply or "") for p in ("מאשר", "חופשה נעימה")):
+                reply = _final_summary_fallback_text(trip_update)
 
         if planning_accept:
             # Per Shaked's stage-2 run-1 finding (4/5, main 5b46648): a bare

@@ -293,7 +293,12 @@ MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 # only an emergency override (set it to turn fields off, or to test a
 # different subset temporarily; setting it to an empty string is the
 # kill switch). Extend this list only as each field passes Shaked's QA.
-GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers"
+# "baggage" and "lodging" added live in the SAME PR that introduces each
+# (Shlomo, 2026-10-17): Shaked approves every 014 field before its PR
+# merges regardless, so there is no live-site exposure risk in defaulting
+# it on immediately - requiring a separate Render env var first would need
+# the business owner herself, for no added safety.
+GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers,baggage,lodging"
 
 # Deployment helpers materialize source changes during the build. Importing those
 # mutation scripts at application startup made a second process try to patch the

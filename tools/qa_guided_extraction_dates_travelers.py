@@ -100,8 +100,8 @@ def _fake_post_claude_factory(guided_response):
 # =====================================================================
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
 import config as _config
-check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers",
-      chat._guided_extraction_steps() == {"dates", "travelers"})
+check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+baggage+lodging",
+      chat._guided_extraction_steps() == {"dates", "travelers", "baggage", "lodging"})
 check("the Render env var, when actually set, overrides the code default (empty = kill switch)",
       (lambda: (os.environ.__setitem__("GUIDED_EXTRACTION_STEPS", ""), chat._guided_extraction_steps() == set(), os.environ.pop("GUIDED_EXTRACTION_STEPS", None))[1])())
 
