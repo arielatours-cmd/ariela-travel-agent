@@ -51,9 +51,15 @@ yes/no interpretation (turn 2, "כן") is still fully deterministic/regex-
 based. The new-vacation language detector for turn 1 is NOT anymore: per
 Shlomo's later follow-up (18.10, task/resume-live-reset-and-one-question),
 _reset_intent's fixed phrase list was removed from this gate entirely -
-only the model classifier (_interpret_pending_choice) decides now, per the
-business owner's 18.10 directive. Turn 1 therefore patches _post_claude
-for source="classifier" so the test does not depend on a real network call.
+only the model decides now, per the business owner's 18.10 directive. A
+further PR #85 review (Shaked, 18.10) moved that decision from a
+DEDICATED classifier call into the SAME state_extractor call that already
+runs every turn (restart_request/restart_evidence, siblings of
+trip_update in EXTRACTOR_SYSTEM's JSON output - see
+_parse_restart_signal) to avoid doubling the model calls on every turn
+with vacation progress. Turn 1 therefore patches _post_claude for
+source="state_extractor" so the test does not depend on a real network
+call.
 
 Run: python3 tools/qa_cyprus_resume_and_single_save_point.py
 """
@@ -240,12 +246,16 @@ stale_history = [
 database.save_ariella_conversation(wa_member_id, stale_history, stale_state)
 
 def _fake_post_claude_classifier(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
-    if source != "classifier":
+    if source != "state_extractor":
         return "{}"
+    # Per Shaked's PR #85 review (18.10): restart_request/restart_evidence
+    # ride this SAME call's JSON output (siblings of trip_update), not a
+    # separate classifier call - see EXTRACTOR_SYSTEM/_parse_restart_signal.
     text = str(message or "").split("תשובת הלקוח:", 1)[-1].strip()
-    if "question_kind=new_vacation" in str(message or "") and ("חדש" in text or "אחר" in text):
-        return "NEW"
-    return "UNCLEAR"
+    for phrase in ("טיול חדש", "חופשה חדשה", "טיול אחר", "חדש ונפרד"):
+        if phrase in text:
+            return json.dumps({"trip_update": {}, "restart_request": True, "restart_evidence": phrase})
+    return "{}"
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_classifier):

@@ -33,6 +33,7 @@ Run: python3 tools/qa_reset_gate_preserves_trip_type_and_specific_resort.py
 """
 import os
 import sys
+import json
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -72,18 +73,20 @@ check("trip_type (ski) is extracted from the same message",
 # --- 2. End to end: the reset-confirmation flow preserves both ---
 # Per Shlomo's follow-up (18.10, task/resume-live-reset-and-one-question):
 # the reset-confirmation gate no longer has a phrase-list short-circuit at
-# all - it fires ONLY on the model classifier's own "NEW" verdict (source=
-# "classifier"), so this fake must answer that call like the real model
-# would for MESSAGE's explicit "חופשה חדשה ונפרדת" ("new and separate
-# vacation") wording.
+# all. A further PR #85 review (Shaked, 18.10) then moved the restart
+# signal itself out of a dedicated classifier call and into the SAME
+# state_extractor call that already runs every turn (restart_request/
+# restart_evidence, siblings of trip_update in EXTRACTOR_SYSTEM's JSON -
+# see _parse_restart_signal), to avoid doubling the model calls per turn.
+# This fake must answer that call like the real model would for MESSAGE's
+# explicit "חופשה חדשה ונפרדת" ("new and separate vacation") wording.
 def _fake_post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
-        return "{}"
-    if source == "classifier":
         text = str(message or "").split("תשובת הלקוח:", 1)[-1].strip()
-        if "question_kind=new_vacation" in str(message or "") and ("חדש" in text or "אחר" in text):
-            return "NEW"
-        return "UNCLEAR"
+        for phrase in ("טיול חדש", "חופשה חדשה", "טיול אחר", "חדש ונפרד"):
+            if phrase in text:
+                return json.dumps({"trip_update": {}, "restart_request": True, "restart_evidence": phrase})
+        return "{}"
     return "תשובה לדוגמה."
 
 

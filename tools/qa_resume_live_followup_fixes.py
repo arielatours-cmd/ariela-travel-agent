@@ -8,16 +8,24 @@ Shlomo as a separate PR on top of the merged main (897152c):
    restart request at all - guided kept right on asking about the flight
    budget. Per the business owner's 18.10 directive (understanding by the
    model, never a phrase list): this REPLACES the list as the source of
-   truth for the reset-confirmation gate. An earlier version of this fix
-   kept the old list as an "or" short-circuit (reasoning it could only
-   ever confirm a restart faster, never suppress one) - Shlomo (relaying
-   the business owner) rejected that too: the list still decided the
-   outcome on its own whenever it matched, without the model, which is
-   exactly the pattern 18.10 forbids regardless of direction. The gate now
-   calls ONLY `_interpret_pending_choice` (the model classifier), gated on
-   `_has_vacation_progress` so there's nothing to consult the model about
-   on a blank state. `_reset_intent` itself is unchanged and still unit-
-   tested as a plain phrase detector, but this gate no longer calls it.
+   truth for the reset-confirmation gate. Two further iterations after
+   that first fix, both from Shlomo relaying review feedback (18.10):
+   (a) keeping the old list as an "or" short-circuit (reasoning it could
+   only ever confirm a restart faster, never suppress one) was rejected -
+   the list still decided the outcome on its own whenever it matched,
+   without the model, exactly the pattern 18.10 forbids regardless of
+   direction; (b) replacing it with a DEDICATED `_interpret_pending_choice`
+   classifier call was then rejected by Shaked's PR #85 review - that call
+   ran on every turn with vacation progress, doubling the model calls per
+   turn (turns already near 28s, cutoff 30s). The restart signal now rides
+   the SAME single state_extractor call that already runs for most turns
+   (restart_request/restart_evidence, folded into EXTRACTOR_SYSTEM's own
+   JSON output - see `_parse_restart_signal`), gated on
+   `_has_vacation_progress` and a genuinely verbatim evidence quote
+   (`_value_has_verbatim_evidence`, the same check used for every other
+   evidence field) - zero extra model calls either way. `_reset_intent`
+   itself is unchanged and still unit-tested as a plain phrase detector,
+   but nothing in this gate calls it anymore.
 
 2. L1: the opening question to a brand-new customer ("מה בא לך לתכנן
    הפעם: חופשה רגילה, נסיעת עסקים, או אולי חופשת סקי?") is an "X, Y או Z"
@@ -128,7 +136,10 @@ check("general: _guided_ask_hint tells Tinkerbell never to enumerate a field's o
 #     (still directly unit-tested elsewhere via qa/cases.json) - but per
 #     Shlomo's follow-up instruction (18.10, after the first version of
 #     this fix kept it as an "or" short-circuit), the reset-confirmation
-#     gate no longer calls it at all. Only the model classifier decides.
+#     gate no longer calls it at all. Only the model's own restart signal
+#     (now folded into the single state_extractor call - see
+#     tools/qa_restart_signal_no_extra_model_call.py for the call-count
+#     regression) decides.
 # =====================================================================
 check("regression: _reset_intent itself still matches its existing fixed phrases (the function is untouched)",
       chat._reset_intent("חופשה חדשה") is True)
@@ -146,21 +157,23 @@ def _customer_text(message):
     return str(message or "").split("תשובת הלקוח:", 1)[-1].strip()
 
 
+_RESTART_PHRASES = ("טיול חדש", "חופשה חדשה", "טיול אחר", "חדש ונפרד")
+
+
 def _fake_post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     if source == "tinkerbell_reply":
         return "תשובה כלשהי."
     if source == "state_extractor":
+        # Per Shaked's later PR #85 review (18.10): restart_request/
+        # restart_evidence now ride this SAME call's JSON output (siblings
+        # of trip_update), not a separate classifier call - see
+        # ariella_chat_clean.py's EXTRACTOR_SYSTEM/_parse_restart_signal.
+        text = _customer_text(message)
+        hit = next((p for p in _RESTART_PHRASES if p in text), None)
+        if hit:
+            return json.dumps({"trip_update": {}, "restart_request": True, "restart_evidence": hit})
         return "{}"
-    if source != "classifier":
-        return "{}"
-    text = _customer_text(message)
-    if "question_kind=new_vacation" in str(message or ""):
-        if any(w in text for w in ("חדש", "אחר")):
-            return "NEW"
-        if any(w in text for w in ("להמשיך", "קיים", "שכבר")):
-            return "KEEP"
-        return "UNCLEAR"
-    return "UNCLEAR"
+    return "{}"
 
 
 m8 = _make_member("qa-resume-live-r8@example.com")
@@ -213,11 +226,15 @@ check("regression: an ordinary continuing answer never falsely triggers the rese
 # 4. Shlomo's follow-up (18.10, after the first version of this fix):
 #    _reset_intent matching is no longer enough on its own to fire the
 #    gate - "נתחיל מהתחלה" is literally in _reset_intent's fixed phrase
-#    list (confirmed above), but contains neither "חדש"/"אחר" nor
-#    "להמשיך"/"קיים"/"שכבר", so the fake classifier returns "UNCLEAR" for
-#    it. Before this follow-up, the gate's "or _reset_intent(message)"
-#    would have fired anyway, from the list alone, without the model. It
-#    must NOT fire now - only the model's own classification decides.
+#    list (confirmed above), but the fake extractor above only sets
+#    restart_request=True for _RESTART_PHRASES, none of which this message
+#    contains, so it returns no restart signal at all for it (matching
+#    what the real model is instructed to do: no genuine verbatim evidence
+#    of a restart in THIS message means restart_request stays false).
+#    Before this follow-up, the gate's "or _reset_intent(message)" would
+#    have fired anyway, from the list alone, without the model. It must
+#    NOT fire now - only the single extractor call's own restart signal
+#    decides, never the list.
 # =====================================================================
 m_listonly = _make_member("qa-resume-live-listonly@example.com")
 database.save_ariella_conversation(m_listonly, [
@@ -229,8 +246,8 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
 state_listonly = (database.load_ariella_conversation(m_listonly) or {}).get("trip_state") or {}
 check("precondition: 'נתחיל מהתחלה' is in _reset_intent's own fixed phrase list",
       chat._reset_intent("נתחיל מהתחלה") is True)
-check("regression: the list matching alone no longer fires the gate when the model classifier says UNCLEAR - "
-      "the list is not consulted by this gate at all anymore, only _interpret_pending_choice is",
+check("regression: the list matching alone no longer fires the gate when the single extractor call's own "
+      "restart signal doesn't flag it - the list is not consulted by this gate at all anymore",
       not state_listonly.get("reset_pending"))
 
 if FAILED:

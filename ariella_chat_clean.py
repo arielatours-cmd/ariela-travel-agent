@@ -271,6 +271,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - כנ"ל לגבי car.details.vehicle_type: השדה נשאר ריק עד שהלקוח עצמו ציין סוג/גודל רכב (קטן, משפחתי, SUV, ג'יפ וכו'; "אוטומטי"/"ידני" שייכים ל-transmission ולא לכאן) או אמר במפורש שכל רכב מתאים לו/שאין העדפה. לעולם אל תמלאי אותו לבד ממספר הנוסעים, מהכבודה או מברירת מחדל - זה בדיוק כמו לנחש תקציב, ומונע מהלקוח לענות על שאלה שמעולם לא נשאלה.
 - lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט איך הכבודה המוזנת מתחלקת בין הנוסעים - {"checked_bag":{"count":מספר|null,"unit":"total"|"per_person"|"per_couple"|null}}) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
 - trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
+- restart_request ו-restart_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים כוונה לנטוש את התכנון הנוכחי ולהתחיל חופשה חדשה ונפרדת לגמרי - לא שינוי פרט בודד (יעד/תאריכים/תקציב וכו') בתוך אותה חופשה הנמשכת. restart_request=true רק כשההודעה הנוכחית של הלקוח (לא הודעה קודמת) מבטאת בבירור רצון להתחיל מחדש/חופשה אחרת/טיול נפרד (למשל "אני רוצה להתחיל טיול אחר", "חופשה חדשה ונפרדת", "תשכחי מהכל, בואי נתחיל מאפס") ולא כשהוא רק משנה פרט אחד בחופשה הקיימת. בדיוק כמו lodging.details.level_evidence: כשrestart_request=true מלאי את restart_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; אם אין ציטוט אמיתי כזה, restart_request נשאר false ו-restart_evidence נשאר null. ברירת המחדל היא false/null.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
 - כאשר הלקוח ביקש שאריאלה תבחר את אתר הסקי (לא ציין אתר ספציפי מהרשימה המוכרת), עדיפות ראשונה היא לדבר באופן כללי ("ליד ההר", "באזור האתר שייבחר") עד שאתר אמיתי מהקטלוג נבחר בפועל. שם אתר שהוזכר בטקסט חופשי בלבד, בלי להתבסס על ski.resort_names, אסור שייכנס ל-destination.places - זה בדיוק כמו לנחש תקציב או רכב, ובעבר הוביל לשם הר מתועתק גרוע שנשמר ככותרת החופשה בפועל.
@@ -319,7 +320,9 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "car":{"interested":"unknown","details":{"vehicle_type":null,"transmission":null,"seats":null,"pickup":null,"return":null,"luggage_capacity_confirmed":false}},
   "trip_planning":{"interested":"unknown","details":{}},
   "ski":{"skill_level":null,"priorities":[],"transfer_choice":null}
- }
+ },
+ "restart_request":false,
+ "restart_evidence":null
 }
 '''
 
@@ -689,6 +692,28 @@ def _normalize_trip_planning_style(trip_update):
     trip_update = dict(trip_update)
     trip_update["trip_planning"] = dict(planning, details=dict(details, style=_to_hebrew_display(details["style"])))
     return trip_update
+
+
+def _parse_restart_signal(text):
+    """Pull restart_request/restart_evidence (siblings of trip_update, not
+    inside it) out of the SAME raw JSON the extractor already returned every
+    turn - per Shaked's PR #85 review (18.10): a separate, serial
+    _interpret_pending_choice call before this one doubled the model calls
+    on every turn with vacation progress, pushing turns already near 28s
+    toward the 30s cutoff. Folding the restart signal into the one call
+    that already runs removes that extra round trip entirely. Defaults to
+    (False, None) on any parse failure - a restart is never ASSUMED just
+    because the response was unparseable."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return bool(data.get('restart_request')), data.get('restart_evidence')
+    except Exception:
+        pass
+    return False, None
 
 
 def _parse_trip_update(text):
@@ -3665,6 +3690,15 @@ def _call_tinkerbell(key, model, history, message, state=None):
 
 
 def _extract_trip_update(key, model, history, message, state=None):
+    """Returns (trip_update_dict, restart_request, restart_evidence).
+
+    restart_request/restart_evidence are folded into this SAME call's JSON
+    output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
+    separate classifier call - per Shaked's PR #85 review (18.10): a
+    dedicated _interpret_pending_choice call before this one doubled the
+    model calls on every turn with vacation progress, pushing turns already
+    near 28s toward the 30s cutoff. On any failure (including a parse
+    failure), both default to (False, None) - a restart is never assumed."""
     try:
         gateway_hint = _multi_gateway_hint(state)
         gateway_hint_text = ""
@@ -3694,9 +3728,10 @@ def _extract_trip_update(key, model, history, message, state=None):
         parsed = _parse_trip_update(raw)
         parsed = _validate_lodging_level_against_message(parsed, state, message)
         parsed = _validate_baggage_detail_against_message(parsed, state, message)
-        return parsed
+        restart_request, restart_evidence = _parse_restart_signal(raw)
+        return parsed, restart_request, restart_evidence
     except Exception:
-        return {}
+        return {}, False, None
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
@@ -10129,83 +10164,12 @@ def _chat_clean_impl():
 
     # General restart/change-of-direction always enters a simple yes/no gate.
     # Never erase collected trip facts before an explicit confirmation.
-    #
-    # Per Shaked's live finding on PR #84 (18.10.2026, pre-existing on main
-    # too): "אני רוצה לתכנן טיול חדש" on a genuinely blank state - a brand-
-    # new member with zero trips, or right after the resume-choice flow
-    # itself already classified the very same message as "new" and moved
-    # on - still asked "למחוק את כל הפרטים ולהתחיל חופשה חדשה מאפס?" (want
-    # to delete everything and start from scratch?), with nothing at all
-    # to actually delete. _reset_intent only ever looks at the MESSAGE's
-    # own wording; it has no idea whether trip_state holds anything worth
-    # confirming before clearing. _has_vacation_progress (already relied
-    # on by the stale-session auto-reset above) is the one existing check
-    # for exactly that - gate the whole confirmation gate on it, so an
-    # already-blank state falls straight through to a plain new-vacation
-    # opening instead of asking permission to delete nothing.
-    # Per Shaked's live finding (18.10, qa/reports/2026-10-18-resume-live.md,
-    # R8): _reset_intent is a fixed phrase list, so "רגע, אני רוצה להתחיל
-    # טיול אחר" ("wait, I want to start a different trip") was never
-    # recognized at all - guided kept right on asking about the budget.
-    # Against the business owner's 18.10 directive (understanding by the
-    # model, never a phrase list): this REPLACES the list as the source of
-    # truth for this gate, full stop. An earlier version of this fix kept
-    # _reset_intent's own exact-phrase match as an "or" short-circuit,
-    # reasoning it could only ever confirm a positive faster, never suppress
-    # one. Shlomo (relaying the business owner, 18.10) rejected that: the
-    # list still DECIDES the outcome on its own, without the model, for
-    # every message it happens to match - which is exactly the "word list
-    # decides what the customer meant" pattern the 18.10 directive forbids,
-    # regardless of whether it only ever fires in the "safe" direction. The
-    # model is consulted at all only once there is real progress worth
-    # protecting (_has_vacation_progress) - a blank state has nothing a
-    # reset gate needs to confirm away in the first place (see the fix just
-    # above). _reset_intent itself still exists and is still unit-tested as
-    # a plain phrase detector, but nothing in this gate calls it anymore.
-    _restart_intent = (
-        _has_vacation_progress(trip_state)
-        and _interpret_pending_choice(key, model, history, message, "new_vacation") == "new"
-    )
-    if _restart_intent and not trip_state.get("reset_pending") and not own_pending_question and _has_vacation_progress(trip_state):
-        pending = dict(trip_state)
-        pending["reset_pending"] = True
-        pending["reset_change_request"] = message
-        # Narrowing to a flights-only reset must require the customer to
-        # actually SAY it's just the flight - defaulting to "flights-only
-        # whenever flights happen to already be complete and nothing else is
-        # active" was wrong far more often than right. Seen live repeatedly:
-        # a customer restarting after an already-approved ski vacation always
-        # matches that exact session shape (flights complete, nothing else
-        # active) even when she is plainly describing an entirely different
-        # trip (destination, dates, trip type) - a flights-only reset only
-        # clears flight-search fields, so trip_type/destination/ski state
-        # (and anything else outside that narrow field list) silently
-        # survives and keeps leaking into what she clearly means as a new
-        # vacation. Trying to enumerate every "I mean everything" phrasing
-        # ("הכל"/"הכול"/"לגמרי"/"מהיסוד"...) chased one live failure at a
-        # time without fixing the actual default. A full vacation reset is
-        # the safe default instead: at worst it re-asks a fact the customer
-        # would have repeated anyway; a wrongly-scoped flights-only reset
-        # silently keeps wrong facts she never gets a chance to correct.
-        explicit_flight_only = any(
-            w in str(message or "") for w in ("רק את הטיסה", "רק הטיסה", "רק פרטי הטיסה", "רק טיסה", "רק תאריכי הטיסה")
-        )
-        flight_only_reset = explicit_flight_only
-        pending["reset_scope"] = "flights" if flight_only_reset else "vacation"
-        # Per product owner: one plain yes/no question only - do not spell
-        # out the alternative ("or keep everything and just change X") in
-        # the question itself. The answer alone decides which path runs.
-        question = (
-            "למחוק את פרטי הטיסה ולהתחיל מחדש?"
-            if flight_only_reset else
-            "למחוק את כל הפרטים ולהתחיל חופשה חדשה מאפס?"
-        )
-        return _reply({
-            'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-            'reply':question,
-            'trip_update':pending,'start_flight_search':False
-        })
-
+    # Per Shaked's PR #85 review (18.10): the restart signal itself is no
+    # longer detected here via a dedicated model call - it now rides the
+    # single state_extractor call that already runs for this turn further
+    # below (restart_request/restart_evidence, folded into EXTRACTOR_SYSTEM's
+    # own JSON output), and this whole gate is checked right after that call
+    # returns. See the comment there for the full history of this fix.
     if trip_state.get("reset_pending"):
         msg_norm = str(message or "").strip().lower()
         # Carmit flagged this live (2026-10-15): a tiny exact-string set here
@@ -10601,7 +10565,82 @@ def _chat_clean_impl():
     try:
         # Tinkerbell's data-transfer pass tells Ariella what changed.
         # Ariella owns and merges the cumulative state.
-        extracted = _extract_trip_update(key, model, history, message, trip_state)
+        extracted, restart_request, restart_evidence = _extract_trip_update(key, model, history, message, trip_state)
+
+        # General restart/change-of-direction always enters a simple yes/no
+        # gate first. Never erase collected trip facts before an explicit
+        # confirmation.
+        #
+        # Per Shaked's live finding on PR #84 (18.10.2026, pre-existing on
+        # main too): "אני רוצה לתכנן טיול חדש" on a genuinely blank state -
+        # a brand-new member with zero trips, or right after the resume-
+        # choice flow itself already classified the very same message as
+        # "new" and moved on - still asked "למחוק את כל הפרטים ולהתחיל
+        # חופשה חדשה מאפס?", with nothing at all to actually delete.
+        # _has_vacation_progress (already relied on by the stale-session
+        # auto-reset above) gates the whole confirmation gate on that, so
+        # an already-blank state falls straight through to a plain new-
+        # vacation opening instead of asking permission to delete nothing.
+        #
+        # Per Shaked's live finding (18.10, qa/reports/2026-10-18-resume-
+        # live.md, R8) and her later PR #85 review (18.10): the restart
+        # signal is the model's own classification, never a phrase list -
+        # per the business owner's 18.10 directive. The first version of
+        # this fix called a SEPARATE _interpret_pending_choice classifier
+        # here, before the extraction above; Shaked's review caught that
+        # this doubled the model calls on every turn with vacation progress
+        # (turns already near 28s, cutoff 30s). restart_request/
+        # restart_evidence now ride the SAME single extraction call above
+        # (folded into EXTRACTOR_SYSTEM's own JSON output) instead - zero
+        # extra calls. restart_evidence must also be a genuinely verbatim
+        # quote from this message (_value_has_verbatim_evidence, the same
+        # evidence-based check used for every other evidence field) before
+        # the gate is trusted - a model claim with no real quote behind it
+        # is treated exactly like no restart request at all.
+        if (
+            restart_request
+            and _has_vacation_progress(trip_state)
+            and not trip_state.get("reset_pending")
+            and not own_pending_question
+            and _value_has_verbatim_evidence(restart_evidence, message)
+        ):
+            pending = dict(trip_state)
+            pending["reset_pending"] = True
+            pending["reset_change_request"] = message
+            # Narrowing to a flights-only reset must require the customer to
+            # actually SAY it's just the flight - defaulting to "flights-only
+            # whenever flights happen to already be complete and nothing else
+            # is active" was wrong far more often than right. Seen live
+            # repeatedly: a customer restarting after an already-approved ski
+            # vacation always matches that exact session shape (flights
+            # complete, nothing else active) even when she is plainly
+            # describing an entirely different trip (destination, dates,
+            # trip type) - a flights-only reset only clears flight-search
+            # fields, so trip_type/destination/ski state (and anything else
+            # outside that narrow field list) silently survives and keeps
+            # leaking into what she clearly means as a new vacation. A full
+            # vacation reset is the safe default instead: at worst it
+            # re-asks a fact the customer would have repeated anyway; a
+            # wrongly-scoped flights-only reset silently keeps wrong facts
+            # she never gets a chance to correct.
+            explicit_flight_only = any(
+                w in str(message or "") for w in ("רק את הטיסה", "רק הטיסה", "רק פרטי הטיסה", "רק טיסה", "רק תאריכי הטיסה")
+            )
+            pending["reset_scope"] = "flights" if explicit_flight_only else "vacation"
+            # Per product owner: one plain yes/no question only - do not
+            # spell out the alternative in the question itself. The answer
+            # alone decides which path runs.
+            question = (
+                "למחוק את פרטי הטיסה ולהתחיל מחדש?"
+                if explicit_flight_only else
+                "למחוק את כל הפרטים ולהתחיל חופשה חדשה מאפס?"
+            )
+            return _reply({
+                'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                'reply':question,
+                'trip_update':pending,'start_flight_search':False
+            })
+
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
         trip_update = _clear_stale_gateway_airports(trip_update)
