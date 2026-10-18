@@ -230,6 +230,37 @@ reply3f = whatsapp_bridge.ariella_turn(m3f, "אני רוצה לתכנן טיול
 state3f = (database.load_ariella_conversation(m3f) or {}).get("trip_state") or {}
 check("finding 3: 'אני רוצה לתכנן טיול חדש' (no destination at all) resolves straight to new, no ask stage ever set",
       "resume_choice_pending" not in state3f and state3f.get("resume_choice_done") is True)
+# Shaked's live finding on this same PR (18.10): once "new" is classified
+# here and the turn falls through to the NORMAL flow, the state is still
+# genuinely blank (only resume_choice_done got added) - the separate,
+# pre-existing _reset_intent gate must not ALSO fire on this exact same
+# message and ask "delete everything and start from scratch?" when there
+# is nothing real to delete (guarded by _has_vacation_progress).
+check("finding (Shaked, post-classification): the reset-confirmation gate never fires here either - nothing to delete",
+      not state3f.get("reset_pending"))
+
+# The same bug, more directly: a brand-new member with ZERO trips at all
+# (so _has_active_future_trip is False and the resume-choice mechanism
+# above never even engages) must also never hit the reset-confirmation
+# gate on "אני רוצה לתכנן טיול חדש" - this is the exact live bug Shaked
+# found, reproducible on main with no resume-choice flow involved at all.
+m_reset_empty = _make_member("qa-resume-reset-empty@example.com")
+reply_reset_empty = whatsapp_bridge.ariella_turn(m_reset_empty, "אני רוצה לתכנן טיול חדש")
+state_reset_empty = (database.load_ariella_conversation(m_reset_empty) or {}).get("trip_state") or {}
+check("Shaked's finding: a trip-less member's 'אני רוצה לתכנן טיול חדש' never triggers the delete-everything reset gate",
+      not state_reset_empty.get("reset_pending"))
+check("regression: _has_vacation_progress is the actual guard now gating _reset_intent's confirmation gate",
+      chat._has_vacation_progress({}) is False)
+
+# Regression: a genuine reset request on a state that DOES hold real
+# progress still enters the confirmation gate exactly as before - this
+# fix only skips the gate when there is truly nothing to confirm away.
+m_reset_real = _make_member("qa-resume-reset-real@example.com")
+reply_reset_real = whatsapp_bridge.ariella_turn(m_reset_real, "פריז, זוג, יולי")
+reply_reset_real2 = whatsapp_bridge.ariella_turn(m_reset_real, "אני רוצה לתכנן טיול חדש")
+state_reset_real = (database.load_ariella_conversation(m_reset_real) or {}).get("trip_state") or {}
+check("regression: a reset request WITH real progress still asks for confirmation (reset_pending set)",
+      bool(state_reset_real.get("reset_pending")))
 
 m3g = _make_member("qa-resume-finding3b@example.com")
 _seed(m3g, "ק", "ר")

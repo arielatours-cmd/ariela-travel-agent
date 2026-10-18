@@ -9751,7 +9751,21 @@ def _chat_clean_impl():
 
     # General restart/change-of-direction always enters a simple yes/no gate.
     # Never erase collected trip facts before an explicit confirmation.
-    if _reset_intent(message) and not trip_state.get("reset_pending") and not own_pending_question:
+    #
+    # Per Shaked's live finding on PR #84 (18.10.2026, pre-existing on main
+    # too): "אני רוצה לתכנן טיול חדש" on a genuinely blank state - a brand-
+    # new member with zero trips, or right after the resume-choice flow
+    # itself already classified the very same message as "new" and moved
+    # on - still asked "למחוק את כל הפרטים ולהתחיל חופשה חדשה מאפס?" (want
+    # to delete everything and start from scratch?), with nothing at all
+    # to actually delete. _reset_intent only ever looks at the MESSAGE's
+    # own wording; it has no idea whether trip_state holds anything worth
+    # confirming before clearing. _has_vacation_progress (already relied
+    # on by the stale-session auto-reset above) is the one existing check
+    # for exactly that - gate the whole confirmation gate on it, so an
+    # already-blank state falls straight through to a plain new-vacation
+    # opening instead of asking permission to delete nothing.
+    if _reset_intent(message) and not trip_state.get("reset_pending") and not own_pending_question and _has_vacation_progress(trip_state):
         pending = dict(trip_state)
         pending["reset_pending"] = True
         pending["reset_change_request"] = message
