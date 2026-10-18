@@ -3545,18 +3545,21 @@ def _call_tinkerbell(key, model, history, message, state=None):
         listed = "; ".join(
             f"{v.get('name')} ({v.get('window')}"
             + (f", {v.get('travelers')}" if v.get("travelers") else "") + ")"
+            + (f" - כבר סגור: {', '.join(v.get('closed') or [])}" if v.get("closed") else "")
             + (f" - עוד אפשר להוסיף: {', '.join(v.get('missing') or [])}" if v.get("missing") else "")
             for v in upcoming
         )
         continuity += (
             "\n- החופשות הפעילות השמורות של הלקוח (מקור אמת): " + listed + ". "
             "כשהלקוח מדבר על אחד מהיעדים האלה, או מבקש שתבדקי בחופשות שלו, הסתמכי על הנתונים האלה - "
-            "לעולם אל תשאלי שוב על תאריכים, משך או נוסעים שכבר מופיעים כאן."
+            "לעולם אל תשאלי שוב על תאריכים, משך, נוסעים, או כל תחום שמסומן כאן 'כבר סגור' (הם הוכרעו ואין לפתוח אותם מחדש)."
         )
         if not has_destination:
             continuity += (
                 " אם ההודעה היא פתיחה כללית (ברכה, 'היי', שאלה כללית) ולא בקשה ברורה לחופשה חדשה, אל תתחילי חופשה חדשה ואל תשאלי על סוג נסיעה: "
-                "הציעי בקצרה להמשיך עם החופשה הקרובה ולהוסיף לה את מה שחסר, או לתכנן חופשה חדשה. אם הוא מבקש חופשה חדשה או יעד אחר - המשיכי כרגיל."
+                "שאלי שאלה אחת פתוחה - להמשיך עם החופשה הקרובה (ולהוסיף לה את מה שחסר) או לתכנן חופשה חדשה - בניסוח שלך, בלי כפתורים, "
+                "ורק הציעי וחכי לתשובת הלקוח; אל תמשיכי בתכנון בעצמך (אל תשאלי את השאלה הבאה בחופשה הקיימת, ולא על סוג נסיעה חדשה) לפני שהוא בוחר. "
+                "אם הוא מבקש חופשה חדשה או יעד אחר - המשיכי כרגיל."
             )
     decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
     not_asked = [
@@ -8155,6 +8158,35 @@ def _service_missing_on_trip(answers, service):
     return False
 
 
+def _service_decided_on_trip(answers, service):
+    """Per the business owner's 2026-10-18 Cyprus-resume finding (qa/
+    reports/2026-10-18-cyprus-resume.md): a service the customer already
+    decided on - explicitly declined, or already completed - is NOT the
+    same thing as a service _service_missing_on_trip calls "missing" (that
+    function only checks whether a search ran/fields were ever filled, and
+    has no idea the customer was asked and said no). Reopening Cyprus
+    (flights-only, lodging/car/trip_planning all declined) kept getting
+    proactively offered on every bare "הי" because its three OTHER
+    services were still "missing" by that narrower test, with no account
+    taken of the decline at all.
+
+    Deliberately a SEPARATE check from _service_missing_on_trip, not a
+    change to it: _service_missing_on_trip's own permissive answer is still
+    exactly right for an EXPLICIT customer request to add that service to
+    an existing trip ("להוסיף לינה לקפריסין") - a customer asking for it
+    now overrides an earlier decline, so that path must keep working
+    unchanged. This check is only for the PROACTIVE case (which saved
+    vacations does Ariella herself offer to continue) - see
+    _reopenable_trips's own exclude_decided parameter."""
+    answers = answers if isinstance(answers, dict) else {}
+    status = (answers.get("_session_status") or {}).get(service)
+    if status in ("declined", "complete"):
+        return True
+    trip_state = answers.get("_ariella_trip_state") if isinstance(answers.get("_ariella_trip_state"), dict) else {}
+    decision = (trip_state.get("service_decisions") or {}).get(service)
+    return isinstance(decision, dict) and decision.get("wanted") is False
+
+
 def _known_place_names():
     names = set(d["name"] for d in DESTINATIONS)
     for airport in _load_airports():
@@ -8218,10 +8250,19 @@ def _place_codes(names):
     }
 
 
-def _reopenable_trips(member_id, service, message, limit=3):
+def _reopenable_trips(member_id, service, message, limit=3, exclude_decided=False):
     """The customer's upcoming active vacations that don't have `service`
     yet - candidates for "add lodging/car/route to an existing vacation".
-    If the message names a place, only vacations to that place count."""
+    If the message names a place, only vacations to that place count.
+
+    exclude_decided (per the business owner's 2026-10-18 Cyprus-resume
+    finding): when True, also drops a trip where the customer already
+    explicitly declined `service` (or it's already complete) -
+    _service_missing_on_trip alone doesn't know that. Only _upcoming_
+    vacations (Ariella PROACTIVELY offering to continue a saved trip)
+    passes this; an explicit "add lodging to Cyprus" request keeps the
+    permissive default, since asking for it now overrides an earlier
+    decline."""
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.row_factory = sqlite3.Row
@@ -8255,6 +8296,8 @@ def _reopenable_trips(member_id, service, message, limit=3):
         if not dep and not month:
             continue
         if not _service_missing_on_trip(answers, service):
+            continue
+        if exclude_decided and _service_decided_on_trip(answers, service):
             continue
         name = str(row["request_name"] or "").strip()
         if mentioned:
@@ -8337,17 +8380,34 @@ def _upcoming_vacations(member_id, limit=3):
     """The customer's upcoming active vacations and which of lodging/car/
     route each still lacks - so a customer coming back after "not now"
     is offered to continue that vacation instead of being greeted as if
-    starting from scratch (seen live with a New York trip)."""
+    starting from scratch (seen live with a New York trip).
+
+    Per the business owner's 2026-10-18 Cyprus-resume finding: a trip
+    whose remaining services were all explicitly DECLINED (not actually
+    missing, just never wanted) must never be proactively offered at all -
+    _reopenable_trips's exclude_decided=True drops it from every one of
+    the 3 service passes below, so a fully-decided trip naturally never
+    makes it into the result (never ends up "the only open one" the way
+    the live Cyprus bug did). `closed` lists what's already settled on
+    each remaining trip (flights always, since a trip_requests row only
+    ever exists once a flight search actually launched - see
+    _state_from_trip's own hard-coded flights='complete') - the
+    continuity hint below uses it to tell Tinkerbell exactly what never to
+    ask about again."""
     seen, result = set(), []
     for service in ("lodging", "car", "trip_planning"):
-        for trip in _reopenable_trips(member_id, service, "", limit=20):
+        for trip in _reopenable_trips(member_id, service, "", limit=20, exclude_decided=True):
             if trip["id"] in seen:
                 continue
             seen.add(trip["id"])
             answers = trip["answers"]
             missing = [
                 _REOPEN_LABELS[s] for s in ("lodging", "car", "trip_planning")
-                if _service_missing_on_trip(answers, s)
+                if _service_missing_on_trip(answers, s) and not _service_decided_on_trip(answers, s)
+            ]
+            closed = ["טיסות"] + [
+                _REOPEN_LABELS[s] for s in ("lodging", "car", "trip_planning")
+                if _service_decided_on_trip(answers, s)
             ]
             ages = answers.get("age_groups") or []
             travelers = ""
@@ -8355,7 +8415,7 @@ def _upcoming_vacations(member_id, limit=3):
                 travelers = f"{answers.get('adults')} מבוגרים"
                 if answers.get("children"):
                     travelers += f", {answers.get('children')} ילדים" + (f" (גילאים {', '.join(str(a) for a in ages)})" if ages else "")
-            result.append({"name": trip["name"], "window": trip["window"], "travelers": travelers, "missing": missing})
+            result.append({"name": trip["name"], "window": trip["window"], "travelers": travelers, "missing": missing, "closed": closed})
     return result[:limit]
 
 
@@ -8549,19 +8609,6 @@ def _member_profile(member_id):
     }
 
 
-def _remember_turn_reset_trip(member_id, history, message, reply, fresh_trip_state):
-    """Used on a new-vacation boundary: this turn still joins the one
-    continuous conversation history, but the structured vacation data
-    starts over. The conversation itself is never erased."""
-    try:
-        existing = load_ariella_conversation(member_id)
-        full_history = list((existing or {}).get('history') or history) + [
-            {'role': 'user', 'content': message},
-            {'role': 'assistant', 'content': reply},
-        ]
-        save_ariella_conversation(member_id, full_history[-80:], fresh_trip_state)
-    except Exception:
-        logging.exception("Failed to persist Ariella conversation reset for member %s", member_id)
 
 
 # Per product owner: a customer who goes quiet mid-planning and comes back
@@ -8726,6 +8773,51 @@ def _chat_clean_impl():
     # were just cleared from trip_state would simply be re-mined straight
     # back out of the old messages (seen live, in testing this exact fix).
     history_before_gap = history
+    _member_id = session['member_id']
+
+    def _reply(payload, status=None):
+        """The single exit point for every successful turn below (per
+        Shaked/Shlomo's 2026-10-18 Cyprus-resume root cause, qa/reports/
+        2026-10-18-cyprus-resume.md): this function used to have ~10
+        different places that each decided for themselves whether to
+        persist the turn - most of its many `return jsonify(...)` branches
+        (the reset gate question itself among them) did NOT save at all,
+        while a handful called _remember_turn_reset_trip (now removed) or
+        save_ariella_conversation directly. In WhatsApp, which reloads the
+        whole conversation from the server on every single turn, an
+        unsaved reply (like the reset gate's own question) is invisible to
+        the very next turn - exactly how "למחוק ולהתחיל מאפס?" -> "כן" got
+        read as an answer to a stale, already-answered flight question
+        instead, with guided then moving straight to baggage. Every branch
+        below now returns through here instead of calling jsonify
+        directly, and NO branch saves on its own anymore - search this
+        function for 'save_ariella_conversation' or
+        '_remember_turn_reset_trip' and there should be nothing left.
+
+        Re-reads the conversation from the DB rather than trusting the
+        in-memory `history`/`history_before_gap` alone - matching
+        _remember_turn_reset_trip's own established pattern - so a
+        same-account concurrent request is appended after, never clobbered.
+        Only a genuine 'success' reply is persisted; an error response
+        (400/401/503) means nothing actually happened this turn."""
+        if payload.get('status') == 'success' and payload.get('reply') is not None:
+            try:
+                existing = load_ariella_conversation(_member_id)
+                base_history = (existing or {}).get('history') or history_before_gap
+                full_history = list(base_history) + [
+                    {'role': 'user', 'content': message},
+                    {'role': 'assistant', 'content': payload.get('reply')},
+                ]
+                trip_update_to_save = payload.get('trip_update')
+                save_ariella_conversation(
+                    _member_id, full_history[-80:],
+                    trip_update_to_save if isinstance(trip_update_to_save, dict) else {},
+                )
+            except Exception:
+                logging.exception("Failed to persist Ariella conversation turn for member %s", _member_id)
+        resp = jsonify(payload)
+        return (resp, status) if status else resp
+
     _idle_minutes = _minutes_since((saved_conversation or {}).get('updated_at'))
     stale_reset_happened = False
     if _idle_minutes is not None and _idle_minutes >= _STALE_SESSION_MINUTES and _has_vacation_progress(trip_state):
@@ -8837,15 +8929,7 @@ def _chat_clean_impl():
                 f"כבר יש לך חופשה פעילה ל{_label or 'היעד הזה'} בתאריכים האלה, והתוצאות מחכות לך ב\"החופשות שלי\". "
                 "אם תרצי שאמשיך לעקוב ולעדכן אותך על מחירים טובים יותר, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה."
             )
-            try:
-                saved_history = list(history_before_gap) + [
-                    {'role': 'user', 'content': message},
-                    {'role': 'assistant', 'content': reply},
-                ]
-                save_ariella_conversation(session['member_id'], saved_history[-80:], {})
-            except Exception:
-                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
-            return jsonify({
+            return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': reply, 'trip_update': {}, 'start_flight_search': False,
                 'redirect_url': f'/account#vacation-{_trip_id}',
@@ -8883,7 +8967,7 @@ def _chat_clean_impl():
                 f"כן, זוכרת! {trip['request_name']} ({_he_window(trip)}). "
                 "אפשר להמשיך את החופשה הזו ישירות מהכרטיסייה שלך - שם אפשר גם לבקש למצוא לינה או רכב עבורה."
             )
-            return jsonify({
+            return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': reply, 'trip_update': trip_state, 'start_flight_search': False,
                 'open_existing_trip_id': trip['id'],
@@ -8897,7 +8981,7 @@ def _chat_clean_impl():
                 for m in matches[:5]
             )
             reply = f"מצאתי כמה חופשות שיכולות להתאים: {listed}. לאיזו מהן התכוונת?"
-            return jsonify({
+            return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': reply, 'trip_update': trip_state, 'start_flight_search': False,
             })
@@ -8933,7 +9017,7 @@ def _chat_clean_impl():
             kept.pop("reopen_trip_pending", None)
             kept["reopen_offer_declined"] = True
             reply = "בסדר, נמשיך עם זה כחופשה נפרדת."
-            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':kept,'start_flight_search':False})
+            return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':kept,'start_flight_search':False})
         if choice == "new":
             # Same "destination stated in the same message" rule as the other
             # new-vacation resets (new_vacation_language above, and the
@@ -8957,8 +9041,7 @@ def _chat_clean_impl():
             places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
             reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
                      if places else "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
-            _remember_turn_reset_trip(member_id, history, message, reply, fresh)
-            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
+            return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
         if isinstance(choice, int) and service in _REOPEN_LABELS:
             chosen = next((t for t in _reopenable_trips(member_id, service, "", limit=20) if t["id"] == options[choice].get("id")), None)
             if chosen:
@@ -8966,12 +9049,11 @@ def _chat_clean_impl():
                 reopened = _state_from_trip(chosen, services_wanted)
                 reopened["profile"] = _member_profile(member_id)
                 reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_REOPEN_FIRST_QUESTION[service]}"
-                _remember_turn_reset_trip(member_id, history, message, reply, reopened)
-                return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':reopened,'start_flight_search':False,'reopen_trip_id':chosen['id']})
+                return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':reopened,'start_flight_search':False,'reopen_trip_id':chosen['id']})
         retried = dict(trip_state)
         retried["reopen_trip_pending"] = dict(pending_reopen, asked_again=True)
         reply = _reopen_question(service, options) if service in _REOPEN_LABELS else "לאיזו חופשה התכוונת?"
-        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':retried,'start_flight_search':False})
+        return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':"רק כדי לוודא - " + reply,'trip_update':retried,'start_flight_search':False})
 
     # An open conversation about a destination that already has an upcoming
     # vacation, but was never linked to it (seen live: "אטרקציות בניו יורק"
@@ -9045,7 +9127,7 @@ def _chat_clean_impl():
                     "service": linked_service, "services": services_wanted, "keep_state": True,
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                 }
-                return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(linked_service, candidates),'trip_update':pending,'start_flight_search':False})
+                return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(linked_service, candidates),'trip_update':pending,'start_flight_search':False})
 
     trip_is_empty = not ((trip_state.get("destination") or {}).get("places") if isinstance(trip_state.get("destination"), dict) else None) \
         and not trip_state.get("active_session") and not trip_state.get("reset_pending")
@@ -9064,7 +9146,7 @@ def _chat_clean_impl():
                     "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in candidates],
                     "trigger_message": message,
                 }
-                return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
+                return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
 
     # Seen live (Shaked, qa-s91, round 2): mid-conversation about one
     # vacation (Paris), "אני רוצה לחזור לחופשה שלי לאיטליה באפריל ולהוסיף
@@ -9103,7 +9185,7 @@ def _chat_clean_impl():
                         "service": _reopen_service, "services": _services_elsewhere, "keep_state": True,
                         "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in _reopen_candidates],
                     }
-                    return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(_reopen_service, _reopen_candidates),'trip_update':pending,'start_flight_search':False})
+                    return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(_reopen_service, _reopen_candidates),'trip_update':pending,'start_flight_search':False})
 
     # The customer's saved vacations, every turn - so Ariella answers from
     # them instead of asking again for facts they already hold (seen live:
@@ -9246,8 +9328,7 @@ def _chat_clean_impl():
         places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
         reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
                  if places else "בשמחה. מתחילים חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
-        _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
-        return jsonify({
+        return _reply({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
         })
@@ -9261,7 +9342,7 @@ def _chat_clean_impl():
         and any(x in msg_lower for x in ("רק טיסה","רק טיסות","טיסה בלבד","טיסות בלבד"))
     )
     if flight_only_return:
-        return jsonify({
+        return _reply({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':'פרטי הטיסה כבר אושרו. אני מחזירה אותך לטיסות של החופשה הזו.',
             'trip_update':trip_state,'start_flight_search':False,'open_existing_flights':True
@@ -9302,15 +9383,7 @@ def _chat_clean_impl():
     if _previous_offered_continue_or_other and _vague_something_else and not own_pending_question:
         if not _deterministic_destination_facts([], message, {}):
             open_reply = "בטח, ספרי לי - במה אפשר לעזור?"
-            try:
-                saved_history = list(history_before_gap) + [
-                    {'role': 'user', 'content': message},
-                    {'role': 'assistant', 'content': open_reply},
-                ]
-                save_ariella_conversation(session['member_id'], saved_history[-80:], trip_state)
-            except Exception:
-                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
-            return jsonify({
+            return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': open_reply, 'trip_update': trip_state, 'start_flight_search': False,
             })
@@ -9339,8 +9412,7 @@ def _chat_clean_impl():
             _places_new = ((_fresh_new.get('destination') or {}).get('places') or []) if isinstance(_fresh_new.get('destination'), dict) else []
             _reply_new = (f"בשמחה 😊 מתחילים חופשה חדשה ל{_places_new[0]}. באיזו תקופה תרצי לטוס?"
                           if _places_new else 'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?')
-            _remember_turn_reset_trip(session['member_id'], history, message, _reply_new, _fresh_new)
-            return jsonify({
+            return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':_reply_new,
                 'trip_update':_fresh_new,
@@ -9350,7 +9422,7 @@ def _chat_clean_impl():
             kept = dict(trip_state)
             kept["reset_pending"] = False
             kept.pop("reset_change_request", None)
-            return jsonify({
+            return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':'בשמחה. מה תרצי לשנות בחופשה הנוכחית?',
                 'trip_update':kept,'start_flight_search':False
@@ -9392,7 +9464,7 @@ def _chat_clean_impl():
             if flight_only_reset else
             "למחוק את כל הפרטים ולהתחיל חופשה חדשה מאפס?"
         )
-        return jsonify({
+        return _reply({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':question,
             'trip_update':pending,'start_flight_search':False
@@ -9441,7 +9513,7 @@ def _chat_clean_impl():
                 fresh["reset_pending"] = False
                 fresh.pop("reset_scope", None)
                 fresh.pop("reset_change_request", None)
-                return jsonify({
+                return _reply({
                     'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                     'reply':'בסדר. מחקתי את פרטי הטיסה. לאן תרצי לטוס ובאיזו תקופה?',
                     'trip_update':fresh,'start_flight_search':False
@@ -9473,8 +9545,7 @@ def _chat_clean_impl():
                 reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה תרצי לנסוע?"
             else:
                 reply = 'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?'
-            _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
-            return jsonify({
+            return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
             })
@@ -9487,7 +9558,7 @@ def _chat_clean_impl():
             # If the original message only expressed a general wish to change,
             # ask what to change. If it already named the requested change, keep
             # the trip facts and let the next turn continue from that context.
-            return jsonify({
+            return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':('מה תרצי לשנות בפרטי הטיסה?' if trip_state.get("reset_scope") == "flights" else 'מה תרצי לשנות בחופשה הנוכחית?'),
                 'trip_update':kept,'start_flight_search':False
@@ -9500,7 +9571,7 @@ def _chat_clean_impl():
         # yes/no about one option (the destructive one, since that's the one
         # that needs confirming), never a spelled-out "X or Y? (yes=X, no=Y)".
         pending = dict(trip_state)
-        return jsonify({
+        return _reply({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':('רק כדי לוודא: למחוק הכול ולהתחיל טיסה חדשה?' if trip_state.get("reset_scope") == "flights" else 'רק כדי לוודא: למחוק הכול ולהתחיל חופשה חדשה?'),
             'trip_update':pending,'start_flight_search':False
@@ -9668,13 +9739,12 @@ def _chat_clean_impl():
             if not ((fresh.get('destination') or {}).get('places') if isinstance(fresh.get('destination'), dict) else None):
                 fresh['destination'] = {'places':[pending_new_trip],'mode':'specific','status':'known'}
             reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה תרצי לטוס?"
-            _remember_turn_reset_trip(session['member_id'], history, message, reply, fresh)
-            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
+            return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
         if intent == "keep":
             kept = dict(trip_state)
             kept.pop("new_trip_pending", None)
             kept["destination_change_pending"] = pending_new_trip
-            return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+            return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                             'reply':'שינוי היעד משנה גם את המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד. למחוק את הפרטים שתלויים ביעד ולבנות אותם מחדש ליעד החדש?',
                             'trip_update':kept,'start_flight_search':False})
         # Per the business owner's iron rule (2026-10-16): a single yes/no
@@ -9682,7 +9752,7 @@ def _chat_clean_impl():
         # change within the existing trip), never "X or Y?" - a "לא" below is
         # read downstream as "it's a new, separate trip" (the intent gate
         # this reply awaits an answer for is unchanged, only the wording is).
-        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+        return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                         'reply':f"רק כדי לוודא - {pending_new_trip}: זה שינוי יעד בחופשה הנוכחית ל{', '.join(current_places)}?",
                         'trip_update':trip_state,'start_flight_search':False})
 
@@ -9692,7 +9762,7 @@ def _chat_clean_impl():
         # Same iron-rule rewording as pending_new_trip above: single yes/no
         # about the destination-change interpretation; "לא" means a new,
         # separate trip. The intent gate awaiting this answer is unchanged.
-        return jsonify({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+        return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                         'reply':f"רגע, לפני שממשיכים - {possible_new_trip}: זה שינוי יעד בחופשה הנוכחית ל{', '.join(current_places)}?"
                                 + ("" if (trip_state.get("search_confirmed") or trip_state.get("post_flight_continuation"))
                                    else f" (החופשה ל{', '.join(current_places)} עוד לא אושרה, אז בחופשה חדשה הפרטים שלה יימחקו.)"),
@@ -9701,7 +9771,7 @@ def _chat_clean_impl():
     if destination_change and not trip_state.get("destination_change_pending"):
         pending = dict(trip_state)
         pending["destination_change_pending"] = destination_change
-        return jsonify({
+        return _reply({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':'שינוי היעד משנה גם את המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד. למחוק את הפרטים שתלויים ביעד ולבנות אותם מחדש ליעד החדש?',
             'trip_update':pending,'start_flight_search':False
@@ -9743,7 +9813,7 @@ def _chat_clean_impl():
             changed["ready_for_summary"] = False
             changed["search_confirmed"] = False
             changed["missing_required"] = []
-            return jsonify({
+            return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':'בסדר. היעד עודכן. את המסלול, הלינה והרכב נבנה מחדש בהתאם ליעד החדש.',
                 'trip_update':changed,'start_flight_search':False
@@ -9751,12 +9821,12 @@ def _chat_clean_impl():
         if _dest_change_no:
             kept = dict(trip_state)
             kept.pop("destination_change_pending", None)
-            return jsonify({
+            return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':'בסדר, נשאיר את היעד הקיים.',
                 'trip_update':kept,'start_flight_search':False
             })
-        return jsonify({
+        return _reply({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':'לשנות את היעד ולבנות מחדש את הפרטים שתלויים בו?',
             'trip_update':trip_state,'start_flight_search':False
@@ -9786,7 +9856,7 @@ def _chat_clean_impl():
     if not _deterministic_candidate_choice_facts(message, trip_state):
         date_conflict = _weekday_date_conflict(message, history)
         if date_conflict:
-            return jsonify({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
+            return _reply({'status':'success','agent':'Tinkerbell','engine_version':ENGINE_VERSION,'reply':date_conflict,'trip_update':trip_state})
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     if not key:
         return jsonify({'status': 'error', 'message': 'טינקרבל לא זמינה כרגע.', 'engine_version': ENGINE_VERSION}), 503
@@ -9929,15 +9999,7 @@ def _chat_clean_impl():
             trip_update["session_status"] = statuses
             trip_update["post_flight_offer"] = []
             transfer_reply = "מעבירה אותך לתוצאות הטיסות. תמיד אפשר לחזור לכאן בהמשך ולהוסיף עוד."
-            try:
-                saved_history = list(history_before_gap) + [
-                    {'role': 'user', 'content': message},
-                    {'role': 'assistant', 'content': transfer_reply},
-                ]
-                save_ariella_conversation(session['member_id'], saved_history[-80:], trip_update)
-            except Exception:
-                logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
-            return jsonify({
+            return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': transfer_reply, 'trip_update': trip_update, 'start_flight_search': False,
                 'open_existing_flights': True,
@@ -11299,18 +11361,7 @@ def _chat_clean_impl():
     except Exception:
         logging.exception("Attraction coverage check failed to queue")
 
-    # Server-side copy of the conversation so it survives logout and follows
-    # the account across devices, not just this browser's local cache.
-    try:
-        saved_history = list(history_before_gap) + [
-            {'role': 'user', 'content': message},
-            {'role': 'assistant', 'content': reply or 'אני איתך 😊'},
-        ]
-        save_ariella_conversation(session['member_id'], saved_history[-80:], trip_update)
-    except Exception:
-        logging.exception("Failed to persist Ariella conversation for member %s", session.get('member_id'))
-
-    return jsonify({
+    return _reply({
         'status': 'success',
         'agent': 'Tinkerbell',
         'engine_version': ENGINE_VERSION,
