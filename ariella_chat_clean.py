@@ -260,6 +260,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - קיבלת את כל השיחה, לא רק את ההודעה האחרונה. ה-state הוא נקודת הפתיחה שלך, לא גבול הזיכרון שלך: אם הלקוח ציין פרט רלוונטי בכל שלב קודם בשיחה (גם לא בהודעה הנוכחית) והוא עדיין חסר ב-state, זו עובדה אמיתית שפשוט לא נשמרה - כתבי אותה עכשיו לשדה המתאים, בלי לחכות שהלקוח יחזור ויגיד את זה שוב. לעולם אל תסתרי או תחליפי ערך קיים ב-state בלי סיבה מפורשת מהלקוח; כשהלקוח שינה פרט מאוחר יותר בשיחה ("לא, בעצם X"), הגרסה המאוחרת גוברת על המוקדמת לאותו שדה.
 - יש state מרכזי אחד לחופשה. destination, destination_airports, return_departure_airports, departure_airport, dates, travelers, budget_per_person והעדפות טיסה הם מידע משותף בין כל הסשנים. מעבר בין flights/lodging/car/trip_planning לעולם אינו מאפס אותם ולעולם אינו מצדיק לשאול אותם שוב.
 - תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות. המסלול היומי עצמו (trip_planning.details.route) חייב תמיד מבנה קבוע אחד: מערך של אובייקט אחד לכל יום, ובכל אחד מהם מפתח "base" עם שם העיר/האזור שבו לנים באותו לילה (למשל {"day":1,"base":"פאפוס"}) - בלי קשר לניסוח החופשי שבו באמת כתבת את המסלול ללקוח. זה בדיוק כדי שלינה/רכב שנפתחים אחר כך יוכלו לקרוא את אזורי הלינה ישירות מהמסלול המאושר בלי לשאול את הלקוח שוב.
+- trip_planning.details.style (תחומי עניין/סגנון הטיול שהלקוח ציין) הוא רשימת מילים/צירופים קצרים בעברית בלבד - תרגמי את הניסוח החופשי של הלקוח לעברית (למשל "street art" -> "אמנות רחוב"), לעולם לא באנגלית כמו שהלקוח אמר. זה שונה במפורש משמות מקומות (destination.places) ושדות תעופה (destination_airports וכו'), שתמיד נשארים בדיוק כמו שהם (כולל כשהם לועזיים) - הכלל הזה חל רק על ערכי העדפה/סגנון, לא על זהות מקום.
 - כאשר הלקוח מבקש לעבור לשירות אחר, שאלי רק על missing_required של אותו שירות אחרי קריאת כל המידע המשותף. אל תפתחי שאלון מחדש.
 - session_status כולל תמיד flights/lodging/car/trip_planning, וכל אחד הוא pending/active/complete/declined. אל תסמני complete רק כי הלקוח הזכיר את התחום; אריאלה מחשבת השלמה לפי שדות החובה.
 - active_session הוא הסשן היחיד שטינקרבל משלימה כעת.
@@ -5923,21 +5924,27 @@ def _to_hebrew_display(value):
     Hebrew, or not a recognized internal token at all) passes through
     unchanged. A list is translated item-by-item and joined - per Shlomo's
     stage-3 run-3 follow-up, the translation must cover list values too,
-    not just a bare string, so a raw Python list (and whatever untranslated
-    English tokens it holds) never reaches the customer as-is.
+    not just a bare string, so a raw Python list never reaches the
+    customer as-is.
 
-    Per Shaked's PR #83 review: a token with no entry in the table above
-    (e.g. "street art" - the model can always invent a category this
-    closed vocabulary doesn't list yet) passes straight through untouched
-    and leaks into the customer-facing summary in English. General rule,
-    not a growing phrase list: inside a LIST, once an item has gone
-    through translation, if it still contains any Latin letter at all, it
-    is dropped from the joined result entirely rather than shown - the
-    customer seeing nothing for that one interest beats seeing it in the
-    wrong language."""
+    Per the business owner's 18.10.2026 directive (reacting to a since-
+    reverted attempt here to drop any list item that still contained a
+    Latin letter after lookup): "only place names or airport codes may
+    appear in English" - meaning the reverse is NOT a rule this function
+    should enforce by inspecting letters. Dropping on a stray Latin letter
+    is wrong in both directions: it would delete a legitimately-English
+    place name (e.g. "Barceloneta") this same style/interest list can
+    genuinely carry, and it hides a customer-stated interest ("street
+    art") instead of translating it. The real fix belongs at EXTRACTION
+    time - the model itself is now instructed (EXTRACTOR_SYSTEM) to
+    translate a customer's own free-text interest into Hebrew before it
+    ever reaches trip_planning.details.style, so this function never
+    needs to guess. This function's own job stays exactly what it always
+    was: translate our OWN closed-vocabulary internal tokens
+    (_INTERNAL_TOKEN_TO_HEBREW), and pass anything else through untouched -
+    never guessed at, never filtered by what alphabet it happens to use."""
     if isinstance(value, list):
-        translated = (_to_hebrew_display(v) for v in value if str(v or "").strip())
-        return ", ".join(t for t in translated if not re.search(r"[A-Za-z]", t))
+        return ", ".join(_to_hebrew_display(v) for v in value if str(v or "").strip())
     value = str(value or "").strip()
     return _INTERNAL_TOKEN_TO_HEBREW.get(value, value)
 
