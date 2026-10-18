@@ -10050,7 +10050,20 @@ def _chat_clean_impl():
         # zero behavior change.
         guided_steps = _guided_extraction_steps()
         _guided_regex_fallback_fields = set()
-        if guided_steps:
+        # Per Shaked/Shlomo (stage-3 run-3, Berlin: a genuine production loop -
+        # the same guided question asked 10 times in a row after the customer
+        # had already declined the car, with every other domain already
+        # complete/declined too): once every domain is decided, there is
+        # nothing left to guide - the only correct reply from here on is the
+        # final summary, never another guided question. State alone (every
+        # domain already decided) is enough to know this, regardless of
+        # whatever the guided dispatcher's own internal bookkeeping still
+        # thinks is outstanding.
+        _all_domains_already_decided = all(
+            str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
+            for _s in ("flights", "lodging", "car", "trip_planning")
+        )
+        if guided_steps and not _all_domains_already_decided:
             guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
             if guided_turn is not None:
                 trip_update = guided_turn["trip_update"]
