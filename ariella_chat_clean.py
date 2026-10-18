@@ -1097,13 +1097,26 @@ def _split_car_transmission(state):
     return state
 
 
-def _roll_past_dates(state, message, history):
-    """Deterministic backstop for the "day+month without a year is its next
-    future occurrence" rule. Seen live: in October 2026 the customer said
-    "28.6" and the model saved 28.6.2026 - already past - so a return visit
-    couldn't find the vacation (only future ones are offered), a new one
-    was created, and its flight scan failed. A past departure moves forward
-    a year, the return with it, unless the customer typed that year."""
+def _roll_past_dates(state):
+    """Deterministic backstop: a vacation departure is never in the past.
+    Seen live: in October 2026 the customer said "28.6" and the model
+    saved 28.6.2026 - already past - so a return visit couldn't find the
+    vacation (only future ones are offered), a new one was created, and
+    its flight scan failed. A past departure always moves forward to its
+    next future occurrence, the return with it.
+
+    Per Shlomo's follow-up (18.10, qa/reports/2026-10-18-stage3-run4.md,
+    s3y2 - Tuscany "1.7 עד 10.7" saved as 2026-07-01, already past): an
+    earlier version of this function left a past date untouched whenever
+    the customer's own text happened to contain the digit string of that
+    year ANYWHERE in the conversation (a budget figure, anything) - a
+    false-positive "the customer explicitly chose this past year" escape.
+    Shlomo's explicit instruction removed that escape entirely: "גם תאריך
+    מלא שנמצא בעבר לא נשמר" (a full date found to be in the past is not
+    saved either) - a travel-search departure is never in the past,
+    whether the year was stated explicitly or left for this rule to
+    infer. There is no legitimate reason for this bot to search flights
+    for a date that has already passed."""
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else None
     if not dates:
@@ -1111,13 +1124,6 @@ def _roll_past_dates(state, message, history):
     dep = _parse_state_date(dates.get("departure"))
     if not dep or dep >= date.today():
         return state
-    user_text = " ".join(
-        [str(x.get("content") or "") for x in (history or [])
-         if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"]
-        + [str(message or "")]
-    )
-    if str(dep.year) in user_text:
-        return state  # the customer named that year; the scan gate refuses it
 
     def _plus_years(d, n):
         try:
@@ -10647,7 +10653,7 @@ def _chat_clean_impl():
         trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
-        trip_update = _roll_past_dates(trip_update, message, history)
+        trip_update = _roll_past_dates(trip_update)
         trip_update = _split_car_transmission(trip_update)
         trip_update = _protect_car_details_from_loss(trip_state, trip_update)
         trip_update = _protect_lodging_details_from_loss(trip_state, trip_update)
