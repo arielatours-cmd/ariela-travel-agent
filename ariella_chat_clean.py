@@ -269,9 +269,9 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
 - כנ"ל לגבי car.details.vehicle_type: השדה נשאר ריק עד שהלקוח עצמו ציין סוג/גודל רכב (קטן, משפחתי, SUV, ג'יפ וכו'; "אוטומטי"/"ידני" שייכים ל-transmission ולא לכאן) או אמר במפורש שכל רכב מתאים לו/שאין העדפה. לעולם אל תמלאי אותו לבד ממספר הנוסעים, מהכבודה או מברירת מחדל - זה בדיוק כמו לנחש תקציב, ומונע מהלקוח לענות על שאלה שמעולם לא נשאלה.
-- lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט איך הכבודה המוזנת מתחלקת בין הנוסעים - {"checked_bag":{"count":מספר|null,"unit":"total"|"per_person"|"per_couple"|null}}) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
-- trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
-- restart_request ו-restart_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים כוונה לנטוש את התכנון הנוכחי ולהתחיל חופשה חדשה ונפרדת לגמרי - לא שינוי פרט בודד (יעד/תאריכים/תקציב וכו') בתוך אותה חופשה הנמשכת. restart_request=true רק כשההודעה הנוכחית של הלקוח (לא הודעה קודמת) מבטאת בבירור רצון להתחיל מחדש/חופשה אחרת/טיול נפרד (למשל "אני רוצה להתחיל טיול אחר", "חופשה חדשה ונפרדת", "תשכחי מהכל, בואי נתחיל מאפס") ולא כשהוא רק משנה פרט אחד בחופשה הקיימת. בדיוק כמו lodging.details.level_evidence: כשrestart_request=true מלאי את restart_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; אם אין ציטוט אמיתי כזה, restart_request נשאר false ו-restart_evidence נשאר null. ברירת המחדל היא false/null.
+- lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט איך הכבודה המוזנת מתחלקת בין הנוסעים - {"checked_bag":{"count":מספר|null,"unit":"total"|"per_person"|"per_couple"|"per_child"|null}}) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
+- trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"). מאז שהשאלה הראשונה על כך נשארת פתוחה ("מה בא לך לתכנן?" ולא רשימת קטגוריות - ראו ההנחיה המקבילה ל-Tinkerbell), הלקוח כמעט לעולם לא ישתמש במילים "חופשה רגילה"/"נסיעת עסקים"/"חופשת סקי" ממש - היא מתארת את הטיול בניסוח חופשי משלה (למשל "רוצה לנסוע לבד, קצת לנוח ולטייל" = standard; "נסיעת עבודה"/"פגישות בחברה" = business; כל אזכור של סקי/אתר סקי/מעליות = ski). הביני את הקטגוריה מהתיאור החופשי הזה של הלקוח עצמו (בדיוק כמו ש-Tinkerbell כבר מתבקשת להבין מהתשובה החופשית לשאלה הפתוחה) - זו אותה הבנה סמנטית שאת מפעילה על כל שדה אחר, לא דרישה למילת קסם מדויקת. מה שנשאר אסור: לנחש trip_type מ-destination/dates/travelers עצמם (לדוגמה יעד מסוים או מספר נוסעים) כשהלקוח לא תיאר בעצמו את מטרת הטיול בכלל - אלה סימנים עקיפים מדי ולא תיאור של הלקוח. אם אין שום תיאור של מטרת/אופי הטיול, השאירי null עד שיהיה.
+- restart_request ו-restart_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים כוונה לנטוש את התכנון הנוכחי ולחשוב על/להתחיל חופשה אחרת ונפרדת לגמרי - לא שינוי פרט בודד (יעד/תאריכים/תקציב וכו') בתוך אותה חופשה הנמשכת. הכוונה הזו נאמרת בהרבה ניסוחים, ישירים ועקיפים באותה מידה - לא רק "התחלה מחדש" מפורש: גם "בא לי בכלל לתכנן משהו אחר לגמרי", "עזבי את [היעד הנוכחי], אני רוצה לחשוב על חופשה אחרת", "רגע, תני לי לחשוב על כיוון שונה" הם בדיוק אותה כוונה כמו "אני רוצה להתחיל טיול אחר" או "חופשה חדשה ונפרדת" - הביני לפי המשמעות השלמה של המשפט (ויתור על הכיוון/היעד הנוכחי ומעבר למשהו אחר כולו), לא לפי התאמה למשפטים ספציפיים. restart_request=true רק כשההודעה הנוכחית של הלקוח (לא הודעה קודמת) היא זו שמבטאת את הכוונה הזו, ולא כשהוא רק משנה פרט אחד בחופשה הקיימת. בדיוק כמו lodging.details.level_evidence: כשrestart_request=true מלאי את restart_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; אם אין ציטוט אמיתי כזה, restart_request נשאר false ו-restart_evidence נשאר null. ברירת המחדל היא false/null.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
 - כאשר הלקוח ביקש שאריאלה תבחר את אתר הסקי (לא ציין אתר ספציפי מהרשימה המוכרת), עדיפות ראשונה היא לדבר באופן כללי ("ליד ההר", "באזור האתר שייבחר") עד שאתר אמיתי מהקטלוג נבחר בפועל. שם אתר שהוזכר בטקסט חופשי בלבד, בלי להתבסס על ski.resort_names, אסור שייכנס ל-destination.places - זה בדיוק כמו לנחש תקציב או רכב, ובעבר הוביל לשם הר מתועתק גרוע שנשמר ככותרת החופשה בפועל.
@@ -2289,9 +2289,17 @@ def _checked_bag_label(detail):
     field: a bare shared/not-shared boolean silently dropped the actual
     COUNT and the real UNIT the customer stated - "שתי מזוודות לכולנו" and
     "מזוודה אחת לכל זוג" both collapsed to the same "one shared suitcase"
-    label. unit is one of "per_person"/"per_couple"/"total"/None (quantity
-    stated but the split is genuinely unclear - never guessed as "one").
-    Falls back to the classic per-passenger phrasing with no detail at all."""
+    label. unit is one of "per_person"/"per_couple"/"per_child"/"total"/None
+    (quantity stated but the split is genuinely unclear - never guessed as
+    "one"). Falls back to the classic per-passenger phrasing with no detail
+    at all.
+
+    per_child (per Shaked's live finding, qa/reports/2026-10-18-stage3-
+    run4.md, "וטרולי לכל ילד"): distinct from per_person - a bag "per
+    child" is never the same fact as "per every traveler", adults
+    included. Without this explicit category the model had nothing closer
+    than per_person to pick, and the summary wrongly claimed every
+    traveler gets one."""
     detail = detail if isinstance(detail, dict) else {}
     count = detail.get("count")
     count = count if isinstance(count, int) and count > 0 else None
@@ -2300,6 +2308,8 @@ def _checked_bag_label(detail):
         return "מזוודה אחת משותפת לכל הנוסעים" if not count or count == 1 else f"{count} מזוודות משותפות לכל הנוסעים"
     if unit == "per_couple":
         return "מזוודה אחת לכל זוג" if not count or count == 1 else f"{count} מזוודות לכל זוג"
+    if unit == "per_child":
+        return "מזוודה אחת לכל ילד" if not count or count == 1 else f"{count} מזוודות לכל ילד"
     if unit == "per_person":
         return "מזוודה גדולה לכל נוסע" if not count or count == 1 else f"{count} מזוודות לכל נוסע"
     if count and count > 1:
@@ -4869,6 +4879,14 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         checked_bag_mentioned = True
     elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
         checked_bag_detail["unit"] = "total"
+        checked_bag_mentioned = True
+    # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md,
+    # Tuscany V2, "וטרולי לכל ילד"): checked BEFORE the generic per-person
+    # pattern below (which never matches "ילד" anyway, but the explicit
+    # order documents the distinction) - "per child" is never the same
+    # fact as "per every traveler", adults included.
+    elif re.search(r"לכל\s+ילד|לכל\s+הילד(?:ים)?", msg):
+        checked_bag_detail["unit"] = "per_child"
         checked_bag_mentioned = True
     elif re.search(_BAGGAGE_PER_PERSON_RE, msg) and checked_bag_mentioned:
         # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
@@ -7941,7 +7959,9 @@ def _guided_extract_answer(key, model, field, message, history, state):
             "(מזוודה בבטן המטוס), \"personal_item\" (תיק קטן בלבד). count הוא "
             "המספר שצוין (כולל מספרים במילים כמו \"שתי מזוודות\"=2, \"אחת\"=1) "
             "או null אם לא צוין מספר. unit מתאר איך הכמות מתחלקת: "
-            "\"per_person\" (לכל נוסע/אדם בנפרד), \"per_couple\" (לכל זוג), "
+            "\"per_person\" (לכל נוסע/אדם בנפרד, כולל מבוגרים), \"per_couple\" "
+            "(לכל זוג), \"per_child\" (לכל ילד בלבד - לא לכל נוסע; שונה "
+            "במפורש מ-per_person, שמשמעו כל נוסע ולא רק הילדים), "
             "\"total\" (סך הכול לכל הקבוצה ביחד - \"לכולנו\"/\"לכולם\"/\"לכל "
             "המשפחה\"/\"משותפת\" הם כולם total), או null אם לא ברור מהניסוח "
             "איך זה מתחלק (במקרה הזה שמרי את count כפי שנאמר, אל תנחשי unit). "
@@ -7956,7 +7976,7 @@ def _guided_extract_answer(key, model, field, message, history, state):
             '{"status":"answered|unclear|other_topic",'
             '"no_baggage":true|false,'
             '"items":[{"type":"carry_on_only"|"checked_bag"|"personal_item",'
-            '"count":int|null,"unit":"per_person"|"per_couple"|"total"|null},...]|null,'
+            '"count":int|null,"unit":"per_person"|"per_couple"|"per_child"|"total"|null},...]|null,'
             '"confidence":"high|low",'
             '"also_mentioned":{"dates":{...}|null,"travelers":{...}|null},'
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
@@ -8301,7 +8321,7 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
         if not isinstance(items, list) or not items:
             return {}, None
         valid_types = ("carry_on_only", "checked_bag", "personal_item")
-        valid_units = ("per_person", "per_couple", "total")
+        valid_units = ("per_person", "per_couple", "per_child", "total")
         values = []
         baggage_detail = {}
         labels = []
@@ -8509,6 +8529,16 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             and _guided_field_applies(f, trip_update) and f not in answered
         ]
         redirected_field = _guided_redirect_field(key, model, history, message, redirect_candidates)
+        # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md,
+        # Tuscany - "לא קשורה לתקציב ללילה" fired again on a bathroom-count
+        # answer, the same bug class #83's fix targeted) and Shlomo's
+        # follow-up: log why, without the customer's own message text -
+        # current_question (what the pointer thought was live), the
+        # candidates actually offered, and whether a redirect was found.
+        logging.info(
+            "guided_redirect: current_question=%s candidates=%s redirected_to=%s",
+            current_question, redirect_candidates, redirected_field,
+        )
         if redirected_field:
             redirected_result = _guided_extract_answer(key, model, redirected_field, message, history, trip_update)
             redirected_fragment, redirected_desc = (
@@ -8516,6 +8546,13 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 if redirected_result and str(redirected_result.get("status") or "") == "answered"
                 and str(redirected_result.get("confidence") or "") == "high"
                 else (None, None)
+            )
+            logging.info(
+                "guided_redirect: redirected_to=%s extract_status=%s extract_confidence=%s fragment_written=%s",
+                redirected_field,
+                (redirected_result or {}).get("status"),
+                (redirected_result or {}).get("confidence"),
+                bool(redirected_fragment),
             )
             if redirected_fragment:
                 trip_update = _merge_trip_state(trip_update, redirected_fragment)
@@ -10672,6 +10709,25 @@ def _chat_clean_impl():
         # evidence-based check used for every other evidence field) before
         # the gate is trusted - a model claim with no real quote behind it
         # is treated exactly like no restart request at all.
+        #
+        # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md)
+        # and Shlomo's follow-up instruction: the gate didn't fire live for
+        # genuine restart language even though a local test with a mocked
+        # model fired it correctly. Shlomo asked for a log of exactly what
+        # the extractor returns here (restart_request, restart_evidence,
+        # and whether evidence verification passed) - explicitly without
+        # personal details, so the customer's own message text is never
+        # included, only the model's own request/evidence/verification
+        # outcome. Logged once per turn with real vacation progress (the
+        # only turns where this gate's decision matters at all), so the
+        # next live finding comes with the data needed to diagnose it
+        # instead of another guess.
+        if _has_vacation_progress(trip_state):
+            logging.info(
+                "restart_signal: request=%s evidence=%r evidence_verified=%s",
+                restart_request, restart_evidence,
+                _value_has_verbatim_evidence(restart_evidence, message) if restart_request else None,
+            )
         if (
             restart_request
             and _has_vacation_progress(trip_state)
