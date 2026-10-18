@@ -197,6 +197,9 @@
     {"id": "named-decline-lodging-type-contrast-malon-velo-dira", "fn": "_deterministic_named_decline_facts", "args": ["כן, צריך לינה - מלון ולא דירה"], "expect_falsy": true, "source": "shaked-pr51-review-2026-10-16"},
     {"id": "travelers-nistader-levad-not-solo", "fn": "_deterministic_traveler_facts", "args": ["נסתדר לבד"], "expect_falsy": true, "source": "shaked-stage1-run3-v5"},
     {"id": "travelers-tivni-levad-not-solo", "fn": "_deterministic_traveler_facts", "args": ["תבני לבד"], "expect_falsy": true, "source": "shaked-round8-b2"},
-    {"id": "travelers-ani-levad-is-solo", "fn": "_deterministic_traveler_facts", "args": ["אני טס לבד"], "expect": {"travelers": {"adults": 1}}, "source": "shaked-stage1-run3-guard"}
+    {"id": "travelers-ani-levad-is-solo", "fn": "_deterministic_traveler_facts", "args": ["אני טס לבד"], "expect": {"travelers": {"adults": 1}}, "source": "shaked-stage1-run3-guard"},
+    {"id": "evidence-missing-rejected", "fn": "_value_has_verbatim_evidence", "args": ["", "מלון חמוד ושקט"], "expect_falsy": true, "source": "#83 c42e40d (s3x1 מדריד)"},
+    {"id": "evidence-tolerates-spacing-punctuation", "fn": "_value_has_verbatim_evidence", "args": ["מזוודה אחת לכולנו", "מזוודה  אחת, לכולנו"], "expect_truthy": true, "source": "שקד 18.10 — ציטוט אמיתי עם רווח/פסיק שונה לא נדחה"},
+    {"id": "pace-token-to-hebrew", "fn": "_to_hebrew_display", "args": ["relaxed"], "expect": "רגוע", "source": "0aad29c (PR #81)"}
   ]
 }

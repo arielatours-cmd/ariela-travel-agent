@@ -7978,6 +7978,29 @@ def _guided_redirect_field(key, model, history, message, candidate_fields):
     return None
 
 
+_EVIDENCE_NIQQUD_RE = re.compile(r"[֑-ׇ]")
+# Quotes/punctuation only, never letters - a verbatim check must still
+# reject a reworded or paraphrased quote, only tolerate formatting noise.
+_EVIDENCE_PUNCTUATION_RE = re.compile(r"[\"'“”‘’״׳,.!?;:()\[\]{}\-–—]")
+_EVIDENCE_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _normalize_for_evidence_match(text):
+    """Per Shaked's 18.10 finding on PR #83 (qa/cases.json, evidence-
+    tolerates-spacing-punctuation): a real, genuinely verbatim quote the
+    extractor copied from the customer's own message was still rejected
+    whenever it differed from the message by nothing more than spacing,
+    punctuation, quote marks or niqqud (e.g. evidence "מזוודה אחת לכולנו"
+    against the message's own "מזוודה  אחת, לכולנו" - a double space and a
+    comma the model has no real control over when it echoes a quote).
+    Strips niqqud (U+0591-U+05C7), punctuation/quote marks, and collapses
+    whitespace - never touches letters/words themselves, so this still
+    rejects a reworded or paraphrased "quote", exactly as before."""
+    text = _EVIDENCE_NIQQUD_RE.sub("", str(text or ""))
+    text = _EVIDENCE_PUNCTUATION_RE.sub("", text)
+    return _EVIDENCE_WHITESPACE_RE.sub(" ", text).strip()
+
+
 def _value_has_verbatim_evidence(evidence, message):
     """Per the business owner's explicit directive (18.10.2026, relayed by
     Shlomo, reacting to PR #83): only the MODEL decides what the customer
@@ -7992,16 +8015,17 @@ def _value_has_verbatim_evidence(evidence, message):
     introduces or changes this turn, a verbatim quote from the customer's
     CURRENT message - the evidence it based the value on. This function is
     the one place that quote is checked: accepted only when it's a
-    non-empty string that appears in the message exactly as given (no
-    rewording, no translation, no paraphrase - that's what "verbatim"
-    buys here, a check code can actually perform without re-deciding
-    meaning itself). No quote, or a quote that was invented rather than
-    copied from the real message, means no value - the caller reverts to
-    whatever was already settled."""
+    non-empty string that appears in the message exactly as given, up to
+    spacing/punctuation/quote-mark/niqqud noise (_normalize_for_evidence_
+    match) - no rewording, no translation, no paraphrase (that's what
+    "verbatim" buys here, a check code can actually perform without
+    re-deciding meaning itself). No quote, or a quote that was invented
+    rather than copied from the real message, means no value - the caller
+    reverts to whatever was already settled."""
     evidence = str(evidence or "").strip()
     if not evidence:
         return False
-    return evidence in str(message or "")
+    return _normalize_for_evidence_match(evidence) in _normalize_for_evidence_match(message)
 
 
 def _validate_lodging_level_against_message(trip_update, state, message):
