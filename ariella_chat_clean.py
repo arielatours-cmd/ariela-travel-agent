@@ -1129,18 +1129,33 @@ def _roll_past_dates(state):
     Per Shaked's review of that first version: two further gaps, both per
     state, no phrase list.
     (1) This only ran in the main per-turn extraction pipeline (one call
-    site) - the 014a guided-extraction path for the "dates" field writes
-    directly to trip_update without ever passing through it, so a past
-    date answered via a guided question was never corrected at all. Moved
-    to the single save/reply point (_reply) instead, so every path that
-    can ever set dates is covered, with no second call site to keep in
-    sync.
-    (2) A return earlier than its own departure (e.g. "28.12 עד 3.1" -
-    departure 2026-12-28, return resolved to 2026-01-03, which the model
-    left in the SAME stated year even though the trip crosses a new year)
-    is never valid either - the return itself (not just the departure)
-    now rolls forward a year at a time until it's no longer before
-    departure."""
+    site), and later only at the single save/reply point (_reply) -
+    AFTER Tinkerbell had already composed her reply from the uncorrected
+    date. Seen live (round 3): the persisted state was correctly rolled to
+    2027, but the reply/system_dynamic Tinkerbell actually saw and could
+    quote still said 2026-07-01 - the customer could still read a past
+    year in the conversation itself even though the state was right.
+    Moved into _call_tinkerbell itself (the one function every reply-
+    composing call site already goes through - ~10 of them, impossible to
+    keep 10 separate call sites in sync by hand) so Tinkerbell never sees
+    an uncorrected date at all. The state dict is mutated in place, so
+    this also fixes it for the caller's own copy before persistence - the
+    _reply call stays too, as the explicit safety net for any path that
+    composes nothing and goes straight to persistence.
+    (2) A return earlier than its own departure is only ever a genuine
+    new-year crossing stated without repeating the year (e.g. "28.12 עד
+    3.1" - departure 2026-12-28, return resolved to 2026-01-03) - rolling
+    THAT forward a year is correct. Blindly rolling ANY return < departure
+    forward a year is wrong for a same-year mix-up (e.g. departure 5.3,
+    return 1.3, both 2027 - a transposed day, not a trip spanning a New
+    Year) - that produced a fabricated year-long "vacation" instead of
+    flagging the real ambiguity. Now only rolled when departure falls in
+    the last two months of the year (Nov/Dec) and return in the first
+    three of the next (Jan/Feb/Mar) - the shape an unstated-year New
+    Year's trip actually has. Any other return-before-departure case is
+    left alone but flagged dates.needs_confirmation=True, the existing
+    field Ariella already uses to ask the customer to confirm/clarify,
+    instead of silently guessing which date is wrong."""
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else None
     if not dates:
@@ -1160,11 +1175,18 @@ def _roll_past_dates(state):
             ret = _plus_years(ret, years)
             new_dates["return"] = ret.isoformat()
     if dep and ret and ret < dep:
-        years = 1
-        while _plus_years(ret, years) < dep:
-            years += 1
-        new_dates["return"] = _plus_years(ret, years).isoformat()
-        changed = True
+        if dep.month >= 11 and ret.month <= 3:
+            years = 1
+            while _plus_years(ret, years) < dep:
+                years += 1
+            new_dates["return"] = _plus_years(ret, years).isoformat()
+            changed = True
+        else:
+            # Not a plausible New Year's crossing - a same-year mix-up
+            # instead (likely a transposed date). Never guess which one is
+            # wrong; flag it for the customer to confirm.
+            new_dates["needs_confirmation"] = True
+            changed = True
     if changed:
         state["dates"] = new_dates
     return state
@@ -3510,6 +3532,16 @@ def _fix_departure_name(reply, state, history, message):
 
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
+    # Per Shaked's live finding (round 3 on PR #86, qa/reports/2026-10-18-
+    # stage3-run4.md): a past departure was correctly rolled forward in the
+    # PERSISTED state, but Tinkerbell herself - every call site that
+    # composes a reply goes through this one function - still saw and
+    # could quote the uncorrected date, since the only _roll_past_dates
+    # call ran later, at the save/reply point. Mutates state in place, so
+    # this also carries the fix back into the caller's own dict before
+    # persistence - _reply's own call stays as a safety net for paths that
+    # never reach here at all.
+    state = _roll_past_dates(state)
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
     active_session = state.get("active_session")
     trip_planning_settled = statuses.get("trip_planning") in ("complete", "declined")

@@ -27,14 +27,32 @@ didn't fix the live bug, for two reasons, both per state:
    through it, so a past date answered via a guided "when do you want to
    fly?" question was never corrected at all. Moved the one call to
    _reply, the single point every successful turn passes through
-   regardless of which branch produced the trip_update - covers every
-   path with one call site instead of needing to find and patch each one.
+   regardless of which branch produced the trip_update.
 2. A return date earlier than its own departure (e.g. "28.12 עד 3.1" -
    departure resolves to 2026-12-28, return to 2026-01-03, the model
    leaving both in the same stated year despite the trip crossing a new
    year) is never valid either. The return itself now also rolls forward
-   a year at a time until it's no longer before departure, independently
-   of whether departure itself needed correcting.
+   a year at a time until it's no longer before departure.
+
+Her THIRD review (round 3, same PR) found the _reply-only call still
+wasn't enough: the PERSISTED state was correctly rolled, but Tinkerbell
+herself - every reply-composing call site goes through _call_tinkerbell,
+and _reply only runs afterward, at save time - still saw and could quote
+the UNCORRECTED date. The call moved again, into _call_tinkerbell itself
+(mutates state in place, so the fix also carries back into the caller's
+own dict before persistence - no need to patch each of its ~10 call
+sites by hand); _reply's own call stays as a safety net for any path
+that never reaches _call_tinkerbell at all.
+
+Same review, second finding: rolling ANY return-before-departure forward
+a full year was too aggressive - a same-year date mix-up (departure 5.3,
+return 1.3, both stated as 2027 - a transposed day, not a trip crossing a
+New Year) got rolled into a fabricated year-long "vacation" instead of
+being flagged as the ambiguity it is. Only rolled now when departure
+falls in Nov/Dec and return in Jan/Feb/Mar - the actual shape of an
+unstated-year New Year's trip; any other case sets dates.needs_
+confirmation=True (the field Ariella already uses to ask the customer to
+confirm/clarify) instead of guessing which date is wrong.
 
 Run: python3 tools/qa_roll_past_dates_no_year_escape.py
 """
@@ -161,6 +179,56 @@ check("regression: a normal future trip where return already comes after departu
       == {"departure": "2027-03-01", "return": "2027-03-10"})
 
 # =====================================================================
+# 7b. Shaked's round-3 finding: a same-year date mix-up (not a plausible
+#     New Year's crossing) must NOT be rolled a full year forward - that
+#     fabricates a year-long trip. Flagged for confirmation instead.
+# =====================================================================
+state_mixup = {"dates": {"departure": "2027-03-05", "return": "2027-03-01"}}
+r_mixup = chat._roll_past_dates(dict(state_mixup))
+check("round-3 finding: a same-year return-before-departure mix-up (not Nov/Dec->Jan/Feb/Mar) "
+      "is NOT rolled a full year forward",
+      r_mixup["dates"]["return"] == "2027-03-01")
+check("round-3 finding: it is flagged needs_confirmation instead of silently guessed",
+      r_mixup["dates"].get("needs_confirmation") is True)
+
+check("regression: a genuine Nov/Dec departure with a Jan/Feb/Mar return still rolls "
+      "(the one real New Year's-crossing shape)",
+      chat._roll_past_dates({"dates": {"departure": "2026-11-20", "return": "2026-02-01"}})["dates"]["return"] == "2027-02-01")
+check("regression: an October departure with a September return (same-year, far apart, "
+      "not Nov/Dec->Jan/Feb/Mar) is flagged, not rolled",
+      chat._roll_past_dates({"dates": {"departure": "2027-10-10", "return": "2027-09-01"}})["dates"].get("needs_confirmation") is True)
+
+
+# =====================================================================
+# 7c. Round-3 finding #1, verified the way Shaked explicitly asked: what
+#     Tinkerbell herself RECEIVES (system_dynamic), not just what gets
+#     persisted. The fix moved into _call_tinkerbell - confirm the
+#     uncorrected date never reaches it and the corrected one does.
+# =====================================================================
+_captured = {}
+
+
+def _fake_post_claude_tinkerbell(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "tinkerbell_reply":
+        _captured["system_dynamic"] = system_dynamic
+        return "תשובה לדוגמה."
+    return "{}"
+
+
+_state_for_tink = {"dates": {"departure": "2026-07-01", "return": "2026-07-10"}, "destination": {"places": ["רומא"]}}
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_tinkerbell):
+    chat._call_tinkerbell("key", "model", [], "הי", _state_for_tink)
+check("round-3 finding #1: Tinkerbell's own system_dynamic never contains the "
+      "uncorrected (past) date",
+      "2026-07-01" not in _captured.get("system_dynamic", ""))
+check("round-3 finding #1: Tinkerbell's own system_dynamic contains the corrected "
+      "(rolled-forward) date instead",
+      "2027-07-01" in _captured.get("system_dynamic", ""))
+check("round-3 finding #1: the caller's own state dict is also corrected in place "
+      "(not just a local copy inside _call_tinkerbell)",
+      _state_for_tink["dates"]["departure"] == "2027-07-01")
+
+# =====================================================================
 # 8. Shaked's finding #1, end-to-end: a past date answered through the
 #    014a guided-extraction "dates" field (not the main extraction
 #    pipeline) is ALSO corrected now - the fix lives at the single _reply
@@ -181,6 +249,9 @@ database.save_ariella_conversation(m_guided, [
 ], guided_state)
 
 
+_captured_guided = {}
+
+
 def _fake_post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     if source == "guided_extract":
         return json.dumps({
@@ -190,6 +261,7 @@ def _fake_post_claude(key, model, system_static, system_dynamic, history, messag
     if source == "state_extractor":
         return json.dumps({"trip_update": {}, "restart_request": False, "restart_evidence": None})
     if source == "tinkerbell_reply":
+        _captured_guided["system_dynamic"] = system_dynamic
         return "תשובה לדוגמה."
     return "{}"
 
@@ -197,6 +269,11 @@ def _fake_post_claude(key, model, system_static, system_dynamic, history, messag
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
     whatsapp_bridge.ariella_turn(m_guided, "1.7 עד 10.7")
 state_guided = (database.load_ariella_conversation(m_guided) or {}).get("trip_state") or {}
+check("Shaked's finding #3 (verify what Tinkerbell RECEIVES, not just what's saved): "
+      "in the real end-to-end guided-path turn, Tinkerbell's own system_dynamic already "
+      "shows the corrected date, never the raw past one",
+      "2026-07-01" not in _captured_guided.get("system_dynamic", "")
+      and "2027-07-01" in _captured_guided.get("system_dynamic", ""))
 check("Shaked's finding #1 end-to-end: a past date answered via the GUIDED dates field "
       "(not the main extraction pipeline) is rolled forward too",
       state_guided.get("dates", {}).get("departure") == "2027-07-01"
