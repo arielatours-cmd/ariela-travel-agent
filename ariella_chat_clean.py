@@ -1708,7 +1708,14 @@ def _resolve_lodging_locations_from_route(state):
     details = dict(details)
     details["locations"] = ", ".join(names)
     planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
-    approved_text = (planning.get("details") or {}).get("approved_text") if isinstance(planning.get("details"), dict) else None
+    # Pre-existing path bug, found by Shaked while reviewing PR #81's own
+    # (identical) mistake: approved_text is stored directly on trip_planning
+    # itself (trip_update["trip_planning"]["approved_text"] = ...), never
+    # nested under trip_planning.details - this always read None, so
+    # location_segments was silently empty for every route-derived lodging
+    # search, with no sign anything had failed (date_ranges below just
+    # stayed empty and the line below was skipped).
+    approved_text = planning.get("approved_text")
     night_segments = _extract_route_night_segments_from_approved_text(approved_text)
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     date_ranges = _route_night_segments_to_date_ranges(night_segments, dates.get("departure"))
@@ -4660,8 +4667,16 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     # אחת בבטן לכל אחד וטרולי" go unmatched (the old pattern required
     # "בבטן" immediately after "מזוודה", with no "אחת" in between, and
     # required "מטוס" right after "בבטן").
+    # Per Shlomo/Shaked (#81 review): "מזוודות?\s+גדול" (meant to combine
+    # singular/plural "big suitcase(s)") never actually matched the singular
+    # spelling at all - the trailing "?" only makes the plural's own final
+    # letter (ת) optional, so it covered "מזוודו גדול" (not a real word) or
+    # "מזוודות גדול" (plural), never "מזוודה גדולה" (singular, ending in ה -
+    # the common prefix is "מזווד", then either ה or ות). This was the exact
+    # repro: "מזוודה גדולה לכל אחד מאיתנו" never set checked_bag_mentioned
+    # at all, so baggage went unrecorded entirely for that message.
     checked_bag_mentioned = bool(re.search(
-        r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזוודות?\s+גדול|יש\s+ל(נו|י)\s+מזוודה"
+        r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזווד(?:ה|ות)\s+גדול|יש\s+ל(נו|י)\s+מזוודה"
         r"|מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg
     ))
     checked_bag_detail = {}
@@ -4687,9 +4702,19 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
         checked_bag_detail["unit"] = "total"
         checked_bag_mentioned = True
-    elif re.search(r"לכל\s+אחד|לכל\s+נוסע|לכל\s+אדם", msg) and bag_count_match:
-        # Only when a bag count was actually found near "מזוודה" - "טרולי
-        # לכל אחד" alone must never be misread as a per-person CHECKED bag.
+    elif re.search(r"לכל\s+אחד|לכל\s+נוסע|לכל\s+אדם", msg) and checked_bag_mentioned:
+        # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
+        # גדולה לכל אחד מאיתנו" (a big suitcase for each of us) has no
+        # explicit digit next to "מזוודה" at all, so the old gate here
+        # (requiring bag_count_match) dropped the unit entirely - baggage
+        # still got ["checked_bag"], but with no baggage_detail at all, so
+        # the per-passenger fact the customer actually stated was lost.
+        # checked_bag_mentioned already requires a "מזוודה"-word match (see
+        # above) - that's what actually rules out "טרולי לכל אחד" (which
+        # never matches any of those patterns and so never reaches this
+        # branch's effect anyway, since values only gets "checked_bag" when
+        # checked_bag_mentioned is true); requiring a redundant explicit
+        # digit on top of that was over-strict and is what this fixes.
         checked_bag_detail["unit"] = "per_person"
     elif bag_count is not None:
         try:
@@ -7031,18 +7056,44 @@ def _car_summary_line(state):
 
 def _route_summary_line(state):
     """The one-line route summary fact, or None when no route was ever
-    approved. Reuses trip_planning.details.approved_text verbatim - the
-    exact free text Tinkerbell already composed and the customer already
-    approved earlier in the same conversation - rather than re-deriving
-    new prose from the structured day-by-day route data, which risks
-    drifting from what was actually shown and approved."""
+    approved.
+
+    First version of this function (PR #81) copied trip_planning.details.
+    approved_text verbatim, on the theory that reusing the customer's own
+    already-approved text beats inventing new prose. Shaked's review (same
+    PR) found two problems with that: (1) a real path bug - approved_text
+    is actually stored on trip_planning itself (see line ~10310, "plan =
+    dict(trip_update.get('trip_planning') or {}); plan['approved_text'] =
+    ..."), never nested under trip_planning.details, so this always read
+    None in production and the route line never appeared at all; (2) even
+    with the right path, approved_text is the FULL original multi-day
+    proposal, ending in Tinkerbell's own "...מתאים לכם?" question - wrong
+    both for length and for leaving a dangling question inside a summary
+    that is supposed to end in the approval request. Rebuilt as a genuinely
+    short line built only from already-known structured facts (day count,
+    pace, style, and the route's own base/city names via
+    _route_base_names) - no narrative text, no question, nothing invented."""
     state = state if isinstance(state, dict) else {}
     planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
-    details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
-    approved_text = str(details.get("approved_text") or "").strip()
-    if not approved_text:
+    if not str(planning.get("approved_text") or "").strip():
         return None
-    return "מסלול: " + approved_text
+    details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
+    route = details.get("route") if isinstance(details.get("route"), list) else []
+    parts = []
+    if route:
+        parts.append("יום מסלול אחד" if len(route) == 1 else f"{len(route)} ימי מסלול")
+    pace = str(details.get("pace") or "").strip()
+    if pace and pace != "אין העדפה":
+        parts.append(f"קצב {pace}")
+    style = str(details.get("style") or "").strip()
+    if style:
+        parts.append(style)
+    bases = _route_base_names(state)
+    if bases:
+        parts.append("עצירות: " + ", ".join(bases))
+    if not parts:
+        return None
+    return "מסלול: " + ", ".join(parts)
 
 
 def _final_summary_fallback_text(trip_update):
@@ -7806,7 +7857,11 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
         value = result.get("value")
         if not isinstance(value, int) or value <= 0:
             return {}, None
-        desc = "חדר אחד" if value == 1 else f"{value} חדרים"
+        # Per Shaked's PR #81 review: "חדר שינה" (bedroom) is unambiguous
+        # about what's being counted; the bare "חדר" (room) the previous
+        # wording used could be misread as counting all rooms, not just
+        # bedrooms - lodging.details.rooms always means bedrooms.
+        desc = "חדר שינה אחד" if value == 1 else f"{value} חדרי שינה"
         return {"lodging": {"details": {"rooms": value}}}, desc
     if field == "lodging_bathrooms":
         value = result.get("value")

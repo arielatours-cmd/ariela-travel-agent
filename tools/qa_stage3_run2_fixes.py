@@ -275,9 +275,16 @@ PARIS_ALL_DECIDED = {
         "type": "דירה", "rooms": 2, "bathrooms": 2,
         "locations": "אזור שקט ליד המטרו", "level": "אין העדפה",
     }},
-    "trip_planning": {"details": {
-        "approved_text": "יום 1: מגדל אייפל ושיט בסן. יום 2: לובר ושכונת מארה.",
-    }},
+    # approved_text sits directly on trip_planning, never nested under
+    # trip_planning.details - exactly the real shape _run_chat_turn_engine
+    # writes it in (see the comment in _route_summary_line itself), not the
+    # wrong nested shape the first version of this test file used (Shaked's
+    # PR #81 review: that mismatch is exactly why the real app's route line
+    # never appeared at all).
+    "trip_planning": {
+        "approved_text": "יום 1: מגדל אייפל ושיט בסן. יום 2: לובר ושכונת מארה. המסלול שהצעתי מתאים לכם?",
+        "details": {"pace": "רגוע", "style": "תרבות ואוכל מקומי", "route": [{"base": "פריז"}, {"base": "פריז"}]},
+    },
 }
 paris_fallback = chat._final_summary_fallback_text(PARIS_ALL_DECIDED)
 check("Paris repro (Shaked's PR #81 review): the fallback never contains "
@@ -285,21 +292,33 @@ check("Paris repro (Shaked's PR #81 review): the fallback never contains "
       "owner's own rule against hardcoded sentences",
       "כבר סגורים" not in paris_fallback and "אין עוד מה לתכנן" not in paris_fallback)
 check("Paris repro: the fallback never re-asks about the route/style/"
-      "pace (the exact failure seen live) - no question mark at all",
-      "?" not in paris_fallback and "קצב" not in paris_fallback and "סגנון" not in paris_fallback)
+      "pace, and never leaks the original proposal's own trailing "
+      "question into the summary (Shaked's 2nd review: approved_text "
+      "itself ends in a question) - no question mark anywhere",
+      "?" not in paris_fallback)
 check("Paris repro: the fallback still contains a real flight summary "
       "built from state (destination, dates, connection preference)",
       "פריז" in paris_fallback and "10.12.2026" not in paris_fallback  # sanity: wrong date never appears
       and "20.12.2026" in paris_fallback and "טיסה ישירה בלבד" in paris_fallback)
 check("Paris repro (Shaked's PR #81 review, criterion 5): the fallback is "
-      "genuinely COMPLETE - the lodging line (apartment, rooms, "
+      "genuinely COMPLETE - the lodging line (apartment, bedrooms, "
       "bathrooms, area, no budget limit) is included too, not just flights",
       "לינה:" in paris_fallback and "דירה" in paris_fallback
-      and "2 חדרים" in paris_fallback and "2 חדרי רחצה" in paris_fallback
+      and "2 חדרי שינה" in paris_fallback and "2 חדרי רחצה" in paris_fallback
       and "אזור שקט ליד המטרו" in paris_fallback and "אין הגבלת תקציב" in paris_fallback)
-check("Paris repro: the already-approved route text is reused verbatim, "
-      "never re-derived or re-phrased",
-      "מסלול: יום 1: מגדל אייפל ושיט בסן. יום 2: לובר ושכונת מארה." in paris_fallback)
+check("Paris repro (Shaked's 2nd review): the route line is found via "
+      "the REAL top-level trip_planning.approved_text path (not the "
+      "wrong nested .details.approved_text path the first version read), "
+      "and is a short state-based line - never the full original "
+      "proposal text and never its trailing question",
+      "מסלול:" in paris_fallback and "2 ימי מסלול" in paris_fallback
+      and "קצב רגוע" in paris_fallback and "תרבות ואוכל מקומי" in paris_fallback
+      and "עצירות: פריז" in paris_fallback
+      and "מגדל אייפל" not in paris_fallback and "מתאים לכם" not in paris_fallback)
+check("regression: _route_summary_line returns None (no route line at "
+      "all) when trip_planning.approved_text was never set - a route "
+      "that was never actually approved must never be summarized",
+      chat._route_summary_line({"trip_planning": {"details": {"pace": "רגוע"}}}) is None)
 check("Paris repro: car is correctly OMITTED - it was declined, not "
       "selected (Shaked: 'רכב רק אם נבחר')",
       "רכב:" not in paris_fallback)
@@ -336,6 +355,46 @@ check("no flight facts to summarize: still a safe, non-empty, non-"
 
 check("defensive: non-dict input never crashes",
       bool(chat._final_summary_fallback_text(None)))
+
+
+# =====================================================================
+# Bug 5 (found during Shaked's PR #81 re-review, same s3w2 conversation):
+# _deterministic_baggage_facts' checked_bag_mentioned regex never matched
+# the singular "מזוודה גדולה" (big suitcase) at all - "מזוודות?\s+גדול"
+# only makes the plural's own trailing ת optional, which covers "מזוודו
+# גדול" (not a real word) or "מזוודות גדול" (plural), never the singular
+# spelling ending in ה. "מזוודה גדולה לכל אחד מאיתנו" (the customer's
+# exact words) therefore recorded no baggage fact at all. Separately, even
+# once checked_bag_mentioned is fixed, the per-person unit ("לכל אחד")
+# used to require an explicit digit next to "מזוודה" (bag_count_match) -
+# dropping the unit for exactly this phrasing, which states a per-person
+# split without a number. Both fixed; verifies real inputs, not an
+# artificial fixture, per Shlomo's own stated testing rule.
+# =====================================================================
+
+check("Shaked's exact repro: 'מזוודה גדולה לכל אחד מאיתנו' now records "
+      "checked_bag AND the per-person unit, not just a bare flag",
+      chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", traveler_count=2) == {
+          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}},
+      })
+check("regression: the plural phrasing ('שתי מזוודות גדולות לכולנו') "
+      "still resolves correctly (unit=total, count=2)",
+      chat._deterministic_baggage_facts("שתי מזוודות גדולות לכולנו", traveler_count=2) == {
+          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}},
+      })
+check("regression: 'טרולי לכל אחד' alone (no מזוודה word at all) still "
+      "never implies a per-person CHECKED bag - carry_on_only only",
+      chat._deterministic_baggage_facts("טרולי לכל אחד", traveler_count=2) == {
+          "flight": {"baggage": ["carry_on_only"]},
+      })
+check("regression: an explicit count alongside 'לכל אחד' still works "
+      "exactly as before (e.g. 'שתי מזוודות לכל אחד')",
+      chat._deterministic_baggage_facts("שתי מזוודות לכל אחד", traveler_count=2)
+      ["flight"]["baggage_detail"]["checked_bag"] == {"unit": "per_person", "count": 2})
+check("alternate phrasing: 'לכל נוסע' (per traveler, not 'לכל אחד') "
+      "resolves the same way",
+      "checked_bag" in chat._deterministic_baggage_facts(
+          "מזוודה גדולה לכל נוסע", traveler_count=2)["flight"]["baggage"])
 
 if FAILED:
     print(f"\nFAILED ({len(FAILED)}): {FAILED}")
