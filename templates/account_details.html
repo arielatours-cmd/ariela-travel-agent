@@ -83,4 +83,24 @@
 <div class="airport-picker" data-airport-picker><div class="airport-tags"></div><input class="airport-search" type="text" autocomplete="off" placeholder="{{ 'Search city, airport, country or IATA code…' if site_lang == 'en' else 'חפשו עיר, שדה תעופה, מדינה או קוד IATA…' }}"><div class="airport-suggestions" hidden></div><input type="hidden" name="preferred_airports" class="airport-values" required value="{{ (member.preferred_airports_list or [])|join(',') }}"></div>
 <small>{{ 'You can select more than one airport. These will be the default for every new vacation.' if site_lang == 'en' else 'אפשר לבחור כמה שדות תעופה. אלה יהיו ברירת המחדל לכל חופשה חדשה.' }}</small></label>
 <button class="button primary" type="submit">{{ 'Save details' if site_lang == 'en' else 'שמירת פרטים' }}</button>
-</form></div></section>{% endblock %}
+</form>
+<div class="form-card danger-zone" style="margin-top:24px;border-color:#e8caca">
+<h2>{{ 'Delete account' if site_lang == 'en' else 'מחיקת חשבון' }}</h2>
+<p>{{ 'This permanently deletes your account and all associated data (saved vacations, conversation history). This cannot be undone.' if site_lang == 'en' else 'פעולה זו מוחקת לצמיתות את החשבון שלך ואת כל המידע המשויך אליו (חופשות שמורות, היסטוריית שיחה). לא ניתן לבטל פעולה זו.' }}</p>
+<form method="post" action="{{ url_for('site.account_delete') }}" id="ariellaDeleteAccountForm">
+<label>{{ 'Confirm your password' if site_lang == 'en' else 'אימות סיסמה' }}<input type="password" name="password" autocomplete="current-password" required></label>
+<button class="button secondary" type="submit" style="border-color:#c0392b;color:#c0392b">{{ 'Permanently delete my account' if site_lang == 'en' else 'מחיקת החשבון לצמיתות' }}</button>
+</form>
+</div>
+</div></section>
+<script>
+(function(){
+  var form = document.getElementById('ariellaDeleteAccountForm');
+  if (!form) return;
+  form.addEventListener('submit', function(e){
+    var confirmText = {{ ('Are you sure? This permanently deletes your account and all your data. This cannot be undone.' if site_lang == 'en' else 'את/ה בטוח/ה? פעולה זו מוחקת לצמיתות את החשבון שלך ואת כל המידע שלך. לא ניתן לבטל.')|tojson }};
+    if (!window.confirm(confirmText)) e.preventDefault();
+  });
+})();
+</script>
+{% endblock %}

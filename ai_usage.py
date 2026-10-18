@@ -86,14 +86,30 @@ def _row_to_dict(row) -> dict:
 
 
 def usage_summary(days: int = 30, include_test: bool = False) -> dict:
-    """Admin dashboard summary: totals, and breakdowns by day/source/member/conversation."""
+    """Admin dashboard summary: totals, and breakdowns by day/source/member/conversation.
+
+    source='turn_total' rows (added for per-turn duration logging - see
+    ariella_chat_clean.py's chat_clean() wrapper) are diagnostic-only: an
+    empty model and zero tokens, recorded once per chat turn regardless of
+    how many real Claude calls happened inside it. Seen live (Yosef, right
+    after #57 shipped): mixing them into this same summary made the admin
+    page permanently show "unknown pricing" (empty model string matches no
+    pricing table entry) and inflated the "calls" count with one extra,
+    non-API row per turn. Excluded from every total/breakdown below; their
+    own durations are reported separately via turn_durations."""
     with connection() as conn:
         test_clause = "" if include_test else "AND is_test=0"
         since = f"datetime('now','-{int(days)} days')"
         rows = conn.execute(
-            f"SELECT * FROM ai_usage WHERE created_at >= {since} {test_clause} ORDER BY created_at DESC"
+            f"SELECT * FROM ai_usage WHERE created_at >= {since} {test_clause} "
+            f"AND source != 'turn_total' ORDER BY created_at DESC"
         ).fetchall()
         rows = [_row_to_dict(r) for r in rows]
+        turn_rows = conn.execute(
+            f"SELECT call_duration_ms FROM ai_usage WHERE created_at >= {since} {test_clause} "
+            f"AND source = 'turn_total' AND call_duration_ms IS NOT NULL"
+        ).fetchall()
+        turn_durations_ms = [int(r["call_duration_ms"]) for r in turn_rows]
 
         total_input = sum(r["input_tokens"] for r in rows)
         total_output = sum(r["output_tokens"] for r in rows)
@@ -130,6 +146,16 @@ def usage_summary(days: int = 30, include_test: bool = False) -> dict:
         cacheable_input = total_input + total_cache_read + total_cache_write
         cache_hit_rate = (total_cache_read / cacheable_input) if cacheable_input else 0.0
 
+        # Reported separately from the API-call totals above - see this
+        # function's own docstring for why turn_total rows are excluded
+        # from everything else here.
+        turn_durations = {
+            "count": len(turn_durations_ms),
+            "avg_ms": round(sum(turn_durations_ms) / len(turn_durations_ms)) if turn_durations_ms else 0,
+            "max_ms": max(turn_durations_ms) if turn_durations_ms else 0,
+            "min_ms": min(turn_durations_ms) if turn_durations_ms else 0,
+        }
+
         return {
             "days": days, "include_test": include_test, "calls": len(rows),
             "total_input_tokens": total_input, "total_output_tokens": total_output,
@@ -142,18 +168,38 @@ def usage_summary(days: int = 30, include_test: bool = False) -> dict:
             "by_source": {k: {**v, "cost_usd": round(v["cost_usd"], 4)} for k, v in by_source.items()},
             "top_members": [{**m, "cost_usd": round(m["cost_usd"], 4)} for m in top_members],
             "top_conversations": [{**c, "cost_usd": round(c["cost_usd"], 4)} for c in top_conversations],
+            "turn_durations": turn_durations,
         }
 
 
 def usage_rows(days: int = 30, include_test: bool = False) -> list:
-    """Row-by-row export (CSV) - every ai_usage column plus estimated cost."""
+    """Row-by-row export (CSV) - every ai_usage column plus estimated cost.
+
+    Excludes source='turn_total' rows (same reason as usage_summary's own
+    docstring: diagnostic-only, no model/tokens/cost of their own) - see
+    turn_duration_rows() for those, reported separately."""
     with connection() as conn:
         test_clause = "" if include_test else "AND is_test=0"
         since = f"datetime('now','-{int(days)} days')"
         rows = conn.execute(
-            f"SELECT * FROM ai_usage WHERE created_at >= {since} {test_clause} ORDER BY created_at DESC"
+            f"SELECT * FROM ai_usage WHERE created_at >= {since} {test_clause} "
+            f"AND source != 'turn_total' ORDER BY created_at DESC"
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
+
+
+def turn_duration_rows(days: int = 30, include_test: bool = False) -> list:
+    """Row-by-row export of source='turn_total' rows only - the per-turn
+    total-duration diagnostic (ariella_chat_clean.py's chat_clean()
+    wrapper), kept separate from usage_rows()'s real API-call rows."""
+    with connection() as conn:
+        test_clause = "" if include_test else "AND is_test=0"
+        since = f"datetime('now','-{int(days)} days')"
+        rows = conn.execute(
+            f"SELECT * FROM ai_usage WHERE created_at >= {since} {test_clause} "
+            f"AND source = 'turn_total' ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def usage_for_conversation(conversation_id: int) -> list:
@@ -164,9 +210,15 @@ def usage_for_conversation(conversation_id: int) -> list:
         return [_row_to_dict(r) for r in rows]
 
 
-def record_ai_usage(source: str, model: str, usage=None, error=None):
+def record_ai_usage(source: str, model: str, usage=None, error=None, thread_id=None, call_started_at=None, call_duration_ms=None):
     """Writes one ai_usage row. Never raises - a failure here (locked DB,
-    bad data) must never be allowed to fail the chat turn that triggered it."""
+    bad data) must never be allowed to fail the chat turn that triggered it.
+
+    thread_id/call_started_at/call_duration_ms (2026-10-12, Shaked's
+    concurrency investigation): optional - only _post_claude's own calls
+    pass them, timing the actual client.messages.create() network call
+    specifically. Lets /admin/ai-usage.csv answer directly whether
+    different threads' Claude calls genuinely overlap in time."""
     try:
         ctx = _context.get() or {}
         input_tokens = int(getattr(usage, "input_tokens", 0) or 0) if usage is not None else 0
@@ -178,13 +230,14 @@ def record_ai_usage(source: str, model: str, usage=None, error=None):
                 """INSERT INTO ai_usage(
                     created_at, source, member_id, trip_id, conversation_id, model,
                     input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
-                    is_test, error, channel
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    is_test, error, channel, thread_id, call_started_at, call_duration_ms
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     utc_now_iso(), str(source or "other"), ctx.get("member_id"), ctx.get("trip_id"),
                     ctx.get("conversation_id"), str(model or ""), input_tokens, output_tokens,
                     cache_read, cache_write, 1 if ctx.get("is_test") else 0,
                     str(error) if error else None, ctx.get("channel"),
+                    thread_id, call_started_at, call_duration_ms,
                 ),
             )
     except Exception:

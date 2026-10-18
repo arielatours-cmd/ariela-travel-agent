@@ -18,12 +18,15 @@ from config import (
     WHATSAPP_INBOUND_ENABLED,
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_RECIPIENT,
+    WHATSAPP_REGISTRATION_PIN,
     WHATSAPP_VERIFY_TOKEN,
+    WHATSAPP_WABA_ID,
 )
 from database import (
     connection, log_whatsapp_message, whatsapp_message_already_processed,
 )
 from public_site import site
+from whatsapp_coexistence import META_APP_ID
 
 log = logging.getLogger(__name__)
 
@@ -61,12 +64,276 @@ def whatsapp_status() -> dict[str, Any]:
     }
 
 
-def _require_configuration() -> None:
-    status = whatsapp_status()
-    if not status["configured"]:
+def _require_configuration(recipient: str | None = None) -> None:
+    """WHATSAPP_RECIPIENT is only a default for an admin test-send with no
+    explicit recipient - it must never block a reply to a real inbound
+    sender just because that env var happens to be unset."""
+    missing = []
+    if not WHATSAPP_ACCESS_TOKEN:
+        missing.append("WHATSAPP_ACCESS_TOKEN")
+    if not WHATSAPP_PHONE_NUMBER_ID:
+        missing.append("WHATSAPP_PHONE_NUMBER_ID")
+    if not recipient and not WHATSAPP_RECIPIENT:
+        missing.append("WHATSAPP_RECIPIENT")
+    if missing:
         raise WhatsAppConfigurationError(
-            "חסרים משתני סביבה ב-Render: " + ", ".join(status["missing"])
+            "חסרים משתני סביבה ב-Render: " + ", ".join(missing)
         )
+
+
+def _meta_graph_get(path: str, params: dict | None = None) -> tuple[dict, bool]:
+    """GET helper for subscription_check - Authorization header (never the
+    URL) so the token never lands in a server access log, unlike
+    whatsapp_coexistence.py's onboarding-time calls which pass a short-lived
+    code-exchange token as a request param. Returns (json_body, http_ok)."""
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{path}"
+    headers = {"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"}
+    try:
+        response = requests.get(url, headers=headers, params=params or {}, timeout=20)
+    except requests.RequestException as exc:
+        return {"error": {"message": f"שגיאת תקשורת מול Meta: {exc}"}}, False
+    try:
+        data = response.json()
+    except ValueError:
+        data = {"error": {"message": f"Meta החזירה HTTP {response.status_code} ללא JSON"}}
+    return (data if isinstance(data, dict) else {}), response.ok
+
+
+def _meta_graph_post(path: str) -> tuple[dict, bool]:
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{path}"
+    headers = {"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"}
+    try:
+        response = requests.post(url, headers=headers, timeout=20)
+    except requests.RequestException as exc:
+        return {"error": {"message": f"שגיאת תקשורת מול Meta: {exc}"}}, False
+    try:
+        data = response.json()
+    except ValueError:
+        data = {"error": {"message": f"Meta החזירה HTTP {response.status_code} ללא JSON"}}
+    return (data if isinstance(data, dict) else {}), response.ok
+
+
+def whatsapp_subscription_check(apply: bool = False) -> dict[str, Any]:
+    """Task 006b: read-only (unless apply=True) check of whether this app is
+    subscribed to the configured WABA's messages webhook - the most likely
+    reason Meta never POSTs to /whatsapp-webhook despite every other setting
+    looking correct. Never logs or returns WHATSAPP_ACCESS_TOKEN itself."""
+    result: dict[str, Any] = {
+        "phone": None,
+        "waba_id": None,
+        "subscribed": None,
+        "subscribed_apps": None,
+        "token_ok": True,
+        "errors": [],
+    }
+
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        result["token_ok"] = False
+        result["errors"].append(
+            "WHATSAPP_ACCESS_TOKEN או WHATSAPP_PHONE_NUMBER_ID לא מוגדרים ב-Render."
+        )
+        return result
+
+    phone_data, phone_ok = _meta_graph_get(
+        WHATSAPP_PHONE_NUMBER_ID,
+        {"fields": "id,display_phone_number,verified_name,quality_rating,platform_type,code_verification_status,status"},
+    )
+    if not phone_ok:
+        result["token_ok"] = False
+        result["errors"].append(_safe_meta_error_message(phone_data))
+    else:
+        display = str(phone_data.get("display_phone_number") or "")
+        result["phone"] = {
+            "id": phone_data.get("id"),
+            "display_phone_number_ending": _digits_only(display)[-4:] if display else None,
+            "verified_name": phone_data.get("verified_name"),
+            "quality_rating": phone_data.get("quality_rating"),
+            "platform_type": phone_data.get("platform_type"),
+            "code_verification_status": phone_data.get("code_verification_status"),
+            "status": phone_data.get("status"),
+        }
+
+    waba_id = WHATSAPP_WABA_ID or None
+    if not waba_id and phone_ok:
+        # Best-effort only - the phone-number node doesn't reliably expose
+        # its parent WABA id as a plain field; WHATSAPP_WABA_ID is the
+        # reliable source (see env.example).
+        waba_id = phone_data.get("whatsapp_business_account_id") or None
+    if not waba_id:
+        result["errors"].append(
+            "לא ידוע מזהה ה-WABA - צריך להוסיף WHATSAPP_WABA_ID ב-Render."
+        )
+        return result
+    result["waba_id"] = waba_id
+
+    sub_data, sub_ok = _meta_graph_get(f"{waba_id}/subscribed_apps")
+    if not sub_ok:
+        result["token_ok"] = False
+        result["errors"].append(_safe_meta_error_message(sub_data))
+        return result
+
+    apps = sub_data.get("data") or []
+    app_list = []
+    for item in apps:
+        api_data = item.get("whatsapp_business_api_data") if isinstance(item, dict) else None
+        app_id = (api_data or {}).get("id") or (item or {}).get("id")
+        app_name = (api_data or {}).get("name") or (item or {}).get("name")
+        app_list.append({"id": app_id, "name": app_name})
+    result["subscribed_apps"] = app_list
+    result["subscribed"] = any(str(a.get("id")) == str(META_APP_ID) for a in app_list)
+
+    if apply and not result["subscribed"]:
+        apply_data, apply_ok = _meta_graph_post(f"{waba_id}/subscribed_apps")
+        if not apply_ok:
+            result["applied"] = False
+            result["errors"].append(_safe_meta_error_message(apply_data))
+            return result
+        result["applied"] = True
+        sub_data2, sub_ok2 = _meta_graph_get(f"{waba_id}/subscribed_apps")
+        if sub_ok2:
+            apps2 = sub_data2.get("data") or []
+            app_list2 = []
+            for item in apps2:
+                api_data = item.get("whatsapp_business_api_data") if isinstance(item, dict) else None
+                app_id = (api_data or {}).get("id") or (item or {}).get("id")
+                app_name = (api_data or {}).get("name") or (item or {}).get("name")
+                app_list2.append({"id": app_id, "name": app_name})
+            result["subscribed_apps"] = app_list2
+            result["subscribed"] = any(str(a.get("id")) == str(META_APP_ID) for a in app_list2)
+
+    return result
+
+
+def _safe_meta_error_message(data: dict) -> str:
+    """Meta's bare error.message is often too generic to diagnose on its own
+    (e.g. request_code's "Request code error" covers many different root
+    causes) - append whatever extra diagnostic fields Meta did send
+    (type/code/error_subcode/error_data.details/fbtrace_id), the same fields
+    whatsapp_coexistence.py's _safe_meta_error already surfaces for the
+    onboarding flow. Never includes WHATSAPP_ACCESS_TOKEN - it was never in
+    this error object to begin with."""
+    error = data.get("error") if isinstance(data, dict) else None
+    if not isinstance(error, dict):
+        return "Meta החזירה שגיאה לא ידועה."
+    message = str(error.get("message") or "Meta החזירה שגיאה לא ידועה.")
+    extra = []
+    if error.get("type"):
+        extra.append(f"type={error['type']}")
+    if error.get("code") is not None:
+        extra.append(f"code={error['code']}")
+    if error.get("error_subcode") is not None:
+        extra.append(f"subcode={error['error_subcode']}")
+    details = (error.get("error_data") or {}).get("details") if isinstance(error.get("error_data"), dict) else None
+    if details:
+        extra.append(f"details={details}")
+    if error.get("fbtrace_id"):
+        extra.append(f"fbtrace_id={error['fbtrace_id']}")
+    return f"{message} ({', '.join(extra)})" if extra else message
+
+
+def _meta_graph_post_body(path: str, data: dict | None = None, json_body: dict | None = None) -> tuple[dict, bool]:
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{path}"
+    headers = {"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"}
+    try:
+        response = requests.post(url, headers=headers, data=data, json=json_body, timeout=20)
+    except requests.RequestException as exc:
+        return {"error": {"message": f"שגיאת תקשורת מול Meta: {exc}"}}, False
+    try:
+        body = response.json()
+    except ValueError:
+        body = {"error": {"message": f"Meta החזירה HTTP {response.status_code} ללא JSON"}}
+    return (body if isinstance(body, dict) else {}), response.ok
+
+
+_STILL_LINKED_TO_APP_HINTS = (
+    "already registered", "migrat", "linked to", "on-premise", "onprem", "coexistence",
+)
+
+
+def _maybe_add_still_linked_hint(errors: list, message: str) -> None:
+    lower = message.lower()
+    if any(hint in lower for hint in _STILL_LINKED_TO_APP_HINTS):
+        errors.append("נראה שהמספר עדיין מקושר לאפליקציית WhatsApp Business בטלפון - צריך קודם למחוק משם את החשבון, ואז לנסות שוב.")
+
+
+def whatsapp_request_code(method: str = "SMS", confirm: bool = False) -> dict[str, Any]:
+    """Task 006c, step 1: Meta sends a verification code to the number by
+    SMS or voice call - the first step of registering it directly on the
+    Cloud API (no WhatsApp Business app / Coexistence). Without confirm=True
+    this only explains what would happen - no call to Meta at all, since the
+    business owner operates this from her phone and a stray tap must never
+    trigger a real SMS."""
+    method = (method or "SMS").strip().upper()
+    if method not in ("SMS", "VOICE"):
+        return {"ok": False, "errors": ["method חייב להיות SMS או VOICE."]}
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        return {"ok": False, "errors": ["WHATSAPP_ACCESS_TOKEN או WHATSAPP_PHONE_NUMBER_ID לא מוגדרים ב-Render."]}
+    if not confirm:
+        return {"ok": True, "would_send": True, "method": method, "errors": [],
+                "message": f"לחיצה עם confirm=1 תשלח קוד אימות למספר דרך {method}. שום דבר לא נשלח כרגע."}
+
+    data, ok = _meta_graph_post_body(f"{WHATSAPP_PHONE_NUMBER_ID}/request_code", data={"code_method": method, "language": "he"})
+    if not ok:
+        message = _safe_meta_error_message(data)
+        errors = [message]
+        _maybe_add_still_linked_hint(errors, message)
+        return {"ok": False, "errors": errors}
+    return {"ok": True, "sent": True, "method": method, "errors": []}
+
+
+def whatsapp_verify_code(code: str, confirm: bool = False) -> dict[str, Any]:
+    """Task 006c, step 2: confirm the code Meta sent in step 1."""
+    digits = re.sub(r"\D", "", str(code or ""))
+    if not digits:
+        return {"ok": False, "errors": ["קוד האימות חסר."]}
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        return {"ok": False, "errors": ["WHATSAPP_ACCESS_TOKEN או WHATSAPP_PHONE_NUMBER_ID לא מוגדרים ב-Render."]}
+    if not confirm:
+        return {"ok": True, "would_verify": True, "errors": [],
+                "message": "לחיצה עם confirm=1 תאמת את הקוד מול Meta. שום דבר לא נשלח כרגע."}
+
+    data, ok = _meta_graph_post_body(f"{WHATSAPP_PHONE_NUMBER_ID}/verify_code", data={"code": digits})
+    if not ok:
+        message = _safe_meta_error_message(data)
+        errors = [message]
+        _maybe_add_still_linked_hint(errors, message)
+        return {"ok": False, "errors": errors}
+    return {"ok": True, "verified": True, "errors": []}
+
+
+def whatsapp_register_number(confirm: bool = False) -> dict[str, Any]:
+    """Task 006c, step 3: register the (now verified) number directly on the
+    Cloud API using the business owner's own 2-step-verification PIN - the
+    final step that makes WhatsApp actually deliver messages to our webhook
+    instead of to the WhatsApp Business app. Never logs or returns the PIN
+    or the access token."""
+    if not WHATSAPP_REGISTRATION_PIN:
+        return {"ok": False, "errors": ["WHATSAPP_REGISTRATION_PIN לא מוגדר ב-Render - צריך PIN בן 6 ספרות."]}
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        return {"ok": False, "errors": ["WHATSAPP_ACCESS_TOKEN או WHATSAPP_PHONE_NUMBER_ID לא מוגדרים ב-Render."]}
+    if not confirm:
+        return {"ok": True, "would_register": True, "errors": [],
+                "message": "לחיצה עם confirm=1 תרשום את המספר ישירות ב-Cloud API. שום דבר לא נשלח כרגע."}
+
+    data, ok = _meta_graph_post_body(
+        f"{WHATSAPP_PHONE_NUMBER_ID}/register",
+        json_body={"messaging_product": "whatsapp", "pin": WHATSAPP_REGISTRATION_PIN},
+    )
+    if not ok:
+        message = _safe_meta_error_message(data)
+        errors = [message]
+        _maybe_add_still_linked_hint(errors, message)
+        return {"ok": False, "errors": errors}
+
+    result: dict[str, Any] = {"ok": True, "registered": True, "errors": []}
+    phone_data, phone_ok = _meta_graph_get(
+        WHATSAPP_PHONE_NUMBER_ID, {"fields": "status,platform_type,code_verification_status"}
+    )
+    if phone_ok:
+        result["status"] = phone_data.get("status")
+        result["platform_type"] = phone_data.get("platform_type")
+        result["code_verification_status"] = phone_data.get("code_verification_status")
+    return result
 
 
 @site.route("/whatsapp-webhook", methods=["GET", "POST"])
@@ -290,7 +557,7 @@ def _process_webhook_payload(payload: dict) -> None:
 
 
 def send_text_message(message: str, recipient: str | None = None) -> dict[str, Any]:
-    _require_configuration()
+    _require_configuration(recipient)
 
     text = (message or "").strip()
     if not text:
@@ -358,7 +625,7 @@ def send_template_message(
     build_daily_whatsapp_payload's shape). Ready for when the welcome/daily-
     deals templates are approved in Meta - not called anywhere yet while
     WHATSAPP_DEALS_BUTTONS_ENABLED stays false (task 003a)."""
-    _require_configuration()
+    _require_configuration(recipient)
 
     name = (template_name or "").strip()
     if not name:

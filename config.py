@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 APP_VERSION = "9.7.143-connected-trip"
@@ -90,6 +91,21 @@ CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "")
 LODGING_AFFILIATE_LINK = os.getenv("LODGING_AFFILIATE_LINK", "").strip()
 LODGING_PARTNER_NAME = os.getenv("LODGING_PARTNER_NAME", "Agoda").strip() or "Agoda"
 LODGING_SEARCH_URL_TEMPLATE = os.getenv("LODGING_SEARCH_URL_TEMPLATE", "").strip()
+# Flight partner via Travelpayouts: Kiwi.com (task 013a). A secondary
+# "check on Kiwi.com too" button on direct-flight deal cards, next to the
+# unchanged main booking button. TRAVELPAYOUTS_KIWI_LINK is the short
+# tracking link from Travelpayouts (Tools -> Links) to Kiwi's home page - the
+# fallback whenever the route deep link below is not fully configured.
+# The deep link needs all three of: TRAVELPAYOUTS_MARKER, TRAVELPAYOUTS_TRS
+# and KIWI_SEARCH_URL_TEMPLATE - the deep-link format copied as-is from the
+# Travelpayouts Links tool, with the placeholders {marker}, {trs}, {sid},
+# {from}, {to} (IATA), {depart}, {return} (YYYY-MM-DD), {adults}, {children}.
+# No program numbers are hard-coded here; everything comes from Travelpayouts.
+# Only the trip id ({sid}) is ever sent - never a name, email or phone.
+TRAVELPAYOUTS_KIWI_LINK = os.getenv("TRAVELPAYOUTS_KIWI_LINK", "").strip()
+TRAVELPAYOUTS_MARKER = os.getenv("TRAVELPAYOUTS_MARKER", "").strip()
+TRAVELPAYOUTS_TRS = os.getenv("TRAVELPAYOUTS_TRS", "").strip()
+KIWI_SEARCH_URL_TEMPLATE = os.getenv("KIWI_SEARCH_URL_TEMPLATE", "").strip()
 # Sold to the customer as "a month" (never shown as a raw day count) but kept
 # internally at 30 real service days + the 4-day RENEWAL_REMINDER_DAYS_BEFORE
 # buffer, so a customer who reacts slowly to the reminder email still gets
@@ -196,6 +212,18 @@ try:
         ]
     if "ניו יורק" in MULTI_GATEWAY_CITIES:
         MULTI_GATEWAY_CITIES["ניו יורק"].append({"code": "EWR", "name_he": "נמל התעופה ניוארק ליברטי"})
+    # כרתים (Crete) by hand, same reason as EWR above: the catalog has no
+    # single "city" entry for an island/region with two real airports -
+    # HER and CHQ are each catalogued under their own town (Heraklion,
+    # Chania), so the city_en grouping above never sees them as one city
+    # and Crete was never treated as multi-gateway at all. Seen live: a
+    # Crete trip had its gateway airport picked silently (Chania) with no
+    # choice ever shown to the customer, even though Heraklion is the
+    # larger, more commonly used gateway for most of the island.
+    MULTI_GATEWAY_CITIES["כרתים"] = [
+        {"code": "HER", "name_he": "נמל התעופה הבינלאומי הרקליון"},
+        {"code": "CHQ", "name_he": "נמל התעופה הבינלאומי חאניה"},
+    ]
     del _airports_catalog, _airport, _code, _name, _by_city, _city_key, _group, _city_he
 except Exception:
     pass
@@ -205,6 +233,16 @@ WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
 WHATSAPP_RECIPIENT = os.getenv("WHATSAPP_RECIPIENT", "").strip()
 WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0").strip()
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip()
+# Task 006b: the WhatsApp Business Account that owns WHATSAPP_PHONE_NUMBER_ID
+# - needed to check/apply the app's subscription to that WABA's messages
+# webhook (/admin/whatsapp-subscription). Optional: left empty, that check
+# tries to resolve it from the Graph API instead.
+WHATSAPP_WABA_ID = os.getenv("WHATSAPP_WABA_ID", "").strip()
+# Task 006c: 6-digit two-step-verification PIN for registering
+# WHATSAPP_PHONE_NUMBER_ID directly on the Cloud API (register the number to
+# Ariela, no WhatsApp Business app on a phone / no Coexistence). Never
+# logged or returned by /admin/whatsapp-number/*.
+WHATSAPP_REGISTRATION_PIN = os.getenv("WHATSAPP_REGISTRATION_PIN", "").strip()
 # Off by default: until the welcome/daily-deals quick-reply templates are
 # approved in Meta, every WhatsApp deals message goes to whatsapp_outbound_queue
 # in 'preview' status only - nothing is ever sent to a real customer.
@@ -238,9 +276,29 @@ BUSINESS_CONTACT_EMAIL = os.getenv("BUSINESS_CONTACT_EMAIL", "").strip()
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "change-this-before-production")
 FEEDBACK_TO_EMAIL = os.getenv("FEEDBACK_TO_EMAIL", "arielatours@gmail.com").strip()
 MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
-MAIL_APP_PASSWORD = os.getenv("MAIL_APP_PASSWORD", "").strip()
+# Google displays App Passwords as 4 space-separated groups (e.g. "abcd efgh
+# ijkl mnop"), and copying that straight from the account page can carry
+# non-breaking spaces (U+00A0) instead of plain ones - .strip() only trims
+# the ends, so a pasted-with-spaces password slips through as 19 "characters"
+# and then crashes smtplib's ASCII auth encoding. Strip ALL whitespace
+# (regular or not - \s is Unicode-aware) so copy-paste can't break this.
+MAIL_APP_PASSWORD = re.sub(r"\s+", "", os.getenv("MAIL_APP_PASSWORD", ""))
 MAIL_SMTP_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com").strip()
 MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
+
+# Plan 014 (guided, model-based extraction instead of regex phrase lists).
+# Per Shlomo's request (2026-10-17): the business owner shouldn't need
+# Render access to turn on fields that are already approved and tested -
+# so the code itself defaults to ON for them, and the Render env var is
+# only an emergency override (set it to turn fields off, or to test a
+# different subset temporarily; setting it to an empty string is the
+# kill switch). Extend this list only as each field passes Shaked's QA.
+# "baggage" and "lodging" added live in the SAME PR that introduces each
+# (Shlomo, 2026-10-17): Shaked approves every 014 field before its PR
+# merges regardless, so there is no live-site exposure risk in defaulting
+# it on immediately - requiring a separate Render env var first would need
+# the business owner herself, for no added safety.
+GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers,baggage,lodging"
 
 # Deployment helpers materialize source changes during the build. Importing those
 # mutation scripts at application startup made a second process try to patch the
