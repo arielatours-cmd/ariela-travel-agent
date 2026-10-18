@@ -17,21 +17,58 @@ the past is not saved either) - there is no legitimate reason for a
 vacation-search bot to keep a departure date in the past, whether the
 customer stated the year explicitly or not. _roll_past_dates now always
 rolls a past departure forward to its next future occurrence, with no
-exception. Its signature was also simplified (message/history dropped -
-no longer used by any check inside it).
+exception.
+
+Shaked's review of that first version (18.10, same report) found it still
+didn't fix the live bug, for two reasons, both per state:
+1. The function was only called from the main per-turn extraction
+   pipeline (one call site) - the 014a guided-extraction path for the
+   "dates" field writes directly to trip_update without ever passing
+   through it, so a past date answered via a guided "when do you want to
+   fly?" question was never corrected at all. Moved the one call to
+   _reply, the single point every successful turn passes through
+   regardless of which branch produced the trip_update - covers every
+   path with one call site instead of needing to find and patch each one.
+2. A return date earlier than its own departure (e.g. "28.12 עד 3.1" -
+   departure resolves to 2026-12-28, return to 2026-01-03, the model
+   leaving both in the same stated year despite the trip crossing a new
+   year) is never valid either. The return itself now also rolls forward
+   a year at a time until it's no longer before departure, independently
+   of whether departure itself needed correcting.
 
 Run: python3 tools/qa_roll_past_dates_no_year_escape.py
 """
 import os
 import sys
-from datetime import date
+import json
+import sqlite3
+from datetime import date, datetime, timezone
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-not-real")
 
-import ariella_chat_clean as chat
+import database
+database.init_db()
 
+import ariella_chat_clean as chat
+import whatsapp_bridge
+from werkzeug.security import generate_password_hash
+
+DB = database.DB_PATH
 FAILED = []
+
+
+def _make_member(email):
+    with sqlite3.connect(DB) as conn:
+        conn.execute("DELETE FROM members WHERE email=?", (email,))
+        conn.commit()
+        cur = conn.execute(
+            "INSERT INTO members (full_name,email,password_hash,created_at,status,whatsapp_opt_in,preferred_airports) "
+            "VALUES(?,?,?,?,?,?,?)",
+            ("QA Roll Dates", email, generate_password_hash("Test1234!"), datetime.now(timezone.utc).isoformat(), "active", 0, "[]"),
+        )
+        return cur.lastrowid
 
 
 def check(name, cond):
@@ -101,6 +138,69 @@ rolled_dep = date.fromisoformat(r6["dates"]["departure"])
 check("regression: a departure several years in the past rolls forward to the "
       "correct next future year, not a fixed +1",
       rolled_dep >= date.today() and rolled_dep.month == 7 and rolled_dep.day == 1)
+
+# =====================================================================
+# 7. Shaked's finding #2: a return earlier than its own departure (a New
+#    Year's-crossing trip left in the same stated year) rolls the return
+#    forward, independently of whether departure itself needed rolling.
+# =====================================================================
+state7 = {"dates": {"departure": "2026-12-28", "return": "2026-01-03"}}
+r7 = chat._roll_past_dates(dict(state7))
+check("Shaked's finding: a return before its own departure (New Year's crossing) "
+      "rolls the return forward a year",
+      r7["dates"]["departure"] == "2026-12-28" and r7["dates"]["return"] == "2027-01-03")
+
+state8 = {"dates": {"departure": "2025-12-28", "return": "2025-01-03"}}
+r8 = chat._roll_past_dates(dict(state8))
+check("regression: a departure that is BOTH in the past AND whose return crosses a "
+      "new year is corrected on both axes, departure first then return",
+      r8["dates"]["departure"] == "2026-12-28" and r8["dates"]["return"] >= r8["dates"]["departure"])
+
+check("regression: a normal future trip where return already comes after departure is untouched",
+      chat._roll_past_dates({"dates": {"departure": "2027-03-01", "return": "2027-03-10"}})["dates"]
+      == {"departure": "2027-03-01", "return": "2027-03-10"})
+
+# =====================================================================
+# 8. Shaked's finding #1, end-to-end: a past date answered through the
+#    014a guided-extraction "dates" field (not the main extraction
+#    pipeline) is ALSO corrected now - the fix lives at the single _reply
+#    exit point, not a second call site inside the guided path.
+# =====================================================================
+m_guided = _make_member("qa-roll-dates-guided@example.com")
+guided_state = {
+    "destination": {"places": ["רומא"], "mode": "specific", "status": "known"},
+    "destination_airports": ["FCO"],
+    "travelers": {"adults": 2},
+    "session_status": {"flights": "active", "lodging": "pending", "car": "pending", "trip_planning": "pending"},
+    "active_session": "flights",
+    "guided": {"current_question": "dates", "attempts": 0, "answered": ["travelers"]},
+}
+database.save_ariella_conversation(m_guided, [
+    {"role": "user", "content": "רומא, זוג"},
+    {"role": "assistant", "content": "קלטתי - רומא. מתי תרצו לטוס?"},
+], guided_state)
+
+
+def _fake_post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "guided_extract":
+        return json.dumps({
+            "status": "answered", "departure": "2026-07-01", "return": "2026-07-10",
+            "nights": None, "period": None, "confidence": "high", "also_mentioned": {},
+        })
+    if source == "state_extractor":
+        return json.dumps({"trip_update": {}, "restart_request": False, "restart_evidence": None})
+    if source == "tinkerbell_reply":
+        return "תשובה לדוגמה."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
+    whatsapp_bridge.ariella_turn(m_guided, "1.7 עד 10.7")
+state_guided = (database.load_ariella_conversation(m_guided) or {}).get("trip_state") or {}
+check("Shaked's finding #1 end-to-end: a past date answered via the GUIDED dates field "
+      "(not the main extraction pipeline) is rolled forward too",
+      state_guided.get("dates", {}).get("departure") == "2027-07-01"
+      and state_guided.get("dates", {}).get("return") == "2027-07-10")
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

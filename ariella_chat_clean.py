@@ -1097,13 +1097,21 @@ def _split_car_transmission(state):
     return state
 
 
+def _plus_years(d, n):
+    try:
+        return d.replace(year=d.year + n)
+    except ValueError:  # 29 Feb
+        return d.replace(year=d.year + n, day=28)
+
+
 def _roll_past_dates(state):
-    """Deterministic backstop: a vacation departure is never in the past.
-    Seen live: in October 2026 the customer said "28.6" and the model
-    saved 28.6.2026 - already past - so a return visit couldn't find the
-    vacation (only future ones are offered), a new one was created, and
-    its flight scan failed. A past departure always moves forward to its
-    next future occurrence, the return with it.
+    """Deterministic backstop: a vacation departure is never in the past,
+    and a return is never before its own departure. Seen live: in October
+    2026 the customer said "28.6" and the model saved 28.6.2026 - already
+    past - so a return visit couldn't find the vacation (only future ones
+    are offered), a new one was created, and its flight scan failed. A
+    past departure always moves forward to its next future occurrence,
+    the return with it.
 
     Per Shlomo's follow-up (18.10, qa/reports/2026-10-18-stage3-run4.md,
     s3y2 - Tuscany "1.7 עד 10.7" saved as 2026-07-01, already past): an
@@ -1116,30 +1124,49 @@ def _roll_past_dates(state):
     saved either) - a travel-search departure is never in the past,
     whether the year was stated explicitly or left for this rule to
     infer. There is no legitimate reason for this bot to search flights
-    for a date that has already passed."""
+    for a date that has already passed.
+
+    Per Shaked's review of that first version: two further gaps, both per
+    state, no phrase list.
+    (1) This only ran in the main per-turn extraction pipeline (one call
+    site) - the 014a guided-extraction path for the "dates" field writes
+    directly to trip_update without ever passing through it, so a past
+    date answered via a guided question was never corrected at all. Moved
+    to the single save/reply point (_reply) instead, so every path that
+    can ever set dates is covered, with no second call site to keep in
+    sync.
+    (2) A return earlier than its own departure (e.g. "28.12 עד 3.1" -
+    departure 2026-12-28, return resolved to 2026-01-03, which the model
+    left in the SAME stated year even though the trip crosses a new year)
+    is never valid either - the return itself (not just the departure)
+    now rolls forward a year at a time until it's no longer before
+    departure."""
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else None
     if not dates:
         return state
     dep = _parse_state_date(dates.get("departure"))
-    if not dep or dep >= date.today():
-        return state
-
-    def _plus_years(d, n):
-        try:
-            return d.replace(year=d.year + n)
-        except ValueError:  # 29 Feb
-            return d.replace(year=d.year + n, day=28)
-
-    years = 1
-    while _plus_years(dep, years) < date.today():
-        years += 1
-    new_dates = dict(dates)
-    new_dates["departure"] = _plus_years(dep, years).isoformat()
     ret = _parse_state_date(dates.get("return"))
-    if ret:
+    new_dates = dict(dates)
+    changed = False
+    if dep and dep < date.today():
+        years = 1
+        while _plus_years(dep, years) < date.today():
+            years += 1
+        dep = _plus_years(dep, years)
+        new_dates["departure"] = dep.isoformat()
+        changed = True
+        if ret:
+            ret = _plus_years(ret, years)
+            new_dates["return"] = ret.isoformat()
+    if dep and ret and ret < dep:
+        years = 1
+        while _plus_years(ret, years) < dep:
+            years += 1
         new_dates["return"] = _plus_years(ret, years).isoformat()
-    state["dates"] = new_dates
+        changed = True
+    if changed:
+        state["dates"] = new_dates
     return state
 
 
@@ -9370,6 +9397,16 @@ def _chat_clean_impl():
         (400/401/503) means nothing actually happened this turn."""
         if payload.get('status') == 'success' and payload.get('reply') is not None:
             try:
+                # Per Shaked's review of #86 (18.10, qa/reports/2026-10-18-
+                # stage3-run4.md): _roll_past_dates used to run only in the
+                # main per-turn extraction pipeline, missing the 014a
+                # guided-extraction path (e.g. answering "dates" directly)
+                # entirely. This is the one point every successful turn
+                # passes through regardless of which branch produced the
+                # trip_update, so applying it here covers all of them with
+                # a single call site to keep in sync.
+                if isinstance(payload.get('trip_update'), dict):
+                    payload['trip_update'] = _roll_past_dates(payload['trip_update'])
                 existing = load_ariella_conversation(_member_id)
                 base_history = (existing or {}).get('history') or history_before_gap
                 full_history = list(base_history) + [
@@ -10653,7 +10690,6 @@ def _chat_clean_impl():
         trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
-        trip_update = _roll_past_dates(trip_update)
         trip_update = _split_car_transmission(trip_update)
         trip_update = _protect_car_details_from_loss(trip_state, trip_update)
         trip_update = _protect_lodging_details_from_loss(trip_state, trip_update)
