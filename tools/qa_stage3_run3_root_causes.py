@@ -55,6 +55,21 @@ word for the same thing, already used elsewhere in this file's own
 general lodging-topic detection) is accepted as a synonym, canonicalized
 the same way "אפרטמנט" already canonicalizes to "דירה".
 
+Also folded in, per Shaked's 2026-10-18 daily QA report (qa/reports/
+2026-10-18.md, branch shaked @77173fb) on the stage-2 fail-safe regex
+_deterministic_baggage_facts (unrelated to items b/c/d above, but the same
+"ship it in the roots PR" instruction): two phrasing gaps in the fail-safe
+itself - "מזוודה לכל אחד" (a bare suitcase mention with no "גדולה"/"בבטן"/
+"משותפת" qualifier) matched none of the existing specific patterns and
+returned {} entirely; and "כל אחד טרולי, ומזוודה אחת משותפת" / "מזוודה אחת
+לכולנו וטרולי לכל מבוגר" (the carry-on phrase in reversed word order, or
+naming a traveler noun - "מבוגר" - the old pattern didn't list) both kept
+the checked-bag half but silently dropped the carry-on half. Fixed with two
+general rules: the bare word "מזוודה"/"מזוודות", unless negated nearby,
+always means a checked bag was mentioned; and "טרולי" plus a per-person
+phrase, in EITHER order and naming any of the traveler nouns actually seen
+live, always means a carry-on per traveler. Both added to qa/cases.json too.
+
 Run: python3 tools/qa_stage3_run3_root_causes.py
 """
 import os
@@ -268,6 +283,37 @@ check("Berlin repro end-to-end: once type=הוסטל is known, the lodging "
       "הוסטל" in str(chat._lodging_summary_line(
           {"lodging": {"details": {"type": "הוסטל", "locations": "מיטה, ברלין"}}},
       ) or ""))
+
+# =====================================================================
+# Shaked's 2026-10-18 daily QA report: two _deterministic_baggage_facts
+# fail-safe regex gaps found via real-scan transcripts (Milano, Lisbon).
+# =====================================================================
+check("Milano repro: a bare 'מזוודה לכל אחד' (no גדולה/בבטן/משותפת "
+      "qualifier at all) is no longer dropped entirely",
+      chat._deterministic_baggage_facts("מזוודה לכל אחד", 5)
+      == {"flight": {"baggage": ["checked_bag"],
+                      "baggage_detail": {"checked_bag": {"unit": "per_person"}}}})
+check("Lisbon repro: 'כל אחד טרולי, ומזוודה אחת משותפת' (traveler-noun "
+      "BEFORE טרולי) keeps the carry-on half too, not just the checked bag",
+      chat._deterministic_baggage_facts("כל אחד טרולי, ומזוודה אחת משותפת", 4)
+      == {"flight": {"baggage": ["carry_on_only", "checked_bag"],
+                      "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+check("'מזוודה אחת לכולנו וטרולי לכל מבוגר' ('מבוגר', a traveler noun the "
+      "old carry-on pattern didn't list) also keeps both halves",
+      chat._deterministic_baggage_facts("מזוודה אחת לכולנו וטרולי לכל מבוגר", 4)
+      == {"flight": {"baggage": ["carry_on_only", "checked_bag"],
+                      "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+check("regression: a genuine negated bare mention ('אין לי מזוודה') still "
+      "returns {} rather than being wrongly treated as an affirmative "
+      "checked-bag statement",
+      chat._deterministic_baggage_facts("אין לי מזוודה") == {})
+check("regression: the existing specific phrasings (e.g. 'בלי מזוודה רק "
+      "טרולי', 'מזוודה גדולה לכל אחד מאיתנו') are unaffected",
+      chat._deterministic_baggage_facts("בלי מזוודה רק טרולי")
+      == {"flight": {"baggage": ["carry_on_only"]}}
+      and chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", 4)
+      == {"flight": {"baggage": ["checked_bag"],
+                      "baggage_detail": {"checked_bag": {"unit": "per_person"}}}})
 
 if FAILED:
     print(f"\nFAILED ({len(FAILED)}): {FAILED}")

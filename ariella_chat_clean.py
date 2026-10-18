@@ -4689,12 +4689,28 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         return {"flight": {"baggage": ["no_baggage"]}}
 
     values = []
+    # Per-person phrasing shared by both baggage kinds below - "X per each
+    # traveler", in either word order ("לכל אחד"/"כל אחד", with or without
+    # the "ל" preposition) and naming any of the traveler nouns actually
+    # seen live (אחד/נוסע/אדם/מבוגר - "מבוגר" added per Shaked's stage-3
+    # run-3 daily QA finding, "וטרולי לכל מבוגר").
+    _BAGGAGE_PER_PERSON_RE = r"(?:ל)?כל\s+(?:אחד|נוסע|אדם|מבוגר)"
     # "X מספיק" ("X is enough") is as unambiguous a sufficiency statement as
     # "רק X"/"X בלבד" - seen live: "טרולי מספיק" answered the exact baggage
     # question (טרולי בלבד/גם מזוודה בבטן המטוס/רק תיק) and matched none of
     # the patterns below, so the same question was asked again verbatim
     # forever.
-    if re.search(r"רק\s+טרולי|טרולי\s+בלבד|טרולי\s+לכל\s+אחד|רק\s+כבודת\s+עלי|טרולי\s+מספיק", msg):
+    # Per Shaked's 2026-10-18 stage-3 run-3 daily QA finding: "כל אחד
+    # טרולי, ומזוודה אחת משותפת" (traveler-noun BEFORE טרולי) and "טרולי
+    # לכל מבוגר" (a noun the old pattern didn't list) both silently dropped
+    # the carry-on half of the answer - only the checked bag survived.
+    # General rule: "טרולי" and a per-person phrase within a few words of
+    # each other, in EITHER order, always means a carry-on per traveler.
+    if re.search(
+        r"רק\s+טרולי|טרולי\s+בלבד|רק\s+כבודת\s+עלי|טרולי\s+מספיק"
+        r"|טרולי.{0,10}" + _BAGGAGE_PER_PERSON_RE + r"|" + _BAGGAGE_PER_PERSON_RE + r".{0,10}טרולי",
+        msg
+    ):
         values.append("carry_on_only")
     # "מזוודה למחסן" is kept alongside the correct "בטן המטוס" phrasing -
     # this only ever reads the CUSTOMER's own words, never Ariella's (the
@@ -4716,6 +4732,19 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזווד(?:ה|ות)\s+גדול|יש\s+ל(נו|י)\s+מזוודה"
         r"|מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg
     ))
+    # Per Shaked's 2026-10-18 stage-3 run-3 daily QA finding: "מזוודה לכל
+    # אחד" (a bare suitcase mention, with none of "גדולה"/"בבטן"/"משותפת"
+    # etc.) matched none of the specific phrasings above and returned {}
+    # entirely - the customer's baggage answer was dropped altogether.
+    # General rule: the bare word "מזוודה"/"מזוודות" always means a checked
+    # bag was mentioned, UNLESS it's negated nearby ("בלי"/"אין"/"לא"/"שום"
+    # within the previous couple of words) - the specific phrasings above
+    # only ever add detail (how it's split), they were never meant to gate
+    # whether baggage was mentioned at all.
+    if not checked_bag_mentioned and not re.search(
+        r"(בלי|אין|לא|שום)\s+(?:\S+\s+){0,2}מזווד", msg
+    ) and re.search(r"מזווד(?:ה|ות)", msg):
+        checked_bag_mentioned = True
     checked_bag_detail = {}
     # Explicit count near "מזוודה/מזוודות" - either order ("מזוודה אחת" or
     # "שתי מזוודות"), reusing the same general number-word parser the
@@ -4739,7 +4768,7 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
         checked_bag_detail["unit"] = "total"
         checked_bag_mentioned = True
-    elif re.search(r"לכל\s+אחד|לכל\s+נוסע|לכל\s+אדם", msg) and checked_bag_mentioned:
+    elif re.search(_BAGGAGE_PER_PERSON_RE, msg) and checked_bag_mentioned:
         # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
         # גדולה לכל אחד מאיתנו" (a big suitcase for each of us) has no
         # explicit digit next to "מזוודה" at all, so the old gate here
