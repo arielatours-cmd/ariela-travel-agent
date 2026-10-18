@@ -193,7 +193,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - כשגיל הילד/ה טרם נמסר, בררי גיל ומגדר באותה שאלה פתוחה אחת בלבד, בניסוח טבעי משלך (לדוגמה "ספרי לי על הילדים - בן או בת ובאיזה גיל"), לא כשאלה קבועה ולא בשתי שאלות נפרדות. לעולם אל תשלבי בה אזכור של גיל ההורים/הזוג/המבוגרים באותו משפט (למשל "כמה הזוג בן, כמה הילד/ה?") - זה ניסוח שבור שאין לו משמעות ומבלבל את הלקוח. גיל המבוגרים אינו רלוונטי לחיפוש ולעולם אינו נשאל. לעולם אל תחזרי על שאלת הגיל כשהוא כבר ידוע. אין שאלת המשך נפרדת על המגדר: אם הלקוח ענה רק עם גילאים ולא ציין מגדר, לעולם אל תשאלי שוב על המגדר - המשיכי הלאה עם מה שיש.
-- ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
+- ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה/צימר/הוסטל), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה", "דירה", "צימר" או "הוסטל" בלבד - "אכסניה" נחשבת "הוסטל"), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
 - אם סוג הלינה הוא דירה (לא מלון ולא וילה), בררי גם כמה חדרי רחצה נדרשים - בשאלה נפרדת משאר פרטי הלינה (שאלה אחת בכל פעם, בניסוח טבעי משלך, לא נוסח קבוע). שמרי את המספר ב-lodging.details.bathrooms (מספר). כשסוג הלינה הוא מלון או וילה, אל תשאלי על כך כלל.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה פתוחה קצרה וטבעית (לא כברירה בינארית) ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לשאול שאלה פתוחה שמזכירה את שמות השדות בלי לכפות בחירה ביניהם, ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב פתוחה וקצרה - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). ידני/אוטומטי נשאל כשאלת כן/לא נפרדת על אפשרות אחת (למשל "חשוב לכם רכב אוטומטי?"), לא "אוטומטי או ידני?".
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
@@ -669,6 +669,26 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
     return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
 
+def _normalize_trip_planning_style(trip_update):
+    """Per Shlomo/Shaked (stage-3 run-3, Berlin): the main extractor
+    occasionally represents trip_planning.details.style as a list of
+    English interest-category tags (e.g. ["history","museums","nightlife"])
+    instead of the customer's own free-text words. Normalized right here,
+    at parse time - "already at save time", per Shlomo's own wording - so
+    no caller ever merges a raw list (or untranslated English tokens) into
+    state; _to_hebrew_display (same translation table) does the actual
+    per-token work, this just joins the result into one string."""
+    planning = trip_update.get("trip_planning")
+    if not isinstance(planning, dict):
+        return trip_update
+    details = planning.get("details")
+    if not isinstance(details, dict) or not isinstance(details.get("style"), list):
+        return trip_update
+    trip_update = dict(trip_update)
+    trip_update["trip_planning"] = dict(planning, details=dict(details, style=_to_hebrew_display(details["style"])))
+    return trip_update
+
+
 def _parse_trip_update(text):
     raw = str(text or '').strip()
     if raw.startswith('```'):
@@ -676,7 +696,7 @@ def _parse_trip_update(text):
     try:
         data = json.loads(raw)
         if isinstance(data, dict) and isinstance(data.get('trip_update'), dict):
-            return data['trip_update']
+            return _normalize_trip_planning_style(data['trip_update'])
     except Exception:
         pass
     return {}
@@ -3669,7 +3689,10 @@ def _extract_trip_update(key, model, history, message, state=None):
         # Matches the main conversational call's own history exactly now -
         # same conversation, same memory.
         raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, 700, include_history=True, source="state_extractor")
-        return _parse_trip_update(raw)
+        parsed = _parse_trip_update(raw)
+        parsed = _validate_lodging_level_against_message(parsed, state, message)
+        parsed = _validate_baggage_detail_against_message(parsed, state, message)
+        return parsed
     except Exception:
         return {}
 
@@ -5832,23 +5855,48 @@ def _enforce_one_option_question(reply, state):
     return _append_fixed_question(prefix, fixed)
 
 
-# Per Shlomo/Shaked (#81, 3rd review round): a single general lookup for
-# EVERY internal-English-token field a customer-facing summary line might
-# print, not a one-off check scoped to "pace" alone - any OTHER field that
-# gets a deterministic code-side writer storing a canonical English value
-# (the way _deterministic_trip_planning_pace_facts already does for pace)
-# is covered here automatically too, with no special-casing per field name.
+# Per Shlomo/Shaked (#81, 3rd review round; extended stage-3 run-3): a
+# single general lookup for EVERY internal-English-token field a customer-
+# facing summary line might print, not a one-off check scoped to "pace"
+# alone - any OTHER field that gets a deterministic code-side writer
+# storing a canonical English value (the way
+# _deterministic_trip_planning_pace_facts already does for pace) is
+# covered here automatically too, with no special-casing per field name.
 # A value that isn't one of these known internal tokens (already Hebrew, or
 # anything else) is returned unchanged by _to_hebrew_display below - never
 # guessed at, never altered.
-_INTERNAL_TOKEN_TO_HEBREW = {"active": "פעיל", "relaxed": "רגוע"}
+#
+# The interest/style tokens below (stage-3 run-3, Berlin: trip_planning.
+# details.style came back from the model's own JSON as a list of English
+# category tags, e.g. ["history","museums","nightlife"], instead of the
+# customer's own free-text words) are the same closed-vocabulary pattern
+# already used elsewhere in this file for a model-chosen category value
+# (_BAGGAGE_HE, _LODGING_LEVEL_VALUES, _CURRENCY_HE_NAMES) - a finite,
+# named set of categories the model itself chooses from, not a guess at
+# open-ended customer phrasing.
+_INTERNAL_TOKEN_TO_HEBREW = {
+    "active": "פעיל", "relaxed": "רגוע",
+    "history": "היסטוריה", "museums": "מוזיאונים", "nightlife": "חיי לילה",
+    "food": "אוכל", "culinary": "אוכל", "cuisine": "אוכל",
+    "culture": "תרבות", "art": "אמנות", "architecture": "אדריכלות",
+    "nature": "טבע", "beaches": "חופים", "beach": "חוף",
+    "shopping": "קניות", "adventure": "הרפתקאות", "relaxation": "רגיעה",
+    "hiking": "טיולים רגליים", "sports": "ספורט", "wine": "יין",
+    "family": "משפחה", "romance": "רומנטיקה", "music": "מוזיקה",
+    "festivals": "פסטיבלים",
+}
 
 
 def _to_hebrew_display(value):
     """Translates a known internal English token to its Hebrew customer-
     facing equivalent (_INTERNAL_TOKEN_TO_HEBREW); any other value (already
     Hebrew, or not a recognized internal token at all) passes through
-    unchanged."""
+    unchanged. A list is translated item-by-item and joined - per Shlomo's
+    stage-3 run-3 follow-up, the translation must cover list values too,
+    not just a bare string, so a raw Python list (and whatever untranslated
+    English tokens it holds) never reaches the customer as-is."""
+    if isinstance(value, list):
+        return ", ".join(_to_hebrew_display(v) for v in value if str(v or "").strip())
     value = str(value or "").strip()
     return _INTERNAL_TOKEN_TO_HEBREW.get(value, value)
 
@@ -6123,7 +6171,15 @@ _LODGING_LEVEL_VALUES = (
     ("בסיסי", "בסיסי"), ("בסיסית", "בסיסי"),
     ("חסכוני", "בסיסי"), ("תקציבי", "בסיסי"), ("כלכלי", "בסיסי"), ("זול", "בסיסי"),
 )
-_LODGING_TYPE_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר")
+# Per Shlomo/Shaked (stage-3 run-3, Berlin): "הוסטל" (hostel) is a real,
+# common lodging type the customer actually booked - never one of the
+# original 5 canonical values, so lodging.details.type could never be
+# satisfied for a hostel stay at all (the exact reason guided kept
+# re-asking the type question forever in that same Berlin transcript).
+# "אכסניה" (the formal Hebrew word for the same thing, already used
+# elsewhere in this file's own general lodging-topic detection regexes)
+# is accepted as a synonym for the same canonical "הוסטל" value.
+_LODGING_TYPE_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר", "הוסטל", "אכסניה")
 
 
 def _deterministic_lodging_facts(message, history):
@@ -6164,7 +6220,8 @@ def _deterministic_lodging_facts(message, history):
         else:
             for value in type_values:
                 if value in msg:
-                    result.setdefault("lodging", {}).setdefault("details", {})["type"] = "דירה" if value == "אפרטמנט" else value
+                    canon = "דירה" if value == "אפרטמנט" else ("הוסטל" if value == "אכסניה" else value)
+                    result.setdefault("lodging", {}).setdefault("details", {})["type"] = canon
                     break
 
     # Canonical values match the system prompt's own documented vocabulary
@@ -7458,7 +7515,7 @@ _GUIDED_FIELD_HINT_DESCRIPTION = {
     # dates/travelers - the model decides shared/per-passenger, not another
     # literal phrase added to a list.
     "baggage": "איזה כבודה לוקחים (טרולי/מזוודה בבטן/תיק קטן בלבד), ואם המזוודה משותפת לכל הקבוצה או אחת לכל נוסע",
-    "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה או צימר",
+    "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה, צימר או הוסטל",
     "lodging_rooms": "כמה חדרים נדרשים ללינה",
     "lodging_bathrooms": "כמה חדרי רחצה נדרשים בדירה",
     "lodging_locations": "באיזה אזור/שכונה הלקוח רוצה שהלינה תהיה",
@@ -7588,7 +7645,7 @@ def _guided_field_known_with_confidence(field, state):
     return False
 
 
-_LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר")
+_LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר", "הוסטל")
 
 
 # Each lodging prompt's also_mentioned uses the SAME shape _guided_field_
@@ -7596,7 +7653,7 @@ _LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "ויל�
 # guided-field name), so applying it is one uniform loop - no per-field
 # translation layer, same principle as dates/travelers also_mentioned.
 _LODGING_ALSO_MENTIONED_SCHEMA = (
-    '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"אין העדפה"}|null,'
+    '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"}|null,'
     '"lodging_rooms":{"value":int}|null,"lodging_bathrooms":{"value":int}|null,'
     '"lodging_locations":{"value":"..."}|null,'
     '"lodging_budget_or_level":{"budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null}|null}'
@@ -7614,11 +7671,11 @@ def _lodging_guided_prompt(field, state, recent):
     if field == "lodging_type":
         label = "איזה סוג לינה מתאים לו"
         rules = (
-            "כללים: value הוא בדיוק אחת מהמילים: מלון, דירה, וילה, צימר, אין העדפה (לא מילה אחרת ולא "
-            "תיאור חופשי - \"אפרטמנט\" נחשב \"דירה\"). אסור להמציא - אם לא ברור, value=null ו-confidence:"
+            "כללים: value הוא בדיוק אחת מהמילים: מלון, דירה, וילה, צימר, הוסטל, אין העדפה (לא מילה אחרת ולא "
+            "תיאור חופשי - \"אפרטמנט\" נחשב \"דירה\", \"אכסניה\" נחשבת \"הוסטל\"). אסור להמציא - אם לא ברור, value=null ו-confidence:"
             "\"low\"."
         )
-        schema = '{"status":"answered|unclear|other_topic","value":"מלון"|"דירה"|"וילה"|"צימר"|"אין העדפה"|null,"confidence":"high|low",'
+        schema = '{"status":"answered|unclear|other_topic","value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"|null,"confidence":"high|low",'
         correction_rule = "אם ההודעה מתקנת סוג לינה שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_type\"."
     elif field == "lodging_rooms":
         label = "כמה חדרים נדרשים"
@@ -7802,6 +7859,73 @@ def _level_stated_in_message(level, raw_message):
     return False
 
 
+def _validate_lodging_level_against_message(trip_update, state, message):
+    """Per Shlomo/Shaked (stage-3 run-3, Madrid): #81's fix validated a
+    level pulled via also_mentioned, but that is only ONE of the write
+    paths for this exact field - the main per-turn extractor
+    (_extract_trip_update, source="state_extractor") can independently
+    write lodging.details.level straight into its own JSON, bypassing the
+    guided dispatcher (and #81's guard) entirely. "מלון חמוד ושקט" (no
+    budget/level/star word at all) was saved as level="בינוני" through
+    this exact path. Applies the same _level_stated_in_message check here,
+    general to every write path - not a second, field-specific patch - and
+    only when the value is genuinely NEW this turn (differs from what was
+    already persisted), so an already-accepted level from an earlier turn
+    is never re-litigated against a later, unrelated message."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    lodging = trip_update.get("lodging") if isinstance(trip_update.get("lodging"), dict) else {}
+    details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    level = details.get("level")
+    if not isinstance(level, str) or not level.strip():
+        return trip_update
+    level = level.strip()
+    prior_lodging = (state or {}).get("lodging") if isinstance((state or {}).get("lodging"), dict) else {}
+    prior_details = prior_lodging.get("details") if isinstance(prior_lodging.get("details"), dict) else {}
+    if level == prior_details.get("level"):
+        return trip_update
+    if _level_stated_in_message(level, message):
+        return trip_update
+    trip_update = dict(trip_update)
+    details = dict(details)
+    details.pop("level", None)
+    trip_update["lodging"] = dict(lodging, details=details)
+    return trip_update
+
+
+def _validate_baggage_detail_against_message(trip_update, state, message):
+    """Per Shlomo/Shaked (stage-3 run-3, Lisbon): flight.baggage_detail
+    (the per-passenger count/unit split, e.g. "one shared suitcase" vs.
+    "one per passenger") got silently reinterpreted by the main per-turn
+    extractor on a LATER turn where the customer said nothing new about
+    baggage at all - Tinkerbell then told the customer "I understood this
+    was one bag per passenger", a fact never actually restated that turn.
+    Same class of bug as the lodging-level guard above: the main extractor
+    is free to rewrite any field in its own JSON every turn, with nothing
+    checking whether the customer's current message actually supports a
+    CHANGE to an already-settled fact. General rule, reusing the exact
+    gate words _baggage_answer_by_meaning already established for "this
+    message is about baggage at all" (not a new phrase list): a change to
+    baggage_detail is only accepted when the current message itself
+    mentions baggage in some form; otherwise the prior, already-settled
+    detail is kept."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
+    detail = flight.get("baggage_detail")
+    if not isinstance(detail, dict) or not detail:
+        return trip_update
+    prior_flight = (state or {}).get("flight") if isinstance((state or {}).get("flight"), dict) else {}
+    prior_detail = prior_flight.get("baggage_detail") if isinstance(prior_flight.get("baggage_detail"), dict) else {}
+    if detail == prior_detail:
+        return trip_update
+    if any(w in str(message or "") for w in ("כבודה", "טרולי", "מזוודה")):
+        return trip_update
+    trip_update = dict(trip_update)
+    flight = dict(flight)
+    flight["baggage_detail"] = prior_detail
+    trip_update["flight"] = flight
+    return trip_update
+
+
 def _guided_field_update_and_confirm(field, result, raw_message=None):
     """Builds the _merge_trip_state fragment for a resolved guided answer,
     plus a short, plain-text DESCRIPTION of the value just extracted (never
@@ -7907,9 +8031,9 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
         return {"flight": fragment}, desc
     if field == "lodging_type":
         value = result.get("value")
-        if value not in _LODGING_TYPE_CANON_VALUES and value != "אין העדפה":
+        if value not in _LODGING_TYPE_CANON_VALUES and value != "אכסניה" and value != "אין העדפה":
             return {}, None
-        canon = "דירה" if value == "אפרטמנט" else value
+        canon = "דירה" if value == "אפרטמנט" else ("הוסטל" if value == "אכסניה" else value)
         desc = f"סוג לינה - {canon}" if canon != "אין העדפה" else "אין העדפה לסוג לינה"
         return {"lodging": {"details": {"type": canon}}}, desc
     if field == "lodging_rooms":
@@ -8099,7 +8223,8 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": _guided_confirm_hint(current_question, confirm_desc)}
-    answered.append(current_question)
+    if current_question not in answered:
+        answered.append(current_question)
     changed = True
     if result.get("correction"):
         field_label = dict(
