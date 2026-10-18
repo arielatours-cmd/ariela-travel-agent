@@ -100,13 +100,13 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
 
-**העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה.
+**העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה. העיקרון חל גם על ההקדמה למשפט, לא רק על השאלה עצמה: לעולם אל תכריזי על מספר פרטים/שאלות שעוד נותרו (למשל "עוד שני דברים קטנים לפני שסוגרים..."), כשבפועל את שואלת רק אחד כרגע - זה מטעה בדיוק כמו שאלת X או Y, גם אם מבחינה טכנית נשאלה רק שאלה אחת. פתחי במשפט שמתייחס למה שהלקוח אמר, ואז שאלי את השאלה הבאה היחידה שבאמת רלוונטית כרגע, בלי לרמוז כמה עוד נשאר.
 **שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תביני מהתשובה שלו למה הכוונה - בלי קשר לניסוח השאלה שהוא ראה, ובלי להזכיר לו בשום צורה איך זה נשמר אצלך.**
 - את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור **שאלה אחת בלבד** - הבאה בתור, בניסוח טבעי משלך, בלי להציג שמות שדות פנימיים ללקוח ובלי להעתיק נוסח קבוע כלשהו.
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
-- כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - מבררת (בשאלה פתוחה אחת משלך, לא נוסח קבוע) איזה סוג נסיעה זו: חופשה רגילה, נסיעת עסקים, או חופשת סקי. הביני מהתשובה החופשית לאיזו משלוש הקטגוריות היא שייכת. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. חריג: אם מצוין למטה שללקוח יש חופשות פעילות קרובות וההודעה היא פתיחה כללית, שאלי קודם שאלת כן/לא אחת על החופשה הקרובה בשמה (למשל "להמשיך עם הטיול ל[יעד]?") - לא "להמשיך עם הקרובה או לתכנן חדשה?". רק אם התשובה שלילית, המשיכי לשאלת סוג הנסיעה.
+- כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא שאלה פתוחה אחת וכללית, בניסוח שלך, על מה הלקוח מתכנן הפעם (למשל "מה בא לך לתכנן?" או ניסוח חם דומה) - בלי לנקוב בתוך השאלה עצמה בשום קטגוריה או רשימת אפשרויות (לעולם לא "חופשה רגילה, נסיעת עסקים, או חופשת סקי?" וכל וריאציה של רשימה כזו - זו שאלת X/Y/Z אסורה בדיוק כמו "או" בכל מקום אחר). מתוך התשובה החופשית לשאלה הפתוחה הזו (לא מתוך השאלה עצמה), הביני לאיזו משלוש הקטגוריות - חופשה רגילה, נסיעת עסקים, או חופשת סקי - היא שייכת. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. חריג: אם מצוין למטה שללקוח יש חופשות פעילות קרובות וההודעה היא פתיחה כללית, שאלי קודם שאלת כן/לא אחת על החופשה הקרובה בשמה (למשל "להמשיך עם הטיול ל[יעד]?") - לא "להמשיך עם הקרובה או לתכנן חדשה?". רק אם התשובה שלילית, המשיכי לשאלת סוג הנסיעה.
 - בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
@@ -7563,7 +7563,7 @@ def _guided_extraction_model():
 # These dicts now hold short FIELD DESCRIPTIONS for building that hint,
 # never full question text and never shown to the customer verbatim.
 _GUIDED_FIELD_HINT_DESCRIPTION = {
-    "dates": "מתי הלקוח רוצה לטוס, ולכמה לילות",
+    "dates": "מתי הלקוח רוצה לטוס",
     "travelers": "מי נוסע - כמה מבוגרים, ילדים וגילאים",
     # Added 2026-10-17 per the business owner's explicit decision (relayed
     # via Shlomo), after Shaked's 014a stage-1 run-1 (Budapest Z5): baggage
@@ -7632,15 +7632,29 @@ def _guided_step_covers(field, guided_steps):
 
 def _guided_ask_hint(field, attempts):
     desc = _GUIDED_FIELD_HINT_DESCRIPTION.get(field, field)
+    # Per Shaked's live finding (18.10, qa/reports/2026-10-18-resume-live.md,
+    # L1/#84): the OPENING trip_type question is a different instruction
+    # (TINKERBELL_SYSTEM's own, not this hint), but the same root cause
+    # applies here too - a field description that names example values
+    # (e.g. lodging_type's "מלון, דירה, וילה או צימר") gives Tinkerbell
+    # literal material to echo back as an "X, Y או Z?" question. The
+    # description below exists for HER understanding of what the field
+    # means, never as a script for the question's own wording - say so
+    # explicitly rather than trusting "שאלה אחת ויחידה, פתוחה" alone to
+    # stop her from reusing the example words she was just handed.
+    _no_enumeration = (
+        " התיאור הזה יכול לכלול דוגמאות לערכים אפשריים - הן למטרת ההבנה שלך בלבד, "
+        "לעולם אל תמני אותן כאפשרויות בתוך השאלה עצמה (לא \"X, Y או Z?\")."
+    )
     if attempts and attempts >= 1:
         return (
             f"הפרט הבא עדיין חסר, ובניסיון הקודם לא הובן: {desc}. שאלי שוב שאלה אחת "
             "ויחידה על הפרט הזה, פתוחה, בניסוח שונה מהפעם הקודמת ועם דוגמה אחרת - "
-            "לעולם לא כפתורי בחירה ולא חזרה מילה במילה על הניסוח הקודם."
+            "לעולם לא כפתורי בחירה ולא חזרה מילה במילה על הניסוח הקודם." + _no_enumeration
         )
     return (
         f"הפרט הבא לברר אצל הלקוח: {desc}. שאלי על כך שאלה אחת ויחידה, פתוחה, "
-        "בניסוח שלך - חם וטבעי, בלי כפתורים."
+        "בניסוח שלך - חם וטבעי, בלי כפתורים." + _no_enumeration
     )
 
 
@@ -10129,7 +10143,27 @@ def _chat_clean_impl():
     # for exactly that - gate the whole confirmation gate on it, so an
     # already-blank state falls straight through to a plain new-vacation
     # opening instead of asking permission to delete nothing.
-    if _reset_intent(message) and not trip_state.get("reset_pending") and not own_pending_question and _has_vacation_progress(trip_state):
+    # Per Shaked's live finding (18.10, qa/reports/2026-10-18-resume-live.md,
+    # R8): _reset_intent is a fixed phrase list, so "רגע, אני רוצה להתחיל
+    # טיול אחר" ("wait, I want to start a different trip") was never
+    # recognized at all - guided kept right on asking about the budget.
+    # Against the business owner's 18.10 directive (understanding by the
+    # model, never a phrase list), and her explicit instruction here: this
+    # REPLACES the list as the actual source of truth, not another phrase
+    # added to it. _reset_intent's own exact-phrase match is kept only as
+    # a cheap, zero-risk short-circuit for the obvious/common phrasings it
+    # already covers (skips a network round trip when already certain) -
+    # it can only ever confirm a positive faster, never suppress one the
+    # model would have caught, since anything it doesn't match still goes
+    # to the model below. The model is consulted at all only once there is
+    # real progress worth protecting (_has_vacation_progress) - a blank
+    # state has nothing a reset gate needs to confirm away in the first
+    # place (see the fix just above).
+    _restart_intent = _reset_intent(message) or (
+        _has_vacation_progress(trip_state)
+        and _interpret_pending_choice(key, model, history, message, "new_vacation") == "new"
+    )
+    if _restart_intent and not trip_state.get("reset_pending") and not own_pending_question and _has_vacation_progress(trip_state):
         pending = dict(trip_state)
         pending["reset_pending"] = True
         pending["reset_change_request"] = message
