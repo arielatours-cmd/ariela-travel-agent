@@ -734,7 +734,7 @@ def search_open_jaw_flights(departure: str, outbound_arrival: str, return_depart
     }
 
 
-def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int = 1, children: int = 0, rooms: int = 1, min_price: int | None = None, max_price: int | None = None, vacation_rentals: bool = False) -> dict:
+def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int = 1, children: int = 0, children_ages: list | None = None, rooms: int = 1, min_price: int | None = None, max_price: int | None = None, vacation_rentals: bool = False, min_hotel_class: int | None = None) -> dict:
     """Real, live lodging results via SerpApi's google_hotels engine - the
     same vendor/API key already used for flights. Booking.com's own
     affiliate program (CJ) does not expose a priced Demand API, only a
@@ -750,7 +750,26 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
     mode instead of traditional hotels - set it when the customer's stated
     lodging type (lodging.details.type) is "וילה"/"דירה" rather than "מלון",
     so the results actually match what they asked for instead of always
-    returning hotels."""
+    returning hotels.
+
+    Seen live (Shaked, qa-s92, a ski trip with one child): every lodging
+    search with children>0 came back "the search failed". Per SerpApi's own
+    google_hotels reference, children_ages is required to list exactly as
+    many ages as `children` the moment children>0 - we were sending
+    children=1 with no ages at all, a parameter mismatch the API rejects.
+    Only sent when both a positive children count AND a matching list of
+    ages are available; otherwise the request is still sent without either,
+    same as before, rather than guessing an age.
+
+    min_hotel_class: when the customer stated a minimum comfort level (e.g.
+    "4 כוכבים ומעלה"), this was captured as a `lodging.details.level` value
+    but never actually enforced anywhere - seen live (Shaked, round 4):
+    Budapest came back only 4/10 results at 4-star+, and Zurich returned a
+    3-star ibis, a hostel, and an airport-adjacent Radisson despite the
+    customer asking for 4-star+. Passed through to SerpApi's own
+    `hotel_class` filter (a comma-separated list of star classes to
+    include) AND re-checked client-side below, since the upstream filter
+    alone can't be trusted to be exhaustive."""
     params = {
         "engine": "google_hotels",
         "api_key": _api_key(),
@@ -763,12 +782,24 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
         "gl": "il",
         "hl": "he",
     }
+    valid_ages = [int(a) for a in (children_ages or []) if isinstance(a, (int, float, str)) and str(a).strip().isdigit()]
+    if children and valid_ages and len(valid_ages) == int(children):
+        params["children_ages"] = ",".join(str(max(1, min(17, a))) for a in valid_ages)
     if vacation_rentals:
         params["vacation_rentals"] = "true"
     if min_price:
         params["min_price"] = str(int(min_price))
     if max_price:
         params["max_price"] = str(int(max_price))
+    # Seen live (Shaked, round 6): hotel_class is a HOTEL star rating -
+    # SerpApi's vacation_rentals mode (apartments/villas) mostly doesn't
+    # return it at all, so filtering by it there dropped almost every
+    # listing to zero results for a perfectly reasonable "רמה בינונית/
+    # יוקרתית" apartment request. A stated comfort level only ever means
+    # something for actual hotels; never apply it (neither as the SerpApi
+    # request param nor the client-side re-check below) in rentals mode.
+    if min_hotel_class and not vacation_rentals and 2 <= int(min_hotel_class) <= 5:
+        params["hotel_class"] = ",".join(str(c) for c in range(int(min_hotel_class), 6))
     data = _serpapi_request(params)
     properties = data.get("properties") or []
     results = []
@@ -779,9 +810,15 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
         thumbnail = None
         if images and isinstance(images[0], dict):
             thumbnail = images[0].get("thumbnail") or images[0].get("original_image")
+        hotel_class = prop.get("hotel_class")
+        try:
+            hotel_class_num = int(str(hotel_class).strip()[:1]) if hotel_class not in (None, "") else None
+        except (TypeError, ValueError):
+            hotel_class_num = None
         results.append({
             "name": prop.get("name"),
-            "hotel_class": prop.get("hotel_class"),
+            "hotel_class": hotel_class,
+            "hotel_class_num": hotel_class_num,
             "overall_rating": prop.get("overall_rating"),
             "reviews": prop.get("reviews"),
             "price_per_night_ils": rate.get("extracted_lowest") or rate.get("lowest"),
@@ -792,6 +829,15 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
             "amenities": prop.get("amenities") or [],
             "nearby_places": [p.get("name") for p in (prop.get("nearby_places") or []) if isinstance(p, dict) and p.get("name")][:3],
         })
+    if min_hotel_class and not vacation_rentals and 2 <= int(min_hotel_class) <= 5:
+        # Never trust the upstream filter alone to be exhaustive - drop
+        # anything SerpApi still returned below the stated minimum. A
+        # hotel with no class at all (hotel_class_num is None) can't be
+        # verified to meet the minimum, so it's excluded too - never
+        # silently assumed to pass. Skipped entirely in vacation_rentals
+        # mode (see above) - never zero out a perfectly good apartment
+        # search just because SerpApi never sends it a star class.
+        results = [r for r in results if (r.get("hotel_class_num") or 0) >= int(min_hotel_class)]
     return {
         "query": query,
         "checkin_date": checkin_date,

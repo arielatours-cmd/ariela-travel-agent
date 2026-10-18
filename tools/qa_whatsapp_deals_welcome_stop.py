@@ -30,6 +30,9 @@ def check(name, cond):
 def make_member(email, phone):
     with sqlite3.connect(database.DB_PATH) as conn:
         conn.execute("DELETE FROM members WHERE email=?", (email,))
+        # A WhatsApp link left by an earlier run would map this phone to a
+        # deleted member and hide what the code really does with it.
+        conn.execute("DELETE FROM whatsapp_member_links WHERE wa_phone_hash=?", (nc._phone_hash(phone),))
         conn.commit()
         pw = generate_password_hash("Test1234!")
         cur = conn.execute(
@@ -126,14 +129,18 @@ with sqlite3.connect(database.DB_PATH) as conn:
 reply4 = nc.route_inbound("+972500000003", "", button_payload="STOP_HOT_DEALS")
 check("stop reply mentions ongoing vacation tracking when one exists", "עדכוני החופשה" in reply4)
 
-# --- 8. Plain text "עצור" must NOT stop the service (button only, per product owner) ---
+# --- 8. Plain text "עצור" stops the service too, like the button (task 003b,
+# owner decision 16.10 - replaces the 8.10 "button only" decision). The full
+# free-text behaviour is covered in tools/qa_whatsapp_stop_keywords.py. ---
 member_id4 = make_member("qa-whatsapp-stop-keyword@example.com", "+972500000004")
 database.set_whatsapp_deals_opt(member_id4, True, "site")
 _ = nc.route_inbound("+972500000004", "עצור", button_payload=None)
 with sqlite3.connect(database.DB_PATH) as conn:
     conn.row_factory = sqlite3.Row
-    still_on = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id4,)).fetchone()
-check("the word עצור in free text does not stop the service", still_on["whatsapp_opt_in"] == 1)
+    stopped = conn.execute("SELECT whatsapp_opt_in FROM members WHERE id=?", (member_id4,)).fetchone()
+    keyword_event = conn.execute("SELECT event, source FROM whatsapp_opt_events WHERE member_id=? ORDER BY id DESC LIMIT 1", (member_id4,)).fetchone()
+check("the word עצור in free text stops the service for an active member", stopped["whatsapp_opt_in"] == 0)
+check("free-text stop recorded with source='keyword'", keyword_event is not None and keyword_event["source"] == "keyword")
 
 # --- 9. Site toggle still works and records source='site' ---
 member_id5 = make_member("qa-whatsapp-site-toggle@example.com", "+972500000005")
