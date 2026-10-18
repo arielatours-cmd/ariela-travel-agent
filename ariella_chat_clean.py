@@ -5595,8 +5595,15 @@ _OFFER_DOMAIN_WORDS = {
 # both comma-anchored alternatives above require a comma. "ו" fused
 # directly to "אם"/"האם"/"גם" and surrounded by plain whitespace is just as
 # strong a smuggled-second-question signal even without one.
+#
+# Per Shlomo's stage-3 run-3 root-cause item (a), Madrid: "קיבלתי, חדר
+# זוגי אחד - וזה מאשר גם שהלינה תהיה באזור מרכז העיר, כמו שהצעתי?" fuses a
+# just-answered guided field's own confirmation to the NEXT field's real
+# question with "וזה" ("and this") - a fused form none of the alternatives
+# above listed yet, so it went undetected the same way each earlier one
+# did before it was added.
 _BUNDLED_AND_QUESTION_RE = re.compile(
-    r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם)\s"
+    r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם|זה|זאת)\s"
 )
 
 # Per the business owner's explicit instruction (relayed via Shlomo,
