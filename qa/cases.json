@@ -204,8 +204,9 @@
     {"id": "baggage-big-suitcase-per-person", "fn": "_deterministic_baggage_facts", "args": ["מזוודה גדולה לכל אחד מאיתנו", 4], "expect": {"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}}}, "source": "589b860 (PR #81, s3w2 פריז)"},
     {"id": "baggage-one-shared-total", "fn": "_deterministic_baggage_facts", "args": ["כל אחד טרולי, ומזוודה אחת משותפת", 4], "expect": {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}}, "source": "s3x4 ליסבון 2026-10-18"},
     {"id": "baggage-plain-suitcase-per-person", "fn": "_deterministic_baggage_facts", "args": ["מזוודה לכל אחד", 5], "expect": {"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}}}, "source": "s3x2 מילאנו 2026-10-18 — פער פתוח בגיבוי"},
-    {"id": "level-not-stated-small-nice-hotel", "fn": "_level_stated_in_message", "args": ["בינוני", "מלון קטן ונעים"], "expect_falsy": true, "source": "02f794c (PR #81, s3w1 רומא)"},
-    {"id": "level-not-stated-cute-quiet-hotel", "fn": "_level_stated_in_message", "args": ["בינוני", "מלון חמוד ושקט"], "expect_falsy": true, "source": "s3x1 מדריד 2026-10-18"},
+    {"id": "evidence-invented-quote-rejected", "fn": "_value_has_verbatim_evidence", "args": ["מלון בינוני", "מלון קטן ונעים"], "expect_falsy": true, "source": "#83 c42e40d (evidence במקום רשימת מילים, החלטת 18.10; s3w1 רומא)"},
+    {"id": "evidence-missing-rejected", "fn": "_value_has_verbatim_evidence", "args": ["", "מלון חמוד ושקט"], "expect_falsy": true, "source": "#83 c42e40d (s3x1 מדריד)"},
+    {"id": "evidence-tolerates-spacing-punctuation", "fn": "_value_has_verbatim_evidence", "args": ["מזוודה אחת לכולנו", "מזוודה  אחת, לכולנו"], "expect_truthy": true, "source": "שקד 18.10 — ציטוט אמיתי עם רווח/פסיק שונה לא נדחה"},
     {"id": "pace-token-to-hebrew", "fn": "_to_hebrew_display", "args": ["relaxed"], "expect": "רגוע", "source": "0aad29c (PR #81)"}
   ]
 }
