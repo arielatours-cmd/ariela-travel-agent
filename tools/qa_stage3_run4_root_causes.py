@@ -75,6 +75,40 @@ per Shlomo's explicit instruction to send it first on its own).
        specific instruction was traced as their cause, and guessing at a
        fix without being able to verify it live risks making things worse.
 
+Two more findings, sent directly by Shaked (session_014tcDKNJwxKfwmLGTPwxnFF)
+right after #86 merged, both reproduced against main @58ad994:
+
+6. Mid-conversation date correction swallowed once guided owns "dates".
+   The sticky-dates block (main pipeline) only recomputes current_dates
+   from the regex path when "dates" is NOT guided-covered, or the guided
+   call itself fell back to regex this turn. Once "dates" is already in
+   guided.answered, guided's own current_question has moved on - a later
+   correction ("בעצם בין 6 במרץ ל-11 במרץ") never reaches the guided
+   dispatcher at all (it is no longer a redirect candidate either, being
+   already answered). The general per-turn extractor still sees the whole
+   conversation and DOES merge the corrected range into trip_update.dates -
+   but with no regex fact this turn, current_dates stayed empty, so the
+   sticky-dates block's elif branch immediately re-locked it back to the
+   stale prior range right after. Fixed by trusting the extractor's own
+   trip_update.dates too when it differs from the prior range - but only
+   with a genuinely verbatim quote behind it (dates_evidence, a new
+   sibling of trip_update folded into the same state_extractor call,
+   exactly like restart_evidence) - never a blind "whatever the extractor
+   said this turn" override.
+
+7. trip_type=None permanently blocks _required_state_gaps once a real trip
+   is being discussed, since #85 removed the hardcoded opening question
+   that used to collect it. A customer who only ever requests flights/
+   lodging/car and never describes the trip's purpose (no route, no
+   itinerary, no children) keeps trip_type null forever - the gap then
+   asks "what kind of trip is this?" out of nowhere, mid-conversation
+   (the Kyoto loop in run 4). Per the business owner's directive (relayed
+   by Shaked): trip_type now defaults to "standard" as soon as a real trip
+   is being discussed (a service requested, or a destination already
+   named), unless there is genuine evidence of business or ski -
+   _infer_standard_trip_type's narrower itinerary/children-only conditions
+   are special cases of this same default and are now folded into it.
+
 Run: python3 tools/qa_stage3_run4_root_causes.py
 """
 import os
@@ -276,6 +310,171 @@ check("item 5a: TINKERBELL_SYSTEM has a new rule, the explicit mirror of "
 check("item 5b: the X/Y rule explicitly names the 'offer X, or we default to Y' "
       "framing (V5: שדה תעופה מועדף... או שנבדוק) as the same forbidden pattern",
       "או שנבדוק/נבחר את Y בעצמנו" in chat.TINKERBELL_SYSTEM)
+
+
+# =====================================================================
+# 6. Mid-conversation date correction, sent directly by Shaked after #86
+#    merged. End-to-end through whatsapp_bridge.ariella_turn, exactly the
+#    live repro shape: dates already closed via the guided flow (already
+#    in guided.answered, current_question moved on to "travelers").
+# =====================================================================
+m_datefix = _make_member("qa-stage3run4-datefix@example.com")
+datefix_state = {
+    "destination": {"places": ["רומא"], "mode": "specific", "status": "known"},
+    "destination_airports": ["FCO"],
+    "travelers": {"adults": 2},
+    "dates": {"departure": "2027-03-05", "return": "2027-03-10", "needs_confirmation": False},
+    "requested_services": ["flights"],
+    "session_status": {"flights": "active", "lodging": "pending", "car": "pending", "trip_planning": "pending"},
+    "active_session": "flights",
+    "guided": {"current_question": "travelers", "attempts": 0, "answered": ["dates"]},
+}
+database.save_ariella_conversation(m_datefix, [
+    {"role": "user", "content": "רומא, 5-10 במרץ 2027"},
+    {"role": "assistant", "content": "קלטתי - רומא, 5-10 במרץ. כמה נוסעים?"},
+], dict(datefix_state))
+
+
+def _fake_post_claude_datefix(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {"dates": {"departure": "2027-03-06", "return": "2027-03-11"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": "בין 6 במרץ ל-11 במרץ",
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "קלטתי, עדכנתי את התאריכים."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_datefix):
+    whatsapp_bridge.ariella_turn(m_datefix, "בעצם בין 6 במרץ ל-11 במרץ")
+state_datefix = (database.load_ariella_conversation(m_datefix) or {}).get("trip_state") or {}
+check("item 6: a verified mid-conversation date correction (guided already answered "
+      "'dates', current_question moved on) is accepted, not silently re-locked to the "
+      "stale prior range",
+      state_datefix.get("dates", {}).get("departure") == "2027-03-06"
+      and state_datefix.get("dates", {}).get("return") == "2027-03-11")
+
+# Regression: without a genuine verbatim quote behind the extractor's claimed
+# change, the sticky-dates lock must still hold - never a blind override.
+m_datefix_no_evidence = _make_member("qa-stage3run4-datefix-noevidence@example.com")
+database.save_ariella_conversation(m_datefix_no_evidence, [
+    {"role": "user", "content": "רומא, 5-10 במרץ 2027"},
+    {"role": "assistant", "content": "קלטתי - רומא, 5-10 במרץ. כמה נוסעים?"},
+], dict(datefix_state))
+
+
+def _fake_post_claude_no_evidence(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {"dates": {"departure": "2027-04-01", "return": "2027-04-05"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": "משהו שלא קיים בהודעה בכלל",
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "תשובה לדוגמה."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_no_evidence):
+    whatsapp_bridge.ariella_turn(m_datefix_no_evidence, "מה שלומך היום")
+state_no_evidence = (database.load_ariella_conversation(m_datefix_no_evidence) or {}).get("trip_state") or {}
+check("regression: without a real verbatim quote, a claimed date change from the "
+      "extractor is rejected and the sticky lock still holds the prior range",
+      state_no_evidence.get("dates", {}).get("departure") == "2027-03-05"
+      and state_no_evidence.get("dates", {}).get("return") == "2027-03-10")
+
+
+# =====================================================================
+# 7. trip_type defaults to "standard" once a real trip is being discussed,
+#    sent directly by Shaked after #86 merged (the Kyoto loop, general
+#    finding #4's own narrower fix from item 4 above did not cover it).
+# =====================================================================
+check("item 7: too early to default anything - no services requested and no "
+      "destination named yet",
+      chat._infer_standard_trip_type({}, "הי, מה המצב", []) == {})
+check("item 7: defaults to standard once a service is requested, with no ski/"
+      "business signal anywhere",
+      chat._infer_standard_trip_type(
+          {"requested_services": ["flights"], "destination": {"places": ["קיוטו"]}},
+          "אני רוצה לטוס לקיוטו", [],
+      ) == {"trip_type": "standard"})
+check("item 7: a destination alone (before requested_services is populated this "
+      "turn) is also enough to default",
+      chat._infer_standard_trip_type(
+          {"requested_services": [], "destination": {"places": ["קיוטו"]}},
+          "קיוטו", [],
+      ) == {"trip_type": "standard"})
+check("regression: a ski word anywhere in the recent conversation still defers "
+      "to the explicit ski/business classification, never defaulted to standard",
+      chat._infer_standard_trip_type(
+          {"requested_services": ["flights"], "destination": {"places": ["אינסברוק"]}},
+          "רוצה לנסוע לסקי", [],
+      ) == {})
+check("regression: a business word anywhere in the recent conversation still "
+      "defers, never defaulted to standard",
+      chat._infer_standard_trip_type(
+          {"requested_services": ["flights"], "destination": {"places": ["לונדון"]}},
+          "נסיעת עסקים ללונדון", [],
+      ) == {})
+check("regression: trip_type already set is never overridden by this default",
+      chat._infer_standard_trip_type(
+          {"trip_type": "ski", "requested_services": ["flights"], "destination": {"places": ["קיוטו"]}},
+          "קיוטו", [],
+      ) == {})
+check("regression: ski sub-state already filled (even with no ski word in this "
+      "turn's own text) still defers, the existing safety net preserved",
+      chat._infer_standard_trip_type(
+          {"requested_services": ["flights"], "destination": {"places": ["אינסברוק"]},
+           "ski": {"skill_level": "beginner"}},
+          "אינסברוק", [],
+      ) == {})
+
+# End-to-end: the Kyoto loop itself - a flights-only request that never
+# describes the trip's purpose must settle on trip_type="standard" and stop
+# _required_state_gaps from asking about it mid-conversation.
+m_triptype = _make_member("qa-stage3run4-triptype@example.com")
+kyoto_state = {
+    "destination": {"places": ["קיוטו"], "mode": "specific", "status": "known"},
+    "destination_airports": ["KIX"],
+    "travelers": {"adults": 1},
+    "dates": {"departure": "2027-05-10", "return": "2027-05-17", "needs_confirmation": False},
+    "requested_services": ["flights"],
+    "service_decisions": {"flights": {"wanted": True}},
+    "session_status": {"flights": "active", "lodging": "pending", "car": "pending", "trip_planning": "pending"},
+    "active_session": "flights",
+    "departure_airport": "TLV",
+}
+database.save_ariella_conversation(m_triptype, [
+    {"role": "user", "content": "קיוטו, 10-17 במאי 2027, לבד"},
+    {"role": "assistant", "content": "קלטתי - קיוטו. איזה כבודה תצטרך?"},
+], dict(kyoto_state))
+
+
+def _fake_post_claude_triptype(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({"trip_update": {}, "restart_request": False, "restart_evidence": None, "dates_evidence": None})
+    if source == "guided_extract":
+        return json.dumps({"status": "answered", "no_baggage": True, "items": [], "confidence": "high", "also_mentioned": {}})
+    if source == "tinkerbell_reply":
+        return "קלטתי, ללא כבודה."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_triptype):
+    whatsapp_bridge.ariella_turn(m_triptype, "בלי כבודה")
+state_triptype = (database.load_ariella_conversation(m_triptype) or {}).get("trip_state") or {}
+check("item 7 end-to-end (Kyoto loop): trip_type settles on 'standard' on its own, "
+      "with no ski/business signal ever stated",
+      state_triptype.get("trip_type") == "standard")
+check("item 7 end-to-end: _required_state_gaps no longer asks 'what kind of trip is "
+      "this' once trip_type has its default",
+      "trip_type" not in chat._required_state_gaps(state_triptype))
 
 
 if FAILED:

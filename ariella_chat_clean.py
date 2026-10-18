@@ -280,6 +280,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17], child_genders=["female"].
 - child_genders היא רשימה מקבילה ל-child_ages, לפי אותו סדר: "female" כאשר הלקוח אמר "ילדה"/"בת", "male" כאשר אמר "ילד"/"בן", ו-null כשלא צוין מגדר לאותו ילד. לעולם אל תמחקי או תנחשי ערך שכבר קיים ברשימה הזו.
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
+- כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
@@ -323,7 +324,8 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "ski":{"skill_level":null,"priorities":[],"transfer_choice":null}
  },
  "restart_request":false,
- "restart_evidence":null
+ "restart_evidence":null,
+ "dates_evidence":null
 }
 '''
 
@@ -715,6 +717,23 @@ def _parse_restart_signal(text):
     except Exception:
         pass
     return False, None
+
+
+def _parse_dates_evidence(text):
+    """Pull dates_evidence (sibling of trip_update, not inside it) out of
+    the SAME raw JSON the extractor already returned every turn - mirrors
+    _parse_restart_signal exactly. Defaults to None on any parse failure -
+    a date change is never trusted without a real quote behind it."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data.get('dates_evidence')
+    except Exception:
+        pass
+    return None
 
 
 def _parse_trip_update(text):
@@ -3766,7 +3785,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -3774,7 +3793,15 @@ def _extract_trip_update(key, model, history, message, state=None):
     dedicated _interpret_pending_choice call before this one doubled the
     model calls on every turn with vacation progress, pushing turns already
     near 28s toward the 30s cutoff. On any failure (including a parse
-    failure), both default to (False, None) - a restart is never assumed."""
+    failure), both default to (False, None) - a restart is never assumed.
+
+    dates_evidence (18.10, Shaked's stage-3 run-4 direct finding) rides the
+    same call for the same reason: once guided_steps covers "dates", the
+    sticky-dates block further down the pipeline must tell a genuine
+    mid-conversation date correction the extractor's own JSON already
+    captured apart from a stale value it should keep locking to - a
+    verbatim quote is the one signal that distinguishes them, exactly like
+    restart_evidence. None on any failure - never assumed either."""
     try:
         gateway_hint = _multi_gateway_hint(state)
         gateway_hint_text = ""
@@ -3805,9 +3832,10 @@ def _extract_trip_update(key, model, history, message, state=None):
         parsed = _validate_lodging_level_against_message(parsed, state, message)
         parsed = _validate_baggage_detail_against_message(parsed, state, message)
         restart_request, restart_evidence = _parse_restart_signal(raw)
-        return parsed, restart_request, restart_evidence
+        dates_evidence = _parse_dates_evidence(raw)
+        return parsed, restart_request, restart_evidence, dates_evidence
     except Exception:
-        return {}, False, None
+        return {}, False, None, None
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
@@ -5437,10 +5465,29 @@ def _infer_standard_trip_type(state, message, history):
     attractions or places to go out is itself the answer: business and ski
     trips don't get an itinerary (see TINKERBELL_SYSTEM). Children alone are
     NOT evidence - families go on ski trips too - and a customer who only
-    asked for flights/lodging/car still gets the question."""
-    import re
+    asked for flights/lodging/car still gets the question.
+
+    Widened per Shaked's stage-3 run-4 finding (18.10, relayed directly -
+    Kyoto loop): since #85 removed the hardcoded opening question that used
+    to collect trip_type explicitly, a customer who only ever requests
+    flights/lodging/car and never describes the trip's purpose (no route,
+    no itinerary, no children) keeps trip_type permanently null -
+    _required_state_gaps then asks "what kind of trip is this?" out of
+    nowhere, mid-conversation, long after the opening. Per the business
+    owner's directive (relayed by Shaked): trip_type now defaults to
+    "standard" as soon as a real trip is actually being discussed (some
+    service requested, or a destination already named), unless there is
+    genuine evidence of business or ski - the narrower itinerary/children
+    conditions below are special cases of this same default and are now
+    redundant, folded into it."""
     state = state if isinstance(state, dict) else {}
     if state.get("trip_type"):
+        return {}
+    services = set(state.get("requested_services") or [])
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    if not services and not (destination.get("places") or []):
+        # Nothing yet indicates a real trip is being planned (e.g. a bare
+        # greeting) - too early to default anything.
         return {}
     texts = [str(message or "")]
     for item in reversed(history or []):
@@ -5456,56 +5503,13 @@ def _infer_standard_trip_type(state, message, history):
     ski_state = state.get("ski") if isinstance(state.get("ski"), dict) else {}
     if any(v for v in ski_state.values()):
         return {}
-    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
-    planning = decisions.get("trip_planning")
-    wants_planning = (planning.get("wanted") if isinstance(planning, dict) else planning) is True
-    itinerary_words = (
-        "מסלול", "אטרקציות", "אטרקציה", "מקומות בילוי", "בילוי", "בילויים", "לבלות",
-        "תכנון טיול", "לתכנן טיול", "לטייל", "סיור", "סיורים", "מה לעשות", "מה לראות", "itinerary", "attractions",
-    )
-    has_itinerary = any(re.search(r"(?<![א-ת])(?:ו|ה|ב|ל|וה|וב|ול)?" + re.escape(w) + r"(?![א-ת])", blob) for w in itinerary_words)
-    if wants_planning or has_itinerary:
-        return {"trip_type": "standard"}
-    # Children + a destination that is not a ski destination = a family
-    # vacation (per product owner). Children alone are not enough - families
-    # ski too - so only when every named place is clearly not skiing: not a
-    # ski country/resort from SKI_RESORTS, and not a mountain gateway city.
-    travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
-    try:
-        has_children = int(travelers.get("children") or 0) > 0
-    except (TypeError, ValueError):
-        has_children = False
-    has_children = has_children or bool(travelers.get("child_ages"))
-    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
-    places = [str(p).strip().lower() for p in (destination.get("places") or []) if str(p).strip()]
-    if has_children and places and not any(_is_possible_ski_place(p) for p in places):
-        return {"trip_type": "standard"}
-    return {}
+    return {"trip_type": "standard"}
 
 
 # Airports whose city is mainly a gateway to the mountains - a family flight
 # there may well be a ski trip, unlike e.g. Barcelona or Prague which also
 # appear as ski gateways in SKI_RESORTS but are first of all city breaks.
 _MOUNTAIN_GATEWAY_AIRPORTS = {"INN", "GVA", "SZG", "TRN"}
-
-
-def _is_possible_ski_place(place):
-    place = str(place or "").strip().lower()
-    if not place:
-        return False
-    names = set()
-    for row in SKI_RESORTS:
-        for key in ("country", "country_he", "resort", "resort_he"):
-            value = str(row.get(key) or "").strip().lower()
-            if value:
-                names.add(value)
-    for airport in _load_airports():
-        if str(airport.get("code") or "").upper() in _MOUNTAIN_GATEWAY_AIRPORTS:
-            for key in ("city_he", "city_en"):
-                value = str(airport.get(key) or "").strip().lower()
-                if value:
-                    names.add(value)
-    return any(n in place or place in n for n in names)
 
 
 def _deterministic_airport_indifference(message, history, state):
@@ -10682,7 +10686,7 @@ def _chat_clean_impl():
     try:
         # Tinkerbell's data-transfer pass tells Ariella what changed.
         # Ariella owns and merges the cumulative state.
-        extracted, restart_request, restart_evidence = _extract_trip_update(key, model, history, message, trip_state)
+        extracted, restart_request, restart_evidence, dates_evidence = _extract_trip_update(key, model, history, message, trip_state)
 
         # General restart/change-of-direction always enters a simple yes/no
         # gate first. Never erase collected trip facts before an explicit
@@ -11067,6 +11071,35 @@ def _chat_clean_impl():
         if "dates" not in guided_steps or "dates" in _guided_regex_fallback_fields:
             current_date_facts = _deterministic_date_facts([], message, {})
             current_dates = current_date_facts.get("dates") if isinstance(current_date_facts, dict) and isinstance(current_date_facts.get("dates"), dict) else {}
+        if not current_dates:
+            # Per Shaked's stage-3 run-4 direct finding (18.10): once "dates"
+            # is guided-covered and already answered, a later mid-conversation
+            # correction ("בעצם בין 6 במרץ ל-11 במרץ") never reaches the
+            # guided dispatcher at all - its current_question has already
+            # moved on to the next field, and "dates" is no longer a redirect
+            # candidate since it is already in guided.answered. The general
+            # per-turn extractor (state_extractor/EXTRACTOR_SYSTEM) still
+            # sees the whole conversation every turn regardless of guided's
+            # own bookkeeping, and its own trip_update.dates already carried
+            # the corrected range (_merge_trip_state above). But with no
+            # regex fact this turn, current_dates stayed empty, so the elif
+            # branch below silently re-locked to the stale prior_dates right
+            # after - the live repro: state 2027-03-05..10, the correction
+            # was merged correctly, then immediately overwritten back to
+            # 05..10. Trust the extractor's own corrected range here too,
+            # but only with a genuinely verbatim quote behind it - exactly
+            # the same evidence-gated pattern as restart_evidence, never a
+            # blind "whatever the extractor said this turn" override.
+            extractor_dates = extracted.get("dates") if isinstance(extracted.get("dates"), dict) else {}
+            if (
+                extractor_dates.get("departure") and extractor_dates.get("return")
+                and (
+                    extractor_dates.get("departure") != prior_dates.get("departure")
+                    or extractor_dates.get("return") != prior_dates.get("return")
+                )
+                and _value_has_verbatim_evidence(dates_evidence, message)
+            ):
+                current_dates = extractor_dates
         # An explicit new date range in the CURRENT customer message overrides the
         # old approved range. Sticky dates protect against unrelated turns only;
         # they must never block a correction such as "change it to 23-27 May 2027".
