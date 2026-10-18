@@ -5923,9 +5923,20 @@ def _to_hebrew_display(value):
     unchanged. A list is translated item-by-item and joined - per Shlomo's
     stage-3 run-3 follow-up, the translation must cover list values too,
     not just a bare string, so a raw Python list (and whatever untranslated
-    English tokens it holds) never reaches the customer as-is."""
+    English tokens it holds) never reaches the customer as-is.
+
+    Per Shaked's PR #83 review: a token with no entry in the table above
+    (e.g. "street art" - the model can always invent a category this
+    closed vocabulary doesn't list yet) passes straight through untouched
+    and leaks into the customer-facing summary in English. General rule,
+    not a growing phrase list: inside a LIST, once an item has gone
+    through translation, if it still contains any Latin letter at all, it
+    is dropped from the joined result entirely rather than shown - the
+    customer seeing nothing for that one interest beats seeing it in the
+    wrong language."""
     if isinstance(value, list):
-        return ", ".join(_to_hebrew_display(v) for v in value if str(v or "").strip())
+        translated = (_to_hebrew_display(v) for v in value if str(v or "").strip())
+        return ", ".join(t for t in translated if not re.search(r"[A-Za-z]", t))
     value = str(value or "").strip()
     return _INTERNAL_TOKEN_TO_HEBREW.get(value, value)
 

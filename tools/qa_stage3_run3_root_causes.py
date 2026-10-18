@@ -80,6 +80,16 @@ as NOT mentioning baggage, reverting perfectly normal answers like "שתי
 מזוודות לכולנו" back to {}. Fixed by matching the shared stem via regex
 instead of the exact word.
 
+Also added, per Shlomo's follow-up relaying Shaked's PR #83 review (item
+2, explicitly non-blocking but asked for in this same PR): a style token
+_INTERNAL_TOKEN_TO_HEBREW doesn't list yet (e.g. "street art" - the model
+can always invent a category this closed vocabulary doesn't cover) used
+to pass through _to_hebrew_display untouched and leak into the summary in
+English. Fixed with a general rule, not a growing phrase list: inside a
+list, once an item has gone through translation, if it still contains any
+Latin letter at all, it's dropped from the joined result rather than
+shown - nothing beats the wrong language.
+
 Run: python3 tools/qa_stage3_run3_root_causes.py
 """
 import os
@@ -212,9 +222,14 @@ check("_to_hebrew_display translates a list item-by-item and joins it "
       chat._to_hebrew_display(["history", "museums", "nightlife"]) == "היסטוריה, מוזיאונים, חיי לילה")
 check("_to_hebrew_display leaves an already-Hebrew list value untouched",
       chat._to_hebrew_display(["תרבות", "אוכל"]) == "תרבות, אוכל")
-check("_to_hebrew_display passes through an unrecognized token in a list "
-      "unchanged (never guesses)",
-      chat._to_hebrew_display(["history", "something_unknown"]) == "היסטוריה, something_unknown")
+check("_to_hebrew_display drops an unrecognized LATIN token from a list "
+      "rather than guess a translation or leak it in English (updated by "
+      "the Latin-letter filter added later in this same file, below)",
+      chat._to_hebrew_display(["history", "something_unknown"]) == "היסטוריה")
+check("_to_hebrew_display passes through an unrecognized HEBREW token in "
+      "a list unchanged (never guesses) - the Latin-letter filter only "
+      "ever drops Latin text, not an unfamiliar Hebrew word",
+      chat._to_hebrew_display(["history", "קיאקים"]) == "היסטוריה, קיאקים")
 
 berlin_raw = json.dumps({"trip_update": {"trip_planning": {
     "details": {"style": ["history", "museums", "nightlife"], "pace": "relaxed"},
@@ -355,6 +370,28 @@ check("regression: a genuinely unrelated message (no baggage word at all) "
           {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}},
           "תקציב 1500 שקל לאדם",
       ) == {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+
+# =====================================================================
+# Shlomo's follow-up (relaying Shaked's PR #83 review, item 2, non-
+# blocking but "do it now"): a style token this closed vocabulary
+# doesn't list yet (e.g. "street art") passed through _to_hebrew_display
+# untouched and leaked into the customer-facing summary in English.
+# General rule: inside a list, a leftover Latin-lettered token after
+# translation is dropped rather than shown.
+# =====================================================================
+check("a style token not in the translation table ('street art') is "
+      "dropped from the joined list entirely, not shown in English",
+      chat._to_hebrew_display(["history", "street art", "nightlife"])
+      == "היסטוריה, חיי לילה")
+check("a list made ENTIRELY of untranslatable Latin tokens joins to an "
+      "empty string rather than leaking any of them",
+      chat._to_hebrew_display(["street art"]) == "")
+check("regression: a list of only recognized tokens is completely "
+      "unaffected by the new Latin-letter filter",
+      chat._to_hebrew_display(["history", "museums"]) == "היסטוריה, מוזיאונים")
+check("regression: a scalar (non-list) value is unaffected - the "
+      "drop-on-Latin-leftover rule only applies inside a list",
+      chat._to_hebrew_display("relaxed") == "רגוע")
 
 if FAILED:
     print(f"\nFAILED ({len(FAILED)}): {FAILED}")
