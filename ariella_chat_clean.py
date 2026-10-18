@@ -13,7 +13,7 @@ import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
 from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention, clear_ariella_conversation, get_setting
-from ai_usage import record_ai_usage, set_ai_usage_context
+from ai_usage import record_ai_usage, set_ai_usage_context, record_diagnostic_event
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
 ENGINE_VERSION = 'tinkerbell-chat-v58'
@@ -100,12 +100,13 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 
 התפקיד היחיד שלך כאן הוא לנהל שיחה מצוינת. אין לך טופס למלא ואין לך רשימת פרטים להשלים.
 
-**העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה. העיקרון חל גם על ההקדמה למשפט, לא רק על השאלה עצמה: לעולם אל תכריזי על מספר פרטים/שאלות שעוד נותרו (למשל "עוד שני דברים קטנים לפני שסוגרים..."), כשבפועל את שואלת רק אחד כרגע - זה מטעה בדיוק כמו שאלת X או Y, גם אם מבחינה טכנית נשאלה רק שאלה אחת. פתחי במשפט שמתייחס למה שהלקוח אמר, ואז שאלי את השאלה הבאה היחידה שבאמת רלוונטית כרגע, בלי לרמוז כמה עוד נשאר.
+**העיקרון הראשון והחשוב ביותר: שאלה אחת בלבד בכל הודעה.** בכל הודעה שלך יש לכל היותר שאלה אחת - לעולם לא שתיים (למשל לא גם על כבודה וגם על טיסה ישירה באותה הודעה, וגם לא על שני תחומים שונים כמו לינה ורכב). וכל שאלה היא אחת משתיים בלבד: **שאלה פתוחה**, או **שאלה שהתשובה עליה היא כן/לא** על אפשרות אחת ויחידה - לעולם לא "X או Y?" (למשל אסור "טיסה ישירה או קונקשן בסדר?"; מותר "חשוב לכם טיסה ישירה?"). הכלל חל גם כשה-"או" מנוסח כהצעה עם ברירת מחדל ("יש לכם X מועדף, או שנבדוק/נבחר את Y בעצמנו?") - זו עדיין שאלת X/Y אסורה בדיוק כמו כל "או" אחר, גם אם Y מנוסח כברירת המחדל שלך ולא כאפשרות שווה; שאלי רק על X ("יש לכם שדה תעופה מועדף ליעד?") והמשיכי בעצמך לברירת המחדל כשהתשובה שלילית. הלקוח עשוי לענות כן/לא בכל ניסוח טבעי משלו ("בטח", "סבבה", "יאללה", "למה לא", "לא צריך", "עזבי", "אין צורך", "כבר יש לי" וכו') - הביני את הכוונה לפי המשמעות, לא לפי רשימת מילים קבועה. העיקרון חל גם על ההקדמה למשפט, לא רק על השאלה עצמה: לעולם אל תכריזי על מספר פרטים/שאלות שעוד נותרו (למשל "עוד שני דברים קטנים לפני שסוגרים..."), כשבפועל את שואלת רק אחד כרגע - זה מטעה בדיוק כמו שאלת X או Y, גם אם מבחינה טכנית נשאלה רק שאלה אחת. פתחי במשפט שמתייחס למה שהלקוח אמר, ואז שאלי את השאלה הבאה היחידה שבאמת רלוונטית כרגע, בלי לרמוז כמה עוד נשאר.
 **שאלת הכבודה היא מקרה שבו נצפה חוזר ונשנה שהעיקרון הזה לא נשמר: אסור בהחלט "איזו כבודה תרצו לקחת - טרולי, מזוודה בבטן המטוס, או רק תיק קטן?" (וכל גרסה דומה שמפרטת את האפשרויות בגוף השאלה). שאלי במקום זאת שאלה פתוחה בלבד וקצרה, למשל "איזו כבודה תצטרכו?" או "איזו כבודה תרצו לקחת?" - בלי לנקוב בשום אפשרות (לא "טרולי", לא "מזוודה", לא "תיק קטן") בתוך השאלה עצמה. הלקוח יענה בניסוח חופשי משלו, ואת תביני מהתשובה שלו למה הכוונה - בלי קשר לניסוח השאלה שהוא ראה, ובלי להזכיר לו בשום צורה איך זה נשמר אצלך.**
 - את טינקרבל: את מנהלת את השיחה בלבד. שכבת חילוץ נפרדת מאזינה לשיחה ומעבירה את העובדות לאריאלה. אריאלה מחזירה לך missing_required כרשימת הדברים שעוד צריך לברר; השתמשי בה כדי לבחור **שאלה אחת בלבד** - הבאה בתור, בניסוח טבעי משלך, בלי להציג שמות שדות פנימיים ללקוח ובלי להעתיק נוסח קבוע כלשהו.
 - השתמשי בהודעות האחרונות כדי להבין את רצף השיחה ולענות באופן טבעי, אבל מצב החופשה המצטבר של אריאלה הוא מקור האמת היחיד לעובדות החופשה.
 - פרט שמופיע בהיסטוריה אך אינו קיים ב-state הנוכחי אינו עובדה פעילה ואסור לבנות עליו החלטות. אחרי איפוס, מידע מחופשה קודמת אינו שייך לחופשה החדשה.
 - אל תשאלי שוב פרט שכבר קיים במצב החופשה המצטבר.
+- הכלל ההפוך חשוב באותה מידה: לעולם אל תגידי או תרמזי שפרט "כבר רשום אצלך"/"כבר יש לי את זה"/"זה כבר נקלט" כשהפרט הזה בפועל *לא* קיים במצב החופשה המצטבר שקיבלת. ההחלטה הזו היא תמיד לפי state בלבד, לעולם לא לפי "ההודעה נשמעת כאילו כבר דיברנו על זה" או ניחוש כללי - אם הפרט אכן קיים ב-state, מותר (ואף רצוי) לציין שהוא כבר ידוע; אם הוא לא קיים, שאלי עליו כרגיל בלי לטעון שהוא ידוע.
 - כל עוד גם trip_type וגם היעד עדיין אינם ידועים ב-state הנוכחי, השאלה הראשונה שנשאלת - לפני יעד ותאריכים - היא שאלה פתוחה אחת וכללית, בניסוח שלך, על מה הלקוח מתכנן הפעם (למשל "מה בא לך לתכנן?" או ניסוח חם דומה) - בלי לנקוב בתוך השאלה עצמה בשום קטגוריה או רשימת אפשרויות (לעולם לא "חופשה רגילה, נסיעת עסקים, או חופשת סקי?" וכל וריאציה של רשימה כזו - זו שאלת X/Y/Z אסורה בדיוק כמו "או" בכל מקום אחר). מתוך התשובה החופשית לשאלה הפתוחה הזו (לא מתוך השאלה עצמה), הביני לאיזו משלוש הקטגוריות - חופשה רגילה, נסיעת עסקים, או חופשת סקי - היא שייכת. זה תקף גם באמצע שיחה ארוכה וממושכת שכבר כללה חופשה קודמת - ברגע שה-state אופס (למשל אחרי שהלקוח סיים וטופל חופשה קודמת), זו שוב "פתיחה" לעניין השאלה הזו בדיוק כמו שיחה חדשה לגמרי, גם אם ההיסטוריה הנראית לעין ארוכה. הישעני רק על state, לא על כך שההיסטוריה נראית כמו שיחה שכבר "התחילה". לאחר שהלקוח ענה, שמרי זאת ואל תשאלי שוב. חריג: אם מצוין למטה שללקוח יש חופשות פעילות קרובות וההודעה היא פתיחה כללית, שאלי קודם שאלת כן/לא אחת על החופשה הקרובה בשמה (למשל "להמשיך עם הטיול ל[יעד]?") - לא "להמשיך עם הקרובה או לתכנן חדשה?". רק אם התשובה שלילית, המשיכי לשאלת סוג הנסיעה.
 - בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
@@ -8529,16 +8530,14 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             and _guided_field_applies(f, trip_update) and f not in answered
         ]
         redirected_field = _guided_redirect_field(key, model, history, message, redirect_candidates)
-        # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md,
-        # Tuscany - "לא קשורה לתקציב ללילה" fired again on a bathroom-count
-        # answer, the same bug class #83's fix targeted) and Shlomo's
-        # follow-up: log why, without the customer's own message text -
-        # current_question (what the pointer thought was live), the
-        # candidates actually offered, and whether a redirect was found.
-        logging.info(
-            "guided_redirect: current_question=%s candidates=%s redirected_to=%s",
-            current_question, redirect_candidates, redirected_field,
-        )
+        _redirect_diagnostic = {
+            "current_question": current_question,
+            "candidates": redirect_candidates,
+            "redirect_target": redirected_field,
+            "extract_status": None,
+            "extract_confidence": None,
+            "fragment_written": None,
+        }
         if redirected_field:
             redirected_result = _guided_extract_answer(key, model, redirected_field, message, history, trip_update)
             redirected_fragment, redirected_desc = (
@@ -8547,13 +8546,9 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 and str(redirected_result.get("confidence") or "") == "high"
                 else (None, None)
             )
-            logging.info(
-                "guided_redirect: redirected_to=%s extract_status=%s extract_confidence=%s fragment_written=%s",
-                redirected_field,
-                (redirected_result or {}).get("status"),
-                (redirected_result or {}).get("confidence"),
-                bool(redirected_fragment),
-            )
+            _redirect_diagnostic["extract_status"] = (redirected_result or {}).get("status")
+            _redirect_diagnostic["extract_confidence"] = (redirected_result or {}).get("confidence")
+            _redirect_diagnostic["fragment_written"] = bool(redirected_fragment)
             if redirected_fragment:
                 trip_update = _merge_trip_state(trip_update, redirected_fragment)
                 if redirected_field not in answered:
@@ -8573,7 +8568,17 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                     f"ההודעה הקודמת של הלקוח כבר ענתה בפועל על {understood} - זה נקלט ונשמר. "
                     f"לעולם אל תגידי שזו תשובה לא קשורה או לא מובנת. {base_hint}"
                 )
+                # Per Shaked's live finding (qa/reports/2026-10-18-stage3-
+                # run4.md, Tuscany - "לא קשורה לתקציב ללילה" fired again on
+                # a bathroom-count answer, the same bug class #83's fix
+                # targeted) and Shlomo's follow-up: a plain logging.info
+                # call has no value on this infrastructure (no agent can
+                # read Render's own log stream) - recorded instead as an
+                # ai_usage diagnostic row, exportable from /admin/ai-usage/
+                # diagnostics.csv, never the customer's own message text.
+                record_diagnostic_event("guided_redirect", _redirect_diagnostic)
                 return {"trip_update": trip_update, "dynamic_hint": ack_hint}
+        record_diagnostic_event("guided_redirect", _redirect_diagnostic)
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": None} if changed else None
@@ -10713,21 +10718,22 @@ def _chat_clean_impl():
         # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md)
         # and Shlomo's follow-up instruction: the gate didn't fire live for
         # genuine restart language even though a local test with a mocked
-        # model fired it correctly. Shlomo asked for a log of exactly what
-        # the extractor returns here (restart_request, restart_evidence,
-        # and whether evidence verification passed) - explicitly without
-        # personal details, so the customer's own message text is never
-        # included, only the model's own request/evidence/verification
-        # outcome. Logged once per turn with real vacation progress (the
-        # only turns where this gate's decision matters at all), so the
-        # next live finding comes with the data needed to diagnose it
-        # instead of another guess.
+        # model fired it correctly. A plain logging.info call has no value
+        # on this infrastructure (no agent can read Render's own log
+        # stream) - recorded instead as an ai_usage diagnostic row
+        # (request/evidence/verified - explicitly never the customer's own
+        # message text), exportable from /admin/ai-usage/diagnostics.csv so
+        # the business owner can download it and Shaked can analyze it.
+        # Recorded once per turn with real vacation progress (the only
+        # turns where this gate's decision matters at all).
         if _has_vacation_progress(trip_state):
-            logging.info(
-                "restart_signal: request=%s evidence=%r evidence_verified=%s",
-                restart_request, restart_evidence,
-                _value_has_verbatim_evidence(restart_evidence, message) if restart_request else None,
-            )
+            record_diagnostic_event("restart_signal", {
+                "restart_request": restart_request,
+                # Per Shlomo's explicit field list: evidence_verified (the
+                # boolean outcome), never the raw evidence quote itself -
+                # that is still a snippet of the customer's own words.
+                "evidence_verified": _value_has_verbatim_evidence(restart_evidence, message) if restart_request else None,
+            })
         if (
             restart_request
             and _has_vacation_progress(trip_state)
