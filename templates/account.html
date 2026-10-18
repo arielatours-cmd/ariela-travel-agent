@@ -55,6 +55,8 @@
             <ul class="vacation-request-facts">
               <li><b>סוג חופשה:</b> {{ {'business':'עסקים','ski':'סקי'}.get(a.get('vacation_type'), 'רגילה') }}</li>
               {% if a.get('origin_airports') %}<li><b>שדה יציאה:</b> {{ a.get('origin_airports')|join(', ') }}</li>{% endif %}
+              {% if a.get('destinations') %}<li><b>שדה נחיתה:</b> {{ a.get('destinations').replace('/', ',').replace(';', ',').split(',')|map('trim')|reject('equalto', '')|join(', ') }}</li>{% endif %}
+              {% if a.get('return_departure_airports') %}<li><b>שדה המראה בחזור:</b> {{ a.get('return_departure_airports')|join(', ') }}</li>{% endif %}
               <li><b>נוסעים:</b> {{ a.get('adults', 1) }} מבוגרים{% if a.get('children') %}, {{ a.get('children') }} ילדים{% if ages %} (גילאים: {{ ages|join(', ') }}){% endif %}{% endif %}</li>
               {% if a.get('budget_mode') == 'limited' and a.get('budget_amount') %}
                 <li><b>תקציב:</b> עד ₪{{ a.get('budget_amount')|int }} לאדם</li>
@@ -197,6 +199,7 @@
                 {% if stay.guests %}<div class="lodging-result-meta"><span>{{ stay.guests }}</span></div>{% endif %}
                 <div class="lodging-result-meta"><span>מחירים וזמינות בזמן אמת באתר {{ stay.supplier }}</span></div>
                 <a class="lodging-search-btn car-partner-btn" href="{{ stay.link }}" target="_blank" rel="noopener sponsored">למעבר להזמנה ←</a>
+                <p class="affiliate-disclosure">קישור שותף: אם תזמינו דרך {{ stay.supplier }}, אריאלה מקבלת עמלה מהספק.</p>
               </div>
             </div>
           {% endfor %}
@@ -207,6 +210,7 @@
                 <div class="lodging-result-card">
                   {% if hotel.get('thumbnail') %}<img class="lodging-thumb" src="{{ hotel.get('thumbnail') }}" alt="" loading="lazy">{% endif %}
                   <div class="lodging-result-info">
+                    {% if hotel.get('segment_location') %}<div class="lodging-result-segment">{{ hotel.get('segment_location') }}{% if hotel.get('segment_dates') %} · {{ hotel.get('segment_dates') }}{% endif %}</div>{% endif %}
                     <strong>{{ hotel.get('name') or 'מלון' }}</strong>
                     <div class="lodging-result-meta">
                       {% if hotel.get('hotel_class') %}<span>{{ hotel.get('hotel_class') }} ★</span>{% endif %}
@@ -243,6 +247,7 @@
           .lodging-result-card{display:flex;gap:12px;background:#fff;border:1px solid #e5dccd;border-radius:12px;padding:12px;box-shadow:0 2px 8px #0000000a}
           .lodging-thumb{width:96px;height:96px;object-fit:cover;border-radius:8px;flex:0 0 auto}
           .lodging-result-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+          .lodging-result-segment{font-size:11px;font-weight:800;color:#0fc2b0}
           .lodging-result-info strong{font-size:14.5px;color:#2b2620}
           .lodging-result-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#6d6459}
           .lodging-result-nearby{font-size:11.5px;color:#8a7f6c}
@@ -305,6 +310,7 @@
                     {% if car.return_when %}<div class="lodging-result-meta"><span>החזרה: {{ car.return_when }}</span></div>{% endif %}
                     <div class="lodging-result-meta"><span>מחירים וזמינות בזמן אמת באתר {{ car.supplier }}</span></div>
                     <a class="lodging-search-btn car-partner-btn" href="{{ car.link }}" target="_blank" rel="noopener sponsored">למעבר להזמנה ←</a>
+                    <p class="affiliate-disclosure">קישור שותף: אם תזמינו דרך {{ car.supplier }}, אריאלה מקבלת עמלה מהספק.</p>
                   </div>
                 </div>
               {% endfor %}
@@ -395,6 +401,30 @@
         <p>אריאלה מחכה לתכנן איתך את החופשה הבאה.</p>
         <a class="ariella-return-button" href="{{ url_for('site.new_trip') }}">אריאלה שלי</a>
       </div>
+    {% endif %}
+    {% if member_travelers %}
+    <details class="member-profile" id="my-profile">
+      <summary>מה אריאלה זוכרת עליי</summary>
+      <p class="member-profile-intro">הנוסעים שסיפרתם עליהם בחופשות קודמות. אפשר לתקן גיל או למחוק.</p>
+      <ul class="member-travelers">
+        {% for t in member_travelers %}
+        <li class="member-traveler{% if t.needs_review %} needs-review{% endif %}">
+          <span class="member-traveler-label">{{ t.label }}</span>
+          {% if t.needs_review %}<small class="member-traveler-review">ייתכן שזה אותו ילד, תקנו אם צריך</small>{% endif %}
+          {% if not t.is_adult %}
+          <details class="member-traveler-edit"><summary>תיקון גיל</summary>
+            <form method="post" action="{{ url_for('site.update_member_traveler', traveler_id=t.id) }}">
+              <label>גיל <input type="number" name="age" min="0" max="17" value="{{ t.estimated_age if t.estimated_age is not none else '' }}"></label>
+              <label>מגדר <select name="gender"><option value=""{% if not t.gender %} selected{% endif %}>לא צוין</option><option value="male"{% if t.gender == 'male' %} selected{% endif %}>בן</option><option value="female"{% if t.gender == 'female' %} selected{% endif %}>בת</option></select></label>
+              <button type="submit">שמירה</button>
+            </form>
+          </details>
+          {% endif %}
+          <form method="post" action="{{ url_for('site.delete_member_traveler', traveler_id=t.id) }}" class="member-traveler-delete"><button type="submit">מחיקה</button></form>
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
     {% endif %}
   </div>
 </section>

@@ -94,8 +94,8 @@ def _sync_post_flight(client, member_id: int, trip_id: int, trip_update: dict, h
         return ""
     _post_json(client, "/api/ariella/sync-trip-services", {"trip_id": trip_id, "trip_state": trip_update})
     set_whatsapp_active_trip(member_id, None)
-    link = _waiting_link(f"/trip/{trip_id}/waiting")
-    return f"\n\nהחופשה שלך מוכנה - אפשר לעקוב אחרי התוצאות כאן: {link}" if link else ""
+    link = _waiting_link(f"/account#vacation-{trip_id}")
+    return f"\n\nהחופשה שלך מוכנה - אפשר לראות את הפרטים כאן: {link}" if link else ""
 
 
 def ariella_turn(member_id: int, message: str) -> str:
@@ -143,11 +143,11 @@ def ariella_turn(member_id: int, message: str) -> str:
                 "trip_state": trip_update, "history": turn_history, "existing_trip_id": active_trip_id,
             })
             status = started.get("status")
-            if status in ("success", "queued") and started.get("waiting_url"):
+            if status in ("success", "queued") and started.get("account_url"):
                 new_trip_id = started.get("trip_id")
                 if new_trip_id:
                     set_whatsapp_active_trip(member_id, int(new_trip_id))
-                link = _waiting_link(started.get("waiting_url"))
+                link = _waiting_link(started.get("account_url"))
                 session_status = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
                 nothing_left = all(session_status.get(d) in ("complete", "declined") for d in ("lodging", "car", "trip_planning"))
                 if nothing_left:
@@ -156,8 +156,8 @@ def ariella_turn(member_id: int, message: str) -> str:
                 return reply
             if status == "change_requires_payment" and started.get("account_url"):
                 return f"{started.get('message') or reply}\n\n{_waiting_link(started['account_url'])}"
-            if status == "duplicate_active_trip" and started.get("waiting_url"):
-                return f"{started.get('message') or reply}\n\n{_waiting_link(started['waiting_url'])}"
+            if status == "duplicate_active_trip" and started.get("account_url"):
+                return f"{started.get('message') or reply}\n\n{_waiting_link(started['account_url'])}"
             return f"{reply}\n\n{started.get('message') or 'לא הצלחתי להתחיל את החיפוש כרגע. כתבו מאשרת שוב כדי לנסות פעם נוספת.'}"
 
         if active_trip_id:

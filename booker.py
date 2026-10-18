@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from urllib.parse import parse_qsl, quote, urlsplit
 import logging
 import os
+import re
 import requests
 
 from config import SERPAPI_API_KEY
@@ -153,6 +154,32 @@ def _homepage(value: str | None) -> str | None:
     except Exception:
         pass
     return None
+
+
+def _looks_like_bare_homepage(url: str | None, fields: list[tuple[str, str]]) -> bool:
+    """Seen live (the business owner herself, 15.10.2026): a booking job
+    logged mode=personal_exact_party_regenerated exact=True - a fresh
+    token WAS obtained and SerpApi's booking_options DID return a
+    structurally valid entry - yet the URL it gave led to nothing more
+    specific than the supplier's own general landing page, with no
+    indication anywhere (query string or POST fields) that this itinerary
+    is attached to it at all. A `together.booking_request` entry from
+    SerpApi is not guaranteed to be a true deep link - claiming exact=True
+    for one that is, in substance, just a homepage promises the customer a
+    completed booking that was never actually prepared. A real supplier
+    deep link always carries real flight/route parameters (in the path,
+    the query string, or POST fields); a bare domain with an empty or
+    root-only path and nothing else never does, regardless of which
+    branch produced it."""
+    if not url or fields:
+        return False
+    try:
+        parsed = urlsplit(str(url))
+    except Exception:
+        return False
+    if parsed.query:
+        return False
+    return (parsed.path or "") in ("", "/")
 
 
 def _request_fields(req: dict) -> list[tuple[str, str]]:
@@ -428,10 +455,18 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
             pool = exact_supplier or direct_airline or approved_supplier
             if pool:
                 part, req = min(pool, key=lambda x: float(x[0].get("price") or 10**9))
-                return BookerTarget(url=req.get("url"), fields=_request_fields(req),
-                    supplier=part.get("book_with") or recommended,
-                    mode="personal_exact_party_regenerated" if personal else "recommended_supplier_refreshed",
-                    exact=True)
+                target_url, target_fields = req.get("url"), _request_fields(req)
+                if _looks_like_bare_homepage(target_url, target_fields):
+                    logging.warning(
+                        "resolve_booking_target: booking_options gave a bare homepage "
+                        "for supplier=%r url=%r - refusing to claim exact=True",
+                        part.get("book_with"), target_url,
+                    )
+                else:
+                    return BookerTarget(url=target_url, fields=target_fields,
+                        supplier=part.get("book_with") or recommended,
+                        mode="personal_exact_party_regenerated" if personal else "recommended_supplier_refreshed",
+                        exact=True)
 
             # No combined round-trip option. Budget carriers (Wizz Air, Ryanair,
             # easyJet, ...) commonly sell outbound + return as two separate
@@ -464,13 +499,22 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
                 separate_candidates.append((total, departing, dep_req, ret_req))
             if separate_candidates:
                 _, departing, dep_req, ret_req = min(separate_candidates, key=lambda x: x[0])
-                return BookerTarget(
-                    url=dep_req.get("url"), fields=_request_fields(dep_req),
-                    supplier=departing.get("book_with") or recommended,
-                    mode="separate_tickets_two_step", exact=True,
-                    note="הספק מוכר את הטיסה הזו כשני כרטיסים נפרדים - הלוך וחזור. אריאלה פתחה עבורכם קודם את טיסת ההלוך, ותציג בהמשך קישור נפרד להזמנת טיסת החזור.",
-                    second_leg_url=ret_req.get("url"), second_leg_fields=_request_fields(ret_req),
-                )
+                dep_url, dep_fields = dep_req.get("url"), _request_fields(dep_req)
+                ret_url, ret_fields = ret_req.get("url"), _request_fields(ret_req)
+                if _looks_like_bare_homepage(dep_url, dep_fields) or _looks_like_bare_homepage(ret_url, ret_fields):
+                    logging.warning(
+                        "resolve_booking_target: separate-tickets leg gave a bare homepage "
+                        "for supplier=%r - refusing to claim exact=True",
+                        departing.get("book_with"),
+                    )
+                else:
+                    return BookerTarget(
+                        url=dep_url, fields=dep_fields,
+                        supplier=departing.get("book_with") or recommended,
+                        mode="separate_tickets_two_step", exact=True,
+                        note="הספק מוכר את הטיסה הזו כשני כרטיסים נפרדים - הלוך וחזור. אריאלה פתחה עבורכם קודם את טיסת ההלוך, ותציג בהמשך קישור נפרד להזמנת טיסת החזור.",
+                        second_leg_url=ret_url, second_leg_fields=ret_fields,
+                    )
 
             logging.info(
                 "resolve_booking_target: booking_token lookup returned no usable pool "
@@ -508,11 +552,28 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
     for airline_name in airline_names:
         official_url = OFFICIAL_AIRLINE_BOOKING_FALLBACKS.get(_norm(airline_name))
         if official_url:
-            note = (
-                "אריאלה פתחה עבורכם את מסך ההזמנה של בלו בירד."
-                if _norm(airline_name) in BLUEBIRD_NAMES
-                else "הספק לא מאפשר כרגע העברה מלאה של פרטי ההזמנה. אריאלה פתחה את אתר הספק עצמו — לא את Google."
-            )
+            # Seen live (the business owner herself, 15.10.2026): the deal
+            # card showed "Kiwi.com" as the recommended booking option, but
+            # clicking "go to booking" silently landed on Israir's homepage
+            # instead - because Kiwi.com (an OTA, not an airline) has no
+            # entry here, so the loop moved on to the next name in
+            # airline_names (the actual OPERATING airline) and matched
+            # that instead, with no indication the destination had quietly
+            # changed from what the card promised. Name both suppliers
+            # explicitly whenever they differ, so the customer understands
+            # why they ended up somewhere other than the recommended option
+            # - exactly what the business owner asked for ("say so honestly
+            # instead of promising 'go to booking'").
+            if _norm(airline_name) in BLUEBIRD_NAMES:
+                note = "אריאלה פתחה עבורכם את מסך ההזמנה של בלו בירד."
+            elif recommended and _norm(airline_name) != _norm(recommended):
+                note = (
+                    f"הספק המומלץ ({recommended}) לא מאפשר כרגע הזמנה ישירה דרך אריאלה. "
+                    f"אריאלה פתחה במקומו את אתר {airline_name} (חברת התעופה המפעילה את הטיסה) - "
+                    "יש להזין שם את פרטי הטיסה ומספר הנוסעים בעצמכם."
+                )
+            else:
+                note = "הספק לא מאפשר כרגע העברה מלאה של פרטי ההזמנה. אריאלה פתחה את אתר הספק עצמו — לא את Google."
             return BookerTarget(url=official_url, fields=[],
                 supplier=str(airline_name or recommended), mode="official_airline_fallback",
                 exact=False, note=note)
@@ -542,3 +603,112 @@ def resolve_booking_target(offer: dict, *, adults: int | None = None, children: 
         exact=False,
         note=("הספק לא אפשר כרגע לפתוח את הטיסה כשהיא מלאה מראש עם מספר הנוסעים שבחרתם."
               if personal else "מסלול ההזמנה אצל הספק המומלץ אינו זמין כרגע."))
+
+
+# --- Kiwi.com affiliate link via Travelpayouts (task 013a) -------------------
+# A secondary "check on Kiwi.com too" button. It never replaces the main
+# booking target above, and it never runs Din or changes an offer's
+# consumer-protection label - it only decides whether the button may appear
+# and where it points.
+
+KIWI_PARTNER_NAME = "Kiwi.com"
+KIWI_AFFILIATE_NETWORK = "travelpayouts"
+
+_IATA_RE = re.compile(r"^[A-Z]{3}$")
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_SID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+def _kiwi_config() -> dict:
+    import config  # read at call time so the env-driven values stay testable
+    return {
+        "link": getattr(config, "TRAVELPAYOUTS_KIWI_LINK", "") or "",
+        "marker": getattr(config, "TRAVELPAYOUTS_MARKER", "") or "",
+        "trs": getattr(config, "TRAVELPAYOUTS_TRS", "") or "",
+        "template": getattr(config, "KIWI_SEARCH_URL_TEMPLATE", "") or "",
+    }
+
+
+def _is_https(url: str) -> bool:
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return False
+    return parsed.scheme == "https" and bool(parsed.netloc)
+
+
+def kiwi_enabled() -> bool:
+    """True once a usable Kiwi link exists (short link, or the full deep-link
+    set). Until then the whole feature stays invisible, legal copy included."""
+    cfg = _kiwi_config()
+    return _is_https(cfg["link"]) or bool(cfg["marker"] and cfg["trs"] and cfg["template"])
+
+
+def kiwi_offer_eligible(offer: dict) -> bool:
+    """True only for an offer the Kiwi.com button may appear on.
+
+    The flight data carries no self-transfer / virtual-interlining field, so
+    a separate-tickets warning can never be shown reliably. Per Din, the
+    Kiwi link is therefore limited to direct flights on both legs; anything
+    unknown (missing stop counts, open jaw) is treated as not direct.
+    An offer whose consumer protection applies (by status, not by the
+    label's wording) never gets the Kiwi button next to it.
+    """
+    if not isinstance(offer, dict):
+        return False
+    if offer.get("stops") != 0 or offer.get("return_stops") != 0:
+        return False
+    if offer.get("open_jaw"):
+        return False
+    if str(offer.get("consumer_protection_class") or "") == "applies":
+        return False
+    return bool(offer.get("departure_code") and offer.get("arrival_code"))
+
+
+def kiwi_affiliate_target(offer: dict, *, adults: int = 1, children: int = 0,
+                          sid: str | None = None) -> dict | None:
+    """Where the Kiwi.com button points, or None when it must not be shown.
+
+    Returns {"url", "deep_link", "partner", "network"}. deep_link=True means
+    the URL opens Kiwi's search for this route and these dates; False means
+    the plain Travelpayouts link to Kiwi's home page (the button then says
+    "search on Kiwi.com", never "book"). The only identifier sent is the
+    trip id (sid) - no name, email or phone ever reaches the partner.
+    """
+    if not kiwi_offer_eligible(offer):
+        return None
+    cfg = _kiwi_config()
+    base = {"partner": KIWI_PARTNER_NAME, "network": KIWI_AFFILIATE_NETWORK}
+    if cfg["marker"] and cfg["trs"] and cfg["template"]:
+        values = {
+            "from": str(offer.get("departure_code") or "").upper(),
+            "to": str(offer.get("arrival_code") or "").upper(),
+            "depart": str(offer.get("outbound_date") or "")[:10],
+            "return": str(offer.get("return_date") or "")[:10],
+        }
+        sid_value = str(sid or "")
+        valid = (
+            _IATA_RE.match(values["from"]) and _IATA_RE.match(values["to"])
+            and _ISO_DATE_RE.match(values["depart"]) and _ISO_DATE_RE.match(values["return"])
+            and (not sid_value or _SID_RE.match(sid_value))
+        )
+        if valid:
+            try:
+                url = cfg["template"].format(
+                    marker=quote(cfg["marker"], safe=""), trs=quote(cfg["trs"], safe=""),
+                    sid=sid_value,
+                    adults=max(1, int(adults or 1)), children=max(0, int(children or 0)),
+                    **values,
+                )
+            except (KeyError, IndexError, ValueError, TypeError):
+                logging.warning("KIWI_SEARCH_URL_TEMPLATE is malformed; linking to Kiwi.com home page")
+                url = ""
+            if url and _is_https(url):
+                return {**base, "url": url, "deep_link": True}
+            if url:
+                logging.warning("Kiwi deep link is not a valid https URL; linking to Kiwi.com home page")
+        else:
+            logging.warning("Kiwi deep link skipped: offer is missing a valid route/dates")
+    if cfg["link"] and _is_https(cfg["link"]):
+        return {**base, "url": cfg["link"], "deep_link": False}
+    return None
