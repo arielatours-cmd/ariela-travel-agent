@@ -5818,6 +5818,27 @@ def _enforce_one_option_question(reply, state):
     return _append_fixed_question(prefix, fixed)
 
 
+# Per Shlomo/Shaked (#81, 3rd review round): a single general lookup for
+# EVERY internal-English-token field a customer-facing summary line might
+# print, not a one-off check scoped to "pace" alone - any OTHER field that
+# gets a deterministic code-side writer storing a canonical English value
+# (the way _deterministic_trip_planning_pace_facts already does for pace)
+# is covered here automatically too, with no special-casing per field name.
+# A value that isn't one of these known internal tokens (already Hebrew, or
+# anything else) is returned unchanged by _to_hebrew_display below - never
+# guessed at, never altered.
+_INTERNAL_TOKEN_TO_HEBREW = {"active": "פעיל", "relaxed": "רגוע"}
+
+
+def _to_hebrew_display(value):
+    """Translates a known internal English token to its Hebrew customer-
+    facing equivalent (_INTERNAL_TOKEN_TO_HEBREW); any other value (already
+    Hebrew, or not a recognized internal token at all) passes through
+    unchanged."""
+    value = str(value or "").strip()
+    return _INTERNAL_TOKEN_TO_HEBREW.get(value, value)
+
+
 def _deterministic_trip_planning_pace_facts(message, history):
     """trip_planning.details.pace has no deterministic writer anywhere else -
     only the LLM's own JSON extraction ever sets it, and when that silently
@@ -7080,12 +7101,36 @@ def _route_summary_line(state):
     details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
     route = details.get("route") if isinstance(details.get("route"), list) else []
     parts = []
-    if route:
-        parts.append("יום מסלול אחד" if len(route) == 1 else f"{len(route)} ימי מסלול")
-    pace = str(details.get("pace") or "").strip()
+    day_count = len(route) if route else None
+    if day_count is None:
+        # Per Shaked's 2nd-round-2 review: no route list stored for this
+        # trip (details.route empty) must not mean "no day count at all" -
+        # the trip's own already-known dates say exactly how many days the
+        # approved route spans.
+        dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+        dep, ret = dates.get("departure"), dates.get("return")
+        if dep and ret:
+            try:
+                day_count = (date.fromisoformat(str(ret)[:10]) - date.fromisoformat(str(dep)[:10])).days + 1
+            except Exception:
+                day_count = None
+    if day_count:
+        parts.append("יום מסלול אחד" if day_count == 1 else f"{day_count} ימי מסלול")
+    # Per Shaked's 2nd-round-2 review: pace is stored as the extractor's own
+    # internal English token (_deterministic_trip_planning_pace_facts writes
+    # literally "active"/"relaxed", never Hebrew) - printing it verbatim
+    # leaked the English word "relaxed" straight at the customer. Per
+    # Shlomo's follow-up (3rd review round): run EVERY field this line
+    # prints through the same general translator (_to_hebrew_display), not
+    # just pace alone - style has no known internal-token writer today, but
+    # this way any field that gains one later is covered automatically,
+    # with no new per-field special-casing. A value that isn't a
+    # recognized internal token (already Hebrew, or anything else) passes
+    # through unchanged.
+    pace = _to_hebrew_display(details.get("pace"))
     if pace and pace != "אין העדפה":
         parts.append(f"קצב {pace}")
-    style = str(details.get("style") or "").strip()
+    style = _to_hebrew_display(details.get("style"))
     if style:
         parts.append(style)
     bases = _route_base_names(state)

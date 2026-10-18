@@ -319,6 +319,52 @@ check("regression: _route_summary_line returns None (no route line at "
       "all) when trip_planning.approved_text was never set - a route "
       "that was never actually approved must never be summarized",
       chat._route_summary_line({"trip_planning": {"details": {"pace": "רגוע"}}}) is None)
+
+# --- Shaked's 3rd-round review (same PR): the real s3w2 state has no
+# details.route list at all (so day count must come from dates instead)
+# and pace is stored as the extractor's own internal English token
+# ("relaxed"/"active", never Hebrew) - _route_summary_line printed it
+# verbatim, leaking the English word "relaxed" straight at the customer. ---
+s3w2_route_state = {
+    "trip_planning": {
+        "approved_text": "יום 1: ... המסלול שהצעתי מתאים לכם?",
+        "details": {"pace": "relaxed", "style": "פעילויות מתאימות לילדים, כמו פארקים ומוזיאונים"},
+    },
+    "dates": {"departure": "2026-07-01", "return": "2026-07-05"},
+}
+s3w2_route_line = chat._route_summary_line(s3w2_route_state)
+check("Shaked's exact s3w2 repro: the internal English pace token "
+      "('relaxed') is translated to Hebrew ('רגוע'), never leaked as-is",
+      "relaxed" not in s3w2_route_line and "קצב רגוע" in s3w2_route_line)
+check("Shaked's exact s3w2 repro: day count is computed from dates "
+      "(5 days, 1.7-5.7) when details.route has no day list at all",
+      "5 ימי מסלול" in s3w2_route_line)
+check("regression: 'active' (the other internal token) also translates",
+      "קצב פעיל" in chat._route_summary_line(
+          {"trip_planning": {"approved_text": "x", "details": {"pace": "active"}}}))
+check("a pace value the model already wrote in Hebrew directly (not one "
+      "of the two known internal tokens) passes through unchanged, never "
+      "guessed at or altered",
+      "קצב רגוע מאוד" in chat._route_summary_line(
+          {"trip_planning": {"approved_text": "x", "details": {"pace": "רגוע מאוד"}}}))
+check("Shlomo's follow-up (3rd review round): the Hebrew-translation is a "
+      "single GENERAL helper (_to_hebrew_display) applied to every field "
+      "this line prints, not special-cased to pace alone - style passes "
+      "through unaffected today (no internal-token writer exists for it "
+      "yet), proving the generalization adds no new guessing",
+      chat._to_hebrew_display("active") == "פעיל"
+      and chat._to_hebrew_display("relaxed") == "רגוע"
+      and chat._to_hebrew_display("תרבות ואוכל מקומי") == "תרבות ואוכל מקומי"
+      and chat._to_hebrew_display(None) == ""
+      and "תרבות ואוכל מקומי" in chat._route_summary_line(
+          {"trip_planning": {"approved_text": "x", "details": {"style": "תרבות ואוכל מקומי"}}}))
+check("single-day trip from dates (no route list) uses the singular "
+      "wording, not '1 ימי מסלול'",
+      "יום מסלול אחד" in chat._route_summary_line({
+          "trip_planning": {"approved_text": "x", "details": {}},
+          "dates": {"departure": "2026-07-01", "return": "2026-07-01"},
+      }))
+
 check("Paris repro: car is correctly OMITTED - it was declined, not "
       "selected (Shaked: 'רכב רק אם נבחר')",
       "רכב:" not in paris_fallback)
