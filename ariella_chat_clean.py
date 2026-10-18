@@ -5596,14 +5596,15 @@ _OFFER_DOMAIN_WORDS = {
 # directly to "אם"/"האם"/"גם" and surrounded by plain whitespace is just as
 # strong a smuggled-second-question signal even without one.
 #
-# Per Shlomo's stage-3 run-3 root-cause item (a), Madrid: "קיבלתי, חדר
-# זוגי אחד - וזה מאשר גם שהלינה תהיה באזור מרכז העיר, כמו שהצעתי?" fuses a
-# just-answered guided field's own confirmation to the NEXT field's real
-# question with "וזה" ("and this") - a fused form none of the alternatives
-# above listed yet, so it went undetected the same way each earlier one
-# did before it was added.
+# Per Shlomo's follow-up (18.10, relaying the business owner): extending
+# this list with "וזה"/"וזאת" for Madrid was itself a phrase-list growth
+# that the business owner's own 18.10 directive rules out, however
+# "general" the pattern looks - reverted. Madrid's real bug (same root as
+# Milano's: the text actually asked can drift from guided.current_
+# question) is fixed on the INTAKE side instead - see
+# _guided_redirect_field below.
 _BUNDLED_AND_QUESTION_RE = re.compile(
-    r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם|זה|זאת)\s"
+    r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם)\s"
 )
 
 # Per the business owner's explicit instruction (relayed via Shlomo,
@@ -7905,6 +7906,78 @@ def _guided_extract_answer(key, model, field, message, history, state):
         return None
 
 
+def _guided_redirect_field(key, model, history, message, candidate_fields):
+    """Per the business owner's 18.10.2026 directive (relayed via Shlomo,
+    after Shaked's stage-3 run-3 V1/V2 - Madrid and Milano): the literal
+    text Ariella's own reply actually asked can drift from guided.
+    current_question (Tinkerbell composes her questions freely from a
+    HINT, never a fixed sentence enforced in code, so a confirmation
+    fused with the next real question, or any other free-text drift, can
+    leave the internal pointer pointing at a different field than what
+    was really asked). V2 live: "באיזה אזור" was asked while current_
+    question had already moved to budget, so the customer's correct
+    "קרוב לתחבורה ציבורית" got validated against budget's own schema,
+    failed, and Tinkerbell improvised an explicit "that's unrelated to
+    the budget" rejection of a perfectly good answer.
+
+    Carmit ruled out fixing this by enforcing/parsing Ariella's own
+    question text (phrase lists, topic keywords - the exact class of
+    mechanism _enforce_guided_question_matches_field already tried and
+    the full regression sweep proved unsafe). The fix lives on the INTAKE
+    side instead, exactly as she specified: called only once the field
+    actually live (current_question) has already rejected this message
+    as other_topic, this function hands the model Ariella's own last
+    REAL sent message (not a hint, the literal text) plus every other
+    guided field still genuinely open, and asks which one (if any) the
+    customer's reply is actually about - by meaning, never a keyword.
+    Requires a verbatim evidence quote from the customer's own message,
+    checked the same way _value_has_verbatim_evidence already does for
+    every other model-supplied value, so a field is never redirected to
+    on the model's say-so alone.
+
+    Returns the matched field name (already restricted to
+    candidate_fields), or None (no redirect - the turn proceeds exactly
+    as it already did before this function existed: other_topic, no
+    hint)."""
+    if not key or not candidate_fields:
+        return None
+    last_ariella_text = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"),
+        "",
+    )
+    if not last_ariella_text:
+        return None
+    labeled = "; ".join(
+        f'"{f}" ({_GUIDED_FIELD_HINT_DESCRIPTION.get(f, f)})' for f in candidate_fields
+    )
+    prompt = (
+        "אריאלה (סוכנת נסיעות) שלחה ללקוח את ההודעה הזו ממש: \"" + last_ariella_text + "\"\n"
+        "תשובת הלקוח לא התאימה לשדה שחיפשנו קודם. בדקי אם התשובה בכל זאת עונה בפועל על אחד "
+        "מהשדות הפתוחים האלה - לפי מה שאריאלה באמת שאלה בהודעה שלמעלה, ולפי משמעות תשובת "
+        "הלקוח, לא לפי מילות מפתח: " + labeled + "\n"
+        "אם כן: החזירי JSON {\"field\":\"<שם השדה המדויק מהרשימה>\",\"evidence\":\"ציטוט מדויק, "
+        "מילה במילה, מתוך תשובת הלקוח\"}.\n"
+        "אם לא: החזירי {\"field\":null,\"evidence\":null}."
+    )
+    try:
+        raw = _post_claude(
+            key, model, prompt, "", history if isinstance(history, list) else [],
+            "תשובת הלקוח: " + str(message or ""), 60, include_history=True, source="guided_extract",
+        )
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").replace("json", "", 1).strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+        field = data.get("field") if isinstance(data, dict) else None
+        evidence = data.get("evidence") if isinstance(data, dict) else None
+        if field in candidate_fields and _value_has_verbatim_evidence(evidence, message):
+            return field
+    except Exception:
+        logging.warning("guided_extract: redirect classification failed")
+    return None
+
+
 def _value_has_verbatim_evidence(evidence, message):
     """Per the business owner's explicit directive (18.10.2026, relayed by
     Shlomo, reacting to PR #83): only the MODEL decides what the customer
@@ -8272,6 +8345,47 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         }
     status = str(result.get("status") or "")
     if status == "other_topic":
+        # Per the business owner's 18.10 directive (Madrid/Milano, stage-3
+        # run-3 V1/V2): before giving up on this message, check whether it
+        # actually answers a DIFFERENT guided field than current_question -
+        # the text Ariella really sent can drift from the internal pointer
+        # (see _guided_redirect_field's own docstring). Only the model
+        # decides this, from Ariella's real last message, never a phrase
+        # list; a verbatim evidence quote is still required.
+        redirect_candidates = [
+            f for f in guided_order
+            if f != current_question and _guided_step_covers(f, guided_steps)
+            and _guided_field_applies(f, trip_update) and f not in answered
+        ]
+        redirected_field = _guided_redirect_field(key, model, history, message, redirect_candidates)
+        if redirected_field:
+            redirected_result = _guided_extract_answer(key, model, redirected_field, message, history, trip_update)
+            redirected_fragment, redirected_desc = (
+                _guided_field_update_and_confirm(redirected_field, redirected_result)
+                if redirected_result and str(redirected_result.get("status") or "") == "answered"
+                and str(redirected_result.get("confidence") or "") == "high"
+                else (None, None)
+            )
+            if redirected_fragment:
+                trip_update = _merge_trip_state(trip_update, redirected_fragment)
+                if redirected_field not in answered:
+                    answered.append(redirected_field)
+                guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+                trip_update["guided"] = guided
+                # Per the business owner's explicit rule: never tell the
+                # customer their answer was unrelated once something WAS
+                # captured this turn - the hint below both confirms what
+                # was just understood and still asks the genuinely-still-
+                # open current_question, so Tinkerbell has no vacuum left
+                # to improvise a rejection into.
+                label = _GUIDED_FIELD_HINT_DESCRIPTION.get(redirected_field, redirected_field)
+                understood = f"{label}: {redirected_desc}" if redirected_desc else label
+                base_hint = _guided_ask_hint(current_question, attempts)
+                ack_hint = (
+                    f"ההודעה הקודמת של הלקוח כבר ענתה בפועל על {understood} - זה נקלט ונשמר. "
+                    f"לעולם אל תגידי שזו תשובה לא קשורה או לא מובנת. {base_hint}"
+                )
+                return {"trip_update": trip_update, "dynamic_hint": ack_hint}
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": None} if changed else None

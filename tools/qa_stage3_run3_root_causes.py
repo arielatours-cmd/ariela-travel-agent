@@ -1,28 +1,34 @@
 """QA for a subset of Shaked's stage-3 run-3 root-cause findings (18.10.2026,
 main 4db4653, qa/reports/2026-10-18-stage3-run3.md, branch shaked @80d27f8),
 assigned by Shlomo as task 2 (after the urgent loop guard, PR #82). Covers
-items (b), (c) and (d) of his 5-item list in full; (e) (lodging budget
-currency - a known, larger schema gap, deferred from #77's review) is NOT
-in this PR.
+items (b), (c), (d) of his 5-item list in full, and now (a) too (see below);
+(e) (lodging budget currency - a known, larger schema gap, deferred from
+#77's review) is NOT in this PR.
 
-Item (a) ("current_question must drive what's actually asked") - Shlomo
-later said this is NOT deferred (it blocks both Madrid and Milano) - is
-only PARTIALLY addressed here, deliberately: a deterministic, reliable
-enforcement was attempted (_enforce_guided_question_matches_field, a
-per-field topic-keyword check analogous to _enforce_one_option_question)
-and then REVERTED after the regression sweep itself proved it unsafe -
-it rewrote a legitimate freely-worded post-flight-offer reply and a
-first-turn greeting into a forced guided question neither should have
-touched, exactly the "keyword matching is as unreliable as free
-generation" lesson Shaked's own review already taught once for
-_enforce_one_option_question's first version. Only the narrow, clearly
-safe half of item (a) shipped: _BUNDLED_AND_QUESTION_RE (Madrid's own
-"קיבלתי, חדר זוגי אחד - וזה מאשר גם ש..." fusion) gained the "וזה"/"וזאת"
-fused form, the same incremental pattern already used for every earlier
-fused form it lists. Milano's actual bug (the text asked about area while
-current_question had already moved to budget, so a correct answer got
-rejected as "unrelated") is NOT fixed by this PR - see the PR description
-for the reasoning and what a safe fix would need.
+Item (a) ("current_question must drive what's actually asked", Madrid V1 +
+Milano V2) went through two prior attempts, both reverted:
+1. A deterministic topic-keyword enforcer on Ariella's own composed
+   question text (_enforce_guided_question_matches_field, analogous to
+   _enforce_one_option_question) - reverted after the full regression
+   sweep proved it unsafe (rewrote a legitimate post-flight-offer reply
+   and a first-turn greeting into a forced guided question).
+2. Extending _BUNDLED_AND_QUESTION_RE with "וזה"/"וזאת" for Madrid's own
+   fused confirm-and-ask phrasing - shipped briefly, then reverted on
+   Shlomo's own follow-up: it's itself a phrase-list growth the business
+   owner's 18.10 directive rules out, however incremental it looked next
+   to the already-covered forms.
+
+The actual fix (per the business owner's explicit spec, relayed by
+Shlomo): the guided extractor, once the live field (current_question)
+rejects a message as other_topic, now gets Ariella's own LAST REAL sent
+message (the literal text she actually sent, not a hint) plus every
+other still-open guided field, and the MODEL decides which of them the
+reply actually answers - saved there with a verbatim evidence quote,
+never a keyword. current_question itself stays untouched (still
+genuinely due - "stays the next one in queue"). See
+_guided_redirect_field and its wiring into the other_topic branch of
+_handle_guided_extraction_turn, and tools/qa_guided_field_redirect.py for
+the Madrid/Milano repros and regressions.
 
 Bug (b) - Madrid: #81's also_mentioned guard for lodging.details.level only
 covered ONE write path. The main per-turn extractor (_extract_trip_update,
@@ -480,29 +486,6 @@ check("regression: 'street art' (no entry in the translation table) "
       "the real one",
       chat._to_hebrew_display(["history", "street art", "nightlife"])
       == "היסטוריה, street art, חיי לילה")
-
-# =====================================================================
-# Item (a) - Madrid (partial fix, see this file's module docstring for
-# the full item (a) status): a guided field's own confirmation fused
-# with "וזה" ("and this") to the real next question went undetected by
-# _BUNDLED_AND_QUESTION_RE, the exact same class of gap each earlier
-# fused form (וגם/ואם/והאם) was added here for.
-# =====================================================================
-check("'וזה' fused directly to the next clause (Madrid's exact phrasing: "
-      "'...אחד - וזה מאשר גם ש...') is now recognized as a bundled "
-      "second question, same as the already-covered fused forms",
-      bool(chat._BUNDLED_AND_QUESTION_RE.search(
-          "קיבלתי, חדר זוגי אחד - וזה מאשר גם שהלינה תהיה באזור מרכז העיר, כמו שהצעתי?"
-      )))
-check("'וזאת' (the feminine form) is recognized the same way",
-      bool(chat._BUNDLED_AND_QUESTION_RE.search("קיבלתי את התאריכים וזאת שאלה נפרדת על התקציב?")))
-check("regression: the existing fused forms (וגם/ואם/האם) still match "
-      "exactly as before",
-      bool(chat._BUNDLED_AND_QUESTION_RE.search("ספרו לי מה אתם אוהבים לעשות, וגם האם חשוב לכם קצב רגוע?"))
-      and bool(chat._BUNDLED_AND_QUESTION_RE.search("תוכלו לספר לי מה אתם אוהבים לעשות בחופשה ואם חשוב לכם קצב רגוע?")))
-check("regression: an ordinary sentence using 'זה'/'זאת' with no bundled "
-      "question at all is never flagged",
-      not chat._BUNDLED_AND_QUESTION_RE.search("זה נשמע מצוין, אשמח לעזור עם זה."))
 
 if FAILED:
     print(f"\nFAILED ({len(FAILED)}): {FAILED}")
