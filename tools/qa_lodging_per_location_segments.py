@@ -76,10 +76,18 @@ check("missing departure date -> empty list, never crashes",
 #        both the combined `locations` string AND the new `location_
 #        segments` list from a route approved with this exact phrasing ---
 state = {
-    "trip_planning": {"details": {
-        "route": [{"base": "לרנקה"}, {"base": "פאפוס"}, {"base": "לימסול"}],
+    # approved_text sits directly on trip_planning, never nested under
+    # trip_planning.details - matching the real shape _run_chat_turn_engine
+    # writes it in (plan = dict(trip_update["trip_planning"]); plan[
+    # "approved_text"] = ...). The nested shape this fixture used before
+    # (Shaked's PR #81 review, found via an identical path mistake in
+    # _route_summary_line) meant this test's OWN fixture never matched
+    # production, so _resolve_lodging_locations_from_route's real path bug
+    # (fixed in the function itself) went uncaught here too.
+    "trip_planning": {
         "approved_text": intro_text,
-    }},
+        "details": {"route": [{"base": "לרנקה"}, {"base": "פאפוס"}, {"base": "לימסול"}]},
+    },
     "lodging": {"details": {"locations": None}},
     "dates": {"departure": "2026-12-06", "return": "2026-12-12"},
 }
@@ -94,10 +102,10 @@ check("location_segments gets the full per-stop date breakdown",
 #        resolves the plain `locations` string exactly as before (qa-s84
 #        behavior unaffected), just without location_segments ---
 state_no_intro = {
-    "trip_planning": {"details": {
-        "route": [{"base": "לרנקה"}, {"base": "פאפוס"}],
+    "trip_planning": {
         "approved_text": "לינה באזור לרנקה, לינה בפאפוס. מתאים לך המסלול?",
-    }},
+        "details": {"route": [{"base": "לרנקה"}, {"base": "פאפוס"}]},
+    },
     "lodging": {"details": {"locations": None}},
     "dates": {"departure": "2026-12-06", "return": "2026-12-11"},
 }
