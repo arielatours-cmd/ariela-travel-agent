@@ -90,6 +90,27 @@ list, once an item has gone through translation, if it still contains any
 Latin letter at all, it's dropped from the joined result rather than
 shown - nothing beats the wrong language.
 
+SUPERSEDED the same day by the business owner's explicit architectural
+directive (18.10.2026, relayed by Shlomo, reacting to this PR): only the
+MODEL decides what the customer said - never a word list, phrase list, or
+stem/regex match, however general. This ruled out BOTH
+_level_stated_in_message (word-list + star-rating regex, the mechanism
+bug (b) above originally reused) AND the stem-regex gate added above for
+Shaked's own PR review of bug (c)'s guard. Both are now removed entirely.
+Replaced with one shared helper, _value_has_verbatim_evidence: the
+extractor itself must supply, alongside any new level or baggage_detail
+value, a VERBATIM QUOTE from the customer's current message justifying
+it (EXTRACTOR_SYSTEM's own schema now requires lodging.details.
+level_evidence / flight.baggage_detail_evidence whenever those values
+change). The check only confirms the quote is real (found in the message
+as-is) - it never re-decides what counts as "the customer said this"; that
+judgment stays entirely with the model. No quote (or a fabricated one not
+actually in the message) means no value, same outcome as before, reached
+a different way. _deterministic_baggage_facts (today's earlier fail-safe-
+only fixes, in the section above) is UNCHANGED - it already only runs when
+the model call itself fails, which is exactly the role the business owner
+said a regex-based fallback may still have.
+
 Run: python3 tools/qa_stage3_run3_root_causes.py
 """
 import os
@@ -118,17 +139,27 @@ def check(name, cond):
 MADRID_STATE = {"lodging": {"details": {"type": "מלון"}}}
 
 check("Madrid repro: 'מלון חמוד ושקט' (no budget/level/star word at all) "
-      "invented via the main extractor's own JSON is dropped",
+      "invented via the main extractor's own JSON is dropped - no "
+      "level_evidence was supplied, so the evidence-only mechanism "
+      "rejects it outright regardless of the message text",
       chat._validate_lodging_level_against_message(
           {"lodging": {"details": {"type": "מלון", "level": "בינוני"}}},
           MADRID_STATE, "מלון חמוד ושקט",
       ) == {"lodging": {"details": {"type": "מלון"}}})
 check("regression: a genuinely stated level via the same write path still "
-      "survives (e.g. 'מלון יוקרתי')",
+      "survives when the extractor supplies real evidence for it "
+      "(business owner's directive: the model's own quote, not a word "
+      "list, is what makes this count as 'stated')",
       chat._validate_lodging_level_against_message(
-          {"lodging": {"details": {"type": "מלון", "level": "יוקרתי"}}},
+          {"lodging": {"details": {"type": "מלון", "level": "יוקרתי", "level_evidence": "מלון יוקרתי"}}},
           MADRID_STATE, "רוצים מלון יוקרתי",
       )["lodging"]["details"]["level"] == "יוקרתי")
+check("a level with evidence that doesn't actually appear in the message "
+      "(fabricated quote) is rejected just like no evidence at all",
+      chat._validate_lodging_level_against_message(
+          {"lodging": {"details": {"type": "מלון", "level": "יוקרתי", "level_evidence": "מלון יוקרתי"}}},
+          MADRID_STATE, "מלון חמוד ושקט",
+      ) == {"lodging": {"details": {"type": "מלון"}}})
 check("regression: a level identical to what was ALREADY persisted is "
       "never re-litigated against an unrelated later message",
       chat._validate_lodging_level_against_message(
@@ -160,10 +191,11 @@ check("Lisbon repro: baggage_detail silently reinterpreted "
           LISBON_PRIOR, "מתי אנחנו נוחתים בליסבון?",
       )["flight"]["baggage_detail"] == {"checked_bag": {"unit": "total", "count": 1}})
 check("regression: a genuine new baggage statement this turn is still "
-      "accepted (the message itself mentions baggage)",
+      "accepted when the extractor supplies real evidence for it",
       chat._validate_baggage_detail_against_message(
           {"flight": {"baggage": ["carry_on_only", "checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "per_person", "count": 1}}}},
+                      "baggage_detail": {"checked_bag": {"unit": "per_person", "count": 1}},
+                      "baggage_detail_evidence": "כל אחד עם מזוודה משלו"}},
           LISBON_PRIOR, "בעצם כל אחד עם מזוודה משלו",
       )["flight"]["baggage_detail"] == {"checked_bag": {"unit": "per_person", "count": 1}})
 check("regression: an unchanged baggage_detail (identical to what's "
@@ -341,29 +373,53 @@ check("regression: the existing specific phrasings (e.g. 'בלי מזוודה ר
                       "baggage_detail": {"checked_bag": {"unit": "per_person"}}}})
 
 # =====================================================================
-# Shaked's PR #83 REVIEW (not her daily report): _validate_baggage_detail_
-# against_message's own gate words were themselves a bug - matched only
-# the exact spellings "כבודה"/"טרולי"/"מזוודה", so "מזוודות" (plural) and
-# "כבודת יד"/"כבודת עלייה" (bag-of-X phrasing) - which all diverge from
-# those exact words only at the final letter - were treated as NOT
-# mentioning baggage at all, wrongly reverting a perfectly normal answer
-# like "שתי מזוודות לכולנו" back to {}. Fixed by matching the shared STEM
-# (regex) instead of the exact word.
+# Shaked's PR #83 REVIEW, SUPERSEDED the same day by the business owner's
+# directive: the original gate matched only the exact spellings "כבודה"/
+# "טרולי"/"מזוודה", so "מזוודות" (plural) and "כבודת יד" (which diverge
+# from those exact words only at the final letter) were wrongly rejected.
+# Shaked's own suggested fix - matching the shared STEM via regex - closed
+# that specific gap, but the business owner then ruled out stem/word-list
+# matching entirely for this function (and _level_stated_in_message):
+# "only the model decides what the customer said". Both the exact-word gate
+# AND the stem-regex gate are gone now, replaced by _value_has_verbatim_
+# evidence against flight.baggage_detail_evidence - a quote the model
+# itself must supply (EXTRACTOR_SYSTEM now requires it). These checks
+# confirm the CURRENT mechanism: a real quote from the message is accepted
+# regardless of its grammatical form (plural, "כבודת יד", anything) since
+# nothing here inspects the quote's wording at all - only that it's really
+# there; no quote is rejected, even for the exact same plural/כבודת-יד
+# phrasing that used to need special-casing.
 # =====================================================================
-check("Rome repro (Shaked's PR review): a first-turn plural 'שתי מזוודות "
-      "לכולנו' is accepted, not wrongly reverted to {} for 'not mentioning "
-      "baggage'",
+check("Rome repro, evidence mechanism: a first-turn plural 'שתי מזוודות "
+      "לכולנו' is accepted when the extractor supplies it as evidence - "
+      "no stem/word list involved, any real quote works",
+      chat._validate_baggage_detail_against_message(
+          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 2}},
+                      "baggage_detail_evidence": "שתי מזוודות לכולנו"}},
+          {}, "זוג לרומא 10-14 בנובמבר, שתי מזוודות לכולנו",
+      )["flight"]["baggage_detail"] == {"checked_bag": {"unit": "total", "count": 2}})
+check("the same plural message with NO evidence supplied is rejected - "
+      "confirms the mechanism is now evidence-only, not a revived stem "
+      "match on the message text itself",
       chat._validate_baggage_detail_against_message(
           {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}}},
           {}, "זוג לרומא 10-14 בנובמבר, שתי מזוודות לכולנו",
-      ) == {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}}})
-check("'כבודת יד' (hand luggage, diverges from 'כבודה' at the last letter) "
-      "is also recognized as a baggage mention",
+      ) == {"flight": {"baggage_detail": {}}})
+check("'כבודת יד' (hand luggage) is accepted the same way, via evidence - "
+      "its grammatical form is irrelevant to the check",
       chat._validate_baggage_detail_against_message(
-          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}},
+          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}},
+                      "baggage_detail_evidence": "רק כבודת יד"}},
           {"flight": {}}, "רק כבודת יד",
-      ) == {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
-check("regression: a genuinely unrelated message (no baggage word at all) "
+      )["flight"]["baggage_detail"] == {"checked_bag": {"unit": "total", "count": 1}})
+check("evidence that does not actually appear in the message (the model "
+      "fabricated a quote) is rejected just like no evidence at all",
+      chat._validate_baggage_detail_against_message(
+          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}},
+                      "baggage_detail_evidence": "רק כבודת יד"}},
+          {"flight": {}}, "משהו אחר לגמרי",
+      )["flight"]["baggage_detail"] == {})
+check("regression: a genuinely unrelated message (no evidence at all) "
       "still reverts to the prior settled detail",
       chat._validate_baggage_detail_against_message(
           {"flight": {"baggage_detail": {"checked_bag": {"unit": "per_person"}}}},

@@ -268,6 +268,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
 - כנ"ל לגבי car.details.vehicle_type: השדה נשאר ריק עד שהלקוח עצמו ציין סוג/גודל רכב (קטן, משפחתי, SUV, ג'יפ וכו'; "אוטומטי"/"ידני" שייכים ל-transmission ולא לכאן) או אמר במפורש שכל רכב מתאים לו/שאין העדפה. לעולם אל תמלאי אותו לבד ממספר הנוסעים, מהכבודה או מברירת מחדל - זה בדיוק כמו לנחש תקציב, ומונע מהלקוח לענות על שאלה שמעולם לא נשאלה.
+- lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט איך הכבודה המוזנת מתחלקת בין הנוסעים - {"checked_bag":{"count":מספר|null,"unit":"total"|"per_person"|"per_couple"|null}}) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
 - trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
@@ -307,13 +308,13 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "departure_airport":null,
   "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"duration_days":null,"constraints":[]},
   "budget_per_person":{"amount":null,"currency":null,"status":"unknown"},
-  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[],"departure_time_preference":null,"return_time_preference":null},
+  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"baggage_detail":null,"baggage_detail_evidence":null,"preferences":[],"departure_time_preference":null,"return_time_preference":null},
   "priorities":[],"hard_constraints":[],"current_request":null,
   "search_intent":false,"requested_services":[],"service_decisions":{},
   "session_status":{"flights":"pending","lodging":"pending","car":"pending","trip_planning":"pending"},
   "active_session":null,
   "missing_required":[],"ready_for_summary":false,"search_confirmed":false,
-  "lodging":{"interested":"unknown","details":{"type":null,"rooms":null,"budget":null,"level":null,"locations":null}},
+  "lodging":{"interested":"unknown","details":{"type":null,"rooms":null,"budget":null,"level":null,"level_evidence":null,"locations":null}},
   "car":{"interested":"unknown","details":{"vehicle_type":null,"transmission":null,"seats":null,"pickup":null,"return":null,"luggage_capacity_confirmed":false}},
   "trip_planning":{"interested":"unknown","details":{}},
   "ski":{"skill_level":null,"priorities":[],"transfer_choice":null}
@@ -7692,11 +7693,21 @@ _LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "ויל�
 # update_and_confirm already expects for that field (a nested dict keyed by
 # guided-field name), so applying it is one uniform loop - no per-field
 # translation layer, same principle as dates/travelers also_mentioned.
+#
+# lodging_budget_or_level's own "evidence" key (business owner's directive,
+# 18.10.2026): when the customer mentions a level only in passing while
+# answering a DIFFERENT lodging question, also_mentioned is the one place
+# a level can reach state without ever being validated against the exact
+# question it answers - so it is also the one place that still needs a
+# verbatim check. The model must quote, word-for-word from the current
+# message, whatever it based "level" on; _value_has_verbatim_evidence
+# checks the quote is real, never re-deciding what it means.
 _LODGING_ALSO_MENTIONED_SCHEMA = (
     '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"}|null,'
     '"lodging_rooms":{"value":int}|null,"lodging_bathrooms":{"value":int}|null,'
     '"lodging_locations":{"value":"..."}|null,'
-    '"lodging_budget_or_level":{"budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null}|null}'
+    '"lodging_budget_or_level":{"budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null,'
+    '"evidence":"ציטוט מילה-במילה מההודעה הנוכחית"|null}|null}'
 )
 
 
@@ -7705,7 +7716,9 @@ def _lodging_guided_prompt(field, state, recent):
     state_line = f"מצב נוכחי - פרטי לינה: {json.dumps(details, ensure_ascii=False)}.\n"
     also_mentioned_rule = (
         "also_mentioned: פרטי לינה אחרים (סוג/מספר חדרים/חדרי רחצה/תקציב או רמה/אזור) שנאמרו במפורש "
-        "באותה הודעה, בלי להשלים בעצמך - בצורת האובייקט בדיוק כפי שמוגדר למטה."
+        "באותה הודעה, בלי להשלים בעצמך - בצורת האובייקט בדיוק כפי שמוגדר למטה. בפרט ל-lodging_budget_or_level: "
+        "אם level נמסר, מלאי גם evidence - ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית, שעליו "
+        "התבססת. בלי ציטוט אמיתי כזה - level עצמו null."
     )
     other_topic_rule = "אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, נושא אחר) - status=\"other_topic\"."
     if field == "lodging_type":
@@ -7878,25 +7891,30 @@ def _guided_extract_answer(key, model, field, message, history, state):
         return None
 
 
-def _level_stated_in_message(level, raw_message):
-    """State-based guard (Shaked/Shlomo, stage-3 run-2, Rome): also_mentioned
-    may only record a value the customer actually said. Reuses the exact
-    canonical vocabulary _deterministic_lodging_facts/_required_state_gaps
-    already use for this same field (_LODGING_LEVEL_VALUES, the star-rating
-    pattern, and the general no-preference wording) rather than inventing a
-    new phrase list - a purely descriptive phrase like "מלון קטן ונעים" (no
-    budget/level/star word at all) matches none of them and is rejected."""
-    msg = str(raw_message or "")
-    if level == "אין העדפה":
-        return any(w in msg for w in ("אין העדפה", "לא משנה", "מה שיש", "לא משנה לי"))
-    if any(word in msg for word, canon in _LODGING_LEVEL_VALUES if canon == level):
-        return True
-    star_match = re.search(r"(\d)\s*(?:\+)?\s*כוכב", msg)
-    if star_match:
-        stars = int(star_match.group(1))
-        canon = "יוקרתי" if stars >= 4 else ("בינוני" if stars == 3 else "בסיסי")
-        return canon == level
-    return False
+def _value_has_verbatim_evidence(evidence, message):
+    """Per the business owner's explicit directive (18.10.2026, relayed by
+    Shlomo, reacting to PR #83): only the MODEL decides what the customer
+    said - never a word list, phrase list, or stem/regex match, however
+    "general" it's framed. Both _level_stated_in_message (word-list +
+    star-rating regex) and the stem-regex gate briefly added to
+    _validate_baggage_detail_against_message (per Shaked's own PR #83
+    review, before this directive arrived) were exactly the pattern this
+    rules out.
+
+    The replacement: the extractor itself must supply, for any field it
+    introduces or changes this turn, a verbatim quote from the customer's
+    CURRENT message - the evidence it based the value on. This function is
+    the one place that quote is checked: accepted only when it's a
+    non-empty string that appears in the message exactly as given (no
+    rewording, no translation, no paraphrase - that's what "verbatim"
+    buys here, a check code can actually perform without re-deciding
+    meaning itself). No quote, or a quote that was invented rather than
+    copied from the real message, means no value - the caller reverts to
+    whatever was already settled."""
+    evidence = str(evidence or "").strip()
+    if not evidence:
+        return False
+    return evidence in str(message or "")
 
 
 def _validate_lodging_level_against_message(trip_update, state, message):
@@ -7907,11 +7925,19 @@ def _validate_lodging_level_against_message(trip_update, state, message):
     write lodging.details.level straight into its own JSON, bypassing the
     guided dispatcher (and #81's guard) entirely. "מלון חמוד ושקט" (no
     budget/level/star word at all) was saved as level="בינוני" through
-    this exact path. Applies the same _level_stated_in_message check here,
-    general to every write path - not a second, field-specific patch - and
-    only when the value is genuinely NEW this turn (differs from what was
-    already persisted), so an already-accepted level from an earlier turn
-    is never re-litigated against a later, unrelated message."""
+    this exact path.
+
+    Per the business owner's 18.10.2026 directive: the original fix
+    checked the message against a canonical word list and a star-rating
+    regex (_level_stated_in_message, now removed). Replaced with
+    _value_has_verbatim_evidence against lodging.details.level_evidence -
+    the quote EXTRACTOR_SYSTEM now requires the model itself to supply
+    whenever it writes a new level - so the model's own semantic judgment
+    decides what counts as "stated", never a list maintained in code.
+    Checked only when the value is genuinely NEW this turn (differs from
+    what was already persisted), so an already-accepted level from an
+    earlier turn is never re-litigated against a later, unrelated
+    message."""
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     lodging = trip_update.get("lodging") if isinstance(trip_update.get("lodging"), dict) else {}
     details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
@@ -7923,11 +7949,12 @@ def _validate_lodging_level_against_message(trip_update, state, message):
     prior_details = prior_lodging.get("details") if isinstance(prior_lodging.get("details"), dict) else {}
     if level == prior_details.get("level"):
         return trip_update
-    if _level_stated_in_message(level, message):
+    if _value_has_verbatim_evidence(details.get("level_evidence"), message):
         return trip_update
     trip_update = dict(trip_update)
     details = dict(details)
     details.pop("level", None)
+    details.pop("level_evidence", None)
     trip_update["lodging"] = dict(lodging, details=details)
     return trip_update
 
@@ -7942,21 +7969,17 @@ def _validate_baggage_detail_against_message(trip_update, state, message):
     Same class of bug as the lodging-level guard above: the main extractor
     is free to rewrite any field in its own JSON every turn, with nothing
     checking whether the customer's current message actually supports a
-    CHANGE to an already-settled fact. General rule: a change to
-    baggage_detail is only accepted when the current message itself
-    mentions baggage in some form; otherwise the prior, already-settled
-    detail is kept.
+    CHANGE to an already-settled fact.
 
-    Per Shaked's PR #83 review: the original gate checked for the exact
-    words "כבודה"/"טרולי"/"מזוודה" as literal substrings, which silently
-    missed every other inflection of the same word - "מזוודות" (plural)
-    and "כבודת יד"/"כבודת עלייה" (bag-of-X phrasing) all diverge from
-    those exact spellings at the very last letter, so a perfectly normal
-    baggage sentence like "שתי מזוודות לכולנו" failed the gate entirely
-    and got its baggage_detail wrongly reverted. Fixed by matching the
-    common STEM of each word (regex, not a literal phrase list) - every
-    inflection of מזווד.../טרולי/כבוד.../תיק shares this stem regardless
-    of suffix."""
+    Per the business owner's 18.10.2026 directive (reacting to this same
+    PR, after Shaked's own review had already replaced the original exact-
+    word gate with a stem regex - r"מזווד|טרולי|כבוד|תיק" - which fixed the
+    reported gap but was still exactly the "word/phrase/stem list" pattern
+    she ruled out): replaced with _value_has_verbatim_evidence against
+    flight.baggage_detail_evidence - the quote EXTRACTOR_SYSTEM now
+    requires the model itself to supply whenever it writes a new
+    baggage_detail. The model decides what counts as "the customer
+    mentioned baggage", not a regex maintained in code."""
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
     detail = flight.get("baggage_detail")
@@ -7966,11 +7989,12 @@ def _validate_baggage_detail_against_message(trip_update, state, message):
     prior_detail = prior_flight.get("baggage_detail") if isinstance(prior_flight.get("baggage_detail"), dict) else {}
     if detail == prior_detail:
         return trip_update
-    if re.search(r"מזווד|טרולי|כבוד|תיק", str(message or "")):
+    if _value_has_verbatim_evidence(flight.get("baggage_detail_evidence"), message):
         return trip_update
     trip_update = dict(trip_update)
     flight = dict(flight)
     flight["baggage_detail"] = prior_detail
+    flight.pop("baggage_detail_evidence", None)
     trip_update["flight"] = flight
     return trip_update
 
@@ -7984,9 +8008,10 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
 
     raw_message, when passed, is the customer's own current-turn text. Used
     only to validate a lodging level pulled from also_mentioned (see
-    _level_stated_in_message) - the direct-answer call site never passes it,
-    since there the model is already answering the exact budget/level
-    question asked, not inferring it from an unrelated answer."""
+    _value_has_verbatim_evidence) - the direct-answer call site never
+    passes it, since there the model is already answering the exact
+    budget/level question asked, not inferring it from an unrelated
+    answer."""
     result = result if isinstance(result, dict) else {}
     if field == "dates":
         departure = result.get("departure")
@@ -8116,7 +8141,7 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
             fragment["budget"] = budget
         elif isinstance(level, str) and level.strip() in ("יוקרתי", "בינוני", "בסיסי", "אין העדפה"):
             level = level.strip()
-            if raw_message is None or _level_stated_in_message(level, raw_message):
+            if raw_message is None or _value_has_verbatim_evidence(result.get("evidence"), raw_message):
                 fragment["level"] = level
         if not fragment:
             return {}, None
