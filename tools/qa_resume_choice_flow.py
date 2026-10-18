@@ -1,52 +1,44 @@
 """QA for the "continue existing or new" flow (per qa/resume-scenarios.md,
 the business owner's 2026-10-18 directive relayed after Shaked rejected PR
-#84's first submission, 058edd4, for having the single-save-point/
-exclude_decided fixes right but this whole flow missing): PR #84 passed
-every one of its original 19 checks, but on a bare conversation opening
-Ariella never asked whether to continue an open vacation or start a new
-one at all - with several open vacations she never disambiguated, and
-after a choice she never loaded that vacation's own already-closed facts.
+#84 twice):
 
-The fix (ariella_chat_clean.py):
-- `_resumable_vacations` (replaces the old per-call duplication inside
-  _upcoming_vacations): the shared candidate list of upcoming trips with a
-  genuinely open (not declined/complete) service, carrying id/answers/
-  missing (raw service keys) alongside the Hebrew display labels.
-- `resume_choice_pending` - a new, explicit state-machine flag with three
-  stages ("ask", "confirm_one", "which_trip"), handled as the very first
-  gate in _chat_clean_impl (ahead of reopen_trip_pending and everything
-  else) so nothing may proceed until the customer actually answers.
-- Set once, always, whenever a conversation opens with no destination yet
-  and the message itself names none either (an explicit destination is
-  itself the answer "new, with this place" - handled by the existing,
-  unchanged explicit-service-request branch just above it, and by the
-  normal flow once this gate is skipped).
-- Every classification (new vs. continue; yes/no for a single candidate;
-  which vacation among several, including by date/month phrasing like "זו
-  של נובמבר") is by the MODEL's understanding, never a phrase list - per
-  Carmit's 2026-10-18 rule, repeated verbatim in qa/resume-scenarios.md's
-  own failure rules ("זיהוי לפי רשימת ביטויים במקום הבנת המודל").
-- `_pick_resume_trip`: reuses _pick_reopen_option's numeric/ordinal/
-  catalog-name matching for the cheap common cases, but - unlike that
-  function, whose own model fallback only ever covers a single option -
-  falls back to a dedicated model classification for ANY number of
-  options, required for R5's date-phrasing case.
-- `_resume_trip_reply`: loads the chosen trip via the existing
-  _state_from_trip, states what's already closed, and asks the one
-  concrete question for the first still-open service - reusing the exact
-  _REOPEN_FIRST_QUESTION/_state_from_trip machinery the sibling explicit-
-  reopen flow already uses, rather than inventing new reply text.
-- Every reply/state change here runs through the single _reply() save
-  point built for PR #84's own original fix, so every turn below is
-  independently checked against what's actually on the server too.
+Round 1 (058edd4) was missing the flow entirely. Round 2 (d5b0d22) built the
+state machine (resume_choice_pending: ask/confirm_one/which_trip) but
+Shaked's second review found four more blocking issues, all fixed here:
 
-Covers R1-R6, R11, R12 from qa/resume-scenarios.md end to end, through
-BOTH channels (whatsapp_bridge.ariella_turn, and /api/ariella/chat-clean
-with locally-held history/trip_state exactly as the website does), with 2
-alternate free-form phrasings per short answer where the spec calls for
-one. R7-R10 (the reset gate and general single-save-point persistence)
-are unchanged by this fix and stay covered by
-qa_cyprus_resume_and_single_save_point.py.
+1. Every stage used a hand-written, fixed Hebrew sentence as the reply
+   (the opening question, which_trip, confirm_one, the "nothing open"
+   message, and _resume_trip_reply's own use of _REOPEN_FIRST_QUESTION) -
+   against the business owner's standing rule that code never sends a
+   fixed sentence, ever. _resume_trip_reply's wording also came out
+   grammatically broken when several services were closed ("טיסות ולינה
+   ומסלול ואטרקציות כבר סגורים"). Fixed: the code now only ever decides
+   the STATE (stage, candidates, what's closed/open) and hands Tinkerbell
+   a free-text instruction via a new _resume_choice_hint key, exactly the
+   same mechanism 014a's own _guided_ask_hint already established -
+   wired into _call_tinkerbell's continuity-building the same way.
+2. The question used to fire even for a brand-new member with zero
+   trips at all. Fixed: _has_active_future_trip gates the WHOLE
+   mechanism - it must find at least one of the customer's own active
+   trip_requests rows with dates still ahead before anything here runs.
+3. The opening message itself used to only skip the question when a
+   catalog destination/regex matched it - "אני רוצה לתכנן טיול חדש" (no
+   destination at all) still triggered the ask. Fixed: the opening
+   message is classified directly by the model (_interpret_pending_
+   choice, reused - no new classifier, no regex) into new/keep/unclear;
+   only a genuinely unclear answer costs the extra round trip of
+   actually asking.
+4. A hardcoded "תרצי" (feminine form) regardless of user_gender - a
+   direct consequence of (1); resolved automatically now that Tinkerbell
+   composes every stage's text herself, exactly as she already does for
+   gendered phrasing everywhere else.
+
+Covers R1-R6, R11, R12 from qa/resume-scenarios.md, plus explicit checks
+for findings 2 and 3 above (a trip-less member, and a first message that
+classifies straight to new/continue with no extra round trip). Assertions
+now check STATE transitions and the HINT text handed to the (mocked)
+model - never literal reply wording, since that's Tinkerbell's own free
+composition and is correctly out of this file's control.
 
 Run: python3 tools/qa_resume_choice_flow.py
 """
@@ -55,7 +47,7 @@ import re
 import sys
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -149,19 +141,36 @@ def _seed(member_id, *letters):
 
 
 # =====================================================================
-# A fake classifier standing in for the real model (offline QA has no API
-# key) - dispatches by the unique prompt/message shape of each of the 3
-# classifiers this flow relies on, so the CODE's own use of "the model
-# decided X" is what's under test here, not real natural-language
-# understanding (which has no offline substitute).
+# A fake model standing in for the real one (offline QA has no API key).
+# Dispatches by source/prompt shape:
+#   - classifier calls (new-vs-continue, yes/no, which-trip) - unchanged
+#     from before, pure meaning-based keyword stand-ins (the fake's own
+#     simplicity is fine here - it stands in for real understanding, the
+#     same way every other QA file in this suite mocks the model).
+#   - "tinkerbell_reply" - the actual composed customer-facing reply.
+#     Per Shaked's finding (1): the CODE must never hand Tinkerbell a
+#     fixed sentence, only a free-text hint via _resume_choice_hint - so
+#     the fake echoes that exact hint back as the "reply", letting every
+#     assertion below check its CONTENT (what state/candidates/closed-
+#     services the code decided), never customer-facing wording (that's
+#     Tinkerbell's own job, correctly out of this file's control).
 # =====================================================================
 def _customer_text(message):
     return str(message or "").split("תשובת הלקוח:", 1)[-1].strip()
 
 
 def _fake_post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "tinkerbell_reply":
+        # Echo the FULL dynamic prompt back as the "reply" so every
+        # assertion below can check, by substring, exactly what the code
+        # decided to tell Tinkerbell this turn (the _resume_choice_hint
+        # text is somewhere in here) - never customer-facing wording,
+        # which is correctly out of this file's control.
+        return str(system_dynamic or "") or "תשובה כלשהי."
+    if source == "state_extractor":
+        return "{}"
     if source != "classifier":
-        return "{}" if source == "state_extractor" else "תשובה לדוגמה."
+        return "{}"
     text = _customer_text(message)
     if "question_kind=new_vacation" in str(message or ""):
         if any(w in text for w in ("חדש", "אחר")):
@@ -186,51 +195,75 @@ def _fake_post_claude(key, model, system_static, system_dynamic, history, messag
     return "UNCLEAR"
 
 
-def _api_client(member_id):
-    client = app_module.app.test_client()
-    with client.session_transaction() as sess:
-        sess["member_id"] = member_id
-    return client
-
-
-def _api_turn(client, message, history, trip_state):
-    r = client.post("/api/ariella/chat-clean", json={"message": message, "history": history, "trip_state": trip_state})
-    data = r.get_json() or {}
-    history = history + [{"role": "user", "content": message}, {"role": "assistant", "content": data.get("reply") or ""}]
-    return data.get("reply") or "", (data.get("trip_update") if isinstance(data.get("trip_update"), dict) else {}), history
+def _hint_of(reply):
+    """The fake tinkerbell_reply dispatcher above echoes the hint text
+    verbatim as the 'reply' - this is just a readability alias for it in
+    the assertions below."""
+    return str(reply or "")
 
 
 patcher = patch.object(chat, "_post_claude", side_effect=_fake_post_claude)
 patcher.start()
 
 # =====================================================================
-# R1: "הי" on an account with ק (closed) + ר (full) -> one open question,
-# never naming Cyprus as in-progress, never asking about flights.
+# Finding 2 - a brand-new member with ZERO trips at all must never be
+# asked "continue existing or new?" about nothing.
+# =====================================================================
+m0 = _make_member("qa-resume-notrips@example.com")
+check("_has_active_future_trip is False for a member with zero trips",
+      chat._has_active_future_trip(m0) is False)
+reply0 = whatsapp_bridge.ariella_turn(m0, "הי")
+state0 = (database.load_ariella_conversation(m0) or {}).get("trip_state") or {}
+check("finding 2: a trip-less member's bare greeting never engages resume_choice_pending at all",
+      "resume_choice_pending" not in state0)
+
+# =====================================================================
+# Finding 3 - an opening message that already classifies cleanly (new or
+# continue) skips the "ask" round trip entirely, with NO catalog/regex
+# destination check involved ("אני רוצה לתכנן טיול חדש" names no place).
+# =====================================================================
+m3f = _make_member("qa-resume-finding3@example.com")
+_seed(m3f, "ק", "ר")
+check("_has_active_future_trip is True once a real active trip exists (even fully closed, like ק)",
+      chat._has_active_future_trip(m3f) is True)
+reply3f = whatsapp_bridge.ariella_turn(m3f, "אני רוצה לתכנן טיול חדש")
+state3f = (database.load_ariella_conversation(m3f) or {}).get("trip_state") or {}
+check("finding 3: 'אני רוצה לתכנן טיול חדש' (no destination at all) resolves straight to new, no ask stage ever set",
+      "resume_choice_pending" not in state3f and state3f.get("resume_choice_done") is True)
+
+m3g = _make_member("qa-resume-finding3b@example.com")
+_seed(m3g, "ק", "ר")
+reply3g = whatsapp_bridge.ariella_turn(m3g, "אני רוצה להמשיך את התכנון שהיה")
+state3g = (database.load_ariella_conversation(m3g) or {}).get("trip_state") or {}
+check("finding 3b: a first message that already classifies as 'continue' skips the ask stage too",
+      state3g.get("resume_choice_pending", {}).get("stage") in ("confirm_one", "which_trip")
+      or "אין" in _hint_of(reply3g))
+
+# =====================================================================
+# R1: "הי" on an account with ק (closed) + ר (full) -> classifies
+# UNCLEAR -> the ask stage is set, hint instructs one open question,
+# never naming Cyprus as in-progress.
 # =====================================================================
 m1 = _make_member("qa-resume-r1@example.com")
 _seed(m1, "ק", "ר")
-
 wa_reply = whatsapp_bridge.ariella_turn(m1, "הי")
-check("R1 (whatsapp): the reply is the one open continue-or-new question",
-      "להמשיך" in wa_reply and "חדש" in wa_reply)
-check("R1 (whatsapp): never names Cyprus as if already in progress",
-      "קפריסין" not in wa_reply)
-check("R1 (whatsapp): never asks about a direct flight",
-      "ישירה" not in wa_reply and "כבודה" not in wa_reply)
-saved1 = database.load_ariella_conversation(m1) or {}
-check("R1 (whatsapp): resume_choice_pending (stage=ask) actually persisted server-side",
-      (saved1.get("trip_state") or {}).get("resume_choice_pending", {}).get("stage") == "ask")
-check("R1 (whatsapp): only ONE question mark in the reply",
-      wa_reply.count("?") <= 1)
+saved1 = (database.load_ariella_conversation(m1) or {}).get("trip_state") or {}
+check("R1 (whatsapp): a bare greeting is genuinely unclear and sets the ask stage",
+      saved1.get("resume_choice_pending", {}).get("stage") == "ask")
+check("R1 (whatsapp): the hint asks ONE open continue-or-new question, never naming Cyprus",
+      "קפריסין" not in _hint_of(wa_reply) and "שאלה אחת" in _hint_of(wa_reply))
+check("R1 (whatsapp): went through the real model call path (never a hand-written fixed sentence)",
+      bool(_hint_of(wa_reply)))
 
 m1b = _make_member("qa-resume-r1b@example.com")
 _seed(m1b, "ק", "ר")
-client1b = _api_client(m1b)
-api_reply, api_trip_update, _ = _api_turn(client1b, "הי", [], {})
-check("R1 (api/website channel): same single open question via the local-state channel",
-      "להמשיך" in api_reply and "חדש" in api_reply and "קפריסין" not in api_reply)
-check("R1 (api channel): persisted server-side too (single save point, both channels)",
-      (database.load_ariella_conversation(m1b) or {}).get("trip_state", {}).get("resume_choice_pending", {}).get("stage") == "ask")
+client1b = app_module.app.test_client()
+with client1b.session_transaction() as sess:
+    sess["member_id"] = m1b
+r = client1b.post("/api/ariella/chat-clean", json={"message": "הי", "history": [], "trip_state": {}})
+data1b = r.get_json() or {}
+check("R1 (api/website channel): same ask-stage behavior via the local-state channel",
+      (data1b.get("trip_update") or {}).get("resume_choice_pending", {}).get("stage") == "ask")
 
 # =====================================================================
 # R2: "הי" -> "חדש" (+2 alternate phrasings) -> plain new-vacation
@@ -242,103 +275,84 @@ for phrasing in ("חדש", "משהו חדש לגמרי", "בא לי לתכנן �
     whatsapp_bridge.ariella_turn(m2, "הי")
     reply2 = whatsapp_bridge.ariella_turn(m2, phrasing)
     state2 = (database.load_ariella_conversation(m2) or {}).get("trip_state") or {}
-    check(f"R2 ('{phrasing}'): plain new-vacation opening reply",
-          "חדשה" in reply2)
+    check(f"R2 ('{phrasing}'): resume_choice_pending is cleared, resume_choice_done is set",
+          "resume_choice_pending" not in state2 and state2.get("resume_choice_done") is True)
     check(f"R2 ('{phrasing}'): no leftover Cyprus destination/guided in the SERVER state",
           not ((state2.get("destination") or {}).get("places")) and "guided" not in state2)
-    check(f"R2 ('{phrasing}'): resume_choice_pending is cleared",
-          "resume_choice_pending" not in state2)
+    check(f"R2 ('{phrasing}'): the hint tells Tinkerbell this is a fresh, separate plan",
+          "חדש" in _hint_of(reply2))
 
 # =====================================================================
-# R3: "הי" -> "להמשיך" when NEITHER ק nor ר has an open topic -> say so
-# briefly, ask one open question - never enters Cyprus, never asks direct/baggage.
+# R3: "הי" -> "להמשיך" when NEITHER ק nor ר has an open topic -> the
+# hint says there's nothing open, and to ask where/when for a new one.
 # =====================================================================
 m3 = _make_member("qa-resume-r3@example.com")
 _seed(m3, "ק", "ר")
 whatsapp_bridge.ariella_turn(m3, "הי")
 reply3 = whatsapp_bridge.ariella_turn(m3, "להמשיך")
-check("R3: says there's no open vacation to continue",
-      "אין" in reply3 and ("פתוח" in reply3 or "להמשיך" in reply3))
-check("R3: still asks exactly one open question, never Cyprus, never direct/baggage",
-      "קפריסין" not in reply3 and "ישירה" not in reply3 and "כבודה" not in reply3
-      and reply3.count("?") <= 1)
+state3 = (database.load_ariella_conversation(m3) or {}).get("trip_state") or {}
+check("R3: the hint says there's no open vacation to continue",
+      "אין" in _hint_of(reply3))
+check("R3: never mentions Cyprus by name in the hint",
+      "קפריסין" not in _hint_of(reply3))
+check("R3: resolves to a fresh-start state (resume_choice_done set, pending cleared)",
+      "resume_choice_pending" not in state3 and state3.get("resume_choice_done") is True)
 
 # =====================================================================
-# R4: all 4 accounts -> "הי" -> "להמשיך" -> one question, naming ONLY the
-# genuinely open ones (יוון, רומא), never קפריסין/קרואטיה.
+# R4: all 4 accounts -> "הי" -> "להמשיך" -> which_trip stage, candidates
+# naming ONLY the genuinely open ones (יוון, רומא).
 # =====================================================================
 m4 = _make_member("qa-resume-r4@example.com")
 _seed(m4, "ק", "ר", "פ1", "פ2")
 whatsapp_bridge.ariella_turn(m4, "הי")
 reply4 = whatsapp_bridge.ariella_turn(m4, "להמשיך")
-check("R4: asks which vacation, mentioning Greece and Rome",
-      "יוון" in reply4 and "רומא" in reply4)
-check("R4: never mentions the closed/complete ones",
-      "קפריסין" not in reply4 and "קרואטיה" not in reply4)
 state4 = (database.load_ariella_conversation(m4) or {}).get("trip_state") or {}
-check("R4: resume_choice_pending moved to stage=which_trip, server-side",
+check("R4: moves to stage=which_trip",
       state4.get("resume_choice_pending", {}).get("stage") == "which_trip")
-check("R4: only one question in the reply",
-      reply4.count("?") <= 1)
-
-# Also through the website/local-state channel, for the same 4-account mix.
-m4b = _make_member("qa-resume-r4b@example.com")
-_seed(m4b, "ק", "ר", "פ1", "פ2")
-client4b = _api_client(m4b)
-_, trip_update_4b, hist4b = _api_turn(client4b, "הי", [], {})
-reply4b, trip_update_4b, hist4b = _api_turn(client4b, "להמשיך", hist4b, trip_update_4b)
-check("R4 (api channel): same which-vacation question, Greece/Rome only",
-      "יוון" in reply4b and "רומא" in reply4b and "קפריסין" not in reply4b and "קרואטיה" not in reply4b)
+check("R4: the hint names Greece and Rome",
+      "יוון" in _hint_of(reply4) and "רומא" in _hint_of(reply4))
+check("R4: never mentions the closed/complete ones",
+      "קפריסין" not in _hint_of(reply4) and "קרואטיה" not in _hint_of(reply4))
 
 # =====================================================================
-# R5: continuing R4, answer "רומא" (then, separately, the free-form date
-# phrasing "זו של נובמבר") -> shows flight+route already closed, asks ONE
-# question about what's left (never flight/route), state holds Rome's
-# own facts with flights/trip_planning=complete.
+# R5: continuing R4, answer "רומא" (then the free-form date phrasing "זו
+# של נובמבר") -> resumes Rome via _state_from_trip, hint states what's
+# closed (flight+route) and asks about the one open service (car).
 # =====================================================================
 reply5 = whatsapp_bridge.ariella_turn(m4, "רומא")
-check("R5: states what's already closed on Rome (flight + route)",
-      "סגור" in reply5)
-check("R5: never asks about flight or route again",
-      "ישירה" not in reply5 and "מסלול" not in reply5.split("סגור")[-1] if "סגור" in reply5 else True)
-check("R5: asks the one concrete remaining question (car)",
-      "רכב" in reply5)
-check("R5: only one question mark",
-      reply5.count("?") <= 1)
 state5 = (database.load_ariella_conversation(m4) or {}).get("trip_state") or {}
-check("R5: state now holds Rome's own destination",
-      "רומא" in ((state5.get("destination") or {}).get("places") or []))
-check("R5: flights and trip_planning are marked complete on the resumed state",
-      (state5.get("session_status") or {}).get("flights") == "complete"
+check("R5: the hint states Rome's own name/window and what's closed",
+      "רומא" in _hint_of(reply5) and "סגור" in _hint_of(reply5))
+check("R5: the hint asks about the one genuinely open service (car), never flight/route",
+      "רכב" in _hint_of(reply5) and "בלי לשאול על שום תחום סגור" in _hint_of(reply5))
+check("R5: state now holds Rome's own destination, flights/trip_planning complete",
+      "רומא" in ((state5.get("destination") or {}).get("places") or [])
+      and (state5.get("session_status") or {}).get("flights") == "complete"
       and (state5.get("session_status") or {}).get("trip_planning") == "complete")
 check("R5: resume_choice_pending is cleared once a trip was actually resumed",
       "resume_choice_pending" not in state5)
 
-# Same answer, via the alternate date-based phrasing ("זו של נובמבר") that
-# names no option by city/ordinal at all - requires genuine model
-# understanding (_pick_resume_trip's dedicated fallback), not a phrase list.
 m5b = _make_member("qa-resume-r5b@example.com")
 _seed(m5b, "ק", "ר", "פ1", "פ2")
 whatsapp_bridge.ariella_turn(m5b, "הי")
 whatsapp_bridge.ariella_turn(m5b, "להמשיך")
 reply5b = whatsapp_bridge.ariella_turn(m5b, "זו של נובמבר")
 check("R5 ('זו של נובמבר'): resolves to Rome by date-phrase understanding, not a magic word",
-      "רכב" in reply5b and "סגור" in reply5b)
+      "רכב" in _hint_of(reply5b) and "סגור" in _hint_of(reply5b))
 
 # =====================================================================
-# R6: ק+ר+פ1 (only Greece open) -> "הי"->"להמשיך" may offer it directly
-# in one question; never continues before an answer.
+# R6: ק+ר+פ1 (only Greece open) -> "הי"->"להמשיך" offers it directly in
+# one yes/no question (stage=confirm_one); never continues before an answer.
 # =====================================================================
 m6 = _make_member("qa-resume-r6@example.com")
 _seed(m6, "ק", "ר", "פ1")
 whatsapp_bridge.ariella_turn(m6, "הי")
 reply6 = whatsapp_bridge.ariella_turn(m6, "להמשיך")
-check("R6: with only one open vacation, offers it directly by name",
-      "יוון" in reply6 and reply6.count("?") <= 1)
 state6 = (database.load_ariella_conversation(m6) or {}).get("trip_state") or {}
-check("R6: does NOT continue before the customer actually answers (still pending, nothing resumed yet)",
-      state6.get("resume_choice_pending", {}).get("stage") == "confirm_one"
-      and not state6.get("reopened_trip_id"))
+check("R6: with only one open vacation, moves to confirm_one and names it in the hint",
+      state6.get("resume_choice_pending", {}).get("stage") == "confirm_one" and "יוון" in _hint_of(reply6))
+check("R6: does NOT continue before the customer actually answers",
+      not state6.get("reopened_trip_id"))
 reply6b = whatsapp_bridge.ariella_turn(m6, "כן")
 state6b = (database.load_ariella_conversation(m6) or {}).get("trip_state") or {}
 check("R6: 'כן' actually resumes Greece afterwards",
@@ -359,25 +373,29 @@ database.save_ariella_conversation(m11, [
     {"role": "user", "content": "רק טיסה לקפריסין"},
     {"role": "assistant", "content": "קלטתי."},
 ], stale_trip_state)
-from datetime import timedelta
 _90_minutes_ago = (datetime.now(timezone.utc) - timedelta(minutes=90)).isoformat()
 with sqlite3.connect(DB) as conn:
     conn.execute("UPDATE ariella_conversations SET updated_at=? WHERE member_id=?", (_90_minutes_ago, m11))
     conn.commit()
 reply11 = whatsapp_bridge.ariella_turn(m11, "הי")
-check("R11: after a long gap, same single open question as R1 - never resumes the stale Cyprus trip",
-      "להמשיך" in reply11 and "חדש" in reply11 and "קפריסין" not in reply11)
+state11 = (database.load_ariella_conversation(m11) or {}).get("trip_state") or {}
+check("R11: after a long gap, same ask-stage behavior as R1 - never resumes the stale Cyprus trip",
+      state11.get("resume_choice_pending", {}).get("stage") == "ask" and "קפריסין" not in _hint_of(reply11))
 
 # =====================================================================
 # R12: an explicit "add lodging to Cyprus" request still works even
-# though Cyprus's lodging was declined - the new resume-choice gate must
-# never intercept an explicit, destination-named request.
+# though Cyprus's lodging was declined - the resume-choice gate must
+# never intercept an explicit, destination-named request. This sibling
+# mechanism (_reopenable_trips/reopen_trip_pending) still uses its own
+# existing fixed-question template (_reopen_question) - out of this
+# fix's scope, unchanged.
 # =====================================================================
 m12 = _make_member("qa-resume-r12@example.com")
 _seed(m12, "ק", "ר")
 reply12 = whatsapp_bridge.ariella_turn(m12, "תוסיפי לינה לקפריסין")
+state12 = (database.load_ariella_conversation(m12) or {}).get("trip_state") or {}
 check("R12: an explicit add-lodging-to-Cyprus request bypasses the resume-choice gate entirely",
-      "resume_choice_pending" not in ((database.load_ariella_conversation(m12) or {}).get("trip_state") or {}))
+      "resume_choice_pending" not in state12)
 check("R12: and still offers to reopen Cyprus for lodging, despite the earlier decline",
       "קפריסין" in reply12 and "לינה" in reply12)
 

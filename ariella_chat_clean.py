@@ -3515,6 +3515,17 @@ def _call_tinkerbell(key, model, history, message, state=None):
         # than injecting it raw.
         continuity += """
 - יש ספק לגבי התשובה האחרונה של הלקוח. אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת. נסחי בקול הטבעי שלך בדיוק את שאלת האימות הבאה (אפשר לנסח מחדש, אך לשמור על אותה המשמעות בדיוק): """ + json.dumps(state.get("_gap_clarify_question"), ensure_ascii=False) + "\n"
+    if state.get("_resume_choice_hint"):
+        # Per Shaked's second review of PR #84 (18.10.2026): the resume_
+        # choice_pending flow (continue an existing open vacation vs. start
+        # new) must never send a fixed sentence at any of its stages - the
+        # same "code decides the state, Tinkerbell composes the words"
+        # principle _guided_ask_hint already established for 014a. The one
+        # question/acknowledgment/confirmation needed this turn is handed
+        # here as a free-text instruction, never literal customer-facing
+        # text, and gendered phrasing resolves on its own the same way it
+        # already does everywhere else Tinkerbell composes freely.
+        continuity += "\n- " + str(state.get("_resume_choice_hint")) + "\n"
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
     # Carmit caught this live (2026-10-14): mid-way through planning a new
@@ -8376,6 +8387,47 @@ def _find_recent_scanned_vacation(member_id, destination_codes, departure_airpor
     return None
 
 
+def _has_active_future_trip(member_id):
+    """Per Shaked's second review of PR #84's resume_choice_pending flow
+    (18.10.2026): the "continue existing or new" question must only be
+    asked when the customer actually HAS something that could possibly be
+    continued - at least one of their own active trip_requests rows with
+    dates still ahead. A brand-new member with zero trips (or an account
+    where every trip has already passed) must get a plain opening, never
+    "continue existing or new?" about nothing.
+
+    Deliberately broader than _resumable_vacations (which only counts a
+    trip with a genuinely open, not-yet-decided service): a fully
+    complete trip (every service already settled) still counts as "has
+    an active trip" for this existence check alone - whether there's
+    anything LEFT to continue on it is the separate question the later
+    disambiguation step (_resumable_vacations) answers, once the customer
+    has already said they want to continue something."""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT answers_json FROM trip_requests WHERE member_id=? AND status='active' LIMIT 50",
+            (member_id,),
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return False
+    today = date.today().isoformat()
+    for row in rows:
+        try:
+            answers = json.loads(row["answers_json"] or "{}")
+        except Exception:
+            continue
+        dep = str(answers.get("departure_date") or "")[:10]
+        month = str(answers.get("travel_month") or answers.get("outbound_month") or "")[:7]
+        if dep and dep > today:
+            return True
+        if not dep and month and month >= today[:7]:
+            return True
+    return False
+
+
 def _resumable_vacations(member_id, limit=20):
     """The customer's upcoming active vacations that still have at least one
     genuinely open (not just missing-by-the-permissive-test, but never
@@ -8639,24 +8691,41 @@ def _pick_resume_trip(message, options, key, model, history):
     return None
 
 
-def _resume_trip_reply(trip, member_id):
-    """The success payload for actually resuming `trip` (already chosen via
-    resume_choice_pending's "confirm_one"/"which_trip" stage): load its real
-    state via _state_from_trip, state what's already closed, and ask the
-    one concrete question for the first still-open service - never re-ask
-    about anything already settled, per qa/resume-scenarios.md's R5."""
+def _resume_trip_hint_and_state(trip, member_id):
+    """The (hint, trip_update) pair for actually resuming `trip` (already
+    chosen via resume_choice_pending's "confirm_one"/"which_trip" stage):
+    loads its real state via _state_from_trip, and hands Tinkerbell the
+    RAW facts (name/window, which services are already closed, which one
+    is still open) to compose naturally from - never a pre-written Hebrew
+    sentence. Per Shaked's second review of PR #84 (18.10): her own
+    repro showed the old fixed-sentence version coming out grammatically
+    broken when several services were closed ("טיסות ולינה ומסלול
+    ואטרקציות כבר סגורים") - letting the model phrase the list itself
+    avoids that entirely, the same way it already phrases everything
+    else freely. Never re-asks about anything already settled, per
+    qa/resume-scenarios.md's R5."""
     reopened = _state_from_trip(trip, trip.get("missing") or [])
     reopened["profile"] = _member_profile(member_id)
     service = trip.get("missing")[0] if trip.get("missing") else None
-    closed_text = " ו".join(trip.get("closed_labels") or []) or "השירותים שכבר הוזמנו"
-    if service in _REOPEN_FIRST_QUESTION:
-        reply = f"ב{trip['name']} ({trip['window']}) {closed_text} כבר סגורים. {_REOPEN_FIRST_QUESTION[service]}"
+    closed = trip.get("closed_labels") or []
+    # trip["missing"] holds raw SERVICE keys (lodging/car/trip_planning,
+    # per _resumable_vacations), not guided-subfield names - _REOPEN_
+    # LABELS is the matching label table for this namespace, not
+    # _GUIDED_FIELD_HINT_DESCRIPTION (keyed by lodging_type/lodging_rooms/
+    # etc. - a service like "car" has no entry there at all).
+    open_label = _REOPEN_LABELS.get(service) if service else None
+    if service and open_label:
+        hint = (
+            f"הלקוח בחר להמשיך את החופשה ל{trip['name']} ({trip['window']}). התחומים שכבר סגורים בה: "
+            f"{', '.join(closed)}. אמרי בקצרה מה כבר סגור, ואז שאלי שאלה אחת ופתוחה על התחום הפתוח היחיד "
+            f"שנשאר - {open_label} - בלי לשאול על שום תחום סגור."
+        )
     else:
-        reply = f"ב{trip['name']} ({trip['window']}) הכל כבר סגור - אין שם עוד מה להמשיך. רוצה להתחיל חופשה חדשה?"
-    return {
-        'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION, 'reply': reply,
-        'trip_update': reopened, 'start_flight_search': False, 'reopen_trip_id': trip['id'],
-    }
+        hint = (
+            f"הלקוח בחר להמשיך את החופשה ל{trip['name']} ({trip['window']}), אבל כל התחומים בה כבר סגורים. "
+            "אמרי זאת, ושאלי אם הלקוח רוצה להתחיל חופשה חדשה."
+        )
+    return hint, reopened
 
 
 def _member_profile(member_id):
@@ -9071,12 +9140,63 @@ def _chat_clean_impl():
 
     # Per the business owner's 2026-10-18 directive (relayed after Shaked
     # rejected PR #84 for missing this flow entirely - qa/resume-
-    # scenarios.md): every conversation that opens with no destination yet
-    # must ask, once, whether to continue an open vacation or start a new
-    # one (set below, in the trip_is_empty block) - and never guess, never
-    # auto-continue, before the customer actually answers. Handling that
-    # answer runs here, ahead of every other gate, since nothing else may
-    # run until it's resolved.
+    # scenarios.md), and her SECOND review of the first attempt (also
+    # 18.10, d5b0d22): every conversation that opens with no destination
+    # yet, and where the customer actually has at least one active future
+    # trip (_has_active_future_trip - never ask about continuing something
+    # when there's nothing to continue at all), gets this handled - set
+    # below, in the trip_is_empty block - before any other gate, since
+    # nothing else may run until it's resolved. Per her second review:
+    # the code only ever decides the STATE (which stage, which candidates,
+    # what's already closed) - never a fixed sentence at any stage,
+    # exactly like 014a's own guided_ask_hint principle. Every reply here
+    # is Tinkerbell's own free composition from a _resume_choice_hint,
+    # via _call_tinkerbell, never literal Hebrew written in this function.
+    def _resume_hint_reply(hint_text, trip_update_for_reply, **extra):
+        composed = _call_tinkerbell(key, model, history, message, dict(trip_update_for_reply, _resume_choice_hint=hint_text))
+        payload = {
+            'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+            'reply': composed, 'trip_update': trip_update_for_reply, 'start_flight_search': False,
+        }
+        payload.update(extra)
+        return _reply(payload)
+
+    def _resume_choice_offer_continue(base_trip_state, member_id_):
+        """Shared "the customer wants to continue something" resolution -
+        used both when a fresh opening message classifies straight to
+        "continue" (no extra round trip needed - per Shaked's second PR
+        #84 review) and when an explicit answer to the "ask" stage's own
+        open question resolves to it."""
+        resumable = _resumable_vacations(member_id_)
+        if not resumable:
+            fresh = {
+                'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
+                'active_session': None, 'resume_choice_done': True,
+            }
+            if base_trip_state.get('profile'):
+                fresh['profile'] = base_trip_state['profile']
+            if base_trip_state.get('user_gender'):
+                fresh['user_gender'] = base_trip_state['user_gender']
+            hint = "ללקוח אין כרגע אף חופשה עם נושא פתוח להמשיך. אמרי זאת בקצרה, ואז שאלי שאלה אחת ופתוחה לאן ובאיזו תקופה לטוס לחופשה חדשה."
+            return _resume_hint_reply(hint, fresh, trip_state_reset=True)
+        if len(resumable) == 1:
+            trip = resumable[0]
+            pending = dict(base_trip_state)
+            pending["resume_choice_pending"] = {
+                "stage": "confirm_one", "trip_id": trip["id"],
+                "options": [{"id": trip["id"], "name": trip["name"], "window": trip["window"]}],
+            }
+            hint = f"יש ללקוח חופשה פתוחה אחת: {trip['name']} ({trip['window']}). שאלי שאלה אחת, כן/לא, אם זו הכוונה - בלי לשאול שום דבר נוסף."
+            return _resume_hint_reply(hint, pending)
+        pending = dict(base_trip_state)
+        pending["resume_choice_pending"] = {
+            "stage": "which_trip",
+            "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in resumable],
+        }
+        names = "; ".join(f"{t['name']} ({t['window']})" for t in resumable)
+        hint = f"יש ללקוח כמה חופשות פתוחות: {names}. שאלי שאלה אחת ופתוחה לאיזו מהן הכוונה - אפשר לפרט רשימת דוגמה, בלי כפתורים."
+        return _resume_hint_reply(hint, pending)
+
     pending_resume = trip_state.get("resume_choice_pending") if isinstance(trip_state.get("resume_choice_pending"), dict) else None
     if pending_resume:
         stage = pending_resume.get("stage")
@@ -9100,15 +9220,8 @@ def _chat_clean_impl():
             if trip_state.get('user_gender'):
                 fresh['user_gender'] = trip_state['user_gender']
             fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(trigger_message))
-            places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
-            reply = (
-                f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?" if places
-                else "בסדר, נתחיל חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?"
-            )
-            return _reply({
-                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION, 'reply': reply,
-                'trip_update': fresh, 'start_flight_search': False, 'trip_state_reset': True,
-            })
+            hint = "הלקוח בחר להתחיל תכנון חופשה חדש, נפרד מכל מה שהיה קודם. שאלי שאלה אחת ופתוחה לאן ובאיזו תקופה לטוס."
+            return _resume_hint_reply(hint, fresh, trip_state_reset=True)
 
         if stage == "ask":
             # Per Carmit's 2026-10-18 rule (repeated explicitly in qa/resume-
@@ -9120,75 +9233,30 @@ def _chat_clean_impl():
             if intent == "unclear" and not pending_resume.get("asked_again"):
                 retried = dict(trip_state)
                 retried["resume_choice_pending"] = dict(pending_resume, asked_again=True)
-                return _reply({
-                    'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                    'reply': "רק כדי לוודא - רוצה להמשיך תכנון קיים? אפשר גם לומר שזה תכנון חדש.",
-                    'trip_update': retried, 'start_flight_search': False,
-                })
+                hint = "התשובה הקודמת לא הייתה ברורה. שאלי שוב, בניסוח קצת אחר, שאלה אחת ופתוחה אם הלקוח רוצה להמשיך תכנון חופשה קיימת ופתוחה, או להתחיל חדשה."
+                return _resume_hint_reply(hint, retried)
             # Never guess which old vacation was meant (same safe default as
             # the sibling reopen-offer gate below): an answer that's still
             # unclear after one re-ask defaults to starting fresh, not to
             # silently continuing something unconfirmed.
             if intent != "keep":
                 return _resume_fresh_start(message)
-            resumable = _resumable_vacations(member_id)
-            if not resumable:
-                fresh = {
-                    'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
-                    'active_session': None, 'resume_choice_done': True,
-                }
-                if trip_state.get('profile'):
-                    fresh['profile'] = trip_state['profile']
-                if trip_state.get('user_gender'):
-                    fresh['user_gender'] = trip_state['user_gender']
-                return _reply({
-                    'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                    'reply': "אין לך כרגע חופשה עם נושא פתוח להמשיך. בסדר, נתחיל חופשה חדשה - לאן תרצי לטוס ובאיזו תקופה?",
-                    'trip_update': fresh, 'start_flight_search': False, 'trip_state_reset': True,
-                })
-            if len(resumable) == 1:
-                trip = resumable[0]
-                pending = dict(trip_state)
-                pending["resume_choice_pending"] = {
-                    "stage": "confirm_one", "trip_id": trip["id"],
-                    "options": [{"id": trip["id"], "name": trip["name"], "window": trip["window"]}],
-                }
-                return _reply({
-                    'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                    'reply': f"להמשיך עם החופשה ל{trip['name']} ({trip['window']})?",
-                    'trip_update': pending, 'start_flight_search': False,
-                })
-            pending = dict(trip_state)
-            pending["resume_choice_pending"] = {
-                "stage": "which_trip",
-                "options": [{"id": t["id"], "name": t["name"], "window": t["window"]} for t in resumable],
-            }
-            names = "; ".join(f"{t['name']} ({t['window']})" for t in resumable)
-            return _reply({
-                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                'reply': f"יש לך כמה חופשות פתוחות - לאיזו מהן הכוונה? {names}.",
-                'trip_update': pending, 'start_flight_search': False,
-            })
+            return _resume_choice_offer_continue(trip_state, member_id)
 
         if stage == "confirm_one":
             options = pending_resume.get("options") or []
-            question_text = (
-                f"להמשיך עם החופשה ל{options[0].get('name')} ({options[0].get('window')})?" if options
-                else "להמשיך עם החופשה הזו?"
-            )
-            intent = _interpret_yes_no(key, model, history, message, question_text)
+            option_desc = f"{options[0].get('name')} ({options[0].get('window')})" if options else "החופשה שהוצעה"
+            intent = _interpret_yes_no(key, model, history, message, f"להמשיך עם החופשה ל{option_desc}?")
             if intent == "unclear" and not pending_resume.get("asked_again"):
                 retried = dict(trip_state)
                 retried["resume_choice_pending"] = dict(pending_resume, asked_again=True)
-                return _reply({
-                    'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                    'reply': "רק כדי לוודא - " + question_text, 'trip_update': retried, 'start_flight_search': False,
-                })
+                hint = f"התשובה הקודמת לא הייתה ברורה. שאלי שוב, בניסוח קצת אחר, שאלה אחת כן/לא אם הלקוח רוצה להמשיך את החופשה ל{option_desc}."
+                return _resume_hint_reply(hint, retried)
             if intent == "yes":
                 trip_id = pending_resume.get("trip_id")
                 chosen = next((t for t in _resumable_vacations(member_id, limit=20) if t["id"] == trip_id), None)
                 if chosen:
-                    return _reply(_resume_trip_reply(chosen, member_id))
+                    return _resume_hint_reply(*_resume_trip_hint_and_state(chosen, member_id), reopen_trip_id=chosen['id'])
             # "no", or the trip no longer qualifies: never guess - offer a
             # plain new-vacation opening instead.
             return _resume_fresh_start(message)
@@ -9201,15 +9269,12 @@ def _chat_clean_impl():
             if isinstance(pick, int) and 0 <= pick < len(options):
                 chosen = next((t for t in _resumable_vacations(member_id, limit=20) if t["id"] == options[pick].get("id")), None)
                 if chosen:
-                    return _reply(_resume_trip_reply(chosen, member_id))
+                    return _resume_hint_reply(*_resume_trip_hint_and_state(chosen, member_id), reopen_trip_id=chosen['id'])
             retried = dict(trip_state)
             retried["resume_choice_pending"] = dict(pending_resume, asked_again=True)
             names = "; ".join(f"{o.get('name')} ({o.get('window')})" for o in options)
-            return _reply({
-                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                'reply': f"רק כדי לוודא - לאיזו חופשה הכוונה? {names}.",
-                'trip_update': retried, 'start_flight_search': False,
-            })
+            hint = f"התשובה הקודמת לא זוהתה בבירור. שאלי שוב, בניסוח קצת אחר, שאלה אחת ופתוחה לאיזו מהחופשות האלה הכוונה: {names}."
+            return _resume_hint_reply(hint, retried)
 
     # Coming back to add lodging/car/route to a vacation that was already
     # approved and closed (per product owner): find the customer's upcoming
@@ -9371,32 +9436,38 @@ def _chat_clean_impl():
                 return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':_reopen_question(requested_service, candidates),'trip_update':pending,'start_flight_search':False})
 
         # Per the business owner's 2026-10-18 directive (qa/resume-
-        # scenarios.md): on every conversation opening with no destination
-        # yet, always ask once whether to continue an open vacation or start
-        # a new one - handled above once pending. Skipped here when: this
-        # has already been asked/resolved for the current (empty) state
-        # (resume_choice_done); or the message itself already names a place
-        # - an explicit destination is itself the answer ("new", with that
-        # destination), exactly like the explicit-service-request branch
-        # just above already takes priority over this generic ask. Uses
-        # _deterministic_destination_facts (the same full catalog/alias
-        # table the real destination extraction itself relies on, resort
-        # names and spelling aliases included - e.g. "זאלבאך") rather than
-        # _mentioned_places' own narrower catalog subset: a QA regression
-        # (qa_reset_gate_preserves_trip_type_and_specific_resort.py) caught
-        # this gate firing on "...חופשת סקי בזאלבאך שבאוסטריה..." because
-        # _mentioned_places didn't recognize that destination at all,
-        # pre-empting the (correct) reset-confirmation flow entirely.
-        if not trip_state.get("resume_choice_done") and not (
-            _deterministic_destination_facts([], message, {}).get("destination") or {}
-        ).get("places"):
-            pending = dict(trip_state)
-            pending["resume_choice_pending"] = {"stage": "ask"}
-            return _reply({
-                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                'reply': "רוצה להמשיך תכנון קיים? אפשר גם לומר שזה תכנון חדש.",
-                'trip_update': pending, 'start_flight_search': False,
-            })
+        # scenarios.md), and Shaked's SECOND review of PR #84's first
+        # attempt (18.10, d5b0d22) - two blocking findings fixed here:
+        #
+        # 1. Only ask when the customer actually has something to possibly
+        #    continue - _has_active_future_trip, never _resumable_vacations
+        #    (that one only counts a trip with a genuinely open service;
+        #    this existence check must still pass for e.g. a fully-closed
+        #    Cyprus-shaped trip, matching qa/resume-scenarios.md's R1). A
+        #    brand-new member with zero trips at all gets a plain opening.
+        #
+        # 2. The opening message itself is classified directly by the
+        #    model (_interpret_pending_choice) - never a catalog/regex
+        #    destination check. "אני רוצה לתכנן טיול חדש" names no
+        #    destination at all, yet must resolve straight to "new"
+        #    without ever asking; a message naming an actual destination
+        #    also classifies to "new" on its own, with no separate
+        #    heuristic needed for it. Only a genuinely UNCLEAR message
+        #    costs an extra round trip (the actual "ask" stage below).
+        if not trip_state.get("resume_choice_done") and _has_active_future_trip(session['member_id']):
+            intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
+            if intent == "keep":
+                return _resume_choice_offer_continue(trip_state, session['member_id'])
+            if intent == "unclear":
+                pending = dict(trip_state)
+                pending["resume_choice_pending"] = {"stage": "ask"}
+                hint = "לא ברור אם הלקוח רוצה להמשיך תכנון חופשה קיימת ופתוחה, או להתחיל חדשה. שאלי שאלה אחת ופתוחה שבודקת זאת - בלי כפתורים ובלי לנקוב בשם חופשה ספציפית."
+                return _resume_hint_reply(hint, pending)
+            # intent == "new": nothing to ask - mark this resolved and let
+            # the normal per-turn flow continue exactly as if this
+            # mechanism didn't exist (whatever the message itself already
+            # states gets mined by the usual extraction further below).
+            trip_state = dict(trip_state, resume_choice_done=True)
 
     # Seen live (Shaked, qa-s91, round 2): mid-conversation about one
     # vacation (Paris), "אני רוצה לחזור לחופשה שלי לאיטליה באפריל ולהוסיף
