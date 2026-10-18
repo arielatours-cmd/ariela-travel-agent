@@ -364,9 +364,11 @@ check("regression: the existing canonical types (e.g. 'מלון') still work "
       "exactly as before",
       chat._guided_field_update_and_confirm("lodging_type", {"value": "מלון"})
       == ({"lodging": {"details": {"type": "מלון"}}}, "סוג לינה - מלון"))
-check("regression: an unrecognized value is still rejected, never guessed",
+check("per the business owner's later 18.10 directive (tools/qa_canonical_"
+      "value_keeps_customer_wording.py), an unrecognized value is now KEPT "
+      "in the customer's own wording, never rejected/guessed",
       chat._guided_field_update_and_confirm("lodging_type", {"value": "משהו אחר"})
-      == ({}, None))
+      == ({"lodging": {"details": {"type": "משהו אחר"}}}, "סוג לינה - משהו אחר"))
 check("the deterministic regex fallback also recognizes 'הוסטל' when the "
       "prior assistant turn genuinely asked about lodging type",
       chat._deterministic_lodging_facts(

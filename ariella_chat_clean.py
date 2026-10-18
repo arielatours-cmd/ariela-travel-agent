@@ -7701,9 +7701,6 @@ def _guided_field_known_with_confidence(field, state):
     return False
 
 
-_LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר", "הוסטל")
-
-
 # Each lodging prompt's also_mentioned uses the SAME shape _guided_field_
 # update_and_confirm already expects for that field (a nested dict keyed by
 # guided-field name), so applying it is one uniform loop - no per-field
@@ -7718,7 +7715,7 @@ _LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "ויל�
 # message, whatever it based "level" on; _value_has_verbatim_evidence
 # checks the quote is real, never re-deciding what it means.
 _LODGING_ALSO_MENTIONED_SCHEMA = (
-    '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"}|null,'
+    '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"|"טקסט חופשי בעברית"}|null,'
     '"lodging_rooms":{"value":int}|null,"lodging_bathrooms":{"value":int}|null,'
     '"lodging_locations":{"value":"..."}|null,'
     '"lodging_budget_or_level":{"budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null,'
@@ -7739,11 +7736,14 @@ def _lodging_guided_prompt(field, state, recent):
     if field == "lodging_type":
         label = "איזה סוג לינה מתאים לו"
         rules = (
-            "כללים: value הוא בדיוק אחת מהמילים: מלון, דירה, וילה, צימר, הוסטל, אין העדפה (לא מילה אחרת ולא "
-            "תיאור חופשי - \"אפרטמנט\" נחשב \"דירה\", \"אכסניה\" נחשבת \"הוסטל\"). אסור להמציא - אם לא ברור, value=null ו-confidence:"
-            "\"low\"."
+            "כללים: אם סוג הלינה שנאמר מתאים באופן ברור לאחת מהקטגוריות מלון/דירה/וילה/צימר/הוסטל, נרמלי "
+            "אליה בדיוק (\"אפרטמנט\" נחשב \"דירה\", \"אכסניה\" נחשבת \"הוסטל\"). אם הלקוח ציין סוג לינה אחר "
+            "שלא ברשימה הזו (למשל \"בקתת עץ\", \"קמפינג\", \"בית הארחה\") - שמרי את הניסוח שלו בעברית בדיוק "
+            "כמו שנאמר; לעולם אל תדחי ערך רק כי הוא לא ברשימה הסגורה ואל תחזירי null בשבילו - הרשימה היא רק "
+            "דוגמה לנירמול, לא מגבלה על מה שאפשר לשמור. value=null ו-confidence:\"low\" רק כשאף סוג לינה לא "
+            "נאמר בכלל."
         )
-        schema = '{"status":"answered|unclear|other_topic","value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"|null,"confidence":"high|low",'
+        schema = '{"status":"answered|unclear|other_topic","value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"|"טקסט חופשי בעברית"|null,"confidence":"high|low",'
         correction_rule = "אם ההודעה מתקנת סוג לינה שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_type\"."
     elif field == "lodging_rooms":
         label = "כמה חדרים נדרשים"
@@ -8191,10 +8191,23 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
         desc = " ו".join(labels)
         return {"flight": fragment}, desc
     if field == "lodging_type":
-        value = result.get("value")
-        if value not in _LODGING_TYPE_CANON_VALUES and value != "אכסניה" and value != "אין העדפה":
+        # Per the business owner's 18.10.2026 directive (relayed via
+        # Shlomo, after the evidence-based/English-word-rule fixes to
+        # this same PR): a canonical-value field must never REJECT a
+        # value just because it isn't one of the closed list's own
+        # words - that silently dropped a genuinely-stated lodging type
+        # ("בקתת עץ", "בית הארחה") as if nothing was said at all, forcing
+        # a re-ask of a question the customer already answered. Only the
+        # two known synonyms get normalized (אפרטמנט->דירה, אכסניה->
+        # הוסטל); every other non-empty value is kept exactly as the
+        # model returned it (already instructed, in _lodging_guided_
+        # prompt, to keep the customer's own Hebrew wording rather than
+        # invent a category). Only a genuinely empty value means nothing
+        # was actually said.
+        value = str(result.get("value") or "").strip() or None
+        if not value:
             return {}, None
-        canon = "דירה" if value == "אפרטמנט" else ("הוסטל" if value == "אכסניה" else value)
+        canon = {"אפרטמנט": "דירה", "אכסניה": "הוסטל"}.get(value, value)
         desc = f"סוג לינה - {canon}" if canon != "אין העדפה" else "אין העדפה לסוג לינה"
         return {"lodging": {"details": {"type": canon}}}, desc
     if field == "lodging_rooms":
