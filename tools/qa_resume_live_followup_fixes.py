@@ -7,14 +7,17 @@ Shlomo as a separate PR on top of the merged main (897152c):
    trip") on an active Prague conversation was never recognized as a
    restart request at all - guided kept right on asking about the flight
    budget. Per the business owner's 18.10 directive (understanding by the
-   model, never a phrase list) and Shaked's explicit instruction: this
-   REPLACES the list as the actual source of truth for the reset-
-   confirmation gate, not another phrase added to it. The old list is
-   kept only as a zero-risk, latency-saving short-circuit for the
-   phrasings it already matches - it can only ever confirm a restart
-   faster, never suppress one the model would have caught, since the
-   model is still consulted for anything the list doesn't already
-   resolve. Only consulted when _has_vacation_progress is true.
+   model, never a phrase list): this REPLACES the list as the source of
+   truth for the reset-confirmation gate. An earlier version of this fix
+   kept the old list as an "or" short-circuit (reasoning it could only
+   ever confirm a restart faster, never suppress one) - Shlomo (relaying
+   the business owner) rejected that too: the list still decided the
+   outcome on its own whenever it matched, without the model, which is
+   exactly the pattern 18.10 forbids regardless of direction. The gate now
+   calls ONLY `_interpret_pending_choice` (the model classifier), gated on
+   `_has_vacation_progress` so there's nothing to consult the model about
+   on a blank state. `_reset_intent` itself is unchanged and still unit-
+   tested as a plain phrase detector, but this gate no longer calls it.
 
 2. L1: the opening question to a brand-new customer ("מה בא לך לתכנן
    הפעם: חופשה רגילה, נסיעת עסקים, או אולי חופשת סקי?") is an "X, Y או Z"
@@ -121,13 +124,15 @@ check("general: _guided_ask_hint tells Tinkerbell never to enumerate a field's o
 
 
 # =====================================================================
-# 1b. Unit: _reset_intent's own phrase list is UNCHANGED (still the
-#     short-circuit for phrasings it already covers) - only the model
-#     consultation is new, not a replacement regex.
+# 1b. Unit: _reset_intent itself is UNCHANGED as a plain phrase detector
+#     (still directly unit-tested elsewhere via qa/cases.json) - but per
+#     Shlomo's follow-up instruction (18.10, after the first version of
+#     this fix kept it as an "or" short-circuit), the reset-confirmation
+#     gate no longer calls it at all. Only the model classifier decides.
 # =====================================================================
-check("regression: _reset_intent itself still matches its existing fixed phrases",
+check("regression: _reset_intent itself still matches its existing fixed phrases (the function is untouched)",
       chat._reset_intent("חופשה חדשה") is True)
-check("_reset_intent alone still does NOT recognize 'טיול אחר' phrasing (confirms the gap this fix addresses)",
+check("_reset_intent alone still does NOT recognize 'טיול אחר' phrasing",
       chat._reset_intent("רגע, אני רוצה להתחיל טיול אחר") is False)
 
 
@@ -203,6 +208,30 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
 state_ok = (database.load_ariella_conversation(m_ok) or {}).get("trip_state") or {}
 check("regression: an ordinary continuing answer never falsely triggers the reset-confirmation gate",
       not state_ok.get("reset_pending"))
+
+# =====================================================================
+# 4. Shlomo's follow-up (18.10, after the first version of this fix):
+#    _reset_intent matching is no longer enough on its own to fire the
+#    gate - "נתחיל מהתחלה" is literally in _reset_intent's fixed phrase
+#    list (confirmed above), but contains neither "חדש"/"אחר" nor
+#    "להמשיך"/"קיים"/"שכבר", so the fake classifier returns "UNCLEAR" for
+#    it. Before this follow-up, the gate's "or _reset_intent(message)"
+#    would have fired anyway, from the list alone, without the model. It
+#    must NOT fire now - only the model's own classification decides.
+# =====================================================================
+m_listonly = _make_member("qa-resume-live-listonly@example.com")
+database.save_ariella_conversation(m_listonly, [
+    {"role": "user", "content": "פראג, זוג, ביולי"},
+    {"role": "assistant", "content": "קלטתי - פראג. איזו כבודה תצטרכו?"},
+], dict(prague_state))
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
+    reply_listonly = whatsapp_bridge.ariella_turn(m_listonly, "נתחיל מהתחלה")
+state_listonly = (database.load_ariella_conversation(m_listonly) or {}).get("trip_state") or {}
+check("precondition: 'נתחיל מהתחלה' is in _reset_intent's own fixed phrase list",
+      chat._reset_intent("נתחיל מהתחלה") is True)
+check("regression: the list matching alone no longer fires the gate when the model classifier says UNCLEAR - "
+      "the list is not consulted by this gate at all anymore, only _interpret_pending_choice is",
+      not state_listonly.get("reset_pending"))
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

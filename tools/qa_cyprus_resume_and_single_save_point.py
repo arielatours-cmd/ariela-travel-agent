@@ -46,11 +46,14 @@ deleted as dead code.
 Tests 1-7 below are unit/integration-level (direct function calls,
 including a real DB fixture for the Cyprus trip). Test 8 is the full
 end-to-end repro Shlomo explicitly asked for: through
-whatsapp_bridge.ariella_turn itself, two real turns, no mocked model call
-needed at all (every branch involved - the new-vacation language
-detector, the reset gate, and its yes/no interpretation - is already
-fully deterministic/regex-based, long before any model call in
-_chat_clean_impl).
+whatsapp_bridge.ariella_turn itself, two real turns. The reset gate's
+yes/no interpretation (turn 2, "כן") is still fully deterministic/regex-
+based. The new-vacation language detector for turn 1 is NOT anymore: per
+Shlomo's later follow-up (18.10, task/resume-live-reset-and-one-question),
+_reset_intent's fixed phrase list was removed from this gate entirely -
+only the model classifier (_interpret_pending_choice) decides now, per the
+business owner's 18.10 directive. Turn 1 therefore patches _post_claude
+for source="classifier" so the test does not depend on a real network call.
 
 Run: python3 tools/qa_cyprus_resume_and_single_save_point.py
 """
@@ -236,7 +239,17 @@ stale_history = [
 ]
 database.save_ariella_conversation(wa_member_id, stale_history, stale_state)
 
-turn1_reply = whatsapp_bridge.ariella_turn(wa_member_id, "כבר סגרנו את פרטי הטיסה. אני רוצה לתכנן טיול חדש")
+def _fake_post_claude_classifier(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source != "classifier":
+        return "{}"
+    text = str(message or "").split("תשובת הלקוח:", 1)[-1].strip()
+    if "question_kind=new_vacation" in str(message or "") and ("חדש" in text or "אחר" in text):
+        return "NEW"
+    return "UNCLEAR"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_classifier):
+    turn1_reply = whatsapp_bridge.ariella_turn(wa_member_id, "כבר סגרנו את פרטי הטיסה. אני רוצה לתכנן טיול חדש")
 check("turn 1: the reply is genuinely the reset gate question",
       "למחוק" in turn1_reply and "מאפס" in turn1_reply)
 

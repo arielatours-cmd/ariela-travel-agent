@@ -70,9 +70,20 @@ check("trip_type (ski) is extracted from the same message",
       chat._deterministic_trip_type_facts(MESSAGE).get("trip_type") == "ski")
 
 # --- 2. End to end: the reset-confirmation flow preserves both ---
+# Per Shlomo's follow-up (18.10, task/resume-live-reset-and-one-question):
+# the reset-confirmation gate no longer has a phrase-list short-circuit at
+# all - it fires ONLY on the model classifier's own "NEW" verdict (source=
+# "classifier"), so this fake must answer that call like the real model
+# would for MESSAGE's explicit "חופשה חדשה ונפרדת" ("new and separate
+# vacation") wording.
 def _fake_post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
         return "{}"
+    if source == "classifier":
+        text = str(message or "").split("תשובת הלקוח:", 1)[-1].strip()
+        if "question_kind=new_vacation" in str(message or "") and ("חדש" in text or "אחר" in text):
+            return "NEW"
+        return "UNCLEAR"
     return "תשובה לדוגמה."
 
 

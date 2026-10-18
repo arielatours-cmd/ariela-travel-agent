@@ -10148,18 +10148,21 @@ def _chat_clean_impl():
     # טיול אחר" ("wait, I want to start a different trip") was never
     # recognized at all - guided kept right on asking about the budget.
     # Against the business owner's 18.10 directive (understanding by the
-    # model, never a phrase list), and her explicit instruction here: this
-    # REPLACES the list as the actual source of truth, not another phrase
-    # added to it. _reset_intent's own exact-phrase match is kept only as
-    # a cheap, zero-risk short-circuit for the obvious/common phrasings it
-    # already covers (skips a network round trip when already certain) -
-    # it can only ever confirm a positive faster, never suppress one the
-    # model would have caught, since anything it doesn't match still goes
-    # to the model below. The model is consulted at all only once there is
-    # real progress worth protecting (_has_vacation_progress) - a blank
-    # state has nothing a reset gate needs to confirm away in the first
-    # place (see the fix just above).
-    _restart_intent = _reset_intent(message) or (
+    # model, never a phrase list): this REPLACES the list as the source of
+    # truth for this gate, full stop. An earlier version of this fix kept
+    # _reset_intent's own exact-phrase match as an "or" short-circuit,
+    # reasoning it could only ever confirm a positive faster, never suppress
+    # one. Shlomo (relaying the business owner, 18.10) rejected that: the
+    # list still DECIDES the outcome on its own, without the model, for
+    # every message it happens to match - which is exactly the "word list
+    # decides what the customer meant" pattern the 18.10 directive forbids,
+    # regardless of whether it only ever fires in the "safe" direction. The
+    # model is consulted at all only once there is real progress worth
+    # protecting (_has_vacation_progress) - a blank state has nothing a
+    # reset gate needs to confirm away in the first place (see the fix just
+    # above). _reset_intent itself still exists and is still unit-tested as
+    # a plain phrase detector, but nothing in this gate calls it anymore.
+    _restart_intent = (
         _has_vacation_progress(trip_state)
         and _interpret_pending_choice(key, model, history, message, "new_vacation") == "new"
     )
