@@ -21,10 +21,23 @@ through the existing _post_flight_offer_answer classifier (the same one
 that handles a plain "כן"/"לא" on the FOLLOWING turn) against the
 about-to-be-asked domain. A decisive true/false result settles the domain
 immediately (mirroring the existing "already active" branch) instead of
-re-asking a question the customer already answered. A bare acceptance
-word with nothing else ("מתאים" alone) is left exactly as before - the
-extra classifier call only happens when _approval_message_has_extra_content
-detects there is something to check.
+re-asking a question the customer already answered.
+
+Updated per Shaked's stage-2 run-2 finding (0/5, 2f9b859, qa/reports/
+2026-10-17-stage2-run2.md): the extra classifier call was originally
+gated on "the message has 3+ alnum characters left after stripping known
+acceptance words" (_approval_message_has_extra_content). That gate was
+too loose - "מושלם, מתאים לנו" strips down to "לנו" (3 chars), which says
+nothing about lodging/car, yet was enough to invoke the classifier, which
+then had to guess a decision with nothing to go on. Its answer came back
+tagged source="post_flight_offer" - a recognized explicit-decision tag -
+so the separate revert guard (which only reverts an untagged decision)
+left the hallucinated result in place. Now the classifier is only invoked
+when the message actually names the domain being decided (the same
+_service_name_words regex the revert guard uses). A bare acceptance word,
+or one with unrelated filler ("מושלם, מתאים לנו"), is left exactly as
+before: the generic yes/no offer is asked and post_flight_offer is set
+for the next turn to answer.
 
 Run: python3 tools/qa_route_approval_same_message_offer_answer.py
 """
@@ -144,6 +157,31 @@ check("regression: a bare 'מתאים' still leaves lodging pending (nothing to 
       (tu2.get("session_status") or {}).get("lodging") == "pending")
 check("regression: a bare 'מתאים' still sets post_flight_offer for the next turn",
       tu2.get("post_flight_offer") == ["lodging"])
+
+# --- Shaked's stage-2 run-2 regression repro: a route-approval message
+#     with filler words but NO mention of lodging/car at all ("מושלם, מתאים
+#     לנו") must NOT invoke the classifier, even though stripping the known
+#     acceptance words leaves "לנו" (3 chars) behind - the old gate treated
+#     that as "extra content" worth checking. The classifier mock below is
+#     rigged to answer "lodging: true" if called at all, so if this test
+#     passes with lodging left pending, the classifier was correctly never
+#     invoked. ("נראה טוב" is omitted here - it isn't in _is_itinerary_
+#     acceptance's hardcoded positives and falls through to the
+#     meaning-based classifier, which this harness's generic mock doesn't
+#     answer in the right format; unrelated to the fix under test.) ---
+for _bare_phrase in ("מושלם, מתאים לנו", "סבבה, אהבנו"):
+    with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
+        r_bare = client.post("/api/ariella/chat-clean", json={
+            "message": _bare_phrase, "history": HISTORY, "trip_state": dict(STATE_BEFORE_APPROVAL),
+        })
+    data_bare = r_bare.get_json()
+    tu_bare = data_bare.get("trip_update") or {}
+    check(f"regression (stage2 run2): {_bare_phrase!r} does not invoke the classifier - lodging stays pending",
+          (tu_bare.get("session_status") or {}).get("lodging") == "pending")
+    check(f"regression (stage2 run2): {_bare_phrase!r} still asks the generic lodging offer",
+          "תרצי שאמשיך גם עם" in str(data_bare.get("reply") or ""))
+    check(f"regression (stage2 run2): {_bare_phrase!r} still sets post_flight_offer for the next turn",
+          tu_bare.get("post_flight_offer") == ["lodging"])
 
 # --- A same-message decline must also be honored, not just an acceptance ---
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_decline):
