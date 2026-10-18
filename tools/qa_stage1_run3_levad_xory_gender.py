@@ -242,6 +242,45 @@ check("per Shaked/Shlomo's follow-up: two domains illegally bundled into "
           "רוצים לינה או רכב?", {"post_flight_offer": ["lodging", "car"], "active_session": None},
       ) == "לסדר גם לינה לחופשה הזו?")
 
+OFFER_TRIP_PLANNING_STATE = {"post_flight_offer": ["trip_planning"], "active_session": None}
+check("Shaked's exact stage-2 run-3 repro (Rome/Athens/Budapest, 1/5, "
+      "7f02bd4): flights just closed, state correctly calls for the plain "
+      "trip_planning offer, but the reply asks a trip_planning DETAIL/style "
+      "question instead ('...יש סגנון מסוים שהכי מדבר אליכם בטיול הזה?') - "
+      "exactly one '?', no 'או'/'ו'/option-list bundling at all, so none of "
+      "the earlier checks caught this. Replaced with the real fixed offer",
+      chat._enforce_one_option_question(
+          "...יש סגנון מסוים שהכי מדבר אליכם בטיול הזה?",
+          OFFER_TRIP_PLANNING_STATE,
+      ) == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("the same repro with a fused leading statement (no sentence boundary "
+      "before the question) also resolves correctly",
+      chat._enforce_one_option_question(
+          "בוא נדבר רגע על המסלול באתונה - מה הכי מדבר אליכן בטיול הזה?",
+          OFFER_TRIP_PLANNING_STATE,
+      ) == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("a correctly-phrased offer (names the domain, uses an offer verb) "
+      "survives completely unchanged - no false positive on the real fix",
+      chat._enforce_one_option_question(
+          "מעולה, פרטי הטיסה סגורים. לתכנן גם מסלול ואטרקציות לחופשה הזו?",
+          OFFER_TRIP_PLANNING_STATE,
+      ) == "מעולה, פרטי הטיסה סגורים. לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("Shaked's Paris secondary finding: a reply can get the domain word "
+      "and offer verb right ('בא לכם... מסלול...') while still bundling in "
+      "ANOTHER domain's specifics ('איפה לישון כל לילה', lodging content) - "
+      "still replaced, since a plain offer never mentions another domain",
+      chat._enforce_one_option_question(
+          "בא לכם שנבנה יחד מסלול יומי לטיול - אטרקציות, איפה לישון כל לילה "
+          "וכו׳?",
+          OFFER_TRIP_PLANNING_STATE,
+      ) == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+check("the same new check applies to a lodging offer too - a detail "
+      "question slipped in instead of the plain offer is replaced",
+      chat._enforce_one_option_question(
+          "איזה סוג לינה מתאים לכם?",
+          {"post_flight_offer": ["lodging"], "active_session": None},
+      ) == "לסדר גם לינה לחופשה הזו?")
+
 # -- mid-domain (active_session set): the real next gap for that session,
 #    not a keyword guess. Each case below is Shaked's own stage-1 run-3
 #    review finding on the previous (keyword-based) version. --
@@ -310,6 +349,27 @@ check("once style is genuinely answered, the same pace question "
       chat._enforce_one_option_question(
           "אתם מעדיפים קצב רגוע או פעיל?", PLANNING_STATE_STYLE_KNOWN,
       ) == "חשוב לכם שהקצב יהיה רגוע?")
+
+check("per the business owner's explicit reversal (relayed via Shlomo, "
+      "17.10.2026) of Shaked's stage-2 run-2 repro (London, 0/5, "
+      "2f9b859): a SINGLE question with a parenthetical example list "
+      "('מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, "
+      "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?') is NOT a violation - the "
+      "business needs that context for the customer's profile later, and "
+      "it isn't a closed list of answer options the way 'או'/'ו' bundling "
+      "is - so it now survives completely unchanged, no replacement",
+      chat._enforce_one_option_question(
+          "מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, "
+          "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?",
+          PLANNING_STATE,
+      ) == "מה הסגנון שהכי מדבר אלייך בטיול הזה (תרבות ומוזיאונים, שופינג, "
+           "אווירה לוקאלית, אוכל, נוף וטבע וכו׳)?")
+check("a parenthetical aside with no internal comma ('/' separated, like "
+      "'מבוגרים/ילדים') is never treated as an example-list violation - "
+      "no false positive on a genuine single question",
+      chat._enforce_one_option_question(
+          "כמה אתם נוסעים (מבוגרים/ילדים)?", {}
+      ) == "כמה אתם נוסעים (מבוגרים/ילדים)?")
 
 FLIGHTS_STATE = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
                       flight={"baggage": ["carry_on_only"]})
@@ -405,6 +465,34 @@ check("an ordinary 'ו' that does not fuse into one of the recognized "
       chat._enforce_one_option_question(
           "איזו כבודה תרצו לקחת ולסדר מראש?", {}
       ) == "איזו כבודה תרצו לקחת ולסדר מראש?")
+
+check("Shaked's exact stage-2 run-2 repro (Budapest, 2f9b859): style AND "
+      "pace bundled with 'וגם' - not a bare fused 'ו' - before the question "
+      "word ('ספרו לי מה אתם אוהבים לעשות בחופשה, וגם האם חשוב לכם שהקצב "
+      "יהיה רגוע?'), which the fused-prefix-only regex missed entirely. "
+      "Resolves to the real single next gap (style, unanswered)",
+      chat._enforce_one_option_question(
+          "ספרו לי מה אתם אוהבים לעשות בחופשה, וגם האם חשוב לכם שהקצב "
+          "יהיה רגוע?",
+          PLANNING_STATE,
+      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+check("the same 'וגם' detector also fires with nothing recognized right "
+      "after it ('וגם' alone, no question word)",
+      chat._enforce_one_option_question(
+          "ספרו לי מה אתם אוהבים לעשות בחופשה, וגם תרצו שקט?",
+          PLANNING_STATE,
+      ) == "ספרו לי מה אתם אוהבים לעשות בחופשה.")
+check("Shaked's exact stage-2 run-4 repro (Budapest, 3/5, a3b1240): style "
+      "AND pace bundled with 'ואם' and NO comma at all before the seam "
+      "('...תוכלו לספר לי מה אתם אוהבים לעשות בחופשה ואם חשוב לכם קצב "
+      "רגוע?') - both comma-anchored alternatives require a comma, which "
+      "this phrasing never has. Resolves to the real single next gap "
+      "(style, unanswered), leading statement sentence kept as-is",
+      chat._enforce_one_option_question(
+          "מעולה! כדי לתכנן את המסלול - תוכלו לספר לי מה אתם אוהבים לעשות "
+          "בחופשה ואם חשוב לכם קצב רגוע?",
+          PLANNING_STATE,
+      ) == "מעולה! ספרו לי מה אתם אוהבים לעשות בחופשה.")
 
 # -- Shlomo's follow-up: two FULLY SEPARATE '?' sentences (no "או"/"ו" at "
 #    all) - the generalized, sentence-classifying version of the check --
@@ -615,6 +703,17 @@ e2e_reply, _ = _captured_system_dynamic(
 check("end-to-end via _call_tinkerbell: V3's exact bad reply comes back fixed, "
       "with gender-neutral phrasing",
       e2e_reply == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
+
+e2e_stage2run3_reply, _ = _captured_system_dynamic(
+    "אין לי רעיון, מה את ממליצה?",
+    {"post_flight_offer": ["trip_planning"], "active_session": None, "destination": {"places": ["רומא"]}},
+    "...יש סגנון מסוים שהכי מדבר אליכם בטיול הזה?",
+)
+check("end-to-end via _call_tinkerbell: Shaked's exact stage-2 run-3 repro "
+      "(Rome, 7f02bd4) - a trip_planning style question instead of the "
+      "plain offer - comes back fixed through the real reply pipeline, not "
+      "just the unit-level function",
+      e2e_stage2run3_reply == "לתכנן גם מסלול ואטרקציות לחופשה הזו?")
 
 e2e_baggage_reply, _ = _captured_system_dynamic(
     "היי", dict(FLIGHTS_STATE_BAGGAGE_OPEN),
