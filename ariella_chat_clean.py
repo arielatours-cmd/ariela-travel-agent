@@ -193,7 +193,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשמזכירים או מסכמים שדה/שדות תעופה יעד (למשל בסיכום לפני שאלת ישירה/קונקשן), ציינו אך ורק את מה שכבר קיים בפועל ב-destination_airports או שהלקוח עצמו ציין. לעולם אל תוסיפי משדה תעופה נוסף שמוכר לך מידע כללי על העולם (למשל "גם לגוארדיה" ליד JFK עבור ניו יורק) אם הוא לא חלק מה-state או מדברי הלקוח - זו עובדה לא מאומתת שעלולה להטעות.
 - אם יש ילדים בהרכב ולא ידועים הגילאים של כולם, חובה לשאול את גיל כל ילד/ה לפני סיום סשן הטיסה, כדי לסווג נכון את הנוסעים לחיפוש. אם הלקוח אמר שאין תקציב/אין הגבלת תקציב, זו תשובה מלאה לשאלת התקציב ואסור לשאול שוב תקציב לטיסה.
 - כשגיל הילד/ה טרם נמסר, בררי גיל ומגדר באותה שאלה פתוחה אחת בלבד, בניסוח טבעי משלך (לדוגמה "ספרי לי על הילדים - בן או בת ובאיזה גיל"), לא כשאלה קבועה ולא בשתי שאלות נפרדות. לעולם אל תשלבי בה אזכור של גיל ההורים/הזוג/המבוגרים באותו משפט (למשל "כמה הזוג בן, כמה הילד/ה?") - זה ניסוח שבור שאין לו משמעות ומבלבל את הלקוח. גיל המבוגרים אינו רלוונטי לחיפוש ולעולם אינו נשאל. לעולם אל תחזרי על שאלת הגיל כשהוא כבר ידוע. אין שאלת המשך נפרדת על המגדר: אם הלקוח ענה רק עם גילאים ולא ציין מגדר, לעולם אל תשאלי שוב על המגדר - המשיכי הלאה עם מה שיש.
-- ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה" או "דירה" בלבד), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
+- ללינה, בדקי רק כשחסר ורלוונטי: סוג לינה (מלון/וילה/דירה/צימר/הוסטל), מספר/הרכב חדרים, רמת לינה או תקציב לאדם, מיקום ודרישות מהותיות לחיפוש. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-lodging.details: type (המילה "מלון", "וילה", "דירה", "צימר" או "הוסטל" בלבד - "אכסניה" נחשבת "הוסטל"), rooms (מספר חדרים, אם נאמר), budget (מספר - תקציב ללילה או לאדם, אם נאמר סכום), level (מחרוזת חופשית כמו "יוקרתי"/"בסיסי"/"בינוני", אם נאמרה רמה בלי סכום), locations (מחרוזת חופשית קצרה - אזור/שכונה, אם נאמר). חיפוש הלינה האמיתי קורא בדיוק את השדות האלה - כינוי אחר לא ייקרא.
 - אם סוג הלינה הוא דירה (לא מלון ולא וילה), בררי גם כמה חדרי רחצה נדרשים - בשאלה נפרדת משאר פרטי הלינה (שאלה אחת בכל פעם, בניסוח טבעי משלך, לא נוסח קבוע). שמרי את המספר ב-lodging.details.bathrooms (מספר). כשסוג הלינה הוא מלון או וילה, אל תשאלי על כך כלל.
 - לרכב, בדקי רק כשחסר ורלוונטי: מספר נוסעים, מקום לכבודה, סוג/גודל רכב, נקודת וזמן איסוף והחזרה. שמרי את הפרטים האלה תמיד באותם שדות קבועים ב-car.details: vehicle_type (קטגוריית הרכב בלבד - אחד מ: "קטן", "משפחתי", "משפחתי סטיישן", "SUV", "ג'יפ 4x4", "מיניוואן 7 מקומות", "יוקרה", או "אין העדפה" אם נאמר במפורש שכל רכב מתאים; לא תיבת הילוכים), transmission ("אוטומטי", "ידני" או "לא משנה" - שדה נפרד, נשאל בנפרד), seats (מספר מקומות הישיבה שהלקוח רוצה - לפחות כמספר הנוסעים, ויכול להיות יותר, למשל משפחה קטנה שרוצה 7 מקומות בשביל המרווח; אם הלקוח לא ביקש יותר, השאירי null ואל תשאלי על זה שוב), pickup (מחרוזת - מיקום, תאריך ושעת איסוף בפורמט HH:MM), return (מחרוזת - מיקום, תאריך ושעת החזרה בפורמט HH:MM), luggage_capacity_confirmed (true ברגע שאומתה התאמת מקום לכבודה למספר הנוסעים/המזוודות שכבר נאספו - אל תמלאי לבד). חיפוש הרכב קורא בדיוק את השדות האלה. מיקום האיסוף וההחזרה (שדה התעופה מול מרכז העיר/מיקום אחר) הם בחירה אמיתית של הלקוח, לא ברירת מחדל - לעולם אל תניחי מעצמך ששדה התעופה הוא המיקום בלי לשאול. שאלי שאלה פתוחה קצרה וטבעית (לא כברירה בינארית) ושמרי את המיקום שהלקוח בחר בפועל. אם destination_airports כולל יותר משדה תעופה אחד (למשל כשהלקוח ביקש לחפש טיסות לשני שדות), "שדה התעופה" אינו מיקום חד-משמעי - חובה לשאול שאלה פתוחה שמזכירה את שמות השדות בלי לכפות בחירה ביניהם, ולעולם לא להניח מעצמך איזה מהשדות בלי לשאול. שעות האיסוף וההחזרה תלויות בשעות הטיסות. אם הטיסות כבר נקבעו והשעות ידועות, הציעי שעה סבירה (כשעה אחרי הנחיתה לאיסוף, כשלוש שעות לפני טיסת החזור להחזרה) ובקשי אישור. אם הטיסות עוד לא הוזמנו או שהלקוח לא יודע את השעות - אל תשאלי ואל תלחצי: שמרי ב-pickup/return את המיקום והתאריך ואת המילים "שעה לפי הטיסה", ואמרי במשפט קצר שאת השעה המדויקת בוחרים באתר ההשכרה בזמן ההזמנה. לעולם אל תשמרי שעה שהלקוח לא אישר. שאלת סוג הרכב פתוחה וקצרה - בלי הסברים או המלצות שלא נשאלו (למשל על כבישים, נוחות או סגנון נסיעה). ידני/אוטומטי נשאל כשאלת כן/לא נפרדת על אפשרות אחת (למשל "חשוב לכם רכב אוטומטי?"), לא "אוטומטי או ידני?".
 - לתכנון מסלול ואטרקציות, בדקי רק כשחסר ורלוונטי: אופי החופשה, קצב, מגבלות נסיעה ודברים שחייבים/לא רוצים.
@@ -260,6 +260,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - קיבלת את כל השיחה, לא רק את ההודעה האחרונה. ה-state הוא נקודת הפתיחה שלך, לא גבול הזיכרון שלך: אם הלקוח ציין פרט רלוונטי בכל שלב קודם בשיחה (גם לא בהודעה הנוכחית) והוא עדיין חסר ב-state, זו עובדה אמיתית שפשוט לא נשמרה - כתבי אותה עכשיו לשדה המתאים, בלי לחכות שהלקוח יחזור ויגיד את זה שוב. לעולם אל תסתרי או תחליפי ערך קיים ב-state בלי סיבה מפורשת מהלקוח; כשהלקוח שינה פרט מאוחר יותר בשיחה ("לא, בעצם X"), הגרסה המאוחרת גוברת על המוקדמת לאותו שדה.
 - יש state מרכזי אחד לחופשה. destination, destination_airports, return_departure_airports, departure_airport, dates, travelers, budget_per_person והעדפות טיסה הם מידע משותף בין כל הסשנים. מעבר בין flights/lodging/car/trip_planning לעולם אינו מאפס אותם ולעולם אינו מצדיק לשאול אותם שוב.
 - תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות. המסלול היומי עצמו (trip_planning.details.route) חייב תמיד מבנה קבוע אחד: מערך של אובייקט אחד לכל יום, ובכל אחד מהם מפתח "base" עם שם העיר/האזור שבו לנים באותו לילה (למשל {"day":1,"base":"פאפוס"}) - בלי קשר לניסוח החופשי שבו באמת כתבת את המסלול ללקוח. זה בדיוק כדי שלינה/רכב שנפתחים אחר כך יוכלו לקרוא את אזורי הלינה ישירות מהמסלול המאושר בלי לשאול את הלקוח שוב.
+- trip_planning.details.style (תחומי עניין/סגנון הטיול שהלקוח ציין) הוא רשימת מילים/צירופים קצרים בעברית בלבד - תרגמי את הניסוח החופשי של הלקוח לעברית (למשל "street art" -> "אמנות רחוב"), לעולם לא באנגלית כמו שהלקוח אמר. זה שונה במפורש משמות מקומות (destination.places) ושדות תעופה (destination_airports וכו'), שתמיד נשארים בדיוק כמו שהם (כולל כשהם לועזיים) - הכלל הזה חל רק על ערכי העדפה/סגנון, לא על זהות מקום.
 - כאשר הלקוח מבקש לעבור לשירות אחר, שאלי רק על missing_required של אותו שירות אחרי קריאת כל המידע המשותף. אל תפתחי שאלון מחדש.
 - session_status כולל תמיד flights/lodging/car/trip_planning, וכל אחד הוא pending/active/complete/declined. אל תסמני complete רק כי הלקוח הזכיר את התחום; אריאלה מחשבת השלמה לפי שדות החובה.
 - active_session הוא הסשן היחיד שטינקרבל משלימה כעת.
@@ -268,6 +269,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
 - כנ"ל לגבי car.details.vehicle_type: השדה נשאר ריק עד שהלקוח עצמו ציין סוג/גודל רכב (קטן, משפחתי, SUV, ג'יפ וכו'; "אוטומטי"/"ידני" שייכים ל-transmission ולא לכאן) או אמר במפורש שכל רכב מתאים לו/שאין העדפה. לעולם אל תמלאי אותו לבד ממספר הנוסעים, מהכבודה או מברירת מחדל - זה בדיוק כמו לנחש תקציב, ומונע מהלקוח לענות על שאלה שמעולם לא נשאלה.
+- lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט איך הכבודה המוזנת מתחלקת בין הנוסעים - {"checked_bag":{"count":מספר|null,"unit":"total"|"per_person"|"per_couple"|null}}) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
 - trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"), לפי מה שהלקוח אמר במפורש. השאירי null עד שהלקוח ציין זאת. אל תנחשי מ-destination/dates/travelers.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
@@ -307,13 +309,13 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
   "departure_airport":null,
   "dates":{"departure":null,"return":null,"period":null,"flexibility_days":null,"duration_days":null,"constraints":[]},
   "budget_per_person":{"amount":null,"currency":null,"status":"unknown"},
-  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"preferences":[],"departure_time_preference":null,"return_time_preference":null},
+  "flight":{"connection_preference":null,"max_connections":null,"baggage":[],"baggage_detail":null,"baggage_detail_evidence":null,"preferences":[],"departure_time_preference":null,"return_time_preference":null},
   "priorities":[],"hard_constraints":[],"current_request":null,
   "search_intent":false,"requested_services":[],"service_decisions":{},
   "session_status":{"flights":"pending","lodging":"pending","car":"pending","trip_planning":"pending"},
   "active_session":null,
   "missing_required":[],"ready_for_summary":false,"search_confirmed":false,
-  "lodging":{"interested":"unknown","details":{"type":null,"rooms":null,"budget":null,"level":null,"locations":null}},
+  "lodging":{"interested":"unknown","details":{"type":null,"rooms":null,"budget":null,"level":null,"level_evidence":null,"locations":null}},
   "car":{"interested":"unknown","details":{"vehicle_type":null,"transmission":null,"seats":null,"pickup":null,"return":null,"luggage_capacity_confirmed":false}},
   "trip_planning":{"interested":"unknown","details":{}},
   "ski":{"skill_level":null,"priorities":[],"transfer_choice":null}
@@ -669,6 +671,26 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
     return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
 
+def _normalize_trip_planning_style(trip_update):
+    """Per Shlomo/Shaked (stage-3 run-3, Berlin): the main extractor
+    occasionally represents trip_planning.details.style as a list of
+    English interest-category tags (e.g. ["history","museums","nightlife"])
+    instead of the customer's own free-text words. Normalized right here,
+    at parse time - "already at save time", per Shlomo's own wording - so
+    no caller ever merges a raw list (or untranslated English tokens) into
+    state; _to_hebrew_display (same translation table) does the actual
+    per-token work, this just joins the result into one string."""
+    planning = trip_update.get("trip_planning")
+    if not isinstance(planning, dict):
+        return trip_update
+    details = planning.get("details")
+    if not isinstance(details, dict) or not isinstance(details.get("style"), list):
+        return trip_update
+    trip_update = dict(trip_update)
+    trip_update["trip_planning"] = dict(planning, details=dict(details, style=_to_hebrew_display(details["style"])))
+    return trip_update
+
+
 def _parse_trip_update(text):
     raw = str(text or '').strip()
     if raw.startswith('```'):
@@ -676,7 +698,7 @@ def _parse_trip_update(text):
     try:
         data = json.loads(raw)
         if isinstance(data, dict) and isinstance(data.get('trip_update'), dict):
-            return data['trip_update']
+            return _normalize_trip_planning_style(data['trip_update'])
     except Exception:
         pass
     return {}
@@ -3669,7 +3691,10 @@ def _extract_trip_update(key, model, history, message, state=None):
         # Matches the main conversational call's own history exactly now -
         # same conversation, same memory.
         raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, 700, include_history=True, source="state_extractor")
-        return _parse_trip_update(raw)
+        parsed = _parse_trip_update(raw)
+        parsed = _validate_lodging_level_against_message(parsed, state, message)
+        parsed = _validate_baggage_detail_against_message(parsed, state, message)
+        return parsed
     except Exception:
         return {}
 
@@ -4666,12 +4691,28 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         return {"flight": {"baggage": ["no_baggage"]}}
 
     values = []
+    # Per-person phrasing shared by both baggage kinds below - "X per each
+    # traveler", in either word order ("לכל אחד"/"כל אחד", with or without
+    # the "ל" preposition) and naming any of the traveler nouns actually
+    # seen live (אחד/נוסע/אדם/מבוגר - "מבוגר" added per Shaked's stage-3
+    # run-3 daily QA finding, "וטרולי לכל מבוגר").
+    _BAGGAGE_PER_PERSON_RE = r"(?:ל)?כל\s+(?:אחד|נוסע|אדם|מבוגר)"
     # "X מספיק" ("X is enough") is as unambiguous a sufficiency statement as
     # "רק X"/"X בלבד" - seen live: "טרולי מספיק" answered the exact baggage
     # question (טרולי בלבד/גם מזוודה בבטן המטוס/רק תיק) and matched none of
     # the patterns below, so the same question was asked again verbatim
     # forever.
-    if re.search(r"רק\s+טרולי|טרולי\s+בלבד|טרולי\s+לכל\s+אחד|רק\s+כבודת\s+עלי|טרולי\s+מספיק", msg):
+    # Per Shaked's 2026-10-18 stage-3 run-3 daily QA finding: "כל אחד
+    # טרולי, ומזוודה אחת משותפת" (traveler-noun BEFORE טרולי) and "טרולי
+    # לכל מבוגר" (a noun the old pattern didn't list) both silently dropped
+    # the carry-on half of the answer - only the checked bag survived.
+    # General rule: "טרולי" and a per-person phrase within a few words of
+    # each other, in EITHER order, always means a carry-on per traveler.
+    if re.search(
+        r"רק\s+טרולי|טרולי\s+בלבד|רק\s+כבודת\s+עלי|טרולי\s+מספיק"
+        r"|טרולי.{0,10}" + _BAGGAGE_PER_PERSON_RE + r"|" + _BAGGAGE_PER_PERSON_RE + r".{0,10}טרולי",
+        msg
+    ):
         values.append("carry_on_only")
     # "מזוודה למחסן" is kept alongside the correct "בטן המטוס" phrasing -
     # this only ever reads the CUSTOMER's own words, never Ariella's (the
@@ -4693,6 +4734,19 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         r"מזוודה\s+למחסן|מזוודה\s+(אחת\s+)?בבטן(\s+ה?מטוס)?|מזווד(?:ה|ות)\s+גדול|יש\s+ל(נו|י)\s+מזוודה"
         r"|מזוודה\s+(אחת\s+)?(גדולה\s+)?משותפת", msg
     ))
+    # Per Shaked's 2026-10-18 stage-3 run-3 daily QA finding: "מזוודה לכל
+    # אחד" (a bare suitcase mention, with none of "גדולה"/"בבטן"/"משותפת"
+    # etc.) matched none of the specific phrasings above and returned {}
+    # entirely - the customer's baggage answer was dropped altogether.
+    # General rule: the bare word "מזוודה"/"מזוודות" always means a checked
+    # bag was mentioned, UNLESS it's negated nearby ("בלי"/"אין"/"לא"/"שום"
+    # within the previous couple of words) - the specific phrasings above
+    # only ever add detail (how it's split), they were never meant to gate
+    # whether baggage was mentioned at all.
+    if not checked_bag_mentioned and not re.search(
+        r"(בלי|אין|לא|שום)\s+(?:\S+\s+){0,2}מזווד", msg
+    ) and re.search(r"מזווד(?:ה|ות)", msg):
+        checked_bag_mentioned = True
     checked_bag_detail = {}
     # Explicit count near "מזוודה/מזוודות" - either order ("מזוודה אחת" or
     # "שתי מזוודות"), reusing the same general number-word parser the
@@ -4716,7 +4770,7 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
         checked_bag_detail["unit"] = "total"
         checked_bag_mentioned = True
-    elif re.search(r"לכל\s+אחד|לכל\s+נוסע|לכל\s+אדם", msg) and checked_bag_mentioned:
+    elif re.search(_BAGGAGE_PER_PERSON_RE, msg) and checked_bag_mentioned:
         # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
         # גדולה לכל אחד מאיתנו" (a big suitcase for each of us) has no
         # explicit digit next to "מזוודה" at all, so the old gate here
@@ -5541,6 +5595,14 @@ _OFFER_DOMAIN_WORDS = {
 # both comma-anchored alternatives above require a comma. "ו" fused
 # directly to "אם"/"האם"/"גם" and surrounded by plain whitespace is just as
 # strong a smuggled-second-question signal even without one.
+#
+# Per Shlomo's follow-up (18.10, relaying the business owner): extending
+# this list with "וזה"/"וזאת" for Madrid was itself a phrase-list growth
+# that the business owner's own 18.10 directive rules out, however
+# "general" the pattern looks - reverted. Madrid's real bug (same root as
+# Milano's: the text actually asked can drift from guided.current_
+# question) is fixed on the INTAKE side instead - see
+# _guided_redirect_field below.
 _BUNDLED_AND_QUESTION_RE = re.compile(
     r",\s*וגם\b|,\s*ו(?:יש|כמה|מה|חשוב|איזה|האם)\b|\sו(?:אם|האם|גם)\s"
 )
@@ -5832,23 +5894,65 @@ def _enforce_one_option_question(reply, state):
     return _append_fixed_question(prefix, fixed)
 
 
-# Per Shlomo/Shaked (#81, 3rd review round): a single general lookup for
-# EVERY internal-English-token field a customer-facing summary line might
-# print, not a one-off check scoped to "pace" alone - any OTHER field that
-# gets a deterministic code-side writer storing a canonical English value
-# (the way _deterministic_trip_planning_pace_facts already does for pace)
-# is covered here automatically too, with no special-casing per field name.
+# Per Shlomo/Shaked (#81, 3rd review round; extended stage-3 run-3): a
+# single general lookup for EVERY internal-English-token field a customer-
+# facing summary line might print, not a one-off check scoped to "pace"
+# alone - any OTHER field that gets a deterministic code-side writer
+# storing a canonical English value (the way
+# _deterministic_trip_planning_pace_facts already does for pace) is
+# covered here automatically too, with no special-casing per field name.
 # A value that isn't one of these known internal tokens (already Hebrew, or
 # anything else) is returned unchanged by _to_hebrew_display below - never
 # guessed at, never altered.
-_INTERNAL_TOKEN_TO_HEBREW = {"active": "פעיל", "relaxed": "רגוע"}
+#
+# The interest/style tokens below (stage-3 run-3, Berlin: trip_planning.
+# details.style came back from the model's own JSON as a list of English
+# category tags, e.g. ["history","museums","nightlife"], instead of the
+# customer's own free-text words) are the same closed-vocabulary pattern
+# already used elsewhere in this file for a model-chosen category value
+# (_BAGGAGE_HE, _LODGING_LEVEL_VALUES, _CURRENCY_HE_NAMES) - a finite,
+# named set of categories the model itself chooses from, not a guess at
+# open-ended customer phrasing.
+_INTERNAL_TOKEN_TO_HEBREW = {
+    "active": "פעיל", "relaxed": "רגוע",
+    "history": "היסטוריה", "museums": "מוזיאונים", "nightlife": "חיי לילה",
+    "food": "אוכל", "culinary": "אוכל", "cuisine": "אוכל",
+    "culture": "תרבות", "art": "אמנות", "architecture": "אדריכלות",
+    "nature": "טבע", "beaches": "חופים", "beach": "חוף",
+    "shopping": "קניות", "adventure": "הרפתקאות", "relaxation": "רגיעה",
+    "hiking": "טיולים רגליים", "sports": "ספורט", "wine": "יין",
+    "family": "משפחה", "romance": "רומנטיקה", "music": "מוזיקה",
+    "festivals": "פסטיבלים",
+}
 
 
 def _to_hebrew_display(value):
     """Translates a known internal English token to its Hebrew customer-
     facing equivalent (_INTERNAL_TOKEN_TO_HEBREW); any other value (already
     Hebrew, or not a recognized internal token at all) passes through
-    unchanged."""
+    unchanged. A list is translated item-by-item and joined - per Shlomo's
+    stage-3 run-3 follow-up, the translation must cover list values too,
+    not just a bare string, so a raw Python list never reaches the
+    customer as-is.
+
+    Per the business owner's 18.10.2026 directive (reacting to a since-
+    reverted attempt here to drop any list item that still contained a
+    Latin letter after lookup): "only place names or airport codes may
+    appear in English" - meaning the reverse is NOT a rule this function
+    should enforce by inspecting letters. Dropping on a stray Latin letter
+    is wrong in both directions: it would delete a legitimately-English
+    place name (e.g. "Barceloneta") this same style/interest list can
+    genuinely carry, and it hides a customer-stated interest ("street
+    art") instead of translating it. The real fix belongs at EXTRACTION
+    time - the model itself is now instructed (EXTRACTOR_SYSTEM) to
+    translate a customer's own free-text interest into Hebrew before it
+    ever reaches trip_planning.details.style, so this function never
+    needs to guess. This function's own job stays exactly what it always
+    was: translate our OWN closed-vocabulary internal tokens
+    (_INTERNAL_TOKEN_TO_HEBREW), and pass anything else through untouched -
+    never guessed at, never filtered by what alphabet it happens to use."""
+    if isinstance(value, list):
+        return ", ".join(_to_hebrew_display(v) for v in value if str(v or "").strip())
     value = str(value or "").strip()
     return _INTERNAL_TOKEN_TO_HEBREW.get(value, value)
 
@@ -6123,7 +6227,15 @@ _LODGING_LEVEL_VALUES = (
     ("בסיסי", "בסיסי"), ("בסיסית", "בסיסי"),
     ("חסכוני", "בסיסי"), ("תקציבי", "בסיסי"), ("כלכלי", "בסיסי"), ("זול", "בסיסי"),
 )
-_LODGING_TYPE_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר")
+# Per Shlomo/Shaked (stage-3 run-3, Berlin): "הוסטל" (hostel) is a real,
+# common lodging type the customer actually booked - never one of the
+# original 5 canonical values, so lodging.details.type could never be
+# satisfied for a hostel stay at all (the exact reason guided kept
+# re-asking the type question forever in that same Berlin transcript).
+# "אכסניה" (the formal Hebrew word for the same thing, already used
+# elsewhere in this file's own general lodging-topic detection regexes)
+# is accepted as a synonym for the same canonical "הוסטל" value.
+_LODGING_TYPE_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר", "הוסטל", "אכסניה")
 
 
 def _deterministic_lodging_facts(message, history):
@@ -6164,7 +6276,8 @@ def _deterministic_lodging_facts(message, history):
         else:
             for value in type_values:
                 if value in msg:
-                    result.setdefault("lodging", {}).setdefault("details", {})["type"] = "דירה" if value == "אפרטמנט" else value
+                    canon = "דירה" if value == "אפרטמנט" else ("הוסטל" if value == "אכסניה" else value)
+                    result.setdefault("lodging", {}).setdefault("details", {})["type"] = canon
                     break
 
     # Canonical values match the system prompt's own documented vocabulary
@@ -7458,7 +7571,7 @@ _GUIDED_FIELD_HINT_DESCRIPTION = {
     # dates/travelers - the model decides shared/per-passenger, not another
     # literal phrase added to a list.
     "baggage": "איזה כבודה לוקחים (טרולי/מזוודה בבטן/תיק קטן בלבד), ואם המזוודה משותפת לכל הקבוצה או אחת לכל נוסע",
-    "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה או צימר",
+    "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה, צימר או הוסטל",
     "lodging_rooms": "כמה חדרים נדרשים ללינה",
     "lodging_bathrooms": "כמה חדרי רחצה נדרשים בדירה",
     "lodging_locations": "באיזה אזור/שכונה הלקוח רוצה שהלינה תהיה",
@@ -7588,18 +7701,25 @@ def _guided_field_known_with_confidence(field, state):
     return False
 
 
-_LODGING_TYPE_CANON_VALUES = ("מלון", "דירה", "אפרטמנט", "וילה", "צימר")
-
-
 # Each lodging prompt's also_mentioned uses the SAME shape _guided_field_
 # update_and_confirm already expects for that field (a nested dict keyed by
 # guided-field name), so applying it is one uniform loop - no per-field
 # translation layer, same principle as dates/travelers also_mentioned.
+#
+# lodging_budget_or_level's own "evidence" key (business owner's directive,
+# 18.10.2026): when the customer mentions a level only in passing while
+# answering a DIFFERENT lodging question, also_mentioned is the one place
+# a level can reach state without ever being validated against the exact
+# question it answers - so it is also the one place that still needs a
+# verbatim check. The model must quote, word-for-word from the current
+# message, whatever it based "level" on; _value_has_verbatim_evidence
+# checks the quote is real, never re-deciding what it means.
 _LODGING_ALSO_MENTIONED_SCHEMA = (
-    '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"אין העדפה"}|null,'
+    '{"lodging_type":{"value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"|"טקסט חופשי בעברית"}|null,'
     '"lodging_rooms":{"value":int}|null,"lodging_bathrooms":{"value":int}|null,'
     '"lodging_locations":{"value":"..."}|null,'
-    '"lodging_budget_or_level":{"budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null}|null}'
+    '"lodging_budget_or_level":{"budget":int|null,"level":"יוקרתי"|"בינוני"|"בסיסי"|"אין העדפה"|null,'
+    '"evidence":"ציטוט מילה-במילה מההודעה הנוכחית"|null}|null}'
 )
 
 
@@ -7608,17 +7728,22 @@ def _lodging_guided_prompt(field, state, recent):
     state_line = f"מצב נוכחי - פרטי לינה: {json.dumps(details, ensure_ascii=False)}.\n"
     also_mentioned_rule = (
         "also_mentioned: פרטי לינה אחרים (סוג/מספר חדרים/חדרי רחצה/תקציב או רמה/אזור) שנאמרו במפורש "
-        "באותה הודעה, בלי להשלים בעצמך - בצורת האובייקט בדיוק כפי שמוגדר למטה."
+        "באותה הודעה, בלי להשלים בעצמך - בצורת האובייקט בדיוק כפי שמוגדר למטה. בפרט ל-lodging_budget_or_level: "
+        "אם level נמסר, מלאי גם evidence - ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית, שעליו "
+        "התבססת. בלי ציטוט אמיתי כזה - level עצמו null."
     )
     other_topic_rule = "אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, נושא אחר) - status=\"other_topic\"."
     if field == "lodging_type":
         label = "איזה סוג לינה מתאים לו"
         rules = (
-            "כללים: value הוא בדיוק אחת מהמילים: מלון, דירה, וילה, צימר, אין העדפה (לא מילה אחרת ולא "
-            "תיאור חופשי - \"אפרטמנט\" נחשב \"דירה\"). אסור להמציא - אם לא ברור, value=null ו-confidence:"
-            "\"low\"."
+            "כללים: אם סוג הלינה שנאמר מתאים באופן ברור לאחת מהקטגוריות מלון/דירה/וילה/צימר/הוסטל, נרמלי "
+            "אליה בדיוק (\"אפרטמנט\" נחשב \"דירה\", \"אכסניה\" נחשבת \"הוסטל\"). אם הלקוח ציין סוג לינה אחר "
+            "שלא ברשימה הזו (למשל \"בקתת עץ\", \"קמפינג\", \"בית הארחה\") - שמרי את הניסוח שלו בעברית בדיוק "
+            "כמו שנאמר; לעולם אל תדחי ערך רק כי הוא לא ברשימה הסגורה ואל תחזירי null בשבילו - הרשימה היא רק "
+            "דוגמה לנירמול, לא מגבלה על מה שאפשר לשמור. value=null ו-confidence:\"low\" רק כשאף סוג לינה לא "
+            "נאמר בכלל."
         )
-        schema = '{"status":"answered|unclear|other_topic","value":"מלון"|"דירה"|"וילה"|"צימר"|"אין העדפה"|null,"confidence":"high|low",'
+        schema = '{"status":"answered|unclear|other_topic","value":"מלון"|"דירה"|"וילה"|"צימר"|"הוסטל"|"אין העדפה"|"טקסט חופשי בעברית"|null,"confidence":"high|low",'
         correction_rule = "אם ההודעה מתקנת סוג לינה שכבר נקבע - status=\"answered\" ומלאי correction עם field=\"lodging_type\"."
     elif field == "lodging_rooms":
         label = "כמה חדרים נדרשים"
@@ -7781,25 +7906,208 @@ def _guided_extract_answer(key, model, field, message, history, state):
         return None
 
 
-def _level_stated_in_message(level, raw_message):
-    """State-based guard (Shaked/Shlomo, stage-3 run-2, Rome): also_mentioned
-    may only record a value the customer actually said. Reuses the exact
-    canonical vocabulary _deterministic_lodging_facts/_required_state_gaps
-    already use for this same field (_LODGING_LEVEL_VALUES, the star-rating
-    pattern, and the general no-preference wording) rather than inventing a
-    new phrase list - a purely descriptive phrase like "מלון קטן ונעים" (no
-    budget/level/star word at all) matches none of them and is rejected."""
-    msg = str(raw_message or "")
-    if level == "אין העדפה":
-        return any(w in msg for w in ("אין העדפה", "לא משנה", "מה שיש", "לא משנה לי"))
-    if any(word in msg for word, canon in _LODGING_LEVEL_VALUES if canon == level):
-        return True
-    star_match = re.search(r"(\d)\s*(?:\+)?\s*כוכב", msg)
-    if star_match:
-        stars = int(star_match.group(1))
-        canon = "יוקרתי" if stars >= 4 else ("בינוני" if stars == 3 else "בסיסי")
-        return canon == level
-    return False
+def _guided_redirect_field(key, model, history, message, candidate_fields):
+    """Per the business owner's 18.10.2026 directive (relayed via Shlomo,
+    after Shaked's stage-3 run-3 V1/V2 - Madrid and Milano): the literal
+    text Ariella's own reply actually asked can drift from guided.
+    current_question (Tinkerbell composes her questions freely from a
+    HINT, never a fixed sentence enforced in code, so a confirmation
+    fused with the next real question, or any other free-text drift, can
+    leave the internal pointer pointing at a different field than what
+    was really asked). V2 live: "באיזה אזור" was asked while current_
+    question had already moved to budget, so the customer's correct
+    "קרוב לתחבורה ציבורית" got validated against budget's own schema,
+    failed, and Tinkerbell improvised an explicit "that's unrelated to
+    the budget" rejection of a perfectly good answer.
+
+    Carmit ruled out fixing this by enforcing/parsing Ariella's own
+    question text (phrase lists, topic keywords - the exact class of
+    mechanism _enforce_guided_question_matches_field already tried and
+    the full regression sweep proved unsafe). The fix lives on the INTAKE
+    side instead, exactly as she specified: called only once the field
+    actually live (current_question) has already rejected this message
+    as other_topic, this function hands the model Ariella's own last
+    REAL sent message (not a hint, the literal text) plus every other
+    guided field still genuinely open, and asks which one (if any) the
+    customer's reply is actually about - by meaning, never a keyword.
+    Requires a verbatim evidence quote from the customer's own message,
+    checked the same way _value_has_verbatim_evidence already does for
+    every other model-supplied value, so a field is never redirected to
+    on the model's say-so alone.
+
+    Returns the matched field name (already restricted to
+    candidate_fields), or None (no redirect - the turn proceeds exactly
+    as it already did before this function existed: other_topic, no
+    hint)."""
+    if not key or not candidate_fields:
+        return None
+    last_ariella_text = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and str(x.get("role") or "").lower() == "assistant"),
+        "",
+    )
+    if not last_ariella_text:
+        return None
+    labeled = "; ".join(
+        f'"{f}" ({_GUIDED_FIELD_HINT_DESCRIPTION.get(f, f)})' for f in candidate_fields
+    )
+    prompt = (
+        "אריאלה (סוכנת נסיעות) שלחה ללקוח את ההודעה הזו ממש: \"" + last_ariella_text + "\"\n"
+        "תשובת הלקוח לא התאימה לשדה שחיפשנו קודם. בדקי אם התשובה בכל זאת עונה בפועל על אחד "
+        "מהשדות הפתוחים האלה - לפי מה שאריאלה באמת שאלה בהודעה שלמעלה, ולפי משמעות תשובת "
+        "הלקוח, לא לפי מילות מפתח: " + labeled + "\n"
+        "אם כן: החזירי JSON {\"field\":\"<שם השדה המדויק מהרשימה>\",\"evidence\":\"ציטוט מדויק, "
+        "מילה במילה, מתוך תשובת הלקוח\"}.\n"
+        "אם לא: החזירי {\"field\":null,\"evidence\":null}."
+    )
+    try:
+        raw = _post_claude(
+            key, model, prompt, "", history if isinstance(history, list) else [],
+            "תשובת הלקוח: " + str(message or ""), 60, include_history=True, source="guided_extract",
+        )
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").replace("json", "", 1).strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+        field = data.get("field") if isinstance(data, dict) else None
+        evidence = data.get("evidence") if isinstance(data, dict) else None
+        if field in candidate_fields and _value_has_verbatim_evidence(evidence, message):
+            return field
+    except Exception:
+        logging.warning("guided_extract: redirect classification failed")
+    return None
+
+
+_EVIDENCE_NIQQUD_RE = re.compile(r"[֑-ׇ]")
+# Quotes/punctuation only, never letters - a verbatim check must still
+# reject a reworded or paraphrased quote, only tolerate formatting noise.
+_EVIDENCE_PUNCTUATION_RE = re.compile(r"[\"'“”‘’״׳,.!?;:()\[\]{}\-–—]")
+_EVIDENCE_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _normalize_for_evidence_match(text):
+    """Per Shaked's 18.10 finding on PR #83 (qa/cases.json, evidence-
+    tolerates-spacing-punctuation): a real, genuinely verbatim quote the
+    extractor copied from the customer's own message was still rejected
+    whenever it differed from the message by nothing more than spacing,
+    punctuation, quote marks or niqqud (e.g. evidence "מזוודה אחת לכולנו"
+    against the message's own "מזוודה  אחת, לכולנו" - a double space and a
+    comma the model has no real control over when it echoes a quote).
+    Strips niqqud (U+0591-U+05C7), punctuation/quote marks, and collapses
+    whitespace - never touches letters/words themselves, so this still
+    rejects a reworded or paraphrased "quote", exactly as before."""
+    text = _EVIDENCE_NIQQUD_RE.sub("", str(text or ""))
+    text = _EVIDENCE_PUNCTUATION_RE.sub("", text)
+    return _EVIDENCE_WHITESPACE_RE.sub(" ", text).strip()
+
+
+def _value_has_verbatim_evidence(evidence, message):
+    """Per the business owner's explicit directive (18.10.2026, relayed by
+    Shlomo, reacting to PR #83): only the MODEL decides what the customer
+    said - never a word list, phrase list, or stem/regex match, however
+    "general" it's framed. Both _level_stated_in_message (word-list +
+    star-rating regex) and the stem-regex gate briefly added to
+    _validate_baggage_detail_against_message (per Shaked's own PR #83
+    review, before this directive arrived) were exactly the pattern this
+    rules out.
+
+    The replacement: the extractor itself must supply, for any field it
+    introduces or changes this turn, a verbatim quote from the customer's
+    CURRENT message - the evidence it based the value on. This function is
+    the one place that quote is checked: accepted only when it's a
+    non-empty string that appears in the message exactly as given, up to
+    spacing/punctuation/quote-mark/niqqud noise (_normalize_for_evidence_
+    match) - no rewording, no translation, no paraphrase (that's what
+    "verbatim" buys here, a check code can actually perform without
+    re-deciding meaning itself). No quote, or a quote that was invented
+    rather than copied from the real message, means no value - the caller
+    reverts to whatever was already settled."""
+    evidence = str(evidence or "").strip()
+    if not evidence:
+        return False
+    return _normalize_for_evidence_match(evidence) in _normalize_for_evidence_match(message)
+
+
+def _validate_lodging_level_against_message(trip_update, state, message):
+    """Per Shlomo/Shaked (stage-3 run-3, Madrid): #81's fix validated a
+    level pulled via also_mentioned, but that is only ONE of the write
+    paths for this exact field - the main per-turn extractor
+    (_extract_trip_update, source="state_extractor") can independently
+    write lodging.details.level straight into its own JSON, bypassing the
+    guided dispatcher (and #81's guard) entirely. "מלון חמוד ושקט" (no
+    budget/level/star word at all) was saved as level="בינוני" through
+    this exact path.
+
+    Per the business owner's 18.10.2026 directive: the original fix
+    checked the message against a canonical word list and a star-rating
+    regex (_level_stated_in_message, now removed). Replaced with
+    _value_has_verbatim_evidence against lodging.details.level_evidence -
+    the quote EXTRACTOR_SYSTEM now requires the model itself to supply
+    whenever it writes a new level - so the model's own semantic judgment
+    decides what counts as "stated", never a list maintained in code.
+    Checked only when the value is genuinely NEW this turn (differs from
+    what was already persisted), so an already-accepted level from an
+    earlier turn is never re-litigated against a later, unrelated
+    message."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    lodging = trip_update.get("lodging") if isinstance(trip_update.get("lodging"), dict) else {}
+    details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    level = details.get("level")
+    if not isinstance(level, str) or not level.strip():
+        return trip_update
+    level = level.strip()
+    prior_lodging = (state or {}).get("lodging") if isinstance((state or {}).get("lodging"), dict) else {}
+    prior_details = prior_lodging.get("details") if isinstance(prior_lodging.get("details"), dict) else {}
+    if level == prior_details.get("level"):
+        return trip_update
+    if _value_has_verbatim_evidence(details.get("level_evidence"), message):
+        return trip_update
+    trip_update = dict(trip_update)
+    details = dict(details)
+    details.pop("level", None)
+    details.pop("level_evidence", None)
+    trip_update["lodging"] = dict(lodging, details=details)
+    return trip_update
+
+
+def _validate_baggage_detail_against_message(trip_update, state, message):
+    """Per Shlomo/Shaked (stage-3 run-3, Lisbon): flight.baggage_detail
+    (the per-passenger count/unit split, e.g. "one shared suitcase" vs.
+    "one per passenger") got silently reinterpreted by the main per-turn
+    extractor on a LATER turn where the customer said nothing new about
+    baggage at all - Tinkerbell then told the customer "I understood this
+    was one bag per passenger", a fact never actually restated that turn.
+    Same class of bug as the lodging-level guard above: the main extractor
+    is free to rewrite any field in its own JSON every turn, with nothing
+    checking whether the customer's current message actually supports a
+    CHANGE to an already-settled fact.
+
+    Per the business owner's 18.10.2026 directive (reacting to this same
+    PR, after Shaked's own review had already replaced the original exact-
+    word gate with a stem regex - r"מזווד|טרולי|כבוד|תיק" - which fixed the
+    reported gap but was still exactly the "word/phrase/stem list" pattern
+    she ruled out): replaced with _value_has_verbatim_evidence against
+    flight.baggage_detail_evidence - the quote EXTRACTOR_SYSTEM now
+    requires the model itself to supply whenever it writes a new
+    baggage_detail. The model decides what counts as "the customer
+    mentioned baggage", not a regex maintained in code."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
+    detail = flight.get("baggage_detail")
+    if not isinstance(detail, dict) or not detail:
+        return trip_update
+    prior_flight = (state or {}).get("flight") if isinstance((state or {}).get("flight"), dict) else {}
+    prior_detail = prior_flight.get("baggage_detail") if isinstance(prior_flight.get("baggage_detail"), dict) else {}
+    if detail == prior_detail:
+        return trip_update
+    if _value_has_verbatim_evidence(flight.get("baggage_detail_evidence"), message):
+        return trip_update
+    trip_update = dict(trip_update)
+    flight = dict(flight)
+    flight["baggage_detail"] = prior_detail
+    flight.pop("baggage_detail_evidence", None)
+    trip_update["flight"] = flight
+    return trip_update
 
 
 def _guided_field_update_and_confirm(field, result, raw_message=None):
@@ -7811,9 +8119,10 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
 
     raw_message, when passed, is the customer's own current-turn text. Used
     only to validate a lodging level pulled from also_mentioned (see
-    _level_stated_in_message) - the direct-answer call site never passes it,
-    since there the model is already answering the exact budget/level
-    question asked, not inferring it from an unrelated answer."""
+    _value_has_verbatim_evidence) - the direct-answer call site never
+    passes it, since there the model is already answering the exact
+    budget/level question asked, not inferring it from an unrelated
+    answer."""
     result = result if isinstance(result, dict) else {}
     if field == "dates":
         departure = result.get("departure")
@@ -7906,10 +8215,23 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
         desc = " ו".join(labels)
         return {"flight": fragment}, desc
     if field == "lodging_type":
-        value = result.get("value")
-        if value not in _LODGING_TYPE_CANON_VALUES and value != "אין העדפה":
+        # Per the business owner's 18.10.2026 directive (relayed via
+        # Shlomo, after the evidence-based/English-word-rule fixes to
+        # this same PR): a canonical-value field must never REJECT a
+        # value just because it isn't one of the closed list's own
+        # words - that silently dropped a genuinely-stated lodging type
+        # ("בקתת עץ", "בית הארחה") as if nothing was said at all, forcing
+        # a re-ask of a question the customer already answered. Only the
+        # two known synonyms get normalized (אפרטמנט->דירה, אכסניה->
+        # הוסטל); every other non-empty value is kept exactly as the
+        # model returned it (already instructed, in _lodging_guided_
+        # prompt, to keep the customer's own Hebrew wording rather than
+        # invent a category). Only a genuinely empty value means nothing
+        # was actually said.
+        value = str(result.get("value") or "").strip() or None
+        if not value:
             return {}, None
-        canon = "דירה" if value == "אפרטמנט" else value
+        canon = {"אפרטמנט": "דירה", "אכסניה": "הוסטל"}.get(value, value)
         desc = f"סוג לינה - {canon}" if canon != "אין העדפה" else "אין העדפה לסוג לינה"
         return {"lodging": {"details": {"type": canon}}}, desc
     if field == "lodging_rooms":
@@ -7943,7 +8265,7 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
             fragment["budget"] = budget
         elif isinstance(level, str) and level.strip() in ("יוקרתי", "בינוני", "בסיסי", "אין העדפה"):
             level = level.strip()
-            if raw_message is None or _level_stated_in_message(level, raw_message):
+            if raw_message is None or _value_has_verbatim_evidence(result.get("evidence"), raw_message):
                 fragment["level"] = level
         if not fragment:
             return {}, None
@@ -8060,6 +8382,47 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         }
     status = str(result.get("status") or "")
     if status == "other_topic":
+        # Per the business owner's 18.10 directive (Madrid/Milano, stage-3
+        # run-3 V1/V2): before giving up on this message, check whether it
+        # actually answers a DIFFERENT guided field than current_question -
+        # the text Ariella really sent can drift from the internal pointer
+        # (see _guided_redirect_field's own docstring). Only the model
+        # decides this, from Ariella's real last message, never a phrase
+        # list; a verbatim evidence quote is still required.
+        redirect_candidates = [
+            f for f in guided_order
+            if f != current_question and _guided_step_covers(f, guided_steps)
+            and _guided_field_applies(f, trip_update) and f not in answered
+        ]
+        redirected_field = _guided_redirect_field(key, model, history, message, redirect_candidates)
+        if redirected_field:
+            redirected_result = _guided_extract_answer(key, model, redirected_field, message, history, trip_update)
+            redirected_fragment, redirected_desc = (
+                _guided_field_update_and_confirm(redirected_field, redirected_result)
+                if redirected_result and str(redirected_result.get("status") or "") == "answered"
+                and str(redirected_result.get("confidence") or "") == "high"
+                else (None, None)
+            )
+            if redirected_fragment:
+                trip_update = _merge_trip_state(trip_update, redirected_fragment)
+                if redirected_field not in answered:
+                    answered.append(redirected_field)
+                guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+                trip_update["guided"] = guided
+                # Per the business owner's explicit rule: never tell the
+                # customer their answer was unrelated once something WAS
+                # captured this turn - the hint below both confirms what
+                # was just understood and still asks the genuinely-still-
+                # open current_question, so Tinkerbell has no vacuum left
+                # to improvise a rejection into.
+                label = _GUIDED_FIELD_HINT_DESCRIPTION.get(redirected_field, redirected_field)
+                understood = f"{label}: {redirected_desc}" if redirected_desc else label
+                base_hint = _guided_ask_hint(current_question, attempts)
+                ack_hint = (
+                    f"ההודעה הקודמת של הלקוח כבר ענתה בפועל על {understood} - זה נקלט ונשמר. "
+                    f"לעולם אל תגידי שזו תשובה לא קשורה או לא מובנת. {base_hint}"
+                )
+                return {"trip_update": trip_update, "dynamic_hint": ack_hint}
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": None} if changed else None
@@ -8099,7 +8462,8 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": _guided_confirm_hint(current_question, confirm_desc)}
-    answered.append(current_question)
+    if current_question not in answered:
+        answered.append(current_question)
     changed = True
     if result.get("correction"):
         field_label = dict(

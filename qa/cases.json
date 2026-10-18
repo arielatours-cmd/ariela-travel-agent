@@ -29,6 +29,9 @@
     {"id": "route-gateway-country-only-keeps-all", "fn": "_resolve_destination_airports_from_route", "args": [{"destination": {"places": ["קפריסין"]}, "destination_airports": ["LCA", "PFO"], "trip_planning": {"details": {"route": [{"day": 1, "base": "קפריסין"}]}}}], "expect": {"destination_airports": ["LCA", "PFO"]}, "source": "64ffebc"},
     {"id": "baggage-checked-short-form", "fn": "_deterministic_baggage_facts", "args": ["מזוודה בבטן לכל אחד"], "expect": {"flight": {"baggage": ["checked_bag"]}}, "source": "live-chat-2026-10-12"},
     {"id": "baggage-checked-mixed-reply", "fn": "_deterministic_baggage_facts", "args": ["מזוודה אחת בבטן לכל אחד וטרולי. תקציב לטיסה עד 1500 שקל לאדם"], "expect_truthy": true, "source": "live-chat-2026-10-12"},
+    {"id": "baggage-plain-suitcase-per-person", "fn": "_deterministic_baggage_facts", "args": ["מזוודה לכל אחד", 5], "expect": {"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}}}, "source": "s3x2 מילאנו 2026-10-18 (שקד, דוח יומי)"},
+    {"id": "baggage-one-shared-total", "fn": "_deterministic_baggage_facts", "args": ["כל אחד טרולי, ומזוודה אחת משותפת", 4], "expect": {"flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}}, "source": "s3x4 ליסבון 2026-10-18 (שקד, דוח יומי)"},
+    {"id": "baggage-one-shared-plus-per-adult-carry-on", "fn": "_deterministic_baggage_facts", "args": ["מזוודה אחת לכולנו וטרולי לכל מבוגר", 4], "expect": {"flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}}, "source": "שקד, דוח יומי 2026-10-18"},
     {"id": "dates-hebrew-month-name", "fn": "_deterministic_date_facts", "args": [[], "יציאה ב-24 במאי וחזרה ב-31 במאי", {}], "expect_truthy": true, "source": "live-chat-2026-10-12"},
     {"id": "named-accept-three-services", "fn": "_deterministic_named_accept_facts", "args": ["נשמח גם למסלול טיול, מלון ורכב שכור"], "expect": {"service_decisions": {"trip_planning": {"wanted": true}, "lodging": {"wanted": true}, "car": {"wanted": true}}}, "source": "live-chat-2026-10-12"},
     {"id": "named-accept-no-misfire-idle-mention", "fn": "_deterministic_named_accept_facts", "args": ["נשמח לישון במלון יפה"], "expect_falsy": true, "source": "live-chat-2026-10-12"},
@@ -195,6 +198,9 @@
     {"id": "travelers-nistader-levad-not-solo", "fn": "_deterministic_traveler_facts", "args": ["נסתדר לבד"], "expect_falsy": true, "source": "shaked-stage1-run3-v5"},
     {"id": "travelers-tivni-levad-not-solo", "fn": "_deterministic_traveler_facts", "args": ["תבני לבד"], "expect_falsy": true, "source": "shaked-round8-b2"},
     {"id": "travelers-ani-levad-is-solo", "fn": "_deterministic_traveler_facts", "args": ["אני טס לבד"], "expect": {"travelers": {"adults": 1}}, "source": "shaked-stage1-run3-guard"},
+    {"id": "evidence-missing-rejected", "fn": "_value_has_verbatim_evidence", "args": ["", "מלון חמוד ושקט"], "expect_falsy": true, "source": "#83 c42e40d (s3x1 מדריד)"},
+    {"id": "evidence-tolerates-spacing-punctuation", "fn": "_value_has_verbatim_evidence", "args": ["מזוודה אחת לכולנו", "מזוודה  אחת, לכולנו"], "expect_truthy": true, "source": "שקד 18.10 — ציטוט אמיתי עם רווח/פסיק שונה לא נדחה"},
+    {"id": "pace-token-to-hebrew", "fn": "_to_hebrew_display", "args": ["relaxed"], "expect": "רגוע", "source": "0aad29c (PR #81)"},
     {"id": "route-weekdays-date-and-day-in-same-parens", "fn": "_correct_route_day_weekdays", "args": ["יום 1 (19.9, ראשון)\nיום 10 (28.9, רביעי)\nיום 11 (29.9, חמישי)", {"dates": {"departure": "2027-09-19", "return": "2027-09-30"}}], "expect": "יום 1 (19.9, ראשון)\nיום 10 (28.9, שלישי)\nיום 11 (29.9, רביעי)", "source": "live-chat-2026-10-15-shaked-s93-croatia"},
     {"id": "dates-meha-ad-ha-month", "fn": "_deterministic_date_facts", "args": [[], "כבר אמרתי, מה-6 עד ה-13 במרץ", {}], "expect": {"dates": {"departure": "2027-03-06", "return": "2027-03-13"}}, "source": "shaked-round8-c3"},
     {"id": "dates-bein-le-month", "fn": "_deterministic_date_facts", "args": [[], "בין 6 ל-13 במרץ", {}], "expect": {"dates": {"departure": "2027-03-06", "return": "2027-03-13"}}, "source": "shaked-round8-c3"},
@@ -202,11 +208,6 @@
     {"id": "weekday-conflict-day-in-parens-after-each-date-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 (ראשון) עד 30.9 (חמישי)", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"},
     {"id": "weekday-conflict-day-after-each-date-dash-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 ראשון - 30.9 חמישי", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"},
     {"id": "baggage-big-suitcase-per-person", "fn": "_deterministic_baggage_facts", "args": ["מזוודה גדולה לכל אחד מאיתנו", 4], "expect": {"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}}}, "source": "589b860 (PR #81, s3w2 פריז)"},
-    {"id": "baggage-one-shared-total", "fn": "_deterministic_baggage_facts", "args": ["כל אחד טרולי, ומזוודה אחת משותפת", 4], "expect": {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}}, "source": "s3x4 ליסבון 2026-10-18"},
-    {"id": "baggage-plain-suitcase-per-person", "fn": "_deterministic_baggage_facts", "args": ["מזוודה לכל אחד", 5], "expect": {"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}}}, "source": "s3x2 מילאנו 2026-10-18 — פער פתוח בגיבוי"},
-    {"id": "evidence-invented-quote-rejected", "fn": "_value_has_verbatim_evidence", "args": ["מלון בינוני", "מלון קטן ונעים"], "expect_falsy": true, "source": "#83 c42e40d (evidence במקום רשימת מילים, החלטת 18.10; s3w1 רומא)"},
-    {"id": "evidence-missing-rejected", "fn": "_value_has_verbatim_evidence", "args": ["", "מלון חמוד ושקט"], "expect_falsy": true, "source": "#83 c42e40d (s3x1 מדריד)"},
-    {"id": "evidence-tolerates-spacing-punctuation", "fn": "_value_has_verbatim_evidence", "args": ["מזוודה אחת לכולנו", "מזוודה  אחת, לכולנו"], "expect_truthy": true, "source": "שקד 18.10 — ציטוט אמיתי עם רווח/פסיק שונה לא נדחה"},
-    {"id": "pace-token-to-hebrew", "fn": "_to_hebrew_display", "args": ["relaxed"], "expect": "רגוע", "source": "0aad29c (PR #81)"}
+    {"id": "evidence-invented-quote-rejected", "fn": "_value_has_verbatim_evidence", "args": ["מלון בינוני", "מלון קטן ונעים"], "expect_falsy": true, "source": "#83 c42e40d (evidence במקום רשימת מילים, החלטת 18.10; s3w1 רומא)"}
   ]
 }
