@@ -1097,43 +1097,98 @@ def _split_car_transmission(state):
     return state
 
 
-def _roll_past_dates(state, message, history):
-    """Deterministic backstop for the "day+month without a year is its next
-    future occurrence" rule. Seen live: in October 2026 the customer said
-    "28.6" and the model saved 28.6.2026 - already past - so a return visit
-    couldn't find the vacation (only future ones are offered), a new one
-    was created, and its flight scan failed. A past departure moves forward
-    a year, the return with it, unless the customer typed that year."""
+def _plus_years(d, n):
+    try:
+        return d.replace(year=d.year + n)
+    except ValueError:  # 29 Feb
+        return d.replace(year=d.year + n, day=28)
+
+
+def _roll_past_dates(state):
+    """Deterministic backstop: a vacation departure is never in the past,
+    and a return is never before its own departure. Seen live: in October
+    2026 the customer said "28.6" and the model saved 28.6.2026 - already
+    past - so a return visit couldn't find the vacation (only future ones
+    are offered), a new one was created, and its flight scan failed. A
+    past departure always moves forward to its next future occurrence,
+    the return with it.
+
+    Per Shlomo's follow-up (18.10, qa/reports/2026-10-18-stage3-run4.md,
+    s3y2 - Tuscany "1.7 עד 10.7" saved as 2026-07-01, already past): an
+    earlier version of this function left a past date untouched whenever
+    the customer's own text happened to contain the digit string of that
+    year ANYWHERE in the conversation (a budget figure, anything) - a
+    false-positive "the customer explicitly chose this past year" escape.
+    Shlomo's explicit instruction removed that escape entirely: "גם תאריך
+    מלא שנמצא בעבר לא נשמר" (a full date found to be in the past is not
+    saved either) - a travel-search departure is never in the past,
+    whether the year was stated explicitly or left for this rule to
+    infer. There is no legitimate reason for this bot to search flights
+    for a date that has already passed.
+
+    Per Shaked's review of that first version: two further gaps, both per
+    state, no phrase list.
+    (1) This only ran in the main per-turn extraction pipeline (one call
+    site), and later only at the single save/reply point (_reply) -
+    AFTER Tinkerbell had already composed her reply from the uncorrected
+    date. Seen live (round 3): the persisted state was correctly rolled to
+    2027, but the reply/system_dynamic Tinkerbell actually saw and could
+    quote still said 2026-07-01 - the customer could still read a past
+    year in the conversation itself even though the state was right.
+    Moved into _call_tinkerbell itself (the one function every reply-
+    composing call site already goes through - ~10 of them, impossible to
+    keep 10 separate call sites in sync by hand) so Tinkerbell never sees
+    an uncorrected date at all. The state dict is mutated in place, so
+    this also fixes it for the caller's own copy before persistence - the
+    _reply call stays too, as the explicit safety net for any path that
+    composes nothing and goes straight to persistence.
+    (2) A return earlier than its own departure is only ever a genuine
+    new-year crossing stated without repeating the year (e.g. "28.12 עד
+    3.1" - departure 2026-12-28, return resolved to 2026-01-03) - rolling
+    THAT forward a year is correct. Blindly rolling ANY return < departure
+    forward a year is wrong for a same-year mix-up (e.g. departure 5.3,
+    return 1.3, both 2027 - a transposed day, not a trip spanning a New
+    Year) - that produced a fabricated year-long "vacation" instead of
+    flagging the real ambiguity. Now only rolled when departure falls in
+    the last two months of the year (Nov/Dec) and return in the first
+    three of the next (Jan/Feb/Mar) - the shape an unstated-year New
+    Year's trip actually has. Any other return-before-departure case is
+    left alone but flagged dates.needs_confirmation=True, the existing
+    field Ariella already uses to ask the customer to confirm/clarify,
+    instead of silently guessing which date is wrong."""
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else None
     if not dates:
         return state
     dep = _parse_state_date(dates.get("departure"))
-    if not dep or dep >= date.today():
-        return state
-    user_text = " ".join(
-        [str(x.get("content") or "") for x in (history or [])
-         if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"]
-        + [str(message or "")]
-    )
-    if str(dep.year) in user_text:
-        return state  # the customer named that year; the scan gate refuses it
-
-    def _plus_years(d, n):
-        try:
-            return d.replace(year=d.year + n)
-        except ValueError:  # 29 Feb
-            return d.replace(year=d.year + n, day=28)
-
-    years = 1
-    while _plus_years(dep, years) < date.today():
-        years += 1
-    new_dates = dict(dates)
-    new_dates["departure"] = _plus_years(dep, years).isoformat()
     ret = _parse_state_date(dates.get("return"))
-    if ret:
-        new_dates["return"] = _plus_years(ret, years).isoformat()
-    state["dates"] = new_dates
+    new_dates = dict(dates)
+    changed = False
+    if dep and dep < date.today():
+        years = 1
+        while _plus_years(dep, years) < date.today():
+            years += 1
+        dep = _plus_years(dep, years)
+        new_dates["departure"] = dep.isoformat()
+        changed = True
+        if ret:
+            ret = _plus_years(ret, years)
+            new_dates["return"] = ret.isoformat()
+    if dep and ret and ret < dep:
+        if dep.month >= 11 and ret.month <= 3:
+            years = 1
+            while _plus_years(ret, years) < dep:
+                years += 1
+            new_dates["return"] = _plus_years(ret, years).isoformat()
+            changed = True
+        else:
+            # Not a plausible New Year's crossing - a same-year mix-up
+            # instead (likely a transposed date). Never guess which one is
+            # wrong; flag it for the customer to confirm.
+            new_dates["needs_confirmation"] = True
+            changed = True
+    if changed:
+        state["dates"] = new_dates
     return state
 
 
@@ -3477,6 +3532,16 @@ def _fix_departure_name(reply, state, history, message):
 
 def _call_tinkerbell(key, model, history, message, state=None):
     state = state if isinstance(state, dict) else {}
+    # Per Shaked's live finding (round 3 on PR #86, qa/reports/2026-10-18-
+    # stage3-run4.md): a past departure was correctly rolled forward in the
+    # PERSISTED state, but Tinkerbell herself - every call site that
+    # composes a reply goes through this one function - still saw and
+    # could quote the uncorrected date, since the only _roll_past_dates
+    # call ran later, at the save/reply point. Mutates state in place, so
+    # this also carries the fix back into the caller's own dict before
+    # persistence - _reply's own call stays as a safety net for paths that
+    # never reach here at all.
+    state = _roll_past_dates(state)
     statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
     active_session = state.get("active_session")
     trip_planning_settled = statuses.get("trip_planning") in ("complete", "declined")
@@ -9364,6 +9429,16 @@ def _chat_clean_impl():
         (400/401/503) means nothing actually happened this turn."""
         if payload.get('status') == 'success' and payload.get('reply') is not None:
             try:
+                # Per Shaked's review of #86 (18.10, qa/reports/2026-10-18-
+                # stage3-run4.md): _roll_past_dates used to run only in the
+                # main per-turn extraction pipeline, missing the 014a
+                # guided-extraction path (e.g. answering "dates" directly)
+                # entirely. This is the one point every successful turn
+                # passes through regardless of which branch produced the
+                # trip_update, so applying it here covers all of them with
+                # a single call site to keep in sync.
+                if isinstance(payload.get('trip_update'), dict):
+                    payload['trip_update'] = _roll_past_dates(payload['trip_update'])
                 existing = load_ariella_conversation(_member_id)
                 base_history = (existing or {}).get('history') or history_before_gap
                 full_history = list(base_history) + [
@@ -10647,7 +10722,6 @@ def _chat_clean_impl():
         trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
         trip_update = _keep_declines(trip_state, trip_update, service_request)
-        trip_update = _roll_past_dates(trip_update, message, history)
         trip_update = _split_car_transmission(trip_update)
         trip_update = _protect_car_details_from_loss(trip_state, trip_update)
         trip_update = _protect_lodging_details_from_loss(trip_state, trip_update)
