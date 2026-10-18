@@ -6978,6 +6978,73 @@ def _premature_approval_fallback_text(trip_update):
     return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."
 
 
+def _lodging_summary_line(state):
+    """The one-line lodging summary fact, or None when lodging has no
+    details to show. Reuses _guided_field_update_and_confirm's own per-
+    field descriptions (the exact phrasing already shown to the customer
+    turn-by-turn while lodging was being filled in) rather than inventing
+    new wording for the same facts."""
+    details = _lodging_details(state)
+    if not details:
+        return None
+    parts = []
+    for field, result in (
+        ("lodging_type", {"value": details.get("type")}),
+        ("lodging_rooms", {"value": details.get("rooms")}),
+        ("lodging_bathrooms", {"value": details.get("bathrooms")}),
+        ("lodging_locations", {"value": details.get("locations")}),
+        ("lodging_budget_or_level", {"budget": details.get("budget"), "level": details.get("level")}),
+    ):
+        _, desc = _guided_field_update_and_confirm(field, result)
+        if desc:
+            parts.append(desc)
+    if not parts:
+        return None
+    return "לינה: " + ", ".join(parts)
+
+
+def _car_summary_line(state):
+    """The one-line car summary fact, or None when car has no details to
+    show."""
+    state = state if isinstance(state, dict) else {}
+    car = state.get("car") if isinstance(state.get("car"), dict) else {}
+    details = car.get("details") if isinstance(car.get("details"), dict) else {}
+    if not details:
+        return None
+    parts = []
+    vehicle_type = str(details.get("vehicle_type") or "").strip()
+    if vehicle_type and vehicle_type != "אין העדפה":
+        parts.append(vehicle_type)
+    transmission = str(details.get("transmission") or "").strip()
+    if transmission and transmission not in ("אין העדפה", "לא משנה"):
+        parts.append(transmission)
+    pickup = details.get("pickup")
+    if pickup:
+        parts.append(f"איסוף: {pickup}")
+    ret = details.get("return")
+    if ret:
+        parts.append(f"החזרה: {ret}")
+    if not parts:
+        return None
+    return "רכב: " + ", ".join(parts)
+
+
+def _route_summary_line(state):
+    """The one-line route summary fact, or None when no route was ever
+    approved. Reuses trip_planning.details.approved_text verbatim - the
+    exact free text Tinkerbell already composed and the customer already
+    approved earlier in the same conversation - rather than re-deriving
+    new prose from the structured day-by-day route data, which risks
+    drifting from what was actually shown and approved."""
+    state = state if isinstance(state, dict) else {}
+    planning = state.get("trip_planning") if isinstance(state.get("trip_planning"), dict) else {}
+    details = planning.get("details") if isinstance(planning.get("details"), dict) else {}
+    approved_text = str(details.get("approved_text") or "").strip()
+    if not approved_text:
+        return None
+    return "מסלול: " + approved_text
+
+
 def _final_summary_fallback_text(trip_update):
     """Last-resort honest reply for the opposite failure of the function
     above: every one of the four domains (flights/lodging/car/trip_planning)
@@ -6991,25 +7058,59 @@ def _final_summary_fallback_text(trip_update):
     מאשרת safety net above, nothing used to catch a second failure here.
     State alone (every domain decided) already proves a real summary is
     owed regardless of what the free text says, so a reply that reopens a
-    closed domain must never reach the customer. Never invents lodging/car/
-    route text (no deterministic builder exists for those yet, and guessing
-    risks being wrong) - shows whatever of the summary can be built safely
-    (the flight details, exactly as the mid-flow מאשר/מאשרת fallback above
-    already composes them) plus a plain, true statement that nothing else
-    is left open, and asks for the one real approval."""
+    closed domain must never reach the customer.
+
+    Per Shaked's own review of the first version of this function (PR #81):
+    (1) a fixed, hardcoded intro sentence is exactly the kind of canned text
+    the business owner doesn't want - removed entirely; (2) the summary
+    must be genuinely complete (lodging/car/route too, not flights alone) -
+    criterion 5 - so every domain already decided now contributes its own
+    line, each reusing wording already established elsewhere in the code
+    (_guided_field_update_and_confirm's own per-field descriptions for
+    lodging, and the route's own previously-approved text verbatim) rather
+    than inventing anything new."""
     trip_update = trip_update if isinstance(trip_update, dict) else {}
-    intro = "כל הפרטים של הטיסה, הלינה, הרכב והמסלול כבר סגורים - אין עוד מה לתכנן או לשנות."
-    summary = _flight_summary_text(trip_update)
-    if summary:
-        return f"{intro}\n\n{summary}"
+    statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+    destination = trip_update.get("destination") if isinstance(trip_update.get("destination"), dict) else {}
+    places = [str(p) for p in (destination.get("places") or []) if str(p or "").strip()]
+    dates = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+    travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
+    flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
+    budget = trip_update.get("budget_per_person") if isinstance(trip_update.get("budget_per_person"), dict) else {}
+
+    lines = []
+    if places:
+        lines.append("יעד: " + ", ".join(places))
+    for line in (
+        _flight_dates_line(dates), _flight_travelers_line(travelers),
+        _flight_connection_line(flight), _flight_baggage_line(flight),
+        _flight_budget_line(budget),
+    ):
+        if line:
+            lines.append(line)
+    if statuses.get("lodging") == "complete":
+        line = _lodging_summary_line(trip_update)
+        if line:
+            lines.append(line)
+    if statuses.get("car") == "complete":
+        line = _car_summary_line(trip_update)
+        if line:
+            lines.append(line)
+    if statuses.get("trip_planning") == "complete":
+        line = _route_summary_line(trip_update)
+        if line:
+            lines.append(line)
+
     gender = str(trip_update.get("user_gender") or "").lower()
     if gender == "male":
-        ask = "אם הכול נכון, כתוב מאשר כדי שאשלח את כל הפרטים לכרטיס החופשה שלך."
+        approval_line = "אם כל הפרטים נכונים, כתוב מאשר."
     elif gender == "female":
-        ask = "אם הכול נכון, כתבי מאשרת כדי שאשלח את כל הפרטים לכרטיס החופשה שלך."
+        approval_line = "אם כל הפרטים נכונים, כתבי מאשרת."
     else:
-        ask = "אם הכול נכון, יש לרשום מאשר/מאשרת כדי שאשלח את כל הפרטים לכרטיס החופשה שלך."
-    return f"{intro} {ask}"
+        approval_line = "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת."
+    if not lines:
+        return approval_line
+    return "סיכום החופשה:\n" + "\n".join(lines) + "\n\n" + approval_line
 
 
 # Each domain's own small, closed vocabulary of topic words - not endless

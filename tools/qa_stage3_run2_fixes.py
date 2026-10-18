@@ -271,17 +271,38 @@ PARIS_ALL_DECIDED = {
     "budget_per_person": {"status": "unlimited"},
     "user_gender": "female",
     "session_status": {"flights": "complete", "lodging": "complete", "car": "declined", "trip_planning": "complete"},
+    "lodging": {"details": {
+        "type": "דירה", "rooms": 2, "bathrooms": 2,
+        "locations": "אזור שקט ליד המטרו", "level": "אין העדפה",
+    }},
+    "trip_planning": {"details": {
+        "approved_text": "יום 1: מגדל אייפל ושיט בסן. יום 2: לובר ושכונת מארה.",
+    }},
 }
 paris_fallback = chat._final_summary_fallback_text(PARIS_ALL_DECIDED)
+check("Paris repro (Shaked's PR #81 review): the fallback never contains "
+      "a fixed/canned intro sentence describing state - the business "
+      "owner's own rule against hardcoded sentences",
+      "כבר סגורים" not in paris_fallback and "אין עוד מה לתכנן" not in paris_fallback)
 check("Paris repro: the fallback never re-asks about the route/style/"
       "pace (the exact failure seen live) - no question mark at all",
       "?" not in paris_fallback and "קצב" not in paris_fallback and "סגנון" not in paris_fallback)
-check("Paris repro: the fallback states every domain is already closed",
-      "כבר סגורים" in paris_fallback)
 check("Paris repro: the fallback still contains a real flight summary "
       "built from state (destination, dates, connection preference)",
       "פריז" in paris_fallback and "10.12.2026" not in paris_fallback  # sanity: wrong date never appears
       and "20.12.2026" in paris_fallback and "טיסה ישירה בלבד" in paris_fallback)
+check("Paris repro (Shaked's PR #81 review, criterion 5): the fallback is "
+      "genuinely COMPLETE - the lodging line (apartment, rooms, "
+      "bathrooms, area, no budget limit) is included too, not just flights",
+      "לינה:" in paris_fallback and "דירה" in paris_fallback
+      and "2 חדרים" in paris_fallback and "2 חדרי רחצה" in paris_fallback
+      and "אזור שקט ליד המטרו" in paris_fallback and "אין הגבלת תקציב" in paris_fallback)
+check("Paris repro: the already-approved route text is reused verbatim, "
+      "never re-derived or re-phrased",
+      "מסלול: יום 1: מגדל אייפל ושיט בסן. יום 2: לובר ושכונת מארה." in paris_fallback)
+check("Paris repro: car is correctly OMITTED - it was declined, not "
+      "selected (Shaked: 'רכב רק אם נבחר')",
+      "רכב:" not in paris_fallback)
 check("Paris repro: the fallback ends in a real approval request "
       "(gendered correctly from state)",
       "כתבי מאשרת" in paris_fallback)
@@ -292,6 +313,16 @@ check("gendered correctly for a male customer",
 check("gendered neutrally when gender is unknown",
       "מאשר/מאשרת" in chat._final_summary_fallback_text(
           {k: v for k, v in PARIS_ALL_DECIDED.items() if k != "user_gender"}))
+
+# --- a trip where car WAS actually selected (complete, not declined) - the
+#     car line must then appear too ---
+paris_with_car = dict(PARIS_ALL_DECIDED)
+paris_with_car["session_status"] = dict(PARIS_ALL_DECIDED["session_status"], car="complete")
+paris_with_car["car"] = {"details": {"vehicle_type": "משפחתי", "transmission": "אוטומטי", "pickup": "שדה התעופה, 20.12", "return": "שדה התעופה, 27.12"}}
+paris_with_car_fallback = chat._final_summary_fallback_text(paris_with_car)
+check("car genuinely selected and complete: the car line is included too",
+      "רכב: משפחתי, אוטומטי" in paris_with_car_fallback
+      and "איסוף:" in paris_with_car_fallback and "החזרה:" in paris_with_car_fallback)
 
 # --- no flight data at all to summarize (e.g. a business/ski trip with no
 #     flight.* facts) - must still never crash and never re-open anything ---
