@@ -7931,12 +7931,21 @@ def _validate_baggage_detail_against_message(trip_update, state, message):
     Same class of bug as the lodging-level guard above: the main extractor
     is free to rewrite any field in its own JSON every turn, with nothing
     checking whether the customer's current message actually supports a
-    CHANGE to an already-settled fact. General rule, reusing the exact
-    gate words _baggage_answer_by_meaning already established for "this
-    message is about baggage at all" (not a new phrase list): a change to
+    CHANGE to an already-settled fact. General rule: a change to
     baggage_detail is only accepted when the current message itself
     mentions baggage in some form; otherwise the prior, already-settled
-    detail is kept."""
+    detail is kept.
+
+    Per Shaked's PR #83 review: the original gate checked for the exact
+    words "כבודה"/"טרולי"/"מזוודה" as literal substrings, which silently
+    missed every other inflection of the same word - "מזוודות" (plural)
+    and "כבודת יד"/"כבודת עלייה" (bag-of-X phrasing) all diverge from
+    those exact spellings at the very last letter, so a perfectly normal
+    baggage sentence like "שתי מזוודות לכולנו" failed the gate entirely
+    and got its baggage_detail wrongly reverted. Fixed by matching the
+    common STEM of each word (regex, not a literal phrase list) - every
+    inflection of מזווד.../טרולי/כבוד.../תיק shares this stem regardless
+    of suffix."""
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
     detail = flight.get("baggage_detail")
@@ -7946,7 +7955,7 @@ def _validate_baggage_detail_against_message(trip_update, state, message):
     prior_detail = prior_flight.get("baggage_detail") if isinstance(prior_flight.get("baggage_detail"), dict) else {}
     if detail == prior_detail:
         return trip_update
-    if any(w in str(message or "") for w in ("כבודה", "טרולי", "מזוודה")):
+    if re.search(r"מזווד|טרולי|כבוד|תיק", str(message or "")):
         return trip_update
     trip_update = dict(trip_update)
     flight = dict(flight)

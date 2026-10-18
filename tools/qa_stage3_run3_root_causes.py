@@ -70,6 +70,16 @@ always means a checked bag was mentioned; and "טרולי" plus a per-person
 phrase, in EITHER order and naming any of the traveler nouns actually seen
 live, always means a carry-on per traveler. Both added to qa/cases.json too.
 
+Also fixed, per Shaked's actual review of this PR's first commit (not her
+daily report): _validate_baggage_detail_against_message's own gate words
+were a bug in the same spirit as the extractor bug it exists to catch -
+the gate matched only the exact words "כבודה"/"טרולי"/"מזוודה", so
+"מזוודות" (plural) and "כבודת יד"/"כבודת עלייה" (both of which diverge
+from those exact spellings only at the final letter) were wrongly treated
+as NOT mentioning baggage, reverting perfectly normal answers like "שתי
+מזוודות לכולנו" back to {}. Fixed by matching the shared stem via regex
+instead of the exact word.
+
 Run: python3 tools/qa_stage3_run3_root_causes.py
 """
 import os
@@ -314,6 +324,37 @@ check("regression: the existing specific phrasings (e.g. 'בלי מזוודה ר
       and chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", 4)
       == {"flight": {"baggage": ["checked_bag"],
                       "baggage_detail": {"checked_bag": {"unit": "per_person"}}}})
+
+# =====================================================================
+# Shaked's PR #83 REVIEW (not her daily report): _validate_baggage_detail_
+# against_message's own gate words were themselves a bug - matched only
+# the exact spellings "כבודה"/"טרולי"/"מזוודה", so "מזוודות" (plural) and
+# "כבודת יד"/"כבודת עלייה" (bag-of-X phrasing) - which all diverge from
+# those exact words only at the final letter - were treated as NOT
+# mentioning baggage at all, wrongly reverting a perfectly normal answer
+# like "שתי מזוודות לכולנו" back to {}. Fixed by matching the shared STEM
+# (regex) instead of the exact word.
+# =====================================================================
+check("Rome repro (Shaked's PR review): a first-turn plural 'שתי מזוודות "
+      "לכולנו' is accepted, not wrongly reverted to {} for 'not mentioning "
+      "baggage'",
+      chat._validate_baggage_detail_against_message(
+          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}}},
+          {}, "זוג לרומא 10-14 בנובמבר, שתי מזוודות לכולנו",
+      ) == {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}}})
+check("'כבודת יד' (hand luggage, diverges from 'כבודה' at the last letter) "
+      "is also recognized as a baggage mention",
+      chat._validate_baggage_detail_against_message(
+          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}},
+          {"flight": {}}, "רק כבודת יד",
+      ) == {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+check("regression: a genuinely unrelated message (no baggage word at all) "
+      "still reverts to the prior settled detail",
+      chat._validate_baggage_detail_against_message(
+          {"flight": {"baggage_detail": {"checked_bag": {"unit": "per_person"}}}},
+          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}},
+          "תקציב 1500 שקל לאדם",
+      ) == {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
 
 if FAILED:
     print(f"\nFAILED ({len(FAILED)}): {FAILED}")
