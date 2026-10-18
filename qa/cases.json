@@ -200,6 +200,12 @@
     {"id": "dates-bein-le-month", "fn": "_deterministic_date_facts", "args": [[], "בין 6 ל-13 במרץ", {}], "expect": {"dates": {"departure": "2027-03-06", "return": "2027-03-13"}}, "source": "shaked-round8-c3"},
     {"id": "weekday-conflict-weekday-before-each-date-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["אני רוצה לטוס לקרואטיה ביום ראשון 19.9 עד חמישי 30.9", []], "expect_falsy": true, "source": "owner-whatsapp-croatia-2026-10-16"},
     {"id": "weekday-conflict-day-in-parens-after-each-date-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 (ראשון) עד 30.9 (חמישי)", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"},
-    {"id": "weekday-conflict-day-after-each-date-dash-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 ראשון - 30.9 חמישי", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"}
+    {"id": "weekday-conflict-day-after-each-date-dash-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 ראשון - 30.9 חמישי", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"},
+    {"id": "baggage-big-suitcase-per-person", "fn": "_deterministic_baggage_facts", "args": ["מזוודה גדולה לכל אחד מאיתנו", 4], "expect": {"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}}}, "source": "589b860 (PR #81, s3w2 פריז)"},
+    {"id": "baggage-one-shared-total", "fn": "_deterministic_baggage_facts", "args": ["כל אחד טרולי, ומזוודה אחת משותפת", 4], "expect": {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}}, "source": "s3x4 ליסבון 2026-10-18"},
+    {"id": "baggage-plain-suitcase-per-person", "fn": "_deterministic_baggage_facts", "args": ["מזוודה לכל אחד", 5], "expect": {"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}}}, "source": "s3x2 מילאנו 2026-10-18 — פער פתוח בגיבוי"},
+    {"id": "level-not-stated-small-nice-hotel", "fn": "_level_stated_in_message", "args": ["בינוני", "מלון קטן ונעים"], "expect_falsy": true, "source": "02f794c (PR #81, s3w1 רומא)"},
+    {"id": "level-not-stated-cute-quiet-hotel", "fn": "_level_stated_in_message", "args": ["בינוני", "מלון חמוד ושקט"], "expect_falsy": true, "source": "s3x1 מדריד 2026-10-18"},
+    {"id": "pace-token-to-hebrew", "fn": "_to_hebrew_display", "args": ["relaxed"], "expect": "רגוע", "source": "0aad29c (PR #81)"}
   ]
 }
