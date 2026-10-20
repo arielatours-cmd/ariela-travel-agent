@@ -3884,6 +3884,21 @@ def _call_tinkerbell(key, model, history, message, state=None):
         # than injecting it raw.
         continuity += """
 - יש ספק לגבי התשובה האחרונה של הלקוח. אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת. נסחי בקול הטבעי שלך בדיוק את שאלת האימות הבאה (אפשר לנסח מחדש, אך לשמור על אותה המשמעות בדיוק): """ + json.dumps(state.get("_gap_clarify_question"), ensure_ascii=False) + "\n"
+    if state.get("_link_request_pending"):
+        # Per Shaked's review of the first version of this fix (20.10):
+        # the code (never the model) decides whether there's a vacation to
+        # link to, but Tinkerbell still composes the acknowledgement in
+        # her own words, in the SAME message as whatever else this turn
+        # needed to say - the real link itself is attached separately
+        # (open_existing_flights), never written by her as "הנה הקישור".
+        if state.get("_link_request_pending") == "has_vacation":
+            continuity += """
+- הלקוח ביקש קישור לחופשה/ללוח שלו. יש לו חופשה פעילה לקשר אליה - אשרי בקצרה ובחום שהקישור מצורף (למשל "בטח, מצרפת לך את הקישור" או ניסוח חם דומה), בלי לכתוב בעצמך "הנה הקישור" או כל קישור/כתובת ממש - זה מתווסף אוטומטית אחרי התשובה שלך, לא על ידך. לעולם אל תתארי אם החיפוש עדיין רץ או כבר הסתיים - זו עובדה שלא ידועה לך.
+"""
+        else:
+            continuity += """
+- הלקוח ביקש קישור לחופשה/ללוח שלו, אבל עדיין אין חופשה שאפשר לקשר אליה (שום חיפוש טיסות עוד לא אושר). הסבירי זאת בקצרה ובחום (לדוגמה: עדיין אוספים את הפרטים, ברגע שיאושר חיפוש יהיה קישור ישיר) - לעולם לא "אין לי אפשרות לשלוח קישורים" או כל ניסוח שאומר שאת לא יכולה לשלוח קישור. מיד אחרי זה, באותה הודעה, המשיכי ישירות לשאלה הפתוחה הבאה שבאמת רלוונטית כרגע - אל תסיימי את ההודעה רק בהסבר.
+"""
     if state.get("_resume_choice_hint"):
         # Per Shaked's second review of PR #84 (18.10.2026): the resume_
         # choice_pending flow (continue an existing open vacation vs. start
@@ -11250,37 +11265,34 @@ def _chat_clean_impl():
         # Shlomo's relay of Carmit's work order item 1; qa/stage-scenarios.md
         # "בקשת קישור ללוח או לחופשה"). The model only decides the INTENT
         # (link_request, evidence-gated exactly like restart_request above -
-        # never a phrase list); whether there is anything to link to, and
-        # how to word that, is decided here from trip_state alone - never a
-        # claim about whether the search is still running or already
-        # finished (that fact lives only in the DB, invisible to this
-        # conversational state, and asserting it risked being wrong either
-        # way - the live finding was exactly that: "החיפוש רץ ברקע" after
-        # the search had already finished). Never the forbidden "אין לי
-        # אפשרות לשלוח קישורים" framing either way.
-        if (
+        # never a phrase list); whether there is anything to link to is
+        # decided here from trip_state alone - never a claim about whether
+        # the search is still running or already finished (that fact lives
+        # only in the DB, invisible to this conversational state, and
+        # asserting it risked being wrong either way - the live finding was
+        # exactly that: "החיפוש רץ ברקע" after the search had already
+        # finished).
+        #
+        # Per Shaked's review of the first version of this fix (20.10): an
+        # early return right here, before the rest of this turn's normal
+        # processing, silently discarded any OTHER fact the same message
+        # also carried (e.g. "שלחי לי את הלינק, ואגב התקציב עד 1000" lost
+        # the budget), and skipped straight past the open question instead
+        # of returning to it when there was nothing to link to yet. This
+        # now only records a flag; the turn continues through its normal
+        # pipeline exactly as if this request hadn't interrupted it, and
+        # Tinkerbell is told about it via a hint (below) so she
+        # acknowledges it naturally in her own reply, in the same message
+        # as whatever else this turn needed to say - never a fixed
+        # sentence, and never "הנה הקישור" herself (the real link is
+        # attached separately, after her reply, by open_existing_flights -
+        # see its handling further down this function and in
+        # whatsapp_bridge.py/trip_form.html).
+        link_request_verified = bool(
             link_request
             and not own_pending_question
             and _value_has_verbatim_evidence(link_request_evidence, message)
-        ):
-            has_something_to_link_to = bool(
-                trip_state.get("search_confirmed")
-                or trip_state.get("post_flight_continuation")
-                or trip_state.get("reopened_trip_id")
-                or trip_state.get("reopen_trip_id")
-            )
-            if has_something_to_link_to:
-                return _reply({
-                    'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                    'reply': 'בטח, הנה הקישור ללוח החופשה שלך:',
-                    'trip_update': trip_state, 'start_flight_search': False,
-                    'open_existing_flights': True,
-                })
-            return _reply({
-                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
-                'reply': 'עדיין לא פתחנו חיפוש שאפשר לקשר אליו - ברגע שנסיים את הפרטים ונאשר, אשלח לך קישור ישר לתוצאות.',
-                'trip_update': trip_state, 'start_flight_search': False,
-            })
+        )
 
         # General restart/change-of-direction always enters a simple yes/no
         # gate first. Never erase collected trip facts before an explicit
@@ -12130,6 +12142,16 @@ def _chat_clean_impl():
                         plan["details"] = plan_details
             trip_update["trip_planning"] = plan
 
+        # Resolved here, after every deterministic merge above has already
+        # run, so a search confirmed/continued/reopened earlier in THIS
+        # same turn (not just carried over from before it) still counts.
+        has_vacation_to_link_to = bool(
+            trip_update.get("search_confirmed")
+            or trip_update.get("post_flight_continuation")
+            or trip_update.get("reopened_trip_id")
+            or trip_update.get("reopen_trip_id")
+        )
+
         try:
             # Transient, one-turn-only signal for the welcome-back greeting
             # below - a shallow copy so it never enters trip_update itself
@@ -12142,6 +12164,12 @@ def _chat_clean_impl():
                 if state_for_tinkerbell is trip_update:
                     state_for_tinkerbell = dict(trip_update)
                 state_for_tinkerbell["_gap_clarify_question"] = gap_clarify_question
+            if link_request_verified:
+                if state_for_tinkerbell is trip_update:
+                    state_for_tinkerbell = dict(trip_update)
+                state_for_tinkerbell["_link_request_pending"] = (
+                    "has_vacation" if has_vacation_to_link_to else "no_vacation_yet"
+                )
             reply = _call_tinkerbell(key, model, history, message, state_for_tinkerbell)
         except Exception as exc:
             logging.exception("Tinkerbell reply failed after state update: %s", exc)
@@ -13028,4 +13056,11 @@ def _chat_clean_impl():
         'start_flight_search': start_flight_search,
         'trip_state_reset': trip_state_reset,
         'resolved_trip_state': resolved_trip_state,
+        # Set from state alone (never the model) - see link_request_verified/
+        # has_vacation_to_link_to above. whatsapp_bridge.py appends the real
+        # link via its own tracked active_trip_id; trip_form.html navigates
+        # the browser to /account#flights-N. Tinkerbell's own reply above
+        # already acknowledges the request in her own words without ever
+        # writing the link herself (see _link_request_pending's hint).
+        'open_existing_flights': link_request_verified and has_vacation_to_link_to,
     })
