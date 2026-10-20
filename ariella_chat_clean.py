@@ -4715,9 +4715,49 @@ def _deterministic_date_facts(history, message, state=None):
         return {}
     return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
 
+def _parse_stated_duration_days(message):
+    """Returns the number of days to add to a departure date to reach the
+    return date (a week -> 7, "3 nights" -> 3, "3 days" -> 2), or None if
+    no plain duration is stated at all. Shared by _deterministic_duration_
+    facts (completes a return date from an already-known departure) and
+    _deterministic_period_facts's month-part-without-a-weekday-pair branch
+    (20.10.2026, Shlomo's relay of Shaked's s1a5 Krakow finding -
+    "סוף החודש הבא, שבוע" needs the same duration understanding, but with
+    no known departure yet to complete)."""
+    import re
+    msg = str(message or "").strip().lower()
+    hebrew_durations = {
+        "שבועיים": (2, "שבועות"),
+        "שבוע": (1, "שבועות"),
+    }
+    # Standalone word only (optionally "ל"/"ו" prefixed) - "בשבוע הבא" or
+    # "סוף שבוע" are not a trip length.
+    matched = next(
+        (value for phrase, value in hebrew_durations.items()
+         if re.search(r"(?<![א-ת])(?:ל|ו|ול)?" + phrase + r"(?![א-ת])", msg)
+         and not re.search(r"סוף\s+" + phrase, msg)),
+        None,
+    )
+    if matched:
+        n, unit = matched
+    else:
+        m = re.search(r"(\d+)\s*(שבוע|שבועות|ימים|יום|לילות|לילה)", msg)
+        if not m:
+            return None
+        n = int(m.group(1))
+        unit = m.group(2)
+    if n <= 0:
+        return None
+    if unit in ("שבוע", "שבועות"):
+        # "שבועיים" is commonly written without a numeral; handled above.
+        return n * 7
+    if unit in ("לילות", "לילה"):
+        return n
+    return max(0, n - 1)
+
+
 def _deterministic_duration_facts(message, state=None):
     """If a departure date is known and customer gives a duration, calculate return deterministically."""
-    import re
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     dep_raw = str(dates.get("departure") or "")[:10]
@@ -4731,41 +4771,13 @@ def _deterministic_duration_facts(message, state=None):
     # agreed dates takes explicit new dates, handled by the date parsers.
     if dates.get("return") or str(state.get("active_session") or "") == "trip_planning":
         return {}
-    msg = str(message or "").strip().lower()
-    import re as _re_dur
-    hebrew_durations = {
-        "שבועיים": (2, "שבועות"),
-        "שבוע": (1, "שבועות"),
-    }
-    # Standalone word only (optionally "ל"/"ו" prefixed) - "בשבוע הבא" or
-    # "סוף שבוע" are not a trip length.
-    matched = next(
-        (value for phrase, value in hebrew_durations.items()
-         if _re_dur.search(r"(?<![א-ת])(?:ל|ו|ול)?" + phrase + r"(?![א-ת])", msg)
-         and not _re_dur.search(r"סוף\s+" + phrase, msg)),
-        None,
-    )
-    if matched:
-        n, unit = matched
-    else:
-        m = re.search(r"(\d+)\s*(שבוע|שבועות|ימים|יום|לילות|לילה)", msg)
-        if not m:
-            return {}
-        n = int(m.group(1))
-        unit = m.group(2)
-    if n <= 0:
+    delta_days = _parse_stated_duration_days(message)
+    if delta_days is None:
         return {}
     try:
         dep = date.fromisoformat(dep_raw)
     except ValueError:
         return {}
-    if unit in ("שבוע","שבועות"):
-        # "שבועיים" is commonly written without a numeral; handled below.
-        delta_days = n * 7
-    elif unit in ("לילות","לילה"):
-        delta_days = n
-    else:
-        delta_days = max(0, n - 1)
     ret = dep + timedelta(days=delta_days)
     duration_days = (ret - dep).days + 1
     return {"dates":{"departure":dep.isoformat(),"return":ret.isoformat(),
@@ -5700,12 +5712,28 @@ def _deterministic_period_facts(message, history=None):
     msg=str(message or "").strip().lower()
     recent=[msg]+[str(x.get("content") or "").strip().lower() for x in reversed(history or [])
                   if isinstance(x,dict) and str(x.get("role") or "").lower()=="user"][:6]
+    today=date.today()
 
     def find_month(text):
         # Whole word only (optionally ב/ל/מ/ו-prefixed): "מאיזה"/"מאיפה" are not May.
         for name,num in months.items():
             if re.search(r"(?<![\u05d0-\u05ea])(?:ב|ל|מ|ו|וב|ול|ומ)?"+name+r"(?![\u05d0-\u05ea])",text):
                 return name,num
+        # Per Shlomo's relay of Shaked's live stage-1 run-1 finding
+        # (20.10.2026, s1a5, Krakow): "בסוף החודש הבא" never names an
+        # actual month at all - it is itself a relative reference. In the
+        # real transcript the literal month name only ever reached a USER
+        # message because Ariella's OWN clarifying question happened to
+        # name it first and the customer repeated it back ("כן, סוף
+        # נובמבר"); a customer who instead just answered "כן" would still
+        # have left find_month with nothing to find. Resolving "החודש
+        # הבא"/"החודש (הזה/הנוכחי)" directly against today's date closes
+        # that gap regardless of how the customer answers.
+        if re.search(r"(?:ה)?חודש\s+הבא", text):
+            num = today.month + 1 if today.month < 12 else 1
+            return next(n for n, v in months.items() if v == num), num
+        if re.search(r"(?<![\u05d0-\u05ea])החודש(?:\s+(?:הזה|הנוכחי))?(?![\u05d0-\u05ea])", text):
+            return next(n for n, v in months.items() if v == today.month), today.month
         return None,None
 
     def find_pair(text):
@@ -5741,13 +5769,72 @@ def _deterministic_period_facts(message, history=None):
         for t in recent[1:]:
             pair=find_pair(t)
             if pair:break
-    if not month or not pair:return {}
-    today=date.today(); year=today.year+(1 if month<today.month else 0)
-    start_wd,end_wd=weekdays[pair.group(1)],weekdays[pair.group(2)]; delta=(end_wd-start_wd)%7
+    if not month:return {}
+    year=today.year+(1 if month<today.month else 0)
     last=calendar.monthrange(year,month)[1]
     part=None
     for word,key in (("סוף","end"),("תחילת","start"),("בתחילת","start"),("אמצע","mid")):
         if word in month_text:part=key;break
+    if not pair:
+        # Per Shlomo's relay of Shaked's live stage-1 run-1 finding
+        # (20.10.2026, s1a5, Krakow): "לקרקוב בסוף החודש הבא, שבוע" names a
+        # part-of-month and a plain duration ("שבוע") but no weekday pair
+        # at all - find_pair above never matches this at all, so this used
+        # to fall straight through to returning {}, leaving Tinkerbell to
+        # freely invent her own vague proposal ("רק לוודא - סוף נובמבר
+        # 2026?") with no actual candidate dates behind it. Once accepted,
+        # only dates.period got saved (no departure/return at all), and
+        # ariella_start_flight_search - which only computes a month from a
+        # period string starting with digits - silently failed the search
+        # with "חסרים תאריכי חיפוש". Per the business owner's 19.10 note:
+        # a relative answer must get an exact-date proposal, with a real
+        # confirmation, same as the weekday-pair case above - just without
+        # a weekday to anchor on. Offers two candidate departures a week
+        # apart within the requested part of the month (never a next-month
+        # departure, matching the weekday case's own rule) with the exact
+        # stated duration - the actual weekday of each lands wherever it
+        # naturally falls, reported back honestly rather than chosen for
+        # the customer.
+        if not part:
+            return {}
+        duration_days = None
+        for t in recent:
+            duration_days = _parse_stated_duration_days(t)
+            if duration_days is not None:
+                break
+        if duration_days is None:
+            return {}
+        window = {"end": (last - 13, last), "start": (1, 14), "mid": (8, 22)}[part]
+        viable_starts = []
+        for day in range(max(1, window[0]), window[1] + 1):
+            try:
+                dep = date(year, month, day)
+            except ValueError:
+                continue
+            if dep > today:
+                viable_starts.append(dep)
+        if not viable_starts:
+            return {}
+        # Two candidates spread across the viable part of the window (the
+        # earliest, and the latest at least 5 days after it) - rather than
+        # a fixed "window start, +7" pair, which could miss every viable
+        # day when today is already deep into the window (e.g. "אמצע
+        # החודש" asked on the 20th, with the window's own first days
+        # already in the past).
+        chosen = [viable_starts[0]]
+        later = [d for d in viable_starts if d >= viable_starts[0] + timedelta(days=5)]
+        if later:
+            chosen.append(later[-1] if part == "end" else later[0])
+        elif len(viable_starts) > 1:
+            chosen.append(viable_starts[-1])
+        candidates = [(dep, dep + timedelta(days=duration_days)) for dep in chosen]
+        labels = [
+            f"יום {_WEEKDAY_HE_BY_PY[x.weekday()]} {x.strftime('%d.%m.%Y')}–יום {_WEEKDAY_HE_BY_PY[y.weekday()]} {y.strftime('%d.%m.%Y')}"
+            for x, y in candidates
+        ]
+        part_he={"end":"סוף","start":"תחילת","mid":"אמצע"}[part]
+        return {"dates":{"departure":None,"return":None,"period":f"{part_he} {month_name} {year}","constraints":[],"candidate_ranges":labels,"needs_confirmation":True}}
+    start_wd,end_wd=weekdays[pair.group(1)],weekdays[pair.group(2)]; delta=(end_wd-start_wd)%7
     if part:
         window={"end":(last-13,last),"start":(1,14),"mid":(8,22)}[part]
         candidates=[]
