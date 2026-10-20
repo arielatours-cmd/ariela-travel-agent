@@ -287,6 +287,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - child_genders היא רשימה מקבילה ל-child_ages, לפי אותו סדר: "female" כאשר הלקוח אמר "ילדה"/"בת", "male" כאשר אמר "ילד"/"בן", ו-null כשלא צוין מגדר לאותו ילד. לעולם אל תמחקי או תנחשי ערך שכבר קיים ברשימה הזו.
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence. בקשת שינוי שנוסחה כשאלה ("רגע, אפשר לשנות ל-4 עד 10 ביוני?", "אפשר ל-X במקום?") היא בדיוק אותה כוונה כמו משפט הצהרתי ("בעצם X") - היא עדיין בקשה אמיתית לשנות את התאריך, לא רק מחשבה בקול רם, גם כשהיא מופיעה בתוך הודעה שעונה בעיקר על שאלה אחרת לגמרי (כמו קצב הטיול) שטינקרבל שאלה באותה הודעה. אל תתני לנושא הפתוח של השאלה האחרונה להסיח את דעתך מבקשת שינוי תאריך אמיתית שמופיעה באותה הודעה - שתיהן נכתבות, כל אחת לשדה שלה.
+- כשהלקוח נותן תשובה יחסית לגבי מתי לטוס (יום/זוג ימים בשבוע, חלק מחודש כמו "סוף/תחילת/אמצע החודש" או "החודש הבא", ו/או משך כמו "שבוע"/"עשרה ימים") ו-dates.departure/dates.return עדיין ריקים ב-state - לעולם אל תחשבי תאריך קלנדרי בעצמך (לא יום בשבוע, לא איזו שנה, לא איזה יום בחודש). במקום זאת החזירי את מה שהלקוח אמר בצורה מובנית בלבד, ברמת ה-JSON העליון ליד trip_update: relative_date_hint (אובייקט, או null אם לא נאמרה שום הנחיה יחסית כזו) עם השדות: weekday_start/weekday_end (שם היום בעברית בדיוק כפי שהלקוח אמר, אם הוזכר זוג ימים ליציאה/חזרה - "ראשון"/"שני" וכו', אחרת null), month_name (שם החודש בעברית בדיוק אם נאמר מפורשות - למשל "נובמבר", אחרת null), month_relative ("next" אם נאמר "החודש הבא", "this" אם נאמר "החודש"/"החודש הזה" בלי שם חודש מפורש, אחרת null - לעולם לא גם month_name וגם month_relative יחד), part_of_month ("start"/"mid"/"end" לפי "תחילת"/"אמצע"/"סוף" שנאמר, או null אם לא נאמר חלק מהחודש), duration_days (מספר הלילות הכולל אם נאמר משך מפורש - "שבוע"=7, "שבועיים"=14, "N ימים"=N-1, "N לילות"=N - אחרת null), shift_days (מספר ימים, חיובי להזזה קדימה או שלילי להזזה אחורה, רק כאשר dates.departure/dates.return כבר קיימים ב-state וה הלקוח מבקש להזיז אותם - למשל "אפשר לזוז יום אחד קדימה?"=1, "יום לפני"=-1 - אחרת null; זו בקשת שינוי אמיתית, בדיוק כמו dates_evidence, לא "גמישות" כללית). מלאי גם relative_date_hint_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בהנחיה הזו; בלי ציטוט אמיתי כזה, relative_date_hint נשאר null כולו. זה בדיוק כמו destination_airports: את מזהה ומחזירה מה שנאמר, אף פעם לא מחשבת בעצמך איזה תאריך קלנדרי זה - החישוב עצמו (כולל השנה הנכונה) נעשה בקוד.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
@@ -311,13 +312,15 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אל תסמני כשדה חסר שירות שהלקוח אמר שאינו רוצה.
 - ready_for_summary=true רק כאשר יש כוונת חיפוש וכל שדות החובה לשירותים המבוקשים מלאים.
 
-החזירי JSON תקין בלבד, עם שבעת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence/link_request/link_request_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
+החזירי JSON תקין בלבד, עם תשעת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence/relative_date_hint/relative_date_hint_evidence/link_request/link_request_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
 {
  "restart_request":false,
  "restart_evidence":null,
  "dates_evidence":null,
  "destination_evidence":null,
  "trip_type_evidence":null,
+ "relative_date_hint":null,
+ "relative_date_hint_evidence":null,
  "link_request":false,
  "link_request_evidence":null,
  "trip_update":{
@@ -785,6 +788,32 @@ def _parse_trip_type_evidence(text):
     except Exception:
         pass
     return None
+
+
+def _parse_relative_date_hint(text):
+    """Pull relative_date_hint/relative_date_hint_evidence (siblings of
+    trip_update, not inside it) out of the SAME raw JSON the extractor
+    already returned every turn - mirrors _parse_destination_evidence.
+    Defaults to (None, None) on any parse failure - a relative-date hint
+    is never assumed.
+
+    Per Shlomo's relay of the business owner's explicit direction
+    (20.10.2026, review of the first version of this fix): the model
+    decides meaning (which weekday/month/part/duration the customer
+    named), never a regex matched against raw text - the regex-based
+    _deterministic_period_facts may only ever be a FALLBACK for when this
+    structured extraction itself fails, never the primary detection path."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            hint = data.get('relative_date_hint')
+            return (hint if isinstance(hint, dict) else None), data.get('relative_date_hint_evidence')
+    except Exception:
+        pass
+    return None, None
 
 
 def _parse_link_request_signal(text):
@@ -4057,7 +4086,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, link_request, link_request_evidence).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -4074,6 +4103,16 @@ def _extract_trip_update(key, model, history, message, state=None):
     captured apart from a stale value it should keep locking to - a
     verbatim quote is the one signal that distinguishes them, exactly like
     restart_evidence. None on any failure - never assumed either.
+
+    relative_date_hint/relative_date_hint_evidence (20.10.2026, Shlomo's
+    relay of the business owner's explicit direction on the first version
+    of this fix): when the customer gives a relative date answer (a
+    weekday pair, a part of month, a duration), the model returns what it
+    understood in STRUCTURED form here - never computing a calendar date
+    itself - and the call site alone turns that structured understanding
+    into exact candidate dates. _deterministic_period_facts's own regex
+    parsing is kept only as a fallback for when this extraction itself
+    fails to produce a usable hint, never as the primary detection path.
 
     link_request/link_request_evidence (20.10, Shlomo's relay of Carmit's
     work order item 1, qa/stage-scenarios.md "בקשת קישור ללוח או לחופשה"):
@@ -4122,10 +4161,15 @@ def _extract_trip_update(key, model, history, message, state=None):
         dates_evidence = _parse_dates_evidence(raw)
         destination_evidence = _parse_destination_evidence(raw)
         trip_type_evidence = _parse_trip_type_evidence(raw)
+        relative_date_hint, relative_date_hint_evidence = _parse_relative_date_hint(raw)
         link_request, link_request_evidence = _parse_link_request_signal(raw)
-        return parsed, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, link_request, link_request_evidence
+        return (
+            parsed, restart_request, restart_evidence, dates_evidence, destination_evidence,
+            trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
+            link_request, link_request_evidence,
+        )
     except Exception:
-        return {}, False, None, None, None, None, False, None
+        return {}, False, None, None, None, None, None, None, False, None
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
@@ -4788,9 +4832,49 @@ def _deterministic_date_facts(history, message, state=None):
         return {}
     return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
 
+def _parse_stated_duration_days(message):
+    """Returns the number of days to add to a departure date to reach the
+    return date (a week -> 7, "3 nights" -> 3, "3 days" -> 2), or None if
+    no plain duration is stated at all. Shared by _deterministic_duration_
+    facts (completes a return date from an already-known departure) and
+    _deterministic_period_facts's month-part-without-a-weekday-pair branch
+    (20.10.2026, Shlomo's relay of Shaked's s1a5 Krakow finding -
+    "סוף החודש הבא, שבוע" needs the same duration understanding, but with
+    no known departure yet to complete)."""
+    import re
+    msg = str(message or "").strip().lower()
+    hebrew_durations = {
+        "שבועיים": (2, "שבועות"),
+        "שבוע": (1, "שבועות"),
+    }
+    # Standalone word only (optionally "ל"/"ו" prefixed) - "בשבוע הבא" or
+    # "סוף שבוע" are not a trip length.
+    matched = next(
+        (value for phrase, value in hebrew_durations.items()
+         if re.search(r"(?<![א-ת])(?:ל|ו|ול)?" + phrase + r"(?![א-ת])", msg)
+         and not re.search(r"סוף\s+" + phrase, msg)),
+        None,
+    )
+    if matched:
+        n, unit = matched
+    else:
+        m = re.search(r"(\d+)\s*(שבוע|שבועות|ימים|יום|לילות|לילה)", msg)
+        if not m:
+            return None
+        n = int(m.group(1))
+        unit = m.group(2)
+    if n <= 0:
+        return None
+    if unit in ("שבוע", "שבועות"):
+        # "שבועיים" is commonly written without a numeral; handled above.
+        return n * 7
+    if unit in ("לילות", "לילה"):
+        return n
+    return max(0, n - 1)
+
+
 def _deterministic_duration_facts(message, state=None):
     """If a departure date is known and customer gives a duration, calculate return deterministically."""
-    import re
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     dep_raw = str(dates.get("departure") or "")[:10]
@@ -4804,41 +4888,13 @@ def _deterministic_duration_facts(message, state=None):
     # agreed dates takes explicit new dates, handled by the date parsers.
     if dates.get("return") or str(state.get("active_session") or "") == "trip_planning":
         return {}
-    msg = str(message or "").strip().lower()
-    import re as _re_dur
-    hebrew_durations = {
-        "שבועיים": (2, "שבועות"),
-        "שבוע": (1, "שבועות"),
-    }
-    # Standalone word only (optionally "ל"/"ו" prefixed) - "בשבוע הבא" or
-    # "סוף שבוע" are not a trip length.
-    matched = next(
-        (value for phrase, value in hebrew_durations.items()
-         if _re_dur.search(r"(?<![א-ת])(?:ל|ו|ול)?" + phrase + r"(?![א-ת])", msg)
-         and not _re_dur.search(r"סוף\s+" + phrase, msg)),
-        None,
-    )
-    if matched:
-        n, unit = matched
-    else:
-        m = re.search(r"(\d+)\s*(שבוע|שבועות|ימים|יום|לילות|לילה)", msg)
-        if not m:
-            return {}
-        n = int(m.group(1))
-        unit = m.group(2)
-    if n <= 0:
+    delta_days = _parse_stated_duration_days(message)
+    if delta_days is None:
         return {}
     try:
         dep = date.fromisoformat(dep_raw)
     except ValueError:
         return {}
-    if unit in ("שבוע","שבועות"):
-        # "שבועיים" is commonly written without a numeral; handled below.
-        delta_days = n * 7
-    elif unit in ("לילות","לילה"):
-        delta_days = n
-    else:
-        delta_days = max(0, n - 1)
     ret = dep + timedelta(days=delta_days)
     duration_days = (ret - dep).days + 1
     return {"dates":{"departure":dep.isoformat(),"return":ret.isoformat(),
@@ -5752,6 +5808,119 @@ def _deterministic_flights_already_booked_facts(message):
             "service_decisions": {"flights": {"wanted": False, "source": "already_booked_elsewhere"}},
             "session_status": {"flights": "declined"},
         }
+    return {}
+
+
+def _candidate_dates_from_relative_hint(hint):
+    """Computes 2-3 exact departure/return candidates from a relative-date
+    hint the MODEL already understood and returned in structured form
+    (weekday_start/weekday_end, month_name/month_relative, part_of_month,
+    duration_days - see EXTRACTOR_SYSTEM's own instruction for this field
+    and _parse_relative_date_hint). This is the PRIMARY path: per Shlomo's
+    relay of the business owner's explicit direction (20.10.2026, review
+    of the first version of this fix): "המחלץ מבין את הביטוי היחסי ומחזיר
+    אותו בצורה מובנית... הקוד רק מחשב ממנו תאריכים ומציע" - the model
+    decides meaning, this function only does calendar arithmetic (which
+    year, which exact day each weekday/part-of-month lands on) from what
+    it already understood - never re-deciding what the customer said.
+    _deterministic_period_facts (below) is kept only as a REGEX FALLBACK
+    for when this structured extraction itself produces nothing usable -
+    never extended further as a primary detection mechanism itself.
+
+    Each candidate shows a real day of week next to the exact date, using
+    the customer's own weekday words when given (matching them back
+    verbatim), or the date's own true weekday otherwise. Returns {} when
+    the hint doesn't carry enough information to compute anything
+    concrete (no month, or a weekday pair with no part, or no duration)."""
+    if not isinstance(hint, dict):
+        return {}
+    import calendar
+    months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
+    weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
+    today = date.today()
+
+    month_name = hint.get("month_name")
+    month = months.get(month_name) if isinstance(month_name, str) else None
+    month_relative = hint.get("month_relative")
+    if not month and month_relative == "next":
+        month = today.month + 1 if today.month < 12 else 1
+        month_name = next(n for n, v in months.items() if v == month)
+    elif not month and month_relative == "this":
+        month = today.month
+        month_name = next(n for n, v in months.items() if v == month)
+    if not month:
+        return {}
+    year = today.year + (1 if month < today.month else 0)
+    last = calendar.monthrange(year, month)[1]
+    part = hint.get("part_of_month")
+    # Per Shlomo's relay of the business owner's review (20.10.2026): "סוף
+    # החודש" was proposing 17.11 (the window used to start 13 days before
+    # month-end, which for a 30-day month is day 17 - genuinely mid-month,
+    # not "end" by any reasonable reading) alongside a second candidate on
+    # day 30 whose week-long return spilled into the next month. Windows
+    # now split the month into three non-overlapping ~10-day thirds, so a
+    # departure in the "end" window is unambiguously in the last stretch of
+    # the month - the customer's own actual request - even though a
+    # long-enough duration can still carry the RETURN date into next month,
+    # which is normal and not itself a bug.
+    window = {"start": (1, 10), "mid": (11, 20), "end": (last - 9, last)}.get(part)
+
+    weekday_start_name = hint.get("weekday_start")
+    weekday_end_name = hint.get("weekday_end")
+    start_wd = weekdays.get(weekday_start_name) if isinstance(weekday_start_name, str) else None
+    end_wd = weekdays.get(weekday_end_name) if isinstance(weekday_end_name, str) else None
+
+    if start_wd is not None and end_wd is not None and window:
+        delta = (end_wd - start_wd) % 7
+        candidates = []
+        for day in range(max(1, window[0]), window[1] + 1):
+            d = date(year, month, day)
+            if d.weekday() == start_wd and d > today:
+                candidates.append((d, d + timedelta(days=delta)))
+        candidates = candidates[-2:] if part == "end" else candidates[:2]
+        if not candidates:
+            return {}
+        labels = [
+            f"יום {weekday_start_name} {x.strftime('%d.%m.%Y')}–יום {weekday_end_name} {y.strftime('%d.%m.%Y')}"
+            for x, y in candidates
+        ]
+        part_he = {"end": "סוף", "start": "תחילת", "mid": "אמצע"}[part]
+        return {"dates": {
+            "departure": None, "return": None,
+            "period": f"{part_he} {month_name} {year}, {weekday_start_name} עד {weekday_end_name}",
+            "constraints": [f"{weekday_start_name} עד {weekday_end_name}"],
+            "candidate_ranges": labels, "needs_confirmation": True,
+        }}
+
+    duration_days = hint.get("duration_days")
+    if isinstance(duration_days, int) and duration_days > 0 and window:
+        viable_starts = []
+        for day in range(max(1, window[0]), window[1] + 1):
+            try:
+                dep = date(year, month, day)
+            except ValueError:
+                continue
+            if dep > today:
+                viable_starts.append(dep)
+        if not viable_starts:
+            return {}
+        chosen = [viable_starts[0]]
+        later = [d for d in viable_starts if d >= viable_starts[0] + timedelta(days=5)]
+        if later:
+            chosen.append(later[-1] if part == "end" else later[0])
+        elif len(viable_starts) > 1:
+            chosen.append(viable_starts[-1])
+        candidates = [(dep, dep + timedelta(days=duration_days)) for dep in chosen]
+        labels = [
+            f"יום {_WEEKDAY_HE_BY_PY[x.weekday()]} {x.strftime('%d.%m.%Y')}–יום {_WEEKDAY_HE_BY_PY[y.weekday()]} {y.strftime('%d.%m.%Y')}"
+            for x, y in candidates
+        ]
+        part_he = {"end": "סוף", "start": "תחילת", "mid": "אמצע"}[part]
+        return {"dates": {
+            "departure": None, "return": None,
+            "period": f"{part_he} {month_name} {year}",
+            "constraints": [], "candidate_ranges": labels, "needs_confirmation": True,
+        }}
     return {}
 
 
@@ -11340,7 +11509,11 @@ def _chat_clean_impl():
     try:
         # Tinkerbell's data-transfer pass tells Ariella what changed.
         # Ariella owns and merges the cumulative state.
-        extracted, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, link_request, link_request_evidence = _extract_trip_update(key, model, history, message, trip_state)
+        (
+            extracted, restart_request, restart_evidence, dates_evidence, destination_evidence,
+            trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
+            link_request, link_request_evidence,
+        ) = _extract_trip_update(key, model, history, message, trip_state)
 
         # Customer asking for a link back to their vacation/dashboard (20.10,
         # Shlomo's relay of Carmit's work order item 1; qa/stage-scenarios.md
@@ -11985,12 +12158,51 @@ def _chat_clean_impl():
         # If Ariella offered concrete date ranges and the customer chose one,
         # convert that choice to authoritative exact dates before any summary/search.
         trip_update = _merge_trip_state(trip_update, _deterministic_candidate_choice_facts(message, trip_state))
+        # "אפשר לזוז יום אחד קדימה?" - a genuine request to SHIFT dates that
+        # are already known, not a vague "flexibility" preference. Per
+        # Shlomo's relay (20.10.2026): this must be understood as the same
+        # kind of real date-change request as dates_evidence, with the
+        # model naming the shift in structured form (shift_days) and code
+        # computing the actual new departure/return - never guessed, and
+        # never silently folded into dates.flexibility_days instead.
+        if prior_dates.get("departure") and prior_dates.get("return"):
+            _shift_days = relative_date_hint.get("shift_days") if isinstance(relative_date_hint, dict) else None
+            if (
+                isinstance(_shift_days, int) and _shift_days != 0
+                and _value_has_verbatim_evidence(relative_date_hint_evidence, message)
+            ):
+                try:
+                    _old_dep = date.fromisoformat(str(prior_dates["departure"])[:10])
+                    _old_ret = date.fromisoformat(str(prior_dates["return"])[:10])
+                    _new_dep = _old_dep + timedelta(days=_shift_days)
+                    _new_ret = _old_ret + timedelta(days=_shift_days)
+                    trip_update = _merge_trip_state(trip_update, {"dates": {
+                        "departure": _new_dep.isoformat(), "return": _new_ret.isoformat(),
+                        "period": f"{_new_dep.strftime('%d.%m.%Y')}–{_new_ret.strftime('%d.%m.%Y')}",
+                        "needs_confirmation": False, "candidate_ranges": [],
+                    }})
+                except ValueError:
+                    pass
+
         # Current message + Ariella state only. Never resurrect facts from old chat history.
         # Weekday/month wording opens a date choice only while dates are still
         # open - never reopens dates the customer already closed (mid-route
         # "סוף מאי, ראשון עד חמישי" is context, not a new request).
         if not (prior_dates.get("departure") and prior_dates.get("return")):
-            trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history))
+            # Per Shlomo's relay of the business owner's explicit direction
+            # (20.10.2026): the model's own structured understanding of the
+            # relative phrase (relative_date_hint, evidence-gated exactly
+            # like destination_evidence above) is the PRIMARY path - the
+            # regex-based _deterministic_period_facts only ever runs as a
+            # fallback, when the model's own extraction produced nothing
+            # usable this turn, never as the main detection mechanism.
+            _relative_hint_facts = {}
+            if relative_date_hint and _value_has_verbatim_evidence(relative_date_hint_evidence, message):
+                _relative_hint_facts = _candidate_dates_from_relative_hint(relative_date_hint)
+            if _relative_hint_facts:
+                trip_update = _merge_trip_state(trip_update, _relative_hint_facts)
+            else:
+                trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history))
 
         # A normal trip request to a destination implies Ariella should handle
         # flights unless the customer explicitly says flights are booked/not needed.
