@@ -8090,7 +8090,14 @@ _GUIDED_FIELD_HINT_DESCRIPTION = {
     # moves from a plain regex safety net into a real guided field, same as
     # dates/travelers - the model decides shared/per-passenger, not another
     # literal phrase added to a list.
-    "baggage": "איזה כבודה לוקחים (טרולי/מזוודה בבטן/תיק קטן בלבד), ואם המזוודה משותפת לכל הקבוצה או אחת לכל נוסע",
+    # Per the business owner's explicit decision (20.10, replacing the
+    # earlier "per-passenger" framing entirely, after Shaked's live K1/K2
+    # findings on #91): ONE question to the WHOLE group, exactly 3 options
+    # - never a question about, or explanation of, baggage differing
+    # between passengers at all (that option doesn't exist in a single
+    # booking - see _guided_field_update_and_confirm's mixed_per_passenger
+    # handling below).
+    "baggage": "שאלה אחת לכל הקבוצה (לא לכל נוסע בנפרד) עם 3 אפשרויות בדיוק: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק\"ג) - לעולם לא לשאול או להסביר על כבודה שונה לנוסעים שונים",
     "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה, צימר או הוסטל",
     "lodging_rooms": "כמה חדרים נדרשים ללינה",
     "lodging_bathrooms": "כמה חדרי רחצה נדרשים בדירה",
@@ -8166,6 +8173,32 @@ def _guided_ask_hint(field, attempts):
         " התיאור הזה יכול לכלול דוגמאות לערכים אפשריים - הן למטרת ההבנה שלך בלבד, "
         "לעולם אל תמני אותן כאפשרויות בתוך השאלה עצמה (לא \"X, Y או Z?\")."
     )
+    # Baggage is a DELIBERATE exception (business owner, 20.10, replacing
+    # the earlier per-passenger design): unlike every other guided field,
+    # she wants the 3 real options NAMED in the question itself - the same
+    # already-established exception as an open question with a listed set
+    # of examples (qa/stage-scenarios.md's own precedent, "מה הסגנון שהכי
+    # מדבר אלייך (תרבות ומוזיאונים, שופינג, אוכל וכו')?" - not a forced
+    # "X או Y?" the customer must pick between, since the customer is free
+    # to answer in their own words too). Still one open question, still no
+    # buttons - just with the exhaustive option set spoken, specifically so
+    # the customer doesn't default to describing per-passenger differences.
+    if field == "baggage":
+        if attempts and attempts >= 1:
+            return (
+                "הפרט הבא עדיין חסר, ובניסיון הקודם לא הובן: "
+                f"{desc}. שאלי שוב שאלה אחת ויחידה לכל הקבוצה, בניסוח שונה "
+                "מהפעם הקודמת, ובה את מזכירה את שלוש האפשרויות בדיוק - תיק יד "
+                "בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק\"ג) - לעולם לא "
+                "כפתורי בחירה, ולעולם לא שאלה על הבדל בין נוסעים שונים."
+            )
+        return (
+            f"הפרט הבא לברר אצל הלקוח: {desc}. שאלי שאלה אחת ויחידה לכל "
+            "הקבוצה, בניסוח שלך - חם וטבעי, בלי כפתורים - ובה את מזכירה את "
+            "שלוש האפשרויות בדיוק: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס "
+            "(20-23 ק\"ג). לעולם אל תפתחי שאלה על הבדל בין נוסעים שונים "
+            "בקבוצה - אין אפשרות כזו בהזמנה אחת."
+        )
     if attempts and attempts >= 1:
         return (
             f"הפרט הבא עדיין חסר, ובניסיון הקודם לא הובן: {desc}. שאלי שוב שאלה אחת "
@@ -8190,6 +8223,30 @@ def _guided_confirm_hint(field, confirm_desc):
 def _guided_correction_hint(label, confirm_desc):
     value_text = f" ל{confirm_desc}" if confirm_desc else ""
     return f"הלקוח עדכן את {label}{value_text} - ציייני לו בקצרה במשפט אחד שהעדכון נקלט, לא כשאלה."
+
+
+def _baggage_followup_hint(baggage_values):
+    """Per the business owner's explicit decision (20.10, replacing the
+    earlier per-passenger/explain-and-confirm design after Shaked's live
+    K1 Warsaw finding): once the group's single baggage choice is settled,
+    Ariella always adds ONE short note depending on the highest tier
+    actually chosen - then moves straight to the next topic in the SAME
+    message, never a separate follow-up question or confirmation request.
+    A checked bag (the top tier) needs no note at all; anything below it
+    can always be upgraded at the airline's own website when booking.
+    Returns None for checked_bag (nothing to add)."""
+    values = baggage_values if isinstance(baggage_values, list) else []
+    if "checked_bag" in values:
+        return None
+    if "carry_on_only" in values:
+        what = "שאפשר תמיד להוסיף מזוודה בבטן המטוס"
+    else:
+        what = "שאפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס"
+    return (
+        f"בנוסף, ציייני בלשונך במשפט קצר אחד {what} באתר חברת התעופה בזמן "
+        "ההזמנה - ומיד אחר כך, באותה הודעה, עברי לנושא הבא. לעולם אל תשאלי "
+        "עוד שאלה או בקשת אישור על הכבודה."
+    )
 
 
 def _guided_baggage_applies(state):
@@ -8372,12 +8429,18 @@ def _guided_extract_answer(key, model, field, message, history, state):
             "\"גדולה\" כברירת מחדל. אם אין שום כבודה בכלל - no_baggage:true "
             "(items ריקה אז). אם לא ברור בכלל אילו פריטים נלקחים, items=null "
             "ו-confidence:\"low\".\n"
-            "mixed_per_passenger: true רק אם הלקוח במפורש ניגד בין נוסעים "
-            "שונים - מי מקבל איזה סוג כבודה (למשל \"אני עם טרולי אבל הילדים "
-            "עם מזוודה\", \"חלק טרולי וחלק מזוודה\") - לא רק אמירה שיש גם "
-            "טרולי וגם מזוודה לכל הקבוצה. כש-true, מלאי items עם checked_bag "
-            "בלבד (ברירת המחדל המכילה את שני הצרכים) ו-confidence:\"low\" - "
-            "בלי לנחש גודל/כמות שלא נאמרו.\n"
+            "mixed_per_passenger: true כשהלקוח משייך סוג כבודה שונה לנוסעים/"
+            "קבוצות שונים בתוך אותה תשובה - בכל ניסוח, לא רק ניגוד מפורש עם "
+            "\"אבל\": גם תיאור צד-לצד (\"אני מסתדרת עם תיק קטן, השתיים "
+            "האחרות רוצות מזוודה גדולה\", \"ההורים עם טרולי, לילדים מזוודה\"), "
+            "לא רק \"אני... אבל הם...\". לעולם לא true רק בגלל שיש גם טרולי "
+            "וגם מזוודה לכל הקבוצה כולה (זה לא מעורב - זו בקשה לשני פריטים "
+            "אחידים). לפי ההחלטה המפורשת של בעלת העסק (20.10): אין בכלל "
+            "אפשרות להזמין כבודה שונה לנוסעים שונים באותה הזמנה - אז בקשה "
+            "מעורבת נפתרת מיד לפי האפשרות הגבוהה ביותר (מזוודה), בלי לפתוח "
+            "דיון ובלי לשאול שוב. כש-true: מלאי items עם checked_bag בלבד "
+            "(בלי size/count - לא נאמרו בפועל לכל הקבוצה) ו-confidence:"
+            "\"high\" - ההחלטה ודאית, אין כאן שום דבר לברר מול הלקוח.\n"
             "also_mentioned: רק פרטי תאריכים/נוסעים שנאמרו במפורש באותה "
             "הודעה, בלי להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל "
             "(שאלה אחרת, נושא אחר) - status=\"other_topic\". אם ההודעה "
@@ -8736,23 +8799,20 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
         # whole group, never a per-passenger split synthesized from one.
         if result.get("no_baggage"):
             return {"flight": {"baggage": ["no_baggage"], "baggage_detail": {}}}, "ללא כבודה"
-        # mixed_per_passenger (same directive): the customer's own words
-        # explicitly differentiated what DIFFERENT passengers get (e.g.
-        # "אני עם טרולי אבל הילדים עם מזוודה") - the model itself decides
-        # this from meaning, never a phrase list. Since the booking can't
-        # represent that split, default to checked_bag alone (covers both
-        # a trolley-only and a checked-bag need) and let the low-confidence
-        # path below surface the explanation for Tinkerbell to convey in
-        # her own words - never silently merging a request that was never
-        # actually made.
+        # mixed_per_passenger: the customer's own words differentiated what
+        # DIFFERENT passengers get (e.g. "אני עם טרולי אבל הילדים עם
+        # מזוודה") - the model itself decides this from meaning, never a
+        # phrase list. Per the business owner's explicit decision (20.10,
+        # replacing the earlier "explain and confirm" design after Shaked's
+        # live K1 Warsaw finding - Ariella correctly explained uniform
+        # baggage but then ASKED a confirm question anyway, and separately
+        # PROMISED a per-passenger split at booking time, both forbidden):
+        # a mixed request resolves SILENTLY to the highest tier (checked_
+        # bag), with the exact same flat description as if the customer had
+        # asked for a checked bag directly - no explanation, no discussion,
+        # no promise of any per-passenger split.
         if result.get("mixed_per_passenger"):
-            return (
-                {"flight": {"baggage": ["checked_bag"]}},
-                "כבודה אחידה לכל הכרטיסים (מזוודה בבטן המטוס לכל נוסע) - ביקשת "
-                "חלוקה שונה בין הנוסעים, אבל ההזמנה היא תמיד אותו סוג כבודה "
-                "לכל הכרטיסים באותה הזמנה; אפשר להוסיף מזוודה רק לחלק "
-                "מהנוסעים בפועל מול חלק מחברות התעופה, בזמן ההזמנה עצמה",
-            )
+            return {"flight": {"baggage": ["checked_bag"]}}, _checked_bag_label({})
         items = result.get("items")
         if not isinstance(items, list) or not items:
             return {}, None
@@ -9098,7 +9158,13 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             trip_update["ready_for_summary"] = False
         guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
         trip_update["guided"] = guided
-        return {"trip_update": trip_update, "dynamic_hint": _guided_correction_hint(field_label, confirm_desc)}
+        correction_hint = _guided_correction_hint(field_label, confirm_desc)
+        if current_question == "baggage":
+            baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
+            if baggage_note:
+                correction_hint = correction_hint + " " + baggage_note
+        return {"trip_update": trip_update, "dynamic_hint": correction_hint}
+    answered_field = current_question
     current_question = None
 
     next_field = next(
@@ -9109,7 +9175,18 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     guided["attempts"] = 0
     guided["answered"] = answered
     trip_update["guided"] = guided
-    return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(next_field, 0) if next_field else None}
+    next_hint = _guided_ask_hint(next_field, 0) if next_field else None
+    if answered_field == "baggage":
+        # Per the business owner's decision (20.10): always add the "can
+        # always add later" note, then move straight to the next topic in
+        # the SAME message - never a separate turn.
+        baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
+        if baggage_note:
+            return {
+                "trip_update": trip_update,
+                "dynamic_hint": (baggage_note + " " + next_hint) if next_hint else baggage_note,
+            }
+    return {"trip_update": trip_update, "dynamic_hint": next_hint}
 
 
 _REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_planning": "מסלול ואטרקציות"}

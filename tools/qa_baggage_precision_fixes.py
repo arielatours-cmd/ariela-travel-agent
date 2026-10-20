@@ -160,23 +160,28 @@ check("regression: the original proximity-bug repro ('טרולי לכל אחד "
 # =====================================================================
 # 3. mixed_per_passenger - the model's own understanding that different
 #    passengers were asked for different things; the booking can't
-#    represent that split, so it defaults to checked_bag for everyone and
-#    explains why via the normal low-confidence confirm-hint path (the
-#    caller reads this function's returned desc as that hint text).
+#    represent that split, so it defaults to checked_bag for everyone.
+#    UPDATED (20.10, after Shaked's live K1 Warsaw finding on #91: Ariella
+#    correctly explained uniform baggage but then ASKED a confirm question
+#    anyway, and separately PROMISED a per-passenger split at booking time
+#    - both now forbidden per the business owner's explicit decision): the
+#    resolution is now completely SILENT - the exact same flat description
+#    as a direct checked_bag answer, no explanation, no confirm question.
 # =====================================================================
 check("guided path: mixed_per_passenger defaults the whole group to "
       "checked_bag, never silently merging distinct per-passenger requests",
       chat._guided_field_update_and_confirm(
           "baggage", {"mixed_per_passenger": True}
       )[0] == {"flight": {"baggage": ["checked_bag"]}})
-check("guided path: mixed_per_passenger's description explains the "
-      "uniform-booking rule in Ariella's own words, not a bare fact label",
-      "אותו סוג כבודה" in chat._guided_field_update_and_confirm(
+check("guided path: mixed_per_passenger's description is the SAME flat "
+      "label as a direct checked_bag answer - no explanation of the mixed "
+      "request or the uniform-booking rule leaks into it at all",
+      chat._guided_field_update_and_confirm(
           "baggage", {"mixed_per_passenger": True}
-      )[1])
+      )[1] == chat._checked_bag_label({}))
 check("guided path: mixed_per_passenger takes precedence even if the model "
-      "also sent items alongside it (the explanation is what Tinkerbell "
-      "must convey, not a silently-merged fact)",
+      "also sent items alongside it (never a silently-merged per-passenger "
+      "fact)",
       chat._guided_field_update_and_confirm(
           "baggage", {"mixed_per_passenger": True,
                       "items": [{"type": "carry_on_only"}]}
