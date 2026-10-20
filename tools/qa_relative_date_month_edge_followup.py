@@ -36,13 +36,24 @@ Run: python3 tools/qa_relative_date_month_edge_followup.py
 """
 import os
 import sys
-from datetime import date, timedelta
+import sqlite3
+from datetime import date, timedelta, datetime, timezone
+from unittest.mock import patch
+import json
 import re
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-not-real")
 
+import database
+database.init_db()
+
 import ariella_chat_clean as chat
+import app as app_module
+from werkzeug.security import generate_password_hash
+
+DB = database.DB_PATH
+client = app_module.app.test_client()
 
 FAILED = []
 
@@ -146,6 +157,96 @@ check("a plain 'כן' against the single 'אחרי ה-X' candidate commits real 
       "ISO dates with needs_confirmation=False",
       bool(accepted.get("dates", {}).get("departure"))
       and accepted["dates"]["needs_confirmation"] is False)
+
+# =====================================================================
+# Shaked's direct report (live stage-1 run-2, Rome, NEW exact transcript
+# distinct from the "אחרי ה-X" case above): "בתחילת החודש הבא, מחמישי עד
+# ראשון" was saved IMMEDIATELY with no confirmation at all, and Ariella's
+# own first reply claimed "כבר יש לי את התאריכים" as if already settled.
+# _candidate_dates_from_relative_hint itself was verified (directly) to
+# already compute the correct pending single candidate - the real bug is
+# that EXTRACTOR_SYSTEM already forbids the model from also writing
+# dates.departure/return directly once relative_date_hint fires, but the
+# model isn't always compliant. When it writes both on the same turn,
+# _merge_trip_state's own "exact dates replace" branch locks in that
+# direct (uncomputed) write as already-confirmed before the relative-
+# hint code ever runs, and its anti-regression guard then refuses to
+# flip needs_confirmation back to True - this end-to-end test simulates
+# exactly that non-compliant extractor output through the real endpoint.
+# =====================================================================
+def _make_member(email):
+    with sqlite3.connect(DB) as conn:
+        conn.execute("DELETE FROM members WHERE email=?", (email,))
+        conn.commit()
+        cur = conn.execute(
+            "INSERT INTO members (full_name,email,password_hash,created_at,status,whatsapp_opt_in,preferred_airports,gender) "
+            "VALUES(?,?,?,?,?,?,?,?)",
+            ("QA Relative Date Extractor Bypass", email, generate_password_hash("Test1234!"),
+             datetime.now(timezone.utc).isoformat(), "active", 0, "[]", "female"),
+        )
+        return cur.lastrowid
+
+
+member = _make_member("qa-relative-date-extractor-bypass@example.com")
+with client.session_transaction() as sess:
+    sess["member_id"] = member
+
+_ROME_MESSAGE = "בתחילת החודש הבא, מחמישי עד ראשון"
+
+
+def _post_claude_noncompliant_direct_write(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        # The model correctly fires relative_date_hint AND (non-compliantly,
+        # despite the prompt's own explicit prohibition) ALSO writes exact
+        # dates.departure/return directly in trip_update this same turn.
+        return json.dumps({
+            "trip_update": {"dates": {"departure": "2026-11-05", "return": "2026-11-08"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": {
+                "weekday_start": "חמישי", "weekday_end": "ראשון",
+                "month_name": None, "month_relative": "next",
+                "part_of_month": "start", "duration_days": None, "shift_days": None,
+            },
+            "relative_date_hint_evidence": message_,
+            "link_request": False, "link_request_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "מצוין, הנה האפשרות ליציאה - מתאים לך?"
+    return "{}"
+
+
+rome_base_state = {
+    "trip_type": "standard",
+    "destination": {"places": ["רומא"], "mode": "specific", "status": "known"},
+    "destination_airports": ["FCO"],
+    "departure_airport": "TLV",
+    "travelers": {"adults": 2, "children": 0},
+    "dates": {"departure": None, "return": None},
+    "requested_services": ["flights"],
+    "service_decisions": {"flights": {"wanted": True}},
+    "session_status": {"flights": "active", "lodging": "declined", "car": "declined", "trip_planning": "declined"},
+    "active_session": "flights",
+}
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_noncompliant_direct_write):
+    r_rome = client.post("/api/ariella/chat-clean", json={
+        "message": _ROME_MESSAGE,
+        "history": [{"role": "assistant", "content": "מתי תרצו לטוס?"}],
+        "trip_state": rome_base_state,
+    })
+data_rome = r_rome.get_json() or {}
+dates_rome = (data_rome.get("trip_update") or {}).get("dates") or {}
+check("end-to-end (Rome, non-compliant extractor also writing dates "
+      "directly): departure/return are NOT silently settled to the "
+      f"model's own direct (uncomputed) write - got {dates_rome}",
+      dates_rome.get("departure") is None and dates_rome.get("return") is None)
+check("end-to-end: needs_confirmation=True and a real pending candidate "
+      "is offered instead, computed by _candidate_dates_from_relative_hint",
+      dates_rome.get("needs_confirmation") is True
+      and bool(dates_rome.get("candidate_ranges")))
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

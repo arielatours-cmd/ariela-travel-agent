@@ -12245,7 +12245,22 @@ def _chat_clean_impl():
             if relative_date_hint and _value_has_verbatim_evidence(relative_date_hint_evidence, message):
                 _relative_hint_facts = _candidate_dates_from_relative_hint(relative_date_hint)
             if _relative_hint_facts:
-                trip_update = _merge_trip_state(trip_update, _relative_hint_facts)
+                # EXTRACTOR_SYSTEM already forbids the model from computing a
+                # calendar date itself once relative_date_hint fires - but it
+                # isn't always compliant, and can ALSO write dates.departure/
+                # return directly on this same turn (seen live: Rome, "בתחילת
+                # החודש הבא, מחמישי עד ראשון" saved immediately with no
+                # confirmation). trip_update may already carry that direct
+                # write here (merged in from the raw extractor output before
+                # this block runs), and _merge_trip_state's generic merge
+                # would keep it - its "exact dates replace" branch already
+                # locked needs_confirmation to False, and the anti-regression
+                # guard then refuses to flip it back to True. Since prior_dates
+                # was genuinely empty this turn (the gate above), the hint's
+                # own computed candidates are the only trustworthy source -
+                # write them directly, discarding whatever the extractor may
+                # have written on its own.
+                trip_update["dates"] = dict(_relative_hint_facts["dates"])
             else:
                 trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history))
 
