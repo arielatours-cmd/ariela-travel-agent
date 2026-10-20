@@ -20,7 +20,7 @@ _context: contextvars.ContextVar[dict] = contextvars.ContextVar("ai_usage_contex
 # (never a real Claude API call - empty model, zero tokens) - excluded from
 # every cost/token total in usage_summary/usage_rows, exactly like the
 # pre-existing 'turn_total' source, and read back out via diagnostic_rows.
-DIAGNOSTIC_EVENT_SOURCES = ("restart_signal", "guided_redirect")
+DIAGNOSTIC_EVENT_SOURCES = ("restart_signal", "guided_redirect", "dates_change", "destination_change")
 _NON_USAGE_SOURCES = ("turn_total",) + DIAGNOSTIC_EVENT_SOURCES
 
 # Official Anthropic API pricing (USD per 1M tokens), filled in from the
