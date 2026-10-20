@@ -358,8 +358,19 @@ check("scenario 7 (fail-safe): model failure never crashes the request",
       r7.get("status") == "success")
 check("scenario 7 (fail-safe): the regex safety net still fills baggage (both values)",
       set((tu7.get("flight") or {}).get("baggage") or []) == {"carry_on_only", "checked_bag"})
-check("scenario 7 (fail-safe): the regex recovers unit=total (not just a bare flag) via the 'לכולנו' word",
-      (tu7.get("flight") or {}).get("baggage_detail", {}).get("checked_bag", {}).get("unit") == "total")
+check("scenario 7 (fail-safe): count=1 is still recovered for the suitcase "
+      "even on a model failure. Per Shaked's PR #91 review (20.10, "
+      "confirmed by the business owner): the fail-safe no longer guesses a "
+      "UNIT here, now that a second baggage kind (the trolley) is ALSO "
+      "mentioned in the same message - this specific message happened to "
+      "work before only because 'total' was checked first in a fixed "
+      "priority order, unrelated to which bag kind the word actually "
+      "described; other real messages with the same shape picked the "
+      "WRONG bag kind's word this same way. The guided-extraction model "
+      "call is the real, reliable mechanism - this is only the regex "
+      "fallback for when that call itself fails.",
+      (tu7.get("flight") or {}).get("baggage_detail", {}).get("checked_bag", {}).get("count") == 1
+      and (tu7.get("flight") or {}).get("baggage_detail", {}).get("checked_bag", {}).get("unit") is None)
 check("scenario 7 (fail-safe): a hint is still set so Tinkerbell asks in her own words",
       bool(tu7.get("_guided_ask_hint")))
 
@@ -389,9 +400,12 @@ check("fail-safe regex: 'טרולי לכל אחד ומזוודה אחת לכל �
       "suitcase never disappears (it's prefixed 'ו', no space - 'ומזוודה')",
       chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת לכל המשפחה", 4)["flight"]["baggage"]
       == ["carry_on_only", "checked_bag"])
-check("fail-safe regex: same phrase keeps count=1 and unit=total even with 'לכל אחד' elsewhere in the message",
+check("fail-safe regex: same phrase keeps count=1 even with 'לכל אחד' "
+      "elsewhere in the message - no unit guessed since a second baggage "
+      "kind (the trolley) is also present (same 20.10 PR #91 review fix "
+      "as scenario 7 above)",
       chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת לכל המשפחה", 4)["flight"]["baggage_detail"]["checked_bag"]
-      == {"unit": "total", "count": 1})
+      == {"count": 1})
 check("fail-safe regex: the same phrase with traveler_count=None (not yet known this turn) "
       "still never loses the suitcase - Shaked's exact complaint",
       chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת לכל המשפחה", None)["flight"]["baggage"]

@@ -3,42 +3,55 @@ relaying Carmit's stage-1/2 regression + her own 7-item WhatsApp feedback),
 shipped after priorities 2 (English-leak, PR #90) and 4 per his explicit
 "תמשיך לפי הסדר: עדיפות 2, אחריה 4, אחריה 5" ordering.
 
-Three real code-level bugs, all in flight.baggage_detail:
+Three real facts, all in flight.baggage_detail, now captured via the
+GUIDED-EXTRACTION model path (_guided_field_update_and_confirm) - the real,
+primary mechanism that asks the model directly, per item, {type, count,
+unit, size}:
 
 1. checked_bag's "size" was never tracked at all - the summary/label always
-   invented "גדולה" (large) regardless of what the customer actually said
-   ("בינונית" (medium) was silently shown back as "גדולה"). Now a real,
-   optional fact: "קטנה"/"בינונית"/"גדולה"/unset, captured the same way
-   count/unit already were, never guessed when unstated.
+   invented "גדולה" (large) regardless of what the customer actually said.
+   Now a real, optional fact: "קטנה"/"בינונית"/"גדולה"/unset, never guessed
+   when unstated.
 
 2. "מבוגר" (adult) was lumped into the SAME "per_person" unit bucket as
-   "אחד/נוסע/אדם" - "טרולי לכל מבוגר" (a carry-on per ADULT, excluding
-   children) was shown back as "לכל נוסע" (per every traveler, children
-   included), silently erasing an explicit exclusion the customer stated.
-   Split into its own unit, "per_adult", with the same precedence
-   "per_child" already had over the generic per-person case.
+   "אחד/נוסע/אדם" - "טרולי לכל מבוגר" was shown back as "לכל נוסע" (per
+   every traveler, children included), silently erasing an explicit
+   exclusion the customer stated. Split into its own unit, "per_adult".
 
 3. carry_on (trolley-only) never tracked count/unit/detail at all, unlike
-   checked_bag - "טרולי לכל מבוגר" lost the per-adult split the moment it
-   reached either path (guided-extraction primary path or the regex
-   fail-safe). Now mirrors checked_bag's own unit detection (minus the
-   size dimension, which never applied to a carry-on), with a NEW
-   _carry_on_label function and its own baggage_detail.carry_on_only
-   sub-object.
+   checked_bag. Now mirrors checked_bag's own structure (minus size, which
+   never applied to a carry-on), with a new _carry_on_label function and
+   its own baggage_detail.carry_on_only sub-object.
 
-Covers both paths: the guided-extraction primary path
-(_guided_field_update_and_confirm) and the regex-only fail-safe
-(_deterministic_baggage_facts) used when the model call isn't available or
-guided extraction is off for the session.
+Per Shaked's PR #91 REVIEW (20.10, confirmed by the business owner): her
+FIRST version of this fix tried to extend _deterministic_baggage_facts (the
+regex-only FAIL-SAFE, used only when the guided model call itself isn't
+available) with the same per_adult/size/carry-on-unit detail, using
+whole-message word matching (even with a nearest-phrase-by-character-
+distance refinement). That is still exactly the class of mistake the
+business owner's standing rule forbids (understanding via phrase/word
+matching instead of the model) - and it was still provably wrong in
+practice: a message naming BOTH bag kinds, each with its OWN unit word
+("טרולי לכל מבוגר ומזוודה אחת", "לכל מבוגר מזוודה וטרולי אחד לכולנו", "שתי
+מזוודות גדולות ועוד טרולי לכל נוסע"), kept attributing one bag kind's unit
+word to the OTHER bag kind - no fixed window or distance heuristic can
+reliably tell which phrase belongs to which bag from text alone.
 
-Also regression-tests a real bug found and fixed while building this: the
-regex fail-safe's new carry_on unit detection originally searched the WHOLE
-message for a unit word, so a message stating two DIFFERENT units for the
-two bag kinds ("טרולי לכל אחד ומזוודה אחת משותפת": a per-person trolley, a
-separately shared suitcase) wrongly attributed the suitcase's own "total"
-unit to the trolley too. Fixed by requiring the unit phrase to actually be
-near "טרולי" (same 15-char proximity window already used to detect
-carry_on_only's own presence), not just present anywhere in the message.
+Final, approved fix: the fail-safe reverts to never guessing a unit at all
+once a SECOND baggage kind is also mentioned in the same message (ambiguous
+-> no unit, not a guess); carry_on's own unit/size tracking is removed from
+the fail-safe entirely (it never attempts it, so there is nothing left to
+get wrong) - the guided model path is the one real mechanism for this
+detail, exactly as it already was for baggage_detail before this round.
+per_adult (and count) are still correctly recognized by the fail-safe for
+checked_bag in the UNAMBIGUOUS case (only one baggage kind mentioned) -
+that part was never wrong, only the cross-contamination when two kinds
+were mentioned together.
+
+Also fixed (Shlomo's PR #91 review): _checked_bag_label used to drop a
+stated size entirely once count>1 ("2 מזוודות" lost "גדולות") - the plural
+branches built their own bare count text instead of reusing the size-aware
+bag_word. Now pluralizes the size adjective too.
 
 Run: python3 tools/qa_baggage_precision_fixes.py
 """
@@ -61,37 +74,37 @@ def check(name, cond):
 
 
 # =====================================================================
-# 1. checked_bag size - regex fail-safe path
+# 1. checked_bag size - GUIDED model path only (the fail-safe never
+#    attempts size at all, per Shaked's review).
 # =====================================================================
-check("fail-safe: 'מזוודה בינונית' captures size=בינונית, never the old "
-      "invented 'גדולה' default",
-      chat._deterministic_baggage_facts("מזוודה בינונית")
-      ["flight"]["baggage_detail"]["checked_bag"].get("size") == "בינונית")
-check("fail-safe: 'מזוודה קטנה' captures size=קטנה",
-      chat._deterministic_baggage_facts("מזוודה קטנה")
-      ["flight"]["baggage_detail"]["checked_bag"].get("size") == "קטנה")
-check("fail-safe: plural 'מזוודות בינוניות' normalizes to the singular size word",
-      chat._deterministic_baggage_facts("שתי מזוודות בינוניות", traveler_count=2)
-      ["flight"]["baggage_detail"]["checked_bag"].get("size") == "בינונית")
-check("fail-safe: no size word at all -> no baggage_detail invented at all "
-      "(unlike the old hardcoded 'גדולה' default)",
-      "baggage_detail" not in chat._deterministic_baggage_facts("יש לנו מזוודה בבטן המטוס")["flight"])
+check("guided path: item {type:checked_bag, size:בינונית} is preserved, "
+      "never the old invented 'גדולה' default",
+      chat._guided_field_update_and_confirm(
+          "baggage", {"items": [{"type": "checked_bag", "size": "בינונית"}]}
+      )[0]["flight"]["baggage_detail"]["checked_bag"] == {"size": "בינונית"})
+check("guided path: an unrecognized size string is dropped, never trusted "
+      "blindly from the model",
+      chat._guided_field_update_and_confirm(
+          "baggage", {"items": [{"type": "checked_bag", "size": "ענקית"}]}
+      )[0]["flight"].get("baggage_detail", {}).get("checked_bag", {}).get("size") is None)
+check("fail-safe: a size word in the message ('מזוודה בינונית' alone) is "
+      "NOT captured here at all (fully reverted per Shaked's review - size "
+      "is a guided-model-only fact now, never guessed from the message "
+      "text) - still correctly records checked_bag itself, just no detail",
+      "baggage_detail" not in chat._deterministic_baggage_facts("מזוודה בינונית")["flight"])
 
 # =====================================================================
-# 2. per_adult unit, distinct from per_person - both bag kinds, both paths
+# 2. per_adult unit, distinct from per_person
 # =====================================================================
-check("fail-safe: checked_bag 'מזוודה לכל מבוגר' is unit=per_adult, never the "
-      "generic per_person (which would wrongly include children)",
+check("fail-safe: checked_bag 'מזוודה לכל מבוגר' (ONLY ONE baggage kind "
+      "mentioned - unambiguous) is still unit=per_adult, never the generic "
+      "per_person",
       chat._deterministic_baggage_facts("יש לנו מזוודה בבטן המטוס לכל מבוגר")
       ["flight"]["baggage_detail"]["checked_bag"].get("unit") == "per_adult")
 check("fail-safe: the plain per-person phrasing ('לכל אחד') is still "
       "unit=per_person, unaffected by the per_adult split",
       chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד")
       ["flight"]["baggage_detail"]["checked_bag"].get("unit") == "per_person")
-check("fail-safe: carry_on 'טרולי לכל מבוגר' is unit=per_adult on the trolley "
-      "side too - Shlomo's exact repro",
-      chat._deterministic_baggage_facts("טרולי לכל מבוגר")
-      ["flight"]["baggage_detail"]["carry_on_only"].get("unit") == "per_adult")
 check("guided path: item {type:checked_bag, unit:per_adult} is preserved "
       "as-is, not collapsed to per_person",
       chat._guided_field_update_and_confirm(
@@ -102,9 +115,16 @@ check("guided path: an unrecognized unit string is dropped (never trusted "
       chat._guided_field_update_and_confirm(
           "baggage", {"items": [{"type": "checked_bag", "unit": "per_bag"}]}
       )[0]["flight"].get("baggage_detail", {}).get("checked_bag", {}).get("unit") is None)
+check("fail-safe: carry_on alone ('טרולי לכל מבוגר') is detected as a "
+      "baggage kind, but the fail-safe no longer attempts a unit for it at "
+      "all (removed entirely per Shaked's review, not re-gated) - the "
+      "guided model path is the only source for this detail now",
+      chat._deterministic_baggage_facts("טרולי לכל מבוגר")
+      == {"flight": {"baggage": ["carry_on_only"]}})
 
 # =====================================================================
-# 3. carry_on count/unit/detail parity with checked_bag - both paths
+# 3. carry_on count/unit/size - GUIDED model path only; the fail-safe
+#    never attempts any detail for carry_on (removed, not re-gated).
 # =====================================================================
 check("guided path: a carry_on item with count+unit gets its own "
       "baggage_detail.carry_on_only, mirroring checked_bag's own structure",
@@ -112,31 +132,43 @@ check("guided path: a carry_on item with count+unit gets its own "
           "baggage", {"items": [{"type": "carry_on_only", "count": 2, "unit": "per_couple"}]}
       )[0]["flight"]["baggage_detail"]["carry_on_only"] == {"count": 2, "unit": "per_couple"})
 check("guided path: a carry_on item with no count/unit stated keeps the old "
-      "flat label, no new default invented (same convention checked_bag "
-      "never had before this fix either)",
+      "flat label, no new default invented",
       chat._guided_field_update_and_confirm(
           "baggage", {"items": [{"type": "carry_on_only"}]}
       ) == ({"flight": {"baggage": ["carry_on_only"]}}, chat._BAGGAGE_HE.get("carry_on_only")))
-check("fail-safe: 'רק טרולי לכל זוג' (no מזוודה word at all) now also records "
-      "the per-couple split on the carry-on side",
-      chat._deterministic_baggage_facts("רק טרולי לכל זוג", traveler_count=4)
-      ["flight"]["baggage_detail"]["carry_on_only"].get("unit") == "per_couple")
-check("fail-safe: proximity bug fixed - 'טרולי לכל אחד ומזוודה אחת משותפת' "
-      "(two DIFFERENT units for the two bag kinds) attributes 'total' only "
-      "to the suitcase, and 'per_person' only to the nearby trolley phrase, "
-      "never crossing over",
-      chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת משותפת") == {
-          "flight": {
-              "baggage": ["carry_on_only", "checked_bag"],
-              "baggage_detail": {
-                  "checked_bag": {"unit": "total", "count": 1},
-                  "carry_on_only": {"unit": "per_person"},
-              },
-          },
-      })
-check("fail-safe regression: carry_on_only alone, with no unit word nearby "
-      "at all, still records no baggage_detail (no default invented)",
+check("fail-safe regression: carry_on_only alone, with no מזוודה word "
+      "anywhere, still records no baggage_detail at all (no default "
+      "invented, and no unit guessed either)",
       "baggage_detail" not in chat._deterministic_baggage_facts("רק טרולי בלבד")["flight"])
+
+# =====================================================================
+# Shaked's exact PR #91 review repros: TWO baggage kinds in one message,
+# each with its OWN unit word - the fail-safe must never cross-attribute
+# one bag kind's unit to the other. No unit is saved for EITHER kind in
+# this ambiguous case; only the reliably-parsed count (never a unit word)
+# survives for checked_bag.
+# =====================================================================
+check("Shaked's repro 1: 'טרולי לכל מבוגר ומזוודה אחת' no longer saves the "
+      "suitcase as per_adult too - checked_bag keeps its count (1), no unit",
+      chat._deterministic_baggage_facts("טרולי לכל מבוגר ומזוודה אחת")
+      ["flight"]["baggage_detail"] == {"checked_bag": {"count": 1}})
+check("Shaked's repro 2: 'לכל מבוגר מזוודה, וטרולי אחד לכולנו' no longer "
+      "saves the suitcase as 'total' from the trolley's own word",
+      "baggage_detail" not in chat._deterministic_baggage_facts(
+          "לכל מבוגר מזוודה, וטרולי אחד לכולנו"
+      )["flight"])
+check("Shaked's repro 3: 'שתי מזוודות גדולות ועוד טרולי לכל נוסע' no longer "
+      "saves '2 מזוודות לכל נוסע' - count=2 survives, unit does not",
+      chat._deterministic_baggage_facts("שתי מזוודות גדולות ועוד טרולי לכל נוסע")
+      ["flight"]["baggage_detail"] == {"checked_bag": {"count": 2}})
+check("regression: the original proximity-bug repro ('טרולי לכל אחד ומזוודה "
+      "אחת משותפת') - now neither bag kind gets a unit (fully reverted), "
+      "but the suitcase's count (1) still survives",
+      chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת משותפת")
+      == {"flight": {
+          "baggage": ["carry_on_only", "checked_bag"],
+          "baggage_detail": {"checked_bag": {"count": 1}},
+      }})
 
 # =====================================================================
 # 4. _checked_bag_label / _carry_on_label - labels built from real data
@@ -151,6 +183,14 @@ check("label: per_adult, count=2, no size -> states the real count, no "
 check("label: size alone (no unit/count) still appears in the generic "
       "per-passenger default, instead of the old invented 'גדולה'",
       chat._checked_bag_label({"size": "בינונית"}) == "מזוודה בינונית אחת לכל נוסע")
+check("label fix (Shlomo's PR #91 review): a stated size no longer "
+      "disappears once count>1 - '2 מזוודות בינוניות לכל זוג', not the "
+      "old bare '2 מזוודות לכל זוג'",
+      chat._checked_bag_label({"unit": "per_couple", "count": 2, "size": "בינונית"})
+      == "2 מזוודות בינוניות לכל זוג")
+check("label fix regression: the genuinely-unclear-split case (count>1, no "
+      "unit) still pluralizes the size adjective correctly too",
+      chat._checked_bag_label({"count": 3, "size": "גדולה"}) == "3 מזוודות גדולות")
 check("_carry_on_label: per_adult, count=1 -> states the unit, never "
       "inventing a 'per traveler' default the way checked_bag's own "
       "fallback does",

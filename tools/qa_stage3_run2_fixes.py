@@ -420,23 +420,25 @@ check("defensive: non-dict input never crashes",
 # =====================================================================
 
 check("Shaked's exact repro: 'מזוודה גדולה לכל אחד מאיתנו' now records "
-      "checked_bag AND the per-person unit, not just a bare flag "
-      "(plus the stated size itself, fixed 20.10 per Shlomo's priority-5 "
-      "finding s12x10 - a size the customer actually said is a real fact too)",
+      "checked_bag AND the per-person unit, not just a bare flag",
       chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", traveler_count=2) == {
-          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person", "size": "גדולה"}}},
+          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}},
       })
 check("regression: the plural phrasing ('שתי מזוודות גדולות לכולנו') "
-      "still resolves correctly (unit=total, count=2, size=גדולה)",
+      "still resolves correctly (unit=total, count=2)",
       chat._deterministic_baggage_facts("שתי מזוודות גדולות לכולנו", traveler_count=2) == {
-          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total", "count": 2, "size": "גדולה"}}},
+          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}},
       })
 check("regression: 'טרולי לכל אחד' alone (no מזוודה word at all) still "
-      "never implies a per-person CHECKED bag - carry_on_only only, now "
-      "also with its own per-person unit captured (fixed 20.10, carry-on "
-      "never tracked count/unit before Shlomo's priority-5 finding)",
+      "never implies a per-person CHECKED bag - carry_on_only only. Per "
+      "Shaked's PR #91 review (20.10, confirmed by the business owner): "
+      "carry_on's own unit/size tracking was tried in this fail-safe and "
+      "then fully reverted - it kept cross-attributing one bag kind's unit "
+      "word to the other in mixed messages (phrase/word matching can't "
+      "reliably tell which bag a stray unit word belongs to); the guided "
+      "model path is the one real mechanism for carry_on detail now",
       chat._deterministic_baggage_facts("טרולי לכל אחד", traveler_count=2) == {
-          "flight": {"baggage": ["carry_on_only"], "baggage_detail": {"carry_on_only": {"unit": "per_person"}}},
+          "flight": {"baggage": ["carry_on_only"]},
       })
 check("regression: an explicit count alongside 'לכל אחד' still works "
       "exactly as before (e.g. 'שתי מזוודות לכל אחד')",

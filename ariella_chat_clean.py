@@ -2350,7 +2350,15 @@ def _checked_bag_label(detail):
     was shown back as the hardcoded "גדולה" (large) regardless of what the
     customer actually said - size was never tracked anywhere at all. Now
     used when the customer stated one; when they didn't, the size
-    adjective is simply omitted rather than invented."""
+    adjective is simply omitted rather than invented.
+
+    Per Shlomo's PR #91 review (20.10): a stated size used to disappear
+    the moment count>1 ("2 מזוודות" dropped "גדולות" entirely) - the
+    plural branches built their own bare "{count} מזוודות ..." text
+    instead of reusing bag_word, so the size fact survived only in the
+    singular phrasing. bag_word_plural mirrors bag_word for the plural
+    case, with the size adjective itself pluralized (קטנה/בינונית/גדולה ->
+    קטנות/בינוניות/גדולות - Hebrew feminine plural, matching "מזוודות")."""
     detail = detail if isinstance(detail, dict) else {}
     count = detail.get("count")
     count = count if isinstance(count, int) and count > 0 else None
@@ -2358,20 +2366,22 @@ def _checked_bag_label(detail):
     size = detail.get("size")
     size = size if size in ("קטנה", "בינונית", "גדולה") else None
     bag_word = f"מזוודה {size}" if size else "מזוודה"
+    size_plural = {"קטנה": "קטנות", "בינונית": "בינוניות", "גדולה": "גדולות"}.get(size)
+    bag_word_plural = f"מזוודות {size_plural}" if size_plural else "מזוודות"
     if unit == "total":
-        return f"{bag_word} אחת משותפת לכל הנוסעים" if not count or count == 1 else f"{count} מזוודות משותפות לכל הנוסעים"
+        return f"{bag_word} אחת משותפת לכל הנוסעים" if not count or count == 1 else f"{count} {bag_word_plural} משותפות לכל הנוסעים"
     if unit == "per_couple":
-        return f"{bag_word} אחת לכל זוג" if not count or count == 1 else f"{count} מזוודות לכל זוג"
+        return f"{bag_word} אחת לכל זוג" if not count or count == 1 else f"{count} {bag_word_plural} לכל זוג"
     if unit == "per_child":
-        return f"{bag_word} אחת לכל ילד" if not count or count == 1 else f"{count} מזוודות לכל ילד"
+        return f"{bag_word} אחת לכל ילד" if not count or count == 1 else f"{count} {bag_word_plural} לכל ילד"
     if unit == "per_adult":
-        return f"{bag_word} אחת לכל מבוגר" if not count or count == 1 else f"{count} מזוודות לכל מבוגר"
+        return f"{bag_word} אחת לכל מבוגר" if not count or count == 1 else f"{count} {bag_word_plural} לכל מבוגר"
     if unit == "per_person":
-        return f"{bag_word} אחת לכל נוסע" if not count or count == 1 else f"{count} מזוודות לכל נוסע"
+        return f"{bag_word} אחת לכל נוסע" if not count or count == 1 else f"{count} {bag_word_plural} לכל נוסע"
     if count and count > 1:
         # A real count was stated but how it splits across the party is
         # genuinely unclear - state the number honestly rather than guess.
-        return f"{count} מזוודות"
+        return f"{count} {bag_word_plural}"
     return f"{bag_word} אחת לכל נוסע"
 
 
@@ -5073,112 +5083,81 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         bag_count = 1 if group in ("אחת", "אחד") else (int(group) if group.isdigit() else _HEBREW_NUMBER_WORDS.get(group))
         checked_bag_mentioned = True
     # Unit words - checked directly, never requiring "משותפת" specifically.
-    if re.search(r"לכל\s+זוג", msg):
-        checked_bag_detail["unit"] = "per_couple"
-        checked_bag_mentioned = True
-    elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
-        checked_bag_detail["unit"] = "total"
-        checked_bag_mentioned = True
-    # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md,
-    # Tuscany V2, "וטרולי לכל ילד"): checked BEFORE the generic per-person
-    # pattern below (which never matches "ילד" anyway, but the explicit
-    # order documents the distinction) - "per child" is never the same
-    # fact as "per every traveler", adults included.
-    elif re.search(r"לכל\s+ילד|לכל\s+הילד(?:ים)?", msg):
-        checked_bag_detail["unit"] = "per_child"
-        checked_bag_mentioned = True
-    # Per Shlomo's priority-5 finding (20.10, stage-1/2 regression, s12x2):
-    # checked BEFORE the generic per-person pattern, same precedence as
-    # per_child above - "per adult" is never the same fact as "per every
-    # traveler", children included.
-    elif re.search(_BAGGAGE_PER_ADULT_RE, msg) and checked_bag_mentioned:
-        checked_bag_detail["unit"] = "per_adult"
-    elif re.search(_BAGGAGE_PER_PERSON_RE, msg) and checked_bag_mentioned:
-        # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
-        # גדולה לכל אחד מאיתנו" (a big suitcase for each of us) has no
-        # explicit digit next to "מזוודה" at all, so the old gate here
-        # (requiring bag_count_match) dropped the unit entirely - baggage
-        # still got ["checked_bag"], but with no baggage_detail at all, so
-        # the per-passenger fact the customer actually stated was lost.
-        # checked_bag_mentioned already requires a "מזוודה"-word match (see
-        # above) - that's what actually rules out "טרולי לכל אחד" (which
-        # never matches any of those patterns and so never reaches this
-        # branch's effect anyway, since values only gets "checked_bag" when
-        # checked_bag_mentioned is true); requiring a redundant explicit
-        # digit on top of that was over-strict and is what this fixes.
-        checked_bag_detail["unit"] = "per_person"
-    elif bag_count is not None:
-        try:
-            party = max(0, int(traveler_count or 0))
-        except (TypeError, ValueError):
-            party = 0
-        if party > 1 and bag_count < party:
-            # No unit word at all, but the general rule still holds: a
-            # count smaller than the party can never be "one per person".
+    #
+    # Per Shaked's PR #91 review (20.10): a unit is only ever trusted here
+    # when checked_bag is the ONLY baggage kind mentioned in the message -
+    # once a carry-on is ALSO mentioned (values already has "carry_on_only"
+    # by this point, detected above), a unit word anywhere in the message
+    # can't be reliably attributed to one bag kind or the other by a
+    # whole-message regex search alone ("טרולי לכל מבוגר ומזוודה אחת" wrongly
+    # saved the SUITCASE as per_adult too; "לכל מבוגר מזוודה, וטרולי אחד
+    # לכולנו" wrongly saved the suitcase as "total" from the trolley's own
+    # word). Rather than try to disambiguate which phrase belongs to which
+    # bag (that was PR #91's own now-reverted attempt, itself still wrong
+    # in other cases), the safe rule per the business owner's standing
+    # decision is: never guess when it's ambiguous - no unit is saved at
+    # all for checked_bag once a second baggage kind is also present. The
+    # guided-extraction model path (the real, primary mechanism) is
+    # unaffected and still gets this right by asking the model directly,
+    # per item - this fail-safe only needs to not actively guess wrong.
+    if "carry_on_only" not in values:
+        if re.search(r"לכל\s+זוג", msg):
+            checked_bag_detail["unit"] = "per_couple"
+            checked_bag_mentioned = True
+        elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
             checked_bag_detail["unit"] = "total"
+            checked_bag_mentioned = True
+        # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md,
+        # Tuscany V2, "וטרולי לכל ילד"): checked BEFORE the generic per-person
+        # pattern below (which never matches "ילד" anyway, but the explicit
+        # order documents the distinction) - "per child" is never the same
+        # fact as "per every traveler", adults included.
+        elif re.search(r"לכל\s+ילד|לכל\s+הילד(?:ים)?", msg):
+            checked_bag_detail["unit"] = "per_child"
+            checked_bag_mentioned = True
+        # Per Shlomo's priority-5 finding (20.10, stage-1/2 regression, s12x2):
+        # checked BEFORE the generic per-person pattern, same precedence as
+        # per_child above - "per adult" is never the same fact as "per every
+        # traveler", children included.
+        elif re.search(_BAGGAGE_PER_ADULT_RE, msg) and checked_bag_mentioned:
+            checked_bag_detail["unit"] = "per_adult"
+        elif re.search(_BAGGAGE_PER_PERSON_RE, msg) and checked_bag_mentioned:
+            # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
+            # גדולה לכל אחד מאיתנו" (a big suitcase for each of us) has no
+            # explicit digit next to "מזוודה" at all, so the old gate here
+            # (requiring bag_count_match) dropped the unit entirely - baggage
+            # still got ["checked_bag"], but with no baggage_detail at all, so
+            # the per-passenger fact the customer actually stated was lost.
+            # checked_bag_mentioned already requires a "מזוודה"-word match (see
+            # above) - that's what actually rules out "טרולי לכל אחד" (which
+            # never matches any of those patterns and so never reaches this
+            # branch's effect anyway, since values only gets "checked_bag" when
+            # checked_bag_mentioned is true); requiring a redundant explicit
+            # digit on top of that was over-strict and is what this fixes.
+            checked_bag_detail["unit"] = "per_person"
+        elif bag_count is not None:
+            try:
+                party = max(0, int(traveler_count or 0))
+            except (TypeError, ValueError):
+                party = 0
+            if party > 1 and bag_count < party:
+                # No unit word at all, but the general rule still holds: a
+                # count smaller than the party can never be "one per person".
+                checked_bag_detail["unit"] = "total"
     if bag_count is not None:
         checked_bag_detail["count"] = bag_count
-    # Per Shlomo's priority-5 finding (20.10, stage-1/2 regression, s12x10):
-    # "בינונית" (medium) was shown back as "גדולה" (large) - the physical
-    # size the customer actually stated was never captured anywhere at all,
-    # and the summary/label invented "large" unconditionally regardless.
-    # Captured here exactly like unit/count: a real fact when stated,
-    # never guessed when it isn't.
-    _size_match = re.search(r"מזוודה\s+(קטנה|בינונית|גדולה)|מזוודות\s+(קטנות|בינוניות|גדולות)", msg)
-    if _size_match:
-        _size_word = (_size_match.group(1) or _size_match.group(2))
-        checked_bag_detail["size"] = {
-            "קטנה": "קטנה", "קטנות": "קטנה",
-            "בינונית": "בינונית", "בינוניות": "בינונית",
-            "גדולה": "גדולה", "גדולות": "גדולה",
-        }.get(_size_word)
-        checked_bag_mentioned = True
     if checked_bag_mentioned:
         values.append("checked_bag")
     if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
         values.append("personal_item")
-    # Per Shlomo's priority-5 finding (20.10): carry_on never had count/unit
-    # tracking at all (unlike checked_bag), so "טרולי לכל מבוגר" lost the
-    # per-adult split the moment it reached this fail-safe path too - this
-    # mirrors checked_bag's own unit detection, scoped to only run once a
-    # carry-on was actually detected above. Unlike checked_bag's own
-    # whole-message search, this picks whichever unit phrase sits CLOSEST
-    # to "טרולי" (by character distance, within a 15-char cutoff) rather
-    # than any phrase that merely falls within a fixed window of it - a
-    # message naming BOTH bag kinds with their own, DIFFERENT units ("כל
-    # אחד טרולי, ומזוודה אחת משותפת": a per-person trolley stated
-    # immediately before it, a separately shared suitcase stated further
-    # away) still has the suitcase's own "משותפת" land inside a naive
-    # fixed window of "טרولی" too; only picking the NEAREST phrase (here,
-    # the immediately adjacent "כל אחד") keeps the two bag kinds' units
-    # from crossing over.
+    # Per Shaked's PR #91 review (20.10): carry_on's own unit/size tracking
+    # in THIS fail-safe (added, then reverted, the same round) is deleted
+    # entirely, not just re-gated - the guided-extraction model path is the
+    # one real, primary mechanism for this detail (per_adult/count/unit per
+    # item, decided by the model itself, same as baggage_detail already
+    # works); this regex-only fail-safe never attempts it, so there is
+    # nothing here left to guess wrong.
     carry_on_detail = {}
-    if "carry_on_only" in values:
-        def _trolley_unit_gap(_unit_re):
-            best = None
-            for tm in re.finditer(r"טרולי", msg):
-                for um in re.finditer(_unit_re, msg):
-                    if um.start() >= tm.end():
-                        gap = um.start() - tm.end()
-                    elif tm.start() >= um.end():
-                        gap = tm.start() - um.end()
-                    else:
-                        continue  # overlapping match, not a real adjacency
-                    if gap <= 15 and (best is None or gap < best):
-                        best = gap
-            return best
-        _carry_on_best_gap = None
-        for _unit_name, _unit_re in (
-            ("per_couple", r"לכל\s+זוג"),
-            ("total", r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת"),
-            ("per_child", r"לכל\s+ילד|לכל\s+הילד(?:ים)?"),
-            ("per_adult", _BAGGAGE_PER_ADULT_RE),
-            ("per_person", _BAGGAGE_PER_PERSON_RE),
-        ):
-            _gap = _trolley_unit_gap(_unit_re)
-            if _gap is not None and (_carry_on_best_gap is None or _gap < _carry_on_best_gap):
-                _carry_on_best_gap = _gap
-                carry_on_detail["unit"] = _unit_name
     if values:
         result = {"flight": {"baggage": values}}
         detail = {}
