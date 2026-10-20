@@ -80,7 +80,7 @@ def make_trip(trip_id, answers):
         conn.commit()
 
 
-def make_offer(price_ils, outbound, ret, stops=0, arrival_code="LIS", trip_id=None):
+def make_offer(price_ils, outbound, ret, stops=0, arrival_code="LIS", trip_id=None, observed_at=None):
     payload = {
         "destination_name": "ליסבון",
         "flight": {
@@ -90,12 +90,12 @@ def make_offer(price_ils, outbound, ret, stops=0, arrival_code="LIS", trip_id=No
             "baggage": {"carry_on_8kg": {"included": True}, "checked_bag_23kg": {"included": True}},
         },
     }
-    observed_at = datetime.now(timezone.utc).isoformat()
+    observed_at = observed_at or datetime.now(timezone.utc).isoformat()
     with sqlite3.connect(database.DB_PATH) as conn:
         cur = conn.execute(
             "INSERT INTO scan_runs (started_at, status, searches_planned, trip_id, finished_at) "
-            "VALUES (datetime('now'), 'success', 1, ?, datetime('now'))",
-            (trip_id,),
+            "VALUES (?, 'success', 1, ?, ?)",
+            (observed_at, trip_id, observed_at),
         )
         scan_run_id = cur.lastrowid
         cur = conn.execute(
@@ -180,6 +180,55 @@ result_c = public_site.rematch_trip_without_new_scan(TRIP_C)
 check("rematch for a trip whose only offer is already in the past finds "
       "nothing to pin - never shows a stale offer",
       result_c.get("status") == "success" and result_c.get("pinned") is False)
+
+# =====================================================================
+# 3b. Shlomo's explicit follow-up check (20.10, after reviewing this very
+#     fix, before it was pushed): recent_offers(offer_ids=...) itself adds
+#     no age filter at all (confirmed directly against its own SQL), but
+#     the shared matching tiers (_customer_deal_choices and friends) still
+#     unconditionally enforced the SAME blanket 48h _offer_is_recent cutoff
+#     that _inventory_for_trip_scan_run was built to get away from - an
+#     offer whose flight date is still safely in the future, but whose own
+#     scan is already more than 48 hours old (exactly vacation 259's own
+#     real situation once 21.10 05:30 UTC passes), would still have been
+#     silently dropped by every one of those four tiers, undoing the whole
+#     scoping fix. Fixed via a require_recent=False thread-through, used
+#     only by this rematch path.
+# =====================================================================
+TRIP_STALE = 770005
+make_trip(TRIP_STALE, dict(TRIP_ANSWERS))
+_stale_observed_at = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+offer_stale, _ = make_offer(
+    1600, _future_out, _future_ret, stops=1, trip_id=TRIP_STALE, observed_at=_stale_observed_at
+)
+inv_stale = public_site._inventory_for_trip_scan_run(TRIP_STALE)
+check("an offer observed 3 days ago (well past the blanket 48h window) but whose "
+      "flight date is still in the future IS present in the scan_run-scoped inventory",
+      [o.get("id") for o in inv_stale] == [offer_stale])
+result_stale = public_site.rematch_trip_without_new_scan(TRIP_STALE)
+check("Shlomo's explicit regression: rematch against a vacation whose own scan is "
+      "older than 48 hours still succeeds and pins its own offer - the matching "
+      "tiers no longer re-apply the blanket 48h freshness cutoff on this path",
+      result_stale.get("status") == "success" and result_stale.get("pinned") is True)
+with sqlite3.connect(database.DB_PATH) as conn:
+    conn.row_factory = sqlite3.Row
+    saved_stale = json.loads(conn.execute("SELECT answers_json FROM trip_requests WHERE id=?", (TRIP_STALE,)).fetchone()["answers_json"])
+check("the stale-scan trip ends up pinned to its own (3-day-old-scan) offer",
+      saved_stale.get("_matched_offer_ids") == [offer_stale])
+
+# Regression: the ORDINARY customer-scan path (the shared 48h inventory
+# pool, require_recent defaulting True) must still enforce the blanket
+# freshness cutoff exactly as before - this fix must never loosen it there.
+# inv_stale's own offer already carries its genuine 3-day-old last_seen_at/
+# scan_started_at straight from the DB (set via make_offer's observed_at
+# above) - no need to fake it a second time here.
+with sqlite3.connect(database.DB_PATH) as conn:
+    conn.row_factory = sqlite3.Row
+    _trip_stale_row = conn.execute("SELECT * FROM trip_requests WHERE id=?", (TRIP_STALE,)).fetchone()
+_trip_stale_dict = public_site._trip_dict(_trip_stale_row)
+check("regression: the ordinary (non-rematch) tiers still default to "
+      "require_recent=True and still exclude a >48h-old offer from that shared path",
+      not public_site._customer_deal_choices(inv_stale, _trip_stale_dict, limit=5))
 
 # =====================================================================
 # 3. A trip with no scan_run tied to it at all (never went through the
