@@ -227,9 +227,15 @@ check("regression: with no usable model hint, the regex fallback still "
       bool(dates_fallback.get("candidate_ranges")))
 
 # =====================================================================
-# "אפשר לזוז יום אחד קדימה?" after exact dates are already known shifts
-# departure/return by the stated number of days - never silently folded
-# into flexibility_days.
+# "אפשר לזוז יום אחד קדימה?" after exact dates are already known PROPOSES
+# the shifted dates as a single pending candidate - never auto-commits,
+# per Shlomo's relay of Shaked's live stage-1 run-2 finding (critical):
+# the first version auto-applied the shift immediately, but Tinkerbell's
+# own reply still asked for confirmation (since the customer phrased it
+# as a question), and the customer's "כן" then had nothing left to do,
+# so a later "סגרנו" claim sat next to the OLD, never-actually-changed
+# dates. A relative-date change must always go through the same explicit
+# confirmation step as every other relative-date candidate.
 # =====================================================================
 def _post_claude_shift(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
@@ -246,7 +252,7 @@ def _post_claude_shift(key, model, system_static, system_dynamic, history, messa
     if source == "guided_extract":
         return json.dumps({"status": "other_topic", "field": None, "evidence": None})
     if source == "tinkerbell_reply":
-        return "קלטתי, הזזתי את התאריכים יום קדימה."
+        return "בטח, 18.11.2026 עד 25.11.2026 - מתאים?"
     return "{}"
 
 
@@ -259,20 +265,40 @@ with patch.object(chat, "_post_claude", side_effect=_post_claude_shift):
     })
 data_shift = r_shift.get_json() or {}
 dates_shift = (data_shift.get("trip_update") or {}).get("dates") or {}
-check("'אפשר לזוז יום אחד קדימה?' shifts the already-known departure by "
-      "+1 day (2026-11-17 -> 2026-11-18)",
-      dates_shift.get("departure") == "2026-11-18")
-check("the same shift also moves return by the same +1 day "
-      "(2026-11-24 -> 2026-11-25)",
-      dates_shift.get("return") == "2026-11-25")
-check("after a shift, needs_confirmation is False and candidate_ranges "
-      "is cleared - this is a settled, confirmed change, not a new open "
-      "candidate proposal",
-      dates_shift.get("needs_confirmation") is False and dates_shift.get("candidate_ranges") == [])
+check("'אפשר לזוז יום אחד קדימה?' does NOT change departure/return yet - "
+      "they stay at the last-CONFIRMED values until the customer actually "
+      "confirms the proposal",
+      dates_shift.get("departure") == "2026-11-17" and dates_shift.get("return") == "2026-11-24")
+check("the shift is offered as exactly ONE pending candidate "
+      "(18.11-25.11), needs_confirmation=True - never auto-applied",
+      dates_shift.get("needs_confirmation") is True
+      and len(dates_shift.get("candidate_ranges") or []) == 1
+      and "18.11.2026" in dates_shift["candidate_ranges"][0]
+      and "25.11.2026" in dates_shift["candidate_ranges"][0])
+
+# Second turn: the customer confirms the pending shift candidate with a
+# plain "כן" - this must reuse the EXISTING single-candidate-acceptance
+# mechanism (_accept_single_proposed_date_range) and actually commit it.
+with patch.object(chat, "_post_claude", side_effect=_post_claude_no_hint):
+    r_shift_confirm = client.post("/api/ariella/chat-clean", json={
+        "message": "כן",
+        "history": [{"role": "assistant", "content": "בטח, 18.11.2026 עד 25.11.2026 - מתאים?"}],
+        "trip_state": dict(confirmed_state, dates=dates_shift),
+    })
+data_shift_confirm = r_shift_confirm.get_json() or {}
+dates_shift_confirm = (data_shift_confirm.get("trip_update") or {}).get("dates") or {}
+check("confirming the pending shift ('כן') actually commits the shifted "
+      "dates (2026-11-17 -> 2026-11-18, 2026-11-24 -> 2026-11-25)",
+      dates_shift_confirm.get("departure") == "2026-11-18"
+      and dates_shift_confirm.get("return") == "2026-11-25")
+check("after confirming, needs_confirmation is False and candidate_ranges "
+      "is cleared - this is now a settled, confirmed change",
+      dates_shift_confirm.get("needs_confirmation") is False
+      and dates_shift_confirm.get("candidate_ranges") == [])
 
 # =====================================================================
 # End-to-end coverage of a NEGATIVE shift_days ("move it back a day") -
-# the same call-site arithmetic, the other direction.
+# same propose-then-confirm shape, the other direction.
 # =====================================================================
 def _post_claude_shift_back(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
@@ -289,7 +315,7 @@ def _post_claude_shift_back(key, model, system_static, system_dynamic, history, 
     if source == "guided_extract":
         return json.dumps({"status": "other_topic", "field": None, "evidence": None})
     if source == "tinkerbell_reply":
-        return "קלטתי, הזזתי את התאריכים יום אחורה."
+        return "בטח, 16.11.2026 עד 23.11.2026 - מתאים?"
     return "{}"
 
 
@@ -301,12 +327,119 @@ with patch.object(chat, "_post_claude", side_effect=_post_claude_shift_back):
     })
 data_shift_back = r_shift_back.get_json() or {}
 dates_shift_back = (data_shift_back.get("trip_update") or {}).get("dates") or {}
-check("'אפשר לזוז יום אחד אחורה?' (shift_days=-1) moves departure back one "
-      "day (2026-11-17 -> 2026-11-16)",
-      dates_shift_back.get("departure") == "2026-11-16")
-check("the same negative shift also moves return back one day "
+check("negative shift also only proposes a pending candidate "
+      "(16.11-23.11), departure/return unchanged until confirmed",
+      dates_shift_back.get("departure") == "2026-11-17"
+      and dates_shift_back.get("return") == "2026-11-24"
+      and dates_shift_back.get("needs_confirmation") is True
+      and len(dates_shift_back.get("candidate_ranges") or []) == 1)
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_no_hint):
+    r_shift_back_confirm = client.post("/api/ariella/chat-clean", json={
+        "message": "כן",
+        "history": [{"role": "assistant", "content": "בטח, 16.11.2026 עד 23.11.2026 - מתאים?"}],
+        "trip_state": dict(confirmed_state, dates=dates_shift_back),
+    })
+data_shift_back_confirm = r_shift_back_confirm.get_json() or {}
+dates_shift_back_confirm = (data_shift_back_confirm.get("trip_update") or {}).get("dates") or {}
+check("confirming the pending negative shift commits departure back one "
+      "day (2026-11-17 -> 2026-11-16) and return back one day "
       "(2026-11-24 -> 2026-11-23)",
-      dates_shift_back.get("return") == "2026-11-23")
+      dates_shift_back_confirm.get("departure") == "2026-11-16"
+      and dates_shift_back_confirm.get("return") == "2026-11-23")
+
+# =====================================================================
+# Direct coverage of _deterministic_shift_days_fallback - per Shlomo's
+# relay of Shaked's own diagnosis (stage-1 run-2): the live bug may have
+# been the model's own shift_days extraction never returning verified
+# evidence at all, leaving the shift silently dropped with no fallback.
+# =====================================================================
+check("direct: 'לזוז יום אחד אחורה' resolves to -1",
+      chat._deterministic_shift_days_fallback("אפשר לזוז יום אחד אחורה?") == -1)
+check("direct: 'לזוז יום אחד קדימה' resolves to +1",
+      chat._deterministic_shift_days_fallback("אפשר לזוז יום אחד קדימה?") == 1)
+check("direct: 'לזוז 3 ימים אחורה' resolves to -3",
+      chat._deterministic_shift_days_fallback("אפשר לזוז 3 ימים אחורה?") == -3)
+check("direct: unrelated text resolves to None - never a false positive",
+      chat._deterministic_shift_days_fallback("מה השעה הטיסה?") is None)
+
+# End-to-end: the model produces NO shift_days at all (a genuine
+# extraction miss) - the regex fallback still catches the plain "move it
+# back a day" phrasing and proposes the correct pending candidate.
+def _post_claude_shift_no_model_hint(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {}, "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "בטח, 16.11.2026 עד 23.11.2026 - מתאים?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_shift_no_model_hint):
+    r_shift_fallback = client.post("/api/ariella/chat-clean", json={
+        "message": "אפשר לזוז יום אחד אחורה?",
+        "history": [{"role": "assistant", "content": "קלטתי, 17.11.2026 עד 24.11.2026."}],
+        "trip_state": confirmed_state,
+    })
+data_shift_fallback = r_shift_fallback.get_json() or {}
+dates_shift_fallback = (data_shift_fallback.get("trip_update") or {}).get("dates") or {}
+check("end-to-end: with NO model-extracted shift_days at all, the regex "
+      "fallback still proposes the correct pending shift candidate "
+      "(16.11-23.11), departure/return unchanged until confirmed",
+      dates_shift_fallback.get("departure") == "2026-11-17"
+      and dates_shift_fallback.get("return") == "2026-11-24"
+      and dates_shift_fallback.get("needs_confirmation") is True
+      and len(dates_shift_fallback.get("candidate_ranges") or []) == 1)
+
+# =====================================================================
+# Regression (Shaked's rejection of the first version of this PR, which
+# added _ensure_dates_closure_claim_matches_state as a word-matching
+# safety net - now removed entirely per her review): a reply combining a
+# genuine closure claim about one domain (baggage) with a genuine,
+# still-pending question about another (dates) must reach the customer
+# completely untouched - the word "סגרנו" alone is not a dates-closure
+# claim at all. The real fix (shift_days only ever proposes, "כן" alone
+# commits) is the whole mechanism now - no reply-text safety net on top
+# of it.
+# =====================================================================
+_pending_shift_state = dict(confirmed_state, dates={
+    "departure": "2026-11-17", "return": "2026-11-24", "needs_confirmation": True,
+    "candidate_ranges": ["יום שלישי 20.11.2026–יום שלישי 27.11.2026"],
+})
+
+
+def _post_claude_baggage_closed_dates_pending(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {}, "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+            "link_request": False, "link_request_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "סגרנו את הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_baggage_closed_dates_pending):
+    r_baggage_closed = client.post("/api/ariella/chat-clean", json={
+        "message": "תיק יד בלבד",
+        "history": [{"role": "assistant", "content": "איזו כבודה תרצו?"}],
+        "trip_state": _pending_shift_state,
+    })
+reply_baggage_closed = str((r_baggage_closed.get_json() or {}).get("reply") or "")
+check("Shaked's exact live case 1: 'סגרנו את הכבודה - ולגבי התאריכים, "
+      "20.11–27.11 מתאים?' reaches the customer completely untouched - "
+      "'סגרנו' about baggage is never mistaken for a dates-closure claim",
+      reply_baggage_closed == "סגרנו את הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?")
+
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

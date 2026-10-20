@@ -5839,6 +5839,27 @@ def _deterministic_flights_already_booked_facts(message):
     return {}
 
 
+def _deterministic_shift_days_fallback(message):
+    """REGEX FALLBACK ONLY (per Shlomo's relay of Shaked's live stage-1
+    run-2 finding): relative_date_hint.shift_days (evidence-gated) is the
+    PRIMARY path for "אפשר לזוז יום אחד אחורה?" - this exists solely for
+    the turn that structured extraction itself fails to produce a
+    verified shift, mirroring _deterministic_period_facts's own role for
+    every other relative-date capability. Recognizes only the plain
+    "move N days forward/backward" phrasing against the message itself;
+    must never be extended further as if it were the primary mechanism.
+    Returns a signed int day count, or None if nothing matched."""
+    msg = str(message or "").strip()
+    m = re.search(r"לזוז\s+(?:ב)?יום\s+(?:אחד|אחת)\s+(קדימה|אחורה)", msg)
+    if m:
+        return 1 if m.group(1) == "קדימה" else -1
+    m = re.search(r"לזוז\s+(\d+)\s+ימים\s+(קדימה|אחורה)", msg)
+    if m:
+        n = int(m.group(1))
+        return n if m.group(2) == "קדימה" else -n
+    return None
+
+
 def _candidate_dates_from_relative_hint(hint):
     """Computes 2-3 exact departure/return candidates from a relative-date
     hint the MODEL already understood and returned in structured form
@@ -12238,22 +12259,70 @@ def _chat_clean_impl():
         # model naming the shift in structured form (shift_days) and code
         # computing the actual new departure/return - never guessed, and
         # never silently folded into dates.flexibility_days instead.
+        #
+        # Per Shlomo's relay of Shaked's live stage-1 run-2 finding
+        # (critical): the first version auto-committed the shift
+        # immediately (needs_confirmation=False) - but Tinkerbell's own
+        # reply, seeing a plain shift request phrased as a question
+        # ("אפשר לזוז..?"), naturally proposed the new dates and asked for
+        # confirmation anyway. The customer's "כן" then had nothing to
+        # apply (the code already considered this closed), so it fell
+        # through as ordinary conversation while the summary kept the
+        # customer's confirmation claim ("סגרנו") next to the OLD,
+        # unchanged dates. A relative-date change must always require the
+        # same explicit confirmation step as every other relative-date
+        # candidate (never auto-applied, not even with a single option -
+        # see _candidate_dates_from_relative_hint): this now proposes the
+        # shifted dates as a single pending candidate instead of
+        # committing them, reusing the exact same candidate/confirmation
+        # mechanism (_accept_single_proposed_date_range) the weekday-pair
+        # and duration flows already rely on - no new "apply the
+        # confirmation" code needed, just feeding it the same shape.
         if prior_dates.get("departure") and prior_dates.get("return"):
             _shift_days = relative_date_hint.get("shift_days") if isinstance(relative_date_hint, dict) else None
-            if (
+            if not (
                 isinstance(_shift_days, int) and _shift_days != 0
                 and _value_has_verbatim_evidence(relative_date_hint_evidence, message)
             ):
+                # Per Shlomo's relay of Shaked's live stage-1 run-2 finding:
+                # her own diagnosis was that shift_days likely never came
+                # back with evidence that passed verification on the live
+                # turn - with no fallback at all, a model extraction miss
+                # here meant the shift request was silently dropped
+                # entirely (the live transcript showed Tinkerbell proposing
+                # new dates anyway, from her own free-text judgment, with
+                # nothing in state behind it). REGEX FALLBACK ONLY, same
+                # role as _deterministic_period_facts for every other
+                # relative-date capability: recognizes only the plain
+                # "move the dates N days forward/backward" phrasing against
+                # the CURRENT message alone (never history, to avoid a
+                # stale match) - never extended beyond this; the model's
+                # own structured shift_days above stays the primary path.
+                _shift_days = _deterministic_shift_days_fallback(message)
+            if isinstance(_shift_days, int) and _shift_days != 0:
                 try:
                     _old_dep = date.fromisoformat(str(prior_dates["departure"])[:10])
                     _old_ret = date.fromisoformat(str(prior_dates["return"])[:10])
                     _new_dep = _old_dep + timedelta(days=_shift_days)
                     _new_ret = _old_ret + timedelta(days=_shift_days)
-                    trip_update = _merge_trip_state(trip_update, {"dates": {
-                        "departure": _new_dep.isoformat(), "return": _new_ret.isoformat(),
-                        "period": f"{_new_dep.strftime('%d.%m.%Y')}–{_new_ret.strftime('%d.%m.%Y')}",
-                        "needs_confirmation": False, "candidate_ranges": [],
-                    }})
+                    _shift_label = (
+                        f"יום {_WEEKDAY_HE_BY_PY[_new_dep.weekday()]} {_new_dep.strftime('%d.%m.%Y')}"
+                        f"–יום {_WEEKDAY_HE_BY_PY[_new_ret.weekday()]} {_new_ret.strftime('%d.%m.%Y')}"
+                    )
+                    # _merge_trip_state's own anti-regression guard (dates.
+                    # needs_confirmation never flips back from False to True)
+                    # exists for noisy/accidental extractor output on an
+                    # unrelated turn - never meant to block a deliberate,
+                    # evidence-gated date-change request like this one, so
+                    # this writes trip_update["dates"] directly rather than
+                    # going through that merge. departure/return are kept at
+                    # their last-confirmed values (not the new ones) until
+                    # the customer actually confirms the proposal.
+                    trip_update["dates"] = dict(trip_update.get("dates") or {}, **{
+                        "departure": _old_dep.isoformat(), "return": _old_ret.isoformat(),
+                        "period": f"{_old_dep.strftime('%d.%m.%Y')}–{_old_ret.strftime('%d.%m.%Y')}",
+                        "needs_confirmation": True, "candidate_ranges": [_shift_label],
+                    })
                 except ValueError:
                     pass
 
