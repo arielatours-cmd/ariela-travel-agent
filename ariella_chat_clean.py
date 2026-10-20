@@ -3485,6 +3485,49 @@ def _fix_child_gender_wording(text, state):
     return text
 
 
+# Per Shlomo's relay of Shaked's live stage-1 run-1 finding (20.10.2026,
+# b71506d, 1/5): a male-registered customer (user_gender=male) was
+# addressed in feminine form on several of this file's own fixed/
+# deterministic transition sentences ("עוד דבר אחד לפני שסוגרים - בואי
+# נוודא...", "תרצי שאעזור גם עם X?") - these bypass Tinkerbell's own
+# model call entirely (several are short-circuit replies returned before
+# any model call this turn), so the general "address per registration"
+# prompt instruction never had a chance to apply to them. Rather than
+# hand-edit every one of this file's many such fixed strings (gendered-
+# only "תרצי"/"בואי" forms appear in well over a dozen places), one
+# regex-based correction - mirroring _fix_child_gender_wording's own
+# "deterministic safety net" philosophy - runs on every reply at the
+# single shared exit point (_reply(), see its own docstring: "the single
+# exit point for every successful turn"), so no individual call site can
+# forget it. Scoped deliberately narrow: only a REGISTERED male customer
+# is ever rewritten. Feminine phrasing was always this file's existing
+# default (every other fixed string already in this file assumes it, as
+# do many existing tests), so leaving it as-is for a female or unknown/
+# unregistered gender changes nothing anyone relies on today - only the
+# one actual reported mismatch (male addressed as female) is fixed.
+_GENDERED_CUSTOMER_ADDRESS_FORMS = {
+    "תרצי": "תרצה",
+    "בואי": "בוא",
+}
+
+
+def _fix_customer_address_gender_wording(text, user_gender):
+    text = str(text or "")
+    if not text or user_gender != "male":
+        return text
+    import re
+    for fem_form, replacement in _GENDERED_CUSTOMER_ADDRESS_FORMS.items():
+        if fem_form not in text:
+            continue
+        # A leading vav ("ו-", "and") attaches directly onto the word with
+        # no space ("ותרצי") - captured and kept as-is so a conjunction-
+        # prefixed occurrence is still corrected, not skipped as if it were
+        # a different word entirely.
+        pattern = re.compile(r"(?<![א-ת])(ו?)" + fem_form + r"(?![א-ת])")
+        text = pattern.sub(lambda m: m.group(1) + replacement, text)
+    return text
+
+
 def _strip_unconfirmed_airports(text, state):
     """Deterministic safety net for a recurring model behavior: even after an
     explicit prompt instruction not to, Tinkerbell keeps volunteering an
@@ -10002,6 +10045,10 @@ def _chat_clean_impl():
         same-account concurrent request is appended after, never clobbered.
         Only a genuine 'success' reply is persisted; an error response
         (400/401/503) means nothing actually happened this turn."""
+        if payload.get('reply') is not None:
+            _gender_source = payload.get('trip_update') if isinstance(payload.get('trip_update'), dict) else {}
+            _user_gender_for_reply = _gender_source.get('user_gender') or trip_state.get('user_gender')
+            payload['reply'] = _fix_customer_address_gender_wording(payload['reply'], _user_gender_for_reply)
         if payload.get('status') == 'success' and payload.get('reply') is not None:
             try:
                 # Per Shaked's review of #86 (18.10, qa/reports/2026-10-18-
