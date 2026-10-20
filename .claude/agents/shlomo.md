@@ -27,6 +27,7 @@ tools: Read, Grep, Glob, Write, Edit, Bash
 | יוסף | סמנכ"ל כספים | session_01BSa8ZXnxMicUrhWp2Lnwhi | yosef | finance/reports/, finance/expenses.csv |
 | שקד | בודקת איכות | session_014tcDKNJwxKfwmLGTPwxnFF | shaked | qa/reports/ |
 | ערן | משמר תפעול | session_01UzUTAykwVjBNUFtahs3U6h | eran | ops/reports/ |
+| דין | יועץ משפטי | session_01863ty1AX7yuBranEcdJLAy | din-reports | legal/reports/ |
 | בצלאל | מפתח הקוד | session_01Gwq2utxrp9m6FsNRABt3Pe | claude/hi-fxaohg | בקשות מיזוג (PR) ו-commits |
 | עידו | מפתח משנה, עובד רק תחת בצלאל | — (לא פונים אליו) | — | דרך הדיווחים של בצלאל בלבד |
 
