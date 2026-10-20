@@ -2707,6 +2707,39 @@ def _ensure_flight_summary_completeness(reply, state):
         if len(kept) != len(sentences):
             text = "".join(s for s, _t in kept)
 
+    # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin):
+    # a baggage sentence can be PRESENT (the "missing" check right below
+    # already passes, matching Shaked's own carried-over #68 finding just
+    # below) yet still phrase it PER-PASSENGER ("לדנה מזוודה, לרון
+    # טרולי"...) even though a booking is always one uniform choice for
+    # the whole group - never split differently per passenger. Scoped
+    # deliberately narrow: "טרולי לכל נוסע" (uniform, one per ticket - the
+    # SAME phrasing _checked_bag_label's own fallback already uses) must
+    # never be touched, only a genuine per-INDIVIDUAL split naming two or
+    # more different people ("ל<name>, ל<name>") - detected as 2+ bare
+    # "ל<word>" occurrences in the sentence, excluding the generic "לכל"/
+    # "כולם"/"כולן" forms. Replaces the whole sentence with the canonical
+    # line, in the exact place it already was - never moved, never
+    # duplicated.
+    _PER_PASSENGER_SPLIT_RE = re.compile(r"ל(?!כל\b|כולם\b|כולן\b)[א-ת]{2,}")
+    canonical_baggage_line = _flight_baggage_line(flight)
+    if canonical_baggage_line:
+        sentences = _split_sentences(text)
+        baggage_idx = next(
+            (
+                i for i, (s, _term) in enumerate(sentences)
+                if re.search(r"טרולי|מזוודה|תיק", s)
+                and len(_PER_PASSENGER_SPLIT_RE.findall(s)) >= 2
+            ),
+            None,
+        )
+        if baggage_idx is not None:
+            s, term = sentences[baggage_idx]
+            if s.strip() != canonical_baggage_line.strip():
+                leading_ws = s[: len(s) - len(s.lstrip())]
+                sentences[baggage_idx] = (f"{leading_ws}{canonical_baggage_line}{term}", term)
+                text = "".join(s for s, _t in sentences)
+
     missing = []
     if _flight_budget_sentence_index(_split_sentences(text)) is None:
         line = _flight_budget_line(budget)
