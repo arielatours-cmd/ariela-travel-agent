@@ -3473,54 +3473,6 @@ _INTERNAL_LEAK_RE = re.compile(
 )
 
 
-_SELF_GENDER_MASCULINE_TO_FEMININE = {
-    "ממשיך": "ממשיכה", "בודק": "בודקת", "מעדכן": "מעדכנת", "שומר": "שומרת",
-    "מחפש": "מחפשת", "מוצא": "מוצאת", "שולח": "שולחת", "מכין": "מכינה",
-    "מאשר": "מאשרת", "רושם": "רושמת", "סוגר": "סוגרת", "פותח": "פותחת",
-    "מתחיל": "מתחילה", "מבין": "מבינה", "יודע": "יודעת", "זוכר": "זוכרת",
-    "חושב": "חושבת", "שמח": "שמחה", "בטוח": "בטוחה", "מוכן": "מוכנה",
-    "יכול": "יכולה", "יוצא": "יוצאת", "חוזר": "חוזרת", "סורק": "סורקת",
-    "מחשב": "מחשבת", "כותב": "כותבת", "קורא": "קוראת", "מצטער": "מצטערת",
-    "דואג": "דואגת", "מתקן": "מתקנת", "שואל": "שואלת", "אומר": "אומרת",
-    "מספר": "מספרת", "מקבל": "מקבלת", "מציע": "מציעה", "מסמן": "מסמנת",
-    "מריץ": "מריצה", "טס": "טסה",
-}
-_SELF_GENDER_RE = re.compile(
-    r'(?<![א-ת])(ו?אני)\s+(' +
-    "|".join(sorted(_SELF_GENDER_MASCULINE_TO_FEMININE, key=len, reverse=True)) +
-    r')(?![א-ת])'
-)
-
-
-def _ensure_self_gender_feminine(reply):
-    """Deterministic safety net, same philosophy as the other helpers in
-    this file: Ariella's own persona is established as female throughout
-    TINKERBELL_SYSTEM itself ("את מלוות החופשה של אריאלה"...), but free
-    text generation can still drift to a default masculine Hebrew verb
-    form when she refers to herself - seen live (Shaked's direct report,
-    stage-1 run-2): "אני ממשיך עם הטיול" instead of "אני ממשיכה". Unlike
-    the customer's own gender (which genuinely varies and is handled via
-    _g() at each construction site), Ariella's gender is a fixed,
-    non-customer-dependent fact - never a judgment call about what the
-    customer meant - so a deterministic correction here is safe.
-
-    Only ever applied to Ariella's own outgoing reply (never to the
-    customer's message), and scoped to "אני <verb>" so a verb describing
-    someone else elsewhere in the sentence is never touched. The one
-    accepted edge case: if a reply ever quotes the customer's own exact
-    first-person words verbatim (rare in this domain), a masculine verb
-    inside that quote would also be flipped - an acceptable trade-off for
-    a narrow, defense-in-depth net, not the primary mechanism."""
-    text = str(reply or "")
-    if not text:
-        return reply
-
-    def _fix(m):
-        return f"{m.group(1)} {_SELF_GENDER_MASCULINE_TO_FEMININE[m.group(2)]}"
-
-    return _SELF_GENDER_RE.sub(_fix, text)
-
-
 def _strip_internal_terminology_leak(reply):
     """Deterministic safety net, same philosophy as the other helpers in
     this file: TINKERBELL_SYSTEM's own prompt instruction (never expose
@@ -10336,8 +10288,6 @@ def _chat_clean_impl():
         same-account concurrent request is appended after, never clobbered.
         Only a genuine 'success' reply is persisted; an error response
         (400/401/503) means nothing actually happened this turn."""
-        if payload.get('reply') is not None:
-            payload['reply'] = _ensure_self_gender_feminine(payload['reply'])
         if payload.get('status') == 'success' and payload.get('reply') is not None:
             try:
                 # Per Shaked's review of #86 (18.10, qa/reports/2026-10-18-
