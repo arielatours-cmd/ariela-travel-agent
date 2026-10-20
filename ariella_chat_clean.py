@@ -3845,6 +3845,22 @@ def _call_tinkerbell(key, model, history, message, state=None):
         continuity += """
 - הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק. בחלק שמסביר שמתחילים מחדש, לעולם אל תשתמשי בפנייה בלשון זכר/נקבה שדורשת לדעת את מגדר הלקוח (כמו "בוא נתחיל"/"בואי נתחיל") - גם כשהמגדר ידוע, עדיף ניסוח נייטרלי בגוף ראשון רבים שלא תלוי במגדר בכלל, למשל "נתחיל לתכנן מחדש" או "נמשיך מכאן מהתחלה".
 """
+        _welcome_back_first_name = ((state.get("profile") or {}).get("first_name") or "").strip() if isinstance(state.get("profile"), dict) else ""
+        if _welcome_back_first_name:
+            # Per the business owner's live finding on the Portugal WhatsApp
+            # transcript (19.10): returning after a long break with a bare
+            # "הי" must get a PERSONAL first reply that addresses the
+            # customer by name - not just a generic "welcome back". Unlike
+            # the general, optional first-name rule above (which only
+            # applies to a genuinely brand-new conversation's own opening
+            # message), this is the one case where it's mandatory: this
+            # greeting is itself the customer's first reply after the idle
+            # gap, and _member_profile already resolved their real name.
+            continuity += (
+                "- שם הלקוח הפרטי האמיתי הוא \"" + _welcome_back_first_name + "\". חובה (לא רשות הפעם) "
+                "לשלב אותו בתוך ברכת החזרה הקצרה הזו עצמה (למשל \"היי " + _welcome_back_first_name +
+                ", ברוכה השבה!\" או ניסוח חם דומה) - זו בדיוק הנקודה שבה הפנייה צריכה להיות אישית.\n"
+            )
     if state.get("_guided_ask_hint"):
         # Task 014a (rebuilt 2026-10-17 per the business owner's final
         # decision): the code never sends a fixed sentence as the reply -
