@@ -96,6 +96,19 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
         "using the name was not made mandatory for this greeting"
     print("PASS: stale-reset flag + known first name -> name injected and its use made mandatory")
 
+    # Per Shaked's review (20.10, stage-1 live run-1): the example text
+    # itself must never be single-gender ("ברוכה השבה!" alone) - the live
+    # run showed the model copying a feminine example even for a male-
+    # registered customer. Checked here for a FEMALE customer too (state4
+    # above), since the example text must be gender-neutral regardless of
+    # whose turn this is - it's a template for Tinkerbell, not addressed
+    # to this specific customer's own gender.
+    assert "ברוכה השבה" not in captured["system_dynamic"], \
+        "the hint's own example is still single-gender ('ברוכה השבה') - exactly what Shaked's review flagged"
+    assert "טוב לראות אותך שוב" in captured["system_dynamic"], \
+        "the hint's example was not replaced with gender-neutral phrasing"
+    print("PASS: the hint's own example phrasing is gender-neutral, not hardcoded feminine")
+
     # --- 5. Flag set but NO registered first name -> no name instruction is
     # fabricated (never invent a name that isn't actually known) ---
     captured.clear()
