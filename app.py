@@ -23,6 +23,7 @@ from admin import render_dashboard, render_feedback_dashboard, render_analytics_
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
     MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY, DESTINATIONS,
+    PUBLIC_BASE_URL_WARNING,
 )
 from daily import prepare_daily_batch
 from database import (
@@ -425,6 +426,7 @@ def health():
         "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
         "admin_protected": bool(ADMIN_TOKEN), "whatsapp": whatsapp_status(),
         "gunicorn_timeout": gunicorn_timeout, "gunicorn_threads": gunicorn_threads,
+        "public_base_url_warning": PUBLIC_BASE_URL_WARNING,
     })
 
 

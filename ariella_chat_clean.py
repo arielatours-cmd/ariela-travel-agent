@@ -116,6 +116,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד. אותו איסור חל גם על מינוח פנימי בעברית - "שדה", "השדה הפנימי", "state", "session", "מתועד כ-", "משתנה" וכל ביטוי אחר שחושף ללקוח איך המידע מאוחסן אצלך. גם כשאת מתקנת או מדייקת תשובה קודמת של הלקוח, נסחי זאת כמשפט רגיל על החופשה עצמה (למשל "רק לוודא - אתם לוקחים גם מזוודה בבטן המטוס, נכון?"), לעולם לא במונחים של "השדה"/"זה מתועד כ-".
 - כשהלקוח כותב בעברית, כל התשובה כולה בעברית בלבד - אסור לשלב מילה או ביטוי באנגלית (gaps, OK, sure, perfect וכו') במקום שיש לו מקבילה עברית טבעית. היוצאים הבלעדיים מהכלל הזה הם שמות מקומות ספציפיים (כפר/שכונה/אתר/הר) שכבר יש להם כלל נפרד למעלה שאומר להשאיר אותם בלועזית, וקודי שדות תעופה/ערכים טכניים קבועים כמו "direct" ב-flight.connection_preference.
+- לעולם אל תכתבי בתשובה עצמה את תהליך המחשבה הפנימי שלך - לא "רגע, זה כבר ידוע, בוא אבדוק", לא "ה-state מראה ש...", לא שום משפט שמתאר מה *את* בודקת/שוקלת/זוכרת. התשובה היא רק הטקסט הפונה ללקוח, אף פעם לא תיאור של התהליך שהוביל אליו - גם לא כפסקה נפרדת לפני התשובה האמיתית, וגם לא באנגלית.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
 - לעולם אל תשתמשי בכינויי חיבה כמו "חמוד/ה", "מתוק/ה", "יקר/ה" כפנייה ללקוח - גם כשהם מנוסחים נכון מגדרית. פנייה מקצועית וחמה בלי כינויי חיבה.
 - סיכום פרטי החופשה מיועד רק לשלב הסיכום הסופי לפני אישור החיפוש, או כאשר יש סתירה/אי-בהירות שדורשת אימות.
@@ -3130,7 +3131,44 @@ def _strip_leaked_internal_paragraph(text):
     kind of deterministic net rather than trusting the instruction alone.
     Only strips when there is a clear paragraph break AND the leading
     paragraph contains an unambiguous technical/meta marker, so an ordinary
-    short opening line is never touched."""
+    short opening line is never touched.
+
+    Per Shlomo's priority-2 finding (20.10, stage-1/2 regression, s12x2,
+    Amsterdam): the model's own internal reasoning, in ENGLISH ("Wait, this
+    is already known - let me check. Actually the state shows baggage..."),
+    leaked as the reply's leading paragraph the same way, followed by the
+    real Hebrew customer-facing reply as the second paragraph. No Hebrew
+    meta-marker word ever appears in it, so the check above alone misses
+    it entirely. TINKERBELL_SYSTEM already requires the ENTIRE reply to be
+    Hebrew-only once the customer writes Hebrew - a leading paragraph that
+    is itself substantially Latin-script, immediately followed by a
+    genuinely Hebrew paragraph, is exactly that same violation in its most
+    severe form. Detected by script ratio (the same category of check
+    _strip_mixed_script_garble/_strip_mixed_hebrew_latin_token already use
+    for narrower, single-token glitches), not by matching specific English
+    phrases - a minimum letter count on both sides keeps a short, ordinary
+    foreign place/airport name as its own opening line from ever being
+    mistaken for this.
+
+    Per Shaked's PR #90 review (20.10): the script-ratio check alone was too
+    blunt - it also stripped a genuinely Latin-heavy but entirely
+    LEGITIMATE leading paragraph, such as a hotel name/address ("Hotel Arts
+    Barcelona, Carrer de la Marina 19-21") or a pair of airport names
+    ("Lisbon (LIS) / Porto (OPO)"), whenever the customer-facing Hebrew
+    paragraph happened to follow it - exactly the business owner's standing
+    rule (place/airport names are allowed in English, and that information
+    must never disappear). The real distinguishing signal between actual
+    leaked ENGLISH PROSE and a list of proper nouns is capitalization
+    pattern: ordinary English sentences are mostly lowercase words (only
+    the first word of each sentence, and genuine proper nouns, capitalized),
+    while a name/address/airport-pair is built almost entirely out of
+    capitalized words with at most a short lowercase connector ("de"/"la").
+    Measured against real examples (Shaked): a genuine leak scores
+    0.85-0.89 on the share of English words starting lowercase, the hotel
+    address scores 0.29, and the airport pair scores 0.0 - so this is
+    required IN ADDITION to the script-ratio check above, not instead of
+    it, with its own floor (at least 4 English words) so a too-short lead
+    is never judged on too little evidence."""
     import re
     parts = re.split(r'\n\s*\n', str(text or ""), maxsplit=1)
     if len(parts) != 2:
@@ -3139,9 +3177,20 @@ def _strip_leaked_internal_paragraph(text):
     if not lead or len(rest) < 10:
         return text
     meta_markers = ("פורמט", "תבנית", "שגיאה", "error", "exception")
-    if not any(m in lead for m in meta_markers):
-        return text
-    return rest
+    if any(m in lead for m in meta_markers):
+        return rest
+    lead_letters = re.findall(r"[^\W\d_]", lead, flags=re.UNICODE)
+    rest_letters = re.findall(r"[^\W\d_]", rest, flags=re.UNICODE)
+    if len(lead_letters) >= 15 and len(rest_letters) >= 15:
+        lead_latin_ratio = sum(1 for c in lead_letters if re.match(r"[A-Za-z]", c)) / len(lead_letters)
+        rest_hebrew_ratio = sum(1 for c in rest_letters if re.match(r"[א-ת]", c)) / len(rest_letters)
+        if lead_latin_ratio > 0.6 and rest_hebrew_ratio > 0.6:
+            lead_words = re.findall(r"[A-Za-z][A-Za-z'-]*", lead)
+            if len(lead_words) >= 4:
+                lowercase_start_ratio = sum(1 for w in lead_words if w[0].islower()) / len(lead_words)
+                if lowercase_start_ratio > 0.6:
+                    return rest
+    return text
 
 
 def _strip_stray_markdown_markers(text):
@@ -5891,10 +5940,45 @@ def _split_sentences(text):
     exactly as they appeared in the original string, so re-joining a subset
     of them with "".join reproduces the untouched original spacing. The
     final fragment (after the last boundary, if the text doesn't end on
-    one) is kept with terminator ""."""
+    one) is kept with terminator "".
+
+    Per Shaked's live finding (20.10, stage-1/2 regression): a lodging
+    question illustrated with a parenthetical example containing its own
+    "?" ("...מיקום הלינה (קרוב למרכז? או שקט יותר?), וגם אם יש לכם
+    תקציב...") got a sentence boundary wrongly placed at the FIRST "?"
+    inside the still-open parenthetical, purely because it happened to be
+    followed by whitespace - splitting the one real sentence into two and
+    leaving a dangling, unmatched ")" stranded at the start of the second
+    half. _enforce_one_option_question then legitimately saw what looked
+    like two separate top-level question sentences and dropped both,
+    cutting the reply mid-sentence (the live, customer-visible symptom:
+    "שקט יותר?), וגם אם יש לכם תקציב..."). A "."/"!"/"?" is now only a real
+    sentence boundary once every "(" opened since the last real split has
+    already been closed by a ")" - a bare "\\n" (an explicit paragraph
+    break) is still always a boundary regardless, exactly as before.
+
+    Per Shlomo's follow-up finding on this same fix (PR #90 review, 20.10):
+    an "(" that is NEVER closed anywhere in the rest of the text (e.g. a
+    stray emoticon like ":(", or a genuine typo) used to suppress EVERY
+    subsequent "."/"!"/"?" boundary for the remainder of the message, since
+    since_start is measured from the last ACCEPTED split and an unresolved
+    imbalance never clears on its own - the one-question-per-message rule
+    then went unenforced for everything that followed. Fixed by actually
+    checking whether a real close exists anywhere LATER in the text (from
+    this candidate boundary onward), rather than assuming one is still
+    coming: if the rest of the text has fewer ")" than the "(" still owed,
+    it never will close, so this "(" is no longer honored as open and
+    normal splitting resumes immediately - not after an arbitrary distance,
+    since a stray unclosed "(" can sit right next to the very next real
+    boundary."""
     spans = []
     start = 0
     for m in _SENTENCE_BOUNDARY_RE.finditer(text):
+        if m.group() != "\n":
+            since_start = text[start:m.start()]
+            imbalance = since_start.count("(") - since_start.count(")")
+            if imbalance > 0 and text[m.start():].count(")") >= imbalance:
+                continue  # a real close still exists later - not a real boundary yet
         end = m.end()
         spans.append((text[start:end], m.group()))
         start = end
