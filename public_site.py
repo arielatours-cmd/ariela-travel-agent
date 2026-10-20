@@ -736,11 +736,18 @@ def _dedupe_personal_offer_lists(trip):
 
 
 def _offer_signature(offer):
+    # stops included (20.10, Shaked's e2e card-conditions review): two
+    # offers can share the exact same route/dates/times (the same literal
+    # flight slot) while genuinely being different itineraries - a direct
+    # fare and a one-connection fare on the same route/day, or two
+    # different fare classes on it - and were being silently collapsed
+    # into one, dropping whichever one a dedup pass processed second.
     return (
         offer.get("departure_code"), offer.get("arrival_code"),
         offer.get("outbound_date"), offer.get("return_date"),
         offer.get("airline"), offer.get("departure_time"),
         offer.get("return_airline"), offer.get("return_departure_time"),
+        offer.get("stops"),
     )
 
 
@@ -748,6 +755,49 @@ def _offer_signature(offer):
 def _qa_fixture_offers():
     """QA inventory was retired in v9.7.122. Production/customer results use real DB offers only."""
     return []
+
+
+_BAGGAGE_TYPE_TO_OFFER_KEY = {
+    "carry_on_only": "carry_on_8kg",
+    "checked_bag": "checked_bag_23kg",
+    "personal_item": "personal_item",
+}
+
+
+def _requested_baggage_satisfied(offer, trip):
+    """Whether this offer provides every specific baggage type the customer
+    actually requested (per #91's uniform-baggage model - flight.baggage is
+    a list of the exact types asked for: carry_on_only/checked_bag/
+    personal_item/no_baggage).
+
+    Per Shaked's end-to-end card review (20.10, qa/e2e_vacation_card_
+    conditions.py): "baggage" in deal_priorities was only ever a bare flag -
+    answers never recorded WHICH type(s) were actually requested - so this
+    check was satisfied by ANY of carry-on/checked present, regardless of
+    what the customer asked for. A customer who explicitly asked for a
+    personal item ONLY got every offer wrongly marked "לא כולל: כבודה"
+    (missing baggage) the moment it lacked a carry-on or checked bag, even
+    though a personal item was all that was ever requested - and the
+    reverse: an offer with ONLY a personal item would have wrongly
+    satisfied a customer who actually asked for a checked bag.
+
+    Falls back to the old any-of-carry/checked behavior when
+    answers["requested_baggage"] isn't set at all (an older trip saved
+    before this fix) - never a crash, never a blanket "always satisfied"."""
+    answers = trip.get("answers") or {}
+    requested = answers.get("requested_baggage")
+    bag = offer.get("baggage") or {}
+    if not isinstance(requested, list) or not requested:
+        carry = (bag.get("carry_on_8kg") or {}).get("included") is True
+        checked = (bag.get("checked_bag_23kg") or {}).get("included") is True
+        return carry or checked
+    for kind in requested:
+        if kind == "no_baggage":
+            continue
+        offer_key = _BAGGAGE_TYPE_TO_OFFER_KEY.get(kind)
+        if offer_key and (bag.get(offer_key) or {}).get("included") is not True:
+            return False
+    return True
 
 def _offer_matches_vacation_type(offer, trip):
     qa_type = str(offer.get("qa_vacation_type") or "").strip()
@@ -757,8 +807,60 @@ def _offer_matches_vacation_type(offer, trip):
     return qa_type == requested
 
 
+# Fixed, periodically-reviewed conversion rates to ILS. No live FX API is
+# wired into this codebase anywhere; these exist solely to make a per-
+# person budget the customer stated in a foreign currency comparable to
+# offer.price_ils, which is always ILS (scanner.py's _roundtrip_params
+# always requests currency=ILS). Update these numbers when they drift
+# meaningfully from the real rate - an approximate, occasionally-stale
+# rate is still far more correct than comparing raw numbers across
+# currencies with no conversion at all (see _budget_ceiling_ils).
+_BUDGET_FX_TO_ILS = {"ILS": 1.0, "USD": 3.7, "EUR": 4.0, "GBP": 4.6}
+
+
+def _budget_ceiling_ils(trip):
+    """The maximum price (ILS, 10% tolerance already applied) this trip's
+    stated budget allows, or None when no budget limit applies.
+
+    Per the business owner's directive (20.10, vacation 259/trip #158,
+    relayed by Shlomo after the rematch-button fix, then narrowed by
+    Shaked's end-to-end review of the first attempt at this fix,
+    qa/e2e_vacation_card_conditions.py): every budget comparison in this
+    file compared offer.price_ils directly against answers["budget_amount"]
+    (an amount in whatever currency the customer actually stated - see
+    ariella_chat_clean.py's budget_per_person state) with NO currency
+    conversion at all. A real over-budget offer could pass as a tier-1
+    "exact match" (no "over budget" card marking at all) purely because the
+    raw numbers happened to compare favorably by coincidence of currency,
+    not because the price was genuinely within budget. Fixed here: currency
+    conversion only.
+
+    Deliberately NOT scaled by party size (adults+children) here - whether
+    offer.price_ils from a real scan represents the TOTAL price for the
+    whole searched party or a per-person price needs verifying against a
+    real SerpApi/Google Flights payload (Shaked's item 3, confirmed as a
+    separate, still-open question) before any such scaling can be trusted;
+    per Shlomo's explicit split (20.10), that verification and fix are his
+    to do once confirmed directly with the business owner - this PR is
+    currency conversion and render-time recomputation only."""
+    answers = trip.get("answers") or {}
+    if answers.get("budget_mode") not in ("per_person", "limited"):
+        return None
+    try:
+        amount = float(answers.get("budget_amount") or 0)
+    except (TypeError, ValueError):
+        return None
+    if amount <= 0:
+        return None
+    currency = str(answers.get("budget_currency") or "ILS").upper()
+    rate = _BUDGET_FX_TO_ILS.get(currency, 1.0)
+    return amount * rate * 1.10
+
+
 def _offer_within_budget(offer, trip):
-    """Per-person budget is a hard ceiling with the agreed 10% tolerance.
+    """Per-person budget is a hard ceiling with the agreed 10% tolerance,
+    already converted to ILS and scaled to the full party by
+    _budget_ceiling_ils - see its own docstring.
 
     "per_person" is the manual trip-request form's own budget_mode value;
     the Ariella chat flow (ariella_start_flight_search) writes "limited"
@@ -768,15 +870,14 @@ def _offer_within_budget(offer, trip):
     _objective_match_details, which already checks both), or budget
     enforcement here and in _over_budget_alternatives below is dead code
     for the one flow customers actually use."""
-    answers = trip.get("answers") or {}
-    if answers.get("budget_mode") not in ("per_person", "limited"):
+    ceiling = _budget_ceiling_ils(trip)
+    if ceiling is None:
         return True
     try:
-        budget = float(answers.get("budget_amount") or 0)
         price = float(offer.get("price_ils") or 0)
     except (TypeError, ValueError):
         return False
-    return budget <= 0 or price <= budget * 1.10
+    return price <= ceiling
 
 
 def _over_budget_alternatives(all_offers, trip, limit=3, require_recent=True):
@@ -795,17 +896,10 @@ def _over_budget_alternatives(all_offers, trip, limit=3, require_recent=True):
     path (against the shared _recent_inventory_48h() pool, where staleness
     genuinely matters) still enforces it; the rematch path passes False.
     """
+    ceiling = _budget_ceiling_ils(trip)
+    if ceiling is None:
+        return []
     answers = trip.get("answers") or {}
-    # See _offer_within_budget above: the chat flow writes "limited", not
-    # "per_person", for the same per-person-budget case.
-    if answers.get("budget_mode") not in ("per_person", "limited") or not answers.get("budget_amount"):
-        return []
-    try:
-        ceiling = float(answers.get("budget_amount") or 0) * 1.10
-    except (TypeError, ValueError):
-        return []
-    if ceiling <= 0:
-        return []
 
     prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
     candidates = []
@@ -928,12 +1022,8 @@ def _offer_meets_selected_conditions(offer, trip):
         except (TypeError, ValueError):
             pass
 
-    if "baggage" in priorities:
-        baggage = offer.get("baggage") or {}
-        carry = (baggage.get("carry_on_8kg") or {}).get("included") is True
-        checked = (baggage.get("checked_bag_23kg") or {}).get("included") is True
-        if not (carry or checked):
-            return False
+    if "baggage" in priorities and not _requested_baggage_satisfied(offer, trip):
+        return False
 
     if "dates" in priorities:
         if answers.get("date_mode") == "exact":
@@ -1104,9 +1194,10 @@ def _business_match_details(offer, trip):
         }
         add(any(x in offer_cabin for x in names.get(cabin, {cabin})), "מחלקה מבוקשת", "Requested cabin")
 
-    if answers.get("budget_mode") in ("per_person", "limited") and answers.get("budget_amount"):
+    budget_ceiling = _budget_ceiling_ils(trip)
+    if budget_ceiling is not None:
         try:
-            add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10,
+            add(float(offer.get("price_ils") or 0) <= budget_ceiling,
                 "בתקציב שביקשת", "Within your budget")
         except (TypeError, ValueError):
             pass
@@ -1155,18 +1246,17 @@ def _closest_condition_matches(all_offers, trip, limit=3):
         priorities = set(answers.get("deal_priorities") or [])
         if "direct" in priorities and int(o.get("stops") or 0) == 0:
             points += 1; reasons.append(_msg("טיסה ישירה", "Direct flight"))
-        if "baggage" in priorities:
-            bag = o.get("baggage") or {}
-            if (bag.get("carry_on_8kg") or {}).get("included") is True or (bag.get("checked_bag_23kg") or {}).get("included") is True:
-                points += 1; reasons.append(_msg("כולל כבודה", "Baggage included"))
+        if "baggage" in priorities and _requested_baggage_satisfied(o, trip):
+            points += 1; reasons.append(_msg("כולל כבודה", "Baggage included"))
         if "maximize" in priorities:
             arr = _time_minutes(o.get("arrival_time"))
             ret = _time_minutes(o.get("return_departure_time"))
             if arr is not None and ret is not None and arr <= 600 and ret >= 1200:
                 points += 1; reasons.append(_msg("ממקסמת את זמן החופשה", "Maximizes usable trip time"))
-        if answers.get("budget_mode") in ("per_person", "limited") and answers.get("budget_amount"):
+        _budget_ceiling = _budget_ceiling_ils(trip)
+        if _budget_ceiling is not None:
             try:
-                if float(o.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10:
+                if float(o.get("price_ils") or 0) <= _budget_ceiling:
                     points += 1; reasons.append(_msg("בתקציב", "Within budget"))
             except (TypeError, ValueError):
                 pass
@@ -1487,17 +1577,16 @@ def _open_customer_point_details(offer, trip):
     if "direct" in priorities:
         detail["direct"] = _offer_is_direct(offer)
     if "baggage" in priorities:
-        bag = offer.get("baggage") or {}
-        detail["baggage"] = ((bag.get("carry_on_8kg") or {}).get("included") is True or
-                             (bag.get("checked_bag_23kg") or {}).get("included") is True)
+        detail["baggage"] = _requested_baggage_satisfied(offer, trip)
     if "maximize" in priorities:
         arr = _time_minutes(offer.get("arrival_time"))
         ret = _time_minutes(offer.get("return_departure_time"))
         detail["maximize"] = arr is not None and ret is not None and arr <= 600 and ret >= 1200
 
-    if answers.get("budget_mode") in ("per_person", "limited") and answers.get("budget_amount"):
+    _budget_ceiling = _budget_ceiling_ils(trip)
+    if _budget_ceiling is not None:
         try:
-            detail["budget"] = float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10
+            detail["budget"] = float(offer.get("price_ils") or 0) <= _budget_ceiling
         except (TypeError, ValueError):
             detail["budget"] = False
 
@@ -1626,10 +1715,7 @@ def _objective_match_details(offer, trip):
         except (TypeError, ValueError):
             pass
     if "baggage" in priorities:
-        b = offer.get("baggage") or {}
-        carry = (b.get("carry_on_8kg") or {}).get("included") is True
-        checked = (b.get("checked_bag_23kg") or {}).get("included") is True
-        add(carry or checked, "כבודה", "Baggage")
+        add(_requested_baggage_satisfied(offer, trip), "כבודה", "Baggage")
 
     mode = str(answers.get("date_mode") or "anytime")
     if mode == "exact":
@@ -1652,9 +1738,10 @@ def _objective_match_details(offer, trip):
             offer_days = 0
         add(offer_days == requested_days, f"{requested_days} ימים", f"{requested_days} days")
 
-    if answers.get("budget_mode") in {"per_person","limited"} and answers.get("budget_amount"):
+    _budget_ceiling = _budget_ceiling_ils(trip)
+    if _budget_ceiling is not None:
         try:
-            add(float(offer.get("price_ils") or 0) <= float(answers.get("budget_amount")) * 1.10, "תקציב", "Budget")
+            add(float(offer.get("price_ils") or 0) <= _budget_ceiling, "תקציב", "Budget")
         except (TypeError, ValueError):
             add(False, "תקציב", "Budget")
 
@@ -1777,11 +1864,46 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
         copy = _decorate_availability_note(offer, trip)
         copy["is_stale_48h"] = not _offer_is_recent(copy, 48)
         copy["booking_trip_id"] = trip_id or None
+        # Per the business owner's directive (20.10, vacation 259/trip #158,
+        # relayed by Shlomo - a SECOND, broader finding after the budget-
+        # currency fix: "the same applies to direct flight - the 'not
+        # direct' marking also doesn't appear on 259's card, even though the
+        # flights aren't direct... probably a general problem carrying the
+        # markings to the card, not just budget"): confirmed general. The
+        # `pinned` branch above - the ONLY branch that runs for any already-
+        # finished vacation, i.e. every vacation on every ordinary page load
+        # after its initial search - re-fetches bare offer rows from
+        # recent_offers() and never recomputed which selected condition (any
+        # of them: budget, direct, connections, baggage, dates, trip length,
+        # time-of-day) the offer actually misses. request_missed_reasons/
+        # customer_choice_label_he were only ever attached transiently,
+        # inside the tier-selection functions, at the moment an offer was
+        # first matched-and-pinned (_match_and_pin_initial_offers) - never
+        # persisted, and never recomputed on later renders. Recomputing it
+        # HERE, the one choke point both the in-progress (`fresh`) and
+        # already-finished (`pinned`) paths both pass through, fixes every
+        # condition type at once instead of one card-rendering symptom at a
+        # time. A `fresh` offer from _customer_deal_choices already carries
+        # its own label (tier-1 "exact match") - setdefault leaves that
+        # alone and never overwrites it.
+        _, _possible, _matched, _missed = _objective_match_details(copy, trip)
+        if _missed:
+            copy["request_missed_reasons"] = _missed
+            copy.setdefault("customer_choice_label_he", "אפשרות שכדאי להכיר")
+            copy.setdefault("customer_choice_label_en", "An option worth seeing")
+        copy["_conditions_met_count"] = len(_matched)
         merged.append(copy)
 
-    # Personal-vacation results are always cheapest first. Destination/airport
-    # order must not override price when several requested gateways are valid.
-    merged.sort(key=lambda o: float(o.get("price_ils") or 10**9))
+    # Per the business owner's explicit decision (20.10, vacation 259/trip
+    # #158): "the more conditions a flight meets, the earlier it should
+    # appear, even if it costs more" - primary key is how many selected
+    # conditions the offer actually meets (most first), price is only the
+    # secondary tie-breaker within the same count. A full, cheaper match
+    # still sorts ahead of everything per this same rule (ties at the
+    # maximum count, decided by price). Applies everywhere this function is
+    # the final word on display order - both the in-progress and the
+    # already-finished-vacation paths.
+    merged.sort(key=lambda o: (-int(o.get("_conditions_met_count") or 0), float(o.get("price_ils") or 10**9)))
     return merged[:limit]
 
 def _requested_passenger_count(trip):
@@ -3792,6 +3914,15 @@ def ariella_start_flight_search():
         "max_connections": max_connections,
         "budget_mode": "limited" if budget.get("amount") else "unlimited",
         "budget_amount": budget.get("amount"),
+        # Per the business owner's directive (20.10, vacation 259/trip #158,
+        # relayed by Shlomo): the chat's own budget_per_person state already
+        # carries the real currency the customer stated (ariella_chat_
+        # clean.py's _deterministic_budget_facts/_budget_answer_by_meaning) -
+        # dropping it here was the root cause of every budget comparison in
+        # this file silently comparing a foreign-currency amount directly
+        # against price_ils (always ILS - see scanner.py). See
+        # _budget_ceiling_ils's own docstring.
+        "budget_currency": budget.get("currency") or "ILS",
         "cabin_class": flight.get("cabin") or "any",
         "departure_time_preference": flight.get("departure_time_preference") or "",
         "return_time_preference": flight.get("return_time_preference") or "",
@@ -3799,6 +3930,14 @@ def ariella_start_flight_search():
         "special_needs": [],
         "notes": "Created from Ariella live conversation",
         "baggage": baggage,
+        # Per Shaked's card-conditions review (20.10): "baggage" in
+        # deal_priorities was only ever a bare flag - which SPECIFIC
+        # type(s) (carry_on_only/checked_bag/personal_item) were actually
+        # requested never made it into answers at all, so a customer who
+        # asked for a personal item only got every offer wrongly marked
+        # "missing baggage" the moment it lacked a carry-on or checked bag.
+        # See _requested_baggage_satisfied.
+        "requested_baggage": baggage,
         "ski_resort_names": ski_state.get("resort_names") or [],
         "ski_resort_names_he": _ski_resort_he_names(ski_state.get("resort_names")),
         "ski_skill_level": ski_state.get("skill_level") or "",
@@ -4372,14 +4511,25 @@ def _match_and_pin_initial_offers(trip_id, trip, answers, refreshed, require_rec
     admin re-match action (against existing inventory, no new paid scan).
     Mutates answers IN PLACE and returns True if anything was pinned.
 
-    Tiers, in order: an exact match on every objective condition; the same
-    route with flexible/same-month dates; the same route over the stated
-    budget; and finally (per the business owner's directive, 20.10,
-    vacation 259/trip #158) the closest same-route offers regardless of
-    which objective condition they miss - a real scan that genuinely found
-    offers must never leave the customer looking at an empty vacation card
-    just because each found offer missed a DIFFERENT one of several
-    conditions and so none of them survived any single earlier tier.
+    Tiers: an exact match on every objective condition; then - MERGED,
+    not tried in exclusive priority order - the same route with flexible/
+    same-month dates, the same route over the stated budget, and (per the
+    business owner's directive, 20.10, vacation 259/trip #158) the closest
+    same-route offers regardless of which objective condition they miss.
+
+    Per Shaked's end-to-end review (20.10, qa/e2e_vacation_card_conditions.py,
+    a precondition for this batch): the three fallback tiers used to be
+    tried in exclusive priority order - the moment tier 2 (flexible dates)
+    returned ANY match at all, tiers 3 and 4 were never even called, so a
+    real scan with several offers each missing a DIFFERENT single condition
+    (one over budget, one non-direct, one on the wrong dates) silently lost
+    whichever offers only tier 3 or tier 4 would have caught - exactly
+    reproduced by her test's 5-offers-each-missing-one-condition scenario,
+    where the budget-missing and dates-missing offers never got pinned at
+    all, regardless of any card-labeling fix. A real scan that genuinely
+    found several different offers must never leave the customer looking
+    at some of them just because one OTHER offer happened to qualify for
+    an earlier tier - merge every tier's findings instead.
 
     require_recent, threaded through to all four tiers (default True,
     unchanged behavior for the ordinary post-scan path): per Shlomo's
@@ -4396,11 +4546,20 @@ def _match_and_pin_initial_offers(trip_id, trip, answers, refreshed, require_rec
     if matches:
         _pin_offer_ids_to_trip(trip_id, answers, matches)
         return True
-    alternatives = _customer_alternative_choices(refreshed, trip, limit=5, require_recent=require_recent)
-    if not alternatives:
-        alternatives = _over_budget_alternatives(refreshed, trip, limit=5, require_recent=require_recent)
-    if not alternatives:
-        alternatives = _closest_offers_regardless_of_conditions(refreshed, trip, limit=5, require_recent=require_recent)
+    alternatives, seen = [], set()
+    for tier in (
+        _customer_alternative_choices(refreshed, trip, limit=5, require_recent=require_recent),
+        _over_budget_alternatives(refreshed, trip, limit=5, require_recent=require_recent),
+        _closest_offers_regardless_of_conditions(refreshed, trip, limit=5, require_recent=require_recent),
+    ):
+        for offer in tier:
+            sig = _offer_signature(offer)
+            if sig in seen:
+                continue
+            seen.add(sig)
+            alternatives.append(offer)
+    alternatives.sort(key=lambda o: float(o.get("price_ils") or 10**9))
+    alternatives = alternatives[:5]
     if alternatives:
         answers["_initial_exact_match_missing"] = True
         answers["_showing_closest_matches"] = True
