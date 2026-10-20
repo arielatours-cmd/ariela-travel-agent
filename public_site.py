@@ -24,6 +24,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE, BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, BUSINESS_LEGAL_NAME_EN, BUSINESS_DEALER_TYPE_HE, BUSINESS_DEALER_NUMBER, BUSINESS_ADDRESS_HE, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL
 from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, clear_whatsapp_proactive_off, latest_trip_alerts, delete_member_account
+from ai_usage import record_diagnostic_event
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
 from scoring import (
@@ -831,6 +832,57 @@ def _over_budget_alternatives(all_offers, trip, limit=3):
         copy["customer_choice_label_he"] = "אפשרות שכדאי להכיר"
         copy["customer_choice_label_en"] = "An option worth seeing"
         copy["request_missed_reasons"] = ["תקציב"]
+        out.append(copy)
+        seen.add(sig)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _closest_offers_regardless_of_conditions(all_offers, trip, limit=5):
+    """Last-resort fallback, per the business owner's explicit directive
+    (20.10, relayed by Shlomo, vacation 259/trip #158): a real customer's
+    scan genuinely found several same-route offers, yet none of them
+    survived the exact-match tier (_customer_deal_choices), the flexible-
+    date tier (_customer_alternative_choices) or the over-budget tier
+    (_over_budget_alternatives) - every one of those tiers excludes an
+    offer outright on at least one missed objective condition (exact
+    dates, trip length, a flight-time preference, etc.), and when ALL the
+    scan's own results each miss a DIFFERENT one of those conditions nothing
+    survives any single tier. The customer was left looking at an empty
+    vacation card despite real, bookable flights existing for their route -
+    never acceptable: "never leave a vacation frozen on an empty list."
+
+    This tier drops every objective-condition filter entirely and shows the
+    closest (cheapest) same-destination, complete-roundtrip offers that
+    still exist in current inventory, each labeled with exactly which of
+    the customer's own conditions it misses (reusing _objective_match_
+    details' own human-readable reasons - never a guess, the same list the
+    transparent above/below-divider split already shows elsewhere) so nothing
+    is overstated as a full match."""
+    prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
+    candidates = []
+    for o in prepared:
+        if not _offer_is_recent(o, 48):
+            continue
+        if not _offer_destination_matches(o, trip):
+            continue
+        if not _offer_has_complete_roundtrip(o):
+            continue
+        if not _offer_matches_vacation_type(o, trip):
+            continue
+        candidates.append(o)
+    candidates.sort(key=lambda o: float(o.get("price_ils") or 10**9))
+    out, seen = [], set()
+    for offer in candidates:
+        sig = _offer_signature(offer)
+        if sig in seen:
+            continue
+        _, _, _, missed = _objective_match_details(offer, trip)
+        copy = dict(offer)
+        copy["customer_choice_label_he"] = "הטיסה הקרובה ביותר שנמצאה"
+        copy["customer_choice_label_en"] = "The closest flight found"
+        copy["request_missed_reasons"] = missed or (["תקציב"] if _lang() != "en" else ["Budget"])
         out.append(copy)
         seen.add(sig)
         if len(out) >= limit:
@@ -4255,6 +4307,71 @@ def _pin_offer_ids_to_trip(trip_id, answers, offers):
     return ids
 
 
+def _match_and_pin_initial_offers(trip_id, trip, answers, refreshed):
+    """The four-tier matching chain for a trip's initial flight search -
+    shared by _customer_scan_worker (right after a real scan) and the
+    admin re-match action (against existing inventory, no new paid scan).
+    Mutates answers IN PLACE and returns True if anything was pinned.
+
+    Tiers, in order: an exact match on every objective condition; the same
+    route with flexible/same-month dates; the same route over the stated
+    budget; and finally (per the business owner's directive, 20.10,
+    vacation 259/trip #158) the closest same-route offers regardless of
+    which objective condition they miss - a real scan that genuinely found
+    offers must never leave the customer looking at an empty vacation card
+    just because each found offer missed a DIFFERENT one of several
+    conditions and so none of them survived any single earlier tier."""
+    matches = _customer_deal_choices(refreshed, trip, limit=5)
+    if matches:
+        _pin_offer_ids_to_trip(trip_id, answers, matches)
+        return True
+    alternatives = _customer_alternative_choices(refreshed, trip, limit=5)
+    if not alternatives:
+        alternatives = _over_budget_alternatives(refreshed, trip, limit=5)
+    if not alternatives:
+        alternatives = _closest_offers_regardless_of_conditions(refreshed, trip, limit=5)
+    if alternatives:
+        answers["_initial_exact_match_missing"] = True
+        answers["_showing_closest_matches"] = True
+        _pin_offer_ids_to_trip(trip_id, answers, alternatives)
+        return True
+    return False
+
+
+def rematch_trip_without_new_scan(trip_id):
+    """Re-run the matching chain for an ALREADY-completed vacation against
+    current inventory, with no new paid scan - for a vacation stuck frozen
+    on an empty _matched_offer_ids from before this fallback chain existed
+    (or from some other earlier bug), per the business owner's explicit
+    directive (20.10, vacation 259/trip #158). Only acts on a trip whose
+    search already finished with nothing pinned; a trip still mid-search,
+    or one that already has real results, is left untouched - this is a
+    recovery action for a specific stuck state, never a second search.
+    Returns a small status dict, never raises."""
+    with _db() as conn:
+        row = conn.execute("SELECT * FROM trip_requests WHERE id=?", (trip_id,)).fetchone()
+    if not row:
+        return {"status": "error", "message": "trip not found"}
+    trip = _trip_dict(row)
+    answers = dict(trip.get("answers") or {})
+    if not answers.get("_flight_search_finished"):
+        return {"status": "error", "message": "search not finished yet - not a stuck vacation"}
+    if _saved_match_offer_ids(trip):
+        return {"status": "error", "message": "trip already has matched offers - nothing to recover"}
+    try:
+        refreshed = _recent_inventory_48h()
+        pinned = _match_and_pin_initial_offers(trip_id, trip, answers, refreshed)
+    except Exception as exc:
+        try:
+            record_diagnostic_event("customer_scan_worker_error", {
+                "trip_id": trip_id, "mode": "admin_rematch",
+                "error_type": type(exc).__name__, "error": str(exc),
+            })
+        except Exception:
+            pass
+        return {"status": "error", "message": f"{type(exc).__name__}: {exc}"}
+    return {"status": "success", "pinned": pinned}
+
 
 _customer_scan_threads = {}
 _customer_scan_threads_lock = threading.Lock()
@@ -4293,54 +4410,53 @@ def _customer_scan_worker(trip_id: int, scan_answers: dict, mode: str = "initial
         answers = dict(trip.get("answers") or {})
         refreshed = _recent_inventory_48h()
 
-        if mode == "initial":
-            matches = _customer_deal_choices(refreshed, trip, limit=5)
-            if matches:
-                _pin_offer_ids_to_trip(trip_id, answers, matches)
-            else:
-                # Initial search completed with no exact match. Do not leave the
-                # customer with an empty vacation: pin the closest same-destination
-                # date alternatives already discovered by the scan, clearly labelled
-                # as alternatives. This is display fallback only; it never pretends
-                # that the requested dates matched.
-                alternatives = _customer_alternative_choices(refreshed, trip, limit=5)
-                if not alternatives:
-                    # Every other requirement is met but the price is over the
-                    # customer's stated budget - still never leave them with
-                    # nothing: show it as a clearly-labelled, transparent
-                    # over-budget option rather than an empty vacation.
-                    alternatives = _over_budget_alternatives(refreshed, trip, limit=5)
-                if alternatives:
-                    answers["_initial_exact_match_missing"] = True
-                    answers["_showing_closest_matches"] = True
-                    _pin_offer_ids_to_trip(trip_id, answers, alternatives)
-        elif mode == "other_destination":
-            answers["_alternative_other_destination"] = True
-            answers["_second_chance_used"] = True
-            answers["_second_chance_choice"] = "other_destination"
-            check_trip = dict(trip)
-            check_trip["answers"] = answers
-            matches = _same_dates_other_destination_db_matches(refreshed, check_trip, limit=5)
-            if matches:
-                _pin_offer_ids_to_trip(trip_id, answers, matches)
-            else:
-                answers["_second_chance_exhausted"] = True
-                with _db() as conn:
-                    conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
-                    conn.commit()
-        elif mode == "nearby_dates":
-            answers["_second_chance_used"] = True
-            answers["_second_chance_choice"] = "nearby_dates"
-            check_trip = dict(trip)
-            check_trip["answers"] = answers
-            matches = _customer_alternative_choices(refreshed, check_trip, limit=5)
-            if matches:
-                _pin_offer_ids_to_trip(trip_id, answers, matches)
-            else:
-                answers["_second_chance_exhausted"] = True
-                with _db() as conn:
-                    conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
-                    conn.commit()
+        # Per the business owner's directive (20.10, vacation 259/trip #158):
+        # a scan must never fail silently. Anything in the matching/pinning
+        # logic below (any of the four tiers, or _pin_offer_ids_to_trip's own
+        # DB write) is real customer-facing work - if it raises, the customer
+        # must not be left on the waiting page forever with no record of why.
+        # Caught here, logged as a diagnostic event (trip_id/mode/exception
+        # only - never the customer's own answers), and the turn still falls
+        # through to mark the search finished below.
+        try:
+            if mode == "initial":
+                _match_and_pin_initial_offers(trip_id, trip, answers, refreshed)
+            elif mode == "other_destination":
+                answers["_alternative_other_destination"] = True
+                answers["_second_chance_used"] = True
+                answers["_second_chance_choice"] = "other_destination"
+                check_trip = dict(trip)
+                check_trip["answers"] = answers
+                matches = _same_dates_other_destination_db_matches(refreshed, check_trip, limit=5)
+                if matches:
+                    _pin_offer_ids_to_trip(trip_id, answers, matches)
+                else:
+                    answers["_second_chance_exhausted"] = True
+                    with _db() as conn:
+                        conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
+                        conn.commit()
+            elif mode == "nearby_dates":
+                answers["_second_chance_used"] = True
+                answers["_second_chance_choice"] = "nearby_dates"
+                check_trip = dict(trip)
+                check_trip["answers"] = answers
+                matches = _customer_alternative_choices(refreshed, check_trip, limit=5)
+                if matches:
+                    _pin_offer_ids_to_trip(trip_id, answers, matches)
+                else:
+                    answers["_second_chance_exhausted"] = True
+                    with _db() as conn:
+                        conn.execute("UPDATE trip_requests SET answers_json=? WHERE id=?", (json.dumps(answers, ensure_ascii=False), trip_id))
+                        conn.commit()
+        except Exception as match_exc:
+            print(f"[CUSTOMER-SCAN] trip={trip_id} mode={mode} matching_error={type(match_exc).__name__}: {match_exc}", flush=True)
+            try:
+                record_diagnostic_event("customer_scan_worker_error", {
+                    "trip_id": trip_id, "mode": mode,
+                    "error_type": type(match_exc).__name__, "error": str(match_exc),
+                })
+            except Exception:
+                pass
 
         # Persist completion/result for the waiting page even when the scanner
         # legitimately reused fresh monthly coverage or found zero matching offers.

@@ -37,7 +37,7 @@ from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search
 import scanner as _scanner
 from din_agent import enrich_offer_legal_terms
 from schedule_rules import delivery_status
-from public_site import site, _confirm_paid_search
+from public_site import site, _confirm_paid_search, rematch_trip_without_new_scan
 from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
@@ -493,6 +493,28 @@ def admin_confirm_payment():
     if request.form.get("redirect") == "admin":
         return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
     return jsonify({"status": "success", "trip_id": trip_id})
+
+
+@app.post("/admin/rematch-trip")
+def admin_rematch_trip():
+    """Recovery action for a vacation stuck frozen on an empty matched-offers
+    list (per the business owner's directive, 20.10, vacation 259/trip
+    #158) - re-runs the matching chain against CURRENT inventory, with no
+    new paid scan. Only acts on a trip whose search already finished with
+    nothing pinned; see public_site.rematch_trip_without_new_scan for the
+    full guard and the four-tier fallback chain it reuses from the scan
+    worker itself."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    trip_id = request.form.get("trip_id", type=int) or request.args.get("trip_id", type=int)
+    if not trip_id:
+        return jsonify({"status": "error", "message": "missing trip_id"}), 400
+    result = rematch_trip_without_new_scan(trip_id)
+    supplied = request.args.get("token") or request.form.get("token") or ""
+    if request.form.get("redirect") == "admin":
+        return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
+    return jsonify(result), (200 if result.get("status") == "success" else 400)
 
 
 @app.post("/admin/confirm-whatsapp-payment")
