@@ -8242,10 +8242,26 @@ def _baggage_followup_hint(baggage_values):
         what = "שאפשר תמיד להוסיף מזוודה בבטן המטוס"
     else:
         what = "שאפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס"
+    # Seen live (Shlomo/Shaked, stage-1 run-1, 20.10.2026, s1a1/s1a3): this
+    # note is often the ONLY hint for this turn (budget, the real next
+    # topic here, isn't itself a guided field with its own hint to combine
+    # this with - see _handle_guided_extraction_turn) - the reply simply
+    # asked the next question ("יש לך הגבלת תקציב...?"/"מה התקציב...?")
+    # with the note dropped entirely. The note is a plain statement, not a
+    # second question, but handed this alone against TINKERBELL_SYSTEM's
+    # own strict one-question-per-message rule, the model may have played
+    # safe and kept only the question. Stating outright that adding this
+    # one statement before the next question still counts as a single
+    # compliant message (matching the rule's own documented example of a
+    # statement plus one question together) removes that ambiguity instead
+    # of leaving it to be inferred.
     return (
         f"בנוסף, ציייני בלשונך במשפט קצר אחד {what} באתר חברת התעופה בזמן "
-        "ההזמנה - ומיד אחר כך, באותה הודעה, עברי לנושא הבא. לעולם אל תשאלי "
-        "עוד שאלה או בקשת אישור על הכבודה."
+        "ההזמנה - ומיד אחר כך, באותה הודעה, המשיכי לשאלה הבאה שבאמת רלוונטית "
+        "כרגע (למשל תקציב, אם עוד לא ידוע). זו עדיין הודעה אחת תקינה עם שאלה "
+        "אחת בלבד - המשפט הקצר על הכבודה הוא קביעה, לא שאלה שנייה, ואסור "
+        "להשמיט אותו רק כדי להישאר עם שאלה אחת. לעולם אל תשאלי עוד שאלה או "
+        "בקשת אישור על הכבודה עצמה."
     )
 
 
@@ -9182,9 +9198,28 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # the SAME message - never a separate turn.
         baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
         if baggage_note:
+            # Seen live (Shlomo/Shaked, stage-1 run-1, 20.10.2026, s1a1/
+            # s1a3): a plain concatenation of the note with the next
+            # question ("{note} {next_hint}") was sometimes dropped
+            # entirely - the reply asked only the next question ("יש לך
+            # הגבלת תקציב...?"/"מה התקציב...?"), with no "אפשר להוסיף..."
+            # sentence at all. TINKERBELL_SYSTEM's own strict one-question-
+            # per-message rule is the likely reason: handed an un-numbered
+            # blob combining a statement with a new question, the model
+            # may have played safe and kept only the question, uncertain
+            # whether including both still counted as "one question."
+            # Numbering the two parts explicitly and stating outright that
+            # this still counts as one question (matching the rule's own
+            # documented example of a statement plus one question in the
+            # same message) removes that ambiguity instead of leaving it
+            # to be inferred from a bare concatenation.
             return {
                 "trip_update": trip_update,
-                "dynamic_hint": (baggage_note + " " + next_hint) if next_hint else baggage_note,
+                "dynamic_hint": (
+                    ("שני חלקים בהודעה הזו - זה עדיין נחשב הודעה אחת עם שאלה אחת בלבד, לא הפרה של כלל השאלה האחת: "
+                     "(1) " + baggage_note + " (2) " + next_hint)
+                    if next_hint else baggage_note
+                ),
             }
     return {"trip_update": trip_update, "dynamic_hint": next_hint}
 
