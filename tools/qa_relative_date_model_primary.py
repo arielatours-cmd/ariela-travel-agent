@@ -349,6 +349,54 @@ check("confirming the pending negative shift commits departure back one "
       and dates_shift_back_confirm.get("return") == "2026-11-23")
 
 # =====================================================================
+# Direct coverage of _deterministic_shift_days_fallback - per Shlomo's
+# relay of Shaked's own diagnosis (stage-1 run-2): the live bug may have
+# been the model's own shift_days extraction never returning verified
+# evidence at all, leaving the shift silently dropped with no fallback.
+# =====================================================================
+check("direct: 'לזוז יום אחד אחורה' resolves to -1",
+      chat._deterministic_shift_days_fallback("אפשר לזוז יום אחד אחורה?") == -1)
+check("direct: 'לזוז יום אחד קדימה' resolves to +1",
+      chat._deterministic_shift_days_fallback("אפשר לזוז יום אחד קדימה?") == 1)
+check("direct: 'לזוז 3 ימים אחורה' resolves to -3",
+      chat._deterministic_shift_days_fallback("אפשר לזוז 3 ימים אחורה?") == -3)
+check("direct: unrelated text resolves to None - never a false positive",
+      chat._deterministic_shift_days_fallback("מה השעה הטיסה?") is None)
+
+# End-to-end: the model produces NO shift_days at all (a genuine
+# extraction miss) - the regex fallback still catches the plain "move it
+# back a day" phrasing and proposes the correct pending candidate.
+def _post_claude_shift_no_model_hint(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {}, "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "בטח, 16.11.2026 עד 23.11.2026 - מתאים?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_shift_no_model_hint):
+    r_shift_fallback = client.post("/api/ariella/chat-clean", json={
+        "message": "אפשר לזוז יום אחד אחורה?",
+        "history": [{"role": "assistant", "content": "קלטתי, 17.11.2026 עד 24.11.2026."}],
+        "trip_state": confirmed_state,
+    })
+data_shift_fallback = r_shift_fallback.get_json() or {}
+dates_shift_fallback = (data_shift_fallback.get("trip_update") or {}).get("dates") or {}
+check("end-to-end: with NO model-extracted shift_days at all, the regex "
+      "fallback still proposes the correct pending shift candidate "
+      "(16.11-23.11), departure/return unchanged until confirmed",
+      dates_shift_fallback.get("departure") == "2026-11-17"
+      and dates_shift_fallback.get("return") == "2026-11-24"
+      and dates_shift_fallback.get("needs_confirmation") is True
+      and len(dates_shift_fallback.get("candidate_ranges") or []) == 1)
+
+# =====================================================================
 # Direct coverage of the new general safety net
 # (_ensure_dates_closure_claim_matches_state): a reply that falsely
 # claims the dates are closed/saved while they are still only a pending

@@ -5811,6 +5811,27 @@ def _deterministic_flights_already_booked_facts(message):
     return {}
 
 
+def _deterministic_shift_days_fallback(message):
+    """REGEX FALLBACK ONLY (per Shlomo's relay of Shaked's live stage-1
+    run-2 finding): relative_date_hint.shift_days (evidence-gated) is the
+    PRIMARY path for "אפשר לזוז יום אחד אחורה?" - this exists solely for
+    the turn that structured extraction itself fails to produce a
+    verified shift, mirroring _deterministic_period_facts's own role for
+    every other relative-date capability. Recognizes only the plain
+    "move N days forward/backward" phrasing against the message itself;
+    must never be extended further as if it were the primary mechanism.
+    Returns a signed int day count, or None if nothing matched."""
+    msg = str(message or "").strip()
+    m = re.search(r"לזוז\s+(?:ב)?יום\s+(?:אחד|אחת)\s+(קדימה|אחורה)", msg)
+    if m:
+        return 1 if m.group(1) == "קדימה" else -1
+    m = re.search(r"לזוז\s+(\d+)\s+ימים\s+(קדימה|אחורה)", msg)
+    if m:
+        n = int(m.group(1))
+        return n if m.group(2) == "קדימה" else -n
+    return None
+
+
 def _candidate_dates_from_relative_hint(hint):
     """Computes 2-3 exact departure/return candidates from a relative-date
     hint the MODEL already understood and returned in structured form
@@ -12240,10 +12261,26 @@ def _chat_clean_impl():
         # confirmation" code needed, just feeding it the same shape.
         if prior_dates.get("departure") and prior_dates.get("return"):
             _shift_days = relative_date_hint.get("shift_days") if isinstance(relative_date_hint, dict) else None
-            if (
+            if not (
                 isinstance(_shift_days, int) and _shift_days != 0
                 and _value_has_verbatim_evidence(relative_date_hint_evidence, message)
             ):
+                # Per Shlomo's relay of Shaked's live stage-1 run-2 finding:
+                # her own diagnosis was that shift_days likely never came
+                # back with evidence that passed verification on the live
+                # turn - with no fallback at all, a model extraction miss
+                # here meant the shift request was silently dropped
+                # entirely (the live transcript showed Tinkerbell proposing
+                # new dates anyway, from her own free-text judgment, with
+                # nothing in state behind it). REGEX FALLBACK ONLY, same
+                # role as _deterministic_period_facts for every other
+                # relative-date capability: recognizes only the plain
+                # "move the dates N days forward/backward" phrasing against
+                # the CURRENT message alone (never history, to avoid a
+                # stale match) - never extended beyond this; the model's
+                # own structured shift_days above stays the primary path.
+                _shift_days = _deterministic_shift_days_fallback(message)
+            if isinstance(_shift_days, int) and _shift_days != 0:
                 try:
                     _old_dep = date.fromisoformat(str(prior_dates["departure"])[:10])
                     _old_ret = date.fromisoformat(str(prior_dates["return"])[:10])
