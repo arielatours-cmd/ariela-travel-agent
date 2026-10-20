@@ -11,11 +11,16 @@ trolley) -> can add a suitcase. A checked bag (the top tier) never needs
 a note.
 
 _ensure_baggage_followup_note_present detects whether a note was
-INSTRUCTED this turn via a unique marker substring already present in
-_baggage_followup_hint's own text, carried in
-trip_update["_guided_ask_hint"] - no new state field needed - and then
-checks the ACTUAL reply for either variant's content before deciding to
-insert anything.
+INSTRUCTED this turn via TWO independent signals - (a) a unique marker
+substring already present in _baggage_followup_hint's own text, carried
+in trip_update["_guided_ask_hint"]; or (b) baggage having just moved
+from the guided dispatcher's own active question (trip_state, before
+this turn) to anything else (trip_update, now) - added per Shlomo's
+relay of Shaked's own follow-up suspicion (stage-1 run-2, s1z1 Budapest/
+s1z3 Rome) that the guided dispatch may never even reach the hint-
+building code on some turns, in which case signal (a) alone would never
+fire either. Either signal alone is enough; then the ACTUAL reply is
+checked for either variant's content before deciding to insert anything.
 
 Run: python3 tools/qa_baggage_followup_code_backup.py
 """
@@ -103,6 +108,40 @@ check("never raises on a None/empty reply, still inserts the note alone",
       bool(chat._ensure_baggage_followup_note_present(
           None, dict(_HINT_PRESENT, flight={"baggage": ["personal_item"]})
       )))
+
+# =====================================================================
+# The second, independent signal: baggage just moved from the guided
+# dispatcher's own active question (trip_state, before this turn) to
+# anything else (trip_update, now) - fires even with NO hint marker at
+# all, per Shlomo's relay of Shaked's own suspicion (stage-1 run-2, s1z1
+# Budapest/s1z3 Rome) that the hint-building code may never even run on
+# some turns.
+# =====================================================================
+_PRIOR_STATE_BAGGAGE_ACTIVE = {"guided": {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}}
+_NOW_STATE_BAGGAGE_ANSWERED = dict(
+    _HINT_ABSENT,  # no hint marker at all - only the state-transition signal
+    flight={"baggage": ["personal_item"]},
+    guided={"current_question": "budget_per_person", "attempts": 0, "answered": ["dates", "travelers", "baggage"]},
+)
+check("with NO hint marker at all, baggage having just moved off the "
+      "guided dispatcher's active question (prior turn's state) on its "
+      "own still triggers the code backup",
+      "להוסיף טרולי" in chat._ensure_baggage_followup_note_present(
+          "מה התקציב שלכם לאדם לטיסה?", _NOW_STATE_BAGGAGE_ANSWERED, _PRIOR_STATE_BAGGAGE_ACTIVE,
+      ))
+check("when baggage is STILL the active guided question (not yet "
+      "answered this turn), the state-transition signal does not fire "
+      "on its own",
+      chat._ensure_baggage_followup_note_present(
+          "מה סוג הכבודה?",
+          dict(_HINT_ABSENT, flight={}, guided={"current_question": "baggage", "attempts": 1, "answered": []}),
+          _PRIOR_STATE_BAGGAGE_ACTIVE,
+      ) == "מה סוג הכבודה?")
+check("with neither signal present (no hint marker, baggage wasn't the "
+      "prior active question), the reply is left untouched",
+      chat._ensure_baggage_followup_note_present(
+          "מה התקציב שלכם?", _HINT_ABSENT, {"guided": {"current_question": "travelers"}},
+      ) == "מה התקציב שלכם?")
 
 # =====================================================================
 # End-to-end: a mocked Tinkerbell reply that drops the note entirely

@@ -8179,23 +8179,41 @@ _BAGGAGE_FOLLOWUP_HINT_MARKER = "המשפט הקצר על הכבודה הוא ק
 _BAGGAGE_FOLLOWUP_NOTE_CONTENT_CUES = ("להוסיף מזוודה", "להוסיף טרולי")
 
 
-def _ensure_baggage_followup_note_present(reply, trip_update):
+def _ensure_baggage_followup_note_present(reply, trip_update, trip_state=None):
     """Per Shlomo's relay of Shaked's live stage-1 run-2 finding: even
     after _baggage_followup_hint's own prompt instruction was hardened
     twice already (#104), the "can always add a trolley/suitcase later"
     note still didn't reliably reach the customer - the model sometimes
     still dropped it in favor of keeping only the next question. Per the
     business owner's explicit direction, this is now ALSO a deterministic
-    code backup: when a baggage follow-up note was instructed this turn
-    (detected via the hint's own marker text, set whenever
-    _baggage_followup_hint fired - see _handle_guided_extraction_turn)
+    code backup: when a baggage follow-up note was instructed this turn,
     but the model's actual reply doesn't contain either variant's
     content, the code inserts the one short sentence itself, before the
     rest of the reply. A checked bag (the top tier) never needs a note,
-    matching _baggage_followup_hint's own gating exactly."""
+    matching _baggage_followup_hint's own gating exactly.
+
+    Two independent signals decide "a note was instructed this turn",
+    since Shaked's own live follow-up (s1z1 Budapest, s1z3 Rome) raised
+    the possibility that the guided dispatch never even reached the code
+    that calls _baggage_followup_hint at all on some turns, in which case
+    the hint-marker signal alone would never fire either:
+    (a) the hint's own marker text, set whenever _baggage_followup_hint
+        fired - see _handle_guided_extraction_turn; or
+    (b) baggage was the guided dispatcher's own active question BEFORE
+        this turn (trip_state) and no longer is now (trip_update) - i.e.
+        baggage was just answered this turn, independent of whether the
+        hint-building itself succeeded."""
     trip_update = trip_update if isinstance(trip_update, dict) else {}
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
     hint = str(trip_update.get("_guided_ask_hint") or "")
-    if _BAGGAGE_FOLLOWUP_HINT_MARKER not in hint:
+    hint_signaled = _BAGGAGE_FOLLOWUP_HINT_MARKER in hint
+    prior_guided = trip_state.get("guided") if isinstance(trip_state.get("guided"), dict) else {}
+    now_guided = trip_update.get("guided") if isinstance(trip_update.get("guided"), dict) else {}
+    baggage_just_answered = (
+        prior_guided.get("current_question") == "baggage"
+        and now_guided.get("current_question") != "baggage"
+    )
+    if not hint_signaled and not baggage_just_answered:
         return reply
     text = str(reply or "")
     if any(c in text for c in _BAGGAGE_FOLLOWUP_NOTE_CONTENT_CUES):
@@ -12991,7 +13009,7 @@ def _chat_clean_impl():
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
-        reply = _ensure_baggage_followup_note_present(reply, trip_update)
+        reply = _ensure_baggage_followup_note_present(reply, trip_update, trip_state)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
