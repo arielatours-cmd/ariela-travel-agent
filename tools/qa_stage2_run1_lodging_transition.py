@@ -315,11 +315,16 @@ check("confirms the gap existed before this fix: _deterministic_named_"
 check("Shaked's exact Budapest repro: 'טרולי לכל אחד ומזוודה אחת משותפת' "
       "sets BOTH values (not just carry_on_only, the dropped-value half of "
       "this already fixed separately) AND the shared detail, with count=1 "
-      "correctly recovered from 'מזוודה אחת'",
+      "correctly recovered from 'מזוודה אחת' - plus the trolley's own "
+      "per-person split itself (fixed 20.10, Shlomo's priority-5 finding: "
+      "carry_on never tracked count/unit before, unlike checked_bag)",
       chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת משותפת") == {
           "flight": {
               "baggage": ["carry_on_only", "checked_bag"],
-              "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}},
+              "baggage_detail": {
+                  "checked_bag": {"unit": "total", "count": 1},
+                  "carry_on_only": {"unit": "per_person"},
+              },
           },
       })
 check("an ordinary (non-shared) checked-bag phrase does NOT set a "
@@ -347,11 +352,15 @@ check("_baggage_summary still uses the per-passenger phrasing (qa-s83's "
 #     is present at all). ===
 check("Shaked's exact Budapest Z5 repro: 'מזוודה אחת לכולנו' with 3 "
       "travelers (couple + a 3-year-old) is flagged total via the unit "
-      "word itself ('לכולנו'), with count=1 preserved",
+      "word itself ('לכולנו'), with count=1 preserved - plus the "
+      "trolley's own per-person split (same 20.10 fix as above)",
       chat._deterministic_baggage_facts("טרולי לכל אחד ועוד מזוודה אחת לכולנו", 3) == {
           "flight": {
               "baggage": ["carry_on_only", "checked_bag"],
-              "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}},
+              "baggage_detail": {
+                  "checked_bag": {"unit": "total", "count": 1},
+                  "carry_on_only": {"unit": "per_person"},
+              },
           },
       })
 check("'מזוודה אחת לכל זוג' for a solo traveler (count=1) does NOT infer "

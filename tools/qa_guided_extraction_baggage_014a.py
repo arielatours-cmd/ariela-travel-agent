@@ -409,8 +409,10 @@ check("label: unit=per_couple, count=2 -> states the real count",
       chat._checked_bag_label({"count": 2, "unit": "per_couple"}) == "2 מזוודות לכל זוג")
 check("label: no unit, count=3 (genuinely ambiguous split) -> states the count, never guesses a unit",
       chat._checked_bag_label({"count": 3, "unit": None}) == "3 מזוודות")
-check("label: no detail at all -> the classic per-passenger default, unchanged",
-      chat._checked_bag_label(None) == "מזוודה גדולה לכל נוסע")
+check("label: no detail at all -> the classic per-passenger default, with no "
+      "invented size (fixed 20.10, Shlomo's priority-5 finding, s12x10 - "
+      "a size was never stated so none is claimed)",
+      chat._checked_bag_label(None) == "מזוודה אחת לכל נוסע")
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email LIKE 'qa-baggage-%@example.com'")

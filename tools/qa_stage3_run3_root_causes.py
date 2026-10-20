@@ -395,26 +395,40 @@ check("Milano repro: a bare 'מזוודה לכל אחד' (no גדולה/בבטן
       == {"flight": {"baggage": ["checked_bag"],
                       "baggage_detail": {"checked_bag": {"unit": "per_person"}}}})
 check("Lisbon repro: 'כל אחד טרולי, ומזוודה אחת משותפת' (traveler-noun "
-      "BEFORE טרולי) keeps the carry-on half too, not just the checked bag",
+      "BEFORE טרולי) keeps the carry-on half too, not just the checked bag "
+      "- plus the trolley's own per-person split itself now that carry_on "
+      "tracks count/unit (fixed 20.10, Shlomo's priority-5 finding): the "
+      "nearest unit phrase to 'טרולי' ('כל אחד', immediately before it) "
+      "wins, never the suitcase's own, more distant 'משותפת'",
       chat._deterministic_baggage_facts("כל אחד טרולי, ומזוודה אחת משותפת", 4)
       == {"flight": {"baggage": ["carry_on_only", "checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+                      "baggage_detail": {
+                          "checked_bag": {"unit": "total", "count": 1},
+                          "carry_on_only": {"unit": "per_person"},
+                      }}})
 check("'מזוודה אחת לכולנו וטרולי לכל מבוגר' ('מבוגר', a traveler noun the "
-      "old carry-on pattern didn't list) also keeps both halves",
+      "old carry-on pattern didn't list) also keeps both halves - plus the "
+      "trolley's own per-adult split (same 20.10 fix, nearest-phrase rule: "
+      "'לכל מבוגר' sits right after 'טרולי', not the far-off 'לכולנו')",
       chat._deterministic_baggage_facts("מזוודה אחת לכולנו וטרולי לכל מבוגר", 4)
       == {"flight": {"baggage": ["carry_on_only", "checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+                      "baggage_detail": {
+                          "checked_bag": {"unit": "total", "count": 1},
+                          "carry_on_only": {"unit": "per_adult"},
+                      }}})
 check("regression: a genuine negated bare mention ('אין לי מזוודה') still "
       "returns {} rather than being wrongly treated as an affirmative "
       "checked-bag statement",
       chat._deterministic_baggage_facts("אין לי מזוודה") == {})
 check("regression: the existing specific phrasings (e.g. 'בלי מזוודה רק "
-      "טרולי', 'מזוודה גדולה לכל אחד מאיתנו') are unaffected",
+      "טרולי', 'מזוודה גדולה לכל אחד מאיתנו') are unaffected, aside from "
+      "the intentional new size fact (fixed 20.10: a stated size is a real "
+      "fact too, never omitted the way 'גדולה' used to be invented anyway)",
       chat._deterministic_baggage_facts("בלי מזוודה רק טרולי")
       == {"flight": {"baggage": ["carry_on_only"]}}
       and chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", 4)
       == {"flight": {"baggage": ["checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "per_person"}}}})
+                      "baggage_detail": {"checked_bag": {"unit": "per_person", "size": "גדולה"}}}})
 
 # =====================================================================
 # Shaked's PR #83 REVIEW, SUPERSEDED the same day by the business owner's
