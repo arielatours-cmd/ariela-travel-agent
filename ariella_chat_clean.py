@@ -8171,6 +8171,60 @@ def _redirect_false_flight_closure_claim(reply, trip_update):
     return question or reply
 
 
+_DATES_CLOSURE_CLAIM_CUES = ("סגרנו", "נשמר", "עודכן התאריך", "עדכנתי את התאריכים", "שיניתי את התאריכים")
+
+
+def _ensure_dates_closure_claim_matches_state(reply, trip_update):
+    """Seen live (Shaked, stage-1 run-2, critical): "אפשר לזוז יום אחד
+    אחורה?" -> Ariella proposed 20-27, the customer said "כן", and Ariella
+    replied "סגרנו" (we've closed it) - but trip_update["dates"] still held
+    the OLD, unchanged 21-28, because the shift was only ever a PENDING
+    candidate (see the shift_days block above) and nothing had actually
+    turned the "כן" into a real commit that turn. A "we've saved/closed
+    it" claim must never outrun what is genuinely persisted in state -
+    general safety net, not specific to shift_days: whichever code path
+    produced the reply, if it claims a date change is settled while dates
+    are still only a pending candidate, or names dates that don't match
+    what's actually confirmed, the claim is replaced with an honest
+    statement built straight from state instead of trusted as-is."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    dates = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+    text = str(reply or "")
+    if not any(c in text for c in _DATES_CLOSURE_CLAIM_CUES):
+        return reply
+    gender = trip_update.get("user_gender")
+    if dates.get("needs_confirmation"):
+        # Nothing is actually settled yet, whatever the reply claims - a
+        # pending candidate still needs the customer's own explicit yes.
+        candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
+        if len(candidates) == 1:
+            return _g(gender,
+                      f"רגע - זה עדיין לא אושר בפועל. {candidates[0]} מתאים?",
+                      f"רגע - זה עדיין לא אושר בפועל. {candidates[0]} מתאים?")
+        return reply
+    import re as _re_dates_claim
+    found = _re_dates_claim.findall(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", text)
+    if len(found) < 2:
+        return reply
+    try:
+        mentioned_dep = date(int(found[0][2]), int(found[0][1]), int(found[0][0]))
+        mentioned_ret = date(int(found[1][2]), int(found[1][1]), int(found[1][0]))
+    except ValueError:
+        return reply
+    real_dep_raw = str(dates.get("departure") or "")[:10]
+    real_ret_raw = str(dates.get("return") or "")[:10]
+    if not real_dep_raw or not real_ret_raw:
+        return reply
+    try:
+        real_dep = date.fromisoformat(real_dep_raw)
+        real_ret = date.fromisoformat(real_ret_raw)
+    except ValueError:
+        return reply
+    if mentioned_dep == real_dep and mentioned_ret == real_ret:
+        return reply
+    return f"קלטתי - התאריכים שנשמרו בפועל הם {real_dep.strftime('%d.%m.%Y')}–{real_ret.strftime('%d.%m.%Y')}."
+
+
 _POST_FLIGHT_OFFER_CUES = (
     "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
     "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
@@ -12165,6 +12219,25 @@ def _chat_clean_impl():
         # model naming the shift in structured form (shift_days) and code
         # computing the actual new departure/return - never guessed, and
         # never silently folded into dates.flexibility_days instead.
+        #
+        # Per Shlomo's relay of Shaked's live stage-1 run-2 finding
+        # (critical): the first version auto-committed the shift
+        # immediately (needs_confirmation=False) - but Tinkerbell's own
+        # reply, seeing a plain shift request phrased as a question
+        # ("אפשר לזוז..?"), naturally proposed the new dates and asked for
+        # confirmation anyway. The customer's "כן" then had nothing to
+        # apply (the code already considered this closed), so it fell
+        # through as ordinary conversation while the summary kept the
+        # customer's confirmation claim ("סגרנו") next to the OLD,
+        # unchanged dates. A relative-date change must always require the
+        # same explicit confirmation step as every other relative-date
+        # candidate (never auto-applied, not even with a single option -
+        # see _candidate_dates_from_relative_hint): this now proposes the
+        # shifted dates as a single pending candidate instead of
+        # committing them, reusing the exact same candidate/confirmation
+        # mechanism (_accept_single_proposed_date_range) the weekday-pair
+        # and duration flows already rely on - no new "apply the
+        # confirmation" code needed, just feeding it the same shape.
         if prior_dates.get("departure") and prior_dates.get("return"):
             _shift_days = relative_date_hint.get("shift_days") if isinstance(relative_date_hint, dict) else None
             if (
@@ -12176,11 +12249,24 @@ def _chat_clean_impl():
                     _old_ret = date.fromisoformat(str(prior_dates["return"])[:10])
                     _new_dep = _old_dep + timedelta(days=_shift_days)
                     _new_ret = _old_ret + timedelta(days=_shift_days)
-                    trip_update = _merge_trip_state(trip_update, {"dates": {
-                        "departure": _new_dep.isoformat(), "return": _new_ret.isoformat(),
-                        "period": f"{_new_dep.strftime('%d.%m.%Y')}–{_new_ret.strftime('%d.%m.%Y')}",
-                        "needs_confirmation": False, "candidate_ranges": [],
-                    }})
+                    _shift_label = (
+                        f"יום {_WEEKDAY_HE_BY_PY[_new_dep.weekday()]} {_new_dep.strftime('%d.%m.%Y')}"
+                        f"–יום {_WEEKDAY_HE_BY_PY[_new_ret.weekday()]} {_new_ret.strftime('%d.%m.%Y')}"
+                    )
+                    # _merge_trip_state's own anti-regression guard (dates.
+                    # needs_confirmation never flips back from False to True)
+                    # exists for noisy/accidental extractor output on an
+                    # unrelated turn - never meant to block a deliberate,
+                    # evidence-gated date-change request like this one, so
+                    # this writes trip_update["dates"] directly rather than
+                    # going through that merge. departure/return are kept at
+                    # their last-confirmed values (not the new ones) until
+                    # the customer actually confirms the proposal.
+                    trip_update["dates"] = dict(trip_update.get("dates") or {}, **{
+                        "departure": _old_dep.isoformat(), "return": _old_ret.isoformat(),
+                        "period": f"{_old_dep.strftime('%d.%m.%Y')}–{_old_ret.strftime('%d.%m.%Y')}",
+                        "needs_confirmation": True, "candidate_ranges": [_shift_label],
+                    })
                 except ValueError:
                     pass
 
@@ -12951,6 +13037,7 @@ def _chat_clean_impl():
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
+        reply = _ensure_dates_closure_claim_matches_state(reply, trip_update)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
