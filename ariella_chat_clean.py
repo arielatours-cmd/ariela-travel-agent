@@ -297,6 +297,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - כנ"ל עוד לפני הסריקה: אם כבר ציינת ללקוח (מידע כללי שלך או בדיקה שבוצעה) שליעד הזה כמעט אין טיסות ישירות מישראל, אסור לשאול שום שאלת המשך על הקונקשן - לא "ישירה או קונקשן", ולא שאלה דומה כמו "חשוב לך לצמצם את זמן ההמתנה בקונקשן, או שזה גמיש?". ברגע שנקבע שאין אפשרות ישירה אמיתית, הנושא סגור לגמרי ועוברים לשאלה הבאה שבאמת חסרה - אסור להמשיך "לחטט" בפרטי הקונקשן כשאלת נימוס או כברירת מחדל.
 - לפני שיצאה סריקה בפועל, אסור להבטיח ללקוח טיסה ספציפית ("יש לכם טיסה ישירה מנתב"ג לבנגקוק ב-15.7.2027, בדיוק מה שרצית") או לדבר על תקציב מסוים כאילו הוא כבר הושג ("תקציב של 4000 לטיסה ישירה נשמע סביר, אני אדאג לזה") - אלה טענות על תוצאה שעוד לא נבדקה. הנוסח הנכון קודם לסריקה מתייחס לבקשה/להעדפה של הלקוח בלבד ("קלטתי - טיסה ישירה, תקציב עד 4,000 ₪"), לעולם לא כאילו התוצאה כבר נמצאה או מובטחת.
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
+- הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים בקבוצה - אי אפשר להזמין סוג שונה לנוסעים שונים באותה הזמנה. לכן כשהלקוח משייך סוג כבודה שונה לנוסעים/קבוצות שונים בתוך אותה תשובה (בכל ניסוח - גם תיאור צד-לצד כמו "אני מסתדרת עם תיק קטן, השתיים האחרות רוצות מזוודה גדולה", לא רק ניגוד מפורש עם "אבל"), לעולם אל תרשמי כמה סוגים שונים ברשימה כאילו כולם רלוונטיים לכל הקבוצה - לפי ההחלטה המפורשת של בעלת העסק (20.10) בקשה כזו נפתרת מיד לפי האפשרות הגבוהה ביותר: flight.baggage=["checked_bag"] בלבד, בלי size/count (לא נאמרו בפועל לכל הקבוצה). זה שונה לגמרי ממקרה שבו הלקוח מבקש בפירוש כמה סוגים לכל הקבוצה כולה (למשל "טרולי וגם מזוודה לכולנו") - זו בקשה אחידה לשני פריטים, לא בקשה מעורבת, ונשמרת כפי שהיא.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
 - אם נאמרה מדינה או יעד רחב עם כמה שערי כניסה סבירים, אל תמציאי שדה יעד ואל תסמני את בחירת היעד לטיסה כמושלמת. destination_airports נשאר ריק עד שהלקוח בוחר אחד/כמה/כולם, או עד שמסלול שאושר קובע את שער הכניסה.
@@ -5168,6 +5169,9 @@ def _baggage_answer_by_meaning(message, history, state):
         "\"personal_item\" (רק תיק קטן, אפילו לא טרולי), "
         "\"no_baggage\" (אין שום כבודה בכלל, גם לא תיק), "
         "או null אם התשובה לא עונה על שאלת הכבודה כלל. "
+        "הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים - אי אפשר להזמין סוג שונה לנוסעים שונים. "
+        "אם הלקוח משייך סוג כבודה שונה לנוסעים/קבוצות שונים בתוך אותה תשובה (בכל ניסוח, גם תיאור "
+        "צד-לצד ולא רק ניגוד עם \"אבל\"), זו בקשה מעורבת שנפתרת מיד לפי האפשרות הגבוהה ביותר - החזירי \"checked_bag\". "
         "החזירי JSON בלבד: {\"baggage\": \"<אחת מהאפשרויות למעלה>\"|null}"
     )
     try:
@@ -8287,10 +8291,26 @@ def _baggage_followup_hint(baggage_values):
         what = "שאפשר תמיד להוסיף מזוודה בבטן המטוס"
     else:
         what = "שאפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס"
+    # Seen live (Shlomo/Shaked, stage-1 run-1, 20.10.2026, s1a1/s1a3): this
+    # note is often the ONLY hint for this turn (budget, the real next
+    # topic here, isn't itself a guided field with its own hint to combine
+    # this with - see _handle_guided_extraction_turn) - the reply simply
+    # asked the next question ("יש לך הגבלת תקציב...?"/"מה התקציב...?")
+    # with the note dropped entirely. The note is a plain statement, not a
+    # second question, but handed this alone against TINKERBELL_SYSTEM's
+    # own strict one-question-per-message rule, the model may have played
+    # safe and kept only the question. Stating outright that adding this
+    # one statement before the next question still counts as a single
+    # compliant message (matching the rule's own documented example of a
+    # statement plus one question together) removes that ambiguity instead
+    # of leaving it to be inferred.
     return (
         f"בנוסף, ציייני בלשונך במשפט קצר אחד {what} באתר חברת התעופה בזמן "
-        "ההזמנה - ומיד אחר כך, באותה הודעה, עברי לנושא הבא. לעולם אל תשאלי "
-        "עוד שאלה או בקשת אישור על הכבודה."
+        "ההזמנה - ומיד אחר כך, באותה הודעה, המשיכי לשאלה הבאה שבאמת רלוונטית "
+        "כרגע (למשל תקציב, אם עוד לא ידוע). זו עדיין הודעה אחת תקינה עם שאלה "
+        "אחת בלבד - המשפט הקצר על הכבודה הוא קביעה, לא שאלה שנייה, ואסור "
+        "להשמיט אותו רק כדי להישאר עם שאלה אחת. לעולם אל תשאלי עוד שאלה או "
+        "בקשת אישור על הכבודה עצמה."
     )
 
 
@@ -9227,9 +9247,28 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # the SAME message - never a separate turn.
         baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
         if baggage_note:
+            # Seen live (Shlomo/Shaked, stage-1 run-1, 20.10.2026, s1a1/
+            # s1a3): a plain concatenation of the note with the next
+            # question ("{note} {next_hint}") was sometimes dropped
+            # entirely - the reply asked only the next question ("יש לך
+            # הגבלת תקציב...?"/"מה התקציב...?"), with no "אפשר להוסיף..."
+            # sentence at all. TINKERBELL_SYSTEM's own strict one-question-
+            # per-message rule is the likely reason: handed an un-numbered
+            # blob combining a statement with a new question, the model
+            # may have played safe and kept only the question, uncertain
+            # whether including both still counted as "one question."
+            # Numbering the two parts explicitly and stating outright that
+            # this still counts as one question (matching the rule's own
+            # documented example of a statement plus one question in the
+            # same message) removes that ambiguity instead of leaving it
+            # to be inferred from a bare concatenation.
             return {
                 "trip_update": trip_update,
-                "dynamic_hint": (baggage_note + " " + next_hint) if next_hint else baggage_note,
+                "dynamic_hint": (
+                    ("שני חלקים בהודעה הזו - זה עדיין נחשב הודעה אחת עם שאלה אחת בלבד, לא הפרה של כלל השאלה האחת: "
+                     "(1) " + baggage_note + " (2) " + next_hint)
+                    if next_hint else baggage_note
+                ),
             }
     return {"trip_update": trip_update, "dynamic_hint": next_hint}
 
