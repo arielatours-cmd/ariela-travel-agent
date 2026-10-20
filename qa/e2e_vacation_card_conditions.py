@@ -43,10 +43,10 @@ def make_trip(tid, answers):
     with db() as c:
         return public_site._trip_dict(c.execute("SELECT * FROM trip_requests WHERE id=?", (tid,)).fetchone())
 
-def make_offer(price, out, ret, stops=0, dep_time="2027-03-21 19:00"):
+BAG_ALL = {"personal_item": {"included": True}, "carry_on_8kg": {"included": True}, "checked_bag_23kg": {"included": True}}
+def make_offer(price, out, ret, stops=0, dep_time="2027-03-21 19:00", baggage=None):
     flight = {"departure_time": dep_time, "arrival_time": out + " 23:00", "return_departure_time": ret + " 14:00",
-              "return_arrival_time": ret + " 18:00", "stops": stops,
-              "baggage": {"carry_on_8kg": {"included": True}, "checked_bag_23kg": {"included": True}}}
+              "return_arrival_time": ret + " 18:00", "stops": stops, "baggage": baggage or BAG_ALL}
     with db() as c:
         run = c.execute("INSERT INTO scan_runs (started_at, status, searches_planned) VALUES (datetime('now'),'done',1)").lastrowid
         oid = c.execute("""INSERT INTO offers (scan_run_id, observed_at, route, departure_code, arrival_code, outbound_date, return_date,
@@ -113,6 +113,54 @@ with app.test_request_context("/?lang=he"):
 check("הצעה של 3600 ש\"ח ל-2 נוסעים (1800 לאדם) נחשבת בתוך תקציב של 2000 לאדם — "
       "או ש-price_ils מוגדר במפורש כמחיר לאדם", within,
       "_offer_within_budget משווה price_ils ישירות לתקציב לאדם; צריך לאמת אם price_ils מהסריקה הוא מחיר כולל לכל הנוסעים")
+
+def card_html_for(tid, answers, offer_ids):
+    with db() as c:
+        c.execute("UPDATE trip_requests SET status='archived' WHERE member_id=? AND id<>?", (MEMBER, tid)); c.commit()
+    t = make_trip(tid, dict(answers, _matched_offer_ids=offer_ids))
+    st, h = account_html(tid)
+    return [c for c in re.split(r'<article class="ariella-deal-card', h)[1:]]
+
+def bag_cell(card, label):
+    m = re.search(re.escape(label) + r'</span><span class="bag-status-price">(.*?)</span></li>', card, re.S)
+    return re.sub(r"<[^>]+>", "", m.group(1)).strip() if m else None
+
+# 4) (א) "המחיר לאדם" באמת לאדם: 2 מבוגרים. הסריקה נשלחת עם adults=N, ו-scanner.py שומר את item["price"] בלי חלוקה.
+#    הכרטיס מציג price_ils תחת "המחיר לאדם". אם price_ils הוא מחיר כולל, צריך להציג price_ils/N או לכתוב במפורש "סה״כ".
+o2 = make_offer(3600, "2027-03-21", "2027-03-25")
+cards = card_html_for(259903, dict(BASE, adults=2), [o2])
+ctext = re.sub(r"<[^>]+>", " ", cards[0]) if cards else ""
+check("(א) לזוג, מחיר 3600 כולל: מוצג ₪1800 תחת 'לאדם', או שהמחיר מסומן כסה״כ לכל הנוסעים",
+      bool(cards) and ("1800" in ctext or "סה״כ" in ctext or "סה\"כ" in ctext),
+      "מוצג '₪3600' תחת 'המחיר לאדם שאריאלה מצאה' (בתנאי ש-price_ils מהסריקה הוא כולל; לאמת מול payload של 259)")
+
+# 5) (ב) כבודה לא ידועה: מוצג "יש לבדוק" ולא ×
+unknown = {"personal_item": {"included": None, "known": False}, "carry_on_8kg": {"included": None, "known": False},
+           "checked_bag_23kg": {"included": None, "known": False}}
+o3 = make_offer(1500, "2027-03-21", "2027-03-25", baggage=unknown)
+cards = card_html_for(259904, BASE, [o3])
+cells = [bag_cell(cards[0], l) for l in ("תיק אישי", "טרולי 8 ק״ג", "מזוודה 23 ק״ג")] if cards else []
+check("(ב) כשאין מידע על כבודה מוצג 'יש לבדוק' ולא ×", bool(cells) and all(c and "יש לבדוק" in c for c in cells), f"תאים={cells}")
+
+# 6) (ג) הלקוחה ביקשה טרולי (baggage בעדיפויות), וההצעה בלי טרולי ובלי מזוודה — מסומן בכרטיס
+none_bag = {"personal_item": {"included": True}, "carry_on_8kg": {"included": False}, "checked_bag_23kg": {"included": False}}
+o4 = make_offer(1400, "2027-03-21", "2027-03-25", baggage=none_bag)
+o5 = make_offer(3900, "2027-03-21", "2027-03-25", stops=1)
+trip6 = make_trip(259905, dict(BASE, deal_priorities=["direct", "baggage"]))
+with app.test_request_context("/?lang=he"):
+    a6 = dict(trip6["answers"]); public_site._match_and_pin_initial_offers(259905, trip6, a6, pool([o4, o5]), require_recent=False)
+with db() as c:
+    c.execute("UPDATE trip_requests SET status='archived' WHERE member_id=? AND id<>?", (MEMBER, 259905)); c.commit()
+st, h = account_html(259905)
+notes = [re.sub(r"<[^>]+>", " ", n) for n in re.findall(r'class="deal-close-match-note">(.*?)</div>', h, re.S)]
+check("(ג) הצעה בלי טרולי כשהלקוחה ביקשה טרולי מסומנת 'לא כולל: כבודה' בכרטיס", any("כבודה" in n for n in notes), f"notes={notes}")
+
+# 7) "רק תיק אישי" — כבודה שהתבקשה היא תיק אישי בלבד; הצעה עם תיק אישי בלבד לא אמורה להיחשב חסרת כבודה
+with app.test_request_context("/?lang=he"):
+    o4d = pool([o4])[0]
+    missed = public_site._objective_match_details(o4d, dict(trip6, answers=dict(trip6["answers"], requested_baggage=["personal_item"])))[3]
+check("לקוחה שביקשה רק תיק אישי: הצעה עם תיק אישי בלבד לא מסומנת כחסרת כבודה",
+      "כבודה" not in missed, "answers לא שומר את סוג הכבודה, רק 'baggage' בעדיפויות, ו'כבודה' מתקיים רק עם טרולי או מזוודה")
 
 with db() as c:
     c.execute("DELETE FROM trip_requests WHERE member_id=?", (MEMBER,)); c.execute("DELETE FROM members WHERE id=?", (MEMBER,)); c.commit()
