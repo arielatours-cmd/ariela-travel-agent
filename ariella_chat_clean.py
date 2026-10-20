@@ -2711,47 +2711,42 @@ def _ensure_flight_summary_completeness(reply, state):
     # exact transcript): "אני ואמא מסתדרות עם תיק קטן, לאחיין צריך
     # מזוודה" was saved correctly in state as the single uniform choice
     # (['checked_bag']), but the free-text summary read "כבודה: תיק קטן
-    # לכל אחת מכן, מזוודה בבטן המטוס לאחיין" - a baggage sentence can be
-    # PRESENT (the "missing" check right below already passes, matching
-    # Shaked's own carried-over #68 finding just below) yet still phrase
-    # it PER-PASSENGER even though a booking is always one uniform choice
-    # for the whole group, never split differently per passenger.
+    # לכל אחת מכן, מזוודה בבטן המטוס לאחיין" - a booking is always one
+    # uniform choice for the whole group, never split differently per
+    # passenger, however the model phrases it.
     #
-    # The first version of this fix only looked for repeated bare "ל
-    # <word>" occurrences (a literal "ל<name>, ל<name>" split) and missed
-    # this exact live case entirely - Berlin names the OTHER passengers
-    # via "לכל אחת מכן"/"לאחיין" (one plain "ל<word>", not two). The real,
-    # reliable tell is TWO OR MORE DISTINCT baggage-type words (טרולי/
-    # מזוודה/תיק) in the SAME sentence - a uniform choice is always
-    # exactly one type for everyone, so legitimate free text never
-    # combines two different ones UNLESS it explicitly says so for the
-    # whole group at once ("טרולי וגם מזוודה לכולנו" - a real, uniform
-    # dual-item request, excluded via the marker check below). Scoped to
-    # still leave "טרולי לכל נוסע" (a single type word, uniform, one per
-    # ticket - the SAME phrasing _checked_bag_label's own fallback
-    # already uses, and a pre-existing regression test explicitly
-    # protects) completely untouched. Replaces the whole sentence with
-    # the canonical line, in the exact place it already was - never
-    # moved, never duplicated.
-    _BAGGAGE_TYPE_WORDS = ("טרולי", "מזוודה", "תיק")
-    _UNIFORM_FOR_EVERYONE_RE = re.compile(r"לכולנו|לכולם|לכולן|כל הקבוצה|כל הנוסעים|לכל אחד ואחד")
+    # Two earlier heuristic attempts (bare "ל<word>" repetition, then 2+
+    # DISTINCT baggage-type words excluding an explicit "for everyone"
+    # marker) both still missed real live cases - a second live transcript
+    # (Tbilisi) split the SAME type word per passenger instead of two
+    # different ones, which neither heuristic ever covered. Per Shaked's
+    # review: no content detection at all - the final summary's baggage
+    # line always starts with the fixed "כבודה:" label (see
+    # _flight_baggage_line/_flight_summary_text's own wording), so
+    # whichever sentence starts with it is unconditionally replaced with
+    # the canonical line, regardless of what it says - in the exact place
+    # it already was, never moved, never duplicated. A sentence that
+    # conveys baggage WITHOUT that literal label (e.g. "טיסה: טרולי לכל
+    # נוסע, תקציב 1500 ₪") is untouched here - it's covered by the
+    # separate "missing" check below instead, which only checks presence.
     canonical_baggage_line = _flight_baggage_line(flight)
     if canonical_baggage_line:
         sentences = _split_sentences(text)
-        baggage_idx = next(
-            (
-                i for i, (s, _term) in enumerate(sentences)
-                if sum(1 for w in _BAGGAGE_TYPE_WORDS if w in s) >= 2
-                and not _UNIFORM_FOR_EVERYONE_RE.search(s)
-            ),
-            None,
-        )
-        if baggage_idx is not None:
-            s, term = sentences[baggage_idx]
-            if s.strip() != canonical_baggage_line.strip():
-                leading_ws = s[: len(s) - len(s.lstrip())]
-                sentences[baggage_idx] = (f"{leading_ws}{canonical_baggage_line}{term}", term)
-                text = "".join(s for s, _t in sentences)
+        for i, (s, term) in enumerate(sentences):
+            # The "כבודה:" label doesn't always open its own sentence - a
+            # run-on reply can fold it after an intro clause in the same
+            # sentence ("סיכום בקשת הטיסה: כבודה: ..."), with no period
+            # between them. Keep whatever precedes the label untouched and
+            # replace only from the label itself to the sentence's end.
+            label_idx = s.find("כבודה:")
+            if label_idx == -1:
+                continue
+            if s[label_idx:].strip() == canonical_baggage_line.strip():
+                break
+            prefix = s[:label_idx]
+            sentences[i] = (f"{prefix}{canonical_baggage_line}{term}", term)
+            text = "".join(st for st, _t in sentences)
+            break
 
     missing = []
     if _flight_budget_sentence_index(_split_sentences(text)) is None:
