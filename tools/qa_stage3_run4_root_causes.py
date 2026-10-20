@@ -253,36 +253,46 @@ check("admin route: a valid ?event= returns a CSV with the expected diagnostic c
 
 
 # =====================================================================
-# 3. Baggage per_child unit - all three places.
+# 3. Baggage per_child/per_adult/per_couple/per_person/total UNIT tracking
+#    (the original item 3 here) was entirely REMOVED per the business
+#    owner's later directive (20.10, relayed by Shlomo): a booking is
+#    always ONE uniform baggage choice for the whole group - there is no
+#    per-passenger split to label at all anymore, in any of the three
+#    places this used to be tracked. Only the real COUNT (how many
+#    checked bags total) and size survive; see tools/qa_baggage_precision_
+#    fixes.py for the full current behavior. These checks confirm the
+#    removal is complete and that count tracking alone still works fine.
 # =====================================================================
-r_child = chat._deterministic_baggage_facts("מזוודה אחת לכל ילד", traveler_count=4)
-check("item 3: regex fail-safe recognizes 'per child' as its own unit, not per_person",
-      r_child["flight"]["baggage_detail"]["checked_bag"]["unit"] == "per_child")
-check("item 3: the label function distinguishes per_child from per_person",
-      chat._checked_bag_label({"count": 1, "unit": "per_child"}) == "מזוודה אחת לכל ילד"
-      and chat._checked_bag_label({"count": 3, "unit": "per_child"}) == "3 מזוודות לכל ילד")
+r_count = chat._deterministic_baggage_facts("מזוודה אחת לכל ילד", traveler_count=4)
+check("item 3 (updated): the fail-safe no longer tracks any per-passenger "
+      "unit at all - 'לכל ילד' contributes nothing beyond the real count "
+      "already recovered from 'מזוודה אחת' (1), with no unit key",
+      r_count["flight"]["baggage_detail"]["checked_bag"] == {"count": 1})
 fragment, desc = chat._guided_field_update_and_confirm("baggage", {
     "status": "answered", "no_baggage": False,
-    "items": [{"type": "checked_bag", "count": 1, "unit": "per_child"}],
+    "items": [{"type": "checked_bag", "count": 3}],
     "confidence": "high",
 })
-check("item 3: the guided-extraction field's own (primary) schema accepts per_child, "
-      "not just the regex fail-safe",
-      fragment.get("flight", {}).get("baggage_detail", {}).get("checked_bag", {}).get("unit") == "per_child")
-check("item 3: EXTRACTOR_SYSTEM's guided baggage prompt documents per_child as its own, "
-      "explicitly-distinct-from-per_person category",
-      "per_child" in chat.EXTRACTOR_SYSTEM)
+check("item 3 (updated): the guided-extraction field's own schema still "
+      "carries a real count, with no unit key present at all",
+      fragment.get("flight", {}).get("baggage_detail", {}).get("checked_bag") == {"count": 3})
+check("item 3 (updated): EXTRACTOR_SYSTEM's own baggage_detail documentation "
+      "no longer mentions any per-passenger unit category",
+      not any(tok in chat.EXTRACTOR_SYSTEM for tok in ("per_child", "per_adult", "per_couple")))
 
-# Regressions: existing units still work exactly as before.
+# Regressions: a real count is still recovered regardless of phrasing.
 r_person = chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", traveler_count=4)
-check("regression: per_person unit (no explicit digit) still recognized",
-      r_person["flight"]["baggage_detail"]["checked_bag"]["unit"] == "per_person")
+check("regression: a bare per-person phrasing (no digit) still records "
+      "checked_bag, with no unit key and no count key either",
+      r_person["flight"].get("baggage_detail", {}).get("checked_bag", {}) == {})
 r_couple = chat._deterministic_baggage_facts("מזוודה אחת לכל זוג", traveler_count=4)
-check("regression: per_couple unit still recognized",
-      r_couple["flight"]["baggage_detail"]["checked_bag"]["unit"] == "per_couple")
+check("regression: an explicit count ('מזוודה אחת') still survives even "
+      "with a per-passenger phrasing alongside it",
+      r_couple["flight"]["baggage_detail"]["checked_bag"] == {"count": 1})
 r_total = chat._deterministic_baggage_facts("שתי מזוודות לכולנו", traveler_count=4)
-check("regression: total/shared unit still recognized",
-      r_total["flight"]["baggage_detail"]["checked_bag"]["unit"] == "total")
+check("regression: 'שתי מזוודות' still recovers count=2 regardless of the "
+      "'לכולנו' word (no longer treated as a 'total' unit, just prose)",
+      r_total["flight"]["baggage_detail"]["checked_bag"] == {"count": 2})
 
 
 # =====================================================================

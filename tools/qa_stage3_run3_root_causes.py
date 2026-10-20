@@ -209,24 +209,24 @@ check("defensive: non-dict trip_update/state never crash",
 # Bug (c) - Lisbon: baggage_detail reinterpreted with nothing new said.
 # =====================================================================
 LISBON_PRIOR = {"flight": {"baggage": ["carry_on_only", "checked_bag"],
-                            "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}}
+                            "baggage_detail": {"checked_bag": {"count": 1}}}}
 
 check("Lisbon repro: baggage_detail silently reinterpreted "
-      "(unit total->per_person) on a turn that never mentions baggage at "
-      "all is reverted to what was already settled",
+      "(count 1->2) on a turn that never mentions baggage at all is "
+      "reverted to what was already settled",
       chat._validate_baggage_detail_against_message(
           {"flight": {"baggage": ["carry_on_only", "checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "per_person", "count": 1}}}},
+                      "baggage_detail": {"checked_bag": {"count": 2}}}},
           LISBON_PRIOR, "מתי אנחנו נוחתים בליסבון?",
-      )["flight"]["baggage_detail"] == {"checked_bag": {"unit": "total", "count": 1}})
+      )["flight"]["baggage_detail"] == {"checked_bag": {"count": 1}})
 check("regression: a genuine new baggage statement this turn is still "
       "accepted when the extractor supplies real evidence for it",
       chat._validate_baggage_detail_against_message(
           {"flight": {"baggage": ["carry_on_only", "checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "per_person", "count": 1}},
-                      "baggage_detail_evidence": "כל אחד עם מזוודה משלו"}},
-          LISBON_PRIOR, "בעצם כל אחד עם מזוודה משלו",
-      )["flight"]["baggage_detail"] == {"checked_bag": {"unit": "per_person", "count": 1}})
+                      "baggage_detail": {"checked_bag": {"count": 2}},
+                      "baggage_detail_evidence": "בעצם שתי מזוודות"}},
+          LISBON_PRIOR, "בעצם שתי מזוודות",
+      )["flight"]["baggage_detail"] == {"checked_bag": {"count": 2}})
 check("regression: an unchanged baggage_detail (identical to what's "
       "already persisted) is never touched regardless of the message",
       chat._validate_baggage_detail_against_message(
@@ -245,7 +245,7 @@ os.environ["GUIDED_EXTRACTION_STEPS"] = "dates,travelers,baggage,lodging"
 STALE_BAGGAGE_STATE = {
     "requested_services": ["flights", "lodging"],
     "flight": {"baggage": ["carry_on_only", "checked_bag"],
-               "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}},
+               "baggage_detail": {"checked_bag": {"count": 1}}},
     "dates": {"departure": "2026-11-10", "return": "2026-11-15"},
     "travelers": {"adults": 4},
     "guided": {"current_question": "baggage", "attempts": 0,
@@ -270,7 +270,7 @@ check("duplicate-in-answered repro: 'baggage' never appears twice in "
       answered_list.count("baggage") == 1)
 check("duplicate-in-answered repro: baggage_detail itself survives the "
       "same turn untouched (confirms (c)'s fix and this fix don't conflict)",
-      result["trip_update"]["flight"]["baggage_detail"] == {"checked_bag": {"unit": "total", "count": 1}})
+      result["trip_update"]["flight"]["baggage_detail"] == {"checked_bag": {"count": 1}})
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
 
 
@@ -390,31 +390,43 @@ check("Berlin repro end-to-end: once type=הוסטל is known, the lodging "
 # fail-safe regex gaps found via real-scan transcripts (Milano, Lisbon).
 # =====================================================================
 check("Milano repro: a bare 'מזוודה לכל אחד' (no גדולה/בבטן/משותפת "
-      "qualifier at all) is no longer dropped entirely",
+      "qualifier at all) is no longer dropped entirely - still records "
+      "checked_bag itself; no per-passenger unit is tracked anymore at "
+      "all (business owner's directive, 20.10: bookings are always "
+      "uniform baggage for the whole group), and no digit was stated so "
+      "there is no count either",
       chat._deterministic_baggage_facts("מזוודה לכל אחד", 5)
-      == {"flight": {"baggage": ["checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "per_person"}}}})
+      == {"flight": {"baggage": ["checked_bag"]}})
 check("Lisbon repro: 'כל אחד טרולי, ומזוודה אחת משותפת' (traveler-noun "
-      "BEFORE טרולי) keeps the carry-on half too, not just the checked bag",
+      "BEFORE טרולי) keeps the carry-on half too, not just the checked bag "
+      "- count=1 recovered for the suitcase. Per Shaked's PR #91 review "
+      "(20.10, confirmed by the business owner): once a second baggage "
+      "kind is also mentioned, no unit is guessed for either kind at all "
+      "(an attempt at picking the 'nearest' unit phrase by character "
+      "distance was tried and reverted - it still attributed unit words "
+      "wrong in other real messages); the guided model path is the real "
+      "mechanism for this detail",
       chat._deterministic_baggage_facts("כל אחד טרולי, ומזוודה אחת משותפת", 4)
       == {"flight": {"baggage": ["carry_on_only", "checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+                      "baggage_detail": {"checked_bag": {"count": 1}}}})
 check("'מזוודה אחת לכולנו וטרולי לכל מבוגר' ('מבוגר', a traveler noun the "
-      "old carry-on pattern didn't list) also keeps both halves",
+      "old carry-on pattern didn't list) also keeps both halves - count=1 "
+      "recovered, no unit guessed for either kind (same 20.10 fix as above)",
       chat._deterministic_baggage_facts("מזוודה אחת לכולנו וטרולי לכל מבוגר", 4)
       == {"flight": {"baggage": ["carry_on_only", "checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+                      "baggage_detail": {"checked_bag": {"count": 1}}}})
 check("regression: a genuine negated bare mention ('אין לי מזוודה') still "
       "returns {} rather than being wrongly treated as an affirmative "
       "checked-bag statement",
       chat._deterministic_baggage_facts("אין לי מזוודה") == {})
 check("regression: the existing specific phrasings (e.g. 'בלי מזוודה רק "
-      "טרולי', 'מזוודה גדולה לכל אחד מאיתנו') are unaffected",
+      "טרולי', 'מזוודה גדולה לכל אחד מאיתנו') still record the right "
+      "baggage kind(s) - no unit/count is invented for either, since "
+      "neither states an actual digit",
       chat._deterministic_baggage_facts("בלי מזוודה רק טרולי")
       == {"flight": {"baggage": ["carry_on_only"]}}
       and chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", 4)
-      == {"flight": {"baggage": ["checked_bag"],
-                      "baggage_detail": {"checked_bag": {"unit": "per_person"}}}})
+      == {"flight": {"baggage": ["checked_bag"]}})
 
 # =====================================================================
 # Shaked's PR #83 REVIEW, SUPERSEDED the same day by the business owner's
@@ -438,38 +450,38 @@ check("Rome repro, evidence mechanism: a first-turn plural 'שתי מזוודו�
       "לכולנו' is accepted when the extractor supplies it as evidence - "
       "no stem/word list involved, any real quote works",
       chat._validate_baggage_detail_against_message(
-          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 2}},
+          {"flight": {"baggage_detail": {"checked_bag": {"count": 2}},
                       "baggage_detail_evidence": "שתי מזוודות לכולנו"}},
           {}, "זוג לרומא 10-14 בנובמבר, שתי מזוודות לכולנו",
-      )["flight"]["baggage_detail"] == {"checked_bag": {"unit": "total", "count": 2}})
+      )["flight"]["baggage_detail"] == {"checked_bag": {"count": 2}})
 check("the same plural message with NO evidence supplied is rejected - "
       "confirms the mechanism is now evidence-only, not a revived stem "
       "match on the message text itself",
       chat._validate_baggage_detail_against_message(
-          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}}},
+          {"flight": {"baggage_detail": {"checked_bag": {"count": 2}}}},
           {}, "זוג לרומא 10-14 בנובמבר, שתי מזוודות לכולנו",
       ) == {"flight": {"baggage_detail": {}}})
 check("'כבודת יד' (hand luggage) is accepted the same way, via evidence - "
       "its grammatical form is irrelevant to the check",
       chat._validate_baggage_detail_against_message(
-          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}},
+          {"flight": {"baggage_detail": {"checked_bag": {"count": 1}},
                       "baggage_detail_evidence": "רק כבודת יד"}},
           {"flight": {}}, "רק כבודת יד",
-      )["flight"]["baggage_detail"] == {"checked_bag": {"unit": "total", "count": 1}})
+      )["flight"]["baggage_detail"] == {"checked_bag": {"count": 1}})
 check("evidence that does not actually appear in the message (the model "
       "fabricated a quote) is rejected just like no evidence at all",
       chat._validate_baggage_detail_against_message(
-          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}},
+          {"flight": {"baggage_detail": {"checked_bag": {"count": 1}},
                       "baggage_detail_evidence": "רק כבודת יד"}},
           {"flight": {}}, "משהו אחר לגמרי",
       )["flight"]["baggage_detail"] == {})
 check("regression: a genuinely unrelated message (no evidence at all) "
       "still reverts to the prior settled detail",
       chat._validate_baggage_detail_against_message(
-          {"flight": {"baggage_detail": {"checked_bag": {"unit": "per_person"}}}},
-          {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}},
+          {"flight": {"baggage_detail": {"checked_bag": {"count": 3}}}},
+          {"flight": {"baggage_detail": {"checked_bag": {"count": 1}}}},
           "תקציב 1500 שקל לאדם",
-      ) == {"flight": {"baggage_detail": {"checked_bag": {"unit": "total", "count": 1}}}})
+      ) == {"flight": {"baggage_detail": {"checked_bag": {"count": 1}}}})
 
 # =====================================================================
 # SUPERSEDED the same day by the business owner's directive: Shlomo's

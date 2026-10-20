@@ -268,7 +268,7 @@ PARIS_ALL_DECIDED = {
     "destination": {"places": ["פריז"]},
     "dates": {"departure": "2026-12-20", "return": "2026-12-27"},
     "travelers": {"adults": 2},
-    "flight": {"connection_preference": "direct", "baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"count": 1, "unit": "per_person"}}},
+    "flight": {"connection_preference": "direct", "baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"count": 1}}},
     "budget_per_person": {"status": "unlimited"},
     "user_gender": "female",
     "session_status": {"flights": "complete", "lodging": "complete", "car": "declined", "trip_planning": "complete"},
@@ -411,33 +411,40 @@ check("defensive: non-dict input never crashes",
 # only makes the plural's own trailing ת optional, which covers "מזוודו
 # גדול" (not a real word) or "מזוודות גדול" (plural), never the singular
 # spelling ending in ה. "מזוודה גדולה לכל אחד מאיתנו" (the customer's
-# exact words) therefore recorded no baggage fact at all. Separately, even
-# once checked_bag_mentioned is fixed, the per-person unit ("לכל אחד")
-# used to require an explicit digit next to "מזוודה" (bag_count_match) -
-# dropping the unit for exactly this phrasing, which states a per-person
-# split without a number. Both fixed; verifies real inputs, not an
-# artificial fixture, per Shlomo's own stated testing rule.
+# exact words) therefore recorded no baggage fact at all. Fixed; verifies
+# real inputs, not an artificial fixture, per Shlomo's own stated testing
+# rule.
+#
+# (A per-person "unit" was tracked here too for a while, then removed
+# entirely on 20.10.2026 per the business owner's own directive: a group
+# booking is always one uniform baggage choice for every ticket, so there
+# is no per-passenger split to recover from phrasing like "לכל אחד" at
+# all - only the stated COUNT, when there is a digit, still matters.)
 # =====================================================================
 
-check("Shaked's exact repro: 'מזוודה גדולה לכל אחד מאיתנו' now records "
-      "checked_bag AND the per-person unit, not just a bare flag",
+check("Shaked's exact repro: 'מזוודה גדולה לכל אחד מאיתנו' (no digit "
+      "stated) now records checked_bag itself, no longer dropped entirely",
       chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", traveler_count=2) == {
-          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}},
+          "flight": {"baggage": ["checked_bag"]},
       })
 check("regression: the plural phrasing ('שתי מזוודות גדולות לכולנו') "
-      "still resolves correctly (unit=total, count=2)",
+      "still resolves correctly (count=2)",
       chat._deterministic_baggage_facts("שתי מזוודות גדולות לכולנו", traveler_count=2) == {
-          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}},
+          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"count": 2}}},
       })
 check("regression: 'טרולי לכל אחד' alone (no מזוודה word at all) still "
-      "never implies a per-person CHECKED bag - carry_on_only only",
+      "never implies a per-person CHECKED bag - carry_on_only only. Per "
+      "the business owner's 20.10 directive: no per-passenger unit/size "
+      "detail is ever tracked by this fail-safe for either bag kind - the "
+      "guided model path is the one real mechanism for understanding the "
+      "sentence itself",
       chat._deterministic_baggage_facts("טרולי לכל אחד", traveler_count=2) == {
           "flight": {"baggage": ["carry_on_only"]},
       })
 check("regression: an explicit count alongside 'לכל אחד' still works "
       "exactly as before (e.g. 'שתי מזוודות לכל אחד')",
       chat._deterministic_baggage_facts("שתי מזוודות לכל אחד", traveler_count=2)
-      ["flight"]["baggage_detail"]["checked_bag"] == {"unit": "per_person", "count": 2})
+      ["flight"]["baggage_detail"]["checked_bag"] == {"count": 2})
 check("alternate phrasing: 'לכל נוסע' (per traveler, not 'לכל אחד') "
       "resolves the same way",
       "checked_bag" in chat._deterministic_baggage_facts(
