@@ -89,6 +89,38 @@ check("None/empty hint never raises, returns {}",
       and chat._candidate_dates_from_relative_hint({}) == {})
 
 # =====================================================================
+# Shlomo's relay of the business owner's review (20.10.2026): "סוף
+# החודש" was proposing 17.11 (the OLD window started 13 days before
+# month-end, which for a 30-day month is day 17 - genuinely mid-month)
+# alongside a second candidate on day 30 whose week-long return spilled
+# into December. Both departures must now fall in the LAST ~10 days of
+# the requested month - a genuine reading of "end of month".
+# =====================================================================
+r_end = chat._candidate_dates_from_relative_hint(
+    {"month_relative": "next", "part_of_month": "end", "duration_days": 7}
+)
+import re as _re_qa
+_end_departure_days = [
+    int(_re_qa.search(r"(\d{2})\.11\.2026", c).group(1))
+    for c in r_end["dates"]["candidate_ranges"]
+]
+check("'סוף החודש הבא' (November, 30 days): every candidate's DEPARTURE "
+      "falls in the last 10 days of November (21-30), never mid-month "
+      f"like the old 17.11 bug - got departures {_end_departure_days}",
+      all(d >= 21 for d in _end_departure_days))
+
+r_start = chat._candidate_dates_from_relative_hint(
+    {"month_relative": "next", "part_of_month": "start", "duration_days": 7}
+)
+_start_departure_days = [
+    int(_re_qa.search(r"(\d{2})\.11\.2026", c).group(1))
+    for c in r_start["dates"]["candidate_ranges"]
+]
+check("'תחילת החודש הבא' candidates' departures fall in the first 10 days "
+      f"(1-10) - got departures {_start_departure_days}",
+      all(d <= 10 for d in _start_departure_days))
+
+# =====================================================================
 # End-to-end: the model's structured hint is the PRIMARY path through
 # the real endpoint - a mocked state_extractor returning relative_date_
 # hint must produce real candidates without the regex ever running.
