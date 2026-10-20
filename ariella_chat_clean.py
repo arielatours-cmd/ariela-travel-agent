@@ -5709,7 +5709,24 @@ def _deterministic_period_facts(message, history=None):
         return None,None
 
     def find_pair(text):
-        return re.search(r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+)?("+day_alt+r")\s*(?:עד|[-–])\s*(?:יום\s+)?("+day_alt+r")(?![\u05d0-\u05ea])",text)
+        # Per Shlomo's relay of Carmit's work order item 4 (20.10.2026,
+        # qa/stage-scenarios.md P2): the live phrasings named as test cases
+        # ("לצאת בראשון", "בראשון לחזור בחמישי") never matched this pattern
+        # at all - the day word itself needed an exact "מ"/"מיום "/"יום "
+        # prefix (never a plain "ב", as in "בראשון"), and the only accepted
+        # separator between the two weekdays was "עד" or a dash, never a
+        # natural "לחזור"/"וחוזרים" connector. With no pair ever found,
+        # _deterministic_period_facts returned {} and no candidate dates
+        # were ever computed - Ariella had nothing concrete to propose, so
+        # the date question kept coming back instead of being answered
+        # once with exact dates. Both widened to cover the natural ways
+        # customers actually say a departure/return weekday pair.
+        return re.search(
+            r"(?<![\u05d0-\u05ea])(?:מ|מיום\s+|יום\s+|ב|ביום\s+)?(" + day_alt + r")"
+            r"(?:\s*,?\s*(?:עד|[-–]|ו?(?:ל|נ)?(?:חזור|חוזר)(?:ה|ים|ת)?)\s*(?:ו)?\s*(?:ב|ביום\s+|יום\s+)?)"
+            r"(" + day_alt + r")(?![\u05d0-\u05ea])",
+            text,
+        )
 
     month_name,month=find_month(msg); pair=find_pair(msg)
     # Only complete a fact from recent messages when the current message
@@ -5739,7 +5756,14 @@ def _deterministic_period_facts(message, history=None):
             if d.weekday()==start_wd and d>today:
                 candidates.append((d,d+timedelta(days=delta)))
         candidates=candidates[-2:] if part=="end" else candidates[:2]
-        labels=[f"{x.strftime('%d.%m.%Y')}–{y.strftime('%d.%m.%Y')}" for x,y in candidates]
+        # Per Shlomo's relay of Carmit's work order item 4 (20.10.2026,
+        # qa/stage-scenarios.md P2): a candidate must show the exact date
+        # AND its day of the week ("תאריך ויום"), not just the bare date -
+        # the customer already named the weekday pair (pair.group(1/2)),
+        # so this only reflects her own words back next to the calendar
+        # date, rather than leaving her to work out herself whether
+        # "15.3.2027" really falls on a Sunday.
+        labels=[f"יום {pair.group(1)} {x.strftime('%d.%m.%Y')}–יום {pair.group(2)} {y.strftime('%d.%m.%Y')}" for x,y in candidates]
         part_he={"end":"סוף","start":"תחילת","mid":"אמצע"}[part]
         return {"dates":{"departure":None,"return":None,"period":f"{part_he} {month_name} {year}, {pair.group(1)} עד {pair.group(2)}","constraints":[f"{pair.group(1)} עד {pair.group(2)}"],"candidate_ranges":labels,"needs_confirmation":True}}
     after=re.search(r"אחרי\s+(?:ה[- ]?)?(\d{1,2})",month_text or msg)
