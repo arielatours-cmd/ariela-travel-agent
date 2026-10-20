@@ -512,7 +512,13 @@ def admin_rematch_trip():
         return jsonify({"status": "error", "message": "missing trip_id"}), 400
     result = rematch_trip_without_new_scan(trip_id)
     supplied = request.args.get("token") or request.form.get("token") or ""
-    if request.form.get("redirect") == "admin":
+    redirect_to = request.form.get("redirect")
+    # "scans" added (20.10, vacation 259/trip #158 follow-up) for the new
+    # /admin/scans rematch button - the business owner clicks it from that
+    # page and should land back on it, not on the unrelated deals page.
+    if redirect_to == "scans":
+        return redirect("/admin/scans" + (("?token=" + supplied) if supplied else ""))
+    if redirect_to == "admin":
         return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
     return jsonify(result), (200 if result.get("status") == "success" else 400)
 

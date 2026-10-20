@@ -23,7 +23,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE, BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, BUSINESS_LEGAL_NAME_EN, BUSINESS_DEALER_TYPE_HE, BUSINESS_DEALER_NUMBER, BUSINESS_ADDRESS_HE, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, clear_whatsapp_proactive_off, latest_trip_alerts, delete_member_account
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, clear_whatsapp_proactive_off, latest_trip_alerts, delete_member_account, latest_scan_run_id_for_trip, offer_ids_for_scan_run
 from ai_usage import record_diagnostic_event
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
@@ -779,10 +779,21 @@ def _offer_within_budget(offer, trip):
     return budget <= 0 or price <= budget * 1.10
 
 
-def _over_budget_alternatives(all_offers, trip, limit=3):
+def _over_budget_alternatives(all_offers, trip, limit=3, require_recent=True):
     """Offers that satisfy every requested hard condition except budget.
 
     Used only as a transparent fallback: these offers are NOT treated as budget matches.
+
+    require_recent gates the blanket 48h freshness check - per Shlomo's
+    relay (20.10, after the scan_run-scoped rematch fix merged as #92's
+    follow-up): a rematch against a specific vacation's OWN scan_run
+    (_inventory_for_trip_scan_run) already scopes to that scan's offers and
+    drops anything whose flight date has passed - re-applying a BLANKET
+    48h-since-observed cutoff on top of that scoped inventory would silently
+    empty it out again the moment the vacation's own scan crosses 48 hours
+    old, undoing the scoping fix entirely. Only the ordinary customer-scan
+    path (against the shared _recent_inventory_48h() pool, where staleness
+    genuinely matters) still enforces it; the rematch path passes False.
     """
     answers = trip.get("answers") or {}
     # See _offer_within_budget above: the chat flow writes "limited", not
@@ -799,7 +810,7 @@ def _over_budget_alternatives(all_offers, trip, limit=3):
     prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
     candidates = []
     for o in prepared:
-        if not _offer_is_recent(o, 48):
+        if require_recent and not _offer_is_recent(o, 48):
             continue
         if not _offer_destination_matches(o, trip):
             continue
@@ -839,7 +850,7 @@ def _over_budget_alternatives(all_offers, trip, limit=3):
     return out
 
 
-def _closest_offers_regardless_of_conditions(all_offers, trip, limit=5):
+def _closest_offers_regardless_of_conditions(all_offers, trip, limit=5, require_recent=True):
     """Last-resort fallback, per the business owner's explicit directive
     (20.10, relayed by Shlomo, vacation 259/trip #158): a real customer's
     scan genuinely found several same-route offers, yet none of them
@@ -859,11 +870,15 @@ def _closest_offers_regardless_of_conditions(all_offers, trip, limit=5):
     the customer's own conditions it misses (reusing _objective_match_
     details' own human-readable reasons - never a guess, the same list the
     transparent above/below-divider split already shows elsewhere) so nothing
-    is overstated as a full match."""
+    is overstated as a full match.
+
+    require_recent: see _over_budget_alternatives's docstring - False for
+    the scan_run-scoped rematch path, which already scopes freshness its
+    own way and must never also be cut off by the blanket 48h window."""
     prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
     candidates = []
     for o in prepared:
-        if not _offer_is_recent(o, 48):
+        if require_recent and not _offer_is_recent(o, 48):
             continue
         if not _offer_destination_matches(o, trip):
             continue
@@ -1845,13 +1860,16 @@ def _alternative_date_tier(offer, trip):
     return 0
 
 
-def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5):
-    """Rank below-divider DB alternatives: flex-window partials, then same-month date misses."""
+def _customer_alternative_choices(all_offers, trip, exclude=None, limit=5, require_recent=True):
+    """Rank below-divider DB alternatives: flex-window partials, then same-month date misses.
+
+    require_recent: see _over_budget_alternatives's docstring - False for
+    the scan_run-scoped rematch path."""
     exclude = set(exclude or [])
     prepared = [_decorate_ski_offer(o, trip) for o in all_offers]
     ranked = []
     for o in prepared:
-        if not _offer_is_recent(o, 48) or not _offer_destination_matches(o, trip) or not _offer_has_complete_roundtrip(o):
+        if (require_recent and not _offer_is_recent(o, 48)) or not _offer_destination_matches(o, trip) or not _offer_has_complete_roundtrip(o):
             continue
         date_tier = _alternative_date_tier(o, trip)
         if date_tier is None:
@@ -2070,12 +2088,15 @@ def _trip_constraints_summary(trip):
         out.append(("Notes" if en else "הערות",notes))
     return out
 
-def _customer_deal_choices(all_offers, trip, limit=5):
+def _customer_deal_choices(all_offers, trip, limit=5, require_recent=True):
     """Select the primary customer results without hidden hard preference filters.
 
     Primary results are flights that satisfy all objective restrictions the user
     explicitly set (dates/month, budget when set, direct flight, baggage).  Open
     destination/style preferences determine ordering by one-point-per-condition.
+
+    require_recent: see _over_budget_alternatives's docstring - False for
+    the scan_run-scoped rematch path.
     """
     answers = trip.get("answers") or {}
     vacation_type = str(answers.get("vacation_type") or "standard")
@@ -2085,7 +2106,7 @@ def _customer_deal_choices(all_offers, trip, limit=5):
 
     qualified = []
     for o in prepared:
-        if not _offer_is_recent(o, 48):
+        if require_recent and not _offer_is_recent(o, 48):
             continue
         if not _offer_destination_matches(o, trip):
             continue
@@ -4117,6 +4138,44 @@ def search_trip_now(trip_id):
 
 
 
+def _inventory_for_trip_scan_run(trip_id):
+    """Per the business owner's own follow-up directive (20.10, vacation
+    259/trip #158 - after the first rematch fix merged as #92): re-
+    matching a stuck vacation must be scoped to the offers THIS vacation's
+    OWN scan_run actually found, never _recent_inventory_48h()'s blanket
+    last-48-hours window. Her exact objection: vacation 259's own offers
+    were scanned 19.10 05:30 UTC, so that window already closes 21.10
+    05:30 UTC - a blanket recent-inventory call can miss this trip's own
+    offers entirely once that window passes, or return unrelated
+    customers' offers that happen to still be within it. Also drops any
+    offer whose own flight date has already passed - a stale offer must
+    never be re-shown just because it's still sitting in the scan's own
+    results.
+
+    Reuses recent_offers(offer_ids=...) rather than offers_for_scan_run -
+    the latter is a narrower, admin-display-only projection (missing
+    stops/departure_time/baggage and other dedicated columns every
+    matching tier actually reads), while recent_offers already returns the
+    full, correctly-populated row shape every other tier in this file
+    relies on; restricting it to this scan_run's own offer ids gets the
+    right SCOPE without a second, incomplete row-building path to keep in
+    sync."""
+    run_id = latest_scan_run_id_for_trip(trip_id)
+    if not run_id:
+        return []
+    ids = offer_ids_for_scan_run(run_id)
+    if not ids:
+        return []
+    today = date.today().isoformat()
+    offers = [
+        _localize_offer_airports(o)
+        for o in recent_offers(limit=2000, minimum_score=None, offer_ids=ids)
+        if str(o.get("outbound_date") or "") >= today
+    ]
+    offers.sort(key=lambda o: _offer_seen_at(o) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return offers
+
+
 def _recent_inventory_48h():
     offers = [
         _localize_offer_airports(o)
@@ -4307,7 +4366,7 @@ def _pin_offer_ids_to_trip(trip_id, answers, offers):
     return ids
 
 
-def _match_and_pin_initial_offers(trip_id, trip, answers, refreshed):
+def _match_and_pin_initial_offers(trip_id, trip, answers, refreshed, require_recent=True):
     """The four-tier matching chain for a trip's initial flight search -
     shared by _customer_scan_worker (right after a real scan) and the
     admin re-match action (against existing inventory, no new paid scan).
@@ -4320,16 +4379,28 @@ def _match_and_pin_initial_offers(trip_id, trip, answers, refreshed):
     which objective condition they miss - a real scan that genuinely found
     offers must never leave the customer looking at an empty vacation card
     just because each found offer missed a DIFFERENT one of several
-    conditions and so none of them survived any single earlier tier."""
-    matches = _customer_deal_choices(refreshed, trip, limit=5)
+    conditions and so none of them survived any single earlier tier.
+
+    require_recent, threaded through to all four tiers (default True,
+    unchanged behavior for the ordinary post-scan path): per Shlomo's
+    relay (20.10), the rematch path's own inventory
+    (_inventory_for_trip_scan_run) is already scoped to this vacation's
+    own scan_run and already drops offers whose flight date has passed -
+    these four shared tier functions must not ALSO silently re-apply the
+    blanket 48h-since-observed freshness cutoff on top of that, or the
+    scan_run-scoping fix verified fine on fresh fixtures would empty back
+    out the moment the vacation's own scan turns more than 48 hours old
+    (vacation 259 itself, scanned 19.10 05:30 UTC: that window closes
+    21.10 05:30 UTC). rematch_trip_without_new_scan passes False."""
+    matches = _customer_deal_choices(refreshed, trip, limit=5, require_recent=require_recent)
     if matches:
         _pin_offer_ids_to_trip(trip_id, answers, matches)
         return True
-    alternatives = _customer_alternative_choices(refreshed, trip, limit=5)
+    alternatives = _customer_alternative_choices(refreshed, trip, limit=5, require_recent=require_recent)
     if not alternatives:
-        alternatives = _over_budget_alternatives(refreshed, trip, limit=5)
+        alternatives = _over_budget_alternatives(refreshed, trip, limit=5, require_recent=require_recent)
     if not alternatives:
-        alternatives = _closest_offers_regardless_of_conditions(refreshed, trip, limit=5)
+        alternatives = _closest_offers_regardless_of_conditions(refreshed, trip, limit=5, require_recent=require_recent)
     if alternatives:
         answers["_initial_exact_match_missing"] = True
         answers["_showing_closest_matches"] = True
@@ -4358,9 +4429,15 @@ def rematch_trip_without_new_scan(trip_id):
         return {"status": "error", "message": "search not finished yet - not a stuck vacation"}
     if _saved_match_offer_ids(trip):
         return {"status": "error", "message": "trip already has matched offers - nothing to recover"}
+    if not latest_scan_run_id_for_trip(trip_id):
+        return {"status": "error", "message": "no scan_run found for this trip - nothing to rematch against"}
     try:
-        refreshed = _recent_inventory_48h()
-        pinned = _match_and_pin_initial_offers(trip_id, trip, answers, refreshed)
+        # Per the business owner's own follow-up directive (20.10, same
+        # vacation 259/trip #158, after the first fix merged as #92):
+        # scoped to THIS vacation's own scan_run, never the blanket
+        # _recent_inventory_48h() window - see _inventory_for_trip_scan_run.
+        refreshed = _inventory_for_trip_scan_run(trip_id)
+        pinned = _match_and_pin_initial_offers(trip_id, trip, answers, refreshed, require_recent=False)
     except Exception as exc:
         try:
             record_diagnostic_event("customer_scan_worker_error", {
