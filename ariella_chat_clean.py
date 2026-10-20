@@ -8171,6 +8171,46 @@ def _redirect_false_flight_closure_claim(reply, trip_update):
     return question or reply
 
 
+# Unique substring from _baggage_followup_hint's own instruction text - its
+# presence in trip_update["_guided_ask_hint"] is how this turn's reply is
+# known to have been INSTRUCTED to include the baggage follow-up note,
+# without threading a separate flag through the guided-extraction dispatch.
+_BAGGAGE_FOLLOWUP_HINT_MARKER = "המשפט הקצר על הכבודה הוא קביעה"
+_BAGGAGE_FOLLOWUP_NOTE_CONTENT_CUES = ("להוסיף מזוודה", "להוסיף טרולי")
+
+
+def _ensure_baggage_followup_note_present(reply, trip_update):
+    """Per Shlomo's relay of Shaked's live stage-1 run-2 finding: even
+    after _baggage_followup_hint's own prompt instruction was hardened
+    twice already (#104), the "can always add a trolley/suitcase later"
+    note still didn't reliably reach the customer - the model sometimes
+    still dropped it in favor of keeping only the next question. Per the
+    business owner's explicit direction, this is now ALSO a deterministic
+    code backup: when a baggage follow-up note was instructed this turn
+    (detected via the hint's own marker text, set whenever
+    _baggage_followup_hint fired - see _handle_guided_extraction_turn)
+    but the model's actual reply doesn't contain either variant's
+    content, the code inserts the one short sentence itself, before the
+    rest of the reply. A checked bag (the top tier) never needs a note,
+    matching _baggage_followup_hint's own gating exactly."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    hint = str(trip_update.get("_guided_ask_hint") or "")
+    if _BAGGAGE_FOLLOWUP_HINT_MARKER not in hint:
+        return reply
+    text = str(reply or "")
+    if any(c in text for c in _BAGGAGE_FOLLOWUP_NOTE_CONTENT_CUES):
+        return text
+    baggage_values = (trip_update.get("flight") or {}).get("baggage")
+    values = baggage_values if isinstance(baggage_values, list) else []
+    if "checked_bag" in values:
+        return text
+    if "carry_on_only" in values:
+        note = "אפשר תמיד להוסיף מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה."
+    else:
+        note = "אפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה."
+    return f"{note} {text}" if text else note
+
+
 _POST_FLIGHT_OFFER_CUES = (
     "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
     "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
@@ -12951,6 +12991,7 @@ def _chat_clean_impl():
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
+        reply = _ensure_baggage_followup_note_present(reply, trip_update)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
