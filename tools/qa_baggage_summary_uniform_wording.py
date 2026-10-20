@@ -55,6 +55,31 @@ fixed = chat._ensure_flight_summary_completeness(berlin_reply, _STATE)
 check("the per-passenger baggage sentence ('לדנה מזוודה, לרון טרולי') is "
       "replaced with the canonical uniform line",
       "לדנה" not in fixed and "לרון" not in fixed and _CANONICAL in fixed)
+
+# =====================================================================
+# Shaked's REAL exact Berlin transcript (stage-1 run-2, s1z2): the
+# customer's own message was "אני ואמא מסתדרות עם תיק קטן, לאחיין צריך
+# מזוודה" - state correctly saved ['checked_bag'], but the free-text
+# summary read "כבודה: תיק קטן לכל אחת מכן, מזוודה בבטן המטוס לאחיין".
+# This phrasing has only ONE bare "ל<word>" ("לאחיין") - the first
+# version of this fix (looking for 2+ such occurrences) missed this
+# exact live case entirely; the real tell is the two DIFFERENT baggage-
+# type words (תיק AND מזוודה) together with no "for everyone" marker.
+# =====================================================================
+real_berlin_reply = (
+    "סיכום בקשת הטיסה: כבודה: תיק קטן לכל אחת מכן, מזוודה בבטן המטוס לאחיין. "
+    "תקציב 1000 ₪. אם כל הפרטים נכונים, כתבי מאשרת."
+)
+real_berlin_state = {"flight": {"baggage": ["checked_bag"]}, "budget_per_person": {"amount": 1000, "currency": "ILS"}}
+real_berlin_canonical = chat._flight_baggage_line(real_berlin_state["flight"])
+fixed_real_berlin = chat._ensure_flight_summary_completeness(real_berlin_reply, real_berlin_state)
+check("Shaked's REAL exact Berlin transcript ('תיק קטן לכל אחת מכן, "
+      "מזוודה בבטן המטוס לאחיין' - only one bare 'ל<word>', the first "
+      "fix's own heuristic missed it) is now correctly normalized",
+      "לאחיין" not in fixed_real_berlin and "מכן" not in fixed_real_berlin
+      and real_berlin_canonical in fixed_real_berlin)
+check("the real Berlin transcript's budget line survives the fix",
+      "1000" in fixed_real_berlin)
 check("the rest of the summary (destination, budget, approval request) "
       "survives untouched",
       "ברלין" in fixed and "1200" in fixed and "כתבי מאשרת" in fixed)
@@ -71,6 +96,23 @@ already_correct_reply = (
 check("an already-canonical baggage line is left byte-for-byte untouched",
       chat._ensure_flight_summary_completeness(already_correct_reply, _STATE)
       == already_correct_reply)
+
+# =====================================================================
+# Regression: a GENUINE uniform dual-item request for the whole group
+# ("טרולי וגם מזוודה לכולנו") also names two distinct baggage-type words,
+# but is explicitly marked as being for everyone at once - must not be
+# treated as a per-passenger split.
+# =====================================================================
+uniform_dual_item_state = {"flight": {"baggage": ["carry_on_only", "checked_bag"]}, "budget_per_person": {"amount": 1200, "currency": "ILS"}}
+uniform_dual_item_reply = (
+    "סיכום בקשת הטיסה: טרולי וגם מזוודה לכולנו. תקציב 1200 ₪. "
+    "אם כל הפרטים נכונים, כתבי מאשרת."
+)
+check("a genuine uniform dual-item request for everyone ('לכולנו') is "
+      "never treated as a per-passenger split, even though it names two "
+      "distinct baggage-type words",
+      chat._ensure_flight_summary_completeness(uniform_dual_item_reply, uniform_dual_item_state)
+      == uniform_dual_item_reply)
 
 # =====================================================================
 # Regression: a reply with NO approval-request wording at all (not the

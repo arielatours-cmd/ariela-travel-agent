@@ -2707,29 +2707,42 @@ def _ensure_flight_summary_completeness(reply, state):
         if len(kept) != len(sentences):
             text = "".join(s for s, _t in kept)
 
-    # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin):
-    # a baggage sentence can be PRESENT (the "missing" check right below
-    # already passes, matching Shaked's own carried-over #68 finding just
-    # below) yet still phrase it PER-PASSENGER ("לדנה מזוודה, לרון
-    # טרולי"...) even though a booking is always one uniform choice for
-    # the whole group - never split differently per passenger. Scoped
-    # deliberately narrow: "טרולי לכל נוסע" (uniform, one per ticket - the
-    # SAME phrasing _checked_bag_label's own fallback already uses) must
-    # never be touched, only a genuine per-INDIVIDUAL split naming two or
-    # more different people ("ל<name>, ל<name>") - detected as 2+ bare
-    # "ל<word>" occurrences in the sentence, excluding the generic "לכל"/
-    # "כולם"/"כולן" forms. Replaces the whole sentence with the canonical
-    # line, in the exact place it already was - never moved, never
-    # duplicated.
-    _PER_PASSENGER_SPLIT_RE = re.compile(r"ל(?!כל\b|כולם\b|כולן\b)[א-ת]{2,}")
+    # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin,
+    # exact transcript): "אני ואמא מסתדרות עם תיק קטן, לאחיין צריך
+    # מזוודה" was saved correctly in state as the single uniform choice
+    # (['checked_bag']), but the free-text summary read "כבודה: תיק קטן
+    # לכל אחת מכן, מזוודה בבטן המטוס לאחיין" - a baggage sentence can be
+    # PRESENT (the "missing" check right below already passes, matching
+    # Shaked's own carried-over #68 finding just below) yet still phrase
+    # it PER-PASSENGER even though a booking is always one uniform choice
+    # for the whole group, never split differently per passenger.
+    #
+    # The first version of this fix only looked for repeated bare "ל
+    # <word>" occurrences (a literal "ל<name>, ל<name>" split) and missed
+    # this exact live case entirely - Berlin names the OTHER passengers
+    # via "לכל אחת מכן"/"לאחיין" (one plain "ל<word>", not two). The real,
+    # reliable tell is TWO OR MORE DISTINCT baggage-type words (טרולי/
+    # מזוודה/תיק) in the SAME sentence - a uniform choice is always
+    # exactly one type for everyone, so legitimate free text never
+    # combines two different ones UNLESS it explicitly says so for the
+    # whole group at once ("טרולי וגם מזוודה לכולנו" - a real, uniform
+    # dual-item request, excluded via the marker check below). Scoped to
+    # still leave "טרולי לכל נוסע" (a single type word, uniform, one per
+    # ticket - the SAME phrasing _checked_bag_label's own fallback
+    # already uses, and a pre-existing regression test explicitly
+    # protects) completely untouched. Replaces the whole sentence with
+    # the canonical line, in the exact place it already was - never
+    # moved, never duplicated.
+    _BAGGAGE_TYPE_WORDS = ("טרולי", "מזוודה", "תיק")
+    _UNIFORM_FOR_EVERYONE_RE = re.compile(r"לכולנו|לכולם|לכולן|כל הקבוצה|כל הנוסעים|לכל אחד ואחד")
     canonical_baggage_line = _flight_baggage_line(flight)
     if canonical_baggage_line:
         sentences = _split_sentences(text)
         baggage_idx = next(
             (
                 i for i, (s, _term) in enumerate(sentences)
-                if re.search(r"טרולי|מזוודה|תיק", s)
-                and len(_PER_PASSENGER_SPLIT_RE.findall(s)) >= 2
+                if sum(1 for w in _BAGGAGE_TYPE_WORDS if w in s) >= 2
+                and not _UNIFORM_FOR_EVERYONE_RE.search(s)
             ),
             None,
         )
