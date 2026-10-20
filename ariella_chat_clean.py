@@ -5880,6 +5880,17 @@ def _candidate_dates_from_relative_hint(hint):
         candidates = candidates[-2:] if part == "end" else candidates[:2]
         if not candidates:
             return {}
+        if len(candidates) == 1:
+            # Per Shlomo's relay of the business owner's non-blocking note
+            # on PR #101 (20.10.2026): a narrow ~10-day window often holds
+            # only ONE occurrence of a given weekday pair (e.g. "תחילת
+            # החודש הבא, חמישי עד ראשון" - only one Thursday in the first
+            # ten days of the month). The customer still deserves two real
+            # options to choose between, so the following week's occurrence
+            # of the same pair is offered as the second one, even though it
+            # falls just past the originally-requested window.
+            only_dep, only_ret = candidates[0]
+            candidates.append((only_dep + timedelta(days=7), only_ret + timedelta(days=7)))
         labels = [
             f"יום {weekday_start_name} {x.strftime('%d.%m.%Y')}–יום {weekday_end_name} {y.strftime('%d.%m.%Y')}"
             for x, y in candidates
@@ -5904,12 +5915,35 @@ def _candidate_dates_from_relative_hint(hint):
                 viable_starts.append(dep)
         if not viable_starts:
             return {}
-        chosen = [viable_starts[0]]
-        later = [d for d in viable_starts if d >= viable_starts[0] + timedelta(days=5)]
+        # Per Shlomo's relay of the business owner's non-blocking note on
+        # PR #101 (20.10.2026): picking the window's latest viable day as
+        # the second "end of month" candidate regardless of duration often
+        # pushed the RETURN well into the next month (e.g. 30.11-7.12 for
+        # "end of November, a week") even though an earlier day in the same
+        # window would have kept the whole trip inside November. Prefer a
+        # departure whose return also stays within the requested month
+        # when such a day exists in the window; only fall back to a
+        # same-month-spilling day when none does (the trip itself is
+        # simply too long to fit).
+        same_month_starts = [
+            d for d in viable_starts
+            if (d + timedelta(days=duration_days)).year == year
+            and (d + timedelta(days=duration_days)).month == month
+        ]
+        pool = same_month_starts if same_month_starts else viable_starts
+        chosen = [pool[0]]
+        later = [d for d in pool if d >= pool[0] + timedelta(days=5)]
         if later:
             chosen.append(later[-1] if part == "end" else later[0])
-        elif len(viable_starts) > 1:
-            chosen.append(viable_starts[-1])
+        elif len(pool) > 1:
+            chosen.append(pool[-1])
+        if len(chosen) == 1:
+            # Only one viable day in the whole window (e.g. a long duration
+            # leaves just one day that still returns within the month) -
+            # still offer a second real option, one week later, rather than
+            # a single bare candidate (same reasoning as the weekday-pair
+            # branch above).
+            chosen.append(chosen[0] + timedelta(days=7))
         candidates = [(dep, dep + timedelta(days=duration_days)) for dep in chosen]
         labels = [
             f"יום {_WEEKDAY_HE_BY_PY[x.weekday()]} {x.strftime('%d.%m.%Y')}–יום {_WEEKDAY_HE_BY_PY[y.weekday()]} {y.strftime('%d.%m.%Y')}"
