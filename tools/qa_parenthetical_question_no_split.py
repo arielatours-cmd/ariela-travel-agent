@@ -103,6 +103,40 @@ check("regression: a closed parenthetical with no '?' inside it never "
       "affects splitting of the real questions around it",
       len(_unb_spans) == 2 and _unb_spans[0][0].rstrip().endswith("מתאים לכם?"))
 
+# =====================================================================
+# Shlomo's follow-up finding on this same fix (PR #90 review, 20.10): an
+# "(" that is NEVER closed anywhere later in the text (e.g. a stray
+# emoticon like ":(") used to suppress EVERY later "."/"!"/"?" boundary
+# for the rest of the message, since the imbalance it created never
+# resolved - the one-question-per-message rule then went unenforced for
+# everything that followed. Fixed: at each candidate boundary, check
+# whether a real ")" still exists somewhere LATER in the text to actually
+# close the debt - only then is the boundary still suppressed. If no such
+# close exists anywhere ahead, the "(" will never close, so it no longer
+# blocks, immediately (not after an arbitrary distance - a stray unclosed
+# "(" can sit right next to the very next real boundary).
+# =====================================================================
+_never_closed_paren = "בסדר גמור :( אז נדבר על זה מאוחר יותר. מתי תרצו לטוס?"
+_never_closed_spans = chat._split_sentences(_never_closed_paren)
+check("Shlomo's finding: a never-closed '(' (a stray emoticon) does NOT "
+      "suppress the real sentence boundaries that follow it later in the "
+      "message, even though the next boundary sits just a few words after "
+      "it",
+      len(_never_closed_spans) == 2
+      and _never_closed_spans[0][1] == "."
+      and _never_closed_spans[1][1] == "?")
+
+_eventually_closed_far_away = (
+    "מיקום הלינה (קרוב למרכז, רחוק מהים, חשוב לנו שיהיה נוח ונעים ולא יקר "
+    "מדי?) איך זה נשמע לכם?"
+)
+_far_spans = chat._split_sentences(_eventually_closed_far_away)
+check("regression: an embedded '?' inside an open '(' that DOES close "
+      "later, even many words later, still never becomes its own boundary "
+      "- only a genuinely never-closing '(' stops blocking",
+      len(_far_spans) == 1 and _far_spans[0][1] == "?"
+      and "איך זה נשמע" in _far_spans[0][0])
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

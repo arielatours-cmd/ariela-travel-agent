@@ -99,6 +99,43 @@ check("regression: a reply with no paragraph break at all (single block) is "
       chat._strip_leaked_internal_paragraph("Wait let me check the state carefully here first")
       == "Wait let me check the state carefully here first")
 
+# =====================================================================
+# Shaked's PR #90 review (20.10): the script-ratio check alone was too
+# blunt and also stripped two kinds of genuinely LEGITIMATE Latin-heavy
+# leading paragraphs - a hotel name/address, and a pair of airport names -
+# whenever the Hebrew customer-facing paragraph happened to follow them.
+# Per the business owner's standing rule, place/airport names in English
+# must never disappear. Fixed with a second, required check: the share of
+# English words that start lowercase (real prose is mostly lowercase,
+# names/codes are mostly capitalized).
+# =====================================================================
+_hotel_address_lead = (
+    "Hotel Arts Barcelona, Carrer de la Marina 19-21\n\n"
+    "זה המלון שהצעתי, מה דעתכם?"
+)
+check("Shaked's finding: a hotel name/address leading paragraph survives - "
+      "it is almost entirely capitalized words (score ~0.29 lowercase-"
+      "start), nothing like real leaked English prose",
+      chat._strip_leaked_internal_paragraph(_hotel_address_lead) == _hotel_address_lead)
+
+_airport_pair_lead = (
+    "Lisbon (LIS) / Porto (OPO)\n\n"
+    "מאיזה שדה נוח לכם לחזור?"
+)
+check("Shaked's finding: a pair of airport names leading paragraph survives "
+      "- every word is capitalized (score 0.0 lowercase-start)",
+      chat._strip_leaked_internal_paragraph(_airport_pair_lead) == _airport_pair_lead)
+
+check("regression: the original English leak repro is STILL stripped after "
+      "adding the lowercase-start check (it scores well above the 0.6 "
+      "threshold, real prose, not names)",
+      chat._strip_leaked_internal_paragraph(_leak)
+      == "מעולה, אז בואו נדבר על התקציב לטיסה - יש לכם תקרה מסוימת בראש?")
+check("regression: the differently-worded English leak is still stripped "
+      "too",
+      chat._strip_leaked_internal_paragraph(_leak_different_wording)
+      == "קלטתי - התאריכים כבר נקבעו. איזו כבודה תצטרכו?")
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

@@ -3148,7 +3148,27 @@ def _strip_leaked_internal_paragraph(text):
     for narrower, single-token glitches), not by matching specific English
     phrases - a minimum letter count on both sides keeps a short, ordinary
     foreign place/airport name as its own opening line from ever being
-    mistaken for this."""
+    mistaken for this.
+
+    Per Shaked's PR #90 review (20.10): the script-ratio check alone was too
+    blunt - it also stripped a genuinely Latin-heavy but entirely
+    LEGITIMATE leading paragraph, such as a hotel name/address ("Hotel Arts
+    Barcelona, Carrer de la Marina 19-21") or a pair of airport names
+    ("Lisbon (LIS) / Porto (OPO)"), whenever the customer-facing Hebrew
+    paragraph happened to follow it - exactly the business owner's standing
+    rule (place/airport names are allowed in English, and that information
+    must never disappear). The real distinguishing signal between actual
+    leaked ENGLISH PROSE and a list of proper nouns is capitalization
+    pattern: ordinary English sentences are mostly lowercase words (only
+    the first word of each sentence, and genuine proper nouns, capitalized),
+    while a name/address/airport-pair is built almost entirely out of
+    capitalized words with at most a short lowercase connector ("de"/"la").
+    Measured against real examples (Shaked): a genuine leak scores
+    0.85-0.89 on the share of English words starting lowercase, the hotel
+    address scores 0.29, and the airport pair scores 0.0 - so this is
+    required IN ADDITION to the script-ratio check above, not instead of
+    it, with its own floor (at least 4 English words) so a too-short lead
+    is never judged on too little evidence."""
     import re
     parts = re.split(r'\n\s*\n', str(text or ""), maxsplit=1)
     if len(parts) != 2:
@@ -3165,7 +3185,11 @@ def _strip_leaked_internal_paragraph(text):
         lead_latin_ratio = sum(1 for c in lead_letters if re.match(r"[A-Za-z]", c)) / len(lead_letters)
         rest_hebrew_ratio = sum(1 for c in rest_letters if re.match(r"[א-ת]", c)) / len(rest_letters)
         if lead_latin_ratio > 0.6 and rest_hebrew_ratio > 0.6:
-            return rest
+            lead_words = re.findall(r"[A-Za-z][A-Za-z'-]*", lead)
+            if len(lead_words) >= 4:
+                lowercase_start_ratio = sum(1 for w in lead_words if w[0].islower()) / len(lead_words)
+                if lowercase_start_ratio > 0.6:
+                    return rest
     return text
 
 
@@ -5931,14 +5955,30 @@ def _split_sentences(text):
     "שקט יותר?), וגם אם יש לכם תקציב..."). A "."/"!"/"?" is now only a real
     sentence boundary once every "(" opened since the last real split has
     already been closed by a ")" - a bare "\\n" (an explicit paragraph
-    break) is still always a boundary regardless, exactly as before."""
+    break) is still always a boundary regardless, exactly as before.
+
+    Per Shlomo's follow-up finding on this same fix (PR #90 review, 20.10):
+    an "(" that is NEVER closed anywhere in the rest of the text (e.g. a
+    stray emoticon like ":(", or a genuine typo) used to suppress EVERY
+    subsequent "."/"!"/"?" boundary for the remainder of the message, since
+    since_start is measured from the last ACCEPTED split and an unresolved
+    imbalance never clears on its own - the one-question-per-message rule
+    then went unenforced for everything that followed. Fixed by actually
+    checking whether a real close exists anywhere LATER in the text (from
+    this candidate boundary onward), rather than assuming one is still
+    coming: if the rest of the text has fewer ")" than the "(" still owed,
+    it never will close, so this "(" is no longer honored as open and
+    normal splitting resumes immediately - not after an arbitrary distance,
+    since a stray unclosed "(" can sit right next to the very next real
+    boundary."""
     spans = []
     start = 0
     for m in _SENTENCE_BOUNDARY_RE.finditer(text):
         if m.group() != "\n":
             since_start = text[start:m.start()]
-            if since_start.count("(") > since_start.count(")"):
-                continue  # still inside an open parenthetical - not a real boundary
+            imbalance = since_start.count("(") - since_start.count(")")
+            if imbalance > 0 and text[m.start():].count(")") >= imbalance:
+                continue  # a real close still exists later - not a real boundary yet
         end = m.end()
         spans.append((text[start:end], m.group()))
         start = end
