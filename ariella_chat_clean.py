@@ -8265,6 +8265,67 @@ def _redirect_false_flight_closure_claim(reply, trip_update):
     return question or reply
 
 
+# Unique substring from _baggage_followup_hint's own instruction text - its
+# presence in trip_update["_guided_ask_hint"] is how this turn's reply is
+# known to have been INSTRUCTED to include the baggage follow-up note,
+# without threading a separate flag through the guided-extraction dispatch.
+_BAGGAGE_FOLLOWUP_NOTE_WORDS = ("טרולי", "מזוודה")
+
+
+def _baggage_followup_note_already_present(text):
+    """Broader, more robust check than matching one or two exact full
+    phrases (Shaked's own review: a single fixed string is fragile) -
+    any mention of actually adding a trolley/suitcase later, in whatever
+    surrounding wording the model used, already covers the note's
+    substance."""
+    return "להוסיף" in text and any(w in text for w in _BAGGAGE_FOLLOWUP_NOTE_WORDS)
+
+
+def _ensure_baggage_followup_note_present(reply, trip_update, trip_state=None):
+    """Per Shlomo's relay of Shaked's live stage-1 run-2 finding: even
+    after _baggage_followup_hint's own prompt instruction was hardened
+    twice already (#104), the "can always add a trolley/suitcase later"
+    note still didn't reliably reach the customer - the model sometimes
+    still dropped it in favor of keeping only the next question. Per the
+    business owner's explicit direction, this is now ALSO a deterministic
+    code backup: when baggage was just settled this turn but the model's
+    actual reply doesn't contain the note's content, the code inserts the
+    one short sentence itself, before the rest of the reply. A checked
+    bag (the top tier) never needs a note, matching _baggage_followup_
+    hint's own gating exactly.
+
+    Trigger (reworked per Shaked's rejection of the first version, which
+    keyed off the guided dispatcher's own hint-marker/current_question
+    bookkeeping - on her live repro current_question was already None and
+    _baggage_followup_hint was never even built, so neither signal ever
+    fired): a pure STATE DIFF instead - this turn's flight.baggage went
+    from empty/unset (trip_state, before) to a real value (trip_update,
+    now), independent of which code path produced that change (guided
+    dispatcher, its regex fallback, or the general extractor)."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    prior_values = (trip_state.get("flight") or {}).get("baggage")
+    prior = prior_values if isinstance(prior_values, list) else []
+    now_values = (trip_update.get("flight") or {}).get("baggage")
+    now = now_values if isinstance(now_values, list) else []
+    if prior or not now:
+        return reply
+    if "checked_bag" in now:
+        return reply
+    text = str(reply or "")
+    if _baggage_followup_note_already_present(text):
+        return text
+    if "carry_on_only" in now:
+        note = _g(trip_update.get("user_gender"),
+                   "אפשר תמיד להוסיף מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה.",
+                   "אפשר תמיד להוסיף מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה.")
+    else:
+        note = _g(trip_update.get("user_gender"),
+                   "אפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה.",
+                   "אפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה.")
+    return f"{note} {text}" if text else note
+
+
 _POST_FLIGHT_OFFER_CUES = (
     "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
     "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
@@ -13108,6 +13169,7 @@ def _chat_clean_impl():
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
+        reply = _ensure_baggage_followup_note_present(reply, trip_update, trip_state)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
