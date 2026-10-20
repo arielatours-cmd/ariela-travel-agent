@@ -5908,6 +5908,17 @@ def _candidate_dates_from_relative_hint(hint):
         candidates = candidates[-2:] if part == "end" else candidates[:2]
         if not candidates:
             return {}
+        if len(candidates) == 1:
+            # Per Shlomo's relay of the business owner's non-blocking note
+            # on PR #101 (20.10.2026): a narrow ~10-day window often holds
+            # only ONE occurrence of a given weekday pair (e.g. "תחילת
+            # החודש הבא, חמישי עד ראשון" - only one Thursday in the first
+            # ten days of the month). The customer still deserves two real
+            # options to choose between, so the following week's occurrence
+            # of the same pair is offered as the second one, even though it
+            # falls just past the originally-requested window.
+            only_dep, only_ret = candidates[0]
+            candidates.append((only_dep + timedelta(days=7), only_ret + timedelta(days=7)))
         labels = [
             f"יום {weekday_start_name} {x.strftime('%d.%m.%Y')}–יום {weekday_end_name} {y.strftime('%d.%m.%Y')}"
             for x, y in candidates
@@ -5932,12 +5943,35 @@ def _candidate_dates_from_relative_hint(hint):
                 viable_starts.append(dep)
         if not viable_starts:
             return {}
-        chosen = [viable_starts[0]]
-        later = [d for d in viable_starts if d >= viable_starts[0] + timedelta(days=5)]
+        # Per Shlomo's relay of the business owner's non-blocking note on
+        # PR #101 (20.10.2026): picking the window's latest viable day as
+        # the second "end of month" candidate regardless of duration often
+        # pushed the RETURN well into the next month (e.g. 30.11-7.12 for
+        # "end of November, a week") even though an earlier day in the same
+        # window would have kept the whole trip inside November. Prefer a
+        # departure whose return also stays within the requested month
+        # when such a day exists in the window; only fall back to a
+        # same-month-spilling day when none does (the trip itself is
+        # simply too long to fit).
+        same_month_starts = [
+            d for d in viable_starts
+            if (d + timedelta(days=duration_days)).year == year
+            and (d + timedelta(days=duration_days)).month == month
+        ]
+        pool = same_month_starts if same_month_starts else viable_starts
+        chosen = [pool[0]]
+        later = [d for d in pool if d >= pool[0] + timedelta(days=5)]
         if later:
             chosen.append(later[-1] if part == "end" else later[0])
-        elif len(viable_starts) > 1:
-            chosen.append(viable_starts[-1])
+        elif len(pool) > 1:
+            chosen.append(pool[-1])
+        if len(chosen) == 1:
+            # Only one viable day in the whole window (e.g. a long duration
+            # leaves just one day that still returns within the month) -
+            # still offer a second real option, one week later, rather than
+            # a single bare candidate (same reasoning as the weekday-pair
+            # branch above).
+            chosen.append(chosen[0] + timedelta(days=7))
         candidates = [(dep, dep + timedelta(days=duration_days)) for dep in chosen]
         labels = [
             f"יום {_WEEKDAY_HE_BY_PY[x.weekday()]} {x.strftime('%d.%m.%Y')}–יום {_WEEKDAY_HE_BY_PY[y.weekday()]} {y.strftime('%d.%m.%Y')}"
@@ -6027,7 +6061,18 @@ def _deterministic_period_facts(message, history=None):
         if d.weekday()==start_wd:start=d;break
     if not start:return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} ב{month_name} {year}"}}
     end=start+timedelta(days=delta)
-    return {"dates":{"departure":start.isoformat(),"return":end.isoformat(),"period":f"{pair.group(1)} עד {pair.group(2)}","constraints":[f"אחרי {min_day-1}.{month}.{year}"]}}
+    # Per Shlomo's relay of Shaked's live stage-1 run-2 finding: a date
+    # resolved from a relative expression must always require the
+    # customer's own explicit confirmation before being treated as
+    # settled - even when there's only ONE computed option (exactly like
+    # the weekday-pair-with-part branch above). The original version of
+    # this one specific branch returned departure/return directly with no
+    # needs_confirmation key at all, which _merge_trip_state then treated
+    # as an unconditionally-settled fact - silently closing dates with
+    # zero confirmation step. Shaped as a single-candidate proposal now,
+    # consistent with every other relative-date resolution in this file.
+    label=f"{start.strftime('%d.%m.%Y')}–{end.strftime('%d.%m.%Y')}"
+    return {"dates":{"departure":None,"return":None,"period":f"{pair.group(1)} עד {pair.group(2)}","constraints":[f"אחרי {min_day-1}.{month}.{year}"],"candidate_ranges":[label],"needs_confirmation":True}}
 
 def _deterministic_departure_airport_facts(message):
     """Capture an explicitly named Israeli departure airport so it never depends
@@ -12228,7 +12273,22 @@ def _chat_clean_impl():
             if relative_date_hint and _value_has_verbatim_evidence(relative_date_hint_evidence, message):
                 _relative_hint_facts = _candidate_dates_from_relative_hint(relative_date_hint)
             if _relative_hint_facts:
-                trip_update = _merge_trip_state(trip_update, _relative_hint_facts)
+                # EXTRACTOR_SYSTEM already forbids the model from computing a
+                # calendar date itself once relative_date_hint fires - but it
+                # isn't always compliant, and can ALSO write dates.departure/
+                # return directly on this same turn (seen live: Rome, "בתחילת
+                # החודש הבא, מחמישי עד ראשון" saved immediately with no
+                # confirmation). trip_update may already carry that direct
+                # write here (merged in from the raw extractor output before
+                # this block runs), and _merge_trip_state's generic merge
+                # would keep it - its "exact dates replace" branch already
+                # locked needs_confirmation to False, and the anti-regression
+                # guard then refuses to flip it back to True. Since prior_dates
+                # was genuinely empty this turn (the gate above), the hint's
+                # own computed candidates are the only trustworthy source -
+                # write them directly, discarding whatever the extractor may
+                # have written on its own.
+                trip_update["dates"] = dict(_relative_hint_facts["dates"])
             else:
                 trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history))
 
