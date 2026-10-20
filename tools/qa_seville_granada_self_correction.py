@@ -104,6 +104,113 @@ _facts_with_state = chat._deterministic_destination_facts(
 check("regression: once destination.places is already set in state, this safety net never runs at all",
       _facts_with_state == {})
 
+# =====================================================================
+# Shaked's regression review of this fix in PR #94: the deterministic
+# fallback above, correct as a pure function, was still wired in to run
+# (and unconditionally override via _merge_trip_state) whenever the PRIOR
+# stored state had no destination yet - regardless of what the extractor
+# ITSELF returned this very turn. Her two real examples where the model's
+# own understanding is the only thing that can get it right at all:
+# - "לגרנדה, לא לסביליה" (word order the pure regex/negation heuristic
+#   above still gets wrong - stuck on Seville).
+# - "טסים לליסבון, ומשם ברכבת לפורטו" - a genuine two-city itinerary, not a
+#   correction at all; "latest mention wins" silently drops Lisbon.
+# Fixed: the fallback may only act when the extractor's OWN output for
+# THIS turn has no destination at all - never to override one it already
+# produced. These are full end-to-end tests of that gating (mocked model +
+# the real _merge_trip_state/_deterministic_destination_facts call site),
+# not just the pure function above.
+# =====================================================================
+import json
+import sqlite3
+from datetime import datetime, timezone
+from unittest.mock import patch
+
+import database
+database.init_db()
+import whatsapp_bridge
+from werkzeug.security import generate_password_hash
+
+DB = database.DB_PATH
+
+
+def _make_member(email):
+    with sqlite3.connect(DB) as conn:
+        conn.execute("DELETE FROM members WHERE email=?", (email,))
+        conn.commit()
+        cur = conn.execute(
+            "INSERT INTO members (full_name,email,password_hash,created_at,status,whatsapp_opt_in,preferred_airports) "
+            "VALUES(?,?,?,?,?,?,?)",
+            ("QA Seville Granada", email, generate_password_hash("Test1234!"), datetime.now(timezone.utc).isoformat(), "active", 0, "[]"),
+        )
+        return cur.lastrowid
+
+
+def _model_destination_response(places):
+    def _fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+        if source == "state_extractor":
+            return json.dumps({
+                "trip_update": {"destination": {"places": places, "mode": "specific", "status": "known"}},
+                "restart_request": False, "restart_evidence": None,
+                "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            })
+        if source == "guided_extract":
+            return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+        if source == "tinkerbell_reply":
+            return "קלטתי, תודה."
+        return "{}"
+    return _fake
+
+
+def _first_message_destination(email, message, model_places):
+    member = _make_member(email)
+    with patch.object(chat, "_post_claude", side_effect=_model_destination_response(model_places)):
+        whatsapp_bridge.ariella_turn(member, message)
+    state = (database.load_ariella_conversation(member) or {}).get("trip_state") or {}
+    return (state.get("destination") or {}).get("places") or []
+
+check("Shaked's regression #1: the model's OWN correct extraction "
+      "('גרנדה') for 'לגרנדה, לא לסביליה' is never overridden by the "
+      "regex fallback's own (possibly wrong) negation handling",
+      _first_message_destination(
+          "qa-seville-granada-model-wins@example.com",
+          "לגרנדה, לא לסביליה", ["גרנדה"],
+      ) == ["גרנדה"])
+
+check("Shaked's regression #2: a genuine two-city itinerary the model "
+      "correctly keeps as both cities ('טסים לליסבון, ומשם ברכבת לפורטו') "
+      "is never collapsed to one by the 'latest mention wins' fallback, "
+      "because the fallback never even runs when the model has an answer",
+      _first_message_destination(
+          "qa-lisbon-porto-model-wins@example.com",
+          "טסים לליסבון, ומשם ברכבת לפורטו", ["ליסבון", "פורטו"],
+      ) == ["ליסבון", "פורטו"])
+
+# Regression: the fallback must still act as a genuine safety net when the
+# model's own output for this turn has NOTHING for destination at all -
+# this is the ORIGINAL purpose of this function and must not be lost.
+def _model_no_destination_response(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {}, "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "קלטתי, תודה."
+    return "{}"
+
+_gap_member = _make_member("qa-seville-granada-gap-fill@example.com")
+with patch.object(chat, "_post_claude", side_effect=_model_no_destination_response):
+    whatsapp_bridge.ariella_turn(_gap_member, "בעצם לא סביליה, אני רוצה גרנדה")
+_gap_state = (database.load_ariella_conversation(_gap_member) or {}).get("trip_state") or {}
+check("regression: when the model's own extraction misses the destination "
+      "entirely this turn, the deterministic fallback still fills the gap "
+      "exactly as it always did - this fix narrows WHEN it runs, it does "
+      "not remove it",
+      (_gap_state.get("destination") or {}).get("places") == ["גרנדה"])
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

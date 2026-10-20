@@ -3248,33 +3248,60 @@ def _strip_leaked_internal_paragraph(text):
     return text
 
 
-def _strip_leaked_planning_parenthesis(text):
+def _strip_leaked_planning_parenthesis(text, injected_guidance=""):
     """Deterministic safety net for a model glitch seen live (Shaked/
     Shlomo, 20.10.2026, Bari r90a2, on 30e07e1): an internal "note to self"
     about what Tinkerbell still needs to ask/mention in the NEXT reply
-    leaked into the customer-facing text itself, in parentheses right after
-    an otherwise normal reply - e.g. "(לפני התשובה הבאה: נותר לברר אם יש
-    הגבלת תקציב לטיסה, וחשוב לציין שאין עדיין טיסה ישירה מאומתת ליעד הזה -
-    אפשר להזכיר זאת בעדינות...)". TINKERBELL_SYSTEM already forbids exposing
-    single internal-field words ("שדה"/"state") - this is the same failure
-    in spirit, just a whole planning sentence instead of one word, so (per
-    the business owner's own instruction) it needs the same kind of
-    deterministic net rather than trusting the instruction alone. Only
-    strips a parenthetical that contains an unambiguous forward-planning
-    marker, never a genuine customer-facing aside like "(כולל ארוחת
-    בוקר)"."""
+    leaked into the customer-facing text itself, as a trailing note right
+    after an otherwise normal reply - e.g. "(לפני התשובה הבאה: נותר לברר אם
+    יש הגבלת תקציב לטיסה, וחשוב לציין שאין עדיין טיסה ישירה מאומתת ליעד
+    הזה - אפשר להזכיר זאת בעדינות...)".
+
+    The first version of this filter (gated on a fixed list of marker
+    phrases like "לפני התשובה הבאה"/"note to self") was itself exactly the
+    phrase-list pattern the business owner forbids as a primary mechanism -
+    and Shaked's regression review of PR #94 found two real leaked notes
+    that slipped straight past it simply by using different wording
+    ("(עדיין חסר: תקציב וכבודה, לשאול בהמשך)") or square brackets instead of
+    parentheses ("[הערה פנימית: לשאול אחר כך על כבודה]").
+
+    Fixed: strip a trailing parenthetical/bracketed note - regardless of
+    its exact wording or bracket style - when BOTH of these hold, neither
+    of them a guessed/fixed trigger phrase:
+    (1) it has the colon-separated "note:" shape every real leak has
+        ("לפני התשובה הבאה:", "עדיין חסר:", "הערה פנימית:" - a structural
+        pattern, not specific wording), which a genuine customer-facing
+        aside ("(כולל ארוחת בוקר)", "(יום חמישי עד יום חמישי)") never has;
+    (2) its own content shares real vocabulary with injected_guidance, the
+        actual system_dynamic text injected into the model's prompt THIS
+        turn (gateway/direct-route/baggage/traveler hints etc.) - a genuine
+        leak is the model echoing back its own internal guidance, so this
+        checks what was actually given to the model this turn, not a
+        guessed set of trigger phrases. Overlap is by substring
+        containment, not exact token equality - Hebrew prefixes
+        (ו-/ה-/ב-/ל-/מ-/ש-) routinely attach a note's own word ("וכבודה")
+        to a guidance word's bare form ("כבודה"). Latin words count too
+        (not just Hebrew) - injected_guidance always includes the raw state
+        JSON dump (_state_context), whose keys are English field names
+        ("lodging", "budget_amount"...), so an English-phrased note like
+        "note to self: still need lodging + budget" is caught the same
+        way, via those literal field names, not via "note to self" itself
+        as a marker."""
     text = str(text or "")
-    if "(" not in text:
+    m = re.search(r"[(\[]([^()\[\]]*)[)\]]\s*\Z", text)
+    if not m or ":" not in m.group(1):
         return text
-    markers = (
-        "לפני התשובה הבאה", "בתשובה הבאה", "לפני שאני עונה", "לפני שאשיב",
-        "לפני שאמשיך", "הערה לעצמי", "note to self",
+    note_words = {w.lower() for w in re.findall(r"[A-Za-zא-ת]{4,}", m.group(1))}
+    if not note_words:
+        return text
+    guidance_words = {w.lower() for w in re.findall(r"[A-Za-zא-ת]{4,}", str(injected_guidance or ""))}
+    hits = sum(
+        1 for nw in note_words
+        if any(nw in gw or gw in nw for gw in guidance_words)
     )
-    def _replace(m):
-        return "" if any(marker in m.group(1) for marker in markers) else m.group(0)
-    cleaned = re.sub(r"\(([^()]*)\)", _replace, text)
-    if cleaned == text:
+    if hits < 1:
         return text
+    cleaned = text[:m.start()]
     cleaned = re.sub(r"[ \t]+\n", "\n", cleaned)
     cleaned = re.sub(r"\n{2,}", "\n", cleaned)
     return cleaned.strip()
@@ -3944,7 +3971,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _strip_mixed_script_garble(reply)
     reply = _strip_mixed_hebrew_latin_token(reply)
     reply = _strip_leaked_internal_paragraph(reply)
-    reply = _strip_leaked_planning_parenthesis(reply)
+    reply = _strip_leaked_planning_parenthesis(reply, system_dynamic)
     reply = _strip_stray_markdown_markers(reply)
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
@@ -11426,14 +11453,30 @@ def _chat_clean_impl():
             trip_update["requested_services"] = list(services)
             trip_update["service_decisions"] = decisions
             trip_update["session_status"] = statuses
-        # Safety net for facts that must never be re-asked. This helper already
-        # existed but was not wired into the live chat path. Run it before
-        # missing-field/session calculation so an explicitly stated destination
-        # remains authoritative even when the LLM extractor misses it.
-        trip_update = _merge_trip_state(
-            trip_update,
-            _deterministic_destination_facts(history, message, trip_state)
-        )
+        # Safety net for facts that must never be re-asked - but ONLY a true
+        # gap-filler, never a second opinion. Per Shaked's live regression
+        # review (20.10, r90a5): this used to run (and unconditionally
+        # overwrite trip_update via _merge_trip_state) any time the prior
+        # STORED state had no destination yet, regardless of what the
+        # extractor itself just returned THIS turn - so its own regex-tier/
+        # last-mention heuristic silently overrode a model that had
+        # genuinely understood the message correctly. Two real examples:
+        # a same-message self-correction ("לגרנדה, לא לסביליה" - stuck on
+        # Seville because negation handling is itself heuristic and
+        # imperfect) and a real two-city itinerary ("טסים לליסבון, ומשם
+        # ברכבת לפורטו" - Lisbon silently dropped, because "last mention
+        # wins" is a correction heuristic that doesn't know this ISN'T a
+        # correction). Only the model actually understands negation,
+        # self-correction vs. a genuine multi-stop itinerary, not a regex
+        # scan - so this fallback must defer to the model: it may only act
+        # when the extractor's OWN output for THIS turn has no destination
+        # at all, never to override a destination the model already
+        # produced this turn.
+        if not ((trip_update.get("destination") or {}).get("places") if isinstance(trip_update.get("destination"), dict) else None):
+            trip_update = _merge_trip_state(
+                trip_update,
+                _deterministic_destination_facts(history, message, trip_state)
+            )
 
         # Task 014a: once GUIDED_EXTRACTION_STEPS covers dates/travelers,
         # this is the source of truth for them instead of the regex below -
@@ -11568,43 +11611,27 @@ def _chat_clean_impl():
                 })
             if _dates_change_present and _value_has_verbatim_evidence(dates_evidence, message):
                 current_dates = extractor_dates
-        # Bologna live finding (20.10, Shlomo's relay, r90b2): a same-message
-        # date-shaped mention picked up by the deterministic regex safety net
-        # must NEVER directly overwrite dates that are already closed - the
-        # business owner gave 3 concrete risky examples (a flight's return
-        # TIME mentioned mid-conversation, an unrelated event's date, a
-        # recalled PAST trip's dates - "בשנה שעברה טסנו 4-10 ביוני" genuinely
-        # matches this same regex) where a silent direct apply would be a
-        # real, verified false positive, exactly the "phrase-matching instead
-        # of understanding" pattern she forbids. The regex may only ever
-        # raise a confirm question here (reusing the existing guided-dispatch
-        # confirm-then-finalize mechanism - the same one low-confidence
-        # guided answers already use); it saves only once a LATER turn's
-        # genuinely-understood "כן" is itself resolved by the guided
-        # dispatcher back into _guided_confirmed_dates above.
-        if not current_dates and prior_dates.get("departure") and prior_dates.get("return"):
-            _regex_date_facts = _deterministic_date_facts([], message, {})
-            _regex_dates = (
-                _regex_date_facts.get("dates")
-                if isinstance(_regex_date_facts, dict) and isinstance(_regex_date_facts.get("dates"), dict)
-                else {}
-            )
-            if (
-                _regex_dates.get("departure") and _regex_dates.get("return")
-                and (
-                    _regex_dates.get("departure") != prior_dates.get("departure")
-                    or _regex_dates.get("return") != prior_dates.get("return")
-                )
-            ):
-                _candidate_desc = _flight_dates_line(_regex_dates) or ""
-                trip_update["_guided_ask_hint"] = _guided_confirm_hint("dates", _candidate_desc)
-                _guided_reopen = dict(trip_update.get("guided") or {})
-                _guided_reopen["current_question"] = "dates"
-                _guided_reopen["attempts"] = 0
-                _guided_reopen["answered"] = [
-                    f for f in (_guided_reopen.get("answered") or []) if f != "dates"
-                ]
-                trip_update["guided"] = _guided_reopen
+        # Bologna live finding (20.10, Shlomo's relay, r90b2) - Shaked's
+        # regression review of the first attempt here: a deterministic
+        # regex trigger reopening the guided dates question on ANY
+        # same-message date-shaped mention (even just to ask a CONFIRM
+        # question, never to apply the value directly) still fired on
+        # genuinely unrelated mentions the regex itself cannot tell apart
+        # from a real request - a recalled PAST trip ("בשנה שעברה טסנו
+        # 4-10 ביוני"), someone ELSE's dates ("החברים שלנו טסים 4-10 ביוני,
+        # אנחנו נשארים בתאריכים שלנו" - explicitly NOT a change), and an
+        # open comparison question ("מה דעתך, 4-10 ביוני עדיף על 3-9?").
+        # Interrupting the conversation with an unwanted "did you mean to
+        # change the dates?" on any of these is itself the wrong behavior,
+        # not merely a safe fallback - exactly the phrase-matching-instead-
+        # of-understanding pattern the business owner forbids, regex trigger
+        # or not. The evidence-gated model path just above (current_dates
+        # from extracted.dates + a verified dates_evidence quote) is the
+        # ONLY mechanism for detecting a genuine date-change request here,
+        # including one phrased as a question mid another topic - the
+        # EXTRACTOR_SYSTEM prompt already instructs the model to treat such
+        # an embedded question as a real request (see its dates_evidence
+        # section). No regex trigger of any kind runs here any more.
         if (
             not current_dates
             and _guided_confirmed_dates.get("departure") and _guided_confirmed_dates.get("return")
