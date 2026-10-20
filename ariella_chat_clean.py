@@ -115,6 +115,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - שמות מקומות כתבי תמיד באותיות עבריות בלבד (למשל פליטביצה, קרקה, ספליט, דוברובניק, זאגרב). לעולם אל תשלבי אותיות קיריליות, יווניות או לטיניות בתוך מילה עברית.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד. אותו איסור חל גם על מינוח פנימי בעברית - "שדה", "השדה הפנימי", "state", "session", "מתועד כ-", "משתנה" וכל ביטוי אחר שחושף ללקוח איך המידע מאוחסן אצלך. גם כשאת מתקנת או מדייקת תשובה קודמת של הלקוח, נסחי זאת כמשפט רגיל על החופשה עצמה (למשל "רק לוודא - אתם לוקחים גם מזוודה בבטן המטוס, נכון?"), לעולם לא במונחים של "השדה"/"זה מתועד כ-".
+- כל שורת מידע/הנחיה שמופיעה למטה תחת "מצב החופשה המצטבר שכבר ידוע" (כולל כל משפט שמתחיל ב"-") היא הנחיה פנימית בלבד, כדי שתביני את ההקשר ותנסחי את התשובה שלך בעצמך - היא איננה טקסט לציטוט, לפרפרזה, או להזכרה בתשובה עצמה בשום צורה. אסור בהחלט לכתוב ללקוח כל משפט/סוגריים שמתאר מה *נותר לברר*, מה *תשאלי בהמשך/בתשובה הבאה*, או איך בדיוק עליך לנסח את הצעד הבא ("לפני התשובה הבאה: נותר לברר...", "אפשר להזכיר זאת בעדינות...", "note to self" וכל וריאציה דומה בעברית או באנגלית) - זו בדיוק אותה קטגוריית דליפה כמו מינוח פנימי ("שדה"/"state"), רק כמשפט תכנון שלם במקום מילה בודדת. התשובה שלך היא אך ורק מה שהלקוח אמור לקרוא - שיחה טבעית, בלי שום הערה על עצמה.
 - כשהלקוח כותב בעברית, כל התשובה כולה בעברית בלבד - אסור לשלב מילה או ביטוי באנגלית (gaps, OK, sure, perfect וכו') במקום שיש לו מקבילה עברית טבעית. היוצאים הבלעדיים מהכלל הזה הם שמות מקומות ספציפיים (כפר/שכונה/אתר/הר) שכבר יש להם כלל נפרד למעלה שאומר להשאיר אותם בלועזית, וקודי שדות תעופה/ערכים טכניים קבועים כמו "direct" ב-flight.connection_preference.
 - לעולם אל תכתבי בתשובה עצמה את תהליך המחשבה הפנימי שלך - לא "רגע, זה כבר ידוע, בוא אבדוק", לא "ה-state מראה ש...", לא שום משפט שמתאר מה *את* בודקת/שוקלת/זוכרת. התשובה היא רק הטקסט הפונה ללקוח, אף פעם לא תיאור של התהליך שהוביל אליו - גם לא כפסקה נפרדת לפני התשובה האמיתית, וגם לא באנגלית.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
@@ -260,7 +261,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 כללי יסוד:
 - אריאלה היא בעלת ה-state. כל פרט שהלקוח מסר וטינקרבל הבינה חייב להיכתב בשדה המתאים.
 - התחילי מה-state הקיים. שמרי כל ערך קיים שלא שונה. לעולם אל תמחקי ערך רק כי לא הוזכר שוב.
-- קיבלת את כל השיחה, לא רק את ההודעה האחרונה. ה-state הוא נקודת הפתיחה שלך, לא גבול הזיכרון שלך: אם הלקוח ציין פרט רלוונטי בכל שלב קודם בשיחה (גם לא בהודעה הנוכחית) והוא עדיין חסר ב-state, זו עובדה אמיתית שפשוט לא נשמרה - כתבי אותה עכשיו לשדה המתאים, בלי לחכות שהלקוח יחזור ויגיד את זה שוב. לעולם אל תסתרי או תחליפי ערך קיים ב-state בלי סיבה מפורשת מהלקוח; כשהלקוח שינה פרט מאוחר יותר בשיחה ("לא, בעצם X"), הגרסה המאוחרת גוברת על המוקדמת לאותו שדה.
+- קיבלת את כל השיחה, לא רק את ההודעה האחרונה. ה-state הוא נקודת הפתיחה שלך, לא גבול הזיכרון שלך: אם הלקוח ציין פרט רלוונטי בכל שלב קודם בשיחה (גם לא בהודעה הנוכחית) והוא עדיין חסר ב-state, זו עובדה אמיתית שפשוט לא נשמרה - כתבי אותה עכשיו לשדה המתאים, בלי לחכות שהלקוח יחזור ויגיד את זה שוב. לעולם אל תסתרי או תחליפי ערך קיים ב-state בלי סיבה מפורשת מהלקוח; כשהלקוח שינה פרט מאוחר יותר בשיחה ("לא, בעצם X"), הגרסה המאוחרת גוברת על המוקדמת לאותו שדה. אותו כלל בדיוק חל גם על תיקון עצמי בתוך אותה הודעה ממש ("שלום, לסביליה... לא רגע, לגרנדה") - גם כשזו ההודעה הראשונה בשיחה כולה ואין עדיין שום ערך קודם ב-state לאותו שדה: קחי תמיד את הערך הסופי שהלקוח התכוון אליו, לא את הערך הראשון שהוזכר ונזנח. כשמדובר ביעד, מומלץ (גם כשזו קביעה ראשונית, לא רק תיקון לערך קיים) למלא גם את destination_evidence עם ציטוט מהערך הסופי, כדי שלעולם לא יישאר ספק לגבי איזה מבין כמה שמות מקומות שהוזכרו הוא זה שבאמת נבחר.
 - יש state מרכזי אחד לחופשה. destination, destination_airports, return_departure_airports, departure_airport, dates, travelers, budget_per_person והעדפות טיסה הם מידע משותף בין כל הסשנים. מעבר בין flights/lodging/car/trip_planning לעולם אינו מאפס אותם ולעולם אינו מצדיק לשאול אותם שוב.
 - תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות. המסלול היומי עצמו (trip_planning.details.route) חייב תמיד מבנה קבוע אחד: מערך של אובייקט אחד לכל יום, ובכל אחד מהם מפתח "base" עם שם העיר/האזור שבו לנים באותו לילה (למשל {"day":1,"base":"פאפוס"}) - בלי קשר לניסוח החופשי שבו באמת כתבת את המסלול ללקוח. זה בדיוק כדי שלינה/רכב שנפתחים אחר כך יוכלו לקרוא את אזורי הלינה ישירות מהמסלול המאושר בלי לשאול את הלקוח שוב.
 - trip_planning.details.style (תחומי עניין/סגנון הטיול שהלקוח ציין) הוא רשימת מילים/צירופים קצרים בעברית בלבד - תרגמי את הניסוח החופשי של הלקוח לעברית (למשל "street art" -> "אמנות רחוב"), לעולם לא באנגלית כמו שהלקוח אמר. זה שונה במפורש משמות מקומות (destination.places) ושדות תעופה (destination_airports וכו'), שתמיד נשארים בדיוק כמו שהם (כולל כשהם לועזיים) - הכלל הזה חל רק על ערכי העדפה/סגנון, לא על זהות מקום.
@@ -273,7 +274,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
 - כנ"ל לגבי car.details.vehicle_type: השדה נשאר ריק עד שהלקוח עצמו ציין סוג/גודל רכב (קטן, משפחתי, SUV, ג'יפ וכו'; "אוטומטי"/"ידני" שייכים ל-transmission ולא לכאן) או אמר במפורש שכל רכב מתאים לו/שאין העדפה. לעולם אל תמלאי אותו לבד ממספר הנוסעים, מהכבודה או מברירת מחדל - זה בדיוק כמו לנחש תקציב, ומונע מהלקוח לענות על שאלה שמעולם לא נשאלה.
 - lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט הכבודה שהוזמנה - {"checked_bag":{"count":מספר|null,"size":"קטנה"|"בינונית"|"גדולה"|null},"carry_on_only":{"count":מספר|null}}; count הוא הסך הכול שנאמר לכל הקבוצה - הזמנה היא תמיד כבודה אחידה לכל הכרטיסים, אין חלוקה שונה בין נוסעים לתעד; size רק עבור checked_bag, ורק כשנאמר בפועל - לעולם לא "גדולה" כברירת מחדל) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
-- trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"). מאז שהשאלה הראשונה על כך נשארת פתוחה ("מה בא לך לתכנן?" ולא רשימת קטגוריות - ראו ההנחיה המקבילה ל-Tinkerbell), הלקוח כמעט לעולם לא ישתמש במילים "חופשה רגילה"/"נסיעת עסקים"/"חופשת סקי" ממש - היא מתארת את הטיול בניסוח חופשי משלה (למשל "רוצה לנסוע לבד, קצת לנוח ולטייל" = standard; "נסיעת עבודה"/"פגישות בחברה" = business; כל אזכור של סקי/אתר סקי/מעליות = ski). הביני את הקטגוריה מהתיאור החופשי הזה של הלקוח עצמו (בדיוק כמו ש-Tinkerbell כבר מתבקשת להבין מהתשובה החופשית לשאלה הפתוחה) - זו אותה הבנה סמנטית שאת מפעילה על כל שדה אחר, לא דרישה למילת קסם מדויקת. מה שנשאר אסור: לנחש trip_type מ-destination/dates/travelers עצמם (לדוגמה יעד מסוים או מספר נוסעים) כשהלקוח לא תיאר בעצמו את מטרת הטיול בכלל - אלה סימנים עקיפים מדי ולא תיאור של הלקוח. אם אין שום תיאור של מטרת/אופי הטיול, השאירי null עד שיהיה.
+- trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"). מאז שהשאלה הראשונה על כך נשארת פתוחה ("מה בא לך לתכנן?" ולא רשימת קטגוריות - ראו ההנחיה המקבילה ל-Tinkerbell), הלקוח כמעט לעולם לא ישתמש במילים "חופשה רגילה"/"נסיעת עסקים"/"חופשת סקי" ממש - היא מתארת את הטיול בניסוח חופשי משלה (למשל "רוצה לנסוע לבד, קצת לנוח ולטייל" = standard; "נסיעת עבודה"/"פגישות בחברה" = business; כל אזכור של סקי/אתר סקי/מעליות = ski). הביני את הקטגוריה מהתיאור החופשי הזה של הלקוח עצמו (בדיוק כמו ש-Tinkerbell כבר מתבקשת להבין מהתשובה החופשית לשאלה הפתוחה) - זו אותה הבנה סמנטית שאת מפעילה על כל שדה אחר, לא דרישה למילת קסם מדויקת. מה שנשאר אסור: לנחש trip_type מ-destination/dates/travelers עצמם (לדוגמה יעד מסוים או מספר נוסעים) כשהלקוח לא תיאר בעצמו את מטרת הטיול בכלל - אלה סימנים עקיפים מדי ולא תיאור של הלקוח. אם אין שום תיאור של מטרת/אופי הטיול, השאירי null עד שיהיה. בפרט, יעד שעשוי להתאים לנסיעת סקי (אזור הרים, אתר חורפי מוכר, עונת חורף) הוא בדיוק אותו סימן עקיף מדי - אסור בהחלט להסיק trip_type="ski" מהיעד ו/או מהעונה בלבד, גם כשהם מתאימים לכך באופן אינטואיטיבי; "ציריך בינואר", למשל, היא נסיעת עיר לגיטימית לגמרי ולא בהכרח חופשת סקי. כשאת קובעת trip_type="ski" (או משנה אליו מערך אחר), מלאי גם את trip_type_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שמתאר בעצמו סקי/גלישה בשלג/אתר סקי/מעליות - לא ציטוט שמזכיר רק יעד או תאריך. בלי ציטוט אמיתי כזה - אל תכתבי trip_type="ski" בכלל, השאירי אותו כפי שהיה.
 - restart_request ו-restart_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים כוונה לנטוש את התכנון הנוכחי ולחשוב על/להתחיל חופשה אחרת ונפרדת לגמרי - לא שינוי פרט בודד (יעד/תאריכים/תקציב וכו') בתוך אותה חופשה הנמשכת. הכוונה הזו נאמרת בהרבה ניסוחים, ישירים ועקיפים באותה מידה - לא רק "התחלה מחדש" מפורש: גם "בא לי בכלל לתכנן משהו אחר לגמרי", "עזבי את [היעד הנוכחי], אני רוצה לחשוב על חופשה אחרת", "רגע, תני לי לחשוב על כיוון שונה" הם בדיוק אותה כוונה כמו "אני רוצה להתחיל טיול אחר" או "חופשה חדשה ונפרדת" - הביני לפי המשמעות השלמה של המשפט (ויתור על הכיוון/היעד הנוכחי ומעבר למשהו אחר כולו), לא לפי התאמה למשפטים ספציפיים. restart_request=true רק כשההודעה הנוכחית של הלקוח (לא הודעה קודמת) היא זו שמבטאת את הכוונה הזו, ולא כשהוא רק משנה פרט אחד בחופשה הקיימת. בדיוק כמו lodging.details.level_evidence: כשrestart_request=true מלאי את restart_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; אם אין ציטוט אמיתי כזה, restart_request נשאר false ו-restart_evidence נשאר null. ברירת המחדל היא false/null.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
@@ -282,7 +283,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17], child_genders=["female"].
 - child_genders היא רשימה מקבילה ל-child_ages, לפי אותו סדר: "female" כאשר הלקוח אמר "ילדה"/"בת", "male" כאשר אמר "ילד"/"בן", ו-null כשלא צוין מגדר לאותו ילד. לעולם אל תמחקי או תנחשי ערך שכבר קיים ברשימה הזו.
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
-- כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence.
+- כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence. בקשת שינוי שנוסחה כשאלה ("רגע, אפשר לשנות ל-4 עד 10 ביוני?", "אפשר ל-X במקום?") היא בדיוק אותה כוונה כמו משפט הצהרתי ("בעצם X") - היא עדיין בקשה אמיתית לשנות את התאריך, לא רק מחשבה בקול רם, גם כשהיא מופיעה בתוך הודעה שעונה בעיקר על שאלה אחרת לגמרי (כמו קצב הטיול) שטינקרבל שאלה באותה הודעה. אל תתני לנושא הפתוח של השאלה האחרונה להסיח את דעתך מבקשת שינוי תאריך אמיתית שמופיעה באותה הודעה - שתיהן נכתבות, כל אחת לשדה שלה.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
@@ -306,12 +307,13 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אל תסמני כשדה חסר שירות שהלקוח אמר שאינו רוצה.
 - ready_for_summary=true רק כאשר יש כוונת חיפוש וכל שדות החובה לשירותים המבוקשים מלאים.
 
-החזירי JSON תקין בלבד, עם ארבעת השדות restart_request/restart_evidence/dates_evidence/destination_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
+החזירי JSON תקין בלבד, עם חמשת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
 {
  "restart_request":false,
  "restart_evidence":null,
  "dates_evidence":null,
  "destination_evidence":null,
+ "trip_type_evidence":null,
  "trip_update":{
   "trip_type":null,
   "travelers":{"adults":null,"children":null,"child_ages":[],"child_genders":[],"infants":null,"composition":null},
@@ -753,6 +755,27 @@ def _parse_destination_evidence(text):
         data = json.loads(raw)
         if isinstance(data, dict):
             return data.get('destination_evidence')
+    except Exception:
+        pass
+    return None
+
+
+def _parse_trip_type_evidence(text):
+    """Pull trip_type_evidence (sibling of trip_update, not inside it) out
+    of the SAME raw JSON the extractor already returned every turn - mirrors
+    _parse_destination_evidence exactly. Defaults to None on any parse
+    failure - a trip_type="ski" claim is never trusted without a real quote
+    behind it (Shlomo/Shaked's live finding, 20.10.2026, Zurich r90b5:
+    trip_type was set to "ski" with no customer mention of skiing at all,
+    most likely inferred from the destination/season despite EXTRACTOR_
+    SYSTEM already forbidding exactly that)."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data.get('trip_type_evidence')
     except Exception:
         pass
     return None
@@ -2644,8 +2667,20 @@ def _ensure_flight_summary_completeness(reply, state):
     # Stage-3 run-2 (Shaked, Athens): dates genuinely known in state went
     # missing from Tinkerbell's own free-text summary - same inconsistent-
     # omission class as budget/baggage above, just never checked before.
+    #
+    # Per Shaked's live-testing repro (Bologna, r90b2, 20.10.2026): this
+    # check only ever recognized the DD.MM.YYYY numeric format - Tinkerbell
+    # had already confirmed the new dates in her own reply using a Hebrew
+    # month name ("4 עד 10 ביוני", no digit-dot-digit-dot-year pattern
+    # anywhere), so this still thought dates were "missing" and appended
+    # ITS OWN state-based line right alongside the one already there,
+    # producing two contradicting date lines in the same summary - exactly
+    # the class of bug this function's own docstring promises never to
+    # cause ("never touches a fact that is already mentioned, however it
+    # was phrased"). Recognize the Hebrew month-name form too (the same
+    # regex the date parser itself uses), not just the digit format.
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
-    if not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text):
+    if not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text) and not re.search(_HEBREW_MONTH_DATE_RE, text):
         line = _flight_dates_line(dates)
         if line:
             missing.append(line)
@@ -3211,6 +3246,38 @@ def _strip_leaked_internal_paragraph(text):
                 if lowercase_start_ratio > 0.6:
                     return rest
     return text
+
+
+def _strip_leaked_planning_parenthesis(text):
+    """Deterministic safety net for a model glitch seen live (Shaked/
+    Shlomo, 20.10.2026, Bari r90a2, on 30e07e1): an internal "note to self"
+    about what Tinkerbell still needs to ask/mention in the NEXT reply
+    leaked into the customer-facing text itself, in parentheses right after
+    an otherwise normal reply - e.g. "(לפני התשובה הבאה: נותר לברר אם יש
+    הגבלת תקציב לטיסה, וחשוב לציין שאין עדיין טיסה ישירה מאומתת ליעד הזה -
+    אפשר להזכיר זאת בעדינות...)". TINKERBELL_SYSTEM already forbids exposing
+    single internal-field words ("שדה"/"state") - this is the same failure
+    in spirit, just a whole planning sentence instead of one word, so (per
+    the business owner's own instruction) it needs the same kind of
+    deterministic net rather than trusting the instruction alone. Only
+    strips a parenthetical that contains an unambiguous forward-planning
+    marker, never a genuine customer-facing aside like "(כולל ארוחת
+    בוקר)"."""
+    text = str(text or "")
+    if "(" not in text:
+        return text
+    markers = (
+        "לפני התשובה הבאה", "בתשובה הבאה", "לפני שאני עונה", "לפני שאשיב",
+        "לפני שאמשיך", "הערה לעצמי", "note to self",
+    )
+    def _replace(m):
+        return "" if any(marker in m.group(1) for marker in markers) else m.group(0)
+    cleaned = re.sub(r"\(([^()]*)\)", _replace, text)
+    if cleaned == text:
+        return text
+    cleaned = re.sub(r"[ \t]+\n", "\n", cleaned)
+    cleaned = re.sub(r"\n{2,}", "\n", cleaned)
+    return cleaned.strip()
 
 
 def _strip_stray_markdown_markers(text):
@@ -3877,6 +3944,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _strip_mixed_script_garble(reply)
     reply = _strip_mixed_hebrew_latin_token(reply)
     reply = _strip_leaked_internal_paragraph(reply)
+    reply = _strip_leaked_planning_parenthesis(reply)
     reply = _strip_stray_markdown_markers(reply)
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
@@ -3885,7 +3953,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -3942,12 +4010,14 @@ def _extract_trip_update(key, model, history, message, state=None):
         restart_request, restart_evidence = _parse_restart_signal(raw)
         dates_evidence = _parse_dates_evidence(raw)
         destination_evidence = _parse_destination_evidence(raw)
-        return parsed, restart_request, restart_evidence, dates_evidence, destination_evidence
+        trip_type_evidence = _parse_trip_type_evidence(raw)
+        return parsed, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence
     except Exception:
-        return {}, False, None, None, None
+        return {}, False, None, None, None, None
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
+_KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE = None
 
 # Common alternate Hebrew spellings/transliterations for a destination
 # already in the airport catalog under a different spelling. Colloquial
@@ -4059,10 +4129,21 @@ def _known_destination_names():
     # never recognized at all. Within each tier, longer names still come
     # first so "דרום אפריקה" matches before a shorter, coincidentally-
     # contained needle would.
+    global _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE
+    _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE = set(country_needles)
     _KNOWN_DESTINATION_NAMES_CACHE = dict(sorted(
         known.items(), key=lambda kv: (kv[0] in country_needles, -len(kv[0]))
     ))
     return _KNOWN_DESTINATION_NAMES_CACHE
+
+
+def _known_destination_country_needles():
+    """Bare-country-name needles from the same catalog scan as
+    _known_destination_names(), so a caller can tell tier membership
+    (specific place vs. bare country) without recomputing the airport/ski
+    catalog walk a second time."""
+    _known_destination_names()
+    return _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE or set()
 
 
 def _clear_stale_gateway_airports(state):
@@ -4309,6 +4390,37 @@ def _guard_destination_change_evidence(trip_state, trip_update, destination_evid
     return trip_update
 
 
+def _guard_ski_trip_type_evidence(trip_state, trip_update, trip_type_evidence, message):
+    """Zurich live finding (20.10, Shlomo's relay, r90b5): trip_type flipped
+    to "ski" mid-conversation with no customer mention of skiing at all -
+    the same extractor-overclaim pattern as destination/dates, mirrored
+    here with trip_type_evidence as the verbatim-quote gate. A prior
+    trip_type of "ski" is never reverted (no reason to protect against a
+    legitimate ski-trip conversation continuing to say "ski"); only a
+    claimed NEW switch into "ski" from something else needs justification,
+    by either a genuine customer quote or the existing deterministic
+    ski-keyword detector already used elsewhere."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    prior_trip_type = str(trip_state.get("trip_type") or "").lower()
+    if prior_trip_type == "ski":
+        return trip_update
+    new_trip_type = str(trip_update.get("trip_type") or "").lower()
+    if new_trip_type != "ski":
+        return trip_update
+    deterministic_confirms = _deterministic_trip_type_facts(message).get("trip_type") == "ski"
+    verified = deterministic_confirms or _value_has_verbatim_evidence(trip_type_evidence, message)
+    record_diagnostic_event("trip_type_ski_claim", {
+        "prior_trip_type": prior_trip_type or None,
+        "verified": verified,
+    })
+    if verified:
+        return trip_update
+    trip_update = dict(trip_update)
+    trip_update["trip_type"] = trip_state.get("trip_type")
+    return trip_update
+
+
 _DESTINATION_KEEP_NEGATION_CUES = (
     "אל תמחק", "אל תמחקי", "אל תמחקו", "בלי למחוק", "לא למחוק",
     "תשאיר את", "תשאירי את", "השאיר את", "השאירי את", "לא רוצה למחוק",
@@ -4362,7 +4474,25 @@ def _is_negated_destination_mention(text, match_index):
 
 
 def _deterministic_destination_facts(history, message, state=None):
-    """Preserve an explicitly stated destination when extractor output misses it."""
+    """Preserve an explicitly stated destination when extractor output misses it.
+
+    Seville/Granada live finding (20.10, Shlomo's relay, r90a5): a customer
+    self-correcting the destination within the SAME message ("לא סביליה,
+    גרנדה") wasn't recognized - the old version scanned _known_destination_
+    names() in its pre-sorted tier order and returned on the FIRST needle it
+    found anywhere in the text, so whichever of the two happened to sort
+    first in the catalog dict won, regardless of which one the customer
+    actually said last. The fix needs BOTH the existing, documented tier
+    rule (a specific place always beats a bare country name - see
+    _known_destination_names()'s own docstring) AND a same-tier tie-break
+    by LATEST position in the text (the later mention is the correction).
+    These are two separate, sequential decisions - collapsing them into a
+    single position-only rule regressed the tier rule itself (a bare
+    country name later in the sentence would then wrongly beat an earlier,
+    more specific place), caught via the full QA sweep
+    (qa_island_region_catalog_gap.py, qa_reset_confirmation_preserves_
+    dates_and_travelers.py, qa_reset_gate_preserves_trip_type_and_specific_
+    resort.py)."""
     state = state if isinstance(state, dict) else {}
     current = state.get("destination") if isinstance(state.get("destination"), dict) else {}
     if current.get("places"):
@@ -4376,8 +4506,10 @@ def _deterministic_destination_facts(history, message, state=None):
         if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"
     ]
     known = _known_destination_names()
+    country_needles = _known_destination_country_needles()
     for text in texts:
         text = text.lower()
+        candidates = []  # [(start, end, label, is_country), ...]
         for needle, label in known.items():
             needle_lower = needle.lower()
             start = 0
@@ -4388,7 +4520,27 @@ def _deterministic_destination_facts(history, message, state=None):
                 if _is_negated_destination_mention(text, idx) or _is_origin_departure_mention(text, idx):
                     start = idx + 1
                     continue
-                return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+                candidates.append((idx, idx + len(needle_lower), label, needle in country_needles))
+                break
+        if not candidates:
+            continue
+        # One known name can be a literal substring of another
+        # ("סין"/China inside "קפריסין"/Cyprus, "מיורקה"/Mallorca inside
+        # "פלמה דה מיורקה"/Palma de Mallorca) - a candidate fully contained
+        # within a strictly longer match must be dropped before any
+        # position/tier tie-break, or the shorter substring wins purely by
+        # coincidental position.
+        candidates = [
+            c for c in candidates
+            if not any(
+                o[0] <= c[0] and c[1] <= o[1] and (o[1] - o[0]) > (c[1] - c[0])
+                for o in candidates
+            )
+        ]
+        specific = [c for c in candidates if not c[3]]
+        tier = specific or candidates
+        best = max(tier, key=lambda c: c[0])
+        return {"destination": {"places": [best[2]], "mode": "specific", "status": "known"}}
     return {}
 
 
@@ -10947,7 +11099,7 @@ def _chat_clean_impl():
     try:
         # Tinkerbell's data-transfer pass tells Ariella what changed.
         # Ariella owns and merges the cumulative state.
-        extracted, restart_request, restart_evidence, dates_evidence, destination_evidence = _extract_trip_update(key, model, history, message, trip_state)
+        extracted, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence = _extract_trip_update(key, model, history, message, trip_state)
 
         # General restart/change-of-direction always enters a simple yes/no
         # gate first. Never erase collected trip facts before an explicit
@@ -11046,6 +11198,7 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
         trip_update = _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message)
+        trip_update = _guard_ski_trip_type_evidence(trip_state, trip_update, trip_type_evidence, message)
         trip_update = _clear_stale_gateway_airports(trip_update)
         trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
@@ -11302,6 +11455,15 @@ def _chat_clean_impl():
             str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
             for _s in ("flights", "lodging", "car", "trip_planning")
         )
+        # Captured BEFORE the guided dispatch call, not after - trip_update
+        # at this point already carries the raw, UNGUARDED extractor merge
+        # from earlier in this function (_merge_trip_state(trip_state,
+        # extracted)), which may itself hold an unverified claimed date
+        # change with nothing behind it yet. Only a difference the guided
+        # dispatcher ITSELF introduces below counts as "genuinely confirmed
+        # this turn" - comparing against this snapshot is what tells the
+        # two apart (see the capture right after the dispatch call).
+        _dates_before_guided_dispatch = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
         if guided_steps and not _all_domains_already_decided:
             guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
             if guided_turn is not None:
@@ -11317,6 +11479,32 @@ def _chat_clean_impl():
                     trip_update["_guided_ask_hint"] = guided_hint
                 else:
                     trip_update.pop("_guided_ask_hint", None)
+
+        # Bologna live finding (20.10, Shlomo's relay, r90b2): the sticky-
+        # dates re-lock logic further below must never discard a value the
+        # guided dispatcher ITSELF just resolved this turn (the customer's
+        # "כן" finalizing a confirm question reopened on a PRIOR turn) -
+        # without this, that confirmation would be silently overwritten
+        # back to the stale prior_dates the instant it was accepted.
+        #
+        # Caught live (full QA sweep regression, qa_stage3_run4_root_
+        # causes.py/qa_stage3_run5_diagnostics.py) in the FIRST version of
+        # this capture: it simply read trip_update.get("dates") AFTER
+        # dispatch with no comparison against before - so on any turn where
+        # the raw extractor merge alone had already written an unverified
+        # claimed date (dates_evidence present but NOT verified, guided
+        # dispatch untouched by it - current_question on something else
+        # entirely), this fallback wrongly treated that ungrounded value as
+        # "guided-confirmed" and let it bypass the evidence gate and the
+        # sticky-dates lock entirely. Comparing against
+        # _dates_before_guided_dispatch (captured above, BEFORE the
+        # dispatch call) isolates only a change the dispatcher itself made.
+        _dates_after_guided_dispatch = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+        _guided_confirmed_dates = (
+            _dates_after_guided_dispatch
+            if _dates_after_guided_dispatch != _dates_before_guided_dispatch
+            else {}
+        )
 
         if "dates" not in guided_steps or "dates" in _guided_regex_fallback_fields:
             trip_update = _merge_trip_state(
@@ -11380,6 +11568,52 @@ def _chat_clean_impl():
                 })
             if _dates_change_present and _value_has_verbatim_evidence(dates_evidence, message):
                 current_dates = extractor_dates
+        # Bologna live finding (20.10, Shlomo's relay, r90b2): a same-message
+        # date-shaped mention picked up by the deterministic regex safety net
+        # must NEVER directly overwrite dates that are already closed - the
+        # business owner gave 3 concrete risky examples (a flight's return
+        # TIME mentioned mid-conversation, an unrelated event's date, a
+        # recalled PAST trip's dates - "בשנה שעברה טסנו 4-10 ביוני" genuinely
+        # matches this same regex) where a silent direct apply would be a
+        # real, verified false positive, exactly the "phrase-matching instead
+        # of understanding" pattern she forbids. The regex may only ever
+        # raise a confirm question here (reusing the existing guided-dispatch
+        # confirm-then-finalize mechanism - the same one low-confidence
+        # guided answers already use); it saves only once a LATER turn's
+        # genuinely-understood "כן" is itself resolved by the guided
+        # dispatcher back into _guided_confirmed_dates above.
+        if not current_dates and prior_dates.get("departure") and prior_dates.get("return"):
+            _regex_date_facts = _deterministic_date_facts([], message, {})
+            _regex_dates = (
+                _regex_date_facts.get("dates")
+                if isinstance(_regex_date_facts, dict) and isinstance(_regex_date_facts.get("dates"), dict)
+                else {}
+            )
+            if (
+                _regex_dates.get("departure") and _regex_dates.get("return")
+                and (
+                    _regex_dates.get("departure") != prior_dates.get("departure")
+                    or _regex_dates.get("return") != prior_dates.get("return")
+                )
+            ):
+                _candidate_desc = _flight_dates_line(_regex_dates) or ""
+                trip_update["_guided_ask_hint"] = _guided_confirm_hint("dates", _candidate_desc)
+                _guided_reopen = dict(trip_update.get("guided") or {})
+                _guided_reopen["current_question"] = "dates"
+                _guided_reopen["attempts"] = 0
+                _guided_reopen["answered"] = [
+                    f for f in (_guided_reopen.get("answered") or []) if f != "dates"
+                ]
+                trip_update["guided"] = _guided_reopen
+        if (
+            not current_dates
+            and _guided_confirmed_dates.get("departure") and _guided_confirmed_dates.get("return")
+            and (
+                _guided_confirmed_dates.get("departure") != prior_dates.get("departure")
+                or _guided_confirmed_dates.get("return") != prior_dates.get("return")
+            )
+        ):
+            current_dates = _guided_confirmed_dates
         # An explicit new date range in the CURRENT customer message overrides the
         # old approved range. Sticky dates protect against unrelated turns only;
         # they must never block a correction such as "change it to 23-27 May 2027".
