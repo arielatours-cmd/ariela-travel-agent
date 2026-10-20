@@ -168,6 +168,16 @@ def _fake_post_claude(key, model, system_static, system_dynamic, history, messag
         # which is correctly out of this file's control.
         return str(system_dynamic or "") or "תשובה כלשהי."
     if source == "state_extractor":
+        # Per Shaked's PR #85 review (18.10): restart_request/restart_evidence
+        # now ride this SAME call's JSON output (siblings of trip_update)
+        # instead of a separate classifier call - see ariella_chat_clean.py's
+        # EXTRACTOR_SYSTEM and _parse_restart_signal. Mirror that here with a
+        # genuinely verbatim evidence quote, exactly like the real model must.
+        text = _customer_text(message)
+        restart_phrases = ("טיול חדש", "חופשה חדשה", "טיול אחר", "חדש ונפרד")
+        hit = next((p for p in restart_phrases if p in text), None)
+        if hit:
+            return json.dumps({"trip_update": {}, "restart_request": True, "restart_evidence": hit})
         return "{}"
     if source != "classifier":
         return "{}"

@@ -40,7 +40,7 @@ from public_site import site, _confirm_paid_search
 from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
-from ai_usage import usage_summary, usage_rows, usage_for_conversation
+from ai_usage import usage_summary, usage_rows, usage_for_conversation, diagnostic_rows, DIAGNOSTIC_EVENT_SOURCES
 from whatsapp_deals_messages import on_whatsapp_deals_paid
 from partner_commissions import sync_cj_commissions, cj_connection_check
 from mailer import mail_check
@@ -604,6 +604,41 @@ def admin_ai_usage_conversation(conversation_id):
     if denied: return denied
     rows = usage_for_conversation(conversation_id)
     return jsonify({"status": "success", "conversation_id": conversation_id, "count": len(rows), "calls": rows})
+
+
+@app.get("/admin/ai-usage/diagnostics.csv")
+def admin_ai_usage_diagnostics_csv():
+    """Per Shlomo's follow-up (18.10, qa/reports/2026-10-18-stage3-run4.md):
+    a plain logging.info call for a live-site diagnostic (the reset-
+    confirmation gate, the guided-redirect mismatch) has no value on this
+    infrastructure - no agent has access to Render's own log stream. These
+    events are recorded instead via record_diagnostic_event (see
+    ai_usage.py), as ai_usage rows excluded from every cost total, and
+    exported here so the business owner can download them and Shaked can
+    analyze them - never the customer's own message text, by construction
+    of every caller. ?event= selects one of DIAGNOSTIC_EVENT_SOURCES."""
+    denied = _require_admin()
+    if denied: return denied
+    import csv
+    import io
+    event = request.args.get("event", "").strip()
+    if event not in DIAGNOSTIC_EVENT_SOURCES:
+        return jsonify({
+            "status": "error",
+            "message": f"?event= must be one of {list(DIAGNOSTIC_EVENT_SOURCES)}",
+        }), 400
+    days = request.args.get("days", 30, type=int)
+    include_test = request.args.get("include_test", "0") == "1"
+    rows = diagnostic_rows(event, days=days, include_test=include_test)
+    buffer = io.StringIO()
+    columns = ["id", "created_at", "member_id", "conversation_id", "details"]
+    writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return Response(buffer.getvalue(), mimetype="text/csv", headers={
+        "Content-Disposition": f"attachment; filename=ai-usage-diagnostics-{event}-{days}d.csv"
+    })
 
 
 @app.get("/admin/whatsapp-queue")
