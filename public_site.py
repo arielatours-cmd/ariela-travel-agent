@@ -1827,6 +1827,26 @@ def _saved_match_offer_ids(trip):
     return out
 
 
+def _conditions_met_then_price_sort_key(offer, trip):
+    """Shared ranking key for any list of offers without a full exact match,
+    per the business owner's 20.10 directive: the more selected conditions
+    an offer meets, the earlier it appears, even if it costs more - price is
+    only the tie-breaker within the same count. Used both by
+    _resolved_trip_offers (final display order) and by
+    _match_and_pin_initial_offers (so a better-matching but pricier offer
+    isn't sliced off by a price-only sort before the conditions-met sort
+    ever runs - Shaked's review, 20.10, PR #95).
+
+    Reuses offer["_conditions_met_count"] when a caller already computed it
+    (as _resolved_trip_offers does, alongside request_missed_reasons, to
+    avoid running _objective_match_details twice); otherwise computes it."""
+    count = offer.get("_conditions_met_count")
+    if count is None:
+        _, _possible, matched, _missed = _objective_match_details(offer, trip)
+        count = len(matched)
+    return (-int(count or 0), float(offer.get("price_ils") or 10**9))
+
+
 def _resolved_trip_offers(all_offers, trip, limit=5):
     """Resolve results for this vacation without letting shared DB refreshes mutate it.
 
@@ -1903,7 +1923,7 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
     # maximum count, decided by price). Applies everywhere this function is
     # the final word on display order - both the in-progress and the
     # already-finished-vacation paths.
-    merged.sort(key=lambda o: (-int(o.get("_conditions_met_count") or 0), float(o.get("price_ils") or 10**9)))
+    merged.sort(key=lambda o: _conditions_met_then_price_sort_key(o, trip))
     return merged[:limit]
 
 def _requested_passenger_count(trip):
@@ -4558,7 +4578,14 @@ def _match_and_pin_initial_offers(trip_id, trip, answers, refreshed, require_rec
                 continue
             seen.add(sig)
             alternatives.append(offer)
-    alternatives.sort(key=lambda o: float(o.get("price_ils") or 10**9))
+    # Per Shaked's review (20.10, PR #95): sorting by price alone BEFORE
+    # slicing to 5 could cut off an offer that meets more of the customer's
+    # selected conditions just because it costs more than five cheaper,
+    # worse-matching offers - same bug the business owner's "conditions met
+    # first" directive already fixed for the final display order
+    # (_resolved_trip_offers), but it also has to hold here, before the
+    # slice, not just in how the surviving five are displayed.
+    alternatives.sort(key=lambda o: _conditions_met_then_price_sort_key(o, trip))
     alternatives = alternatives[:5]
     if alternatives:
         answers["_initial_exact_match_missing"] = True
