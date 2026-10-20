@@ -12386,7 +12386,21 @@ def _chat_clean_impl():
                 merged["search_intent"] = True
                 merged["search_confirmed"] = True
                 merged["ready_for_summary"] = True
-                merged["user_gender"] = _user_gender_from_approval(message, merged)
+                # Per the business owner's directive (20.10): Ariella addresses
+                # the customer by their REGISTRATION (members.gender), never by
+                # the grammatical gender of the words they happen to type - "כן
+                # מאשר" from a customer registered female must never flip her
+                # to masculine address, even for one turn, and must never carry
+                # a wrong value forward into the next vacation either. Once a
+                # registered gender exists for this member (merged["profile"]
+                # ["gender"], set above at the top of this turn from _member_
+                # profile - always fresh, never client-supplied), it is already
+                # authoritative in merged["user_gender"] and this literal-word
+                # override must never touch it. Only a member with NO
+                # registered gender at all still falls back to today's
+                # literal-word behavior.
+                if not (merged.get("profile") or {}).get("gender"):
+                    merged["user_gender"] = _user_gender_from_approval(message, merged)
                 services = list(merged.get("requested_services") or [])
                 # Approval at a flight confirmation stage is authoritative: mark flights requested.
                 if "flights" not in services:
