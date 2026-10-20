@@ -86,7 +86,14 @@ def make_trip(trip_id, answers, status="active"):
         conn.commit()
 
 
-def make_offer(price_ils, outbound, ret, stops=0, arrival_code="LIS"):
+def make_offer(price_ils, outbound, ret, stops=0, arrival_code="LIS", trip_id=None):
+    """trip_id (20.10 follow-up, Shlomo's own review of #92): when given,
+    ties the underlying scan_run to that trip (scan_runs.trip_id) and
+    registers the offer in scan_run_offers too - exactly what
+    rematch_trip_without_new_scan's new scan_run-scoped inventory lookup
+    (_inventory_for_trip_scan_run) requires to find it at all, mirroring
+    how scanner.py's own real customer-scan path always ties a scan_run to
+    the trip it ran for."""
     payload = {
         "destination_name": "ליסבון",
         "flight": {
@@ -99,7 +106,8 @@ def make_offer(price_ils, outbound, ret, stops=0, arrival_code="LIS"):
     observed_at = datetime.now(timezone.utc).isoformat()
     with sqlite3.connect(database.DB_PATH) as conn:
         cur = conn.execute(
-            "INSERT INTO scan_runs (started_at, status, searches_planned) VALUES (datetime('now'), 'done', 1)"
+            "INSERT INTO scan_runs (started_at, status, searches_planned, trip_id) VALUES (datetime('now'), 'done', 1, ?)",
+            (trip_id,),
         )
         scan_run_id = cur.lastrowid
         cur = conn.execute(
@@ -109,8 +117,13 @@ def make_offer(price_ils, outbound, ret, stops=0, arrival_code="LIS"):
             (scan_run_id, observed_at, f"TLV-{arrival_code}", "TLV", arrival_code, outbound, ret,
              price_ils, 70, "good", "08:00", "12:00", json.dumps(payload, ensure_ascii=False)),
         )
+        offer_id = int(cur.lastrowid)
+        conn.execute(
+            "INSERT OR IGNORE INTO scan_run_offers(scan_run_id,offer_id,observed_at) VALUES(?,?,?)",
+            (scan_run_id, offer_id, observed_at),
+        )
         conn.commit()
-        return int(cur.lastrowid)
+        return offer_id
 
 
 def cleanup():
@@ -232,7 +245,15 @@ check("rematch: a trip that already has real matched offers is left alone "
       result_has_matches.get("status") == "error")
 
 # The real stuck-vacation shape: search finished, nothing ever got pinned.
+# Per Shlomo's own follow-up review of #92: rematch is now scoped to THIS
+# trip's own scan_run (never a blanket recent-inventory window), so the
+# offer must be tied to trip_id=158005 to be found at all - the general
+# offer_cheap/offer_expensive from section 1 (trip_id=None) would no
+# longer be visible to it.
 make_trip(158005, dict(TRIP_259_ANSWERS, _flight_search_finished=True))
+_future_out = (datetime.now(timezone.utc) + timedelta(days=200)).date().isoformat()
+_future_ret = (datetime.now(timezone.utc) + timedelta(days=204)).date().isoformat()
+make_offer(1800, _future_out, _future_ret, stops=1, trip_id=158005)
 result_stuck = public_site.rematch_trip_without_new_scan(158005)
 check("rematch: a genuinely stuck vacation (search finished, nothing "
       "pinned) is successfully re-matched against current inventory, with "

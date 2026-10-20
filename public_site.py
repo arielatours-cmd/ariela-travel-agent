@@ -23,7 +23,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import DB_PATH, MIN_DEAL_SCORE, ISRAEL_TZ, SERPAPI_API_KEY, AIRPORT_NAMES, PERSONAL_SEARCH_PLANS, SEARCH_PERIOD_DAYS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS, PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY, CJ_BOOKING_EVERGREEN_LINK, CAR_RENTAL_AFFILIATE_LINK, CAR_RENTAL_PARTNER_NAME, CAR_RENTAL_SEARCH_URL_TEMPLATE, LODGING_AFFILIATE_LINK, LODGING_PARTNER_NAME, LODGING_SEARCH_URL_TEMPLATE, BUSINESS_TRADE_NAME, BUSINESS_LEGAL_NAME_HE, BUSINESS_LEGAL_NAME_EN, BUSINESS_DEALER_TYPE_HE, BUSINESS_DEALER_NUMBER, BUSINESS_ADDRESS_HE, BUSINESS_ADDRESS_EN, BUSINESS_CONTACT_EMAIL
-from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, clear_whatsapp_proactive_off, latest_trip_alerts, delete_member_account
+from database import recent_offers, save_feedback, utc_now_iso, record_site_event, record_booking_click, DESTINATION_LANDMARK_IMAGES, get_setting, set_setting, reset_ariella_conversation_trip_state, known_dead_routes, record_payment, set_whatsapp_deals_opt, clear_whatsapp_proactive_off, latest_trip_alerts, delete_member_account, latest_scan_run_id_for_trip, offer_ids_for_scan_run
 from ai_usage import record_diagnostic_event
 from destination_fit import DESTINATION_CONDITION_MONTHS, condition_met as _destination_condition_met, seasonality_met as _destination_seasonality_met
 from scanner import run_customer_trip_search, search_hotels, _customer_destination_codes
@@ -4117,6 +4117,44 @@ def search_trip_now(trip_id):
 
 
 
+def _inventory_for_trip_scan_run(trip_id):
+    """Per the business owner's own follow-up directive (20.10, vacation
+    259/trip #158 - after the first rematch fix merged as #92): re-
+    matching a stuck vacation must be scoped to the offers THIS vacation's
+    OWN scan_run actually found, never _recent_inventory_48h()'s blanket
+    last-48-hours window. Her exact objection: vacation 259's own offers
+    were scanned 19.10 05:30 UTC, so that window already closes 21.10
+    05:30 UTC - a blanket recent-inventory call can miss this trip's own
+    offers entirely once that window passes, or return unrelated
+    customers' offers that happen to still be within it. Also drops any
+    offer whose own flight date has already passed - a stale offer must
+    never be re-shown just because it's still sitting in the scan's own
+    results.
+
+    Reuses recent_offers(offer_ids=...) rather than offers_for_scan_run -
+    the latter is a narrower, admin-display-only projection (missing
+    stops/departure_time/baggage and other dedicated columns every
+    matching tier actually reads), while recent_offers already returns the
+    full, correctly-populated row shape every other tier in this file
+    relies on; restricting it to this scan_run's own offer ids gets the
+    right SCOPE without a second, incomplete row-building path to keep in
+    sync."""
+    run_id = latest_scan_run_id_for_trip(trip_id)
+    if not run_id:
+        return []
+    ids = offer_ids_for_scan_run(run_id)
+    if not ids:
+        return []
+    today = date.today().isoformat()
+    offers = [
+        _localize_offer_airports(o)
+        for o in recent_offers(limit=2000, minimum_score=None, offer_ids=ids)
+        if str(o.get("outbound_date") or "") >= today
+    ]
+    offers.sort(key=lambda o: _offer_seen_at(o) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return offers
+
+
 def _recent_inventory_48h():
     offers = [
         _localize_offer_airports(o)
@@ -4358,8 +4396,14 @@ def rematch_trip_without_new_scan(trip_id):
         return {"status": "error", "message": "search not finished yet - not a stuck vacation"}
     if _saved_match_offer_ids(trip):
         return {"status": "error", "message": "trip already has matched offers - nothing to recover"}
+    if not latest_scan_run_id_for_trip(trip_id):
+        return {"status": "error", "message": "no scan_run found for this trip - nothing to rematch against"}
     try:
-        refreshed = _recent_inventory_48h()
+        # Per the business owner's own follow-up directive (20.10, same
+        # vacation 259/trip #158, after the first fix merged as #92):
+        # scoped to THIS vacation's own scan_run, never the blanket
+        # _recent_inventory_48h() window - see _inventory_for_trip_scan_run.
+        refreshed = _inventory_for_trip_scan_run(trip_id)
         pinned = _match_and_pin_initial_offers(trip_id, trip, answers, refreshed)
     except Exception as exc:
         try:
