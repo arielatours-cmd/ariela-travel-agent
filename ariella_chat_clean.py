@@ -271,7 +271,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
 - כנ"ל לגבי car.details.vehicle_type: השדה נשאר ריק עד שהלקוח עצמו ציין סוג/גודל רכב (קטן, משפחתי, SUV, ג'יפ וכו'; "אוטומטי"/"ידני" שייכים ל-transmission ולא לכאן) או אמר במפורש שכל רכב מתאים לו/שאין העדפה. לעולם אל תמלאי אותו לבד ממספר הנוסעים, מהכבודה או מברירת מחדל - זה בדיוק כמו לנחש תקציב, ומונע מהלקוח לענות על שאלה שמעולם לא נשאלה.
-- lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט איך הכבודה המוזנת מתחלקת בין הנוסעים - {"checked_bag":{"count":מספר|null,"unit":"total"|"per_person"|"per_adult"|"per_couple"|"per_child"|null,"size":"קטנה"|"בינונית"|"גדולה"|null},"carry_on_only":{"count":מספר|null,"unit":"total"|"per_person"|"per_adult"|"per_couple"|"per_child"|null}} - per_adult שונה במפורש מ-per_person, שמשמעו כל נוסע כולל ילדים; size רק עבור checked_bag, ורק כשנאמר בפועל - לעולם לא "גדולה" כברירת מחדל) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
+- lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט הכבודה שהוזמנה - {"checked_bag":{"count":מספר|null,"size":"קטנה"|"בינונית"|"גדולה"|null},"carry_on_only":{"count":מספר|null}}; count הוא הסך הכול שנאמר לכל הקבוצה - הזמנה היא תמיד כבודה אחידה לכל הכרטיסים, אין חלוקה שונה בין נוסעים לתעד; size רק עבור checked_bag, ורק כשנאמר בפועל - לעולם לא "גדולה" כברירת מחדל) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
 - trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"). מאז שהשאלה הראשונה על כך נשארת פתוחה ("מה בא לך לתכנן?" ולא רשימת קטגוריות - ראו ההנחיה המקבילה ל-Tinkerbell), הלקוח כמעט לעולם לא ישתמש במילים "חופשה רגילה"/"נסיעת עסקים"/"חופשת סקי" ממש - היא מתארת את הטיול בניסוח חופשי משלה (למשל "רוצה לנסוע לבד, קצת לנוח ולטייל" = standard; "נסיעת עבודה"/"פגישות בחברה" = business; כל אזכור של סקי/אתר סקי/מעליות = ski). הביני את הקטגוריה מהתיאור החופשי הזה של הלקוח עצמו (בדיוק כמו ש-Tinkerbell כבר מתבקשת להבין מהתשובה החופשית לשאלה הפתוחה) - זו אותה הבנה סמנטית שאת מפעילה על כל שדה אחר, לא דרישה למילת קסם מדויקת. מה שנשאר אסור: לנחש trip_type מ-destination/dates/travelers עצמם (לדוגמה יעד מסוים או מספר נוסעים) כשהלקוח לא תיאר בעצמו את מטרת הטיול בכלל - אלה סימנים עקיפים מדי ולא תיאור של הלקוח. אם אין שום תיאור של מטרת/אופי הטיול, השאירי null עד שיהיה.
 - restart_request ו-restart_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים כוונה לנטוש את התכנון הנוכחי ולחשוב על/להתחיל חופשה אחרת ונפרדת לגמרי - לא שינוי פרט בודד (יעד/תאריכים/תקציב וכו') בתוך אותה חופשה הנמשכת. הכוונה הזו נאמרת בהרבה ניסוחים, ישירים ועקיפים באותה מידה - לא רק "התחלה מחדש" מפורש: גם "בא לי בכלל לתכנן משהו אחר לגמרי", "עזבי את [היעד הנוכחי], אני רוצה לחשוב על חופשה אחרת", "רגע, תני לי לחשוב על כיוון שונה" הם בדיוק אותה כוונה כמו "אני רוצה להתחיל טיול אחר" או "חופשה חדשה ונפרדת" - הביני לפי המשמעות השלמה של המשפט (ויתור על הכיוון/היעד הנוכחי ומעבר למשהו אחר כולו), לא לפי התאמה למשפטים ספציפיים. restart_request=true רק כשההודעה הנוכחית של הלקוח (לא הודעה קודמת) היא זו שמבטאת את הכוונה הזו, ולא כשהוא רק משנה פרט אחד בחופשה הקיימת. בדיוק כמו lodging.details.level_evidence: כשrestart_request=true מלאי את restart_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; אם אין ציטוט אמיתי כזה, restart_request נשאר false ו-restart_evidence נשאר null. ברירת המחדל היא false/null.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
@@ -2325,96 +2325,59 @@ def _flight_connection_line(flight):
 
 
 def _checked_bag_label(detail):
-    """Builds the checked-bag summary label from structured {count, unit,
-    size} data (added 2026-10-17 per Shaked's review of #78/the 014a
-    baggage field: a bare shared/not-shared boolean silently dropped the
-    actual COUNT and the real UNIT the customer stated - "שתי מזוודות
-    לכולנו" and "מזוודה אחת לכל זוג" both collapsed to the same "one
-    shared suitcase" label. unit is one of "per_person"/"per_adult"/
-    "per_couple"/"per_child"/"total"/None (quantity stated but the split
-    is genuinely unclear - never guessed as "one"). Falls back to the
-    classic per-passenger phrasing with no detail at all.
+    """Builds the checked-bag summary label from structured {count, size}
+    data (added 2026-10-17 per Shaked's review of #78/the 014a baggage
+    field: a bare shared/not-shared boolean silently dropped the actual
+    COUNT the customer stated - "שתי מזוודות לכולנו" and "מזוודה אחת"
+    both collapsed to the same "one shared suitcase" label). Falls back
+    to the classic per-passenger phrasing with no detail at all.
 
-    per_child (per Shaked's live finding, qa/reports/2026-10-18-stage3-
-    run4.md, "וטרולי לכל ילד"): distinct from per_person - a bag "per
-    child" is never the same fact as "per every traveler", adults
-    included. Without this explicit category the model had nothing closer
-    than per_person to pick, and the summary wrongly claimed every
-    traveler gets one.
+    size (per Shlomo's priority-5 finding, 20.10, s12x10): "בינונית"
+    (medium) was shown back as the hardcoded "גדולה" (large) regardless
+    of what the customer actually said - size was never tracked anywhere
+    at all. Now used when the customer stated one; when they didn't, the
+    size adjective is simply omitted rather than invented. bag_word_plural
+    mirrors bag_word for the plural case, with the size adjective itself
+    pluralized (קטנה/בינונית/גדולה -> קטנות/בינוניות/גדולות - Hebrew
+    feminine plural, matching "מזוודות").
 
-    per_adult (per Shlomo's priority-5 finding, 20.10, stage-1/2
-    regression, s12x2): the mirror case - "per adult" is never the same
-    fact as "per every traveler", children included.
-
-    size (per Shlomo's same priority-5 finding, s12x10): "בינונית" (medium)
-    was shown back as the hardcoded "גדולה" (large) regardless of what the
-    customer actually said - size was never tracked anywhere at all. Now
-    used when the customer stated one; when they didn't, the size
-    adjective is simply omitted rather than invented.
-
-    Per Shlomo's PR #91 review (20.10): a stated size used to disappear
-    the moment count>1 ("2 מזוודות" dropped "גדולות" entirely) - the
-    plural branches built their own bare "{count} מזוודות ..." text
-    instead of reusing bag_word, so the size fact survived only in the
-    singular phrasing. bag_word_plural mirrors bag_word for the plural
-    case, with the size adjective itself pluralized (קטנה/בינונית/גדולה ->
-    קטנות/בינוניות/גדולות - Hebrew feminine plural, matching "מזוודות")."""
+    Per the business owner's directive (20.10, relayed by Shlomo): a
+    booking is always ONE uniform baggage choice for every ticket in the
+    group (a group booking can never split differently per passenger,
+    short of two separate bookings) - so there is no per-passenger "unit"
+    (per_person/per_adult/per_couple/per_child/total) to label at all
+    anymore; count is simply the total stated for the whole group, and
+    the only default assumption is "one checked bag per ticket" when no
+    count was stated."""
     detail = detail if isinstance(detail, dict) else {}
     count = detail.get("count")
     count = count if isinstance(count, int) and count > 0 else None
-    unit = detail.get("unit")
     size = detail.get("size")
     size = size if size in ("קטנה", "בינונית", "גדולה") else None
     bag_word = f"מזוודה {size}" if size else "מזוודה"
     size_plural = {"קטנה": "קטנות", "בינונית": "בינוניות", "גדולה": "גדולות"}.get(size)
     bag_word_plural = f"מזוודות {size_plural}" if size_plural else "מזוודות"
-    if unit == "total":
-        return f"{bag_word} אחת משותפת לכל הנוסעים" if not count or count == 1 else f"{count} {bag_word_plural} משותפות לכל הנוסעים"
-    if unit == "per_couple":
-        return f"{bag_word} אחת לכל זוג" if not count or count == 1 else f"{count} {bag_word_plural} לכל זוג"
-    if unit == "per_child":
-        return f"{bag_word} אחת לכל ילד" if not count or count == 1 else f"{count} {bag_word_plural} לכל ילד"
-    if unit == "per_adult":
-        return f"{bag_word} אחת לכל מבוגר" if not count or count == 1 else f"{count} {bag_word_plural} לכל מבוגר"
-    if unit == "per_person":
-        return f"{bag_word} אחת לכל נוסע" if not count or count == 1 else f"{count} {bag_word_plural} לכל נוסע"
     if count and count > 1:
-        # A real count was stated but how it splits across the party is
-        # genuinely unclear - state the number honestly rather than guess.
         return f"{count} {bag_word_plural}"
     return f"{bag_word} אחת לכל נוסע"
 
 
 def _carry_on_label(detail):
-    """Mirrors _checked_bag_label for carry_on_only - count/unit tracking,
-    no size (a cabin bag's physical size isn't a fact customers state the
-    way checked-bag size is, and was never reported as an issue). Added
-    20.10 per Shlomo's priority-5 finding (stage-1/2 regression, s12x2):
-    carry_on never had count/unit tracking at all, unlike checked_bag -
-    "טרולי לכל מבוגר" ("a carry-on per ADULT") lost that explicit exclusion
-    and fell back to the flat, detail-less "טרולי" label every time, same
-    as "לכל נוסע" (per every traveler, children included) would have.
-    Callers only invoke this once count/unit is actually known; with no
-    detail at all, the existing flat _BAGGAGE_HE label is used instead -
-    there is no established "assume per-traveler" default for carry_on the
-    way checked_bag already has (see its own qa-s83 history)."""
+    """Mirrors _checked_bag_label for carry_on_only - count tracking, no
+    size (a cabin bag's physical size isn't a fact customers state the way
+    checked-bag size is, and was never reported as an issue), and no
+    per-passenger default the way checked_bag has: with no count stated at
+    all, the existing flat _BAGGAGE_HE label is used instead - there is no
+    established "assume one per traveler" assumption for carry_on the way
+    checked_bag already has (see its own qa-s83 history)."""
     detail = detail if isinstance(detail, dict) else {}
     count = detail.get("count")
     count = count if isinstance(count, int) and count > 0 else None
-    unit = detail.get("unit")
-    if unit == "total":
-        return "טרולי אחד משותף לכל הנוסעים" if not count or count == 1 else f"{count} טרולים משותפים לכל הנוסעים"
-    if unit == "per_couple":
-        return "טרולי אחד לכל זוג" if not count or count == 1 else f"{count} טרולים לכל זוג"
-    if unit == "per_child":
-        return "טרולי אחד לכל ילד" if not count or count == 1 else f"{count} טרולים לכל ילד"
-    if unit == "per_adult":
-        return "טרולי אחד לכל מבוגר" if not count or count == 1 else f"{count} טרולים לכל מבוגר"
-    if unit == "per_person":
-        return "טרולי אחד לכל נוסע" if not count or count == 1 else f"{count} טרולים לכל נוסע"
-    if count and count > 1:
-        return f"{count} טרולים"
-    return _BAGGAGE_HE.get("carry_on_only", "טרולי")
+    if count is None:
+        return _BAGGAGE_HE.get("carry_on_only", "טרולי")
+    if count == 1:
+        return "טרולי אחד"
+    return f"{count} טרולים"
 
 
 def _flight_baggage_line(flight):
@@ -4981,18 +4944,21 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     suitcase from the final summary entirely. Now every matching value is
     collected into one list instead of returning on the first hit.
 
-    traveler_count (2026-10-17, Shaked's 014a stage-1 run-1 finding,
-    Budapest Z5, extended the same day after her #78 review): this is only
-    the FAIL-SAFE path now - baggage's primary path is the 014 guided-
-    extraction field (_guided_extract_answer/field="baggage"), which asks
-    the model directly for a per-item {type, count, unit}. This regex only
-    runs when that call itself fails. It still tries to recover count/unit
-    (never just a bare shared/not-shared flag - a customer saying "שתי
-    מזוודות לכולנו" or "מזוודה אחת לכל זוג" loses real information if only
-    a boolean survives), using unit WORDS when present ("לכל זוג"/"לכולנו"/
-    "לכולם"/"לכל המשפחה"/"משותפת"/"לכל אחד"/"לכל נוסע"), and falling back
-    to the general count-vs-traveler-count inference only when no unit
-    word is present at all."""
+    traveler_count: kept for backward compatibility with existing call
+    sites, but per the business owner's directive (20.10, relayed by
+    Shlomo): a booking is always ONE uniform baggage choice for the whole
+    group, so there is no per-passenger split to infer from it anymore -
+    see the count-tracking code below for exactly what's still recovered.
+
+    This is only the FAIL-SAFE path - baggage's primary path is the 014
+    guided-extraction field (_guided_extract_answer/field="baggage"),
+    which asks the model directly for a per-item {type, count, size}.
+    This regex only runs when that call itself fails. It still tries to
+    recover the real COUNT when stated (never just a bare shared/not-
+    shared flag - a customer saying "שתי מזוודות" loses real information
+    if only a boolean survives); it never guesses a size, and never
+    guesses how baggage splits per passenger (there is no such split to
+    guess - the booking is uniform either way)."""
     import re
     msg = str(message or "")
     if not msg.strip():
@@ -5082,95 +5048,34 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         group = bag_count_match.group(1)
         bag_count = 1 if group in ("אחת", "אחד") else (int(group) if group.isdigit() else _HEBREW_NUMBER_WORDS.get(group))
         checked_bag_mentioned = True
-    # Unit words - checked directly, never requiring "משותפת" specifically.
-    #
-    # Per Shaked's PR #91 review (20.10): a unit is only ever trusted here
-    # when checked_bag is the ONLY baggage kind mentioned in the message -
-    # once a carry-on is ALSO mentioned (values already has "carry_on_only"
-    # by this point, detected above), a unit word anywhere in the message
-    # can't be reliably attributed to one bag kind or the other by a
-    # whole-message regex search alone ("טרולי לכל מבוגר ומזוודה אחת" wrongly
-    # saved the SUITCASE as per_adult too; "לכל מבוגר מזוודה, וטרולי אחד
-    # לכולנו" wrongly saved the suitcase as "total" from the trolley's own
-    # word). Rather than try to disambiguate which phrase belongs to which
-    # bag (that was PR #91's own now-reverted attempt, itself still wrong
-    # in other cases), the safe rule per the business owner's standing
-    # decision is: never guess when it's ambiguous - no unit is saved at
-    # all for checked_bag once a second baggage kind is also present. The
-    # guided-extraction model path (the real, primary mechanism) is
-    # unaffected and still gets this right by asking the model directly,
-    # per item - this fail-safe only needs to not actively guess wrong.
-    if "carry_on_only" not in values:
-        if re.search(r"לכל\s+זוג", msg):
-            checked_bag_detail["unit"] = "per_couple"
-            checked_bag_mentioned = True
-        elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
-            checked_bag_detail["unit"] = "total"
-            checked_bag_mentioned = True
-        # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md,
-        # Tuscany V2, "וטרולי לכל ילד"): checked BEFORE the generic per-person
-        # pattern below (which never matches "ילד" anyway, but the explicit
-        # order documents the distinction) - "per child" is never the same
-        # fact as "per every traveler", adults included.
-        elif re.search(r"לכל\s+ילד|לכל\s+הילד(?:ים)?", msg):
-            checked_bag_detail["unit"] = "per_child"
-            checked_bag_mentioned = True
-        # Per Shlomo's priority-5 finding (20.10, stage-1/2 regression, s12x2):
-        # checked BEFORE the generic per-person pattern, same precedence as
-        # per_child above - "per adult" is never the same fact as "per every
-        # traveler", children included.
-        elif re.search(_BAGGAGE_PER_ADULT_RE, msg) and checked_bag_mentioned:
-            checked_bag_detail["unit"] = "per_adult"
-        elif re.search(_BAGGAGE_PER_PERSON_RE, msg) and checked_bag_mentioned:
-            # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
-            # גדולה לכל אחד מאיתנו" (a big suitcase for each of us) has no
-            # explicit digit next to "מזוודה" at all, so the old gate here
-            # (requiring bag_count_match) dropped the unit entirely - baggage
-            # still got ["checked_bag"], but with no baggage_detail at all, so
-            # the per-passenger fact the customer actually stated was lost.
-            # checked_bag_mentioned already requires a "מזוודה"-word match (see
-            # above) - that's what actually rules out "טרולי לכל אחד" (which
-            # never matches any of those patterns and so never reaches this
-            # branch's effect anyway, since values only gets "checked_bag" when
-            # checked_bag_mentioned is true); requiring a redundant explicit
-            # digit on top of that was over-strict and is what this fixes.
-            checked_bag_detail["unit"] = "per_person"
-        elif bag_count is not None:
-            try:
-                party = max(0, int(traveler_count or 0))
-            except (TypeError, ValueError):
-                party = 0
-            if party > 1 and bag_count < party:
-                # No unit word at all, but the general rule still holds: a
-                # count smaller than the party can never be "one per person".
-                checked_bag_detail["unit"] = "total"
+    # Per the business owner's directive (20.10, relayed by Shlomo,
+    # confirmed after Shaked's PR #91 review): a booking is always ONE
+    # uniform baggage choice for every ticket in the group (never a
+    # per-passenger split, short of two separate bookings) - so there is
+    # no per-passenger "unit" (per_person/per_adult/per_couple/per_child/
+    # total) to recover here at all anymore. Previous attempts at this in
+    # the fail-safe (even gated to the single-baggage-kind case, even
+    # picking the nearest phrase by character distance) kept guessing
+    # wrong in other real messages - a whole-message regex search simply
+    # cannot reliably attribute a stray unit word to the right bag kind.
+    # count (how many checked bags total the customer stated) is still
+    # tracked, since it directly affects the search regardless of any
+    # per-passenger split; size is a guided-extraction-only fact (the
+    # model decides it from real understanding, never guessed here).
     if bag_count is not None:
         checked_bag_detail["count"] = bag_count
     if checked_bag_mentioned:
         values.append("checked_bag")
     if re.search(r"רק\s+תיק\s+יד|תיק\s+קטן\s+בלבד|רק\s+תיק(?!\s+עלי)|תיק\s+מספיק(?!\s+עלי)", msg):
         values.append("personal_item")
-    # Per Shaked's PR #91 review (20.10): carry_on's own unit/size tracking
-    # in THIS fail-safe (added, then reverted, the same round) is deleted
-    # entirely, not just re-gated - the guided-extraction model path is the
-    # one real, primary mechanism for this detail (per_adult/count/unit per
-    # item, decided by the model itself, same as baggage_detail already
-    # works); this regex-only fail-safe never attempts it, so there is
-    # nothing here left to guess wrong.
-    carry_on_detail = {}
     if values:
         result = {"flight": {"baggage": values}}
-        detail = {}
         if "checked_bag" in values and checked_bag_detail:
             # Per Shaked's stage-2 run-1 and 014a stage-1 findings: the
-            # actual count and how it splits across the party are real
-            # facts the summary must state, not just shared/not-shared -
-            # see _checked_bag_label/_flight_baggage_line/_baggage_summary.
-            detail["checked_bag"] = checked_bag_detail
-        if "carry_on_only" in values and carry_on_detail:
-            detail["carry_on_only"] = carry_on_detail
-        if detail:
-            result["flight"]["baggage_detail"] = detail
+            # actual count is a real fact the summary must state, not
+            # just shared/not-shared - see _checked_bag_label/
+            # _flight_baggage_line/_baggage_summary.
+            result["flight"]["baggage_detail"] = {"checked_bag": checked_bag_detail}
         return result
     return {}
 
@@ -8169,33 +8074,35 @@ def _guided_extract_answer(key, model, field, message, history, state):
                 pass
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח איזה כבודה לוקחים. חלצי "
-            "מתשובת הלקוח את פריטי הכבודה - לכל פריט: סוג, כמות (אם נאמרה), "
-            "ואיך היא מתחלקת בין הנוסעים.\n"
+            "מתשובת הלקוח את פריטי הכבודה - לכל פריט: סוג וכמות (אם נאמרה).\n"
+            "חשוב: ההזמנה עצמה היא כבודה אחידה לכל הכרטיסים בקבוצה - אי אפשר "
+            "להזמין סוג כבודה שונה לנוסעים שונים באותה הזמנה (רק בשתי הזמנות "
+            "נפרדות). לכן אין צורך בפירוט לפי נוסע (מי בדיוק מקבל מה) - רק מה "
+            "הסוג האחיד, ואם נאמרו כמות ו/או גודל.\n"
             f"מספר נוסעים בקבוצה: {travelers_total or 'לא ידוע'}.\n"
             f"מצב נוכחי - כבודה: {json.dumps(current_flight.get('baggage'), ensure_ascii=False)}.\n"
             f"4 ההודעות האחרונות: {recent}\n"
-            "כללים: items היא רשימת פריטים, כל אחד {\"type\",\"count\",\"unit\"} - "
-            "יכול להיות יותר מפריט אחד באותה הודעה (למשל \"טרולי לכל אחד "
-            "ומזוודה אחת לכל המשפחה\" הם שני פריטים). type הוא אחד מהערכים "
+            "כללים: items היא רשימת פריטים, כל אחד {\"type\",\"count\"} - יכול "
+            "להיות יותר מפריט אחד באותה הודעה (למשל \"טרולי וגם מזוודה\" הם "
+            "שני פריטים, אם שניהם מיועדים לכל הקבוצה). type הוא אחד מהערכים "
             "האלה בדיוק: \"carry_on_only\" (טרולי/כבודת עלייה), \"checked_bag\" "
             "(מזוודה בבטן המטוס), \"personal_item\" (תיק קטן בלבד). count הוא "
-            "המספר שצוין (כולל מספרים במילים כמו \"שתי מזוודות\"=2, \"אחת\"=1) "
-            "או null אם לא צוין מספר. unit מתאר איך הכמות מתחלקת - שייך גם "
-            "ל-carry_on_only וגם ל-checked_bag, לא רק לאחד מהם: "
-            "\"per_person\" (לכל נוסע/אדם בנפרד, כולל מבוגרים וילדים), "
-            "\"per_adult\" (למבוגרים בלבד - לא לכל נוסע; שונה במפורש "
-            "מ-per_person, שמשמעו כל נוסע כולל ילדים), \"per_couple\" "
-            "(לכל זוג), \"per_child\" (לכל ילד בלבד - לא לכל נוסע; שונה "
-            "במפורש מ-per_person, שמשמעו כל נוסע ולא רק הילדים), "
-            "\"total\" (סך הכול לכל הקבוצה ביחד - \"לכולנו\"/\"לכולם\"/\"לכל "
-            "המשפחה\"/\"משותפת\" הם כולם total), או null אם לא ברור מהניסוח "
-            "איך זה מתחלק (במקרה הזה שמרי את count כפי שנאמר, אל תנחשי unit). "
-            "רק כש-type הוא checked_bag, אפשר למלא גם size - הגודל הפיזי "
-            "שהלקוח ציין: \"קטנה\"/\"בינונית\"/\"גדולה\", או null אם לא נאמר "
-            "גודל בכלל - לעולם אל תמציאי גודל שלא נאמר, גם לא \"גדולה\" "
-            "כברירת מחדל. אם אין שום כבודה בכלל - no_baggage:true (items "
-            "ריקה אז). אסור להמציא כמות או חלוקה שלא נאמרה. אם לא ברור "
-            "בכלל אילו פריטים נלקחים, items=null ו-confidence:\"low\". "
+            "המספר הכולל שצוין (כולל מספרים במילים כמו \"שתי מזוודות\"=2, "
+            "\"אחת\"=1, \"מזוודה אחת לכולנו\"=1) או null אם לא צוין מספר - "
+            "אסור להמיר ניסוח של חלוקה בין נוסעים (\"לכל אחד\"/\"לכל מבוגר\" "
+            "וכו') למספר מוסק, כי ההזמנה בכל מקרה אחידה; שמרי רק מספר שנאמר "
+            "במפורש כסך הכול. רק כש-type הוא checked_bag, אפשר למלא גם size - "
+            "הגודל הפיזי שהלקוח ציין: \"קטנה\"/\"בינונית\"/\"גדולה\", או null "
+            "אם לא נאמר גודל בכלל - לעולם אל תמציאי גודל שלא נאמר, גם לא "
+            "\"גדולה\" כברירת מחדל. אם אין שום כבודה בכלל - no_baggage:true "
+            "(items ריקה אז). אם לא ברור בכלל אילו פריטים נלקחים, items=null "
+            "ו-confidence:\"low\".\n"
+            "mixed_per_passenger: true רק אם הלקוח במפורש ניגד בין נוסעים "
+            "שונים - מי מקבל איזה סוג כבודה (למשל \"אני עם טרולי אבל הילדים "
+            "עם מזוודה\", \"חלק טרולי וחלק מזוודה\") - לא רק אמירה שיש גם "
+            "טרולי וגם מזוודה לכל הקבוצה. כש-true, מלאי items עם checked_bag "
+            "בלבד (ברירת המחדל המכילה את שני הצרכים) ו-confidence:\"low\" - "
+            "בלי לנחש גודל/כמות שלא נאמרו.\n"
             "also_mentioned: רק פרטי תאריכים/נוסעים שנאמרו במפורש באותה "
             "הודעה, בלי להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל "
             "(שאלה אחרת, נושא אחר) - status=\"other_topic\". אם ההודעה "
@@ -8203,8 +8110,9 @@ def _guided_extract_answer(key, model, field, message, history, state):
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic",'
             '"no_baggage":true|false,'
+            '"mixed_per_passenger":true|false,'
             '"items":[{"type":"carry_on_only"|"checked_bag"|"personal_item",'
-            '"count":int|null,"unit":"per_person"|"per_adult"|"per_couple"|"per_child"|"total"|null,'
+            '"count":int|null,'
             '"size":"קטנה"|"בינונית"|"גדולה"|null},...]|null,'
             '"confidence":"high|low",'
             '"also_mentioned":{"dates":{...}|null,"travelers":{...}|null},'
@@ -8435,8 +8343,8 @@ def _validate_lodging_level_against_message(trip_update, state, message):
 
 def _validate_baggage_detail_against_message(trip_update, state, message):
     """Per Shlomo/Shaked (stage-3 run-3, Lisbon): flight.baggage_detail
-    (the per-passenger count/unit split, e.g. "one shared suitcase" vs.
-    "one per passenger") got silently reinterpreted by the main per-turn
+    (the count/size actually stated for the group's uniform baggage) got
+    silently reinterpreted by the main per-turn
     extractor on a LATER turn where the customer said nothing new about
     baggage at all - Tinkerbell then told the customer "I understood this
     was one bag per passenger", a fact never actually restated that turn.
@@ -8540,21 +8448,40 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
         return {"travelers": fragment}, desc
     if field == "baggage":
         # Per Shlomo/Shaked (2026-10-17, after her review of #78): a bare
-        # shared/not-shared boolean silently drops the actual COUNT and
-        # the UNIT it's split by ("שתי מזוודות לכולנו" and "מזוודה אחת לכל
-        # זוג" both collapsed to the same label). Each item now carries its
-        # own {type, count, unit} straight from the model.
+        # shared/not-shared boolean silently drops the actual COUNT ("שתי
+        # מזוודות לכולנו" and "מזוודה אחת" both collapsed to the same
+        # label). Each item carries its own {type, count} straight from
+        # the model.
+        #
+        # Per the business owner's later directive (20.10): a booking is
+        # always ONE uniform baggage choice for every ticket in the group
+        # (never a per-passenger split, short of two separate bookings) -
+        # so there is no "unit" (per_person/per_adult/per_couple/per_child/
+        # total) to track at all; count is simply the total stated for the
+        # whole group, never a per-passenger split synthesized from one.
         if result.get("no_baggage"):
             return {"flight": {"baggage": ["no_baggage"], "baggage_detail": {}}}, "ללא כבודה"
+        # mixed_per_passenger (same directive): the customer's own words
+        # explicitly differentiated what DIFFERENT passengers get (e.g.
+        # "אני עם טרולי אבל הילדים עם מזוודה") - the model itself decides
+        # this from meaning, never a phrase list. Since the booking can't
+        # represent that split, default to checked_bag alone (covers both
+        # a trolley-only and a checked-bag need) and let the low-confidence
+        # path below surface the explanation for Tinkerbell to convey in
+        # her own words - never silently merging a request that was never
+        # actually made.
+        if result.get("mixed_per_passenger"):
+            return (
+                {"flight": {"baggage": ["checked_bag"]}},
+                "כבודה אחידה לכל הכרטיסים (מזוודה בבטן המטוס לכל נוסע) - ביקשת "
+                "חלוקה שונה בין הנוסעים, אבל ההזמנה היא תמיד אותו סוג כבודה "
+                "לכל הכרטיסים באותה הזמנה; אפשר להוסיף מזוודה רק לחלק "
+                "מהנוסעים בפועל מול חלק מחברות התעופה, בזמן ההזמנה עצמה",
+            )
         items = result.get("items")
         if not isinstance(items, list) or not items:
             return {}, None
         valid_types = ("carry_on_only", "checked_bag", "personal_item")
-        # Per Shlomo's priority-5 finding (20.10, stage-1/2 regression,
-        # s12x2): "per_adult" added as its own unit, distinct from
-        # per_person - "טרולי לכל מבוגר" is never the same fact as "לכל
-        # נוסע" (children included).
-        valid_units = ("per_person", "per_adult", "per_couple", "per_child", "total")
         valid_sizes = ("קטנה", "בינונית", "גדולה")
         values = []
         baggage_detail = {}
@@ -8571,35 +8498,26 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
                 continue
             count = item.get("count")
             count = count if isinstance(count, int) and count > 0 else None
-            unit = item.get("unit") if item.get("unit") in valid_units else None
             if item_type == "checked_bag":
-                # size (per Shlomo's same finding, s12x10): "בינונית" was
-                # shown back as the hardcoded "גדולה" - now a real fact
-                # when stated, never invented when it isn't. Keys only
-                # appear when actually stated (same sparse-dict convention
-                # the regex fail-safe already uses) so an unstated size
-                # never shows up as a spurious "size": None key.
+                # size (per Shlomo's priority-5 finding, s12x10): "בינונית"
+                # was shown back as the hardcoded "גדולה" - now a real
+                # fact when stated, never invented when it isn't. Keys
+                # only appear when actually stated (sparse-dict
+                # convention) so an unstated size never shows up as a
+                # spurious "size": None key.
                 size = item.get("size") if item.get("size") in valid_sizes else None
                 checked_detail = {}
                 if count is not None:
                     checked_detail["count"] = count
-                if unit is not None:
-                    checked_detail["unit"] = unit
                 if size is not None:
                     checked_detail["size"] = size
                 if checked_detail:
                     baggage_detail["checked_bag"] = checked_detail
                 labels.append(_checked_bag_label(baggage_detail.get("checked_bag")))
             else:  # carry_on_only
-                # Per the same finding: carry_on never had count/unit
-                # tracking at all, unlike checked_bag - see _carry_on_
-                # label's own docstring. With no detail stated, the flat
-                # label is kept exactly as before (no new default invented).
                 carry_detail = {}
                 if count is not None:
                     carry_detail["count"] = count
-                if unit is not None:
-                    carry_detail["unit"] = unit
                 if carry_detail:
                     baggage_detail["carry_on_only"] = carry_detail
                     labels.append(_carry_on_label(carry_detail))
