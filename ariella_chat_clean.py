@@ -6033,7 +6033,18 @@ def _deterministic_period_facts(message, history=None):
         if d.weekday()==start_wd:start=d;break
     if not start:return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} ב{month_name} {year}"}}
     end=start+timedelta(days=delta)
-    return {"dates":{"departure":start.isoformat(),"return":end.isoformat(),"period":f"{pair.group(1)} עד {pair.group(2)}","constraints":[f"אחרי {min_day-1}.{month}.{year}"]}}
+    # Per Shlomo's relay of Shaked's live stage-1 run-2 finding: a date
+    # resolved from a relative expression must always require the
+    # customer's own explicit confirmation before being treated as
+    # settled - even when there's only ONE computed option (exactly like
+    # the weekday-pair-with-part branch above). The original version of
+    # this one specific branch returned departure/return directly with no
+    # needs_confirmation key at all, which _merge_trip_state then treated
+    # as an unconditionally-settled fact - silently closing dates with
+    # zero confirmation step. Shaped as a single-candidate proposal now,
+    # consistent with every other relative-date resolution in this file.
+    label=f"{start.strftime('%d.%m.%Y')}–{end.strftime('%d.%m.%Y')}"
+    return {"dates":{"departure":None,"return":None,"period":f"{pair.group(1)} עד {pair.group(2)}","constraints":[f"אחרי {min_day-1}.{month}.{year}"],"candidate_ranges":[label],"needs_confirmation":True}}
 
 def _deterministic_departure_airport_facts(message):
     """Capture an explicitly named Israeli departure airport so it never depends

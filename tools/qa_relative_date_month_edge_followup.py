@@ -20,6 +20,18 @@ Both fixes are in _candidate_dates_from_relative_hint:
     occurrence of the same pair is offered as a second option instead of
     leaving the customer with a single bare candidate.
 
+Also covers bug #4 from the SAME live run's stage-1 run-2 report
+(relayed together with these two notes, combined into this PR per
+Shlomo's own instruction): _deterministic_period_facts's "אחרי ה-X"
+branch (a weekday pair plus an explicit anchor day, e.g. "ראשון עד חמישי
+אחרי ה-15 ביוני") used to return a single resolved departure/return
+directly, with no needs_confirmation key at all - _merge_trip_state then
+treated that as an unconditionally-settled fact, silently closing dates
+with zero confirmation step. A relative date must always require
+explicit confirmation, even with only one computed option (the sibling
+weekday-pair-with-part branch right above it already did this
+correctly) - this branch is now shaped the same way.
+
 Run: python3 tools/qa_relative_date_month_edge_followup.py
 """
 import os
@@ -105,6 +117,35 @@ r3 = chat._candidate_dates_from_relative_hint(
 check("a window with 2 genuine occurrences on its own still returns "
       "exactly 2 candidates (no manufactured third one)",
       len(r3["dates"]["candidate_ranges"]) == 2)
+
+# =====================================================================
+# Bug #4 (same live run, combined into this PR per Shlomo's instruction):
+# _deterministic_period_facts's "אחרי ה-X" branch (weekday pair + an
+# explicit anchor day) used to return a single resolved departure/return
+# directly with NO needs_confirmation key at all - _merge_trip_state then
+# treated that as an unconditionally-settled fact, silently closing
+# dates with zero confirmation step.
+# =====================================================================
+r_after = chat._deterministic_period_facts("ראשון עד חמישי ביוני, אחרי ה-15", [])
+check("'אחרי ה-X' resolution is a PENDING single candidate, never "
+      "silently-settled departure/return",
+      r_after["dates"]["departure"] is None
+      and r_after["dates"]["return"] is None
+      and r_after["dates"]["needs_confirmation"] is True
+      and len(r_after["dates"]["candidate_ranges"]) == 1)
+
+# Confirm this single candidate is actually accepted by the existing
+# candidate-choice/single-proposal mechanisms once the customer agrees -
+# the fix must not create a candidate nothing can ever resolve.
+_state_with_after_candidate = {"dates": {
+    "departure": None, "return": None, "needs_confirmation": True,
+    "candidate_ranges": r_after["dates"]["candidate_ranges"],
+}}
+accepted = chat._accept_single_proposed_date_range("כן", _state_with_after_candidate)
+check("a plain 'כן' against the single 'אחרי ה-X' candidate commits real "
+      "ISO dates with needs_confirmation=False",
+      bool(accepted.get("dates", {}).get("departure"))
+      and accepted["dates"]["needs_confirmation"] is False)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
