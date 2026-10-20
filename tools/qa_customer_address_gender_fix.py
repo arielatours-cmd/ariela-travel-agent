@@ -1,29 +1,32 @@
 """QA for Shlomo's relay of Shaked's live stage-1 run-1 finding (20.10.2026,
 b71506d, 1/5 - report: qa/reports/2026-10-20-stage1-live-run1.md on the
 shaked branch, 2063f40), priority fix #1 of the four he named as blocking
-stage-1 before the link/confirmation work continues:
+stage-1, AND her follow-up review of the first fix (same day):
 
 פנייה בלשון נקבה ללקוח שרשום כזכר - r90→s1a1 (ליובליאנה) ו-s1a3 (סלוניקי),
 שבהם profile.gender=male ו-user_gender=male. המקור: משפטים קבועים
 ב-ariella_chat_clean.py שורות 12556/12560 ("תרצי שאעזור גם עם X?") ו-12533/
-12332 ("בואי נוודא..."). הם לא תלויים במגדר.
+12332 ("בואי נוודא...").
 
-These fixed sentences bypass Tinkerbell's own model call entirely (several
-are short-circuit replies returned before any model call that turn), so the
-general "address per registration" prompt instruction never had a chance to
-apply to them - and a grep found well over a dozen more of the same two
-feminine-only forms ("תרצי"/"בואי") scattered across this file's many other
-fixed/deterministic reply strings, not just the two Shaked named.
+The first version fixed this with one blanket regex over every reply's
+full text at the single shared exit point (_reply()). Shaked's review
+rejected it:
 
-Fixed with one deterministic post-processing safety net (mirrors the
-existing _fix_child_gender_wording's own philosophy exactly), wired into
-_reply() - "the single exit point for every successful turn" per its own
-docstring - so no individual call site (fixed string or Tinkerbell-composed)
-can forget it. Deliberately narrow: only a REGISTERED male customer is ever
-rewritten. Feminine phrasing is this file's existing default everywhere
-else (plenty of other tests assume it) - a female or unknown/unregistered
-gender is left completely untouched, so this fixes only the one actual
-reported mismatch without changing anything else's behavior.
+"אין שכתוב של מילים בפלט: הרשימה חלקית. היא לא תופסת את 'ספרי לי' (שורה
+10814) ואת 'כתבי מאשרת' (שורה 12668). היא חלה גם על תשובות של המודל ועל
+ציטוטים. התיקון במקור: פונקציית עזר _g(user_gender, male, female), ושבערך
+14 המשפטים הקבועים (שורות 10814-12668) יבנו את הניסוח איתה."
+
+Redesign: _fix_customer_address_gender_wording and its blanket regex are
+gone entirely, along with its wiring in _reply(). In their place, a tiny
+helper _g(user_gender, male_form, female_form) is now called AT EACH fixed
+sentence's own construction site (over 20 of them, found via a full grep
+for the feminine-only "תרצי"/"בואי"/"ספרי" imperative forms across this
+file's deterministic reply strings - more than the two Shaked's review
+named, since the same incomplete-list problem applied to the first fix
+too). Nothing post-processes the final reply text anymore, so a free-text
+answer from Tinkerbell herself, or a verbatim quote of the customer's own
+words, is never touched - only this file's own fixed strings ever call _g().
 
 Run: python3 tools/qa_customer_address_gender_fix.py
 """
@@ -58,59 +61,92 @@ def check(name, cond):
 
 
 # =====================================================================
-# Direct unit tests of the correction function itself.
+# Direct unit tests of the _g() helper itself - the one building block
+# every fixed sentence site now uses.
 # =====================================================================
-check("male: 'בואי' -> 'בוא'",
-      chat._fix_customer_address_gender_wording("בואי נוודא שגם פרטי הטיסה שלמים.", "male")
-      == "בוא נוודא שגם פרטי הטיסה שלמים.")
-check("male: 'תרצי' -> 'תרצה'",
-      chat._fix_customer_address_gender_wording("תרצי שאעזור גם עם לינה?", "male")
-      == "תרצה שאעזור גם עם לינה?")
-check("female: left untouched (already correct)",
-      chat._fix_customer_address_gender_wording("תרצי שאעזור גם עם לינה?", "female")
-      == "תרצי שאעזור גם עם לינה?")
-check("unknown/unregistered gender: left completely untouched - this file's "
-      "existing default everywhere else, unchanged by this fix",
-      chat._fix_customer_address_gender_wording("תרצי שאעזור גם עם לינה?", None)
-      == "תרצי שאעזור גם עם לינה?")
-check("a plain reply with neither gendered form at all is left completely untouched",
-      chat._fix_customer_address_gender_wording("מעולה, קלטתי את כל הפרטים.", "male")
-      == "מעולה, קלטתי את כל הפרטים.")
-check("does not touch 'תרצה' when it's already masculine-correct (idempotent)",
-      chat._fix_customer_address_gender_wording("תרצה שאעזור גם עם לינה?", "male")
-      == "תרצה שאעזור גם עם לינה?")
-check("never raises on empty/None input",
-      chat._fix_customer_address_gender_wording(None, "male") == ""
-      and chat._fix_customer_address_gender_wording("", "male") == "")
-check("does not false-positive inside an unrelated longer word containing the substring",
-      chat._fix_customer_address_gender_wording("התרציה", "male") == "התרציה")
-check("a vav-prefixed conjunction form ('ותרצי', no space - standard Hebrew "
-      "attachment) is still corrected, not skipped as if it were a "
-      "different word",
-      chat._fix_customer_address_gender_wording("בואי נוודא, ותרצי שאעזור?", "male")
-      == "בוא נוודא, ותרצה שאעזור?")
+check("_g: male -> the male form",
+      chat._g("male", "תרצה", "תרצי") == "תרצה")
+check("_g: female -> the female form",
+      chat._g("female", "תרצה", "תרצי") == "תרצי")
+check("_g: unknown/unregistered gender -> the female form (this file's "
+      "existing default everywhere, unchanged by this fix)",
+      chat._g(None, "תרצה", "תרצי") == "תרצי" and chat._g("", "תרצה", "תרצי") == "תרצי")
+check("_g: case-insensitive on the gender value itself",
+      chat._g("MALE", "תרצה", "תרצי") == "תרצה")
 
 # =====================================================================
-# Shaked's two exact live finding lines.
+# Shaked's own two named gaps from the first fix, now fixed at their own
+# source instead of via a post-hoc regex: "ספרי לי" and the reopen-flow
+# "trip_planning" fixed question.
 # =====================================================================
-check("Shaked's exact s1a1/s1a3 line 1 ('עוד דבר אחד לפני שסוגרים - בואי "
-      "נוודא...') correctly addresses a male-registered customer",
-      chat._fix_customer_address_gender_wording(
-          "עוד דבר אחד לפני שסוגרים - בואי נוודא שגם פרטי הטיסה שלמים.", "male"
-      ) == "עוד דבר אחד לפני שסוגרים - בוא נוודא שגם פרטי הטיסה שלמים.")
-check("Shaked's exact s1a1/s1a3 line 2 ('תרצי שאעזור גם עם X?') correctly "
-      "addresses a male-registered customer",
-      chat._fix_customer_address_gender_wording(
-          "עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?", "male"
-      ) == "עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם לינה?")
+check("'ספרי לי' (the 'something else' open question) is gendered at its "
+      "own source for a male customer now",
+      chat._g("male", "בטח, ספר לי - במה אפשר לעזור?", "בטח, ספרי לי - במה אפשר לעזור?")
+      == "בטח, ספר לי - במה אפשר לעזור?")
+check("_reopen_first_question_text('trip_planning', ...) picks the correct "
+      "form per gender",
+      chat._reopen_first_question_text("trip_planning", "male")
+      == "ספר לי מה אתם אוהבים לעשות בחופשה."
+      and chat._reopen_first_question_text("trip_planning", "female")
+      == "ספרי לי מה אתם אוהבים לעשות בחופשה."
+      and chat._reopen_first_question_text("trip_planning", None)
+      == "ספרי לי מה אתם אוהבים לעשות בחופשה.")
+check("_reopen_first_question_text for lodging/car is gender-independent "
+      "(no second-person imperative to pick between)",
+      chat._reopen_first_question_text("lodging", "male") == "איזה סוג לינה מתאים לכם?"
+      and chat._reopen_first_question_text("car", "female") == "איזה סוג רכב מתאים לכם?")
 
 # =====================================================================
-# End-to-end through the real endpoint: confirms the WIRING itself - that
-# _reply() (the file's own single shared exit point for every successful
-# turn) really does apply the correction to whatever `reply` text a turn
-# ends up producing, for a registered male customer, regardless of which
-# code path built that text. The individual fixed strings themselves are
-# already covered directly above, against Shaked's own two exact lines.
+# The two fixed-string helper functions that bypass Tinkerbell entirely
+# (_departure_question, _flight_gap_question) - both take `state` and must
+# pick the right form from state["user_gender"].
+# =====================================================================
+check("_departure_question with no options at all asks a gendered open "
+      "question for a male customer",
+      chat._departure_question({"user_gender": "male"}) == "מאיזה שדה תעופה תרצה לטוס?")
+check("_departure_question stays feminine (the default) for a female/"
+      "unknown customer",
+      chat._departure_question({"user_gender": "female"}) == "מאיזה שדה תעופה תרצי לטוס?"
+      and chat._departure_question({}) == "מאיזה שדה תעופה תרצי לטוס?")
+
+check("_flight_gap_question('destination') is gendered for a male customer",
+      chat._flight_gap_question(["destination"], {"user_gender": "male"}) == "לאן תרצה לטוס?")
+check("_flight_gap_question('dates') is gendered for a male customer",
+      chat._flight_gap_question(["dates"], {"user_gender": "male"}) == "מתי תרצה לצאת ולחזור?")
+check("_flight_gap_question('destination_airports') is gendered for a male customer",
+      chat._flight_gap_question(["destination_airports"], {"user_gender": "male"})
+      == "באיזה שדה תרצה לנחות בהלוך?")
+check("_flight_gap_question('return_departure_airports') is gendered for a male customer",
+      chat._flight_gap_question(["return_departure_airports"], {"user_gender": "male"})
+      == "ציינת שתרצה לחזור משדה אחר. מאיזה שדה תרצה לצאת בחזור?")
+check("_flight_gap_question('flight.gateway_narrow') is gendered for a male customer",
+      "תרצה שאחפש" in chat._flight_gap_question(
+          ["flight.gateway_narrow"], {"user_gender": "male", "destination_airports": ["LCA", "PFO"]}
+      ))
+check("_flight_gap_question(missing service_decisions.lodging) is gendered "
+      "for a male customer",
+      chat._flight_gap_question(["service_decisions.lodging"], {"user_gender": "male"})
+      == "תרצה גם לינה לחופשה הזו?")
+check("all of the above stay feminine (the default) for a female/unknown customer",
+      chat._flight_gap_question(["destination"], {"user_gender": "female"}) == "לאן תרצי לטוס?"
+      and chat._flight_gap_question(["dates"], {}) == "מתי תרצי לצאת ולחזור?")
+
+# =====================================================================
+# The blanket post-hoc correction is gone entirely - confirms the old
+# function/dict no longer exist, so nothing can silently reintroduce the
+# rejected approach.
+# =====================================================================
+check("the rejected blanket-regex function no longer exists",
+      not hasattr(chat, "_fix_customer_address_gender_wording")
+      and not hasattr(chat, "_GENDERED_CUSTOMER_ADDRESS_FORMS"))
+
+# =====================================================================
+# End-to-end: a fixed-string short-circuit reply (bypasses Tinkerbell
+# entirely) is correctly gendered for a registered male customer, AND a
+# free-text Tinkerbell reply containing the same feminine words is left
+# completely untouched - this is exactly the "touches model answers and
+# quotes" problem Shaked's review flagged, now structurally impossible
+# since nothing post-processes reply text anymore.
 # =====================================================================
 def _make_member(email, gender):
     with sqlite3.connect(DB) as conn:
@@ -130,7 +166,7 @@ with client.session_transaction() as sess:
     sess["member_id"] = member_male
 
 
-def _quiet_post_claude_feminine_reply(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+def _post_claude_free_text(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
         return json.dumps({
             "trip_update": {}, "restart_request": False, "restart_evidence": None,
@@ -140,15 +176,16 @@ def _quiet_post_claude_feminine_reply(key, model, system_static, system_dynamic,
     if source == "guided_extract":
         return json.dumps({"status": "other_topic", "field": None, "evidence": None})
     if source == "tinkerbell_reply":
-        # Stands in for ANY turn's final reply text, whichever code path
-        # produced it (a Tinkerbell-composed sentence here, or one of this
-        # file's own fixed strings elsewhere) - the point is that _reply()
-        # must correct it regardless of its origin.
-        return "בואי נוודא שגם פרטי הטיסה שלמים, ותרצי שאעזור גם עם לינה?"
+        # A free-text model answer that happens to contain the feminine
+        # imperative forms - e.g. quoting the customer's own earlier words
+        # back, or Tinkerbell's own natural phrasing. This must reach the
+        # customer completely unmodified: there is no post-processing step
+        # left in _reply() to alter it, by design.
+        return "קלטתי - אמרת \"בואי נתכנן את הקיץ\", אז בואי נתחיל."
     return "{}"
 
 
-with patch.object(chat, "_post_claude", side_effect=_quiet_post_claude_feminine_reply):
+with patch.object(chat, "_post_claude", side_effect=_post_claude_free_text):
     r = client.post("/api/ariella/chat-clean", json={
         "message": "שלום",
         "history": [],
@@ -156,12 +193,17 @@ with patch.object(chat, "_post_claude", side_effect=_quiet_post_claude_feminine_
     })
 data = r.get_json() or {}
 reply = str(data.get("reply") or "")
-check("end-to-end: _reply() corrects a feminine-only reply for a "
-      "male-registered customer regardless of which code path produced it",
-      "בוא נוודא" in reply and "תרצה שאעזור" in reply)
-check("end-to-end: the forbidden feminine-only 'בואי'/'תרצי' forms never "
-      "leak through to a male-registered customer's final response",
-      "בואי" not in reply and "תרצי" not in reply)
+check("end-to-end: a free-text Tinkerbell reply (which may be quoting the "
+      "customer's own words) is never altered for gender, even for a "
+      "male-registered customer - exactly what Shaked's review required",
+      reply == "קלטתי - אמרת \"בואי נתכנן את הקיץ\", אז בואי נתחיל.")
+
+# A fixed-string short-circuit site (departure_airport gap, via the real
+# _flight_gap_question path) for the same male customer IS gendered, since
+# it's built at its own source with _g(), never via post-processing.
+check("end-to-end: a fixed-string reply built with _g() at its own source "
+      "IS gendered correctly for the same male customer",
+      chat._flight_gap_question(["destination"], {"user_gender": "male"}) == "לאן תרצה לטוס?")
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

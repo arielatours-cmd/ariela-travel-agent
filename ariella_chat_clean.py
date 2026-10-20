@@ -2335,7 +2335,7 @@ def _departure_question(state):
         return f"נטוס מ{names[0]}?"
     if names:
         return "מאיזה שדה נטוס - " + ", ".join(names[:-1]) + " או " + names[-1] + "?"
-    return "מאיזה שדה תעופה תרצי לטוס?"
+    return _g((state or {}).get("user_gender"), "מאיזה שדה תעופה תרצה לטוס?", "מאיזה שדה תעופה תרצי לטוס?")
 
 
 def _flight_connection_line(flight):
@@ -2721,8 +2721,9 @@ def _flight_gap_question(gaps, state=None):
     same real, concrete question instead of a generic "something is
     missing" line the customer has no way to act on."""
     gaps = gaps or []
+    _gender = (state or {}).get("user_gender")
     if "destination_airports" in gaps:
-        return "באיזה שדה תרצי לנחות בהלוך?"
+        return _g(_gender, "באיזה שדה תרצה לנחות בהלוך?", "באיזה שדה תרצי לנחות בהלוך?")
     if "flight.gateway_narrow" in gaps:
         codes = (state or {}).get("destination_airports") or []
         names = _airport_labels(codes)
@@ -2738,11 +2739,13 @@ def _flight_gap_question(gaps, state=None):
         # not "narrow to one, or keep searching both?" - the possible answer
         # shapes are given as a separate, non-question sentence.
         return (
-            f"יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). לאיזה מהם תרצי שאחפש? "
+            f"יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). לאיזה מהם {_g(_gender, 'תרצה', 'תרצי')} שאחפש? "
             "אפשר גם שדה מסוים אחד ואפשר גם בשניהם יחד."
         )
     if "return_departure_airports" in gaps:
-        return "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
+        return _g(_gender,
+                  "ציינת שתרצה לחזור משדה אחר. מאיזה שדה תרצה לצאת בחזור?",
+                  "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?")
     if "budget_per_person" in gaps:
         # Open question - "no budget limit" is still a perfectly natural
         # free-form answer, already recognized regardless of how the
@@ -2760,9 +2763,9 @@ def _flight_gap_question(gaps, state=None):
         # appear in the question itself (see _deterministic_trip_type_facts).
         return "איזה סוג נסיעה זו?"
     if "destination" in gaps:
-        return "לאן תרצי לטוס?"
+        return _g(_gender, "לאן תרצה לטוס?", "לאן תרצי לטוס?")
     if "dates" in gaps:
-        return "מתי תרצי לצאת ולחזור?"
+        return _g(_gender, "מתי תרצה לצאת ולחזור?", "מתי תרצי לצאת ולחזור?")
     if "travelers" in gaps:
         return "כמה נוסעים, ומי מבוגר ומי ילד?"
     if "travelers.child_ages" in gaps:
@@ -2780,7 +2783,7 @@ def _flight_gap_question(gaps, state=None):
     missing_service = next((g.split(".",1)[1] for g in gaps if g.startswith("service_decisions.")), None)
     if missing_service:
         labels = {"lodging":"גם לינה","car":"גם רכב שכור","trip_planning":"גם תכנון מסלול ואטרקציות"}
-        return f"תרצי {labels.get(missing_service, missing_service)} לחופשה הזו?"
+        return f"{_g(_gender, 'תרצה', 'תרצי')} {labels.get(missing_service, missing_service)} לחופשה הזו?"
     if gaps:
         return "חסר לי עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
     return None
@@ -3486,46 +3489,27 @@ def _fix_child_gender_wording(text, state):
 
 
 # Per Shlomo's relay of Shaked's live stage-1 run-1 finding (20.10.2026,
-# b71506d, 1/5): a male-registered customer (user_gender=male) was
-# addressed in feminine form on several of this file's own fixed/
-# deterministic transition sentences ("עוד דבר אחד לפני שסוגרים - בואי
-# נוודא...", "תרצי שאעזור גם עם X?") - these bypass Tinkerbell's own
-# model call entirely (several are short-circuit replies returned before
-# any model call this turn), so the general "address per registration"
-# prompt instruction never had a chance to apply to them. Rather than
-# hand-edit every one of this file's many such fixed strings (gendered-
-# only "תרצי"/"בואי" forms appear in well over a dozen places), one
-# regex-based correction - mirroring _fix_child_gender_wording's own
-# "deterministic safety net" philosophy - runs on every reply at the
-# single shared exit point (_reply(), see its own docstring: "the single
-# exit point for every successful turn"), so no individual call site can
-# forget it. Scoped deliberately narrow: only a REGISTERED male customer
-# is ever rewritten. Feminine phrasing was always this file's existing
-# default (every other fixed string already in this file assumes it, as
-# do many existing tests), so leaving it as-is for a female or unknown/
-# unregistered gender changes nothing anyone relies on today - only the
-# one actual reported mismatch (male addressed as female) is fixed.
-_GENDERED_CUSTOMER_ADDRESS_FORMS = {
-    "תרצי": "תרצה",
-    "בואי": "בוא",
-}
-
-
-def _fix_customer_address_gender_wording(text, user_gender):
-    text = str(text or "")
-    if not text or user_gender != "male":
-        return text
-    import re
-    for fem_form, replacement in _GENDERED_CUSTOMER_ADDRESS_FORMS.items():
-        if fem_form not in text:
-            continue
-        # A leading vav ("ו-", "and") attaches directly onto the word with
-        # no space ("ותרצי") - captured and kept as-is so a conjunction-
-        # prefixed occurrence is still corrected, not skipped as if it were
-        # a different word entirely.
-        pattern = re.compile(r"(?<![א-ת])(ו?)" + fem_form + r"(?![א-ת])")
-        text = pattern.sub(lambda m: m.group(1) + replacement, text)
-    return text
+# b71506d, 1/5) and her follow-up review of the first fix: a male-
+# registered customer (user_gender=male) was addressed in feminine form
+# on several of this file's own fixed/deterministic transition sentences
+# ("עוד דבר אחד לפני שסוגרים - בואי נוודא...", "תרצי שאעזור גם עם X?").
+# The first version of this fix ran one blanket regex over every reply's
+# full text at the single shared exit point (_reply()) - Shaked's review
+# rejected it: the word list was incomplete (missed "ספרי"/"כתבי" forms
+# elsewhere in this same file), and worse, a blanket regex over the whole
+# reply also rewrites Tinkerbell's own free-text answers and verbatim
+# quotes of the customer's own words, which must never be altered.
+# Per the business owner's explicit correction (relayed by Shlomo): fix
+# each fixed sentence AT ITS OWN SOURCE with this small helper, the same
+# way _flight_summary_text's own approval_line already picks the correct
+# form - never a global pass over arbitrary text.
+def _g(user_gender, male_form, female_form):
+    """Returns male_form for a registered male customer, female_form
+    otherwise (female was always this file's existing default for every
+    fixed string before user_gender was tracked at all, so unknown/
+    unregistered gender keeps that same default - only the one actual
+    reported mismatch, a male customer addressed as female, is fixed)."""
+    return male_form if str(user_gender or "").lower() == "male" else female_form
 
 
 def _strip_unconfirmed_airports(text, state):
@@ -9237,11 +9221,17 @@ _REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_plannin
 # or a single-option yes/no, never several questions or "X or Y" joined
 # together - each entry here now asks only the first thing actually needed,
 # matching _GAP_QUESTION_TEXT's own compliant phrasing for the same field.
-_REOPEN_FIRST_QUESTION = {
-    "lodging": "איזה סוג לינה מתאים לכם?",
-    "car": "איזה סוג רכב מתאים לכם?",
-    "trip_planning": "ספרי לי מה אתם אוהבים לעשות בחופשה.",
-}
+# A function rather than a static dict (unlike _REOPEN_LABELS above) so the
+# one entry that directly addresses the customer in second person
+# ("ספרי לי") can pick the registered gender's correct form via _g().
+def _reopen_first_question_text(service, user_gender):
+    if service == "lodging":
+        return "איזה סוג לינה מתאים לכם?"
+    if service == "car":
+        return "איזה סוג רכב מתאים לכם?"
+    if service == "trip_planning":
+        return _g(user_gender, "ספר לי מה אתם אוהבים לעשות בחופשה.", "ספרי לי מה אתם אוהבים לעשות בחופשה.")
+    return ""
 _PENDING_KEYS = (
     "ready_for_summary", "search_intent", "missing_required", "next_session", "reset_pending",
     "reset_change_request", "reset_scope", "post_flight_offer", "reopen_trip_pending",
@@ -10045,10 +10035,6 @@ def _chat_clean_impl():
         same-account concurrent request is appended after, never clobbered.
         Only a genuine 'success' reply is persisted; an error response
         (400/401/503) means nothing actually happened this turn."""
-        if payload.get('reply') is not None:
-            _gender_source = payload.get('trip_update') if isinstance(payload.get('trip_update'), dict) else {}
-            _user_gender_for_reply = _gender_source.get('user_gender') or trip_state.get('user_gender')
-            payload['reply'] = _fix_customer_address_gender_wording(payload['reply'], _user_gender_for_reply)
         if payload.get('status') == 'success' and payload.get('reply') is not None:
             try:
                 # Per Shaked's review of #86 (18.10, qa/reports/2026-10-18-
@@ -10186,7 +10172,7 @@ def _chat_clean_impl():
             _trip_id, _label = _existing
             reply = (
                 f"כבר יש לך חופשה פעילה ל{_label or 'היעד הזה'} בתאריכים האלה, והתוצאות מחכות לך ב\"החופשות שלי\". "
-                "אם תרצי שאמשיך לעקוב ולעדכן אותך על מחירים טובים יותר, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה."
+                f"אם {_g(trip_state.get('user_gender'), 'תרצה', 'תרצי')} שאמשיך לעקוב ולעדכן אותך על מחירים טובים יותר, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה."
             )
             return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
@@ -10436,8 +10422,9 @@ def _chat_clean_impl():
                 fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(_trigger_message))
             fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
             places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
-            reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
-                     if places else "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
+            _verb = _g(trip_state.get("user_gender"), "תרצה", "תרצי")
+            reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה {_verb} לטוס?"
+                     if places else f"בסדר, נתכנן חופשה חדשה. לאן {_verb} לטוס ובאיזו תקופה?")
             return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
         if isinstance(choice, int) and service in _REOPEN_LABELS:
             chosen = next((t for t in _reopenable_trips(member_id, service, "", limit=20) if t["id"] == options[choice].get("id")), None)
@@ -10445,7 +10432,8 @@ def _chat_clean_impl():
                 services_wanted = pending_reopen.get("services") or [service]
                 reopened = _state_from_trip(chosen, services_wanted)
                 reopened["profile"] = _member_profile(member_id)
-                reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_REOPEN_FIRST_QUESTION[service]}"
+                reopened["user_gender"] = reopened["profile"].get("gender")
+                reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_reopen_first_question_text(service, reopened['user_gender'])}"
                 return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':reopened,'start_flight_search':False,'reopen_trip_id':chosen['id']})
         retried = dict(trip_state)
         retried["reopen_trip_pending"] = dict(pending_reopen, asked_again=True)
@@ -10757,8 +10745,9 @@ def _chat_clean_impl():
             fresh['session_status']['flights'] = 'active'
             fresh['service_decisions'] = {'flights':{'wanted':True,'source':'explicit_new_vacation'}}
         places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
-        reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
-                 if places else "בשמחה. מתחילים חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
+        _verb = _g(trip_state.get("user_gender"), "תרצה", "תרצי")
+        reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה {_verb} לטוס?"
+                 if places else f"בשמחה. מתחילים חופשה חדשה. לאן {_verb} לטוס ובאיזו תקופה?")
         return _reply({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
@@ -10813,7 +10802,7 @@ def _chat_clean_impl():
     }
     if _previous_offered_continue_or_other and _vague_something_else and not own_pending_question:
         if not _deterministic_destination_facts([], message, {}):
-            open_reply = "בטח, ספרי לי - במה אפשר לעזור?"
+            open_reply = _g(trip_state.get("user_gender"), "בטח, ספר לי - במה אפשר לעזור?", "בטח, ספרי לי - במה אפשר לעזור?")
             return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': open_reply, 'trip_update': trip_state, 'start_flight_search': False,
@@ -10841,8 +10830,9 @@ def _chat_clean_impl():
             _fresh_new = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
             _fresh_new = _merge_trip_state(_fresh_new, _seed_fresh_trip_from_trigger_message(message, _triggering_user_message))
             _places_new = ((_fresh_new.get('destination') or {}).get('places') or []) if isinstance(_fresh_new.get('destination'), dict) else []
-            _reply_new = (f"בשמחה 😊 מתחילים חופשה חדשה ל{_places_new[0]}. באיזו תקופה תרצי לטוס?"
-                          if _places_new else 'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?')
+            _verb_new = _g(trip_state.get("user_gender"), "תרצה", "תרצי")
+            _reply_new = (f"בשמחה 😊 מתחילים חופשה חדשה ל{_places_new[0]}. באיזו תקופה {_verb_new} לטוס?"
+                          if _places_new else f'בשמחה 😊 לאן {_verb_new} לטוס ובאיזו תקופה?')
             return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':_reply_new,
@@ -10855,7 +10845,7 @@ def _chat_clean_impl():
             kept.pop("reset_change_request", None)
             return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                'reply':'בשמחה. מה תרצי לשנות בחופשה הנוכחית?',
+                'reply': _g(trip_state.get("user_gender"), 'בשמחה. מה תרצה לשנות בחופשה הנוכחית?', 'בשמחה. מה תרצי לשנות בחופשה הנוכחית?'),
                 'trip_update':kept,'start_flight_search':False
             })
 
@@ -10912,7 +10902,7 @@ def _chat_clean_impl():
                 fresh.pop("reset_change_request", None)
                 return _reply({
                     'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                    'reply':'בסדר. מחקתי את פרטי הטיסה. לאן תרצי לטוס ובאיזו תקופה?',
+                    'reply': _g(trip_state.get("user_gender"), 'בסדר. מחקתי את פרטי הטיסה. לאן תרצה לטוס ובאיזו תקופה?', 'בסדר. מחקתי את פרטי הטיסה. לאן תרצי לטוס ובאיזו תקופה?'),
                     'trip_update':fresh,'start_flight_search':False
                 })
             # The message that triggered the reset gate may already contain facts
@@ -10939,7 +10929,7 @@ def _chat_clean_impl():
                 fresh['service_decisions'] = {'trip_planning':{'wanted':True}}
             places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
             if places:
-                reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה תרצי לנסוע?"
+                reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה {_g(trip_state.get('user_gender'), 'תרצה', 'תרצי')} לנסוע?"
             else:
                 reply = 'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?'
             return _reply({
@@ -10957,7 +10947,11 @@ def _chat_clean_impl():
             # the trip facts and let the next turn continue from that context.
             return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                'reply':('מה תרצי לשנות בפרטי הטיסה?' if trip_state.get("reset_scope") == "flights" else 'מה תרצי לשנות בחופשה הנוכחית?'),
+                'reply': (
+                    _g(trip_state.get("user_gender"), 'מה תרצה לשנות בפרטי הטיסה?', 'מה תרצי לשנות בפרטי הטיסה?')
+                    if trip_state.get("reset_scope") == "flights"
+                    else _g(trip_state.get("user_gender"), 'מה תרצה לשנות בחופשה הנוכחית?', 'מה תרצי לשנות בחופשה הנוכחית?')
+                ),
                 'trip_update':kept,'start_flight_search':False
             })
 
@@ -11135,7 +11129,7 @@ def _chat_clean_impl():
             fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
             if not ((fresh.get('destination') or {}).get('places') if isinstance(fresh.get('destination'), dict) else None):
                 fresh['destination'] = {'places':[pending_new_trip],'mode':'specific','status':'known'}
-            reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה תרצי לטוס?"
+            reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה {_g(trip_state.get('user_gender'), 'תרצה', 'תרצי')} לטוס?"
             return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
         if intent == "keep":
             kept = dict(trip_state)
@@ -12186,7 +12180,7 @@ def _chat_clean_impl():
                 # is decided - does the one real מאשרת request appear.
                 _next_premature = trip_update.get("next_session")
                 if _next_premature in _POST_FLIGHT_LABELS:
-                    reply = f"מעולה, פרטי הטיסה מלאים. תרצי שאמשיך גם עם {_POST_FLIGHT_LABELS[_next_premature]}?"
+                    reply = f"מעולה, פרטי הטיסה מלאים. {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאמשיך גם עם {_POST_FLIGHT_LABELS[_next_premature]}?"
                     trip_update["post_flight_offer"] = [_next_premature]
                 else:
                     # Seen live (Shaked): when lodging/car/trip_planning is
@@ -12376,7 +12370,9 @@ def _chat_clean_impl():
                 # question at all. Same fix already applied to the twin
                 # occurrence of this exact line further below (the premature-
                 # מאשרת safety net) - append the real concrete question.
-                reply = "מצוין, המסלול מאושר. בואי נוודא שגם פרטי הטיסה שלמים."
+                reply = _g(trip_update.get("user_gender"),
+                           "מצוין, המסלול מאושר. בוא נוודא שגם פרטי הטיסה שלמים.",
+                           "מצוין, המסלול מאושר. בואי נוודא שגם פרטי הטיסה שלמים.")
                 concrete_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
                 if concrete_gap_question:
                     reply += " " + concrete_gap_question
@@ -12403,7 +12399,7 @@ def _chat_clean_impl():
                             reply = _call_tinkerbell(key, model, history, message, trip_update)
                         except Exception as exc:
                             logging.exception("Tinkerbell reply failed on already-decided post-route domain: %s", exc)
-                            reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
+                            reply = f"מצוין, המסלול מאושר. {_g(trip_update.get('user_gender'), 'בוא', 'בואי')} נמשיך עם {remaining_labels[next_domain]}."
                     else:
                         # Seen live (Shaked, round 8, London): the SAME message
                         # that approves the route can already answer the very
@@ -12448,7 +12444,7 @@ def _chat_clean_impl():
                                 reply = _call_tinkerbell(key, model, history, message, trip_update)
                             except Exception as exc:
                                 logging.exception("Tinkerbell reply failed on same-message post-route domain answer: %s", exc)
-                                reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
+                                reply = f"מצוין, המסלול מאושר. {_g(trip_update.get('user_gender'), 'בוא', 'בואי')} נמשיך עם {remaining_labels[next_domain]}."
                         elif decided is False:
                             statuses_after_plan[next_domain] = "declined"
                             trip_update["session_status"] = statuses_after_plan
@@ -12465,7 +12461,7 @@ def _chat_clean_impl():
                                 logging.exception("Tinkerbell reply failed on same-message post-route decline: %s", exc)
                                 reply = "מצוין, המסלול מאושר."
                         else:
-                            reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
+                            reply = f"מצוין, המסלול מאושר. {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
                             # Remember what was just offered, so a plain "כן"/"לא" next
                             # turn settles it via _post_flight_offer_answer. Without this
                             # the "כן" reached the model with no record of the question,
@@ -12577,7 +12573,9 @@ def _chat_clean_impl():
                 # - append the real concrete question when one is available
                 # (e.g. the new post-route gateway-narrow question), instead
                 # of silently masking it behind this generic redirect.
-                reply = "עוד דבר אחד לפני שסוגרים - בואי נוודא שגם פרטי הטיסה שלמים."
+                reply = _g(trip_update.get("user_gender"),
+                           "עוד דבר אחד לפני שסוגרים - בוא נוודא שגם פרטי הטיסה שלמים.",
+                           "עוד דבר אחד לפני שסוגרים - בואי נוודא שגם פרטי הטיסה שלמים.")
                 concrete_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
                 if concrete_gap_question:
                     reply += " " + concrete_gap_question
@@ -12600,11 +12598,11 @@ def _chat_clean_impl():
                 else:
                     remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                     label = remaining_labels.get(pending_domain, pending_domain)
-                    reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}?"
+                    reply = f"עוד דבר אחד לפני שסוגרים - {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאעזור גם עם {label}?"
             else:
                 remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                 label = remaining_labels.get(pending_domain, pending_domain)
-                reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}?"
+                reply = f"עוד דבר אחד לפני שסוגרים - {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאעזור גם עם {label}?"
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
