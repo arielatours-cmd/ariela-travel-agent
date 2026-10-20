@@ -143,6 +143,22 @@ with app.test_request_context("/?lang=he"):
 check("לקוחה שביקשה רק תיק אישי: הצעה עם תיק אישי בלבד לא מסומנת כחסרת כבודה",
       "כבודה" not in missed, "answers לא שומר את סוג הכבודה, רק 'baggage' בעדיפויות, ו'כבודה' מתקיים רק עם טרולי או מזוודה")
 
+# 8) מיון כשאין התאמה מלאה (החלטת בעלת העסק, 20.10): קודם לפי מספר התנאים שמתקיימים, מהרב למעט, ובתוך אותה רמה לפי מחיר.
+#    A זולה ומפספסת 2 תנאים (קונקשן + שעה), B יקרה ומפספסת תנאי 1 (שעה), C הכי יקרה ומפספסת תנאי 1 (קונקשן).
+#    הסדר הצפוי: B (1900) ← C (2100) ← A (1300).
+oa = make_offer(1300, "2027-03-21", "2027-03-25", stops=1, dep_time="2027-03-21 08:00")
+ob = make_offer(1900, "2027-03-21", "2027-03-25", dep_time="2027-03-21 08:00")
+oc = make_offer(2100, "2027-03-21", "2027-03-25", stops=1)
+trip8 = make_trip(259906, BASE)
+with app.test_request_context("/?lang=he"):
+    a8 = dict(trip8["answers"]); public_site._match_and_pin_initial_offers(259906, trip8, a8, pool([oa, ob, oc]), require_recent=False)
+with db() as c:
+    c.execute("UPDATE trip_requests SET status='archived' WHERE member_id=? AND id<>?", (MEMBER, 259906)); c.commit()
+st, h = account_html(259906)
+seg = h.split('id="vacation-259906"', 1)[-1].split('<article class="vacation-result', 1)[0]
+order = [int(float(x)) for x in re.findall(r'<article class="ariella-deal-card[^>]*data-price="([0-9.]+)"', seg)]
+check("מיון: קודם יותר תנאים שמתקיימים, ובתוך אותה רמה מהזול ליקר (צפוי 1900, 2100, 1300)", order == [1900, 2100, 1300], f"סדר בכרטיס={order}")
+
 with db() as c:
     c.execute("DELETE FROM trip_requests WHERE member_id=?", (MEMBER,)); c.execute("DELETE FROM members WHERE id=?", (MEMBER,)); c.commit()
 print("\nFAILED:", len(FAILED)) if FAILED else print("\nALL PASSED")
