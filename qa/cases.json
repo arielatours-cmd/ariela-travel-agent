@@ -208,6 +208,10 @@
     {"id": "weekday-conflict-day-in-parens-after-each-date-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 (ראשון) עד 30.9 (חמישי)", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"},
     {"id": "weekday-conflict-day-after-each-date-dash-no-false-alarm", "fn": "_weekday_date_conflict", "args": ["19.9 ראשון - 30.9 חמישי", []], "expect_falsy": true, "source": "shaked-pr55-review-2026-10-16"},
     {"id": "baggage-big-suitcase-per-person", "fn": "_deterministic_baggage_facts", "args": ["מזוודה גדולה לכל אחד מאיתנו", 4], "expect": {"flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}}}, "source": "589b860 (PR #81, s3w2 פריז)"},
-    {"id": "evidence-invented-quote-rejected", "fn": "_value_has_verbatim_evidence", "args": ["מלון בינוני", "מלון קטן ונעים"], "expect_falsy": true, "source": "#83 c42e40d (evidence במקום רשימת מילים, החלטת 18.10; s3w1 רומא)"}
+    {"id": "evidence-invented-quote-rejected", "fn": "_value_has_verbatim_evidence", "args": ["מלון בינוני", "מלון קטן ונעים"], "expect_falsy": true, "source": "#83 c42e40d (evidence במקום רשימת מילים, החלטת 18.10; s3w1 רומא)"},
+    {"id": "roll-past-departure-next-year", "fn": "_roll_past_dates", "args": [{"dates": {"departure": "2026-07-01", "return": "2026-07-10"}}], "expect": {"dates": {"departure": "2027-07-01", "return": "2027-07-10"}}, "source": "#86 3389bbe (s3y2 טוסקנה)"},
+    {"id": "roll-cross-year-return", "fn": "_roll_past_dates", "args": [{"dates": {"departure": "2026-12-28", "return": "2026-01-03"}}], "expect": {"dates": {"departure": "2026-12-28", "return": "2027-01-03"}}, "source": "#86 3389bbe"},
+    {"id": "roll-reversed-same-season-flags", "fn": "_roll_past_dates", "args": [{"dates": {"departure": "2027-03-05", "return": "2027-03-01"}}], "expect": {"dates": {"needs_confirmation": true}}, "source": "#86 3389bbe"},
+    {"id": "baggage-label-per-child", "fn": "_checked_bag_label", "args": [{"count": 1, "unit": "per_child"}], "expect_contains": ["ילד"], "source": "#87 7bdcb75"}
   ]
 }
