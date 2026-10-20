@@ -6,7 +6,7 @@
 ובודקת שכל כרטיס מציג את התנאי שהוא מפספס.
 עוד שתי בדיקות:
 - תקציב במטבע זר (אירו): הסכום שנשמר ב-answers חייב להיות מומר לש"ח, או לפחות לשמור את המטבע.
-- מחיר לאדם מול מחיר כולל (2 מבוגרים): השוואה לתקציב לאדם חייבת להיעשות על מחיר לאדם.
+- המחיר שמוצג הוא לאדם, ובעלת העסק אישרה שזה תקין (20.10). לכן אין בדיקה של מחיר לאדם מול סה"כ.
 הרצה (על עותק של העץ, לא על DB אמיתי): python3 qa/e2e_vacation_card_conditions.py
 """
 import json, os, re, sqlite3, sys
@@ -104,16 +104,6 @@ maps_currency = bool(re.search(r"budget_currency|budget\.get\(\"currency\"\)|bud
 check("תקציב באירו נשמר עם מטבע או מומר לש\"ח לפני השוואה ל-price_ils", maps_currency,
       "answers שומר רק budget_amount=250, ו-price_ils מושווה אליו כאילו זה 250 ש\"ח")
 
-# 3) מחיר לאדם מול כולל: 2 מבוגרים, תקציב 2000 לאדם, הצעה 3600 כולל (1800 לאדם)
-trip2 = make_trip(259902, dict(BASE, adults=2, departure_time_preference=""))
-oid = make_offer(3600, "2027-03-21", "2027-03-25")
-with app.test_request_context("/?lang=he"):
-    o = [x for x in pool([oid])][0]
-    within = public_site._offer_within_budget(o, trip2)
-check("הצעה של 3600 ש\"ח ל-2 נוסעים (1800 לאדם) נחשבת בתוך תקציב של 2000 לאדם — "
-      "או ש-price_ils מוגדר במפורש כמחיר לאדם", within,
-      "_offer_within_budget משווה price_ils ישירות לתקציב לאדם; צריך לאמת אם price_ils מהסריקה הוא מחיר כולל לכל הנוסעים")
-
 def card_html_for(tid, answers, offer_ids):
     with db() as c:
         c.execute("UPDATE trip_requests SET status='archived' WHERE member_id=? AND id<>?", (MEMBER, tid)); c.commit()
@@ -124,15 +114,6 @@ def card_html_for(tid, answers, offer_ids):
 def bag_cell(card, label):
     m = re.search(re.escape(label) + r'</span><span class="bag-status-price">(.*?)</span></li>', card, re.S)
     return re.sub(r"<[^>]+>", "", m.group(1)).strip() if m else None
-
-# 4) (א) "המחיר לאדם" באמת לאדם: 2 מבוגרים. הסריקה נשלחת עם adults=N, ו-scanner.py שומר את item["price"] בלי חלוקה.
-#    הכרטיס מציג price_ils תחת "המחיר לאדם". אם price_ils הוא מחיר כולל, צריך להציג price_ils/N או לכתוב במפורש "סה״כ".
-o2 = make_offer(3600, "2027-03-21", "2027-03-25")
-cards = card_html_for(259903, dict(BASE, adults=2), [o2])
-ctext = re.sub(r"<[^>]+>", " ", cards[0]) if cards else ""
-check("(א) לזוג, מחיר 3600 כולל: מוצג ₪1800 תחת 'לאדם', או שהמחיר מסומן כסה״כ לכל הנוסעים",
-      bool(cards) and ("1800" in ctext or "סה״כ" in ctext or "סה\"כ" in ctext),
-      "מוצג '₪3600' תחת 'המחיר לאדם שאריאלה מצאה' (בתנאי ש-price_ils מהסריקה הוא כולל; לאמת מול payload של 259)")
 
 # 5) (ב) כבודה לא ידועה: מוצג "יש לבדוק" ולא ×
 unknown = {"personal_item": {"included": None, "known": False}, "carry_on_8kg": {"included": None, "known": False},
