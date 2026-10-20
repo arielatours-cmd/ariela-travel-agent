@@ -17,21 +17,23 @@ different bracket style:
 - "(עדיין חסר: תקציב וכבודה, לשאול בהמשך)" - no marker phrase matched.
 - "[הערה פנימית: לשאול אחר כך על כבודה]" - square brackets, not parentheses.
 
-Fixed: _strip_leaked_planning_parenthesis(text, injected_guidance) now
-strips a trailing parenthetical/bracketed note - any wording, either bracket
-style - only when BOTH hold, neither a guessed/fixed trigger phrase:
-1. it has the colon-separated "note:" shape every real leak has (a
-   structural pattern, not specific wording) - a genuine customer-facing
-   aside never has one;
-2. its own content shares real vocabulary (substring-level, to survive
-   Hebrew prefixes like ו-/ה-) with injected_guidance - the ACTUAL
-   system_dynamic text injected into the model's prompt THIS turn - so a
-   genuine leak (echoing the model's own real guidance back) is caught
-   regardless of its exact phrasing, while a customer-facing aside that
-   shares no such vocabulary is never touched.
+Second attempt: strip a trailing parenthetical/bracketed note - any
+wording, either bracket style - whenever it has the colon-separated
+"note:" shape every real leak has AND its content shares real vocabulary
+with injected_guidance (the actual system_dynamic text). Shaked's SECOND
+review found this too loose in the other direction: it stripped a
+genuine, customer-facing example list sitting on the SAME LINE as the
+question it illustrates - "איזה סוג לינה מתאים לכם? (למשל: מלון, דירה או
+צימר)" - just because "לינה" happens to also appear in that turn's
+lodging-related guidance.
 
-_call_tinkerbell now passes its own system_dynamic (the real per-turn
-prompt text) as injected_guidance at the call site.
+Fixed for real: every actual leak seen so far sits in its OWN paragraph,
+separated from the rest of the reply by a blank line - never inline
+right after the question/sentence it follows. A third, structural gate
+now requires that blank-line separation too, before the colon-shape and
+vocabulary-overlap checks are even considered. This is itself a
+structural pattern (paragraph separation), not a guessed trigger phrase -
+the same category of signal as the colon-shape gate.
 
 Run: python3 tools/qa_bari_planning_leak.py
 """
@@ -72,6 +74,7 @@ _real_direct_route_hint = chat._direct_route_hint_text(_state_no_direct_route)
 # because this test guessed English words would appear.
 GUIDANCE = (
     "מצב החופשה המצטבר שכבר ידוע: תקציב: עדיין לא נקבע. כבודה: עדיין לא נקבעה. "
+    "לינה: עדיין לא נקבעה. "
     + _real_direct_route_hint
     + chat._state_context(_state_no_direct_route)
 )
@@ -80,17 +83,19 @@ check("the representative guidance blob genuinely contains the real "
       _real_direct_route_hint and _real_direct_route_hint in GUIDANCE)
 
 # =====================================================================
-# Direct unit tests of the new filter, against the two leaks Shaked found
-# that slipped past the first (marker-phrase-list) version.
+# Direct unit tests of the filter, against the two leaks Shaked found
+# that slipped past the first (marker-phrase-list) version - note the
+# blank line before each: every real leak sits in its own paragraph, not
+# inline right after the preceding sentence.
 # =====================================================================
-_leak_new_wording = "בארי זו עיר נהדרת! (עדיין חסר: תקציב וכבודה, לשאול בהמשך)"
+_leak_new_wording = "בארי זו עיר נהדרת!\n\n(עדיין חסר: תקציב וכבודה, לשאול בהמשך)"
 check("a leaked note using DIFFERENT wording than any hardcoded marker "
       "('עדיין חסר: ...') is still stripped, because it shares real "
       "vocabulary (תקציב/כבודה) with the actual injected guidance",
       chat._strip_leaked_planning_parenthesis(_leak_new_wording, GUIDANCE)
       == "בארי זו עיר נהדרת!")
 
-_leak_square_brackets = "מעולה, קלטתי. [הערה פנימית: לשאול אחר כך על כבודה]"
+_leak_square_brackets = "מעולה, קלטתי.\n\n[הערה פנימית: לשאול אחר כך על כבודה]"
 check("a leaked note in SQUARE BRACKETS (not parentheses at all) is now "
       "caught too",
       chat._strip_leaked_planning_parenthesis(_leak_square_brackets, GUIDANCE)
@@ -99,17 +104,21 @@ check("a leaked note in SQUARE BRACKETS (not parentheses at all) is now "
 # =====================================================================
 # Regression: the original marker-phrased leak must still be caught (now
 # via genuine content overlap with the real direct-route hint text, not a
-# marker match).
+# marker match) - reproduced with the actual blank-line paragraph break the
+# real live transcript had.
 # =====================================================================
 _leak_orig = (
-    "בארי זו עיר נהדרת בדרום איטליה! (לפני התשובה הבאה: נותר לברר אם יש "
-    "הגבלת תקציב לטיסה, וחשוב לציין שאין עדיין טיסה ישירה מאומתת ליעד הזה)"
+    "רק לוודא - כל ההורים לוקחים טרולי בלבד בלי מזוודה בבטן המטוס, נכון?\n\n"
+    "(לפני התשובה הבאה: נותר לברר אם יש הגבלת תקציב לטיסה, וחשוב לציין שאין "
+    "עדיין טיסה ישירה מאומתת ליעד הזה - אפשר להזכיר זאת בעדינות אם רלוונטי "
+    "בהמשך השיחה, לא חובה כרגע)"
 )
-check("regression: the original Bari leak (marker phrasing) is still stripped",
+check("regression: the original Bari leak (marker phrasing, real blank-line "
+      "paragraph shape) is still stripped",
       chat._strip_leaked_planning_parenthesis(_leak_orig, GUIDANCE)
-      == "בארי זו עיר נהדרת בדרום איטליה!")
+      == "רק לוודא - כל ההורים לוקחים טרולי בלבד בלי מזוודה בבטן המטוס, נכון?")
 
-_leak_english = "סבבה! (note to self: still need lodging + budget before summary)"
+_leak_english = "סבבה!\n\n(note to self: still need lodging + budget before summary)"
 check("regression: an English-phrased leak is still caught, via overlap "
       "with the literal English field names ('lodging', 'budget') the raw "
       "state JSON dump always contributes to the real injected guidance - "
@@ -117,9 +126,40 @@ check("regression: an English-phrased leak is still caught, via overlap "
       chat._strip_leaked_planning_parenthesis(_leak_english, GUIDANCE) == "סבבה!")
 
 # =====================================================================
+# Shaked's SECOND review finding: a genuine example list inline on the SAME
+# line as the question it illustrates must never be stripped, even though
+# it shares real vocabulary with the injected guidance and uses a colon.
+# =====================================================================
+_clean_lodging_examples = "איזה סוג לינה מתאים לכם? (למשל: מלון, דירה או צימר)"
+check("Shaked's exact false-positive: an inline example list right after "
+      "the question it illustrates ('לינה' overlaps the lodging hint, has "
+      "a colon) is left completely untouched - it is not on its own "
+      "paragraph",
+      chat._strip_leaked_planning_parenthesis(_clean_lodging_examples, GUIDANCE)
+      == _clean_lodging_examples)
+
+_clean_budget_example = "מה התקציב שלכם לטיסה? (לדוגמה: עד 150 יורו)"
+check("the same shape for a budget example ('תקציב' overlaps, inline, "
+      "colon) is also left untouched",
+      chat._strip_leaked_planning_parenthesis(_clean_budget_example, GUIDANCE)
+      == _clean_budget_example)
+
+# Confirming the fix is genuinely about structural position (not a blanket
+# exemption for anything mentioning these words): the SAME wording, moved to
+# its own paragraph AND given real vocabulary overlap with the guidance
+# ("לינה" itself, not just lodging TYPE names like "מלון"), is still caught.
+check("a note sharing real overlap with the guidance ('לינה'), once moved "
+      "to its own trailing paragraph with the colon shape, is still "
+      "stripped - the earlier inline case was saved by its POSITION, not "
+      "by some blanket exemption for lodging-related words",
+      chat._strip_leaked_planning_parenthesis(
+          "איזה סוג לינה מתאים לכם?\n\n(עדיין חסר: פרטי הלינה, לשאול בהמשך)", GUIDANCE
+      ) == "איזה סוג לינה מתאים לכם?")
+
+# =====================================================================
 # Regression: genuine customer-facing asides, including ones that happen to
 # mention a topic word also present in the guidance, must never be touched
-# unless they also have the colon-note shape.
+# unless they also have the colon-note shape AND sit on their own paragraph.
 # =====================================================================
 _clean_direct_flight = "מצאתי טיסה ישירה (שאוליי תעדיפו) ליעד המבוקש."
 check("regression: a normal customer-relevant parenthetical ('טיסה ישירה') "
@@ -131,16 +171,16 @@ _clean_weekday = "התאריכים הם 10-17 ביוני (יום חמישי עד
 check("regression: a weekday-clarification parenthetical is left untouched",
       chat._strip_leaked_planning_parenthesis(_clean_weekday, GUIDANCE) == _clean_weekday)
 
-_clean_breakfast = "כלול ארוחת בוקר (ללא תוספת תשלום)."
+_clean_breakfast = "כלול ארוחת בוקר\n\n(ללא תוספת תשלום)."
 check("regression: an ordinary trailing aside with no colon at all is left "
-      "untouched, even though this exact filter call has nothing to do "
-      "with its words",
+      "untouched, even on its own paragraph",
       chat._strip_leaked_planning_parenthesis(_clean_breakfast, GUIDANCE) == _clean_breakfast)
 
-_clean_mentions_topic_no_colon = "מצוין! (תקציב וכבודה כבר נקלטו)"
-check("regression: a trailing note that happens to share real vocabulary "
-      "with the guidance (תקציב/כבודה) but has NO colon-note shape is left "
-      "untouched - content overlap alone is never enough",
+_clean_mentions_topic_no_colon = "מצוין!\n\n(תקציב וכבודה כבר נקלטו)"
+check("regression: a trailing note on its own paragraph that happens to "
+      "share real vocabulary with the guidance (תקציב/כבודה) but has NO "
+      "colon-note shape is left untouched - content overlap alone is "
+      "never enough",
       chat._strip_leaked_planning_parenthesis(_clean_mentions_topic_no_colon, GUIDANCE)
       == _clean_mentions_topic_no_colon)
 
@@ -154,9 +194,10 @@ check("regression: empty/None input never raises",
       and chat._strip_leaked_planning_parenthesis("", GUIDANCE) == "")
 
 check("regression: a mid-text legitimate parenthetical before a leaked "
-      "TRAILING one is untouched - only the trailing note is ever removed",
+      "TRAILING one (on its own paragraph) is untouched - only the "
+      "trailing note is ever removed",
       chat._strip_leaked_planning_parenthesis(
-          "בארי מקסימה! (טיסה ישירה) (לפני התשובה הבאה: נותר לברר תקציב)",
+          "בארי מקסימה! (טיסה ישירה)\n\n(לפני התשובה הבאה: נותר לברר תקציב)",
           GUIDANCE,
       ) == "בארי מקסימה! (טיסה ישירה)")
 

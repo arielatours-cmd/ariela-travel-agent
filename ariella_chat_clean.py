@@ -3291,6 +3291,18 @@ def _strip_leaked_planning_parenthesis(text, injected_guidance=""):
     m = re.search(r"[(\[]([^()\[\]]*)[)\]]\s*\Z", text)
     if not m or ":" not in m.group(1):
         return text
+    # Per Shaked's review of the PREVIOUS version of this fix (20.10): it
+    # stripped "איזה סוג לינה מתאים לכם? (למשל: מלון, דירה או צימר)" - a
+    # genuine example list, inline right after the question it illustrates,
+    # just because it happens to share a word ("לינה") with the lodging
+    # hint injected that turn. Every real leak seen so far sits in its OWN
+    # paragraph, separated from the actual reply by a blank line; an inline
+    # parenthetical on the SAME line as the question/sentence it follows is
+    # never one - require that structural separation too, not just the
+    # colon shape and the vocabulary overlap.
+    prefix = text[:m.start()]
+    if not re.search(r"\n[ \t]*\n[ \t]*\Z", prefix):
+        return text
     note_words = {w.lower() for w in re.findall(r"[A-Za-zא-ת]{4,}", m.group(1))}
     if not note_words:
         return text
