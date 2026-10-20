@@ -705,6 +705,20 @@ def init_db() -> None:
             conn.execute("ALTER TABLE ai_usage ADD COLUMN call_started_at TEXT")
         if "call_duration_ms" not in ai_usage_columns:
             conn.execute("ALTER TABLE ai_usage ADD COLUMN call_duration_ms INTEGER")
+        # Per Shlomo's follow-up (18.10, qa/reports/2026-10-18-stage3-run4.md):
+        # a plain logging.info call for a live-site diagnostic (the restart-
+        # confirmation gate not firing, the guided-redirect mismatch) has no
+        # value on this infrastructure - no agent has access to Render's own
+        # log stream. The SAME /admin/ai-usage.csv export this project
+        # already uses for exactly this purpose (see thread_id/call_started_
+        # at/call_duration_ms above, Shaked's concurrency investigation)
+        # gets one more free-text column: a short, non-personal JSON blob of
+        # whatever a diagnostic-only row's own distinct `source` value needs
+        # ("restart_signal": request/evidence/verified; "guided_redirect":
+        # current_question/candidates/redirected_to) - never the customer's
+        # own message text. See record_diagnostic_event in ai_usage.py.
+        if "details" not in ai_usage_columns:
+            conn.execute("ALTER TABLE ai_usage ADD COLUMN details TEXT")
 
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
