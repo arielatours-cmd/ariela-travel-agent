@@ -116,6 +116,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד. אותו איסור חל גם על מינוח פנימי בעברית - "שדה", "השדה הפנימי", "state", "session", "מתועד כ-", "משתנה" וכל ביטוי אחר שחושף ללקוח איך המידע מאוחסן אצלך. גם כשאת מתקנת או מדייקת תשובה קודמת של הלקוח, נסחי זאת כמשפט רגיל על החופשה עצמה (למשל "רק לוודא - אתם לוקחים גם מזוודה בבטן המטוס, נכון?"), לעולם לא במונחים של "השדה"/"זה מתועד כ-".
 - כל שורת מידע/הנחיה שמופיעה למטה תחת "מצב החופשה המצטבר שכבר ידוע" (כולל כל משפט שמתחיל ב"-") היא הנחיה פנימית בלבד, כדי שתביני את ההקשר ותנסחי את התשובה שלך בעצמך - היא איננה טקסט לציטוט, לפרפרזה, או להזכרה בתשובה עצמה בשום צורה. אסור בהחלט לכתוב ללקוח כל משפט/סוגריים שמתאר מה *נותר לברר*, מה *תשאלי בהמשך/בתשובה הבאה*, או איך בדיוק עליך לנסח את הצעד הבא ("לפני התשובה הבאה: נותר לברר...", "אפשר להזכיר זאת בעדינות...", "note to self" וכל וריאציה דומה בעברית או באנגלית) - זו בדיוק אותה קטגוריית דליפה כמו מינוח פנימי ("שדה"/"state"), רק כמשפט תכנון שלם במקום מילה בודדת. התשובה שלך היא אך ורק מה שהלקוח אמור לקרוא - שיחה טבעית, בלי שום הערה על עצמה.
+- כשהלקוח מבקש קישור/לינק לחופשה/ללוח/לתוצאות שלו (בכל ניסוח), לעולם אל תכתבי שאין לך אפשרות לשלוח קישורים, או כל ניסוח דומה שאומר שאת לא יכולה לשלוח קישור - זה תמיד אפשרי, והמנגנון שמצרף את הקישור בפועל רץ מחוץ לתשובה שלך. אל תתארי בעצמך אם החיפוש עדיין רץ או כבר הסתיים - זו עובדה שלא ידועה לך ונקבעת במקום אחר; אל תנחשי ואל תכתבי עליה דבר.
 - כשהלקוח כותב בעברית, כל התשובה כולה בעברית בלבד - אסור לשלב מילה או ביטוי באנגלית (gaps, OK, sure, perfect וכו') במקום שיש לו מקבילה עברית טבעית. היוצאים הבלעדיים מהכלל הזה הם שמות מקומות ספציפיים (כפר/שכונה/אתר/הר) שכבר יש להם כלל נפרד למעלה שאומר להשאיר אותם בלועזית, וקודי שדות תעופה/ערכים טכניים קבועים כמו "direct" ב-flight.connection_preference.
 - לעולם אל תכתבי בתשובה עצמה את תהליך המחשבה הפנימי שלך - לא "רגע, זה כבר ידוע, בוא אבדוק", לא "ה-state מראה ש...", לא שום משפט שמתאר מה *את* בודקת/שוקלת/זוכרת. התשובה היא רק הטקסט הפונה ללקוח, אף פעם לא תיאור של התהליך שהוביל אליו - גם לא כפסקה נפרדת לפני התשובה האמיתית, וגם לא באנגלית.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
@@ -276,6 +277,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט הכבודה שהוזמנה - {"checked_bag":{"count":מספר|null,"size":"קטנה"|"בינונית"|"גדולה"|null},"carry_on_only":{"count":מספר|null}}; count הוא הסך הכול שנאמר לכל הקבוצה - הזמנה היא תמיד כבודה אחידה לכל הכרטיסים, אין חלוקה שונה בין נוסעים לתעד; size רק עבור checked_bag, ורק כשנאמר בפועל - לעולם לא "גדולה" כברירת מחדל) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
 - trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"). מאז שהשאלה הראשונה על כך נשארת פתוחה ("מה בא לך לתכנן?" ולא רשימת קטגוריות - ראו ההנחיה המקבילה ל-Tinkerbell), הלקוח כמעט לעולם לא ישתמש במילים "חופשה רגילה"/"נסיעת עסקים"/"חופשת סקי" ממש - היא מתארת את הטיול בניסוח חופשי משלה (למשל "רוצה לנסוע לבד, קצת לנוח ולטייל" = standard; "נסיעת עבודה"/"פגישות בחברה" = business; כל אזכור של סקי/אתר סקי/מעליות = ski). הביני את הקטגוריה מהתיאור החופשי הזה של הלקוח עצמו (בדיוק כמו ש-Tinkerbell כבר מתבקשת להבין מהתשובה החופשית לשאלה הפתוחה) - זו אותה הבנה סמנטית שאת מפעילה על כל שדה אחר, לא דרישה למילת קסם מדויקת. מה שנשאר אסור: לנחש trip_type מ-destination/dates/travelers עצמם (לדוגמה יעד מסוים או מספר נוסעים) כשהלקוח לא תיאר בעצמו את מטרת הטיול בכלל - אלה סימנים עקיפים מדי ולא תיאור של הלקוח. אם אין שום תיאור של מטרת/אופי הטיול, השאירי null עד שיהיה. בפרט, יעד שעשוי להתאים לנסיעת סקי (אזור הרים, אתר חורפי מוכר, עונת חורף) הוא בדיוק אותו סימן עקיף מדי - אסור בהחלט להסיק trip_type="ski" מהיעד ו/או מהעונה בלבד, גם כשהם מתאימים לכך באופן אינטואיטיבי; "ציריך בינואר", למשל, היא נסיעת עיר לגיטימית לגמרי ולא בהכרח חופשת סקי. כשאת קובעת trip_type="ski" (או משנה אליו מערך אחר), מלאי גם את trip_type_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שמתאר בעצמו סקי/גלישה בשלג/אתר סקי/מעליות - לא ציטוט שמזכיר רק יעד או תאריך. בלי ציטוט אמיתי כזה - אל תכתבי trip_type="ski" בכלל, השאירי אותו כפי שהיה.
 - restart_request ו-restart_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים כוונה לנטוש את התכנון הנוכחי ולחשוב על/להתחיל חופשה אחרת ונפרדת לגמרי - לא שינוי פרט בודד (יעד/תאריכים/תקציב וכו') בתוך אותה חופשה הנמשכת. הכוונה הזו נאמרת בהרבה ניסוחים, ישירים ועקיפים באותה מידה - לא רק "התחלה מחדש" מפורש: גם "בא לי בכלל לתכנן משהו אחר לגמרי", "עזבי את [היעד הנוכחי], אני רוצה לחשוב על חופשה אחרת", "רגע, תני לי לחשוב על כיוון שונה" הם בדיוק אותה כוונה כמו "אני רוצה להתחיל טיול אחר" או "חופשה חדשה ונפרדת" - הביני לפי המשמעות השלמה של המשפט (ויתור על הכיוון/היעד הנוכחי ומעבר למשהו אחר כולו), לא לפי התאמה למשפטים ספציפיים. restart_request=true רק כשההודעה הנוכחית של הלקוח (לא הודעה קודמת) היא זו שמבטאת את הכוונה הזו, ולא כשהוא רק משנה פרט אחד בחופשה הקיימת. בדיוק כמו lodging.details.level_evidence: כשrestart_request=true מלאי את restart_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; אם אין ציטוט אמיתי כזה, restart_request נשאר false ו-restart_evidence נשאר null. ברירת המחדל היא false/null.
+- link_request ו-link_request_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים בקשה לקישור/לינק ללוח החופשה שלו, לתוצאות, לדף שלו באתר, או לחזור לראות את מה שכבר נמצא לו - בכל ניסוח, ישיר ועקיף באותה מידה. לדוגמה (לא רשימה סגורה): "תשלחי לי שוב קישור ללוח?", "איפה אני רואה את הטיסות?", "אפשר את הלינק לחופשה?", "שלחי לינק לדף שלי", "לא מוצאת את מה שמצאת לי, איפה זה?" - הביני לפי המשמעות (הלקוח רוצה לעבור/לחזור לדף/לקישור של החופשה שלו), לא לפי התאמה לניסוחים האלה בדיוק. זו בקשת ניווט, לא בקשה לפרט חדש בתכנון ולא restart_request. בדיוק כמו restart_evidence: כש-link_request=true מלאי את link_request_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; בלי ציטוט אמיתי כזה, link_request נשאר false ו-link_request_evidence נשאר null. ברירת המחדל היא false/null. לעולם אל תחליטי בעצמך מה מצב החיפוש (האם הוא עדיין רץ או כבר הסתיים) - זה נקבע בקוד לפי ה-state, לא על ידך.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
 - כאשר הלקוח ביקש שאריאלה תבחר את אתר הסקי (לא ציין אתר ספציפי מהרשימה המוכרת), עדיפות ראשונה היא לדבר באופן כללי ("ליד ההר", "באזור האתר שייבחר") עד שאתר אמיתי מהקטלוג נבחר בפועל. שם אתר שהוזכר בטקסט חופשי בלבד, בלי להתבסס על ski.resort_names, אסור שייכנס ל-destination.places - זה בדיוק כמו לנחש תקציב או רכב, ובעבר הוביל לשם הר מתועתק גרוע שנשמר ככותרת החופשה בפועל.
@@ -307,13 +309,15 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אל תסמני כשדה חסר שירות שהלקוח אמר שאינו רוצה.
 - ready_for_summary=true רק כאשר יש כוונת חיפוש וכל שדות החובה לשירותים המבוקשים מלאים.
 
-החזירי JSON תקין בלבד, עם חמשת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
+החזירי JSON תקין בלבד, עם שבעת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence/link_request/link_request_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
 {
  "restart_request":false,
  "restart_evidence":null,
  "dates_evidence":null,
  "destination_evidence":null,
  "trip_type_evidence":null,
+ "link_request":false,
+ "link_request_evidence":null,
  "trip_update":{
   "trip_type":null,
   "travelers":{"adults":null,"children":null,"child_ages":[],"child_genders":[],"infants":null,"composition":null},
@@ -779,6 +783,23 @@ def _parse_trip_type_evidence(text):
     except Exception:
         pass
     return None
+
+
+def _parse_link_request_signal(text):
+    """Pull link_request/link_request_evidence (siblings of trip_update, not
+    inside it) out of the SAME raw JSON the extractor already returned every
+    turn - mirrors _parse_restart_signal exactly. Defaults to (False, None)
+    on any parse failure - a link request is never assumed."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return bool(data.get('link_request')), data.get('link_request_evidence')
+    except Exception:
+        pass
+    return False, None
 
 
 def _parse_trip_update(text):
@@ -3992,7 +4013,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, link_request, link_request_evidence).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -4008,7 +4029,14 @@ def _extract_trip_update(key, model, history, message, state=None):
     mid-conversation date correction the extractor's own JSON already
     captured apart from a stale value it should keep locking to - a
     verbatim quote is the one signal that distinguishes them, exactly like
-    restart_evidence. None on any failure - never assumed either."""
+    restart_evidence. None on any failure - never assumed either.
+
+    link_request/link_request_evidence (20.10, Shlomo's relay of Carmit's
+    work order item 1, qa/stage-scenarios.md "בקשת קישור ללוח או לחופשה"):
+    the model's job is only to recognize that the customer is asking for a
+    link, via the same verbatim-quote evidence gate as every field above -
+    it never decides whether a search is still running or already
+    finished. The call site alone answers that, from trip_state."""
     try:
         gateway_hint = _multi_gateway_hint(state)
         gateway_hint_text = ""
@@ -4050,9 +4078,10 @@ def _extract_trip_update(key, model, history, message, state=None):
         dates_evidence = _parse_dates_evidence(raw)
         destination_evidence = _parse_destination_evidence(raw)
         trip_type_evidence = _parse_trip_type_evidence(raw)
-        return parsed, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence
+        link_request, link_request_evidence = _parse_link_request_signal(raw)
+        return parsed, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, link_request, link_request_evidence
     except Exception:
-        return {}, False, None, None, None, None
+        return {}, False, None, None, None, None, False, None
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
@@ -11215,7 +11244,43 @@ def _chat_clean_impl():
     try:
         # Tinkerbell's data-transfer pass tells Ariella what changed.
         # Ariella owns and merges the cumulative state.
-        extracted, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence = _extract_trip_update(key, model, history, message, trip_state)
+        extracted, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, link_request, link_request_evidence = _extract_trip_update(key, model, history, message, trip_state)
+
+        # Customer asking for a link back to their vacation/dashboard (20.10,
+        # Shlomo's relay of Carmit's work order item 1; qa/stage-scenarios.md
+        # "בקשת קישור ללוח או לחופשה"). The model only decides the INTENT
+        # (link_request, evidence-gated exactly like restart_request above -
+        # never a phrase list); whether there is anything to link to, and
+        # how to word that, is decided here from trip_state alone - never a
+        # claim about whether the search is still running or already
+        # finished (that fact lives only in the DB, invisible to this
+        # conversational state, and asserting it risked being wrong either
+        # way - the live finding was exactly that: "החיפוש רץ ברקע" after
+        # the search had already finished). Never the forbidden "אין לי
+        # אפשרות לשלוח קישורים" framing either way.
+        if (
+            link_request
+            and not own_pending_question
+            and _value_has_verbatim_evidence(link_request_evidence, message)
+        ):
+            has_something_to_link_to = bool(
+                trip_state.get("search_confirmed")
+                or trip_state.get("post_flight_continuation")
+                or trip_state.get("reopened_trip_id")
+                or trip_state.get("reopen_trip_id")
+            )
+            if has_something_to_link_to:
+                return _reply({
+                    'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                    'reply': 'בטח, הנה הקישור ללוח החופשה שלך:',
+                    'trip_update': trip_state, 'start_flight_search': False,
+                    'open_existing_flights': True,
+                })
+            return _reply({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': 'עדיין לא פתחנו חיפוש שאפשר לקשר אליו - ברגע שנסיים את הפרטים ונאשר, אשלח לך קישור ישר לתוצאות.',
+                'trip_update': trip_state, 'start_flight_search': False,
+            })
 
         # General restart/change-of-direction always enters a simple yes/no
         # gate first. Never erase collected trip facts before an explicit
