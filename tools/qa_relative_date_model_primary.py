@@ -397,39 +397,49 @@ check("end-to-end: with NO model-extracted shift_days at all, the regex "
       and len(dates_shift_fallback.get("candidate_ranges") or []) == 1)
 
 # =====================================================================
-# Direct coverage of the new general safety net
-# (_ensure_dates_closure_claim_matches_state): a reply that falsely
-# claims the dates are closed/saved while they are still only a pending
-# candidate, or while it names dates that don't match what's actually
-# confirmed, must never reach the customer unexamined.
+# Regression (Shaked's rejection of the first version of this PR, which
+# added _ensure_dates_closure_claim_matches_state as a word-matching
+# safety net - now removed entirely per her review): a reply combining a
+# genuine closure claim about one domain (baggage) with a genuine,
+# still-pending question about another (dates) must reach the customer
+# completely untouched - the word "סגרנו" alone is not a dates-closure
+# claim at all. The real fix (shift_days only ever proposes, "כן" alone
+# commits) is the whole mechanism now - no reply-text safety net on top
+# of it.
 # =====================================================================
-_pending_state_for_claim = {"dates": {
+_pending_shift_state = dict(confirmed_state, dates={
     "departure": "2026-11-17", "return": "2026-11-24", "needs_confirmation": True,
-    "candidate_ranges": ["יום שלישי 18.11.2026–יום שלישי 25.11.2026"],
-}}
-check("a false 'סגרנו' claim while dates are still only a pending "
-      "candidate is replaced with a genuine re-confirmation question",
-      "עדיין לא אושר" in chat._ensure_dates_closure_claim_matches_state(
-          "מעולה, סגרנו!", _pending_state_for_claim))
-check("a reply that doesn't use closure wording at all is left untouched",
-      chat._ensure_dates_closure_claim_matches_state(
-          "בטח, 18.11.2026 עד 25.11.2026 - מתאים?", _pending_state_for_claim
-      ) == "בטח, 18.11.2026 עד 25.11.2026 - מתאים?")
+    "candidate_ranges": ["יום שלישי 20.11.2026–יום שלישי 27.11.2026"],
+})
 
-_confirmed_state_for_claim = {"dates": {
-    "departure": "2026-11-18", "return": "2026-11-25", "needs_confirmation": False,
-    "candidate_ranges": [],
-}}
-check("a 'סגרנו' claim naming the WRONG (stale) dates is rebuilt from the "
-      "real, confirmed state instead of trusted as-is",
-      "18.11.2026" in chat._ensure_dates_closure_claim_matches_state(
-          "קלטתי, סגרנו - 17.11.2026 עד 24.11.2026.", _confirmed_state_for_claim
-      ))
-check("a 'סגרנו' claim naming the CORRECT, already-confirmed dates is left "
-      "untouched",
-      chat._ensure_dates_closure_claim_matches_state(
-          "קלטתי, סגרנו - 18.11.2026 עד 25.11.2026.", _confirmed_state_for_claim
-      ) == "קלטתי, סגרנו - 18.11.2026 עד 25.11.2026.")
+
+def _post_claude_baggage_closed_dates_pending(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {}, "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+            "link_request": False, "link_request_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "סגרנו את הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_baggage_closed_dates_pending):
+    r_baggage_closed = client.post("/api/ariella/chat-clean", json={
+        "message": "תיק יד בלבד",
+        "history": [{"role": "assistant", "content": "איזו כבודה תרצו?"}],
+        "trip_state": _pending_shift_state,
+    })
+reply_baggage_closed = str((r_baggage_closed.get_json() or {}).get("reply") or "")
+check("Shaked's exact live case 1: 'סגרנו את הכבודה - ולגבי התאריכים, "
+      "20.11–27.11 מתאים?' reaches the customer completely untouched - "
+      "'סגרנו' about baggage is never mistaken for a dates-closure claim",
+      reply_baggage_closed == "סגרנו את הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?")
+
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

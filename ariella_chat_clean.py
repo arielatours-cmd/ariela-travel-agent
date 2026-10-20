@@ -8192,60 +8192,6 @@ def _redirect_false_flight_closure_claim(reply, trip_update):
     return question or reply
 
 
-_DATES_CLOSURE_CLAIM_CUES = ("סגרנו", "נשמר", "עודכן התאריך", "עדכנתי את התאריכים", "שיניתי את התאריכים")
-
-
-def _ensure_dates_closure_claim_matches_state(reply, trip_update):
-    """Seen live (Shaked, stage-1 run-2, critical): "אפשר לזוז יום אחד
-    אחורה?" -> Ariella proposed 20-27, the customer said "כן", and Ariella
-    replied "סגרנו" (we've closed it) - but trip_update["dates"] still held
-    the OLD, unchanged 21-28, because the shift was only ever a PENDING
-    candidate (see the shift_days block above) and nothing had actually
-    turned the "כן" into a real commit that turn. A "we've saved/closed
-    it" claim must never outrun what is genuinely persisted in state -
-    general safety net, not specific to shift_days: whichever code path
-    produced the reply, if it claims a date change is settled while dates
-    are still only a pending candidate, or names dates that don't match
-    what's actually confirmed, the claim is replaced with an honest
-    statement built straight from state instead of trusted as-is."""
-    trip_update = trip_update if isinstance(trip_update, dict) else {}
-    dates = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
-    text = str(reply or "")
-    if not any(c in text for c in _DATES_CLOSURE_CLAIM_CUES):
-        return reply
-    gender = trip_update.get("user_gender")
-    if dates.get("needs_confirmation"):
-        # Nothing is actually settled yet, whatever the reply claims - a
-        # pending candidate still needs the customer's own explicit yes.
-        candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
-        if len(candidates) == 1:
-            return _g(gender,
-                      f"רגע - זה עדיין לא אושר בפועל. {candidates[0]} מתאים?",
-                      f"רגע - זה עדיין לא אושר בפועל. {candidates[0]} מתאים?")
-        return reply
-    import re as _re_dates_claim
-    found = _re_dates_claim.findall(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", text)
-    if len(found) < 2:
-        return reply
-    try:
-        mentioned_dep = date(int(found[0][2]), int(found[0][1]), int(found[0][0]))
-        mentioned_ret = date(int(found[1][2]), int(found[1][1]), int(found[1][0]))
-    except ValueError:
-        return reply
-    real_dep_raw = str(dates.get("departure") or "")[:10]
-    real_ret_raw = str(dates.get("return") or "")[:10]
-    if not real_dep_raw or not real_ret_raw:
-        return reply
-    try:
-        real_dep = date.fromisoformat(real_dep_raw)
-        real_ret = date.fromisoformat(real_ret_raw)
-    except ValueError:
-        return reply
-    if mentioned_dep == real_dep and mentioned_ret == real_ret:
-        return reply
-    return f"קלטתי - התאריכים שנשמרו בפועל הם {real_dep.strftime('%d.%m.%Y')}–{real_ret.strftime('%d.%m.%Y')}."
-
-
 _POST_FLIGHT_OFFER_CUES = (
     "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
     "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
@@ -13074,7 +13020,6 @@ def _chat_clean_impl():
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
-        reply = _ensure_dates_closure_claim_matches_state(reply, trip_update)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
