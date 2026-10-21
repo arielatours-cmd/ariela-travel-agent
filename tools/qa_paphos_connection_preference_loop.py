@@ -83,6 +83,21 @@ Two independent root causes, both fixed here:
    state_for_tinkerbell for that ONE _call_tinkerbell invocation only -
    never into trip_update, never persisted.
 
+3. Stage-1 run-6 (a separate live finding, same destination): even
+   after PR #116, the FIRST "לא חובה" answer still wasn't saved - only
+   the second, identical answer was. Tinkerbell's own free text correctly
+   understood the first one and asked the same question again, but the
+   extractor's own structured JSON that same turn didn't write the field
+   at all - the dual-call mismatch pattern already fixed once, recurring
+   on a different turn. _connection_preference_pending_hint gives the
+   extractor call the same explicit situational grounding _multi_gateway_
+   hint already gives for a multi-gateway destination choice: when the
+   gap is still open and Tinkerbell's own last turn actually asked this
+   exact question, the extractor is told so directly - it still decides
+   for itself, from genuine understanding, whether the reply means
+   "direct", "אין העדפה", or neither; this never decides the answer, only
+   confirms which question is pending right now.
+
 Run: python3 tools/qa_paphos_connection_preference_loop.py
 """
 import os
@@ -422,6 +437,90 @@ check("the exact round-5 bug, reproduced through the real pipeline: a "
       "_gap_repeat_rephrase_hint sitting in the persisted trip_state - "
       "it's a one-turn signal for Tinkerbell's reply only",
       "_gap_repeat_rephrase_hint" not in _state_persist_after)
+
+# =====================================================================
+# 7. Stage-1 run-6 (Shlomo/Shaked's live finding, Paphos): the FIRST "לא
+# חובה" answer wasn't saved - Tinkerbell's own free text correctly
+# understood it and asked the same question again, but the extractor's
+# own structured JSON that same turn didn't write connection_preference
+# at all (the dual-call mismatch pattern already fixed once in #116,
+# recurring here on a DIFFERENT turn). Only the SECOND identical "לא
+# חובה" was understood and saved. _connection_preference_pending_hint
+# gives the extractor the same explicit situational grounding
+# _multi_gateway_hint already gives for a multi-gateway choice - it never
+# decides the answer, only confirms which question is pending right now.
+# =====================================================================
+with patch.object(chat, "_direct_route_available", return_value=True):
+    _hint_open = chat._connection_preference_pending_hint(
+        {"flight": {}}, [{"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q}],
+    )
+    check("direct: the hint fires when the gap is genuinely open and "
+          "Tinkerbell's own last turn actually asked this exact question",
+          "זו השאלה הפתוחה כרגע" in _hint_open and "flight.connection_preference" in _hint_open)
+    check("direct: the hint explicitly forbids a word list - genuine "
+          "understanding of the reply, not phrase matching",
+          "לא מרשימת ביטויים" in _hint_open)
+
+    _hint_resolved = chat._connection_preference_pending_hint(
+        {"flight": {"connection_preference": "direct"}},
+        [{"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q}],
+    )
+    check("regression: once the field is already resolved, the hint "
+          "never fires - nothing left to ground",
+          _hint_resolved == "")
+
+    _hint_unrelated = chat._connection_preference_pending_hint(
+        {"flight": {}}, [{"role": "assistant", "content": "איזו כבודה תרצו לקחת?"}],
+    )
+    check("regression: when Tinkerbell's own last turn asked about "
+          "something else entirely (baggage), the hint never fires",
+          _hint_unrelated == "")
+
+with patch.object(chat, "_direct_route_available", return_value=False):
+    _hint_no_route = chat._connection_preference_pending_hint(
+        {"flight": {}}, [{"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q}],
+    )
+    check("regression: with no known direct route for this destination "
+          "at all, the question is never genuinely pending - no hint",
+          _hint_no_route == "")
+
+# End-to-end: confirm the hint actually reaches the real extractor call's
+# system_dynamic exactly when expected, through the real pipeline (not
+# just the helper function in isolation) - captured via a mock that
+# records what it was given, since a mock cannot itself become a better
+# language model.
+_captured_system_dynamic = {}
+
+
+def _mock_capture_system_dynamic(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        _captured_system_dynamic["text"] = system_dynamic
+        return json.dumps({
+            "trip_update": {"flight": {"connection_preference": "אין העדפה"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "סבבה, קיבלתי."
+    return "{}"
+
+
+m_paphos_hint = _make_member("qa-paphos-grounding-hint@example.com")
+database.save_ariella_conversation(m_paphos_hint, [
+    {"role": "user", "content": "פאפוס, זוג, 5.5 עד 10.5.2027"},
+    {"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q},
+], dict(_PAPHOS_STATE))
+
+with patch.object(chat, "_direct_route_available", return_value=True):
+    with patch.object(chat, "_post_claude", side_effect=_mock_capture_system_dynamic):
+        whatsapp_bridge.ariella_turn(m_paphos_hint, "לא חובה")
+
+check("end-to-end: the real extractor call's own system_dynamic actually "
+      "contains the grounding hint on the exact turn the live bug "
+      "occurred on (gap open, question just asked)",
+      "זו השאלה הפתוחה כרגע" in _captured_system_dynamic.get("text", ""))
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
