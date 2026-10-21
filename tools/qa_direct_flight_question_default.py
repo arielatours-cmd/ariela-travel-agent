@@ -347,6 +347,34 @@ check("regression: Montreal (YUL) is NOT in the list - Ofek's own "
       "silently reverted",
       "YUL" not in _real_codes)
 
+# =====================================================================
+# 8. _flight_direct_priority (public_site.py) - Shaked's PR review finding:
+# the sentinel "no_direct_route" contains "direct" as a literal substring,
+# which the deal-priorities substring check (ariella_start_flight_search)
+# wrongly matched - every deal for a confirmed no-direct-route destination
+# got marked deal_priorities=["direct"], so the UI showed "לא כולל: טיסה
+# ישירה" on every single offer and the direct-flight ranking was wrong.
+# Extracted into its own small function so this exact logic is directly
+# testable without ever running a real search, per her explicit request.
+# =====================================================================
+import public_site
+
+check("regression: a genuine 'direct' request still gets the priority",
+      public_site._flight_direct_priority({"connection_preference": "direct"}) == ["direct"])
+check("regression: a model variant phrasing ('nonstop') still matches too",
+      public_site._flight_direct_priority({"connection_preference": "nonstop"}) == ["direct"])
+check("the no-direct-route sentinel never produces the 'direct' priority, "
+      "even though it contains 'direct' as a literal substring - the exact "
+      "bug Shaked's PR review caught",
+      public_site._flight_direct_priority({"connection_preference": "no_direct_route"}) == [])
+check("'אין העדפה' (the customer's own closed 'no preference' answer) also "
+      "never produces the 'direct' priority",
+      public_site._flight_direct_priority({"connection_preference": "אין העדפה"}) == [])
+check("no connection_preference at all (unset/null) never produces the "
+      "'direct' priority either",
+      public_site._flight_direct_priority({}) == []
+      and public_site._flight_direct_priority(None) == [])
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)
