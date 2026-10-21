@@ -1901,6 +1901,7 @@ html[dir="ltr"] .filter-multi-menu label{direction:ltr!important;text-align:left
 .free-alternative-options .button.outline{transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease}
 .free-alternative-options .button.outline:hover,.free-alternative-options .button.outline:focus-visible{background:#f7edd7;border-color:var(--gold);color:var(--navy);transform:translateY(-1px)}
 .budget-overage-note{margin:7px 0 0;font-size:12px;line-height:1.45;color:#8a6728;font-weight:600}
+.pricing-disclaimer{margin:7px 0 0;font-size:12px;line-height:1.5;color:#5f5b55;text-align:start}
 
 /* v9.7.59 — RTL selected checkmark: fixed on the right side of the label */
 html[dir="rtl"] .wizard-step .choice-button input:checked + span,

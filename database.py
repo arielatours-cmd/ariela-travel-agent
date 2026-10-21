@@ -898,6 +898,39 @@ def scan_stop_requested() -> bool:
     return get_setting("manual_scan_stop_requested", "0") == "1"
 
 
+def latest_scan_run_id_for_trip(trip_id: int) -> int | None:
+    """The most recent scan_run actually tied to this customer's own trip
+    (scan_runs.trip_id, set by scanner.py's own personal-scan path) - used
+    by the admin rematch-trip recovery action (20.10, vacation 259/trip
+    #158 follow-up, per the business owner's own directive) to scope
+    re-matching to the offers THIS vacation's own scan actually found,
+    never a blanket recent-inventory window that could include unrelated
+    customers' offers or miss this trip's own (per its specific scan
+    window, which can already be closed by the time someone clicks
+    rematch)."""
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM scan_runs WHERE trip_id=? ORDER BY id DESC LIMIT 1",
+            (trip_id,),
+        ).fetchone()
+    return int(row["id"]) if row else None
+
+
+def offer_ids_for_scan_run(run_id: int) -> list[int]:
+    """Just the offer ids actually tied to this scan_run (scan_run_offers),
+    for feeding recent_offers(offer_ids=...) - which returns the SAME full,
+    richly-populated row shape (stops/departure_time/baggage/etc, all real
+    dedicated columns) every other matching tier already relies on. Kept
+    separate from offers_for_scan_run below (a narrower, admin-display-only
+    projection) so a caller that needs the full row shape never has to
+    guess which of the two to use."""
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT offer_id FROM scan_run_offers WHERE scan_run_id=?", (run_id,)
+        ).fetchall()
+    return [int(r["offer_id"]) for r in rows]
+
+
 def offers_for_scan_run(run_id: int, limit: int = 200) -> list[dict]:
     with connection() as conn:
         rows = conn.execute(

@@ -23,6 +23,7 @@ from admin import render_dashboard, render_feedback_dashboard, render_analytics_
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
     MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY, DESTINATIONS,
+    PUBLIC_BASE_URL_WARNING,
 )
 from daily import prepare_daily_batch
 from database import (
@@ -36,7 +37,7 @@ from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search
 import scanner as _scanner
 from din_agent import enrich_offer_legal_terms
 from schedule_rules import delivery_status
-from public_site import site, _confirm_paid_search
+from public_site import site, _confirm_paid_search, rematch_trip_without_new_scan
 from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
@@ -425,6 +426,7 @@ def health():
         "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
         "admin_protected": bool(ADMIN_TOKEN), "whatsapp": whatsapp_status(),
         "gunicorn_timeout": gunicorn_timeout, "gunicorn_threads": gunicorn_threads,
+        "public_base_url_warning": PUBLIC_BASE_URL_WARNING,
     })
 
 
@@ -491,6 +493,34 @@ def admin_confirm_payment():
     if request.form.get("redirect") == "admin":
         return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
     return jsonify({"status": "success", "trip_id": trip_id})
+
+
+@app.post("/admin/rematch-trip")
+def admin_rematch_trip():
+    """Recovery action for a vacation stuck frozen on an empty matched-offers
+    list (per the business owner's directive, 20.10, vacation 259/trip
+    #158) - re-runs the matching chain against CURRENT inventory, with no
+    new paid scan. Only acts on a trip whose search already finished with
+    nothing pinned; see public_site.rematch_trip_without_new_scan for the
+    full guard and the four-tier fallback chain it reuses from the scan
+    worker itself."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    trip_id = request.form.get("trip_id", type=int) or request.args.get("trip_id", type=int)
+    if not trip_id:
+        return jsonify({"status": "error", "message": "missing trip_id"}), 400
+    result = rematch_trip_without_new_scan(trip_id)
+    supplied = request.args.get("token") or request.form.get("token") or ""
+    redirect_to = request.form.get("redirect")
+    # "scans" added (20.10, vacation 259/trip #158 follow-up) for the new
+    # /admin/scans rematch button - the business owner clicks it from that
+    # page and should land back on it, not on the unrelated deals page.
+    if redirect_to == "scans":
+        return redirect("/admin/scans" + (("?token=" + supplied) if supplied else ""))
+    if redirect_to == "admin":
+        return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
+    return jsonify(result), (200 if result.get("status") == "success" else 400)
 
 
 @app.post("/admin/confirm-whatsapp-payment")

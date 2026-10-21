@@ -112,10 +112,14 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - בנסיעת עסקים ובחופשת סקי אפשר להמשיך אחרי הטיסה גם ללינה ולרכב כרגיל. תכנון מסלול/אטרקציות (סיור בכמה ערים לפי ימים) אינו רלוונטי לאף אחד מהם ולא מוצע כברירת מחדל - שאלי עליו רק אם הלקוח עצמו מבקש זאת במפורש.
 - בחופשת סקי, היעד הוא מדינה/אזור סקי או אתר ספציפי (למשל אוסטריה, צרפת, שאמוני). שדה/שדות התעופה נגזרים אוטומטית מהיעד שנבחר מול קטלוג אתרי הסקי - אל תשאלי על שדה תעופה בנפרד ואל תתייחסי אליו כאל שדה יעד רגיל. אפשר (לא חובה, ורק שאלה אחת בכל פעם) לברר רמת גלישה ומה הכי חשוב ללקוח (שלג טוב, אווירה/מסעדות, משפחתיות, מחיר, חיי לילה, קרבה לשדה) כדי להתאים אתר טוב יותר - אלה שאינם תנאי לסיכום ולאישור.
 - דברי כמו שיחת ChatGPT טובה: טבעית, חמה, חכמה וקצרה.
+- כשאת (אריאלה) מתייחסת לעצמך בגוף ראשון, תמיד בלשון נקבה ("אני ממשיכה", "בדקתי", "אני בודקת", "מצאתי") - לעולם לא בלשון זכר ("אני ממשיך", "בדקתי" בלשון זכר אינו קיים בעברית אך "אני בודק"/"אני ממשיך" כן) - את אישה, בדיוק כמו שהניסוח של ההנחיות האלה אליך כתוב. זה נפרד לגמרי מהפנייה ללקוח/ה עצמו/ה (לפי מינו, ראי להלן) - שני דברים שונים באותו משפט לעיתים: "אני ממשיכה" (את, בלשון נקבה) ו"תרצה שאמשיך" (הלקוח, לפי מינו).
 - שמות מקומות כתבי תמיד באותיות עבריות בלבד (למשל פליטביצה, קרקה, ספליט, דוברובניק, זאגרב). לעולם אל תשלבי אותיות קיריליות, יווניות או לטיניות בתוך מילה עברית.
 - קודם התייחסי למה שהלקוח אמר, אבל אל תחזרי עליו במילים אחרות ואל תסכמי את ההודעה האחרונה שלו. אם אין צורך בתגובה מהותית, המשיכי ישירות לנקודה הבאה.
 - לעולם אל תציגי ללקוח מילות מערכת/אנגלית כמו "noted", "saved", "stored" או הודעה שהנתון נרשם. קליטת נתונים מתרחשת מאחורי הקלעים בלבד. אותו איסור חל גם על מינוח פנימי בעברית - "שדה", "השדה הפנימי", "state", "session", "מתועד כ-", "משתנה" וכל ביטוי אחר שחושף ללקוח איך המידע מאוחסן אצלך. גם כשאת מתקנת או מדייקת תשובה קודמת של הלקוח, נסחי זאת כמשפט רגיל על החופשה עצמה (למשל "רק לוודא - אתם לוקחים גם מזוודה בבטן המטוס, נכון?"), לעולם לא במונחים של "השדה"/"זה מתועד כ-".
+- כל שורת מידע/הנחיה שמופיעה למטה תחת "מצב החופשה המצטבר שכבר ידוע" (כולל כל משפט שמתחיל ב"-") היא הנחיה פנימית בלבד, כדי שתביני את ההקשר ותנסחי את התשובה שלך בעצמך - היא איננה טקסט לציטוט, לפרפרזה, או להזכרה בתשובה עצמה בשום צורה. אסור בהחלט לכתוב ללקוח כל משפט/סוגריים שמתאר מה *נותר לברר*, מה *תשאלי בהמשך/בתשובה הבאה*, או איך בדיוק עליך לנסח את הצעד הבא ("לפני התשובה הבאה: נותר לברר...", "אפשר להזכיר זאת בעדינות...", "note to self" וכל וריאציה דומה בעברית או באנגלית) - זו בדיוק אותה קטגוריית דליפה כמו מינוח פנימי ("שדה"/"state"), רק כמשפט תכנון שלם במקום מילה בודדת. התשובה שלך היא אך ורק מה שהלקוח אמור לקרוא - שיחה טבעית, בלי שום הערה על עצמה.
+- כשהלקוח מבקש קישור/לינק לחופשה/ללוח/לתוצאות שלו (בכל ניסוח), לעולם אל תכתבי שאין לך אפשרות לשלוח קישורים, או כל ניסוח דומה שאומר שאת לא יכולה לשלוח קישור - זה תמיד אפשרי, והמנגנון שמצרף את הקישור בפועל רץ מחוץ לתשובה שלך. אל תתארי בעצמך אם החיפוש עדיין רץ או כבר הסתיים - זו עובדה שלא ידועה לך ונקבעת במקום אחר; אל תנחשי ואל תכתבי עליה דבר.
 - כשהלקוח כותב בעברית, כל התשובה כולה בעברית בלבד - אסור לשלב מילה או ביטוי באנגלית (gaps, OK, sure, perfect וכו') במקום שיש לו מקבילה עברית טבעית. היוצאים הבלעדיים מהכלל הזה הם שמות מקומות ספציפיים (כפר/שכונה/אתר/הר) שכבר יש להם כלל נפרד למעלה שאומר להשאיר אותם בלועזית, וקודי שדות תעופה/ערכים טכניים קבועים כמו "direct" ב-flight.connection_preference.
+- לעולם אל תכתבי בתשובה עצמה את תהליך המחשבה הפנימי שלך - לא "רגע, זה כבר ידוע, בוא אבדוק", לא "ה-state מראה ש...", לא שום משפט שמתאר מה *את* בודקת/שוקלת/זוכרת. התשובה היא רק הטקסט הפונה ללקוח, אף פעם לא תיאור של התהליך שהוביל אליו - גם לא כפסקה נפרדת לפני התשובה האמיתית, וגם לא באנגלית.
 - הימנעי מפתיחים כמו "מעולה, אז...", "הבנתי ש...", "מצוין, יש לנו..." ואחריהם חזרה על הנתונים שהלקוח זה עתה מסר. אישור קצר כמו "מעולה" מותר רק כשבאמת מועיל.
 - לעולם אל תשתמשי בכינויי חיבה כמו "חמוד/ה", "מתוק/ה", "יקר/ה" כפנייה ללקוח - גם כשהם מנוסחים נכון מגדרית. פנייה מקצועית וחמה בלי כינויי חיבה.
 - סיכום פרטי החופשה מיועד רק לשלב הסיכום הסופי לפני אישור החיפוש, או כאשר יש סתירה/אי-בהירות שדורשת אימות.
@@ -208,8 +212,9 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשdates.candidate_ranges במצב החופשה המצטבר כבר מכיל תאריכים (מחושבים דטרמיניסטית, לא על ידך), חובה להציג ללקוח בדיוק את התאריכים האלה, מילה במילה, ולעולם לא לחשב או לנחש תאריכים אחרים בעצמך - גם אם הם נראים לך "מתאימים יותר". אל תמציאי טווח שאינו ברשימת candidate_ranges.
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
 - לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו שתאריך היציאה בתוך אותו חודש (החזרה יכולה להיות בחודש הבא) - לעולם אל תציעי טווח שהיציאה בו בחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה. אותו איסור חל גם כשהלקוח ביקש יום בשבוע בודד בלי טווח (למשל "אני רוצה לצאת ביום ראשון") - לעולם אל תנחשי/תחשבי בעצמך איזה תאריך קלנדרי הוא "יום ראשון הקרוב" ותציעי אותו כעובדה מוגמרת; נראה בפועל (20.9.2027, שהוא בעצם יום שני) שהניחוש הזה יוצא שגוי. במקום זאת שאלי את הלקוח לתאריך מדויק, או אם כבר הציע תאריך קונקרטי - בדקי אותו מול טבלת ימי השבוע האמיתיים שנמסרת לך (לא מהזיכרון שלך) לפני שאת מאשרת שהוא אכן חל ביום המבוקש.
-- לפני כל שאלה על תאריכים, מספר נוסעים, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
+- לפני כל שאלה על תאריכים, מספר נוסעים, תקציב, כבודה, שדה מוצא, טיסה, לינה, רכב או מסלול, בדקי קודם את מצב החופשה המצטבר. אם הערך כבר קיים שם, השתמשי בו ואל תשאלי אותו שוב גם אם הוא לא מופיע בהודעות האחרונות.
 - תבנית ספציפית ואסורה של הכלל שלמעלה: לעולם אל תנסחי שאלה שעונה על עצמה בתוך הסוגריים או בהמשך אותו משפט - זה מבלבל ומיותר. לדוגמה, אסור: "כמה ימים אתם בקפריסין (1.7-27.6, כלומר 4 לילות)?" - אם התאריכים כבר ידועים, אל תשאלי "כמה ימים", פשוט המשיכי לשאלה הבאה שבאמת חסרה (למשל הסגנון/הקצב). דוגמה נוספת אסורה: "כמה אתם? (זוג עם ילדה בת 17, נכון?)" - אם הרכב הנוסעים כבר ידוע ב-state, אל תשאלי עליו ואל תבקשי אישור עליו כלל; המשיכי ישירות לפרט הבא. אימות/אישור של עובדה שכבר ידועה שמור אך ורק לסיכום הסופי האחד (ראו הכלל על כך למטה), לא לשאלות ביניים.
+- אישור "רק לוודא" הוא בדיוק אותה שאלה חוזרת אסורה כמו לשאול מחדש בגלוי - גם כשהיא מנוסחת כווידוא ולא כשאלה. "רק לוודא - התקציב לטיסה הוא עד 3,000 ש"ח, נכון?" או "רק כדי לוודא - אתם לוקחים גם מזוודה בבטן המטוס?" על פרט (מספר נוסעים, תקציב, כבודה וכו') שהלקוח כבר מסר במפורש וחד-משמעית, בלי שום סתירה או עמימות אמיתית בדבריו - אסורים בדיוק כמו "כמה אתם?" על הרכב נוסעים ידוע. ההבדל היחיד שמצדיק וידוא אמיתי הוא סתירה/עמימות ממשית במה שהלקוח עצמו אמר (למשל תאריך שלא תואם ליום בשבוע שציין) - לא עצם הניסוח כ"וידוא" במקום כשאלה ישירה.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
 - חריג צר אחד לכלל הסגור שלמעלה: ברגע שהלקוח ביקש במפורש תכנון מסלול (trip_planning) והמסלול אושר בפועל, אם destination_airports עדיין כולל יותר משדה תעופה אחד, זו החלטה אמיתית שטרם נשאלה - לא "פתיחה מחדש" של בחירה קיימת. missing_required יכלול במקרה הזה flight.gateway_narrow; שאלי שאלה קונקרטית אחת אם לצמצם לשדה אחד (כדי לחסוך בסריקות) או להמשיך לחפש בשני השדות/בכולם יחד, וציינו את שמות השדות הספציפיים מה-state בלבד. לאחר שהלקוח עונה (שדה ספציפי, או "שניהם"/"כולם"/"אין העדפה"), אל תשאלי שוב - זה נכנס לקטגוריית "שאלה שכבר נענתה" הרגילה.
@@ -259,7 +264,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 כללי יסוד:
 - אריאלה היא בעלת ה-state. כל פרט שהלקוח מסר וטינקרבל הבינה חייב להיכתב בשדה המתאים.
 - התחילי מה-state הקיים. שמרי כל ערך קיים שלא שונה. לעולם אל תמחקי ערך רק כי לא הוזכר שוב.
-- קיבלת את כל השיחה, לא רק את ההודעה האחרונה. ה-state הוא נקודת הפתיחה שלך, לא גבול הזיכרון שלך: אם הלקוח ציין פרט רלוונטי בכל שלב קודם בשיחה (גם לא בהודעה הנוכחית) והוא עדיין חסר ב-state, זו עובדה אמיתית שפשוט לא נשמרה - כתבי אותה עכשיו לשדה המתאים, בלי לחכות שהלקוח יחזור ויגיד את זה שוב. לעולם אל תסתרי או תחליפי ערך קיים ב-state בלי סיבה מפורשת מהלקוח; כשהלקוח שינה פרט מאוחר יותר בשיחה ("לא, בעצם X"), הגרסה המאוחרת גוברת על המוקדמת לאותו שדה.
+- קיבלת את כל השיחה, לא רק את ההודעה האחרונה. ה-state הוא נקודת הפתיחה שלך, לא גבול הזיכרון שלך: אם הלקוח ציין פרט רלוונטי בכל שלב קודם בשיחה (גם לא בהודעה הנוכחית) והוא עדיין חסר ב-state, זו עובדה אמיתית שפשוט לא נשמרה - כתבי אותה עכשיו לשדה המתאים, בלי לחכות שהלקוח יחזור ויגיד את זה שוב. לעולם אל תסתרי או תחליפי ערך קיים ב-state בלי סיבה מפורשת מהלקוח; כשהלקוח שינה פרט מאוחר יותר בשיחה ("לא, בעצם X"), הגרסה המאוחרת גוברת על המוקדמת לאותו שדה. אותו כלל בדיוק חל גם על תיקון עצמי בתוך אותה הודעה ממש ("שלום, לסביליה... לא רגע, לגרנדה") - גם כשזו ההודעה הראשונה בשיחה כולה ואין עדיין שום ערך קודם ב-state לאותו שדה: קחי תמיד את הערך הסופי שהלקוח התכוון אליו, לא את הערך הראשון שהוזכר ונזנח. כשמדובר ביעד, מומלץ (גם כשזו קביעה ראשונית, לא רק תיקון לערך קיים) למלא גם את destination_evidence עם ציטוט מהערך הסופי, כדי שלעולם לא יישאר ספק לגבי איזה מבין כמה שמות מקומות שהוזכרו הוא זה שבאמת נבחר.
 - יש state מרכזי אחד לחופשה. destination, destination_airports, return_departure_airports, departure_airport, dates, travelers, budget_per_person והעדפות טיסה הם מידע משותף בין כל הסשנים. מעבר בין flights/lodging/car/trip_planning לעולם אינו מאפס אותם ולעולם אינו מצדיק לשאול אותם שוב.
 - תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות. המסלול היומי עצמו (trip_planning.details.route) חייב תמיד מבנה קבוע אחד: מערך של אובייקט אחד לכל יום, ובכל אחד מהם מפתח "base" עם שם העיר/האזור שבו לנים באותו לילה (למשל {"day":1,"base":"פאפוס"}) - בלי קשר לניסוח החופשי שבו באמת כתבת את המסלול ללקוח. זה בדיוק כדי שלינה/רכב שנפתחים אחר כך יוכלו לקרוא את אזורי הלינה ישירות מהמסלול המאושר בלי לשאול את הלקוח שוב.
 - trip_planning.details.style (תחומי עניין/סגנון הטיול שהלקוח ציין) הוא רשימת מילים/צירופים קצרים בעברית בלבד - תרגמי את הניסוח החופשי של הלקוח לעברית (למשל "street art" -> "אמנות רחוב"), לעולם לא באנגלית כמו שהלקוח אמר. זה שונה במפורש משמות מקומות (destination.places) ושדות תעופה (destination_airports וכו'), שתמיד נשארים בדיוק כמו שהם (כולל כשהם לועזיים) - הכלל הזה חל רק על ערכי העדפה/סגנון, לא על זהות מקום.
@@ -271,9 +276,10 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
 - budget_per_person.status חייב להישאר "unknown" עד שהלקוח מסר סכום/מגבלה או אמר במפורש שאין מגבלת תקציב. אסור להסיק unlimited משתיקה, מהיעדר סכום, או כברירת מחדל.
 - כנ"ל לגבי car.details.vehicle_type: השדה נשאר ריק עד שהלקוח עצמו ציין סוג/גודל רכב (קטן, משפחתי, SUV, ג'יפ וכו'; "אוטומטי"/"ידני" שייכים ל-transmission ולא לכאן) או אמר במפורש שכל רכב מתאים לו/שאין העדפה. לעולם אל תמלאי אותו לבד ממספר הנוסעים, מהכבודה או מברירת מחדל - זה בדיוק כמו לנחש תקציב, ומונע מהלקוח לענות על שאלה שמעולם לא נשאלה.
-- lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט איך הכבודה המוזנת מתחלקת בין הנוסעים - {"checked_bag":{"count":מספר|null,"unit":"total"|"per_person"|"per_couple"|"per_child"|null}}) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
-- trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"). מאז שהשאלה הראשונה על כך נשארת פתוחה ("מה בא לך לתכנן?" ולא רשימת קטגוריות - ראו ההנחיה המקבילה ל-Tinkerbell), הלקוח כמעט לעולם לא ישתמש במילים "חופשה רגילה"/"נסיעת עסקים"/"חופשת סקי" ממש - היא מתארת את הטיול בניסוח חופשי משלה (למשל "רוצה לנסוע לבד, קצת לנוח ולטייל" = standard; "נסיעת עבודה"/"פגישות בחברה" = business; כל אזכור של סקי/אתר סקי/מעליות = ski). הביני את הקטגוריה מהתיאור החופשי הזה של הלקוח עצמו (בדיוק כמו ש-Tinkerbell כבר מתבקשת להבין מהתשובה החופשית לשאלה הפתוחה) - זו אותה הבנה סמנטית שאת מפעילה על כל שדה אחר, לא דרישה למילת קסם מדויקת. מה שנשאר אסור: לנחש trip_type מ-destination/dates/travelers עצמם (לדוגמה יעד מסוים או מספר נוסעים) כשהלקוח לא תיאר בעצמו את מטרת הטיול בכלל - אלה סימנים עקיפים מדי ולא תיאור של הלקוח. אם אין שום תיאור של מטרת/אופי הטיול, השאירי null עד שיהיה.
+- lodging.details.level ("יוקרתי"/"בינוני"/"בסיסי") ו-flight.baggage_detail (פירוט הכבודה שהוזמנה - {"checked_bag":{"count":מספר|null,"size":"קטנה"|"בינונית"|"גדולה"|null},"carry_on_only":{"count":מספר|null}}; count הוא הסך הכול שנאמר לכל הקבוצה - הזמנה היא תמיד כבודה אחידה לכל הכרטיסים, אין חלוקה שונה בין נוסעים לתעד; size רק עבור checked_bag, ורק כשנאמר בפועל - לעולם לא "גדולה" כברירת מחדל) הם שני השדות הרגישים ביותר להמצאה: את מבינה סמנטית מה הלקוח אמר, לא מחפשת מילת מפתח - אבל בדיוק בגלל זה קל לטעות ולהניח ערך שלא נאמר באמת. בכל פעם שאת כותבת ערך חדש לאחד מהשדות האלה (שונה מהערך שכבר קיים ב-state שקיבלת), מלאי גם את שדה ה-evidence המקביל (lodging.details.level_evidence / flight.baggage_detail_evidence בהתאמה): ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית של הלקוח - לא ניסוח שלך, לא סיכום, לא פרפראזה. אם אין ציטוט אמיתי כזה (ההודעה הנוכחית לא תומכת בערך הזה) - אל תכתבי את הערך בכלל, השאירי אותו כמו שהוא ב-state, ו-evidence יישאר null. ערך קיים שלא השתנה לעולם לא דורש evidence מחדש.
+- trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"). מאז שהשאלה הראשונה על כך נשארת פתוחה ("מה בא לך לתכנן?" ולא רשימת קטגוריות - ראו ההנחיה המקבילה ל-Tinkerbell), הלקוח כמעט לעולם לא ישתמש במילים "חופשה רגילה"/"נסיעת עסקים"/"חופשת סקי" ממש - היא מתארת את הטיול בניסוח חופשי משלה (למשל "רוצה לנסוע לבד, קצת לנוח ולטייל" = standard; "נסיעת עבודה"/"פגישות בחברה" = business; כל אזכור של סקי/אתר סקי/מעליות = ski). הביני את הקטגוריה מהתיאור החופשי הזה של הלקוח עצמו (בדיוק כמו ש-Tinkerbell כבר מתבקשת להבין מהתשובה החופשית לשאלה הפתוחה) - זו אותה הבנה סמנטית שאת מפעילה על כל שדה אחר, לא דרישה למילת קסם מדויקת. מה שנשאר אסור: לנחש trip_type מ-destination/dates/travelers עצמם (לדוגמה יעד מסוים או מספר נוסעים) כשהלקוח לא תיאר בעצמו את מטרת הטיול בכלל - אלה סימנים עקיפים מדי ולא תיאור של הלקוח. אם אין שום תיאור של מטרת/אופי הטיול, השאירי null עד שיהיה. בפרט, יעד שעשוי להתאים לנסיעת סקי (אזור הרים, אתר חורפי מוכר, עונת חורף) הוא בדיוק אותו סימן עקיף מדי - אסור בהחלט להסיק trip_type="ski" מהיעד ו/או מהעונה בלבד, גם כשהם מתאימים לכך באופן אינטואיטיבי; "ציריך בינואר", למשל, היא נסיעת עיר לגיטימית לגמרי ולא בהכרח חופשת סקי. כשאת קובעת trip_type="ski" (או משנה אליו מערך אחר), מלאי גם את trip_type_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שמתאר בעצמו סקי/גלישה בשלג/אתר סקי/מעליות - לא ציטוט שמזכיר רק יעד או תאריך. בלי ציטוט אמיתי כזה - אל תכתבי trip_type="ski" בכלל, השאירי אותו כפי שהיה.
 - restart_request ו-restart_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים כוונה לנטוש את התכנון הנוכחי ולחשוב על/להתחיל חופשה אחרת ונפרדת לגמרי - לא שינוי פרט בודד (יעד/תאריכים/תקציב וכו') בתוך אותה חופשה הנמשכת. הכוונה הזו נאמרת בהרבה ניסוחים, ישירים ועקיפים באותה מידה - לא רק "התחלה מחדש" מפורש: גם "בא לי בכלל לתכנן משהו אחר לגמרי", "עזבי את [היעד הנוכחי], אני רוצה לחשוב על חופשה אחרת", "רגע, תני לי לחשוב על כיוון שונה" הם בדיוק אותה כוונה כמו "אני רוצה להתחיל טיול אחר" או "חופשה חדשה ונפרדת" - הביני לפי המשמעות השלמה של המשפט (ויתור על הכיוון/היעד הנוכחי ומעבר למשהו אחר כולו), לא לפי התאמה למשפטים ספציפיים. restart_request=true רק כשההודעה הנוכחית של הלקוח (לא הודעה קודמת) היא זו שמבטאת את הכוונה הזו, ולא כשהוא רק משנה פרט אחד בחופשה הקיימת. בדיוק כמו lodging.details.level_evidence: כשrestart_request=true מלאי את restart_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; אם אין ציטוט אמיתי כזה, restart_request נשאר false ו-restart_evidence נשאר null. ברירת המחדל היא false/null.
+- link_request ו-link_request_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים בקשה לקישור/לינק ללוח החופשה שלו, לתוצאות, לדף שלו באתר, או לחזור לראות את מה שכבר נמצא לו - בכל ניסוח, ישיר ועקיף באותה מידה. לדוגמה (לא רשימה סגורה): "תשלחי לי שוב קישור ללוח?", "איפה אני רואה את הטיסות?", "אפשר את הלינק לחופשה?", "שלחי לינק לדף שלי", "לא מוצאת את מה שמצאת לי, איפה זה?" - הביני לפי המשמעות (הלקוח רוצה לעבור/לחזור לדף/לקישור של החופשה שלו), לא לפי התאמה לניסוחים האלה בדיוק. זו בקשת ניווט, לא בקשה לפרט חדש בתכנון ולא restart_request. בדיוק כמו restart_evidence: כש-link_request=true מלאי את link_request_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; בלי ציטוט אמיתי כזה, link_request נשאר false ו-link_request_evidence נשאר null. ברירת המחדל היא false/null. לעולם אל תחליטי בעצמך מה מצב החיפוש (האם הוא עדיין רץ או כבר הסתיים) - זה נקבע בקוד לפי ה-state, לא על ידך.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
 - כאשר הלקוח ביקש שאריאלה תבחר את אתר הסקי (לא ציין אתר ספציפי מהרשימה המוכרת), עדיפות ראשונה היא לדבר באופן כללי ("ליד ההר", "באזור האתר שייבחר") עד שאתר אמיתי מהקטלוג נבחר בפועל. שם אתר שהוזכר בטקסט חופשי בלבד, בלי להתבסס על ski.resort_names, אסור שייכנס ל-destination.places - זה בדיוק כמו לנחש תקציב או רכב, ובעבר הוביל לשם הר מתועתק גרוע שנשמר ככותרת החופשה בפועל.
@@ -281,7 +287,9 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17], child_genders=["female"].
 - child_genders היא רשימה מקבילה ל-child_ages, לפי אותו סדר: "female" כאשר הלקוח אמר "ילדה"/"בת", "male" כאשר אמר "ילד"/"בן", ו-null כשלא צוין מגדר לאותו ילד. לעולם אל תמחקי או תנחשי ערך שכבר קיים ברשימה הזו.
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
-- כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence.
+- כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence. בקשת שינוי שנוסחה כשאלה ("רגע, אפשר לשנות ל-4 עד 10 ביוני?", "אפשר ל-X במקום?") היא בדיוק אותה כוונה כמו משפט הצהרתי ("בעצם X") - היא עדיין בקשה אמיתית לשנות את התאריך, לא רק מחשבה בקול רם, גם כשהיא מופיעה בתוך הודעה שעונה בעיקר על שאלה אחרת לגמרי (כמו קצב הטיול) שטינקרבל שאלה באותה הודעה. אל תתני לנושא הפתוח של השאלה האחרונה להסיח את דעתך מבקשת שינוי תאריך אמיתית שמופיעה באותה הודעה - שתיהן נכתבות, כל אחת לשדה שלה.
+- כשהלקוח נותן תשובה יחסית לגבי מתי לטוס (יום/זוג ימים בשבוע, חלק מחודש כמו "סוף/תחילת/אמצע החודש" או "החודש הבא", ו/או משך כמו "שבוע"/"עשרה ימים") ו-dates.departure/dates.return עדיין ריקים ב-state - לעולם אל תחשבי תאריך קלנדרי בעצמך (לא יום בשבוע, לא איזו שנה, לא איזה יום בחודש). במקום זאת החזירי את מה שהלקוח אמר בצורה מובנית בלבד, ברמת ה-JSON העליון ליד trip_update: relative_date_hint (אובייקט, או null אם לא נאמרה שום הנחיה יחסית כזו) עם השדות: weekday_start/weekday_end (שם היום בעברית בדיוק כפי שהלקוח אמר, אם הוזכר זוג ימים ליציאה/חזרה - "ראשון"/"שני" וכו', אחרת null), month_name (שם החודש בעברית בדיוק אם נאמר מפורשות - למשל "נובמבר", אחרת null), month_relative ("next" אם נאמר "החודש הבא", "this" אם נאמר "החודש"/"החודש הזה" בלי שם חודש מפורש, אחרת null - לעולם לא גם month_name וגם month_relative יחד), part_of_month ("start"/"mid"/"end" לפי "תחילת"/"אמצע"/"סוף" שנאמר, או null אם לא נאמר חלק מהחודש), duration_days (מספר הלילות הכולל אם נאמר משך מפורש - "שבוע"=7, "שבועיים"=14, "N ימים"=N-1, "N לילות"=N - אחרת null), shift_days (מספר ימים, חיובי להזזה קדימה או שלילי להזזה אחורה, רק כאשר dates.departure/dates.return כבר קיימים ב-state וה הלקוח מבקש להזיז אותם - למשל "אפשר לזוז יום אחד קדימה?"=1, "יום לפני"=-1 - אחרת null; זו בקשת שינוי אמיתית, בדיוק כמו dates_evidence, לא "גמישות" כללית). מלאי גם relative_date_hint_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בהנחיה הזו; בלי ציטוט אמיתי כזה, relative_date_hint נשאר null כולו. זה בדיוק כמו destination_airports: את מזהה ומחזירה מה שנאמר, אף פעם לא מחשבת בעצמך איזה תאריך קלנדרי זה - החישוב עצמו (כולל השנה הנכונה) נעשה בקוד. חשוב במיוחד: באותו תור שבו את ממלאת relative_date_hint, לעולם אל תכתבי שום ערך ל-trip_update.dates.departure או trip_update.dates.return בעצמך - הם חייבים להישאר ריקים (null) בתגובה שלך, בדיוק כפי שהיו לפני התור הזה. relative_date_hint לבדו הוא הדרך היחידה להעביר את מה שהלקוח אמר; מילוי dates.departure/dates.return ישירות, אפילו כ"ניחוש" נוסף לצד relative_date_hint, סותר את ההנחיה הזו וגורם לתאריך להישמר כאילו כבר אושר - בלי שהלקוח באמת אישר אותו.
+- ציון תאריכים/ימים בשבוע/תקופה שבה טיול כלשהו כבר התקיים בעבר (למשל "לפני שנה/שנתיים/שלוש טסנו ל-X", "בפעם הקודמת היינו שם ב-", "בעבר ביקרנו ב-", "כבר נסענו אז") הוא זיכרון/הקשר בלבד - לעולם לא בקשה לתאריכי הטיול הנוכחי, גם כשהתאריכים שהוזכרו נשמעים כמו תשובה ישירה לשאלה על מתי לטוס הפעם. אל תמלאי dates_evidence, relative_date_hint או trip_update.dates (departure/return/period) מתוך משפט כזה בשום אופן - הוא נשאר ריק/null בתגובתך, והלקוח חייב לומר במפורש מה הוא רוצה עבור הטיול החדש לפני שכל אחד מהשדות האלה יתמלא.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
@@ -292,6 +300,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - כנ"ל עוד לפני הסריקה: אם כבר ציינת ללקוח (מידע כללי שלך או בדיקה שבוצעה) שליעד הזה כמעט אין טיסות ישירות מישראל, אסור לשאול שום שאלת המשך על הקונקשן - לא "ישירה או קונקשן", ולא שאלה דומה כמו "חשוב לך לצמצם את זמן ההמתנה בקונקשן, או שזה גמיש?". ברגע שנקבע שאין אפשרות ישירה אמיתית, הנושא סגור לגמרי ועוברים לשאלה הבאה שבאמת חסרה - אסור להמשיך "לחטט" בפרטי הקונקשן כשאלת נימוס או כברירת מחדל.
 - לפני שיצאה סריקה בפועל, אסור להבטיח ללקוח טיסה ספציפית ("יש לכם טיסה ישירה מנתב"ג לבנגקוק ב-15.7.2027, בדיוק מה שרצית") או לדבר על תקציב מסוים כאילו הוא כבר הושג ("תקציב של 4000 לטיסה ישירה נשמע סביר, אני אדאג לזה") - אלה טענות על תוצאה שעוד לא נבדקה. הנוסח הנכון קודם לסריקה מתייחס לבקשה/להעדפה של הלקוח בלבד ("קלטתי - טיסה ישירה, תקציב עד 4,000 ₪"), לעולם לא כאילו התוצאה כבר נמצאה או מובטחת.
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
+- הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים בקבוצה - אי אפשר להזמין סוג שונה לנוסעים שונים באותה הזמנה. לכן כשהלקוח משייך סוג כבודה שונה לנוסעים/קבוצות שונים בתוך אותה תשובה (בכל ניסוח - גם תיאור צד-לצד כמו "אני מסתדרת עם תיק קטן, השתיים האחרות רוצות מזוודה גדולה", לא רק ניגוד מפורש עם "אבל"), לעולם אל תרשמי כמה סוגים שונים ברשימה כאילו כולם רלוונטיים לכל הקבוצה - לפי ההחלטה המפורשת של בעלת העסק (20.10) בקשה כזו נפתרת מיד לפי האפשרות הגבוהה ביותר: flight.baggage=["checked_bag"] בלבד, בלי size/count (לא נאמרו בפועל לכל הקבוצה). זה שונה לגמרי ממקרה שבו הלקוח מבקש בפירוש כמה סוגים לכל הקבוצה כולה (למשל "טרולי וגם מזוודה לכולנו") - זו בקשה אחידה לשני פריטים, לא בקשה מעורבת, ונשמרת כפי שהיא.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
 - אם נאמרה מדינה או יעד רחב עם כמה שערי כניסה סבירים, אל תמציאי שדה יעד ואל תסמני את בחירת היעד לטיסה כמושלמת. destination_airports נשאר ריק עד שהלקוח בוחר אחד/כמה/כולם, או עד שמסלול שאושר קובע את שער הכניסה.
@@ -305,12 +314,17 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אל תסמני כשדה חסר שירות שהלקוח אמר שאינו רוצה.
 - ready_for_summary=true רק כאשר יש כוונת חיפוש וכל שדות החובה לשירותים המבוקשים מלאים.
 
-החזירי JSON תקין בלבד, עם ארבעת השדות restart_request/restart_evidence/dates_evidence/destination_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
+החזירי JSON תקין בלבד, עם תשעת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence/relative_date_hint/relative_date_hint_evidence/link_request/link_request_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
 {
  "restart_request":false,
  "restart_evidence":null,
  "dates_evidence":null,
  "destination_evidence":null,
+ "trip_type_evidence":null,
+ "relative_date_hint":null,
+ "relative_date_hint_evidence":null,
+ "link_request":false,
+ "link_request_evidence":null,
  "trip_update":{
   "trip_type":null,
   "travelers":{"adults":null,"children":null,"child_ages":[],"child_genders":[],"infants":null,"composition":null},
@@ -757,6 +771,70 @@ def _parse_destination_evidence(text):
     return None
 
 
+def _parse_trip_type_evidence(text):
+    """Pull trip_type_evidence (sibling of trip_update, not inside it) out
+    of the SAME raw JSON the extractor already returned every turn - mirrors
+    _parse_destination_evidence exactly. Defaults to None on any parse
+    failure - a trip_type="ski" claim is never trusted without a real quote
+    behind it (Shlomo/Shaked's live finding, 20.10.2026, Zurich r90b5:
+    trip_type was set to "ski" with no customer mention of skiing at all,
+    most likely inferred from the destination/season despite EXTRACTOR_
+    SYSTEM already forbidding exactly that)."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data.get('trip_type_evidence')
+    except Exception:
+        pass
+    return None
+
+
+def _parse_relative_date_hint(text):
+    """Pull relative_date_hint/relative_date_hint_evidence (siblings of
+    trip_update, not inside it) out of the SAME raw JSON the extractor
+    already returned every turn - mirrors _parse_destination_evidence.
+    Defaults to (None, None) on any parse failure - a relative-date hint
+    is never assumed.
+
+    Per Shlomo's relay of the business owner's explicit direction
+    (20.10.2026, review of the first version of this fix): the model
+    decides meaning (which weekday/month/part/duration the customer
+    named), never a regex matched against raw text - the regex-based
+    _deterministic_period_facts may only ever be a FALLBACK for when this
+    structured extraction itself fails, never the primary detection path."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            hint = data.get('relative_date_hint')
+            return (hint if isinstance(hint, dict) else None), data.get('relative_date_hint_evidence')
+    except Exception:
+        pass
+    return None, None
+
+
+def _parse_link_request_signal(text):
+    """Pull link_request/link_request_evidence (siblings of trip_update, not
+    inside it) out of the SAME raw JSON the extractor already returned every
+    turn - mirrors _parse_restart_signal exactly. Defaults to (False, None)
+    on any parse failure - a link request is never assumed."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return bool(data.get('link_request')), data.get('link_request_evidence')
+    except Exception:
+        pass
+    return False, None
+
+
 def _parse_trip_update(text):
     raw = str(text or '').strip()
     if raw.startswith('```'):
@@ -941,6 +1019,317 @@ def _correct_route_day_weekdays(text, state):
         return f"{prefix}{day_s}.{month_s}{('.' + year_s) if year_s else ''}{mid}{correct_word}{suffix}"
 
     return _ROUTE_DAY_WEEKDAY_RE.sub(_replace, text)
+
+
+_DATE_OPTIONS_PLACEHOLDER = "{{DATE_OPTIONS}}"
+_DATES_PLACEHOLDER = "{{DATES}}"
+
+
+def _dates_truth_hint(state):
+    """Per the business owner's explicit structural directive (stage-1
+    run-4, Tallinn - the FOURTH live failure of this exact bug class,
+    after three prior attempts at a word/hint-based defense): Tinkerbell
+    never writes a calendar date herself at all during flight-date
+    collection, full stop - not even correctly. Instead she writes the
+    literal placeholder {_DATES_PLACEHOLDER} (the confirmed dates) or
+    {_DATE_OPTIONS_PLACEHOLDER} (the pending candidate options), and
+    _render_date_placeholders below substitutes it with text built
+    directly from trip_update's own FINAL dates this turn - after every
+    extraction/merge/acceptance step has already run. This guarantees
+    the displayed text and the actually-saved state can never drift
+    apart (the exact Tallinn bug: an option labeled "21.11-30.11" saved
+    after "כן" as "21.11-01.12") - both are the same single value, read
+    once, not two independently-computed strings. _retry_if_dates_
+    invented below stays as a structural backstop for the rare case
+    Tinkerbell writes a literal date anyway despite this instruction.
+
+    Scoped to the flights stage only (active_session == "flights") -
+    never during trip_planning/route building, which legitimately needs
+    real per-day literal dates in the itinerary text itself."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("active_session") != "flights":
+        return ""
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if dates.get("needs_confirmation"):
+        candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
+        if not candidates:
+            return ""
+        return (
+            "\nתאריכי הטיול עדיין לא אושרו בפועל - יש אפשרויות ממתינות. לעולם אל תכתבי שום תאריך "
+            "קלנדרי בעצמך בתשובה הזו (לא יום בחודש, לא שם חודש, לא מספר) - לא עבור האפשרויות "
+            f"הממתינות ולא כתגובה לבקשת שינוי קטנה (\"יום קודם\"/\"להקדים\"/\"להזיז\"). כשאת רוצה "
+            f"להציג את האפשרויות הממתינות, כתבי אך ורק את המחרוזת המדויקת {_DATE_OPTIONS_PLACEHOLDER} "
+            "(בדיוק כך, עם הסוגריים הכפולים, בלי תאריך נוסף לידה) - הקוד יחליף אותה אוטומטית בטקסט "
+            "האמיתי. אם אין לך כרגע אפשרות מעודכנת שתואמת בדיוק את מה שהלקוח ביקש (למשל ביקש שינוי "
+            f"שעדיין לא חושב), אל תכתבי {_DATE_OPTIONS_PLACEHOLDER} בכלל - שאלי כדי לוודא במקום."
+        )
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    if not dep_raw or not ret_raw:
+        return ""
+    try:
+        date.fromisoformat(dep_raw)
+        date.fromisoformat(ret_raw)
+    except ValueError:
+        return ""
+    return (
+        "\nהתאריכים כבר שמורים ומאושרים בפועל. לעולם אל תכתבי שום תאריך קלנדרי בעצמך בתשובה הזו - "
+        f"כשאת רוצה להזכיר ללקוח את התאריכים השמורים, כתבי אך ורק את המחרוזת המדויקת {_DATES_PLACEHOLDER} "
+        "(בדיוק כך, עם הסוגריים הכפולים, בלי תאריך נוסף לידה) - הקוד יחליף אותה אוטומטית בטקסט האמיתי. "
+        "בקשת שינוי/הזזה של התאריכים האלה מחושבת אך ורק בקוד - לעולם אל תצהירי על תאריך חדש בעצמך ואל "
+        f"תכתבי {_DATES_PLACEHOLDER} אם בפועל שום עדכון עדיין לא אושר; שאלי לוודא במקום."
+    )
+
+
+# Per Shlomo's relay of Shaked's review of PR #113's first version: only
+# the EXACT literal string "{{DATES}}"/"{{DATE_OPTIONS}}" ever got
+# substituted - a model variant with different spacing/brace count
+# ("{{ DATES }}", "{DATES}") went out to the customer completely raw.
+# Lenient on brace count (one or two) and inner spacing, strict on the
+# token name itself - never mistaken for ordinary customer-facing text in
+# curly braces (which never otherwise appears in a reply at all).
+_DATE_PLACEHOLDER_RE = re.compile(r"\{\{?\s*(DATES|DATE_OPTIONS)\s*\}?\}")
+
+
+def _render_date_placeholders(reply, state):
+    """Substitutes any {_DATES_PLACEHOLDER}/{_DATE_OPTIONS_PLACEHOLDER}-
+    shaped token (see _DATE_PLACEHOLDER_RE and _dates_truth_hint's own
+    docstring) with text rendered directly from state's own final dates
+    this turn - the single source of truth both for what gets displayed
+    and for what "כן" later confirms.
+
+    Returns (text, had_unresolved). Per Shlomo's relay of Shaked's review:
+    when a token has no matching value in state right now (dates not
+    actually confirmed yet / no real pending candidates), the token is
+    NEVER left raw and NEVER substituted with empty text in place (which
+    produced artifacts like "תאריכים: ." live) - the WHOLE sentence that
+    contained it is dropped instead, so no half-built fragment ever
+    reaches the customer. had_unresolved=True tells the caller to retry
+    the whole reply once with a corrective hint (the same _date_retry
+    mechanism _retry_if_dates_invented already uses) rather than silently
+    accept a reply missing a sentence."""
+    text = str(reply or "")
+    if not _DATE_PLACEHOLDER_RE.search(text):
+        return text, False
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+
+    def _resolve(token):
+        if token == "DATES":
+            dep_raw = str(dates.get("departure") or "")[:10]
+            ret_raw = str(dates.get("return") or "")[:10]
+            try:
+                dep = date.fromisoformat(dep_raw)
+                ret = date.fromisoformat(ret_raw)
+            except ValueError:
+                return None
+            return (
+                f"יום {_WEEKDAY_HE_BY_PY[dep.weekday()]} {dep.strftime('%d.%m.%Y')}"
+                f"–יום {_WEEKDAY_HE_BY_PY[ret.weekday()]} {ret.strftime('%d.%m.%Y')}"
+            )
+        candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
+        return " או ".join(str(c) for c in candidates) if candidates else None
+
+    had_unresolved = False
+    out_sentences = []
+    for sentence, term in _split_sentences(text):
+        tokens = _DATE_PLACEHOLDER_RE.findall(sentence)
+        if not tokens:
+            out_sentences.append((sentence, term))
+            continue
+        resolved = {t: _resolve(t) for t in set(tokens)}
+        if any(v is None for v in resolved.values()):
+            had_unresolved = True
+            continue
+        out_sentences.append((_DATE_PLACEHOLDER_RE.sub(lambda m: resolved[m.group(1)], sentence), term))
+    return "".join(s for s, _t in out_sentences), had_unresolved
+
+
+_DATE_TOKEN_RE = re.compile(r"(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)")
+
+
+def _mentioned_date_day_months(text):
+    """Every plausible (day, month) date-like token mentioned in free text,
+    by FORMAT alone (a number, a separator, a number) - never by matching
+    words or phrases, exactly as the business owner directed. Deliberately
+    permissive (day/month bounds only) - a stray decimal number occasionally
+    matching this shape is an accepted tradeoff for a structural, format-
+    based check instead of a brittle word list."""
+    out = []
+    for d_s, m_s, _y_s in _DATE_TOKEN_RE.findall(str(text or "")):
+        try:
+            d, m = int(d_s), int(m_s)
+        except ValueError:
+            continue
+        if 1 <= d <= 31 and 1 <= m <= 12:
+            out.append((d, m))
+    return out
+
+
+def _valid_trip_date_day_months(dates, message=None, history=None):
+    """The complete set of (day, month) pairs Tinkerbell is allowed to
+    mention this turn. Per Shaked's review of the first version of this
+    fix (two real false positives it caused, badly - a wasteful retry
+    that ended up WIPING the itinerary's own dates): a route/itinerary
+    day mention ("יום 2 (7.4)") names a real date somewhere INSIDE the
+    confirmed trip span, not necessarily one of its two endpoints - and a
+    date the CUSTOMER themselves already mentioned (e.g. "בקיץ שעבר
+    3.7–7.7", an unrelated past trip) is never an invention when
+    Tinkerbell echoes it back. So this now includes:
+    - every day within the confirmed [departure..return] span inclusive
+      (not just the two endpoints);
+    - every candidate_ranges option's own start/end dates, while pending;
+    - every date-shaped token already present in the customer's OWN
+      messages (this turn's message, plus every prior user-role turn in
+      history) - Tinkerbell can never be "inventing" something the
+      customer already put on the table herself.
+    Year is deliberately ignored (casual phrasing often omits it)."""
+    dates = dates if isinstance(dates, dict) else {}
+    valid = set()
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    try:
+        dep = date.fromisoformat(dep_raw)
+        ret = date.fromisoformat(ret_raw)
+        if dep <= ret and (ret - dep).days <= 180:
+            d = dep
+            while d <= ret:
+                valid.add((d.day, d.month))
+                d += timedelta(days=1)
+    except ValueError:
+        pass
+    for label in (dates.get("candidate_ranges") or []):
+        for d_s, m_s, _y_s in re.findall(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", str(label)):
+            valid.add((int(d_s), int(m_s)))
+    customer_texts = [message] if message else []
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            customer_texts.append(item.get("content"))
+    for text in customer_texts:
+        valid.update(_mentioned_date_day_months(text))
+    return valid
+
+
+_NUMERIC_DATE_RANGE_RE = re.compile(
+    r"(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s*(?:[-–]|עד)\s*(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)"
+)
+
+
+def _mentioned_date_ranges(text):
+    """Every explicit date RANGE mentioned in free text, as a (start, end)
+    pair of (day, month) tuples - by format alone, never words. Catches a
+    subtler invented-date shape _mentioned_date_day_months alone misses
+    (Shaked's stage-1 run-3 direct report, Thessaloniki second finding): a
+    reply that stitches together two DIFFERENT real dates - each one
+    individually valid on its own (one candidate's start, another
+    candidate's own, different, start) - into a range that doesn't
+    correspond to any single whole valid option at all. Covers both a
+    plain numeric range ("27.11–6.12") and the common Hebrew phrasing
+    sharing one month name for both days ("21-28 בנובמבר") - reusing
+    _HEBREW_MONTH_RANGE_RE/_HEBREW_MONTHS, already built for the same
+    phrasing elsewhere in this file."""
+    text = str(text or "")
+    ranges = []
+    for d1, m1, _y1, d2, m2, _y2 in _NUMERIC_DATE_RANGE_RE.findall(text):
+        try:
+            ranges.append(((int(d1), int(m1)), (int(d2), int(m2))))
+        except ValueError:
+            pass
+    for d1, d2, month_name, _y in re.findall(_HEBREW_MONTH_RANGE_RE, text):
+        month = _HEBREW_MONTHS.get(month_name)
+        if month:
+            ranges.append(((int(d1), month), (int(d2), month)))
+    return ranges
+
+
+def _valid_trip_date_ranges(dates, message=None, history=None):
+    """The complete set of valid WHOLE ranges (each a (day,month)-(day,month)
+    pair), checked as a single unit rather than by independent endpoint
+    membership (see _mentioned_date_ranges's own docstring). Per Shaked's
+    review: scoped to candidate_ranges ONLY, never the confirmed
+    departure-return pair itself - once dates are confirmed, all sorts of
+    other legitimate ranges get mentioned (an itinerary's own day spans,
+    a customer's own past-trip dates) that have no reason to equal the
+    whole trip span; the per-token check in _valid_trip_date_day_months
+    already independently catches an invented SHIFTED range via its own
+    endpoints, so nothing is lost by not also range-checking against the
+    confirmed pair here. Also includes any WHOLE range the customer
+    themselves already mentioned (e.g. "בקיץ שעבר 3.7–7.7") - Tinkerbell
+    echoing it back is never an invention of her own."""
+    dates = dates if isinstance(dates, dict) else {}
+    valid = set()
+    for label in (dates.get("candidate_ranges") or []):
+        pts = re.findall(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", str(label))
+        if len(pts) >= 2:
+            (d1, m1, _y1), (d2, m2, _y2) = pts[0], pts[1]
+            valid.add(((int(d1), int(m1)), (int(d2), int(m2))))
+    customer_texts = [message] if message else []
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            customer_texts.append(item.get("content"))
+    for text in customer_texts:
+        valid.update(_mentioned_date_ranges(text))
+    return valid
+
+
+def _retry_if_dates_invented(key, model, history, message, state, reply):
+    """Structural safety net (date FORMAT, not words) for when
+    _dates_truth_hint's own instruction still isn't followed. Two signals,
+    both format-based:
+    - any date-shaped TOKEN matching neither the real confirmed dates nor
+      a real pending candidate (catches the original Thessaloniki shift:
+      departure/return each invented in a separate clause); and
+    - any explicit date RANGE that doesn't match a whole valid range unit
+      (catches the subtler Thessaloniki candidate-mixing case: a range
+      stitched from two DIFFERENT real dates, each individually valid on
+      its own but never offered together as one option).
+    Either signal calls Tinkerbell again EXACTLY ONCE with a corrective
+    hint describing the mismatch, and that second reply is used as-is -
+    never a silent word-based rewrite of the first reply, and never more
+    than one retry (the caller passes _date_retry=True on the recursive
+    call, which skips this check).
+
+    Per Shaked's review: scoped to the flights stage only
+    (active_session == "flights") - never during trip_planning/route
+    building, where an itinerary legitimately names many real per-day
+    dates that have no reason to be the trip's own departure/return."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("active_session") != "flights":
+        return None
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    valid = _valid_trip_date_day_months(dates, message, history)
+    if not valid:
+        return None
+    invented = [dm for dm in _mentioned_date_day_months(reply) if dm not in valid]
+    bad_ranges = []
+    if dates.get("needs_confirmation"):
+        # The candidate-mixing shape can only arise while there are real
+        # candidates to mix up in the first place. Once dates are already
+        # confirmed, there is exactly one valid pair, and restating it as
+        # an explicit range ("28.11.2026 עד 05.12.2026") is always fine as
+        # long as both endpoints are individually valid - which the
+        # per-token check above already verifies on its own; range-
+        # checking against candidate_ranges here would otherwise wrongly
+        # flag that same legitimate restatement once candidate_ranges is
+        # empty (confirmed dates have nothing left to range-check against).
+        valid_ranges = _valid_trip_date_ranges(dates, message, history)
+        bad_ranges = [
+            r for r in _mentioned_date_ranges(reply)
+            if r not in valid_ranges and (r[1], r[0]) not in valid_ranges
+        ]
+    if not invented and not bad_ranges:
+        return None
+    bad_parts = [f"{d:02d}.{m:02d}" for d, m in invented]
+    bad_parts += [f"{s[0]:02d}.{s[1]:02d}–{e[0]:02d}.{e[1]:02d}" for s, e in bad_ranges]
+    bad = ", ".join(bad_parts)
+    state2 = dict(state)
+    state2["_date_hallucination_correction_hint"] = (
+        f"בתשובה הקודמת שלך ציינת תאריך/טווח ({bad}) שאינו תואם אף אחד מהתאריכים האמיתיים כמות שהם - "
+        "לא התאריכים השמורים ולא אחת מהאפשרויות הממתינות השלמות. נסחי את התשובה הזו מחדש בלי להמציא "
+        "תאריך, ובלי לערבב תאריכים מאפשרויות שונות לטווח חדש - אם הלקוח ביקש שינוי שעדיין לא מחושב "
+        "בקוד, שאלי לוודא במקום לקבוע תאריך בעצמך."
+    )
+    return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
 
 
 def _total_nights_hint(state):
@@ -2311,7 +2700,7 @@ def _departure_question(state):
         return f"נטוס מ{names[0]}?"
     if names:
         return "מאיזה שדה נטוס - " + ", ".join(names[:-1]) + " או " + names[-1] + "?"
-    return "מאיזה שדה תעופה תרצי לטוס?"
+    return _g((state or {}).get("user_gender"), "מאיזה שדה תעופה תרצה לטוס?", "מאיזה שדה תעופה תרצי לטוס?")
 
 
 def _flight_connection_line(flight):
@@ -2325,39 +2714,59 @@ def _flight_connection_line(flight):
 
 
 def _checked_bag_label(detail):
-    """Builds the checked-bag summary label from structured {count, unit}
+    """Builds the checked-bag summary label from structured {count, size}
     data (added 2026-10-17 per Shaked's review of #78/the 014a baggage
     field: a bare shared/not-shared boolean silently dropped the actual
-    COUNT and the real UNIT the customer stated - "שתי מזוודות לכולנו" and
-    "מזוודה אחת לכל זוג" both collapsed to the same "one shared suitcase"
-    label. unit is one of "per_person"/"per_couple"/"per_child"/"total"/None
-    (quantity stated but the split is genuinely unclear - never guessed as
-    "one"). Falls back to the classic per-passenger phrasing with no detail
-    at all.
+    COUNT the customer stated - "שתי מזוודות לכולנו" and "מזוודה אחת"
+    both collapsed to the same "one shared suitcase" label). Falls back
+    to the classic per-passenger phrasing with no detail at all.
 
-    per_child (per Shaked's live finding, qa/reports/2026-10-18-stage3-
-    run4.md, "וטרולי לכל ילד"): distinct from per_person - a bag "per
-    child" is never the same fact as "per every traveler", adults
-    included. Without this explicit category the model had nothing closer
-    than per_person to pick, and the summary wrongly claimed every
-    traveler gets one."""
+    size (per Shlomo's priority-5 finding, 20.10, s12x10): "בינונית"
+    (medium) was shown back as the hardcoded "גדולה" (large) regardless
+    of what the customer actually said - size was never tracked anywhere
+    at all. Now used when the customer stated one; when they didn't, the
+    size adjective is simply omitted rather than invented. bag_word_plural
+    mirrors bag_word for the plural case, with the size adjective itself
+    pluralized (קטנה/בינונית/גדולה -> קטנות/בינוניות/גדולות - Hebrew
+    feminine plural, matching "מזוודות").
+
+    Per the business owner's directive (20.10, relayed by Shlomo): a
+    booking is always ONE uniform baggage choice for every ticket in the
+    group (a group booking can never split differently per passenger,
+    short of two separate bookings) - so there is no per-passenger "unit"
+    (per_person/per_adult/per_couple/per_child/total) to label at all
+    anymore; count is simply the total stated for the whole group, and
+    the only default assumption is "one checked bag per ticket" when no
+    count was stated."""
     detail = detail if isinstance(detail, dict) else {}
     count = detail.get("count")
     count = count if isinstance(count, int) and count > 0 else None
-    unit = detail.get("unit")
-    if unit == "total":
-        return "מזוודה אחת משותפת לכל הנוסעים" if not count or count == 1 else f"{count} מזוודות משותפות לכל הנוסעים"
-    if unit == "per_couple":
-        return "מזוודה אחת לכל זוג" if not count or count == 1 else f"{count} מזוודות לכל זוג"
-    if unit == "per_child":
-        return "מזוודה אחת לכל ילד" if not count or count == 1 else f"{count} מזוודות לכל ילד"
-    if unit == "per_person":
-        return "מזוודה גדולה לכל נוסע" if not count or count == 1 else f"{count} מזוודות לכל נוסע"
+    size = detail.get("size")
+    size = size if size in ("קטנה", "בינונית", "גדולה") else None
+    bag_word = f"מזוודה {size}" if size else "מזוודה"
+    size_plural = {"קטנה": "קטנות", "בינונית": "בינוניות", "גדולה": "גדולות"}.get(size)
+    bag_word_plural = f"מזוודות {size_plural}" if size_plural else "מזוודות"
     if count and count > 1:
-        # A real count was stated but how it splits across the party is
-        # genuinely unclear - state the number honestly rather than guess.
-        return f"{count} מזוודות"
-    return "מזוודה גדולה לכל נוסע"
+        return f"{count} {bag_word_plural}"
+    return f"{bag_word} אחת לכל נוסע"
+
+
+def _carry_on_label(detail):
+    """Mirrors _checked_bag_label for carry_on_only - count tracking, no
+    size (a cabin bag's physical size isn't a fact customers state the way
+    checked-bag size is, and was never reported as an issue), and no
+    per-passenger default the way checked_bag has: with no count stated at
+    all, the existing flat _BAGGAGE_HE label is used instead - there is no
+    established "assume one per traveler" assumption for carry_on the way
+    checked_bag already has (see its own qa-s83 history)."""
+    detail = detail if isinstance(detail, dict) else {}
+    count = detail.get("count")
+    count = count if isinstance(count, int) and count > 0 else None
+    if count is None:
+        return _BAGGAGE_HE.get("carry_on_only", "טרולי")
+    if count == 1:
+        return "טרולי אחד"
+    return f"{count} טרולים"
 
 
 def _flight_baggage_line(flight):
@@ -2441,6 +2850,20 @@ def _flight_dates_line(dates) -> str | None:
     if not (dep and ret):
         return None
     return f"תאריכים: {_he_date_ddmmyyyy(dep)} – {_he_date_ddmmyyyy(ret)}"
+
+
+# Per Shlomo's relay of Shaked's review of PR #113: matches the "תאריכים:"
+# label and whatever value follows it, up to (not including) the next real
+# boundary - another known summary label, the approval-request phrase, a
+# newline, or the end of the text. Used directly against the full text in
+# _ensure_flight_summary_completeness, never via _split_sentences - a dates
+# value always ends in a 4-digit year, and _SENTENCE_BOUNDARY_RE's own
+# digit-adjacency guard (there to avoid splitting INSIDE a date like
+# "15.4.2027") also suppresses the sentence boundary right after it,
+# merging the dates line with whatever comes next into one "sentence".
+_SUMMARY_DATES_LABEL_RE = re.compile(
+    r"תאריכים:.*?(?=[.!?]?\s*(?:כבודה:|תקציב|כתבי מאשרת|כתוב מאשר|מאשר/מאשרת|\n|\Z))", re.DOTALL,
+)
 
 
 def _flight_travelers_line(travelers) -> str | None:
@@ -2611,6 +3034,79 @@ def _ensure_flight_summary_completeness(reply, state):
         if len(kept) != len(sentences):
             text = "".join(s for s, _t in kept)
 
+    # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin,
+    # exact transcript): "אני ואמא מסתדרות עם תיק קטן, לאחיין צריך
+    # מזוודה" was saved correctly in state as the single uniform choice
+    # (['checked_bag']), but the free-text summary read "כבודה: תיק קטן
+    # לכל אחת מכן, מזוודה בבטן המטוס לאחיין" - a booking is always one
+    # uniform choice for the whole group, never split differently per
+    # passenger, however the model phrases it.
+    #
+    # Two earlier heuristic attempts (bare "ל<word>" repetition, then 2+
+    # DISTINCT baggage-type words excluding an explicit "for everyone"
+    # marker) both still missed real live cases - a second live transcript
+    # (Tbilisi) split the SAME type word per passenger instead of two
+    # different ones, which neither heuristic ever covered. Per Shaked's
+    # review: no content detection at all - the final summary's baggage
+    # line always starts with the fixed "כבודה:" label (see
+    # _flight_baggage_line/_flight_summary_text's own wording), so
+    # whichever sentence starts with it is unconditionally replaced with
+    # the canonical line, regardless of what it says - in the exact place
+    # it already was, never moved, never duplicated. A sentence that
+    # conveys baggage WITHOUT that literal label (e.g. "טיסה: טרולי לכל
+    # נוסע, תקציב 1500 ₪") is untouched here - it's covered by the
+    # separate "missing" check below instead, which only checks presence.
+    canonical_baggage_line = _flight_baggage_line(flight)
+    if canonical_baggage_line:
+        sentences = _split_sentences(text)
+        for i, (s, term) in enumerate(sentences):
+            # The "כבודה:" label doesn't always open its own sentence - a
+            # run-on reply can fold it after an intro clause in the same
+            # sentence ("סיכום בקשת הטיסה: כבודה: ..."), with no period
+            # between them. Keep whatever precedes the label untouched and
+            # replace only from the label itself to the sentence's end.
+            label_idx = s.find("כבודה:")
+            if label_idx == -1:
+                continue
+            if s[label_idx:].strip() == canonical_baggage_line.strip():
+                break
+            prefix = s[:label_idx]
+            sentences[i] = (f"{prefix}{canonical_baggage_line}{term}", term)
+            text = "".join(st for st, _t in sentences)
+            break
+
+    # Per Shlomo's relay of Shaked's review of PR #113 (stage-1 run-4,
+    # Tallinn): the placeholder architecture above (_dates_truth_hint/
+    # _render_date_placeholders/_retry_if_dates_invented) is scoped to
+    # active_session=="flights" only - the FINAL summary turn runs with
+    # active_session already None (every domain closed), so none of it
+    # ever ran there. A summary line like "תאריכים: 20.11.2026 – 30.11.2026"
+    # could still go out to the customer unchanged even while state actually
+    # holds a different, already-drifted pair - the exact Tallinn symptom,
+    # just one turn later. Same unconditional-canonical-line-replace
+    # PRINCIPLE as the baggage block above (PR #108): the "תאריכים:" label's
+    # own value is always replaced with the one built directly from state's
+    # own departure/return, regardless of what it said.
+    #
+    # Unlike the baggage line, a dates VALUE always ends in a 4-digit year -
+    # when a "." immediately follows it (ending the sentence, as Tinkerbell's
+    # own writing naturally would), _SENTENCE_BOUNDARY_RE's own digit-
+    # adjacency guard (there to avoid splitting INSIDE a date like
+    # "15.4.2027") also suppresses the boundary AFTER it, merging the dates
+    # sentence with whatever comes next (e.g. "...2026. כתבי מאשרת?") into
+    # ONE span - replacing "from the label to the sentence's end" the way
+    # the baggage block does would then eat real, unrelated content past
+    # the date. Matched directly against the full text instead: from the
+    # "תאריכים:" label up to (not including) the next real boundary - either
+    # another known label, the approval-request phrase, a newline, or the
+    # end of the text - never relying on sentence splitting at all.
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    canonical_dates_line = _flight_dates_line(dates)
+    if canonical_dates_line:
+        m = _SUMMARY_DATES_LABEL_RE.search(text)
+        if m and m.group(0).strip() != canonical_dates_line.strip():
+            text = text[: m.start()] + canonical_dates_line + text[m.end() :]
+
     missing = []
     if _flight_budget_sentence_index(_split_sentences(text)) is None:
         line = _flight_budget_line(budget)
@@ -2623,8 +3119,21 @@ def _ensure_flight_summary_completeness(reply, state):
     # Stage-3 run-2 (Shaked, Athens): dates genuinely known in state went
     # missing from Tinkerbell's own free-text summary - same inconsistent-
     # omission class as budget/baggage above, just never checked before.
-    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
-    if not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text):
+    #
+    # Per Shaked's live-testing repro (Bologna, r90b2, 20.10.2026): this
+    # check only ever recognized the DD.MM.YYYY numeric format - Tinkerbell
+    # had already confirmed the new dates in her own reply using a Hebrew
+    # month name ("4 עד 10 ביוני", no digit-dot-digit-dot-year pattern
+    # anywhere), so this still thought dates were "missing" and appended
+    # ITS OWN state-based line right alongside the one already there,
+    # producing two contradicting date lines in the same summary - exactly
+    # the class of bug this function's own docstring promises never to
+    # cause ("never touches a fact that is already mentioned, however it
+    # was phrased"). Recognize the Hebrew month-name form too (the same
+    # regex the date parser itself uses), not just the digit format.
+    # (dates itself is already defined above, by the canonical-line-replace
+    # block.)
+    if not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text) and not re.search(_HEBREW_MONTH_DATE_RE, text):
         line = _flight_dates_line(dates)
         if line:
             missing.append(line)
@@ -2665,8 +3174,9 @@ def _flight_gap_question(gaps, state=None):
     same real, concrete question instead of a generic "something is
     missing" line the customer has no way to act on."""
     gaps = gaps or []
+    _gender = (state or {}).get("user_gender")
     if "destination_airports" in gaps:
-        return "באיזה שדה תרצי לנחות בהלוך?"
+        return _g(_gender, "באיזה שדה תרצה לנחות בהלוך?", "באיזה שדה תרצי לנחות בהלוך?")
     if "flight.gateway_narrow" in gaps:
         codes = (state or {}).get("destination_airports") or []
         names = _airport_labels(codes)
@@ -2682,11 +3192,13 @@ def _flight_gap_question(gaps, state=None):
         # not "narrow to one, or keep searching both?" - the possible answer
         # shapes are given as a separate, non-question sentence.
         return (
-            f"יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). לאיזה מהם תרצי שאחפש? "
+            f"יש כמה שדות תעופה אפשריים ליעד הזה ({listed}). לאיזה מהם {_g(_gender, 'תרצה', 'תרצי')} שאחפש? "
             "אפשר גם שדה מסוים אחד ואפשר גם בשניהם יחד."
         )
     if "return_departure_airports" in gaps:
-        return "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?"
+        return _g(_gender,
+                  "ציינת שתרצה לחזור משדה אחר. מאיזה שדה תרצה לצאת בחזור?",
+                  "ציינת שתרצי לחזור משדה אחר. מאיזה שדה תרצי לצאת בחזור?")
     if "budget_per_person" in gaps:
         # Open question - "no budget limit" is still a perfectly natural
         # free-form answer, already recognized regardless of how the
@@ -2704,9 +3216,9 @@ def _flight_gap_question(gaps, state=None):
         # appear in the question itself (see _deterministic_trip_type_facts).
         return "איזה סוג נסיעה זו?"
     if "destination" in gaps:
-        return "לאן תרצי לטוס?"
+        return _g(_gender, "לאן תרצה לטוס?", "לאן תרצי לטוס?")
     if "dates" in gaps:
-        return "מתי תרצי לצאת ולחזור?"
+        return _g(_gender, "מתי תרצה לצאת ולחזור?", "מתי תרצי לצאת ולחזור?")
     if "travelers" in gaps:
         return "כמה נוסעים, ומי מבוגר ומי ילד?"
     if "travelers.child_ages" in gaps:
@@ -2724,7 +3236,7 @@ def _flight_gap_question(gaps, state=None):
     missing_service = next((g.split(".",1)[1] for g in gaps if g.startswith("service_decisions.")), None)
     if missing_service:
         labels = {"lodging":"גם לינה","car":"גם רכב שכור","trip_planning":"גם תכנון מסלול ואטרקציות"}
-        return f"תרצי {labels.get(missing_service, missing_service)} לחופשה הזו?"
+        return f"{_g(_gender, 'תרצה', 'תרצי')} {labels.get(missing_service, missing_service)} לחופשה הזו?"
     if gaps:
         return "חסר לי עוד פרט אחד בבקשת הטיסה. נשלים אותו ואז אציג שוב סיכום לאישור."
     return None
@@ -3130,7 +3642,44 @@ def _strip_leaked_internal_paragraph(text):
     kind of deterministic net rather than trusting the instruction alone.
     Only strips when there is a clear paragraph break AND the leading
     paragraph contains an unambiguous technical/meta marker, so an ordinary
-    short opening line is never touched."""
+    short opening line is never touched.
+
+    Per Shlomo's priority-2 finding (20.10, stage-1/2 regression, s12x2,
+    Amsterdam): the model's own internal reasoning, in ENGLISH ("Wait, this
+    is already known - let me check. Actually the state shows baggage..."),
+    leaked as the reply's leading paragraph the same way, followed by the
+    real Hebrew customer-facing reply as the second paragraph. No Hebrew
+    meta-marker word ever appears in it, so the check above alone misses
+    it entirely. TINKERBELL_SYSTEM already requires the ENTIRE reply to be
+    Hebrew-only once the customer writes Hebrew - a leading paragraph that
+    is itself substantially Latin-script, immediately followed by a
+    genuinely Hebrew paragraph, is exactly that same violation in its most
+    severe form. Detected by script ratio (the same category of check
+    _strip_mixed_script_garble/_strip_mixed_hebrew_latin_token already use
+    for narrower, single-token glitches), not by matching specific English
+    phrases - a minimum letter count on both sides keeps a short, ordinary
+    foreign place/airport name as its own opening line from ever being
+    mistaken for this.
+
+    Per Shaked's PR #90 review (20.10): the script-ratio check alone was too
+    blunt - it also stripped a genuinely Latin-heavy but entirely
+    LEGITIMATE leading paragraph, such as a hotel name/address ("Hotel Arts
+    Barcelona, Carrer de la Marina 19-21") or a pair of airport names
+    ("Lisbon (LIS) / Porto (OPO)"), whenever the customer-facing Hebrew
+    paragraph happened to follow it - exactly the business owner's standing
+    rule (place/airport names are allowed in English, and that information
+    must never disappear). The real distinguishing signal between actual
+    leaked ENGLISH PROSE and a list of proper nouns is capitalization
+    pattern: ordinary English sentences are mostly lowercase words (only
+    the first word of each sentence, and genuine proper nouns, capitalized),
+    while a name/address/airport-pair is built almost entirely out of
+    capitalized words with at most a short lowercase connector ("de"/"la").
+    Measured against real examples (Shaked): a genuine leak scores
+    0.85-0.89 on the share of English words starting lowercase, the hotel
+    address scores 0.29, and the airport pair scores 0.0 - so this is
+    required IN ADDITION to the script-ratio check above, not instead of
+    it, with its own floor (at least 4 English words) so a too-short lead
+    is never judged on too little evidence."""
     import re
     parts = re.split(r'\n\s*\n', str(text or ""), maxsplit=1)
     if len(parts) != 2:
@@ -3139,9 +3688,91 @@ def _strip_leaked_internal_paragraph(text):
     if not lead or len(rest) < 10:
         return text
     meta_markers = ("פורמט", "תבנית", "שגיאה", "error", "exception")
-    if not any(m in lead for m in meta_markers):
+    if any(m in lead for m in meta_markers):
+        return rest
+    lead_letters = re.findall(r"[^\W\d_]", lead, flags=re.UNICODE)
+    rest_letters = re.findall(r"[^\W\d_]", rest, flags=re.UNICODE)
+    if len(lead_letters) >= 15 and len(rest_letters) >= 15:
+        lead_latin_ratio = sum(1 for c in lead_letters if re.match(r"[A-Za-z]", c)) / len(lead_letters)
+        rest_hebrew_ratio = sum(1 for c in rest_letters if re.match(r"[א-ת]", c)) / len(rest_letters)
+        if lead_latin_ratio > 0.6 and rest_hebrew_ratio > 0.6:
+            lead_words = re.findall(r"[A-Za-z][A-Za-z'-]*", lead)
+            if len(lead_words) >= 4:
+                lowercase_start_ratio = sum(1 for w in lead_words if w[0].islower()) / len(lead_words)
+                if lowercase_start_ratio > 0.6:
+                    return rest
+    return text
+
+
+def _strip_leaked_planning_parenthesis(text, injected_guidance=""):
+    """Deterministic safety net for a model glitch seen live (Shaked/
+    Shlomo, 20.10.2026, Bari r90a2, on 30e07e1): an internal "note to self"
+    about what Tinkerbell still needs to ask/mention in the NEXT reply
+    leaked into the customer-facing text itself, as a trailing note right
+    after an otherwise normal reply - e.g. "(לפני התשובה הבאה: נותר לברר אם
+    יש הגבלת תקציב לטיסה, וחשוב לציין שאין עדיין טיסה ישירה מאומתת ליעד
+    הזה - אפשר להזכיר זאת בעדינות...)".
+
+    The first version of this filter (gated on a fixed list of marker
+    phrases like "לפני התשובה הבאה"/"note to self") was itself exactly the
+    phrase-list pattern the business owner forbids as a primary mechanism -
+    and Shaked's regression review of PR #94 found two real leaked notes
+    that slipped straight past it simply by using different wording
+    ("(עדיין חסר: תקציב וכבודה, לשאול בהמשך)") or square brackets instead of
+    parentheses ("[הערה פנימית: לשאול אחר כך על כבודה]").
+
+    Fixed: strip a trailing parenthetical/bracketed note - regardless of
+    its exact wording or bracket style - when BOTH of these hold, neither
+    of them a guessed/fixed trigger phrase:
+    (1) it has the colon-separated "note:" shape every real leak has
+        ("לפני התשובה הבאה:", "עדיין חסר:", "הערה פנימית:" - a structural
+        pattern, not specific wording), which a genuine customer-facing
+        aside ("(כולל ארוחת בוקר)", "(יום חמישי עד יום חמישי)") never has;
+    (2) its own content shares real vocabulary with injected_guidance, the
+        actual system_dynamic text injected into the model's prompt THIS
+        turn (gateway/direct-route/baggage/traveler hints etc.) - a genuine
+        leak is the model echoing back its own internal guidance, so this
+        checks what was actually given to the model this turn, not a
+        guessed set of trigger phrases. Overlap is by substring
+        containment, not exact token equality - Hebrew prefixes
+        (ו-/ה-/ב-/ל-/מ-/ש-) routinely attach a note's own word ("וכבודה")
+        to a guidance word's bare form ("כבודה"). Latin words count too
+        (not just Hebrew) - injected_guidance always includes the raw state
+        JSON dump (_state_context), whose keys are English field names
+        ("lodging", "budget_amount"...), so an English-phrased note like
+        "note to self: still need lodging + budget" is caught the same
+        way, via those literal field names, not via "note to self" itself
+        as a marker."""
+    text = str(text or "")
+    m = re.search(r"[(\[]([^()\[\]]*)[)\]]\s*\Z", text)
+    if not m or ":" not in m.group(1):
         return text
-    return rest
+    # Per Shaked's review of the PREVIOUS version of this fix (20.10): it
+    # stripped "איזה סוג לינה מתאים לכם? (למשל: מלון, דירה או צימר)" - a
+    # genuine example list, inline right after the question it illustrates,
+    # just because it happens to share a word ("לינה") with the lodging
+    # hint injected that turn. Every real leak seen so far sits in its OWN
+    # paragraph, separated from the actual reply by a blank line; an inline
+    # parenthetical on the SAME line as the question/sentence it follows is
+    # never one - require that structural separation too, not just the
+    # colon shape and the vocabulary overlap.
+    prefix = text[:m.start()]
+    if not re.search(r"\n[ \t]*\n[ \t]*\Z", prefix):
+        return text
+    note_words = {w.lower() for w in re.findall(r"[A-Za-zא-ת]{4,}", m.group(1))}
+    if not note_words:
+        return text
+    guidance_words = {w.lower() for w in re.findall(r"[A-Za-zא-ת]{4,}", str(injected_guidance or ""))}
+    hits = sum(
+        1 for nw in note_words
+        if any(nw in gw or gw in nw for gw in guidance_words)
+    )
+    if hits < 1:
+        return text
+    cleaned = text[:m.start()]
+    cleaned = re.sub(r"[ \t]+\n", "\n", cleaned)
+    cleaned = re.sub(r"\n{2,}", "\n", cleaned)
+    return cleaned.strip()
 
 
 def _strip_stray_markdown_markers(text):
@@ -3310,6 +3941,30 @@ def _fix_child_gender_wording(text, state):
     return text
 
 
+# Per Shlomo's relay of Shaked's live stage-1 run-1 finding (20.10.2026,
+# b71506d, 1/5) and her follow-up review of the first fix: a male-
+# registered customer (user_gender=male) was addressed in feminine form
+# on several of this file's own fixed/deterministic transition sentences
+# ("עוד דבר אחד לפני שסוגרים - בואי נוודא...", "תרצי שאעזור גם עם X?").
+# The first version of this fix ran one blanket regex over every reply's
+# full text at the single shared exit point (_reply()) - Shaked's review
+# rejected it: the word list was incomplete (missed "ספרי"/"כתבי" forms
+# elsewhere in this same file), and worse, a blanket regex over the whole
+# reply also rewrites Tinkerbell's own free-text answers and verbatim
+# quotes of the customer's own words, which must never be altered.
+# Per the business owner's explicit correction (relayed by Shlomo): fix
+# each fixed sentence AT ITS OWN SOURCE with this small helper, the same
+# way _flight_summary_text's own approval_line already picks the correct
+# form - never a global pass over arbitrary text.
+def _g(user_gender, male_form, female_form):
+    """Returns male_form for a registered male customer, female_form
+    otherwise (female was always this file's existing default for every
+    fixed string before user_gender was tracked at all, so unknown/
+    unregistered gender keeps that same default - only the one actual
+    reported mismatch, a male customer addressed as female, is fixed)."""
+    return male_form if str(user_gender or "").lower() == "male" else female_form
+
+
 def _strip_unconfirmed_airports(text, state):
     """Deterministic safety net for a recurring model behavior: even after an
     explicit prompt instruction not to, Tinkerbell keeps volunteering an
@@ -3448,8 +4103,14 @@ _BAGGAGE_HE = {
     # per the product owner, checked baggage must always read as a per-
     # passenger fact ("מזוודה לכל נוסע"), never a vague singular that could
     # be mistaken for exactly one suitcase total regardless of party size.
-    "carry_on_only": "טרולי בלבד", "carry_on": "טרולי", "checked_bag": "מזוודה גדולה לכל נוסע",
-    "checked": "מזוודה גדולה לכל נוסע", "personal_item": "תיק אישי בלבד",
+    #
+    # checked_bag/checked route through _checked_bag_label(None) (20.10,
+    # Shlomo's priority-5 finding, s12x10) instead of their own separate
+    # hardcoded "גדולה" literal - a second, independently-drifting fallback
+    # was exactly how the invented-size bug survived here even after
+    # _checked_bag_label itself was fixed once before (qa-s83).
+    "carry_on_only": "טרולי בלבד", "carry_on": "טרולי", "checked_bag": _checked_bag_label(None),
+    "checked": _checked_bag_label(None), "personal_item": "תיק אישי בלבד",
     "none": "ללא כבודה", "no_baggage": "ללא כבודה",
 }
 
@@ -3585,7 +4246,7 @@ def _fix_departure_name(reply, state, history, message):
     return reply if "נתניה" in user_text else reply.replace("נתניה", 'נתב"ג')
 
 
-def _call_tinkerbell(key, model, history, message, state=None):
+def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False):
     state = state if isinstance(state, dict) else {}
     # Per Shaked's live finding (round 3 on PR #86, qa/reports/2026-10-18-
     # stage3-run4.md): a past departure was correctly rolled forward in the
@@ -3662,8 +4323,36 @@ def _call_tinkerbell(key, model, history, message, state=None):
         # customer went quiet for over an hour mid-planning), so this really
         # is a fresh start - but the customer doesn't know that yet.
         continuity += """
-- הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה (למשל "ברוכה השבה!" או ניסוח דומה, בהתאמה למגדר הלקוח אם ידוע) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק. בחלק שמסביר שמתחילים מחדש, לעולם אל תשתמשי בפנייה בלשון זכר/נקבה שדורשת לדעת את מגדר הלקוח (כמו "בוא נתחיל"/"בואי נתחיל") - גם כשהמגדר ידוע, עדיף ניסוח נייטרלי בגוף ראשון רבים שלא תלוי במגדר בכלל, למשל "נתחיל לתכנן מחדש" או "נמשיך מכאן מהתחלה".
+- הלקוח חזר עכשיו אחרי הפסקה ארוכה (מעל שעה) באמצע תכנון חופשה קודמת שלא הושלמה, ופרטי אותה חופשה אופסו - זו בפועל התחלה חדשה. פתחי את ההודעה הזו בברכת חזרה קצרה וחמה ונייטרלית מגדרית (למשל "טוב לראות אותך שוב!" או ניסוח חם דומה שלא תלוי במגדר) שמסבירה בקצרה שבגלל ההפסקה מתחילים לתכנן מחדש - ורק אז המשיכי ישירות לשאלת הפתיחה הרגילה של חופשה חדשה (לפי שאר הכללים). אל תתייחסי לשום פרט מהחופשה הקודמת (שכבר לא קיים ב-state) כאילו הוא עדיין רלוונטי, ואל תתנצלי יתר על המידה - משפט אחד קצר וחם מספיק. בחלק שמסביר שמתחילים מחדש, לעולם אל תשתמשי בפנייה בלשון זכר/נקבה שדורשת לדעת את מגדר הלקוח (כמו "בוא נתחיל"/"בואי נתחיל") - גם כשהמגדר ידוע, עדיף ניסוח נייטרלי בגוף ראשון רבים שלא תלוי במגדר בכלל, למשל "נתחיל לתכנן מחדש" או "נמשיך מכאן מהתחלה".
 """
+        _welcome_back_first_name = ((state.get("profile") or {}).get("first_name") or "").strip() if isinstance(state.get("profile"), dict) else ""
+        if _welcome_back_first_name:
+            # Per the business owner's live finding on the Portugal WhatsApp
+            # transcript (19.10): returning after a long break with a bare
+            # "הי" must get a PERSONAL first reply that addresses the
+            # customer by name - not just a generic "welcome back". Unlike
+            # the general, optional first-name rule above (which only
+            # applies to a genuinely brand-new conversation's own opening
+            # message), this is the one case where it's mandatory: this
+            # greeting is itself the customer's first reply after the idle
+            # gap, and _member_profile already resolved their real name.
+            #
+            # Per Shaked's review (20.10, stage-1 live run-1): the example
+            # here was itself written in the feminine only ("ברוכה השבה!"),
+            # and the live run already showed the model copying feminine
+            # phrasing even for a male-registered customer - handing it a
+            # single-gender example risks exactly that, the same failure
+            # mode the rule just above this one (the gender-neutral "נתחיל
+            # לתכנן מחדש" imperative) exists to avoid. Using the same
+            # neutral-phrasing technique here instead of a gendered example
+            # removes the risk entirely rather than trying to pick the
+            # right one of two genders in the example text itself.
+            continuity += (
+                "- שם הלקוח הפרטי האמיתי הוא \"" + _welcome_back_first_name + "\". חובה (לא רשות הפעם) "
+                "לשלב אותו בתוך ברכת החזרה הקצרה הזו עצמה (למשל \"היי " + _welcome_back_first_name +
+                ", טוב לראות אותך שוב!\" או ניסוח חם ונייטרלי מגדרית דומה) - זו בדיוק הנקודה שבה הפנייה "
+                "צריכה להיות אישית.\n"
+            )
     if state.get("_guided_ask_hint"):
         # Task 014a (rebuilt 2026-10-17 per the business owner's final
         # decision): the code never sends a fixed sentence as the reply -
@@ -3672,6 +4361,11 @@ def _call_tinkerbell(key, model, history, message, state=None):
         # She composes the actual question/retry/confirmation herself, in
         # her own voice, with no quick-reply buttons ever.
         continuity += "\n- " + str(state.get("_guided_ask_hint")) + "\n"
+    if state.get("_date_hallucination_correction_hint"):
+        # Set by _retry_if_dates_invented below, on the one corrective
+        # re-call it makes when the first reply named a date that matches
+        # neither the real confirmed dates nor a real pending candidate.
+        continuity += "\n- " + str(state.get("_date_hallucination_correction_hint")) + "\n"
     if state.get("_gap_clarify_question"):
         # Per the business owner's explicit instruction (2026-10-13): when
         # the model that interprets an open answer is genuinely unsure, the
@@ -3682,6 +4376,21 @@ def _call_tinkerbell(key, model, history, message, state=None):
         # than injecting it raw.
         continuity += """
 - יש ספק לגבי התשובה האחרונה של הלקוח. אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת. נסחי בקול הטבעי שלך בדיוק את שאלת האימות הבאה (אפשר לנסח מחדש, אך לשמור על אותה המשמעות בדיוק): """ + json.dumps(state.get("_gap_clarify_question"), ensure_ascii=False) + "\n"
+    if state.get("_link_request_pending"):
+        # Per Shaked's review of the first version of this fix (20.10):
+        # the code (never the model) decides whether there's a vacation to
+        # link to, but Tinkerbell still composes the acknowledgement in
+        # her own words, in the SAME message as whatever else this turn
+        # needed to say - the real link itself is attached separately
+        # (open_existing_flights), never written by her as "הנה הקישור".
+        if state.get("_link_request_pending") == "has_vacation":
+            continuity += """
+- הלקוח ביקש קישור לחופשה/ללוח שלו. יש לו חופשה פעילה לקשר אליה - אשרי בקצרה ובחום שהקישור מצורף (למשל "בטח, מצרפת לך את הקישור" או ניסוח חם דומה), בלי לכתוב בעצמך "הנה הקישור" או כל קישור/כתובת ממש - זה מתווסף אוטומטית אחרי התשובה שלך, לא על ידך. לעולם אל תתארי אם החיפוש עדיין רץ או כבר הסתיים - זו עובדה שלא ידועה לך.
+"""
+        else:
+            continuity += """
+- הלקוח ביקש קישור לחופשה/ללוח שלו, אבל עדיין אין חופשה שאפשר לקשר אליה (שום חיפוש טיסות עוד לא אושר). הסבירי זאת בקצרה ובחום (לדוגמה: עדיין אוספים את הפרטים, ברגע שיאושר חיפוש יהיה קישור ישיר) - לעולם לא "אין לי אפשרות לשלוח קישורים" או כל ניסוח שאומר שאת לא יכולה לשלוח קישור. מיד אחרי זה, באותה הודעה, המשיכי ישירות לשאלה הפתוחה הבאה שבאמת רלוונטית כרגע - אל תסיימי את ההודעה רק בהסבר.
+"""
     if state.get("_resume_choice_hint"):
         # Per Shaked's second review of PR #84 (18.10.2026): the resume_
         # choice_pending flow (continue an existing open vacation vs. start
@@ -3784,6 +4493,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     direct_route_hint_text = _direct_route_hint_text(state) if has_destination else ""
     weekday_hint_text = _weekday_lookup_hint(state)
     nights_hint_text = _total_nights_hint(state)
+    dates_truth_hint_text = _dates_truth_hint(state)
     declined_domains_hint_text = _declined_domains_hint(state)
     gender_hint_text = _gender_hint_text(state)
     # The raw state JSON dump below is a second, separate path that can leak
@@ -3793,7 +4503,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     state_for_context = state
     if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
         state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + gender_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + dates_truth_hint_text + declined_domains_hint_text + gender_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -3802,15 +4512,49 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _strip_mixed_script_garble(reply)
     reply = _strip_mixed_hebrew_latin_token(reply)
     reply = _strip_leaked_internal_paragraph(reply)
+    reply = _strip_leaked_planning_parenthesis(reply, system_dynamic)
     reply = _strip_stray_markdown_markers(reply)
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
     reply = _ensure_flight_summary_completeness(reply, state)
-    return _strip_unconfirmed_airports(reply, state)
+    reply = _strip_unconfirmed_airports(reply, state)
+    # Substitute {{DATES}}/{{DATE_OPTIONS}} with text built directly from
+    # state's own final dates BEFORE the structural retry check below, so a
+    # correctly-placeholder'd reply (the now-expected case) reads as the real,
+    # valid dates it actually is - the retry check still catches the rarer
+    # case where Tinkerbell writes a literal invented date instead of the
+    # placeholder, despite _dates_truth_hint's instruction not to.
+    reply, _dates_unresolved = _render_date_placeholders(reply, state)
+    # Per Shlomo's relay of Shaked's review: a placeholder written with no
+    # actual matching value in state (she wrote it anyway despite _dates_
+    # truth_hint's own instruction not to) must never silently drop just
+    # its own sentence and move on - retry once, exactly like the invented-
+    # date backstop below, with a hint explaining there is nothing to show
+    # right now so she asks to confirm instead.
+    if _dates_unresolved and not _date_retry:
+        state2 = dict(state)
+        state2["_date_hallucination_correction_hint"] = (
+            "בתשובה הקודמת שלך ניסית להציג תאריכים/אפשרויות (עם ה-placeholder), אבל כרגע אין שום "
+            "ערך תואם בפועל ב-state (לא תאריך מאושר ולא מועמד ממתין אמיתי) - נסחי את התשובה מחדש "
+            "בלי להשתמש ב-placeholder בכלל הפעם; שאלי לוודא במקום לקבוע או להציע תאריך."
+        )
+        return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
+    if not _date_retry:
+        retried = _retry_if_dates_invented(key, model, history, message, state, reply)
+        if retried is not None:
+            return retried
+    # Absolute last resort (Shlomo's explicit instruction: under no
+    # circumstances does an empty sentence or the placeholder itself reach
+    # the customer) - if dropping an unresolved placeholder's own sentence,
+    # even after the one retry above, left nothing at all, a short genuine
+    # question is still better than silence.
+    if not reply.strip():
+        return "אפשר לוודא איתך שוב את התאריכים המדויקים?"
+    return reply
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -3826,7 +4570,24 @@ def _extract_trip_update(key, model, history, message, state=None):
     mid-conversation date correction the extractor's own JSON already
     captured apart from a stale value it should keep locking to - a
     verbatim quote is the one signal that distinguishes them, exactly like
-    restart_evidence. None on any failure - never assumed either."""
+    restart_evidence. None on any failure - never assumed either.
+
+    relative_date_hint/relative_date_hint_evidence (20.10.2026, Shlomo's
+    relay of the business owner's explicit direction on the first version
+    of this fix): when the customer gives a relative date answer (a
+    weekday pair, a part of month, a duration), the model returns what it
+    understood in STRUCTURED form here - never computing a calendar date
+    itself - and the call site alone turns that structured understanding
+    into exact candidate dates. _deterministic_period_facts's own regex
+    parsing is kept only as a fallback for when this extraction itself
+    fails to produce a usable hint, never as the primary detection path.
+
+    link_request/link_request_evidence (20.10, Shlomo's relay of Carmit's
+    work order item 1, qa/stage-scenarios.md "בקשת קישור ללוח או לחופשה"):
+    the model's job is only to recognize that the customer is asking for a
+    link, via the same verbatim-quote evidence gate as every field above -
+    it never decides whether a search is still running or already
+    finished. The call site alone answers that, from trip_state."""
     try:
         gateway_hint = _multi_gateway_hint(state)
         gateway_hint_text = ""
@@ -3867,12 +4628,20 @@ def _extract_trip_update(key, model, history, message, state=None):
         restart_request, restart_evidence = _parse_restart_signal(raw)
         dates_evidence = _parse_dates_evidence(raw)
         destination_evidence = _parse_destination_evidence(raw)
-        return parsed, restart_request, restart_evidence, dates_evidence, destination_evidence
+        trip_type_evidence = _parse_trip_type_evidence(raw)
+        relative_date_hint, relative_date_hint_evidence = _parse_relative_date_hint(raw)
+        link_request, link_request_evidence = _parse_link_request_signal(raw)
+        return (
+            parsed, restart_request, restart_evidence, dates_evidence, destination_evidence,
+            trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
+            link_request, link_request_evidence,
+        )
     except Exception:
-        return {}, False, None, None, None
+        return {}, False, None, None, None, None, None, None, False, None
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
+_KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE = None
 
 # Common alternate Hebrew spellings/transliterations for a destination
 # already in the airport catalog under a different spelling. Colloquial
@@ -3984,10 +4753,21 @@ def _known_destination_names():
     # never recognized at all. Within each tier, longer names still come
     # first so "דרום אפריקה" matches before a shorter, coincidentally-
     # contained needle would.
+    global _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE
+    _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE = set(country_needles)
     _KNOWN_DESTINATION_NAMES_CACHE = dict(sorted(
         known.items(), key=lambda kv: (kv[0] in country_needles, -len(kv[0]))
     ))
     return _KNOWN_DESTINATION_NAMES_CACHE
+
+
+def _known_destination_country_needles():
+    """Bare-country-name needles from the same catalog scan as
+    _known_destination_names(), so a caller can tell tier membership
+    (specific place vs. bare country) without recomputing the airport/ski
+    catalog walk a second time."""
+    _known_destination_names()
+    return _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE or set()
 
 
 def _clear_stale_gateway_airports(state):
@@ -4234,6 +5014,37 @@ def _guard_destination_change_evidence(trip_state, trip_update, destination_evid
     return trip_update
 
 
+def _guard_ski_trip_type_evidence(trip_state, trip_update, trip_type_evidence, message):
+    """Zurich live finding (20.10, Shlomo's relay, r90b5): trip_type flipped
+    to "ski" mid-conversation with no customer mention of skiing at all -
+    the same extractor-overclaim pattern as destination/dates, mirrored
+    here with trip_type_evidence as the verbatim-quote gate. A prior
+    trip_type of "ski" is never reverted (no reason to protect against a
+    legitimate ski-trip conversation continuing to say "ski"); only a
+    claimed NEW switch into "ski" from something else needs justification,
+    by either a genuine customer quote or the existing deterministic
+    ski-keyword detector already used elsewhere."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    prior_trip_type = str(trip_state.get("trip_type") or "").lower()
+    if prior_trip_type == "ski":
+        return trip_update
+    new_trip_type = str(trip_update.get("trip_type") or "").lower()
+    if new_trip_type != "ski":
+        return trip_update
+    deterministic_confirms = _deterministic_trip_type_facts(message).get("trip_type") == "ski"
+    verified = deterministic_confirms or _value_has_verbatim_evidence(trip_type_evidence, message)
+    record_diagnostic_event("trip_type_ski_claim", {
+        "prior_trip_type": prior_trip_type or None,
+        "verified": verified,
+    })
+    if verified:
+        return trip_update
+    trip_update = dict(trip_update)
+    trip_update["trip_type"] = trip_state.get("trip_type")
+    return trip_update
+
+
 _DESTINATION_KEEP_NEGATION_CUES = (
     "אל תמחק", "אל תמחקי", "אל תמחקו", "בלי למחוק", "לא למחוק",
     "תשאיר את", "תשאירי את", "השאיר את", "השאירי את", "לא רוצה למחוק",
@@ -4287,7 +5098,25 @@ def _is_negated_destination_mention(text, match_index):
 
 
 def _deterministic_destination_facts(history, message, state=None):
-    """Preserve an explicitly stated destination when extractor output misses it."""
+    """Preserve an explicitly stated destination when extractor output misses it.
+
+    Seville/Granada live finding (20.10, Shlomo's relay, r90a5): a customer
+    self-correcting the destination within the SAME message ("לא סביליה,
+    גרנדה") wasn't recognized - the old version scanned _known_destination_
+    names() in its pre-sorted tier order and returned on the FIRST needle it
+    found anywhere in the text, so whichever of the two happened to sort
+    first in the catalog dict won, regardless of which one the customer
+    actually said last. The fix needs BOTH the existing, documented tier
+    rule (a specific place always beats a bare country name - see
+    _known_destination_names()'s own docstring) AND a same-tier tie-break
+    by LATEST position in the text (the later mention is the correction).
+    These are two separate, sequential decisions - collapsing them into a
+    single position-only rule regressed the tier rule itself (a bare
+    country name later in the sentence would then wrongly beat an earlier,
+    more specific place), caught via the full QA sweep
+    (qa_island_region_catalog_gap.py, qa_reset_confirmation_preserves_
+    dates_and_travelers.py, qa_reset_gate_preserves_trip_type_and_specific_
+    resort.py)."""
     state = state if isinstance(state, dict) else {}
     current = state.get("destination") if isinstance(state.get("destination"), dict) else {}
     if current.get("places"):
@@ -4301,8 +5130,10 @@ def _deterministic_destination_facts(history, message, state=None):
         if isinstance(x, dict) and str(x.get("role") or "").lower() == "user"
     ]
     known = _known_destination_names()
+    country_needles = _known_destination_country_needles()
     for text in texts:
         text = text.lower()
+        candidates = []  # [(start, end, label, is_country), ...]
         for needle, label in known.items():
             needle_lower = needle.lower()
             start = 0
@@ -4313,7 +5144,27 @@ def _deterministic_destination_facts(history, message, state=None):
                 if _is_negated_destination_mention(text, idx) or _is_origin_departure_mention(text, idx):
                     start = idx + 1
                     continue
-                return {"destination": {"places": [label], "mode": "specific", "status": "known"}}
+                candidates.append((idx, idx + len(needle_lower), label, needle in country_needles))
+                break
+        if not candidates:
+            continue
+        # One known name can be a literal substring of another
+        # ("סין"/China inside "קפריסין"/Cyprus, "מיורקה"/Mallorca inside
+        # "פלמה דה מיורקה"/Palma de Mallorca) - a candidate fully contained
+        # within a strictly longer match must be dropped before any
+        # position/tier tie-break, or the shorter substring wins purely by
+        # coincidental position.
+        candidates = [
+            c for c in candidates
+            if not any(
+                o[0] <= c[0] and c[1] <= o[1] and (o[1] - o[0]) > (c[1] - c[0])
+                for o in candidates
+            )
+        ]
+        specific = [c for c in candidates if not c[3]]
+        tier = specific or candidates
+        best = max(tier, key=lambda c: c[0])
+        return {"destination": {"places": [best[2]], "mode": "specific", "status": "known"}}
     return {}
 
 
@@ -4449,9 +5300,49 @@ def _deterministic_date_facts(history, message, state=None):
         return {}
     return {"dates": {"departure": dep.isoformat(), "return": ret.isoformat()}}
 
+def _parse_stated_duration_days(message):
+    """Returns the number of days to add to a departure date to reach the
+    return date (a week -> 7, "3 nights" -> 3, "3 days" -> 2), or None if
+    no plain duration is stated at all. Shared by _deterministic_duration_
+    facts (completes a return date from an already-known departure) and
+    _deterministic_period_facts's month-part-without-a-weekday-pair branch
+    (20.10.2026, Shlomo's relay of Shaked's s1a5 Krakow finding -
+    "סוף החודש הבא, שבוע" needs the same duration understanding, but with
+    no known departure yet to complete)."""
+    import re
+    msg = str(message or "").strip().lower()
+    hebrew_durations = {
+        "שבועיים": (2, "שבועות"),
+        "שבוע": (1, "שבועות"),
+    }
+    # Standalone word only (optionally "ל"/"ו" prefixed) - "בשבוע הבא" or
+    # "סוף שבוע" are not a trip length.
+    matched = next(
+        (value for phrase, value in hebrew_durations.items()
+         if re.search(r"(?<![א-ת])(?:ל|ו|ול)?" + phrase + r"(?![א-ת])", msg)
+         and not re.search(r"סוף\s+" + phrase, msg)),
+        None,
+    )
+    if matched:
+        n, unit = matched
+    else:
+        m = re.search(r"(\d+)\s*(שבוע|שבועות|ימים|יום|לילות|לילה)", msg)
+        if not m:
+            return None
+        n = int(m.group(1))
+        unit = m.group(2)
+    if n <= 0:
+        return None
+    if unit in ("שבוע", "שבועות"):
+        # "שבועיים" is commonly written without a numeral; handled above.
+        return n * 7
+    if unit in ("לילות", "לילה"):
+        return n
+    return max(0, n - 1)
+
+
 def _deterministic_duration_facts(message, state=None):
     """If a departure date is known and customer gives a duration, calculate return deterministically."""
-    import re
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     dep_raw = str(dates.get("departure") or "")[:10]
@@ -4465,41 +5356,13 @@ def _deterministic_duration_facts(message, state=None):
     # agreed dates takes explicit new dates, handled by the date parsers.
     if dates.get("return") or str(state.get("active_session") or "") == "trip_planning":
         return {}
-    msg = str(message or "").strip().lower()
-    import re as _re_dur
-    hebrew_durations = {
-        "שבועיים": (2, "שבועות"),
-        "שבוע": (1, "שבועות"),
-    }
-    # Standalone word only (optionally "ל"/"ו" prefixed) - "בשבוע הבא" or
-    # "סוף שבוע" are not a trip length.
-    matched = next(
-        (value for phrase, value in hebrew_durations.items()
-         if _re_dur.search(r"(?<![א-ת])(?:ל|ו|ול)?" + phrase + r"(?![א-ת])", msg)
-         and not _re_dur.search(r"סוף\s+" + phrase, msg)),
-        None,
-    )
-    if matched:
-        n, unit = matched
-    else:
-        m = re.search(r"(\d+)\s*(שבוע|שבועות|ימים|יום|לילות|לילה)", msg)
-        if not m:
-            return {}
-        n = int(m.group(1))
-        unit = m.group(2)
-    if n <= 0:
+    delta_days = _parse_stated_duration_days(message)
+    if delta_days is None:
         return {}
     try:
         dep = date.fromisoformat(dep_raw)
     except ValueError:
         return {}
-    if unit in ("שבוע","שבועות"):
-        # "שבועיים" is commonly written without a numeral; handled below.
-        delta_days = n * 7
-    elif unit in ("לילות","לילה"):
-        delta_days = n
-    else:
-        delta_days = max(0, n - 1)
     ret = dep + timedelta(days=delta_days)
     duration_days = (ret - dep).days + 1
     return {"dates":{"departure":dep.isoformat(),"return":ret.isoformat(),
@@ -4857,6 +5720,9 @@ def _baggage_answer_by_meaning(message, history, state):
         "\"personal_item\" (רק תיק קטן, אפילו לא טרולי), "
         "\"no_baggage\" (אין שום כבודה בכלל, גם לא תיק), "
         "או null אם התשובה לא עונה על שאלת הכבודה כלל. "
+        "הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים - אי אפשר להזמין סוג שונה לנוסעים שונים. "
+        "אם הלקוח משייך סוג כבודה שונה לנוסעים/קבוצות שונים בתוך אותה תשובה (בכל ניסוח, גם תיאור "
+        "צד-לצד ולא רק ניגוד עם \"אבל\"), זו בקשה מעורבת שנפתרת מיד לפי האפשרות הגבוהה ביותר - החזירי \"checked_bag\". "
         "החזירי JSON בלבד: {\"baggage\": \"<אחת מהאפשרויות למעלה>\"|null}"
     )
     try:
@@ -4918,18 +5784,21 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     suitcase from the final summary entirely. Now every matching value is
     collected into one list instead of returning on the first hit.
 
-    traveler_count (2026-10-17, Shaked's 014a stage-1 run-1 finding,
-    Budapest Z5, extended the same day after her #78 review): this is only
-    the FAIL-SAFE path now - baggage's primary path is the 014 guided-
-    extraction field (_guided_extract_answer/field="baggage"), which asks
-    the model directly for a per-item {type, count, unit}. This regex only
-    runs when that call itself fails. It still tries to recover count/unit
-    (never just a bare shared/not-shared flag - a customer saying "שתי
-    מזוודות לכולנו" or "מזוודה אחת לכל זוג" loses real information if only
-    a boolean survives), using unit WORDS when present ("לכל זוג"/"לכולנו"/
-    "לכולם"/"לכל המשפחה"/"משותפת"/"לכל אחד"/"לכל נוסע"), and falling back
-    to the general count-vs-traveler-count inference only when no unit
-    word is present at all."""
+    traveler_count: kept for backward compatibility with existing call
+    sites, but per the business owner's directive (20.10, relayed by
+    Shlomo): a booking is always ONE uniform baggage choice for the whole
+    group, so there is no per-passenger split to infer from it anymore -
+    see the count-tracking code below for exactly what's still recovered.
+
+    This is only the FAIL-SAFE path - baggage's primary path is the 014
+    guided-extraction field (_guided_extract_answer/field="baggage"),
+    which asks the model directly for a per-item {type, count, size}.
+    This regex only runs when that call itself fails. It still tries to
+    recover the real COUNT when stated (never just a bare shared/not-
+    shared flag - a customer saying "שתי מזוודות" loses real information
+    if only a boolean survives); it never guesses a size, and never
+    guesses how baggage splits per passenger (there is no such split to
+    guess - the booking is uniform either way)."""
     import re
     msg = str(message or "")
     if not msg.strip():
@@ -4941,9 +5810,18 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     # Per-person phrasing shared by both baggage kinds below - "X per each
     # traveler", in either word order ("לכל אחד"/"כל אחד", with or without
     # the "ל" preposition) and naming any of the traveler nouns actually
-    # seen live (אחד/נוסע/אדם/מבוגר - "מבוגר" added per Shaked's stage-3
-    # run-3 daily QA finding, "וטרולי לכל מבוגר").
-    _BAGGAGE_PER_PERSON_RE = r"(?:ל)?כל\s+(?:אחד|נוסע|אדם|מבוגר)"
+    # seen live (אחד/נוסע/אדם).
+    #
+    # Per Shlomo's priority-5 finding (20.10, stage-1/2 regression, s12x2):
+    # "מבוגר" ("adult") used to be lumped into this SAME per_person bucket -
+    # "טרולי לכל מבוגר" ("a carry-on per ADULT") was shown back as "לכל
+    # נוסע" ("per every traveler", children included), silently erasing an
+    # explicit exclusion the customer actually stated. Split into its own
+    # pattern/unit ("per_adult"), checked before the generic per-person
+    # case, the same precedence per_child already has.
+    _BAGGAGE_PER_PERSON_RE = r"(?:ל)?כל\s+(?:אחד|נוסע|אדם)"
+    _BAGGAGE_PER_ADULT_RE = r"(?:ל)?כל\s+מבוגר(?:ים)?"
+    _BAGGAGE_ANY_PER_UNIT_RE = r"(?:" + _BAGGAGE_PER_PERSON_RE + r"|" + _BAGGAGE_PER_ADULT_RE + r")"
     # "X מספיק" ("X is enough") is as unambiguous a sufficiency statement as
     # "רק X"/"X בלבד" - seen live: "טרולי מספיק" answered the exact baggage
     # question (טרולי בלבד/גם מזוודה בבטן המטוס/רק תיק) and matched none of
@@ -4957,7 +5835,7 @@ def _deterministic_baggage_facts(message, traveler_count=None):
     # each other, in EITHER order, always means a carry-on per traveler.
     if re.search(
         r"רק\s+טרולי|טרולי\s+בלבד|רק\s+כבודת\s+עלי|טרולי\s+מספיק"
-        r"|טרולי.{0,10}" + _BAGGAGE_PER_PERSON_RE + r"|" + _BAGGAGE_PER_PERSON_RE + r".{0,10}טרולי",
+        r"|טרולי.{0,10}" + _BAGGAGE_ANY_PER_UNIT_RE + r"|" + _BAGGAGE_ANY_PER_UNIT_RE + r".{0,10}טרולי",
         msg
     ):
         values.append("carry_on_only")
@@ -5010,44 +5888,20 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         group = bag_count_match.group(1)
         bag_count = 1 if group in ("אחת", "אחד") else (int(group) if group.isdigit() else _HEBREW_NUMBER_WORDS.get(group))
         checked_bag_mentioned = True
-    # Unit words - checked directly, never requiring "משותפת" specifically.
-    if re.search(r"לכל\s+זוג", msg):
-        checked_bag_detail["unit"] = "per_couple"
-        checked_bag_mentioned = True
-    elif re.search(r"לכולנו|לכולם|לכל\s+המשפחה|לכל\s+הקבוצה|משותפת", msg):
-        checked_bag_detail["unit"] = "total"
-        checked_bag_mentioned = True
-    # Per Shaked's live finding (qa/reports/2026-10-18-stage3-run4.md,
-    # Tuscany V2, "וטרולי לכל ילד"): checked BEFORE the generic per-person
-    # pattern below (which never matches "ילד" anyway, but the explicit
-    # order documents the distinction) - "per child" is never the same
-    # fact as "per every traveler", adults included.
-    elif re.search(r"לכל\s+ילד|לכל\s+הילד(?:ים)?", msg):
-        checked_bag_detail["unit"] = "per_child"
-        checked_bag_mentioned = True
-    elif re.search(_BAGGAGE_PER_PERSON_RE, msg) and checked_bag_mentioned:
-        # Per Shlomo/Shaked (stage-3 run-2 follow-up, #81 review): "מזוודה
-        # גדולה לכל אחד מאיתנו" (a big suitcase for each of us) has no
-        # explicit digit next to "מזוודה" at all, so the old gate here
-        # (requiring bag_count_match) dropped the unit entirely - baggage
-        # still got ["checked_bag"], but with no baggage_detail at all, so
-        # the per-passenger fact the customer actually stated was lost.
-        # checked_bag_mentioned already requires a "מזוודה"-word match (see
-        # above) - that's what actually rules out "טרולי לכל אחד" (which
-        # never matches any of those patterns and so never reaches this
-        # branch's effect anyway, since values only gets "checked_bag" when
-        # checked_bag_mentioned is true); requiring a redundant explicit
-        # digit on top of that was over-strict and is what this fixes.
-        checked_bag_detail["unit"] = "per_person"
-    elif bag_count is not None:
-        try:
-            party = max(0, int(traveler_count or 0))
-        except (TypeError, ValueError):
-            party = 0
-        if party > 1 and bag_count < party:
-            # No unit word at all, but the general rule still holds: a
-            # count smaller than the party can never be "one per person".
-            checked_bag_detail["unit"] = "total"
+    # Per the business owner's directive (20.10, relayed by Shlomo,
+    # confirmed after Shaked's PR #91 review): a booking is always ONE
+    # uniform baggage choice for every ticket in the group (never a
+    # per-passenger split, short of two separate bookings) - so there is
+    # no per-passenger "unit" (per_person/per_adult/per_couple/per_child/
+    # total) to recover here at all anymore. Previous attempts at this in
+    # the fail-safe (even gated to the single-baggage-kind case, even
+    # picking the nearest phrase by character distance) kept guessing
+    # wrong in other real messages - a whole-message regex search simply
+    # cannot reliably attribute a stray unit word to the right bag kind.
+    # count (how many checked bags total the customer stated) is still
+    # tracked, since it directly affects the search regardless of any
+    # per-passenger split; size is a guided-extraction-only fact (the
+    # model decides it from real understanding, never guessed here).
     if bag_count is not None:
         checked_bag_detail["count"] = bag_count
     if checked_bag_mentioned:
@@ -5058,9 +5912,9 @@ def _deterministic_baggage_facts(message, traveler_count=None):
         result = {"flight": {"baggage": values}}
         if "checked_bag" in values and checked_bag_detail:
             # Per Shaked's stage-2 run-1 and 014a stage-1 findings: the
-            # actual count and how it splits across the party are real
-            # facts the summary must state, not just shared/not-shared -
-            # see _checked_bag_label/_flight_baggage_line/_baggage_summary.
+            # actual count is a real fact the summary must state, not
+            # just shared/not-shared - see _checked_bag_label/
+            # _flight_baggage_line/_baggage_summary.
             result["flight"]["baggage_detail"] = {"checked_bag": checked_bag_detail}
         return result
     return {}
@@ -5425,7 +6279,175 @@ def _deterministic_flights_already_booked_facts(message):
     return {}
 
 
-def _deterministic_period_facts(message, history=None):
+def _deterministic_shift_days_fallback(message):
+    """REGEX FALLBACK ONLY (per Shlomo's relay of Shaked's live stage-1
+    run-2 finding): relative_date_hint.shift_days (evidence-gated) is the
+    PRIMARY path for "אפשר לזוז יום אחד אחורה?" - this exists solely for
+    the turn that structured extraction itself fails to produce a
+    verified shift, mirroring _deterministic_period_facts's own role for
+    every other relative-date capability. Recognizes only the plain
+    "move N days forward/backward" phrasing against the message itself;
+    must never be extended further as if it were the primary mechanism.
+    Returns a signed int day count, or None if nothing matched."""
+    msg = str(message or "").strip()
+    m = re.search(r"לזוז\s+(?:ב)?יום\s+(?:אחד|אחת)\s+(קדימה|אחורה)", msg)
+    if m:
+        return 1 if m.group(1) == "קדימה" else -1
+    m = re.search(r"לזוז\s+(\d+)\s+ימים\s+(קדימה|אחורה)", msg)
+    if m:
+        n = int(m.group(1))
+        return n if m.group(2) == "קדימה" else -n
+    return None
+
+
+def _candidate_dates_from_relative_hint(hint):
+    """Computes 2-3 exact departure/return candidates from a relative-date
+    hint the MODEL already understood and returned in structured form
+    (weekday_start/weekday_end, month_name/month_relative, part_of_month,
+    duration_days - see EXTRACTOR_SYSTEM's own instruction for this field
+    and _parse_relative_date_hint). This is the PRIMARY path: per Shlomo's
+    relay of the business owner's explicit direction (20.10.2026, review
+    of the first version of this fix): "המחלץ מבין את הביטוי היחסי ומחזיר
+    אותו בצורה מובנית... הקוד רק מחשב ממנו תאריכים ומציע" - the model
+    decides meaning, this function only does calendar arithmetic (which
+    year, which exact day each weekday/part-of-month lands on) from what
+    it already understood - never re-deciding what the customer said.
+    _deterministic_period_facts (below) is kept only as a REGEX FALLBACK
+    for when this structured extraction itself produces nothing usable -
+    never extended further as a primary detection mechanism itself.
+
+    Each candidate shows a real day of week next to the exact date, using
+    the customer's own weekday words when given (matching them back
+    verbatim), or the date's own true weekday otherwise. Returns {} when
+    the hint doesn't carry enough information to compute anything
+    concrete (no month, or a weekday pair with no part, or no duration)."""
+    if not isinstance(hint, dict):
+        return {}
+    import calendar
+    months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
+    weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
+    today = date.today()
+
+    month_name = hint.get("month_name")
+    month = months.get(month_name) if isinstance(month_name, str) else None
+    month_relative = hint.get("month_relative")
+    if not month and month_relative == "next":
+        month = today.month + 1 if today.month < 12 else 1
+        month_name = next(n for n, v in months.items() if v == month)
+    elif not month and month_relative == "this":
+        month = today.month
+        month_name = next(n for n, v in months.items() if v == month)
+    if not month:
+        return {}
+    year = today.year + (1 if month < today.month else 0)
+    last = calendar.monthrange(year, month)[1]
+    part = hint.get("part_of_month")
+    # Per Shlomo's relay of the business owner's review (20.10.2026): "סוף
+    # החודש" was proposing 17.11 (the window used to start 13 days before
+    # month-end, which for a 30-day month is day 17 - genuinely mid-month,
+    # not "end" by any reasonable reading) alongside a second candidate on
+    # day 30 whose week-long return spilled into the next month. Windows
+    # now split the month into three non-overlapping ~10-day thirds, so a
+    # departure in the "end" window is unambiguously in the last stretch of
+    # the month - the customer's own actual request - even though a
+    # long-enough duration can still carry the RETURN date into next month,
+    # which is normal and not itself a bug.
+    window = {"start": (1, 10), "mid": (11, 20), "end": (last - 9, last)}.get(part)
+
+    weekday_start_name = hint.get("weekday_start")
+    weekday_end_name = hint.get("weekday_end")
+    start_wd = weekdays.get(weekday_start_name) if isinstance(weekday_start_name, str) else None
+    end_wd = weekdays.get(weekday_end_name) if isinstance(weekday_end_name, str) else None
+
+    if start_wd is not None and end_wd is not None and window:
+        delta = (end_wd - start_wd) % 7
+        candidates = []
+        for day in range(max(1, window[0]), window[1] + 1):
+            d = date(year, month, day)
+            if d.weekday() == start_wd and d > today:
+                candidates.append((d, d + timedelta(days=delta)))
+        candidates = candidates[-2:] if part == "end" else candidates[:2]
+        if not candidates:
+            return {}
+        if len(candidates) == 1:
+            # Per Shlomo's relay of the business owner's non-blocking note
+            # on PR #101 (20.10.2026): a narrow ~10-day window often holds
+            # only ONE occurrence of a given weekday pair (e.g. "תחילת
+            # החודש הבא, חמישי עד ראשון" - only one Thursday in the first
+            # ten days of the month). The customer still deserves two real
+            # options to choose between, so the following week's occurrence
+            # of the same pair is offered as the second one, even though it
+            # falls just past the originally-requested window.
+            only_dep, only_ret = candidates[0]
+            candidates.append((only_dep + timedelta(days=7), only_ret + timedelta(days=7)))
+        labels = [
+            f"יום {weekday_start_name} {x.strftime('%d.%m.%Y')}–יום {weekday_end_name} {y.strftime('%d.%m.%Y')}"
+            for x, y in candidates
+        ]
+        part_he = {"end": "סוף", "start": "תחילת", "mid": "אמצע"}[part]
+        return {"dates": {
+            "departure": None, "return": None,
+            "period": f"{part_he} {month_name} {year}, {weekday_start_name} עד {weekday_end_name}",
+            "constraints": [f"{weekday_start_name} עד {weekday_end_name}"],
+            "candidate_ranges": labels, "needs_confirmation": True,
+        }}
+
+    duration_days = hint.get("duration_days")
+    if isinstance(duration_days, int) and duration_days > 0 and window:
+        viable_starts = []
+        for day in range(max(1, window[0]), window[1] + 1):
+            try:
+                dep = date(year, month, day)
+            except ValueError:
+                continue
+            if dep > today:
+                viable_starts.append(dep)
+        if not viable_starts:
+            return {}
+        # Per Shlomo's relay of the business owner's non-blocking note on
+        # PR #101 (20.10.2026): picking the window's latest viable day as
+        # the second "end of month" candidate regardless of duration often
+        # pushed the RETURN well into the next month (e.g. 30.11-7.12 for
+        # "end of November, a week") even though an earlier day in the same
+        # window would have kept the whole trip inside November. Prefer a
+        # departure whose return also stays within the requested month
+        # when such a day exists in the window; only fall back to a
+        # same-month-spilling day when none does (the trip itself is
+        # simply too long to fit).
+        same_month_starts = [
+            d for d in viable_starts
+            if (d + timedelta(days=duration_days)).year == year
+            and (d + timedelta(days=duration_days)).month == month
+        ]
+        pool = same_month_starts if same_month_starts else viable_starts
+        chosen = [pool[0]]
+        later = [d for d in pool if d >= pool[0] + timedelta(days=5)]
+        if later:
+            chosen.append(later[-1] if part == "end" else later[0])
+        elif len(pool) > 1:
+            chosen.append(pool[-1])
+        if len(chosen) == 1:
+            # Only one viable day in the whole window (e.g. a long duration
+            # leaves just one day that still returns within the month) -
+            # still offer a second real option, one week later, rather than
+            # a single bare candidate (same reasoning as the weekday-pair
+            # branch above).
+            chosen.append(chosen[0] + timedelta(days=7))
+        candidates = [(dep, dep + timedelta(days=duration_days)) for dep in chosen]
+        labels = [
+            f"יום {_WEEKDAY_HE_BY_PY[x.weekday()]} {x.strftime('%d.%m.%Y')}–יום {_WEEKDAY_HE_BY_PY[y.weekday()]} {y.strftime('%d.%m.%Y')}"
+            for x, y in candidates
+        ]
+        part_he = {"end": "סוף", "start": "תחילת", "mid": "אמצע"}[part]
+        return {"dates": {
+            "departure": None, "return": None,
+            "period": f"{part_he} {month_name} {year}",
+            "constraints": [], "candidate_ranges": labels, "needs_confirmation": True,
+        }}
+    return {}
+
+
+def _deterministic_period_facts(message, history=None, state=None):
     """Parse weekday/month windows ("סוף יוני, ראשון עד חמישי") into exact
     candidate ranges, so Ariella never computes calendar dates herself.
 
@@ -5438,7 +6460,20 @@ def _deterministic_period_facts(message, history=None):
     recent messages. Per product owner: a range whose DEPARTURE is inside the
     requested part of the month is offered even if the return falls in the
     next month (end of June -> 27.6-1.7 is fine), but a range departing in
-    the next month never is (5.7-9.7 for "end of June")."""
+    the next month never is (5.7-9.7 for "end of June").
+
+    state, when passed, is the prior trip_state (before this turn). Per
+    Shaked's stage-1 run-4 direct finding (Marseille): once dates already
+    resolved into real pending candidates (or confirmed dates), the
+    cross-message completion above becomes dangerous - a later message
+    supplying only ONE of the two signals can get wrongly completed from a
+    STALE signal left over in history from the ALREADY-RESOLVED earlier
+    request. Live: "לפני שנתיים היינו שם 10 עד 14 באוגוסט" (a past-trip
+    reminiscence, naming only the month "אוגוסט") got the weekday pair
+    "רביעי עד ראשון" stitched in from the original request many turns
+    earlier, overwriting period with a window nobody asked for this turn.
+    Once real dates already exist, both signals must come from the
+    CURRENT message itself - no cross-message completion."""
     import re, calendar
     months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
     weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
@@ -5461,6 +6496,13 @@ def _deterministic_period_facts(message, history=None):
     # Only complete a fact from recent messages when the current message
     # itself contributes one of the two - never re-fire on unrelated turns.
     if not (month or pair):return {}
+    existing_dates = state.get("dates") if isinstance(state, dict) and isinstance(state.get("dates"), dict) else {}
+    dates_already_resolved = bool(
+        existing_dates.get("candidate_ranges")
+        or (existing_dates.get("departure") and existing_dates.get("return"))
+    )
+    if dates_already_resolved and not (month and pair):
+        return {}
     month_text=msg if month else None
     if not month:
         for t in recent[1:]:
@@ -5500,7 +6542,18 @@ def _deterministic_period_facts(message, history=None):
         if d.weekday()==start_wd:start=d;break
     if not start:return {"dates":{"period":f"{pair.group(1)} עד {pair.group(2)} ב{month_name} {year}"}}
     end=start+timedelta(days=delta)
-    return {"dates":{"departure":start.isoformat(),"return":end.isoformat(),"period":f"{pair.group(1)} עד {pair.group(2)}","constraints":[f"אחרי {min_day-1}.{month}.{year}"]}}
+    # Per Shlomo's relay of Shaked's live stage-1 run-2 finding: a date
+    # resolved from a relative expression must always require the
+    # customer's own explicit confirmation before being treated as
+    # settled - even when there's only ONE computed option (exactly like
+    # the weekday-pair-with-part branch above). The original version of
+    # this one specific branch returned departure/return directly with no
+    # needs_confirmation key at all, which _merge_trip_state then treated
+    # as an unconditionally-settled fact - silently closing dates with
+    # zero confirmation step. Shaped as a single-candidate proposal now,
+    # consistent with every other relative-date resolution in this file.
+    label=f"{start.strftime('%d.%m.%Y')}–{end.strftime('%d.%m.%Y')}"
+    return {"dates":{"departure":None,"return":None,"period":f"{pair.group(1)} עד {pair.group(2)}","constraints":[f"אחרי {min_day-1}.{month}.{year}"],"candidate_ranges":[label],"needs_confirmation":True}}
 
 def _deterministic_departure_airport_facts(message):
     """Capture an explicitly named Israeli departure airport so it never depends
@@ -5860,6 +6913,22 @@ _BUNDLED_AND_QUESTION_RE = re.compile(
 # is always its own boundary (so paragraph breaks are never lost).
 _SENTENCE_BOUNDARY_RE = re.compile(r"(?<!\d)[.!?](?!\d)(?=\s|$)|\n")
 
+# Per Shaked's stage-1 run-4 direct finding (Bratislava): a Hebrew
+# confirmation tag ("..., נכון?"/"..., לא?"/"..., כן?") at the very end of a
+# sentence - never a real open question, structurally identical to an
+# English "...right?" tag. See _enforce_one_option_question's own use below.
+_CONFIRMATION_TAG_QUESTION_RE = re.compile(r",\s*(?:נכון|לא|כן)\s*\?\s*\Z")
+
+# Per Shaked's SECOND review of PR #115: a question sentence that starts
+# with the bound "ו" prefix ("ונוח לכם בבוקר?") or the standalone word "או"
+# is grammatically a CONTINUATION of the question immediately before it,
+# never an independent question of its own - "מה התקציב שלכם לאדם לטיסה?
+# ונוח לכם בבוקר?" is one combined ask, not two. A narrow, unambiguous
+# structural pattern only - anything else is left to the plain "keep the
+# last question" default (her own explicit safety rule: never guess
+# further than this).
+_QUESTION_CONTINUATION_RE = re.compile(r"^(?:ו[א-ת]|או(?=\s|$))")
+
 # Per the same review: a day-by-day itinerary body ("יום 1 (15.4, חמישי):
 # נחיתה...") can legitimately contain its own rhetorical "?" ("מה יותר כיף
 # מאוכל טוב?") that is never a real gap-question - and with style/pace
@@ -5874,11 +6943,20 @@ _TRIP_PLANNING_APPROVAL_QUESTION = "המסלול שהצעתי מתאים לכם?
 
 def _append_fixed_question(prefix, fixed):
     """Join a kept-statements prefix with the one replacement question,
-    without ever re-spacing or trimming the prefix's own original trailing
+    without ever re-spacing or trimming the prefix's own INTERNAL
     whitespace/newlines (see _split_sentences) - a blank line the customer
     already saw stays a blank line. Adds a single space only when the
     prefix doesn't already end in whitespace; an empty prefix returns the
-    fixed question alone."""
+    fixed question alone.
+
+    Per Shaked's review of PR #115 (Bratislava): when every question
+    sentence up to and including a leading one gets dropped (see
+    _enforce_one_option_question's own removal of question_idx_set), any
+    bare "\\n" span(s) that sat between the dropped sentence(s) and the
+    first KEPT statement become dangling LEADING whitespace on prefix
+    itself - a message starting with a blank line before any real content.
+    Only the leading edge is trimmed here, never anything in the middle."""
+    prefix = prefix.lstrip()
     if not prefix:
         return fixed
     return f"{prefix}{fixed}" if prefix[-1].isspace() else f"{prefix} {fixed}"
@@ -5891,10 +6969,45 @@ def _split_sentences(text):
     exactly as they appeared in the original string, so re-joining a subset
     of them with "".join reproduces the untouched original spacing. The
     final fragment (after the last boundary, if the text doesn't end on
-    one) is kept with terminator ""."""
+    one) is kept with terminator "".
+
+    Per Shaked's live finding (20.10, stage-1/2 regression): a lodging
+    question illustrated with a parenthetical example containing its own
+    "?" ("...מיקום הלינה (קרוב למרכז? או שקט יותר?), וגם אם יש לכם
+    תקציב...") got a sentence boundary wrongly placed at the FIRST "?"
+    inside the still-open parenthetical, purely because it happened to be
+    followed by whitespace - splitting the one real sentence into two and
+    leaving a dangling, unmatched ")" stranded at the start of the second
+    half. _enforce_one_option_question then legitimately saw what looked
+    like two separate top-level question sentences and dropped both,
+    cutting the reply mid-sentence (the live, customer-visible symptom:
+    "שקט יותר?), וגם אם יש לכם תקציב..."). A "."/"!"/"?" is now only a real
+    sentence boundary once every "(" opened since the last real split has
+    already been closed by a ")" - a bare "\\n" (an explicit paragraph
+    break) is still always a boundary regardless, exactly as before.
+
+    Per Shlomo's follow-up finding on this same fix (PR #90 review, 20.10):
+    an "(" that is NEVER closed anywhere in the rest of the text (e.g. a
+    stray emoticon like ":(", or a genuine typo) used to suppress EVERY
+    subsequent "."/"!"/"?" boundary for the remainder of the message, since
+    since_start is measured from the last ACCEPTED split and an unresolved
+    imbalance never clears on its own - the one-question-per-message rule
+    then went unenforced for everything that followed. Fixed by actually
+    checking whether a real close exists anywhere LATER in the text (from
+    this candidate boundary onward), rather than assuming one is still
+    coming: if the rest of the text has fewer ")" than the "(" still owed,
+    it never will close, so this "(" is no longer honored as open and
+    normal splitting resumes immediately - not after an arbitrary distance,
+    since a stray unclosed "(" can sit right next to the very next real
+    boundary."""
     spans = []
     start = 0
     for m in _SENTENCE_BOUNDARY_RE.finditer(text):
+        if m.group() != "\n":
+            since_start = text[start:m.start()]
+            imbalance = since_start.count("(") - since_start.count(")")
+            if imbalance > 0 and text[m.start():].count(")") >= imbalance:
+                continue  # a real close still exists later - not a real boundary yet
         end = m.end()
         spans.append((text[start:end], m.group()))
         start = end
@@ -6023,7 +7136,22 @@ def _enforce_one_option_question(reply, state):
 
     state = state if isinstance(state, dict) else {}
     sentences = _split_sentences(text)
-    question_idx = [i for i, (_, term) in enumerate(sentences) if term == "?"]
+    # Per Shaked's stage-1 run-4 direct finding (Bratislava): a Hebrew tag
+    # question ("...תמיד אפשר להוסיף מזוודה בהמשך, נכון?") is structurally a
+    # STATEMENT with a trailing confirmation tag, not a second real question
+    # competing with the actual gap-question that follows it - live, this
+    # counted as a second "?" sentence, so the whole acknowledgment got
+    # dropped from the rebuilt reply below along with the real question it
+    # was replaced by, leaving only the blank line between them (the
+    # customer-visible symptom: a reply starting "\n\n" with the
+    # acknowledgment gone entirely). A STRUCTURAL check (comma directly
+    # before נכון/לא/כן, then only "?" to the end), exactly the same kind of
+    # format-based signal as the " או "/_BUNDLED_AND_QUESTION_RE checks
+    # below - never a meaning/model judgment call.
+    question_idx = [
+        i for i, (s, term) in enumerate(sentences)
+        if term == "?" and not _CONFIRMATION_TAG_QUESTION_RE.search(s)
+    ]
     if not question_idx:
         return reply
 
@@ -6112,13 +7240,54 @@ def _enforce_one_option_question(reply, state):
             # replacement exists at all (no gap, no offer) for a reply
             # that bundles multiple fully separate question sentences,
             # returning the whole reply untouched would leave every extra
-            # question in place too. Keep only the FIRST question
-            # sentence and drop the ones after it - not a single other
-            # character is touched. (A single, possibly-bundled question
-            # sentence with no fixed replacement keeps the Paris rule
-            # below unchanged: never drop the only question there is.)
-            drop = set(question_idx[1:])
-            return "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
+            # question in place too.
+            #
+            # Per Shaked's FIRST review of PR #115 (Bratislava, 2db29a9):
+            # keeping the FIRST question and dropping the rest (the
+            # original version of this branch) has the same live failure
+            # the tag-question fix above was trying to patch over with a
+            # growing word list - a short confirmation tag ("...לכולם,
+            # בסדר?") is routinely the FIRST question sentence, with the
+            # real, conversation-advancing question ("מה התקציב...?")
+            # coming LAST. Reworked once to keep the LAST question instead.
+            #
+            # Per Shaked's SECOND review (c7a617a): "always keep the last"
+            # has its own live failure the opposite way - "מה התקציב שלכם
+            # לאדם לטיסה? ונוח לכם בבוקר?" kept "ונוח לכם בבוקר?" (a
+            # continuation starting with "ו", not an independent question)
+            # and dropped the real missing-gap question. Her own decision
+            # order, implemented as-is:
+            # 1. active_session=="flights" with real gaps already known:
+            #    this path is handled entirely above (fixed = _flight_gap_
+            #    question(...) is always truthy whenever gaps is non-empty -
+            #    see its own trailing "if gaps: return ..." fallback) and
+            #    never reaches this branch at all; nothing to add here.
+            # 2. Otherwise: a question sentence that starts with "ו"/"או"
+            #    is grammatically a CONTINUATION of the question immediately
+            #    before it, not an independent one - keep that PRECEDING
+            #    question instead. In every other case, keep the LAST
+            #    question (unchanged from the first review).
+            # 4. Safety rule (hers): when this can't be decided with
+            #    confidence, delete nothing - two questions in one message
+            #    is less bad than deleting the one that actually advances
+            #    the conversation. The continuation check below is a
+            #    narrow, unambiguous STRUCTURAL pattern (an attached "ו"
+            #    prefix, or the standalone word "או") - anything else falls
+            #    through to the plain "keep last" default rather than
+            #    guessing further.
+            last_q_text = sentences[question_idx[-1]][0].lstrip()
+            if _QUESTION_CONTINUATION_RE.match(last_q_text) and len(question_idx) >= 2:
+                keep_idx = question_idx[-2]
+            else:
+                keep_idx = question_idx[-1]
+            drop = set(question_idx) - {keep_idx}
+            kept = "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
+            # 3. Strip only the leading/trailing edges of the final message
+            # (never anything in the middle) - dropping question
+            # sentence(s) before the kept one can leave a bare "\n"-span
+            # dangling at the very start (the live Bratislava symptom: a
+            # reply beginning with a blank line and nothing before it).
+            return kept.strip()
         return reply
     question_idx_set = set(question_idx)
     prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i not in question_idx_set)
@@ -7637,6 +8806,67 @@ def _redirect_false_flight_closure_claim(reply, trip_update):
     return question or reply
 
 
+# Unique substring from _baggage_followup_hint's own instruction text - its
+# presence in trip_update["_guided_ask_hint"] is how this turn's reply is
+# known to have been INSTRUCTED to include the baggage follow-up note,
+# without threading a separate flag through the guided-extraction dispatch.
+_BAGGAGE_FOLLOWUP_NOTE_WORDS = ("טרולי", "מזוודה")
+
+
+def _baggage_followup_note_already_present(text):
+    """Broader, more robust check than matching one or two exact full
+    phrases (Shaked's own review: a single fixed string is fragile) -
+    any mention of actually adding a trolley/suitcase later, in whatever
+    surrounding wording the model used, already covers the note's
+    substance."""
+    return "להוסיף" in text and any(w in text for w in _BAGGAGE_FOLLOWUP_NOTE_WORDS)
+
+
+def _ensure_baggage_followup_note_present(reply, trip_update, trip_state=None):
+    """Per Shlomo's relay of Shaked's live stage-1 run-2 finding: even
+    after _baggage_followup_hint's own prompt instruction was hardened
+    twice already (#104), the "can always add a trolley/suitcase later"
+    note still didn't reliably reach the customer - the model sometimes
+    still dropped it in favor of keeping only the next question. Per the
+    business owner's explicit direction, this is now ALSO a deterministic
+    code backup: when baggage was just settled this turn but the model's
+    actual reply doesn't contain the note's content, the code inserts the
+    one short sentence itself, before the rest of the reply. A checked
+    bag (the top tier) never needs a note, matching _baggage_followup_
+    hint's own gating exactly.
+
+    Trigger (reworked per Shaked's rejection of the first version, which
+    keyed off the guided dispatcher's own hint-marker/current_question
+    bookkeeping - on her live repro current_question was already None and
+    _baggage_followup_hint was never even built, so neither signal ever
+    fired): a pure STATE DIFF instead - this turn's flight.baggage went
+    from empty/unset (trip_state, before) to a real value (trip_update,
+    now), independent of which code path produced that change (guided
+    dispatcher, its regex fallback, or the general extractor)."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    prior_values = (trip_state.get("flight") or {}).get("baggage")
+    prior = prior_values if isinstance(prior_values, list) else []
+    now_values = (trip_update.get("flight") or {}).get("baggage")
+    now = now_values if isinstance(now_values, list) else []
+    if prior or not now:
+        return reply
+    if "checked_bag" in now:
+        return reply
+    text = str(reply or "")
+    if _baggage_followup_note_already_present(text):
+        return text
+    if "carry_on_only" in now:
+        note = _g(trip_update.get("user_gender"),
+                   "אפשר תמיד להוסיף מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה.",
+                   "אפשר תמיד להוסיף מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה.")
+    else:
+        note = _g(trip_update.get("user_gender"),
+                   "אפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה.",
+                   "אפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה.")
+    return f"{note} {text}" if text else note
+
+
 _POST_FLIGHT_OFFER_CUES = (
     "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
     "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
@@ -7732,6 +8962,10 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
         "הביני את משמעות התשובה בכל ניסוח, כולל סלנג ושגיאות כתיב. לכל שירות החזירי true אם הלקוח רוצה אותו עכשיו, "
         "false אם הוא לא רוצה אותו עכשיו (כולל 'אחר כך', 'אסתדר לבד', 'זהו'), או null אם אי אפשר לדעת מהתשובה. "
         "'כן' כללי בלי פירוט = true לכולם. סירוב כללי בלי פירוט = false לכולם. "
+        "שימי לב במיוחד: תשובה כמו 'יש' או 'יש לנו' לשאלה הזו כמעט תמיד אומרת שהלקוח כבר מסודר עם השירות הזה "
+        "בעצמו (למשל כבר יש לו לינה מוזמנת) - זו false, לא אישור כללי. אל תבלבלי בין המשמעות הזו (יש לי כבר "
+        "את זה) לבין 'יש!' כקריאת התלהבות (שתהיה true) - בהקשר הזה, תשובה על אם צריך עזרה נוספת בשירות מסוים, "
+        "המשמעות הטבעית והשכיחה הרבה יותר של 'יש'/'יש לנו' היא הראשונה. "
         "אם הלקוח מתלבט או שואל שאלה בלי להחליט - null. "
         "החזירי JSON בלבד, בפורמט {\"lodging\": true|false|null, ...} רק עם המפתחות: " + ", ".join(offered) + "."
     )
@@ -7801,7 +9035,14 @@ _GUIDED_FIELD_HINT_DESCRIPTION = {
     # moves from a plain regex safety net into a real guided field, same as
     # dates/travelers - the model decides shared/per-passenger, not another
     # literal phrase added to a list.
-    "baggage": "איזה כבודה לוקחים (טרולי/מזוודה בבטן/תיק קטן בלבד), ואם המזוודה משותפת לכל הקבוצה או אחת לכל נוסע",
+    # Per the business owner's explicit decision (20.10, replacing the
+    # earlier "per-passenger" framing entirely, after Shaked's live K1/K2
+    # findings on #91): ONE question to the WHOLE group, exactly 3 options
+    # - never a question about, or explanation of, baggage differing
+    # between passengers at all (that option doesn't exist in a single
+    # booking - see _guided_field_update_and_confirm's mixed_per_passenger
+    # handling below).
+    "baggage": "שאלה אחת לכל הקבוצה (לא לכל נוסע בנפרד) עם 3 אפשרויות בדיוק: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק\"ג) - לעולם לא לשאול או להסביר על כבודה שונה לנוסעים שונים",
     "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה, צימר או הוסטל",
     "lodging_rooms": "כמה חדרים נדרשים ללינה",
     "lodging_bathrooms": "כמה חדרי רחצה נדרשים בדירה",
@@ -7877,6 +9118,32 @@ def _guided_ask_hint(field, attempts):
         " התיאור הזה יכול לכלול דוגמאות לערכים אפשריים - הן למטרת ההבנה שלך בלבד, "
         "לעולם אל תמני אותן כאפשרויות בתוך השאלה עצמה (לא \"X, Y או Z?\")."
     )
+    # Baggage is a DELIBERATE exception (business owner, 20.10, replacing
+    # the earlier per-passenger design): unlike every other guided field,
+    # she wants the 3 real options NAMED in the question itself - the same
+    # already-established exception as an open question with a listed set
+    # of examples (qa/stage-scenarios.md's own precedent, "מה הסגנון שהכי
+    # מדבר אלייך (תרבות ומוזיאונים, שופינג, אוכל וכו')?" - not a forced
+    # "X או Y?" the customer must pick between, since the customer is free
+    # to answer in their own words too). Still one open question, still no
+    # buttons - just with the exhaustive option set spoken, specifically so
+    # the customer doesn't default to describing per-passenger differences.
+    if field == "baggage":
+        if attempts and attempts >= 1:
+            return (
+                "הפרט הבא עדיין חסר, ובניסיון הקודם לא הובן: "
+                f"{desc}. שאלי שוב שאלה אחת ויחידה לכל הקבוצה, בניסוח שונה "
+                "מהפעם הקודמת, ובה את מזכירה את שלוש האפשרויות בדיוק - תיק יד "
+                "בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק\"ג) - לעולם לא "
+                "כפתורי בחירה, ולעולם לא שאלה על הבדל בין נוסעים שונים."
+            )
+        return (
+            f"הפרט הבא לברר אצל הלקוח: {desc}. שאלי שאלה אחת ויחידה לכל "
+            "הקבוצה, בניסוח שלך - חם וטבעי, בלי כפתורים - ובה את מזכירה את "
+            "שלוש האפשרויות בדיוק: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס "
+            "(20-23 ק\"ג). לעולם אל תפתחי שאלה על הבדל בין נוסעים שונים "
+            "בקבוצה - אין אפשרות כזו בהזמנה אחת."
+        )
     if attempts and attempts >= 1:
         return (
             f"הפרט הבא עדיין חסר, ובניסיון הקודם לא הובן: {desc}. שאלי שוב שאלה אחת "
@@ -7901,6 +9168,84 @@ def _guided_confirm_hint(field, confirm_desc):
 def _guided_correction_hint(label, confirm_desc):
     value_text = f" ל{confirm_desc}" if confirm_desc else ""
     return f"הלקוח עדכן את {label}{value_text} - ציייני לו בקצרה במשפט אחד שהעדכון נקלט, לא כשאלה."
+
+
+def _guided_skip_hint(skipped_field, next_field):
+    """Loop guard (Carmit's explicit directive, Copenhagen stage-1 run-3
+    live finding): "איזה סוג לינה?" got asked 15 times in a row with no
+    progress. The same canonical question must never repeat verbatim
+    forever - after two unclear answers in a row, this is used INSTEAD of
+    a third identical-style attempt, moving the conversation on by
+    construction rather than hoping a differently-worded retry finally
+    lands."""
+    label = _GUIDED_FIELD_HINT_DESCRIPTION.get(skipped_field, skipped_field)
+    text = (
+        f"כבר ניסית פעמיים לברר את הפרט הבא ולא הצלחת להבין את התשובה: {label}. "
+        "אל תשאלי עליו שוב באותו נושא ובאותה צורה - ציייני בקצרה ובטבעיות שאפשר "
+        "להשלים את זה מאוחר יותר, בלי להתנצל יתר על המידה."
+    )
+    if next_field:
+        next_desc = _GUIDED_FIELD_HINT_DESCRIPTION.get(next_field, next_field)
+        text += f" מיד אחר כך, באותה הודעה, שאלי שאלה אחת ויחידה, פתוחה, על הפרט הבא: {next_desc}."
+    return text
+
+
+def _guided_skip_turn_hint(field):
+    """Required-field variant of the loop guard, per Shaked's explicit
+    correction: dates/travelers/baggage are never optional the way a
+    lodging sub-field is (the whole lodging domain can be declined
+    entirely; a required fact about the trip itself cannot be silently
+    dropped). Unlike _guided_skip_hint, the field itself stays open - only
+    THIS turn's repeat is skipped, so it gets asked again fresh, with a
+    concrete example, the next time it comes up (attempts already reset
+    to 0 by the caller)."""
+    label = _GUIDED_FIELD_HINT_DESCRIPTION.get(field, field)
+    return (
+        f"כבר ניסית פעמיים לברר את הפרט הבא ולא הצלחת להבין את התשובה: {label}. "
+        "אל תשאלי עליו שוב באותה צורה בהודעה הזו - המשיכי את השיחה באופן טבעי, "
+        "בלי לדרוש תשובה על זה עכשיו. הפרט הזה יישאל שוב בהמשך, בניסוח חדש עם "
+        "דוגמה קונקרטית - לא עכשיו."
+    )
+
+
+def _baggage_followup_hint(baggage_values):
+    """Per the business owner's explicit decision (20.10, replacing the
+    earlier per-passenger/explain-and-confirm design after Shaked's live
+    K1 Warsaw finding): once the group's single baggage choice is settled,
+    Ariella always adds ONE short note depending on the highest tier
+    actually chosen - then moves straight to the next topic in the SAME
+    message, never a separate follow-up question or confirmation request.
+    A checked bag (the top tier) needs no note at all; anything below it
+    can always be upgraded at the airline's own website when booking.
+    Returns None for checked_bag (nothing to add)."""
+    values = baggage_values if isinstance(baggage_values, list) else []
+    if "checked_bag" in values:
+        return None
+    if "carry_on_only" in values:
+        what = "שאפשר תמיד להוסיף מזוודה בבטן המטוס"
+    else:
+        what = "שאפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס"
+    # Seen live (Shlomo/Shaked, stage-1 run-1, 20.10.2026, s1a1/s1a3): this
+    # note is often the ONLY hint for this turn (budget, the real next
+    # topic here, isn't itself a guided field with its own hint to combine
+    # this with - see _handle_guided_extraction_turn) - the reply simply
+    # asked the next question ("יש לך הגבלת תקציב...?"/"מה התקציב...?")
+    # with the note dropped entirely. The note is a plain statement, not a
+    # second question, but handed this alone against TINKERBELL_SYSTEM's
+    # own strict one-question-per-message rule, the model may have played
+    # safe and kept only the question. Stating outright that adding this
+    # one statement before the next question still counts as a single
+    # compliant message (matching the rule's own documented example of a
+    # statement plus one question together) removes that ambiguity instead
+    # of leaving it to be inferred.
+    return (
+        f"בנוסף, ציייני בלשונך במשפט קצר אחד {what} באתר חברת התעופה בזמן "
+        "ההזמנה - ומיד אחר כך, באותה הודעה, המשיכי לשאלה הבאה שבאמת רלוונטית "
+        "כרגע (למשל תקציב, אם עוד לא ידוע). זו עדיין הודעה אחת תקינה עם שאלה "
+        "אחת בלבד - המשפט הקצר על הכבודה הוא קביעה, לא שאלה שנייה, ואסור "
+        "להשמיט אותו רק כדי להישאר עם שאלה אחת. לעולם אל תשאלי עוד שאלה או "
+        "בקשת אישור על הכבודה עצמה."
+    )
 
 
 def _guided_baggage_applies(state):
@@ -8060,36 +9405,52 @@ def _guided_extract_answer(key, model, field, message, history, state):
                 pass
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח איזה כבודה לוקחים. חלצי "
-            "מתשובת הלקוח את פריטי הכבודה - לכל פריט: סוג, כמות (אם נאמרה), "
-            "ואיך היא מתחלקת בין הנוסעים.\n"
+            "מתשובת הלקוח את פריטי הכבודה - לכל פריט: סוג וכמות (אם נאמרה).\n"
+            "חשוב: ההזמנה עצמה היא כבודה אחידה לכל הכרטיסים בקבוצה - אי אפשר "
+            "להזמין סוג כבודה שונה לנוסעים שונים באותה הזמנה (רק בשתי הזמנות "
+            "נפרדות). לכן אין צורך בפירוט לפי נוסע (מי בדיוק מקבל מה) - רק מה "
+            "הסוג האחיד, ואם נאמרו כמות ו/או גודל.\n"
             f"מספר נוסעים בקבוצה: {travelers_total or 'לא ידוע'}.\n"
             f"מצב נוכחי - כבודה: {json.dumps(current_flight.get('baggage'), ensure_ascii=False)}.\n"
             f"4 ההודעות האחרונות: {recent}\n"
-            "כללים: items היא רשימת פריטים, כל אחד {\"type\",\"count\",\"unit\"} - "
-            "יכול להיות יותר מפריט אחד באותה הודעה (למשל \"טרולי לכל אחד "
-            "ומזוודה אחת לכל המשפחה\" הם שני פריטים). type הוא אחד מהערכים "
+            "כללים: items היא רשימת פריטים, כל אחד {\"type\",\"count\"} - יכול "
+            "להיות יותר מפריט אחד באותה הודעה (למשל \"טרולי וגם מזוודה\" הם "
+            "שני פריטים, אם שניהם מיועדים לכל הקבוצה). type הוא אחד מהערכים "
             "האלה בדיוק: \"carry_on_only\" (טרולי/כבודת עלייה), \"checked_bag\" "
             "(מזוודה בבטן המטוס), \"personal_item\" (תיק קטן בלבד). count הוא "
-            "המספר שצוין (כולל מספרים במילים כמו \"שתי מזוודות\"=2, \"אחת\"=1) "
-            "או null אם לא צוין מספר. unit מתאר איך הכמות מתחלקת: "
-            "\"per_person\" (לכל נוסע/אדם בנפרד, כולל מבוגרים), \"per_couple\" "
-            "(לכל זוג), \"per_child\" (לכל ילד בלבד - לא לכל נוסע; שונה "
-            "במפורש מ-per_person, שמשמעו כל נוסע ולא רק הילדים), "
-            "\"total\" (סך הכול לכל הקבוצה ביחד - \"לכולנו\"/\"לכולם\"/\"לכל "
-            "המשפחה\"/\"משותפת\" הם כולם total), או null אם לא ברור מהניסוח "
-            "איך זה מתחלק (במקרה הזה שמרי את count כפי שנאמר, אל תנחשי unit). "
-            "אם אין שום כבודה בכלל - no_baggage:true (items ריקה אז). אסור "
-            "להמציא כמות או חלוקה שלא נאמרה. אם לא ברור בכלל אילו פריטים "
-            "נלקחים, items=null ו-confidence:\"low\". also_mentioned: רק "
-            "פרטי תאריכים/נוסעים שנאמרו במפורש באותה הודעה, בלי להשלים "
-            "בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, נושא "
-            "אחר) - status=\"other_topic\". אם ההודעה מתקנת כבודה שכבר "
-            "נקבעה - status=\"answered\" ומלאי correction.\n"
+            "המספר הכולל שצוין (כולל מספרים במילים כמו \"שתי מזוודות\"=2, "
+            "\"אחת\"=1, \"מזוודה אחת לכולנו\"=1) או null אם לא צוין מספר - "
+            "אסור להמיר ניסוח של חלוקה בין נוסעים (\"לכל אחד\"/\"לכל מבוגר\" "
+            "וכו') למספר מוסק, כי ההזמנה בכל מקרה אחידה; שמרי רק מספר שנאמר "
+            "במפורש כסך הכול. רק כש-type הוא checked_bag, אפשר למלא גם size - "
+            "הגודל הפיזי שהלקוח ציין: \"קטנה\"/\"בינונית\"/\"גדולה\", או null "
+            "אם לא נאמר גודל בכלל - לעולם אל תמציאי גודל שלא נאמר, גם לא "
+            "\"גדולה\" כברירת מחדל. אם אין שום כבודה בכלל - no_baggage:true "
+            "(items ריקה אז). אם לא ברור בכלל אילו פריטים נלקחים, items=null "
+            "ו-confidence:\"low\".\n"
+            "mixed_per_passenger: true כשהלקוח משייך סוג כבודה שונה לנוסעים/"
+            "קבוצות שונים בתוך אותה תשובה - בכל ניסוח, לא רק ניגוד מפורש עם "
+            "\"אבל\": גם תיאור צד-לצד (\"אני מסתדרת עם תיק קטן, השתיים "
+            "האחרות רוצות מזוודה גדולה\", \"ההורים עם טרולי, לילדים מזוודה\"), "
+            "לא רק \"אני... אבל הם...\". לעולם לא true רק בגלל שיש גם טרולי "
+            "וגם מזוודה לכל הקבוצה כולה (זה לא מעורב - זו בקשה לשני פריטים "
+            "אחידים). לפי ההחלטה המפורשת של בעלת העסק (20.10): אין בכלל "
+            "אפשרות להזמין כבודה שונה לנוסעים שונים באותה הזמנה - אז בקשה "
+            "מעורבת נפתרת מיד לפי האפשרות הגבוהה ביותר (מזוודה), בלי לפתוח "
+            "דיון ובלי לשאול שוב. כש-true: מלאי items עם checked_bag בלבד "
+            "(בלי size/count - לא נאמרו בפועל לכל הקבוצה) ו-confidence:"
+            "\"high\" - ההחלטה ודאית, אין כאן שום דבר לברר מול הלקוח.\n"
+            "also_mentioned: רק פרטי תאריכים/נוסעים שנאמרו במפורש באותה "
+            "הודעה, בלי להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל "
+            "(שאלה אחרת, נושא אחר) - status=\"other_topic\". אם ההודעה "
+            "מתקנת כבודה שכבר נקבעה - status=\"answered\" ומלאי correction.\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic",'
             '"no_baggage":true|false,'
+            '"mixed_per_passenger":true|false,'
             '"items":[{"type":"carry_on_only"|"checked_bag"|"personal_item",'
-            '"count":int|null,"unit":"per_person"|"per_couple"|"per_child"|"total"|null},...]|null,'
+            '"count":int|null,'
+            '"size":"קטנה"|"בינונית"|"גדולה"|null},...]|null,'
             '"confidence":"high|low",'
             '"also_mentioned":{"dates":{...}|null,"travelers":{...}|null},'
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
@@ -8319,8 +9680,8 @@ def _validate_lodging_level_against_message(trip_update, state, message):
 
 def _validate_baggage_detail_against_message(trip_update, state, message):
     """Per Shlomo/Shaked (stage-3 run-3, Lisbon): flight.baggage_detail
-    (the per-passenger count/unit split, e.g. "one shared suitcase" vs.
-    "one per passenger") got silently reinterpreted by the main per-turn
+    (the count/size actually stated for the group's uniform baggage) got
+    silently reinterpreted by the main per-turn
     extractor on a LATER turn where the customer said nothing new about
     baggage at all - Tinkerbell then told the customer "I understood this
     was one bag per passenger", a fact never actually restated that turn.
@@ -8357,7 +9718,7 @@ def _validate_baggage_detail_against_message(trip_update, state, message):
     return trip_update
 
 
-def _guided_field_update_and_confirm(field, result, raw_message=None):
+def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_ranges=None):
     """Builds the _merge_trip_state fragment for a resolved guided answer,
     plus a short, plain-text DESCRIPTION of the value just extracted (never
     a question, never shown to the customer verbatim) - the caller weaves
@@ -8369,13 +9730,44 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
     _value_has_verbatim_evidence) - the direct-answer call site never
     passes it, since there the model is already answering the exact
     budget/level question asked, not inferring it from an unrelated
-    answer."""
+    answer.
+
+    candidate_ranges, when passed (field == "dates" only), is the pending
+    dates.candidate_ranges list from state BEFORE this turn - see the
+    departure+nights override immediately below."""
     result = result if isinstance(result, dict) else {}
     if field == "dates":
         departure = result.get("departure")
         ret = result.get("return")
         nights = result.get("nights")
         period = result.get("period")
+        # Per Shaked's stage-1 run-4 direct finding (Tallinn): with real
+        # pending candidates already in state, the customer confirming one
+        # ("כן, בדיוק") is answering a CHOICE, not stating a fresh duration -
+        # yet this guided path still recomputed return as departure+nights
+        # from whatever nights value happened to be in result, independent
+        # of the candidate actually being confirmed. Live: candidate
+        # "21.11.2026-30.11.2026" (9 nights) confirmed, but nights=10 (the
+        # original "לעשרה ימים" request) still in play elsewhere, so
+        # 21.11+10 produced 01.12.2026 - a day past the candidate's own real
+        # end. Per the business owner's single-source-of-truth directive:
+        # once departure matches a real candidate's own start date, that
+        # candidate's own return date is authoritative - never a separate
+        # nights-based computation of any kind.
+        if departure:
+            for candidate in (candidate_ranges or []):
+                found = re.findall(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", str(candidate))
+                if len(found) != 2:
+                    continue
+                try:
+                    cand_dep = date(int(found[0][2]), int(found[0][1]), int(found[0][0]))
+                    cand_ret = date(int(found[1][2]), int(found[1][1]), int(found[1][0]))
+                except ValueError:
+                    continue
+                if cand_dep.isoformat() == str(departure)[:10]:
+                    ret = cand_ret.isoformat()
+                    nights = None
+                    break
         if departure and not ret and isinstance(nights, int) and nights > 0:
             try:
                 ret = (date.fromisoformat(departure) + timedelta(days=nights)).isoformat()
@@ -8424,17 +9816,38 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
         return {"travelers": fragment}, desc
     if field == "baggage":
         # Per Shlomo/Shaked (2026-10-17, after her review of #78): a bare
-        # shared/not-shared boolean silently drops the actual COUNT and
-        # the UNIT it's split by ("שתי מזוודות לכולנו" and "מזוודה אחת לכל
-        # זוג" both collapsed to the same label). Each item now carries its
-        # own {type, count, unit} straight from the model.
+        # shared/not-shared boolean silently drops the actual COUNT ("שתי
+        # מזוודות לכולנו" and "מזוודה אחת" both collapsed to the same
+        # label). Each item carries its own {type, count} straight from
+        # the model.
+        #
+        # Per the business owner's later directive (20.10): a booking is
+        # always ONE uniform baggage choice for every ticket in the group
+        # (never a per-passenger split, short of two separate bookings) -
+        # so there is no "unit" (per_person/per_adult/per_couple/per_child/
+        # total) to track at all; count is simply the total stated for the
+        # whole group, never a per-passenger split synthesized from one.
         if result.get("no_baggage"):
             return {"flight": {"baggage": ["no_baggage"], "baggage_detail": {}}}, "ללא כבודה"
+        # mixed_per_passenger: the customer's own words differentiated what
+        # DIFFERENT passengers get (e.g. "אני עם טרולי אבל הילדים עם
+        # מזוודה") - the model itself decides this from meaning, never a
+        # phrase list. Per the business owner's explicit decision (20.10,
+        # replacing the earlier "explain and confirm" design after Shaked's
+        # live K1 Warsaw finding - Ariella correctly explained uniform
+        # baggage but then ASKED a confirm question anyway, and separately
+        # PROMISED a per-passenger split at booking time, both forbidden):
+        # a mixed request resolves SILENTLY to the highest tier (checked_
+        # bag), with the exact same flat description as if the customer had
+        # asked for a checked bag directly - no explanation, no discussion,
+        # no promise of any per-passenger split.
+        if result.get("mixed_per_passenger"):
+            return {"flight": {"baggage": ["checked_bag"]}}, _checked_bag_label({})
         items = result.get("items")
         if not isinstance(items, list) or not items:
             return {}, None
         valid_types = ("carry_on_only", "checked_bag", "personal_item")
-        valid_units = ("per_person", "per_couple", "per_child", "total")
+        valid_sizes = ("קטנה", "בינונית", "גדולה")
         values = []
         baggage_detail = {}
         labels = []
@@ -8445,15 +9858,36 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
             if item_type not in valid_types or item_type in values:
                 continue
             values.append(item_type)
-            if item_type != "checked_bag":
+            if item_type == "personal_item":
                 labels.append(_BAGGAGE_HE.get(item_type, item_type))
                 continue
             count = item.get("count")
             count = count if isinstance(count, int) and count > 0 else None
-            unit = item.get("unit") if item.get("unit") in valid_units else None
-            if count is not None or unit is not None:
-                baggage_detail["checked_bag"] = {"count": count, "unit": unit}
-            labels.append(_checked_bag_label(baggage_detail.get("checked_bag")))
+            if item_type == "checked_bag":
+                # size (per Shlomo's priority-5 finding, s12x10): "בינונית"
+                # was shown back as the hardcoded "גדולה" - now a real
+                # fact when stated, never invented when it isn't. Keys
+                # only appear when actually stated (sparse-dict
+                # convention) so an unstated size never shows up as a
+                # spurious "size": None key.
+                size = item.get("size") if item.get("size") in valid_sizes else None
+                checked_detail = {}
+                if count is not None:
+                    checked_detail["count"] = count
+                if size is not None:
+                    checked_detail["size"] = size
+                if checked_detail:
+                    baggage_detail["checked_bag"] = checked_detail
+                labels.append(_checked_bag_label(baggage_detail.get("checked_bag")))
+            else:  # carry_on_only
+                carry_detail = {}
+                if count is not None:
+                    carry_detail["count"] = count
+                if carry_detail:
+                    baggage_detail["carry_on_only"] = carry_detail
+                    labels.append(_carry_on_label(carry_detail))
+                else:
+                    labels.append(_BAGGAGE_HE.get(item_type, item_type))
         if not values:
             return {}, None
         fragment = {"baggage": values}
@@ -8696,11 +10130,49 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         return {"trip_update": trip_update, "dynamic_hint": None} if changed else None
     if status == "unclear":
         attempts += 1
+        if attempts >= 2:
+            # Loop guard (Carmit's explicit directive, Copenhagen stage-1
+            # run-3 live finding): the exact same canonical question must
+            # never repeat verbatim forever - seen live, 15 times in a row.
+            # Two unclear answers in a row (this one is the second) means
+            # whatever is blocking this field isn't resolving by asking it
+            # again the same way.
+            #
+            # Per Shaked's review of the first version of this guard: it
+            # marked the field "answered" with no real value even for the
+            # UNIVERSAL required fields (dates/travelers/baggage) - these
+            # are never optional the way a lodging sub-field is (lodging
+            # itself can be skipped entirely), so silently treating one as
+            # settled would lose a real booking fact. Lodging sub-fields
+            # keep the skip-and-advance behavior (the field truly can stay
+            # unknown); every other field instead only skips asking again
+            # THIS turn - the field stays open, attempts reset to 0, so
+            # it's asked again fresh (reworded, with a concrete example)
+            # next time it comes up, rather than a third identical attempt
+            # right now.
+            if current_question in _LODGING_GUIDED_SUBFIELDS:
+                if current_question not in answered:
+                    answered.append(current_question)
+                skipped_field = current_question
+                next_field = next(
+                    (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+                    None,
+                )
+                guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
+                trip_update["guided"] = guided
+                return {"trip_update": trip_update, "dynamic_hint": _guided_skip_hint(skipped_field, next_field)}
+            guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "dynamic_hint": _guided_skip_turn_hint(current_question)}
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(current_question, attempts)}
     # status == "answered"
-    fragment, confirm_desc = _guided_field_update_and_confirm(current_question, result)
+    _prior_dates_for_guided = trip_state.get("dates") if isinstance(trip_state.get("dates"), dict) else {}
+    fragment, confirm_desc = _guided_field_update_and_confirm(
+        current_question, result,
+        candidate_ranges=_prior_dates_for_guided.get("candidate_ranges") if current_question == "dates" else None,
+    )
     if fragment:
         trip_update = _merge_trip_state(trip_update, fragment)
     also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
@@ -8754,7 +10226,13 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             trip_update["ready_for_summary"] = False
         guided["current_question"], guided["attempts"], guided["answered"] = None, 0, answered
         trip_update["guided"] = guided
-        return {"trip_update": trip_update, "dynamic_hint": _guided_correction_hint(field_label, confirm_desc)}
+        correction_hint = _guided_correction_hint(field_label, confirm_desc)
+        if current_question == "baggage":
+            baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
+            if baggage_note:
+                correction_hint = correction_hint + " " + baggage_note
+        return {"trip_update": trip_update, "dynamic_hint": correction_hint}
+    answered_field = current_question
     current_question = None
 
     next_field = next(
@@ -8765,7 +10243,37 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     guided["attempts"] = 0
     guided["answered"] = answered
     trip_update["guided"] = guided
-    return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(next_field, 0) if next_field else None}
+    next_hint = _guided_ask_hint(next_field, 0) if next_field else None
+    if answered_field == "baggage":
+        # Per the business owner's decision (20.10): always add the "can
+        # always add later" note, then move straight to the next topic in
+        # the SAME message - never a separate turn.
+        baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
+        if baggage_note:
+            # Seen live (Shlomo/Shaked, stage-1 run-1, 20.10.2026, s1a1/
+            # s1a3): a plain concatenation of the note with the next
+            # question ("{note} {next_hint}") was sometimes dropped
+            # entirely - the reply asked only the next question ("יש לך
+            # הגבלת תקציב...?"/"מה התקציב...?"), with no "אפשר להוסיף..."
+            # sentence at all. TINKERBELL_SYSTEM's own strict one-question-
+            # per-message rule is the likely reason: handed an un-numbered
+            # blob combining a statement with a new question, the model
+            # may have played safe and kept only the question, uncertain
+            # whether including both still counted as "one question."
+            # Numbering the two parts explicitly and stating outright that
+            # this still counts as one question (matching the rule's own
+            # documented example of a statement plus one question in the
+            # same message) removes that ambiguity instead of leaving it
+            # to be inferred from a bare concatenation.
+            return {
+                "trip_update": trip_update,
+                "dynamic_hint": (
+                    ("שני חלקים בהודעה הזו - זה עדיין נחשב הודעה אחת עם שאלה אחת בלבד, לא הפרה של כלל השאלה האחת: "
+                     "(1) " + baggage_note + " (2) " + next_hint)
+                    if next_hint else baggage_note
+                ),
+            }
+    return {"trip_update": trip_update, "dynamic_hint": next_hint}
 
 
 _REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_planning": "מסלול ואטרקציות"}
@@ -8773,11 +10281,17 @@ _REOPEN_LABELS = {"lodging": "לינה", "car": "רכב שכור", "trip_plannin
 # or a single-option yes/no, never several questions or "X or Y" joined
 # together - each entry here now asks only the first thing actually needed,
 # matching _GAP_QUESTION_TEXT's own compliant phrasing for the same field.
-_REOPEN_FIRST_QUESTION = {
-    "lodging": "איזה סוג לינה מתאים לכם?",
-    "car": "איזה סוג רכב מתאים לכם?",
-    "trip_planning": "ספרי לי מה אתם אוהבים לעשות בחופשה.",
-}
+# A function rather than a static dict (unlike _REOPEN_LABELS above) so the
+# one entry that directly addresses the customer in second person
+# ("ספרי לי") can pick the registered gender's correct form via _g().
+def _reopen_first_question_text(service, user_gender):
+    if service == "lodging":
+        return "איזה סוג לינה מתאים לכם?"
+    if service == "car":
+        return "איזה סוג רכב מתאים לכם?"
+    if service == "trip_planning":
+        return _g(user_gender, "ספר לי מה אתם אוהבים לעשות בחופשה.", "ספרי לי מה אתם אוהבים לעשות בחופשה.")
+    return ""
 _PENDING_KEYS = (
     "ready_for_summary", "search_intent", "missing_required", "next_session", "reset_pending",
     "reset_change_request", "reset_scope", "post_flight_offer", "reopen_trip_pending",
@@ -9718,7 +11232,7 @@ def _chat_clean_impl():
             _trip_id, _label = _existing
             reply = (
                 f"כבר יש לך חופשה פעילה ל{_label or 'היעד הזה'} בתאריכים האלה, והתוצאות מחכות לך ב\"החופשות שלי\". "
-                "אם תרצי שאמשיך לעקוב ולעדכן אותך על מחירים טובים יותר, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה."
+                f"אם {_g(trip_state.get('user_gender'), 'תרצה', 'תרצי')} שאמשיך לעקוב ולעדכן אותך על מחירים טובים יותר, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה."
             )
             return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
@@ -9968,8 +11482,9 @@ def _chat_clean_impl():
                 fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(_trigger_message))
             fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
             places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
-            reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
-                     if places else "בסדר, נתכנן חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
+            _verb = _g(trip_state.get("user_gender"), "תרצה", "תרצי")
+            reply = (f"בסדר, מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה {_verb} לטוס?"
+                     if places else f"בסדר, נתכנן חופשה חדשה. לאן {_verb} לטוס ובאיזו תקופה?")
             return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
         if isinstance(choice, int) and service in _REOPEN_LABELS:
             chosen = next((t for t in _reopenable_trips(member_id, service, "", limit=20) if t["id"] == options[choice].get("id")), None)
@@ -9977,7 +11492,8 @@ def _chat_clean_impl():
                 services_wanted = pending_reopen.get("services") or [service]
                 reopened = _state_from_trip(chosen, services_wanted)
                 reopened["profile"] = _member_profile(member_id)
-                reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_REOPEN_FIRST_QUESTION[service]}"
+                reopened["user_gender"] = reopened["profile"].get("gender")
+                reply = f"מעולה, ממשיכות עם {_REOPEN_LABELS[service]} לחופשה ל{chosen['name']} ({chosen['window']}). {_reopen_first_question_text(service, reopened['user_gender'])}"
                 return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':reopened,'start_flight_search':False,'reopen_trip_id':chosen['id']})
         retried = dict(trip_state)
         retried["reopen_trip_pending"] = dict(pending_reopen, asked_again=True)
@@ -10289,8 +11805,9 @@ def _chat_clean_impl():
             fresh['session_status']['flights'] = 'active'
             fresh['service_decisions'] = {'flights':{'wanted':True,'source':'explicit_new_vacation'}}
         places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
-        reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה תרצי לטוס?"
-                 if places else "בשמחה. מתחילים חופשה חדשה. לאן תרצי לטוס ובאיזו תקופה?")
+        _verb = _g(trip_state.get("user_gender"), "תרצה", "תרצי")
+        reply = (f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. באיזו תקופה {_verb} לטוס?"
+                 if places else f"בשמחה. מתחילים חופשה חדשה. לאן {_verb} לטוס ובאיזו תקופה?")
         return _reply({
             'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
             'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True
@@ -10345,7 +11862,7 @@ def _chat_clean_impl():
     }
     if _previous_offered_continue_or_other and _vague_something_else and not own_pending_question:
         if not _deterministic_destination_facts([], message, {}):
-            open_reply = "בטח, ספרי לי - במה אפשר לעזור?"
+            open_reply = _g(trip_state.get("user_gender"), "בטח, ספר לי - במה אפשר לעזור?", "בטח, ספרי לי - במה אפשר לעזור?")
             return _reply({
                 'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
                 'reply': open_reply, 'trip_update': trip_state, 'start_flight_search': False,
@@ -10373,8 +11890,9 @@ def _chat_clean_impl():
             _fresh_new = {'session_status':{'flights':'pending','lodging':'pending','car':'pending','trip_planning':'pending'},'active_session':None}
             _fresh_new = _merge_trip_state(_fresh_new, _seed_fresh_trip_from_trigger_message(message, _triggering_user_message))
             _places_new = ((_fresh_new.get('destination') or {}).get('places') or []) if isinstance(_fresh_new.get('destination'), dict) else []
-            _reply_new = (f"בשמחה 😊 מתחילים חופשה חדשה ל{_places_new[0]}. באיזו תקופה תרצי לטוס?"
-                          if _places_new else 'בשמחה 😊 לאן תרצי לטוס ובאיזו תקופה?')
+            _verb_new = _g(trip_state.get("user_gender"), "תרצה", "תרצי")
+            _reply_new = (f"בשמחה 😊 מתחילים חופשה חדשה ל{_places_new[0]}. באיזו תקופה {_verb_new} לטוס?"
+                          if _places_new else f'בשמחה 😊 לאן {_verb_new} לטוס ובאיזו תקופה?')
             return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':_reply_new,
@@ -10387,7 +11905,7 @@ def _chat_clean_impl():
             kept.pop("reset_change_request", None)
             return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                'reply':'בשמחה. מה תרצי לשנות בחופשה הנוכחית?',
+                'reply': _g(trip_state.get("user_gender"), 'בשמחה. מה תרצה לשנות בחופשה הנוכחית?', 'בשמחה. מה תרצי לשנות בחופשה הנוכחית?'),
                 'trip_update':kept,'start_flight_search':False
             })
 
@@ -10444,7 +11962,7 @@ def _chat_clean_impl():
                 fresh.pop("reset_change_request", None)
                 return _reply({
                     'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                    'reply':'בסדר. מחקתי את פרטי הטיסה. לאן תרצי לטוס ובאיזו תקופה?',
+                    'reply': _g(trip_state.get("user_gender"), 'בסדר. מחקתי את פרטי הטיסה. לאן תרצה לטוס ובאיזו תקופה?', 'בסדר. מחקתי את פרטי הטיסה. לאן תרצי לטוס ובאיזו תקופה?'),
                     'trip_update':fresh,'start_flight_search':False
                 })
             # The message that triggered the reset gate may already contain facts
@@ -10471,7 +11989,7 @@ def _chat_clean_impl():
                 fresh['service_decisions'] = {'trip_planning':{'wanted':True}}
             places = ((fresh.get('destination') or {}).get('places') or []) if isinstance(fresh.get('destination'), dict) else []
             if places:
-                reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה תרצי לנסוע?"
+                reply = f"בשמחה. מתחילים חופשה חדשה ל{places[0]}. נמשיך מכאן בתכנון הטיול — באיזו תקופה {_g(trip_state.get('user_gender'), 'תרצה', 'תרצי')} לנסוע?"
             else:
                 reply = 'בסדר. מתחילים חופשה חדשה. לאן מתחשק לך לטוס ובאיזו תקופה?'
             return _reply({
@@ -10489,7 +12007,11 @@ def _chat_clean_impl():
             # the trip facts and let the next turn continue from that context.
             return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                'reply':('מה תרצי לשנות בפרטי הטיסה?' if trip_state.get("reset_scope") == "flights" else 'מה תרצי לשנות בחופשה הנוכחית?'),
+                'reply': (
+                    _g(trip_state.get("user_gender"), 'מה תרצה לשנות בפרטי הטיסה?', 'מה תרצי לשנות בפרטי הטיסה?')
+                    if trip_state.get("reset_scope") == "flights"
+                    else _g(trip_state.get("user_gender"), 'מה תרצה לשנות בחופשה הנוכחית?', 'מה תרצי לשנות בחופשה הנוכחית?')
+                ),
                 'trip_update':kept,'start_flight_search':False
             })
 
@@ -10667,7 +12189,7 @@ def _chat_clean_impl():
             fresh = _merge_trip_state(fresh, _seed_fresh_trip_from_trigger_message(message))
             if not ((fresh.get('destination') or {}).get('places') if isinstance(fresh.get('destination'), dict) else None):
                 fresh['destination'] = {'places':[pending_new_trip],'mode':'specific','status':'known'}
-            reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה תרצי לטוס?"
+            reply = f"בסדר, מתחילים חופשה חדשה ל{pending_new_trip}. באיזו תקופה {_g(trip_state.get('user_gender'), 'תרצה', 'תרצי')} לטוס?"
             return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,'reply':reply,'trip_update':fresh,'start_flight_search':False,'trip_state_reset':True})
         if intent == "keep":
             kept = dict(trip_state)
@@ -10794,7 +12316,44 @@ def _chat_clean_impl():
     try:
         # Tinkerbell's data-transfer pass tells Ariella what changed.
         # Ariella owns and merges the cumulative state.
-        extracted, restart_request, restart_evidence, dates_evidence, destination_evidence = _extract_trip_update(key, model, history, message, trip_state)
+        (
+            extracted, restart_request, restart_evidence, dates_evidence, destination_evidence,
+            trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
+            link_request, link_request_evidence,
+        ) = _extract_trip_update(key, model, history, message, trip_state)
+
+        # Customer asking for a link back to their vacation/dashboard (20.10,
+        # Shlomo's relay of Carmit's work order item 1; qa/stage-scenarios.md
+        # "בקשת קישור ללוח או לחופשה"). The model only decides the INTENT
+        # (link_request, evidence-gated exactly like restart_request above -
+        # never a phrase list); whether there is anything to link to is
+        # decided here from trip_state alone - never a claim about whether
+        # the search is still running or already finished (that fact lives
+        # only in the DB, invisible to this conversational state, and
+        # asserting it risked being wrong either way - the live finding was
+        # exactly that: "החיפוש רץ ברקע" after the search had already
+        # finished).
+        #
+        # Per Shaked's review of the first version of this fix (20.10): an
+        # early return right here, before the rest of this turn's normal
+        # processing, silently discarded any OTHER fact the same message
+        # also carried (e.g. "שלחי לי את הלינק, ואגב התקציב עד 1000" lost
+        # the budget), and skipped straight past the open question instead
+        # of returning to it when there was nothing to link to yet. This
+        # now only records a flag; the turn continues through its normal
+        # pipeline exactly as if this request hadn't interrupted it, and
+        # Tinkerbell is told about it via a hint (below) so she
+        # acknowledges it naturally in her own reply, in the same message
+        # as whatever else this turn needed to say - never a fixed
+        # sentence, and never "הנה הקישור" herself (the real link is
+        # attached separately, after her reply, by open_existing_flights -
+        # see its handling further down this function and in
+        # whatsapp_bridge.py/trip_form.html).
+        link_request_verified = bool(
+            link_request
+            and not own_pending_question
+            and _value_has_verbatim_evidence(link_request_evidence, message)
+        )
 
         # General restart/change-of-direction always enters a simple yes/no
         # gate first. Never erase collected trip facts before an explicit
@@ -10893,6 +12452,7 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
         trip_update = _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message)
+        trip_update = _guard_ski_trip_type_evidence(trip_state, trip_update, trip_type_evidence, message)
         trip_update = _clear_stale_gateway_airports(trip_update)
         trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
         trip_update = _guard_unjustified_gateway_narrowing(trip_update, message, history)
@@ -11120,14 +12680,30 @@ def _chat_clean_impl():
             trip_update["requested_services"] = list(services)
             trip_update["service_decisions"] = decisions
             trip_update["session_status"] = statuses
-        # Safety net for facts that must never be re-asked. This helper already
-        # existed but was not wired into the live chat path. Run it before
-        # missing-field/session calculation so an explicitly stated destination
-        # remains authoritative even when the LLM extractor misses it.
-        trip_update = _merge_trip_state(
-            trip_update,
-            _deterministic_destination_facts(history, message, trip_state)
-        )
+        # Safety net for facts that must never be re-asked - but ONLY a true
+        # gap-filler, never a second opinion. Per Shaked's live regression
+        # review (20.10, r90a5): this used to run (and unconditionally
+        # overwrite trip_update via _merge_trip_state) any time the prior
+        # STORED state had no destination yet, regardless of what the
+        # extractor itself just returned THIS turn - so its own regex-tier/
+        # last-mention heuristic silently overrode a model that had
+        # genuinely understood the message correctly. Two real examples:
+        # a same-message self-correction ("לגרנדה, לא לסביליה" - stuck on
+        # Seville because negation handling is itself heuristic and
+        # imperfect) and a real two-city itinerary ("טסים לליסבון, ומשם
+        # ברכבת לפורטו" - Lisbon silently dropped, because "last mention
+        # wins" is a correction heuristic that doesn't know this ISN'T a
+        # correction). Only the model actually understands negation,
+        # self-correction vs. a genuine multi-stop itinerary, not a regex
+        # scan - so this fallback must defer to the model: it may only act
+        # when the extractor's OWN output for THIS turn has no destination
+        # at all, never to override a destination the model already
+        # produced this turn.
+        if not ((trip_update.get("destination") or {}).get("places") if isinstance(trip_update.get("destination"), dict) else None):
+            trip_update = _merge_trip_state(
+                trip_update,
+                _deterministic_destination_facts(history, message, trip_state)
+            )
 
         # Task 014a: once GUIDED_EXTRACTION_STEPS covers dates/travelers,
         # this is the source of truth for them instead of the regex below -
@@ -11149,6 +12725,15 @@ def _chat_clean_impl():
             str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
             for _s in ("flights", "lodging", "car", "trip_planning")
         )
+        # Captured BEFORE the guided dispatch call, not after - trip_update
+        # at this point already carries the raw, UNGUARDED extractor merge
+        # from earlier in this function (_merge_trip_state(trip_state,
+        # extracted)), which may itself hold an unverified claimed date
+        # change with nothing behind it yet. Only a difference the guided
+        # dispatcher ITSELF introduces below counts as "genuinely confirmed
+        # this turn" - comparing against this snapshot is what tells the
+        # two apart (see the capture right after the dispatch call).
+        _dates_before_guided_dispatch = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
         if guided_steps and not _all_domains_already_decided:
             guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
             if guided_turn is not None:
@@ -11164,6 +12749,32 @@ def _chat_clean_impl():
                     trip_update["_guided_ask_hint"] = guided_hint
                 else:
                     trip_update.pop("_guided_ask_hint", None)
+
+        # Bologna live finding (20.10, Shlomo's relay, r90b2): the sticky-
+        # dates re-lock logic further below must never discard a value the
+        # guided dispatcher ITSELF just resolved this turn (the customer's
+        # "כן" finalizing a confirm question reopened on a PRIOR turn) -
+        # without this, that confirmation would be silently overwritten
+        # back to the stale prior_dates the instant it was accepted.
+        #
+        # Caught live (full QA sweep regression, qa_stage3_run4_root_
+        # causes.py/qa_stage3_run5_diagnostics.py) in the FIRST version of
+        # this capture: it simply read trip_update.get("dates") AFTER
+        # dispatch with no comparison against before - so on any turn where
+        # the raw extractor merge alone had already written an unverified
+        # claimed date (dates_evidence present but NOT verified, guided
+        # dispatch untouched by it - current_question on something else
+        # entirely), this fallback wrongly treated that ungrounded value as
+        # "guided-confirmed" and let it bypass the evidence gate and the
+        # sticky-dates lock entirely. Comparing against
+        # _dates_before_guided_dispatch (captured above, BEFORE the
+        # dispatch call) isolates only a change the dispatcher itself made.
+        _dates_after_guided_dispatch = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+        _guided_confirmed_dates = (
+            _dates_after_guided_dispatch
+            if _dates_after_guided_dispatch != _dates_before_guided_dispatch
+            else {}
+        )
 
         if "dates" not in guided_steps or "dates" in _guided_regex_fallback_fields:
             trip_update = _merge_trip_state(
@@ -11227,6 +12838,36 @@ def _chat_clean_impl():
                 })
             if _dates_change_present and _value_has_verbatim_evidence(dates_evidence, message):
                 current_dates = extractor_dates
+        # Bologna live finding (20.10, Shlomo's relay, r90b2) - Shaked's
+        # regression review of the first attempt here: a deterministic
+        # regex trigger reopening the guided dates question on ANY
+        # same-message date-shaped mention (even just to ask a CONFIRM
+        # question, never to apply the value directly) still fired on
+        # genuinely unrelated mentions the regex itself cannot tell apart
+        # from a real request - a recalled PAST trip ("בשנה שעברה טסנו
+        # 4-10 ביוני"), someone ELSE's dates ("החברים שלנו טסים 4-10 ביוני,
+        # אנחנו נשארים בתאריכים שלנו" - explicitly NOT a change), and an
+        # open comparison question ("מה דעתך, 4-10 ביוני עדיף על 3-9?").
+        # Interrupting the conversation with an unwanted "did you mean to
+        # change the dates?" on any of these is itself the wrong behavior,
+        # not merely a safe fallback - exactly the phrase-matching-instead-
+        # of-understanding pattern the business owner forbids, regex trigger
+        # or not. The evidence-gated model path just above (current_dates
+        # from extracted.dates + a verified dates_evidence quote) is the
+        # ONLY mechanism for detecting a genuine date-change request here,
+        # including one phrased as a question mid another topic - the
+        # EXTRACTOR_SYSTEM prompt already instructs the model to treat such
+        # an embedded question as a real request (see its dates_evidence
+        # section). No regex trigger of any kind runs here any more.
+        if (
+            not current_dates
+            and _guided_confirmed_dates.get("departure") and _guided_confirmed_dates.get("return")
+            and (
+                _guided_confirmed_dates.get("departure") != prior_dates.get("departure")
+                or _guided_confirmed_dates.get("return") != prior_dates.get("return")
+            )
+        ):
+            current_dates = _guided_confirmed_dates
         # An explicit new date range in the CURRENT customer message overrides the
         # old approved range. Sticky dates protect against unrelated turns only;
         # they must never block a correction such as "change it to 23-27 May 2027".
@@ -11324,12 +12965,114 @@ def _chat_clean_impl():
         # If Ariella offered concrete date ranges and the customer chose one,
         # convert that choice to authoritative exact dates before any summary/search.
         trip_update = _merge_trip_state(trip_update, _deterministic_candidate_choice_facts(message, trip_state))
+        # "אפשר לזוז יום אחד קדימה?" - a genuine request to SHIFT dates that
+        # are already known, not a vague "flexibility" preference. Per
+        # Shlomo's relay (20.10.2026): this must be understood as the same
+        # kind of real date-change request as dates_evidence, with the
+        # model naming the shift in structured form (shift_days) and code
+        # computing the actual new departure/return - never guessed, and
+        # never silently folded into dates.flexibility_days instead.
+        #
+        # Per Shlomo's relay of Shaked's live stage-1 run-2 finding
+        # (critical): the first version auto-committed the shift
+        # immediately (needs_confirmation=False) - but Tinkerbell's own
+        # reply, seeing a plain shift request phrased as a question
+        # ("אפשר לזוז..?"), naturally proposed the new dates and asked for
+        # confirmation anyway. The customer's "כן" then had nothing to
+        # apply (the code already considered this closed), so it fell
+        # through as ordinary conversation while the summary kept the
+        # customer's confirmation claim ("סגרנו") next to the OLD,
+        # unchanged dates. A relative-date change must always require the
+        # same explicit confirmation step as every other relative-date
+        # candidate (never auto-applied, not even with a single option -
+        # see _candidate_dates_from_relative_hint): this now proposes the
+        # shifted dates as a single pending candidate instead of
+        # committing them, reusing the exact same candidate/confirmation
+        # mechanism (_accept_single_proposed_date_range) the weekday-pair
+        # and duration flows already rely on - no new "apply the
+        # confirmation" code needed, just feeding it the same shape.
+        if prior_dates.get("departure") and prior_dates.get("return"):
+            _shift_days = relative_date_hint.get("shift_days") if isinstance(relative_date_hint, dict) else None
+            if not (
+                isinstance(_shift_days, int) and _shift_days != 0
+                and _value_has_verbatim_evidence(relative_date_hint_evidence, message)
+            ):
+                # Per Shlomo's relay of Shaked's live stage-1 run-2 finding:
+                # her own diagnosis was that shift_days likely never came
+                # back with evidence that passed verification on the live
+                # turn - with no fallback at all, a model extraction miss
+                # here meant the shift request was silently dropped
+                # entirely (the live transcript showed Tinkerbell proposing
+                # new dates anyway, from her own free-text judgment, with
+                # nothing in state behind it). REGEX FALLBACK ONLY, same
+                # role as _deterministic_period_facts for every other
+                # relative-date capability: recognizes only the plain
+                # "move the dates N days forward/backward" phrasing against
+                # the CURRENT message alone (never history, to avoid a
+                # stale match) - never extended beyond this; the model's
+                # own structured shift_days above stays the primary path.
+                _shift_days = _deterministic_shift_days_fallback(message)
+            if isinstance(_shift_days, int) and _shift_days != 0:
+                try:
+                    _old_dep = date.fromisoformat(str(prior_dates["departure"])[:10])
+                    _old_ret = date.fromisoformat(str(prior_dates["return"])[:10])
+                    _new_dep = _old_dep + timedelta(days=_shift_days)
+                    _new_ret = _old_ret + timedelta(days=_shift_days)
+                    _shift_label = (
+                        f"יום {_WEEKDAY_HE_BY_PY[_new_dep.weekday()]} {_new_dep.strftime('%d.%m.%Y')}"
+                        f"–יום {_WEEKDAY_HE_BY_PY[_new_ret.weekday()]} {_new_ret.strftime('%d.%m.%Y')}"
+                    )
+                    # _merge_trip_state's own anti-regression guard (dates.
+                    # needs_confirmation never flips back from False to True)
+                    # exists for noisy/accidental extractor output on an
+                    # unrelated turn - never meant to block a deliberate,
+                    # evidence-gated date-change request like this one, so
+                    # this writes trip_update["dates"] directly rather than
+                    # going through that merge. departure/return are kept at
+                    # their last-confirmed values (not the new ones) until
+                    # the customer actually confirms the proposal.
+                    trip_update["dates"] = dict(trip_update.get("dates") or {}, **{
+                        "departure": _old_dep.isoformat(), "return": _old_ret.isoformat(),
+                        "period": f"{_old_dep.strftime('%d.%m.%Y')}–{_old_ret.strftime('%d.%m.%Y')}",
+                        "needs_confirmation": True, "candidate_ranges": [_shift_label],
+                    })
+                except ValueError:
+                    pass
+
         # Current message + Ariella state only. Never resurrect facts from old chat history.
         # Weekday/month wording opens a date choice only while dates are still
         # open - never reopens dates the customer already closed (mid-route
         # "סוף מאי, ראשון עד חמישי" is context, not a new request).
         if not (prior_dates.get("departure") and prior_dates.get("return")):
-            trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history))
+            # Per Shlomo's relay of the business owner's explicit direction
+            # (20.10.2026): the model's own structured understanding of the
+            # relative phrase (relative_date_hint, evidence-gated exactly
+            # like destination_evidence above) is the PRIMARY path - the
+            # regex-based _deterministic_period_facts only ever runs as a
+            # fallback, when the model's own extraction produced nothing
+            # usable this turn, never as the main detection mechanism.
+            _relative_hint_facts = {}
+            if relative_date_hint and _value_has_verbatim_evidence(relative_date_hint_evidence, message):
+                _relative_hint_facts = _candidate_dates_from_relative_hint(relative_date_hint)
+            if _relative_hint_facts:
+                # EXTRACTOR_SYSTEM already forbids the model from computing a
+                # calendar date itself once relative_date_hint fires - but it
+                # isn't always compliant, and can ALSO write dates.departure/
+                # return directly on this same turn (seen live: Rome, "בתחילת
+                # החודש הבא, מחמישי עד ראשון" saved immediately with no
+                # confirmation). trip_update may already carry that direct
+                # write here (merged in from the raw extractor output before
+                # this block runs), and _merge_trip_state's generic merge
+                # would keep it - its "exact dates replace" branch already
+                # locked needs_confirmation to False, and the anti-regression
+                # guard then refuses to flip it back to True. Since prior_dates
+                # was genuinely empty this turn (the gate above), the hint's
+                # own computed candidates are the only trustworthy source -
+                # write them directly, discarding whatever the extractor may
+                # have written on its own.
+                trip_update["dates"] = dict(_relative_hint_facts["dates"])
+            else:
+                trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history, trip_state))
 
         # A normal trip request to a destination implies Ariella should handle
         # flights unless the customer explicitly says flights are booked/not needed.
@@ -11562,6 +13305,16 @@ def _chat_clean_impl():
                         plan["details"] = plan_details
             trip_update["trip_planning"] = plan
 
+        # Resolved here, after every deterministic merge above has already
+        # run, so a search confirmed/continued/reopened earlier in THIS
+        # same turn (not just carried over from before it) still counts.
+        has_vacation_to_link_to = bool(
+            trip_update.get("search_confirmed")
+            or trip_update.get("post_flight_continuation")
+            or trip_update.get("reopened_trip_id")
+            or trip_update.get("reopen_trip_id")
+        )
+
         try:
             # Transient, one-turn-only signal for the welcome-back greeting
             # below - a shallow copy so it never enters trip_update itself
@@ -11574,6 +13327,12 @@ def _chat_clean_impl():
                 if state_for_tinkerbell is trip_update:
                     state_for_tinkerbell = dict(trip_update)
                 state_for_tinkerbell["_gap_clarify_question"] = gap_clarify_question
+            if link_request_verified:
+                if state_for_tinkerbell is trip_update:
+                    state_for_tinkerbell = dict(trip_update)
+                state_for_tinkerbell["_link_request_pending"] = (
+                    "has_vacation" if has_vacation_to_link_to else "no_vacation_yet"
+                )
             reply = _call_tinkerbell(key, model, history, message, state_for_tinkerbell)
         except Exception as exc:
             logging.exception("Tinkerbell reply failed after state update: %s", exc)
@@ -11636,7 +13395,7 @@ def _chat_clean_impl():
                 # is decided - does the one real מאשרת request appear.
                 _next_premature = trip_update.get("next_session")
                 if _next_premature in _POST_FLIGHT_LABELS:
-                    reply = f"מעולה, פרטי הטיסה מלאים. תרצי שאמשיך גם עם {_POST_FLIGHT_LABELS[_next_premature]}?"
+                    reply = f"מעולה, פרטי הטיסה מלאים. {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאמשיך גם עם {_POST_FLIGHT_LABELS[_next_premature]}?"
                     trip_update["post_flight_offer"] = [_next_premature]
                 else:
                     # Seen live (Shaked): when lodging/car/trip_planning is
@@ -11826,7 +13585,9 @@ def _chat_clean_impl():
                 # question at all. Same fix already applied to the twin
                 # occurrence of this exact line further below (the premature-
                 # מאשרת safety net) - append the real concrete question.
-                reply = "מצוין, המסלול מאושר. בואי נוודא שגם פרטי הטיסה שלמים."
+                reply = _g(trip_update.get("user_gender"),
+                           "מצוין, המסלול מאושר. בוא נוודא שגם פרטי הטיסה שלמים.",
+                           "מצוין, המסלול מאושר. בואי נוודא שגם פרטי הטיסה שלמים.")
                 concrete_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
                 if concrete_gap_question:
                     reply += " " + concrete_gap_question
@@ -11853,7 +13614,7 @@ def _chat_clean_impl():
                             reply = _call_tinkerbell(key, model, history, message, trip_update)
                         except Exception as exc:
                             logging.exception("Tinkerbell reply failed on already-decided post-route domain: %s", exc)
-                            reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
+                            reply = f"מצוין, המסלול מאושר. {_g(trip_update.get('user_gender'), 'בוא', 'בואי')} נמשיך עם {remaining_labels[next_domain]}."
                     else:
                         # Seen live (Shaked, round 8, London): the SAME message
                         # that approves the route can already answer the very
@@ -11898,7 +13659,7 @@ def _chat_clean_impl():
                                 reply = _call_tinkerbell(key, model, history, message, trip_update)
                             except Exception as exc:
                                 logging.exception("Tinkerbell reply failed on same-message post-route domain answer: %s", exc)
-                                reply = f"מצוין, המסלול מאושר. בואי נמשיך עם {remaining_labels[next_domain]}."
+                                reply = f"מצוין, המסלול מאושר. {_g(trip_update.get('user_gender'), 'בוא', 'בואי')} נמשיך עם {remaining_labels[next_domain]}."
                         elif decided is False:
                             statuses_after_plan[next_domain] = "declined"
                             trip_update["session_status"] = statuses_after_plan
@@ -11915,7 +13676,7 @@ def _chat_clean_impl():
                                 logging.exception("Tinkerbell reply failed on same-message post-route decline: %s", exc)
                                 reply = "מצוין, המסלול מאושר."
                         else:
-                            reply = f"מצוין, המסלול מאושר. תרצי שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
+                            reply = f"מצוין, המסלול מאושר. {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאמשיך גם עם {remaining_labels[next_domain]} לחופשה הזו?"
                             # Remember what was just offered, so a plain "כן"/"לא" next
                             # turn settles it via _post_flight_offer_answer. Without this
                             # the "כן" reached the model with no record of the question,
@@ -12027,7 +13788,9 @@ def _chat_clean_impl():
                 # - append the real concrete question when one is available
                 # (e.g. the new post-route gateway-narrow question), instead
                 # of silently masking it behind this generic redirect.
-                reply = "עוד דבר אחד לפני שסוגרים - בואי נוודא שגם פרטי הטיסה שלמים."
+                reply = _g(trip_update.get("user_gender"),
+                           "עוד דבר אחד לפני שסוגרים - בוא נוודא שגם פרטי הטיסה שלמים.",
+                           "עוד דבר אחד לפני שסוגרים - בואי נוודא שגם פרטי הטיסה שלמים.")
                 concrete_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
                 if concrete_gap_question:
                     reply += " " + concrete_gap_question
@@ -12050,14 +13813,15 @@ def _chat_clean_impl():
                 else:
                     remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                     label = remaining_labels.get(pending_domain, pending_domain)
-                    reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}?"
+                    reply = f"עוד דבר אחד לפני שסוגרים - {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאעזור גם עם {label}?"
             else:
                 remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                 label = remaining_labels.get(pending_domain, pending_domain)
-                reply = f"עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם {label}?"
+                reply = f"עוד דבר אחד לפני שסוגרים - {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאעזור גם עם {label}?"
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
+        reply = _ensure_baggage_followup_note_present(reply, trip_update, trip_state)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
@@ -12233,7 +13997,21 @@ def _chat_clean_impl():
                 merged["search_intent"] = True
                 merged["search_confirmed"] = True
                 merged["ready_for_summary"] = True
-                merged["user_gender"] = _user_gender_from_approval(message, merged)
+                # Per the business owner's directive (20.10): Ariella addresses
+                # the customer by their REGISTRATION (members.gender), never by
+                # the grammatical gender of the words they happen to type - "כן
+                # מאשר" from a customer registered female must never flip her
+                # to masculine address, even for one turn, and must never carry
+                # a wrong value forward into the next vacation either. Once a
+                # registered gender exists for this member (merged["profile"]
+                # ["gender"], set above at the top of this turn from _member_
+                # profile - always fresh, never client-supplied), it is already
+                # authoritative in merged["user_gender"] and this literal-word
+                # override must never touch it. Only a member with NO
+                # registered gender at all still falls back to today's
+                # literal-word behavior.
+                if not (merged.get("profile") or {}).get("gender"):
+                    merged["user_gender"] = _user_gender_from_approval(message, merged)
                 services = list(merged.get("requested_services") or [])
                 # Approval at a flight confirmation stage is authoritative: mark flights requested.
                 if "flights" not in services:
@@ -12446,4 +14224,11 @@ def _chat_clean_impl():
         'start_flight_search': start_flight_search,
         'trip_state_reset': trip_state_reset,
         'resolved_trip_state': resolved_trip_state,
+        # Set from state alone (never the model) - see link_request_verified/
+        # has_vacation_to_link_to above. whatsapp_bridge.py appends the real
+        # link via its own tracked active_trip_id; trip_form.html navigates
+        # the browser to /account#flights-N. Tinkerbell's own reply above
+        # already acknowledges the request in her own words without ever
+        # writing the link herself (see _link_request_pending's hint).
+        'open_existing_flights': link_request_verified and has_vacation_to_link_to,
     })
