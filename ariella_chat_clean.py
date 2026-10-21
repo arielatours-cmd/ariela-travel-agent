@@ -294,7 +294,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
 - destination.places חייב להירשם בדיוק כפי שהלקוח אמר את שם היעד, גם כשהוא פחות מוכר/נדיר ואפילו כשהוא לא נשמע לך כעיר/יעד ממש - לעולם אסור שישאר ריק רק כי השם לא מוכר לך. זה שונה מ-destination_airports (קוד שדה מאומת), שבאמת נשאר ריק עד שיש מקור אמיתי. אסור בשום אופן "לוותר" על שמירת היעד שהלקוח כן נתן בגלל חשד שאין טיסות/קטלוג ליעד הזה - זו בדיוק הסיבה שגרמה בעבר לשיחה שלמה ללכוד בלופ "לאן תרצי לטוס?" אחרי שהלקוח כבר אמר בבירור לאן.
-- flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. השדה נשאר null/unknown אך ורק עד שהלקוח עצמו ענה בפועל על השאלה אם הוא רוצה טיסה ישירה - אסור להניח "אין העדפה" משתיקה או כברירת מחדל על שאלה שמעולם לא נשאלה, ואסור לכתוב בסיכום ניסוח שמרמז על העדפה שלא נשאלה בכלל. אבל ברגע שהלקוח כן ענה בפועל על השאלה הזו (היא נשאלה), והבנת מהקשר השיחה - לא מרשימת ביטויים קבועה - שתשובתו מביעה שטיסה ישירה דווקא לא ממש חשובה לו (למשל, כתשובה לשאלה אם הטיסה חייבת להיות ישירה, ניסוח כמו "לא חובה"), שמרי בדיוק את המחרוזת "אין העדפה" (עברית, לא null) - זו עובדה שכבר נקבעה (הלקוח ענה בפועל), לא העדר תשובה. ההבחנה קריטית: null פירושו "עדיין לא נשאל/לא ענה", ו-"אין העדפה" פירושו "נשאל וענה שזה לא חשוב לו" - בלבול בין השניים גורם לשאלה להישאל שוב ושוב בלי סוף גם אחרי שהלקוח כבר ענה.
+- flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. השדה נשאר null/unknown אך ורק עד שהלקוח עצמו ענה בפועל על השאלה אם הוא רוצה טיסה ישירה - אסור להניח "אין העדפה" משתיקה או כברירת מחדל על שאלה שמעולם לא נשאלה, ואסור לכתוב בסיכום ניסוח שמרמז על העדפה שלא נשאלה בכלל. אבל ברגע שהלקוח כן ענה בפועל על השאלה הזו (היא נשאלה), והבנת מהקשר השיחה - לא מרשימת ביטויים קבועה - שתשובתו מביעה שטיסה ישירה דווקא לא ממש חשובה לו (למשל, כתשובה לשאלה אם הטיסה חייבת להיות ישירה, ניסוח כמו "לא חובה"), שמרי בדיוק את המחרוזת "אין העדפה" (עברית, לא null) - זו עובדה שכבר נקבעה (הלקוח ענה בפועל), לא העדר תשובה. ההבחנה קריטית: null פירושו "עדיין לא נשאל/לא ענה", ו-"אין העדפה" פירושו "נשאל וענה שזה לא חשוב לו" - בלבול בין השניים גורם לשאלה להישאל שוב ושוב בלי סוף גם אחרי שהלקוח כבר ענה. ייתכן שהשדה הזה כבר מכיל את הערך "no_direct_route" כש-state מגיע אלייך - זהו ערך שנקבע בקוד, לעולם לא על ידך, ומשמעותו שליעד הזה אין בוודאות טיסה ישירה כלל, ולכן השאלה מעולם לא נשאלה. התייחסי אליו כמו לכל ערך סגור אחר - אל תשני אותו סתם; רק אם הלקוח מבקש במפורש טיסה ישירה דווקא, כתבי "direct" כרגיל (הסתירה בין הבקשה לעובדה תטופל בשיחה עצמה, לא על ידך).
 - flight.max_connections: כאשר הלקוח מציין מספר עצירות/קונקשנים מקסימלי מותר (לא ישירה דווקא, אבל גם לא ללא הגבלה - למשל "לא יותר מקונקשן אחד", "מקסימום עצירה אחת", "עד 2 קונקשנים"), שמרי כאן מספר שלם (1, 2...). זה שונה מ-connection_preference="direct" (דרישה לטיסה ישירה בלבד) - שדה נפרד לבקשה "קונקשן אחד זה בסדר, אבל לא יותר". כשאין הגבלה מספרית כזו השאירי null.
 - כשתוצאות הטיסות כבר נסרקו ואין טיסה ישירה ליעד (למשל התוצאה המוצגת מסומנת כ"לא כולל: טיסה ישירה"), ציייני זאת ללקוח כעובדה בפה מלא ("שימו לב - לא נמצאה טיסה ישירה ליעד הזה בתאריכים שביקשת, האפשרות הטובה ביותר שנמצאה כוללת קונקשן") ולעולם אל תשאלי שוב אם הלקוח רוצה טיסה ישירה - השאלה הזו רלוונטית רק לפני שיוצאים לסריקה ורק כשבאמת יש אפשרות ישירה אמיתית לבחור בה.
 - כנ"ל עוד לפני הסריקה: אם כבר ציינת ללקוח (מידע כללי שלך או בדיקה שבוצעה) שליעד הזה כמעט אין טיסות ישירות מישראל, אסור לשאול שום שאלת המשך על הקונקשן - לא "ישירה או קונקשן", ולא שאלה דומה כמו "חשוב לך לצמצם את זמן ההמתנה בקונקשן, או שזה גמיש?". ברגע שנקבע שאין אפשרות ישירה אמיתית, הנושא סגור לגמרי ועוברים לשאלה הבאה שבאמת חסרה - אסור להמשיך "לחטט" בפרטי הקונקשן כשאלת נימוס או כברירת מחדל.
@@ -1820,24 +1820,29 @@ def _reject_unrequested_trip_planning_activation(trip_state, trip_update, messag
     return trip_update
 
 
-def _direct_route_available(state):
-    """True when the requested destination has a known nonstop route from the selected Israeli origin."""
+def _destination_route_codes(state):
+    """Resolve candidate destination IATA codes from state (destination_
+    airports first and foremost, falling back to the customer's own
+    free-text place name when it IS an IATA code or a known city/country
+    alias) - factored out of _direct_route_available so _no_direct_route_
+    known (below) resolves the EXACT same candidate codes a positive
+    route lookup would, from one shared place.
+
+    destination_airports (the already-resolved IATA gateway codes, e.g.
+    ["LCA","PFO"] for Cyprus) is the authoritative source once it exists -
+    `places` is free text ("קפריסין") that only happens to BE an IATA code
+    when the customer typed one directly, or matches the small Thailand-
+    city alias list below. Without destination_airports, any destination
+    resolved from a country/city name (the common case) always fell
+    through to codes=[] and callers returned False unconditionally, so a
+    route-dependent question never got asked and never made it into the
+    summary - regardless of whether a real nonstop route existed."""
     state = state if isinstance(state, dict) else {}
     destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
     places = destination.get("places") if isinstance(destination.get("places"), list) else []
-    # destination_airports (the already-resolved IATA gateway codes, e.g.
-    # ["LCA","PFO"] for Cyprus) is the authoritative source once it exists -
-    # `places` is free text ("קפריסין") that only happens to BE an IATA code
-    # when the customer typed one directly, or matches the small Thailand-
-    # city alias list below. Without destination_airports, any destination
-    # resolved from a country/city name (the common case) always fell
-    # through to codes=[] and this returned False unconditionally, so the
-    # direct-vs-connection question never got asked and never made it into
-    # the summary - regardless of whether a real nonstop route existed.
     destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
     if not places and not destination_airports:
-        return False
-    origin = str(state.get("departure_airport") or "TLV").strip().upper()
+        return []
     aliases = {
         "תאילנד":["BKK","HKT"], "thailand":["BKK","HKT"],
         "בנגקוק":["BKK"], "bangkok":["BKK"], "פוקט":["HKT"], "phuket":["HKT"],
@@ -1849,9 +1854,16 @@ def _direct_route_available(state):
         if len(upper) == 3 and upper.isalpha():
             codes.append(upper)
         codes.extend(aliases.get(raw.lower(), aliases.get(raw, [])))
-    codes = list(dict.fromkeys(codes))
+    return list(dict.fromkeys(codes))
+
+
+def _direct_route_available(state):
+    """True when the requested destination has a known nonstop route from the selected Israeli origin."""
+    state = state if isinstance(state, dict) else {}
+    codes = _destination_route_codes(state)
     if not codes:
         return False
+    origin = str(state.get("departure_airport") or "TLV").strip().upper()
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     departure = str(dates.get("departure") or "")[:10]
     try:
@@ -1869,6 +1881,98 @@ def _direct_route_available(state):
         return False
 
 
+_NO_DIRECT_ROUTES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "no_direct_routes.json")
+
+
+def _no_direct_route_codes(origin):
+    """Load Ofek's maintained no-direct-route list fresh from data/
+    no_direct_routes.json (see product/no-direct-routes.md on branch
+    ofek for the sourcing/update process) - a plain data file, not a DB
+    table, so her roughly-monthly updates (add/remove an entry) never
+    require a code change or a deploy of this file. Returns the set of
+    destination IATA codes confirmed, for this origin, to have no
+    nonstop route at all. Starts out empty by design (no destination is
+    pre-judged) until Ofek populates it - until then every destination
+    falls through to "ask", exactly as the business owner specified for
+    the interim."""
+    try:
+        with open(_NO_DIRECT_ROUTES_PATH, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return set()
+    entries = data.get("destinations") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        return set()
+    out = set()
+    for row in entries:
+        if not isinstance(row, dict):
+            continue
+        row_origin = str(row.get("origin_code") or "TLV").strip().upper()
+        code = str(row.get("destination_code") or "").strip().upper()
+        if row_origin == origin and code:
+            out.add(code)
+    return out
+
+
+def _no_direct_route_known(state):
+    """True only when EVERY one of the requested destination's resolved
+    IATA codes is CONFIRMED, from Ofek's maintained no-direct-route list
+    (data/no_direct_routes.json), to have no nonstop route at all from
+    the selected Israeli origin.
+
+    Per the business owner's explicit decision (21.10.2026, stage-1
+    run-6): "is a direct flight important to you?" now defaults to being
+    ASKED for every destination - this is the ONLY thing that skips it.
+    An unresolved/unknown destination, or one simply absent from this
+    list, is NEVER treated as "no direct route" - only an actual entry
+    is. This is the mirror image of _direct_route_available (which
+    confirms a route DOES exist); the two are deliberately NOT each
+    other's negation - "no row in direct_routes" only ever meant
+    "unverified either way" before this, and still does.
+
+    Per Ofek's own note on a destination with several possible flight
+    fields (e.g. London's multiple airports): it's enough that ONE of
+    them is NOT on the list to still ask - so this requires ALL resolved
+    codes to be listed, not merely one of them."""
+    state = state if isinstance(state, dict) else {}
+    codes = _destination_route_codes(state)
+    if not codes:
+        return False
+    origin = str(state.get("departure_airport") or "TLV").strip().upper()
+    no_direct = _no_direct_route_codes(origin)
+    if not no_direct:
+        return False
+    return all(code in no_direct for code in codes)
+
+
+def _apply_no_direct_route_default(trip_update):
+    """Per the business owner's explicit decision (21.10.2026, stage-1
+    run-6): once a destination is CONFIRMED (from Ofek's maintained list,
+    never a guess) to have no direct route from the selected origin, the
+    direct-flight question is never asked at all - flight.connection_
+    preference is prefilled with the honest fact itself (a code-only
+    sentinel, "no_direct_route" - see _flight_connection_line), closing
+    the gap silently, exactly like any other code-verified fact (the
+    customer's own airport/gateway resolution already works this way).
+
+    Never overrides a value the customer already stated themselves - not
+    even "direct": if the customer explicitly asked for a direct flight
+    before the destination turned out to have none, that's a genuine
+    conflict for Tinkerbell to raise in conversation (see _direct_route_
+    hint_text's own higher-priority branch for that), never something
+    this function silently resolves on its own."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
+    if flight.get("connection_preference"):
+        return trip_update
+    if not _no_direct_route_known(trip_update):
+        return trip_update
+    flight = dict(flight)
+    flight["connection_preference"] = "no_direct_route"
+    trip_update["flight"] = flight
+    return trip_update
+
+
 def _direct_route_hint_text(state):
     """Surfaces _direct_route_available's real answer explicitly in
     Tinkerbell's prompt, so a claim about direct-flight availability is
@@ -1884,7 +1988,30 @@ def _direct_route_hint_text(state):
     particular date - exactly what a real scan checks. Reworded so the hint
     can state the route fact without blurring into a date-specific
     availability promise, matching the existing rule that a specific
-    flight/budget is never promised before a scan actually runs."""
+    flight/budget is never promised before a scan actually runs.
+
+    Gained a higher-priority third case (21.10.2026, stage-1 run-6, per
+    the business owner's explicit decision): _no_direct_route_known is a
+    CONFIRMED negative fact (from Ofek's maintained list), strictly
+    stronger than either branch below - it is checked first. Two shapes:
+    the field was silently prefilled by _apply_no_direct_route_default
+    (nothing to ask, nothing the customer said conflicts), or the
+    customer had already explicitly asked for "direct" before the
+    destination turned out to have none - a real conflict Tinkerbell must
+    surface and ask how to proceed, never silently ignore or override."""
+    if _no_direct_route_known(state):
+        flight = (state or {}).get("flight") if isinstance((state or {}).get("flight"), dict) else {}
+        if str(flight.get("connection_preference") or "").lower() == "direct":
+            return (
+                "\nידוע בוודאות (עובדה מאומתת, לא ניחוש) שאין טיסה ישירה ליעד הזה מהנמל שנבחר - אבל הלקוח ביקש במפורש "
+                "טיסה ישירה. יש לציין לו זאת בעדינות כעובדה, ולשאול איך הוא רוצה להמשיך (לדוגמה טיסה עם עצירה, או לשקול "
+                "יעד אחר) - לעולם אל תתעלמי מהסתירה הזו ואל תמשיכי כאילו טיסה ישירה עדיין אפשרית."
+            )
+        return (
+            "\nידוע בוודאות (עובדה מאומתת, לא ניחוש) שאין טיסה ישירה ליעד הזה מהנמל שנבחר. ציינת זאת ללקוח כעובדה "
+            "בניסוח טבעי במהלך השיחה (לדוגמה, שהטיסה תהיה עם עצירה) - ולעולם אל תשאלי אם חשוב לו טיסה ישירה, השאלה הזו "
+            "כבר לא רלוונטית ליעד הזה."
+        )
     if _direct_route_available(state):
         return (
             "\nליעד הזה קיים קו טיסה ישיר מאומת מהנמל שנבחר (עובדה כללית על המסלול, לא על תאריך ספציפי) - "
@@ -2584,9 +2711,19 @@ def _required_state_gaps(state):
             gaps.append("flight.gateway_narrow")
         if state.get("open_jaw_requested") and not return_airports:
             gaps.append("return_departure_airports")
-        # Ask direct-vs-connection only when a verified nonstop route exists
-        # for this origin/destination/date. Otherwise connections are simply ranked results.
-        if _direct_route_available(state) and not flight.get("connection_preference"):
+        # Per the business owner's explicit decision (21.10.2026, stage-1
+        # run-6): "is a direct flight important to you?" now defaults to
+        # being asked for EVERY destination, once one is known - never
+        # gated on a known-positive route any more (that silently skipped
+        # the question for the vast majority of destinations, which
+        # simply had no row in direct_routes either way). The ONLY thing
+        # that still skips it is _no_direct_route_known - a CONFIRMED
+        # negative fact from Ofek's maintained list - and even then only
+        # when the field isn't already closed (by the customer's own
+        # answer, or by _apply_no_direct_route_default's own silent
+        # prefill for exactly that confirmed-negative case).
+        destination_known = bool(destination.get("places")) or bool(destination_airports)
+        if destination_known and not flight.get("connection_preference") and not _no_direct_route_known(state):
             gaps.append("flight.connection_preference")
         if not flight.get("baggage"):
             gaps.append("flight.baggage")
@@ -2708,10 +2845,17 @@ def _departure_question(state):
 def _flight_connection_line(flight):
     """The one-line connection-preference summary fact, or None when it
     isn't known yet. Factored out of _flight_summary_text so the same
-    exact wording is available to _ensure_flight_summary_completeness."""
+    exact wording is available to _ensure_flight_summary_completeness.
+
+    "no_direct_route" (21.10.2026, stage-1 run-6) is a code-only sentinel
+    written by _apply_no_direct_route_default, never by the extractor -
+    checked by exact equality BEFORE the "direct" substring check below,
+    since the sentinel's own name contains that substring."""
     connection = str((flight or {}).get("connection_preference") or "").lower()
     if not connection:
         return None
+    if connection == "no_direct_route":
+        return "טיסה עם עצירה (אין טיסה ישירה ליעד)"
     return "טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן"
 
 
@@ -4588,10 +4732,22 @@ def _connection_preference_pending_hint(state, history):
     plain terms - it must still decide for itself, from genuine
     understanding of the customer's actual reply, whether that reply
     means "direct", "אין העדפה", or neither; this never decides the
-    answer, only confirms which question is pending right now."""
+    answer, only confirms which question is pending right now.
+
+    Per Shaked's own review of this PR (stage-1 run-6, bug 3): the
+    original version gated this hint on _direct_route_available (the OLD
+    whitelist-only condition for when the question was ever asked at
+    all). Once the business owner's bug-3 decision inverts that default -
+    the question is now asked for EVERY destination, skipped only when
+    _no_direct_route_known confirms the opposite - gating the HINT on the
+    old condition would silently stop sending it for the vast majority of
+    destinations where the question is now actually asked, reopening
+    exactly this same Paphos-style reliability gap. The hint must instead
+    track whatever actually decides the question is open right now:
+    flight.connection_preference genuinely sitting in _session_gaps."""
     state = state if isinstance(state, dict) else {}
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
-    if flight.get("connection_preference") or not _direct_route_available(state):
+    if flight.get("connection_preference") or "flight.connection_preference" not in _session_gaps(state, "flights"):
         return ""
     prior_assistant = ""
     for item in reversed(history or []):
@@ -13255,6 +13411,12 @@ def _chat_clean_impl():
         # post-approval "narrow to one gateway or keep both?" question (see
         # the flight.gateway_narrow gap), resolve that one answer.
         trip_update = _narrow_gateway_airport_after_route(trip_update, message)
+        # Once the destination's gateway is as resolved as this turn
+        # allows, a CONFIRMED no-direct-route destination (Ofek's
+        # maintained list) silently closes flight.connection_preference -
+        # see the function's own docstring for why this never overrides a
+        # value the customer already stated themselves.
+        trip_update = _apply_no_direct_route_default(trip_update)
         # An approved route already answers "where do you want to stay" -
         # lodging search on the same vacation must not re-ask it.
         trip_update = _resolve_lodging_locations_from_route(trip_update)

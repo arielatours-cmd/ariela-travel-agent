@@ -450,39 +450,61 @@ check("the exact round-5 bug, reproduced through the real pipeline: a "
 # _multi_gateway_hint already gives for a multi-gateway choice - it never
 # decides the answer, only confirms which question is pending right now.
 # =====================================================================
-with patch.object(chat, "_direct_route_available", return_value=True):
-    _hint_open = chat._connection_preference_pending_hint(
-        {"flight": {}}, [{"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q}],
-    )
-    check("direct: the hint fires when the gap is genuinely open and "
-          "Tinkerbell's own last turn actually asked this exact question",
-          "זו השאלה הפתוחה כרגע" in _hint_open and "flight.connection_preference" in _hint_open)
-    check("direct: the hint explicitly forbids a word list - genuine "
-          "understanding of the reply, not phrase matching",
-          "לא מרשימת ביטויים" in _hint_open)
+# Per Shaked's own review of the stage-1 run-6 bug-3 PR (direct-flight
+# question asked for every destination by default): this hint must track
+# whatever actually decides flight.connection_preference is open right
+# now - "flight.connection_preference" in _session_gaps(state, "flights")
+# - never the OLD, whitelist-only _direct_route_available condition,
+# which would otherwise silently stop sending this hint for the vast
+# majority of destinations where the question is now actually asked,
+# reopening this exact Paphos reliability gap. _PAPHOS_STATE (Paphos/
+# PFO, a known destination) is used directly so the gap opens exactly
+# the way the real pipeline resolves it, not via a mock.
+_hint_open = chat._connection_preference_pending_hint(
+    dict(_PAPHOS_STATE, flight={}),
+    [{"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q}],
+)
+check("direct: the hint fires when the gap is genuinely open and "
+      "Tinkerbell's own last turn actually asked this exact question",
+      "זו השאלה הפתוחה כרגע" in _hint_open and "flight.connection_preference" in _hint_open)
+check("direct: the hint explicitly forbids a word list - genuine "
+      "understanding of the reply, not phrase matching",
+      "לא מרשימת ביטויים" in _hint_open)
 
-    _hint_resolved = chat._connection_preference_pending_hint(
-        {"flight": {"connection_preference": "direct"}},
+_hint_resolved = chat._connection_preference_pending_hint(
+    dict(_PAPHOS_STATE, flight={"connection_preference": "direct"}),
+    [{"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q}],
+)
+check("regression: once the field is already resolved, the hint "
+      "never fires - nothing left to ground",
+      _hint_resolved == "")
+
+_hint_unrelated = chat._connection_preference_pending_hint(
+    dict(_PAPHOS_STATE, flight={}), [{"role": "assistant", "content": "איזו כבודה תרצו לקחת?"}],
+)
+check("regression: when Tinkerbell's own last turn asked about "
+      "something else entirely (baggage), the hint never fires",
+      _hint_unrelated == "")
+
+_hint_unresolved_dest = chat._connection_preference_pending_hint(
+    {"flight": {}, "destination": {"places": [], "mode": None, "status": "unknown"}, "destination_airports": []},
+    [{"role": "assistant", "content": "קלטתי. " + _DIRECT_Q}],
+)
+check("regression: with no destination resolved at all, the question is "
+      "never genuinely pending either - nothing to ground",
+      _hint_unresolved_dest == "")
+
+with patch.object(chat, "_no_direct_route_known", return_value=True):
+    _hint_no_direct_route_known = chat._connection_preference_pending_hint(
+        dict(_PAPHOS_STATE, flight={}),
         [{"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q}],
     )
-    check("regression: once the field is already resolved, the hint "
-          "never fires - nothing left to ground",
-          _hint_resolved == "")
-
-    _hint_unrelated = chat._connection_preference_pending_hint(
-        {"flight": {}}, [{"role": "assistant", "content": "איזו כבודה תרצו לקחת?"}],
-    )
-    check("regression: when Tinkerbell's own last turn asked about "
-          "something else entirely (baggage), the hint never fires",
-          _hint_unrelated == "")
-
-with patch.object(chat, "_direct_route_available", return_value=False):
-    _hint_no_route = chat._connection_preference_pending_hint(
-        {"flight": {}}, [{"role": "assistant", "content": "קלטתי - פאפוס. " + _DIRECT_Q}],
-    )
-    check("regression: with no known direct route for this destination "
-          "at all, the question is never genuinely pending - no hint",
-          _hint_no_route == "")
+    check("regression: once a destination is CONFIRMED (stage-1 run-6, "
+          "bug 3) to have no direct route at all, the field is silently "
+          "prefilled and the gap never opens - so the hint correctly "
+          "never fires either, even though Tinkerbell's own last turn "
+          "text still happens to contain the question",
+          _hint_no_direct_route_known == "")
 
 # End-to-end: confirm the hint actually reaches the real extractor call's
 # system_dynamic exactly when expected, through the real pipeline (not
