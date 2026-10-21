@@ -6741,6 +6741,12 @@ _BUNDLED_AND_QUESTION_RE = re.compile(
 # is always its own boundary (so paragraph breaks are never lost).
 _SENTENCE_BOUNDARY_RE = re.compile(r"(?<!\d)[.!?](?!\d)(?=\s|$)|\n")
 
+# Per Shaked's stage-1 run-4 direct finding (Bratislava): a Hebrew
+# confirmation tag ("..., נכון?"/"..., לא?"/"..., כן?") at the very end of a
+# sentence - never a real open question, structurally identical to an
+# English "...right?" tag. See _enforce_one_option_question's own use below.
+_CONFIRMATION_TAG_QUESTION_RE = re.compile(r",\s*(?:נכון|לא|כן)\s*\?\s*\Z")
+
 # Per the same review: a day-by-day itinerary body ("יום 1 (15.4, חמישי):
 # נחיתה...") can legitimately contain its own rhetorical "?" ("מה יותר כיף
 # מאוכל טוב?") that is never a real gap-question - and with style/pace
@@ -6939,7 +6945,22 @@ def _enforce_one_option_question(reply, state):
 
     state = state if isinstance(state, dict) else {}
     sentences = _split_sentences(text)
-    question_idx = [i for i, (_, term) in enumerate(sentences) if term == "?"]
+    # Per Shaked's stage-1 run-4 direct finding (Bratislava): a Hebrew tag
+    # question ("...תמיד אפשר להוסיף מזוודה בהמשך, נכון?") is structurally a
+    # STATEMENT with a trailing confirmation tag, not a second real question
+    # competing with the actual gap-question that follows it - live, this
+    # counted as a second "?" sentence, so the whole acknowledgment got
+    # dropped from the rebuilt reply below along with the real question it
+    # was replaced by, leaving only the blank line between them (the
+    # customer-visible symptom: a reply starting "\n\n" with the
+    # acknowledgment gone entirely). A STRUCTURAL check (comma directly
+    # before נכון/לא/כן, then only "?" to the end), exactly the same kind of
+    # format-based signal as the " או "/_BUNDLED_AND_QUESTION_RE checks
+    # below - never a meaning/model judgment call.
+    question_idx = [
+        i for i, (s, term) in enumerate(sentences)
+        if term == "?" and not _CONFIRMATION_TAG_QUESTION_RE.search(s)
+    ]
     if not question_idx:
         return reply
 
