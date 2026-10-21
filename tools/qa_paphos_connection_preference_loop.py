@@ -80,12 +80,20 @@ def _make_member(email):
 # =====================================================================
 check("EXTRACTOR_SYSTEM explicitly names the null-vs-'אין העדפה' distinction",
       "null פירושו" in chat.EXTRACTOR_SYSTEM and "אין העדפה\" פירושו" in chat.EXTRACTOR_SYSTEM)
-check("EXTRACTOR_SYSTEM gives at least the live Paphos phrasing ('לא חובה') "
-      "as one example of genuine indifference, among others",
-      "לא חובה" in chat.EXTRACTOR_SYSTEM and "לא משנה" in chat.EXTRACTOR_SYSTEM)
+check("EXTRACTOR_SYSTEM gives exactly the live Paphos phrasing ('לא חובה') "
+      "as a single illustrative example, not a list of phrasings",
+      "לא חובה" in chat.EXTRACTOR_SYSTEM)
 check("the instruction explicitly says this must come from understanding "
-      "the context of the question asked, not a fixed word list",
-      "הביני זאת מההקשר" in chat.EXTRACTOR_SYSTEM)
+      "the context of the conversation, not a fixed word list",
+      "מרשימת ביטויים קבועה" in chat.EXTRACTOR_SYSTEM)
+check("per the business owner's explicit decision (21.10.2026): no closed "
+      "list of phrasings in the prompt itself - other real-transcript "
+      "synonyms ('לא משנה לי', 'קונקשן בסדר', 'גם עם עצירה') are "
+      "deliberately NOT enumerated alongside the one example given",
+      not any(
+          phrase in chat.EXTRACTOR_SYSTEM
+          for phrase in ("לא משנה לי", "קונקשן בסדר", "גם עם עצירה")
+      ))
 
 # =====================================================================
 # 2. Direct unit tests of _apply_gap_repeat_guard - the general, non-
