@@ -289,6 +289,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence. בקשת שינוי שנוסחה כשאלה ("רגע, אפשר לשנות ל-4 עד 10 ביוני?", "אפשר ל-X במקום?") היא בדיוק אותה כוונה כמו משפט הצהרתי ("בעצם X") - היא עדיין בקשה אמיתית לשנות את התאריך, לא רק מחשבה בקול רם, גם כשהיא מופיעה בתוך הודעה שעונה בעיקר על שאלה אחרת לגמרי (כמו קצב הטיול) שטינקרבל שאלה באותה הודעה. אל תתני לנושא הפתוח של השאלה האחרונה להסיח את דעתך מבקשת שינוי תאריך אמיתית שמופיעה באותה הודעה - שתיהן נכתבות, כל אחת לשדה שלה.
 - כשהלקוח נותן תשובה יחסית לגבי מתי לטוס (יום/זוג ימים בשבוע, חלק מחודש כמו "סוף/תחילת/אמצע החודש" או "החודש הבא", ו/או משך כמו "שבוע"/"עשרה ימים") ו-dates.departure/dates.return עדיין ריקים ב-state - לעולם אל תחשבי תאריך קלנדרי בעצמך (לא יום בשבוע, לא איזו שנה, לא איזה יום בחודש). במקום זאת החזירי את מה שהלקוח אמר בצורה מובנית בלבד, ברמת ה-JSON העליון ליד trip_update: relative_date_hint (אובייקט, או null אם לא נאמרה שום הנחיה יחסית כזו) עם השדות: weekday_start/weekday_end (שם היום בעברית בדיוק כפי שהלקוח אמר, אם הוזכר זוג ימים ליציאה/חזרה - "ראשון"/"שני" וכו', אחרת null), month_name (שם החודש בעברית בדיוק אם נאמר מפורשות - למשל "נובמבר", אחרת null), month_relative ("next" אם נאמר "החודש הבא", "this" אם נאמר "החודש"/"החודש הזה" בלי שם חודש מפורש, אחרת null - לעולם לא גם month_name וגם month_relative יחד), part_of_month ("start"/"mid"/"end" לפי "תחילת"/"אמצע"/"סוף" שנאמר, או null אם לא נאמר חלק מהחודש), duration_days (מספר הלילות הכולל אם נאמר משך מפורש - "שבוע"=7, "שבועיים"=14, "N ימים"=N-1, "N לילות"=N - אחרת null), shift_days (מספר ימים, חיובי להזזה קדימה או שלילי להזזה אחורה, רק כאשר dates.departure/dates.return כבר קיימים ב-state וה הלקוח מבקש להזיז אותם - למשל "אפשר לזוז יום אחד קדימה?"=1, "יום לפני"=-1 - אחרת null; זו בקשת שינוי אמיתית, בדיוק כמו dates_evidence, לא "גמישות" כללית). מלאי גם relative_date_hint_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בהנחיה הזו; בלי ציטוט אמיתי כזה, relative_date_hint נשאר null כולו. זה בדיוק כמו destination_airports: את מזהה ומחזירה מה שנאמר, אף פעם לא מחשבת בעצמך איזה תאריך קלנדרי זה - החישוב עצמו (כולל השנה הנכונה) נעשה בקוד. חשוב במיוחד: באותו תור שבו את ממלאת relative_date_hint, לעולם אל תכתבי שום ערך ל-trip_update.dates.departure או trip_update.dates.return בעצמך - הם חייבים להישאר ריקים (null) בתגובה שלך, בדיוק כפי שהיו לפני התור הזה. relative_date_hint לבדו הוא הדרך היחידה להעביר את מה שהלקוח אמר; מילוי dates.departure/dates.return ישירות, אפילו כ"ניחוש" נוסף לצד relative_date_hint, סותר את ההנחיה הזו וגורם לתאריך להישמר כאילו כבר אושר - בלי שהלקוח באמת אישר אותו.
+- ציון תאריכים/ימים בשבוע/תקופה שבה טיול כלשהו כבר התקיים בעבר (למשל "לפני שנה/שנתיים/שלוש טסנו ל-X", "בפעם הקודמת היינו שם ב-", "בעבר ביקרנו ב-", "כבר נסענו אז") הוא זיכרון/הקשר בלבד - לעולם לא בקשה לתאריכי הטיול הנוכחי, גם כשהתאריכים שהוזכרו נשמעים כמו תשובה ישירה לשאלה על מתי לטוס הפעם. אל תמלאי dates_evidence, relative_date_hint או trip_update.dates (departure/return/period) מתוך משפט כזה בשום אופן - הוא נשאר ריק/null בתגובתך, והלקוח חייב לומר במפורש מה הוא רוצה עבור הטיול החדש לפני שכל אחד מהשדות האלה יתמלא.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
@@ -6295,7 +6296,7 @@ def _candidate_dates_from_relative_hint(hint):
     return {}
 
 
-def _deterministic_period_facts(message, history=None):
+def _deterministic_period_facts(message, history=None, state=None):
     """Parse weekday/month windows ("סוף יוני, ראשון עד חמישי") into exact
     candidate ranges, so Ariella never computes calendar dates herself.
 
@@ -6308,7 +6309,20 @@ def _deterministic_period_facts(message, history=None):
     recent messages. Per product owner: a range whose DEPARTURE is inside the
     requested part of the month is offered even if the return falls in the
     next month (end of June -> 27.6-1.7 is fine), but a range departing in
-    the next month never is (5.7-9.7 for "end of June")."""
+    the next month never is (5.7-9.7 for "end of June").
+
+    state, when passed, is the prior trip_state (before this turn). Per
+    Shaked's stage-1 run-4 direct finding (Marseille): once dates already
+    resolved into real pending candidates (or confirmed dates), the
+    cross-message completion above becomes dangerous - a later message
+    supplying only ONE of the two signals can get wrongly completed from a
+    STALE signal left over in history from the ALREADY-RESOLVED earlier
+    request. Live: "לפני שנתיים היינו שם 10 עד 14 באוגוסט" (a past-trip
+    reminiscence, naming only the month "אוגוסט") got the weekday pair
+    "רביעי עד ראשון" stitched in from the original request many turns
+    earlier, overwriting period with a window nobody asked for this turn.
+    Once real dates already exist, both signals must come from the
+    CURRENT message itself - no cross-message completion."""
     import re, calendar
     months={"ינואר":1,"פברואר":2,"מרץ":3,"אפריל":4,"מאי":5,"יוני":6,"יולי":7,"אוגוסט":8,"ספטמבר":9,"אוקטובר":10,"נובמבר":11,"דצמבר":12}
     weekdays={"ראשון":6,"שני":0,"שלישי":1,"רביעי":2,"חמישי":3,"שישי":4,"שבת":5}
@@ -6331,6 +6345,13 @@ def _deterministic_period_facts(message, history=None):
     # Only complete a fact from recent messages when the current message
     # itself contributes one of the two - never re-fire on unrelated turns.
     if not (month or pair):return {}
+    existing_dates = state.get("dates") if isinstance(state, dict) and isinstance(state.get("dates"), dict) else {}
+    dates_already_resolved = bool(
+        existing_dates.get("candidate_ranges")
+        or (existing_dates.get("departure") and existing_dates.get("return"))
+    )
+    if dates_already_resolved and not (month and pair):
+        return {}
     month_text=msg if month else None
     if not month:
         for t in recent[1:]:
@@ -12784,7 +12805,7 @@ def _chat_clean_impl():
                 # have written on its own.
                 trip_update["dates"] = dict(_relative_hint_facts["dates"])
             else:
-                trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history))
+                trip_update = _merge_trip_state(trip_update, _deterministic_period_facts(message, history, trip_state))
 
         # A normal trip request to a destination implies Ariella should handle
         # flights unless the customer explicitly says flights are booked/not needed.
