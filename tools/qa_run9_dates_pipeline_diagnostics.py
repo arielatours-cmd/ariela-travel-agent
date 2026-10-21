@@ -180,6 +180,15 @@ if _row_shift_model is not None:
           (_details.get("result") or {}).get("candidate_created") is True)
     check("end-to-end A: parse_error is False (the mocked JSON was well-formed)",
           (_details.get("extractor") or {}).get("parse_error") is False)
+    check("end-to-end A: relative_date_hint_evidence_present is True and _len > 0 "
+          "(presence/length only, never the quote itself)",
+          (_details.get("extractor") or {}).get("relative_date_hint_evidence_present") is True
+          and (_details.get("extractor") or {}).get("relative_date_hint_evidence_len", 0) > 0)
+    check("end-to-end A: the result carries the literal final departure/return/"
+          "needs_confirmation this turn settled on, not just a changed boolean",
+          (_details.get("result") or {}).get("final_departure") == "2027-05-10"
+          and (_details.get("result") or {}).get("final_return") == "2027-05-14"
+          and (_details.get("result") or {}).get("final_needs_confirmation") is True)
 
 
 # =====================================================================
@@ -281,6 +290,14 @@ if _row_silent is not None:
           (_details_c.get("result") or {}).get("dates_changed") is False)
     check("end-to-end C: result.candidate_created is False",
           (_details_c.get("result") or {}).get("candidate_created") is False)
+    check("end-to-end C: relative_date_hint_evidence_present is False and _len is 0 "
+          "(the model supplied nothing at all this turn)",
+          (_details_c.get("extractor") or {}).get("relative_date_hint_evidence_present") is False
+          and (_details_c.get("extractor") or {}).get("relative_date_hint_evidence_len", -1) == 0)
+    check("end-to-end C: result.final_departure/final_return stayed exactly the "
+          "pre-existing dates - the literal values the silent drop left behind",
+          (_details_c.get("result") or {}).get("final_departure") == "2027-06-10"
+          and (_details_c.get("result") or {}).get("final_return") == "2027-06-14")
 
 
 # =====================================================================

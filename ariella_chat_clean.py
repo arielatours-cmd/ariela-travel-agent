@@ -1215,7 +1215,16 @@ def _valid_trip_date_day_months(dates, message=None, history=None):
 
 
 _NUMERIC_DATE_RANGE_RE = re.compile(
-    r"(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s*(?:[-–]|עד)\s*(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)"
+    # Per Shlomo's relay (21.10.2026, after PR #124): the plain "DD.MM–
+    # DD.MM" shape alone missed a candidate label's own full format ("יום
+    # רביעי 11.11.2026–יום ראשון 15.11.2026") whenever Tinkerbell echoed it
+    # back verbatim - the weekday-name text between the separator and the
+    # second date made the whole match fail, returning no range at all
+    # ([]) instead of the two real endpoints, weakening the candidate-
+    # mixing check built for exactly this shape (PR #111/#123). The
+    # optional "יום <word> " group tolerates that prefix without requiring
+    # it, so the plain numeric-only shape still matches unchanged.
+    r"(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s*(?:[-–]|עד)\s*(?:יום\s+\S+\s+)?(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)"
 )
 
 
@@ -13660,6 +13669,11 @@ def _chat_clean_impl():
                     "dates_return": _extractor_dates_raw.get("return"),
                     "dates_evidence_present": bool(dates_evidence),
                     "dates_evidence_len": len(str(dates_evidence)) if dates_evidence else 0,
+                    # Added per Shaked's suggestion (21.10.2026, after PR
+                    # #123 merged) - the same presence/length-only treatment
+                    # as dates_evidence above, never the quote itself.
+                    "relative_date_hint_evidence_present": bool(relative_date_hint_evidence),
+                    "relative_date_hint_evidence_len": len(str(relative_date_hint_evidence)) if relative_date_hint_evidence else 0,
                     "parse_error": bool(extractor_parse_error),
                 },
                 "gates": _dates_pipeline_gates,
@@ -13669,6 +13683,15 @@ def _chat_clean_impl():
                         _dates_pipeline_final.get("departure") != prior_dates.get("departure")
                         or _dates_pipeline_final.get("return") != prior_dates.get("return")
                     ),
+                    # Added per Shaked's suggestion: the literal dates this
+                    # turn's pipeline actually settled on (not just whether
+                    # they changed) - the authoritative trip_update.dates
+                    # value at this point, before any later, dates-unrelated
+                    # merge this same turn and before the save-time _roll_
+                    # past_dates year-rollover pass.
+                    "final_departure": _dates_pipeline_final.get("departure"),
+                    "final_return": _dates_pipeline_final.get("return"),
+                    "final_needs_confirmation": bool(_dates_pipeline_final.get("needs_confirmation")),
                 },
             })
 
