@@ -288,7 +288,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - child_genders היא רשימה מקבילה ל-child_ages, לפי אותו סדר: "female" כאשר הלקוח אמר "ילדה"/"בת", "male" כאשר אמר "ילד"/"בן", ו-null כשלא צוין מגדר לאותו ילד. לעולם אל תמחקי או תנחשי ערך שכבר קיים ברשימה הזו.
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
 - כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence. בקשת שינוי שנוסחה כשאלה ("רגע, אפשר לשנות ל-4 עד 10 ביוני?", "אפשר ל-X במקום?") היא בדיוק אותה כוונה כמו משפט הצהרתי ("בעצם X") - היא עדיין בקשה אמיתית לשנות את התאריך, לא רק מחשבה בקול רם, גם כשהיא מופיעה בתוך הודעה שעונה בעיקר על שאלה אחרת לגמרי (כמו קצב הטיול) שטינקרבל שאלה באותה הודעה. אל תתני לנושא הפתוח של השאלה האחרונה להסיח את דעתך מבקשת שינוי תאריך אמיתית שמופיעה באותה הודעה - שתיהן נכתבות, כל אחת לשדה שלה.
-- כשהלקוח נותן תשובה יחסית לגבי מתי לטוס (יום/זוג ימים בשבוע, חלק מחודש כמו "סוף/תחילת/אמצע החודש" או "החודש הבא", ו/או משך כמו "שבוע"/"עשרה ימים") ו-dates.departure/dates.return עדיין ריקים ב-state - לעולם אל תחשבי תאריך קלנדרי בעצמך (לא יום בשבוע, לא איזו שנה, לא איזה יום בחודש). במקום זאת החזירי את מה שהלקוח אמר בצורה מובנית בלבד, ברמת ה-JSON העליון ליד trip_update: relative_date_hint (אובייקט, או null אם לא נאמרה שום הנחיה יחסית כזו) עם השדות: weekday_start/weekday_end (שם היום בעברית בדיוק כפי שהלקוח אמר, אם הוזכר זוג ימים ליציאה/חזרה - "ראשון"/"שני" וכו', אחרת null), month_name (שם החודש בעברית בדיוק אם נאמר מפורשות - למשל "נובמבר", אחרת null), month_relative ("next" אם נאמר "החודש הבא", "this" אם נאמר "החודש"/"החודש הזה" בלי שם חודש מפורש, אחרת null - לעולם לא גם month_name וגם month_relative יחד), part_of_month ("start"/"mid"/"end" לפי "תחילת"/"אמצע"/"סוף" שנאמר, או null אם לא נאמר חלק מהחודש), duration_days (מספר הלילות הכולל אם נאמר משך מפורש - "שבוע"=7, "שבועיים"=14, "N ימים"=N-1, "N לילות"=N - אחרת null), shift_days (מספר ימים, חיובי להזזה קדימה או שלילי להזזה אחורה, רק כאשר dates.departure/dates.return כבר קיימים ב-state וה הלקוח מבקש להזיז אותם - למשל "אפשר לזוז יום אחד קדימה?"=1, "יום לפני"=-1 - אחרת null; זו בקשת שינוי אמיתית, בדיוק כמו dates_evidence, לא "גמישות" כללית). מלאי גם relative_date_hint_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בהנחיה הזו; בלי ציטוט אמיתי כזה, relative_date_hint נשאר null כולו. זה בדיוק כמו destination_airports: את מזהה ומחזירה מה שנאמר, אף פעם לא מחשבת בעצמך איזה תאריך קלנדרי זה - החישוב עצמו (כולל השנה הנכונה) נעשה בקוד. חשוב במיוחד: באותו תור שבו את ממלאת relative_date_hint, לעולם אל תכתבי שום ערך ל-trip_update.dates.departure או trip_update.dates.return בעצמך - הם חייבים להישאר ריקים (null) בתגובה שלך, בדיוק כפי שהיו לפני התור הזה. relative_date_hint לבדו הוא הדרך היחידה להעביר את מה שהלקוח אמר; מילוי dates.departure/dates.return ישירות, אפילו כ"ניחוש" נוסף לצד relative_date_hint, סותר את ההנחיה הזו וגורם לתאריך להישמר כאילו כבר אושר - בלי שהלקוח באמת אישר אותו.
+- כשהלקוח נותן תשובה יחסית לגבי מתי לטוס (יום/זוג ימים בשבוע, חלק מחודש כמו "סוף/תחילת/אמצע החודש" או "החודש הבא", ו/או משך כמו "שבוע"/"עשרה ימים") ו-dates.departure/dates.return עדיין ריקים ב-state - לעולם אל תחשבי תאריך קלנדרי בעצמך (לא יום בשבוע, לא איזו שנה, לא איזה יום בחודש). במקום זאת החזירי את מה שהלקוח אמר בצורה מובנית בלבד, ברמת ה-JSON העליון ליד trip_update: relative_date_hint (אובייקט, או null אם לא נאמרה שום הנחיה יחסית כזו) עם השדות: weekday_start/weekday_end (שם היום בעברית בדיוק כפי שהלקוח אמר, אם הוזכר זוג ימים ליציאה/חזרה - "ראשון"/"שני" וכו', אחרת null), month_name (שם החודש בעברית בדיוק אם נאמר מפורשות - למשל "נובמבר", אחרת null), month_relative ("next" אם נאמר "החודש הבא", "this" אם נאמר "החודש"/"החודש הזה" בלי שם חודש מפורש, אחרת null - לעולם לא גם month_name וגם month_relative יחד), part_of_month ("start"/"mid"/"end" לפי "תחילת"/"אמצע"/"סוף" שנאמר, או null אם לא נאמר חלק מהחודש), duration_days (מספר הלילות הכולל אם נאמר משך מפורש - "שבוע"=7, "שבועיים"=14, "N ימים"=N-1, "N לילות"=N - אחרת null), shift_days (מספר ימים, חיובי להזזה קדימה או שלילי להזזה אחורה, רק כאשר dates.departure/dates.return כבר קיימים ב-state וה הלקוח מבקש להזיז אותם - בכל ניסוח שמבטא את אותה כוונה, לא רק את הפועל "לזוז": למשל "אפשר לזוז יום אחד קדימה?"=1, "יום לפני"=-1, "אפשר לדחות את הטיסה ביום אחד?"=1 (לדחות=לדחייה, מרמז קדימה בעצמו, בלי צורך במילה "קדימה"), "אפשר להקדים את זה ביומיים?"=-2 (להקדים מרמז אחורה בעצמו, בלי צורך במילה "אחורה") - וגם כשמילים נוספות (כמו "את כל הטיסה") מפרידות בין הפועל למספר הימים, הכוונה זהה ושלמה. שימי לב: זו עדיין בקשת שינוי אמיתית, בדיוק כמו dates_evidence, לא "גמישות" כללית - אחרת null. מלאי גם relative_date_hint_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בהנחיה הזו; בלי ציטוט אמיתי כזה, relative_date_hint נשאר null כולו. זה בדיוק כמו destination_airports: את מזהה ומחזירה מה שנאמר, אף פעם לא מחשבת בעצמך איזה תאריך קלנדרי זה - החישוב עצמו (כולל השנה הנכונה) נעשה בקוד. חשוב במיוחד: באותו תור שבו את ממלאת relative_date_hint, לעולם אל תכתבי שום ערך ל-trip_update.dates.departure או trip_update.dates.return בעצמך - הם חייבים להישאר ריקים (null) בתגובה שלך, בדיוק כפי שהיו לפני התור הזה. relative_date_hint לבדו הוא הדרך היחידה להעביר את מה שהלקוח אמר; מילוי dates.departure/dates.return ישירות, אפילו כ"ניחוש" נוסף לצד relative_date_hint, סותר את ההנחיה הזו וגורם לתאריך להישמר כאילו כבר אושר - בלי שהלקוח באמת אישר אותו.
 - ציון תאריכים/ימים בשבוע/תקופה שבה טיול כלשהו כבר התקיים בעבר (למשל "לפני שנה/שנתיים/שלוש טסנו ל-X", "בפעם הקודמת היינו שם ב-", "בעבר ביקרנו ב-", "כבר נסענו אז") הוא זיכרון/הקשר בלבד - לעולם לא בקשה לתאריכי הטיול הנוכחי, גם כשהתאריכים שהוזכרו נשמעים כמו תשובה ישירה לשאלה על מתי לטוס הפעם. אל תמלאי dates_evidence, relative_date_hint או trip_update.dates (departure/return/period) מתוך משפט כזה בשום אופן - הוא נשאר ריק/null בתגובתך, והלקוח חייב לומר במפורש מה הוא רוצה עבור הטיול החדש לפני שכל אחד מהשדות האלה יתמלא.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
@@ -13021,6 +13021,56 @@ def _chat_clean_impl():
             locked_dates["needs_confirmation"] = False
             locked_dates.pop("candidate_ranges", None)
             locked_dates.pop("candidates", None)
+            # Per the business owner's explicit decision (21.10.2026, stage-1
+            # run-6, rework of #117 - Paphos, severe): new explicit dates the
+            # extractor wrote THIS SAME TURN must never be silently discarded
+            # here just because their own dates_evidence quote failed
+            # verification (omitted, paraphrased, truncated - a dual-call
+            # reliability gap, same class as PR #116/#118's connection_
+            # preference misses, not an absence of a real request). Live
+            # repro, worst case (model's shift_days AND dates_evidence both
+            # miss on consecutive turns): "רגע, אפשר לדחות את כל הטיסה ביום
+            # אחד?" produced no candidate at all (nothing to investigate
+            # here - see _deterministic_shift_days_fallback's own docstring),
+            # then "כן, לצאת ב-24.11 ולחזור ב-1.12" wrote the correct new
+            # dates into trip_update but with dates_evidence=null - the OLD
+            # code below re-locked straight back to the stale 23.11-30.11,
+            # and the customer's own subsequent "כן" had nothing pending left
+            # to accept, so the stale dates never recovered.
+            #
+            # Fix: when the extractor's own dates differ from the locked
+            # values this turn, propose them as a single pending candidate
+            # instead - the exact same shape _deterministic_shift_days_
+            # fallback's own candidate already uses - so the customer's very
+            # next "כן" commits it through the existing, already-trusted
+            # _accept_single_proposed_date_range path. Never auto-applied
+            # without that confirmation; scoped to a genuinely differing,
+            # well-formed date pair only.
+            extractor_dates_unverified = extracted.get("dates") if isinstance(extracted.get("dates"), dict) else {}
+            if (
+                extractor_dates_unverified.get("departure") and extractor_dates_unverified.get("return")
+                and (
+                    extractor_dates_unverified.get("departure") != prior_dates.get("departure")
+                    or extractor_dates_unverified.get("return") != prior_dates.get("return")
+                )
+            ):
+                try:
+                    _unverified_new_dep = date.fromisoformat(str(extractor_dates_unverified["departure"])[:10])
+                    _unverified_new_ret = date.fromisoformat(str(extractor_dates_unverified["return"])[:10])
+                except ValueError:
+                    _unverified_new_dep = _unverified_new_ret = None
+                if _unverified_new_dep and _unverified_new_ret and _unverified_new_ret > _unverified_new_dep:
+                    _unverified_old_dep = date.fromisoformat(str(prior_dates["departure"])[:10])
+                    _unverified_old_ret = date.fromisoformat(str(prior_dates["return"])[:10])
+                    locked_dates.update({
+                        "departure": _unverified_old_dep.isoformat(), "return": _unverified_old_ret.isoformat(),
+                        "period": f"{_unverified_old_dep.strftime('%d.%m.%Y')}–{_unverified_old_ret.strftime('%d.%m.%Y')}",
+                        "needs_confirmation": True,
+                        "candidate_ranges": [
+                            f"יום {_WEEKDAY_HE_BY_PY[_unverified_new_dep.weekday()]} {_unverified_new_dep.strftime('%d.%m.%Y')}"
+                            f"–יום {_WEEKDAY_HE_BY_PY[_unverified_new_ret.weekday()]} {_unverified_new_ret.strftime('%d.%m.%Y')}"
+                        ],
+                    })
             trip_update["dates"] = locked_dates
         only_flights_facts = _deterministic_only_flights_facts(message)
         trip_update = _merge_trip_state(trip_update, only_flights_facts)

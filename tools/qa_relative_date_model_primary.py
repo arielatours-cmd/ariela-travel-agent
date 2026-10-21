@@ -441,6 +441,170 @@ check("Shaked's exact live case 1: 'סגרנו את הכבודה - ולגבי ה
       reply_baggage_closed == "סגרנו את הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?")
 
 
+# =====================================================================
+# Stage-1 run-6 (Shaked/Shlomo, Paphos, severe - rework of #117, which
+# Shaked rejected): a live transcript where dates got stuck on the OLD
+# values through THREE consecutive turns.
+#
+# Turn 1: "רגע, אפשר לדחות את כל הטיסה ביום אחד?" - Ariella's reply just
+# re-showed the existing summary with no reference to the request at
+# all (the model's own shift_days extraction missed this phrasing - see
+# below for the understanding fix, never a regex: Shaked's explicit
+# instruction on THIS PR was "אל תרחיב את ה-regex", so the regex fallback
+# is left exactly as it was before #117 ever touched it).
+#
+# Turn 2: the customer then explicitly restated the dates themselves -
+# "כן, לצאת ב-24.11 ולחזור ב-1.12" - and Ariella asked "רק לוודא...
+# 24.11–1.12, נכון?", immediately showing an "updated" summary that
+# still had the OLD dates (23.11–30.11).
+#
+# Turn 3: the customer confirmed "כן" again, and the dates still never
+# actually changed.
+#
+# Shlomo's diagnosis (NOT the regex, the real root cause): explicit
+# dates the customer states themselves must be saved regardless of
+# whether a shift candidate was ever created - the sticky-dates lock
+# was overriding new explicit dates. Fix: when the extractor writes a
+# genuinely differing, well-formed date pair this same turn but its own
+# dates_evidence quote fails verification, the locking branch now
+# proposes it as a single pending candidate (the same shape the shift-
+# days mechanism already uses) instead of silently discarding it back to
+# the stale locked value - so the customer's own very next "כן" commits
+# it through the already-trusted _accept_single_proposed_date_range path.
+# =====================================================================
+check("EXTRACTOR_SYSTEM's shift_days guidance now names 'לדחות'/'להקדים' "
+      "as valid shift verbs in their own right (direction implied by the "
+      "verb itself, no 'קדימה'/'אחורה' needed) and explicitly tolerates "
+      "filler words between the verb and the day-count - a model-"
+      "understanding fix, never a regex (Shaked's explicit instruction "
+      "on this exact PR)",
+      "לדחות" in chat.EXTRACTOR_SYSTEM and "להקדים" in chat.EXTRACTOR_SYSTEM
+      and "מפרידות בין הפועל למספר הימים" in chat.EXTRACTOR_SYSTEM)
+
+_paphos_state = dict(
+    base_state,
+    destination={"places": ["פאפוס"], "mode": "specific", "status": "known"},
+    destination_airports=["PFO"],
+    dates={"departure": "2026-11-23", "return": "2026-11-30", "needs_confirmation": False},
+)
+
+
+def _post_claude_paphos_turn1_shift_missed(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        # Worst case: the model's own structured shift_days extraction
+        # misses the request entirely this turn - exactly the live symptom.
+        return json.dumps({
+            "trip_update": {}, "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "קלטתי - פאפוס, 23.11–30.11.2026."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_paphos_turn1_shift_missed):
+    r_turn1 = client.post("/api/ariella/chat-clean", json={
+        "message": "רגע, אפשר לדחות את כל הטיסה ביום אחד?",
+        "history": [{"role": "assistant", "content": "סיכום: פאפוס, 23.11–30.11.2026..."}],
+        "trip_state": _paphos_state,
+    })
+dates_turn1 = ((r_turn1.get_json() or {}).get("trip_update") or {}).get("dates") or {}
+check("turn 1, worst case (model's own shift_days misses the request "
+      "too): dates stay exactly as they were - nothing invented, no "
+      "crash - this turn genuinely has nothing usable to propose",
+      dates_turn1.get("departure") == "2026-11-23" and dates_turn1.get("return") == "2026-11-30"
+      and not dates_turn1.get("needs_confirmation"))
+
+
+def _post_claude_paphos_turn2_evidence_missed(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        # The model correctly wrote the new explicit dates, but - the
+        # exact live dual-call reliability gap - its own dates_evidence
+        # quote came back null this same turn.
+        return json.dumps({
+            "trip_update": {"dates": {"departure": "2026-11-24", "return": "2026-12-01"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "רק לוודא... 24.11–1.12, נכון?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_paphos_turn2_evidence_missed):
+    r_turn2 = client.post("/api/ariella/chat-clean", json={
+        "message": "כן, לצאת ב-24.11 ולחזור ב-1.12",
+        "history": [{"role": "assistant", "content": "קלטתי - פאפוס, 23.11–30.11.2026."}],
+        "trip_state": dict(_paphos_state),
+    })
+dates_turn2 = ((r_turn2.get_json() or {}).get("trip_update") or {}).get("dates") or {}
+check("turn 2 (the actual #117 live bug): new explicit dates written by "
+      "the extractor but with an unverified dates_evidence quote are "
+      "NEVER silently discarded back to the stale locked value any more "
+      "- they become a single pending candidate instead",
+      dates_turn2.get("needs_confirmation") is True
+      and dates_turn2.get("candidate_ranges") == ["יום שלישי 24.11.2026–יום שלישי 01.12.2026"])
+check("turn 2: departure/return stay at the last-CONFIRMED values until "
+      "the customer actually confirms the new proposal - never auto-"
+      "applied even though the model mostly got it right",
+      dates_turn2.get("departure") == "2026-11-23" and dates_turn2.get("return") == "2026-11-30")
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_paphos_turn1_shift_missed):
+    r_turn3 = client.post("/api/ariella/chat-clean", json={
+        "message": "כן",
+        "history": [{"role": "assistant", "content": "רק לוודא... 24.11–1.12, נכון?"}],
+        "trip_state": dict(_paphos_state, dates=dates_turn2),
+    })
+dates_turn3 = ((r_turn3.get_json() or {}).get("trip_update") or {}).get("dates") or {}
+check("turn 3, full worst-case recovery: the customer's own plain 'כן' "
+      "commits the pending candidate through the existing "
+      "_accept_single_proposed_date_range path - the dates the customer "
+      "explicitly asked for (24.11–1.12) are finally saved, not the "
+      "stale ones, even though BOTH the model's shift_days (turn 1) AND "
+      "its dates_evidence (turn 2) failed along the way",
+      dates_turn3.get("departure") == "2026-11-24" and dates_turn3.get("return") == "2026-12-01"
+      and dates_turn3.get("needs_confirmation") is False)
+
+# Regression: when dates_evidence DOES verify this same turn, the
+# existing direct-commit path is completely unaffected by this change -
+# the new pending-candidate branch is only ever reached when that path
+# already failed to produce current_dates.
+def _post_claude_paphos_evidence_verified(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {"dates": {"departure": "2026-11-24", "return": "2026-12-01"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": "לצאת ב-24.11 ולחזור ב-1.12",
+            "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "מעולה, עדכנתי ל-24.11–1.12."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_paphos_evidence_verified):
+    r_verified = client.post("/api/ariella/chat-clean", json={
+        "message": "כן, לצאת ב-24.11 ולחזור ב-1.12",
+        "history": [{"role": "assistant", "content": "קלטתי - פאפוס, 23.11–30.11.2026."}],
+        "trip_state": dict(_paphos_state),
+    })
+dates_verified = ((r_verified.get_json() or {}).get("trip_update") or {}).get("dates") or {}
+check("regression: when dates_evidence DOES verify, the new dates commit "
+      "immediately in ONE turn exactly as before - no new pending-"
+      "candidate step is introduced where the evidence gate already "
+      "worked correctly",
+      dates_verified.get("departure") == "2026-11-24" and dates_verified.get("return") == "2026-12-01"
+      and dates_verified.get("needs_confirmation") is False)
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)
