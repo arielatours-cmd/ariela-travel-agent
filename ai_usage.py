@@ -22,7 +22,7 @@ _context: contextvars.ContextVar[dict] = contextvars.ContextVar("ai_usage_contex
 # pre-existing 'turn_total' source, and read back out via diagnostic_rows.
 DIAGNOSTIC_EVENT_SOURCES = (
     "restart_signal", "guided_redirect", "dates_change", "destination_change",
-    "customer_scan_worker_error", "trip_type_ski_claim",
+    "customer_scan_worker_error", "trip_type_ski_claim", "dates_pipeline",
 )
 _NON_USAGE_SOURCES = ("turn_total",) + DIAGNOSTIC_EVENT_SOURCES
 
