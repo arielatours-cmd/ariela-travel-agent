@@ -4832,7 +4832,7 @@ def _post_summary_dates_context_hint(state):
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence, extractor_parse_error).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -4909,13 +4909,27 @@ def _extract_trip_update(key, model, history, message, state=None):
         trip_type_evidence = _parse_trip_type_evidence(raw)
         relative_date_hint, relative_date_hint_evidence = _parse_relative_date_hint(raw)
         link_request, link_request_evidence = _parse_link_request_signal(raw)
+        # Run-9 diagnostics only (21.10.2026, Shlomo's relay): whether the
+        # raw JSON itself failed to parse as a dict at all - distinct from
+        # every field above defaulting to None/empty on a field that's
+        # genuinely absent from an otherwise well-formed response. Recorded
+        # by the call site into the "dates_pipeline" event; never consumed
+        # by any of the parsing above, so it cannot change behavior.
+        extractor_parse_error = True
+        try:
+            _raw_for_parse_check = str(raw or '').strip()
+            if _raw_for_parse_check.startswith('```'):
+                _raw_for_parse_check = _raw_for_parse_check.replace('```json', '', 1).replace('```', '').strip()
+            extractor_parse_error = not isinstance(json.loads(_raw_for_parse_check), dict)
+        except Exception:
+            extractor_parse_error = True
         return (
             parsed, restart_request, restart_evidence, dates_evidence, destination_evidence,
             trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
-            link_request, link_request_evidence,
+            link_request, link_request_evidence, extractor_parse_error,
         )
     except Exception:
-        return {}, False, None, None, None, None, None, None, False, None
+        return {}, False, None, None, None, None, None, None, False, None, True
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
@@ -12774,7 +12788,7 @@ def _chat_clean_impl():
         (
             extracted, restart_request, restart_evidence, dates_evidence, destination_evidence,
             trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
-            link_request, link_request_evidence,
+            link_request, link_request_evidence, extractor_parse_error,
         ) = _extract_trip_update(key, model, history, message, trip_state)
 
         # Customer asking for a link back to their vacation/dashboard (20.10,
@@ -13242,6 +13256,14 @@ def _chat_clean_impl():
         # Dates may change only when the current message itself contains a new
         # deterministic date fact/range.
         prior_dates = trip_state.get("dates") if isinstance(trip_state.get("dates"), dict) else {}
+        # Run-9 diagnostics (21.10.2026, Shlomo's relay of the business
+        # owner's decision after three prompt-only rounds moved the needle
+        # on 0/4 live post-summary date-change repros): purely additive
+        # bookkeeping of every gate below that can drop a date change or a
+        # shift request, recorded into the "dates_pipeline" diagnostic
+        # event once this turn's date handling is done (see below) - never
+        # read anywhere in this function, so it cannot change behavior.
+        _dates_pipeline_gates = []
         current_dates = {}
         if "dates" not in guided_steps or "dates" in _guided_regex_fallback_fields:
             current_date_facts = _deterministic_date_facts([], message, {})
@@ -13291,6 +13313,14 @@ def _chat_clean_impl():
                     "present": _dates_change_present,
                     "verified": _value_has_verbatim_evidence(dates_evidence, message) if _dates_change_present else None,
                 })
+                _dates_pipeline_gates.append({
+                    "gate": "extractor_evidence",
+                    "outcome": (
+                        "no_differing_date" if not _dates_change_present
+                        else "passed" if _value_has_verbatim_evidence(dates_evidence, message)
+                        else "evidence_not_verified"
+                    ),
+                })
             if _dates_change_present and _value_has_verbatim_evidence(dates_evidence, message):
                 current_dates = extractor_dates
         # Bologna live finding (20.10, Shlomo's relay, r90b2) - Shaked's
@@ -13314,6 +13344,7 @@ def _chat_clean_impl():
         # EXTRACTOR_SYSTEM prompt already instructs the model to treat such
         # an embedded question as a real request (see its dates_evidence
         # section). No regex trigger of any kind runs here any more.
+        _dates_already_resolved_before_guided = bool(current_dates)
         if (
             not current_dates
             and _guided_confirmed_dates.get("departure") and _guided_confirmed_dates.get("return")
@@ -13323,6 +13354,20 @@ def _chat_clean_impl():
             )
         ):
             current_dates = _guided_confirmed_dates
+            _dates_pipeline_gates.append({"gate": "guided", "outcome": "passed"})
+        elif _dates_already_resolved_before_guided:
+            _dates_pipeline_gates.append({"gate": "guided", "outcome": "skipped_already_resolved"})
+        else:
+            _dates_pipeline_gates.append({
+                "gate": "guided",
+                # "no_dates_update" covers both guided dispatch never running
+                # this turn (guided_steps doesn't cover dates, or it's gated
+                # off post-summary) and running but not touching dates at
+                # all (current_question on another field) - the two aren't
+                # distinguishable from _guided_confirmed_dates alone, and
+                # neither one dropped a real date change.
+                "outcome": "no_dates_update" if not _guided_confirmed_dates else "no_change",
+            })
         # An explicit new date range in the CURRENT customer message overrides the
         # old approved range. Sticky dates protect against unrelated turns only;
         # they must never block a correction such as "change it to 23-27 May 2027".
@@ -13332,6 +13377,7 @@ def _chat_clean_impl():
             trip_update["dates"]["candidate_ranges"] = []
             trip_update["search_confirmed"] = False
             trip_update["ready_for_summary"] = False
+            _dates_pipeline_gates.append({"gate": "sticky_lock", "outcome": "applied_change"})
         elif prior_dates.get("departure") and prior_dates.get("return"):
             locked_dates = dict(prior_dates)
             # Exact dates are authoritative. Do not preserve stale proposal flags
@@ -13354,6 +13400,7 @@ def _chat_clean_impl():
             # _value_has_verbatim_evidence's own digit-normalization fix for
             # the real cause of the live miss instead.
             trip_update["dates"] = locked_dates
+            _dates_pipeline_gates.append({"gate": "sticky_lock", "outcome": "relocked_to_prior"})
         only_flights_facts = _deterministic_only_flights_facts(message)
         trip_update = _merge_trip_state(trip_update, only_flights_facts)
         # "Only flights" is a replacement decision, not an additive merge.
@@ -13470,10 +13517,13 @@ def _chat_clean_impl():
         # confirmation" code needed, just feeding it the same shape.
         if prior_dates.get("departure") and prior_dates.get("return"):
             _shift_days = relative_date_hint.get("shift_days") if isinstance(relative_date_hint, dict) else None
-            if not (
+            _shift_model_evidence_ok = (
                 isinstance(_shift_days, int) and _shift_days != 0
                 and _value_has_verbatim_evidence(relative_date_hint_evidence, message)
-            ):
+            )
+            if _shift_model_evidence_ok:
+                _shift_gate_source = "model_evidence"
+            else:
                 # Per Shlomo's relay of Shaked's live stage-1 run-2 finding:
                 # her own diagnosis was that shift_days likely never came
                 # back with evidence that passed verification on the live
@@ -13489,6 +13539,7 @@ def _chat_clean_impl():
                 # stale match) - never extended beyond this; the model's
                 # own structured shift_days above stays the primary path.
                 _shift_days = _deterministic_shift_days_fallback(message)
+                _shift_gate_source = "regex_fallback" if isinstance(_shift_days, int) and _shift_days != 0 else "none"
             if isinstance(_shift_days, int) and _shift_days != 0:
                 try:
                     _old_dep = date.fromisoformat(str(prior_dates["departure"])[:10])
@@ -13513,8 +13564,42 @@ def _chat_clean_impl():
                         "period": f"{_old_dep.strftime('%d.%m.%Y')}–{_old_ret.strftime('%d.%m.%Y')}",
                         "needs_confirmation": True, "candidate_ranges": [_shift_label],
                     })
+                    _dates_pipeline_gates.append({"gate": "shift_days", "outcome": "candidate_created", "source": _shift_gate_source})
                 except ValueError:
-                    pass
+                    _dates_pipeline_gates.append({"gate": "shift_days", "outcome": "parse_error_on_apply", "source": _shift_gate_source})
+            else:
+                _dates_pipeline_gates.append({"gate": "shift_days", "outcome": "no_shift_detected", "source": _shift_gate_source})
+
+            # Run-9 diagnostics (21.10.2026, Shlomo's relay): a consolidated
+            # record of this turn's entire date-handling pipeline, emitted
+            # once prior_dates shows the customer already has dates - the
+            # exact scope of Shaked's run-9 repro. Covers the EXTRACTOR's
+            # own parsed output and every gate above that can drop a date
+            # change or shift, so the business owner/Shaked can see from
+            # real traffic which gate is actually responsible, instead of
+            # another round of guessing at the prompt. Never the customer's
+            # own message text - only structured fields, presence/length,
+            # and short gate-outcome labels.
+            _dates_pipeline_final = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+            _extractor_dates_raw = extracted.get("dates") if isinstance(extracted, dict) and isinstance(extracted.get("dates"), dict) else {}
+            record_diagnostic_event("dates_pipeline", {
+                "extractor": {
+                    "relative_date_hint": relative_date_hint if isinstance(relative_date_hint, dict) else None,
+                    "dates_departure": _extractor_dates_raw.get("departure"),
+                    "dates_return": _extractor_dates_raw.get("return"),
+                    "dates_evidence_present": bool(dates_evidence),
+                    "dates_evidence_len": len(str(dates_evidence)) if dates_evidence else 0,
+                    "parse_error": bool(extractor_parse_error),
+                },
+                "gates": _dates_pipeline_gates,
+                "result": {
+                    "candidate_created": bool(_dates_pipeline_final.get("candidate_ranges")),
+                    "dates_changed": (
+                        _dates_pipeline_final.get("departure") != prior_dates.get("departure")
+                        or _dates_pipeline_final.get("return") != prior_dates.get("return")
+                    ),
+                },
+            })
 
         # Current message + Ariella state only. Never resurrect facts from old chat history.
         # Weekday/month wording opens a date choice only while dates are still
