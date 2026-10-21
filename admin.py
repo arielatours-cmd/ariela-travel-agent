@@ -262,6 +262,11 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
 .admin-head-filter input,.admin-head-filter select{font-size:15px!important;padding:8px 9px!important;min-height:38px!important;font-weight:700!important}
 .scan-filter-bar{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:10px 0 12px;padding:12px 14px;background:#fff;border:1px solid #dfe4ed;border-radius:10px}
 .scan-filter-bar label{font-size:16px;font-weight:800;color:#263a70}
+
+/* 20.10 — vacation-259 rematch recovery button on a scan's own vacation row */
+.rematch-form{display:inline-block;margin:4px 0 0}
+.rematch-btn{background:#263a70;color:#fff;border:0;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.rematch-btn:hover{background:#1b2c57}
 .scan-filter-bar select{display:block;margin-top:5px;min-width:180px;font-size:15px;font-weight:700;padding:9px 10px;border:1px solid #cfd6e2;border-radius:8px;background:#fff}
 .scan-origin-col{min-width:105px}.scan-type-col{min-width:150px}
 
@@ -524,7 +529,15 @@ h1{font-size:30px!important} h2{font-size:24px!important;margin-top:30px!importa
     <td>{{ s.status }}</td>
     <td>{{ s.started_at }}</td>
     <td>{{ s.searches_completed }}/{{ s.searches_planned }}</td>
-    <td>{{ s.scan_type or 'general' }}{% if s.trip_id %} · חופשה #{{s.trip_id}}{% endif %}</td>
+    <td>{{ s.scan_type or 'general' }}{% if s.trip_id %} · חופשה #{{s.trip_id}}
+        {% if s.finished_at %}
+        <form method="post" action="/admin/rematch-trip" class="rematch-form" onclick="event.stopPropagation()" onsubmit="return confirm('להציג מחדש את הטיסות שכבר נמצאו עבור חופשה #{{s.trip_id}}, בלי סריקה חדשה?');">
+            <input type="hidden" name="trip_id" value="{{ s.trip_id }}">
+            <input type="hidden" name="redirect" value="scans">
+            <button type="submit" class="rematch-btn">הצג טיסות מחדש</button>
+        </form>
+        {% endif %}
+    {% endif %}</td>
     <td class="scan-origin-col">{{ (s.origins or '—')|replace(',', ' · ') }}</td>
     <td>{{ s.api_requests or 0 }}</td>
     <td>{{ s.offers_found }}</td>
