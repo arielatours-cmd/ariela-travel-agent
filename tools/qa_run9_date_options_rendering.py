@@ -53,6 +53,31 @@ def check(name, cond):
 KEY = os.getenv("ANTHROPIC_API_KEY", "test-key-not-real")
 MODEL = "claude-sonnet-5"
 
+
+# =====================================================================
+# Separate small fix (21.10.2026, Shlomo's relay after this PR merged):
+# _mentioned_date_ranges returned [] for a candidate label's own full
+# format ("יום רביעי 11.11.2026–יום ראשון 15.11.2026") whenever Tinkerbell
+# echoed it back verbatim - the weekday-name text between the separator
+# and the second date broke the whole-range match, weakening
+# _retry_if_dates_invented's own candidate-mixing check (PR #111/#123)
+# for exactly this shape. Fixed by tolerating an optional "יום <word> "
+# prefix around the second date in _NUMERIC_DATE_RANGE_RE.
+# =====================================================================
+check("_mentioned_date_ranges recognizes the full weekday-prefixed candidate "
+      "label format on both sides of the separator",
+      chat._mentioned_date_ranges("יום רביעי 11.11.2026–יום ראשון 15.11.2026")
+      == [((11, 11), (15, 11))])
+check("regression: the plain numeric-only range shape (no weekday prefix) still matches",
+      chat._mentioned_date_ranges("27.11–6.12") == [((27, 11), (6, 12))])
+check("regression: the plain 'עד' phrasing with full years still matches",
+      chat._mentioned_date_ranges("27.11.2026 עד 6.12.2026") == [((27, 11), (6, 12))])
+check("the fix also matches when trailing text follows the second date "
+      "(not just at the string's end)",
+      chat._mentioned_date_ranges("יום שלישי 10.11.2026–יום שבת 14.11.2026, נראה לי מתאים")
+      == [((10, 11), (14, 11))])
+
+
 TWO_CANDIDATES_STATE = {
     "active_session": "flights",
     "dates": {
