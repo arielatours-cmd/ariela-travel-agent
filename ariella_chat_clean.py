@@ -294,7 +294,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
 - הפרידי בין היעד לבין שדה התעופה של היעד. destination מתאר את היעד שהלקוח נתן; destination_airports הוא רשימת קודי IATA לנחיתה בהלוך. return_departure_airports הוא רשימת קודי IATA ליציאה בחזור. כברירת מחדל אל תשאלי על שדה החזור: אם הלקוח לא ביקש אחרת, שדה/שדות החזור זהים ל-destination_airports. אם הלקוח אומר במפורש שחוזרים משדה אחר, שמרי אותו ב-return_departure_airports.
 - destination.places חייב להירשם בדיוק כפי שהלקוח אמר את שם היעד, גם כשהוא פחות מוכר/נדיר ואפילו כשהוא לא נשמע לך כעיר/יעד ממש - לעולם אסור שישאר ריק רק כי השם לא מוכר לך. זה שונה מ-destination_airports (קוד שדה מאומת), שבאמת נשאר ריק עד שיש מקור אמיתי. אסור בשום אופן "לוותר" על שמירת היעד שהלקוח כן נתן בגלל חשד שאין טיסות/קטלוג ליעד הזה - זו בדיוק הסיבה שגרמה בעבר לשיחה שלמה ללכוד בלופ "לאן תרצי לטוס?" אחרי שהלקוח כבר אמר בבירור לאן.
-- flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. כשאין העדפה כזו השאירי null - בדיוק כמו budget_per_person.status ו-car.details.vehicle_type, שדה זה נשאר null/unknown עד שהלקוח עצמו ענה בפועל על השאלה אם הוא רוצה טיסה ישירה; אסור להניח "אין העדפה" משתיקה או כברירת מחדל, ואסור לכתוב בסיכום ניסוח שמרמז על העדפה שלא נשאלה בכלל.
+- flight.connection_preference: כאשר הלקוח מבקש שהטיסה תהיה ישירה/ללא עצירות בלבד (בכל ניסוח - "ישירה", "רק ישירות", "ללא עצירות", "direct", "nonstop" וכו'), שמרי בשדה הזה בדיוק את המילה "direct" (אנגלית, אותיות קטנות) - לא ניסוח אחר ולא תרגום. השדה נשאר null/unknown אך ורק עד שהלקוח עצמו ענה בפועל על השאלה אם הוא רוצה טיסה ישירה - אסור להניח "אין העדפה" משתיקה או כברירת מחדל על שאלה שמעולם לא נשאלה, ואסור לכתוב בסיכום ניסוח שמרמז על העדפה שלא נשאלה בכלל. אבל ברגע שהלקוח כן ענה בפועל על השאלה הזו (היא נשאלה), והבנת מהקשר השיחה - לא מרשימת ביטויים קבועה - שתשובתו מביעה שטיסה ישירה דווקא לא ממש חשובה לו (למשל, כתשובה לשאלה אם הטיסה חייבת להיות ישירה, ניסוח כמו "לא חובה"), שמרי בדיוק את המחרוזת "אין העדפה" (עברית, לא null) - זו עובדה שכבר נקבעה (הלקוח ענה בפועל), לא העדר תשובה. ההבחנה קריטית: null פירושו "עדיין לא נשאל/לא ענה", ו-"אין העדפה" פירושו "נשאל וענה שזה לא חשוב לו" - בלבול בין השניים גורם לשאלה להישאל שוב ושוב בלי סוף גם אחרי שהלקוח כבר ענה.
 - flight.max_connections: כאשר הלקוח מציין מספר עצירות/קונקשנים מקסימלי מותר (לא ישירה דווקא, אבל גם לא ללא הגבלה - למשל "לא יותר מקונקשן אחד", "מקסימום עצירה אחת", "עד 2 קונקשנים"), שמרי כאן מספר שלם (1, 2...). זה שונה מ-connection_preference="direct" (דרישה לטיסה ישירה בלבד) - שדה נפרד לבקשה "קונקשן אחד זה בסדר, אבל לא יותר". כשאין הגבלה מספרית כזו השאירי null.
 - כשתוצאות הטיסות כבר נסרקו ואין טיסה ישירה ליעד (למשל התוצאה המוצגת מסומנת כ"לא כולל: טיסה ישירה"), ציייני זאת ללקוח כעובדה בפה מלא ("שימו לב - לא נמצאה טיסה ישירה ליעד הזה בתאריכים שביקשת, האפשרות הטובה ביותר שנמצאה כוללת קונקשן") ולעולם אל תשאלי שוב אם הלקוח רוצה טיסה ישירה - השאלה הזו רלוונטית רק לפני שיוצאים לסריקה ורק כשבאמת יש אפשרות ישירה אמיתית לבחור בה.
 - כנ"ל עוד לפני הסריקה: אם כבר ציינת ללקוח (מידע כללי שלך או בדיקה שבוצעה) שליעד הזה כמעט אין טיסות ישירות מישראל, אסור לשאול שום שאלת המשך על הקונקשן - לא "ישירה או קונקשן", ולא שאלה דומה כמו "חשוב לך לצמצם את זמן ההמתנה בקונקשן, או שזה גמיש?". ברגע שנקבע שאין אפשרות ישירה אמיתית, הנושא סגור לגמרי ועוברים לשאלה הבאה שבאמת חסרה - אסור להמשיך "לחטט" בפרטי הקונקשן כשאלת נימוס או כברירת מחדל.
@@ -833,6 +833,8 @@ def _parse_link_request_signal(text):
     except Exception:
         pass
     return False, None
+
+
 
 
 def _parse_trip_update(text):
@@ -4366,6 +4368,15 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # re-call it makes when the first reply named a date that matches
         # neither the real confirmed dates nor a real pending candidate.
         continuity += "\n- " + str(state.get("_date_hallucination_correction_hint")) + "\n"
+    if state.get("_gap_repeat_rephrase_hint"):
+        # Set on state_for_tinkerbell only (never on trip_update itself -
+        # see _apply_gap_repeat_guard's own docstring on why that mattered):
+        # some open gap's own fixed question was already asked twice in a
+        # row and still unresolved - per Shlomo's relay of the business
+        # owner's stage-1 run-5 directive (Paphos), the third ask must
+        # never repeat the identical fixed text again; rephrase in her own
+        # words with concrete example answers this time.
+        continuity += "\n- " + str(state.get("_gap_repeat_rephrase_hint")) + "\n"
     if state.get("_gap_clarify_question"):
         # Per the business owner's explicit instruction (2026-10-13): when
         # the model that interprets an open answer is genuinely unsure, the
@@ -8334,6 +8345,88 @@ _GAP_QUESTION_TEXT = {
     "trip_planning.details.route": "ספרו לי קצת על המסלול שאתם מדמיינים.",
     "trip_planning.approved": "המסלול שהצעתי מתאים לכם?",
 }
+
+
+def _apply_gap_repeat_guard(trip_update, history, active_session):
+    """Per Shlomo's relay of the business owner's stage-1 run-5 directive
+    (Paphos): "חשוב לכם שהטיסה תהיה ישירה?" was asked roughly 28 times in a
+    row - this gap is not a guided-extraction field, so the guided flow's
+    own loop guard (attempts tracking, _guided_skip_turn_hint) never
+    applies to it at all; there was no general defense whatsoever for the
+    ordinary gap-driven question flow (_session_gaps/_flight_gap_question/
+    _GAP_QUESTION_TEXT), independent of GUIDED_EXTRACTION_STEPS coverage.
+
+    SIMPLIFIED 21.10.2026 (Shlomo's own decision, after three rejected
+    attempts at a more precise design that each introduced a new bug):
+    the real fix for Paphos is EXTRACTOR_SYSTEM itself now understanding
+    "לא חובה" and writing "אין העדפה" from genuine comprehension - that
+    already works. This guard is kept ONLY as a simple, low-risk safety
+    net, deliberately simplified down to two rules: it never writes any
+    value to trip_update at all (a prior version's silent "אין העדפה"
+    default, keyed off _session_gaps(...)[0], once fired for a field that
+    was never actually the one being asked about - see below), and it
+    matches against the REAL canonical question text for each individual
+    open gap, never against gaps[0] alone.
+
+    That "gaps[0]" bug (Shlomo's own review, round 4): _flight_gap_question
+    picks a question by its OWN fixed priority order (destination_airports >
+    ... > budget_per_person > ... > connection_preference > baggage > ...),
+    which does not necessarily match _session_gaps's own list order. The
+    previous version computed `question_text` correctly from the full gaps
+    list (so it matched whatever was ACTUALLY asked), but then wrote any
+    default to `gaps[0]` as the field key - a different field entirely
+    whenever the two orders diverged. Live example: budget_per_person and
+    flight.connection_preference both open; the budget question gets asked
+    twice in a row (correctly, by priority) and is still unresolved, but
+    the old code silently wrote "אין העדפה" into connection_preference
+    instead - a field never once asked about.
+
+    Now: if the SAME question text was the last question asked in each of
+    the last two assistant turns, and the gap that specific text belongs
+    to is still open, Tinkerbell gets a one-turn hint to rephrase in her
+    own words with concrete example answers, never repeating the identical
+    text a third time.
+
+    REWORKED AGAIN 21.10.2026, same day (Shaked's round-5 rejection, via
+    Shlomo): this function used to write the hint directly onto
+    trip_update (`trip_update["_gap_repeat_rephrase_hint"] = ...`) and
+    return trip_update itself - but trip_update IS what gets persisted
+    into trip_state at the end of the turn, so the hint lived on forever
+    across every future turn, not just this one. Live failure: the
+    direct-flight question resolves correctly ("לא חובה" -> "אין העדפה"),
+    but the NEXT turn (now asking about baggage) still carried the stale
+    hint telling Tinkerbell to rephrase the direct-flight question - a
+    question that was no longer even being asked. Fixed by never touching
+    trip_update at all: this function now returns the hint text alone (or
+    None), exactly like _understand_open_gap_answer's gap_clarify_question
+    return value - the caller folds it into state_for_tinkerbell for this
+    ONE _call_tinkerbell invocation only, never into trip_update itself."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    if active_session not in ("flights", "lodging", "car", "trip_planning"):
+        return None
+    gaps = _session_gaps(trip_update, active_session)
+    if not gaps:
+        return None
+    recent_questions = [
+        _last_question_clause(str(item.get("content") or "")).strip()
+        for item in reversed(history or [])
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant"
+    ][:2]
+    if len(recent_questions) < 2 or recent_questions[0] != recent_questions[1] or not recent_questions[0]:
+        return None
+    repeated = recent_questions[0]
+    for gap in gaps:
+        if active_session == "flights":
+            question_text = _flight_gap_question([gap], trip_update)
+        else:
+            question_text = _GAP_QUESTION_TEXT.get(gap)
+        if question_text and _last_question_clause(question_text).strip() == repeated:
+            return (
+                f"השאלה \"{repeated}\" כבר נשאלה פעמיים ברצף ועדיין לא נענתה בבירור. "
+                "לעולם אל תחזרי עליה מילה במילה פעם שלישית - נסחי אותה מחדש בקול שלך, עם "
+                "1-2 דוגמאות קונקרטיות לתשובה אפשרית, כדי לעזור ללקוח להבין מה בדיוק מבקשים."
+            )
+    return None
 
 
 # Per the business owner's explicit instruction (2026-10-13): "אי אפשר
@@ -12913,7 +13006,15 @@ def _chat_clean_impl():
             except (TypeError, ValueError):
                 _baggage_traveler_count = 0
             trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message, _baggage_traveler_count))
-        trip_update = _merge_trip_state(trip_update, _deterministic_connection_preference_facts(message, history))
+        # Fail-safe only (Shlomo's review of this exact PR, 21.10.2026): this
+        # deterministic parser's own word lists must never override or race
+        # the extractor's genuine understanding of flight.connection_
+        # preference - it's a backup net for when the model's own call
+        # misses the field entirely, not a parallel detection path. Skipped
+        # outright once the field is already resolved (by the extractor
+        # this very turn, or by any earlier turn).
+        if not (trip_update.get("flight") or {}).get("connection_preference"):
+            trip_update = _merge_trip_state(trip_update, _deterministic_connection_preference_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
@@ -13126,6 +13227,16 @@ def _chat_clean_impl():
         trip_update = _advance_sessions(trip_update)
         if trip_update["profile"].get("gender"):
             trip_update["user_gender"] = trip_update["profile"]["gender"]
+        # Per Shlomo's relay of the business owner's stage-1 run-5 directive
+        # (Paphos): a non-guided gap asked twice in a row unresolved never
+        # gets asked identically a third time - see the function's own
+        # docstring. Active_session is now finalized for this turn, and
+        # every deterministic/extractor merge above has already run.
+        # Computed here (not mutated into trip_update - see the function's
+        # own docstring on why a round-5 review caught exactly that bug)
+        # and folded into state_for_tinkerbell below, for this ONE reply
+        # only.
+        gap_repeat_rephrase_hint = _apply_gap_repeat_guard(trip_update, history, trip_update.get("active_session"))
 
         # If the customer has just declined/deferred the remaining optional
         # services and every wanted service is already complete, skip the
@@ -13327,6 +13438,10 @@ def _chat_clean_impl():
                 if state_for_tinkerbell is trip_update:
                     state_for_tinkerbell = dict(trip_update)
                 state_for_tinkerbell["_gap_clarify_question"] = gap_clarify_question
+            if gap_repeat_rephrase_hint:
+                if state_for_tinkerbell is trip_update:
+                    state_for_tinkerbell = dict(trip_update)
+                state_for_tinkerbell["_gap_repeat_rephrase_hint"] = gap_repeat_rephrase_hint
             if link_request_verified:
                 if state_for_tinkerbell is trip_update:
                     state_for_tinkerbell = dict(trip_update)
