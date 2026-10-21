@@ -1336,6 +1336,65 @@ def _retry_if_dates_invented(key, model, history, message, state, reply):
     return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
 
 
+def _retry_if_one_of_several_candidates_shown(key, model, history, message, state, reply, had_date_options_token):
+    """Structural safety net (Timișoara, run-9, Shaked's live finding
+    relayed by Shlomo, 21.10.2026): state had TWO pending date candidates
+    (dates.candidate_ranges), but Tinkerbell picked just ONE of them,
+    wrote its exact range literally, and framed it as a yes/no
+    confirmation ("סביב ה-11-15 בנובמבר?") instead of using the
+    {{DATE_OPTIONS}} placeholder to show every pending option together (as
+    _dates_truth_hint instructs). _retry_if_dates_invented's own checks
+    never catch this shape at all: the range she names IS one of the real
+    candidates, not an invented one or a mixed one - the bug is which
+    candidate(s) she silently left out, not what she actually said.
+
+    had_date_options_token is whether the RAW reply (before _render_date_
+    placeholders substituted it) already contained the placeholder - if it
+    did, every pending candidate was already joined together by that
+    substitution, and there is nothing to flag here regardless of what the
+    rendered text now literally reads.
+
+    Scoped exactly like the other date backstops: flights stage only, one
+    retry only (_date_retry skips it), and only when the reply names
+    EXACTLY one candidate's own whole range - naming none (a plain
+    clarifying question) or two-or-more (she already listed more than one
+    herself, just without the placeholder) is left alone."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("active_session") != "flights" or had_date_options_token:
+        return None
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if not dates.get("needs_confirmation"):
+        return None
+    candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
+    if len(candidates) < 2:
+        return None
+    candidate_pairs = []
+    for label in candidates:
+        pts = re.findall(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", str(label))
+        if len(pts) >= 2:
+            (d1, m1, _y1), (d2, m2, _y2) = pts[0], pts[1]
+            candidate_pairs.append({(int(d1), int(m1)), (int(d2), int(m2))})
+    if len(candidate_pairs) < 2:
+        return None
+    mentioned_ranges = _mentioned_date_ranges(reply)
+    if not mentioned_ranges:
+        return None
+    matched = {
+        i for i, pair in enumerate(candidate_pairs)
+        if any({r_start, r_end} == pair for r_start, r_end in mentioned_ranges)
+    }
+    if len(matched) != 1:
+        return None
+    state2 = dict(state)
+    state2["_date_hallucination_correction_hint"] = (
+        "יש כרגע יותר מאפשרות תאריכים ממתינה אחת ב-state (candidate_ranges), אבל בתשובה הקודמת שלך "
+        "הזכרת במפורש רק אחת מהן (כשאלת אישור על טווח ספציפי), בלי להציג את כל האפשרויות הממתינות "
+        "יחד. נסחי את התשובה הזו מחדש: הציגי את כל האפשרויות הממתינות יחד, באמצעות המחרוזת המדויקת "
+        f"{_DATE_OPTIONS_PLACEHOLDER} - ולעולם אל תבחרי אחת מהן בעצמך לשאלת כן/לא נפרדת."
+    )
+    return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
+
+
 def _total_nights_hint(state):
     """Seen live, repeatedly (Frankfurt, Cyprus, Montenegro): Ariella counted
     nights herself from the dates/route and got it wrong - "14-16.3" (2
@@ -4675,6 +4734,13 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     reply = _enforce_one_option_question(reply, state)
     reply = _ensure_flight_summary_completeness(reply, state)
     reply = _strip_unconfirmed_airports(reply, state)
+    # Captured BEFORE substitution (Timișoara, run-9): once _render_date_
+    # placeholders runs, the placeholder itself is gone from the text
+    # either way, so this is the only point that can still tell "she used
+    # the placeholder, which already joins every pending candidate" apart
+    # from "she wrote a literal date herself instead" - see
+    # _retry_if_one_of_several_candidates_shown below.
+    _had_date_options_token = bool(_DATE_PLACEHOLDER_RE.search(reply))
     # Substitute {{DATES}}/{{DATE_OPTIONS}} with text built directly from
     # state's own final dates BEFORE the structural retry check below, so a
     # correctly-placeholder'd reply (the now-expected case) reads as the real,
@@ -4698,6 +4764,11 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
     if not _date_retry:
         retried = _retry_if_dates_invented(key, model, history, message, state, reply)
+        if retried is not None:
+            return retried
+        retried = _retry_if_one_of_several_candidates_shown(
+            key, model, history, message, state, reply, _had_date_options_token
+        )
         if retried is not None:
             return retried
     # Absolute last resort (Shlomo's explicit instruction: under no
