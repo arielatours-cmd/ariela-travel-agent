@@ -6290,16 +6290,49 @@ def _deterministic_flights_already_booked_facts(message):
     return {}
 
 
+_SHIFT_DAY_COUNT_RE = re.compile(r"יום\s+(?:אחד|אחת)(?!\w)|יומיים(?!\w)|(\d+)\s+ימים")
+
+
+def _shift_day_count(msg):
+    """Extract a plain day-count phrase ("יום אחד"/"יומיים"/"N ימים")
+    appearing anywhere in the message, regardless of what verb or filler
+    words surround it. Returns the count as a positive int, or None."""
+    m = _SHIFT_DAY_COUNT_RE.search(msg)
+    if not m:
+        return None
+    if m.group(1):
+        return int(m.group(1))
+    return 2 if m.group(0) == "יומיים" else 1
+
+
 def _deterministic_shift_days_fallback(message):
     """REGEX FALLBACK ONLY (per Shlomo's relay of Shaked's live stage-1
     run-2 finding): relative_date_hint.shift_days (evidence-gated) is the
     PRIMARY path for "אפשר לזוז יום אחד אחורה?" - this exists solely for
     the turn that structured extraction itself fails to produce a
     verified shift, mirroring _deterministic_period_facts's own role for
-    every other relative-date capability. Recognizes only the plain
-    "move N days forward/backward" phrasing against the message itself;
-    must never be extended further as if it were the primary mechanism.
-    Returns a signed int day count, or None if nothing matched."""
+    every other relative-date capability. Must never be extended further
+    as if it were the primary mechanism. Returns a signed int day count,
+    or None if nothing matched.
+
+    Widened 21.10.2026 (Shlomo's relay of Shaked's live stage-1 run-6
+    finding, Paphos): the live message was "אפשר לדחות את כל הטיסה ביום
+    אחד?" (postpone the whole flight by one day) - this fallback only
+    recognized "לזוז...קדימה/אחורה" with the verb and day-count
+    immediately adjacent and an explicit direction word, so it matched
+    neither the different verb ("לדחות"/postpone, "להקדים"/bring
+    forward - direction is implied by the verb itself, no "קדימה"/
+    "אחורה" needed) nor the real phrasing (filler words - "את כל
+    הטיסה" - sit between the verb and the day-count). With the
+    PRIMARY path (the model's own shift_days) apparently also missing
+    this turn, the entire shift request was silently dropped: no
+    candidate was ever proposed, so the next turn's explicit "כן, לצאת
+    ב-24.11 ולחזור ב-1.12" had no pending candidate to accept against
+    and fell back to the sticky-dates lock, which reasserted the OLD
+    dates. Recognizes "לזוז"/"לדחות" (forward) and "להקדים" (backward)
+    anywhere in the message, each paired with a day-count phrase found
+    anywhere else in the same message (not required to be adjacent) -
+    still never extended beyond this plain day-count/verb pairing."""
     msg = str(message or "").strip()
     m = re.search(r"לזוז\s+(?:ב)?יום\s+(?:אחד|אחת)\s+(קדימה|אחורה)", msg)
     if m:
@@ -6308,6 +6341,14 @@ def _deterministic_shift_days_fallback(message):
     if m:
         n = int(m.group(1))
         return n if m.group(2) == "קדימה" else -n
+    if re.search(r"לזוז|לדחות", msg):
+        n = _shift_day_count(msg)
+        if n:
+            return n
+    if re.search(r"להקדים", msg):
+        n = _shift_day_count(msg)
+        if n:
+            return -n
     return None
 
 
