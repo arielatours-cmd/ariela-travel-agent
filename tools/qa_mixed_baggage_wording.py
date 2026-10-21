@@ -19,12 +19,21 @@ wording purely from the conversation history, and echoed back the very
 per-passenger split ("למבוגרים... ולילדים...") the silent resolution
 exists to override.
 
-Fix: a new _mixed_baggage_acknowledgement_hint() function, wired in
+FIRST FIX ATTEMPT (PR #121, 4f1079a) REJECTED by Shaked (e2848dc,
+21.10.2026): that version added a hint instructing Tinkerbell to EXPLAIN
+the resolution in one sentence ("הזמנה היא תמיד כבודה אחידה... לכן
+נשמרה מזוודה לכולם"). Shaked's rejection: that explanation itself
+contradicts two of the business owner's own decisions - "בקשה מעורבת:
+מזוודה, בלי דיון" (no discussion at all) and "מזוודה: לא מוסיפה משפט"
+(no added sentence at all) - no acknowledgement of ANY kind belongs here.
+
+ACTUAL FIX: _mixed_baggage_acknowledgement_hint() now does the opposite -
+it explicitly forbids mentioning baggage in this turn at all (no
+explanation, no confirmation, no per-passenger description), wired in
 wherever flight.baggage resolves to the mixed case (first answer AND a
-later correction), explicitly instructing a neutral one-sentence
-acknowledgement with no per-passenger description and no promise of a
-future split - letting the next guided question still reach the customer
-in the same message, exactly like the existing upsell-note path.
+later correction), letting the next guided question still reach the
+customer in the same message, exactly like a plain checked_bag choice
+that needs no added note at all.
 
 Run: python3 tools/qa_mixed_baggage_wording.py
 """
@@ -103,13 +112,16 @@ PHUKET_STATE = {
 # Direct unit coverage of the new hint function itself.
 # =====================================================================
 _hint = chat._mixed_baggage_acknowledgement_hint()
-check("direct: the hint explicitly forbids describing a per-passenger split",
-      "בלי לתאר" in _hint and "חלוקה שונה בין נוסעים" in _hint)
-check("direct: the hint explicitly forbids promising a future per-passenger split",
-      "להבטיח" in _hint)
-check("direct: the hint still tells Tinkerbell to move on to the next topic "
-      "in the same message (matches _baggage_followup_hint's own shape)",
-      "מיד אחר כך" in _hint and "באותה הודעה" in _hint)
+check("direct: the hint forbids mentioning baggage at all this turn "
+      "(no explanation, no confirmation, no per-passenger description)",
+      "אל תזכירי את נושא הכבודה" in _hint)
+check("direct: the hint does NOT itself contain an explanatory sentence "
+      "for Tinkerbell to say (Shaked's rejection of the first version) - "
+      "that wording contradicted 'בקשה מעורבת: מזוודה, בלי דיון'",
+      "לכן נשמרה מזוודה" not in _hint and "ציייני זאת בלשונך" not in _hint)
+check("direct: the hint still tells Tinkerbell to move on to the next "
+      "topic in the same message",
+      "לשאלה הבאה" in _hint)
 check("regression: no quick-reply buttons in the new hint",
       "[" not in _hint)
 
@@ -117,8 +129,9 @@ check("regression: no quick-reply buttons in the new hint",
 # =====================================================================
 # End-to-end Phuket repro: first-time baggage answer, mixed per-passenger
 # request. The SAVE must stay correct (checked_bag, no size/count), and
-# the steering hint Tinkerbell receives must now explicitly forbid the
-# live bug's exact wording shape.
+# the steering hint Tinkerbell receives must now forbid mentioning
+# baggage at all this turn - not merely forbid the per-passenger wording
+# while still asking for an explanatory sentence (the rejected version).
 # =====================================================================
 member_phuket = _make_member("qa-phuket-mixed-baggage@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
@@ -134,12 +147,17 @@ check("Phuket: the save stays correct - checked_bag for the whole group, "
       "no size/count synthesized from the per-passenger description",
       (tu_phuket.get("flight") or {}).get("baggage") == ["checked_bag"]
       and not (tu_phuket.get("flight") or {}).get("baggage_detail"))
-check("Phuket FIX: Tinkerbell's steering hint now explicitly forbids the "
-      "live bug's exact wording shape (a per-passenger breakdown)",
-      "בלי לתאר" in phuket_hint and "חלוקה שונה בין נוסעים" in phuket_hint)
+check("Phuket FIX: Tinkerbell's steering hint now forbids mentioning "
+      "baggage at all this turn",
+      "אל תזכירי את נושא הכבודה" in phuket_hint)
 check("Phuket: the hint never itself contains the forbidden per-passenger "
       "wording as if it were an instruction to SAY it",
       "למבוגרים מזוודה" not in phuket_hint and "ולילדים טרולי" not in phuket_hint)
+check("Phuket: the hint is plainly concatenated with the next question, "
+      "not wrapped in the '(1)/(2) two-part message' framing meant for an "
+      "actual statement-plus-question (this is a suppression instruction, "
+      "not content to say)",
+      "שני חלקים בהודעה הזו" not in phuket_hint)
 
 
 # =====================================================================
@@ -149,7 +167,7 @@ check("Phuket: the hint never itself contains the forbidden per-passenger "
 # yet in guided.answered; the model's "correction" judgment is independent
 # of that bookkeeping, same as the dates/travelers schemas' own
 # correction field). The correction acknowledgement hint must carry the
-# same no-breakdown instruction as the first-answer path.
+# same no-mention instruction as the first-answer path.
 # =====================================================================
 member_correction = _make_member("qa-mixed-baggage-correction@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
@@ -169,8 +187,8 @@ check("correction path: the save still resolves to checked_bag for "
       "everyone, same as a first answer",
       (tu_correction.get("flight") or {}).get("baggage") == ["checked_bag"])
 check("correction path FIX: the correction acknowledgement hint also "
-      "forbids describing a per-passenger split",
-      "בלי לתאר" in correction_hint and "חלוקה שונה בין נוסעים" in correction_hint)
+      "forbids mentioning baggage at all this turn",
+      "אל תזכירי את נושא הכבודה" in correction_hint)
 
 
 # =====================================================================
@@ -190,9 +208,10 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu_plain = r_plain.get("trip_update") or {}
 plain_hint = str(tu_plain.get("_guided_ask_hint") or "")
 check("regression: a plain uniform checked_bag request is unaffected - no "
-      "mixed-only wording leaks into its hint (checked_bag still needs no "
-      "upsell note, and no per-passenger instruction is relevant here)",
-      "בלי לתאר" not in plain_hint and "חלוקה שונה בין נוסעים" not in plain_hint)
+      "mixed-only suppression wording leaks into its hint (checked_bag "
+      "still needs no upsell note, and no per-passenger instruction is "
+      "relevant here)",
+      "אל תזכירי את נושא הכבודה" not in plain_hint)
 
 if FAILED:
     print(f"\n{len(FAILED)} CHECK(S) FAILED:")

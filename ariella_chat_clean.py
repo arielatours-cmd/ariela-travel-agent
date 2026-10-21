@@ -9553,15 +9553,25 @@ def _mixed_baggage_acknowledgement_hint():
     free to compose her own wording from the conversation history alone,
     and echoed back the very per-passenger split the business owner's
     decision exists to silently override: "הבנתי - אז למבוגרים מזוודה
-    בבטן המטוס ולילדים טרולי בלבד". Explicit steering, same role as
-    _baggage_followup_hint's own note, so the next guided question still
-    reaches the customer in the same message."""
+    בבטן המטוס ולילדים טרולי בלבד".
+
+    REWRITTEN (21.10.2026, Shaked's rejection of #121's first version,
+    relayed by Shlomo): the first version instructed Tinkerbell to explain
+    the resolution ("הזמנה היא תמיד כבודה אחידה... לכן נשמרה מזוודה
+    לכולם") - but that explanation itself contradicts two of the business
+    owner's own decisions: "בקשה מעורבת: מזוודה, בלי דיון" and "מזוודה: לא
+    מוסיפה משפט" - no acknowledgement sentence of ANY kind belongs here,
+    explanatory or otherwise. The hint now does the opposite: it forbids
+    mentioning baggage in this turn at all, so neither the original
+    per-passenger split nor a new explanation gets said - the turn
+    proceeds exactly like any other resolved baggage choice that needs no
+    added note."""
     return (
-        "הלקוח תיאר כבודה שונה לנוסעים שונים, אבל הזמנה היא תמיד כבודה אחידה "
-        "אחת לכל הקבוצה - לכן נשמרה מזוודה בבטן המטוס לכולם. ציייני זאת "
-        "בלשונך במשפט קצר אחד, בלי לתאר או להזכיר חלוקה שונה בין נוסעים "
-        "בכלל, ובלי לפתוח דיון על כך או להבטיח חלוקה כזו בהמשך - ומיד אחר "
-        "כך, באותה הודעה, המשיכי לשאלה הבאה שבאמת רלוונטית כרגע."
+        "הלקוח תיאר כבודה שונה לנוסעים שונים, אבל ההחלטה שנשמרה היא אחידה "
+        "לכל הקבוצה. אל תזכירי את נושא הכבודה בהודעה הזו בכלל - לא משפט "
+        "הסבר, לא אישור, ולא תיאור של חלוקה שונה בין נוסעים - ובלי לפתוח "
+        "בכך שום דיון. עברי ישירות לשאלה הבאה שבאמת רלוונטית כרגע, בדיוק "
+        "כמו בכל בחירת כבודה אחרת שלא דורשת תוספת."
     )
 
 
@@ -10600,16 +10610,6 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # always add later" note, then move straight to the next topic in
         # the SAME message - never a separate turn.
         baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
-        # Run-7 bug B (Shaked, Phuket): a mixed per-passenger request
-        # resolves silently to checked_bag (see _guided_field_update_and_
-        # confirm above) - _baggage_followup_hint itself returns None for
-        # checked_bag (nothing to upsell), which left Tinkerbell with NO
-        # steering hint at all for this turn, free to invent her own
-        # acknowledgement from the conversation history and echo back the
-        # very per-passenger split the business owner's decision silently
-        # overrides.
-        if not baggage_note and result.get("mixed_per_passenger"):
-            baggage_note = _mixed_baggage_acknowledgement_hint()
         if baggage_note:
             # Seen live (Shlomo/Shaked, stage-1 run-1, 20.10.2026, s1a1/
             # s1a3): a plain concatenation of the note with the next
@@ -10632,6 +10632,26 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                     ("שני חלקים בהודעה הזו - זה עדיין נחשב הודעה אחת עם שאלה אחת בלבד, לא הפרה של כלל השאלה האחת: "
                      "(1) " + baggage_note + " (2) " + next_hint)
                     if next_hint else baggage_note
+                ),
+            }
+        # Run-7 bug B (Shaked, Phuket): a mixed per-passenger request
+        # resolves silently to checked_bag (see _guided_field_update_and_
+        # confirm above) - _baggage_followup_hint itself returns None for
+        # checked_bag (nothing to upsell), which left Tinkerbell with NO
+        # steering hint at all for this turn, free to invent her own
+        # acknowledgement from the conversation history and echo back the
+        # very per-passenger split the business owner's decision silently
+        # overrides. Unlike baggage_note above, this is a suppression
+        # instruction (don't say anything about baggage), not content to
+        # say - so it is plainly concatenated, not wrapped in the "(1)/(2)
+        # two-part message" framing that's meant for an actual statement
+        # plus a question.
+        if result.get("mixed_per_passenger"):
+            suppression_hint = _mixed_baggage_acknowledgement_hint()
+            return {
+                "trip_update": trip_update,
+                "dynamic_hint": (
+                    (suppression_hint + " " + next_hint) if next_hint else suppression_hint
                 ),
             }
     return {"trip_update": trip_update, "dynamic_hint": next_hint}
