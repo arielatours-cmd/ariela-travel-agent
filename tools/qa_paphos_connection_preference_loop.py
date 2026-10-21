@@ -61,12 +61,27 @@ Two independent root causes, both fixed here:
      stays unresolved, but the old code kept writing "אין העדפה" into
      connection_preference - a field never once actually asked about.
 
-   Final shape: if the SAME question text was the last question asked in
-   each of the last two assistant turns, and the gap that text actually
-   belongs to (checked against EACH open gap's own canonical question,
-   never gaps[0]) is still open, Tinkerbell gets a one-turn hint to
-   rephrase with concrete examples - never the identical text a third
-   time, and never a silently-written value.
+   Round 4's shape: if the SAME question text was the last question asked
+   in each of the last two assistant turns, and the gap that text
+   actually belongs to (checked against EACH open gap's own canonical
+   question, never gaps[0]) is still open, Tinkerbell gets a one-turn
+   hint to rephrase with concrete examples - never the identical text a
+   third time, and never a silently-written value.
+
+   Round 5 (Shaked's rejection of round 4, same day, via Shlomo): round
+   4's function wrote the hint directly onto trip_update and returned
+   trip_update itself - but trip_update IS what gets persisted into
+   trip_state at the end of the turn, so the hint lived on forever across
+   every future turn, not just the one it was meant for. Live failure:
+   the direct-flight question resolves correctly ("לא חובה" -> "אין
+   העדפה"), but the NEXT turn (now asking about baggage) still carried
+   the stale hint telling Tinkerbell to rephrase the direct-flight
+   question - a question no longer even being asked. Fixed: the function
+   never touches trip_update at all any more. It returns the hint text
+   alone (or None), exactly like _understand_open_gap_answer's
+   gap_clarify_question return value, and the caller folds it into
+   state_for_tinkerbell for that ONE _call_tinkerbell invocation only -
+   never into trip_update, never persisted.
 
 Run: python3 tools/qa_paphos_connection_preference_loop.py
 """
@@ -140,9 +155,11 @@ check("the simplified repeat-guard no longer needs or references "
 
 # =====================================================================
 # 2. Direct unit tests of _apply_gap_repeat_guard(trip_update, history,
-# active_session) - the simplified, final design (round 4): it never
-# writes any value, and it matches each open gap's OWN canonical question
-# text individually, never _session_gaps(...)[0] alone.
+# active_session) - round 5's final design: it returns the hint text (or
+# None) and never touches trip_update at all - not even to read it back
+# afterward, since there is nothing to mutate any more. The caller alone
+# decides what to do with the returned hint (fold it into
+# state_for_tinkerbell for one turn, per the function's own docstring).
 # =====================================================================
 _DIRECT_Q = "חשוב לכם שהטיסה תהיה ישירה?"
 _TWO_DIRECT_Q_HISTORY = [
@@ -152,69 +169,70 @@ _TWO_DIRECT_Q_HISTORY = [
 ]
 
 with patch.object(chat, "_session_gaps", return_value=["flight.connection_preference"]):
-    _result_repeat = chat._apply_gap_repeat_guard(
+    _hint_repeat = chat._apply_gap_repeat_guard(
         {"active_session": "flights", "flight": {"baggage": ["checked_bag"]}},
         _TWO_DIRECT_Q_HISTORY, "flights",
     )
 check("after the SAME question was the last question asked in each of the "
-      "last two assistant turns, and the matching gap is still open, "
-      "Tinkerbell gets a rephrase-with-examples hint",
-      _DIRECT_Q in str(_result_repeat.get("_gap_repeat_rephrase_hint") or "")
-      and "דוגמאות" in str(_result_repeat.get("_gap_repeat_rephrase_hint") or ""))
-check("the guard NEVER writes any value - connection_preference stays "
-      "completely absent even after the hint fires",
-      "connection_preference" not in _result_repeat.get("flight", {}))
-check("the hint never disturbs an unrelated field already present",
-      _result_repeat.get("flight", {}).get("baggage") == ["checked_bag"])
+      "last two assistant turns, and the matching gap is still open, the "
+      "function returns a rephrase-with-examples hint",
+      _DIRECT_Q in str(_hint_repeat or "") and "דוגמאות" in str(_hint_repeat or ""))
 
 with patch.object(chat, "_session_gaps", return_value=["flight.connection_preference"]):
-    _result_once = chat._apply_gap_repeat_guard(
+    _state_unchanged = {"active_session": "flights", "flight": {"baggage": ["checked_bag"]}}
+    chat._apply_gap_repeat_guard(dict(_state_unchanged), _TWO_DIRECT_Q_HISTORY, "flights")
+check("the guard NEVER mutates its trip_update argument at all - passing "
+      "a copy through and firing the hint leaves the original untouched "
+      "(there is nothing left in this function that writes anywhere)",
+      _state_unchanged == {"active_session": "flights", "flight": {"baggage": ["checked_bag"]}})
+
+with patch.object(chat, "_session_gaps", return_value=["flight.connection_preference"]):
+    _hint_once = chat._apply_gap_repeat_guard(
         {"active_session": "flights"},
         [{"role": "assistant", "content": _DIRECT_Q}],
         "flights",
     )
 check("regression: with only ONE prior ask (not the last two assistant "
-      "turns), the guard never fires",
-      "_gap_repeat_rephrase_hint" not in _result_once)
+      "turns), the guard returns None",
+      _hint_once is None)
 
 with patch.object(chat, "_session_gaps", return_value=["flight.connection_preference"]):
-    _result_unrelated = chat._apply_gap_repeat_guard(
+    _hint_unrelated = chat._apply_gap_repeat_guard(
         {"active_session": "flights"},
         [{"role": "assistant", "content": "שלום, בוא נתחיל"}, {"role": "user", "content": "היי"},
          {"role": "assistant", "content": "איזה יעד מעניין אתכם?"}],
         "flights",
     )
 check("regression: two DIFFERENT questions in the last two assistant "
-      "turns (never a real repeat) never trigger the hint",
-      "_gap_repeat_rephrase_hint" not in _result_unrelated)
+      "turns (never a real repeat) return None",
+      _hint_unrelated is None)
 
-check("the guard is a pure no-op once gaps is already empty (field resolved)",
-      chat._apply_gap_repeat_guard({"active_session": "flights"}, _TWO_DIRECT_Q_HISTORY, "flights")
-      == {"active_session": "flights"})
+check("the guard returns None once gaps is already empty (field resolved)",
+      chat._apply_gap_repeat_guard({"active_session": "flights"}, _TWO_DIRECT_Q_HISTORY, "flights") is None)
 
 _LODGING_Q = chat._GAP_QUESTION_TEXT["lodging.details.type"]
 with patch.object(chat, "_session_gaps", return_value=["lodging.details.type"]):
-    _result_lodging = chat._apply_gap_repeat_guard(
+    _hint_lodging = chat._apply_gap_repeat_guard(
         {"active_session": "lodging"},
         [{"role": "assistant", "content": _LODGING_Q}, {"role": "user", "content": "לא בטוחים"},
          {"role": "assistant", "content": _LODGING_Q}],
         "lodging",
     )
 check("the same mechanism works identically for a non-flights domain "
-      "(lodging) - a rephrase hint, never a value write",
-      _LODGING_Q in str(_result_lodging.get("_gap_repeat_rephrase_hint") or "")
-      and "lodging" not in _result_lodging)
+      "(lodging) - a rephrase hint returned, never a value written",
+      _LODGING_Q in str(_hint_lodging or ""))
 
 # The exact misattribution bug Shlomo's own review caught (round 4):
 # budget_per_person and flight.connection_preference both open, with
 # connection_preference listed FIRST by _session_gaps's own insertion
 # order (gaps[0]) - but _flight_gap_question's priority order asks about
 # budget first. The budget question gets asked twice in a row and stays
-# unresolved; connection_preference must NEVER be touched by this at all,
-# because the repeated text belongs to budget, not to gaps[0].
+# unresolved; the returned hint must correctly name the BUDGET question,
+# never connection_preference's own question, because the repeated text
+# belongs to budget, not to gaps[0].
 _BUDGET_Q = "מה התקציב שלכם לאדם לטיסה?"
 with patch.object(chat, "_session_gaps", return_value=["flight.connection_preference", "flight.baggage", "budget_per_person"]):
-    _result_budget = chat._apply_gap_repeat_guard(
+    _hint_budget = chat._apply_gap_repeat_guard(
         {"active_session": "flights"},
         [{"role": "assistant", "content": _BUDGET_Q}, {"role": "user", "content": "עוד לא יודעים"},
          {"role": "assistant", "content": _BUDGET_Q}],
@@ -222,12 +240,9 @@ with patch.object(chat, "_session_gaps", return_value=["flight.connection_prefer
     )
 check("Shlomo's exact live misattribution bug, reproduced directly: "
       "the budget question repeats twice while connection_preference "
-      "merely happens to be listed first by _session_gaps - the hint "
-      "correctly names the BUDGET question, not gaps[0]",
-      _BUDGET_Q in str(_result_budget.get("_gap_repeat_rephrase_hint") or ""))
-check("connection_preference is never touched by this at all - the "
-      "repeated question was never actually about it",
-      "connection_preference" not in _result_budget.get("flight", {}))
+      "merely happens to be listed first by _session_gaps - the returned "
+      "hint correctly names the BUDGET question, not gaps[0]",
+      _BUDGET_Q in str(_hint_budget or ""))
 
 # =====================================================================
 # 3. End-to-end reproduction of the exact Paphos shape via whatsapp_
@@ -369,6 +384,44 @@ check("side questions, reproduced through the real pipeline: "
       "connection_preference is NEVER silently resolved - the guard "
       "never writes any value at all, regardless of how it was reached",
       not (_state_side_after.get("flight") or {}).get("connection_preference"))
+
+# =====================================================================
+# 6. Shaked's round-5 rejection, reproduced directly through the real
+# pipeline: the repeat-guard's hint must NEVER persist into trip_state.
+# A turn that triggers the hint (the direct-flight question was already
+# asked twice, unresolved) must leave trip_state completely free of
+# _gap_repeat_rephrase_hint afterward - it's a one-turn signal for
+# Tinkerbell's reply only, never a fact about the vacation.
+# =====================================================================
+def _mock_still_unclear(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {}, "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "לא הבנתי לגמרי - " + _DIRECT_Q + " (למשל ישירה, או שעצירה אחת בסדר)"
+    return "{}"
+
+
+m_paphos_persist = _make_member("qa-paphos-hint-persistence@example.com")
+database.save_ariella_conversation(m_paphos_persist, [
+    {"role": "assistant", "content": _DIRECT_Q},
+    {"role": "user", "content": "הממ, לא יודעת"},
+    {"role": "assistant", "content": _DIRECT_Q},
+], dict(_PAPHOS_STATE))
+
+with patch.object(chat, "_post_claude", side_effect=_mock_still_unclear):
+    whatsapp_bridge.ariella_turn(m_paphos_persist, "עדיין לא בטוחה")
+
+_state_persist_after = (database.load_ariella_conversation(m_paphos_persist) or {}).get("trip_state") or {}
+check("the exact round-5 bug, reproduced through the real pipeline: a "
+      "turn that fires the repeat-guard hint must NEVER leave "
+      "_gap_repeat_rephrase_hint sitting in the persisted trip_state - "
+      "it's a one-turn signal for Tinkerbell's reply only",
+      "_gap_repeat_rephrase_hint" not in _state_persist_after)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

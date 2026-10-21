@@ -4369,12 +4369,13 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # neither the real confirmed dates nor a real pending candidate.
         continuity += "\n- " + str(state.get("_date_hallucination_correction_hint")) + "\n"
     if state.get("_gap_repeat_rephrase_hint"):
-        # Set by _apply_gap_repeat_guard below: some open gap's own fixed
-        # question was already asked twice in a row and still unresolved -
-        # per Shlomo's relay of the business owner's stage-1 run-5
-        # directive (Paphos), the third ask must never repeat the
-        # identical fixed text again; rephrase in her own words with
-        # concrete example answers this time.
+        # Set on state_for_tinkerbell only (never on trip_update itself -
+        # see _apply_gap_repeat_guard's own docstring on why that mattered):
+        # some open gap's own fixed question was already asked twice in a
+        # row and still unresolved - per Shlomo's relay of the business
+        # owner's stage-1 run-5 directive (Paphos), the third ask must
+        # never repeat the identical fixed text again; rephrase in her own
+        # words with concrete example answers this time.
         continuity += "\n- " + str(state.get("_gap_repeat_rephrase_hint")) + "\n"
     if state.get("_gap_clarify_question"):
         # Per the business owner's explicit instruction (2026-10-13): when
@@ -8382,24 +8383,37 @@ def _apply_gap_repeat_guard(trip_update, history, active_session):
 
     Now: if the SAME question text was the last question asked in each of
     the last two assistant turns, and the gap that specific text belongs
-    to is still open, Tinkerbell gets a one-turn hint (consumed by
-    _call_tinkerbell below) to rephrase in her own words with concrete
-    example answers, never repeating the identical text a third time. No
-    field is ever written here - the only state this guard ever produces
-    is that one hint."""
+    to is still open, Tinkerbell gets a one-turn hint to rephrase in her
+    own words with concrete example answers, never repeating the identical
+    text a third time.
+
+    REWORKED AGAIN 21.10.2026, same day (Shaked's round-5 rejection, via
+    Shlomo): this function used to write the hint directly onto
+    trip_update (`trip_update["_gap_repeat_rephrase_hint"] = ...`) and
+    return trip_update itself - but trip_update IS what gets persisted
+    into trip_state at the end of the turn, so the hint lived on forever
+    across every future turn, not just this one. Live failure: the
+    direct-flight question resolves correctly ("לא חובה" -> "אין העדפה"),
+    but the NEXT turn (now asking about baggage) still carried the stale
+    hint telling Tinkerbell to rephrase the direct-flight question - a
+    question that was no longer even being asked. Fixed by never touching
+    trip_update at all: this function now returns the hint text alone (or
+    None), exactly like _understand_open_gap_answer's gap_clarify_question
+    return value - the caller folds it into state_for_tinkerbell for this
+    ONE _call_tinkerbell invocation only, never into trip_update itself."""
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     if active_session not in ("flights", "lodging", "car", "trip_planning"):
-        return trip_update
+        return None
     gaps = _session_gaps(trip_update, active_session)
     if not gaps:
-        return trip_update
+        return None
     recent_questions = [
         _last_question_clause(str(item.get("content") or "")).strip()
         for item in reversed(history or [])
         if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant"
     ][:2]
     if len(recent_questions) < 2 or recent_questions[0] != recent_questions[1] or not recent_questions[0]:
-        return trip_update
+        return None
     repeated = recent_questions[0]
     for gap in gaps:
         if active_session == "flights":
@@ -8407,13 +8421,12 @@ def _apply_gap_repeat_guard(trip_update, history, active_session):
         else:
             question_text = _GAP_QUESTION_TEXT.get(gap)
         if question_text and _last_question_clause(question_text).strip() == repeated:
-            trip_update["_gap_repeat_rephrase_hint"] = (
+            return (
                 f"השאלה \"{repeated}\" כבר נשאלה פעמיים ברצף ועדיין לא נענתה בבירור. "
                 "לעולם אל תחזרי עליה מילה במילה פעם שלישית - נסחי אותה מחדש בקול שלך, עם "
                 "1-2 דוגמאות קונקרטיות לתשובה אפשרית, כדי לעזור ללקוח להבין מה בדיוק מבקשים."
             )
-            return trip_update
-    return trip_update
+    return None
 
 
 # Per the business owner's explicit instruction (2026-10-13): "אי אפשר
@@ -13219,7 +13232,11 @@ def _chat_clean_impl():
         # gets asked identically a third time - see the function's own
         # docstring. Active_session is now finalized for this turn, and
         # every deterministic/extractor merge above has already run.
-        trip_update = _apply_gap_repeat_guard(trip_update, history, trip_update.get("active_session"))
+        # Computed here (not mutated into trip_update - see the function's
+        # own docstring on why a round-5 review caught exactly that bug)
+        # and folded into state_for_tinkerbell below, for this ONE reply
+        # only.
+        gap_repeat_rephrase_hint = _apply_gap_repeat_guard(trip_update, history, trip_update.get("active_session"))
 
         # If the customer has just declined/deferred the remaining optional
         # services and every wanted service is already complete, skip the
@@ -13421,6 +13438,10 @@ def _chat_clean_impl():
                 if state_for_tinkerbell is trip_update:
                     state_for_tinkerbell = dict(trip_update)
                 state_for_tinkerbell["_gap_clarify_question"] = gap_clarify_question
+            if gap_repeat_rephrase_hint:
+                if state_for_tinkerbell is trip_update:
+                    state_for_tinkerbell = dict(trip_update)
+                state_for_tinkerbell["_gap_repeat_rephrase_hint"] = gap_repeat_rephrase_hint
             if link_request_verified:
                 if state_for_tinkerbell is trip_update:
                     state_for_tinkerbell = dict(trip_update)
