@@ -76,24 +76,129 @@ def check(name, cond):
 
 
 # =====================================================================
-# Direct unit tests of _dates_truth_hint.
+# Direct unit tests of _dates_truth_hint - per Shlomo's relay of the
+# business owner's stage-1 run-4 structural directive (Tallinn): the
+# model never writes a calendar date itself at all anymore, not even
+# correctly - she writes the literal placeholder token instead, and
+# _render_date_placeholders (tested further below) substitutes it from
+# state. So the hint itself now contains the PLACEHOLDER TOKEN, never a
+# literal date. Scoped to active_session == "flights" only, same as
+# _retry_if_dates_invented's own established gate.
 # =====================================================================
-confirmed_hint = chat._dates_truth_hint({"dates": {"departure": "2026-11-28", "return": "2026-12-05"}})
-check("confirmed dates produce an explicit, labeled 'saved dates' hint",
-      "28.11.2026" in confirmed_hint and "05.12.2026" in confirmed_hint and "לעולם אל תציעי" in confirmed_hint)
+confirmed_hint = chat._dates_truth_hint({
+    "active_session": "flights",
+    "dates": {"departure": "2026-11-28", "return": "2026-12-05"},
+})
+check("confirmed dates produce an explicit hint instructing the literal "
+      "{{DATES}} placeholder, never a literal date of her own",
+      chat._DATES_PLACEHOLDER in confirmed_hint
+      and "28.11.2026" not in confirmed_hint and "05.12.2026" not in confirmed_hint
+      and "לעולם אל תכתבי שום תאריך קלנדרי" in confirmed_hint)
 
-pending_hint = chat._dates_truth_hint({"dates": {
-    "needs_confirmation": True,
-    "candidate_ranges": ["יום שישי 21.11.2026–יום שישי 28.11.2026", "יום שישי 28.11.2026–יום שישי 05.12.2026"],
-}})
-check("pending candidates produce an explicit, labeled 'pending options only' hint",
-      "21.11.2026" in pending_hint and "28.11.2026" in pending_hint and "05.12.2026" in pending_hint)
+pending_hint = chat._dates_truth_hint({
+    "active_session": "flights",
+    "dates": {
+        "needs_confirmation": True,
+        "candidate_ranges": ["יום שישי 21.11.2026–יום שישי 28.11.2026", "יום שישי 28.11.2026–יום שישי 05.12.2026"],
+    },
+})
+check("pending candidates produce an explicit hint instructing the "
+      "literal {{DATE_OPTIONS}} placeholder, never a literal date",
+      chat._DATE_OPTIONS_PLACEHOLDER in pending_hint
+      and "21.11.2026" not in pending_hint and "28.11.2026" not in pending_hint)
 
 check("neither confirmed dates nor pending candidates -> no hint at all",
-      chat._dates_truth_hint({"dates": {}}) == "" and chat._dates_truth_hint({}) == "")
+      chat._dates_truth_hint({"active_session": "flights", "dates": {}}) == ""
+      and chat._dates_truth_hint({"active_session": "flights"}) == "")
 
 check("pending with no candidate_ranges at all (shouldn't normally happen) -> no hint, never raises",
-      chat._dates_truth_hint({"dates": {"needs_confirmation": True}}) == "")
+      chat._dates_truth_hint({"active_session": "flights", "dates": {"needs_confirmation": True}}) == "")
+
+check("scoped to the flights stage only - even with real confirmed/pending "
+      "dates in state, no hint at all outside active_session=='flights' "
+      "(an itinerary legitimately names many real per-day dates there)",
+      chat._dates_truth_hint({"active_session": "trip_planning", "dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) == ""
+      and chat._dates_truth_hint({"dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) == ""
+      and chat._dates_truth_hint({}) == "")
+
+# =====================================================================
+# Direct unit tests of _render_date_placeholders - the actual
+# substitution, reading state's own FINAL dates this turn (the single
+# source of truth also used to commit "כן", so label and saved range can
+# never drift apart, per item 3 of the structural directive). Returns
+# (text, had_unresolved) - see Shlomo's relay of Shaked's PR #113 review
+# below for why a second return value was added.
+# =====================================================================
+_text, _unresolved = chat._render_date_placeholders("מה התקציב שלכם?", {})
+check("a reply with no placeholder token at all passes through unchanged, "
+      "and had_unresolved is False",
+      _text == "מה התקציב שלכם?" and _unresolved is False)
+
+rendered_dates, _unresolved = chat._render_date_placeholders(
+    f"קלטתי, התאריכים הם {chat._DATES_PLACEHOLDER}.",
+    {"dates": {"departure": "2026-11-28", "return": "2026-12-05"}},
+)
+check("{{DATES}} is substituted with weekday+date text built from state's "
+      "own departure/return - never left as a literal placeholder",
+      chat._DATES_PLACEHOLDER not in rendered_dates
+      and "28.11.2026" in rendered_dates and "05.12.2026" in rendered_dates
+      and _unresolved is False)
+
+rendered_options, _unresolved = chat._render_date_placeholders(
+    f"האפשרויות הן {chat._DATE_OPTIONS_PLACEHOLDER} - מה מתאים?",
+    {"dates": {"needs_confirmation": True, "candidate_ranges": ["יום שבת 21.11.2026–יום שני 30.11.2026", "יום שבת 28.11.2026–יום שני 07.12.2026"]}},
+)
+check("{{DATE_OPTIONS}} is substituted with the SAME candidate_ranges "
+      "strings state itself holds (the single source _accept_single_"
+      "proposed_date_range later parses to commit \"כן\") - never a "
+      "separately-worded restatement",
+      chat._DATE_OPTIONS_PLACEHOLDER not in rendered_options
+      and "יום שבת 21.11.2026–יום שני 30.11.2026" in rendered_options
+      and "יום שבת 28.11.2026–יום שני 07.12.2026" in rendered_options
+      and _unresolved is False)
+
+# =====================================================================
+# Per Shlomo's relay of Shaked's review of PR #113's first version: two
+# real findings.
+#
+# (1) only the exact literal "{{DATES}}"/"{{DATE_OPTIONS}}" string ever
+# got substituted - a model variant with different spacing/brace count
+# ("{{ DATES }}", "{DATES}") went out to the customer completely raw.
+# (2) when no matching value exists, the token must never resolve to an
+# empty string IN PLACE (producing an artifact like "תאריכים: .") - the
+# whole sentence it was in is dropped instead, and had_unresolved=True
+# signals the caller (_call_tinkerbell) to retry once.
+# =====================================================================
+for _variant in (chat._DATES_PLACEHOLDER, "{{ DATES }}", "{DATES}", "{ DATES }"):
+    _out, _unresolved = chat._render_date_placeholders(
+        f"קלטתי, התאריכים הם {_variant}.",
+        {"dates": {"departure": "2026-11-28", "return": "2026-12-05"}},
+    )
+    check(f"lenient brace/spacing variant {_variant!r} is substituted "
+          "exactly like the canonical form, never left raw",
+          "28.11.2026" in _out and "05.12.2026" in _out
+          and "{" not in _out and "}" not in _out and _unresolved is False)
+
+_stray_dates, _unresolved = chat._render_date_placeholders(
+    f"קלטתי. התאריכים הם {chat._DATES_PLACEHOLDER}. מתי תרצו לחזור?", {"dates": {}},
+)
+check("a stray {{DATES}} with no valid departure/return in state drops "
+      "only ITS OWN sentence (never a dangling empty-label artifact), "
+      "leaving every other real sentence untouched, and signals "
+      "had_unresolved=True so the caller retries once",
+      chat._DATES_PLACEHOLDER not in _stray_dates and "{" not in _stray_dates
+      and _unresolved is True
+      and "קלטתי." in _stray_dates and "מתי תרצו לחזור?" in _stray_dates)
+
+_stray_options, _unresolved = chat._render_date_placeholders(
+    f"קלטתי. האפשרויות הן {chat._DATE_OPTIONS_PLACEHOLDER}. מתי תרצו לחזור?",
+    {"dates": {"needs_confirmation": True}},
+)
+check("a stray {{DATE_OPTIONS}} with no candidates in state likewise "
+      "drops only its own sentence and signals had_unresolved=True",
+      chat._DATE_OPTIONS_PLACEHOLDER not in _stray_options and "{" not in _stray_options
+      and _unresolved is True
+      and "קלטתי." in _stray_options and "מתי תרצו לחזור?" in _stray_options)
 
 # =====================================================================
 # Direct unit tests of the extraction/comparison helpers.

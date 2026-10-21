@@ -1020,52 +1020,128 @@ def _correct_route_day_weekdays(text, state):
     return _ROUTE_DAY_WEEKDAY_RE.sub(_replace, text)
 
 
+_DATE_OPTIONS_PLACEHOLDER = "{{DATE_OPTIONS}}"
+_DATES_PLACEHOLDER = "{{DATES}}"
+
+
 def _dates_truth_hint(state):
-    """Seen live (Shaked, stage-1 run-3, Thessaloniki - the third time this
-    class of bug surfaced): "אפשר להקדים ביום אחד?" got the reply "נצא
-    ב-27.11", but trip state stayed at 28.11 unchanged - the extractor
-    most likely never returned shift_days for this message, and Tinkerbell
-    invented a plausible-sounding date change of her own instead of asking.
-    Same conversation: a 10-day-duration request got "21-28 בנובמבר, נכון?"
-    offered back - a 7-day span matching neither the requested length nor
-    any of the real computed candidate_ranges. Per the business owner's
-    structural direction: Tinkerbell never invents a date. She already
-    sees the raw state JSON, but a date buried inside a JSON dump is easy
-    to miss or restate wrong - hand over the one genuine source of truth
-    for THIS turn explicitly, human-readable, with an outright
-    prohibition on stating anything else. Paired with
-    _retry_if_dates_invented below (a structural, format-based safety net,
-    not a word-matching one) for when this hint alone still isn't
-    followed."""
+    """Per the business owner's explicit structural directive (stage-1
+    run-4, Tallinn - the FOURTH live failure of this exact bug class,
+    after three prior attempts at a word/hint-based defense): Tinkerbell
+    never writes a calendar date herself at all during flight-date
+    collection, full stop - not even correctly. Instead she writes the
+    literal placeholder {_DATES_PLACEHOLDER} (the confirmed dates) or
+    {_DATE_OPTIONS_PLACEHOLDER} (the pending candidate options), and
+    _render_date_placeholders below substitutes it with text built
+    directly from trip_update's own FINAL dates this turn - after every
+    extraction/merge/acceptance step has already run. This guarantees
+    the displayed text and the actually-saved state can never drift
+    apart (the exact Tallinn bug: an option labeled "21.11-30.11" saved
+    after "כן" as "21.11-01.12") - both are the same single value, read
+    once, not two independently-computed strings. _retry_if_dates_
+    invented below stays as a structural backstop for the rare case
+    Tinkerbell writes a literal date anyway despite this instruction.
+
+    Scoped to the flights stage only (active_session == "flights") -
+    never during trip_planning/route building, which legitimately needs
+    real per-day literal dates in the itinerary text itself."""
     state = state if isinstance(state, dict) else {}
+    if state.get("active_session") != "flights":
+        return ""
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     if dates.get("needs_confirmation"):
         candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
         if not candidates:
             return ""
-        options = "; ".join(candidates)
         return (
-            f"\nתאריכי הטיול עדיין לא אושרו בפועל - האפשרויות הממתינות היחידות הן: {options}. "
-            "לעולם אל תציעי, תאשרי או תזכירי שום תאריך/טווח אחר מלבד אלה המדויקים שהוזכרו כאן - "
-            "לעולם אל תחשבי, תזיזי או תמציאי תאריך חדש בעצמך (גם לא כתגובה לבקשת שינוי קטנה כמו "
-            "\"יום קודם\"/\"להקדים\"/\"להזיז\") - שינוי כזה מחושב אך ורק בקוד. אם אין לך כרגע אפשרות "
-            "מעודכנת שתואמת בדיוק את מה שהלקוח ביקש, שאלי כדי לוודא במקום לקבוע תאריך בעצמך."
+            "\nתאריכי הטיול עדיין לא אושרו בפועל - יש אפשרויות ממתינות. לעולם אל תכתבי שום תאריך "
+            "קלנדרי בעצמך בתשובה הזו (לא יום בחודש, לא שם חודש, לא מספר) - לא עבור האפשרויות "
+            f"הממתינות ולא כתגובה לבקשת שינוי קטנה (\"יום קודם\"/\"להקדים\"/\"להזיז\"). כשאת רוצה "
+            f"להציג את האפשרויות הממתינות, כתבי אך ורק את המחרוזת המדויקת {_DATE_OPTIONS_PLACEHOLDER} "
+            "(בדיוק כך, עם הסוגריים הכפולים, בלי תאריך נוסף לידה) - הקוד יחליף אותה אוטומטית בטקסט "
+            "האמיתי. אם אין לך כרגע אפשרות מעודכנת שתואמת בדיוק את מה שהלקוח ביקש (למשל ביקש שינוי "
+            f"שעדיין לא חושב), אל תכתבי {_DATE_OPTIONS_PLACEHOLDER} בכלל - שאלי כדי לוודא במקום."
         )
     dep_raw = str(dates.get("departure") or "")[:10]
     ret_raw = str(dates.get("return") or "")[:10]
     if not dep_raw or not ret_raw:
         return ""
     try:
-        dep = date.fromisoformat(dep_raw)
-        ret = date.fromisoformat(ret_raw)
+        date.fromisoformat(dep_raw)
+        date.fromisoformat(ret_raw)
     except ValueError:
         return ""
     return (
-        "\nהתאריכים השמורים בפועל כרגע (מקור האמת היחיד - לעולם אל תציעי, תאשרי או תזכירי תאריך אחר): "
-        f"יציאה {dep.strftime('%d.%m.%Y')}, חזרה {ret.strftime('%d.%m.%Y')}. בקשת שינוי/הזזה של התאריכים "
-        "האלה מחושבת אך ורק בקוד - לעולם אל תצהירי על תאריך חדש בעצמך; אם עדיין אין עדכון מאושר בפועל "
-        "(התאריכים שלמעלה עדיין לא השתנו), שאלי לוודא במקום לקבוע."
+        "\nהתאריכים כבר שמורים ומאושרים בפועל. לעולם אל תכתבי שום תאריך קלנדרי בעצמך בתשובה הזו - "
+        f"כשאת רוצה להזכיר ללקוח את התאריכים השמורים, כתבי אך ורק את המחרוזת המדויקת {_DATES_PLACEHOLDER} "
+        "(בדיוק כך, עם הסוגריים הכפולים, בלי תאריך נוסף לידה) - הקוד יחליף אותה אוטומטית בטקסט האמיתי. "
+        "בקשת שינוי/הזזה של התאריכים האלה מחושבת אך ורק בקוד - לעולם אל תצהירי על תאריך חדש בעצמך ואל "
+        f"תכתבי {_DATES_PLACEHOLDER} אם בפועל שום עדכון עדיין לא אושר; שאלי לוודא במקום."
     )
+
+
+# Per Shlomo's relay of Shaked's review of PR #113's first version: only
+# the EXACT literal string "{{DATES}}"/"{{DATE_OPTIONS}}" ever got
+# substituted - a model variant with different spacing/brace count
+# ("{{ DATES }}", "{DATES}") went out to the customer completely raw.
+# Lenient on brace count (one or two) and inner spacing, strict on the
+# token name itself - never mistaken for ordinary customer-facing text in
+# curly braces (which never otherwise appears in a reply at all).
+_DATE_PLACEHOLDER_RE = re.compile(r"\{\{?\s*(DATES|DATE_OPTIONS)\s*\}?\}")
+
+
+def _render_date_placeholders(reply, state):
+    """Substitutes any {_DATES_PLACEHOLDER}/{_DATE_OPTIONS_PLACEHOLDER}-
+    shaped token (see _DATE_PLACEHOLDER_RE and _dates_truth_hint's own
+    docstring) with text rendered directly from state's own final dates
+    this turn - the single source of truth both for what gets displayed
+    and for what "כן" later confirms.
+
+    Returns (text, had_unresolved). Per Shlomo's relay of Shaked's review:
+    when a token has no matching value in state right now (dates not
+    actually confirmed yet / no real pending candidates), the token is
+    NEVER left raw and NEVER substituted with empty text in place (which
+    produced artifacts like "תאריכים: ." live) - the WHOLE sentence that
+    contained it is dropped instead, so no half-built fragment ever
+    reaches the customer. had_unresolved=True tells the caller to retry
+    the whole reply once with a corrective hint (the same _date_retry
+    mechanism _retry_if_dates_invented already uses) rather than silently
+    accept a reply missing a sentence."""
+    text = str(reply or "")
+    if not _DATE_PLACEHOLDER_RE.search(text):
+        return text, False
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+
+    def _resolve(token):
+        if token == "DATES":
+            dep_raw = str(dates.get("departure") or "")[:10]
+            ret_raw = str(dates.get("return") or "")[:10]
+            try:
+                dep = date.fromisoformat(dep_raw)
+                ret = date.fromisoformat(ret_raw)
+            except ValueError:
+                return None
+            return (
+                f"יום {_WEEKDAY_HE_BY_PY[dep.weekday()]} {dep.strftime('%d.%m.%Y')}"
+                f"–יום {_WEEKDAY_HE_BY_PY[ret.weekday()]} {ret.strftime('%d.%m.%Y')}"
+            )
+        candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
+        return " או ".join(str(c) for c in candidates) if candidates else None
+
+    had_unresolved = False
+    out_sentences = []
+    for sentence, term in _split_sentences(text):
+        tokens = _DATE_PLACEHOLDER_RE.findall(sentence)
+        if not tokens:
+            out_sentences.append((sentence, term))
+            continue
+        resolved = {t: _resolve(t) for t in set(tokens)}
+        if any(v is None for v in resolved.values()):
+            had_unresolved = True
+            continue
+        out_sentences.append((_DATE_PLACEHOLDER_RE.sub(lambda m: resolved[m.group(1)], sentence), term))
+    return "".join(s for s, _t in out_sentences), had_unresolved
 
 
 _DATE_TOKEN_RE = re.compile(r"(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)")
@@ -2775,6 +2851,20 @@ def _flight_dates_line(dates) -> str | None:
     return f"תאריכים: {_he_date_ddmmyyyy(dep)} – {_he_date_ddmmyyyy(ret)}"
 
 
+# Per Shlomo's relay of Shaked's review of PR #113: matches the "תאריכים:"
+# label and whatever value follows it, up to (not including) the next real
+# boundary - another known summary label, the approval-request phrase, a
+# newline, or the end of the text. Used directly against the full text in
+# _ensure_flight_summary_completeness, never via _split_sentences - a dates
+# value always ends in a 4-digit year, and _SENTENCE_BOUNDARY_RE's own
+# digit-adjacency guard (there to avoid splitting INSIDE a date like
+# "15.4.2027") also suppresses the sentence boundary right after it,
+# merging the dates line with whatever comes next into one "sentence".
+_SUMMARY_DATES_LABEL_RE = re.compile(
+    r"תאריכים:.*?(?=[.!?]?\s*(?:כבודה:|תקציב|כתבי מאשרת|כתוב מאשר|מאשר/מאשרת|\n|\Z))", re.DOTALL,
+)
+
+
 def _flight_travelers_line(travelers) -> str | None:
     """The one-line travelers summary fact, or None when not known yet.
     Factored out the same way as _flight_dates_line, for the same reason."""
@@ -2984,6 +3074,38 @@ def _ensure_flight_summary_completeness(reply, state):
             text = "".join(st for st, _t in sentences)
             break
 
+    # Per Shlomo's relay of Shaked's review of PR #113 (stage-1 run-4,
+    # Tallinn): the placeholder architecture above (_dates_truth_hint/
+    # _render_date_placeholders/_retry_if_dates_invented) is scoped to
+    # active_session=="flights" only - the FINAL summary turn runs with
+    # active_session already None (every domain closed), so none of it
+    # ever ran there. A summary line like "תאריכים: 20.11.2026 – 30.11.2026"
+    # could still go out to the customer unchanged even while state actually
+    # holds a different, already-drifted pair - the exact Tallinn symptom,
+    # just one turn later. Same unconditional-canonical-line-replace
+    # PRINCIPLE as the baggage block above (PR #108): the "תאריכים:" label's
+    # own value is always replaced with the one built directly from state's
+    # own departure/return, regardless of what it said.
+    #
+    # Unlike the baggage line, a dates VALUE always ends in a 4-digit year -
+    # when a "." immediately follows it (ending the sentence, as Tinkerbell's
+    # own writing naturally would), _SENTENCE_BOUNDARY_RE's own digit-
+    # adjacency guard (there to avoid splitting INSIDE a date like
+    # "15.4.2027") also suppresses the boundary AFTER it, merging the dates
+    # sentence with whatever comes next (e.g. "...2026. כתבי מאשרת?") into
+    # ONE span - replacing "from the label to the sentence's end" the way
+    # the baggage block does would then eat real, unrelated content past
+    # the date. Matched directly against the full text instead: from the
+    # "תאריכים:" label up to (not including) the next real boundary - either
+    # another known label, the approval-request phrase, a newline, or the
+    # end of the text - never relying on sentence splitting at all.
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    canonical_dates_line = _flight_dates_line(dates)
+    if canonical_dates_line:
+        m = _SUMMARY_DATES_LABEL_RE.search(text)
+        if m and m.group(0).strip() != canonical_dates_line.strip():
+            text = text[: m.start()] + canonical_dates_line + text[m.end() :]
+
     missing = []
     if _flight_budget_sentence_index(_split_sentences(text)) is None:
         line = _flight_budget_line(budget)
@@ -3008,7 +3130,8 @@ def _ensure_flight_summary_completeness(reply, state):
     # cause ("never touches a fact that is already mentioned, however it
     # was phrased"). Recognize the Hebrew month-name form too (the same
     # regex the date parser itself uses), not just the digit format.
-    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    # (dates itself is already defined above, by the canonical-line-replace
+    # block.)
     if not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text) and not re.search(_HEBREW_MONTH_DATE_RE, text):
         line = _flight_dates_line(dates)
         if line:
@@ -4394,10 +4517,38 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     reply = _enforce_one_option_question(reply, state)
     reply = _ensure_flight_summary_completeness(reply, state)
     reply = _strip_unconfirmed_airports(reply, state)
+    # Substitute {{DATES}}/{{DATE_OPTIONS}} with text built directly from
+    # state's own final dates BEFORE the structural retry check below, so a
+    # correctly-placeholder'd reply (the now-expected case) reads as the real,
+    # valid dates it actually is - the retry check still catches the rarer
+    # case where Tinkerbell writes a literal invented date instead of the
+    # placeholder, despite _dates_truth_hint's instruction not to.
+    reply, _dates_unresolved = _render_date_placeholders(reply, state)
+    # Per Shlomo's relay of Shaked's review: a placeholder written with no
+    # actual matching value in state (she wrote it anyway despite _dates_
+    # truth_hint's own instruction not to) must never silently drop just
+    # its own sentence and move on - retry once, exactly like the invented-
+    # date backstop below, with a hint explaining there is nothing to show
+    # right now so she asks to confirm instead.
+    if _dates_unresolved and not _date_retry:
+        state2 = dict(state)
+        state2["_date_hallucination_correction_hint"] = (
+            "בתשובה הקודמת שלך ניסית להציג תאריכים/אפשרויות (עם ה-placeholder), אבל כרגע אין שום "
+            "ערך תואם בפועל ב-state (לא תאריך מאושר ולא מועמד ממתין אמיתי) - נסחי את התשובה מחדש "
+            "בלי להשתמש ב-placeholder בכלל הפעם; שאלי לוודא במקום לקבוע או להציע תאריך."
+        )
+        return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
     if not _date_retry:
         retried = _retry_if_dates_invented(key, model, history, message, state, reply)
         if retried is not None:
             return retried
+    # Absolute last resort (Shlomo's explicit instruction: under no
+    # circumstances does an empty sentence or the placeholder itself reach
+    # the customer) - if dropping an unresolved placeholder's own sentence,
+    # even after the one retry above, left nothing at all, a short genuine
+    # question is still better than silence.
+    if not reply.strip():
+        return "אפשר לוודא איתך שוב את התאריכים המדויקים?"
     return reply
 
 
@@ -9465,7 +9616,7 @@ def _validate_baggage_detail_against_message(trip_update, state, message):
     return trip_update
 
 
-def _guided_field_update_and_confirm(field, result, raw_message=None):
+def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_ranges=None):
     """Builds the _merge_trip_state fragment for a resolved guided answer,
     plus a short, plain-text DESCRIPTION of the value just extracted (never
     a question, never shown to the customer verbatim) - the caller weaves
@@ -9477,13 +9628,44 @@ def _guided_field_update_and_confirm(field, result, raw_message=None):
     _value_has_verbatim_evidence) - the direct-answer call site never
     passes it, since there the model is already answering the exact
     budget/level question asked, not inferring it from an unrelated
-    answer."""
+    answer.
+
+    candidate_ranges, when passed (field == "dates" only), is the pending
+    dates.candidate_ranges list from state BEFORE this turn - see the
+    departure+nights override immediately below."""
     result = result if isinstance(result, dict) else {}
     if field == "dates":
         departure = result.get("departure")
         ret = result.get("return")
         nights = result.get("nights")
         period = result.get("period")
+        # Per Shaked's stage-1 run-4 direct finding (Tallinn): with real
+        # pending candidates already in state, the customer confirming one
+        # ("כן, בדיוק") is answering a CHOICE, not stating a fresh duration -
+        # yet this guided path still recomputed return as departure+nights
+        # from whatever nights value happened to be in result, independent
+        # of the candidate actually being confirmed. Live: candidate
+        # "21.11.2026-30.11.2026" (9 nights) confirmed, but nights=10 (the
+        # original "לעשרה ימים" request) still in play elsewhere, so
+        # 21.11+10 produced 01.12.2026 - a day past the candidate's own real
+        # end. Per the business owner's single-source-of-truth directive:
+        # once departure matches a real candidate's own start date, that
+        # candidate's own return date is authoritative - never a separate
+        # nights-based computation of any kind.
+        if departure:
+            for candidate in (candidate_ranges or []):
+                found = re.findall(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", str(candidate))
+                if len(found) != 2:
+                    continue
+                try:
+                    cand_dep = date(int(found[0][2]), int(found[0][1]), int(found[0][0]))
+                    cand_ret = date(int(found[1][2]), int(found[1][1]), int(found[1][0]))
+                except ValueError:
+                    continue
+                if cand_dep.isoformat() == str(departure)[:10]:
+                    ret = cand_ret.isoformat()
+                    nights = None
+                    break
         if departure and not ret and isinstance(nights, int) and nights > 0:
             try:
                 ret = (date.fromisoformat(departure) + timedelta(days=nights)).isoformat()
@@ -9884,7 +10066,11 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(current_question, attempts)}
     # status == "answered"
-    fragment, confirm_desc = _guided_field_update_and_confirm(current_question, result)
+    _prior_dates_for_guided = trip_state.get("dates") if isinstance(trip_state.get("dates"), dict) else {}
+    fragment, confirm_desc = _guided_field_update_and_confirm(
+        current_question, result,
+        candidate_ranges=_prior_dates_for_guided.get("candidate_ranges") if current_question == "dates" else None,
+    )
     if fragment:
         trip_update = _merge_trip_state(trip_update, fragment)
     also = result.get("also_mentioned") if isinstance(result.get("also_mentioned"), dict) else {}
