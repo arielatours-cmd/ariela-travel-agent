@@ -1020,6 +1020,241 @@ def _correct_route_day_weekdays(text, state):
     return _ROUTE_DAY_WEEKDAY_RE.sub(_replace, text)
 
 
+def _dates_truth_hint(state):
+    """Seen live (Shaked, stage-1 run-3, Thessaloniki - the third time this
+    class of bug surfaced): "אפשר להקדים ביום אחד?" got the reply "נצא
+    ב-27.11", but trip state stayed at 28.11 unchanged - the extractor
+    most likely never returned shift_days for this message, and Tinkerbell
+    invented a plausible-sounding date change of her own instead of asking.
+    Same conversation: a 10-day-duration request got "21-28 בנובמבר, נכון?"
+    offered back - a 7-day span matching neither the requested length nor
+    any of the real computed candidate_ranges. Per the business owner's
+    structural direction: Tinkerbell never invents a date. She already
+    sees the raw state JSON, but a date buried inside a JSON dump is easy
+    to miss or restate wrong - hand over the one genuine source of truth
+    for THIS turn explicitly, human-readable, with an outright
+    prohibition on stating anything else. Paired with
+    _retry_if_dates_invented below (a structural, format-based safety net,
+    not a word-matching one) for when this hint alone still isn't
+    followed."""
+    state = state if isinstance(state, dict) else {}
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if dates.get("needs_confirmation"):
+        candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
+        if not candidates:
+            return ""
+        options = "; ".join(candidates)
+        return (
+            f"\nתאריכי הטיול עדיין לא אושרו בפועל - האפשרויות הממתינות היחידות הן: {options}. "
+            "לעולם אל תציעי, תאשרי או תזכירי שום תאריך/טווח אחר מלבד אלה המדויקים שהוזכרו כאן - "
+            "לעולם אל תחשבי, תזיזי או תמציאי תאריך חדש בעצמך (גם לא כתגובה לבקשת שינוי קטנה כמו "
+            "\"יום קודם\"/\"להקדים\"/\"להזיז\") - שינוי כזה מחושב אך ורק בקוד. אם אין לך כרגע אפשרות "
+            "מעודכנת שתואמת בדיוק את מה שהלקוח ביקש, שאלי כדי לוודא במקום לקבוע תאריך בעצמך."
+        )
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    if not dep_raw or not ret_raw:
+        return ""
+    try:
+        dep = date.fromisoformat(dep_raw)
+        ret = date.fromisoformat(ret_raw)
+    except ValueError:
+        return ""
+    return (
+        "\nהתאריכים השמורים בפועל כרגע (מקור האמת היחיד - לעולם אל תציעי, תאשרי או תזכירי תאריך אחר): "
+        f"יציאה {dep.strftime('%d.%m.%Y')}, חזרה {ret.strftime('%d.%m.%Y')}. בקשת שינוי/הזזה של התאריכים "
+        "האלה מחושבת אך ורק בקוד - לעולם אל תצהירי על תאריך חדש בעצמך; אם עדיין אין עדכון מאושר בפועל "
+        "(התאריכים שלמעלה עדיין לא השתנו), שאלי לוודא במקום לקבוע."
+    )
+
+
+_DATE_TOKEN_RE = re.compile(r"(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)")
+
+
+def _mentioned_date_day_months(text):
+    """Every plausible (day, month) date-like token mentioned in free text,
+    by FORMAT alone (a number, a separator, a number) - never by matching
+    words or phrases, exactly as the business owner directed. Deliberately
+    permissive (day/month bounds only) - a stray decimal number occasionally
+    matching this shape is an accepted tradeoff for a structural, format-
+    based check instead of a brittle word list."""
+    out = []
+    for d_s, m_s, _y_s in _DATE_TOKEN_RE.findall(str(text or "")):
+        try:
+            d, m = int(d_s), int(m_s)
+        except ValueError:
+            continue
+        if 1 <= d <= 31 and 1 <= m <= 12:
+            out.append((d, m))
+    return out
+
+
+def _valid_trip_date_day_months(dates, message=None, history=None):
+    """The complete set of (day, month) pairs Tinkerbell is allowed to
+    mention this turn. Per Shaked's review of the first version of this
+    fix (two real false positives it caused, badly - a wasteful retry
+    that ended up WIPING the itinerary's own dates): a route/itinerary
+    day mention ("יום 2 (7.4)") names a real date somewhere INSIDE the
+    confirmed trip span, not necessarily one of its two endpoints - and a
+    date the CUSTOMER themselves already mentioned (e.g. "בקיץ שעבר
+    3.7–7.7", an unrelated past trip) is never an invention when
+    Tinkerbell echoes it back. So this now includes:
+    - every day within the confirmed [departure..return] span inclusive
+      (not just the two endpoints);
+    - every candidate_ranges option's own start/end dates, while pending;
+    - every date-shaped token already present in the customer's OWN
+      messages (this turn's message, plus every prior user-role turn in
+      history) - Tinkerbell can never be "inventing" something the
+      customer already put on the table herself.
+    Year is deliberately ignored (casual phrasing often omits it)."""
+    dates = dates if isinstance(dates, dict) else {}
+    valid = set()
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    try:
+        dep = date.fromisoformat(dep_raw)
+        ret = date.fromisoformat(ret_raw)
+        if dep <= ret and (ret - dep).days <= 180:
+            d = dep
+            while d <= ret:
+                valid.add((d.day, d.month))
+                d += timedelta(days=1)
+    except ValueError:
+        pass
+    for label in (dates.get("candidate_ranges") or []):
+        for d_s, m_s, _y_s in re.findall(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", str(label)):
+            valid.add((int(d_s), int(m_s)))
+    customer_texts = [message] if message else []
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            customer_texts.append(item.get("content"))
+    for text in customer_texts:
+        valid.update(_mentioned_date_day_months(text))
+    return valid
+
+
+_NUMERIC_DATE_RANGE_RE = re.compile(
+    r"(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s*(?:[-–]|עד)\s*(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)"
+)
+
+
+def _mentioned_date_ranges(text):
+    """Every explicit date RANGE mentioned in free text, as a (start, end)
+    pair of (day, month) tuples - by format alone, never words. Catches a
+    subtler invented-date shape _mentioned_date_day_months alone misses
+    (Shaked's stage-1 run-3 direct report, Thessaloniki second finding): a
+    reply that stitches together two DIFFERENT real dates - each one
+    individually valid on its own (one candidate's start, another
+    candidate's own, different, start) - into a range that doesn't
+    correspond to any single whole valid option at all. Covers both a
+    plain numeric range ("27.11–6.12") and the common Hebrew phrasing
+    sharing one month name for both days ("21-28 בנובמבר") - reusing
+    _HEBREW_MONTH_RANGE_RE/_HEBREW_MONTHS, already built for the same
+    phrasing elsewhere in this file."""
+    text = str(text or "")
+    ranges = []
+    for d1, m1, _y1, d2, m2, _y2 in _NUMERIC_DATE_RANGE_RE.findall(text):
+        try:
+            ranges.append(((int(d1), int(m1)), (int(d2), int(m2))))
+        except ValueError:
+            pass
+    for d1, d2, month_name, _y in re.findall(_HEBREW_MONTH_RANGE_RE, text):
+        month = _HEBREW_MONTHS.get(month_name)
+        if month:
+            ranges.append(((int(d1), month), (int(d2), month)))
+    return ranges
+
+
+def _valid_trip_date_ranges(dates, message=None, history=None):
+    """The complete set of valid WHOLE ranges (each a (day,month)-(day,month)
+    pair), checked as a single unit rather than by independent endpoint
+    membership (see _mentioned_date_ranges's own docstring). Per Shaked's
+    review: scoped to candidate_ranges ONLY, never the confirmed
+    departure-return pair itself - once dates are confirmed, all sorts of
+    other legitimate ranges get mentioned (an itinerary's own day spans,
+    a customer's own past-trip dates) that have no reason to equal the
+    whole trip span; the per-token check in _valid_trip_date_day_months
+    already independently catches an invented SHIFTED range via its own
+    endpoints, so nothing is lost by not also range-checking against the
+    confirmed pair here. Also includes any WHOLE range the customer
+    themselves already mentioned (e.g. "בקיץ שעבר 3.7–7.7") - Tinkerbell
+    echoing it back is never an invention of her own."""
+    dates = dates if isinstance(dates, dict) else {}
+    valid = set()
+    for label in (dates.get("candidate_ranges") or []):
+        pts = re.findall(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", str(label))
+        if len(pts) >= 2:
+            (d1, m1, _y1), (d2, m2, _y2) = pts[0], pts[1]
+            valid.add(((int(d1), int(m1)), (int(d2), int(m2))))
+    customer_texts = [message] if message else []
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            customer_texts.append(item.get("content"))
+    for text in customer_texts:
+        valid.update(_mentioned_date_ranges(text))
+    return valid
+
+
+def _retry_if_dates_invented(key, model, history, message, state, reply):
+    """Structural safety net (date FORMAT, not words) for when
+    _dates_truth_hint's own instruction still isn't followed. Two signals,
+    both format-based:
+    - any date-shaped TOKEN matching neither the real confirmed dates nor
+      a real pending candidate (catches the original Thessaloniki shift:
+      departure/return each invented in a separate clause); and
+    - any explicit date RANGE that doesn't match a whole valid range unit
+      (catches the subtler Thessaloniki candidate-mixing case: a range
+      stitched from two DIFFERENT real dates, each individually valid on
+      its own but never offered together as one option).
+    Either signal calls Tinkerbell again EXACTLY ONCE with a corrective
+    hint describing the mismatch, and that second reply is used as-is -
+    never a silent word-based rewrite of the first reply, and never more
+    than one retry (the caller passes _date_retry=True on the recursive
+    call, which skips this check).
+
+    Per Shaked's review: scoped to the flights stage only
+    (active_session == "flights") - never during trip_planning/route
+    building, where an itinerary legitimately names many real per-day
+    dates that have no reason to be the trip's own departure/return."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("active_session") != "flights":
+        return None
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    valid = _valid_trip_date_day_months(dates, message, history)
+    if not valid:
+        return None
+    invented = [dm for dm in _mentioned_date_day_months(reply) if dm not in valid]
+    bad_ranges = []
+    if dates.get("needs_confirmation"):
+        # The candidate-mixing shape can only arise while there are real
+        # candidates to mix up in the first place. Once dates are already
+        # confirmed, there is exactly one valid pair, and restating it as
+        # an explicit range ("28.11.2026 עד 05.12.2026") is always fine as
+        # long as both endpoints are individually valid - which the
+        # per-token check above already verifies on its own; range-
+        # checking against candidate_ranges here would otherwise wrongly
+        # flag that same legitimate restatement once candidate_ranges is
+        # empty (confirmed dates have nothing left to range-check against).
+        valid_ranges = _valid_trip_date_ranges(dates, message, history)
+        bad_ranges = [
+            r for r in _mentioned_date_ranges(reply)
+            if r not in valid_ranges and (r[1], r[0]) not in valid_ranges
+        ]
+    if not invented and not bad_ranges:
+        return None
+    bad_parts = [f"{d:02d}.{m:02d}" for d, m in invented]
+    bad_parts += [f"{s[0]:02d}.{s[1]:02d}–{e[0]:02d}.{e[1]:02d}" for s, e in bad_ranges]
+    bad = ", ".join(bad_parts)
+    state2 = dict(state)
+    state2["_date_hallucination_correction_hint"] = (
+        f"בתשובה הקודמת שלך ציינת תאריך/טווח ({bad}) שאינו תואם אף אחד מהתאריכים האמיתיים כמות שהם - "
+        "לא התאריכים השמורים ולא אחת מהאפשרויות הממתינות השלמות. נסחי את התשובה הזו מחדש בלי להמציא "
+        "תאריך, ובלי לערבב תאריכים מאפשרויות שונות לטווח חדש - אם הלקוח ביקש שינוי שעדיין לא מחושב "
+        "בקוד, שאלי לוודא במקום לקבוע תאריך בעצמך."
+    )
+    return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
+
+
 def _total_nights_hint(state):
     """Seen live, repeatedly (Frankfurt, Cyprus, Montenegro): Ariella counted
     nights herself from the dates/route and got it wrong - "14-16.3" (2
@@ -3887,7 +4122,7 @@ def _fix_departure_name(reply, state, history, message):
     return reply if "נתניה" in user_text else reply.replace("נתניה", 'נתב"ג')
 
 
-def _call_tinkerbell(key, model, history, message, state=None):
+def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False):
     state = state if isinstance(state, dict) else {}
     # Per Shaked's live finding (round 3 on PR #86, qa/reports/2026-10-18-
     # stage3-run4.md): a past departure was correctly rolled forward in the
@@ -4002,6 +4237,11 @@ def _call_tinkerbell(key, model, history, message, state=None):
         # She composes the actual question/retry/confirmation herself, in
         # her own voice, with no quick-reply buttons ever.
         continuity += "\n- " + str(state.get("_guided_ask_hint")) + "\n"
+    if state.get("_date_hallucination_correction_hint"):
+        # Set by _retry_if_dates_invented below, on the one corrective
+        # re-call it makes when the first reply named a date that matches
+        # neither the real confirmed dates nor a real pending candidate.
+        continuity += "\n- " + str(state.get("_date_hallucination_correction_hint")) + "\n"
     if state.get("_gap_clarify_question"):
         # Per the business owner's explicit instruction (2026-10-13): when
         # the model that interprets an open answer is genuinely unsure, the
@@ -4129,6 +4369,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     direct_route_hint_text = _direct_route_hint_text(state) if has_destination else ""
     weekday_hint_text = _weekday_lookup_hint(state)
     nights_hint_text = _total_nights_hint(state)
+    dates_truth_hint_text = _dates_truth_hint(state)
     declined_domains_hint_text = _declined_domains_hint(state)
     gender_hint_text = _gender_hint_text(state)
     # The raw state JSON dump below is a second, separate path that can leak
@@ -4138,7 +4379,7 @@ def _call_tinkerbell(key, model, history, message, state=None):
     state_for_context = state
     if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
         state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + declined_domains_hint_text + gender_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + dates_truth_hint_text + declined_domains_hint_text + gender_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -4152,7 +4393,12 @@ def _call_tinkerbell(key, model, history, message, state=None):
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
     reply = _ensure_flight_summary_completeness(reply, state)
-    return _strip_unconfirmed_airports(reply, state)
+    reply = _strip_unconfirmed_airports(reply, state)
+    if not _date_retry:
+        retried = _retry_if_dates_invented(key, model, history, message, state, reply)
+        if retried is not None:
+            return retried
+    return reply
 
 
 def _extract_trip_update(key, model, history, message, state=None):
