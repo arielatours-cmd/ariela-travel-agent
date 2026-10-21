@@ -13745,6 +13745,31 @@ def _chat_clean_impl():
             str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
             for _s in ("flights", "lodging", "car", "trip_planning")
         )
+        # Run-7 bug A (Shaked, severe, Bangkok/Batumi): a date-change request
+        # made AFTER the final summary was already shown is a genuine
+        # mid-conversation-style correction, not a failure to produce the
+        # final summary. _all_domains_decided_now stays True the instant
+        # dates were last locked - it says nothing about whether THIS turn
+        # just reopened them. Without this check, the missing-final-summary
+        # safety net below treated Tinkerbell's own correct reply (a shift
+        # proposal awaiting confirmation, or an acknowledgement of newly
+        # committed explicit dates) as a failure merely for lacking
+        # "מאשר"/"חופשה נעימה", and replaced it with the stale old-dates
+        # fallback summary - then the next turn's "כן" had nothing genuine
+        # to confirm, since the real proposal was never actually shown.
+        # Scoped to dates (prior_dates captured earlier in this same date-
+        # processing block) only - this bug is specifically about dates,
+        # and the other domains' own post-approval correction behavior is
+        # out of scope here.
+        _dates_now_for_summary_gate = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+        _post_summary_date_change_pending = bool(
+            prior_dates.get("departure") and prior_dates.get("return")
+            and (
+                _dates_now_for_summary_gate.get("needs_confirmation")
+                or _dates_now_for_summary_gate.get("departure") != prior_dates.get("departure")
+                or _dates_now_for_summary_gate.get("return") != prior_dates.get("return")
+            )
+        )
         if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת", "סיכום")) and not _all_domains_decided_now:
             premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
             if premature_gap_question:
@@ -13825,8 +13850,10 @@ def _chat_clean_impl():
         # resembling a summary before or after it. Re-ask once with an extra
         # explicit instruction rather than silently leaving the customer with
         # no path to the approval they're actually waiting for.
-        if _all_domains_decided_now and not any(
-            p in str(reply or "") for p in ("מאשר", "חופשה נעימה")
+        if (
+            _all_domains_decided_now
+            and not _post_summary_date_change_pending
+            and not any(p in str(reply or "") for p in ("מאשר", "חופשה נעימה"))
         ):
             try:
                 forced_state = dict(trip_update)
