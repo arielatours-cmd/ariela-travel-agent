@@ -4564,6 +4564,50 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     return reply
 
 
+def _connection_preference_pending_hint(state, history):
+    """Stage-1 run-6 (Shlomo/Shaked's live finding, Paphos): the FIRST
+    "לא חובה" answer to "חשוב לכם שהטיסה תהיה ישירה?" wasn't saved -
+    Tinkerbell's own free text correctly understood it ("בסדר, גם עם
+    קונקשן זה בסדר מבחינתכם") and asked the same question again, but the
+    extractor's own structured JSON this same turn didn't write
+    flight.connection_preference at all, leaving it null. Only the
+    SECOND "לא חובה" (identical wording) was understood and saved.
+
+    This is the same dual-call mismatch already fixed once for Paphos
+    (PR #116): the conversational reply and the structured extraction are
+    two separate model calls, and the extractor call can still miss the
+    field even with EXTRACTOR_SYSTEM's own instruction in place - a
+    reliability gap, not a missing rule. The most likely cause: nothing
+    in the extractor's own input explicitly told it WHICH question was
+    just pending, leaving it to infer that purely from the full
+    conversation history - exactly the same kind of situational grounding
+    _multi_gateway_hint already provides for a multi-gateway destination
+    choice. This gives the SAME kind of explicit grounding here: when the
+    gap is still genuinely open and Tinkerbell's own last turn actually
+    asked this exact question, the extractor is told so directly, in
+    plain terms - it must still decide for itself, from genuine
+    understanding of the customer's actual reply, whether that reply
+    means "direct", "אין העדפה", or neither; this never decides the
+    answer, only confirms which question is pending right now."""
+    state = state if isinstance(state, dict) else {}
+    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+    if flight.get("connection_preference") or not _direct_route_available(state):
+        return ""
+    prior_assistant = ""
+    for item in reversed(history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant":
+            prior_assistant = str(item.get("content") or "")
+            break
+    if "ישיר" not in _last_question_clause(prior_assistant):
+        return ""
+    return (
+        '\nבהודעה הקודמת שלך בשיחה שאלת את הלקוח אם חשוב לו שהטיסה תהיה ישירה - זו השאלה הפתוחה כרגע '
+        '(flight.connection_preference). אם ההודעה הנוכחית של הלקוח היא תשובה לשאלה הזו, הביני מהבנה אמיתית '
+        'של התשובה (לא מרשימת ביטויים) אם היא מבטאת רצון בטיסה ישירה דווקא ("direct") או חוסר העדפה '
+        '("אין העדפה") - ואל תשאירי את השדה null אחרי שהלקוח כבר ענה בפועל.'
+    )
+
+
 def _extract_trip_update(key, model, history, message, state=None):
     """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence).
 
@@ -4609,7 +4653,7 @@ def _extract_trip_update(key, model, history, message, state=None):
                 f'הם: {options_text}. כתבי ב-destination_airports אך ורק קודי IATA מהרשימה הזו לפי מה שהלקוח בחר '
                 '(אחד, כמה, או כולם) - לעולם לא קוד אחר.'
             )
-        system_dynamic = '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat() + gateway_hint_text
+        system_dynamic = '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat() + gateway_hint_text + _connection_preference_pending_hint(state, history)
         # Used to pass only the last 4 messages ("preserve semantics without
         # paying the latency of the entire conversation"), while the system
         # prompt itself claims "קבלי את כל השיחה" - the two didn't match.
