@@ -19,11 +19,32 @@ question-marked spans, including the acknowledgment's own content, leaving
 only the blank-line span between them (preserved, since only
 term=="?" spans are removed) followed by the re-appended fixed question.
 
-Fixed: _CONFIRMATION_TAG_QUESTION_RE recognizes the structural pattern of
-a Hebrew tag question (a comma directly before נכון/לא/כן, then only "?" to
-the end of the sentence) and excludes it from question_idx - exactly the
-same kind of FORMAT-based signal this function already uses for " או "/
-_BUNDLED_AND_QUESTION_RE, never a meaning/model judgment call.
+Fixed (round 1): _CONFIRMATION_TAG_QUESTION_RE recognizes the structural
+pattern of a Hebrew tag question (a comma directly before נכון/לא/כן, then
+only "?" to the end of the sentence) and excludes it from question_idx -
+exactly the same kind of FORMAT-based signal this function already uses
+for " או "/_BUNDLED_AND_QUESTION_RE, never a meaning/model judgment call.
+
+Shaked did not approve round 1: a word-list regex can never cover every
+Hebrew tag ending ("בסדר?"/"מתאים?"/"טוב?"/...), and her own counter-example
+("…לכולם, בסדר?\n\nמה התקציב…?") proved it - "בסדר?" isn't covered by
+_CONFIRMATION_TAG_QUESTION_RE at all, and in the "no fixed replacement"
+branch (no gap, no pending offer), the code kept the FIRST question
+sentence and dropped the rest - exactly backwards, since a short
+confirmation tag is routinely first and the real, conversation-advancing
+question comes last.
+
+Fixed (round 2, structural rather than lexical): that branch now keeps
+the LAST question sentence and drops every one before it - the one that
+actually moves the conversation forward is overwhelmingly the final one,
+tag or not, so no finite word list is needed at all. _append_fixed_
+question and this branch's own output also strip only the leading/
+trailing edges of the final message (never anything internal), so a bare
+"\\n"-span left dangling by a dropped leading sentence never again starts
+a reply with a blank line and nothing before it - the live symptom.
+_CONFIRMATION_TAG_QUESTION_RE is kept as a complementary, lower-priority
+signal for the (different) branch where a real fixed replacement DOES
+exist - no longer the only defense.
 
 Run: python3 tools/qa_bratislava_tag_question_truncation.py
 """
@@ -123,6 +144,53 @@ _only_tag = "זה בסדר, נכון?"
 check("regression: a reply that is only a tag question (no real question "
       "sentence at all) is left completely untouched",
       chat._enforce_one_option_question(_only_tag, dict(_FLIGHTS_STATE_BUDGET_GAP)) == _only_tag)
+
+# =====================================================================
+# Round 2 (Shaked's rejection of round 1): her own counter-example, where
+# the "no fixed replacement" branch (no gap, no pending offer domain) used
+# to keep the FIRST question and drop the rest - exactly backwards, since
+# a short confirmation tag ("בסדר?"/"מתאים?"/"טוב?") is routinely the
+# FIRST question sentence and the real, conversation-advancing question
+# comes LAST. "בסדר?" has no comma+tag-word structure at all, so
+# _CONFIRMATION_TAG_QUESTION_RE never catches it - the fix had to be
+# structural (keep the LAST question), not another word added to a list.
+# =====================================================================
+_NO_PENDING_OFFER_STATE = {
+    "session_status": {"flights": "complete", "lodging": "declined", "car": "declined", "trip_planning": "declined"},
+}
+check("sanity check for this section's own premise: no pending offer "
+      "domain exists for this state, so 'fixed' will be None and the "
+      "'no fixed replacement' branch is the one under test",
+      chat._pending_offer_domain(_NO_PENDING_OFFER_STATE) is None)
+
+_shaked_counterexample = "מעולה, שמרתי את זה לכולם, בסדר?\n\nמה התקציב שלכם לאדם לטיסה?"
+_result = chat._enforce_one_option_question(_shaked_counterexample, dict(_NO_PENDING_OFFER_STATE))
+check("Shaked's exact counter-example ('…לכולם, בסדר?\\n\\nמה התקציב…?'): "
+      "the REAL, conversation-advancing question survives - 'בסדר?' is "
+      "dropped, not the budget question",
+      _result == "מה התקציב שלכם לאדם לטיסה?")
+check("no leading blank line survives either, even though 'בסדר?' isn't "
+      "a recognized tag pattern at all",
+      not _result.startswith("\n") and not _result.startswith(" "))
+
+# "מתאים?" and "טוב?" - two more common Hebrew tag endings that
+# _CONFIRMATION_TAG_QUESTION_RE was never meant to cover exhaustively;
+# the structural last-question fix handles them the same way regardless.
+for _tag_ending in ("מתאים?", "טוב?", "אחלה?"):
+    _raw = f"מעולה, שמרתי את זה לכולם, {_tag_ending}\n\nמה התקציב שלכם לאדם לטיסה?"
+    _res = chat._enforce_one_option_question(_raw, dict(_NO_PENDING_OFFER_STATE))
+    check(f"tag ending '{_tag_ending}' (not covered by any fixed word list) "
+          "still keeps the real question, not the tag",
+          _res == "מה התקציב שלכם לאדם לטיסה?")
+
+# Regression: with only ONE question sentence and no fixed replacement,
+# the reply is still returned completely unchanged (the Paris rule: never
+# drop the only question there is).
+_single_question_state = dict(_NO_PENDING_OFFER_STATE)
+_single = "מעולה, שמרתי את זה. מה התקציב שלכם לאדם לטיסה?"
+check("regression: a single real question with no fixed replacement is "
+      "still never dropped (the Paris rule)",
+      chat._enforce_one_option_question(_single, _single_question_state) == _single)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

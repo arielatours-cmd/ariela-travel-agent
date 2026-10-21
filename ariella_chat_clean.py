@@ -6761,11 +6761,20 @@ _TRIP_PLANNING_APPROVAL_QUESTION = "המסלול שהצעתי מתאים לכם?
 
 def _append_fixed_question(prefix, fixed):
     """Join a kept-statements prefix with the one replacement question,
-    without ever re-spacing or trimming the prefix's own original trailing
+    without ever re-spacing or trimming the prefix's own INTERNAL
     whitespace/newlines (see _split_sentences) - a blank line the customer
     already saw stays a blank line. Adds a single space only when the
     prefix doesn't already end in whitespace; an empty prefix returns the
-    fixed question alone."""
+    fixed question alone.
+
+    Per Shaked's review of PR #115 (Bratislava): when every question
+    sentence up to and including a leading one gets dropped (see
+    _enforce_one_option_question's own removal of question_idx_set), any
+    bare "\\n" span(s) that sat between the dropped sentence(s) and the
+    first KEPT statement become dangling LEADING whitespace on prefix
+    itself - a message starting with a blank line before any real content.
+    Only the leading edge is trimmed here, never anything in the middle."""
+    prefix = prefix.lstrip()
     if not prefix:
         return fixed
     return f"{prefix}{fixed}" if prefix[-1].isspace() else f"{prefix} {fixed}"
@@ -7049,13 +7058,32 @@ def _enforce_one_option_question(reply, state):
             # replacement exists at all (no gap, no offer) for a reply
             # that bundles multiple fully separate question sentences,
             # returning the whole reply untouched would leave every extra
-            # question in place too. Keep only the FIRST question
-            # sentence and drop the ones after it - not a single other
-            # character is touched. (A single, possibly-bundled question
-            # sentence with no fixed replacement keeps the Paris rule
-            # below unchanged: never drop the only question there is.)
-            drop = set(question_idx[1:])
-            return "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
+            # question in place too.
+            #
+            # Per Shaked's review of PR #115 (Bratislava, 2db29a9): keeping
+            # the FIRST question and dropping the rest (the original
+            # version of this branch) has the same live failure the tag-
+            # question fix above was trying to patch over with a growing
+            # word list - a short confirmation tag ("...לכולם, בסדר?") is
+            # routinely the FIRST question sentence, with the real,
+            # conversation-advancing question ("מה התקציב...?") coming
+            # LAST. No finite list of Hebrew tag words can cover every
+            # such ending ("בסדר?"/"מתאים?"/"טוב?"/...). The robust,
+            # structural fix: keep the LAST question sentence instead -
+            # the one that actually moves the conversation forward is
+            # overwhelmingly the final one, tag or not - and drop every
+            # one before it. (A single, possibly-bundled question sentence
+            # with no fixed replacement keeps the Paris rule below
+            # unchanged: never drop the only question there is.)
+            drop = set(question_idx[:-1])
+            kept = "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
+            # Per the same review: strip only the leading/trailing edges of
+            # the final message (never anything in the middle) - dropping
+            # question sentence(s) that preceded the kept one can leave a
+            # bare "\n"-span dangling at the very start (the live
+            # Bratislava symptom: a reply beginning with a blank line and
+            # nothing before it).
+            return kept.strip()
         return reply
     question_idx_set = set(question_idx)
     prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i not in question_idx_set)
