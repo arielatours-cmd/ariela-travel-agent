@@ -1062,12 +1062,27 @@ def _dates_truth_hint(state):
     with NO instruction at all about dates that had just this turn
     changed and saved - free to invent her own uncertainty ("תוכלי
     לציין לי את התאריכים המדויקים...") even though the real, correct
-    dates were sitting right there in state. None here means "not
-    currently inside a domain with its own literal-date needs", which a
-    closed-again flights turn always satisfies."""
+    dates were sitting right there in state.
+
+    None is scoped further (per Shaked's rejection of the first version
+    of this widening): it means "not currently inside a domain with its
+    own literal-date needs" ONLY while trip_planning hasn't already been
+    built (session_status.trip_planning != "complete") - a genuinely
+    closed-again flights turn satisfies that. Once the route IS built,
+    active_session can ALSO be None at the final post-approval summary,
+    where this hint's "never write a calendar date yourself" instruction
+    would wrongly reach into the itinerary's own per-day dates. Picked
+    deliberately simple over a more precise "was flights the last domain
+    touched this turn" check - this can still miss a flight-only date
+    tweak after a route is already built, a known, accepted trade-off."""
     state = state if isinstance(state, dict) else {}
-    if state.get("active_session") not in (None, "flights"):
+    active = state.get("active_session")
+    if active not in (None, "flights"):
         return ""
+    if active is None:
+        _statuses_for_hint = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+        if str(_statuses_for_hint.get("trip_planning") or "") == "complete":
+            return ""
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     if dates.get("needs_confirmation"):
         candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
@@ -1828,7 +1843,27 @@ def _advance_sessions(state):
     state["session_status"] = statuses
     state["active_session"] = active
     if active:
-        state["missing_required"] = _session_gaps(state, active)
+        _gaps_for_active = _session_gaps(state, active)
+        # Per Shaked's rejection of the first zd5 fix (21.10.2026, relayed
+        # by Shlomo): a pending date-change candidate (dates.needs_
+        # confirmation + candidate_ranges) is a confirmation question, not
+        # an open "what are the dates" gap - it still correctly keeps the
+        # session from closing (the _session_gaps call just above, used
+        # for the completion check, is untouched), but exposing "dates"
+        # here as plainly "missing" invited the wrong blind question
+        # ("when would you like to depart/return?"), discarding the real
+        # candidate. Tinkerbell already gets explicit, candidate-aware
+        # steering for this exact situation via _dates_truth_hint
+        # ({{DATE_OPTIONS}}, her own phrasing) - missing_required has
+        # nothing useful left to add about dates specifically here.
+        _dates_for_active = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+        if (
+            "dates" in _gaps_for_active
+            and _dates_for_active.get("needs_confirmation")
+            and _dates_for_active.get("candidate_ranges")
+        ):
+            _gaps_for_active = [g for g in _gaps_for_active if g != "dates"]
+        state["missing_required"] = _gaps_for_active
         state["next_session"] = None
         state["ready_for_summary"] = False
     elif next_pending:
@@ -3449,23 +3484,26 @@ def _flight_gap_question(gaps, state=None):
     if "destination" in gaps:
         return _g(_gender, "לאן תרצה לטוס?", "לאן תרצי לטוס?")
     if "dates" in gaps:
-        # Shaked's run-9 live finding (zd5, relayed by Shlomo): a pending
-        # date-change candidate (dates.needs_confirmation + candidate_ranges,
-        # e.g. from a shift-days request) is NOT the same situation as no
-        # dates being known at all - "dates" lands in gaps either way (see
-        # _required_state_gaps), but this fixed fallback asked the blind
-        # "when would you like to depart/return?" question even while a
-        # concrete candidate was already sitting in state waiting for a
-        # plain yes/no, discarding it entirely. Mirrors _render_date_
-        # placeholders' own DATE_OPTIONS join (" או " between every pending
-        # option) since this fixed-text path never goes through that
-        # substitution itself.
+        # Shaked's run-9 live finding (zd5, relayed by Shlomo) - REWORKED
+        # (21.10.2026) after she rejected the first version of this fix: a
+        # fixed sentence built here ("מצאתי את זה: X או Y. זה מתאים?")
+        # broke three separate rules at once - the business owner's ban on
+        # fixed sentences reaching the customer verbatim, the "never a
+        # single yes/no over several options" structural rule #120(c)/#124
+        # exist to enforce, and writing the candidate dates directly
+        # instead of the {{DATE_OPTIONS}} placeholder. A pending candidate
+        # (dates.needs_confirmation + candidate_ranges) is never announced
+        # through this fixed-text mechanism at all - return None (no text)
+        # so the caller falls through to Tinkerbell's own free-form reply,
+        # which already gets explicit, candidate-aware steering via
+        # _dates_truth_hint ({{DATE_OPTIONS}}, her own phrasing). See also
+        # _advance_sessions, which keeps "dates" out of missing_required
+        # itself in this same situation - the two together mean neither
+        # this fixed path nor the hint-driven free text ever treats a
+        # pending candidate as an open "what are the dates" gap.
         _dates_for_gap = (state or {}).get("dates") if isinstance((state or {}).get("dates"), dict) else {}
-        if _dates_for_gap.get("needs_confirmation"):
-            _candidates_for_gap = _dates_for_gap.get("candidate_ranges") if isinstance(_dates_for_gap.get("candidate_ranges"), list) else []
-            if _candidates_for_gap:
-                _options_text = " או ".join(str(c) for c in _candidates_for_gap)
-                return f"מצאתי את זה: {_options_text}. זה מתאים?"
+        if _dates_for_gap.get("needs_confirmation") and _dates_for_gap.get("candidate_ranges"):
+            return None
         return _g(_gender, "מתי תרצה לצאת ולחזור?", "מתי תרצי לצאת ולחזור?")
     if "travelers" in gaps:
         return "כמה נוסעים, ומי מבוגר ומי ילד?"
@@ -14700,7 +14738,13 @@ def _chat_clean_impl():
                 # what to answer - seen live: she got exactly that generic
                 # line, asked "מה עכשיו?" (what now?), and had no way forward
                 # other than guessing.
-                reply = _flight_gap_question(approval_gaps, trip_update)
+                # _flight_gap_question can now return None itself (a pending
+                # date candidate - see its own "dates" branch) - keep the
+                # existing Tinkerbell-composed reply in that case rather
+                # than overwriting it with None; that reply is already
+                # steered correctly by _dates_truth_hint for exactly this
+                # situation.
+                reply = _flight_gap_question(approval_gaps, trip_update) or reply
                 approval = False
             elif _flight_approval_still_has_open_domain(statuses_after_flight):
                 # Flights alone are done, but at least one other requested

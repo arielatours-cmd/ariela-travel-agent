@@ -1,5 +1,6 @@
 """QA for Shlomo's relay (21.10.2026) of Shaked's run-9 live diagnostic repro
-zd5 on c8ef25f ("לדחות ביום" - postpone by a day - after the final summary):
+zd5 ("לדחות ביום" - postpone by a day - after the final summary), REWORKED
+after Shaked rejected the first version of this fix (9da376b):
 
 "לראשונה נוצר candidate 13.05–17.05 עם needs_confirmation=True, ואחרי 'כן'
 הוא נשמר. ✅ אבל התשובות לא תאמו את ה-state:
@@ -9,43 +10,59 @@ zd5 on c8ef25f ("לדחות ביום" - postpone by a day - after the final summ
   המדויקים...'."
 
 Both turns are REPLY/STATE mismatches - the SAVE worked correctly both
-times (confirmed directly in the live report), only the text shown to the
-customer was wrong, in each turn for a different root cause:
+times, only the text shown to the customer was wrong.
 
-TURN 1 root cause (confirmed by direct code reading + debug repro): the
-customer's own message names "הטיסה" ("postpone THE FLIGHT"), which
-_explicit_service_request's "go back and change the flight" mechanism
-reads as a fresh request the instant nothing else is "in progress"
-(post-summary, everything complete/declined) - reactivating session_
-status.flights to "active" and active_session to "flights" for this one
-turn, with NO request-cue word required (in_progress was False). The
-shift_days mechanism then creates a real pending candidate this same
-turn (dates.needs_confirmation=True, candidate_ranges=[label]) - but
-_required_state_gaps treats ANY needs_confirmation=True exactly like "no
-dates known at all", so "dates" lands in missing_required/gaps either way,
-and _flight_gap_question's own "dates" branch returned the same blind
-"מתי תרצה/י לצאת ולחזור?" fallback regardless, discarding the real
-candidate sitting right there in state.
+TURN 1 root cause (unchanged from the first version): the customer's own
+message names "הטיסה", which _explicit_service_request's "go back and
+change the flight" mechanism reads as a fresh request once nothing else
+is "in progress" post-summary - reactivating session_status.flights to
+"active". The shift_days mechanism then creates a real pending candidate
+this same turn, but _required_state_gaps treats ANY needs_confirmation=
+True exactly like "no dates known at all", so "dates" landed in missing_
+required/gaps either way, and _flight_gap_question's own "dates" branch
+returned the same blind "מתי תרצי לצאת ולחזור?" fallback regardless.
 
-Fix: _flight_gap_question's "dates" branch now checks for a pending
-candidate first and builds the real confirmation question directly from
-it (the same " או " join _render_date_placeholders itself uses for
-{{DATE_OPTIONS}} - this fixed-text path never goes through that
-substitution, so the real text must be built here instead).
+FIRST FIX ATTEMPT (9da376b) REJECTED by Shaked: it built a fixed sentence
+here ("מצאתי את זה: X או Y. זה מתאים?"), which broke three separate rules
+at once - the business owner's ban on fixed sentences reaching the
+customer verbatim, the "never a single yes/no over several options" rule
+#120(c)/#124 exist to enforce, and writing the candidate's dates directly
+instead of the {{DATE_OPTIONS}} placeholder.
 
-TURN 2 root cause (confirmed by debug repro): "כן" resolves the candidate
-via _accept_single_proposed_date_range - the dates ARE correctly
-committed. But _advance_sessions can close "flights" right back to
-"complete" (active_session -> None) WITHIN THIS SAME TURN once dates stop
-needing confirmation, and _dates_truth_hint - until now - returned ""
-the instant active_session wasn't literally "flights", leaving Tinkerbell
-with NO instruction at all about dates that had just this turn changed
-and saved, free to ask for "the exact dates" as if nothing had happened.
+ACTUAL FIX: a pending candidate is never announced through this fixed-text
+mechanism at all.
+- _flight_gap_question's "dates" branch now returns None (not text) when a
+  pending candidate exists, falling through to Tinkerbell's own free-form
+  reply.
+- _advance_sessions no longer exposes "dates" in missing_required while a
+  candidate is genuinely pending (it still correctly keeps the session
+  from closing - that check is separate and untouched).
+- Tinkerbell gets the real instruction via the PRE-EXISTING _dates_truth_
+  hint mechanism (unchanged in this rework): show {{DATE_OPTIONS}}, ask in
+  her own words, never a bare yes/no over several options.
+- The post-summary reactivation-by-mention itself is NOT touched - per
+  Shaked's explicit caution, it may be exactly what let the shift in zd5
+  succeed in the first place.
 
-Fix: _dates_truth_hint now also fires when active_session is None (no
-active domain this turn at all), not only "flights" - still excluded for
-lodging/car/trip_planning, which legitimately need real per-day literal
-dates of their own.
+TURN 2 root cause (unchanged from the first version): "כן" resolves the
+candidate via _accept_single_proposed_date_range, but _advance_sessions
+can close "flights" right back to "complete" (active_session -> None)
+WITHIN THIS SAME TURN once dates stop needing confirmation, and _dates_
+truth_hint - until the first fix - returned "" the instant active_session
+wasn't literally "flights", leaving Tinkerbell with no instruction at all
+about dates that had just this turn changed and saved.
+
+FIRST FIX ATTEMPT (9da376b) REJECTED by Shaked: widening unconditionally
+to active_session is None also fires at the FINAL summary once the route
+is already built (trip_planning complete) - where "never write a calendar
+date yourself" would wrongly reach into the itinerary's own per-day dates.
+
+ACTUAL FIX: the None case now excludes whenever session_status.
+trip_planning == "complete" - the simpler of the two options Shlomo
+offered (vs. "only when flights was the last domain touched this turn"),
+a deliberate, acknowledged trade-off: a flight-only date tweak after a
+route is already built can still slip through unguided, same as before
+this whole mechanism existed for that specific combination.
 
 Run: python3 tools/qa_run9_zd5_post_summary_shift_reply.py
 """
@@ -90,22 +107,20 @@ def _make_member(email):
 
 
 # =====================================================================
-# Direct unit coverage: _flight_gap_question's "dates" branch.
+# Direct unit coverage: _flight_gap_question's "dates" branch now returns
+# None (no fixed text at all) for a pending candidate, never a fixed
+# yes/no sentence.
 # =====================================================================
 _pending_state = {
     "dates": {
         "needs_confirmation": True,
         "candidate_ranges": ["יום חמישי 11.06.2027–יום שני 15.06.2027"],
     },
-    "user_gender": None,
 }
-_gap_reply = chat._flight_gap_question(["dates"], _pending_state)
-check("zd5 turn-1 FIX: a pending single candidate produces the real "
-      "confirmation question naming that exact candidate",
-      "11.06.2027" in _gap_reply and "15.06.2027" in _gap_reply)
-check("zd5 turn-1 FIX: the blind 'when would you like to depart/return' "
-      "fallback text is NOT used while a candidate is pending",
-      "מתי תרצי לצאת ולחזור" not in _gap_reply and "מתי תרצה לצאת ולחזור" not in _gap_reply)
+check("zd5 turn-1 FIX: a pending candidate makes _flight_gap_question "
+      "return None (no fixed sentence at all) - never announced through "
+      "this mechanism",
+      chat._flight_gap_question(["dates"], _pending_state) is None)
 
 _pending_two_state = {
     "dates": {
@@ -116,11 +131,8 @@ _pending_two_state = {
         ],
     },
 }
-_gap_reply_two = chat._flight_gap_question(["dates"], _pending_two_state)
-check("regression: two pending candidates are BOTH named, joined by 'או' "
-      "(matches _render_date_placeholders' own DATE_OPTIONS join exactly)",
-      "11.06.2027" in _gap_reply_two and "18.06.2027" in _gap_reply_two
-      and " או " in _gap_reply_two)
+check("regression: same None result with two pending candidates",
+      chat._flight_gap_question(["dates"], _pending_two_state) is None)
 
 check("regression: no pending candidate at all (genuinely open gap, nothing "
       "known) still falls back to the plain open question",
@@ -136,17 +148,68 @@ check("regression: needs_confirmation True but candidate_ranges empty "
 
 
 # =====================================================================
-# Direct unit coverage: _dates_truth_hint's widened gate (turn 2).
+# Direct unit coverage: _advance_sessions keeps "dates" out of missing_
+# required while a candidate is pending, WITHOUT letting the session
+# close prematurely.
 # =====================================================================
-_confirmed_state_no_active = {"dates": {"departure": "2026-11-28", "return": "2026-12-05"}}
-check("zd5 turn-2 FIX: active_session=None (closed again the same turn dates "
-      "were confirmed) still gets the confirmed-dates {{DATES}} instruction",
+_state_with_pending_candidate = {
+    "destination": {"places": ["טורינו"], "mode": "specific", "status": "known"},
+    "destination_airports": ["TRN"],
+    "travelers": {"adults": 2},
+    "dates": {"departure": "2027-06-10", "return": "2027-06-14", "needs_confirmation": True,
+              "candidate_ranges": ["יום חמישי 11.06.2027–יום שני 15.06.2027"]},
+    "requested_services": ["flights"],
+    "session_status": {"flights": "active", "lodging": "declined", "car": "declined", "trip_planning": "declined"},
+    "active_session": "flights",
+    "trip_type": "regular", "departure_airport": "TLV",
+    "budget_per_person": {"amount": 2000, "currency": "ILS"},
+    "flight": {"baggage": ["checked_bag"], "connection_preference": "no_preference"},
+}
+_advanced_pending = chat._advance_sessions(dict(_state_with_pending_candidate))
+check("zd5 turn-1 FIX: missing_required does NOT list 'dates' while a real "
+      "candidate is pending",
+      "dates" not in (_advanced_pending.get("missing_required") or []))
+check("regression: flights stays active (not prematurely marked complete) - "
+      "a pending, unconfirmed candidate is still genuinely unresolved",
+      _advanced_pending.get("session_status", {}).get("flights") == "active"
+      and _advanced_pending.get("active_session") == "flights")
+
+
+# =====================================================================
+# Direct unit coverage: _dates_truth_hint's widened gate (turn 2),
+# correctly scoped by trip_planning completion.
+# =====================================================================
+_confirmed_state_no_active = {
+    "active_session": None,
+    "session_status": {"flights": "complete", "trip_planning": "declined"},
+    "dates": {"departure": "2026-11-28", "return": "2026-12-05", "needs_confirmation": False, "candidate_ranges": []},
+}
+check("zd5 turn-2 FIX: active_session=None with trip_planning NOT built "
+      "(declined here, matching zd5) still gets the confirmed-dates "
+      "{{DATES}} instruction",
       chat._DATES_PLACEHOLDER in chat._dates_truth_hint(_confirmed_state_no_active))
-check("regression: lodging/car/trip_planning stay excluded even with the "
-      "widened gate - they legitimately need real per-day literal dates",
+check("regression: lodging/car/trip_planning ACTIVE stay excluded even with "
+      "the widened gate - they legitimately need real per-day literal dates",
       chat._dates_truth_hint(dict(_confirmed_state_no_active, active_session="lodging")) == ""
       and chat._dates_truth_hint(dict(_confirmed_state_no_active, active_session="car")) == ""
       and chat._dates_truth_hint(dict(_confirmed_state_no_active, active_session="trip_planning")) == "")
+
+# Shaked's explicitly requested QA scenario: the final summary once the
+# route is already built - the hint must NOT fire there, even with real
+# confirmed dates in state, since it would reach into the itinerary's own
+# per-day dates.
+_route_built_state = {
+    "active_session": None,
+    "session_status": {"flights": "complete", "trip_planning": "complete", "lodging": "declined", "car": "declined"},
+    "dates": {"departure": "2027-06-10", "return": "2027-06-14", "needs_confirmation": False, "candidate_ranges": []},
+}
+check("zd5 turn-2 FIX, correctly scoped: active_session=None but "
+      "trip_planning is COMPLETE (route already built) -> no hint at all, "
+      "exactly the scenario Shaked flagged in her rejection",
+      chat._dates_truth_hint(_route_built_state) == "")
+check("regression: active_session=None with no session_status/trip_planning "
+      "key at all (treated as not complete) still gets the hint",
+      chat._dates_truth_hint({"dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) != "")
 check("regression: active_session=None with nothing known at all still "
       "produces no hint (nothing to say)",
       chat._dates_truth_hint({}) == "")
@@ -154,9 +217,10 @@ check("regression: active_session=None with nothing known at all still "
 
 # =====================================================================
 # End-to-end: the exact zd5 shape - turn 1 (shift request, flight
-# reactivated by mention, candidate created) through to turn 2 ("כן",
-# dates committed, flights closes again) - a full chat_clean() round trip
-# via whatsapp_bridge.ariella_turn, mocking only the model calls.
+# reactivated by mention, candidate created, Tinkerbell now correctly
+# using {{DATE_OPTIONS}} per the hint) through to turn 2 ("כן", dates
+# committed, flights closes again) - a full chat_clean() round trip via
+# whatsapp_bridge.ariella_turn, mocking only the model calls.
 # =====================================================================
 m_zd5 = _make_member("qa-run9-zd5@example.com")
 post_summary_state = {
@@ -193,23 +257,24 @@ def _fake_turn1(key, model, system_static, system_dynamic, history, message, max
     if source == "guided_extract":
         return json.dumps({"status": "other_topic", "field": None, "evidence": None})
     if source == "tinkerbell_reply":
-        # The exact live bug: the blind open question, ignoring the
-        # candidate - stands in for what a real, unguided model call
-        # produced live. _flight_gap_question's own fixed fallback (not
-        # this mocked text) is what the fix actually changes; this mock
-        # exists only to drive the pipeline through to where that fallback
-        # gets consulted via the premature-gap-question/approval paths.
-        return "מתי תרצי לצאת ולחזור?"
+        # Now correctly steered by _dates_truth_hint - uses the real
+        # placeholder instead of inventing her own open question.
+        return "בטח, מצאתי אפשרות חדשה: " + chat._DATE_OPTIONS_PLACEHOLDER + " מתאים?"
     return "{}"
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_turn1):
     reply1 = whatsapp_bridge.ariella_turn(m_zd5, "אפשר לדחות את הטיסה ביום אחד?")
 state_after_turn1 = (database.load_ariella_conversation(m_zd5) or {}).get("trip_state") or {}
-check("end-to-end turn 1: a real pending candidate was created and saved "
-      "(the live report's own confirmed-correct part)",
+check("end-to-end turn 1: a real pending candidate was created and saved",
       bool((state_after_turn1.get("dates") or {}).get("candidate_ranges"))
       and (state_after_turn1.get("dates") or {}).get("needs_confirmation") is True)
+check("end-to-end turn 1 FIX: the final reply shows the real candidate date "
+      "(placeholder rendered), not a blind 'when would you like to "
+      "depart/return' fallback",
+      "11.06.2027" in reply1
+      and "מתי תרצי לצאת ולחזור" not in reply1 and "מתי תרצה לצאת ולחזור" not in reply1)
+
 
 def _fake_turn2(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
@@ -230,13 +295,11 @@ with patch.object(chat, "_post_claude", side_effect=_fake_turn2):
     reply2 = whatsapp_bridge.ariella_turn(m_zd5, "כן")
 state_after_turn2 = (database.load_ariella_conversation(m_zd5) or {}).get("trip_state") or {}
 check("end-to-end turn 2: 'כן' commits the candidate to real confirmed "
-      "dates, needs_confirmation back to False (the live report's own "
-      "confirmed-correct part)",
+      "dates, needs_confirmation back to False",
       (state_after_turn2.get("dates") or {}).get("needs_confirmation") is False
       and (state_after_turn2.get("dates") or {}).get("departure") is not None)
 check("end-to-end turn 2: flights closes back to complete, active_session "
-      "back to None - the exact same-turn reopen-then-reclose that left "
-      "_dates_truth_hint silent before this fix",
+      "back to None - the exact same-turn reopen-then-reclose",
       (state_after_turn2.get("session_status") or {}).get("flights") == "complete"
       and state_after_turn2.get("active_session") is None)
 
