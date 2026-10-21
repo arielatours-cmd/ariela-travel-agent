@@ -287,8 +287,8 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - travelers הוא מקור אמת אחד לכל החופשה. "זוג"=2 מבוגרים. "זוג עם ילדה בת 17"=2 מבוגרים, ילד/ה 1, child_ages=[17], child_genders=["female"].
 - child_genders היא רשימה מקבילה ל-child_ages, לפי אותו סדר: "female" כאשר הלקוח אמר "ילדה"/"בת", "male" כאשר אמר "ילד"/"בן", ו-null כשלא צוין מגדר לאותו ילד. לעולם אל תמחקי או תנחשי ערך שכבר קיים ברשימה הזו.
 - יום+חודש בלי שנה מקבל את המופע העתידי הקרוב ביותר ביחס לתאריך הנוכחי.
-- כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש. אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence. בקשת שינוי שנוסחה כשאלה ("רגע, אפשר לשנות ל-4 עד 10 ביוני?", "אפשר ל-X במקום?") היא בדיוק אותה כוונה כמו משפט הצהרתי ("בעצם X") - היא עדיין בקשה אמיתית לשנות את התאריך, לא רק מחשבה בקול רם, גם כשהיא מופיעה בתוך הודעה שעונה בעיקר על שאלה אחרת לגמרי (כמו קצב הטיול) שטינקרבל שאלה באותה הודעה. אל תתני לנושא הפתוח של השאלה האחרונה להסיח את דעתך מבקשת שינוי תאריך אמיתית שמופיעה באותה הודעה - שתיהן נכתבות, כל אחת לשדה שלה.
-- כשהלקוח נותן תשובה יחסית לגבי מתי לטוס (יום/זוג ימים בשבוע, חלק מחודש כמו "סוף/תחילת/אמצע החודש" או "החודש הבא", ו/או משך כמו "שבוע"/"עשרה ימים") ו-dates.departure/dates.return עדיין ריקים ב-state - לעולם אל תחשבי תאריך קלנדרי בעצמך (לא יום בשבוע, לא איזו שנה, לא איזה יום בחודש). במקום זאת החזירי את מה שהלקוח אמר בצורה מובנית בלבד, ברמת ה-JSON העליון ליד trip_update: relative_date_hint (אובייקט, או null אם לא נאמרה שום הנחיה יחסית כזו) עם השדות: weekday_start/weekday_end (שם היום בעברית בדיוק כפי שהלקוח אמר, אם הוזכר זוג ימים ליציאה/חזרה - "ראשון"/"שני" וכו', אחרת null), month_name (שם החודש בעברית בדיוק אם נאמר מפורשות - למשל "נובמבר", אחרת null), month_relative ("next" אם נאמר "החודש הבא", "this" אם נאמר "החודש"/"החודש הזה" בלי שם חודש מפורש, אחרת null - לעולם לא גם month_name וגם month_relative יחד), part_of_month ("start"/"mid"/"end" לפי "תחילת"/"אמצע"/"סוף" שנאמר, או null אם לא נאמר חלק מהחודש), duration_days (מספר הלילות הכולל אם נאמר משך מפורש - "שבוע"=7, "שבועיים"=14, "N ימים"=N-1, "N לילות"=N - אחרת null), shift_days (מספר ימים, חיובי להזזה קדימה או שלילי להזזה אחורה, רק כאשר dates.departure/dates.return כבר קיימים ב-state וה הלקוח מבקש להזיז אותם - למשל "אפשר לזוז יום אחד קדימה?"=1, "יום לפני"=-1 - אחרת null; זו בקשת שינוי אמיתית, בדיוק כמו dates_evidence, לא "גמישות" כללית). מלאי גם relative_date_hint_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בהנחיה הזו; בלי ציטוט אמיתי כזה, relative_date_hint נשאר null כולו. זה בדיוק כמו destination_airports: את מזהה ומחזירה מה שנאמר, אף פעם לא מחשבת בעצמך איזה תאריך קלנדרי זה - החישוב עצמו (כולל השנה הנכונה) נעשה בקוד. חשוב במיוחד: באותו תור שבו את ממלאת relative_date_hint, לעולם אל תכתבי שום ערך ל-trip_update.dates.departure או trip_update.dates.return בעצמך - הם חייבים להישאר ריקים (null) בתגובה שלך, בדיוק כפי שהיו לפני התור הזה. relative_date_hint לבדו הוא הדרך היחידה להעביר את מה שהלקוח אמר; מילוי dates.departure/dates.return ישירות, אפילו כ"ניחוש" נוסף לצד relative_date_hint, סותר את ההנחיה הזו וגורם לתאריך להישמר כאילו כבר אושר - בלי שהלקוח באמת אישר אותו.
+- כאשר dates.departure/dates.return שאת כותבת שונים מהערך שכבר קיים ב-state שקיבלת (לא הפעם הראשונה שבה תאריך נקבע, אלא שינוי/תיקון לתאריך שכבר היה קיים - למשל הלקוח אמר "בעצם בין 6 במרץ ל-11 במרץ" כשכבר נשמר טווח אחר), מלאי גם את dates_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו restart_evidence): ציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שתומך בתאריך/בטווח החדש - העתקה מדויקת של קטע מההודעה כפי שהיא, בלי להוסיף שנה, אפס מוביל או מקף שלא היו שם (למשל אם הלקוח כתב "24.11", הציטוט הוא בדיוק "24.11" - לא "24.11.2026" ולא "24/11"). אם אין ציטוט אמיתי כזה, dates נשאר כפי שהיה ב-state (אל תכתבי את הערך החדש בכלל) ו-dates_evidence נשאר null. קביעה ראשונית (dates עדיין ריק ב-state) אינה דורשת evidence. בקשת שינוי שנוסחה כשאלה ("רגע, אפשר לשנות ל-4 עד 10 ביוני?", "אפשר ל-X במקום?") היא בדיוק אותה כוונה כמו משפט הצהרתי ("בעצם X") - היא עדיין בקשה אמיתית לשנות את התאריך, לא רק מחשבה בקול רם, גם כשהיא מופיעה בתוך הודעה שעונה בעיקר על שאלה אחרת לגמרי (כמו קצב הטיול) שטינקרבל שאלה באותה הודעה. אל תתני לנושא הפתוח של השאלה האחרונה להסיח את דעתך מבקשת שינוי תאריך אמיתית שמופיעה באותה הודעה - שתיהן נכתבות, כל אחת לשדה שלה.
+- כשהלקוח נותן תשובה יחסית לגבי מתי לטוס (יום/זוג ימים בשבוע, חלק מחודש כמו "סוף/תחילת/אמצע החודש" או "החודש הבא", ו/או משך כמו "שבוע"/"עשרה ימים") ו-dates.departure/dates.return עדיין ריקים ב-state - לעולם אל תחשבי תאריך קלנדרי בעצמך (לא יום בשבוע, לא איזו שנה, לא איזה יום בחודש). במקום זאת החזירי את מה שהלקוח אמר בצורה מובנית בלבד, ברמת ה-JSON העליון ליד trip_update: relative_date_hint (אובייקט, או null אם לא נאמרה שום הנחיה יחסית כזו) עם השדות: weekday_start/weekday_end (שם היום בעברית בדיוק כפי שהלקוח אמר, אם הוזכר זוג ימים ליציאה/חזרה - "ראשון"/"שני" וכו', אחרת null), month_name (שם החודש בעברית בדיוק אם נאמר מפורשות - למשל "נובמבר", אחרת null), month_relative ("next" אם נאמר "החודש הבא", "this" אם נאמר "החודש"/"החודש הזה" בלי שם חודש מפורש, אחרת null - לעולם לא גם month_name וגם month_relative יחד), part_of_month ("start"/"mid"/"end" לפי "תחילת"/"אמצע"/"סוף" שנאמר, או null אם לא נאמר חלק מהחודש), duration_days (מספר הלילות הכולל אם נאמר משך מפורש - "שבוע"=7, "שבועיים"=14, "N ימים"=N-1, "N לילות"=N - אחרת null), shift_days (מספר ימים, חיובי להזזה קדימה או שלילי להזזה אחורה, רק כאשר dates.departure/dates.return כבר קיימים ב-state וה הלקוח מבקש להזיז אותם - בכל ניסוח שמבטא את אותה כוונה, לא רק את הפועל "לזוז" - למשל "אפשר לזוז יום אחד קדימה?"=1, "יום לפני"=-1; זו בקשת שינוי אמיתית, בדיוק כמו dates_evidence, לא "גמישות" כללית - אחרת null. מלאי גם relative_date_hint_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בהנחיה הזו; בלי ציטוט אמיתי כזה, relative_date_hint נשאר null כולו. זה בדיוק כמו destination_airports: את מזהה ומחזירה מה שנאמר, אף פעם לא מחשבת בעצמך איזה תאריך קלנדרי זה - החישוב עצמו (כולל השנה הנכונה) נעשה בקוד. חשוב במיוחד: באותו תור שבו את ממלאת relative_date_hint, לעולם אל תכתבי שום ערך ל-trip_update.dates.departure או trip_update.dates.return בעצמך - הם חייבים להישאר ריקים (null) בתגובה שלך, בדיוק כפי שהיו לפני התור הזה. relative_date_hint לבדו הוא הדרך היחידה להעביר את מה שהלקוח אמר; מילוי dates.departure/dates.return ישירות, אפילו כ"ניחוש" נוסף לצד relative_date_hint, סותר את ההנחיה הזו וגורם לתאריך להישמר כאילו כבר אושר - בלי שהלקוח באמת אישר אותו.
 - ציון תאריכים/ימים בשבוע/תקופה שבה טיול כלשהו כבר התקיים בעבר (למשל "לפני שנה/שנתיים/שלוש טסנו ל-X", "בפעם הקודמת היינו שם ב-", "בעבר ביקרנו ב-", "כבר נסענו אז") הוא זיכרון/הקשר בלבד - לעולם לא בקשה לתאריכי הטיול הנוכחי, גם כשהתאריכים שהוזכרו נשמעים כמו תשובה ישירה לשאלה על מתי לטוס הפעם. אל תמלאי dates_evidence, relative_date_hint או trip_update.dates (departure/return/period) מתוך משפט כזה בשום אופן - הוא נשאר ריק/null בתגובתך, והלקוח חייב לומר במפורש מה הוא רוצה עבור הטיול החדש לפני שכל אחד מהשדות האלה יתמלא.
 - requested_services ו-service_decisions נשמרים מצטבר ומשתנים רק לפי דברי הלקוח.
 - הביני סמנטית אילו מארבעת השירותים הלקוח מבקש: flights/lodging/car/trip_planning. אין להסתמך על מילות קסם או ניסוח קבוע.
@@ -9886,6 +9886,18 @@ _EVIDENCE_PUNCTUATION_RE = re.compile(r"[\"'“”‘’״׳,.!?;:()\[\]{}\-–�
 _EVIDENCE_WHITESPACE_RE = re.compile(r"\s+")
 
 
+_EVIDENCE_DATE_TOKEN_RE = re.compile(r"(?<!\d)(\d{1,2})\.(\d{1,2})(?:\.\d{2,4})?(?!\d)")
+
+
+def _normalize_date_digits_for_evidence_match(text):
+    """Canonicalizes every plain D.M(.YYYY)? date token in text to D.M
+    (leading zeros stripped, any year dropped entirely) - e.g. "01.12" and
+    "1.12.2026" both become "1.12". Never touches anything else (words,
+    other punctuation) - this is purely numeric-format normalization, not
+    phrase/word matching."""
+    return _EVIDENCE_DATE_TOKEN_RE.sub(lambda m: f"{int(m.group(1))}.{int(m.group(2))}", str(text or ""))
+
+
 def _normalize_for_evidence_match(text):
     """Per Shaked's 18.10 finding on PR #83 (qa/cases.json, evidence-
     tolerates-spacing-punctuation): a real, genuinely verbatim quote the
@@ -9922,11 +9934,31 @@ def _value_has_verbatim_evidence(evidence, message):
     "verbatim" buys here, a check code can actually perform without
     re-deciding meaning itself). No quote, or a quote that was invented
     rather than copied from the real message, means no value - the caller
-    reverts to whatever was already settled."""
+    reverts to whatever was already settled.
+
+    Digit-format fallback (21.10.2026, Shlomo's relay of the business
+    owner's decision on PR #117's second review round): Shaked tested this
+    exact check directly and confirmed a genuinely verbatim date quote
+    (even with a "כן, " prefix) already passes - verification only fails
+    when the model itself reformats a date digit-wise while copying it:
+    adds a leading zero ("01.12" for a message that said "1.12") or tacks
+    on a year the message never stated ("24.11.2026" for "24.11"). Neither
+    is a rewording or a paraphrase of what the customer said - it's the
+    same date, written with different digit formatting - so this still
+    isn't a word/phrase list, just numeric normalization applied to BOTH
+    sides before a second, otherwise-identical substring attempt. The
+    quote (modulo this formatting) must still appear in the message for
+    this to pass; nothing here invents or accepts content that isn't
+    really there."""
     evidence = str(evidence or "").strip()
     if not evidence:
         return False
-    return _normalize_for_evidence_match(evidence) in _normalize_for_evidence_match(message)
+    if _normalize_for_evidence_match(evidence) in _normalize_for_evidence_match(message):
+        return True
+    return (
+        _normalize_for_evidence_match(_normalize_date_digits_for_evidence_match(evidence))
+        in _normalize_for_evidence_match(_normalize_date_digits_for_evidence_match(message))
+    )
 
 
 def _validate_lodging_level_against_message(trip_update, state, message):
@@ -13177,6 +13209,20 @@ def _chat_clean_impl():
             locked_dates["needs_confirmation"] = False
             locked_dates.pop("candidate_ranges", None)
             locked_dates.pop("candidates", None)
+            # Per the business owner's decision on this PR's second review
+            # round (21.10.2026, rework of #117): a prior version of this
+            # branch proposed the extractor's own UNVERIFIED differing dates
+            # as a pending candidate instead of re-locking - but Shaked's own
+            # review caught a severe regression: an unrelated mention with no
+            # real evidence behind it (a recalled PAST trip - "לפני שנתיים
+            # היינו שם 3 עד 7 ביוני") could ALSO silently produce such a
+            # candidate, and the customer's very next "כן" to a COMPLETELY
+            # UNRELATED question would then commit it - exactly the false-
+            # positive risk the evidence gate exists to prevent. Removed
+            # entirely. The evidence gate (dates_evidence, verified below)
+            # stays the ONLY way a date change is recognized here - see
+            # _value_has_verbatim_evidence's own digit-normalization fix for
+            # the real cause of the live miss instead.
             trip_update["dates"] = locked_dates
         only_flights_facts = _deterministic_only_flights_facts(message)
         trip_update = _merge_trip_state(trip_update, only_flights_facts)
