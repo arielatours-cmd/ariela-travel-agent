@@ -280,7 +280,6 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - trip_type מזהה את סוג הנסיעה: חופשה רגילה ("standard"), נסיעת עסקים ("business"), או חופשת סקי ("ski"). מאז שהשאלה הראשונה על כך נשארת פתוחה ("מה בא לך לתכנן?" ולא רשימת קטגוריות - ראו ההנחיה המקבילה ל-Tinkerbell), הלקוח כמעט לעולם לא ישתמש במילים "חופשה רגילה"/"נסיעת עסקים"/"חופשת סקי" ממש - היא מתארת את הטיול בניסוח חופשי משלה (למשל "רוצה לנסוע לבד, קצת לנוח ולטייל" = standard; "נסיעת עבודה"/"פגישות בחברה" = business; כל אזכור של סקי/אתר סקי/מעליות = ski). הביני את הקטגוריה מהתיאור החופשי הזה של הלקוח עצמו (בדיוק כמו ש-Tinkerbell כבר מתבקשת להבין מהתשובה החופשית לשאלה הפתוחה) - זו אותה הבנה סמנטית שאת מפעילה על כל שדה אחר, לא דרישה למילת קסם מדויקת. מה שנשאר אסור: לנחש trip_type מ-destination/dates/travelers עצמם (לדוגמה יעד מסוים או מספר נוסעים) כשהלקוח לא תיאר בעצמו את מטרת הטיול בכלל - אלה סימנים עקיפים מדי ולא תיאור של הלקוח. אם אין שום תיאור של מטרת/אופי הטיול, השאירי null עד שיהיה. בפרט, יעד שעשוי להתאים לנסיעת סקי (אזור הרים, אתר חורפי מוכר, עונת חורף) הוא בדיוק אותו סימן עקיף מדי - אסור בהחלט להסיק trip_type="ski" מהיעד ו/או מהעונה בלבד, גם כשהם מתאימים לכך באופן אינטואיטיבי; "ציריך בינואר", למשל, היא נסיעת עיר לגיטימית לגמרי ולא בהכרח חופשת סקי. כשאת קובעת trip_type="ski" (או משנה אליו מערך אחר), מלאי גם את trip_type_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט מילה-במילה מתוך ההודעה הנוכחית של הלקוח שמתאר בעצמו סקי/גלישה בשלג/אתר סקי/מעליות - לא ציטוט שמזכיר רק יעד או תאריך. בלי ציטוט אמיתי כזה - אל תכתבי trip_type="ski" בכלל, השאירי אותו כפי שהיה.
 - restart_request ו-restart_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים כוונה לנטוש את התכנון הנוכחי ולחשוב על/להתחיל חופשה אחרת ונפרדת לגמרי - לא שינוי פרט בודד (יעד/תאריכים/תקציב וכו') בתוך אותה חופשה הנמשכת. הכוונה הזו נאמרת בהרבה ניסוחים, ישירים ועקיפים באותה מידה - לא רק "התחלה מחדש" מפורש: גם "בא לי בכלל לתכנן משהו אחר לגמרי", "עזבי את [היעד הנוכחי], אני רוצה לחשוב על חופשה אחרת", "רגע, תני לי לחשוב על כיוון שונה" הם בדיוק אותה כוונה כמו "אני רוצה להתחיל טיול אחר" או "חופשה חדשה ונפרדת" - הביני לפי המשמעות השלמה של המשפט (ויתור על הכיוון/היעד הנוכחי ומעבר למשהו אחר כולו), לא לפי התאמה למשפטים ספציפיים. restart_request=true רק כשההודעה הנוכחית של הלקוח (לא הודעה קודמת) היא זו שמבטאת את הכוונה הזו, ולא כשהוא רק משנה פרט אחד בחופשה הקיימת. בדיוק כמו lodging.details.level_evidence: כשrestart_request=true מלאי את restart_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; אם אין ציטוט אמיתי כזה, restart_request נשאר false ו-restart_evidence נשאר null. ברירת המחדל היא false/null.
 - link_request ו-link_request_evidence (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו) מזהים בקשה לקישור/לינק ללוח החופשה שלו, לתוצאות, לדף שלו באתר, או לחזור לראות את מה שכבר נמצא לו - בכל ניסוח, ישיר ועקיף באותה מידה. לדוגמה (לא רשימה סגורה): "תשלחי לי שוב קישור ללוח?", "איפה אני רואה את הטיסות?", "אפשר את הלינק לחופשה?", "שלחי לינק לדף שלי", "לא מוצאת את מה שמצאת לי, איפה זה?" - הביני לפי המשמעות (הלקוח רוצה לעבור/לחזור לדף/לקישור של החופשה שלו), לא לפי התאמה לניסוחים האלה בדיוק. זו בקשת ניווט, לא בקשה לפרט חדש בתכנון ולא restart_request. בדיוק כמו restart_evidence: כש-link_request=true מלאי את link_request_evidence בציטוט מילה-במילה מתוך ההודעה הנוכחית שתומך בכך; בלי ציטוט אמיתי כזה, link_request נשאר false ו-link_request_evidence נשאר null. ברירת המחדל היא false/null. לעולם אל תחליטי בעצמך מה מצב החיפוש (האם הוא עדיין רץ או כבר הסתיים) - זה נקבע בקוד לפי ה-state, לא על ידך.
-- pending_question_response (ברמת ה-JSON העליון, ליד trip_update - לא בתוכו; 21.10.2026, Shlomo/Shaked's review of the Paphos repeat-guard fix): אם ההודעה הקודמת שלך בשיחה (הצד האחרון שלך, מה שטינקרבל כתבה) הסתיימה בשאלה פתוחה אחת וברורה, קבעי כאן את היחס בין ההודעה הנוכחית של הלקוח לבין השאלה הזו בדיוק - מהבנה אמיתית של ההקשר, לעולם לא מרשימת מילים: "answered" כשההודעה הנוכחית אכן מתייחסת לשאלה הזו ואת מבינה בבירור למה הלקוח התכוון (גם אם הניסוח שונה מכל דוגמה ספציפית); "unclear" כשההודעה הנוכחית כן מנסה להתייחס לאותה שאלה, אבל את לא בטוחה באמת מה הלקוח התכוון בה ולכן אין לך ערך אמיתי לכתוב בשבילה; "side_question" כשההודעה הנוכחית כלל לא עונה על השאלה הזו - היא שואלת משהו אחר לגמרי, משנה נושא, או מגיבה למשהו שאינו קשור אליה; null כשלא הייתה שום שאלה פתוחה וברורה אחת בהודעתך הקודמת. זה קריטי: שאלת-צד (side_question) לעולם איננה ניסיון שנכשל להבין תשובה - הלקוח פשוט לא ניסה לענות באותו תור בכלל.
 - אין לאסוף או לשמור מחלקת טיסה (תיירים/פרימיום/עסקים) גם בנסיעת עסקים. החיפוש מציג את כל אפשרויות הכרטיס הרלוונטיות והלקוח יבחר בהמשך.
 - כאשר trip_type הוא ski, שמרי בשדה ski את פרטי הסקי הידועים: ski.skill_level (אחד מ-first_time/beginner/intermediate/advanced/mixed, אם נאמר), ski.priorities (רשימה מתוך snow/family/large/value/atmosphere/nightlife/spa/proximity, לפי מה שהלקוח ציין כחשוב לו), ski.transfer_choice ("90"/"180"/"any" - מרחק מקסימלי בדקות מהשדה לאתר, אם נאמר). כל שלושת השדות האלה אופציונליים ואינם תנאי לסיכום. destination_airports באתר סקי נגזר אוטומטית מהיעד ולא נשאל כשדה נפרד.
 - כאשר הלקוח ביקש שאריאלה תבחר את אתר הסקי (לא ציין אתר ספציפי מהרשימה המוכרת), עדיפות ראשונה היא לדבר באופן כללי ("ליד ההר", "באזור האתר שייבחר") עד שאתר אמיתי מהקטלוג נבחר בפועל. שם אתר שהוזכר בטקסט חופשי בלבד, בלי להתבסס על ski.resort_names, אסור שייכנס ל-destination.places - זה בדיוק כמו לנחש תקציב או רכב, ובעבר הוביל לשם הר מתועתק גרוע שנשמר ככותרת החופשה בפועל.
@@ -315,7 +314,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אל תסמני כשדה חסר שירות שהלקוח אמר שאינו רוצה.
 - ready_for_summary=true רק כאשר יש כוונת חיפוש וכל שדות החובה לשירותים המבוקשים מלאים.
 
-החזירי JSON תקין בלבד, עם עשרת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence/relative_date_hint/relative_date_hint_evidence/link_request/link_request_evidence/pending_question_response תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
+החזירי JSON תקין בלבד, עם תשעת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence/relative_date_hint/relative_date_hint_evidence/link_request/link_request_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
 {
  "restart_request":false,
  "restart_evidence":null,
@@ -326,7 +325,6 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
  "relative_date_hint_evidence":null,
  "link_request":false,
  "link_request_evidence":null,
- "pending_question_response":null,
  "trip_update":{
   "trip_type":null,
   "travelers":{"adults":null,"children":null,"child_ages":[],"child_genders":[],"infants":null,"composition":null},
@@ -837,38 +835,6 @@ def _parse_link_request_signal(text):
     return False, None
 
 
-_PENDING_QUESTION_RESPONSE_VALUES = {"answered", "unclear", "side_question"}
-
-
-def _parse_pending_question_response(text):
-    """Pull pending_question_response (sibling of trip_update, not inside
-    it) out of the SAME raw JSON the extractor already returned every turn -
-    mirrors _parse_trip_type_evidence exactly. 21.10.2026, Shlomo/Shaked's
-    review of the Paphos repeat-guard fix (PR #116): the guard's first
-    version counted any two turns where the same fixed gap-question
-    appeared in the assistant's last two messages, with no regard for
-    whether the customer ever actually tried to answer it in between - two
-    side questions ("כמה זמן הטיסה?", "ויש שם חוף טוב לילדים?") sandwiched
-    between the repeated asks still counted as two unresolved attempts and
-    wrote a silent "no preference" default. This field lets the guard tell
-    a genuine failed attempt to answer ("unclear") apart from a side
-    question that never addressed the open question at all - from the
-    model's own understanding of the conversation, never a word list.
-    Returns None (not "answered") on any parse failure or unrecognized
-    value - an unparseable response must never silently count as a
-    resolved/failed answer either way."""
-    raw = str(text or '').strip()
-    if raw.startswith('```'):
-        raw = raw.replace('```json', '', 1).replace('```', '').strip()
-    try:
-        data = json.loads(raw)
-        if isinstance(data, dict):
-            value = data.get('pending_question_response')
-            if value in _PENDING_QUESTION_RESPONSE_VALUES:
-                return value
-    except Exception:
-        pass
-    return None
 
 
 def _parse_trip_update(text):
@@ -4403,11 +4369,11 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # neither the real confirmed dates nor a real pending candidate.
         continuity += "\n- " + str(state.get("_date_hallucination_correction_hint")) + "\n"
     if state.get("_gap_repeat_rephrase_hint"):
-        # Set by _apply_gap_repeat_guard below: a REQUIRED (non-defaultable)
-        # gap's own fixed question was already asked twice in a row and
-        # still unresolved - per Shlomo's relay of the business owner's
-        # stage-1 run-5 directive (Paphos), the third ask must never repeat
-        # the identical fixed text again; rephrase in her own words with
+        # Set by _apply_gap_repeat_guard below: some open gap's own fixed
+        # question was already asked twice in a row and still unresolved -
+        # per Shlomo's relay of the business owner's stage-1 run-5
+        # directive (Paphos), the third ask must never repeat the
+        # identical fixed text again; rephrase in her own words with
         # concrete example answers this time.
         continuity += "\n- " + str(state.get("_gap_repeat_rephrase_hint")) + "\n"
     if state.get("_gap_clarify_question"):
@@ -4598,7 +4564,7 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence, pending_question_response).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -4631,16 +4597,7 @@ def _extract_trip_update(key, model, history, message, state=None):
     the model's job is only to recognize that the customer is asking for a
     link, via the same verbatim-quote evidence gate as every field above -
     it never decides whether a search is still running or already
-    finished. The call site alone answers that, from trip_state.
-
-    pending_question_response (21.10.2026, Shlomo/Shaked's review of the
-    Paphos repeat-guard fix): one of "answered"/"unclear"/"side_question"/
-    None, classifying the customer's current message against whatever
-    single open question Tinkerbell's own last turn asked - genuine model
-    understanding, never a word list. _apply_gap_repeat_guard below uses
-    this (not raw history text-matching) to count only turns where the
-    customer actually tried to answer the SAME open gap-question and
-    wasn't understood, never a side question that never addressed it."""
+    finished. The call site alone answers that, from trip_state."""
     try:
         gateway_hint = _multi_gateway_hint(state)
         gateway_hint_text = ""
@@ -4684,14 +4641,13 @@ def _extract_trip_update(key, model, history, message, state=None):
         trip_type_evidence = _parse_trip_type_evidence(raw)
         relative_date_hint, relative_date_hint_evidence = _parse_relative_date_hint(raw)
         link_request, link_request_evidence = _parse_link_request_signal(raw)
-        pending_question_response = _parse_pending_question_response(raw)
         return (
             parsed, restart_request, restart_evidence, dates_evidence, destination_evidence,
             trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
-            link_request, link_request_evidence, pending_question_response,
+            link_request, link_request_evidence,
         )
     except Exception:
-        return {}, False, None, None, None, None, None, None, False, None, None
+        return {}, False, None, None, None, None, None, None, False, None
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
@@ -8390,23 +8346,7 @@ _GAP_QUESTION_TEXT = {
 }
 
 
-# Per Shlomo's relay of the business owner's stage-1 run-5 directive
-# (Paphos): a preference-type gap whose honest default, once the customer
-# has already failed to resolve it twice in a row, is simply "no
-# preference" - the repeated non-answer IS the information (if it truly
-# mattered to them, they would have said so by the second ask). Never a
-# core trip fact (destination, dates, budget, baggage) - those can never
-# be silently guessed and stay in _apply_gap_repeat_guard's "else"
-# (rephrase-with-examples) branch instead. Deliberately a single small set
-# today (only the one field this live finding actually reported) rather
-# than guessed-at further - add to it only against another real live
-# finding, the same discipline _GAP_QUESTION_TEXT's own comment states.
-_GAP_OPTIONAL_DEFAULTS = {
-    "flight.connection_preference": ("flight", "connection_preference", "אין העדפה"),
-}
-
-
-def _apply_gap_repeat_guard(trip_update, pending_question_response, active_session):
+def _apply_gap_repeat_guard(trip_update, history, active_session):
     """Per Shlomo's relay of the business owner's stage-1 run-5 directive
     (Paphos): "חשוב לכם שהטיסה תהיה ישירה?" was asked roughly 28 times in a
     row - this gap is not a guided-extraction field, so the guided flow's
@@ -8415,110 +8355,64 @@ def _apply_gap_repeat_guard(trip_update, pending_question_response, active_sessi
     ordinary gap-driven question flow (_session_gaps/_flight_gap_question/
     _GAP_QUESTION_TEXT), independent of GUIDED_EXTRACTION_STEPS coverage.
 
-    REWORKED 21.10.2026 (Shaked rejected the first version, PR #116 round
-    2, via Shlomo): that version counted any two turns where the SAME
-    fixed gap-question text appeared in the assistant's last two messages,
-    with no regard for whether the customer ever actually tried to answer
-    it in between. Her live counter-example: "חשוב לכם שהטיסה תהיה
-    ישירה?" -> customer asks a side question ("כמה זמן הטיסה?") ->
-    Tinkerbell answers it and re-asks the direct-flight question -> customer
-    asks ANOTHER side question ("ויש שם חוף טוב לילדים?"). The old version
-    still saw the same question text in the last two assistant turns and
-    silently wrote "אין העדפה" - despite the customer never once attempting
-    to answer it. A side question is not a failed attempt to answer; it's
-    not an attempt at all.
+    SIMPLIFIED 21.10.2026 (Shlomo's own decision, after three rejected
+    attempts at a more precise design that each introduced a new bug):
+    the real fix for Paphos is EXTRACTOR_SYSTEM itself now understanding
+    "לא חובה" and writing "אין העדפה" from genuine comprehension - that
+    already works. This guard is kept ONLY as a simple, low-risk safety
+    net, deliberately simplified down to two rules: it never writes any
+    value to trip_update at all (a prior version's silent "אין העדפה"
+    default, keyed off _session_gaps(...)[0], once fired for a field that
+    was never actually the one being asked about - see below), and it
+    matches against the REAL canonical question text for each individual
+    open gap, never against gaps[0] alone.
 
-    Fixed by tracking a persistent per-gap streak in trip_state
-    (_gap_unclear_streak) driven by pending_question_response - the
-    extractor's own genuine understanding (never a word list, see
-    _parse_pending_question_response) of whether the customer's CURRENT
-    message was an attempt to answer the single open question Tinkerbell's
-    last turn asked: "unclear" (tried to answer, not understood) increments
-    the streak; "side_question" (or no open question at all) leaves the
-    streak untouched - it neither advances nor resets it, since it carries
-    no information about whether the open question was ever genuinely
-    attempted.
+    That "gaps[0]" bug (Shlomo's own review, round 4): _flight_gap_question
+    picks a question by its OWN fixed priority order (destination_airports >
+    ... > budget_per_person > ... > connection_preference > baggage > ...),
+    which does not necessarily match _session_gaps's own list order. The
+    previous version computed `question_text` correctly from the full gaps
+    list (so it matched whatever was ACTUALLY asked), but then wrote any
+    default to `gaps[0]` as the field key - a different field entirely
+    whenever the two orders diverged. Live example: budget_per_person and
+    flight.connection_preference both open; the budget question gets asked
+    twice in a row (correctly, by priority) and is still unresolved, but
+    the old code silently wrote "אין העדפה" into connection_preference
+    instead - a field never once asked about.
 
-    REWORKED AGAIN 21.10.2026, same day (Shaked's second rejection, PR
-    #116 round 3, via Shlomo): "answered" does NOT reset the streak either.
-    This function only ever reaches this point when _session_gaps still
-    lists `gap` as open - a genuinely successful "answered" would already
-    have closed it earlier in the pipeline (the extractor's own
-    trip_update merge runs first). So "answered" with the gap STILL open
-    is itself a failure, not a resolution: the live Paphos transcript had
-    Tinkerbell's own free text correctly say "הבנתי, אין העדפה" turn after
-    turn while connection_preference stayed null the whole time - the
-    model's own JSON output was internally inconsistent (pending_question_
-    response="answered" alongside a trip_update that never actually wrote
-    the field). Treating that "answered" as a reset meant the streak never
-    once reached two, and the guard never engaged at all - the exact
-    original infinite loop, unfixed. Both "unclear" and an "answered" that
-    didn't actually close the gap now count identically.
-
-    Once the SAME gap has reached two unclear, unresolved attempts in a
-    row (never counting a side question as one of them) - the next ask
-    must never repeat the identical text again:
-    - an OPTIONAL preference-type gap (_GAP_OPTIONAL_DEFAULTS) gets its
-      real, honest default written directly, closing the gap silently -
-      this is itself genuine information, not a guess.
-    - any other (required) gap instead gets a one-turn hint (consumed by
-      _call_tinkerbell below) telling Tinkerbell to rephrase in her own
-      words with concrete example answers this time, never the identical
-      fixed text again."""
+    Now: if the SAME question text was the last question asked in each of
+    the last two assistant turns, and the gap that specific text belongs
+    to is still open, Tinkerbell gets a one-turn hint (consumed by
+    _call_tinkerbell below) to rephrase in her own words with concrete
+    example answers, never repeating the identical text a third time. No
+    field is ever written here - the only state this guard ever produces
+    is that one hint."""
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     if active_session not in ("flights", "lodging", "car", "trip_planning"):
         return trip_update
     gaps = _session_gaps(trip_update, active_session)
     if not gaps:
         return trip_update
-    gap = gaps[0]
-    streaks = dict(trip_update.get("_gap_unclear_streak") or {})
-    # Reaching this line already means _session_gaps still lists `gap` as
-    # open - a genuinely successful "answered" would have closed it before
-    # this call ever ran (the extractor's own trip_update merge happens
-    # earlier in the pipeline), so "answered" with the gap STILL open is
-    # itself the failure, not a resolution: the model claimed to understand
-    # the customer's answer but its own trip_update write didn't actually
-    # land (Shlomo's second review of this exact PR, 21.10.2026 - the live
-    # Paphos transcript had Tinkerbell's own free text say "הבנתי, אין
-    # העדפה" turn after turn while connection_preference stayed null the
-    # whole time; the first version of this field treated "answered" as a
-    # reason to reset the streak, so it never once reached two and the
-    # guard never engaged - exactly the original infinite loop, unfixed).
-    # So both "unclear" and an "answered" that didn't actually close the
-    # gap count the same way here; only "side_question" (or no open
-    # question at all) is a turn that never attempted this gap at all.
-    if pending_question_response in ("unclear", "answered"):
-        streaks[gap] = streaks.get(gap, 0) + 1
-    # "side_question" (or None - no single open question to judge against)
-    # carries no signal either way: the customer never attempted this gap's
-    # question this turn, so the streak is left exactly as it was.
-    trip_update["_gap_unclear_streak"] = streaks
-    if streaks.get(gap, 0) < 2:
+    recent_questions = [
+        _last_question_clause(str(item.get("content") or "")).strip()
+        for item in reversed(history or [])
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "assistant"
+    ][:2]
+    if len(recent_questions) < 2 or recent_questions[0] != recent_questions[1] or not recent_questions[0]:
         return trip_update
-    if active_session == "flights":
-        question_text = _flight_gap_question(gaps, trip_update)
-    else:
-        question_text = _GAP_QUESTION_TEXT.get(gap)
-    if not question_text:
-        return trip_update
-    expected = _last_question_clause(question_text).strip()
-    if not expected:
-        return trip_update
-    default = _GAP_OPTIONAL_DEFAULTS.get(gap)
-    if default:
-        domain, field, value = default
-        section = dict(trip_update.get(domain) or {})
-        section[field] = value
-        trip_update[domain] = section
-        streaks.pop(gap, None)
-        trip_update["_gap_unclear_streak"] = streaks
-        return trip_update
-    trip_update["_gap_repeat_rephrase_hint"] = (
-        f"השאלה \"{expected}\" כבר נשאלה פעמיים ברצף והלקוח ניסה לענות עליה פעמיים בלי שהובן בבירור מה התכוון. "
-        "לעולם אל תחזרי עליה מילה במילה פעם שלישית - נסחי אותה מחדש בקול שלך, עם "
-        "1-2 דוגמאות קונקרטיות לתשובה אפשרית, כדי לעזור ללקוח להבין מה בדיוק מבקשים."
-    )
+    repeated = recent_questions[0]
+    for gap in gaps:
+        if active_session == "flights":
+            question_text = _flight_gap_question([gap], trip_update)
+        else:
+            question_text = _GAP_QUESTION_TEXT.get(gap)
+        if question_text and _last_question_clause(question_text).strip() == repeated:
+            trip_update["_gap_repeat_rephrase_hint"] = (
+                f"השאלה \"{repeated}\" כבר נשאלה פעמיים ברצף ועדיין לא נענתה בבירור. "
+                "לעולם אל תחזרי עליה מילה במילה פעם שלישית - נסחי אותה מחדש בקול שלך, עם "
+                "1-2 דוגמאות קונקרטיות לתשובה אפשרית, כדי לעזור ללקוח להבין מה בדיוק מבקשים."
+            )
+            return trip_update
     return trip_update
 
 
@@ -12505,7 +12399,7 @@ def _chat_clean_impl():
         (
             extracted, restart_request, restart_evidence, dates_evidence, destination_evidence,
             trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
-            link_request, link_request_evidence, pending_question_response,
+            link_request, link_request_evidence,
         ) = _extract_trip_update(key, model, history, message, trip_state)
 
         # Customer asking for a link back to their vacation/dashboard (20.10,
@@ -13325,7 +13219,7 @@ def _chat_clean_impl():
         # gets asked identically a third time - see the function's own
         # docstring. Active_session is now finalized for this turn, and
         # every deterministic/extractor merge above has already run.
-        trip_update = _apply_gap_repeat_guard(trip_update, pending_question_response, trip_update.get("active_session"))
+        trip_update = _apply_gap_repeat_guard(trip_update, history, trip_update.get("active_session"))
 
         # If the customer has just declined/deferred the remaining optional
         # services and every wanted service is already complete, skip the
