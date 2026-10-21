@@ -6913,6 +6913,22 @@ _BUNDLED_AND_QUESTION_RE = re.compile(
 # is always its own boundary (so paragraph breaks are never lost).
 _SENTENCE_BOUNDARY_RE = re.compile(r"(?<!\d)[.!?](?!\d)(?=\s|$)|\n")
 
+# Per Shaked's stage-1 run-4 direct finding (Bratislava): a Hebrew
+# confirmation tag ("..., נכון?"/"..., לא?"/"..., כן?") at the very end of a
+# sentence - never a real open question, structurally identical to an
+# English "...right?" tag. See _enforce_one_option_question's own use below.
+_CONFIRMATION_TAG_QUESTION_RE = re.compile(r",\s*(?:נכון|לא|כן)\s*\?\s*\Z")
+
+# Per Shaked's SECOND review of PR #115: a question sentence that starts
+# with the bound "ו" prefix ("ונוח לכם בבוקר?") or the standalone word "או"
+# is grammatically a CONTINUATION of the question immediately before it,
+# never an independent question of its own - "מה התקציב שלכם לאדם לטיסה?
+# ונוח לכם בבוקר?" is one combined ask, not two. A narrow, unambiguous
+# structural pattern only - anything else is left to the plain "keep the
+# last question" default (her own explicit safety rule: never guess
+# further than this).
+_QUESTION_CONTINUATION_RE = re.compile(r"^(?:ו[א-ת]|או(?=\s|$))")
+
 # Per the same review: a day-by-day itinerary body ("יום 1 (15.4, חמישי):
 # נחיתה...") can legitimately contain its own rhetorical "?" ("מה יותר כיף
 # מאוכל טוב?") that is never a real gap-question - and with style/pace
@@ -6927,11 +6943,20 @@ _TRIP_PLANNING_APPROVAL_QUESTION = "המסלול שהצעתי מתאים לכם?
 
 def _append_fixed_question(prefix, fixed):
     """Join a kept-statements prefix with the one replacement question,
-    without ever re-spacing or trimming the prefix's own original trailing
+    without ever re-spacing or trimming the prefix's own INTERNAL
     whitespace/newlines (see _split_sentences) - a blank line the customer
     already saw stays a blank line. Adds a single space only when the
     prefix doesn't already end in whitespace; an empty prefix returns the
-    fixed question alone."""
+    fixed question alone.
+
+    Per Shaked's review of PR #115 (Bratislava): when every question
+    sentence up to and including a leading one gets dropped (see
+    _enforce_one_option_question's own removal of question_idx_set), any
+    bare "\\n" span(s) that sat between the dropped sentence(s) and the
+    first KEPT statement become dangling LEADING whitespace on prefix
+    itself - a message starting with a blank line before any real content.
+    Only the leading edge is trimmed here, never anything in the middle."""
+    prefix = prefix.lstrip()
     if not prefix:
         return fixed
     return f"{prefix}{fixed}" if prefix[-1].isspace() else f"{prefix} {fixed}"
@@ -7111,7 +7136,22 @@ def _enforce_one_option_question(reply, state):
 
     state = state if isinstance(state, dict) else {}
     sentences = _split_sentences(text)
-    question_idx = [i for i, (_, term) in enumerate(sentences) if term == "?"]
+    # Per Shaked's stage-1 run-4 direct finding (Bratislava): a Hebrew tag
+    # question ("...תמיד אפשר להוסיף מזוודה בהמשך, נכון?") is structurally a
+    # STATEMENT with a trailing confirmation tag, not a second real question
+    # competing with the actual gap-question that follows it - live, this
+    # counted as a second "?" sentence, so the whole acknowledgment got
+    # dropped from the rebuilt reply below along with the real question it
+    # was replaced by, leaving only the blank line between them (the
+    # customer-visible symptom: a reply starting "\n\n" with the
+    # acknowledgment gone entirely). A STRUCTURAL check (comma directly
+    # before נכון/לא/כן, then only "?" to the end), exactly the same kind of
+    # format-based signal as the " או "/_BUNDLED_AND_QUESTION_RE checks
+    # below - never a meaning/model judgment call.
+    question_idx = [
+        i for i, (s, term) in enumerate(sentences)
+        if term == "?" and not _CONFIRMATION_TAG_QUESTION_RE.search(s)
+    ]
     if not question_idx:
         return reply
 
@@ -7200,13 +7240,54 @@ def _enforce_one_option_question(reply, state):
             # replacement exists at all (no gap, no offer) for a reply
             # that bundles multiple fully separate question sentences,
             # returning the whole reply untouched would leave every extra
-            # question in place too. Keep only the FIRST question
-            # sentence and drop the ones after it - not a single other
-            # character is touched. (A single, possibly-bundled question
-            # sentence with no fixed replacement keeps the Paris rule
-            # below unchanged: never drop the only question there is.)
-            drop = set(question_idx[1:])
-            return "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
+            # question in place too.
+            #
+            # Per Shaked's FIRST review of PR #115 (Bratislava, 2db29a9):
+            # keeping the FIRST question and dropping the rest (the
+            # original version of this branch) has the same live failure
+            # the tag-question fix above was trying to patch over with a
+            # growing word list - a short confirmation tag ("...לכולם,
+            # בסדר?") is routinely the FIRST question sentence, with the
+            # real, conversation-advancing question ("מה התקציב...?")
+            # coming LAST. Reworked once to keep the LAST question instead.
+            #
+            # Per Shaked's SECOND review (c7a617a): "always keep the last"
+            # has its own live failure the opposite way - "מה התקציב שלכם
+            # לאדם לטיסה? ונוח לכם בבוקר?" kept "ונוח לכם בבוקר?" (a
+            # continuation starting with "ו", not an independent question)
+            # and dropped the real missing-gap question. Her own decision
+            # order, implemented as-is:
+            # 1. active_session=="flights" with real gaps already known:
+            #    this path is handled entirely above (fixed = _flight_gap_
+            #    question(...) is always truthy whenever gaps is non-empty -
+            #    see its own trailing "if gaps: return ..." fallback) and
+            #    never reaches this branch at all; nothing to add here.
+            # 2. Otherwise: a question sentence that starts with "ו"/"או"
+            #    is grammatically a CONTINUATION of the question immediately
+            #    before it, not an independent one - keep that PRECEDING
+            #    question instead. In every other case, keep the LAST
+            #    question (unchanged from the first review).
+            # 4. Safety rule (hers): when this can't be decided with
+            #    confidence, delete nothing - two questions in one message
+            #    is less bad than deleting the one that actually advances
+            #    the conversation. The continuation check below is a
+            #    narrow, unambiguous STRUCTURAL pattern (an attached "ו"
+            #    prefix, or the standalone word "או") - anything else falls
+            #    through to the plain "keep last" default rather than
+            #    guessing further.
+            last_q_text = sentences[question_idx[-1]][0].lstrip()
+            if _QUESTION_CONTINUATION_RE.match(last_q_text) and len(question_idx) >= 2:
+                keep_idx = question_idx[-2]
+            else:
+                keep_idx = question_idx[-1]
+            drop = set(question_idx) - {keep_idx}
+            kept = "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
+            # 3. Strip only the leading/trailing edges of the final message
+            # (never anything in the middle) - dropping question
+            # sentence(s) before the kept one can leave a bare "\n"-span
+            # dangling at the very start (the live Bratislava symptom: a
+            # reply beginning with a blank line and nothing before it).
+            return kept.strip()
         return reply
     question_idx_set = set(question_idx)
     prefix = "".join(s for i, (s, _term) in enumerate(sentences) if i not in question_idx_set)
