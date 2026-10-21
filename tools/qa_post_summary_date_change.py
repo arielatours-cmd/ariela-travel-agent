@@ -553,6 +553,28 @@ check("end-to-end: the post-summary dates context hint is actually woven "
       _captured_system_dynamic and "בקשת שינוי אמיתית" in _captured_system_dynamic[-1])
 
 
+# Per Shlomo's relay of the business owner's diagnostics.csv review
+# (dates_change, 21.10.2026): the live failures in run-7 (members 310-315)
+# and run-6 Paphos (member 303) show present=false/verified=null almost
+# every turn - the EXTRACTOR never returned differing dates/dates_
+# evidence at all post-summary, confirming (ב) is the right direction.
+# Shlomo's explicit ask: confirm the hint fires on exactly these turns -
+# the two live phrasings themselves, word for word.
+for _label, _message in (
+    ("Bangkok's exact live phrasing ('לדחות... ביום אחד')", "רגע, אפשר לדחות את כל הטיסה ביום אחד?"),
+    ("Batumi's exact live phrasing (explicit new dates)", "רגע, אפשר לצאת ב-5.6 ולחזור ב-9.6 במקום?"),
+):
+    _captured_system_dynamic.clear()
+    with patch.object(chat, "_post_claude", side_effect=_post_claude_capture_system_dynamic):
+        client.post("/api/ariella/chat-clean", json={
+            "message": _message,
+            "history": [{"role": "assistant", "content": _OLD_SUMMARY_TEXT}],
+            "trip_state": _ALL_DECIDED_STATE,
+        })
+    check(f"end-to-end: the context hint fires on {_label}",
+          _captured_system_dynamic and "בקשת שינוי אמיתית" in _captured_system_dynamic[-1])
+
+
 # =====================================================================
 # Rework (ג): a bare "כן" must never silently pick one of several
 # pending date candidates.
