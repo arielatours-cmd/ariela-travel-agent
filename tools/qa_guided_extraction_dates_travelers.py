@@ -414,6 +414,64 @@ check("scenario 12 (Shaked regression): current_question stays 'dates' (still un
 check("scenario 12 (Shaked regression): a hint is still set so Tinkerbell asks in her own words",
       bool(tu12.get("_guided_ask_hint")))
 
+# --- 13. (Shaked, stage-1 run-4 direct report, Tallinn) Real pending
+#     candidate_ranges already in state ('21.11.2026-30.11.2026' [9 nights]
+#     and '28.11.2026-07.12.2026' [9 nights]), customer confirms with "כן,
+#     בדיוק" - the guided model call reasonably reads this as departure=
+#     2026-11-21 (candidate 1's own start) with nights=10 (the trip's
+#     ORIGINAL "לעשרה ימים" duration, still in context, not this candidate's
+#     actual 9-night span). Before this fix, departure+nights computed
+#     2026-12-01 - a day past the candidate's own real end (30.11) - the
+#     EXACT Tallinn live bug ("21.11-30.11" offered, "21.11-01.12" saved).
+#     Per the single-source-of-truth directive: once departure matches a
+#     real pending candidate's own start, THAT candidate's own return date
+#     is authoritative, never a separate nights-based computation. ---
+TALLINN_CANDIDATES = [
+    "יום שבת 21.11.2026–יום שני 30.11.2026",
+    "יום שבת 28.11.2026–יום שני 07.12.2026",
+]
+member13 = _make_member("qa-guided-s13@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "departure": "2026-11-21", "return": None, "nights": 10,
+    "period": None, "flexibility_days": None, "confidence": "high",
+    "also_mentioned": {}, "correction": None,
+})):
+    state13 = dict(ROME_STATE)
+    state13["dates"] = {"needs_confirmation": True, "candidate_ranges": list(TALLINN_CANDIDATES)}
+    state13["guided"] = {"current_question": "dates", "attempts": 0, "answered": ["travelers", "baggage"]}
+    r13 = _post("כן, בדיוק", [], state13, member13)
+tu13 = r13.get("trip_update") or {}
+check("scenario 13 (Tallinn, Shaked's direct report): confirming a pending "
+      "candidate commits that candidate's OWN return date (30.11.2026) - "
+      "never departure+nights arithmetic (which would wrongly give 01.12)",
+      (tu13.get("dates") or {}).get("departure") == "2026-11-21"
+      and (tu13.get("dates") or {}).get("return") == "2026-11-30")
+check("scenario 13: needs_confirmation closes and the pending candidates "
+      "are cleared once the real candidate is committed",
+      (tu13.get("dates") or {}).get("needs_confirmation") is False
+      and not (tu13.get("dates") or {}).get("candidate_ranges"))
+
+# Regression: the SAME nights-based computation still applies exactly as
+# before when there are no pending candidates to match against at all
+# (scenario 1 above already covers this directly; restated here with an
+# explicit empty candidate_ranges to rule out any accidental interference
+# from this fix's own new code path).
+member13b = _make_member("qa-guided-s13b@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "departure": "2026-11-10", "return": None, "nights": 5,
+    "period": None, "flexibility_days": None, "confidence": "high",
+    "also_mentioned": {"travelers": None}, "correction": None,
+})):
+    state13b = dict(ROME_STATE)
+    state13b["dates"] = {"needs_confirmation": False, "candidate_ranges": []}
+    state13b["guided"] = {"current_question": "dates", "attempts": 0, "answered": []}
+    r13b = _post("10 בנובמבר ל-5 לילות", [], state13b, member13b)
+tu13b = r13b.get("trip_update") or {}
+check("scenario 13b: with no pending candidates at all, departure+nights "
+      "arithmetic still works exactly as before (regression check)",
+      (tu13b.get("dates") or {}).get("departure") == "2026-11-10"
+      and (tu13b.get("dates") or {}).get("return") == "2026-11-15")
+
 with sqlite3.connect(DB) as conn:
     conn.execute(
         "DELETE FROM members WHERE email LIKE 'qa-guided-%@example.com'"

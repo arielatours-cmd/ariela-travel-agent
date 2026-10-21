@@ -76,24 +76,88 @@ def check(name, cond):
 
 
 # =====================================================================
-# Direct unit tests of _dates_truth_hint.
+# Direct unit tests of _dates_truth_hint - per Shlomo's relay of the
+# business owner's stage-1 run-4 structural directive (Tallinn): the
+# model never writes a calendar date itself at all anymore, not even
+# correctly - she writes the literal placeholder token instead, and
+# _render_date_placeholders (tested further below) substitutes it from
+# state. So the hint itself now contains the PLACEHOLDER TOKEN, never a
+# literal date. Scoped to active_session == "flights" only, same as
+# _retry_if_dates_invented's own established gate.
 # =====================================================================
-confirmed_hint = chat._dates_truth_hint({"dates": {"departure": "2026-11-28", "return": "2026-12-05"}})
-check("confirmed dates produce an explicit, labeled 'saved dates' hint",
-      "28.11.2026" in confirmed_hint and "05.12.2026" in confirmed_hint and "לעולם אל תציעי" in confirmed_hint)
+confirmed_hint = chat._dates_truth_hint({
+    "active_session": "flights",
+    "dates": {"departure": "2026-11-28", "return": "2026-12-05"},
+})
+check("confirmed dates produce an explicit hint instructing the literal "
+      "{{DATES}} placeholder, never a literal date of her own",
+      chat._DATES_PLACEHOLDER in confirmed_hint
+      and "28.11.2026" not in confirmed_hint and "05.12.2026" not in confirmed_hint
+      and "לעולם אל תכתבי שום תאריך קלנדרי" in confirmed_hint)
 
-pending_hint = chat._dates_truth_hint({"dates": {
-    "needs_confirmation": True,
-    "candidate_ranges": ["יום שישי 21.11.2026–יום שישי 28.11.2026", "יום שישי 28.11.2026–יום שישי 05.12.2026"],
-}})
-check("pending candidates produce an explicit, labeled 'pending options only' hint",
-      "21.11.2026" in pending_hint and "28.11.2026" in pending_hint and "05.12.2026" in pending_hint)
+pending_hint = chat._dates_truth_hint({
+    "active_session": "flights",
+    "dates": {
+        "needs_confirmation": True,
+        "candidate_ranges": ["יום שישי 21.11.2026–יום שישי 28.11.2026", "יום שישי 28.11.2026–יום שישי 05.12.2026"],
+    },
+})
+check("pending candidates produce an explicit hint instructing the "
+      "literal {{DATE_OPTIONS}} placeholder, never a literal date",
+      chat._DATE_OPTIONS_PLACEHOLDER in pending_hint
+      and "21.11.2026" not in pending_hint and "28.11.2026" not in pending_hint)
 
 check("neither confirmed dates nor pending candidates -> no hint at all",
-      chat._dates_truth_hint({"dates": {}}) == "" and chat._dates_truth_hint({}) == "")
+      chat._dates_truth_hint({"active_session": "flights", "dates": {}}) == ""
+      and chat._dates_truth_hint({"active_session": "flights"}) == "")
 
 check("pending with no candidate_ranges at all (shouldn't normally happen) -> no hint, never raises",
-      chat._dates_truth_hint({"dates": {"needs_confirmation": True}}) == "")
+      chat._dates_truth_hint({"active_session": "flights", "dates": {"needs_confirmation": True}}) == "")
+
+check("scoped to the flights stage only - even with real confirmed/pending "
+      "dates in state, no hint at all outside active_session=='flights' "
+      "(an itinerary legitimately names many real per-day dates there)",
+      chat._dates_truth_hint({"active_session": "trip_planning", "dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) == ""
+      and chat._dates_truth_hint({"dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) == ""
+      and chat._dates_truth_hint({}) == "")
+
+# =====================================================================
+# Direct unit tests of _render_date_placeholders - the actual
+# substitution, reading state's own FINAL dates this turn (the single
+# source of truth also used to commit "כן", so label and saved range can
+# never drift apart, per item 3 of the structural directive).
+# =====================================================================
+check("a reply with no placeholder token at all passes through unchanged",
+      chat._render_date_placeholders("מה התקציב שלכם?", {}) == "מה התקציב שלכם?")
+
+rendered_dates = chat._render_date_placeholders(
+    f"קלטתי, התאריכים הם {chat._DATES_PLACEHOLDER}.",
+    {"dates": {"departure": "2026-11-28", "return": "2026-12-05"}},
+)
+check("{{DATES}} is substituted with weekday+date text built from state's "
+      "own departure/return - never left as a literal placeholder",
+      chat._DATES_PLACEHOLDER not in rendered_dates
+      and "28.11.2026" in rendered_dates and "05.12.2026" in rendered_dates)
+
+rendered_options = chat._render_date_placeholders(
+    f"האפשרויות הן {chat._DATE_OPTIONS_PLACEHOLDER} - מה מתאים?",
+    {"dates": {"needs_confirmation": True, "candidate_ranges": ["יום שבת 21.11.2026–יום שני 30.11.2026", "יום שבת 28.11.2026–יום שני 07.12.2026"]}},
+)
+check("{{DATE_OPTIONS}} is substituted with the SAME candidate_ranges "
+      "strings state itself holds (the single source _accept_single_"
+      "proposed_date_range later parses to commit \"כן\") - never a "
+      "separately-worded restatement",
+      chat._DATE_OPTIONS_PLACEHOLDER not in rendered_options
+      and "יום שבת 21.11.2026–יום שני 30.11.2026" in rendered_options
+      and "יום שבת 28.11.2026–יום שני 07.12.2026" in rendered_options)
+
+check("a stray {{DATES}} with no valid departure/return in state resolves "
+      "to empty (removed), never left visible to the customer",
+      chat._DATES_PLACEHOLDER not in chat._render_date_placeholders(chat._DATES_PLACEHOLDER, {"dates": {}}))
+
+check("a stray {{DATE_OPTIONS}} with no candidates in state resolves to "
+      "empty (removed), never left visible to the customer",
+      chat._DATE_OPTIONS_PLACEHOLDER not in chat._render_date_placeholders(chat._DATE_OPTIONS_PLACEHOLDER, {"dates": {}}))
 
 # =====================================================================
 # Direct unit tests of the extraction/comparison helpers.
