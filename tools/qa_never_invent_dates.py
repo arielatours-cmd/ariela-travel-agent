@@ -8,6 +8,16 @@ date change of her own). Same conversation: a 10-day-duration request got
 "21-28 בנובמבר, נכון?" offered back - a 7-day span matching neither the
 requested length nor any of the real computed candidate_ranges.
 
+Shaked's own direct, more detailed follow-up report (qa/reports/2026-10-
+21-stage1-live-run3.md) on the SAME live run revealed a second, subtler
+shape of the "21-28 בנובמבר" case: two real candidates existed
+(21.11-30.11 and 28.11-07.12), and the reply mixed candidate 1's OWN
+start (21.11) with candidate 2's OWN start (28.11) into a range that
+matches neither whole option - even though each individual day/month
+token happens to be valid on its own (just not together, as one unit).
+The customer agreed ("כן") and 28.11-07.12 got committed - a different
+pair than what the reply itself had just offered.
+
 Per the business owner's explicit structural direction, this is now a
 two-layer defense, neither layer a word/phrase list:
 
@@ -18,12 +28,16 @@ two-layer defense, neither layer a word/phrase list:
     anything else.
 
 (b) _retry_if_dates_invented is a structural (date FORMAT, not words)
-    safety net for when (a) alone still isn't followed: it extracts
-    every date-shaped token from the reply and compares it against the
-    valid set (confirmed dates, or every candidate's own start/end). If
-    a reply names a date matching neither, Tinkerbell is called again
-    EXACTLY ONCE with a corrective hint describing the mismatch - never
-    a silent rewrite of the first reply, and never more than one retry.
+    safety net for when (a) alone still isn't followed, with TWO signals:
+    every date-shaped TOKEN in the reply is compared against the valid
+    set (confirmed dates, or every candidate's own start/end) - catching
+    an invented date stated on its own; and every explicit date RANGE is
+    compared against the valid set of WHOLE ranges - catching a range
+    stitched from two different real dates that are each individually
+    valid but never offered together as one option. Either signal calls
+    Tinkerbell again EXACTLY ONCE with a corrective hint describing the
+    mismatch - never a silent rewrite of the first reply, and never more
+    than one retry.
 
 Run: python3 tools/qa_never_invent_dates.py
 """
@@ -82,6 +96,17 @@ check("_valid_trip_date_day_months collects every candidate's start/end dates",
           "needs_confirmation": True,
           "candidate_ranges": ["יום שישי 21.11.2026–יום שישי 28.11.2026"],
       }) == {(21, 11), (28, 11)})
+
+_TWO_CANDIDATES = ["יום שבת 21.11.2026–יום שני 30.11.2026", "יום שבת 28.11.2026–יום שני 07.12.2026"]
+check("_mentioned_date_ranges extracts a Hebrew-month-shared-day range",
+      chat._mentioned_date_ranges("מסביבות ה-21-28 בנובמבר, נכון?") == [((21, 11), (28, 11))])
+check("_mentioned_date_ranges extracts a plain numeric range",
+      chat._mentioned_date_ranges("27.11–6.12") == [((27, 11), (6, 12))])
+check("_mentioned_date_ranges returns [] for text with no range at all",
+      chat._mentioned_date_ranges("נצא ב-27.11 ונחזור ב-6.12") == [])
+check("_valid_trip_date_ranges treats each candidate's own start/end as ONE unit",
+      chat._valid_trip_date_ranges({"needs_confirmation": True, "candidate_ranges": _TWO_CANDIDATES})
+      == {((21, 11), (30, 11)), ((28, 11), (7, 12))})
 
 # =====================================================================
 # End-to-end: Shaked's EXACT live shape - a shift request gets a reply
@@ -169,6 +194,39 @@ with patch.object(chat, "_post_claude", side_effect=mock_none):
     reply_none = chat._call_tinkerbell("k", "m", [], "שלום", {"dates": {}})
 check("with no dates known/pending at all, the mechanism never fires",
       calls_none.count("tinkerbell_reply") == 1)
+
+# =====================================================================
+# Shaked's own direct, more detailed follow-up report - the SUBTLER
+# candidate-mixing shape: two real candidates exist, and the reply mixes
+# candidate 1's own start with candidate 2's own start into a range that
+# matches neither whole option, even though each individual day/month
+# token is valid on its own. The per-token check alone would miss this
+# (both 21.11 and 28.11 are individually valid); the range check catches
+# the mismatched PAIR.
+# =====================================================================
+_TWO_CAND_STATE = {"dates": {"needs_confirmation": True, "candidate_ranges": list(_TWO_CANDIDATES)}}
+calls_mix, mock_mix = _make_mock([
+    "מסביבות ה-21-28 בנובמבר, נכון?",
+    "בוא נדייק - 21.11.2026 עד 30.11.2026 מתאים, או 28.11.2026 עד 07.12.2026?",
+])
+with patch.object(chat, "_post_claude", side_effect=mock_mix):
+    reply_mix = chat._call_tinkerbell("k", "m", [], "בסוף החודש הבא, לעשרה ימים", dict(_TWO_CAND_STATE))
+check("Shaked's candidate-mixing shape: a reply stitching candidate 1's "
+      "start with candidate 2's start into a mismatched range triggers "
+      "EXACTLY ONE corrective retry",
+      calls_mix.count("tinkerbell_reply") == 2)
+check("the retried reply (offering both whole candidates distinctly) is "
+      "what's actually returned",
+      reply_mix == "בוא נדייק - 21.11.2026 עד 30.11.2026 מתאים, או 28.11.2026 עד 07.12.2026?")
+
+# Regression: a reply naming each WHOLE candidate correctly (even several
+# in the same message) never triggers a retry - only a MIXED range does.
+calls_mix_ok, mock_mix_ok = _make_mock(["21.11.2026 עד 30.11.2026, או 28.11.2026 עד 07.12.2026 - מה מתאים?"])
+with patch.object(chat, "_post_claude", side_effect=mock_mix_ok):
+    reply_mix_ok = chat._call_tinkerbell("k", "m", [], "כן", dict(_TWO_CAND_STATE))
+check("a reply correctly naming each WHOLE candidate (never mixing them) "
+      "never triggers a retry",
+      calls_mix_ok.count("tinkerbell_reply") == 1)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

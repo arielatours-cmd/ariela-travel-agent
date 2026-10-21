@@ -1108,29 +1108,99 @@ def _valid_trip_date_day_months(dates):
     return valid
 
 
+_NUMERIC_DATE_RANGE_RE = re.compile(
+    r"(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s*(?:[-–]|עד)\s*(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)"
+)
+
+
+def _mentioned_date_ranges(text):
+    """Every explicit date RANGE mentioned in free text, as a (start, end)
+    pair of (day, month) tuples - by format alone, never words. Catches a
+    subtler invented-date shape _mentioned_date_day_months alone misses
+    (Shaked's stage-1 run-3 direct report, Thessaloniki second finding): a
+    reply that stitches together two DIFFERENT real dates - each one
+    individually valid on its own (one candidate's start, another
+    candidate's own, different, start) - into a range that doesn't
+    correspond to any single whole valid option at all. Covers both a
+    plain numeric range ("27.11–6.12") and the common Hebrew phrasing
+    sharing one month name for both days ("21-28 בנובמבר") - reusing
+    _HEBREW_MONTH_RANGE_RE/_HEBREW_MONTHS, already built for the same
+    phrasing elsewhere in this file."""
+    text = str(text or "")
+    ranges = []
+    for d1, m1, _y1, d2, m2, _y2 in _NUMERIC_DATE_RANGE_RE.findall(text):
+        try:
+            ranges.append(((int(d1), int(m1)), (int(d2), int(m2))))
+        except ValueError:
+            pass
+    for d1, d2, month_name, _y in re.findall(_HEBREW_MONTH_RANGE_RE, text):
+        month = _HEBREW_MONTHS.get(month_name)
+        if month:
+            ranges.append(((int(d1), month), (int(d2), month)))
+    return ranges
+
+
+def _valid_trip_date_ranges(dates):
+    """The complete set of valid WHOLE ranges (each a (day,month)-(day,month)
+    pair): the real confirmed departure-return pair, or every candidate's
+    own start-end pair - checked as a single unit, not just by independent
+    endpoint membership (see _mentioned_date_ranges's own docstring)."""
+    dates = dates if isinstance(dates, dict) else {}
+    valid = set()
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    try:
+        dep = date.fromisoformat(dep_raw)
+        ret = date.fromisoformat(ret_raw)
+        valid.add(((dep.day, dep.month), (ret.day, ret.month)))
+    except ValueError:
+        pass
+    for label in (dates.get("candidate_ranges") or []):
+        pts = re.findall(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", str(label))
+        if len(pts) >= 2:
+            (d1, m1, _y1), (d2, m2, _y2) = pts[0], pts[1]
+            valid.add(((int(d1), int(m1)), (int(d2), int(m2))))
+    return valid
+
+
 def _retry_if_dates_invented(key, model, history, message, state, reply):
     """Structural safety net (date FORMAT, not words) for when
-    _dates_truth_hint's own instruction still isn't followed: if the reply
-    mentions any date-shaped token that matches neither the real confirmed
-    dates nor any real pending candidate, Tinkerbell is called again
-    EXACTLY ONCE with a corrective hint describing the mismatch, and that
-    second reply is used as-is - never a silent word-based rewrite of the
-    first reply, and never more than one retry (the caller passes
-    _date_retry=True on the recursive call, which skips this check)."""
+    _dates_truth_hint's own instruction still isn't followed. Two signals,
+    both format-based:
+    - any date-shaped TOKEN matching neither the real confirmed dates nor
+      a real pending candidate (catches the original Thessaloniki shift:
+      departure/return each invented in a separate clause); and
+    - any explicit date RANGE that doesn't match a whole valid range unit
+      (catches the subtler Thessaloniki candidate-mixing case: a range
+      stitched from two DIFFERENT real dates, each individually valid on
+      its own but never offered together as one option).
+    Either signal calls Tinkerbell again EXACTLY ONCE with a corrective
+    hint describing the mismatch, and that second reply is used as-is -
+    never a silent word-based rewrite of the first reply, and never more
+    than one retry (the caller passes _date_retry=True on the recursive
+    call, which skips this check)."""
     state = state if isinstance(state, dict) else {}
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     valid = _valid_trip_date_day_months(dates)
     if not valid:
         return None
     invented = [dm for dm in _mentioned_date_day_months(reply) if dm not in valid]
-    if not invented:
+    valid_ranges = _valid_trip_date_ranges(dates)
+    bad_ranges = [
+        r for r in _mentioned_date_ranges(reply)
+        if r not in valid_ranges and (r[1], r[0]) not in valid_ranges
+    ]
+    if not invented and not bad_ranges:
         return None
-    bad = ", ".join(f"{d:02d}.{m:02d}" for d, m in invented)
+    bad_parts = [f"{d:02d}.{m:02d}" for d, m in invented]
+    bad_parts += [f"{s[0]:02d}.{s[1]:02d}–{e[0]:02d}.{e[1]:02d}" for s, e in bad_ranges]
+    bad = ", ".join(bad_parts)
     state2 = dict(state)
     state2["_date_hallucination_correction_hint"] = (
-        f"בתשובה הקודמת שלך ציינת תאריך ({bad}) שאינו תואם אף אחד מהתאריכים האמיתיים - לא התאריכים "
-        "השמורים ולא אחת מהאפשרויות הממתינות. נסחי את התשובה הזו מחדש בלי להמציא תאריך כלשהו - אם "
-        "הלקוח ביקש שינוי שעדיין לא מחושב בקוד, שאלי לוודא במקום לקבוע תאריך בעצמך."
+        f"בתשובה הקודמת שלך ציינת תאריך/טווח ({bad}) שאינו תואם אף אחד מהתאריכים האמיתיים כמות שהם - "
+        "לא התאריכים השמורים ולא אחת מהאפשרויות הממתינות השלמות. נסחי את התשובה הזו מחדש בלי להמציא "
+        "תאריך, ובלי לערבב תאריכים מאפשרויות שונות לטווח חדש - אם הלקוח ביקש שינוי שעדיין לא מחושב "
+        "בקוד, שאלי לוודא במקום לקבוע תאריך בעצמך."
     )
     return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
 
