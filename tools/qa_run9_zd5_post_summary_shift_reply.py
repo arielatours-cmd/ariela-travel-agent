@@ -64,6 +64,32 @@ a deliberate, acknowledged trade-off: a flight-only date tweak after a
 route is already built can still slip through unguided, same as before
 this whole mechanism existed for that specific combination.
 
+SECOND REJECTION (be159f6) - turn 1's fix, reworked again: the "pending
+candidate" check (needs_confirmation + candidate_ranges) fired on BOTH
+shapes alike - a genuine CHANGE to already-known dates, AND the very
+first time dates are chosen at all (a relative answer like "בסוף החודש
+הבא" produces 2 candidates with departure/return still None - a
+different, already-working flow). Dropping "dates" from missing_required
+for the first-time shape too let the NEXT gap in the list (Shaked's own
+example: budget_per_person) jump the queue and get asked before the
+customer's own candidates were ever shown.
+
+ACTUAL FIX: a new shared helper, _dates_pending_change(dates), requires
+departure/return to ALSO already be set (a genuine change keeps them at
+their last-confirmed values while proposing new ones - a first-time
+selection never has them set yet) - used in _advance_sessions' missing_
+required filter, so ONLY a real change candidate gets "dates" dropped
+from the list; a first-time candidate keeps "dates" fully listed and
+answerable, exactly as before any of this work. Separately, _flight_gap_
+question's OWN internal gap-priority ladder happened to check "budget_
+per_person" (and several other fields) textually before "dates" - a
+pre-existing ordering quirk that meant even with "dates" correctly kept
+in missing_required, a co-occurring budget_per_person gap could still win
+the race inside this one function. Fixed by moving the "pending candidate
+(any kind) -> None" check to the very top of the ladder, before every
+other gap, so a real candidate always takes priority over any other open
+field once one exists.
+
 Run: python3 tools/qa_run9_zd5_post_summary_shift_reply.py
 """
 import os
@@ -173,6 +199,66 @@ check("regression: flights stays active (not prematurely marked complete) - "
       "a pending, unconfirmed candidate is still genuinely unresolved",
       _advanced_pending.get("session_status", {}).get("flights") == "active"
       and _advanced_pending.get("active_session") == "flights")
+
+
+# =====================================================================
+# Direct unit coverage: _dates_pending_change itself, and Shaked's SECOND
+# rejection - the conversation-start shape (relative answer -> 2
+# candidates, departure/return still None) must be told apart from a
+# genuine change to already-known dates.
+# =====================================================================
+_first_time_dates = {
+    "departure": None, "return": None, "needs_confirmation": True,
+    "candidate_ranges": [
+        "יום חמישי 11.06.2027–יום שני 15.06.2027",
+        "יום חמישי 18.06.2027–יום שני 22.06.2027",
+    ],
+}
+_change_dates = {
+    "departure": "2027-06-10", "return": "2027-06-14", "needs_confirmation": True,
+    "candidate_ranges": ["יום חמישי 11.06.2027–יום שני 15.06.2027"],
+}
+check("_dates_pending_change is False for a first-time candidate selection "
+      "(departure/return still None - nothing confirmed yet)",
+      chat._dates_pending_change(_first_time_dates) is False)
+check("_dates_pending_change is True for a genuine change (departure/return "
+      "already set to the prior confirmed dates)",
+      chat._dates_pending_change(_change_dates) is True)
+
+# Shaked's exact second-rejection repro: conversation start, 2 pending
+# candidates, destination/travelers known but budget_per_person ALSO still
+# a gap - "dates" must stay a real, answerable gap, and the co-occurring
+# budget gap must never jump the queue inside _flight_gap_question itself.
+check("SECOND REJECTION FIX: _flight_gap_question(['dates','budget_per_person']) "
+      "at conversation start (first-time candidates) returns None - NOT the "
+      "budget question jumping the queue before the date options are shown",
+      chat._flight_gap_question(["dates", "budget_per_person"], {"dates": _first_time_dates}) is None)
+check("regression: the same holds regardless of the gaps list's own order",
+      chat._flight_gap_question(["budget_per_person", "dates"], {"dates": _first_time_dates}) is None)
+check("regression: a genuine change candidate co-occurring with budget_per_person "
+      "also never lets budget jump the queue",
+      chat._flight_gap_question(["dates", "budget_per_person"], {"dates": _change_dates}) is None)
+
+_first_time_full_state = {
+    "destination": {"places": ["רומא"], "mode": "specific", "status": "known"},
+    "destination_airports": ["FCO"],
+    "travelers": {"adults": 2},
+    "dates": _first_time_dates,
+    "requested_services": ["flights"],
+    "session_status": {"flights": "active", "lodging": "declined", "car": "declined", "trip_planning": "declined"},
+    "active_session": "flights",
+    "trip_type": "regular", "departure_airport": "TLV",
+    "flight": {"baggage": ["checked_bag"], "connection_preference": "no_preference"},
+    # budget_per_person deliberately left unset - a real co-occurring gap.
+}
+_advanced_first_time = chat._advance_sessions(dict(_first_time_full_state))
+check("SECOND REJECTION FIX: missing_required KEEPS 'dates' for a "
+      "first-time candidate selection (the already-working flow Shaked "
+      "named) - only a genuine CHANGE candidate gets it dropped",
+      "dates" in (_advanced_first_time.get("missing_required") or []))
+check("regression: budget_per_person is still correctly listed too (a real, "
+      "separate gap) - just never asked INSTEAD of dates",
+      "budget_per_person" in (_advanced_first_time.get("missing_required") or []))
 
 
 # =====================================================================
