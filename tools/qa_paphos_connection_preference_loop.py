@@ -221,6 +221,52 @@ check("the exact Paphos answer ('לא חובה') resolves connection_preference 
       "the field is never left null after being genuinely answered",
       (_state_after.get("flight") or {}).get("connection_preference") == "אין העדפה")
 
+# =====================================================================
+# 4. Shlomo's review of this exact PR (21.10.2026): _deterministic_
+# connection_preference_facts' own word lists must be a true fail-safe
+# only - never a parallel path that can override the extractor's genuine
+# understanding. Reproduces the concern directly: the field is already
+# resolved ("direct") from an earlier turn, the extractor returns no
+# update this turn (simulating the model not touching the field, which
+# is exactly right once it's already settled), and the customer's
+# message/prior question would otherwise make the deterministic
+# fallback match "אין העדפה" - the already-resolved field must survive
+# untouched, because the fallback must never even run once the gap is
+# already closed.
+# =====================================================================
+_PAPHOS_STATE_RESOLVED = dict(_PAPHOS_STATE, flight={"baggage": ["checked_bag"], "connection_preference": "direct"})
+
+
+def _mock_model_leaves_it_alone(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {}, "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "קיבלתי, תודה."
+    return "{}"
+
+
+m_paphos_resolved = _make_member("qa-paphos-resolved-fallback@example.com")
+database.save_ariella_conversation(m_paphos_resolved, [
+    {"role": "user", "content": "פאפוס, זוג, 5.5 עד 10.5.2027, ישירה"},
+    {"role": "assistant", "content": "מעולה, טיסה ישירה. " + _DIRECT_Q},
+], dict(_PAPHOS_STATE_RESOLVED))
+
+with patch.object(chat, "_post_claude", side_effect=_mock_model_leaves_it_alone):
+    whatsapp_bridge.ariella_turn(m_paphos_resolved, "אין העדפה, מה שיותר נוח")
+
+_state_resolved_after = (database.load_ariella_conversation(m_paphos_resolved) or {}).get("trip_state") or {}
+check("the deterministic word-list fallback never overrides an already-"
+      "resolved connection_preference, even when the message would "
+      "otherwise match its own word list - it's a fail-safe for a still-"
+      "open gap only, never a second opinion once the model (or an "
+      "earlier turn) already settled the field",
+      (_state_resolved_after.get("flight") or {}).get("connection_preference") == "direct")
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

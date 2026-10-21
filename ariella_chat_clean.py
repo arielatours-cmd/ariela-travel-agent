@@ -13000,7 +13000,15 @@ def _chat_clean_impl():
             except (TypeError, ValueError):
                 _baggage_traveler_count = 0
             trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message, _baggage_traveler_count))
-        trip_update = _merge_trip_state(trip_update, _deterministic_connection_preference_facts(message, history))
+        # Fail-safe only (Shlomo's review of this exact PR, 21.10.2026): this
+        # deterministic parser's own word lists must never override or race
+        # the extractor's genuine understanding of flight.connection_
+        # preference - it's a backup net for when the model's own call
+        # misses the field entirely, not a parallel detection path. Skipped
+        # outright once the field is already resolved (by the extractor
+        # this very turn, or by any earlier turn).
+        if not (trip_update.get("flight") or {}).get("connection_preference"):
+            trip_update = _merge_trip_state(trip_update, _deterministic_connection_preference_facts(message, history))
         trip_update = _merge_trip_state(trip_update, _deterministic_departure_airport_facts(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_open_jaw_airports(message))
         trip_update = _merge_trip_state(trip_update, _deterministic_airport_indifference(message, history, trip_update))
