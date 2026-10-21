@@ -51,6 +51,37 @@ Covers:
   genuinely fails to produce the final summary and dates are NOT part of
   what just changed this turn.
 
+REWORK (Shaked's rejection of this PR's first version, 21.10.2026, relayed
+by Shlomo): "מה שבדקה עובד, אבל התיקון חלקי." Three follow-up items, in
+order:
+
+(א) The gate was dates-only - a post-summary budget/baggage/traveler-count
+change with a reply lacking "מאשר" ("רק לוודא - 4000 לאדם?") still got
+stomped. Generalized to a structural per-fact before/after comparison
+(never a word list): a fact counts only once it was ALREADY resolved
+before this turn (so the turn that first completes it is never mistaken
+for a correction), and the safety net now skips whenever such an already-
+resolved fact - dates, budget_per_person, travelers, or flight.baggage -
+reads differently this turn, or a dates candidate is newly pending.
+
+(ב) The live failure may also be the EXTRACTOR itself never writing
+differing dates/shift_days at all for a genuine post-summary change
+request (pending Shaked's own diagnostics.csv review). Interim fix per
+Shlomo's instruction: _post_summary_dates_context_hint gives the
+extractor the same kind of explicit situational grounding
+_connection_preference_pending_hint already gives for a different field -
+once every domain is decided and dates are closed, the model is told the
+exact dates already shown and that any further date mention is
+necessarily a change request, never a verb list.
+
+(ג) A bare "כן" was observed choosing the FIRST of several date options
+Ariella displayed alongside an unrelated general yes/no confirm in the
+same message. Two prompt-level fixes: TINKERBELL_SYSTEM now forbids
+bundling a general yes/no confirm with presenting candidate_ranges in the
+same message, and the guided_extract dates prompt now explicitly
+instructs the model never to guess which of several pending candidates a
+bare agreement selects (confidence:"low" instead).
+
 Run: python3 tools/qa_post_summary_date_change.py
 """
 import os
@@ -328,6 +359,260 @@ check("regression: the missing-final-summary safety net still replaces a "
       "reply that genuinely fails to produce the final summary when no "
       "date change is in flight (Shaked's original Haifa->Bangkok case)",
       any(p in reply_unrelated for p in ("מאשר", "חופשה נעימה")))
+
+# =====================================================================
+# Rework (א): the generalized gate also covers budget/baggage/traveler-
+# count changes post-summary, not just dates.
+# =====================================================================
+def _post_claude_budget_change_post_summary(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {"budget_per_person": {"amount": 4000, "currency": "ILS"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": {
+                "weekday_start": None, "weekday_end": None, "month_name": None,
+                "month_relative": None, "part_of_month": None, "duration_days": None, "shift_days": None,
+            },
+            "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "רק לוודא - 4000 ש\"ח לאדם, נכון?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_budget_change_post_summary):
+    r_budget = client.post("/api/ariella/chat-clean", json={
+        "message": "רגע, אפשר להעלות את התקציב ל-4000 שקל לאדם?",
+        "history": [{"role": "assistant", "content": _OLD_SUMMARY_TEXT}],
+        "trip_state": _ALL_DECIDED_STATE,
+    })
+data_budget = r_budget.get_json() or {}
+budget_out = (data_budget.get("trip_update") or {}).get("budget_per_person") or {}
+reply_budget = str(data_budget.get("reply") or "")
+check("rework (א): a post-summary budget change updates state",
+      budget_out.get("amount") == 4000 and budget_out.get("currency") == "ILS")
+check("rework (א) FIX: the reply reaches the customer unmolested even "
+      "though it never says 'מאשר' - budget is a generalized fact, not "
+      "just dates",
+      reply_budget == 'רק לוודא - 4000 ש"ח לאדם, נכון?'
+      and "סיכום החופשה" not in reply_budget)
+
+# Regression: the FIRST turn that sets a previously-unknown budget (the
+# genuine path to the first real summary) must never be treated as a
+# post-summary correction - only an ALREADY-resolved budget counts.
+_NO_BUDGET_YET_STATE = dict(_ALL_DECIDED_STATE, budget_per_person={})
+with patch.object(chat, "_post_claude", side_effect=_post_claude_budget_change_post_summary):
+    r_first_budget = client.post("/api/ariella/chat-clean", json={
+        "message": "4000 שקל לאדם",
+        "history": [{"role": "assistant", "content": "מה התקציב שלכם לאדם לטיסה?"}],
+        "trip_state": _NO_BUDGET_YET_STATE,
+    })
+data_first_budget = r_first_budget.get_json() or {}
+reply_first_budget = str(data_first_budget.get("reply") or "")
+check("regression (א): a budget stated for the FIRST time (never "
+      "resolved before this turn) does NOT bypass the safety net - the "
+      "mocked reply here lacks 'מאשר', so it must still be replaced",
+      reply_first_budget != 'רק לוודא - 4000 ש"ח לאדם, נכון?')
+
+
+def _post_claude_travelers_change_post_summary(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {"travelers": {"adults": 3, "children": 0}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": {
+                "weekday_start": None, "weekday_end": None, "month_name": None,
+                "month_relative": None, "part_of_month": None, "duration_days": None, "shift_days": None,
+            },
+            "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "קלטתי, 3 מבוגרים במקום 2."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_travelers_change_post_summary):
+    r_travelers = client.post("/api/ariella/chat-clean", json={
+        "message": "עוד רגע, בעצם נוסעים 3 מבוגרים לא 2",
+        "history": [{"role": "assistant", "content": _OLD_SUMMARY_TEXT}],
+        "trip_state": _ALL_DECIDED_STATE,
+    })
+data_travelers = r_travelers.get_json() or {}
+travelers_out = (data_travelers.get("trip_update") or {}).get("travelers") or {}
+reply_travelers = str(data_travelers.get("reply") or "")
+check("rework (א): a post-summary traveler-count change updates state",
+      travelers_out.get("adults") == 3)
+check("rework (א) FIX: the reply reaches the customer unmolested",
+      reply_travelers == "קלטתי, 3 מבוגרים במקום 2."
+      and "סיכום החופשה" not in reply_travelers)
+
+
+def _post_claude_baggage_change_post_summary(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    # Confirmed by direct repro: once every domain is decided, _handle_
+    # guided_extraction_turn is skipped entirely (gated on _all_domains_
+    # already_decided), and _baggage_answer_by_meaning/_deterministic_
+    # baggage_facts only ever fire while baggage is still UNKNOWN - a
+    # post-summary baggage CORRECTION flows through the general extractor's
+    # own trip_update.flight.baggage field instead (merged at the very top
+    # of the per-turn pipeline), same as any other already-known fact.
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {"flight": {"baggage": ["checked_bag"]}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": {
+                "weekday_start": None, "weekday_end": None, "month_name": None,
+                "month_relative": None, "part_of_month": None, "duration_days": None, "shift_days": None,
+            },
+            "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "בטח, עדכנתי - מזוודה בבטן המטוס במקום רק תיק יד."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_baggage_change_post_summary):
+    r_baggage = client.post("/api/ariella/chat-clean", json={
+        "message": "רגע, בעצם נרצה גם מזוודה בבטן המטוס",
+        "history": [{"role": "assistant", "content": _OLD_SUMMARY_TEXT}],
+        "trip_state": _ALL_DECIDED_STATE,
+    })
+data_baggage = r_baggage.get_json() or {}
+baggage_out = ((data_baggage.get("trip_update") or {}).get("flight") or {}).get("baggage")
+reply_baggage = str(data_baggage.get("reply") or "")
+check("rework (א): a post-summary baggage change updates state",
+      baggage_out == ["checked_bag"])
+check("rework (א) FIX: the reply reaches the customer unmolested",
+      reply_baggage == "בטח, עדכנתי - מזוודה בבטן המטוס במקום רק תיק יד."
+      and "סיכום החופשה" not in reply_baggage)
+
+
+# =====================================================================
+# Rework (ב): the extractor gets explicit situational grounding once
+# every domain is decided and dates are closed.
+# =====================================================================
+check("direct: _post_summary_dates_context_hint is empty when not every "
+      "domain is decided yet",
+      chat._post_summary_dates_context_hint({
+          "session_status": {"flights": "active", "lodging": "pending", "car": "pending", "trip_planning": "pending"},
+          "dates": {"departure": "2026-11-21", "return": "2026-12-05"},
+      }) == "")
+check("direct: empty when dates were never actually closed",
+      chat._post_summary_dates_context_hint({
+          "session_status": {"flights": "complete", "lodging": "declined", "car": "declined", "trip_planning": "declined"},
+          "dates": {"departure": None, "return": None},
+      }) == "")
+_post_summary_hint = chat._post_summary_dates_context_hint({
+    "session_status": {"flights": "complete", "lodging": "declined", "car": "declined", "trip_planning": "declined"},
+    "dates": {"departure": "2026-11-21", "return": "2026-12-05"},
+})
+check("direct: once every domain is decided and dates are closed, the "
+      "hint names the exact current dates and instructs treating a "
+      "further date mention as a real change request",
+      "21.11.2026" in _post_summary_hint and "5.12.2026" in _post_summary_hint
+      and "בקשת שינוי אמיתית" in _post_summary_hint)
+check("direct: no verb list of any kind in the hint (Shlomo's explicit "
+      "21.10 instruction, PR #117's own rework) - only the one word "
+      "'אחר' for 'a different date', never an enumeration",
+      "לזוז" not in _post_summary_hint and "לדחות" not in _post_summary_hint
+      and "להקדים" not in _post_summary_hint)
+
+
+# End-to-end: the hint text actually reaches the extractor's own system_
+# dynamic once every domain is decided and dates are closed.
+_captured_system_dynamic = []
+
+
+def _post_claude_capture_system_dynamic(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        _captured_system_dynamic.append(system_dynamic)
+        return "{}"
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "בשמחה."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_capture_system_dynamic):
+    client.post("/api/ariella/chat-clean", json={
+        "message": "אפשר לטוס ביום אחר?",
+        "history": [{"role": "assistant", "content": _OLD_SUMMARY_TEXT}],
+        "trip_state": _ALL_DECIDED_STATE,
+    })
+check("end-to-end: the post-summary dates context hint is actually woven "
+      "into the extractor's system_dynamic for a post-summary turn",
+      _captured_system_dynamic and "בקשת שינוי אמיתית" in _captured_system_dynamic[-1])
+
+
+# =====================================================================
+# Rework (ג): a bare "כן" must never silently pick one of several
+# pending date candidates.
+# =====================================================================
+import inspect as _inspect_qa
+_tinkerbell_system_src = chat.TINKERBELL_SYSTEM if isinstance(chat.TINKERBELL_SYSTEM, str) else ""
+check("rework (ג): TINKERBELL_SYSTEM forbids bundling a general yes/no "
+      "confirm with presenting candidate_ranges in the same message",
+      "לבדו לא יכול לבחור בין כמה אפשרויות" in _tinkerbell_system_src)
+
+_dates_guided_extract_src = _inspect_qa.getsource(chat._guided_extract_answer)
+check("rework (ג): the guided_extract dates prompt forbids guessing which "
+      "pending candidate a bare agreement selects",
+      "אסור לנחש איזו מהן נבחרה" in _dates_guided_extract_src)
+
+
+# End-to-end: a correctly-behaving model (per the new instruction) returns
+# confidence:"low" for a bare "כן" against two pending candidates - the
+# code must not commit any candidate, must not crash, and must leave the
+# choice genuinely still open.
+_MULTI_CANDIDATE_STATE = dict(
+    _ALL_DECIDED_STATE,
+    session_status={"flights": "active", "lodging": "declined", "car": "declined", "trip_planning": "declined"},
+    active_session="flights",
+    dates={
+        "departure": None, "return": None, "needs_confirmation": True,
+        "candidate_ranges": ["יום שישי 20.11.2026–יום שישי 27.11.2026", "יום שבת 28.11.2026–יום שבת 05.12.2026"],
+    },
+    guided={"current_question": "dates", "attempts": 0, "answered": ["travelers"]},
+)
+
+
+def _post_claude_ambiguous_yes_multi_candidate(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return "{}"
+    if source == "guided_extract":
+        return json.dumps({
+            "status": "answered", "departure": None, "return": None, "nights": None,
+            "period": None, "flexibility_days": None, "confidence": "low",
+            "also_mentioned": None, "correction": None,
+        })
+    if source == "tinkerbell_reply":
+        return "איזו משתי האפשרויות מתאימה לך יותר?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_ambiguous_yes_multi_candidate):
+    r_ambiguous = client.post("/api/ariella/chat-clean", json={
+        "message": "כן",
+        "history": [{"role": "assistant", "content": "סוף נובמבר, נכון? יום שישי 20.11.2026–יום שישי 27.11.2026 או יום שבת 28.11.2026–יום שבת 05.12.2026."}],
+        "trip_state": _MULTI_CANDIDATE_STATE,
+    })
+data_ambiguous = r_ambiguous.get_json() or {}
+dates_ambiguous = (data_ambiguous.get("trip_update") or {}).get("dates") or {}
+check("rework (ג): a correctly low-confidence model response to a bare "
+      "'כן' against two candidates never commits either one",
+      dates_ambiguous.get("departure") is None and dates_ambiguous.get("return") is None)
+check("rework (ג): both candidates are still on the table - the choice "
+      "genuinely stays open, never silently narrowed to the first",
+      len(dates_ambiguous.get("candidate_ranges") or []) == 2)
 
 if FAILED:
     print(f"\n{len(FAILED)} CHECK(S) FAILED:")

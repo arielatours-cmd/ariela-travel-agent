@@ -209,6 +209,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - כשמשך החופשה הוא בקשה בקירוב ובמקביל יש אילוצי ימי שבוע (למשל יציאה בראשון וחזרה בחמישי), דרגי את טווחי התאריכים לפי המרחק המוחלט מהמשך המבוקש. האפשרות הקרובה ביותר למשך המבוקש מוצגת/מומלצת ראשונה. לדוגמה מול יעד של 14 ימים: 11 ימים עדיפים על 18 ימים כי הסטייה היא 3 לעומת 4. אל תעדיפי אוטומטית חופשה ארוכה יותר. אם נאמר גם חודש/טווח כמו 'באפריל אחרי ה-15', חשבי את התאריכים האפשריים מתוך המגבלה במקום לבקש שוב משך.
 - היי סלחנית לשגיאות כתיב ברורות לפי ההקשר. אם שאלת על תקציב ונכתב למשל "ללא תקציר", אפשר להבין "ללא תקציב"; אם יש יותר מפירוש סביר אחד, שאלי הבהרה קצרה.
 - בביטוי יחסי כמו "סוף יוני" יחד עם ימי שבוע/משך, אל תבחרי תאריך אחד בשם הלקוח. אם יש שתי אפשרויות סבירות סמוכות, הציגי את שתיהן ושאלי איזו עדיפה. רק אחרי בחירת הלקוח יש תאריכי יציאה וחזרה סופיים.
+- כשאת מציגה כמה אפשרויות תאריכים קונקרטיות (candidate_ranges) באותה הודעה, זו השאלה היחידה שלך - לעולם אל תוסיפי לפניה או אחריה שאלת כן/לא כללית נפרדת על אותו נושא (למשל "את מתכוונת לסוף נובמבר, נכון?") לפני הצגת האפשרויות. "כן" לבדו לא יכול לבחור בין כמה אפשרויות שהוצגו - אם הלקוח עונה "כן" בלי לציין איזו מהן, זה לא נחשב בחירה; שאלי במפורש איזו מהאפשרויות מתאימה.
 - כשdates.candidate_ranges במצב החופשה המצטבר כבר מכיל תאריכים (מחושבים דטרמיניסטית, לא על ידך), חובה להציג ללקוח בדיוק את התאריכים האלה, מילה במילה, ולעולם לא לחשב או לנחש תאריכים אחרים בעצמך - גם אם הם נראים לך "מתאימים יותר". אל תמציאי טווח שאינו ברשימת candidate_ranges.
 - אסור להגיע לסיכום או לבקש מאשר/מאשרת כאשר dates עדיין דורש בחירה/אישור.
 - לעולם אל תחשבי בעצמך תאריכים לפי ימי שבוע (למשל "ראשון עד חמישי בסוף יוני"). אם אין candidate_ranges ב-state, שאלי את הלקוח על תאריך יציאה מדויק במקום להציע טווחים. "סוף/תחילת/אמצע חודש" פירושו שתאריך היציאה בתוך אותו חודש (החזרה יכולה להיות בחודש הבא) - לעולם אל תציעי טווח שהיציאה בו בחודש אחר. כשאת מציגה תאריך, כתבי אותו עם שנה. אותו איסור חל גם כשהלקוח ביקש יום בשבוע בודד בלי טווח (למשל "אני רוצה לצאת ביום ראשון") - לעולם אל תנחשי/תחשבי בעצמך איזה תאריך קלנדרי הוא "יום ראשון הקרוב" ותציעי אותו כעובדה מוגמרת; נראה בפועל (20.9.2027, שהוא בעצם יום שני) שהניחוש הזה יוצא שגוי. במקום זאת שאלי את הלקוח לתאריך מדויק, או אם כבר הציע תאריך קונקרטי - בדקי אותו מול טבלת ימי השבוע האמיתיים שנמסרת לך (לא מהזיכרון שלך) לפני שאת מאשרת שהוא אכן חל ביום המבוקש.
@@ -4764,6 +4765,56 @@ def _connection_preference_pending_hint(state, history):
     )
 
 
+def _post_summary_dates_context_hint(state):
+    """Run-7 bug A, part (ב) (Shaked's rejection of this PR's first
+    version, 21.10.2026): the live failure in Batumi wasn't only the
+    missing-final-summary safety net stomping a correct reply - the
+    EXTRACTOR itself likely never wrote differing dates/shift_days at all
+    for a genuine post-summary change request (the existing dates_change
+    diagnostic event will confirm this against real traffic). Shlomo's
+    interim instruction, pending that diagnostics data: give the extractor
+    the SAME kind of explicit situational grounding _connection_preference_
+    pending_hint already gives it for a different field - not a list of
+    verbs ("לזוז"/"לדחות"/...), which the business owner's 21.10 decision
+    (PR #117's rework) already ruled out once for this exact prompt. Once
+    every domain is already decided and dates are already closed, the
+    customer is clearly done with the ORIGINAL request - any further
+    mention of flying on a different day is necessarily a change to the
+    dates just shown, not a fresh unrelated date statement, and the model
+    is told so directly; it still decides for itself, from genuine
+    understanding of the current message, whether this specific message is
+    such a request at all."""
+    state = state if isinstance(state, dict) else {}
+    statuses = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+    # flights reads "complete" OR has no open required gaps - never just the
+    # status label alone. _explicit_service_request (the "go back and
+    # change the flight" mechanism) reactivates flights to "active" the
+    # instant the current message names it ("לטוס"/"טיסה"), which a date-
+    # change request naturally does ("אפשר לדחות את כל הטיסה..."), BEFORE
+    # this extractor call runs - _advance_sessions only re-closes it back to
+    # "complete" later in the same turn's pipeline. Trusting the status
+    # label alone here would make this hint silently never fire for exactly
+    # the live phrasing it exists to help with.
+    flights_effectively_decided = (
+        str(statuses.get("flights") or "pending") in ("complete", "declined")
+        or not _session_gaps(state, "flights")
+    )
+    other_domains_decided = all(
+        str(statuses.get(s) or "pending") in ("complete", "declined")
+        for s in ("lodging", "car", "trip_planning")
+    )
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if not (flights_effectively_decided and other_domains_decided) or not (dates.get("departure") and dates.get("return")):
+        return ""
+    return (
+        f'\nכבר הוצג ללקוח סיכום חופשה מלא עם התאריכים {_he_date_window(dates["departure"])} עד '
+        f'{_he_date_window(dates["return"])} - כל התחומים כבר סגורים. אם ההודעה הנוכחית של הלקוח מבקשת לטוס '
+        'בתאריך אחר (בכל ניסוח - לא מרשימת מילים), זו בקשת שינוי אמיתית לתאריכים האלה, לא אזכור סתמי - כתבי '
+        'אותה בשדות dates/dates_evidence (אם ניתן תאריך מפורש) או relative_date_hint/relative_date_hint_evidence '
+        '(אם ניתן ביטוי יחסי כמו הזזה), ולעולם אל תשאירי אותם null רק בגלל שהסיכום כבר הוצג.'
+    )
+
+
 def _extract_trip_update(key, model, history, message, state=None):
     """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence).
 
@@ -4809,7 +4860,7 @@ def _extract_trip_update(key, model, history, message, state=None):
                 f'הם: {options_text}. כתבי ב-destination_airports אך ורק קודי IATA מהרשימה הזו לפי מה שהלקוח בחר '
                 '(אחד, כמה, או כולם) - לעולם לא קוד אחר.'
             )
-        system_dynamic = '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat() + gateway_hint_text + _connection_preference_pending_hint(state, history)
+        system_dynamic = '\nמצב החופשה המצטבר לפני ההודעה הנוכחית:\n' + _state_context(state) + '\nהתאריך הנוכחי: ' + date.today().isoformat() + gateway_hint_text + _connection_preference_pending_hint(state, history) + _post_summary_dates_context_hint(state)
         # Used to pass only the last 4 messages ("preserve semantics without
         # paying the latency of the entire conversation"), while the system
         # prompt itself claims "קבלי את כל השיחה" - the two didn't match.
@@ -9762,6 +9813,13 @@ def _guided_extract_answer(key, model, field, message, history, state):
             "confidence:\"low\". departure לא יכול להיות בעבר. return חייב "
             "להיות אחרי departure. אם ניתן מספר לילות בלי תאריך חזרה מפורש, "
             "השאירי return null ומלאי nights - החישוב ייעשה בקוד, לא אצלך. "
+            "אם יש כרגע יותר מאפשרות אחת ב-candidate_ranges (מצב נוכחי, "
+            "למעלה) וההודעה הנוכחית היא הסכמה כללית בלבד ('כן'/'בסדר'/"
+            "'מתאים', בלי לציין תאריך ספציפי, 'הראשון'/'השני' או ציטוט "
+            "מהאפשרויות) - אסור לנחש איזו מהן נבחרה: השאירי departure/"
+            "return null והחזירי confidence:\"low\". רק כשההודעה עצמה "
+            "מזהה חד-משמעית איזו אפשרות (תאריך מפורש, מספר סידורי, או "
+            "ציטוט שלה) - מלאי departure/return לפי האפשרות הזו.\n"
             "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי "
             "להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, "
             "נושא אחר) - status=\"other_topic\". אם ההודעה מתקנת תאריך "
@@ -13745,22 +13803,35 @@ def _chat_clean_impl():
             str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
             for _s in ("flights", "lodging", "car", "trip_planning")
         )
-        # Run-7 bug A (Shaked, severe, Bangkok/Batumi): a date-change request
-        # made AFTER the final summary was already shown is a genuine
-        # mid-conversation-style correction, not a failure to produce the
-        # final summary. _all_domains_decided_now stays True the instant
-        # dates were last locked - it says nothing about whether THIS turn
-        # just reopened them. Without this check, the missing-final-summary
-        # safety net below treated Tinkerbell's own correct reply (a shift
-        # proposal awaiting confirmation, or an acknowledgement of newly
-        # committed explicit dates) as a failure merely for lacking
-        # "מאשר"/"חופשה נעימה", and replaced it with the stale old-dates
-        # fallback summary - then the next turn's "כן" had nothing genuine
-        # to confirm, since the real proposal was never actually shown.
-        # Scoped to dates (prior_dates captured earlier in this same date-
-        # processing block) only - this bug is specifically about dates,
-        # and the other domains' own post-approval correction behavior is
-        # out of scope here.
+        # Run-7 bug A (Shaked, severe, Bangkok/Batumi): a change request made
+        # AFTER the final summary was already shown is a genuine mid-
+        # conversation-style correction, not a failure to produce the final
+        # summary. _all_domains_decided_now stays True the instant every
+        # domain was last decided - it says nothing about whether THIS turn
+        # just reopened one of its facts. Without this check, the missing-
+        # final-summary safety net below treated Tinkerbell's own correct
+        # reply (a shift proposal awaiting confirmation, or an
+        # acknowledgement of a newly committed fact) as a failure merely for
+        # lacking "מאשר"/"חופשה נעימה", and replaced it with the stale
+        # fallback summary built from the OLD facts - then the next turn's
+        # "כן" had nothing genuine to confirm, since the real proposal was
+        # never actually shown.
+        #
+        # Reworked per Shaked's rejection of this PR's first version
+        # (21.10.2026): scoping this to dates alone missed the identical
+        # failure for any other already-settled fact - budget, baggage, or
+        # traveler count - changing post-summary with a reply that likewise
+        # never says "מאשר" ("רק לוודא - 4000 לאדם?"). Generalized to a
+        # structural before/after state comparison per fact (never a list of
+        # customer wordings): a fact counts only once it was ALREADY
+        # resolved before this turn (so the turn that first completes it -
+        # the genuine first approval moment - is never mistaken for a post-
+        # summary correction), and the safety net is skipped only when such
+        # an already-resolved fact now reads differently, or a dates
+        # candidate is newly pending confirmation.
+        def _resolved_fact_changed_this_turn(prior_value, now_value, was_already_resolved):
+            return bool(was_already_resolved) and prior_value != now_value
+
         _dates_now_for_summary_gate = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
         _post_summary_date_change_pending = bool(
             prior_dates.get("departure") and prior_dates.get("return")
@@ -13769,6 +13840,30 @@ def _chat_clean_impl():
                 or _dates_now_for_summary_gate.get("departure") != prior_dates.get("departure")
                 or _dates_now_for_summary_gate.get("return") != prior_dates.get("return")
             )
+        )
+        _prior_budget = trip_state.get("budget_per_person") if isinstance(trip_state.get("budget_per_person"), dict) else {}
+        _now_budget = trip_update.get("budget_per_person") if isinstance(trip_update.get("budget_per_person"), dict) else {}
+        _post_summary_budget_change_pending = _resolved_fact_changed_this_turn(
+            _prior_budget, _now_budget,
+            _prior_budget.get("amount") is not None or str(_prior_budget.get("status") or "") in ("known", "unlimited"),
+        )
+        _prior_travelers = trip_state.get("travelers") if isinstance(trip_state.get("travelers"), dict) else {}
+        _now_travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
+        _post_summary_travelers_change_pending = _resolved_fact_changed_this_turn(
+            _prior_travelers, _now_travelers, _prior_travelers.get("adults") is not None,
+        )
+        _prior_flight = trip_state.get("flight") if isinstance(trip_state.get("flight"), dict) else {}
+        _now_flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
+        _post_summary_baggage_change_pending = _resolved_fact_changed_this_turn(
+            (_prior_flight.get("baggage"), _prior_flight.get("baggage_detail")),
+            (_now_flight.get("baggage"), _now_flight.get("baggage_detail")),
+            bool(_prior_flight.get("baggage")),
+        )
+        _post_summary_change_pending = (
+            _post_summary_date_change_pending
+            or _post_summary_budget_change_pending
+            or _post_summary_travelers_change_pending
+            or _post_summary_baggage_change_pending
         )
         if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת", "סיכום")) and not _all_domains_decided_now:
             premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
@@ -13852,7 +13947,7 @@ def _chat_clean_impl():
         # no path to the approval they're actually waiting for.
         if (
             _all_domains_decided_now
-            and not _post_summary_date_change_pending
+            and not _post_summary_change_pending
             and not any(p in str(reply or "") for p in ("מאשר", "חופשה נעימה"))
         ):
             try:
