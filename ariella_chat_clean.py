@@ -8434,12 +8434,26 @@ def _apply_gap_repeat_guard(trip_update, pending_question_response, active_sessi
     _parse_pending_question_response) of whether the customer's CURRENT
     message was an attempt to answer the single open question Tinkerbell's
     last turn asked: "unclear" (tried to answer, not understood) increments
-    the streak; "answered" resolves it (the gap should already be closing
-    through the extractor's own trip_update in that case, but the streak is
-    cleared regardless, defensively); "side_question" (or no open question
-    at all) leaves the streak untouched - it neither advances nor resets
-    it, since it carries no information about whether the open question
-    was ever genuinely attempted.
+    the streak; "side_question" (or no open question at all) leaves the
+    streak untouched - it neither advances nor resets it, since it carries
+    no information about whether the open question was ever genuinely
+    attempted.
+
+    REWORKED AGAIN 21.10.2026, same day (Shaked's second rejection, PR
+    #116 round 3, via Shlomo): "answered" does NOT reset the streak either.
+    This function only ever reaches this point when _session_gaps still
+    lists `gap` as open - a genuinely successful "answered" would already
+    have closed it earlier in the pipeline (the extractor's own
+    trip_update merge runs first). So "answered" with the gap STILL open
+    is itself a failure, not a resolution: the live Paphos transcript had
+    Tinkerbell's own free text correctly say "הבנתי, אין העדפה" turn after
+    turn while connection_preference stayed null the whole time - the
+    model's own JSON output was internally inconsistent (pending_question_
+    response="answered" alongside a trip_update that never actually wrote
+    the field). Treating that "answered" as a reset meant the streak never
+    once reached two, and the guard never engaged at all - the exact
+    original infinite loop, unfixed. Both "unclear" and an "answered" that
+    didn't actually close the gap now count identically.
 
     Once the SAME gap has reached two unclear, unresolved attempts in a
     row (never counting a side question as one of them) - the next ask
@@ -8459,10 +8473,23 @@ def _apply_gap_repeat_guard(trip_update, pending_question_response, active_sessi
         return trip_update
     gap = gaps[0]
     streaks = dict(trip_update.get("_gap_unclear_streak") or {})
-    if pending_question_response == "unclear":
+    # Reaching this line already means _session_gaps still lists `gap` as
+    # open - a genuinely successful "answered" would have closed it before
+    # this call ever ran (the extractor's own trip_update merge happens
+    # earlier in the pipeline), so "answered" with the gap STILL open is
+    # itself the failure, not a resolution: the model claimed to understand
+    # the customer's answer but its own trip_update write didn't actually
+    # land (Shlomo's second review of this exact PR, 21.10.2026 - the live
+    # Paphos transcript had Tinkerbell's own free text say "הבנתי, אין
+    # העדפה" turn after turn while connection_preference stayed null the
+    # whole time; the first version of this field treated "answered" as a
+    # reason to reset the streak, so it never once reached two and the
+    # guard never engaged - exactly the original infinite loop, unfixed).
+    # So both "unclear" and an "answered" that didn't actually close the
+    # gap count the same way here; only "side_question" (or no open
+    # question at all) is a turn that never attempted this gap at all.
+    if pending_question_response in ("unclear", "answered"):
         streaks[gap] = streaks.get(gap, 0) + 1
-    elif pending_question_response == "answered":
-        streaks.pop(gap, None)
     # "side_question" (or None - no single open question to judge against)
     # carries no signal either way: the customer never attempted this gap's
     # question this turn, so the streak is left exactly as it was.

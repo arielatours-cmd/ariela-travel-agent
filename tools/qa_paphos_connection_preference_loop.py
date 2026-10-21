@@ -144,10 +144,22 @@ check("_parse_pending_question_response defaults to None on a missing "
 # open gap-question - and a persistent per-gap streak carried across
 # turns in trip_update["_gap_unclear_streak"], never raw history
 # text-matching. "unclear" (tried to answer, not understood) advances the
-# streak; "answered" clears it; "side_question" (the live Paphos-review
-# counter-example: a question about flight duration, or about a kids'
-# beach, that never addresses the open question at all) leaves it exactly
-# as it was - it must never count as a repeat.
+# streak; "side_question" (the live Paphos-review counter-example: a
+# question about flight duration, or about a kids' beach, that never
+# addresses the open question at all) leaves it exactly as it was - it
+# must never count as a repeat.
+#
+# REWORKED AGAIN, same day (Shaked's second rejection, round 3, via
+# Shlomo): "answered" does NOT clear the streak either, when this
+# function still finds the gap open (which it always does at this point,
+# by construction - see the function's own docstring). The live Paphos
+# transcript had Tinkerbell's own free text correctly say "הבנתי, אין
+# העדפה" turn after turn while connection_preference stayed null the
+# whole time - the model's pending_question_response="answered" was
+# simply wrong about its own trip_update actually landing. Treating
+# "answered" as a reset meant the streak never reached two, and the guard
+# never engaged - the exact original infinite loop, unfixed. "answered"
+# now counts exactly like "unclear" whenever the gap is still open.
 # =====================================================================
 _DIRECT_Q = "חשוב לכם שהטיסה תהיה ישירה?"
 
@@ -169,6 +181,34 @@ check("regression: with only ONE unclear attempt so far (not yet twice "
       "in a row), the guard never fires - genuinely needs two unresolved "
       "attempts first",
       "connection_preference" not in _result_too_early.get("flight", {}))
+
+# Shlomo's second review of this exact PR (21.10.2026, same day): the
+# live Paphos transcript itself - Tinkerbell's own free text correctly
+# understood the answer ("הבנתי, אין העדפה") turn after turn, yet
+# connection_preference stayed null the whole time, because the
+# extractor's own JSON was internally inconsistent (pending_question_
+# response="answered" alongside a trip_update that never actually wrote
+# the field). Reproduced directly: two turns marked "answered" with the
+# gap STILL open both times (_session_gaps keeps listing it, exactly as
+# it would if the write never landed) must NOT be treated as two
+# resolutions - the second one must still trigger the honest default,
+# or the exact original infinite loop recurs unfixed.
+with patch.object(chat, "_session_gaps", return_value=["flight.connection_preference"]):
+    _state_answered = {"active_session": "flights"}
+    _state_answered = chat._apply_gap_repeat_guard(_state_answered, "answered", "flights")
+check("after the FIRST 'answered' turn (gap still open - the write never "
+      "landed), the field is not yet written - needs a second unresolved "
+      "turn, exactly like 'unclear'",
+      "connection_preference" not in _state_answered.get("flight", {}))
+with patch.object(chat, "_session_gaps", return_value=["flight.connection_preference"]):
+    _result_answered_twice = chat._apply_gap_repeat_guard(_state_answered, "answered", "flights")
+check("the exact live Paphos failure, reproduced directly: 'answered' "
+      "twice in a row with the gap still open BOTH times (the model's "
+      "own claim of understanding didn't actually resolve the field) "
+      "must still trigger the honest 'אין העדפה' default on the second "
+      "turn - 'answered' is never treated as a free reset while the gap "
+      "remains open",
+      _result_answered_twice.get("flight", {}).get("connection_preference") == "אין העדפה")
 
 # The exact scenario Shaked's review reported, reproduced directly:
 # the SAME open question is asked across three turns, but the customer's
