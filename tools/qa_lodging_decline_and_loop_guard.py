@@ -115,6 +115,22 @@ check("with no next field at all, the skip hint still moves on gracefully "
       "(no dangling 'ask about None')",
       "None" not in skip_no_next and "מאוחר יותר" in skip_no_next)
 
+# =====================================================================
+# 3. Direct unit tests of _guided_skip_turn_hint - the REQUIRED-field
+# variant (dates/travelers/baggage), per Shaked's review of the first
+# loop-guard version: these are never skipped away the way a lodging
+# sub-field can be (the field stays open, only THIS turn's ask is
+# skipped - the caller is the one that resets attempts to 0).
+# =====================================================================
+skip_turn_dates = chat._guided_skip_turn_hint("dates")
+check("the skip-turn hint explicitly skips asking again THIS turn",
+      "פעמיים" in skip_turn_dates and "לא עכשיו" in skip_turn_dates)
+check("the skip-turn hint never claims the field is being moved past or "
+      "skipped permanently - it will be asked again",
+      "יישאל שוב" in skip_turn_dates)
+check("the skip-turn hint names the field's own topic",
+      "לטוס" in skip_turn_dates)
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

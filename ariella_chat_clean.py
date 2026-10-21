@@ -8691,6 +8691,24 @@ def _guided_skip_hint(skipped_field, next_field):
     return text
 
 
+def _guided_skip_turn_hint(field):
+    """Required-field variant of the loop guard, per Shaked's explicit
+    correction: dates/travelers/baggage are never optional the way a
+    lodging sub-field is (the whole lodging domain can be declined
+    entirely; a required fact about the trip itself cannot be silently
+    dropped). Unlike _guided_skip_hint, the field itself stays open - only
+    THIS turn's repeat is skipped, so it gets asked again fresh, with a
+    concrete example, the next time it comes up (attempts already reset
+    to 0 by the caller)."""
+    label = _GUIDED_FIELD_HINT_DESCRIPTION.get(field, field)
+    return (
+        f"כבר ניסית פעמיים לברר את הפרט הבא ולא הצלחת להבין את התשובה: {label}. "
+        "אל תשאלי עליו שוב באותה צורה בהודעה הזו - המשיכי את השיחה באופן טבעי, "
+        "בלי לדרוש תשובה על זה עכשיו. הפרט הזה יישאל שוב בהמשך, בניסוח חדש עם "
+        "דוגמה קונקרטית - לא עכשיו."
+    )
+
+
 def _baggage_followup_hint(baggage_values):
     """Per the business owner's explicit decision (20.10, replacing the
     earlier per-passenger/explain-and-confirm design after Shaked's live
@@ -9588,20 +9606,34 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             # never repeat verbatim forever - seen live, 15 times in a row.
             # Two unclear answers in a row (this one is the second) means
             # whatever is blocking this field isn't resolving by asking it
-            # again the same way - skip it instead of a third identical
-            # attempt, regardless of why the answer keeps coming back
-            # unclear. The field can always be revisited later if the
-            # customer brings it up again themselves.
-            if current_question not in answered:
-                answered.append(current_question)
-            skipped_field = current_question
-            next_field = next(
-                (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
-                None,
-            )
-            guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
+            # again the same way.
+            #
+            # Per Shaked's review of the first version of this guard: it
+            # marked the field "answered" with no real value even for the
+            # UNIVERSAL required fields (dates/travelers/baggage) - these
+            # are never optional the way a lodging sub-field is (lodging
+            # itself can be skipped entirely), so silently treating one as
+            # settled would lose a real booking fact. Lodging sub-fields
+            # keep the skip-and-advance behavior (the field truly can stay
+            # unknown); every other field instead only skips asking again
+            # THIS turn - the field stays open, attempts reset to 0, so
+            # it's asked again fresh (reworded, with a concrete example)
+            # next time it comes up, rather than a third identical attempt
+            # right now.
+            if current_question in _LODGING_GUIDED_SUBFIELDS:
+                if current_question not in answered:
+                    answered.append(current_question)
+                skipped_field = current_question
+                next_field = next(
+                    (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+                    None,
+                )
+                guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
+                trip_update["guided"] = guided
+                return {"trip_update": trip_update, "dynamic_hint": _guided_skip_hint(skipped_field, next_field)}
+            guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
             trip_update["guided"] = guided
-            return {"trip_update": trip_update, "dynamic_hint": _guided_skip_hint(skipped_field, next_field)}
+            return {"trip_update": trip_update, "dynamic_hint": _guided_skip_turn_hint(current_question)}
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(current_question, attempts)}
