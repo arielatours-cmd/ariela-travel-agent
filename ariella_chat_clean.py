@@ -1089,22 +1089,47 @@ def _mentioned_date_day_months(text):
     return out
 
 
-def _valid_trip_date_day_months(dates):
+def _valid_trip_date_day_months(dates, message=None, history=None):
     """The complete set of (day, month) pairs Tinkerbell is allowed to
-    mention this turn: the real confirmed departure/return, or - while
-    still pending - every candidate_ranges option's own start/end dates.
+    mention this turn. Per Shaked's review of the first version of this
+    fix (two real false positives it caused, badly - a wasteful retry
+    that ended up WIPING the itinerary's own dates): a route/itinerary
+    day mention ("יום 2 (7.4)") names a real date somewhere INSIDE the
+    confirmed trip span, not necessarily one of its two endpoints - and a
+    date the CUSTOMER themselves already mentioned (e.g. "בקיץ שעבר
+    3.7–7.7", an unrelated past trip) is never an invention when
+    Tinkerbell echoes it back. So this now includes:
+    - every day within the confirmed [departure..return] span inclusive
+      (not just the two endpoints);
+    - every candidate_ranges option's own start/end dates, while pending;
+    - every date-shaped token already present in the customer's OWN
+      messages (this turn's message, plus every prior user-role turn in
+      history) - Tinkerbell can never be "inventing" something the
+      customer already put on the table herself.
     Year is deliberately ignored (casual phrasing often omits it)."""
     dates = dates if isinstance(dates, dict) else {}
     valid = set()
-    for raw in (str(dates.get("departure") or "")[:10], str(dates.get("return") or "")[:10]):
-        try:
-            d = date.fromisoformat(raw)
-            valid.add((d.day, d.month))
-        except ValueError:
-            pass
+    dep_raw = str(dates.get("departure") or "")[:10]
+    ret_raw = str(dates.get("return") or "")[:10]
+    try:
+        dep = date.fromisoformat(dep_raw)
+        ret = date.fromisoformat(ret_raw)
+        if dep <= ret and (ret - dep).days <= 180:
+            d = dep
+            while d <= ret:
+                valid.add((d.day, d.month))
+                d += timedelta(days=1)
+    except ValueError:
+        pass
     for label in (dates.get("candidate_ranges") or []):
         for d_s, m_s, _y_s in re.findall(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", str(label)):
             valid.add((int(d_s), int(m_s)))
+    customer_texts = [message] if message else []
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            customer_texts.append(item.get("content"))
+    for text in customer_texts:
+        valid.update(_mentioned_date_day_months(text))
     return valid
 
 
@@ -1140,26 +1165,33 @@ def _mentioned_date_ranges(text):
     return ranges
 
 
-def _valid_trip_date_ranges(dates):
+def _valid_trip_date_ranges(dates, message=None, history=None):
     """The complete set of valid WHOLE ranges (each a (day,month)-(day,month)
-    pair): the real confirmed departure-return pair, or every candidate's
-    own start-end pair - checked as a single unit, not just by independent
-    endpoint membership (see _mentioned_date_ranges's own docstring)."""
+    pair), checked as a single unit rather than by independent endpoint
+    membership (see _mentioned_date_ranges's own docstring). Per Shaked's
+    review: scoped to candidate_ranges ONLY, never the confirmed
+    departure-return pair itself - once dates are confirmed, all sorts of
+    other legitimate ranges get mentioned (an itinerary's own day spans,
+    a customer's own past-trip dates) that have no reason to equal the
+    whole trip span; the per-token check in _valid_trip_date_day_months
+    already independently catches an invented SHIFTED range via its own
+    endpoints, so nothing is lost by not also range-checking against the
+    confirmed pair here. Also includes any WHOLE range the customer
+    themselves already mentioned (e.g. "בקיץ שעבר 3.7–7.7") - Tinkerbell
+    echoing it back is never an invention of her own."""
     dates = dates if isinstance(dates, dict) else {}
     valid = set()
-    dep_raw = str(dates.get("departure") or "")[:10]
-    ret_raw = str(dates.get("return") or "")[:10]
-    try:
-        dep = date.fromisoformat(dep_raw)
-        ret = date.fromisoformat(ret_raw)
-        valid.add(((dep.day, dep.month), (ret.day, ret.month)))
-    except ValueError:
-        pass
     for label in (dates.get("candidate_ranges") or []):
         pts = re.findall(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", str(label))
         if len(pts) >= 2:
             (d1, m1, _y1), (d2, m2, _y2) = pts[0], pts[1]
             valid.add(((int(d1), int(m1)), (int(d2), int(m2))))
+    customer_texts = [message] if message else []
+    for item in (history or []):
+        if isinstance(item, dict) and str(item.get("role") or "").lower() == "user":
+            customer_texts.append(item.get("content"))
+    for text in customer_texts:
+        valid.update(_mentioned_date_ranges(text))
     return valid
 
 
@@ -1178,18 +1210,36 @@ def _retry_if_dates_invented(key, model, history, message, state, reply):
     hint describing the mismatch, and that second reply is used as-is -
     never a silent word-based rewrite of the first reply, and never more
     than one retry (the caller passes _date_retry=True on the recursive
-    call, which skips this check)."""
+    call, which skips this check).
+
+    Per Shaked's review: scoped to the flights stage only
+    (active_session == "flights") - never during trip_planning/route
+    building, where an itinerary legitimately names many real per-day
+    dates that have no reason to be the trip's own departure/return."""
     state = state if isinstance(state, dict) else {}
+    if state.get("active_session") != "flights":
+        return None
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
-    valid = _valid_trip_date_day_months(dates)
+    valid = _valid_trip_date_day_months(dates, message, history)
     if not valid:
         return None
     invented = [dm for dm in _mentioned_date_day_months(reply) if dm not in valid]
-    valid_ranges = _valid_trip_date_ranges(dates)
-    bad_ranges = [
-        r for r in _mentioned_date_ranges(reply)
-        if r not in valid_ranges and (r[1], r[0]) not in valid_ranges
-    ]
+    bad_ranges = []
+    if dates.get("needs_confirmation"):
+        # The candidate-mixing shape can only arise while there are real
+        # candidates to mix up in the first place. Once dates are already
+        # confirmed, there is exactly one valid pair, and restating it as
+        # an explicit range ("28.11.2026 עד 05.12.2026") is always fine as
+        # long as both endpoints are individually valid - which the
+        # per-token check above already verifies on its own; range-
+        # checking against candidate_ranges here would otherwise wrongly
+        # flag that same legitimate restatement once candidate_ranges is
+        # empty (confirmed dates have nothing left to range-check against).
+        valid_ranges = _valid_trip_date_ranges(dates, message, history)
+        bad_ranges = [
+            r for r in _mentioned_date_ranges(reply)
+            if r not in valid_ranges and (r[1], r[0]) not in valid_ranges
+        ]
     if not invented and not bad_ranges:
         return None
     bad_parts = [f"{d:02d}.{m:02d}" for d, m in invented]

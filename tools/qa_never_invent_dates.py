@@ -18,6 +18,16 @@ token happens to be valid on its own (just not together, as one unit).
 The customer agreed ("כן") and 28.11-07.12 got committed - a different
 pair than what the reply itself had just offered.
 
+A SECOND review (relayed by Shlomo) then caught two real false positives
+in that version of the fix, one of them severe - a wasteful corrective
+retry that ended up WIPING an itinerary's own dates:
+- a route/itinerary day mention ("יום 2 (7.4)") names a real date
+  somewhere INSIDE the confirmed trip span, not one of its two
+  endpoints - flagged as invented by the first version.
+- a date the CUSTOMER themselves already mentioned (e.g. "בקיץ שעבר
+  3.7–7.7", an unrelated past trip) echoed back by Tinkerbell - also
+  flagged as invented.
+
 Per the business owner's explicit structural direction, this is now a
 two-layer defense, neither layer a word/phrase list:
 
@@ -30,14 +40,18 @@ two-layer defense, neither layer a word/phrase list:
 (b) _retry_if_dates_invented is a structural (date FORMAT, not words)
     safety net for when (a) alone still isn't followed, with TWO signals:
     every date-shaped TOKEN in the reply is compared against the valid
-    set (confirmed dates, or every candidate's own start/end) - catching
-    an invented date stated on its own; and every explicit date RANGE is
-    compared against the valid set of WHOLE ranges - catching a range
-    stitched from two different real dates that are each individually
-    valid but never offered together as one option. Either signal calls
-    Tinkerbell again EXACTLY ONCE with a corrective hint describing the
-    mismatch - never a silent rewrite of the first reply, and never more
-    than one retry.
+    set (every day within the confirmed trip span, every candidate's own
+    start/end, or any date the customer already mentioned themselves) -
+    catching an invented date stated on its own; and every explicit date
+    RANGE is compared against the candidate_ranges options ONLY (never
+    the confirmed span itself, which legitimately contains all sorts of
+    other ranges once dates are settled) - catching a range stitched
+    from two different real candidates, each individually valid but
+    never offered together as one option. Either signal calls Tinkerbell
+    again EXACTLY ONCE with a corrective hint describing the mismatch -
+    never a silent rewrite of the first reply, and never more than one
+    retry. Scoped to the flights stage only (active_session == "flights")
+    - never during trip_planning/route building.
 
 Run: python3 tools/qa_never_invent_dates.py
 """
@@ -89,13 +103,24 @@ check("_mentioned_date_day_months extracts every date-shaped token, "
       chat._mentioned_date_day_months("נצא ב-27.11 ונחזור ב-04.12.2026") == [(27, 11), (4, 12)])
 check("_mentioned_date_day_months returns [] for text with no date-shaped tokens",
       chat._mentioned_date_day_months("מה התקציב שלכם?") == [])
-check("_valid_trip_date_day_months collects both confirmed dates",
-      chat._valid_trip_date_day_months({"departure": "2026-11-28", "return": "2026-12-05"}) == {(28, 11), (5, 12)})
+check("_valid_trip_date_day_months collects EVERY day within the confirmed "
+      "span, not just the two endpoints (an itinerary day like 30.11 must "
+      "never be flagged as invented just for being neither departure nor "
+      "return)",
+      chat._valid_trip_date_day_months({"departure": "2026-11-28", "return": "2026-12-05"})
+      == {(28, 11), (29, 11), (30, 11), (1, 12), (2, 12), (3, 12), (4, 12), (5, 12)})
 check("_valid_trip_date_day_months collects every candidate's start/end dates",
       chat._valid_trip_date_day_months({
           "needs_confirmation": True,
           "candidate_ranges": ["יום שישי 21.11.2026–יום שישי 28.11.2026"],
       }) == {(21, 11), (28, 11)})
+check("_valid_trip_date_day_months also collects every date the customer "
+      "themselves already mentioned - current message and prior history "
+      "alike - never an invention when Tinkerbell merely echoes it back",
+      chat._valid_trip_date_day_months(
+          {}, message="בקיץ שעבר טסנו 3.7–7.7, היה נהדר",
+          history=[{"role": "user", "content": "בפעם הקודמת היינו ב-10.1.2025"}],
+      ) == {(3, 7), (7, 7), (10, 1)})
 
 _TWO_CANDIDATES = ["יום שבת 21.11.2026–יום שני 30.11.2026", "יום שבת 28.11.2026–יום שני 07.12.2026"]
 check("_mentioned_date_ranges extracts a Hebrew-month-shared-day range",
@@ -113,7 +138,7 @@ check("_valid_trip_date_ranges treats each candidate's own start/end as ONE unit
 # naming a date that doesn't match the confirmed dates. Exactly one
 # corrective retry fires, and the second reply is used as-is.
 # =====================================================================
-_CONFIRMED_STATE = {"dates": {"departure": "2026-11-28", "return": "2026-12-05"}}
+_CONFIRMED_STATE = {"active_session": "flights", "dates": {"departure": "2026-11-28", "return": "2026-12-05"}}
 
 
 def _make_mock(replies):
@@ -173,7 +198,7 @@ check("even when the retried reply STILL invents a date, there is never "
 # candidates (not yet confirmed) is correctly accepted, no retry -
 # candidates are also part of the valid set, not just confirmed dates.
 # =====================================================================
-_PENDING_STATE = {"dates": {
+_PENDING_STATE = {"active_session": "flights", "dates": {
     "needs_confirmation": True,
     "candidate_ranges": ["יום שישי 21.11.2026–יום שישי 28.11.2026"],
 }}
@@ -204,7 +229,7 @@ check("with no dates known/pending at all, the mechanism never fires",
 # (both 21.11 and 28.11 are individually valid); the range check catches
 # the mismatched PAIR.
 # =====================================================================
-_TWO_CAND_STATE = {"dates": {"needs_confirmation": True, "candidate_ranges": list(_TWO_CANDIDATES)}}
+_TWO_CAND_STATE = {"active_session": "flights", "dates": {"needs_confirmation": True, "candidate_ranges": list(_TWO_CANDIDATES)}}
 calls_mix, mock_mix = _make_mock([
     "מסביבות ה-21-28 בנובמבר, נכון?",
     "בוא נדייק - 21.11.2026 עד 30.11.2026 מתאים, או 28.11.2026 עד 07.12.2026?",
@@ -227,6 +252,59 @@ with patch.object(chat, "_post_claude", side_effect=mock_mix_ok):
 check("a reply correctly naming each WHOLE candidate (never mixing them) "
       "never triggers a retry",
       calls_mix_ok.count("tinkerbell_reply") == 1)
+
+# =====================================================================
+# Shlomo's second relay of Shaked's review - two real false positives in
+# the first version of this fix, one of them severe (a wasteful retry
+# that ended up WIPING an itinerary's own dates).
+# =====================================================================
+
+# (1) An itinerary/route day mention ("יום 2 (7.4)") inside the confirmed
+# trip span must never be flagged as invented, even though 7.4 is
+# neither the departure nor the return date itself.
+_calls_itinerary, _mock_itinerary = _make_mock([
+    "המסלול: יום 1 (28.11) - ברלין. יום 2 (29.11) - ברלין. יום 3 (30.11) - פוטסדם.",
+])
+with patch.object(chat, "_post_claude", side_effect=_mock_itinerary):
+    _reply_itinerary = chat._call_tinkerbell(
+        "k", "m", [], "איך נראה המסלול?",
+        dict(_CONFIRMED_STATE, dates={"departure": "2026-11-28", "return": "2026-12-05"}),
+    )
+check("an itinerary day mention (29.11, inside the confirmed span but "
+      "neither the departure nor return date) is never flagged as "
+      "invented - the false positive that used to wipe the itinerary",
+      _calls_itinerary.count("tinkerbell_reply") == 1)
+
+# (2) A date the CUSTOMER themselves already mentioned (an unrelated past
+# trip) must never be flagged as invented just because Tinkerbell echoes
+# it back - it was never Tinkerbell's own invention.
+_calls_quoted, _mock_quoted = _make_mock([
+    "מבין, בקיץ שעבר הייתם ב-3.7–7.7 - הפעם מדובר ב-28.11.2026 עד 05.12.2026, נכון?",
+])
+with patch.object(chat, "_post_claude", side_effect=_mock_quoted):
+    _reply_quoted = chat._call_tinkerbell(
+        "k", "m",
+        [{"role": "user", "content": "בקיץ שעבר טסנו 3.7–7.7, היה כיף"}],
+        "כן, אותו דבר",
+        dict(_CONFIRMED_STATE),
+    )
+check("a date the customer themselves already mentioned (an unrelated "
+      "past trip, echoed back by Tinkerbell) is never flagged as invented",
+      _calls_quoted.count("tinkerbell_reply") == 1)
+
+# (3) Scoped to the flights stage only - during trip_planning/route
+# building, an itinerary legitimately names all sorts of real per-day
+# dates; the mechanism must not even run there, regardless of content.
+_calls_planning, _mock_planning = _make_mock(["נצא ב-27.11 - האם זה מתאים?"])
+with patch.object(chat, "_post_claude", side_effect=_mock_planning):
+    _reply_planning = chat._call_tinkerbell(
+        "k", "m", [], "מה דעתך על המסלול?",
+        dict(_CONFIRMED_STATE, active_session="trip_planning"),
+    )
+check("the mechanism never runs at all outside the flights stage "
+      "(active_session='trip_planning' here) - even a genuinely invented "
+      "date is not caught there, by design",
+      _calls_planning.count("tinkerbell_reply") == 1)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
