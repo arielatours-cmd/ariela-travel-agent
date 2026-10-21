@@ -8463,6 +8463,10 @@ def _post_flight_offer_answer(message, state, key=None, model=None, history=None
         "הביני את משמעות התשובה בכל ניסוח, כולל סלנג ושגיאות כתיב. לכל שירות החזירי true אם הלקוח רוצה אותו עכשיו, "
         "false אם הוא לא רוצה אותו עכשיו (כולל 'אחר כך', 'אסתדר לבד', 'זהו'), או null אם אי אפשר לדעת מהתשובה. "
         "'כן' כללי בלי פירוט = true לכולם. סירוב כללי בלי פירוט = false לכולם. "
+        "שימי לב במיוחד: תשובה כמו 'יש' או 'יש לנו' לשאלה הזו כמעט תמיד אומרת שהלקוח כבר מסודר עם השירות הזה "
+        "בעצמו (למשל כבר יש לו לינה מוזמנת) - זו false, לא אישור כללי. אל תבלבלי בין המשמעות הזו (יש לי כבר "
+        "את זה) לבין 'יש!' כקריאת התלהבות (שתהיה true) - בהקשר הזה, תשובה על אם צריך עזרה נוספת בשירות מסוים, "
+        "המשמעות הטבעית והשכיחה הרבה יותר של 'יש'/'יש לנו' היא הראשונה. "
         "אם הלקוח מתלבט או שואל שאלה בלי להחליט - null. "
         "החזירי JSON בלבד, בפורמט {\"lodging\": true|false|null, ...} רק עם המפתחות: " + ", ".join(offered) + "."
     )
@@ -8665,6 +8669,26 @@ def _guided_confirm_hint(field, confirm_desc):
 def _guided_correction_hint(label, confirm_desc):
     value_text = f" ל{confirm_desc}" if confirm_desc else ""
     return f"הלקוח עדכן את {label}{value_text} - ציייני לו בקצרה במשפט אחד שהעדכון נקלט, לא כשאלה."
+
+
+def _guided_skip_hint(skipped_field, next_field):
+    """Loop guard (Carmit's explicit directive, Copenhagen stage-1 run-3
+    live finding): "איזה סוג לינה?" got asked 15 times in a row with no
+    progress. The same canonical question must never repeat verbatim
+    forever - after two unclear answers in a row, this is used INSTEAD of
+    a third identical-style attempt, moving the conversation on by
+    construction rather than hoping a differently-worded retry finally
+    lands."""
+    label = _GUIDED_FIELD_HINT_DESCRIPTION.get(skipped_field, skipped_field)
+    text = (
+        f"כבר ניסית פעמיים לברר את הפרט הבא ולא הצלחת להבין את התשובה: {label}. "
+        "אל תשאלי עליו שוב באותו נושא ובאותה צורה - ציייני בקצרה ובטבעיות שאפשר "
+        "להשלים את זה מאוחר יותר, בלי להתנצל יתר על המידה."
+    )
+    if next_field:
+        next_desc = _GUIDED_FIELD_HINT_DESCRIPTION.get(next_field, next_field)
+        text += f" מיד אחר כך, באותה הודעה, שאלי שאלה אחת ויחידה, פתוחה, על הפרט הבא: {next_desc}."
+    return text
 
 
 def _baggage_followup_hint(baggage_values):
@@ -9558,6 +9582,26 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         return {"trip_update": trip_update, "dynamic_hint": None} if changed else None
     if status == "unclear":
         attempts += 1
+        if attempts >= 2:
+            # Loop guard (Carmit's explicit directive, Copenhagen stage-1
+            # run-3 live finding): the exact same canonical question must
+            # never repeat verbatim forever - seen live, 15 times in a row.
+            # Two unclear answers in a row (this one is the second) means
+            # whatever is blocking this field isn't resolving by asking it
+            # again the same way - skip it instead of a third identical
+            # attempt, regardless of why the answer keeps coming back
+            # unclear. The field can always be revisited later if the
+            # customer brings it up again themselves.
+            if current_question not in answered:
+                answered.append(current_question)
+            skipped_field = current_question
+            next_field = next(
+                (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+                None,
+            )
+            guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "dynamic_hint": _guided_skip_hint(skipped_field, next_field)}
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(current_question, attempts)}
