@@ -30,3 +30,7 @@
 - [Travelpayouts – EKTA](https://travelpayouts.com/en/offers/ekta-affiliate-program), [מדריך תוכניות ביטוח](https://www.travelpayouts.com/blog/best-travel-insurance-affiliate-programs/)
 - [מעריב: האיסור על סוכנויות נסיעות למכור ביטוח](https://www.maariv.co.il/business/article-697123)
 - [PassportCard Pay](https://www.passportcard.co.il/financial-services/passportcard-pay/)
+
+## הכרעת דין (21.10.2026, ממצא AFF-5; התשובה המלאה אצל שלמה)
+- ✅ **תזכורת לעשות ביטוח, בלי עמלה:** מותר כבר עכשיו.
+- ❌ **קישורי שותפים עם עמלה** (שוק הביטוח, EKTA): אסור עד חוות דעת של עורך דין.
