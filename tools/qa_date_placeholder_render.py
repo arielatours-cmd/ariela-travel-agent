@@ -282,6 +282,75 @@ check("acceptance #4: with TWO candidate options pending, both appear in "
       all(c in reply_multi for c in _two_candidates)
       and chat._DATE_OPTIONS_PLACEHOLDER not in reply_multi)
 
+# =====================================================================
+# Shaked's review of this PR's first version (relayed by Shlomo) found the
+# placeholder architecture above still missed the FINAL SUMMARY turn
+# entirely: active_session is already None once every domain has closed
+# (ready_for_summary=True), so _dates_truth_hint/_retry_if_dates_invented
+# (both scoped to active_session=="flights") never run there - a drifted
+# "תאריכים:" line in the free-text summary could still reach the customer
+# unchanged, the exact Tallinn symptom one turn later. Fixed the same way
+# PR #108 already fixed this for baggage: _ensure_flight_summary_
+# completeness now ALWAYS replaces whatever follows the fixed "תאריכים:"
+# label with the canonical line built directly from state.
+# =====================================================================
+_summary_state = {"dates": {"departure": "2026-11-21", "return": "2026-11-30"}}
+_drifted_summary = "סיכום: תאריכים: 20.11.2026 – 30.11.2026. כתבי מאשרת?"
+_fixed_summary = chat._ensure_flight_summary_completeness(_drifted_summary, _summary_state)
+check("Shaked's final-summary finding: a drifted 'תאריכים:' line in the "
+      "final summary (20.11, while state actually holds 21.11) is "
+      "unconditionally corrected to the real state value - never trusted "
+      "as already-correct free text",
+      "21.11.2026" in _fixed_summary and "20.11.2026" not in _fixed_summary)
+check("the final summary fix never touches a 'תאריכים:' line that's "
+      "already correct",
+      chat._ensure_flight_summary_completeness(
+          "סיכום: תאריכים: 21.11.2026 – 30.11.2026. כתבי מאשרת?", _summary_state,
+      ) == "סיכום: תאריכים: 21.11.2026 – 30.11.2026. כתבי מאשרת?")
+
+# =====================================================================
+# Shaked's second finding: only the exact literal placeholder string was
+# ever substituted, and a token with no matching value resolved to an
+# empty string IN PLACE ("תאריכים: ." live) instead of being handled.
+# _render_date_placeholders itself is covered directly in tools/qa_never_
+# invent_dates.py; here, end-to-end via _call_tinkerbell, confirm the
+# retry-once-then-never-leak guarantee holds for the full pipeline.
+# =====================================================================
+_unresolved_calls = []
+
+
+def _mock_unresolved(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "tinkerbell_reply":
+        _unresolved_calls.append(1)
+        if len(_unresolved_calls) == 1:
+            return f"קלטתי. התאריכים הם {chat._DATES_PLACEHOLDER}. מתי תרצו לחזור?"
+        return "מעולה - ומתי תרצו לחזור בדיוק?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_mock_unresolved):
+    reply_unresolved = chat._call_tinkerbell("k", "m", [], "שלום", {"active_session": "flights", "dates": {}})
+check("a placeholder written with NO matching value in state (dates not "
+      "actually confirmed) triggers exactly one corrective retry, never a "
+      "raw placeholder or an empty 'תאריכים:' artifact",
+      len(_unresolved_calls) == 2
+      and chat._DATES_PLACEHOLDER not in reply_unresolved
+      and reply_unresolved == "מעולה - ומתי תרצו לחזור בדיוק?")
+
+# Absolute last resort: even if the retried reply STILL has nothing but an
+# unresolved placeholder, the customer never receives empty text.
+def _mock_always_empty(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "tinkerbell_reply":
+        return chat._DATES_PLACEHOLDER
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_mock_always_empty):
+    reply_empty = chat._call_tinkerbell("k", "m", [], "שלום", {"active_session": "flights", "dates": {}})
+check("even when the retried reply STILL resolves to nothing at all, the "
+      "customer never receives an empty message",
+      bool(reply_empty.strip()) and chat._DATES_PLACEHOLDER not in reply_empty)
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

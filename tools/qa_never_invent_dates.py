@@ -125,21 +125,26 @@ check("scoped to the flights stage only - even with real confirmed/pending "
 # Direct unit tests of _render_date_placeholders - the actual
 # substitution, reading state's own FINAL dates this turn (the single
 # source of truth also used to commit "כן", so label and saved range can
-# never drift apart, per item 3 of the structural directive).
+# never drift apart, per item 3 of the structural directive). Returns
+# (text, had_unresolved) - see Shlomo's relay of Shaked's PR #113 review
+# below for why a second return value was added.
 # =====================================================================
-check("a reply with no placeholder token at all passes through unchanged",
-      chat._render_date_placeholders("מה התקציב שלכם?", {}) == "מה התקציב שלכם?")
+_text, _unresolved = chat._render_date_placeholders("מה התקציב שלכם?", {})
+check("a reply with no placeholder token at all passes through unchanged, "
+      "and had_unresolved is False",
+      _text == "מה התקציב שלכם?" and _unresolved is False)
 
-rendered_dates = chat._render_date_placeholders(
+rendered_dates, _unresolved = chat._render_date_placeholders(
     f"קלטתי, התאריכים הם {chat._DATES_PLACEHOLDER}.",
     {"dates": {"departure": "2026-11-28", "return": "2026-12-05"}},
 )
 check("{{DATES}} is substituted with weekday+date text built from state's "
       "own departure/return - never left as a literal placeholder",
       chat._DATES_PLACEHOLDER not in rendered_dates
-      and "28.11.2026" in rendered_dates and "05.12.2026" in rendered_dates)
+      and "28.11.2026" in rendered_dates and "05.12.2026" in rendered_dates
+      and _unresolved is False)
 
-rendered_options = chat._render_date_placeholders(
+rendered_options, _unresolved = chat._render_date_placeholders(
     f"האפשרויות הן {chat._DATE_OPTIONS_PLACEHOLDER} - מה מתאים?",
     {"dates": {"needs_confirmation": True, "candidate_ranges": ["יום שבת 21.11.2026–יום שני 30.11.2026", "יום שבת 28.11.2026–יום שני 07.12.2026"]}},
 )
@@ -149,15 +154,51 @@ check("{{DATE_OPTIONS}} is substituted with the SAME candidate_ranges "
       "separately-worded restatement",
       chat._DATE_OPTIONS_PLACEHOLDER not in rendered_options
       and "יום שבת 21.11.2026–יום שני 30.11.2026" in rendered_options
-      and "יום שבת 28.11.2026–יום שני 07.12.2026" in rendered_options)
+      and "יום שבת 28.11.2026–יום שני 07.12.2026" in rendered_options
+      and _unresolved is False)
 
-check("a stray {{DATES}} with no valid departure/return in state resolves "
-      "to empty (removed), never left visible to the customer",
-      chat._DATES_PLACEHOLDER not in chat._render_date_placeholders(chat._DATES_PLACEHOLDER, {"dates": {}}))
+# =====================================================================
+# Per Shlomo's relay of Shaked's review of PR #113's first version: two
+# real findings.
+#
+# (1) only the exact literal "{{DATES}}"/"{{DATE_OPTIONS}}" string ever
+# got substituted - a model variant with different spacing/brace count
+# ("{{ DATES }}", "{DATES}") went out to the customer completely raw.
+# (2) when no matching value exists, the token must never resolve to an
+# empty string IN PLACE (producing an artifact like "תאריכים: .") - the
+# whole sentence it was in is dropped instead, and had_unresolved=True
+# signals the caller (_call_tinkerbell) to retry once.
+# =====================================================================
+for _variant in (chat._DATES_PLACEHOLDER, "{{ DATES }}", "{DATES}", "{ DATES }"):
+    _out, _unresolved = chat._render_date_placeholders(
+        f"קלטתי, התאריכים הם {_variant}.",
+        {"dates": {"departure": "2026-11-28", "return": "2026-12-05"}},
+    )
+    check(f"lenient brace/spacing variant {_variant!r} is substituted "
+          "exactly like the canonical form, never left raw",
+          "28.11.2026" in _out and "05.12.2026" in _out
+          and "{" not in _out and "}" not in _out and _unresolved is False)
 
-check("a stray {{DATE_OPTIONS}} with no candidates in state resolves to "
-      "empty (removed), never left visible to the customer",
-      chat._DATE_OPTIONS_PLACEHOLDER not in chat._render_date_placeholders(chat._DATE_OPTIONS_PLACEHOLDER, {"dates": {}}))
+_stray_dates, _unresolved = chat._render_date_placeholders(
+    f"קלטתי. התאריכים הם {chat._DATES_PLACEHOLDER}. מתי תרצו לחזור?", {"dates": {}},
+)
+check("a stray {{DATES}} with no valid departure/return in state drops "
+      "only ITS OWN sentence (never a dangling empty-label artifact), "
+      "leaving every other real sentence untouched, and signals "
+      "had_unresolved=True so the caller retries once",
+      chat._DATES_PLACEHOLDER not in _stray_dates and "{" not in _stray_dates
+      and _unresolved is True
+      and "קלטתי." in _stray_dates and "מתי תרצו לחזור?" in _stray_dates)
+
+_stray_options, _unresolved = chat._render_date_placeholders(
+    f"קלטתי. האפשרויות הן {chat._DATE_OPTIONS_PLACEHOLDER}. מתי תרצו לחזור?",
+    {"dates": {"needs_confirmation": True}},
+)
+check("a stray {{DATE_OPTIONS}} with no candidates in state likewise "
+      "drops only its own sentence and signals had_unresolved=True",
+      chat._DATE_OPTIONS_PLACEHOLDER not in _stray_options and "{" not in _stray_options
+      and _unresolved is True
+      and "קלטתי." in _stray_options and "מתי תרצו לחזור?" in _stray_options)
 
 # =====================================================================
 # Direct unit tests of the extraction/comparison helpers.
