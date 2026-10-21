@@ -6747,6 +6747,16 @@ _SENTENCE_BOUNDARY_RE = re.compile(r"(?<!\d)[.!?](?!\d)(?=\s|$)|\n")
 # English "...right?" tag. See _enforce_one_option_question's own use below.
 _CONFIRMATION_TAG_QUESTION_RE = re.compile(r",\s*(?:נכון|לא|כן)\s*\?\s*\Z")
 
+# Per Shaked's SECOND review of PR #115: a question sentence that starts
+# with the bound "ו" prefix ("ונוח לכם בבוקר?") or the standalone word "או"
+# is grammatically a CONTINUATION of the question immediately before it,
+# never an independent question of its own - "מה התקציב שלכם לאדם לטיסה?
+# ונוח לכם בבוקר?" is one combined ask, not two. A narrow, unambiguous
+# structural pattern only - anything else is left to the plain "keep the
+# last question" default (her own explicit safety rule: never guess
+# further than this).
+_QUESTION_CONTINUATION_RE = re.compile(r"^(?:ו[א-ת]|או(?=\s|$))")
+
 # Per the same review: a day-by-day itinerary body ("יום 1 (15.4, חמישי):
 # נחיתה...") can legitimately contain its own rhetorical "?" ("מה יותר כיף
 # מאוכל טוב?") that is never a real gap-question - and with style/pace
@@ -7060,29 +7070,51 @@ def _enforce_one_option_question(reply, state):
             # returning the whole reply untouched would leave every extra
             # question in place too.
             #
-            # Per Shaked's review of PR #115 (Bratislava, 2db29a9): keeping
-            # the FIRST question and dropping the rest (the original
-            # version of this branch) has the same live failure the tag-
-            # question fix above was trying to patch over with a growing
-            # word list - a short confirmation tag ("...לכולם, בסדר?") is
-            # routinely the FIRST question sentence, with the real,
-            # conversation-advancing question ("מה התקציב...?") coming
-            # LAST. No finite list of Hebrew tag words can cover every
-            # such ending ("בסדר?"/"מתאים?"/"טוב?"/...). The robust,
-            # structural fix: keep the LAST question sentence instead -
-            # the one that actually moves the conversation forward is
-            # overwhelmingly the final one, tag or not - and drop every
-            # one before it. (A single, possibly-bundled question sentence
-            # with no fixed replacement keeps the Paris rule below
-            # unchanged: never drop the only question there is.)
-            drop = set(question_idx[:-1])
+            # Per Shaked's FIRST review of PR #115 (Bratislava, 2db29a9):
+            # keeping the FIRST question and dropping the rest (the
+            # original version of this branch) has the same live failure
+            # the tag-question fix above was trying to patch over with a
+            # growing word list - a short confirmation tag ("...לכולם,
+            # בסדר?") is routinely the FIRST question sentence, with the
+            # real, conversation-advancing question ("מה התקציב...?")
+            # coming LAST. Reworked once to keep the LAST question instead.
+            #
+            # Per Shaked's SECOND review (c7a617a): "always keep the last"
+            # has its own live failure the opposite way - "מה התקציב שלכם
+            # לאדם לטיסה? ונוח לכם בבוקר?" kept "ונוח לכם בבוקר?" (a
+            # continuation starting with "ו", not an independent question)
+            # and dropped the real missing-gap question. Her own decision
+            # order, implemented as-is:
+            # 1. active_session=="flights" with real gaps already known:
+            #    this path is handled entirely above (fixed = _flight_gap_
+            #    question(...) is always truthy whenever gaps is non-empty -
+            #    see its own trailing "if gaps: return ..." fallback) and
+            #    never reaches this branch at all; nothing to add here.
+            # 2. Otherwise: a question sentence that starts with "ו"/"או"
+            #    is grammatically a CONTINUATION of the question immediately
+            #    before it, not an independent one - keep that PRECEDING
+            #    question instead. In every other case, keep the LAST
+            #    question (unchanged from the first review).
+            # 4. Safety rule (hers): when this can't be decided with
+            #    confidence, delete nothing - two questions in one message
+            #    is less bad than deleting the one that actually advances
+            #    the conversation. The continuation check below is a
+            #    narrow, unambiguous STRUCTURAL pattern (an attached "ו"
+            #    prefix, or the standalone word "או") - anything else falls
+            #    through to the plain "keep last" default rather than
+            #    guessing further.
+            last_q_text = sentences[question_idx[-1]][0].lstrip()
+            if _QUESTION_CONTINUATION_RE.match(last_q_text) and len(question_idx) >= 2:
+                keep_idx = question_idx[-2]
+            else:
+                keep_idx = question_idx[-1]
+            drop = set(question_idx) - {keep_idx}
             kept = "".join(s for i, (s, _term) in enumerate(sentences) if i not in drop)
-            # Per the same review: strip only the leading/trailing edges of
-            # the final message (never anything in the middle) - dropping
-            # question sentence(s) that preceded the kept one can leave a
-            # bare "\n"-span dangling at the very start (the live
-            # Bratislava symptom: a reply beginning with a blank line and
-            # nothing before it).
+            # 3. Strip only the leading/trailing edges of the final message
+            # (never anything in the middle) - dropping question
+            # sentence(s) before the kept one can leave a bare "\n"-span
+            # dangling at the very start (the live Bratislava symptom: a
+            # reply beginning with a blank line and nothing before it).
             return kept.strip()
         return reply
     question_idx_set = set(question_idx)

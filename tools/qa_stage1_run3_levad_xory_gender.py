@@ -663,13 +663,17 @@ check("Shaked's corrected rule: two fully separate questions, but no gap "
           {"active_session": None},
       ) == "איזו כבודה תרצו לקחת?")
 check("the same no-fixed-found rule keeps any leading statement sentence "
-      "untouched too, dropping only the EARLIER extra question(s) and "
-      "keeping the last one",
+      "untouched too - and per Shaked's SECOND review (continuation "
+      "handling), the trailing 'ומתי תרצו לטוס?' starts with the bound "
+      "'ו' prefix, so it's treated as a continuation of the question "
+      "immediately before it ('איזו כבודה תרצו לקחת?'), which is kept "
+      "instead - not literally 'the last sentence', the last REAL "
+      "question once a trailing continuation is resolved to its parent",
       chat._enforce_one_option_question(
           "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה? איזו כבודה תרצו לקחת? "
           "ומתי תרצו לטוס?",
           {"active_session": None},
-      ) == "מעולה, נרשם. ומתי תרצו לטוס?")
+      ) == "מעולה, נרשם. איזו כבודה תרצו לקחת?")
 check("a SINGLE bundled 'X או Y' question with no fixed replacement found "
       "still follows the Paris rule unchanged - there is only one "
       "question to begin with, so nothing is dropped, the whole reply is "

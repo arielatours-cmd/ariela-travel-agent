@@ -46,6 +46,19 @@ _CONFIRMATION_TAG_QUESTION_RE is kept as a complementary, lower-priority
 signal for the (different) branch where a real fixed replacement DOES
 exist - no longer the only defense.
 
+Shaked did not approve round 2 either: "always keep the last question" has
+the opposite live failure - "מה התקציב שלכם לאדם לטיסה? ונוח לכם בבוקר?"
+kept "ונוח לכם בבוקר?" (a grammatical CONTINUATION of the budget question,
+not an independent one) and dropped the real missing-gap question.
+
+Fixed (round 3, her own exact decision order): a question sentence
+starting with the bound "ו" prefix or the standalone word "או" is a
+continuation of the question immediately before it - keep that PRECEDING
+question instead. In every other case, keep the last question (round 2's
+rule, unchanged). _QUESTION_CONTINUATION_RE recognizes only this narrow,
+unambiguous structural pattern - her own stated safety rule (never guess
+further than this) is why nothing more elaborate was added.
+
 Run: python3 tools/qa_bratislava_tag_question_truncation.py
 """
 import os
@@ -191,6 +204,51 @@ _single = "מעולה, שמרתי את זה. מה התקציב שלכם לאדם
 check("regression: a single real question with no fixed replacement is "
       "still never dropped (the Paris rule)",
       chat._enforce_one_option_question(_single, _single_question_state) == _single)
+
+# =====================================================================
+# Round 3 (Shaked's second rejection): her own exact counter-example - the
+# trailing question is a grammatical CONTINUATION of the one before it
+# (starts with the bound "ו" prefix), not an independent second question.
+# "Always keep the last" (round 2's rule alone) drops the wrong one here.
+# =====================================================================
+check("'ונוח לכם בבוקר?' (bound ו-prefix) matches the continuation pattern",
+      bool(chat._QUESTION_CONTINUATION_RE.match("ונוח לכם בבוקר?")))
+check("'או שתעדיפו...?' (standalone או, followed by whitespace) matches too",
+      bool(chat._QUESTION_CONTINUATION_RE.match("או שתעדיפו בערב?")))
+check("a genuine independent question ('מה התקציב...?') does NOT match - "
+      "no leading ו/או at all",
+      not chat._QUESTION_CONTINUATION_RE.match("מה התקציב שלכם לאדם לטיסה?"))
+check("a word that merely CONTAINS 'או' without being the standalone word "
+      "('אולי') does not match - only 'או' followed by whitespace/end does",
+      not chat._QUESTION_CONTINUATION_RE.match("אולי מתאים לכם בבוקר?"))
+
+_shaked_round3_example = "מה התקציב שלכם לאדם לטיסה? ונוח לכם בבוקר?"
+_result3 = chat._enforce_one_option_question(_shaked_round3_example, dict(_NO_PENDING_OFFER_STATE))
+check("Shaked's round-3 counter-example: the REAL missing-gap question "
+      "('מה התקציב...?') survives - 'ונוח לכם בבוקר?' is recognized as its "
+      "continuation and dropped, not the other way around",
+      _result3 == "מה התקציב שלכם לאדם לטיסה?")
+
+# The round-2 fix (plain "keep last") must still apply whenever the last
+# question is NOT a continuation - this is round 2's own counter-example,
+# restated to confirm round 3 didn't regress it.
+_result_round2_still_ok = chat._enforce_one_option_question(
+    "מעולה, שמרתי את זה לכולם, בסדר?\n\nמה התקציב שלכם לאדם לטיסה?",
+    dict(_NO_PENDING_OFFER_STATE),
+)
+check("regression: round 2's own counter-example (no continuation "
+      "involved, plain tag-first/real-question-last) still resolves "
+      "correctly after adding the continuation check",
+      _result_round2_still_ok == "מה התקציב שלכם לאדם לטיסה?")
+
+# A chain of 3 questions where only the very last is a continuation of the
+# middle one - the middle one (its true parent) is kept, not the first.
+_three_question_chain = "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה? איזו כבודה תרצו לקחת? ומתי תרצו לטוס?"
+check("a 3-question chain where only the LAST is a continuation (of the "
+      "MIDDLE one): the middle question is kept, the first (unrelated) "
+      "and last (its own continuation) are both dropped",
+      chat._enforce_one_option_question(_three_question_chain, dict(_NO_PENDING_OFFER_STATE))
+      == "מעולה, נרשם. איזו כבודה תרצו לקחת?")
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
