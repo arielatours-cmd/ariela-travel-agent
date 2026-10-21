@@ -9814,12 +9814,12 @@ def _guided_extract_answer(key, model, field, message, history, state):
             "להיות אחרי departure. אם ניתן מספר לילות בלי תאריך חזרה מפורש, "
             "השאירי return null ומלאי nights - החישוב ייעשה בקוד, לא אצלך. "
             "אם יש כרגע יותר מאפשרות אחת ב-candidate_ranges (מצב נוכחי, "
-            "למעלה) וההודעה הנוכחית היא הסכמה כללית בלבד ('כן'/'בסדר'/"
-            "'מתאים', בלי לציין תאריך ספציפי, 'הראשון'/'השני' או ציטוט "
-            "מהאפשרויות) - אסור לנחש איזו מהן נבחרה: השאירי departure/"
-            "return null והחזירי confidence:\"low\". רק כשההודעה עצמה "
-            "מזהה חד-משמעית איזו אפשרות (תאריך מפורש, מספר סידורי, או "
-            "ציטוט שלה) - מלאי departure/return לפי האפשרות הזו.\n"
+            "למעלה) וההודעה הנוכחית היא הסכמה כללית בלבד (למשל 'כן', בלי "
+            "לציין תאריך ספציפי, מספר סידורי או ציטוט מהאפשרויות) - אסור "
+            "לנחש איזו מהן נבחרה: השאירי departure/return null והחזירי "
+            "confidence:\"low\". רק כשההודעה עצמה מזהה חד-משמעית איזו "
+            "אפשרות (תאריך מפורש, מספר סידורי, או ציטוט שלה) - מלאי "
+            "departure/return לפי האפשרות הזו.\n"
             "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי "
             "להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, "
             "נושא אחר) - status=\"other_topic\". אם ההודעה מתקנת תאריך "
@@ -13807,63 +13807,35 @@ def _chat_clean_impl():
         # AFTER the final summary was already shown is a genuine mid-
         # conversation-style correction, not a failure to produce the final
         # summary. _all_domains_decided_now stays True the instant every
-        # domain was last decided - it says nothing about whether THIS turn
-        # just reopened one of its facts. Without this check, the missing-
-        # final-summary safety net below treated Tinkerbell's own correct
-        # reply (a shift proposal awaiting confirmation, or an
-        # acknowledgement of a newly committed fact) as a failure merely for
-        # lacking "מאשר"/"חופשה נעימה", and replaced it with the stale
-        # fallback summary built from the OLD facts - then the next turn's
-        # "כן" had nothing genuine to confirm, since the real proposal was
-        # never actually shown.
+        # domain was last decided - it says nothing about whether the
+        # summary has ever actually been shown. Without this check, the
+        # missing-final-summary safety net below treated Tinkerbell's own
+        # correct reply (a shift proposal, a clarifying question about a
+        # vague change request, or an acknowledgement of a newly committed
+        # fact) as a failure merely for lacking "מאשר"/"חופשה נעימה", and
+        # replaced it with the stale fallback summary built from the OLD
+        # facts.
         #
-        # Reworked per Shaked's rejection of this PR's first version
-        # (21.10.2026): scoping this to dates alone missed the identical
-        # failure for any other already-settled fact - budget, baggage, or
-        # traveler count - changing post-summary with a reply that likewise
-        # never says "מאשר" ("רק לוודא - 4000 לאדם?"). Generalized to a
-        # structural before/after state comparison per fact (never a list of
-        # customer wordings): a fact counts only once it was ALREADY
-        # resolved before this turn (so the turn that first completes it -
-        # the genuine first approval moment - is never mistaken for a post-
-        # summary correction), and the safety net is skipped only when such
-        # an already-resolved fact now reads differently, or a dates
-        # candidate is newly pending confirmation.
-        def _resolved_fact_changed_this_turn(prior_value, now_value, was_already_resolved):
-            return bool(was_already_resolved) and prior_value != now_value
-
-        _dates_now_for_summary_gate = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
-        _post_summary_date_change_pending = bool(
-            prior_dates.get("departure") and prior_dates.get("return")
-            and (
-                _dates_now_for_summary_gate.get("needs_confirmation")
-                or _dates_now_for_summary_gate.get("departure") != prior_dates.get("departure")
-                or _dates_now_for_summary_gate.get("return") != prior_dates.get("return")
-            )
-        )
-        _prior_budget = trip_state.get("budget_per_person") if isinstance(trip_state.get("budget_per_person"), dict) else {}
-        _now_budget = trip_update.get("budget_per_person") if isinstance(trip_update.get("budget_per_person"), dict) else {}
-        _post_summary_budget_change_pending = _resolved_fact_changed_this_turn(
-            _prior_budget, _now_budget,
-            _prior_budget.get("amount") is not None or str(_prior_budget.get("status") or "") in ("known", "unlimited"),
-        )
-        _prior_travelers = trip_state.get("travelers") if isinstance(trip_state.get("travelers"), dict) else {}
-        _now_travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
-        _post_summary_travelers_change_pending = _resolved_fact_changed_this_turn(
-            _prior_travelers, _now_travelers, _prior_travelers.get("adults") is not None,
-        )
-        _prior_flight = trip_state.get("flight") if isinstance(trip_state.get("flight"), dict) else {}
-        _now_flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
-        _post_summary_baggage_change_pending = _resolved_fact_changed_this_turn(
-            (_prior_flight.get("baggage"), _prior_flight.get("baggage_detail")),
-            (_now_flight.get("baggage"), _now_flight.get("baggage_detail")),
-            bool(_prior_flight.get("baggage")),
-        )
-        _post_summary_change_pending = (
-            _post_summary_date_change_pending
-            or _post_summary_budget_change_pending
-            or _post_summary_travelers_change_pending
-            or _post_summary_baggage_change_pending
+        # Twice-reworked per Shaked's rejections of this PR (21.10.2026).
+        # The first rework scoped this to a before/after STATE comparison
+        # (dates/budget/baggage/travelers) - but Shaked's second review
+        # caught that a genuine post-summary request can legitimately
+        # produce a CLARIFYING question with nothing written to state yet
+        # ("אפשר להעלות קצת את התקציב?" -> "לכמה תרצי להעלות?") - no fact
+        # changed this turn, so that gate still missed it and the
+        # clarifying question itself got stomped. Per the business owner's
+        # decision (relayed via Shlomo, on Shaked's own proposal): the
+        # missing-final-summary safety net exists ONLY to drive the
+        # conversation to the first real summary - once that summary has
+        # actually been shown, Tinkerbell's reply passes through as-is from
+        # then on, regardless of what the current turn's state looks like.
+        # Tracked via trip_update["final_summary_shown"] (persisted once
+        # set), with a fallback scan of the conversation history for an
+        # older saved conversation that predates this flag.
+        _final_summary_already_shown = bool(trip_update.get("final_summary_shown")) or any(
+            isinstance(_item, dict) and str(_item.get("role") or "").lower() == "assistant"
+            and any(_p in str(_item.get("content") or "") for _p in ("מאשר", "חופשה נעימה"))
+            for _item in (history or [])
         )
         if any(p in str(reply or "") for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת", "סיכום")) and not _all_domains_decided_now:
             premature_gap_question = _flight_gap_question(_session_gaps(trip_update, "flights"), trip_update)
@@ -13947,7 +13919,7 @@ def _chat_clean_impl():
         # no path to the approval they're actually waiting for.
         if (
             _all_domains_decided_now
-            and not _post_summary_change_pending
+            and not _final_summary_already_shown
             and not any(p in str(reply or "") for p in ("מאשר", "חופשה נעימה"))
         ):
             try:
@@ -13964,6 +13936,13 @@ def _chat_clean_impl():
             # safety net's own last-resort deterministic substitution below.
             if not any(p in str(reply or "") for p in ("מאשר", "חופשה נעימה")):
                 reply = _final_summary_fallback_text(trip_update)
+        # Once the real final summary has genuinely reached the customer
+        # (whether from Tinkerbell's own first-try reply, the forced retry
+        # just above, or the last-resort fallback text), record it - every
+        # later turn in this conversation, whatever it's about, no longer
+        # goes through the missing-final-summary safety net at all.
+        if _all_domains_decided_now and any(p in str(reply or "") for p in ("מאשר", "חופשה נעימה")):
+            trip_update["final_summary_shown"] = True
 
         if planning_accept:
             # Per Shaked's stage-2 run-1 finding (4/5, main 5b46648): a bare

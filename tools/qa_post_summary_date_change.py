@@ -57,12 +57,20 @@ order:
 
 (א) The gate was dates-only - a post-summary budget/baggage/traveler-count
 change with a reply lacking "מאשר" ("רק לוודא - 4000 לאדם?") still got
-stomped. Generalized to a structural per-fact before/after comparison
-(never a word list): a fact counts only once it was ALREADY resolved
-before this turn (so the turn that first completes it is never mistaken
-for a correction), and the safety net now skips whenever such an already-
-resolved fact - dates, budget_per_person, travelers, or flight.baggage -
-reads differently this turn, or a dates candidate is newly pending.
+stomped. First generalized to a structural per-fact before/after state
+comparison (a fact counts only once it was ALREADY resolved before this
+turn) - but Shaked's SECOND rejection (21.10.2026, on dfe869d) caught that
+this still missed a genuine post-summary request that produces a
+CLARIFYING question with nothing written to state yet ("אפשר להעלות קצת
+את התקציב?" -> "לכמה תרצי להעלות?") - no fact changed this turn, so the
+gate stayed closed and the clarifying question itself got stomped. Per
+the business owner's decision (on Shaked's own proposal): the missing-
+final-summary safety net exists ONLY to drive the conversation to the
+FIRST real summary - once trip_update["final_summary_shown"] is set (or,
+for an older saved conversation predating the flag, history already shows
+the approval phrase), Tinkerbell's reply passes through as-is from then
+on, regardless of what the current turn's state looks like. This replaces
+the field-specific state-diff gate entirely.
 
 (ב) The live failure may also be the EXTRACTOR itself never writing
 differing dates/shift_days at all for a genuine post-summary change
@@ -318,9 +326,16 @@ check("Batumi-shape FIX: the acknowledgement reply reaches the customer "
 
 # =====================================================================
 # Regression: the pre-existing "opposite failure" safety net (Shaked,
-# Haifa->Bangkok) must still fire when a reply genuinely fails to produce
-# the final summary and dates are NOT part of what changed this turn.
+# Haifa->Bangkok) must still fire the FIRST time every domain becomes
+# decided - a genuinely NEW state this turn, with the final summary never
+# shown before in this conversation (no "מאשר"/"חופשה נעימה" anywhere in
+# history, and no final_summary_shown flag) - unlike every post-summary
+# scenario above, where the summary was already shown earlier.
 # =====================================================================
+_FIRST_TIME_DECIDED_STATE = dict(_ALL_DECIDED_STATE)
+_FIRST_TIME_DECIDED_STATE.pop("final_summary_shown", None)
+
+
 def _post_claude_unrelated_post_summary(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
         return json.dumps({
@@ -344,25 +359,27 @@ def _post_claude_unrelated_post_summary(key, model, system_static, system_dynami
 
 with patch.object(chat, "_post_claude", side_effect=_post_claude_unrelated_post_summary):
     r_unrelated = client.post("/api/ariella/chat-clean", json={
-        "message": "תודה רבה!",
-        "history": [{"role": "assistant", "content": _OLD_SUMMARY_TEXT}],
-        "trip_state": _ALL_DECIDED_STATE,
+        "message": "מעולה, זה הכל",
+        # No prior assistant message ever contained the approval phrase -
+        # the summary genuinely hasn't been shown yet in this conversation.
+        "history": [{"role": "assistant", "content": "מעולה, פרטי הטיסה מלאים."}],
+        "trip_state": _FIRST_TIME_DECIDED_STATE,
     })
 data_unrelated = r_unrelated.get_json() or {}
-dates_unrelated = (data_unrelated.get("trip_update") or {}).get("dates") or {}
 reply_unrelated = str(data_unrelated.get("reply") or "")
-check("regression: dates genuinely unchanged this turn (not part of the "
-      "new gate) - _post_summary_date_change_pending must not fire",
-      dates_unrelated.get("departure") == "2026-11-21"
-      and dates_unrelated.get("return") == "2026-12-05")
-check("regression: the missing-final-summary safety net still replaces a "
-      "reply that genuinely fails to produce the final summary when no "
-      "date change is in flight (Shaked's original Haifa->Bangkok case)",
+check("regression: the missing-final-summary safety net still fires the "
+      "FIRST time every domain becomes decided, with the summary never "
+      "shown before in this conversation (Shaked's original Haifa->"
+      "Bangkok case) - a reply that genuinely fails to produce it is "
+      "still replaced",
       any(p in reply_unrelated for p in ("מאשר", "חופשה נעימה")))
 
 # =====================================================================
-# Rework (א): the generalized gate also covers budget/baggage/traveler-
-# count changes post-summary, not just dates.
+# Rework (א): confirms the simplified final_summary_shown mechanism (see
+# below) also covers budget/baggage/traveler-count changes post-summary,
+# not just dates - once the summary has genuinely been shown once, EVERY
+# later reply passes through regardless of which fact the current turn
+# touches, so these scenarios are no longer field-specific special cases.
 # =====================================================================
 def _post_claude_budget_change_post_summary(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
@@ -496,6 +513,46 @@ check("rework (א) FIX: the reply reaches the customer unmolested",
 
 
 # =====================================================================
+# Second rejection (Shaked, 21.10.2026, on dfe869d): the before/after
+# STATE comparison still missed the case where a genuine post-summary
+# request produces a CLARIFYING question with nothing written to state
+# yet - no fact changed this turn, so the old gate stayed closed and the
+# clarifying question itself got stomped. The three exact live examples
+# Shlomo relayed, reproduced here end-to-end: a vague ask with no number/
+# detail yet, where Tinkerbell correctly asks for it instead of guessing.
+# =====================================================================
+def _post_claude_clarifying_question_post_summary(reply_text):
+    def _fake(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+        if source == "state_extractor":
+            return "{}"  # Nothing to write yet - the request is still vague.
+        if source == "guided_extract":
+            return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+        if source == "tinkerbell_reply":
+            return reply_text
+        return "{}"
+    return _fake
+
+
+for _label, _message, _clarifying_reply in (
+    ("vague budget increase", "אפשר להעלות קצת את התקציב?", "לכמה תרצי להעלות?"),
+    ("vague traveler addition", "אולי מצטרפת עוד חברה", "אז תהיו 4 נוסעות?"),
+    ("vague postpone request", "אפשר לדחות קצת?", "בכמה ימים תרצי לדחות?"),
+):
+    with patch.object(chat, "_post_claude", side_effect=_post_claude_clarifying_question_post_summary(_clarifying_reply)):
+        _r_clarify = client.post("/api/ariella/chat-clean", json={
+            "message": _message,
+            "history": [{"role": "assistant", "content": _OLD_SUMMARY_TEXT}],
+            "trip_state": _ALL_DECIDED_STATE,
+        })
+    _data_clarify = _r_clarify.get_json() or {}
+    _reply_clarify = str(_data_clarify.get("reply") or "")
+    check(f"second-rejection FIX: a clarifying question with nothing yet "
+          f"written to state ({_label}) reaches the customer unmolested, "
+          f"not the stale old summary",
+          _reply_clarify == _clarifying_reply and "סיכום החופשה" not in _reply_clarify)
+
+
+# =====================================================================
 # Rework (ב): the extractor gets explicit situational grounding once
 # every domain is decided and dates are closed.
 # =====================================================================
@@ -579,16 +636,39 @@ for _label, _message in (
 # Rework (ג): a bare "כן" must never silently pick one of several
 # pending date candidates.
 # =====================================================================
-import inspect as _inspect_qa
 _tinkerbell_system_src = chat.TINKERBELL_SYSTEM if isinstance(chat.TINKERBELL_SYSTEM, str) else ""
 check("rework (ג): TINKERBELL_SYSTEM forbids bundling a general yes/no "
       "confirm with presenting candidate_ranges in the same message",
       "לבדו לא יכול לבחור בין כמה אפשרויות" in _tinkerbell_system_src)
 
-_dates_guided_extract_src = _inspect_qa.getsource(chat._guided_extract_answer)
+# inspect.getsource returns the literal SOURCE TEXT, not the evaluated
+# (concatenated) prompt string - adjacent string literals that wrap across
+# source lines show up with the raw "\n            \"" of the next line
+# still in between them, so a substring spanning such a wrap silently
+# fails. Capture the actual rendered prompt the model receives instead.
+_captured_dates_prompt = []
+
+
+def _post_claude_capture_dates_prompt(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "guided_extract":
+        _captured_dates_prompt.append(system_static)
+        return json.dumps({
+            "status": "answered", "departure": None, "return": None, "nights": None,
+            "period": None, "flexibility_days": None, "confidence": "low",
+            "also_mentioned": None, "correction": None,
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_capture_dates_prompt):
+    chat._guided_extract_answer(
+        "test-key", "claude-sonnet-5", "dates", "כן", [],
+        {"dates": {"candidate_ranges": ["a", "b"]}, "travelers": {}},
+    )
+_dates_guided_extract_prompt = _captured_dates_prompt[0] if _captured_dates_prompt else ""
 check("rework (ג): the guided_extract dates prompt forbids guessing which "
       "pending candidate a bare agreement selects",
-      "אסור לנחש איזו מהן נבחרה" in _dates_guided_extract_src)
+      "אסור" in _dates_guided_extract_prompt and "לנחש איזו מהן נבחרה" in _dates_guided_extract_prompt)
 
 
 # End-to-end: a correctly-behaving model (per the new instruction) returns
