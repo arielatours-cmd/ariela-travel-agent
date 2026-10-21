@@ -1047,12 +1047,42 @@ def _dates_truth_hint(state):
     invented below stays as a structural backstop for the rare case
     Tinkerbell writes a literal date anyway despite this instruction.
 
-    Scoped to the flights stage only (active_session == "flights") -
-    never during trip_planning/route building, which legitimately needs
-    real per-day literal dates in the itinerary text itself."""
+    Scoped to the flights stage (active_session == "flights") or to no
+    active session at all (active_session is None) - never during
+    lodging/car/trip_planning, which legitimately need real per-day
+    literal dates in their own text (route itineraries especially).
+
+    Widened to include the None case (21.10.2026, Shaked's run-9 live
+    finding zd5, relayed by Shlomo): a shift-days confirmation ("כן" to
+    a pending candidate) can close the flights session again WITHIN THE
+    SAME TURN it resolves - _advance_sessions reopened it only because
+    the customer's own message named "הטיסה", and closes it right back
+    the instant dates stop needing confirmation, same turn. Previously
+    this hint returned "" the moment that happened, leaving Tinkerbell
+    with NO instruction at all about dates that had just this turn
+    changed and saved - free to invent her own uncertainty ("תוכלי
+    לציין לי את התאריכים המדויקים...") even though the real, correct
+    dates were sitting right there in state.
+
+    None is scoped further (per Shaked's rejection of the first version
+    of this widening): it means "not currently inside a domain with its
+    own literal-date needs" ONLY while trip_planning hasn't already been
+    built (session_status.trip_planning != "complete") - a genuinely
+    closed-again flights turn satisfies that. Once the route IS built,
+    active_session can ALSO be None at the final post-approval summary,
+    where this hint's "never write a calendar date yourself" instruction
+    would wrongly reach into the itinerary's own per-day dates. Picked
+    deliberately simple over a more precise "was flights the last domain
+    touched this turn" check - this can still miss a flight-only date
+    tweak after a route is already built, a known, accepted trade-off."""
     state = state if isinstance(state, dict) else {}
-    if state.get("active_session") != "flights":
+    active = state.get("active_session")
+    if active not in (None, "flights"):
         return ""
+    if active is None:
+        _statuses_for_hint = state.get("session_status") if isinstance(state.get("session_status"), dict) else {}
+        if str(_statuses_for_hint.get("trip_planning") or "") == "complete":
+            return ""
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     if dates.get("needs_confirmation"):
         candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
@@ -1775,6 +1805,32 @@ def _session_gaps(state, session):
     return [g for g in all_gaps if any(g == p or g.startswith(p) for p in allowed)]
 
 
+def _dates_pending_change(dates):
+    """True only when a pending candidate (dates.needs_confirmation +
+    candidate_ranges) represents a CHANGE to dates the customer already
+    has - not the very first time dates are being chosen, where departure/
+    return are both still None and candidate_ranges holds the very first
+    set of options to pick from (e.g. "בסוף החודש הבא" -> two candidates,
+    nothing confirmed yet - a completely different, already-working flow).
+
+    Per Shaked's second rejection of the zd5 fix (21.10.2026, relayed by
+    Shlomo): the first rework's "dates" branches (both here and in
+    _flight_gap_question) fired on both shapes alike - needs_confirmation
+    + candidate_ranges alone isn't enough to tell them apart. Requiring
+    departure/return to ALSO already be set is exactly that distinction:
+    only a genuine change keeps them at their last-confirmed values while
+    proposing new ones (see the shift_days mechanism's own comment on why
+    it does that) - a first-time candidate selection never has them set
+    at all yet."""
+    dates = dates if isinstance(dates, dict) else {}
+    return bool(
+        dates.get("needs_confirmation")
+        and dates.get("candidate_ranges")
+        and dates.get("departure")
+        and dates.get("return")
+    )
+
+
 def _advance_sessions(state):
     """Complete the active session when full, then expose exactly one next session decision.
 
@@ -1813,7 +1869,34 @@ def _advance_sessions(state):
     state["session_status"] = statuses
     state["active_session"] = active
     if active:
-        state["missing_required"] = _session_gaps(state, active)
+        _gaps_for_active = _session_gaps(state, active)
+        # Per Shaked's rejection of the first zd5 fix (21.10.2026, relayed
+        # by Shlomo): a pending date-CHANGE candidate (dates.needs_
+        # confirmation + candidate_ranges, with departure/return already
+        # set - see _dates_pending_change) is a confirmation question, not
+        # an open "what are the dates" gap - it still correctly keeps the
+        # session from closing (the _session_gaps call just above, used
+        # for the completion check, is untouched), but exposing "dates"
+        # here as plainly "missing" invited the wrong blind question
+        # ("when would you like to depart/return?"), discarding the real
+        # candidate. Tinkerbell already gets explicit, candidate-aware
+        # steering for this exact situation via _dates_truth_hint
+        # ({{DATE_OPTIONS}}, her own phrasing) - missing_required has
+        # nothing useful left to add about dates specifically here.
+        #
+        # Per Shaked's SECOND rejection: the first version of this filter
+        # fired on a pending candidate alone, which ALSO matches the very
+        # first time dates are chosen (a relative-date answer like "בסוף
+        # החודש הבא" produces 2 candidates with departure/return still
+        # None) - that first-time flow already works today and must keep
+        # "dates" in missing_required (dropping it let the NEXT gap in the
+        # list, e.g. budget_per_person, jump the queue before the options
+        # were ever shown). _dates_pending_change's extra departure/return
+        # check is exactly what tells the two shapes apart.
+        _dates_for_active = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+        if "dates" in _gaps_for_active and _dates_pending_change(_dates_for_active):
+            _gaps_for_active = [g for g in _gaps_for_active if g != "dates"]
+        state["missing_required"] = _gaps_for_active
         state["next_session"] = None
         state["ready_for_summary"] = False
     elif next_pending:
@@ -3391,6 +3474,23 @@ def _flight_gap_question(gaps, state=None):
     missing" line the customer has no way to act on."""
     gaps = gaps or []
     _gender = (state or {}).get("user_gender")
+    if "dates" in gaps:
+        _dates_for_priority = (state or {}).get("dates") if isinstance((state or {}).get("dates"), dict) else {}
+        if _dates_for_priority.get("needs_confirmation") and _dates_for_priority.get("candidate_ranges"):
+            # Per Shaked's SECOND rejection of the zd5 fix (21.10.2026,
+            # relayed by Shlomo): a real pending candidate - whether a
+            # first-time selection or a change to already-confirmed dates
+            # (_dates_pending_change tells them apart further down) - must
+            # never be announced through a fixed sentence here, but it ALSO
+            # must never let some OTHER co-occurring gap (she found this
+            # live with budget_per_person, checked further below in this
+            # same ladder) jump the queue and get asked first while the
+            # candidate the customer is actually waiting on goes unshown.
+            # Checked here, before every other gap in the ladder, so a
+            # pending candidate always wins the priority race - the "dates"
+            # branch further down only ever runs for the genuinely-no-
+            # candidate-at-all case (nothing special needed there).
+            return None
     if "destination_airports" in gaps:
         return _g(_gender, "באיזה שדה תרצה לנחות בהלוך?", "באיזה שדה תרצי לנחות בהלוך?")
     if "flight.gateway_narrow" in gaps:
@@ -3434,6 +3534,10 @@ def _flight_gap_question(gaps, state=None):
     if "destination" in gaps:
         return _g(_gender, "לאן תרצה לטוס?", "לאן תרצי לטוס?")
     if "dates" in gaps:
+        # Any pending candidate (first-time or a change alike) already
+        # returned None at the top of this function, before every other
+        # gap in the ladder - reaching here means dates genuinely aren't
+        # known at all yet (no candidate_ranges), the plain open question.
         return _g(_gender, "מתי תרצה לצאת ולחזור?", "מתי תרצי לצאת ולחזור?")
     if "travelers" in gaps:
         return "כמה נוסעים, ומי מבוגר ומי ילד?"
@@ -14668,7 +14772,13 @@ def _chat_clean_impl():
                 # what to answer - seen live: she got exactly that generic
                 # line, asked "מה עכשיו?" (what now?), and had no way forward
                 # other than guessing.
-                reply = _flight_gap_question(approval_gaps, trip_update)
+                # _flight_gap_question can now return None itself (a pending
+                # date candidate - see its own "dates" branch) - keep the
+                # existing Tinkerbell-composed reply in that case rather
+                # than overwriting it with None; that reply is already
+                # steered correctly by _dates_truth_hint for exactly this
+                # situation.
+                reply = _flight_gap_question(approval_gaps, trip_update) or reply
                 approval = False
             elif _flight_approval_still_has_open_domain(statuses_after_flight):
                 # Flights alone are done, but at least one other requested
