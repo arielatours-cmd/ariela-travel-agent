@@ -9541,6 +9541,30 @@ def _baggage_followup_hint(baggage_values):
     )
 
 
+def _mixed_baggage_acknowledgement_hint():
+    """Run-7 bug B (Shaked, Phuket): when the customer described different
+    baggage per passenger ("למבוגרים מזוודה ולילדים טרולי"),
+    _guided_field_update_and_confirm already resolves this silently to
+    flight.baggage=["checked_bag"] for the whole group (per the business
+    owner's 20.10 decision) - the SAVED state is correct. But unlike every
+    other baggage outcome, this path left Tinkerbell with no steering hint
+    at all for how to acknowledge it (_baggage_followup_hint returns None
+    for checked_bag, since normally nothing needs upselling) - so she was
+    free to compose her own wording from the conversation history alone,
+    and echoed back the very per-passenger split the business owner's
+    decision exists to silently override: "הבנתי - אז למבוגרים מזוודה
+    בבטן המטוס ולילדים טרולי בלבד". Explicit steering, same role as
+    _baggage_followup_hint's own note, so the next guided question still
+    reaches the customer in the same message."""
+    return (
+        "הלקוח תיאר כבודה שונה לנוסעים שונים, אבל הזמנה היא תמיד כבודה אחידה "
+        "אחת לכל הקבוצה - לכן נשמרה מזוודה בבטן המטוס לכולם. ציייני זאת "
+        "בלשונך במשפט קצר אחד, בלי לתאר או להזכיר חלוקה שונה בין נוסעים "
+        "בכלל, ובלי לפתוח דיון על כך או להבטיח חלוקה כזו בהמשך - ומיד אחר "
+        "כך, באותה הודעה, המשיכי לשאלה הבאה שבאמת רלוונטית כרגע."
+    )
+
+
 def _guided_baggage_applies(state):
     """Baggage only makes sense once flights are actually part of this
     vacation - unlike dates/travelers (universal to every trip), a
@@ -10556,6 +10580,8 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
             if baggage_note:
                 correction_hint = correction_hint + " " + baggage_note
+            elif result.get("mixed_per_passenger"):
+                correction_hint = correction_hint + " " + _mixed_baggage_acknowledgement_hint()
         return {"trip_update": trip_update, "dynamic_hint": correction_hint}
     answered_field = current_question
     current_question = None
@@ -10574,6 +10600,16 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # always add later" note, then move straight to the next topic in
         # the SAME message - never a separate turn.
         baggage_note = _baggage_followup_hint((fragment.get("flight") or {}).get("baggage"))
+        # Run-7 bug B (Shaked, Phuket): a mixed per-passenger request
+        # resolves silently to checked_bag (see _guided_field_update_and_
+        # confirm above) - _baggage_followup_hint itself returns None for
+        # checked_bag (nothing to upsell), which left Tinkerbell with NO
+        # steering hint at all for this turn, free to invent her own
+        # acknowledgement from the conversation history and echo back the
+        # very per-passenger split the business owner's decision silently
+        # overrides.
+        if not baggage_note and result.get("mixed_per_passenger"):
+            baggage_note = _mixed_baggage_acknowledgement_hint()
         if baggage_note:
             # Seen live (Shlomo/Shaked, stage-1 run-1, 20.10.2026, s1a1/
             # s1a3): a plain concatenation of the note with the next

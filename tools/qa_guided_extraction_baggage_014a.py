@@ -258,10 +258,22 @@ check("scenario 2c (mixed_per_passenger): defaults the whole group to checked_ba
 check("scenario 2c: resolved with full confidence - never reopens a confirm "
       "question over a mixed request",
       (tu2c.get("guided") or {}).get("current_question") != "baggage")
-check("scenario 2c: no explanation of the mixed request or the uniform-booking "
-      "rule leaks into the hint at all - checked_bag needs no follow-up note",
-      "חלוקה" not in str(tu2c.get("_guided_ask_hint") or "")
-      and "מעורב" not in str(tu2c.get("_guided_ask_hint") or ""))
+# Run-7 bug B (Shaked, Phuket, 21.10.2026): the ORIGINAL version of this
+# check asserted the opposite of what's below - "no hint at all, checked_
+# bag needs no follow-up note" - since _baggage_followup_hint itself
+# returns None for checked_bag. That left Tinkerbell with NO steering for
+# how to acknowledge a mixed request, free to invent her own wording from
+# the conversation history - and she echoed back the very per-passenger
+# split this resolution exists to silently override ("הבנתי - אז
+# למבוגרים מזוודה בבטן המטוס ולילדים טרולי בלבד", live, Phuket). Fixed by
+# _mixed_baggage_acknowledgement_hint: an explicit steering hint IS now
+# present, instructing a neutral one-sentence acknowledgement with no
+# per-passenger description or promise of a future split - the opposite
+# of "no hint at all".
+check("scenario 2c FIX: an explicit steering hint IS present (never silent) "
+      "that forbids describing or promising a per-passenger split",
+      "בלי לתאר" in str(tu2c.get("_guided_ask_hint") or "")
+      and "חלוקה שונה בין נוסעים" in str(tu2c.get("_guided_ask_hint") or ""))
 
 # --- 2d. multiple items in parallel: "טרולי לכל אחד ומזוודה אחת לכל
 #     המשפחה" -> carry_on + checked_bag (count=1) - the suitcase must never
