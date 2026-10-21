@@ -1047,11 +1047,26 @@ def _dates_truth_hint(state):
     invented below stays as a structural backstop for the rare case
     Tinkerbell writes a literal date anyway despite this instruction.
 
-    Scoped to the flights stage only (active_session == "flights") -
-    never during trip_planning/route building, which legitimately needs
-    real per-day literal dates in the itinerary text itself."""
+    Scoped to the flights stage (active_session == "flights") or to no
+    active session at all (active_session is None) - never during
+    lodging/car/trip_planning, which legitimately need real per-day
+    literal dates in their own text (route itineraries especially).
+
+    Widened to include the None case (21.10.2026, Shaked's run-9 live
+    finding zd5, relayed by Shlomo): a shift-days confirmation ("כן" to
+    a pending candidate) can close the flights session again WITHIN THE
+    SAME TURN it resolves - _advance_sessions reopened it only because
+    the customer's own message named "הטיסה", and closes it right back
+    the instant dates stop needing confirmation, same turn. Previously
+    this hint returned "" the moment that happened, leaving Tinkerbell
+    with NO instruction at all about dates that had just this turn
+    changed and saved - free to invent her own uncertainty ("תוכלי
+    לציין לי את התאריכים המדויקים...") even though the real, correct
+    dates were sitting right there in state. None here means "not
+    currently inside a domain with its own literal-date needs", which a
+    closed-again flights turn always satisfies."""
     state = state if isinstance(state, dict) else {}
-    if state.get("active_session") != "flights":
+    if state.get("active_session") not in (None, "flights"):
         return ""
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     if dates.get("needs_confirmation"):
@@ -3434,6 +3449,23 @@ def _flight_gap_question(gaps, state=None):
     if "destination" in gaps:
         return _g(_gender, "לאן תרצה לטוס?", "לאן תרצי לטוס?")
     if "dates" in gaps:
+        # Shaked's run-9 live finding (zd5, relayed by Shlomo): a pending
+        # date-change candidate (dates.needs_confirmation + candidate_ranges,
+        # e.g. from a shift-days request) is NOT the same situation as no
+        # dates being known at all - "dates" lands in gaps either way (see
+        # _required_state_gaps), but this fixed fallback asked the blind
+        # "when would you like to depart/return?" question even while a
+        # concrete candidate was already sitting in state waiting for a
+        # plain yes/no, discarding it entirely. Mirrors _render_date_
+        # placeholders' own DATE_OPTIONS join (" או " between every pending
+        # option) since this fixed-text path never goes through that
+        # substitution itself.
+        _dates_for_gap = (state or {}).get("dates") if isinstance((state or {}).get("dates"), dict) else {}
+        if _dates_for_gap.get("needs_confirmation"):
+            _candidates_for_gap = _dates_for_gap.get("candidate_ranges") if isinstance(_dates_for_gap.get("candidate_ranges"), list) else []
+            if _candidates_for_gap:
+                _options_text = " או ".join(str(c) for c in _candidates_for_gap)
+                return f"מצאתי את זה: {_options_text}. זה מתאים?"
         return _g(_gender, "מתי תרצה לצאת ולחזור?", "מתי תרצי לצאת ולחזור?")
     if "travelers" in gaps:
         return "כמה נוסעים, ומי מבוגר ומי ילד?"
