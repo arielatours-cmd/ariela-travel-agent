@@ -575,7 +575,7 @@ check("direct: once every domain is decided and dates are closed, the "
       "hint names the exact current dates and instructs treating a "
       "further date mention as a real change request",
       "21.11.2026" in _post_summary_hint and "5.12.2026" in _post_summary_hint
-      and "בקשת שינוי אמיתית" in _post_summary_hint)
+      and "בקשת שינוי תקפה" in _post_summary_hint)
 check("direct: no verb list of any kind in the hint (Shlomo's explicit "
       "21.10 instruction, PR #117's own rework) - only the one word "
       "'אחר' for 'a different date', never an enumeration",
@@ -607,7 +607,7 @@ with patch.object(chat, "_post_claude", side_effect=_post_claude_capture_system_
     })
 check("end-to-end: the post-summary dates context hint is actually woven "
       "into the extractor's system_dynamic for a post-summary turn",
-      _captured_system_dynamic and "בקשת שינוי אמיתית" in _captured_system_dynamic[-1])
+      _captured_system_dynamic and "בקשת שינוי תקפה" in _captured_system_dynamic[-1])
 
 
 # Per Shlomo's relay of the business owner's diagnostics.csv review
@@ -629,7 +629,7 @@ for _label, _message in (
             "trip_state": _ALL_DECIDED_STATE,
         })
     check(f"end-to-end: the context hint fires on {_label}",
-          _captured_system_dynamic and "בקשת שינוי אמיתית" in _captured_system_dynamic[-1])
+          _captured_system_dynamic and "בקשת שינוי תקפה" in _captured_system_dynamic[-1])
 
 
 # =====================================================================
