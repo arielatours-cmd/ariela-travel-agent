@@ -302,8 +302,16 @@ check("scenario 7: travelers corrected to 3 adults",
 check("scenario 7: the hint tells Tinkerbell to confirm the update in one sentence, not a fixed reply",
       "עדכן" in str(tu7.get("_guided_ask_hint") or "") and r7.get("reply") == "תשובה לדוגמה.")
 
-# --- 8. "אין לי מושג" twice -> no buttons ever; attempts increments and
-#     the hint explicitly asks for a different open phrasing + example ---
+# --- 8. "אין לי מושג" twice -> no buttons ever; attempts increments on
+#     the first, then the loop guard fires on the second in a row
+#     (Carmit's explicit directive, Copenhagen stage-1 run-3: the same
+#     question must never repeat verbatim forever). Per Shaked's REVIEW
+#     of the first version of this guard: dates/travelers/baggage are
+#     UNIVERSAL REQUIRED fields (unlike a lodging sub-field, which can be
+#     skipped since the whole lodging domain is itself optional) - never
+#     silently marked "answered" with no real value. The field stays
+#     open; only asking about it THIS turn is skipped, with attempts
+#     reset so it's asked again fresh (with an example) next time. ---
 member8 = _make_member("qa-guided-s8@example.com")
 unclear = {
     "status": "unclear", "departure": None, "return": None, "nights": None,
@@ -319,12 +327,22 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory(un
     state8b["guided"] = tu8a.get("guided")
     r8b = _post("אין לי מושג", [], state8b, member8)
 tu8b = r8b.get("trip_update") or {}
-check("scenario 8: attempts incremented to 1 after the first 'no idea'",
-      (tu8a.get("guided") or {}).get("attempts") == 1)
-check("scenario 8: attempts incremented to 2 after the second 'no idea' - never buttons",
-      (tu8b.get("guided") or {}).get("attempts") == 2 and "[" not in str(tu8b.get("_guided_ask_hint") or ""))
-check("scenario 8: the retry hint explicitly asks for a different phrasing/example, never a repeat",
-      "שונה" in str(tu8b.get("_guided_ask_hint") or "") or "אחר" in str(tu8b.get("_guided_ask_hint") or ""))
+check("scenario 8: attempts incremented to 1 after the first 'no idea' - "
+      "still on dates, retry hint asks for a different phrasing/example",
+      (tu8a.get("guided") or {}).get("attempts") == 1
+      and (tu8a.get("guided") or {}).get("current_question") == "dates"
+      and ("שונה" in str(tu8a.get("_guided_ask_hint") or "") or "אחר" in str(tu8a.get("_guided_ask_hint") or "")))
+check("scenario 8: the loop guard fires on the SECOND 'no idea' in a row - "
+      "dates (a required, universal field) stays OPEN, never marked "
+      "answered without a real value, attempts reset to 0, never buttons",
+      "dates" not in ((tu8b.get("guided") or {}).get("answered") or [])
+      and (tu8b.get("guided") or {}).get("current_question") == "dates"
+      and (tu8b.get("guided") or {}).get("attempts") == 0
+      and "[" not in str(tu8b.get("_guided_ask_hint") or ""))
+check("scenario 8: the skip-turn hint explicitly skips asking THIS turn, "
+      "never a verbatim repeat of the same question",
+      "פעמיים" in str(tu8b.get("_guided_ask_hint") or "")
+      and "המשיכי את השיחה" in str(tu8b.get("_guided_ask_hint") or ""))
 
 # --- 9. "כמה עולה מלון שם?" during the dates question -> other_topic,
 #     question stays open, no hint forced onto an unrelated reply ---
