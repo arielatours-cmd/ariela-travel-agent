@@ -374,8 +374,16 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu12 = r12.get("trip_update") or {}
 check("scenario 12: lodging_type question stays open",
       (tu12.get("guided") or {}).get("current_question") == "lodging_type")
-check("scenario 12: no guided hint forced onto this unrelated message",
-      not tu12.get("_guided_ask_hint"))
+# Dry-run 3 (Shaked, 22.10.2026): reversed from the original expectation
+# here - "no hint forced, normal routing handles it" silently stopped the
+# still-open question from ever being asked again across an unrelated
+# turn (seen live for accessibility across turns 1-3 in B/C/E). A
+# genuinely open current_question still gets its own plain hint rebuilt
+# fresh every turn, never a NEW redirect and never forced wording.
+check("scenario 12: the still-open lodging_type question gets its own "
+      "hint rebuilt, even on this unrelated aside - never left with no "
+      "steering at all",
+      "איזה סוג לינה מתאים" in str(tu12.get("_guided_ask_hint") or ""))
 
 # --- 13. broken model JSON -> falls back to the existing regex, no crash ---
 member13 = _make_member("qa-014a-lodging-s13@example.com")
