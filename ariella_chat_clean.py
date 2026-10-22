@@ -1527,6 +1527,18 @@ def _declined_domains_hint(state):
     declined = [labels[s] for s in ("lodging", "car", "trip_planning") if statuses.get(s) == "declined"]
     if not declined:
         return ""
+    if state.get("ready_for_summary"):
+        # Run-10 Zaragoza (22.10): on the final-summary turn the "name the
+        # exact list" instruction below contradicted the summary rule (a
+        # declined domain never appears in the summary, and the reminder
+        # there is one general sentence) - the reply narrated the conflict
+        # to the customer ("נראה שהסתפק לי לתת סיכום... כולל ציון שלינה
+        # ורכב לא נדרשים"). On that turn hand over the summary rule only.
+        return (
+            "\nזו הודעת הסיכום הסופי. תחומים שנדחו לא מופיעים בה בכלל - לא בשמם ולא כ\"לא נדרש\". "
+            "לפני שורת האישור מותר משפט תזכורת קצר וכללי אחד שאפשר תמיד לחזור ולהוסיף שירותים, בלי לפרט "
+            "אילו. כתבי את הסיכום ישירות, בלי שום משפט על האופן שבו את בונה אותו."
+        )
     return (
         "\nתחומים שנדחו עד כה בחופשה הזו (עובדה מדויקת מה-state, לא לנחש או לזכור מההקשר): "
         + ", ".join(declined) + ". כל משפט מסוג \"אפשר תמיד לחזור ולבקש עזרה גם ב-X\" חייב לכלול את "
@@ -4782,6 +4794,10 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # She composes the actual question/retry/confirmation herself, in
         # her own voice, with no quick-reply buttons ever.
         continuity += "\n- " + str(state.get("_guided_ask_hint")) + "\n"
+    if state.get("_dates_changed_hint"):
+        # One-turn hint set in _chat_clean_impl when explicit new dates
+        # replaced already-set ones this turn.
+        continuity += "\n- " + str(state.get("_dates_changed_hint")) + "\n"
     if state.get("_date_hallucination_correction_hint"):
         # Set by _retry_if_dates_invented below, on the one corrective
         # re-call it makes when the first reply named a date that matches
@@ -14206,6 +14222,22 @@ def _chat_clean_impl():
         # An explicit new date range in the CURRENT customer message overrides the
         # old approved range. Sticky dates protect against unrelated turns only;
         # they must never block a correction such as "change it to 23-27 May 2027".
+        # Run-10 Genoa (22.10): explicit new dates given after the dates were
+        # already set are applied right here (no pending candidate), yet the
+        # reply asked "רק לוודא - חוזרים לתאריכים המקוריים: ...?" - a
+        # redundant, and wrong, confirmation. One-turn hint, before the reply
+        # is written. (A relative shift stays a pending candidate that must be
+        # confirmed - untouched.)
+        if (current_dates and prior_dates.get("departure") and prior_dates.get("return")
+                and (current_dates.get("departure") != prior_dates.get("departure")
+                     or current_dates.get("return") != prior_dates.get("return"))):
+            trip_update["_dates_changed_hint"] = (
+                "הלקוח ביקש בהודעה הזו תאריכים מפורשים חדשים, והם כבר נשמרו בפועל. אל תבקשי עליהם אישור "
+                "ואל תשאלי \"רק לוודא\"; אל תתארי אותם כ\"מקוריים\", \"קודמים\" או כחזרה לתאריכים "
+                f"אחרים. אשרי בקצרה שהתאריכים עודכנו, עם {_DATES_PLACEHOLDER}."
+            )
+        else:
+            trip_update.pop("_dates_changed_hint", None)
         if current_dates:
             trip_update["dates"] = dict(current_dates)
             trip_update["dates"]["needs_confirmation"] = False
