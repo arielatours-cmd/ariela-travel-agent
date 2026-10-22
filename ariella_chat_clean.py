@@ -7243,18 +7243,27 @@ def _verify_catalog_airport_code(code, city_en):
     a right-sounding code attached to the wrong city is never accepted on
     the code match alone. Returns the verified code (exactly as the
     catalog spells it) or None - never invents a code, never adjusts a
-    merely-close city name into a match."""
+    merely-close city name into a match.
+
+    Checks _catalog_airport_by_code (Ido, 020 stage B) rather than
+    _load_airports() alone - the verified catalog first, then the
+    extended one (data/airports_extended.json) as a fallback for a place
+    the verified catalog genuinely doesn't have (Zadar/ZAD, round 12
+    finding D/E's own live repro). _catalog_airport_by_code is exactly
+    the interface Ido built for this ("כדי ש-_verify_catalog_airport_code
+    שלך יכיר את ZAD, הוא צריך להשתמש בפונקציה הזו") - using
+    _load_airports() alone here would silently keep rejecting every
+    extended-only airport despite the catalog merge."""
     code = str(code or "").strip().upper()
     city_en = str(city_en or "").strip()
     if not code or not city_en:
         return None
-    for airport in _load_airports():
-        if str(airport.get("code") or "").strip().upper() != code:
-            continue
-        catalog_city_en = str(airport.get("city_en") or "").strip()
-        if catalog_city_en and catalog_city_en.casefold() == city_en.casefold():
-            return str(airport.get("code") or "").strip().upper()
+    airport = _catalog_airport_by_code(code)
+    if not airport:
         return None
+    catalog_city_en = str(airport.get("city_en") or "").strip()
+    if catalog_city_en and catalog_city_en.casefold() == city_en.casefold():
+        return str(airport.get("code") or "").strip().upper()
     return None
 
 

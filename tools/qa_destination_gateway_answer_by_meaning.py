@@ -78,6 +78,8 @@ def _counting_post_claude(calls):
                 return '{"city_en": "Salzburg", "iata_code": "SZG"}'
             if "פאפוס" in str(message or "") or "פפוס" in str(message or ""):
                 return '{"city_en": "Paphos", "iata_code": "PFO"}'
+            if "זדאר" in str(message or ""):
+                return '{"city_en": "Zadar", "iata_code": "ZAD"}'
             return '{"city_en": null, "iata_code": null}'
         return "{}"
     return fake
@@ -227,6 +229,31 @@ with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)
 check("business owner's example: 'פפוס' (no א) still resolves to PFO via the "
       "model's own recognition, not a Hebrew alias table",
       result.get("destination_airports") == ["PFO"])
+
+# =====================================================================
+# Round 12 finding E (Zadar) + Ido's own explicit warning (22.10.2026,
+# cross-session relay): ZAD only exists in the EXTENDED catalog (Ido's 020
+# stage B, data/airports_extended.json), not the verified static one -
+# _verify_catalog_airport_code must check _catalog_airport_by_code (the
+# verified catalog, then the extended one as fallback), never
+# _load_airports() alone, or this guard would keep rejecting Zadar/ZAD
+# despite the catalog merge, exactly the live "אין שדה תעופה מסחרי" claim
+# this whole mechanism exists to prevent.
+# =====================================================================
+calls_zadar = []
+state_zadar = dict(BASE_STATE, destination={"places": ["זדאר"], "mode": None, "status": "known"})
+with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls_zadar)):
+    result_zadar = chat._destination_gateway_answer_by_meaning(
+        "זדאר מתאים לנו",
+        [{"role": "assistant", "content": GATEWAY_REPLY}],
+        state_zadar,
+    )
+check("round 12 finding E: 'זדאר' resolves to ZAD via the extended catalog "
+      "(_catalog_airport_by_code), not just the verified static one",
+      result_zadar.get("destination_airports") == ["ZAD"])
+check("direct: _verify_catalog_airport_code itself recognizes ZAD/Zadar "
+      "(extended-catalog-only airport)",
+      chat._verify_catalog_airport_code("ZAD", "Zadar") == "ZAD")
 
 # =====================================================================
 # Full-pipeline wiring: the new call is actually merged into trip_update
