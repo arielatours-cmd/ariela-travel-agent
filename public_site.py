@@ -2536,7 +2536,8 @@ def feedback_form():
 
 @site.post("/feedback")
 def feedback():
-    return _handle_message_form("site.feedback_form", phone_required=True)
+    # Phone optional here too (Din's recommendation, 22.10) - same as /contact.
+    return _handle_message_form("site.feedback_form", phone_required=False)
 
 
 def _handle_message_form(form_endpoint, phone_required):

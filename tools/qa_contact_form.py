@@ -1,6 +1,7 @@
 """QA for the contact page (Bezalel's task 6, 22.10): /contact is a form
-with an OPTIONAL phone field, linked from the site footer. /feedback keeps
-its required phone exactly as before. Nothing in Ariella's chat changes.
+with an OPTIONAL phone field, linked from the site footer. Since 22.10 (Din's
+recommendation) /feedback's phone is optional too, and both forms show Din's
+privacy note under the send button. Nothing in Ariella's chat changes.
 
 Offline, temp DB. Run: python3 tools/qa_contact_form.py
 """
@@ -72,17 +73,31 @@ for bad in ({"full_name": "", "email": "a@b.co", "message": "hello"},
 r = client.post("/contact", data={"full_name": "Bot", "email": "b@b.co", "message": "spam spam", "website": "x"})
 check("honeypot -> silently dropped", len(rows()) == before)
 
-# --- /feedback unchanged: phone still required -----------------------------------------------
+# --- Din's condition (22.10): the privacy note under "שליחה", with a link ----------------------
+HE_NOTE = "הפרטים ישמשו רק כדי לטפל בפנייה ולחזור אליכם. פרטים נוספים ב"
+EN_NOTE = "Your details will be used only to handle your message and get back to you. See our "
+for path in ("/contact", "/feedback"):
+    he = client.get(f"{path}?lang=he").get_data(as_text=True)
+    en = client.get(f"{path}?lang=en").get_data(as_text=True)
+    check(f"{path} (he): Din's note right after the send button, with the privacy link",
+          HE_NOTE in he and he.index("feedback-submit") < he.index(HE_NOTE)
+          and 'href="/privacy?lang=he">מדיניות הפרטיות</a>' in he)
+    check(f"{path} (en): Din's note with the privacy link",
+          EN_NOTE in en and 'href="/privacy?lang=en">Privacy Policy</a>' in en)
+
+# --- /feedback: phone optional too now (Din's recommendation) ---------------------------------
 page = client.get("/feedback?lang=he").get_data(as_text=True)
 form = page[page.find('class="feedback-form"'):page.find("</form>")]
 check("/feedback still says 'כתבו לנו' and posts to /feedback", "כתבו לנו" in page and 'action="/feedback"' in form)
 phone_input = form[form.find('name="phone"'):]
-check("/feedback phone still required", "required" in phone_input[:phone_input.find(">")])
+check("/feedback phone is optional now", "required" not in phone_input[:phone_input.find(">")] and "טלפון (לא חובה)" in form)
 before = len(rows())
 r = client.post("/feedback", data={"full_name": "A", "email": "a@b.co", "phone": "", "message": "hello"})
-check("/feedback without phone -> rejected as before", r.headers["Location"].endswith("/feedback") and len(rows()) == before)
+check("/feedback without phone -> accepted", r.headers["Location"].endswith("/feedback?sent=1") and len(rows()) == before + 1)
 r = client.post("/feedback", data={"full_name": "A", "email": "a@b.co", "phone": "050", "message": "hello"})
-check("/feedback with phone -> accepted as before", r.headers["Location"].endswith("/feedback?sent=1") and len(rows()) == before + 1)
+check("/feedback with phone -> accepted as before", r.headers["Location"].endswith("/feedback?sent=1") and len(rows()) == before + 2)
+r = client.post("/feedback", data={"full_name": "", "email": "a@b.co", "phone": "", "message": "hello"})
+check("/feedback still requires a name", r.headers["Location"].endswith("/feedback") and len(rows()) == before + 2)
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")
