@@ -5368,18 +5368,56 @@ def _run_car_search(trip_id: int, answers: dict) -> None:
     _save_trip_answers(trip_id, answers)
 
 
+def _car_return_iata(answers: dict, pickup_iata: str) -> str:
+    """The airport the car goes back to: a different airport only when the
+    customer's own return-location answer (car.details.return) clearly names
+    one - by its IATA code, or by the exact catalog name (whole word) of a
+    city other than the pickup's that has a single airport. Anything else
+    (nothing said, the pickup city itself, an ambiguous multi-airport city,
+    several places) -> the pickup airport ("same place")."""
+    text = str((answers or {}).get("car_return") or "")
+    if not text.strip():
+        return pickup_iata
+    codes = {c for c in re.findall(r"(?<![A-Za-z])([A-Z]{3})(?![A-Za-z])", text) if c in _AIRPORT_LOCALIZATION}
+    if codes:
+        codes.discard(pickup_iata)
+        return codes.pop() if len(codes) == 1 else pickup_iata
+    pickup_info = _AIRPORT_LOCALIZATION.get(pickup_iata) or {}
+    pickup_city = str(pickup_info.get("city_en") or "").strip().lower()
+    cities = {}
+    for code, info in _AIRPORT_LOCALIZATION.items():
+        for name in (info.get("city_he"), info.get("city_en")):
+            name = str(name or "").strip()
+            if name and re.search(r"(?<![\w])[בלמ]?" + re.escape(name) + r"(?![\w])", text, re.IGNORECASE):
+                cities.setdefault(str(info.get("city_en") or name).strip().lower(), set()).add(code)
+    if pickup_city in cities or len(cities) != 1:
+        return pickup_iata
+    (city_codes,) = cities.values()
+    return next(iter(city_codes)) if len(city_codes) == 1 else pickup_iata
+
+
 def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     """Outbound CJ-tracked URL for one car-rental card. The sid lets CJ
-    reports tie a commission back to the vacation it came from."""
+    reports tie a commission back to the vacation it came from.
+
+    Per the business owner's decision (22.10, relayed by Shlomo): VIP Cars
+    gets the pickup airport, the pickup and return dates, and where the car
+    goes back ({return_iata}; {same_return} "1"/"0") - never a time: the
+    customer picks the times on VIP Cars' own page, so {pickup_time}/
+    {return_time} are always empty (kept only so an older template still
+    formats instead of breaking)."""
     params = {"sid": f"trip{trip_id}"}
     if CAR_RENTAL_SEARCH_URL_TEMPLATE:
+        return_iata = _car_return_iata(answers, iata)
         try:
             params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(
                 iata=iata,
+                return_iata=return_iata,
+                same_return="1" if return_iata == iata else "0",
                 pickup_date=answers.get("departure_date") or "",
                 return_date=answers.get("return_date") or "",
-                pickup_time=_car_time(answers.get("car_pickup")) or "10:00",
-                return_time=_car_time(answers.get("car_return")) or "10:00",
+                pickup_time="",
+                return_time="",
             )
         except (KeyError, IndexError, ValueError):
             logging.warning("CAR_RENTAL_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
@@ -5490,9 +5528,14 @@ def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
     cards = []
     for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
+        return_code = _car_return_iata(answers, code)
         cards.append({
             "name": title,
-            "pickup": f"איסוף והחזרה בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code})",
+            "pickup": (
+                f"איסוף והחזרה בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code})" if return_code == code else
+                f"איסוף בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code}), החזרה בשדה התעופה "
+                f"{AIRPORT_NAMES.get(return_code, return_code)} ({return_code})"
+            ),
             "pickup_when": _car_when(dep, answers.get("car_pickup")),
             "return_when": _car_when(ret, answers.get("car_return")),
             "supplier": CAR_RENTAL_PARTNER_NAME,
