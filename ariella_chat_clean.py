@@ -2508,6 +2508,16 @@ def _resolve_destination_airports_from_route_names(airports, names):
                         region_codes.append(code)
     if region_codes:
         return region_codes
+    # 020 stage B: a city only the extended catalog knows (Zadar) still
+    # resolves to its real airport(s) - after the island/region pass, before
+    # the country pass.
+    for name in names:
+        for a in _extended_airport_matches(name):
+            code = str(a.get("code") or "").upper()
+            if code and code not in city_codes:
+                city_codes.append(code)
+    if city_codes:
+        return city_codes
     codes = []
     for name in names:
         needle = str(name).strip().lower()
@@ -4879,13 +4889,23 @@ def _destination_catalog_hint(state):
         needle = _normalize_he_spelling(place)
         needle_casefold = place.casefold()
         cities = [a for a in airports
-                  if needle in {_normalize_he_spelling(a.get("city_he")), _normalize_he_spelling(a.get("city_en"))}
+                  if needle in {_normalize_he_spelling(v) for v in
+                                [a.get("city_he"), a.get("city_en")] + list(a.get("aliases_he") or []) if v}
                   or needle_casefold == str(a.get("code") or "").strip().casefold()]
         if cities:
             facts += [f"{a.get('city_he') or a.get('code')} ({a.get('code')}), {a.get('country_he') or ''}".rstrip(", ")
                       for a in cities]
             continue
-        is_country = any(needle in {_normalize_he_spelling(a.get("country_he")), _normalize_he_spelling(a.get("country_en"))}
+        # Round 12 (Zadar): a real city that's only in the extended catalog
+        # is a known airport too - never "no commercial airport".
+        extended = _extended_airport_matches(place)
+        if extended:
+            facts += [_extended_airport_fact(a) for a in extended]
+            continue
+        # 020a: the catalog's own alternate spellings count too (Bezalel's
+        # agreed follow-up - e.g. a place saved as "ויאטנם").
+        is_country = any(needle in {_normalize_he_spelling(v) for v in
+                                    [a.get("country_he"), a.get("country_en")] + list(a.get("country_aliases_he") or []) if v}
                          for a in airports)
         if not is_country:
             unknown.append(place)
@@ -5041,10 +5061,13 @@ def _destination_gateway_summary(state):
         return _destination_catalog_hint(state)
     airports_by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
 
+    extended_by_code = {str(a.get("code") or "").upper(): a for a in _load_extended_airports()}
+
     def _fact(code):
         a = airports_by_code.get(code)
         if not a:
-            return None
+            # 020 stage B: an extended-catalog airport (e.g. ZAD) - English only.
+            return _extended_airport_fact(extended_by_code[code]) if code in extended_by_code else None
         city = a.get("city_he") or code
         country = a.get("country_he") or ""
         return f"{city} ({code})" + (f", {country}" if country else "")
@@ -5852,8 +5875,12 @@ _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE = None
 # substring match either way), silently dropping the destination she
 # had just named. Add more pairs here as they're found live - this is
 # a spelling-variant map, not a full destination list, so it stays small.
+# Ski-resort spellings only (020a, 22.10): resorts aren't in the airport
+# catalog, so they stay here. Every airport-catalog spelling (city or
+# country - e.g. "ויאטנם") now lives in static/airports.json itself
+# (aliases_he / country_aliases_he), so a new spelling is a data update, not
+# a code change - see _known_destination_names.
 _DESTINATION_SPELLING_ALIASES = {
-    "ויאטנם": "וייטנאם",
     "ואל טורנס": "ואל תורנס",
     "וואל טורנס": "ואל תורנס",
     "וואל תורנס": "ואל תורנס",
@@ -5930,6 +5957,27 @@ def _known_destination_names():
                 known[en.lower()] = en
                 if en_key == "country_en":
                     country_needles.add(en.lower())
+        # 020a: alternate Hebrew spellings from the catalog itself -
+        # aliases_he for the record's city, country_aliases_he for its
+        # country. Each maps to the official name (what's shown to the
+        # customer); a country alias stays in the country tier, so a
+        # specific place in the same message still wins.
+        city_he = str(airport.get("city_he") or "").strip()
+        country_he = str(airport.get("country_he") or "").strip()
+        for alias in airport.get("aliases_he") or []:
+            alias = str(alias or "").strip()
+            if alias and city_he:
+                known[alias] = city_he
+                # Collision check (Bezalel's, 020a): an alias counts as its
+                # official name, so it only warns if it collides with a
+                # DIFFERENT place.
+                _he_spelling_collision_check.setdefault(_normalize_he_spelling(alias), set()).add(city_he)
+        for alias in airport.get("country_aliases_he") or []:
+            alias = str(alias or "").strip()
+            if alias and country_he:
+                known[alias] = country_he
+                _he_spelling_collision_check.setdefault(_normalize_he_spelling(alias), set()).add(country_he)
+                country_needles.add(alias)
     for _norm, _names in _he_spelling_collision_check.items():
         if len(_names) > 1:
             logging.warning(
@@ -8197,11 +8245,100 @@ def _match_city_exact(name, airports):
     if alias:
         candidates.add(_normalize_he_spelling(alias))
     for airport in airports:
-        for key in ("city_he", "city_en"):
-            hay = _normalize_he_spelling(airport.get(key))
+        # 020a: the catalog's own alternate city spellings (aliases_he)
+        # are exact names too - through the same spelling normalization.
+        for value in [airport.get("city_he"), airport.get("city_en")] + list(airport.get("aliases_he") or []):
+            hay = _normalize_he_spelling(value)
             if hay and hay in candidates:
                 return str(airport.get("code") or "").upper()
     return None
+
+
+_EXTENDED_AIRPORTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "airports_extended.json")
+_EXTENDED_AIRPORTS_CACHE = None
+
+
+def _load_extended_airports():
+    """020 stage B (Ofek's expanded catalog, approved 22.10): airports that
+    are NOT in static/airports.json. Their Hebrew names are unverified -
+    used for matching only; what is ever shown is the English name."""
+    global _EXTENDED_AIRPORTS_CACHE
+    if _EXTENDED_AIRPORTS_CACHE is None:
+        try:
+            with open(_EXTENDED_AIRPORTS_FILE, encoding="utf-8") as fh:
+                rows = json.load(fh).get("airports") or []
+        except Exception:
+            logging.exception("Could not load the extended airport catalog")
+            rows = []
+        _EXTENDED_AIRPORTS_CACHE = [r for r in rows if isinstance(r, dict) and r.get("code")]
+    return _EXTENDED_AIRPORTS_CACHE
+
+
+_EXTENDED_AIRPORTS_INDEX = None
+
+
+def _extended_airports_index():
+    """normalized name -> extended records, built once (a ~1,200-airport
+    linear scan per lookup was ~40ms)."""
+    global _EXTENDED_AIRPORTS_INDEX
+    if _EXTENDED_AIRPORTS_INDEX is None:
+        index = {}
+        for a in _load_extended_airports():
+            if a.get("match_exact_only"):
+                continue
+            names = [a.get("city_he"), a.get("city_en")] + list(a.get("aliases_he") or [])
+            for norm in {_normalize_he_spelling(v) for v in names if v}:
+                if norm:
+                    index.setdefault(norm, []).append(a)
+        _EXTENDED_AIRPORTS_INDEX = index
+    return _EXTENDED_AIRPORTS_INDEX
+
+
+def _extended_airport_matches(name):
+    """Extended-catalog airports for a city name, or [] - a FALLBACK, only
+    for a place the verified catalog doesn't know (Round 12: "לזדאר אין
+    שדה תעופה מסחרי" - Zadar/ZAD wasn't in our list at all). Exact match
+    after the shared spelling normalization (city_he, aliases_he, city_en).
+    A name marked match_exact_only (a common word, or a name like קאן -
+    Caen in the draft, but most often meant as Cannes) is never resolved
+    automatically. Several countries for one name -> its
+    preferred_for_names_he default, else [] (never a guess - the model
+    asks). Several airports of one city are all returned."""
+    raw = str(name or "").strip()
+    norm = _normalize_he_spelling(raw)
+    if not norm:
+        return []
+    # An island/region name ("כרתים") always means every one of its gateways
+    # (_ISLAND_REGION_GATEWAY_AIRPORTS) - never the one extended airport
+    # that happens to carry it as an alias (the draft has כרתים on Sitia).
+    if any(norm == _normalize_he_spelling(region) for region in _ISLAND_REGION_GATEWAY_AIRPORTS):
+        return []
+    hits = list(_extended_airports_index().get(norm) or [])
+    if len({a.get("country") for a in hits}) > 1:
+        hits = [a for a in hits if raw in (a.get("preferred_for_names_he") or [])]
+    return hits
+
+
+def _catalog_airport_by_code(code):
+    """One airport record by IATA code: the verified catalog first, then the
+    extended one (020 stage B) - the lookup a model-returned code (e.g. ZAD)
+    is verified against. None when it's in neither."""
+    code = str(code or "").strip().upper()
+    if not code:
+        return None
+    for a in _load_airports():
+        if str(a.get("code") or "").upper() == code:
+            return a
+    for a in _load_extended_airports():
+        if str(a.get("code") or "").upper() == code:
+            return a
+    return None
+
+
+def _extended_airport_fact(airport):
+    """The displayable fact for an extended-catalog airport - English names
+    only (its Hebrew name is unverified)."""
+    return f"{airport.get('city_en') or airport.get('code')} ({airport.get('code')}), {airport.get('country_en') or ''}".rstrip(", ")
 
 
 def _deterministic_open_jaw_airports(message):

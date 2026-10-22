@@ -121,7 +121,8 @@ st, _ = turn("qa-dr1-e-puy@example.com", ROV,
              "פולה מתאים לנו", {"destination_airports": ["PUY"]}, {}, extra={"destination_evidence": "פולה מתאים לנו"})
 check("E: the chosen nearby airport (PUY, not in our list) stays in state", st.get("destination_airports") == ["PUY"])
 gw = chat._destination_gateway_summary({"destination": {"places": ["רוביני"]}, "destination_airports": ["PUY"]})
-check("E: the reply is told the chosen code for the 'נחיתה:' line", "PUY" in gw and "נחיתה:" in gw)
+# Updated 22.10 (020 stage B): PUY is now in the extended catalog, so the fact names it (English).
+check("E: the reply is told the chosen airport for the landing line", "(PUY)" in gw and "Pula" in gw)
 fb = chat._final_summary_fallback_text(dict(ROV, destination_airports=["PUY"]))
 check("E: the fallback summary carries a landing line", "נחיתה: PUY" in fb)
 fb2 = chat._final_summary_fallback_text(dict(BASE, destination_airports=["VLC"]))
