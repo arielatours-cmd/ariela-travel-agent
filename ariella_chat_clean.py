@@ -573,6 +573,19 @@ def _already_asked_weekday_conflict(history, conflict_text):
 
 _RETRYABLE_CLAUDE_STATUS_CODES = (429, 529)
 
+# Run-9 diagnostics (22.10.2026, Shlomo's relay of the business owner's
+# real diagnostics-dates_pipeline-1d.csv file): a thread-local scratchpad
+# _post_claude's own body fills in for the one caller (the EXTRACTOR call
+# in _extract_trip_update) that needs the raw API response's stop_reason/
+# output_tokens to diagnose truncation - never added to _post_claude's own
+# return value or signature, which would force every one of its ~14 call
+# sites (and every QA mock standing in for them, which all match its exact
+# positional signature with no **kwargs) to change for one caller's sake.
+# Thread-local, not a plain module dict, since each chat turn runs on its
+# own thread (see this same function's own thread_id diagnostics above) -
+# never shared or clobbered across concurrent customers.
+_extractor_call_meta = threading.local()
+
 
 def _post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
     """system_static is the large, unchanging instruction block (thousands of
@@ -693,6 +706,13 @@ def _post_claude(key, model, system_static, system_dynamic, history, message, ma
         thread_id=thread_id, call_started_at=datetime.fromtimestamp(call_started, tz=timezone.utc).isoformat(),
         call_duration_ms=int((time.time() - call_started) * 1000),
     )
+    if source == "state_extractor":
+        # See _extractor_call_meta's own module-level comment - the one
+        # caller that reads this clears it right before calling, so a
+        # stale value from an earlier turn on the same thread is never
+        # mistaken for this call's own result.
+        _extractor_call_meta.stop_reason = getattr(response, "stop_reason", None)
+        _extractor_call_meta.output_tokens = getattr(response.usage, "output_tokens", None)
     return ''.join(block.text for block in response.content if block.type == 'text').strip()
 
 
@@ -5016,7 +5036,7 @@ def _post_summary_dates_context_hint(state):
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence, extractor_parse_error).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence, extractor_parse_error, extractor_diag).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -5083,7 +5103,58 @@ def _extract_trip_update(key, model, history, message, state=None):
         # fully implemented could plausibly be the model's own output
         # getting cut off at the old budget before reaching these trailing
         # fields, never a parse/logic bug this offline suite can see.
-        raw = _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, 900, include_history=True, source="state_extractor")
+        def _run_extractor_attempt(_max_tokens):
+            _extractor_call_meta.stop_reason = None
+            _extractor_call_meta.output_tokens = None
+            return _post_claude(key, model, EXTRACTOR_SYSTEM, system_dynamic, history, message, _max_tokens, include_history=True, source="state_extractor")
+
+        def _check_parse_error(_raw):
+            try:
+                _raw_for_parse_check = str(_raw or '').strip()
+                if _raw_for_parse_check.startswith('```'):
+                    _raw_for_parse_check = _raw_for_parse_check.replace('```json', '', 1).replace('```', '').strip()
+                return not isinstance(json.loads(_raw_for_parse_check), dict)
+            except Exception:
+                return True
+
+        # Bumped from 700, then 900 (18.10/21.10, Shlomo's follow-ups):
+        # dates_evidence/destination_evidence are trailing JSON siblings
+        # after the full trip_update object (many nested fields - lodging/
+        # car/trip_planning/ski/flight details) - a live date correction
+        # not persisting even with dates_evidence fully implemented could
+        # plausibly be the model's own output getting cut off at the old
+        # budget before reaching these trailing fields.
+        #
+        # CONFIRMED as the real run-9 root cause (22.10.2026, the business
+        # owner's own diagnostics-dates_pipeline-1d.csv): every live post-
+        # summary date-change turn with parse_error=true had EVERY
+        # EXTRACTOR field null - the model understood correctly but its
+        # JSON output was truncated before _parse_trip_update ever saw a
+        # complete object, once the post-summary state is large enough
+        # that 900 tokens isn't enough room for the full response. Raised
+        # to 2000 (sized for a full trip_update, per Shlomo's own
+        # estimate) - per his note, tokens are only billed for what the
+        # model actually generates, so this costs nothing on an ordinary,
+        # much shorter turn; it only matters on the turns that were
+        # silently failing before.
+        raw = _run_extractor_attempt(2000)
+        extractor_parse_error = _check_parse_error(raw)
+        _extractor_stop_reason = getattr(_extractor_call_meta, "stop_reason", None)
+        _extractor_output_tokens = getattr(_extractor_call_meta, "output_tokens", None)
+        _extractor_retried = False
+        if extractor_parse_error and _extractor_stop_reason == "max_tokens":
+            # Backstop for the rare turn whose own trip_update is large
+            # enough to still truncate even the raised budget above - one
+            # retry only (never a loop: this if-block runs at most once
+            # per call, there is no recursion or re-entry), with a wider
+            # ceiling still. Retried only on a genuine truncation signal
+            # from the API itself, never on an ordinary malformed-JSON
+            # parse failure a bigger budget would not fix anyway.
+            _extractor_retried = True
+            raw = _run_extractor_attempt(3500)
+            extractor_parse_error = _check_parse_error(raw)
+            _extractor_stop_reason = getattr(_extractor_call_meta, "stop_reason", None)
+            _extractor_output_tokens = getattr(_extractor_call_meta, "output_tokens", None)
         parsed = _parse_trip_update(raw)
         parsed = _validate_lodging_level_against_message(parsed, state, message)
         parsed = _validate_baggage_detail_against_message(parsed, state, message)
@@ -5093,27 +5164,33 @@ def _extract_trip_update(key, model, history, message, state=None):
         trip_type_evidence = _parse_trip_type_evidence(raw)
         relative_date_hint, relative_date_hint_evidence = _parse_relative_date_hint(raw)
         link_request, link_request_evidence = _parse_link_request_signal(raw)
-        # Run-9 diagnostics only (21.10.2026, Shlomo's relay): whether the
-        # raw JSON itself failed to parse as a dict at all - distinct from
-        # every field above defaulting to None/empty on a field that's
-        # genuinely absent from an otherwise well-formed response. Recorded
-        # by the call site into the "dates_pipeline" event; never consumed
-        # by any of the parsing above, so it cannot change behavior.
-        extractor_parse_error = True
-        try:
-            _raw_for_parse_check = str(raw or '').strip()
-            if _raw_for_parse_check.startswith('```'):
-                _raw_for_parse_check = _raw_for_parse_check.replace('```json', '', 1).replace('```', '').strip()
-            extractor_parse_error = not isinstance(json.loads(_raw_for_parse_check), dict)
-        except Exception:
-            extractor_parse_error = True
+        # Run-9 diagnostics only (21-22.10.2026, Shlomo's relay): whether
+        # the raw JSON itself failed to parse as a dict at all - distinct
+        # from every field above defaulting to None/empty on a field
+        # that's genuinely absent from an otherwise well-formed response.
+        # extractor_diag (added once the real root cause was confirmed
+        # from the business owner's own data file) carries the API's own
+        # stop_reason/output_tokens and a cheap brace-balance check - never
+        # the customer's text - so a live recurrence is immediately
+        # visible as truncation again vs. a genuinely different failure.
+        # Recorded by the call site into the "dates_pipeline" event; never
+        # consumed by any of the parsing above, so it cannot change
+        # behavior.
+        _raw_stripped = str(raw or '').strip()
+        extractor_diag = {
+            "stop_reason": _extractor_stop_reason,
+            "output_tokens": _extractor_output_tokens,
+            "starts_with_brace": _raw_stripped.startswith('{'),
+            "ends_with_brace": _raw_stripped.endswith('}'),
+            "retried": _extractor_retried,
+        }
         return (
             parsed, restart_request, restart_evidence, dates_evidence, destination_evidence,
             trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
-            link_request, link_request_evidence, extractor_parse_error,
+            link_request, link_request_evidence, extractor_parse_error, extractor_diag,
         )
     except Exception:
-        return {}, False, None, None, None, None, None, None, False, None, True
+        return {}, False, None, None, None, None, None, None, False, None, True, {}
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
@@ -12972,7 +13049,7 @@ def _chat_clean_impl():
         (
             extracted, restart_request, restart_evidence, dates_evidence, destination_evidence,
             trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
-            link_request, link_request_evidence, extractor_parse_error,
+            link_request, link_request_evidence, extractor_parse_error, extractor_diag,
         ) = _extract_trip_update(key, model, history, message, trip_state)
 
         # Customer asking for a link back to their vacation/dashboard (20.10,
@@ -13779,6 +13856,18 @@ def _chat_clean_impl():
                     "relative_date_hint_evidence_present": bool(relative_date_hint_evidence),
                     "relative_date_hint_evidence_len": len(str(relative_date_hint_evidence)) if relative_date_hint_evidence else 0,
                     "parse_error": bool(extractor_parse_error),
+                    # Added once the real run-9 root cause (truncation at
+                    # max_tokens) was confirmed from the business owner's
+                    # own diagnostics file (22.10.2026) - the raw API
+                    # response's own stop_reason/output_tokens and a cheap
+                    # brace-balance check, never the customer's text, so a
+                    # live recurrence is immediately visible as truncation
+                    # again vs. a genuinely different failure shape.
+                    "stop_reason": (extractor_diag or {}).get("stop_reason"),
+                    "output_tokens": (extractor_diag or {}).get("output_tokens"),
+                    "starts_with_brace": (extractor_diag or {}).get("starts_with_brace"),
+                    "ends_with_brace": (extractor_diag or {}).get("ends_with_brace"),
+                    "retried_on_truncation": bool((extractor_diag or {}).get("retried")),
                 },
                 "gates": _dates_pipeline_gates,
                 "result": {
