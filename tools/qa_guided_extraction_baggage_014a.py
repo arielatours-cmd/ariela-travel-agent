@@ -233,16 +233,31 @@ check("scenario 2b (Shaked's count-preservation finding): count=2 survives, not 
 check("scenario 2b: the built label states '2', never 'מזוודה אחת'",
       "2" in chat._checked_bag_label({"count": 2}))
 
-# --- 2c. mixed_per_passenger - per the business owner's 20.10 directive,
-#     UPDATED again (20.10, after Shaked's live K1 Warsaw finding on #91:
-#     Ariella correctly explained uniform baggage but then ASKED a confirm
-#     question anyway, and separately PROMISED a per-passenger split at
-#     booking time - both now forbidden): a mixed request resolves
-#     SILENTLY to checked_bag with full confidence - no explanation, no
-#     confirm question, no discussion at all. The updated guided_extract
-#     prompt now instructs the model to return confidence:"high" for this
-#     case (never "low" any more), so this mock reflects what a correctly-
-#     behaving model now returns. ---
+# --- 2c. mixed_per_passenger - FINAL business-owner decision (22.10.2026,
+#     4th and final revision, relayed by Shlomo), fully superseding PR
+#     #121's "silently resolve to checked_bag" design after Shaked's
+#     rejection (21.10, e2848dc, run-7 bug B): a mixed request is now
+#     never resolved and never saved. Ariella explains (her own words)
+#     that different baggage per passenger can only be added at the
+#     payment stage, then asks one yes/no question - choose the same
+#     baggage for everyone? "Yes" moves on to the normal single-group
+#     question; "no" keeps the EXISTING carry_on_only default, never a
+#     new/invented value. ---
+
+
+def _fake_classifier_reply(value):
+    """Fakes _mixed_baggage_uniform_choice_by_meaning's yes/no/unclear
+    model call (source="classifier") while still letting the main
+    extractor's own call (source="state_extractor") through as a no-op."""
+    def _fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+        if source == "state_extractor":
+            return "{}"
+        if source == "classifier":
+            return value
+        return "תשובה לדוגמה."
+    return _fake
+
+
 member2c = _make_member("qa-baggage-s2c@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False, "mixed_per_passenger": True,
@@ -252,28 +267,75 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     state2c["guided"] = {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}
     r2c = _post("אני עם טרולי בלבד אבל הילדים עם מזוודה", [], state2c, member2c)
 tu2c = r2c.get("trip_update") or {}
-check("scenario 2c (mixed_per_passenger): defaults the whole group to checked_bag, "
-      "the more inclusive option, never silently merging the differentiated request",
-      (tu2c.get("flight") or {}).get("baggage") == ["checked_bag"])
-check("scenario 2c: resolved with full confidence - never reopens a confirm "
-      "question over a mixed request",
-      (tu2c.get("guided") or {}).get("current_question") != "baggage")
-# Run-7 bug B (Shaked, Phuket, 21.10.2026): the FIRST fix attempt (PR #121,
-# 4f1079a) added a steering hint instructing Tinkerbell to explain the
-# resolution ("הזמנה היא תמיד כבודה אחידה... לכן נשמרה מזוודה לכולם") -
-# but Shaked rejected that version (e2848dc): the explanation itself
-# contradicts the business owner's own decisions ("בקשה מעורבת: מזוודה,
-# בלי דיון" and "מזוודה: לא מוסיפה משפט") - no acknowledgement sentence
-# of ANY kind belongs here. The hint now does the opposite: it forbids
-# mentioning baggage in this turn at all, so neither the original
-# per-passenger split nor a new explanation gets said.
-check("scenario 2c FIX: the steering hint forbids mentioning baggage at "
-      "all this turn (no explanation sentence, no confirmation, no "
-      "per-passenger description)",
-      "אל תזכירי את נושא הכבודה" in str(tu2c.get("_guided_ask_hint") or ""))
-check("scenario 2c: the hint never itself states the forbidden "
-      "explanation as if it were an instruction to SAY it",
-      "לכן נשמרה מזוודה" not in str(tu2c.get("_guided_ask_hint") or ""))
+check("scenario 2c (mixed_per_passenger, first detection): nothing is saved at all",
+      not (tu2c.get("flight") or {}).get("baggage"))
+check("scenario 2c: baggage field stays open (pending the yes/no reply), never marked answered",
+      (tu2c.get("guided") or {}).get("current_question") == "baggage")
+check("scenario 2c: the pending flag is set so next turn is read as the yes/no answer",
+      (tu2c.get("guided") or {}).get("mixed_baggage_pending") is True)
+check("scenario 2c: the hint explains baggage can only differ per passenger at payment time",
+      "התשלום" in str(tu2c.get("_guided_ask_hint") or ""))
+check("scenario 2c: the hint forbids saving/mentioning any specific baggage choice this turn",
+      "אל תשמרי" in str(tu2c.get("_guided_ask_hint") or ""))
+check("scenario 2c: the hint asks a yes/no question, never buttons",
+      "כן/לא" in str(tu2c.get("_guided_ask_hint") or "") and "כפתורים" in str(tu2c.get("_guided_ask_hint") or ""))
+
+# --- 2c-yes: the customer agrees to one uniform baggage choice - moves on
+#     to the normal single-group baggage question, exactly as if the
+#     mixed description never happened; still nothing saved yet. ---
+member2c_yes = _make_member("qa-baggage-s2c-yes@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("true")):
+    state2c_yes = dict(ROME_STATE)
+    state2c_yes["guided"] = {
+        "current_question": "baggage", "attempts": 0,
+        "answered": ["dates", "travelers"], "mixed_baggage_pending": True,
+    }
+    r2c_yes = _post("כן, בואו נבחר כבודה אחידה", [], state2c_yes, member2c_yes)
+tu2c_yes = r2c_yes.get("trip_update") or {}
+check("scenario 2c-yes: pending flag cleared",
+      not (tu2c_yes.get("guided") or {}).get("mixed_baggage_pending"))
+check("scenario 2c-yes: still nothing saved - the normal baggage question is asked next",
+      not (tu2c_yes.get("flight") or {}).get("baggage"))
+check("scenario 2c-yes: baggage field stays open, asking the normal 3-option question",
+      (tu2c_yes.get("guided") or {}).get("current_question") == "baggage"
+      and "תיק יד" in str(tu2c_yes.get("_guided_ask_hint") or ""))
+
+# --- 2c-no: the customer declines - the EXISTING carry_on_only default is
+#     saved (per Shlomo's explicit instruction, 22.10: never invent a new
+#     "no baggage" value when carry_on_only already exists in the schema). ---
+member2c_no = _make_member("qa-baggage-s2c-no@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("false")):
+    state2c_no = dict(ROME_STATE)
+    state2c_no["guided"] = {
+        "current_question": "baggage", "attempts": 0,
+        "answered": ["dates", "travelers"], "mixed_baggage_pending": True,
+    }
+    r2c_no = _post("לא, זה בסדר ככה", [], state2c_no, member2c_no)
+tu2c_no = r2c_no.get("trip_update") or {}
+check("scenario 2c-no: pending flag cleared",
+      not (tu2c_no.get("guided") or {}).get("mixed_baggage_pending"))
+check("scenario 2c-no: saves the EXISTING carry_on_only value, never a new/invented one",
+      (tu2c_no.get("flight") or {}).get("baggage") == ["carry_on_only"])
+check("scenario 2c-no: baggage marked answered and the turn moves on",
+      (tu2c_no.get("guided") or {}).get("current_question") != "baggage")
+
+# --- 2c-unclear: the reply doesn't actually answer the yes/no question -
+#     ask again, pending flag stays set, nothing saved (same loop-guard
+#     pattern as every other guided field). ---
+member2c_unclear = _make_member("qa-baggage-s2c-unclear@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("null")):
+    state2c_unclear = dict(ROME_STATE)
+    state2c_unclear["guided"] = {
+        "current_question": "baggage", "attempts": 0,
+        "answered": ["dates", "travelers"], "mixed_baggage_pending": True,
+    }
+    r2c_unclear = _post("מה זאת אומרת?", [], state2c_unclear, member2c_unclear)
+tu2c_unclear = r2c_unclear.get("trip_update") or {}
+check("scenario 2c-unclear: pending flag stays set, question asked again",
+      (tu2c_unclear.get("guided") or {}).get("mixed_baggage_pending") is True
+      and (tu2c_unclear.get("guided") or {}).get("current_question") == "baggage")
+check("scenario 2c-unclear: nothing saved",
+      not (tu2c_unclear.get("flight") or {}).get("baggage"))
 
 # --- 2d. multiple items in parallel: "טרולי לכל אחד ומזוודה אחת לכל
 #     המשפחה" -> carry_on + checked_bag (count=1) - the suitcase must never
@@ -490,8 +552,12 @@ check("regression: still no buttons in the baggage ask hint",
 #     Ariella correctly explained uniform baggage but then ASKED a confirm
 #     question anyway ("תרצו שנזמין מזוודה בבטן לכולם?"), and separately
 #     PROMISED a per-passenger split at booking time ("אנסה לסדר את זה
-#     בדיוק ככה"). Both forbidden now - a mixed request must resolve in ONE
-#     turn, with no question and no promise of any kind. ---
+#     בדיוק ככה"). FINAL decision (22.10.2026): nothing is saved or
+#     resolved at all here - she explains the payment-time limitation and
+#     asks ONE yes/no question instead (see scenario 2c above for the full
+#     yes/no follow-up coverage); still no promise of a per-passenger
+#     arrangement at booking time, which this repro's "אנסה לסדר" leak was
+#     really about. ---
 member_k1 = _make_member("qa-baggage-k1-warsaw@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False, "mixed_per_passenger": True,
@@ -501,18 +567,15 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     state_k1["guided"] = {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}
     r_k1 = _post("ההורים רק עם טרולי, לילדים צריך מזוודה בבטן", [], state_k1, member_k1)
 tu_k1 = r_k1.get("trip_update") or {}
-check("K1 Warsaw: resolves to checked_bag for the whole group in one turn",
-      (tu_k1.get("flight") or {}).get("baggage") == ["checked_bag"])
-check("K1 Warsaw: no confirm question is reopened - nothing left to ask about "
-      "baggage",
-      (tu_k1.get("guided") or {}).get("current_question") != "baggage")
+check("K1 Warsaw: nothing is saved/resolved - the field stays open pending "
+      "the yes/no reply",
+      not (tu_k1.get("flight") or {}).get("baggage")
+      and (tu_k1.get("guided") or {}).get("current_question") == "baggage"
+      and (tu_k1.get("guided") or {}).get("mixed_baggage_pending") is True)
 k1_hint = str(tu_k1.get("_guided_ask_hint") or "")
 check("K1 Warsaw: no promise of any per-passenger arrangement at booking "
       "time leaks into the hint",
       "אנסה לסדר" not in k1_hint and "בדיוק ככה" not in k1_hint)
-check("K1 Warsaw: checked_bag is the top tier - no 'add later' follow-up note "
-      "is needed at all",
-      "תמיד אפשר להוסיף" not in k1_hint)
 
 # --- K2 Naples (same report): "אני מסתדרת עם תיק קטן, שתי האחרות רוצות
 #     מזוודה גדולה" - a SIDE-BY-SIDE description (no "אבל"/contrast word),
@@ -520,8 +583,8 @@ check("K1 Warsaw: checked_bag is the top tier - no 'add later' follow-up note "
 #     was keyed to. Her prompt is now broadened explicitly to cover this
 #     phrasing too (see _guided_extract_answer's own mixed_per_passenger
 #     instruction) - this mock simulates the model correctly classifying it
-#     as mixed per the broadened instruction, and verifies the downstream
-#     resolution never produces a per-passenger breakdown anywhere. ---
+#     as mixed per the broadened instruction, and verifies nothing is saved
+#     or resolved, and no per-passenger breakdown leaks into the hint. ---
 member_k2 = _make_member("qa-baggage-k2-naples@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False, "mixed_per_passenger": True,
@@ -531,11 +594,9 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     state_k2["guided"] = {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}
     r_k2 = _post("אני מסתדרת עם תיק קטן, שתי האחרות רוצות מזוודה גדולה", [], state_k2, member_k2)
 tu_k2 = r_k2.get("trip_update") or {}
-check("K2 Naples: resolves to one flat checked_bag value for the whole "
-      "group, never a per-passenger split",
-      (tu_k2.get("flight") or {}).get("baggage") == ["checked_bag"])
-check("K2 Naples: no baggage_detail at all (no size/count was actually "
-      "stated for the group)",
+check("K2 Naples: nothing is saved - no flat value and no per-passenger split",
+      not (tu_k2.get("flight") or {}).get("baggage"))
+check("K2 Naples: no baggage_detail at all either",
       not (tu_k2.get("flight") or {}).get("baggage_detail"))
 check("K2 Naples: no per-passenger attribution anywhere in the hint "
       "(e.g. 'לשתי הנוסעות האחרות')",

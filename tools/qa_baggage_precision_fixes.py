@@ -32,10 +32,10 @@ FINAL, simplified model:
 3. mixed_per_passenger - when the customer's own words explicitly
    differentiate what different passengers get (the MODEL decides this
    from meaning, never a phrase list), the booking still can't represent
-   that split: default to checked_bag for everyone and surface the
-   uniform-booking explanation via the existing low-confidence
-   confirm-hint pathway, rather than silently merging a request that was
-   never actually made.
+   that split. FINAL decision (22.10.2026): nothing is resolved or saved
+   here at all - see tools/qa_guided_extraction_baggage_014a.py's
+   scenario 2c for the real no-save/payment-time-explanation/yes-no flow
+   this now routes through instead.
 
 4. _checked_bag_label / _carry_on_label - simplified to count+size only,
    no unit parameter anywhere; a stated size still pluralizes correctly
@@ -160,32 +160,31 @@ check("regression: the original proximity-bug repro ('טרולי לכל אחד "
 # =====================================================================
 # 3. mixed_per_passenger - the model's own understanding that different
 #    passengers were asked for different things; the booking can't
-#    represent that split, so it defaults to checked_bag for everyone.
-#    UPDATED (20.10, after Shaked's live K1 Warsaw finding on #91: Ariella
-#    correctly explained uniform baggage but then ASKED a confirm question
-#    anyway, and separately PROMISED a per-passenger split at booking time
-#    - both now forbidden per the business owner's explicit decision): the
-#    resolution is now completely SILENT - the exact same flat description
-#    as a direct checked_bag answer, no explanation, no confirm question.
+#    represent that split.
+#    FINAL business-owner decision (22.10.2026, 4th and final revision,
+#    relayed by Shlomo), superseding the 20.10 "silently resolve to
+#    checked_bag" design after Shaked's rejection (run-7 bug B, Phuket):
+#    nothing is resolved or saved here at all any more. The real-world
+#    orchestrator (_handle_guided_extraction_turn) intercepts
+#    mixed_per_passenger BEFORE this function is ever called for that
+#    case (see tools/qa_guided_extraction_baggage_014a.py's scenario 2c
+#    for that full no-save/yes-no coverage) - this function's own branch
+#    is only a defensive fallback, and must never silently resolve or
+#    save a value either.
 # =====================================================================
-check("guided path: mixed_per_passenger defaults the whole group to "
-      "checked_bag, never silently merging distinct per-passenger requests",
+check("guided path: mixed_per_passenger is never resolved or saved here - "
+      "no fragment at all, never silently merging distinct per-passenger "
+      "requests into any single value",
       chat._guided_field_update_and_confirm(
           "baggage", {"mixed_per_passenger": True}
-      )[0] == {"flight": {"baggage": ["checked_bag"]}})
-check("guided path: mixed_per_passenger's description is the SAME flat "
-      "label as a direct checked_bag answer - no explanation of the mixed "
-      "request or the uniform-booking rule leaks into it at all",
-      chat._guided_field_update_and_confirm(
-          "baggage", {"mixed_per_passenger": True}
-      )[1] == chat._checked_bag_label({}))
+      ) == ({}, None))
 check("guided path: mixed_per_passenger takes precedence even if the model "
       "also sent items alongside it (never a silently-merged per-passenger "
-      "fact)",
+      "fact, and never a save)",
       chat._guided_field_update_and_confirm(
           "baggage", {"mixed_per_passenger": True,
                       "items": [{"type": "carry_on_only"}]}
-      )[0] == {"flight": {"baggage": ["checked_bag"]}})
+      ) == ({}, None))
 
 # =====================================================================
 # 4. _checked_bag_label / _carry_on_label - simplified labels, count+size
