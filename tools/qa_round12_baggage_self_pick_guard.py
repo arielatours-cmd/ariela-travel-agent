@@ -12,22 +12,29 @@ state itself stayed correct (flight.baggage was never silently saved) -
 this is a pure drafting-compliance failure: Tinkerbell didn't follow the
 hint she was given.
 
-Fixed: _guard_baggage_type_self_picked (ariella_chat_clean.py), a
-deterministic safety net wired into _call_tinkerbell's reply pipeline. When
-current_question=="baggage" and flight.baggage is still unset, her reply's
-own actual question (last clause before the final "?") must be about
-baggage - if it isn't (she self-decided, or asked about something else
-entirely), the canonical three-option question replaces the whole reply.
+REWORKED per Shaked's review of the first version (round 12, e033a3b):
+the original fix scanned the reply for marker words ("כבודה"/"מזוודה"/
+"טרולי"/"תיק") and substituted a fixed fallback sentence when they were
+missing - exactly the "no phrase lists on model output, no fixed
+sentences replacing the model's answer" pattern the business owner
+forbids. Fixed: _guided_question_actually_asked (a short model classifier
+call, not a word scan) decides whether the reply genuinely asks about
+baggage type; when it doesn't, _retry_guided_field_question forces the
+hint and asks Tinkerbell AGAIN (a real model re-ask, never a canned
+sentence).
 
 Run: python3 tools/qa_round12_baggage_self_pick_guard.py
 """
+import json
 import os
 import sys
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-not-real")
+os.environ.setdefault("SCHEDULER_ENABLED", "false")
 
-from ariella_chat_clean import _guard_baggage_type_self_picked, _BAGGAGE_TYPE_QUESTION_FALLBACK
+import ariella_chat_clean as chat
 
 FAILED = []
 
@@ -42,56 +49,75 @@ def check(name, cond):
 STATE_BAGGAGE_OPEN = {
     "guided": {"current_question": "baggage", "answered": ["dates", "travelers"], "mixed_baggage_pending": False},
     "flight": {"baggage": []},
-    # The arbiter must actually pick the guided hint as this turn's winner
-    # (see _turn_question_arbiter) - the guard only fires when nothing
-    # higher-priority (a date shift, a gap-clarify doubt, a destination
-    # gateway question) won instead.
     "_guided_ask_hint": "הפרט הבא לברר אצל הלקוח: איזו כבודה לוקחים.",
 }
 
-# The exact live reply (Zadar, round 12, finding E) - self-picked a type,
-# never asked.
 LIVE_SELF_PICKED_REPLY = (
     "אוקיי, אז כיוון ששתיים מכן צריכות מזוודה, הכי בטוח שכולכן תזמינו מזוודה "
-    "בבטן המטוס - כך לא תהיה בעיה לאף אחת.\n\n"
-    "ולגבי שדה התעופה - לזדאר אין שדה בינלאומי מסחרי ישיר, אז צריך לבחור דרך "
-    "איזה שדה קרוב לנחות ולהמשיך משם. חשוב לכם שהטיסה תהיה ישירה?"
+    "בבטן המטוס - כך לא תהיה בעיה לאף אחת."
 )
-guarded = _guard_baggage_type_self_picked(LIVE_SELF_PICKED_REPLY, STATE_BAGGAGE_OPEN)
-check(
-    "finding E repro: a self-picked baggage type with no real baggage question is replaced",
-    guarded == _BAGGAGE_TYPE_QUESTION_FALLBACK,
-)
+RETRIED_REPLY = "בסדר גמור - איזו כבודה תרצו לקחת לטיסה?"
 
-# A compliant reply (asks the real baggage question) must pass through untouched.
-COMPLIANT_REPLY = (
-    'בסדר גמור. אז בשלב ההזמנה אפשר לבחור סוג כבודה אחד לכל הקבוצה - '
-    'איזו כבודה לוקחים: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס?'
-)
-check(
-    "regression: a reply that genuinely asks about baggage type passes through unchanged",
-    _guard_baggage_type_self_picked(COMPLIANT_REPLY, STATE_BAGGAGE_OPEN) == COMPLIANT_REPLY,
-)
 
-# Once flight.baggage is actually saved, the guard must never touch the reply
-# (e.g. a later turn, baggage already resolved, talking about something else).
+def _classifier(asked):
+    def fake(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+        if source == "classifier":
+            return json.dumps({"asked": asked})
+        return "{}"
+    return fake
+
+
+# --- 1. Classifier says "not asked" -> forces a genuine retry via _call_tinkerbell ---
+with patch.object(chat, "_post_claude", side_effect=_classifier(False)), \
+        patch.object(chat, "_call_tinkerbell", return_value=RETRIED_REPLY) as mock_retry:
+    result = chat._guard_baggage_type_self_picked(
+        LIVE_SELF_PICKED_REPLY, STATE_BAGGAGE_OPEN, "k", "m", [], "כן"
+    )
+check("finding E repro: a self-picked baggage type (classifier says 'not asked') triggers a genuine retry",
+      result == RETRIED_REPLY)
+check("the retry goes through _call_tinkerbell with _guided_question_retry=True (never a fixed sentence)",
+      mock_retry.call_args.kwargs.get("_guided_question_retry") is True)
+check("the retry forces guided.current_question back to 'baggage'",
+      mock_retry.call_args[0][4].get("guided", {}).get("current_question") == "baggage")
+
+# --- 2. Classifier says "asked" -> reply passes through unchanged, no retry call ---
+with patch.object(chat, "_post_claude", side_effect=_classifier(True)), \
+        patch.object(chat, "_call_tinkerbell") as mock_no_retry:
+    compliant = "בסדר גמור. אז בשלב ההזמנה אפשר לבחור סוג כבודה אחד - איזו כבודה לוקחים: תיק יד בלבד, טרולי, או מזוודה?"
+    result2 = chat._guard_baggage_type_self_picked(compliant, STATE_BAGGAGE_OPEN, "k", "m", [], "כן")
+check("regression: classifier confirms the reply genuinely asks -> passes through unchanged",
+      result2 == compliant)
+check("regression: no retry call made when the classifier says it was asked",
+      not mock_no_retry.called)
+
+# --- 3. Once flight.baggage is actually saved, the guard never even calls the classifier ---
 STATE_BAGGAGE_SAVED = {
     "guided": {"current_question": "baggage", "answered": ["dates", "travelers", "baggage"]},
     "flight": {"baggage": ["checked_bag"]},
 }
-check(
-    "regression: once flight.baggage is saved, the guard never overrides the reply",
-    _guard_baggage_type_self_picked("נשמר מעולה, מה לגבי התקציב לאדם?", STATE_BAGGAGE_SAVED) == "נשמר מעולה, מה לגבי התקציב לאדם?",
-)
+with patch.object(chat, "_post_claude") as mock_classifier_unused:
+    result3 = chat._guard_baggage_type_self_picked("נשמר מעולה, מה לגבי התקציב לאדם?", STATE_BAGGAGE_SAVED, "k", "m", [], "x")
+check("regression: once flight.baggage is saved, the guard never calls the classifier at all",
+      result3 == "נשמר מעולה, מה לגבי התקציב לאדם?" and not mock_classifier_unused.called)
 
-# When current_question isn't "baggage" at all, the guard must never fire,
-# regardless of reply content.
+# --- 4. current_question isn't 'baggage' -> never touched, no classifier call ---
 STATE_OTHER_FIELD = {"guided": {"current_question": "accessibility"}, "flight": {"baggage": []}}
-check(
-    "regression: current_question != 'baggage' never triggers the guard",
-    _guard_baggage_type_self_picked("משהו שלא קשור לכבודה בכלל - תקציב לאדם?", STATE_OTHER_FIELD)
-    == "משהו שלא קשור לכבודה בכלל - תקציב לאדם?",
-)
+with patch.object(chat, "_post_claude") as mock_classifier_unused2:
+    result4 = chat._guard_baggage_type_self_picked("משהו שלא קשור לכבודה בכלל", STATE_OTHER_FIELD, "k", "m", [], "x")
+check("regression: current_question != 'baggage' never triggers the guard or the classifier",
+      result4 == "משהו שלא קשור לכבודה בכלל" and not mock_classifier_unused2.called)
+
+# --- 5. A pending date candidate / fact hint skips the guard without any classifier call ---
+STATE_DATES_PENDING = {
+    "guided": {"current_question": "baggage"},
+    "flight": {"baggage": []},
+    "dates": {"departure": "2026-11-17", "return": "2026-11-24", "needs_confirmation": True,
+              "candidate_ranges": ["יום שלישי 20.11.2026–יום שלישי 27.11.2026"]},
+}
+with patch.object(chat, "_post_claude") as mock_classifier_unused3:
+    result5 = chat._guard_baggage_type_self_picked("סגרנו את הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?", STATE_DATES_PENDING, "k", "m", [], "x")
+check("regression: a standing pending date candidate skips the guard, no classifier call, no state scanning of the reply",
+      result5 == "סגרנו את הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?" and not mock_classifier_unused3.called)
 
 
 print()

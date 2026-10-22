@@ -1,25 +1,24 @@
-"""QA for round-12 live finding E, remaining parts (Shlomo/Shaked,
+"""QA for round-12 live finding E, no-final-question part (Shlomo/Shaked,
 22.10.2026, qa-dryrun branch "shaked", qa/live/2026-10-22-run12/r12_E.log,
 Zadar):
 
-Part 1 - internal reasoning leak: the live reply "מעולה, אז נהיה גמישים גם
-לקונקשן.\n\n (למשל יש שדות אזוריים שונים שיכולים לשרת את האזור) לתכנן גם
-מסלול ואטרקציות לחופשה הזו?" has a dangling example aside - "(למשל ...)" -
-sitting directly in front of a completely unrelated question, never
-finished into a real sentence. Fixed: _strip_dangling_example_parenthesis,
-a structural (not phrase-list) safety net wired into _call_tinkerbell's
-reply pipeline.
-
-Part 2 - a turn ending with no question at all: after three consecutive
-502s (Render redeploying - not this code's fault), the next successful
-reply was "עוד לא כל הפרטים נסגרו - עדיין לא אפשר לאשר. נמשיך לסגור את
-זה קודם." with no question mark anywhere - a dead end, the exact qa-s79
-bug class _premature_approval_fallback_text already exists to avoid, except
+A turn ending with no question at all: after three consecutive 502s
+(Render redeploying - not this code's fault), the next successful reply
+was "עוד לא כל הפרטים נסגרו - עדיין לא אפשר לאשר. נמשיך לסגור את זה
+קודם." with no question mark anywhere - a dead end, the exact qa-s79 bug
+class _premature_approval_fallback_text already exists to avoid, except
 this function never had a branch for still_open=="flights" (here,
 destination_airports still unresolved) or still_open being None entirely -
 both fell straight through to the fully generic, questionless sentence.
 Fixed: the function now tries the real flight gap question first via
 _flight_gap_question, exactly like every other caller.
+
+(The other two parts of this finding - the internal-reasoning-leak
+parenthetical and the self-picked baggage type - are covered by
+tools/qa_round12_baggage_self_pick_guard.py and TINKERBELL_SYSTEM's own
+prompt instruction against unfinished example asides, per Shaked's review
+that a regex-deletion mechanism was the wrong fix for the leak - see that
+test file and ariella_chat_clean.py's TINKERBELL_SYSTEM rule 119.)
 
 Run: python3 tools/qa_round12_E_leak_and_no_final_question.py
 """
@@ -29,7 +28,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-not-real")
 
-from ariella_chat_clean import _strip_dangling_example_parenthesis, _premature_approval_fallback_text
+from ariella_chat_clean import _premature_approval_fallback_text
 
 FAILED = []
 
@@ -40,52 +39,6 @@ def check(name, cond):
     if not cond:
         FAILED.append(name)
 
-
-# --- Part 1: dangling example parenthesis ---
-
-LIVE_LEAK_REPLY = (
-    "מעולה, אז נהיה גמישים גם לקונקשן.\n\n"
-    " (למשל יש שדות אזוריים שונים שיכולים לשרת את האזור) לתכנן גם מסלול ואטרקציות לחופשה הזו?"
-)
-cleaned = _strip_dangling_example_parenthesis(LIVE_LEAK_REPLY)
-check(
-    "finding E repro: the dangling '(למשל...)' aside is stripped",
-    "למשל" not in cleaned,
-)
-check(
-    "finding E repro: the real question survives intact",
-    "לתכנן גם מסלול ואטרקציות לחופשה הזו?" in cleaned,
-)
-check(
-    "finding E repro: the earlier complete sentence survives intact",
-    "מעולה, אז נהיה גמישים גם לקונקשן." in cleaned,
-)
-
-# A legitimate "(למשל: ...)" sitting right AFTER the question it
-# exemplifies (text before it, not after) must never be touched.
-LEGITIMATE_EXAMPLE = "איזה סוג לינה מתאים לכם (למשל: מלון, דירה או צימר)?"
-check(
-    "regression: a legitimate example attached to its own question is untouched",
-    _strip_dangling_example_parenthesis(LEGITIMATE_EXAMPLE) == LEGITIMATE_EXAMPLE,
-)
-
-# A reply with no "(למשל...)" at all passes through unchanged.
-PLAIN_REPLY = "מעולה, נרשם. מה התקציב שלכם לאדם לטיסה?"
-check(
-    "regression: a reply without any '(למשל...)' passes through unchanged",
-    _strip_dangling_example_parenthesis(PLAIN_REPLY) == PLAIN_REPLY,
-)
-
-# A parenthetical with no question after it at all is left alone (nothing
-# to recover into - don't guess).
-NO_QUESTION_AFTER = "זה מידע כללי. (למשל יש כמה אפשרויות לשקול כאן) זהו."
-check(
-    "regression: a dangling aside with no question after it is left alone",
-    _strip_dangling_example_parenthesis(NO_QUESTION_AFTER) == NO_QUESTION_AFTER,
-)
-
-
-# --- Part 2: no-final-question dead end ---
 
 STATE_FLIGHTS_STILL_OPEN = {
     "active_session": None,
@@ -146,4 +99,4 @@ if FAILED:
         print(" -", name)
     sys.exit(1)
 else:
-    print("ALL ROUND12-E-LEAK-AND-NO-FINAL-QUESTION TESTS PASSED")
+    print("ALL ROUND12-E-NO-FINAL-QUESTION TESTS PASSED")
