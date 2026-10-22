@@ -205,12 +205,21 @@
           {% endfor %}
           {% set lodging_offers = a.get('lodging_offers') or [] %}
           {% if lodging_offers %}
+            {# Item 4 (lodging revenue, 22.10): results grouped by stop + dates, a heading per group. The server
+               already tags each segment search's hotels with segment_location/segment_dates (in route order);
+               untagged results (the usual single search) form one group: the destination + the trip's dates. #}
+            {% set default_group_label = (trip.destination_display or trip.request_name or 'לינה') ~ ((' · ' ~ (a.get('departure_date') ~ ' – ' ~ a.get('return_date'))|he_dates) if a.get('departure_date') and a.get('return_date') else '') %}
             <div class="lodging-results-list">
+              {% set ns = namespace(group=none) %}
               {% for hotel in lodging_offers %}
+                {% set group_label = ((hotel.get('segment_location') ~ ((' · ' ~ hotel.get('segment_dates')|he_dates) if hotel.get('segment_dates') else '')) if hotel.get('segment_location') else default_group_label) %}
+                {% if group_label != ns.group %}
+                  {% set ns.group = group_label %}
+                  <h4 class="lodging-results-group-title">{{ group_label }}</h4>
+                {% endif %}
                 <div class="lodging-result-card">
                   {% if hotel.get('thumbnail') %}<img class="lodging-thumb" src="{{ hotel.get('thumbnail') }}" alt="" loading="lazy">{% endif %}
                   <div class="lodging-result-info">
-                    {% if hotel.get('segment_location') %}<div class="lodging-result-segment">{{ hotel.get('segment_location') }}{% if hotel.get('segment_dates') %} · {{ hotel.get('segment_dates') }}{% endif %}</div>{% endif %}
                     <strong>{{ hotel.get('name') or 'מלון' }}</strong>
                     <div class="lodging-result-meta">
                       {% if hotel.get('hotel_class') %}<span>{{ hotel.get('hotel_class') }} ★</span>{% endif %}
@@ -223,9 +232,6 @@
                 </div>
               {% endfor %}
             </div>
-            <form method="post" action="{{ url_for('site.search_lodging', trip_id=trip.id) }}" class="lodging-search-again">
-              <button type="submit" class="lodging-search-btn secondary">חיפוש מחדש</button>
-            </form>
           {% else %}
             {% if a.get('lodging_search_error') %}<div class="lodging-search-error">{{ a.get('lodging_search_error') }}</div>{% endif %}
             <div class="booking-lodging-cta">
@@ -247,7 +253,7 @@
           .lodging-result-card{display:flex;gap:12px;background:#fff;border:1px solid #e5dccd;border-radius:12px;padding:12px;box-shadow:0 2px 8px #0000000a}
           .lodging-thumb{width:96px;height:96px;object-fit:cover;border-radius:8px;flex:0 0 auto}
           .lodging-result-info{display:flex;flex-direction:column;gap:3px;min-width:0}
-          .lodging-result-segment{font-size:11px;font-weight:800;color:#0fc2b0}
+          .lodging-results-group-title{font-size:13px;font-weight:800;color:#0fc2b0;margin:10px 0 4px}
           .lodging-result-info strong{font-size:14.5px;color:#2b2620}
           .lodging-result-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#6d6459}
           .lodging-result-nearby{font-size:11.5px;color:#8a7f6c}
