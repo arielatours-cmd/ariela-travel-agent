@@ -5418,10 +5418,11 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
 
     Per the business owner's decision (22.10, relayed by Shlomo): VIP Cars
     gets the pickup airport, the pickup and return dates, and where the car
-    goes back ({return_iata}; {same_return} "1"/"0") - never a time: the
-    customer picks the times on VIP Cars' own page, so {pickup_time}/
-    {return_time} are always empty (kept only so an older template still
-    formats instead of breaking)."""
+    goes back ({return_iata}; {same_return} "1"/"0"). Times: VIP Cars
+    rejects a search with no pick-up time ("Please provide a valid Pick-up
+    Time", the business owner's own test), so {pickup_time}/{return_time}
+    carry the HH:MM the customer gave in the chat (car.details.pickup/
+    return), or 10:00 - the customer can change it on VIP Cars' page."""
     params = {"sid": f"trip{trip_id}"}
     if CAR_RENTAL_SEARCH_URL_TEMPLATE:
         return_iata = _car_return_iata(answers, iata)
@@ -5431,8 +5432,8 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
             "same_return": "1" if return_iata == iata else "0",
             "pickup_date": answers.get("departure_date") or "",
             "return_date": answers.get("return_date") or "",
-            "pickup_time": "",
-            "return_time": "",
+            "pickup_time": _car_time(answers.get("car_pickup")) or "10:00",
+            "return_time": _car_time(answers.get("car_return")) or "10:00",
         }
         # VIP Cars identifies places by its own ids, not IATA (a real search
         # by the business owner, 22.10). Only filled when BOTH ends are in

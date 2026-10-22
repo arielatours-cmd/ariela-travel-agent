@@ -3,9 +3,10 @@ by Shlomo/Bezalel):
 
 1. CAR_RENTAL_SEARCH_URL_TEMPLATE goes inside CJ's url= parameter with the
    pickup airport, pickup date and return date;
-2. no times at all - the customer picks them on VIP Cars' page; the old
-   "10:00" default is gone ({pickup_time}/{return_time} are always empty,
-   kept only so an older template still formats);
+2. times (updated 22.10 after the business owner's own test - VIP Cars
+   rejects a search with no pick-up time): the HH:MM the customer gave in
+   the chat (car.details.pickup / return), else 10:00 - the customer can
+   change it on VIP Cars' page;
 3. the return place: {return_iata} / {same_return} - a different airport
    only when the customer's own return answer (car.details.return) clearly
    names one (its code, or a single-airport city other than the pickup's);
@@ -56,9 +57,11 @@ out, q, v = inner(ANS)
 check("1: CJ link with sid and the template inside url=", out.startswith(CJ + "?") and q.get("sid") == ["trip7"] and "url" in q)
 check("1: pickup airport + pickup/return dates passed",
       v.get("from") == ["FCO"] and v.get("d1") == ["2027-05-01"] and v.get("d2") == ["2027-05-08"])
-check("2: no time passed, even though the customer said 14:30/18:00", "t1" not in v and "t2" not in v and "14:30" not in out and "18:00" not in out)
+check("2: the customer's own times from the chat are passed (14:30 / 18:00)", v.get("t1") == ["14:30"] and v.get("t2") == ["18:00"])
 out, q, v = inner(dict(ANS, car_pickup="", car_return=""))
-check("2: no '10:00' default anywhere", "10%3A00" not in out and "10:00" not in out and "t1" not in v)
+check("2: no time given -> 10:00 (VIP Cars requires one)", v.get("t1") == ["10:00"] and v.get("t2") == ["10:00"])
+out, q, v = inner(dict(ANS, car_pickup="בשדה, 9:05", car_return="בשדה"))
+check("2: a time is normalized to HH:MM, and each end defaults on its own", v.get("t1") == ["09:05"] and v.get("t2") == ["10:00"])
 check("3: no separate return place -> same airport", v.get("to") == ["FCO"] and v.get("same") == ["1"])
 
 for text, expected, label in (
@@ -81,13 +84,19 @@ check("a malformed template -> partner home page (no url=)", "url" not in q)
 # VIP Cars' own location ids (real search by the business owner, 22.10: Lisbon airport = 120/1788/777)
 VIP = ("https://www.vipcars.com/search/?language=en&pickup_country={pickup_country}&pickup_city={pickup_city}"
        "&pickup_location={pickup_location}&dropoff_country={dropoff_country}&dropoff_city={dropoff_city}"
-       "&dropoff_location={dropoff_location}&pickup_date={pickup_date}&dropoff_date={return_date}&page=search")
+       "&dropoff_location={dropoff_location}&pickup_date={pickup_date}&pickup_time={pickup_time}"
+       "&dropoff_date={return_date}&dropoff_time={return_time}&page=search")
 LIS_ANS = dict(ANS, destinations="LIS")
 out, q, v = inner(LIS_ANS, iata="LIS", template=VIP)
-check("VIP: Lisbon -> the verified ids on both ends, the dates, no time",
+check("VIP: Lisbon -> the verified ids on both ends, the dates and the times",
       v.get("pickup_country") == ["120"] and v.get("pickup_city") == ["1788"] and v.get("pickup_location") == ["777"]
       and v.get("dropoff_location") == ["777"] and v.get("pickup_date") == ["2027-05-01"] and v.get("dropoff_date") == ["2027-05-08"]
-      and "pickup_time" not in v and "dropoff_time" not in v)
+      and v.get("pickup_time") == ["14:30"] and v.get("dropoff_time") == ["18:00"])
+out, q, v = inner(dict(LIS_ANS, car_pickup="", car_return=""), iata="LIS", template=VIP)
+check("VIP: no times in the chat -> pickup_time/dropoff_time 10:00 (never missing - VIP rejects that)",
+      v.get("pickup_time") == ["10:00"] and v.get("dropoff_time") == ["10:00"])
+check("VIP: the colon is percent-encoded inside CJ's url= (10%3A00), decoded back by CJ",
+      "10%253A00" in out or "10%3A00" in out)
 check("VIP: no tid / aff in what we build", "tid" not in v and "aff" not in v and "tid=" not in out and "aff=" not in out)
 out, q, v = inner(ANS, iata="FCO", template=VIP)
 check("VIP: a destination with no verified ids (FCO) -> partner home page, no url=", "url" not in q and q.get("sid") == ["trip7"])
@@ -103,7 +112,7 @@ with patch.object(public_site, "CAR_RENTAL_AFFILIATE_LINK", CJ):
 check("card: same place -> 'איסוף והחזרה בשדה התעופה ...'", same and same[0]["pickup"].startswith("איסוף והחזרה בשדה התעופה") and "(FCO)" in same[0]["pickup"])
 check("card: different return -> both airports named", diff and "איסוף בשדה התעופה" in diff[0]["pickup"] and "(BGY)" in diff[0]["pickup"])
 src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "public_site.py"), encoding="utf-8").read()
-check("the '10:00' default for the partner link is gone", 'or "10:00"' not in src)
+check("no driver-age parameters are sent (the chat state has no driver age)", "driver_age" not in src.split("def _car_partner_url", 1)[1].split("def _car_time", 1)[0])
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")
