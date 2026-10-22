@@ -1,0 +1,12 @@
+usage (model, source, calls, input, output, cache_read, cache_write, errors):
+    dates_change 22 0 0 0 0 0
+    dates_pipeline 22 0 0 0 0 0
+    guided_redirect 17 0 0 0 0 0
+    restart_signal 22 0 0 0 0 0
+    unexplained_status_decline_reverted 9 0 0 0 0 0
+   claude-sonnet-5 classifier 10 5641 96 0 0 0
+   claude-sonnet-5 guided_extract 30 18822 1386 1085 18541 0
+   claude-sonnet-5 state_extractor 25 40213 19626 392225 0 0
+   claude-sonnet-5 tinkerbell_reply 28 134982 3583 909916 0 0
+chat turns: 25
+usage total: calls=185 input=199658 output=24691 cache_read=1303226 cache_write=18541 errors=0

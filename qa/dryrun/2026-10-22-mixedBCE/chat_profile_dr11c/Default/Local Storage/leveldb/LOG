@@ -1,0 +1,8 @@
+2026/10/22-12:28:16.920 e53 Reusing MANIFEST /home/user/ariela-travel-agent/qa/dryrun/2026-10-22-mixedBCE/chat_profile_dr11c/Default/Local Storage/leveldb/MANIFEST-000001
+2026/10/22-12:28:16.945 e53 Recovering log #3
+2026/10/22-12:28:16.945 e53 Level-0 table #3: started
+2026/10/22-12:28:16.947 e53 Level-0 table #3: 24435 bytes OK
+2026/10/22-12:28:16.947 e53 Recovering log #4
+2026/10/22-12:28:16.948 e53 Reusing old log /home/user/ariela-travel-agent/qa/dryrun/2026-10-22-mixedBCE/chat_profile_dr11c/Default/Local Storage/leveldb/000004.log 
+2026/10/22-12:28:16.951 e53 Delete type=2 #5
+2026/10/22-12:28:16.951 e53 Delete type=0 #3
