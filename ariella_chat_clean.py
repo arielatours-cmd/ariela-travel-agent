@@ -9503,6 +9503,40 @@ def _ensure_baggage_followup_note_present(reply, trip_update, trip_state=None):
     return f"{note} {text}" if text else note
 
 
+# A sentence offering to add more baggage later ("אפשר להוסיף גם תיק קטן
+# ... באתר חברת התעופה"). Bounded to one sentence; "להוסיף" + a baggage word.
+_BAGGAGE_UPSELL_SENTENCE_RE = re.compile(
+    r"(?:אפשר|ניתן|תמיד)[^.!?\n]{0,25}להוסיף[^.!?\n]{0,60}(?:תיק|טרולי|מזוודה)[^.!?\n]*[.!]?"
+)
+
+
+def _strip_upsell_note_for_checked_bag(reply, trip_update, trip_state=None):
+    """Bezalel's task 4 (22.10): after the customer switched to a checked
+    suitcase (here: right after the summary), the reply still added "אפשר
+    להוסיף גם תיק קטן... באתר חברת התעופה". Per the 20.10 decision (#107) a
+    checked bag is the top tier and gets no note at all - _baggage_followup_
+    hint and _ensure_baggage_followup_note_present both already return
+    nothing for it, so this sentence was the model's own. Removed only on
+    the turn the baggage actually changed TO include checked_bag, so an
+    answer to a customer's own later question about adding a bag is never
+    touched."""
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    now = (trip_update.get("flight") or {}).get("baggage")
+    prior = (trip_state.get("flight") or {}).get("baggage")
+    now = now if isinstance(now, list) else []
+    prior = prior if isinstance(prior, list) else []
+    if "checked_bag" not in now or sorted(map(str, now)) == sorted(map(str, prior)):
+        return reply
+    text = str(reply or "")
+    cleaned = _BAGGAGE_UPSELL_SENTENCE_RE.sub("", text)
+    if cleaned == text:
+        return reply
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
 _POST_FLIGHT_OFFER_CUES = (
     "תרצי שאסדר גם", "תרצה שאסדר גם", "רוצה שאסדר גם",
     "תרצי גם עם", "תרצה גם עם", "רוצה גם עם",
@@ -14818,6 +14852,7 @@ def _chat_clean_impl():
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
         reply = _ensure_baggage_followup_note_present(reply, trip_update, trip_state)
+        reply = _strip_upsell_note_for_checked_bag(reply, trip_update, trip_state)
 
         # Search approval is a system event, not a language-model decision.
         approval = _approval_trigger(message, history, trip_state)
