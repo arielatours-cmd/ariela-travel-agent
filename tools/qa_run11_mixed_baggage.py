@@ -147,9 +147,13 @@ out, n = net([], ["checked_bag"], mixed)
 check("a single type -> no model call, untouched", n == 0 and (out.get("flight") or {}).get("baggage") == ["checked_bag"])
 out, n = net([], ["checked_bag", "personal_item"], mixed, guided_extra={"answered": ["dates", "travelers", "baggage"]})
 check("guided already settled baggage -> no second guess", n == 0)
+ALL_DECIDED = {"flights": "complete", "lodging": "declined", "car": "declined", "trip_planning": "declined"}
 out, n = net([], ["checked_bag", "personal_item"], mixed,
-             statuses={"flights": "complete", "lodging": "declined", "car": "declined", "trip_planning": "declined"})
-check("post-summary (guided doesn't run) -> net stays off (no stuck pending)", n == 0)
+             guided_extra={"answered": ["dates", "travelers", "accessibility"]}, statuses=ALL_DECIDED)
+check("post-summary, no guided field open (guided doesn't run) -> net stays off (no stuck pending)", n == 0)
+out, n = net([], ["checked_bag", "personal_item"], mixed, statuses=ALL_DECIDED)
+check("all domains decided but accessibility still open (#143: guided keeps running) -> net stays on",
+      n == 1 and out["guided"].get("mixed_baggage_pending") is True)
 out, n = net(["checked_bag", "personal_item"], ["checked_bag", "personal_item"], mixed)
 check("unchanged from the previous turn -> no model call", n == 0)
 

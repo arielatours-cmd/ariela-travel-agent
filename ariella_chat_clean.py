@@ -10425,7 +10425,8 @@ def _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_upd
     if "baggage" not in (guided_steps or ()):
         return trip_update
     statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
-    if statuses and all(str(v) in ("complete", "declined") for v in statuses.values()):
+    if (statuses and all(str(v) in ("complete", "declined") for v in statuses.values())
+            and not _guided_incomplete_fields(trip_update)):
         # Post-summary the guided dispatcher doesn't run, so a pending
         # yes/no would never be read - leave such turns to their own flow.
         return trip_update
