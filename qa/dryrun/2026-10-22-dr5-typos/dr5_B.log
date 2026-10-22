@@ -1,0 +1,9 @@
+⟵ אני ושתי חברות לזדאק, 2 עד 6 ביולי. לי מספיק טרולי, לשתיים האחרות מזוודה
+    לזדאק זה יעד מעניין! באיזה שדה תרצי לנחות בהלוך?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] שדה
+⟵ זדאר מתאים לנו
+    רוצה לוודא איתך - שדה התעופה לנחיתה הוא זדאר (ZAD) בקרואטיה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] None
+    !! no topic detected — stopping
