@@ -22,6 +22,37 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 _TRUNCATED_PLATFORM_HOST_SUFFIXES = ("onrender", "herokuapp", "vercel", "netlify", "railway")
 
 
+_AFFILIATE_LINK_HTML_TAG_RE = re.compile(r'<a\s[^>]*\bhref\s*=\s*"([^"]+)"', re.IGNORECASE)
+
+
+def _sanitize_affiliate_link_env(var_name, raw):
+    """Shlomo's relay (22.10): CJ_BOOKING_EVERGREEN_LINK was pasted into
+    Render as the FULL HTML snippet CJ's dashboard shows next to a tracking
+    link (<a href="..."><img .../></a>), not just the URL inside it -
+    silently breaking every lodging link built from it. Same risk exists
+    for CAR_RENTAL_AFFILIATE_LINK/LODGING_AFFILIATE_LINK, same CJ dashboard.
+
+    If an <a href="..."> tag is present, use the href inside it. Then
+    accept the result only if it's a plausible bare URL (starts with
+    https://, and contains none of '<', '>' or whitespace - any of those
+    means more markup leaked through, or the value is otherwise not a
+    single URL); anything else is logged and treated as blank, exactly
+    like the env var never being set (same as every other invalid-affiliate-
+    config case in this file), rather than being sent out broken."""
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    match = _AFFILIATE_LINK_HTML_TAG_RE.search(raw)
+    candidate = match.group(1).strip() if match else raw
+    if candidate.startswith("https://") and not any(c in candidate for c in ("<", ">", " ", "\t", "\n")):
+        return candidate
+    logging.getLogger(__name__).warning(
+        "%s is not a valid bare https:// URL (got %r) - treating as unset",
+        var_name, raw,
+    )
+    return ""
+
+
 def _public_base_url_warning(url):
     """None when PUBLIC_BASE_URL is empty (the feature it backs - the
     WhatsApp vacation link - is simply not used) or looks like a genuine
@@ -104,7 +135,9 @@ PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY = int(os.getenv("PERSO
 # "Evergreen" tracking link CJ issues per publisher (Links -> search
 # "evergreen" in the CJ dashboard). Leave blank until that link is in hand -
 # lodging search then just links straight to Booking.com, uncredited.
-CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
+CJ_BOOKING_EVERGREEN_LINK = _sanitize_affiliate_link_env(
+    "CJ_BOOKING_EVERGREEN_LINK", os.getenv("CJ_BOOKING_EVERGREEN_LINK", "")
+)
 # Commission Detail API (task 001a) - detects an actual booking (not just a
 # click) via the commission CJ reports back. Personal Access Token from
 # developers.cj.com; CID is the Publisher account's CID. Sync is off by
@@ -128,7 +161,9 @@ CJ_COMMISSIONS_SYNC_ENABLED = os.getenv("CJ_COMMISSIONS_SYNC_ENABLED", "false").
 # the chat, else 10:00: VIP Cars requires a time; the customer can change it).
 # It is sent as CJ's standard ?url= deep-link parameter. Blank = partner's
 # home page.
-CAR_RENTAL_AFFILIATE_LINK = os.getenv("CAR_RENTAL_AFFILIATE_LINK", "").strip()
+CAR_RENTAL_AFFILIATE_LINK = _sanitize_affiliate_link_env(
+    "CAR_RENTAL_AFFILIATE_LINK", os.getenv("CAR_RENTAL_AFFILIATE_LINK", "")
+)
 CAR_RENTAL_PARTNER_NAME = os.getenv("CAR_RENTAL_PARTNER_NAME", "VIP Cars").strip() or "VIP Cars"
 CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "").strip()
 # Lodging partner via CJ (Agoda / Trip.com / etc.), same pattern as the car
@@ -139,7 +174,9 @@ CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "")
 # LODGING_SEARCH_URL_TEMPLATE pre-fills the partner's search page, sent as
 # CJ's ?url= deep link, with {city} (English), {checkin}, {checkout}
 # (YYYY-MM-DD), {adults}, {children}, {rooms}.
-LODGING_AFFILIATE_LINK = os.getenv("LODGING_AFFILIATE_LINK", "").strip()
+LODGING_AFFILIATE_LINK = _sanitize_affiliate_link_env(
+    "LODGING_AFFILIATE_LINK", os.getenv("LODGING_AFFILIATE_LINK", "")
+)
 LODGING_PARTNER_NAME = os.getenv("LODGING_PARTNER_NAME", "Agoda").strip() or "Agoda"
 LODGING_SEARCH_URL_TEMPLATE = os.getenv("LODGING_SEARCH_URL_TEMPLATE", "").strip()
 # Flight partner via Travelpayouts: Kiwi.com (task 013a). A secondary
