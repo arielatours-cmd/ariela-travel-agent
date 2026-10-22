@@ -121,7 +121,10 @@ CJ_COMMISSIONS_SYNC_ENABLED = os.getenv("CJ_COMMISSIONS_SYNC_ENABLED", "false").
 # points the click at the partner's own search page, pre-filled, using the
 # placeholders {iata} (pickup airport), {return_iata} (return airport - the
 # pickup one unless the customer named another), {same_return} ("1"/"0"),
-# {pickup_date}, {return_date} (YYYY-MM-DD); no times - the customer picks
+# {pickup_date}, {return_date} (YYYY-MM-DD), and VIP Cars' own location ids
+# {pickup_country}/{pickup_city}/{pickup_location} + {dropoff_*} (from
+# static/vipcars_locations.json - a destination not there gets the partner's
+# home page); no times - the customer picks
 # them on the partner's page ({pickup_time}/{return_time} are always empty).
 # It is sent as CJ's standard ?url= deep-link parameter. Blank = partner's
 # home page.

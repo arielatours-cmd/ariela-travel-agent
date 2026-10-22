@@ -1,0 +1,6 @@
+{
+  "_note": "IATA -> VIP Cars' own location ids (pickup_/dropoff_ country, city, location) for the airport itself. Verified from a real vipcars.com search by the business owner (22.10). Add an airport only from a real search or VIP Cars' own location data - never guessed.",
+  "locations": {
+    "LIS": {"country": 120, "city": 1788, "location": 777, "name": "Lisbon Airport"}
+  }
+}

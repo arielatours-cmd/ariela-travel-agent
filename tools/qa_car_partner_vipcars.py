@@ -78,6 +78,24 @@ check("a template without the new placeholders still works", v.get("from") == ["
 out, q, v = inner(ANS, template="https://partner.example/search?x={unknown}")
 check("a malformed template -> partner home page (no url=)", "url" not in q)
 
+# VIP Cars' own location ids (real search by the business owner, 22.10: Lisbon airport = 120/1788/777)
+VIP = ("https://www.vipcars.com/search/?language=en&pickup_country={pickup_country}&pickup_city={pickup_city}"
+       "&pickup_location={pickup_location}&dropoff_country={dropoff_country}&dropoff_city={dropoff_city}"
+       "&dropoff_location={dropoff_location}&pickup_date={pickup_date}&dropoff_date={return_date}&page=search")
+LIS_ANS = dict(ANS, destinations="LIS")
+out, q, v = inner(LIS_ANS, iata="LIS", template=VIP)
+check("VIP: Lisbon -> the verified ids on both ends, the dates, no time",
+      v.get("pickup_country") == ["120"] and v.get("pickup_city") == ["1788"] and v.get("pickup_location") == ["777"]
+      and v.get("dropoff_location") == ["777"] and v.get("pickup_date") == ["2027-05-01"] and v.get("dropoff_date") == ["2027-05-08"]
+      and "pickup_time" not in v and "dropoff_time" not in v)
+check("VIP: no tid / aff in what we build", "tid" not in v and "aff" not in v and "tid=" not in out and "aff=" not in out)
+out, q, v = inner(ANS, iata="FCO", template=VIP)
+check("VIP: a destination with no verified ids (FCO) -> partner home page, no url=", "url" not in q and q.get("sid") == ["trip7"])
+out, q, v = inner(dict(LIS_ANS, car_return="return at FAO"), iata="LIS", template=VIP)
+check("VIP: return airport with no verified ids -> home page (never half-filled)", "url" not in q)
+src_map = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "vipcars_locations.json"), encoding="utf-8").read()
+check("mapping file: LIS = 120/1788/777 (the verified search)", '"LIS": {"country": 120, "city": 1788, "location": 777' in src_map)
+
 # Card text
 with patch.object(public_site, "CAR_RENTAL_AFFILIATE_LINK", CJ):
     same = public_site._car_partner_cards(7, ANS)

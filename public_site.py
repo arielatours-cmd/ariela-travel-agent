@@ -5396,6 +5396,22 @@ def _car_return_iata(answers: dict, pickup_iata: str) -> str:
     return next(iter(city_codes)) if len(city_codes) == 1 else pickup_iata
 
 
+_VIPCARS_LOCATIONS_FILE = Path(__file__).resolve().parent / "static" / "vipcars_locations.json"
+
+
+def _vipcars_location(iata: str) -> dict | None:
+    """VIP Cars' own ids for an airport: {"country", "city", "location"}
+    (static/vipcars_locations.json - verified entries only), or None."""
+    try:
+        data = json.loads(_VIPCARS_LOCATIONS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    entry = (data.get("locations") or {}).get(str(iata or "").upper())
+    if not isinstance(entry, dict) or not all(isinstance(entry.get(k), int) for k in ("country", "city", "location")):
+        return None
+    return entry
+
+
 def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     """Outbound CJ-tracked URL for one car-rental card. The sid lets CJ
     reports tie a commission back to the vacation it came from.
@@ -5409,17 +5425,29 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     params = {"sid": f"trip{trip_id}"}
     if CAR_RENTAL_SEARCH_URL_TEMPLATE:
         return_iata = _car_return_iata(answers, iata)
+        fields = {
+            "iata": iata,
+            "return_iata": return_iata,
+            "same_return": "1" if return_iata == iata else "0",
+            "pickup_date": answers.get("departure_date") or "",
+            "return_date": answers.get("return_date") or "",
+            "pickup_time": "",
+            "return_time": "",
+        }
+        # VIP Cars identifies places by its own ids, not IATA (a real search
+        # by the business owner, 22.10). Only filled when BOTH ends are in
+        # the verified mapping - a template that needs them and is missing
+        # one falls to the partner's home page, never a half-filled search.
+        pickup_loc, dropoff_loc = _vipcars_location(iata), _vipcars_location(return_iata)
+        if pickup_loc and dropoff_loc:
+            for prefix, loc in (("pickup", pickup_loc), ("dropoff", dropoff_loc)):
+                for key in ("country", "city", "location"):
+                    fields[f"{prefix}_{key}"] = loc[key]
         try:
-            params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(
-                iata=iata,
-                return_iata=return_iata,
-                same_return="1" if return_iata == iata else "0",
-                pickup_date=answers.get("departure_date") or "",
-                return_date=answers.get("return_date") or "",
-                pickup_time="",
-                return_time="",
-            )
-        except (KeyError, IndexError, ValueError):
+            params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(**fields)
+        except KeyError:
+            logging.info("Car partner link for %s->%s: no verified partner location ids; linking to partner home page", iata, return_iata)
+        except (IndexError, ValueError):
             logging.warning("CAR_RENTAL_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
     joiner = "&" if "?" in CAR_RENTAL_AFFILIATE_LINK else "?"
     return CAR_RENTAL_AFFILIATE_LINK + joiner + urlencode(params, quote_via=quote)
