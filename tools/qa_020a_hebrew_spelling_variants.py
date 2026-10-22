@@ -152,6 +152,19 @@ check("regression guard: 'טסה מחיפה ליוון' (flying to Greece) still
       "deliberately NOT given fuzzy letter-doubling matching",
       (fact_greece.get("destination") or {}).get("places") == ["יוון"])
 
+# =====================================================================
+# Shaked's dry-run 2 finding on #144/#139: _destination_catalog_hint did
+# its own plain-casefold comparison, bypassing _match_city_exact entirely -
+# so even after the fix above, "וולנסיה" still showed up as "not in our
+# catalog" and the redundant "just to confirm - VLC?" question kept
+# coming back. Now goes through the same _normalize_he_spelling.
+# =====================================================================
+hint_valencia = chat._destination_catalog_hint({"destination": {"places": ["וולנסיה"]}})
+check("Shaked's dry-run 2 finding: _destination_catalog_hint recognizes "
+      "'וולנסיה' as a real catalog city (VLC), not as an unverified "
+      "unknown destination",
+      "VLC" in hint_valencia and "לא נמצא" not in hint_valencia)
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

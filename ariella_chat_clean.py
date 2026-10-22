@@ -4698,15 +4698,22 @@ def _destination_catalog_hint(state):
     airports = _load_airports()
     facts, unknown = [], []
     for place in places:
-        needle = place.casefold()
+        # Task 020a (Shaked, dry-run 2 on #144/#139): this comparison used
+        # to be a plain casefold - "וולנסיה" never matched the catalog's
+        # "ולנסיה" here even after _match_city_exact itself was fixed, so
+        # the redundant "just to confirm - Valencia (VLC)?" question kept
+        # coming back. _normalize_he_spelling on both sides is the same
+        # comparison-only equivalence _match_city_exact already uses.
+        needle = _normalize_he_spelling(place)
+        needle_casefold = place.casefold()
         cities = [a for a in airports
-                  if needle in {str(a.get("city_he") or "").strip().casefold(), str(a.get("city_en") or "").strip().casefold()}
-                  or needle == str(a.get("code") or "").strip().casefold()]
+                  if needle in {_normalize_he_spelling(a.get("city_he")), _normalize_he_spelling(a.get("city_en"))}
+                  or needle_casefold == str(a.get("code") or "").strip().casefold()]
         if cities:
             facts += [f"{a.get('city_he') or a.get('code')} ({a.get('code')}), {a.get('country_he') or ''}".rstrip(", ")
                       for a in cities]
             continue
-        is_country = any(needle in {str(a.get("country_he") or "").strip().casefold(), str(a.get("country_en") or "").strip().casefold()}
+        is_country = any(needle in {_normalize_he_spelling(a.get("country_he")), _normalize_he_spelling(a.get("country_en"))}
                          for a in airports)
         if not is_country:
             unknown.append(place)
