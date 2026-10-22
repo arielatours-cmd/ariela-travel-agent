@@ -1,5 +1,7 @@
+import logging
 import os
 import re
+import urllib.parse
 from pathlib import Path
 
 APP_VERSION = "9.7.143-connected-trip"
@@ -10,7 +12,50 @@ _default_db_path = BASE_DIR / "data" / "ariella.db"
 DB_PATH = Path(os.getenv("DB_PATH", str(_default_db_path))).expanduser()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+
+# Known hosting-platform domains that are never valid as a FINAL host on
+# their own - each always has a further suffix (e.g. Render apps are always
+# "*.onrender.com", never bare "*.onrender"). Not an attempt at validating
+# arbitrary TLDs in general (there is no small, stable list of those) - just
+# the specific, concrete class of truncation this project could realistically
+# hit, starting with the exact one that actually happened.
+_TRUNCATED_PLATFORM_HOST_SUFFIXES = ("onrender", "herokuapp", "vercel", "netlify", "railway")
+
+
+def _public_base_url_warning(url):
+    """None when PUBLIC_BASE_URL is empty (the feature it backs - the
+    WhatsApp vacation link - is simply not used) or looks like a genuine
+    absolute URL; otherwise a short, specific reason.
+
+    Per Shlomo's finding (20.10, stage-1/2 regression): the Render
+    environment's own PUBLIC_BASE_URL was set to a host missing its TLD
+    (".onrender" instead of ".onrender.com"), silently truncating every
+    WhatsApp vacation link this value is used to build - the customer-
+    visible symptom was a browser DNS error on the link. This only
+    SURFACES that kind of misconfiguration early (at startup, in /health)
+    so it's caught before the next deploy rather than rediscovered live by
+    a customer; it does not and cannot fix the environment variable
+    itself - that's the business owner's own Render dashboard."""
+    if not url:
+        return None
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return f"PUBLIC_BASE_URL '{url}' is not an absolute http(s) URL"
+    host = parsed.netloc.split(":")[0]
+    last_label = host.rsplit(".", 1)[-1].lower()
+    if last_label in _TRUNCATED_PLATFORM_HOST_SUFFIXES:
+        return (
+            f"PUBLIC_BASE_URL '{url}' host '{host}' ends in '.{last_label}' - "
+            f"looks like a known hosting platform's domain missing its real "
+            f"suffix (e.g. '.{last_label}.com', not bare '.{last_label}')"
+        )
+    return None
+
+
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+PUBLIC_BASE_URL_WARNING = _public_base_url_warning(PUBLIC_BASE_URL)
+if PUBLIC_BASE_URL_WARNING:
+    logging.getLogger(__name__).warning(PUBLIC_BASE_URL_WARNING)
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY", "").strip()
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "").strip()
 SCANNER_ENABLED = os.getenv("SCANNER_ENABLED", "true").lower() == "true"
@@ -293,7 +338,12 @@ MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 # only an emergency override (set it to turn fields off, or to test a
 # different subset temporarily; setting it to an empty string is the
 # kill switch). Extend this list only as each field passes Shaked's QA.
-GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers"
+# "baggage" and "lodging" added live in the SAME PR that introduces each
+# (Shlomo, 2026-10-17): Shaked approves every 014 field before its PR
+# merges regardless, so there is no live-site exposure risk in defaulting
+# it on immediately - requiring a separate Render env var first would need
+# the business owner herself, for no added safety.
+GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers,baggage,lodging"
 
 # Deployment helpers materialize source changes during the build. Importing those
 # mutation scripts at application startup made a second process try to patch the
