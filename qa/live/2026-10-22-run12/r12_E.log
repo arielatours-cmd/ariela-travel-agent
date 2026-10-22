@@ -1,0 +1,52 @@
+⟵ אני ושתי חברות לזדאר, 2 עד 6 ביולי. לי מספיק טרולי, לשתיים האחרות מזוודה
+    לגמרי מבינה, רק שחשוב לדעת - בהזמנה אחת אי אפשר לשייך סוגי כבודה שונים לנוסעות שונות; את זה אפשר להוסיף ולהתאים בעמוד התשלום בהמשך. כרגע אני צריכה לבחור כבודה אחידה אחת לכל השלוש. |  | רוצה שנבחר כבודה אחידה לכולכן כרגע?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] אחידה
+⟵ כן
+    אוקיי, אז כיוון ששתיים מכן צריכות מזוודה, הכי בטוח שכולכן תזמינו מזוודה בבטן המטוס - כך לא תהיה בעיה לאף אחת. |  | לגבי זדאר - אין לי שדה תעופה מסחרי מאומת עבורה. מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1100 שקל לאחת
+    תודה, נרשם - עד 1,100 ש"ח לאדם. |  | ולגבי שדה התעופה - לזדאר אין שדה בינלאומי מסחרי ישיר, אז צריך לבחור דרך איזה שדה קרוב לנחות ולהמשיך משם. חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא חובה
+    מעולה, אז נהיה גמישים גם לקונקשן. |  |  (למשל יש שדות אזוריים שונים שיכולים לשרת את האזור) לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ מסודר
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    בסדר גמור, מתכננת רק את הטיסות אם כך. |  | לפני שסוגרים - רק שאלה אחת ולא חובה לענות: האם מישהי מכן צריכה התאמת נגישות כלשהי בטיול הזה? מה שתכתבי יישמר רק לחופשה הזו.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] נגישות
+⟵ לא
+    נהדר, אז הנה הסיכום: |  | יציאה: נתב״ג (TLV) | נחיתה ו-המראה בחזרה: טרם נקבע - זדאר ללא שדה תעופה בינלאומי ישיר, וצריך לבחור את השדה הקרוב ביותר לנחות ולהמריא ממנו |  | תאריכים: יום שישי 02.07.2027–יום שלישי 06.07.2027 | נוסעים: 3 נוסעות | כבודה: מזוודה בבטן המטוס לכל נוסע | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב: עד 1,100 ש"ח לאדם |  | לפני שאפשר לסכם סופית - איזה שדה תעופה קרוב תרצי שנבחר עבור הנחיתה וההמראה ביעד? |  | (אפשר תמיד לחזור ולבקש עזרה גם בלינה, השכרת רכב ומסלול ואטרקציות אם תרצי
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] שדה
+⟵ לא משנה, מה שהכי נוח
+    [502]
+    ss= None ready= None
+/home/user/ariela-travel-agent/qa/live/autodrive.py:28: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if not b.get('reply'): print('    !! no reply at', datetime.datetime.utcnow().strftime('%H:%M:%S'),'UTC'); msg=msg; continue
+    !! no reply at 16:15:11 UTC
+⟵ לא משנה, מה שהכי נוח
+    [502]
+    ss= None ready= None
+    !! no reply at 16:15:46 UTC
+⟵ לא משנה, מה שהכי נוח
+    [502]
+    ss= None ready= None
+    !! no reply at 16:16:20 UTC
+⟵ לא משנה, מה שהכי נוח
+    עוד לא כל הפרטים נסגרו - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    !! no question mark
+    [topic] None
+    !! no topic detected — stopping
