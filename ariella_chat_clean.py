@@ -250,7 +250,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
   - שורת האישור: אם ידוע שהלקוחה נקבה כתבי "אם כל הפרטים נכונים, כתבי מאשרת." אם ידוע שהלקוח זכר כתבי "אם כל הפרטים נכונים, כתוב מאשר." אם המין אינו ידוע כתבי "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת." אל תבקשי "כן", "אישור", "נשמע טוב" או ניסוח חיובי אחר - רק המילים מאשר/מאשרת מאשרות ביצוע. אין להוסיף שום הסבר/שאלה פתוחה נוספת אחרי שורת האישור.
 - פתיחת הסיכום היא ישירה ועניינית בלבד. לעולם אל תפתחי בניסוח טכני/מסורבל כמו "עדיין לא יצאתי לחיפוש בפועל - הנה הסיכום, ורק לאחר אישור במילה המדויקת אני יוצאת לדרך" - זה נשמע כמו תיעוד מערכת, לא שיחה. הכלל "אל תטעני שכבר חיפשת" כבר מובטח על ידי כך שמעולם לא מוזכרת פעולת חיפוש שלא קרתה - אין צורך להסביר זאת שוב בפתיח.
 - כשהלקוח חוזר לסיכום שכבר הוצג בעבר (אחרי בקשת שינוי, שאלת הבהרה, או כל הודעה אחרת), אסור לקרוא לו "הסיכום המעודכן"/"עדכנתי את הסיכום" או כל ניסוח אחר שמרמז שמשהו השתנה, אלא אם עובדה אמיתית בפועל (תאריכים, תקציב, נוסעים, כבודה וכו') באמת שונה עכשיו מהערך שכבר הוצג ללקוח קודם באותה שיחה - למשל אם הלקוח רק שאל שאלה או ביקש הבהרה ושום דבר לא השתנה בפועל, הציגי את אותו הסיכום (או תשובה ניטרלית) בלי לטעון שהוא "מעודכן". ניסוח "מעודכן" כשדבר לא השתנה מטעה את הלקוח לחשוב שבקשתו בוצעה כשבפועל לא בוצעה.
-- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם; אם הוא כן ידוע, חובה לציין אותו בסיכום במפורש (לא רק לשאול עליו לפני כן), בניסוח ישיר שתואם בדיוק את הערך הידוע - "direct" כותבים "מעדיפים טיסה ישירה", וכשהערך הוא "אין העדפה" כותבים בדיוק "אין העדפה לטיסה ישירה" (לא "ישירה, בהתאם לזמינות בפועל" או כל ניסוח אחר שמרמז בטעות על העדפה לישירה שלא קיימת - "אין העדפה" פירושו שקונקשן מתאים בדיוק כמו טיסה ישירה, לא שהכל תלוי בזמינות). אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום את השדה/שדות שבאמת נבחרו/מחפשים בהם בפועל (לא רק שם היעד הכללי), לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
+- כלל כללי לדיוק הסיכום: כל פרט בסיכום הסופי חייב לשקף אך ורק מה שבאמת סוכם עם הלקוח בפועל, לא ברירת מחדל ולא ניחוש. בפרט: אל תניחי "אין העדפה לטיסה ישירה" אם הנושא מעולם לא נשאל במפורש - אם flight.connection_preference עדיין לא ידוע, זו שאלה חסרה כרגיל, לא עובדה לסכם; אם הוא כן ידוע, חובה לציין אותו בסיכום במפורש (לא רק לשאול עליו לפני כן), בניסוח ישיר שתואם בדיוק את הערך הידוע, בשורה משלה שמתחילה בתווית הקבועה "העדפת טיסה:" (בדיוק כמו "כבודה:" לכבודה) - "direct" כותבים "העדפת טיסה: מעדיפים טיסה ישירה", וכשהערך הוא "אין העדפה" כותבים בדיוק "העדפת טיסה: אין העדפה לטיסה ישירה" (לא "ישירה, בהתאם לזמינות בפועל" או כל ניסוח אחר שמרמז בטעות על העדפה לישירה שלא קיימת - "אין העדפה" פירושו שקונקשן מתאים בדיוק כמו טיסה ישירה, לא שהכל תלוי בזמינות). אם היה יותר משדה תעופה יעד אחד אפשרי, ציינו בסיכום את השדה/שדות שבאמת נבחרו/מחפשים בהם בפועל (לא רק שם היעד הכללי), לא בחירה שאת עשית מיוזמתך. התאריכים בסיכום הם אך ורק התאריכים הסופיים שהלקוח אישר בפועל - לעולם לא טווח/תאריך מוקדם יותר שהוצע ונדחה או הוחלף בהמשך השיחה. ומסלול/יעד שכבר אושר וסוכם סגור לגמרי - אל תציעי בסיכום או בכל שלב אחר "לתכנן מחדש" או "לשקול שינוי" במסלול שכבר נסגר, אלא אם הלקוח עצמו מבקש זאת.
 - את סיכום בקשת החיפוש שולחים פעם אחת בלבד. אם הסיכום כבר נשלח והלקוח משיב בחיוב, אין לסכם שוב; יש לאשר בקצרה שהבקשה התקבלה ולהמשיך לביצוע.
 - אם הלקוח כותב בעברית, השיבי בעברית בלבד. אם הוא בוחר שפה אחרת, השיבי בשפה שלו.
 - החזירי רק את ההודעה שהלקוח צריך לראות. בלי JSON, בלי הסברים פנימיים ובלי תהליך עבודה.
@@ -3086,32 +3086,18 @@ def _flight_connection_line(flight):
     return "מעדיפים טיסה ישירה" if "direct" in connection or "nonstop" in connection else "אין העדפה לטיסה ישירה"
 
 
-# A summary line whose subject is the direct/connection preference (no other
-# fact's label on the same line) - the line _ensure_flight_summary_
-# completeness replaces with _flight_connection_line, the same way the
-# "כבודה:"/"תאריכים:" lines are rebuilt from state.
-_CONNECTION_LINE_MARKERS = re.compile(r"ישיר|קונקשן|עציר")
-_OTHER_SUMMARY_FACT_MARKERS = re.compile(r"תאריכ|כבודה|תקציב|נוסע|מבוגר|ילד|לילות|לינה|רכב|יעד|מאשר")
+# The fixed, literal label of the summary's connection-preference line -
+# the same role "כבודה:"/"תאריכים:" play for their lines. The line is found
+# ONLY by this label in the text, never by its content (Shaked's standing
+# review rule, see the canonical_baggage_line block).
+_CONNECTION_SUMMARY_LABEL = "העדפת טיסה:"
 
 
-def _replace_connection_summary_line(text, canonical_line):
-    """Replaces the summary's own connection-preference line with
-    canonical_line (or drops it when canonical_line is None - the fact
-    isn't known, so no line at all). Only a line that is about the
-    connection preference alone is touched; a line combining several
-    facts is left as it is. Leading bullets/markers are kept."""
-    lines = str(text or "").split("\n")
-    for i, line in enumerate(lines):
-        if not _CONNECTION_LINE_MARKERS.search(line) or _OTHER_SUMMARY_FACT_MARKERS.search(line):
-            continue
-        body_start = next((j for j, ch in enumerate(line) if ch.isalpha()), len(line))
-        prefix = line[:body_start]
-        if canonical_line is None:
-            del lines[i]
-        elif line[body_start:].strip() != canonical_line:
-            lines[i] = prefix + canonical_line
-        return "\n".join(lines)
-    return text
+def _flight_connection_summary_line(flight):
+    """The labelled summary line ("העדפת טיסה: מעדיפים טיסה ישירה"), or
+    None when the preference isn't known."""
+    value = _flight_connection_line(flight)
+    return f"{_CONNECTION_SUMMARY_LABEL} {value}" if value else None
 
 
 def _checked_bag_label(detail):
@@ -3335,7 +3321,7 @@ def _flight_summary_text(state):
     travelers_line = _flight_travelers_line(travelers)
     if travelers_line:
         lines.append(travelers_line)
-    connection_line = _flight_connection_line(flight)
+    connection_line = _flight_connection_summary_line(flight)
     if connection_line:
         lines.append(connection_line)
     baggage_line = _flight_baggage_line(flight)
@@ -3466,7 +3452,25 @@ def _ensure_flight_summary_completeness(reply, state):
     # baggage and dates lines below - always _flight_connection_line's own
     # wording, whatever the model wrote on that line, and no line at all
     # when the preference isn't known.
-    text = _replace_connection_summary_line(text, _flight_connection_line(flight))
+    canonical_connection_line = _flight_connection_summary_line(flight)
+    sentences = _split_sentences(text)
+    for i, (s, term) in enumerate(sentences):
+        label_idx = s.find(_CONNECTION_SUMMARY_LABEL)
+        if label_idx == -1:
+            continue
+        prefix = s[:label_idx]
+        if canonical_connection_line is None:
+            # Not known -> no line at all (the labelled part is dropped).
+            # Only a bullet/whitespace before the label -> drop the whole line;
+            # real text before it (a run-on sentence) is kept as it was.
+            has_text = any(ch.isalnum() for ch in prefix)
+            sentences[i] = ((prefix.rstrip() + ("\n" if term.endswith("\n") else "")) if has_text else "", term)
+        elif s[label_idx:].strip() != canonical_connection_line.strip():
+            sentences[i] = (f"{prefix}{canonical_connection_line}{term}", term)
+        else:
+            break
+        text = "".join(st for st, _t in sentences)
+        break
 
 
     # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin,
@@ -3578,7 +3582,7 @@ def _ensure_flight_summary_completeness(reply, state):
         if line:
             missing.append(line)
     if "ישיר" not in text and "קונקשן" not in text:
-        line = _flight_connection_line(flight)
+        line = _flight_connection_summary_line(flight)
         if line:
             missing.append(line)
     if "נגישות" not in text:
@@ -9520,7 +9524,7 @@ def _final_summary_fallback_text(trip_update):
         lines.append("יעד: " + ", ".join(places))
     for line in (
         _flight_dates_line(dates), _flight_travelers_line(travelers),
-        _flight_connection_line(flight), _flight_baggage_line(flight),
+        _flight_connection_summary_line(flight), _flight_baggage_line(flight),
         _flight_budget_line(budget),
     ):
         if line:
