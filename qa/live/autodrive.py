@@ -38,6 +38,11 @@ for turn in range(32):
         if topic: break
     if topic=='אישור' and not re.search(r'יום\s*\d', r): topic='סגנון' if 'סגנון' in ans else topic
     if topic not in ('מסלול','סגנון','קצב','אישור') and 'מסלול' in q and 'מסלול' in ans and (t.get('session_status') or {}).get('trip_planning')=='pending': topic='מסלול'
+    # Accessibility follow-up (open question after "כן"): it can mention lodging/route words, so trust
+    # the state - while guided still waits on accessibility and a scripted detail answer remains, answer it.
+    _acc=ans.get('נגישות')
+    if isinstance(_acc,list) and used_count.get('נגישות',0)<len(_acc) and used_count.get('נגישות',0)>0 \
+            and ((t.get('guided') or {}).get('current_question')=='accessibility'): topic='נגישות'
     print('    [topic]',topic)
     if not topic and 'תאריכים' in ans: topic='תאריכים'
     if not topic:
