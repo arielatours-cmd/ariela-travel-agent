@@ -94,4 +94,25 @@ say()   { local sc=$1; shift; for m in "$@"; do echo "[$sc] U: $m @$(date -u +%H
 cd "$OUT"
 # shellcheck source=/dev/null
 source "$SCEN"
+# Model-call count and tokens for this run (from the app's own ai_usage table),
+# for the monthly budget report to Yosef.
+python3 - "$OUT/dryrun.db" <<'PY' | tee "$OUT/usage.txt"
+import sqlite3, sys
+db = sqlite3.connect(sys.argv[1])
+try:
+    rows = db.execute("SELECT model, source, COUNT(*), SUM(input_tokens), SUM(output_tokens), "
+                      "SUM(cache_read_input_tokens), SUM(cache_creation_input_tokens), "
+                      "SUM(CASE WHEN error IS NOT NULL AND error != '' THEN 1 ELSE 0 END) "
+                      "FROM ai_usage WHERE source != 'turn_total' GROUP BY model, source ORDER BY model, source").fetchall()
+    turns = db.execute("SELECT COUNT(*) FROM ai_usage WHERE source = 'turn_total'").fetchone()[0]
+except sqlite3.Error as exc:
+    print("usage: ai_usage not readable:", exc); sys.exit(0)
+total = [0] * 6
+print("usage (model, source, calls, input, output, cache_read, cache_write, errors):")
+for r in rows:
+    print("  ", *r)
+    total = [a + (b or 0) for a, b in zip(total, r[2:])]
+print("chat turns: %d" % turns)
+print("usage total: calls=%d input=%d output=%d cache_read=%d cache_write=%d errors=%d" % tuple(total))
+PY
 echo "done: sha=$SHA, transcripts and state in $OUT (chat_resp_*.jsonl = full trip_update per turn)"
