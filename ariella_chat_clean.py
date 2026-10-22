@@ -4561,6 +4561,56 @@ def _baggage_summary(state):
     )
 
 
+def _destination_catalog_hint(state):
+    """Run-10 (Toruń, 22.10): with no destination_airports in state (the
+    usual case for a plain city trip - the codes are resolved only at
+    search time, from the catalog), the summary's "נחיתה:" line was written
+    from the model's own memory: "נחיתה: טורון, קרואטיה" - Toruń is in
+    Poland and has no commercial airport. The facts are now handed over
+    BEFORE the reply, from the same catalog the search uses (exact
+    city-name match, like public_site._chat_destination_codes):
+      - a destination city found in the catalog -> its airport(s) as the
+        landing fact (same wording as when destination_airports is set);
+      - a destination not in the catalog -> no verified fact exists, so an
+        explicit instruction: name only a real commercial airport serving
+        that city, with its real code, in the country the city is really
+        in; if the city has none, say so and offer the nearest airport in
+        one question. (Not a ban on naming a code: for a real city missing
+        from our list - Genoa/GOA - the search itself recovers the code the
+        model wrote, via public_site._chat_recover_search_facts.)
+      - a country (or nothing known) -> no hint, nothing changes."""
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip() for p in (destination.get("places") or []) if str(p or "").strip()]
+    if not places:
+        return ""
+    airports = _load_airports()
+    facts, unknown = [], []
+    for place in places:
+        needle = place.casefold()
+        cities = [a for a in airports
+                  if needle in {str(a.get("city_he") or "").strip().casefold(), str(a.get("city_en") or "").strip().casefold()}
+                  or needle == str(a.get("code") or "").strip().casefold()]
+        if cities:
+            facts += [f"{a.get('city_he') or a.get('code')} ({a.get('code')}), {a.get('country_he') or ''}".rstrip(", ")
+                      for a in cities]
+            continue
+        is_country = any(needle in {str(a.get("country_he") or "").strip().casefold(), str(a.get("country_en") or "").strip().casefold()}
+                         for a in airports)
+        if not is_country:
+            unknown.append(place)
+    line = ""
+    if facts:
+        line += ("\nשדה/שדות הנחיתה ביעד לפי רשימת שדות התעופה (מקור אמת - אל תמציאי תעתיק, קוד או מדינה "
+                 "משלך, השתמשי בדיוק בזה): " + " / ".join(dict.fromkeys(facts)) + ".")
+    if unknown:
+        line += ("\nהיעד " + ", ".join(unknown) + " לא נמצא ברשימת שדות התעופה שלנו, כך שאין כאן עובדה מאומתת "
+                 "על שדה הנחיתה. כשאת מציינת שדה נחיתה (גם בשורת \"נחיתה:\" בסיכום), זה חייב להיות שדה תעופה "
+                 "מסחרי אמיתי שמשרת את העיר הזו, עם הקוד הנכון שלו, ובמדינה שבה העיר באמת נמצאת - בדקי זאת "
+                 "לפני שאת כותבת. אם לעיר עצמה אין שדה תעופה מסחרי, אמרי זאת בפשטות והציעי את השדה הקרוב "
+                 "ביותר בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
+    return line
+
+
 def _destination_gateway_summary(state):
     """Verified Hebrew spelling for the landing/return-departure gateway
     airports, handed over as hard facts - mirrors _departure_summary's own
@@ -4574,7 +4624,7 @@ def _destination_gateway_summary(state):
     too, even when it's the same airport as the landing one."""
     dest_codes = [str(c).upper() for c in (state.get("destination_airports") or []) if c]
     if not dest_codes:
-        return ""
+        return _destination_catalog_hint(state)
     airports_by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
 
     def _fact(code):
