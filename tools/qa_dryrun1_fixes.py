@@ -8,7 +8,9 @@ on the shaked branch, raw logs on qa-dryrun) on oholiav-run11-mixed-baggage:
 2. C/E: the accessibility clarification went out alone, without the question.
 3. E (Rovinj -> Pula): the chosen nearby airport wasn't saved and the summary had
    no landing line.
-4. C: "נוסעות: 2 ..." + an appended second "נוסעים: 2 מבוגרים" line.
+4. C: "נוסעות: 2 ..." + an appended second "נוסעים: 2 מבוגרים" line. Per Shaked/Shlomo:
+   found only by the fixed label "נוסעים:", replaced by the canonical line from
+   state (now with children + infants); no label -> added.
 5. E: "התקציב כבר ידוע לי" right after the budget was given for the first time.
 
 Hints / state only - no regex on the output. Offline. Run:
@@ -133,9 +135,22 @@ reply = ("הנה הסיכום:\nתאריכים: 20.04.2027 – 25.04.2027\nנו�
          "כבודה: תיק יד לכל נוסע (בהתאם לתנאי חברת התעופה)\nהעדפת טיסה: אין העדפה לטיסה ישירה\n"
          "תקציב: עד 1,300 ש\"ח לאדם\nאם כל הפרטים נכונים, כתבי מאשרת.")
 out = chat._ensure_flight_summary_completeness(reply, summary_state)
-check("C: 'נוסעות: 2 ...' counts as present - no second travelers line", "נוסעים: 2 מבוגרים" not in out)
+check("C: an unlabelled 'נוסעות: 2 ...' is never chosen for replacement (no word list on the model's text)",
+      "נוסעות: 2 (את ואמא שלך)" in out)
+labelled = reply.replace("נוסעות: 2 (את ואמא שלך)", "נוסעים: 2 (את ואמא שלך)")
+out = chat._ensure_flight_summary_completeness(labelled, summary_state)
+check("C: the 'נוסעים:' line is found by its label and rebuilt from state - exactly once",
+      out.count("נוסעים:") == 1 and "נוסעים: 2 מבוגרים\n" in out and "את ואמא שלך" not in out)
+b_state = dict(summary_state, travelers={"adults": 2, "infants": 1})
+out = chat._ensure_flight_summary_completeness(labelled.replace("נוסעים: 2 (את ואמא שלך)", "נוסעים: 3 (2 מבוגרים ותינוק בן שנה)"), b_state)
+check("B: the canonical line keeps the infant ('2 מבוגרים ותינוק' doesn't disappear)",
+      "נוסעים: 2 מבוגרים ותינוק" in out and out.count("נוסעים:") == 1)
 out = chat._ensure_flight_summary_completeness(reply.replace("נוסעות: 2 (את ואמא שלך)\n", ""), summary_state)
-check("...and a summary with no travelers line still gets it", "נוסעים: 2 מבוגרים" in out)
+check("no 'נוסעים:' label -> the canonical line is added", "נוסעים: 2 מבוגרים" in out)
+check("_flight_travelers_line: children and infants", chat._flight_travelers_line({"adults": 2, "children": 2, "infants": 1})
+      == "נוסעים: 2 מבוגרים, 2 ילדים ותינוק" and chat._flight_travelers_line({"adults": 2, "children": 2}) == "נוסעים: 2 מבוגרים ו-2 ילדים")
+src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ariella_chat_clean.py"), encoding="utf-8").read()
+check("the 'נוסעות' word check is gone", '"נוסעות" not in text' not in src)
 check("TINKERBELL_SYSTEM: the travelers line has the fixed 'נוסעים:' label", 'בתווית הקבועה "נוסעים:"' in chat.TINKERBELL_SYSTEM)
 
 # --- 5. budget given for the first time ---------------------------------------------------------------

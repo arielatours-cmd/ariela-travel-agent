@@ -3311,6 +3311,9 @@ _SUMMARY_DATES_LABEL_RE = re.compile(
 )
 
 
+_TRAVELERS_SUMMARY_LABEL = "נוסעים:"
+
+
 def _flight_travelers_line(travelers) -> str | None:
     """The one-line travelers summary fact, or None when not known yet.
     Factored out the same way as _flight_dates_line, for the same reason."""
@@ -3318,10 +3321,20 @@ def _flight_travelers_line(travelers) -> str | None:
     adults = travelers.get("adults")
     if not adults:
         return None
-    children = int(travelers.get("children") or 0)
-    party = f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"
+    try:
+        children = max(0, int(travelers.get("children") or 0))
+        infants = max(0, int(travelers.get("infants") or 0))
+    except (TypeError, ValueError):
+        children, infants = 0, 0
+    # Dry-run 1 (22.10): this line now REPLACES the model's own "נוסעים:"
+    # line (see _ensure_flight_summary_completeness), so infants must be in
+    # it too - otherwise "(2 מבוגרים ותינוק)" would silently disappear.
+    parts = [f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"]
     if children:
-        party += (f" ו-{children} ילדים" if children != 1 else " וילד אחד")
+        parts.append(f"{children} ילדים" if children != 1 else "ילד אחד")
+    if infants:
+        parts.append(f"{infants} תינוקות" if infants != 1 else "תינוק")
+    party = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " ו" + ("-" if parts[-1][0].isdigit() else "") + parts[-1]
     return "נוסעים: " + party
 
 
@@ -3646,15 +3659,27 @@ def _ensure_flight_summary_completeness(reply, state):
         if line:
             missing.append(line)
     travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
-    # Dry-run 1 C (Bordeaux, 22.10): the model wrote "נוסעות: 2 (את ואמא
-    # שלך)" and a second "נוסעים: 2 מבוגרים" line was appended. The prompt
-    # now asks for the fixed "נוסעים:" label; and per the standing rule a
-    # content check may decide whether the fact is MISSING (never what to
-    # replace) - the feminine form counts as present too.
-    if "מבוגר" not in text and "נוסעים" not in text and "נוסעות" not in text:
-        line = _flight_travelers_line(travelers)
-        if line:
-            missing.append(line)
+    # Dry-run 1 C (Bordeaux, 22.10) + Shaked/Shlomo's decision: exactly
+    # like "כבודה:"/"העדפת טיסה:" - the travelers line is found ONLY by its
+    # fixed literal label "נוסעים:" and replaced, from the label to the end
+    # of its sentence, with the canonical line built from state (adults,
+    # children and infants); with no such label the canonical line is
+    # added. No word list on the model's text at all.
+    canonical_travelers_line = _flight_travelers_line(travelers)
+    if canonical_travelers_line:
+        _found_travelers_label = False
+        sentences = _split_sentences(text)
+        for i, (s, term) in enumerate(sentences):
+            label_idx = s.find(_TRAVELERS_SUMMARY_LABEL)
+            if label_idx == -1:
+                continue
+            _found_travelers_label = True
+            if s[label_idx:].strip() != canonical_travelers_line.strip():
+                sentences[i] = (f"{s[:label_idx]}{canonical_travelers_line}{term}", term)
+                text = "".join(st for st, _t in sentences)
+            break
+        if not _found_travelers_label:
+            missing.append(canonical_travelers_line)
     if "ישיר" not in text and "קונקשן" not in text:
         line = _flight_connection_summary_line(flight)
         if line:
