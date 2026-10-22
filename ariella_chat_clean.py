@@ -7000,29 +7000,40 @@ def _destination_gateway_answer_by_meaning(message, history, state):
     destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
     if destination_airports:
         return {}
-    if not _destination_gateway_unresolved_places(state):
+    unresolved_places = _destination_gateway_unresolved_places(state)
+    if not unresolved_places:
         return {}
+    # Shlomo's refinement (22.10.2026, round 12 C/E - Paphos/Zadar): the
+    # failure already happens on the VERY FIRST mention of the place, with
+    # the deterministic catalog match finding nothing - before any open
+    # gateway question has ever been asked about it (the previous, narrower
+    # gate here required the last assistant turn to already be that open
+    # question, which only helps from the SECOND mention onward). Fires
+    # whenever a place was named and genuinely never resolved, full stop -
+    # the only real gate is destination_airports still being empty, which
+    # keeps this from firing at all once resolved.
     last_assistant = next(
         (str(x.get("content") or "") for x in reversed(history or [])
          if isinstance(x, dict) and x.get("role") == "assistant"), "")
-    if not any(w in last_assistant for w in ("שדה תעופה", "לנחות", "להמריא")):
-        return {}
     key = os.getenv("ANTHROPIC_API_KEY", "").strip()
     if not key:
         return {}
     model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
     prompt = (
-        "הסוכנת שאלה את הלקוח שאלה פתוחה על שדה התעופה/העיר הקרובים ביותר ליעד שלו לנחיתה והמראה "
-        "(בלי להציע שם ספציפי בשאלה עצמה). קראי את תשובת הלקוח, גם אם היא עונה גם על שאלה אחרת "
-        "באותה הודעה, וזהי לפי הידע הכללי שלך על העולם האמיתי (גם אם הלקוח כתב בעברית, בכתיב חלקי "
-        "או לא מדויק) איזו עיר/שדה תעופה אמיתיים הוא מתכוון אליהם. החזירי JSON בלבד: "
+        "הלקוח מתכנן טיול ליעד הבא, שאין לו שדה תעופה מאומת אצלנו: " + ", ".join(unresolved_places) + ". "
+        "קראי את תשובת הלקוח (ואת ההודעה הקודמת של הסוכנת, אם יש, להקשר בלבד) וזהי לפי הידע הכללי "
+        "שלך על העולם האמיתי (גם אם הלקוח כתב בעברית, בכתיב חלקי או לא מדויק, או ציין את שם היעד "
+        "עצמו/אזור קרוב אליו/שדה תעופה מפורש) איזו עיר/שדה תעופה אמיתיים משרתים את היעד הזה לנחיתה "
+        "והמראה - בין אם הלקוח ציין זאת כתשובה לשאלה פתוחה, ובין אם ציין זאת מיוזמתו תוך כדי משהו "
+        "אחר (למשל יחד עם תאריכים). החזירי JSON בלבד: "
         "{\"city_en\": \"<שם העיר באנגלית, כפי שמוכרת בעולם האמיתי>\", \"iata_code\": \"<קוד ה-IATA "
-        "של שדה התעופה הקרוב ביותר לעיר הזו>\"} אם הלקוח ציין שם מקום כלשהו לנחיתה/המראה, או "
-        "{\"city_en\": null, \"iata_code\": null} אם התשובה לא עונה על שאלת שדה התעופה בכלל, או אם "
-        "אינך בטוחה איזו עיר/שדה הכוונה. לעולם אל תנחשי בספק - רק אם את בטוחה."
+        "של שדה התעופה הקרוב ביותר לעיר הזו>\"} אם יש בהודעה ציון של עיר/שדה ספציפיים (גם רק "
+        "שם היעד/האזור עצמו, אם הוא בעצמו עיר אמיתית עם שדה תעופה), או "
+        "{\"city_en\": null, \"iata_code\": null} אם אין כל ציון כזה, או אם אינך בטוחה. "
+        "לעולם אל תנחשי בספק - רק אם את בטוחה."
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 60, include_history=False, source="classifier")
+        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת (הקשר בלבד): " + last_assistant[-500:] + "\nהודעת הלקוח: " + str(message or ""), 60, include_history=False, source="classifier")
         raw = raw.strip()
         data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
     except Exception:

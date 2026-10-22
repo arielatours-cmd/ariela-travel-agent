@@ -9,12 +9,23 @@ EXTRACTOR_SYSTEM's own instruction to capture this was the only mechanism,
 with no deterministic backstop at all.
 
 Fixed by mirroring _budget_answer_by_meaning/_baggage_answer_by_meaning's
-exact pattern: gated on destination_airports still empty, the gateway
-question still genuinely unresolved, and the last assistant message
-actually being that open gateway question (topic-word gate, same as the
-siblings) - then one classifier call extracts ONLY the free-text place
-name (never a guessed code), resolved through the existing deterministic,
-never-substring _match_city_exact.
+pattern: gated on destination_airports still empty and the gateway
+question still genuinely unresolved (_destination_gateway_unresolved_
+places) - a single classifier call asks the model for the real city_en/
+IATA code, verified against the catalog by _verify_catalog_airport_code.
+
+Shlomo's refinement (22.10.2026, round 12 C/E - Paphos/Zadar): the first
+version here ALSO required the last assistant turn to already be the open
+gateway question - but live, the failure happens on the very FIRST
+mention of the place (before any open question was ever asked), where
+Tinkerbell confidently claimed "no commercial airport" instead of
+recognizing her own uncertainty (root cause: _destination_catalog_hint's
+deterministic catalog match uses Hebrew spelling normalization, which
+does not bridge "פפוס" (missing א) to the catalog's "פאפוס" - the model's
+own real-world knowledge does). The gate no longer requires a prior
+question at all - it fires on the very first unresolved mention, so this
+guard can resolve the field (same turn, before the reply is drafted)
+before Tinkerbell ever has to say anything about it.
 
 Per Shlomo's explicit condition: the QA must show how many times the
 classifier call actually fires across representative scenarios (not just
@@ -44,7 +55,7 @@ def check(name, cond):
         FAILED.append(name)
 
 
-_MARKER = "שדה התעופה/העיר הקרובים ביותר"
+_MARKER = "שאין לו שדה תעופה מאומת אצלנו"
 GATEWAY_REPLY = (
     "היעד הלשטאט ככל הנראה חסר שדה תעופה מסחרי רשום משלו - "
     "באיזה שדה תרצו לנחות ולהמריא?"
@@ -124,22 +135,33 @@ check("destination_airports already resolved: the call never fires (saves the co
       len(calls) == 0)
 
 # =====================================================================
-# Scenario ('C'-shape): gateway question was NOT the last thing asked
-# (a completely different topic was) - the call must not fire even
-# though destination_airports happens to still be empty.
+# Scenario ('C'-shape, Shlomo's refinement, round 12 Paphos/Zadar): the
+# VERY FIRST mention of the place, no gateway question has ever been
+# asked yet (the last assistant turn was about something else entirely,
+# or there is no history at all) - the call must STILL fire and resolve,
+# same turn, before Tinkerbell ever drafts a reply claiming "no airport".
 # =====================================================================
 calls = []
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
     result = chat._destination_gateway_answer_by_meaning(
-        "זלצבורג מתאים לנו",
+        "לפפוס, לקפריסין",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
+        dict(BASE_STATE, destination={"places": ["פפוס"], "mode": None, "status": "known"}),
+    )
+check("first mention (no gateway question ever asked yet): the call still "
+      "fires and resolves 'פפוס' to PFO via the model's own recognition",
+      result.get("destination_airports") == ["PFO"] and len(calls) == 1)
+
+calls = []
+with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
+    result = chat._destination_gateway_answer_by_meaning(
+        "לזלצבורג",
+        [],
         BASE_STATE,
     )
-check("gateway question was not actually the last thing asked: the call never fires",
-      len(calls) == 0)
-check("gateway question was not actually the last thing asked: nothing written "
-      "(even though the customer's text happens to name a real city)",
-      result == {})
+check("first mention with NO history at all (empty conversation) - the "
+      "call still fires and resolves",
+      result.get("destination_airports") == ["SZG"] and len(calls) == 1)
 
 # =====================================================================
 # Scenario ('E'-shape): destination genuinely resolved some other way this
