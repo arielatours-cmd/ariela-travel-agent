@@ -1970,9 +1970,17 @@ def _advance_sessions(state):
         # domain's own gaps, so the all(...) check alone missed it and let
         # ready_for_summary (the one real approval moment) go True anyway.
         # See _guided_incomplete_fields's own docstring.
+        #
+        # Dry-run 2 finding #5 (Shaked/Shlomo, 22.10, Rovinj/Pula): the same
+        # principle applies to a destination with no catalog entry of its
+        # own - destination_airports stayed None the entire conversation
+        # while the final summary still silently printed a specific
+        # "נחיתה:" field (Pula) the customer never actually chose. See
+        # _destination_gateway_unresolved's own docstring.
         state["ready_for_summary"] = (
             all(v in ("complete","declined") for v in statuses.values())
             and not _guided_incomplete_fields(state)
+            and not _destination_gateway_unresolved(state)
         )
     return state
 
@@ -4723,6 +4731,83 @@ def _destination_catalog_hint(state):
     return line
 
 
+def _destination_gateway_unresolved_places(state):
+    """Dry-run 2 finding #5 (Shaked/Shlomo, 22.10, Rovinj/Pula): a
+    destination with no catalog entry of its own (no city/country match -
+    same classification _destination_catalog_hint's own "unknown" branch
+    already uses) needs the customer to pick a nearby gateway airport -
+    today this was only ever a background FACT hint, competing
+    unreliably against whatever else was open that turn. Seen live: the
+    nearby options (Pula/Zagreb) were mentioned as plain info across
+    several turns while a completely different question got asked each
+    time, destination_airports stayed None for the entire conversation,
+    and the final summary still silently printed "נחיתה: פולה" - a
+    specific choice the customer never actually made.
+
+    Returns every destination place still genuinely unresolved this way
+    (empty list = nothing unresolved). Not yet sharing _destination_
+    catalog_hint's own lookup loop directly (this branch predates #144's
+    _normalize_he_spelling fix to that function) - converges once merged;
+    duplicated here deliberately rather than reaching into a sibling PR's
+    in-flight change."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("destination_airports"):
+        return []
+    if not _guided_baggage_applies(state):
+        # Mirrors _guided_baggage_applies's own gate exactly (flights
+        # actually in requested_services) - a gateway airport is only
+        # ever needed once a flight is actually being searched for.
+        return []
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip() for p in (destination.get("places") or []) if str(p or "").strip()]
+    if not places:
+        return []
+    airports = _load_airports()
+    unresolved = []
+    for place in places:
+        needle = place.casefold()
+        matched = any(
+            needle in {str(a.get("city_he") or "").strip().casefold(), str(a.get("city_en") or "").strip().casefold()}
+            or needle == str(a.get("code") or "").strip().casefold()
+            for a in airports
+        )
+        if matched:
+            continue
+        is_country = any(
+            needle in {str(a.get("country_he") or "").strip().casefold(), str(a.get("country_en") or "").strip().casefold()}
+            for a in airports
+        )
+        if not is_country:
+            unresolved.append(place)
+    return unresolved
+
+
+def _destination_gateway_unresolved(state):
+    """True when _destination_gateway_unresolved_places(state) is
+    non-empty - used to gate ready_for_summary (_advance_sessions) and
+    the premature-approval/closing_claim safety nets, mirroring
+    _guided_incomplete_fields's own role for accessibility."""
+    return bool(_destination_gateway_unresolved_places(state))
+
+
+def _destination_gateway_question_hint(state):
+    """The arbiter's own QUESTION-framed version of the same fact
+    _destination_catalog_hint's "unknown" branch already states as
+    background - this is what actually reaches Tinkerbell as THIS turn's
+    one live question when nothing higher-priority (clarify/shift/mixed-
+    baggage) is live, via _turn_question_arbiter. Returns "" when
+    nothing is unresolved."""
+    unresolved = _destination_gateway_unresolved_places(state)
+    if not unresolved:
+        return ""
+    return (
+        "היעד " + ", ".join(unresolved) + " ככל הנראה חסר שדה תעופה מסחרי רשום משלו - אין כאן עובדה מאומתת "
+        "על שדה הנחיתה. שאלי שאלה פתוחה אחת, בניסוח שלך, לגבי שדה התעופה הקרוב ביותר שבו לנחות ולהמריא - "
+        "זו החלטה אמיתית שהלקוח צריך לאשר בעצמו. לעולם אל תבחרי שדה נחיתה בשבילו ואל תכתבי אותו בסיכום "
+        "(גם לא בשורת \"נחיתה:\") לפני שהוא אישר במפורש איזה שדה."
+    )
+
+
 def _destination_gateway_summary(state):
     """Verified Hebrew spelling for the landing/return-departure gateway
     airports, handed over as hard facts - mirrors _departure_summary's own
@@ -4891,6 +4976,15 @@ def _turn_question_arbiter(state):
         return str(state.get("_shift_candidate_hint")), "shift_candidate"
     if mixed_pending and guided_hint:
         return str(guided_hint), "guided_mixed_baggage"
+    # Dry-run 2 finding #5 (Rovinj/Pula): a destination with no catalog
+    # entry of its own, still genuinely unresolved - checked just above
+    # the standing guided question (nothing else about the trip can be
+    # properly summarized without a landing airport), same tier as the
+    # standing guided question conceptually. See _destination_gateway_
+    # unresolved_places's own docstring.
+    destination_gateway_hint = _destination_gateway_question_hint(state)
+    if destination_gateway_hint:
+        return destination_gateway_hint, "destination_gateway"
     if guided_hint:
         return str(guided_hint), "guided"
     if state.get("_gap_repeat_rephrase_hint"):
@@ -10190,21 +10284,28 @@ def _force_guided_field_retry(key, model, history, message, trip_update, _log_co
     different closing phrasing instead, which closing_claim's own domain-
     only pending_domain check had no way to catch.
 
+    Also handles dry-run 2 finding #5 (Rovinj/Pula): a destination with no
+    catalog entry of its own, still genuinely unresolved per _destination_
+    gateway_unresolved - nothing needs explicit setting here, since
+    _turn_question_arbiter picks it up directly from trip_update's own
+    destination/destination_airports on the retry.
+
     Returns the new reply text on success, or None (nothing to force, or
     the retry call itself failed - the caller keeps whatever reply it
     already had)."""
     guided_still_open = _guided_incomplete_fields(trip_update)
-    if not guided_still_open:
+    if guided_still_open:
+        open_field = guided_still_open[0]
+        forced_hint = (
+            _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0)
+            if open_field == "accessibility" else _guided_ask_hint(open_field, 0)
+        )
+        guided_forced = dict(trip_update.get("guided") or {})
+        guided_forced["current_question"] = open_field
+        trip_update["guided"] = guided_forced
+        trip_update["_guided_ask_hint"] = forced_hint
+    elif not _destination_gateway_unresolved(trip_update):
         return None
-    open_field = guided_still_open[0]
-    forced_hint = (
-        _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0)
-        if open_field == "accessibility" else _guided_ask_hint(open_field, 0)
-    )
-    guided_forced = dict(trip_update.get("guided") or {})
-    guided_forced["current_question"] = open_field
-    trip_update["guided"] = guided_forced
-    trip_update["_guided_ask_hint"] = forced_hint
     try:
         return _call_tinkerbell(key, model, history, message, trip_update)
     except Exception as exc:
