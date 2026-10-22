@@ -1964,7 +1964,16 @@ def _advance_sessions(state):
     else:
         state["missing_required"] = []
         state["next_session"] = None
-        state["ready_for_summary"] = all(v in ("complete","declined") for v in statuses.values())
+        # Run-11 (Shaked, 22.10): every domain's own session_status can read
+        # complete/declined while a universal guided field (accessibility
+        # first) was never actually asked - it lives outside any single
+        # domain's own gaps, so the all(...) check alone missed it and let
+        # ready_for_summary (the one real approval moment) go True anyway.
+        # See _guided_incomplete_fields's own docstring.
+        state["ready_for_summary"] = (
+            all(v in ("complete","declined") for v in statuses.values())
+            and not _guided_incomplete_fields(state)
+        )
     return state
 
 
@@ -10114,6 +10123,49 @@ def _guided_step_covers(field, guided_steps):
     return field in guided_steps
 
 
+# Run-11 (Shaked, 22.10): the ONLY guided field with no domain-level
+# completion signal of its own anywhere in _session_gaps's per-domain
+# prefix lists (flights/lodging/car/trip_planning). dates/travelers/baggage/
+# every lodging sub-field are each already required by at least one
+# domain's own _required_state_gaps, so once that domain's session_status
+# genuinely reads complete/declined, the domain check has already proven
+# nothing more is owed for them - even if guided's own finer answered-
+# bookkeeping never caught up for some other reason (that staleness is
+# exactly the ORIGINAL Berlin loop this file's _all_domains_already_decided
+# gate exists to guard against - see qa_stage3_run3_guided_loop_guard.py,
+# where a declined domain's own guided sub-fields are deliberately left
+# unanswered in guided.answered on purpose). accessibility has no such
+# domain-level signal anywhere - it genuinely needs its own check.
+_GUIDED_DOMAIN_INDEPENDENT_FIELDS = ("accessibility",)
+
+
+def _guided_incomplete_fields(state):
+    """Once dates and travelers both arrive in the customer's very first
+    message, the general extractor resolves them before the guided
+    dispatcher even runs, so accessibility becomes current_question
+    immediately - but nothing downstream ever re-checked, from STATE
+    alone, whether a universal guided field like accessibility had
+    genuinely been asked before letting the conversation reach
+    session_status-based "complete/declined" and a final summary. Returns
+    every _GUIDED_DOMAIN_INDEPENDENT_FIELDS field this guided run still
+    covers, still applies to this trip, and is neither in guided.answered
+    nor already known with confidence from state (the same double check
+    the dispatcher's own top-of-function loop already trusts - never
+    bookkeeping alone, which is exactly what went stale in the Berlin
+    case). Used both to gate ready_for_summary (_advance_sessions) and to
+    redirect a premature final-summary reply back to the real open
+    question - state only, never a scan of Tinkerbell's own text."""
+    state = state if isinstance(state, dict) else {}
+    guided_steps = _guided_extraction_steps()
+    guided = state.get("guided") if isinstance(state.get("guided"), dict) else {}
+    answered = set(guided.get("answered") or [])
+    return [
+        f for f in _GUIDED_DOMAIN_INDEPENDENT_FIELDS
+        if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, state)
+        and f not in answered and not _guided_field_known_with_confidence(f, state)
+    ]
+
+
 def _guided_ask_hint(field, attempts):
     desc = _GUIDED_FIELD_HINT_DESCRIPTION.get(field, field)
     # Per Shaked's live finding (18.10, qa/reports/2026-10-18-resume-live.md,
@@ -11652,7 +11704,36 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         record_diagnostic_event("guided_redirect", _redirect_diagnostic)
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
-        return {"trip_update": trip_update, "dynamic_hint": None} if changed else None
+        if not changed:
+            # A truly unrelated message, with current_question genuinely
+            # unchanged this turn (no OTHER field resolved either) - leave
+            # this to normal routing, exactly as before. Forcing a hint here
+            # too would re-ask the same open question on every unrelated
+            # aside, which is not this bug (see the "changed" branch below).
+            return None
+        # Run-11 (Shaked, 22.10, Bari/Valencia/Bordeaux/Rovinj): the real
+        # root cause. When dates+travelers both arrive in the customer's
+        # very first message, the top-of-function loop above already marks
+        # them answered and advances current_question to accessibility
+        # BEFORE this message is ever read against it - so this same
+        # message, which never mentioned accessibility at all, correctly
+        # classifies as other_topic here, with nothing else left to
+        # redirect to (dates/travelers already consumed). The old code
+        # returned dynamic_hint=None whenever nothing was captured by the
+        # redirect above, REGARDLESS of changed - the caller then POPS
+        # trip_update["_guided_ask_hint"] entirely, leaving Tinkerbell with
+        # no steering at all this turn, free to ask about baggage/budget
+        # instead. changed=True here means some OTHER field (dates/
+        # travelers) genuinely got resolved this very turn, advancing
+        # current_question to a fresh field that was never actually asked
+        # about yet - always ask it now, never leave the turn with no hint.
+        return {
+            "trip_update": trip_update,
+            "dynamic_hint": (
+                _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), attempts)
+                if current_question == "accessibility" else _guided_ask_hint(current_question, attempts)
+            ),
+        }
     if current_question == "accessibility":
         # Task 014b: this one field name covers two different turns - the
         # yes/no, and (only once "yes" came back with no need yet) a
@@ -14359,7 +14440,19 @@ def _chat_clean_impl():
         _all_domains_already_decided = all(
             str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
             for _s in ("flights", "lodging", "car", "trip_planning")
-        )
+        ) and not _guided_incomplete_fields(trip_update)
+        # Run-11 (Shaked, 22.10, Bari/Valencia/Bordeaux/Rovinj): the "nothing
+        # left to guide" conclusion above only looked at the four domains -
+        # but a universal guided field (accessibility first) lives outside
+        # every one of them, so once dates+travelers both arrived in the
+        # customer's very first message and flights closed quickly after,
+        # this gate stopped the dispatcher from ever running again and
+        # accessibility was simply never asked. _guided_incomplete_fields is
+        # the same applicability-aware check the dispatcher itself already
+        # trusts (declined domains correctly drop out via requested_
+        # services, so this doesn't resurrect the original Berlin loop it
+        # guards against) - it just also keeps the dispatcher alive for a
+        # field that's still genuinely open and applicable.
         # Captured BEFORE the guided dispatch call, not after - trip_update
         # at this point already carries the raw, UNGUARDED extractor merge
         # from earlier in this function (_merge_trip_state(trip_state,
@@ -15199,10 +15292,14 @@ def _chat_clean_impl():
         # in Tinkerbell's own summary, yet the reply ended in the neutral
         # "ממשיכה מכאן" close instead of "כתבי מאשרת".
         trip_update = _advance_sessions(trip_update)
-        _all_domains_decided_now = all(
-            str((trip_update.get("session_status") or {}).get(_s) or "pending") in ("complete", "declined")
-            for _s in ("flights", "lodging", "car", "trip_planning")
-        )
+        # Run-11 (Shaked, 22.10): reuses _advance_sessions's own
+        # ready_for_summary, just recomputed above, rather than a bare
+        # session_status all(...) - that narrower check missed a universal
+        # guided field (accessibility) left genuinely unanswered outside
+        # every domain's own gaps. Still exactly as fresh as recomputing it
+        # inline here would be (the call just above is what makes it fresh,
+        # not which expression reads the result).
+        _all_domains_decided_now = bool(trip_update.get("ready_for_summary"))
         # Run-7 bug A (Shaked, severe, Bangkok/Batumi): a change request made
         # AFTER the final summary was already shown is a genuine mid-
         # conversation-style correction, not a failure to produce the final
@@ -15276,6 +15373,34 @@ def _chat_clean_impl():
                             _active_gap_handled = True
                         except Exception as exc:
                             logging.exception("Tinkerbell reply failed on premature-מאשרת active-domain gap: %s", exc)
+                    if not _active_gap_handled:
+                        # Run-11 (Shaked, 22.10, Bari/Valencia/Bordeaux/Rovinj):
+                        # every domain's own gaps above were already closed -
+                        # what's actually still missing is a universal guided
+                        # field (accessibility first in priority order), which
+                        # lives outside any single domain. Seen live: the hint
+                        # the main dispatch set earlier this turn was already
+                        # there and Tinkerbell still composed the full summary
+                        # anyway - force it again, as the last thing she sees
+                        # before this retry, same mechanism _handle_guided_
+                        # extraction_turn itself uses. State alone picks the
+                        # field, never a scan of her reply text.
+                        _guided_still_open = _guided_incomplete_fields(trip_update)
+                        if _guided_still_open:
+                            _open_field = _guided_still_open[0]
+                            _forced_hint = (
+                                _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0)
+                                if _open_field == "accessibility" else _guided_ask_hint(_open_field, 0)
+                            )
+                            _guided_forced = dict(trip_update.get("guided") or {})
+                            _guided_forced["current_question"] = _open_field
+                            trip_update["guided"] = _guided_forced
+                            trip_update["_guided_ask_hint"] = _forced_hint
+                            try:
+                                reply = _call_tinkerbell(key, model, history, message, trip_update)
+                                _active_gap_handled = True
+                            except Exception as exc:
+                                logging.exception("Tinkerbell reply failed on premature-מאשרת guided-field gap: %s", exc)
                     if not _active_gap_handled:
                         # Not phrased as "is it all correct or do you want to fix
                         # something?" - that compound question leaves a plain

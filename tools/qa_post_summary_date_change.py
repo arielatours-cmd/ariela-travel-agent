@@ -159,6 +159,13 @@ _ALL_DECIDED_STATE = {
     "ready_for_summary": True,
     "budget_per_person": {"amount": 1500, "currency": "EUR"},
     "flight": {"connection_preference": "אין העדפה", "baggage": ["carry_on_only"]},
+    # Run-11 (22.10): ready_for_summary/the missing-summary safety net now
+    # also requires accessibility genuinely resolved (see _guided_
+    # incomplete_fields) - already true in this fixture, just not
+    # previously represented, since this file predates that gate and tests
+    # an orthogonal mechanism (the post-summary/missing-summary retry).
+    "accessibility": {"needed": False},
+    "guided": {"current_question": None, "attempts": 0, "answered": ["dates", "travelers", "accessibility", "baggage"]},
 }
 
 _OLD_SUMMARY_TEXT = (
