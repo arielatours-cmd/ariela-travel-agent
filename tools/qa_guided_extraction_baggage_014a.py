@@ -258,10 +258,22 @@ check("scenario 2c (mixed_per_passenger): defaults the whole group to checked_ba
 check("scenario 2c: resolved with full confidence - never reopens a confirm "
       "question over a mixed request",
       (tu2c.get("guided") or {}).get("current_question") != "baggage")
-check("scenario 2c: no explanation of the mixed request or the uniform-booking "
-      "rule leaks into the hint at all - checked_bag needs no follow-up note",
-      "חלוקה" not in str(tu2c.get("_guided_ask_hint") or "")
-      and "מעורב" not in str(tu2c.get("_guided_ask_hint") or ""))
+# Run-7 bug B (Shaked, Phuket, 21.10.2026): the FIRST fix attempt (PR #121,
+# 4f1079a) added a steering hint instructing Tinkerbell to explain the
+# resolution ("הזמנה היא תמיד כבודה אחידה... לכן נשמרה מזוודה לכולם") -
+# but Shaked rejected that version (e2848dc): the explanation itself
+# contradicts the business owner's own decisions ("בקשה מעורבת: מזוודה,
+# בלי דיון" and "מזוודה: לא מוסיפה משפט") - no acknowledgement sentence
+# of ANY kind belongs here. The hint now does the opposite: it forbids
+# mentioning baggage in this turn at all, so neither the original
+# per-passenger split nor a new explanation gets said.
+check("scenario 2c FIX: the steering hint forbids mentioning baggage at "
+      "all this turn (no explanation sentence, no confirmation, no "
+      "per-passenger description)",
+      "אל תזכירי את נושא הכבודה" in str(tu2c.get("_guided_ask_hint") or ""))
+check("scenario 2c: the hint never itself states the forbidden "
+      "explanation as if it were an instruction to SAY it",
+      "לכן נשמרה מזוודה" not in str(tu2c.get("_guided_ask_hint") or ""))
 
 # --- 2d. multiple items in parallel: "טרולי לכל אחד ומזוודה אחת לכל
 #     המשפחה" -> carry_on + checked_bag (count=1) - the suitcase must never

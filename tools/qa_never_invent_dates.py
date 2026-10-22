@@ -114,12 +114,28 @@ check("neither confirmed dates nor pending candidates -> no hint at all",
 check("pending with no candidate_ranges at all (shouldn't normally happen) -> no hint, never raises",
       chat._dates_truth_hint({"active_session": "flights", "dates": {"needs_confirmation": True}}) == "")
 
-check("scoped to the flights stage only - even with real confirmed/pending "
-      "dates in state, no hint at all outside active_session=='flights' "
-      "(an itinerary legitimately names many real per-day dates there)",
+check("scoped away from lodging/car/trip_planning - even with real confirmed/"
+      "pending dates in state, no hint at all there (an itinerary "
+      "legitimately names many real per-day dates there)",
       chat._dates_truth_hint({"active_session": "trip_planning", "dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) == ""
-      and chat._dates_truth_hint({"dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) == ""
-      and chat._dates_truth_hint({}) == "")
+      and chat._dates_truth_hint({"active_session": "lodging", "dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) == ""
+      and chat._dates_truth_hint({"active_session": "car", "dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) == "")
+
+# Widened 21.10.2026 (Shaked's run-9 live finding zd5, relayed by Shlomo): a
+# shift-days confirmation can close the flights session again WITHIN THE
+# SAME TURN it resolves, leaving active_session=None with no active domain
+# at all this turn - previously that silently dropped the hint entirely,
+# the exact root cause of a live reply ("תוכלי לציין לי את התאריכים
+# המדויקים...") asking for dates that had just this turn been confirmed and
+# saved. active_session=None (no active_session key, or explicitly None) now
+# gets the same hint "flights" does.
+check("active_session=None (no active session at all, e.g. right after a "
+      "same-turn date confirmation closed flights again) still gets the "
+      "confirmed-dates hint - this is the fix for zd5",
+      chat._dates_truth_hint({"dates": {"departure": "2026-11-28", "return": "2026-12-05"}}) != ""
+      and chat._DATES_PLACEHOLDER in chat._dates_truth_hint({"dates": {"departure": "2026-11-28", "return": "2026-12-05"}}))
+check("active_session=None with no dates at all -> still no hint (nothing to say)",
+      chat._dates_truth_hint({}) == "")
 
 # =====================================================================
 # Direct unit tests of _render_date_placeholders - the actual

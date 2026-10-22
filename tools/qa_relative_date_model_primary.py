@@ -441,6 +441,204 @@ check("Shaked's exact live case 1: 'סגרנו את הכבודה - ולגבי ה
       reply_baggage_closed == "סגרנו את הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?")
 
 
+# =====================================================================
+# Stage-1 run-6 (Shaked/Shlomo, Paphos, severe - rework of #117, which
+# Shaked rejected): a live transcript where dates got stuck on the OLD
+# values through THREE consecutive turns.
+#
+# Turn 1: "רגע, אפשר לדחות את כל הטיסה ביום אחד?" - Ariella's reply just
+# re-showed the existing summary with no reference to the request at
+# all (the model's own shift_days extraction missed this phrasing - see
+# below for the understanding fix, never a regex: Shaked's explicit
+# instruction on THIS PR was "אל תרחיב את ה-regex", so the regex fallback
+# is left exactly as it was before #117 ever touched it).
+#
+# Turn 2: the customer then explicitly restated the dates themselves -
+# "כן, לצאת ב-24.11 ולחזור ב-1.12" - and Ariella asked "רק לוודא...
+# 24.11–1.12, נכון?", immediately showing an "updated" summary that
+# still had the OLD dates (23.11–30.11).
+#
+# Turn 3: the customer confirmed "כן" again, and the dates still never
+# actually changed.
+#
+# Second review round (Shaked rejected the first fix - cec33ac - over a
+# severe regression): that first attempt proposed the extractor's own
+# UNVERIFIED differing dates as a pending single candidate instead of
+# re-locking, on the theory that a dual-call evidence miss (never a real
+# absence of intent) was the cause. But Shaked's review found this could
+# ALSO fire on a genuinely unrelated mention with no real request behind
+# it at all - a recalled PAST trip ("לפני שנתיים היינו שם 3 עד 7 ביוני")
+# - creating a candidate that the customer's own NEXT "כן", answering a
+# completely different question, would then silently commit. That
+# candidate mechanism is REMOVED entirely (see the "elif prior_dates"
+# branch's own docstring) - the evidence gate is the only way a date
+# change is recognized here, exactly as before #117 ever existed.
+#
+# Shaked separately tested _value_has_verbatim_evidence directly and
+# confirmed the quote "לצאת ב-24.11 ולחזור ב-1.12" already passes
+# verification, even with a "כן, " prefix - verification only fails when
+# the model itself reformats the date digit-wise while copying it (adds
+# a year, adds a leading zero, or writes a combined range). The real fix:
+# EXTRACTOR_SYSTEM now explicitly instructs an exact copy (no added year/
+# leading zero/dash), and _value_has_verbatim_evidence tolerates digit-
+# format differences as a fallback (never a word/phrase list - purely
+# numeric normalization, see _normalize_date_digits_for_evidence_match).
+# =====================================================================
+check("regression: EXTRACTOR_SYSTEM's shift_days guidance no longer "
+      "lists specific verbs with per-verb direction explanations ('לדחות'/"
+      "'להקדים') - Shaked's review flagged this as contradicting the "
+      "21.10 no-phrase-list decision; one general example is enough",
+      "לדחות" not in chat.EXTRACTOR_SYSTEM and "להקדים" not in chat.EXTRACTOR_SYSTEM)
+check("EXTRACTOR_SYSTEM's dates_evidence instruction now explicitly "
+      "requires an exact copy of the message excerpt, without adding a "
+      "year, a leading zero, or a dash",
+      "בלי להוסיף שנה" in chat.EXTRACTOR_SYSTEM)
+
+check("direct: _normalize_date_digits_for_evidence_match strips a "
+      "leading zero",
+      chat._normalize_date_digits_for_evidence_match("01.12") == "1.12")
+check("direct: _normalize_date_digits_for_evidence_match drops an added "
+      "year",
+      chat._normalize_date_digits_for_evidence_match("24.11.2026") == "24.11")
+check("direct: a date already in canonical form is left untouched",
+      chat._normalize_date_digits_for_evidence_match("24.11") == "24.11")
+check("direct: non-date text is never touched",
+      chat._normalize_date_digits_for_evidence_match("לא חובה") == "לא חובה")
+
+_paphos_msg = "כן, לצאת ב-24.11 ולחזור ב-1.12"
+check("_value_has_verbatim_evidence: a quote with an ADDED year the "
+      "message never stated still verifies (digit-format fallback)",
+      chat._value_has_verbatim_evidence("24.11.2026", _paphos_msg))
+check("_value_has_verbatim_evidence: a quote with an added LEADING ZERO "
+      "still verifies",
+      chat._value_has_verbatim_evidence("01.12", _paphos_msg))
+check("regression: _value_has_verbatim_evidence still rejects a quote "
+      "that is not genuinely in the message at all, even after digit "
+      "normalization - this is not a license to accept fabricated dates",
+      not chat._value_has_verbatim_evidence("25.11.2026", _paphos_msg))
+
+_paphos_state = dict(
+    base_state,
+    destination={"places": ["פאפוס"], "mode": "specific", "status": "known"},
+    destination_airports=["PFO"],
+    dates={"departure": "2026-11-23", "return": "2026-11-30", "needs_confirmation": False},
+)
+
+
+def _post_claude_paphos_year_added(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        # The exact live #117 failure mode, per Shaked's own direct testing
+        # of the verification function: the model wrote the correct new
+        # dates, but its own dates_evidence quote added a year the
+        # customer's message never stated.
+        return json.dumps({
+            "trip_update": {"dates": {"departure": "2026-11-24", "return": "2026-12-01"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": "24.11.2026",
+            "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "מעולה, עדכנתי ל-24.11–1.12."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_paphos_year_added):
+    r_paphos = client.post("/api/ariella/chat-clean", json={
+        "message": _paphos_msg,
+        "history": [{"role": "assistant", "content": "קלטתי - פאפוס, 23.11–30.11.2026."}],
+        "trip_state": dict(_paphos_state),
+    })
+dates_paphos = ((r_paphos.get_json() or {}).get("trip_update") or {}).get("dates") or {}
+check("end-to-end Paphos repro: the model's dates_evidence added a year "
+      "('24.11.2026') the message never stated - the new dates still "
+      "commit IMMEDIATELY in this one turn, no 'רק לוודא' confirmation "
+      "step needed, via the digit-format-tolerant evidence check",
+      dates_paphos.get("departure") == "2026-11-24" and dates_paphos.get("return") == "2026-12-01"
+      and dates_paphos.get("needs_confirmation") is False)
+
+# Regression: when dates_evidence verifies without any digit formatting
+# at all (the exact quote), the direct-commit path is unaffected.
+def _post_claude_paphos_evidence_verified(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({
+            "trip_update": {"dates": {"departure": "2026-11-24", "return": "2026-12-01"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": "לצאת ב-24.11 ולחזור ב-1.12",
+            "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "מעולה, עדכנתי ל-24.11–1.12."
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_paphos_evidence_verified):
+    r_verified = client.post("/api/ariella/chat-clean", json={
+        "message": _paphos_msg,
+        "history": [{"role": "assistant", "content": "קלטתי - פאפוס, 23.11–30.11.2026."}],
+        "trip_state": dict(_paphos_state),
+    })
+dates_verified = ((r_verified.get_json() or {}).get("trip_update") or {}).get("dates") or {}
+check("regression: an exact, unreformatted dates_evidence quote still "
+      "commits immediately exactly as before",
+      dates_verified.get("departure") == "2026-11-24" and dates_verified.get("return") == "2026-12-01"
+      and dates_verified.get("needs_confirmation") is False)
+
+# Shaked's exact regression repro: a PAST TRIP mention with no real
+# request behind it must NEVER change the dates, even when the customer's
+# very next message is an unrelated "כן".
+def _post_claude_past_trip_mention(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        # A hypothetical overreach: the extractor wrongly wrote the past
+        # trip's dates into trip_update.dates, with no real dates_evidence
+        # behind it (nothing in the message is a genuine date-CHANGE
+        # request) - the worst case this regression test can exercise.
+        return json.dumps({
+            "trip_update": {"dates": {"departure": "2026-06-03", "return": "2026-06-07"}},
+            "restart_request": False, "restart_evidence": None,
+            "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
+            "relative_date_hint": None, "relative_date_hint_evidence": None,
+        })
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        return "איזה יופי! ומה דעתכם על מסלול למסעדות מקומיות?"
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_past_trip_mention):
+    r_past_trip = client.post("/api/ariella/chat-clean", json={
+        "message": "לפני שנתיים היינו שם 3 עד 7 ביוני",
+        "history": [{"role": "assistant", "content": "קלטתי - פאפוס, 23.11–30.11.2026."}],
+        "trip_state": dict(_paphos_state),
+    })
+dates_past_trip = ((r_past_trip.get_json() or {}).get("trip_update") or {}).get("dates") or {}
+check("Shaked's exact regression repro: a recalled PAST trip mention "
+      "(no verified dates_evidence) never changes the locked dates - "
+      "stays exactly at 23.11-30.11, needs_confirmation=False, no "
+      "candidate created at all",
+      dates_past_trip.get("departure") == "2026-11-23" and dates_past_trip.get("return") == "2026-11-30"
+      and dates_past_trip.get("needs_confirmation") is False
+      and not dates_past_trip.get("candidate_ranges"))
+
+with patch.object(chat, "_post_claude", side_effect=_post_claude_past_trip_mention):
+    r_past_trip_yes = client.post("/api/ariella/chat-clean", json={
+        "message": "כן",
+        "history": [{"role": "assistant", "content": "איזה יופי! ומה דעתכם על מסלול למסעדות מקומיות?"}],
+        "trip_state": dict(_paphos_state, dates=dates_past_trip),
+    })
+dates_past_trip_yes = ((r_past_trip_yes.get_json() or {}).get("trip_update") or {}).get("dates") or {}
+check("Shaked's exact regression repro, the critical step: the "
+      "customer's very next 'כן' - answering a completely UNRELATED "
+      "question - never silently commits the past trip's dates either, "
+      "since no candidate was ever created to accept in the first place",
+      dates_past_trip_yes.get("departure") == "2026-11-23" and dates_past_trip_yes.get("return") == "2026-11-30")
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)
