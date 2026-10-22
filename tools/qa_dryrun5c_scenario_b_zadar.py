@@ -259,17 +259,109 @@ with patch.object(chat, "_post_claude") as mock_unused3:
 check("regression: guided.current_question isn't 'baggage' - never this guard's job, no classifier call",
       result_not_baggage == SELF_PICK_REPLY and not mock_unused3.called)
 
-# Dry-run 5c item 5 (cost control): a reply that doesn't even mention
-# baggage at all (purely the real winning topic) obviously can't be
-# CLAIMING a baggage decision either - skips the classifier entirely.
+# Shaked's static review of 6b1efab (22.10.2026): the reply-text keyword
+# pre-filter ("כבודה"/"טרולי"/"מזוודה"/"תיק") missed the plain plural
+# ("נלך על מזוודות לכולם" has no literal "מזוודה" substring) and is now
+# removed entirely - the classifier runs unconditionally once the three
+# structural gates above it pass, same as its sibling guards. A reply
+# that genuinely never claims a baggage decision (gateway-only) still
+# correctly passes through unchanged once the classifier itself says
+# claimed=false - never because a keyword scan shortcut the call.
 GATEWAY_ONLY_REPLY = "לגבי לזדאק - אני לא מכירה שדה תעופה בשם הזה. באיזה שדה תרצי לנחות בהלוך?"
-with patch.object(chat, "_post_claude") as mock_unused4:
+with patch.object(chat, "_post_claude", side_effect=_fake_claim_classifier(False)) as mock_gateway_only:
     result_gateway_only = chat._guard_baggage_claimed_without_resolution(
         GATEWAY_ONLY_REPLY, STATE_BAGGAGE_LOSES_ARBITER, KEY, MODEL, [], "כן",
     )
-check("dr5c item 5: a reply with no baggage-related word at all skips the classifier entirely "
-      "(cheap structural pre-filter)",
-      result_gateway_only == GATEWAY_ONLY_REPLY and not mock_unused4.called)
+check("Shaked's fix: the classifier call is unconditional once the three structural gates pass - "
+      "no reply-text keyword pre-filter left to skip a gateway-only reply",
+      mock_gateway_only.called and result_gateway_only == GATEWAY_ONLY_REPLY)
+
+# Shaked's fix: a self-picked claim worded in the plain plural ("מזוודות")
+# - which never matched the old gate's singular "מזוודה" substring - now
+# correctly reaches the classifier and is caught.
+PLURAL_SELF_PICK_REPLY = (
+    "אוקיי, נלך על מזוודות לכולם.\n\n"
+    "לגבי לזדאק - אני לא מכירה שדה תעופה בשם הזה. באיזה שדה תרצי לנחות בהלוך?"
+)
+with patch.object(chat, "_post_claude", side_effect=_fake_claim_classifier(True)) as mock_plural_claim:
+    result_plural_claim = chat._guard_baggage_claimed_without_resolution(
+        PLURAL_SELF_PICK_REPLY, STATE_BAGGAGE_LOSES_ARBITER, KEY, MODEL, [], "כן",
+    )
+check("Shaked's fix: a plural self-pick ('מזוודות', not a substring of the old gate's "
+      "singular 'מזוודה') now reaches the classifier and is caught",
+      mock_plural_claim.called and result_plural_claim != PLURAL_SELF_PICK_REPLY)
+
+
+# =====================================================================
+# Part 6: Shaked's scenario B ROOT CAUSE (her third static-review finding,
+# 22.10.2026) - the mixed-baggage follow-up hint, produced on the SAME
+# turn the yes/no is resolved, must keep tier-2 arbiter priority (same as
+# the still-pending "guided_mixed_baggage" case) instead of falling to
+# plain tier-3 "guided" and losing to a still-unresolved destination-
+# gateway/ambiguous question - which is exactly what the live transcript
+# showed: baggage "lost" the arbiter on the very turn its own yes/no was
+# answered, even though that follow-up is a direct continuation of the
+# customer's own message this turn. _guard_baggage_claimed_without_
+# resolution (parts 1/5 above) is a retry-time safety net for when this
+# happens anyway; this is the actual root-cause fix, in the arbiter
+# itself.
+# =====================================================================
+check("_mixed_baggage_just_resolved alone (mixed_baggage_pending already cleared to False "
+      "this same turn) still wins the arbiter at the guided_mixed_baggage tier",
+      chat._turn_question_arbiter({
+          "guided": {"mixed_baggage_pending": False},
+          "_guided_ask_hint": "שאלת כבודה רגילה",
+          "_mixed_baggage_just_resolved": True,
+      }) == ("שאלת כבודה רגילה", "guided_mixed_baggage"))
+
+check("regression: without _mixed_baggage_just_resolved, mixed_baggage_pending=False falls "
+      "through to plain 'guided' priority exactly as before this fix",
+      chat._turn_question_arbiter({
+          "guided": {"mixed_baggage_pending": False},
+          "_guided_ask_hint": "שאלת כבודה רגילה",
+      }) == ("שאלת כבודה רגילה", "guided"))
+
+# End-to-end scenario B repro: "כן" to the uniform-baggage question (no
+# same-breath type named), while the destination gateway ("לזדאק") is
+# STILL genuinely unresolved - exactly the live shape. _handle_guided_
+# extraction_turn resolves baggage AND sets the one-turn marker; feeding
+# the arbiter the SAME trip_update _call_tinkerbell receives live (see
+# state_for_tinkerbell = trip_update at the real call site) now correctly
+# keeps the baggage follow-up as this turn's question instead of losing
+# to the gateway.
+STATE_SCENARIO_B_ROOT_CAUSE = {
+    "requested_services": ["flights"],
+    "travelers": {"adults": 3, "children": 0},
+    "dates": {"departure": "2027-07-02", "return": "2027-07-06"},
+    "flight": {"baggage": []},
+    "destination": {"places": ["לזדאק"], "mode": None, "status": "known"},
+    "destination_airports": [],
+    "budget_per_person": {"amount": 1100, "currency": "ILS"},
+    "guided": {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"], "mixed_baggage_pending": True},
+}
+
+with patch.object(chat, "_post_claude", side_effect=_fake_offtopic_classifier("true")), \
+        patch.object(chat, "record_diagnostic_event"):
+    out_root_cause = chat._handle_guided_extraction_turn(
+        "k", "m", "כן", [{"role": "assistant", "content": BAGGAGE_QUESTION_LAST_REPLY}],
+        STATE_SCENARIO_B_ROOT_CAUSE, dict(STATE_SCENARIO_B_ROOT_CAUSE), STEPS,
+    )
+tu_root_cause = out_root_cause["trip_update"]
+check("scenario B root-cause repro: _handle_guided_extraction_turn sets _mixed_baggage_just_resolved "
+      "on the exact turn that resolves the yes/no",
+      tu_root_cause.get("_mixed_baggage_just_resolved") is True)
+tu_root_cause["_guided_ask_hint"] = out_root_cause.get("dynamic_hint")
+_, winning_kind_root_cause = chat._turn_question_arbiter(tu_root_cause)
+check("scenario B FIX: fed through the real call shape, the arbiter now keeps the baggage "
+      "follow-up as this turn's question instead of losing to the still-unresolved "
+      "destination-gateway question",
+      winning_kind_root_cause == "guided_mixed_baggage")
+
+# Regression: mixed_baggage_pending genuinely STILL pending (off_topic/
+# None branches, which return before the marker is ever set) must be
+# completely unaffected by this new marker.
+check("regression: the marker is never set on the genuinely-still-pending (off_topic) branch",
+      "_mixed_baggage_just_resolved" not in _tu_offtopic)
 
 
 if FAILED:

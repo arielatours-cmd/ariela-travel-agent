@@ -3847,15 +3847,17 @@ def _guard_baggage_claimed_without_resolution(reply, state, key, model, history,
     key = str(key or "").strip()
     if not text or not key:
         return reply
-    # Dry-run 5c item 5 (22.10.2026, cost control): a cheap, purely
-    # structural pre-filter - a reply that never even mentions baggage at
-    # all obviously cannot be claiming a baggage DECISION either. Never a
-    # judgment on meaning (that's still the classifier's job below) - the
-    # same "cost control only" pattern already used for _guided_question_
-    # actually_asked's own "?" pre-filter and _budget_answer_by_meaning's
-    # own topic-keyword gate on Ariella's last message.
-    if not any(w in text for w in ("כבודה", "טרולי", "מזוודה", "תיק")):
-        return reply
+    # Shaked's static review of 6b1efab (dry-run 5c, 22.10.2026): the
+    # keyword pre-filter this comment used to describe ("כבודה"/"טרולי"/
+    # "מזוודה"/"תיק") missed the plain plural ("נלך על מזוודות לכולם" has
+    # no literal "מזוודה" substring - the plural form changes the ending)
+    # - a real self-picked claim worded in the plural would have skipped
+    # the classifier entirely, undetected. Removed: the three structural
+    # gates above it (current_question=="baggage", flight.baggage empty,
+    # winning_kind not guided/guided_mixed_baggage) already narrow this to
+    # the same rare shape its siblings _guard_baggage_type_self_picked/
+    # _guard_accessibility_question_skipped call the classifier on
+    # unconditionally, with no reply-text keyword gate of their own either.
     prompt = (
         "להלן תשובה שסוכנת נסיעות כתבה ללקוח. קראי אותה וקבעי: האם היא קובעת/מצהירה כעובדה שנבחר/"
         "נשמר סוג כבודה ספציפי לטיסה (למשל \"נלך על מזוודה\", \"נשמר טרולי לכולם\", \"תיק יד בלבד "
@@ -3903,10 +3905,28 @@ def _retry_if_medical_detail_leaked(key, model, history, message, state, reply):
     REPLY alone, never a word list - a diagnosis can be phrased endless
     ways), one retry only.
 
-    Scoped to accessibility.needed is True only - the overwhelming
-    majority of conversations never touch accessibility at all, so this
-    never adds a call to them (cost-neutral for the common case, per
-    Shlomo's own item 5 concern this same cycle).
+    Scoped to accessibility._medical_detail_mentioned being sticky-True -
+    set by the SAME guided-extraction classifier call that already runs
+    for accessibility (cost-neutral), the moment the customer's own
+    message names a specific medical reason, regardless of how needed
+    itself resolves (see _guided_field_update_and_confirm). The
+    overwhelming majority of conversations never mention one at all, so
+    this still never adds a call to them.
+
+    Shaked's static review of 6b1efab (22.10.2026): the previous gate
+    (accessibility.needed is True, plus a reply-text keyword scan for
+    "נגישות"/"התאמה") had two real holes - needed=None after a low-
+    confidence or failed extraction was never checked at all even when a
+    medical reason WAS named in that same message, and a reply that never
+    says either trigger word at all (e.g. "בגלל הניתוח בברך של אמא נבקש "
+    "מושב קרוב למעבר" - names the surgery while discussing a seat choice,
+    not "accessibility" by name) or uses the plain plural ("התאמות" is not
+    a substring of "התאמה") slipped through undetected. Both gone now -
+    the sticky state flag is set independent of needed, and the classifier
+    runs on every reply for the rest of the conversation once it fires,
+    same as its sibling guards (_guard_baggage_type_self_picked/
+    _guard_accessibility_question_skipped) call unconditionally once
+    their own already-narrow structural gate passes.
 
     Returns None when nothing leaked (the caller keeps the original
     reply unchanged), or the retried, fully-processed reply otherwise -
@@ -3914,25 +3934,11 @@ def _retry_if_medical_detail_leaked(key, model, history, message, state, reply):
     candidates_shown."""
     state = state if isinstance(state, dict) else {}
     acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
-    if acc.get("needed") is not True:
+    if acc.get("_medical_detail_mentioned") is not True:
         return None
     text = str(reply or "").strip()
     key = str(key or "").strip()
     if not text or not key:
-        return None
-    # Dry-run 5c item 5 (22.10.2026, Shlomo's cost-control concern - calls
-    # per turn regressed 3.35 -> 4.3): a cheap, purely structural pre-
-    # filter (never a judgment on content/meaning - whether the reply so
-    # much as mentions the TOPIC at all is a different, much weaker claim
-    # than whether it leaks a medical reason) - a reply that doesn't even
-    # mention accessibility/an accommodation at all has nothing on this
-    # specific topic to have leaked. The real scenario A leak itself
-    # ("לגבי הנגישות - ציינת ש...") does mention it, so this never
-    # shortcuts the actual repro - only turns genuinely unrelated to
-    # accessibility, which is most of them even once needed=True (budget,
-    # baggage, destination, route planning all keep happening in the same
-    # conversation afterward).
-    if "נגישות" not in text and "התאמה" not in text:
         return None
     prompt = (
         "להלן תשובה שסוכנת נסיעות כתבה ללקוח, בהקשר של בקשת נגישות/התאמה. קראי אותה וקבעי: האם היא "
@@ -5630,8 +5636,11 @@ def _turn_question_arbiter(state):
        produced - _shift_candidate_hint, or guided's own hint when it is
        actually the mixed-baggage payment-time explanation+yes/no
        (guided.mixed_baggage_pending - per Shlomo's explicit addition,
-       22.10): both are reactions to this exact message, never a standing
-       background question that can simply wait a turn.
+       22.10) OR the one-turn follow-up to that SAME yes/no having just
+       been resolved this exact turn (_mixed_baggage_just_resolved - per
+       Shaked's static review of 6b1efab, 22.10): all three are reactions
+       to this exact message, never a standing background question that
+       can simply wait a turn.
     3. _guided_ask_hint in every other case - the standing, deliberately-
        sequenced guided question (dates -> travelers -> accessibility ->
        baggage -> lodging subfields).
@@ -5655,7 +5664,21 @@ def _turn_question_arbiter(state):
         )
     if state.get("_shift_candidate_hint"):
         return str(state.get("_shift_candidate_hint")), "shift_candidate"
-    if mixed_pending and guided_hint:
+    # Shaked's static review of 6b1efab (22.10.2026, scenario B root
+    # cause): mixed_baggage_pending reads False on the SAME turn
+    # _handle_guided_extraction_turn resolves it (by design - the yes/no
+    # is answered, it must not still read pending next turn), yet the
+    # hint produced on exactly that turn (whichever of the three outcomes:
+    # the same-breath type saved, "proceed to the normal question", or
+    # "no" defaulting to תיק יד בלבד) is every bit as much a direct
+    # continuation of the customer's OWN message this turn as the
+    # genuinely-still-pending case above - it must not fall to tier-3
+    # "guided" priority and lose to a still-unresolved destination
+    # question, which is what happened live. _mixed_baggage_just_resolved
+    # is the one-turn marker _handle_guided_extraction_turn sets
+    # alongside clearing mixed_baggage_pending, read here only, never
+    # itself persisted into guided.
+    if (mixed_pending or state.get("_mixed_baggage_just_resolved")) and guided_hint:
         return str(guided_hint), "guided_mixed_baggage"
     # Dry-run 5b (22.10.2026, scenario E, "the most severe" per Shlomo's
     # relay): once _destination_gateway_answer_by_meaning verifies TWO
@@ -12576,6 +12599,21 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
             "ללכת מרחקים ארוכים' מסווג ל-detail_category: \"walking_long_distance\" בלבד - "
             "בלי לכתוב את הניתוח או הברך בשום שדה."
         )
+        # PRV-18 (Shaked's static review of 6b1efab, 22.10.2026): a
+        # separate signal from the SAME call (cost-neutral) - did the
+        # customer's own message name a specific medical reason/אבחנה/
+        # ניתוח/מצב רפואי at all (regardless of how needed/detail_category
+        # end up classified)? This becomes a STICKY state flag
+        # (accessibility._medical_detail_mentioned), the real gate for
+        # _retry_if_medical_detail_leaked's structural backstop - replacing
+        # a reply-text keyword scan that missed plenty of real phrasings,
+        # and no longer tied to needed resolving to True (a low-confidence/
+        # other_topic/null read must never silently drop this).
+        _medical_mention_rule = (
+            "mentions_medical_reason: true אם ההודעה הזו של הלקוח עצמו נקבה בפירוש בסיבה/אבחנה/מצב "
+            "רפואי ספציפי (שם מחלה, ניתוח, פציעה, איבר גוף שנפגע) - גם אם detail_category/needs לא "
+            "כוללים אותו; אחרת false."
+        )
         if awaiting_detail:
             prompt = (
                 "אריאלה (סוכנת נסיעות) שאלה את הלקוח שאלה פתוחה: מה יעזור "
@@ -12585,11 +12623,13 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
                 "מתוך הערכים: stroller, wheelchair, reduced_mobility, infant, other. "
                 "אסור להמציא - אם לא ברור מה בדיוק צריך, confidence:\"low\". "
                 "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
+                f"{_medical_mention_rule}\n"
                 f"{last_question_note}\n"
                 "החזירי JSON בלבד, בדיוק במבנה: "
                 '{"status":"answered|unclear|other_topic","needed":true,'
                 '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
                 f'{_detail_category_schema},"confidence":"high|low",'
+                '"mentions_medical_reason":true|false,'
                 '"also_mentioned":null,"correction":null}'
             )
         else:
@@ -12602,11 +12642,13 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
                 "לנו עגלה\" או \"אבא שלי בכיסא גלגלים\"), מלאי גם את needs/"
                 f"detail_category מיד - אסור להמציא צורך שלא נאמר. {_detail_category_rule} "
                 "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
+                f"{_medical_mention_rule}\n"
                 f"{last_question_note}\n"
                 "החזירי JSON בלבד, בדיוק במבנה: "
                 '{"status":"answered|unclear|other_topic","needed":true|false|null,'
                 '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
                 f'{_detail_category_schema},"confidence":"high|low",'
+                '"mentions_medical_reason":true|false,'
                 '"also_mentioned":null,"correction":null}'
             )
     try:
@@ -12956,9 +12998,21 @@ def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_
             desc = "מספר הנוסעים שצוין"
         return {"travelers": fragment}, desc
     if field == "accessibility":
+        # PRV-18 (Shaked's static review of 6b1efab, 22.10.2026): captured
+        # BEFORE the needed-is-None early return below - a medical reason
+        # named in the customer's own message is a fact about this
+        # conversation's history regardless of whether this particular
+        # call ever resolved needed itself (low confidence, other_topic,
+        # or a genuine extraction failure all leave needed=None, and none
+        # of those make the medical detail any less present in history for
+        # Tinkerbell to later draw on and leak). Sticky once True -
+        # _merge_trip_state never lets a later False/absent value erase it
+        # (see its own docstring), and this fragment only ever sets True,
+        # never False.
+        mentions_medical = bool(result.get("mentions_medical_reason"))
         needed = result.get("needed")
         if needed is None:
-            return {}, None
+            return ({"accessibility": {"_medical_detail_mentioned": True}}, None) if mentions_medical else ({}, None)
         needs = [n for n in (result.get("needs") or []) if n in _GUIDED_ACCESSIBILITY_NEED_VALUES] if isinstance(result.get("needs"), list) else []
         # Din (PRV-18): details is never the model's own free text - only
         # ever the exact phrase this closed table maps detail_category to.
@@ -12985,6 +13039,8 @@ def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_
                 acc["needs"] = needs
             if details:
                 acc["details"] = details
+        if mentions_medical:
+            acc["_medical_detail_mentioned"] = True
         desc = (details or _accessibility_needs_label(needs) or "צורך בנגישות") if needed else "אין צורך בנגישות"
         return {"accessibility": acc}, desc
     if field == "baggage":
@@ -13264,6 +13320,25 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             trip_update["guided"] = guided
             return {"trip_update": trip_update, "dynamic_hint": _mixed_baggage_confirm_retry_hint()}
         guided["mixed_baggage_pending"] = False
+        # Shaked's static review of 6b1efab (22.10.2026, scenario B root
+        # cause): the hint this block is about to return (whichever of the
+        # three branches below fires) is a DIRECT continuation of the
+        # customer's OWN message THIS turn - exactly the same "reaction to
+        # this exact message, never a standing background question" class
+        # _turn_question_arbiter's own docstring already gives tier-2
+        # priority to (see its "guided_mixed_baggage" check). But that
+        # check reads guided.mixed_baggage_pending, which this line just
+        # cleared - so the very same turn's own follow-up hint fell back
+        # to plain tier-3 "guided" priority and could lose to a still-
+        # unresolved destination-gateway/ambiguous-name question, even
+        # though it is this message's own direct answer. A one-turn marker
+        # (cleared automatically - never in trip_update's own persisted
+        # "guided" dict, so nothing survives past this reply) lets the
+        # arbiter recognize this specific shape without reintroducing the
+        # bug the earlier clearing fixed (mixed_baggage_pending itself
+        # must still read False from here on, or a later turn would
+        # wrongly re-read this resolved yes/no as still pending).
+        trip_update["_mixed_baggage_just_resolved"] = True
         if uniform_choice and evidenced_type:
             # "yes" + the same-breath type the customer already named
             # ("כן, מזוודה לכולם"), verified against THIS message by
