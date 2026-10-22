@@ -2536,27 +2536,33 @@ def feedback_form():
 
 @site.post("/feedback")
 def feedback():
+    # Phone optional here too (Din's recommendation, 22.10) - same as /contact.
+    return _handle_message_form("site.feedback_form", phone_required=False)
+
+
+def _handle_message_form(form_endpoint, phone_required):
+    """Shared by /feedback (phone required) and /contact (phone optional)."""
     full_name = request.form.get("full_name", "").strip()
     email = request.form.get("email", "").strip().lower()
     phone = request.form.get("phone", "").strip()
     message = request.form.get("message", "").strip()
     website = request.form.get("website", "").strip()
     if website:
-        return redirect(url_for("site.feedback_form", sent="1"))
-    if not full_name or not email or not phone or not message:
+        return redirect(url_for(form_endpoint, sent="1"))
+    if not full_name or not email or not message or (phone_required and not phone):
         flash(_msg("יש למלא את כל הפרטים לפני השליחה.", "Please complete all fields before sending."), "error")
-        return redirect(url_for("site.feedback_form"))
+        return redirect(url_for(form_endpoint))
     if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
         flash(_msg("כתובת האימייל אינה תקינה.", "The email address is invalid."), "error")
-        return redirect(url_for("site.feedback_form"))
+        return redirect(url_for(form_endpoint))
     if len(full_name) > 120 or len(email) > 254 or len(phone) > 40:
         flash(_msg("אחד הפרטים שהוזנו ארוך מדי.", "One of the entered details is too long."), "error")
-        return redirect(url_for("site.feedback_form"))
+        return redirect(url_for(form_endpoint))
     if len(message) < 5 or len(message) > 5000:
         flash(_msg("ההודעה צריכה להכיל בין 5 ל-5,000 תווים.", "The message must contain between 5 and 5,000 characters."), "error")
-        return redirect(url_for("site.feedback_form"))
+        return redirect(url_for(form_endpoint))
     save_feedback(full_name, email, phone, message)
-    return redirect(url_for("site.feedback_form", sent="1"))
+    return redirect(url_for(form_endpoint, sent="1"))
 
 
 @site.route("/join", methods=["GET", "POST"])
@@ -6073,7 +6079,14 @@ def accessibility():
 
 @site.get("/contact")
 def contact():
-    return render_template("contact.html")
+    """The contact form (the feedback form, phone optional) - linked from
+    the site footer."""
+    return render_template("feedback.html", contact_mode=True)
+
+
+@site.post("/contact")
+def contact_submit():
+    return _handle_message_form("site.contact", phone_required=False)
 
 @site.get("/terms")
 def terms():
