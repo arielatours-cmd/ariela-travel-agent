@@ -8,17 +8,23 @@ Bug 1 (Rome): the customer answered the lodging TYPE question with "מלון
 all). The model's own also_mentioned nonetheless invented
 lodging_budget_or_level={"level": "בינוני"}, so the separate budget/level
 question got skipped entirely and the final summary wrongly stated "רמה
-בינונית" for a fact the customer never actually said. Fixed:
-_guided_field_update_and_confirm now takes an optional raw_message
-parameter; the also_mentioned call site in _handle_guided_extraction_turn
-passes the current message, and a level value is only accepted there if
-it (via _level_stated_in_message) is actually backed by the message text -
-either one of the canonical level words/synonyms already used elsewhere
-for this exact field (_LODGING_LEVEL_VALUES) or a star-rating mention
-(the same star_match pattern _required_state_gaps already uses), or one
-of the established no-preference words for "אין העדפה". The direct-answer
-call site (answering the budget/level question itself) is untouched -
-raw_message is only passed for also_mentioned, per the task's own scoping.
+בינונית" for a fact the customer never actually said. Originally fixed:
+_guided_field_update_and_confirm took an optional raw_message parameter;
+the also_mentioned call site in _handle_guided_extraction_turn passed the
+current message, and a level value was only accepted there if it (via
+_level_stated_in_message) matched one of the canonical level words/
+synonyms (_LODGING_LEVEL_VALUES), a star-rating mention, or an established
+no-preference word.
+
+SUPERSEDED 18.10.2026 by the business owner's explicit directive (PR #83):
+only the MODEL decides what the customer said - never a word list or
+regex, however "general". _level_stated_in_message is gone; the
+also_mentioned schema for lodging_budget_or_level now carries its own
+"evidence" key, and the check is _value_has_verbatim_evidence against it -
+a verbatim quote the model itself must supply, not a canonical-word match
+computed in code. The direct-answer call site (answering the budget/level
+question itself) is still untouched - raw_message/evidence is only
+relevant for also_mentioned, per the task's own scoping.
 
 Bug 2 (Rome, same root principle, different mechanism): the final summary
 claimed "אין העדפה לטיסה ישירה" (the exact phrase the system prompt
@@ -76,31 +82,26 @@ def check(name, cond):
 # actually stated - never infer it from a purely descriptive phrase.
 # =====================================================================
 
-# --- unit level: _level_stated_in_message ---
-check("_level_stated_in_message: a bare descriptive phrase with no "
-      "budget/level/star word at all never backs any level",
-      not chat._level_stated_in_message("בינוני", "מלון קטן ונעים")
-      and not chat._level_stated_in_message("יוקרתי", "מלון קטן ונעים")
-      and not chat._level_stated_in_message("בסיסי", "מלון קטן ונעים")
-      and not chat._level_stated_in_message("אין העדפה", "מלון קטן ונעים"))
-check("_level_stated_in_message: the exact canonical word literally in the "
-      "message backs that level",
-      chat._level_stated_in_message("יוקרתי", "מלון יוקרתי בבקשה"))
-check("_level_stated_in_message: a recognized synonym (not the canonical "
-      "word itself) still backs the mapped level",
-      chat._level_stated_in_message("בסיסי", "משהו חסכוני וזול"))
-check("_level_stated_in_message: a star-rating mention backs the level "
-      "it maps to (4+ stars -> יוקרתי)",
-      chat._level_stated_in_message("יוקרתי", "מלון לפחות 4 כוכבים"))
-check("_level_stated_in_message: a star-rating mention that maps to a "
-      "DIFFERENT level than claimed is rejected",
-      not chat._level_stated_in_message("יוקרתי", "מלון 2 כוכבים"))
-check("_level_stated_in_message: 'אין העדפה' is backed by the established "
-      "no-preference vocabulary ('לא משנה')",
-      chat._level_stated_in_message("אין העדפה", "לא משנה לי, מה שתמצאי"))
-check("_level_stated_in_message: 'אין העדפה' is also backed by the exact "
-      "canonical phrase itself appearing in the message",
-      chat._level_stated_in_message("אין העדפה", "אין העדפה מיוחדת מבחינתנו"))
+# --- unit level: _value_has_verbatim_evidence (replaced _level_stated_
+#     in_message entirely per the business owner's 18.10.2026 directive -
+#     see the module docstring above) ---
+check("_value_has_verbatim_evidence: no evidence at all never backs any "
+      "value, whatever the message says",
+      not chat._value_has_verbatim_evidence(None, "מלון קטן ונעים")
+      and not chat._value_has_verbatim_evidence("", "מלון יוקרתי בבקשה"))
+check("_value_has_verbatim_evidence: a quote that genuinely appears in the "
+      "message, word-for-word, is accepted",
+      chat._value_has_verbatim_evidence("מלון יוקרתי", "מלון יוקרתי בבקשה"))
+check("_value_has_verbatim_evidence: a quote that does NOT appear in the "
+      "message (the model fabricated it) is rejected - this is the one "
+      "thing the function checks, nothing about the quote's wording or "
+      "meaning",
+      not chat._value_has_verbatim_evidence("מלון יוקרתי", "מלון קטן ונעים"))
+check("_value_has_verbatim_evidence: the check never inspects the value "
+      "itself, only whether the evidence is a real quote - a quote "
+      "justifying 'אין העדפה' via different wording ('לא משנה לי') still "
+      "passes, since the model (not this function) decided that meaning",
+      chat._value_has_verbatim_evidence("לא משנה לי", "לא משנה לי, מה שתמצאי"))
 
 # --- _guided_field_update_and_confirm: raw_message gating ---
 check("direct-answer call site (raw_message=None) still accepts a model-"
@@ -114,10 +115,10 @@ check("also_mentioned call site (Rome repro): a level NOT backed by the "
           "lodging_budget_or_level", {"level": "בינוני"},
           raw_message="מלון קטן ונעים",
       ) == ({}, None))
-check("also_mentioned call site: a level genuinely backed by the raw "
+check("also_mentioned call site: a level with real evidence from the raw "
       "message is still accepted (no regression)",
       chat._guided_field_update_and_confirm(
-          "lodging_budget_or_level", {"level": "יוקרתי"},
+          "lodging_budget_or_level", {"level": "יוקרתי", "evidence": "מלון יוקרתי"},
           raw_message="רוצים מלון יוקרתי, בלי הגבלת תקציב",
       )[0] == {"lodging": {"details": {"level": "יוקרתי"}}})
 check("also_mentioned call site: a numeric budget is never subject to "
@@ -142,7 +143,7 @@ ROME_STATE = {
 
 
 def _fake_extract(guided_response):
-    def _f(key, model, field, message, history, trip_update):
+    def _f(key, model, field, message, history, trip_update, guided_steps=None):
         return guided_response
     return _f
 
@@ -170,14 +171,14 @@ check("Rome repro end-to-end: the type itself is still correctly saved "
 #     still work (no regression from the guard) ---
 with patch.object(chat, "_guided_extract_answer", side_effect=_fake_extract({
     "status": "answered", "value": "מלון", "confidence": "high",
-    "also_mentioned": {"lodging_budget_or_level": {"level": "יוקרתי"}},
+    "also_mentioned": {"lodging_budget_or_level": {"level": "יוקרתי", "evidence": "5 כוכבים"}},
     "correction": None,
 })):
     result_rome2 = chat._handle_guided_extraction_turn(
         "test-key", "claude-sonnet-5", "מלון יוקרתי, 5 כוכבים", [], ROME_STATE, dict(ROME_STATE), GUIDED_STEPS,
     )
 tu_rome2 = result_rome2["trip_update"]
-check("genuine also_mentioned level (star rating backs it): accepted and "
+check("genuine also_mentioned level (real evidence backs it): accepted and "
       "the budget/level question is correctly skipped",
       (tu_rome2.get("lodging") or {}).get("details", {}).get("level") == "יוקרתי"
       and "lodging_budget_or_level" in (tu_rome2.get("guided") or {}).get("answered", []))
@@ -267,7 +268,7 @@ PARIS_ALL_DECIDED = {
     "destination": {"places": ["פריז"]},
     "dates": {"departure": "2026-12-20", "return": "2026-12-27"},
     "travelers": {"adults": 2},
-    "flight": {"connection_preference": "direct", "baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"count": 1, "unit": "per_person"}}},
+    "flight": {"connection_preference": "direct", "baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"count": 1}}},
     "budget_per_person": {"status": "unlimited"},
     "user_gender": "female",
     "session_status": {"flights": "complete", "lodging": "complete", "car": "declined", "trip_planning": "complete"},
@@ -410,33 +411,40 @@ check("defensive: non-dict input never crashes",
 # only makes the plural's own trailing ת optional, which covers "מזוודו
 # גדול" (not a real word) or "מזוודות גדול" (plural), never the singular
 # spelling ending in ה. "מזוודה גדולה לכל אחד מאיתנו" (the customer's
-# exact words) therefore recorded no baggage fact at all. Separately, even
-# once checked_bag_mentioned is fixed, the per-person unit ("לכל אחד")
-# used to require an explicit digit next to "מזוודה" (bag_count_match) -
-# dropping the unit for exactly this phrasing, which states a per-person
-# split without a number. Both fixed; verifies real inputs, not an
-# artificial fixture, per Shlomo's own stated testing rule.
+# exact words) therefore recorded no baggage fact at all. Fixed; verifies
+# real inputs, not an artificial fixture, per Shlomo's own stated testing
+# rule.
+#
+# (A per-person "unit" was tracked here too for a while, then removed
+# entirely on 20.10.2026 per the business owner's own directive: a group
+# booking is always one uniform baggage choice for every ticket, so there
+# is no per-passenger split to recover from phrasing like "לכל אחד" at
+# all - only the stated COUNT, when there is a digit, still matters.)
 # =====================================================================
 
-check("Shaked's exact repro: 'מזוודה גדולה לכל אחד מאיתנו' now records "
-      "checked_bag AND the per-person unit, not just a bare flag",
+check("Shaked's exact repro: 'מזוודה גדולה לכל אחד מאיתנו' (no digit "
+      "stated) now records checked_bag itself, no longer dropped entirely",
       chat._deterministic_baggage_facts("מזוודה גדולה לכל אחד מאיתנו", traveler_count=2) == {
-          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "per_person"}}},
+          "flight": {"baggage": ["checked_bag"]},
       })
 check("regression: the plural phrasing ('שתי מזוודות גדולות לכולנו') "
-      "still resolves correctly (unit=total, count=2)",
+      "still resolves correctly (count=2)",
       chat._deterministic_baggage_facts("שתי מזוודות גדולות לכולנו", traveler_count=2) == {
-          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"unit": "total", "count": 2}}},
+          "flight": {"baggage": ["checked_bag"], "baggage_detail": {"checked_bag": {"count": 2}}},
       })
 check("regression: 'טרולי לכל אחד' alone (no מזוודה word at all) still "
-      "never implies a per-person CHECKED bag - carry_on_only only",
+      "never implies a per-person CHECKED bag - carry_on_only only. Per "
+      "the business owner's 20.10 directive: no per-passenger unit/size "
+      "detail is ever tracked by this fail-safe for either bag kind - the "
+      "guided model path is the one real mechanism for understanding the "
+      "sentence itself",
       chat._deterministic_baggage_facts("טרולי לכל אחד", traveler_count=2) == {
           "flight": {"baggage": ["carry_on_only"]},
       })
 check("regression: an explicit count alongside 'לכל אחד' still works "
       "exactly as before (e.g. 'שתי מזוודות לכל אחד')",
       chat._deterministic_baggage_facts("שתי מזוודות לכל אחד", traveler_count=2)
-      ["flight"]["baggage_detail"]["checked_bag"] == {"unit": "per_person", "count": 2})
+      ["flight"]["baggage_detail"]["checked_bag"] == {"count": 2})
 check("alternate phrasing: 'לכל נוסע' (per traveler, not 'לכל אחד') "
       "resolves the same way",
       "checked_bag" in chat._deterministic_baggage_facts(

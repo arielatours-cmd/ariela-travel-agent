@@ -372,7 +372,7 @@ check("a parenthetical aside with no internal comma ('/' separated, like "
       ) == "כמה אתם נוסעים (מבוגרים/ילדים)?")
 
 FLIGHTS_STATE = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
-                      flight={"baggage": ["carry_on_only"]})
+                      flight={"baggage": ["carry_on_only"], "connection_preference": "direct"})
 check("a budget question phrased as two alternatives gets the fixed open "
       "question, now correctly pluralized ('שלכם', not 'שלך')",
       chat._enforce_one_option_question(
@@ -385,7 +385,8 @@ check("_flight_gap_question's connection_preference text is pluralized "
       "level directly rather than through a seeded state",
       chat._flight_gap_question(["flight.connection_preference"], {}) == "חשוב לכם שהטיסה תהיה ישירה?")
 FLIGHTS_STATE_BAGGAGE_OPEN = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
-                                   budget_per_person={"amount": 3000})
+                                   budget_per_person={"amount": 3000},
+                                   flight={"connection_preference": "direct"})
 check("the baggage topic still fires correctly for a flights-domain "
       "question when baggage is genuinely the real open gap",
       chat._enforce_one_option_question(
@@ -642,24 +643,38 @@ check("character-by-character: the date range and the blank line before "
 
 # -- Shlomo's further follow-up (same PR #64 round): when NO state-driven
 #    replacement exists at all for a reply bundling multiple fully
-#    separate questions, keep only the FIRST question and drop the rest,
-#    rather than returning the whole reply with every question intact --
+#    separate questions, keep only one of them and drop the rest, rather
+#    than returning the whole reply with every question intact.
+#
+#    Per Shaked's PR #115 (Bratislava) review: the ORIGINAL version of this
+#    rule kept the FIRST question and dropped the rest - her own live
+#    counter-example ("…לכולם, בסדר?\n\nמה התקציב…?") showed this is
+#    exactly backwards, since a short confirmation tag ("בסדר?"/"מתאים?"/
+#    "טוב?" - no finite word list can cover every such ending) is routinely
+#    the FIRST question sentence, while the real, conversation-advancing
+#    question comes LAST. Reworked to keep the LAST question instead and
+#    drop every one before it - see tools/qa_bratislava_tag_question_
+#    truncation.py for the full reproduction and regression coverage. --
 
-check("Shlomo's exact edge case: two fully separate questions, but no gap "
-      "and no offer anywhere in the state (fixed stays None) - the first "
-      "question is kept exactly as written, the second is dropped, no "
-      "other character is touched",
+check("Shaked's corrected rule: two fully separate questions, but no gap "
+      "and no offer anywhere in the state (fixed stays None) - the LAST "
+      "question is kept exactly as written, the earlier one is dropped",
       chat._enforce_one_option_question(
           "חשוב לכם שהטיסה תהיה ישירה? איזו כבודה תרצו לקחת?",
           {"active_session": None},
-      ) == "חשוב לכם שהטיסה תהיה ישירה?")
+      ) == "איזו כבודה תרצו לקחת?")
 check("the same no-fixed-found rule keeps any leading statement sentence "
-      "untouched too, dropping only the extra trailing question(s)",
+      "untouched too - and per Shaked's SECOND review (continuation "
+      "handling), the trailing 'ומתי תרצו לטוס?' starts with the bound "
+      "'ו' prefix, so it's treated as a continuation of the question "
+      "immediately before it ('איזו כבודה תרצו לקחת?'), which is kept "
+      "instead - not literally 'the last sentence', the last REAL "
+      "question once a trailing continuation is resolved to its parent",
       chat._enforce_one_option_question(
           "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה? איזו כבודה תרצו לקחת? "
           "ומתי תרצו לטוס?",
           {"active_session": None},
-      ) == "מעולה, נרשם. חשוב לכם שהטיסה תהיה ישירה?")
+      ) == "מעולה, נרשם. איזו כבודה תרצו לקחת?")
 check("a SINGLE bundled 'X או Y' question with no fixed replacement found "
       "still follows the Paris rule unchanged - there is only one "
       "question to begin with, so nothing is dropped, the whole reply is "

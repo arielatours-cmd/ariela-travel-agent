@@ -100,8 +100,8 @@ def _fake_post_claude_factory(guided_response):
 # =====================================================================
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
 import config as _config
-check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+baggage+lodging",
-      chat._guided_extraction_steps() == {"dates", "travelers", "baggage", "lodging"})
+check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+accessibility+baggage+lodging",
+      chat._guided_extraction_steps() == {"dates", "travelers", "accessibility", "baggage", "lodging"})
 check("the Render env var, when actually set, overrides the code default (empty = kill switch)",
       (lambda: (os.environ.__setitem__("GUIDED_EXTRACTION_STEPS", ""), chat._guided_extraction_steps() == set(), os.environ.pop("GUIDED_EXTRACTION_STEPS", None))[1])())
 
@@ -197,8 +197,12 @@ check("scenario 1: the hint describes travelers, not a fixed question",
 check("scenario 1: the reply is Tinkerbell's own (mocked) text, never a dict-literal question",
       r1.get("reply") == "תשובה לדוגמה.")
 
-# --- 2. "באמצע נובמבר, בערך שבוע" -> low confidence, confirm hint, no
-#     invented exact date ---
+# --- 2. "באמצע נובמבר, בערך שבוע" -> low confidence, no invented exact
+#     date. Per Bezalel's task 2 (22.10, the business owner's "no redundant
+#     confirmations"): a clear period with no exact days is NOT confirmed
+#     back ("מתכוונת לאמצע נובמבר?") - no hint, the question stays open,
+#     and the date-options flow shows the concrete options instead. (Was:
+#     "a confirm hint is set" - the 014a "answered + low" row.) ---
 member2 = _make_member("qa-guided-s2@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "departure": None, "return": None, "nights": None,
@@ -211,9 +215,10 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu2 = r2.get("trip_update") or {}
 check("scenario 2: low confidence -> no exact departure/return invented",
       not (tu2.get("dates") or {}).get("departure") and not (tu2.get("dates") or {}).get("return"))
-check("scenario 2: a confirm hint is set, question stays open",
-      "ודא" in str(tu2.get("_guided_ask_hint") or "") and (tu2.get("guided") or {}).get("current_question") == "dates")
-check("scenario 2: confirm hint never offers buttons",
+check("scenario 2: no redundant confirm hint for a clear period, question stays open",
+      "ודא" not in str(tu2.get("_guided_ask_hint") or "") and (tu2.get("guided") or {}).get("current_question") == "dates")
+check("scenario 2: the period itself is saved", (tu2.get("dates") or {}).get("period") == "אמצע נובמבר")
+check("scenario 2: no hint offers buttons",
       "[" not in str(tu2.get("_guided_ask_hint") or ""))
 
 # --- 3. "14-16 במרץ" -> 2 nights (regression: a previously-fixed bug in
@@ -302,8 +307,16 @@ check("scenario 7: travelers corrected to 3 adults",
 check("scenario 7: the hint tells Tinkerbell to confirm the update in one sentence, not a fixed reply",
       "עדכן" in str(tu7.get("_guided_ask_hint") or "") and r7.get("reply") == "תשובה לדוגמה.")
 
-# --- 8. "אין לי מושג" twice -> no buttons ever; attempts increments and
-#     the hint explicitly asks for a different open phrasing + example ---
+# --- 8. "אין לי מושג" twice -> no buttons ever; attempts increments on
+#     the first, then the loop guard fires on the second in a row
+#     (Carmit's explicit directive, Copenhagen stage-1 run-3: the same
+#     question must never repeat verbatim forever). Per Shaked's REVIEW
+#     of the first version of this guard: dates/travelers/baggage are
+#     UNIVERSAL REQUIRED fields (unlike a lodging sub-field, which can be
+#     skipped since the whole lodging domain is itself optional) - never
+#     silently marked "answered" with no real value. The field stays
+#     open; only asking about it THIS turn is skipped, with attempts
+#     reset so it's asked again fresh (with an example) next time. ---
 member8 = _make_member("qa-guided-s8@example.com")
 unclear = {
     "status": "unclear", "departure": None, "return": None, "nights": None,
@@ -319,12 +332,22 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory(un
     state8b["guided"] = tu8a.get("guided")
     r8b = _post("אין לי מושג", [], state8b, member8)
 tu8b = r8b.get("trip_update") or {}
-check("scenario 8: attempts incremented to 1 after the first 'no idea'",
-      (tu8a.get("guided") or {}).get("attempts") == 1)
-check("scenario 8: attempts incremented to 2 after the second 'no idea' - never buttons",
-      (tu8b.get("guided") or {}).get("attempts") == 2 and "[" not in str(tu8b.get("_guided_ask_hint") or ""))
-check("scenario 8: the retry hint explicitly asks for a different phrasing/example, never a repeat",
-      "שונה" in str(tu8b.get("_guided_ask_hint") or "") or "אחר" in str(tu8b.get("_guided_ask_hint") or ""))
+check("scenario 8: attempts incremented to 1 after the first 'no idea' - "
+      "still on dates, retry hint asks for a different phrasing/example",
+      (tu8a.get("guided") or {}).get("attempts") == 1
+      and (tu8a.get("guided") or {}).get("current_question") == "dates"
+      and ("שונה" in str(tu8a.get("_guided_ask_hint") or "") or "אחר" in str(tu8a.get("_guided_ask_hint") or "")))
+check("scenario 8: the loop guard fires on the SECOND 'no idea' in a row - "
+      "dates (a required, universal field) stays OPEN, never marked "
+      "answered without a real value, attempts reset to 0, never buttons",
+      "dates" not in ((tu8b.get("guided") or {}).get("answered") or [])
+      and (tu8b.get("guided") or {}).get("current_question") == "dates"
+      and (tu8b.get("guided") or {}).get("attempts") == 0
+      and "[" not in str(tu8b.get("_guided_ask_hint") or ""))
+check("scenario 8: the skip-turn hint explicitly skips asking THIS turn, "
+      "never a verbatim repeat of the same question",
+      "פעמיים" in str(tu8b.get("_guided_ask_hint") or "")
+      and "המשיכי את השיחה" in str(tu8b.get("_guided_ask_hint") or ""))
 
 # --- 9. "כמה עולה מלון שם?" during the dates question -> other_topic,
 #     question stays open, no hint forced onto an unrelated reply ---
@@ -395,6 +418,64 @@ check("scenario 12 (Shaked regression): current_question stays 'dates' (still un
       (tu12.get("guided") or {}).get("current_question") == "dates")
 check("scenario 12 (Shaked regression): a hint is still set so Tinkerbell asks in her own words",
       bool(tu12.get("_guided_ask_hint")))
+
+# --- 13. (Shaked, stage-1 run-4 direct report, Tallinn) Real pending
+#     candidate_ranges already in state ('21.11.2026-30.11.2026' [9 nights]
+#     and '28.11.2026-07.12.2026' [9 nights]), customer confirms with "כן,
+#     בדיוק" - the guided model call reasonably reads this as departure=
+#     2026-11-21 (candidate 1's own start) with nights=10 (the trip's
+#     ORIGINAL "לעשרה ימים" duration, still in context, not this candidate's
+#     actual 9-night span). Before this fix, departure+nights computed
+#     2026-12-01 - a day past the candidate's own real end (30.11) - the
+#     EXACT Tallinn live bug ("21.11-30.11" offered, "21.11-01.12" saved).
+#     Per the single-source-of-truth directive: once departure matches a
+#     real pending candidate's own start, THAT candidate's own return date
+#     is authoritative, never a separate nights-based computation. ---
+TALLINN_CANDIDATES = [
+    "יום שבת 21.11.2026–יום שני 30.11.2026",
+    "יום שבת 28.11.2026–יום שני 07.12.2026",
+]
+member13 = _make_member("qa-guided-s13@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "departure": "2026-11-21", "return": None, "nights": 10,
+    "period": None, "flexibility_days": None, "confidence": "high",
+    "also_mentioned": {}, "correction": None,
+})):
+    state13 = dict(ROME_STATE)
+    state13["dates"] = {"needs_confirmation": True, "candidate_ranges": list(TALLINN_CANDIDATES)}
+    state13["guided"] = {"current_question": "dates", "attempts": 0, "answered": ["travelers", "baggage"]}
+    r13 = _post("כן, בדיוק", [], state13, member13)
+tu13 = r13.get("trip_update") or {}
+check("scenario 13 (Tallinn, Shaked's direct report): confirming a pending "
+      "candidate commits that candidate's OWN return date (30.11.2026) - "
+      "never departure+nights arithmetic (which would wrongly give 01.12)",
+      (tu13.get("dates") or {}).get("departure") == "2026-11-21"
+      and (tu13.get("dates") or {}).get("return") == "2026-11-30")
+check("scenario 13: needs_confirmation closes and the pending candidates "
+      "are cleared once the real candidate is committed",
+      (tu13.get("dates") or {}).get("needs_confirmation") is False
+      and not (tu13.get("dates") or {}).get("candidate_ranges"))
+
+# Regression: the SAME nights-based computation still applies exactly as
+# before when there are no pending candidates to match against at all
+# (scenario 1 above already covers this directly; restated here with an
+# explicit empty candidate_ranges to rule out any accidental interference
+# from this fix's own new code path).
+member13b = _make_member("qa-guided-s13b@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "departure": "2026-11-10", "return": None, "nights": 5,
+    "period": None, "flexibility_days": None, "confidence": "high",
+    "also_mentioned": {"travelers": None}, "correction": None,
+})):
+    state13b = dict(ROME_STATE)
+    state13b["dates"] = {"needs_confirmation": False, "candidate_ranges": []}
+    state13b["guided"] = {"current_question": "dates", "attempts": 0, "answered": []}
+    r13b = _post("10 בנובמבר ל-5 לילות", [], state13b, member13b)
+tu13b = r13b.get("trip_update") or {}
+check("scenario 13b: with no pending candidates at all, departure+nights "
+      "arithmetic still works exactly as before (regression check)",
+      (tu13b.get("dates") or {}).get("departure") == "2026-11-10"
+      and (tu13b.get("dates") or {}).get("return") == "2026-11-15")
 
 with sqlite3.connect(DB) as conn:
     conn.execute(

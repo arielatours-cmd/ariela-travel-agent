@@ -741,6 +741,20 @@ def init_db() -> None:
             conn.execute("ALTER TABLE ai_usage ADD COLUMN call_started_at TEXT")
         if "call_duration_ms" not in ai_usage_columns:
             conn.execute("ALTER TABLE ai_usage ADD COLUMN call_duration_ms INTEGER")
+        # Per Shlomo's follow-up (18.10, qa/reports/2026-10-18-stage3-run4.md):
+        # a plain logging.info call for a live-site diagnostic (the restart-
+        # confirmation gate not firing, the guided-redirect mismatch) has no
+        # value on this infrastructure - no agent has access to Render's own
+        # log stream. The SAME /admin/ai-usage.csv export this project
+        # already uses for exactly this purpose (see thread_id/call_started_
+        # at/call_duration_ms above, Shaked's concurrency investigation)
+        # gets one more free-text column: a short, non-personal JSON blob of
+        # whatever a diagnostic-only row's own distinct `source` value needs
+        # ("restart_signal": request/evidence/verified; "guided_redirect":
+        # current_question/candidates/redirected_to) - never the customer's
+        # own message text. See record_diagnostic_event in ai_usage.py.
+        if "details" not in ai_usage_columns:
+            conn.execute("ALTER TABLE ai_usage ADD COLUMN details TEXT")
 
         offer_columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
         if "trip_id" not in offer_columns:
@@ -918,6 +932,39 @@ def clear_scan_stop() -> None:
 
 def scan_stop_requested() -> bool:
     return get_setting("manual_scan_stop_requested", "0") == "1"
+
+
+def latest_scan_run_id_for_trip(trip_id: int) -> int | None:
+    """The most recent scan_run actually tied to this customer's own trip
+    (scan_runs.trip_id, set by scanner.py's own personal-scan path) - used
+    by the admin rematch-trip recovery action (20.10, vacation 259/trip
+    #158 follow-up, per the business owner's own directive) to scope
+    re-matching to the offers THIS vacation's own scan actually found,
+    never a blanket recent-inventory window that could include unrelated
+    customers' offers or miss this trip's own (per its specific scan
+    window, which can already be closed by the time someone clicks
+    rematch)."""
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM scan_runs WHERE trip_id=? ORDER BY id DESC LIMIT 1",
+            (trip_id,),
+        ).fetchone()
+    return int(row["id"]) if row else None
+
+
+def offer_ids_for_scan_run(run_id: int) -> list[int]:
+    """Just the offer ids actually tied to this scan_run (scan_run_offers),
+    for feeding recent_offers(offer_ids=...) - which returns the SAME full,
+    richly-populated row shape (stops/departure_time/baggage/etc, all real
+    dedicated columns) every other matching tier already relies on. Kept
+    separate from offers_for_scan_run below (a narrower, admin-display-only
+    projection) so a caller that needs the full row shape never has to
+    guess which of the two to use."""
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT offer_id FROM scan_run_offers WHERE scan_run_id=?", (run_id,)
+        ).fetchall()
+    return [int(r["offer_id"]) for r in rows]
 
 
 def offers_for_scan_run(run_id: int, limit: int = 200) -> list[dict]:

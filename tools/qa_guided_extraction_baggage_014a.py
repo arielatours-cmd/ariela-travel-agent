@@ -11,9 +11,20 @@ fail-safe only.
 Reworked again the same day, after Shaked's review of the first version
 (#78, now closed/superseded): a bare shared/not-shared boolean still lost
 real information - "שתי מזוודות לכולנו" and "מזוודה אחת לכל זוג" both
-collapsed to the same "one shared suitcase" label. The schema now carries
-count and unit ("per_person"/"per_couple"/"total") per item, and the
-summary label is built from that data (_checked_bag_label), never guessed.
+collapsed to the same "one shared suitcase" label. The schema carried
+count AND unit ("per_person"/"per_couple"/"total") per item at that point.
+
+Simplified again (20.10.2026), per the business owner's own directive
+(relayed by Shlomo) after Shaked's PR #91 review: a group booking is
+ALWAYS one uniform baggage choice for every ticket (never a per-passenger
+split, short of two separate bookings), so per-passenger unit tracking
+(per_person/per_couple/per_child/per_adult/total) was never meaningful in
+the first place - every per_couple/unit-differentiated scenario below was
+rewritten to the final count-only schema, and a NEW mixed_per_passenger
+scenario (2c) covers the customer explicitly asking for a per-passenger
+split the booking can't represent. The summary label is still built from
+real data (_checked_bag_label), never guessed - just count+size now, no
+unit.
 
 config.GUIDED_EXTRACTION_STEPS_DEFAULT now includes "baggage" (Shlomo,
 2026-10-17): Shaked approves every 014 field before its PR merges anyway,
@@ -104,8 +115,8 @@ def _fake_post_claude_factory(guided_response):
 # =====================================================================
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
 import config as _config
-check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+baggage+lodging",
-      chat._guided_extraction_steps() == {"dates", "travelers", "baggage", "lodging"})
+check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+accessibility+baggage+lodging",
+      chat._guided_extraction_steps() == {"dates", "travelers", "accessibility", "baggage", "lodging"})
 
 # =====================================================================
 # Flag off (kill switch) / baggage not requested at all -> complete no-op,
@@ -170,7 +181,7 @@ check("proactive ask: the hint describes the baggage/shared question",
 member1 = _make_member("qa-baggage-s1@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False,
-    "items": [{"type": "carry_on_only", "count": None, "unit": None}],
+    "items": [{"type": "carry_on_only", "count": None}],
     "confidence": "high", "also_mentioned": None, "correction": None,
 })):
     state1 = dict(ROME_STATE)
@@ -185,13 +196,13 @@ check("scenario 1: nothing left to ask (all three guided fields resolved)",
       (tu1.get("guided") or {}).get("current_question") is None)
 
 # --- 2. Shaked's exact Budapest Z5 repro, via the model: "טרולי לכל אחד
-#     ועוד מזוודה אחת לכולנו" -> two items, checked_bag count=1 unit=total ---
+#     ועוד מזוודה אחת לכולנו" -> two items, checked_bag count=1 ---
 member2 = _make_member("qa-baggage-s2@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False,
     "items": [
-        {"type": "carry_on_only", "count": None, "unit": None},
-        {"type": "checked_bag", "count": 1, "unit": "total"},
+        {"type": "carry_on_only", "count": None},
+        {"type": "checked_bag", "count": 1},
     ],
     "confidence": "high", "also_mentioned": None, "correction": None,
 })):
@@ -201,8 +212,8 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu2 = r2.get("trip_update") or {}
 check("scenario 2 (Shaked's Budapest Z5 case): both items saved",
       (tu2.get("flight") or {}).get("baggage") == ["carry_on_only", "checked_bag"])
-check("scenario 2: baggage_detail.checked_bag carries count=1, unit=total - the exact fact her finding needed",
-      (tu2.get("flight") or {}).get("baggage_detail", {}).get("checked_bag") == {"count": 1, "unit": "total"})
+check("scenario 2: baggage_detail.checked_bag carries count=1 - the exact fact her finding needed",
+      (tu2.get("flight") or {}).get("baggage_detail", {}).get("checked_bag") == {"count": 1})
 
 # --- 2b. Her NEW findings on the same day (count preservation): "שתי
 #     מזוודות לכולנו" for 4 travelers -> count=2 must survive, not collapse
@@ -210,7 +221,7 @@ check("scenario 2: baggage_detail.checked_bag carries count=1, unit=total - the 
 member2b = _make_member("qa-baggage-s2b@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False,
-    "items": [{"type": "checked_bag", "count": 2, "unit": "total"}],
+    "items": [{"type": "checked_bag", "count": 2}],
     "confidence": "high", "also_mentioned": None, "correction": None,
 })):
     state2b = dict(ROME_STATE)
@@ -218,35 +229,129 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     r2b = _post("שתי מזוודות לכולנו", [], state2b, member2b)
 tu2b = r2b.get("trip_update") or {}
 check("scenario 2b (Shaked's count-preservation finding): count=2 survives, not collapsed to 1",
-      (tu2b.get("flight") or {}).get("baggage_detail", {}).get("checked_bag") == {"count": 2, "unit": "total"})
+      (tu2b.get("flight") or {}).get("baggage_detail", {}).get("checked_bag") == {"count": 2})
 check("scenario 2b: the built label states '2', never 'מזוודה אחת'",
-      "2" in chat._checked_bag_label({"count": 2, "unit": "total"}))
+      "2" in chat._checked_bag_label({"count": 2}))
 
-# --- 2c. "מזוודה אחת לכל זוג" for 4 travelers -> per_couple, not total ---
+# --- 2c. mixed_per_passenger - FINAL business-owner decision (22.10.2026,
+#     4th and final revision, relayed by Shlomo), fully superseding PR
+#     #121's "silently resolve to checked_bag" design after Shaked's
+#     rejection (21.10, e2848dc, run-7 bug B): a mixed request is now
+#     never resolved and never saved. Ariella explains (her own words)
+#     that different baggage per passenger can only be added at the
+#     payment stage, then asks one yes/no question - choose the same
+#     baggage for everyone? "Yes" moves on to the normal single-group
+#     question; "no" keeps the business owner's default, "תיק יד בלבד"
+#     (personal_item), never a new/invented value. ---
+
+
+def _fake_classifier_reply(value):
+    """Fakes _mixed_baggage_uniform_choice_by_meaning's yes/no/unclear
+    model call (source="classifier") while still letting the main
+    extractor's own call (source="state_extractor") through as a no-op."""
+    def _fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+        if source == "state_extractor":
+            return "{}"
+        if source == "classifier":
+            return value
+        return "תשובה לדוגמה."
+    return _fake
+
+
 member2c = _make_member("qa-baggage-s2c@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
-    "status": "answered", "no_baggage": False,
-    "items": [{"type": "checked_bag", "count": 1, "unit": "per_couple"}],
-    "confidence": "high", "also_mentioned": None, "correction": None,
+    "status": "answered", "no_baggage": False, "mixed_per_passenger": True,
+    "items": None, "confidence": "high", "also_mentioned": None, "correction": None,
 })):
     state2c = dict(ROME_STATE)
     state2c["guided"] = {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}
-    r2c = _post("מזוודה אחת לכל זוג", [], state2c, member2c)
+    r2c = _post("אני עם טרולי בלבד אבל הילדים עם מזוודה", [], state2c, member2c)
 tu2c = r2c.get("trip_update") or {}
-check("scenario 2c (Shaked's per_couple finding): unit=per_couple saved, not collapsed to total",
-      (tu2c.get("flight") or {}).get("baggage_detail", {}).get("checked_bag") == {"count": 1, "unit": "per_couple"})
-check("scenario 2c: the label says 'לכל זוג', never 'משותפת'",
-      "לכל זוג" in chat._checked_bag_label({"count": 1, "unit": "per_couple"}))
+check("scenario 2c (mixed_per_passenger, first detection): nothing is saved at all",
+      not (tu2c.get("flight") or {}).get("baggage"))
+check("scenario 2c: baggage field stays open (pending the yes/no reply), never marked answered",
+      (tu2c.get("guided") or {}).get("current_question") == "baggage")
+check("scenario 2c: the pending flag is set so next turn is read as the yes/no answer",
+      (tu2c.get("guided") or {}).get("mixed_baggage_pending") is True)
+check("scenario 2c: the hint explains baggage can only differ per passenger at payment time",
+      "התשלום" in str(tu2c.get("_guided_ask_hint") or ""))
+check("scenario 2c: the hint forbids saving/mentioning any specific baggage choice this turn",
+      "אל תשמרי" in str(tu2c.get("_guided_ask_hint") or ""))
+check("scenario 2c: the hint asks a yes/no question, never buttons",
+      "כן/לא" in str(tu2c.get("_guided_ask_hint") or "") and "כפתורים" in str(tu2c.get("_guided_ask_hint") or ""))
 
-# --- 2d. multiple items in parallel with different units: "טרולי לכל אחד
-#     ומזוודה אחת לכל המשפחה" -> carry_on (implicit per-person) + checked_bag
-#     (count=1, unit=total) - the suitcase must never disappear ---
+# --- 2c-yes: the customer agrees to one uniform baggage choice - moves on
+#     to the normal single-group baggage question, exactly as if the
+#     mixed description never happened; still nothing saved yet. ---
+member2c_yes = _make_member("qa-baggage-s2c-yes@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("true")):
+    state2c_yes = dict(ROME_STATE)
+    state2c_yes["guided"] = {
+        "current_question": "baggage", "attempts": 0,
+        "answered": ["dates", "travelers"], "mixed_baggage_pending": True,
+    }
+    r2c_yes = _post("כן, בואו נבחר כבודה אחידה", [], state2c_yes, member2c_yes)
+tu2c_yes = r2c_yes.get("trip_update") or {}
+check("scenario 2c-yes: pending flag cleared",
+      not (tu2c_yes.get("guided") or {}).get("mixed_baggage_pending"))
+check("scenario 2c-yes: still nothing saved - the normal baggage question is asked next",
+      not (tu2c_yes.get("flight") or {}).get("baggage"))
+check("scenario 2c-yes: baggage field stays open, asking the normal 3-option question",
+      (tu2c_yes.get("guided") or {}).get("current_question") == "baggage"
+      and "תיק יד" in str(tu2c_yes.get("_guided_ask_hint") or ""))
+
+# --- 2c-no: the customer declines - the business owner's default,
+#     "תיק יד בלבד" (personal_item - a bare hand bag, the weakest tier),
+#     is saved. REVISED per Shaked's rejection (22.10, 6ffbe6d): the first
+#     version of this saved carry_on_only (a trolley - a different and
+#     bigger thing than "תיק יד בלבד") - never an invented new value
+#     either way. ---
+member2c_no = _make_member("qa-baggage-s2c-no@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("false")):
+    state2c_no = dict(ROME_STATE)
+    state2c_no["guided"] = {
+        "current_question": "baggage", "attempts": 0,
+        "answered": ["dates", "travelers"], "mixed_baggage_pending": True,
+    }
+    r2c_no = _post("לא, זה בסדר ככה", [], state2c_no, member2c_no)
+tu2c_no = r2c_no.get("trip_update") or {}
+check("scenario 2c-no: pending flag cleared",
+      not (tu2c_no.get("guided") or {}).get("mixed_baggage_pending"))
+check("scenario 2c-no: saves תיק יד בלבד (personal_item), never "
+      "carry_on_only or any other invented value",
+      (tu2c_no.get("flight") or {}).get("baggage") == ["personal_item"])
+check("scenario 2c-no: baggage marked answered and the turn moves on",
+      (tu2c_no.get("guided") or {}).get("current_question") != "baggage")
+
+# --- 2c-unclear: the reply doesn't actually answer the yes/no question -
+#     ask again, pending flag stays set, nothing saved (same loop-guard
+#     pattern as every other guided field). ---
+member2c_unclear = _make_member("qa-baggage-s2c-unclear@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("null")):
+    state2c_unclear = dict(ROME_STATE)
+    state2c_unclear["guided"] = {
+        "current_question": "baggage", "attempts": 0,
+        "answered": ["dates", "travelers"], "mixed_baggage_pending": True,
+    }
+    r2c_unclear = _post("מה זאת אומרת?", [], state2c_unclear, member2c_unclear)
+tu2c_unclear = r2c_unclear.get("trip_update") or {}
+check("scenario 2c-unclear: pending flag stays set, question asked again",
+      (tu2c_unclear.get("guided") or {}).get("mixed_baggage_pending") is True
+      and (tu2c_unclear.get("guided") or {}).get("current_question") == "baggage")
+check("scenario 2c-unclear: nothing saved",
+      not (tu2c_unclear.get("flight") or {}).get("baggage"))
+
+# --- 2d. multiple items in parallel: "טרולי לכל אחד ומזוודה אחת לכל
+#     המשפחה" -> carry_on + checked_bag (count=1) - the suitcase must never
+#     disappear just because a carry-on was ALSO mentioned in the same
+#     message (Shaked's original finding; no per-passenger unit survives
+#     for either kind anymore, per the 20.10 directive) ---
 member2d = _make_member("qa-baggage-s2d@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False,
     "items": [
-        {"type": "carry_on_only", "count": None, "unit": "per_person"},
-        {"type": "checked_bag", "count": 1, "unit": "total"},
+        {"type": "carry_on_only", "count": None},
+        {"type": "checked_bag", "count": 1},
     ],
     "confidence": "high", "also_mentioned": None, "correction": None,
 })):
@@ -256,14 +361,14 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu2d = r2d.get("trip_update") or {}
 check("scenario 2d (Shaked's 'the suitcase disappeared' finding): both items saved, nothing dropped",
       (tu2d.get("flight") or {}).get("baggage") == ["carry_on_only", "checked_bag"])
-check("scenario 2d: the checked bag's total-for-the-family unit is preserved",
-      (tu2d.get("flight") or {}).get("baggage_detail", {}).get("checked_bag") == {"count": 1, "unit": "total"})
+check("scenario 2d: the checked bag's count is preserved",
+      (tu2d.get("flight") or {}).get("baggage_detail", {}).get("checked_bag") == {"count": 1})
 
 # --- 3. low confidence -> confirm hint, nothing written as settled yet ---
 member3 = _make_member("qa-baggage-s3@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False,
-    "items": [{"type": "checked_bag", "count": None, "unit": None}],
+    "items": [{"type": "checked_bag", "count": None}],
     "confidence": "low", "also_mentioned": None, "correction": None,
 })):
     state3 = dict(ROME_STATE)
@@ -314,7 +419,7 @@ check("scenario 5: no guided hint forced onto this unrelated message",
 member6 = _make_member("qa-baggage-s6@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "no_baggage": False,
-    "items": [{"type": "checked_bag", "count": None, "unit": None}],
+    "items": [{"type": "checked_bag", "count": None}],
     "confidence": "high", "also_mentioned": None,
     "correction": {"field": "baggage", "old": "טרולי בלבד", "new": "גם מזוודה"},
 })):
@@ -343,7 +448,7 @@ check("scenario 6: a CLOSED flights session reopens so the summary reflects the 
 # --- 7. (Shaked-style regression check) turn-1 model failure on a message
 #     naming BOTH a shared suitcase phrase AND unresolved travelers - the
 #     widened fail-safe must cover baggage too, not just dates/travelers,
-#     and must still recover count+unit via the regex, not just a flag ---
+#     and must still recover the count via the regex, not just a flag ---
 member7 = _make_member("qa-baggage-s7@example.com")
 with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: (
         "{}" if kw.get("source") == "state_extractor"
@@ -358,8 +463,16 @@ check("scenario 7 (fail-safe): model failure never crashes the request",
       r7.get("status") == "success")
 check("scenario 7 (fail-safe): the regex safety net still fills baggage (both values)",
       set((tu7.get("flight") or {}).get("baggage") or []) == {"carry_on_only", "checked_bag"})
-check("scenario 7 (fail-safe): the regex recovers unit=total (not just a bare flag) via the 'לכולנו' word",
-      (tu7.get("flight") or {}).get("baggage_detail", {}).get("checked_bag", {}).get("unit") == "total")
+check("scenario 7 (fail-safe): count=1 is still recovered for the suitcase "
+      "even on a model failure. Per the business owner's 20.10 directive "
+      "(a group booking is always one uniform baggage choice for every "
+      "ticket), the fail-safe never tracks a per-passenger unit for "
+      "either bag kind at all anymore - count is the only detail it ever "
+      "recovers. The guided-extraction model call is the real, reliable "
+      "mechanism for everything else - this is only the regex fallback "
+      "for when that call itself fails.",
+      (tu7.get("flight") or {}).get("baggage_detail", {}).get("checked_bag", {}).get("count") == 1
+      and "unit" not in (tu7.get("flight") or {}).get("baggage_detail", {}).get("checked_bag", {}))
 check("scenario 7 (fail-safe): a hint is still set so Tinkerbell asks in her own words",
       bool(tu7.get("_guided_ask_hint")))
 
@@ -376,41 +489,198 @@ check("no-buttons rule: a baggage correction hint never contains '['",
 # --- 7b. Shaked's exact fail-safe regex findings, same day, against #78
 #     (now the fail-safe inside this branch): each of her 4 reported
 #     phrases, checked directly against _deterministic_baggage_facts (the
-#     function _guided_extract_answer falls back to) ---
+#     function _guided_extract_answer falls back to). traveler_count is
+#     kept as a parameter for backward compatibility, but per the business
+#     owner's 20.10 directive no per-passenger unit is ever recovered from
+#     it anymore - only the stated count ---
 check("fail-safe regex: 'שתי מזוודות לכולנו' (4 travelers) keeps count=2, not 'one shared'",
       chat._deterministic_baggage_facts("שתי מזוודות לכולנו", 4)["flight"]["baggage_detail"]["checked_bag"]
-      == {"unit": "total", "count": 2})
-check("fail-safe regex: 'שלוש מזוודות' (5 travelers, no unit word) keeps count=3",
+      == {"count": 2})
+check("fail-safe regex: 'שלוש מזוודות' (5 travelers) keeps count=3",
       chat._deterministic_baggage_facts("שלוש מזוודות", 5)["flight"]["baggage_detail"]["checked_bag"].get("count") == 3)
-check("fail-safe regex: 'מזוודה אחת לכל זוג' (4 travelers) is per_couple, not total",
+check("fail-safe regex: 'מזוודה אחת לכל זוג' (4 travelers) keeps count=1, no unit "
+      "(per_couple is no longer a tracked concept at all)",
       chat._deterministic_baggage_facts("מזוודה אחת לכל זוג", 4)["flight"]["baggage_detail"]["checked_bag"]
-      == {"unit": "per_couple", "count": 1})
+      == {"count": 1})
 check("fail-safe regex: 'טרולי לכל אחד ומזוודה אחת לכל המשפחה' (4 travelers) - the "
       "suitcase never disappears (it's prefixed 'ו', no space - 'ומזוודה')",
       chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת לכל המשפחה", 4)["flight"]["baggage"]
       == ["carry_on_only", "checked_bag"])
-check("fail-safe regex: same phrase keeps count=1 and unit=total even with 'לכל אחד' elsewhere in the message",
+check("fail-safe regex: same phrase keeps count=1 even with 'לכל אחד' "
+      "elsewhere in the message - no unit guessed since a second baggage "
+      "kind (the trolley) is also present, and no unit is tracked at all "
+      "anymore even when only one kind is mentioned",
       chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת לכל המשפחה", 4)["flight"]["baggage_detail"]["checked_bag"]
-      == {"unit": "total", "count": 1})
+      == {"count": 1})
 check("fail-safe regex: the same phrase with traveler_count=None (not yet known this turn) "
       "still never loses the suitcase - Shaked's exact complaint",
       chat._deterministic_baggage_facts("טרולי לכל אחד ומזוודה אחת לכל המשפחה", None)["flight"]["baggage"]
       == ["carry_on_only", "checked_bag"])
 
 # --- 9. _checked_bag_label builds every label from the data, never guesses
-#     a count/unit it wasn't given ---
-check("label: unit=total, count=1 -> 'מזוודה אחת משותפת לכל הנוסעים'",
-      chat._checked_bag_label({"count": 1, "unit": "total"}) == "מזוודה אחת משותפת לכל הנוסעים")
-check("label: unit=total, count=3 -> states the real count",
-      chat._checked_bag_label({"count": 3, "unit": "total"}) == "3 מזוודות משותפות לכל הנוסעים")
-check("label: unit=per_couple, count=1 -> 'מזוודה אחת לכל זוג'",
-      chat._checked_bag_label({"count": 1, "unit": "per_couple"}) == "מזוודה אחת לכל זוג")
-check("label: unit=per_couple, count=2 -> states the real count",
-      chat._checked_bag_label({"count": 2, "unit": "per_couple"}) == "2 מזוודות לכל זוג")
-check("label: no unit, count=3 (genuinely ambiguous split) -> states the count, never guesses a unit",
-      chat._checked_bag_label({"count": 3, "unit": None}) == "3 מזוודות")
-check("label: no detail at all -> the classic per-passenger default, unchanged",
-      chat._checked_bag_label(None) == "מזוודה גדולה לכל נוסע")
+#     a count/size it wasn't given; no unit parameter exists anymore ---
+check("label: count=1 -> the plain per-passenger default",
+      chat._checked_bag_label({"count": 1}) == "מזוודה אחת לכל נוסע")
+check("label: count=3 -> states the real count",
+      chat._checked_bag_label({"count": 3}) == "3 מזוודות")
+check("label: count=2, size stated -> both facts in the label, size pluralized",
+      chat._checked_bag_label({"count": 2, "size": "גדולה"}) == "2 מזוודות גדולות")
+check("label: no detail at all -> the classic per-passenger default, with no "
+      "invented size (fixed 20.10, Shlomo's priority-5 finding, s12x10 - "
+      "a size was never stated so none is claimed)",
+      chat._checked_bag_label(None) == "מזוודה אחת לכל נוסע")
+
+# =====================================================================
+# Per the business owner's explicit decision (20.10, qa/stage-scenarios.md
+# on origin/shaked, section "כבודה - שאלה אחת לכל הקבוצה"): ONE question to
+# the whole group naming exactly 3 options, never per-passenger; a short
+# "can always add later" note after the answer, then straight to the next
+# topic in the same message - never a follow-up question.
+# =====================================================================
+os.environ["GUIDED_EXTRACTION_STEPS"] = "dates,travelers,baggage"
+
+# --- The question itself names the 3 real options (a deliberate exception
+#     to the generic no-enumeration rule - see _guided_ask_hint) and never
+#     asks about a difference between passengers. ---
+ask_hint = chat._guided_ask_hint("baggage", 0)
+check("the baggage question hint names all 3 options so Ariella states them "
+      "(תיק יד/טרולי/מזוודה), unlike every other guided field",
+      "תיק יד" in ask_hint and "טרולי" in ask_hint and "מזוודה" in ask_hint)
+check("the hint explicitly forbids asking about a difference between "
+      "passengers",
+      "נוסעים" in ask_hint and ("לעולם" in ask_hint or "אין אפשרות" in ask_hint))
+check("regression: still no buttons in the baggage ask hint",
+      "[" not in ask_hint)
+
+# --- K1 Warsaw (qa/reports/2026-10-20-pr91-live-baggage.md, origin/shaked):
+#     Ariella correctly explained uniform baggage but then ASKED a confirm
+#     question anyway ("תרצו שנזמין מזוודה בבטן לכולם?"), and separately
+#     PROMISED a per-passenger split at booking time ("אנסה לסדר את זה
+#     בדיוק ככה"). FINAL decision (22.10.2026): nothing is saved or
+#     resolved at all here - she explains the payment-time limitation and
+#     asks ONE yes/no question instead (see scenario 2c above for the full
+#     yes/no follow-up coverage); still no promise of a per-passenger
+#     arrangement at booking time, which this repro's "אנסה לסדר" leak was
+#     really about. ---
+member_k1 = _make_member("qa-baggage-k1-warsaw@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "no_baggage": False, "mixed_per_passenger": True,
+    "items": None, "confidence": "high", "also_mentioned": None, "correction": None,
+})):
+    state_k1 = dict(ROME_STATE)
+    state_k1["guided"] = {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}
+    r_k1 = _post("ההורים רק עם טרולי, לילדים צריך מזוודה בבטן", [], state_k1, member_k1)
+tu_k1 = r_k1.get("trip_update") or {}
+check("K1 Warsaw: nothing is saved/resolved - the field stays open pending "
+      "the yes/no reply",
+      not (tu_k1.get("flight") or {}).get("baggage")
+      and (tu_k1.get("guided") or {}).get("current_question") == "baggage"
+      and (tu_k1.get("guided") or {}).get("mixed_baggage_pending") is True)
+k1_hint = str(tu_k1.get("_guided_ask_hint") or "")
+check("K1 Warsaw: no promise of any per-passenger arrangement at booking "
+      "time leaks into the hint",
+      "אנסה לסדר" not in k1_hint and "בדיוק ככה" not in k1_hint)
+
+# --- K2 Naples (same report): "אני מסתדרת עם תיק קטן, שתי האחרות רוצות
+#     מזוודה גדולה" - a SIDE-BY-SIDE description (no "אבל"/contrast word),
+#     not the "אני... אבל הם..." shape the original detection instruction
+#     was keyed to. Her prompt is now broadened explicitly to cover this
+#     phrasing too (see _guided_extract_answer's own mixed_per_passenger
+#     instruction) - this mock simulates the model correctly classifying it
+#     as mixed per the broadened instruction, and verifies nothing is saved
+#     or resolved, and no per-passenger breakdown leaks into the hint. ---
+member_k2 = _make_member("qa-baggage-k2-naples@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "no_baggage": False, "mixed_per_passenger": True,
+    "items": None, "confidence": "high", "also_mentioned": None, "correction": None,
+})):
+    state_k2 = dict(ROME_STATE)
+    state_k2["guided"] = {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}
+    r_k2 = _post("אני מסתדרת עם תיק קטן, שתי האחרות רוצות מזוודה גדולה", [], state_k2, member_k2)
+tu_k2 = r_k2.get("trip_update") or {}
+check("K2 Naples: nothing is saved - no flat value and no per-passenger split",
+      not (tu_k2.get("flight") or {}).get("baggage"))
+check("K2 Naples: no baggage_detail at all either",
+      not (tu_k2.get("flight") or {}).get("baggage_detail"))
+check("K2 Naples: no per-passenger attribution anywhere in the hint "
+      "(e.g. 'לשתי הנוסעות האחרות')",
+      "הנוסעות האחרות" not in str(tu_k2.get("_guided_ask_hint") or "")
+      and "לשני הנוסעים" not in str(tu_k2.get("_guided_ask_hint") or ""))
+
+# --- The broadened mixed_per_passenger instruction itself names the
+#     side-by-side phrasing explicitly, not just the contrastive one - a
+#     regression check on the actual prompt text sent to the model. ---
+import inspect
+_guided_extract_src = inspect.getsource(chat._guided_extract_answer)
+check("the guided_extract baggage prompt's mixed_per_passenger instruction "
+      "now explicitly covers a side-by-side description too, not only an "
+      "explicit 'but' contrast",
+      "צד-לצד" in _guided_extract_src or "מסתדרת עם תיק קטן" in _guided_extract_src)
+check("the same instruction tells the model to resolve with confidence "
+      "\"high\" (never \"low\") for a mixed request - no discussion needed",
+      "ההחלטה ודאית" in _guided_extract_src)
+
+# --- K3/K4 (same report, both already-compliant requests - regression):
+#     K3 "טרולי לכל אחד" (a uniform request, NOT mixed) must still resolve
+#     to carry_on_only with the "can add a suitcase later" note; K4 "רק
+#     תיק יד" resolves to personal_item with the "can add a trolley or
+#     suitcase later" note - both in ONE message, immediately followed by
+#     the next topic. ---
+member_k3 = _make_member("qa-baggage-k3@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "no_baggage": False, "mixed_per_passenger": False,
+    "items": [{"type": "carry_on_only", "count": None}],
+    "confidence": "high", "also_mentioned": None, "correction": None,
+})):
+    state_k3 = dict(ROME_STATE)
+    state_k3["guided"] = {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}
+    r_k3 = _post("טרולי לכל אחד", [], state_k3, member_k3)
+tu_k3 = r_k3.get("trip_update") or {}
+k3_hint = str(tu_k3.get("_guided_ask_hint") or "")
+check("K3: a genuinely uniform request ('טרולי לכל אחד') is NOT treated as "
+      "mixed - carry_on_only is saved, not checked_bag",
+      (tu_k3.get("flight") or {}).get("baggage") == ["carry_on_only"])
+check("K3: the follow-up note mentions a suitcase can always be added later",
+      "להוסיף מזוודה" in k3_hint)
+check("K3: no follow-up question about baggage - the note and the move to "
+      "the next topic are the same hint, not a separate turn",
+      "?" not in k3_hint.split("עברי")[0] if "עברי" in k3_hint else True)
+
+member_k4 = _make_member("qa-baggage-k4@example.com")
+with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
+    "status": "answered", "no_baggage": False, "mixed_per_passenger": False,
+    "items": [{"type": "personal_item", "count": None}],
+    "confidence": "high", "also_mentioned": None, "correction": None,
+})):
+    state_k4 = dict(ROME_STATE)
+    state_k4["guided"] = {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"]}
+    r_k4 = _post("רק תיק יד", [], state_k4, member_k4)
+tu_k4 = r_k4.get("trip_update") or {}
+k4_hint = str(tu_k4.get("_guided_ask_hint") or "")
+check("K4: personal-item-only is saved correctly",
+      (tu_k4.get("flight") or {}).get("baggage") == ["personal_item"])
+check("K4: the follow-up note mentions BOTH a trolley and a suitcase can "
+      "always be added later (the weakest tier chosen)",
+      "טרולי" in k4_hint and "מזוודה" in k4_hint and "להוסיף" in k4_hint)
+
+# --- Direct unit tests of _baggage_followup_hint - the actual decision
+#     table from the business owner's directive. ---
+check("_baggage_followup_hint: checked_bag chosen -> no note at all",
+      chat._baggage_followup_hint(["checked_bag"]) is None)
+check("_baggage_followup_hint: carry_on_only chosen -> mentions only a "
+      "suitcase can be added",
+      chat._baggage_followup_hint(["carry_on_only"]) is not None
+      and "מזוודה" in chat._baggage_followup_hint(["carry_on_only"])
+      and "טרולי" not in chat._baggage_followup_hint(["carry_on_only"]).split("שאפשר")[1].split("באתר")[0])
+check("_baggage_followup_hint: personal_item alone -> mentions BOTH a "
+      "trolley and a suitcase can be added",
+      chat._baggage_followup_hint(["personal_item"]) is not None
+      and "טרולי" in chat._baggage_followup_hint(["personal_item"])
+      and "מזוודה" in chat._baggage_followup_hint(["personal_item"]))
+check("_baggage_followup_hint: empty/None input never raises and returns "
+      "the weakest-tier note (nothing chosen is weaker than a personal item)",
+      chat._baggage_followup_hint(None) is not None
+      and chat._baggage_followup_hint([]) is not None)
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email LIKE 'qa-baggage-%@example.com'")

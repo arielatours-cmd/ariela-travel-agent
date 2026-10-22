@@ -118,7 +118,7 @@ check("flag set -> _guided_extraction_steps() covers lodging",
       chat._guided_extraction_steps() == {"lodging"})
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
 check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) now covers lodging too",
-      chat._guided_extraction_steps() == {"dates", "travelers", "baggage", "lodging"})
+      chat._guided_extraction_steps() == {"dates", "travelers", "accessibility", "baggage", "lodging"})
 os.environ["GUIDED_EXTRACTION_STEPS"] = "lodging"
 
 member_no_lodging = _make_member("qa-014a-lodging-notrequested@example.com")
@@ -332,7 +332,10 @@ check("scenario 10: ready_for_summary cleared by the correction, flights left un
       tu10.get("ready_for_summary") is False
       and (tu10.get("session_status") or {}).get("flights") == "complete")
 
-# --- 11. "אין לי מושג" twice -> attempts increments, no buttons ever ---
+# --- 11. "אין לי מושג" twice -> attempts increments, then the loop guard
+#     skips the field on the second unclear in a row (Carmit's explicit
+#     directive, Copenhagen stage-1 run-3: the same question must never
+#     repeat verbatim forever - see _guided_skip_hint) ---
 member11 = _make_member("qa-014a-lodging-s11@example.com")
 unclear = {"status": "unclear", "value": None, "confidence": "low", "also_mentioned": None, "correction": None}
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory(unclear)):
@@ -344,10 +347,20 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory(un
     state11b["guided"] = tu11a.get("guided")
     r11b = _post("אין לי מושג", [], state11b, member11)
 tu11b = r11b.get("trip_update") or {}
-check("scenario 11: attempts incremented to 1 after the first 'no idea'",
-      (tu11a.get("guided") or {}).get("attempts") == 1)
-check("scenario 11: attempts incremented to 2 after the second 'no idea' - never buttons",
-      (tu11b.get("guided") or {}).get("attempts") == 2 and "[" not in str(tu11b.get("_guided_ask_hint") or ""))
+check("scenario 11: attempts incremented to 1 after the first 'no idea' - still on lodging_type",
+      (tu11a.get("guided") or {}).get("attempts") == 1
+      and (tu11a.get("guided") or {}).get("current_question") == "lodging_type"
+      and "[" not in str(tu11a.get("_guided_ask_hint") or ""))
+check("scenario 11: the loop guard fires on the SECOND 'no idea' in a row - "
+      "lodging_type is skipped (marked answered, never actually known) and "
+      "the dispatcher moves on to the next lodging field, attempts reset",
+      "lodging_type" in ((tu11b.get("guided") or {}).get("answered") or [])
+      and (tu11b.get("guided") or {}).get("current_question") == "lodging_rooms"
+      and (tu11b.get("guided") or {}).get("attempts") == 0)
+check("scenario 11: the skip hint never repeats the same question verbatim - "
+      "it explicitly moves on, and never shows buttons",
+      "לינה" in str(tu11b.get("_guided_ask_hint") or "")
+      and "[" not in str(tu11b.get("_guided_ask_hint") or ""))
 
 # --- 12. other_topic during a lodging question -> question stays open,
 #     no hint forced onto an unrelated reply ---
