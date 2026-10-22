@@ -118,7 +118,7 @@ check("flag set -> _guided_extraction_steps() covers lodging",
       chat._guided_extraction_steps() == {"lodging"})
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
 check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) now covers lodging too",
-      chat._guided_extraction_steps() == {"dates", "travelers", "baggage", "lodging"})
+      chat._guided_extraction_steps() == {"dates", "travelers", "accessibility", "baggage", "lodging"})
 os.environ["GUIDED_EXTRACTION_STEPS"] = "lodging"
 
 member_no_lodging = _make_member("qa-014a-lodging-notrequested@example.com")
