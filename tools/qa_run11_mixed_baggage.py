@@ -106,6 +106,13 @@ with patch.object(chat, "_mixed_baggage_uniform_choice_by_meaning", return_value
 check("next turn: the yes/no is read by the pending branch and the flag is cleared",
       r2["trip_update"]["guided"].get("mixed_baggage_pending") is False)
 
+# "no" -> baggage settled, next field is accessibility (before baggage in guided_order)
+with patch.object(chat, "_mixed_baggage_uniform_choice_by_meaning", return_value=False):
+    r3 = chat._handle_guided_extraction_turn("k", "m", "לא", [], st2, dict(st2), STEPS)
+check("after the yes/no, the next field (accessibility) is asked with its own hint, not the raw field name",
+      r3["trip_update"]["guided"].get("current_question") == "accessibility"
+      and "accessibility" not in (r3.get("dynamic_hint") or "") and "נגישות" in (r3.get("dynamic_hint") or ""))
+
 single = {"status": "answered", "mixed_per_passenger": False, "items": [{"type": "carry_on_only", "count": None}], "confidence": "high",
           "also_mentioned": {}, "correction": None}
 r, _ = run(single, "טרולי לכל אחת", st=state({"mixed_baggage_pending": True}))

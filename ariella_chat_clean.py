@@ -11457,7 +11457,13 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             )
             guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
             trip_update["guided"] = guided
-            next_hint = _guided_ask_hint(next_field, 0) if next_field else None
+            next_hint = (
+                # After the mixed yes/no the next field is often accessibility (it
+                # comes before baggage in guided_order) - its own yes/no hint, never
+                # the generic one with the raw field name.
+                (_accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0) if next_field == "accessibility" else _guided_ask_hint(next_field, 0))
+                if next_field else None
+            )
             baggage_note = _baggage_followup_hint([evidenced_type])
             if next_hint and baggage_note:
                 return {
@@ -11490,7 +11496,13 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         )
         guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
         trip_update["guided"] = guided
-        next_hint = _guided_ask_hint(next_field, 0) if next_field else None
+        next_hint = (
+            # After the mixed yes/no the next field is often accessibility (it
+            # comes before baggage in guided_order) - its own yes/no hint, never
+            # the generic one with the raw field name.
+            (_accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0) if next_field == "accessibility" else _guided_ask_hint(next_field, 0))
+            if next_field else None
+        )
         # zd10 (Shaked, run-9, Linz, relayed by Shlomo 22.10.2026): the
         # reply stated "טרולי לכולם" while the real saved value was תיק יד
         # בלבד (personal_item) - a direct contradiction with the customer.
