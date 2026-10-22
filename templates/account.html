@@ -227,7 +227,11 @@
                     </div>
                     {% if hotel.get('nearby_places') %}<div class="lodging-result-nearby">קרוב ל: {{ hotel.get('nearby_places')|join(', ') }}</div>{% endif %}
                     {% if hotel.get('price_per_night_ils') %}<div class="lodging-result-price">₪{{ hotel.get('price_per_night_ils')|round|int }} ללילה{% if hotel.get('total_price_ils') %} · סה"כ ₪{{ hotel.get('total_price_ils')|round|int }}{% endif %}</div>{% endif %}
-                    {% if hotel.get('link') %}<a class="lodging-result-link" href="{{ hotel.get('link') }}" target="_blank" rel="noopener">צפייה ופרטים</a>{% endif %}
+                    {% if hotel.get('link') %}
+                      {% set affiliate = is_affiliate_lodging_link(hotel.get('link')) %}
+                      <a class="lodging-search-btn car-partner-btn lodging-book-btn" href="{{ hotel.get('link') }}" target="_blank" rel="noopener{{ ' sponsored' if affiliate else '' }}">להזמנה ←</a>
+                      {% if affiliate %}<a class="affiliate-disclosure lodging-affiliate-label" href="{{ url_for('site.affiliates') }}" target="_blank" rel="noopener">קישור שותף</a>{% endif %}
+                    {% endif %}
                   </div>
                 </div>
               {% endfor %}

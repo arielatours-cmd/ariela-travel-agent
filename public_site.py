@@ -206,6 +206,13 @@ except Exception:
     _AIRPORT_LOCALIZATION = {}
 
 
+def _is_affiliate_lodging_link(link) -> bool:
+    """True only for a link that really goes out through our CJ Booking.com
+    wrap (_cj_booking_wrap) - the only lodging result link that is an
+    affiliate link, so the only one labelled "קישור שותף"."""
+    return bool(CJ_BOOKING_EVERGREEN_LINK) and str(link or "").startswith(CJ_BOOKING_EVERGREEN_LINK + "?")
+
+
 def _cj_booking_wrap(destination_url: str, sid: str | None = None) -> str:
     """Wrap a plain Booking.com URL behind our CJ "Evergreen" tracking link
     (Booking.com's URL structure means CJ's own deep-link generator can't do
@@ -2428,6 +2435,7 @@ def inject_site_context():
             "car_partner_cards": _car_partner_cards,
             "lodging_partner_cards": _lodging_partner_cards,
             "core_itinerary_text": itinerary_cards.core_itinerary_text,
+            "is_affiliate_lodging_link": _is_affiliate_lodging_link,
             "business": _business_details()}
 
 
