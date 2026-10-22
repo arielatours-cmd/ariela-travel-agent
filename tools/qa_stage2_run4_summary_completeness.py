@@ -68,7 +68,8 @@ check("_flight_budget_line reports a known numeric amount",
 check("_flight_budget_line returns None when nothing is known yet",
       chat._flight_budget_line({}) is None and chat._flight_budget_line(None) is None)
 check("_flight_baggage_line matches _flight_summary_text's own wording (carry_on_only)",
-      chat._flight_baggage_line({"baggage": ["carry_on_only"]}) == "כבודה: טרולי בלבד")
+      # the approved canonical wording (22.10), was "כבודה: טרולי בלבד"
+      chat._flight_baggage_line({"baggage": ["carry_on_only"]}) == 'כבודה: טרולי 8–10 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה)')
 check("_flight_connection_line reports a direct-only preference",
       chat._flight_connection_line({"connection_preference": "direct"}) == "טיסה ישירה בלבד")
 check("_flight_connection_line returns None when unknown",
@@ -117,7 +118,7 @@ _all_three_fixed = chat._ensure_flight_summary_completeness(
 check("all three named facts (budget, baggage, connection preference) are "
       "completed together when all three are missing from the reply",
       "תקציב: ללא הגבלה" in _all_three_fixed
-      and "כבודה: טרולי בלבד" in _all_three_fixed
+      and 'כבודה: טרולי 8–10 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה)' in _all_three_fixed
       and "טיסה ישירה בלבד" in _all_three_fixed)
 check("the original statement content and the approval-request sentence "
       "both survive, untouched, around the inserted lines",
