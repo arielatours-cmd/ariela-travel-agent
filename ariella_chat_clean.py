@@ -10904,11 +10904,25 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 answered.append(other_field)
     confidence = str(result.get("confidence") or "")
     if confidence != "high" or not fragment:
+        guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
+        trip_update["guided"] = guided
+        # Bezalel's task 2 (22.10; Shaked run-1 S5, run-5 W5, run-6 V1): a
+        # clear period with no exact days ("סוף נובמבר") comes back "low"
+        # only because departure/return are still unknown - the guided
+        # dates prompt's own "missing -> low" rule - and the confirm hint
+        # below then had Ariella ask back what the customer had just said
+        # plainly ("מתכוונת לסוף נובמבר 2026, נכון?") before any options
+        # were shown. The period is already merged above; with no hint the
+        # question simply stays open and the existing date-options flow
+        # ({{DATE_OPTIONS}} / _dates_truth_hint, unchanged) takes it from
+        # here, exactly as when the options appeared right away (run-5 W3).
+        _dates_fragment = (fragment or {}).get("dates") if current_question == "dates" else None
+        if (isinstance(_dates_fragment, dict) and _dates_fragment.get("period")
+                and not _dates_fragment.get("departure") and not _dates_fragment.get("return")):
+            return {"trip_update": trip_update, "dynamic_hint": None}
         # Low confidence (or nothing usable extracted despite status=
         # "answered") - confirm before writing it down as settled; the
         # question stays open until the customer confirms/corrects.
-        guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
-        trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": _guided_confirm_hint(current_question, confirm_desc)}
     if current_question not in answered:
         answered.append(current_question)
