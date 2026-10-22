@@ -344,6 +344,20 @@ check("privacy policy (22.10 revision, Hebrew): names the services the "
 check("privacy policy (22.10 revision, English): names the services the "
       "need affects and states no other purpose",
       "flight, lodging, car and itinerary" in privacy_src and "do not use it for any other purpose" in privacy_src)
+# Din's PRV-15 fix on this same PR (22.10): section 7 (Retention and
+# rights) is referenced by the accessibility paragraph above ("as
+# described under Retention and rights") but said nothing about the
+# chat itself at all - added directly to section 7, in both languages.
+check("privacy policy section 7 (Hebrew): covers chat storage, the AI "
+      "provider transfer, and account-deletion cascade (Din's PRV-15 fix)",
+      "תוכן השיחה עם אריאלה" in privacy_src
+      and "לספק ה-AI שמפעיל את אריאלה" in privacy_src
+      and "מחיקת החשבון מוחקת גם את השיחות" in privacy_src)
+check("privacy policy section 7 (English): covers chat storage, the AI "
+      "provider transfer, and account-deletion cascade (Din's PRV-15 fix)",
+      "Your conversation with Ariella" in privacy_src
+      and "the AI provider that runs Ariella" in privacy_src
+      and "Deleting your account also deletes your conversations" in privacy_src)
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email LIKE 'qa-014b-%@example.com'")
