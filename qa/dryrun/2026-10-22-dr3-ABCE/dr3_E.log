@@ -1,0 +1,13 @@
+⟵ אני ושתי חברות לרוביני, 2 עד 6 ביולי
+    רוביני יצא נקודה חמודה לחופשה! מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1100 שקל לאחת
+    מעולה, קלטתי את התקציב. |  | לגבי הנחיתה - לרוביני עצמה אין שדה תעופה, אז נצטרך לבחור את הקרוב ביותר. חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא חובה
+    מצוין. ולגבי שדה הנחיתה - רוביני קרובה גם לפוג'ה וגם לקונסטנצה, שני שדות ברומניה. יש לכם העדפה ביניהם?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] None
+    !! no topic detected — stopping

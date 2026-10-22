@@ -1,0 +1,35 @@
+⟵ אני, אשתי והתינוק שלנו בן שנה לוולנסיה, 12 עד 17 ביוני
+    כיף, ולנסיה עם משפחה זה בחירה מצוינת! יום שבת 12.06.2027–יום חמישי 17.06.2027, שלושה נוסעים. |  | מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1500 שקל לאדם
+    מעולה, 1,500 ש"ח לאדם זה התקציב שנעבוד איתו. |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ עדיף ישירה
+    לגבי זה - אין כרגע טיסה ישירה מאומתת מנתב״ג לולנסיה בתאריכים האלה, אז נבדוק מה באמת זמין בפועל ונעדכן אותך בהתאם. |  | לגבי כבודה - איזו כבודה תצטרכו?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ לי ולאשתי מזוודה, לתינוק מספיק תיק קטן
+    הבנתי, תודה. איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ לי ולאשתי מזוודה, לתינוק מספיק תיק קטן
+    חשוב לציין - בהזמנה אחת אי אפשר לקבוע כבודה שונה לכל נוסע בנפרד; זה דבר שאפשר להתאים אישית רק בשלב התשלום בהמשך. בשלב הזה אני צריכה לבחור סוג כבודה אחיד אחד לכל הקבוצה. |  | רוצה שנבחר כבודה אחידה אחת לכולם כרגע?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] אחידה
+⟵ כן, מזוודה לכולם
+    מעולה, נשמרה מזוודה בבטן המטוס לכל הנוסעים. |  |  זה לגמרי לא חובה, ואם יש משהו, זה יישמר רק לטיול הזה. לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ מסודר
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    הנה סיכום הבקשה שלך: |  | טיסה | יציאה: נתב״ג (TLV) | נחיתה: ולנסיה (VLC), ספרד | המראה בחזרה: ולנסיה (VLC), ספרד | תאריכים: 12.06.2027 – 17.06.2027 | נוסעים: 2 מבוגרים ותינוק | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: מעדיפים טיסה ישירה | תקציב: עד 1,500 ש"ח לאדם |  | תמיד אפשר לחזור ולהוסיף שירותים נוספים גם בהמשך. |  | אם כל הפרטים נכונים, כתוב מאשר.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True

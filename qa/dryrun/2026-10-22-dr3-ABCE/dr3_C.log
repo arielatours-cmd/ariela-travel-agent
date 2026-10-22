@@ -1,0 +1,43 @@
+⟵ אני ואמא שלי לבורדו, 20 עד 25 באפריל
+    נשמע כמו טיול משפחתי נחמד לבורדו עם אמא שלך! הטיסה היא  |  | מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1300 שקל לאחת
+    בסדר גמור, רשמתי תקציב של עד 1,300 ש"ח לאדם. |  | חשוב לך שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא משנה
+    אוקיי. ולגבי כבודה - איזו כבודה תצטרכו?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ לי מזוודה, לאמא מספיק טרולי
+    איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ לי מזוודה, לאמא מספיק טרולי
+    הבנתי את מה שביקשת - אבל חשוב לדעת שההזמנה שלנו היא הזמנה אחת משותפת, ולא ניתן לקבוע כבר עכשיו כבודה שונה לכל נוסעת בנפרד. את זה אפשר להתאים אישית רק בעמוד התשלום בהמשך התהליך. |  | לצורך החיפוש עכשיו, את רוצה שנבחר סוג כבודה אחיד לשתיכן?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] אחידה
+⟵ לא
+    אין בעיה, אז נשמור תיק יד בלבד לכל אחת מכן - תמיד אפשר להוסיף טרולי או מזוודה בבטן המטוס ישירות באתר חברת התעופה בזמן ההזמנה. |  |  זה לא חובה כלל, ואם כן - מה שתכתבי יישמר רק לחופשה הזו. לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ יש לנו
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    אין בעיה, אפשר תמיד לחזור ולבקש עזרה גם עם לינה, השכרת רכב או מסלול ואטרקציות בהמשך. |  | ושאלה אחרונה לפני הסיכום - האם מישהי מכן זקוקה להתאמות נגישות כלשהן בטיול? זה לגמרי לא חובה, ורק אם תרצי לציין משהו - זה יישמר אך ורק לחופשה הזו.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] נגישות
+⟵ כן
+    כדי שאוכל להתאים נכון את הטיסה, הלינה, הרכב והמסלול - מה כדאי שאדע?
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] נגישות
+⟵ אמא שלי עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים
+    תודה ששיתפת - זה חשוב לדעת, ואדאג לקחת בחשבון בתכנון שלך בהמשך, בין אם בבחירת מושבים נוחים בטיסה או בהמלצות על קצב הליכה מתון. אני לא יכולה להבטיח הנגשה ספציפית מול כל ספק, אבל אעשה כמיטבי כדי שהטיול יהיה נוח ככל האפשר. |  | הנה סיכום הבקשה שלך: |  | טיסה לבורדו | יציאה: נתב״ג (TLV) | נחיתה: בורדו (BOD), צרפת | המראה בחזרה: בורדו (BOD), צרפת | תאריכים: 20.04.2027 – 25.04.2027 | נוסעים: 2 מבוגרים | כבודה: תיק יד לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב: 1,300
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True
