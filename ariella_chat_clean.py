@@ -11898,6 +11898,15 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     # keep the pointer on an answered field for their correction flow.)
     if current_question == "accessibility" and "accessibility" in answered:
         current_question = None
+    # Bezalel's root-cause note (22.10): the mixed-baggage yes/no is a
+    # one-time pending commitment - the reply to it must be read as that
+    # answer whatever field the pointer shows (another path, e.g. the
+    # #145 forced-guided retry, can move current_question back to
+    # accessibility while the yes/no is still pending). So a pending
+    # yes/no always makes baggage the live question.
+    if guided.get("mixed_baggage_pending") and _guided_step_covers("baggage", guided_steps):
+        if current_question != "baggage":
+            current_question, attempts = "baggage", 0
     if not current_question:
         # Resolve the live field BEFORE deciding anything else, so the
         # extraction call below always runs against this message too -

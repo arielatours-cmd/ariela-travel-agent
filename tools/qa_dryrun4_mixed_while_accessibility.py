@@ -101,6 +101,20 @@ with patch.object(chat, "_mixed_baggage_uniform_choice_by_meaning", return_value
     r3 = chat._handle_guided_extraction_turn("k", "m", "כן", [], pending, dict(pending), STEPS)
 check("the mixed pending yes/no keeps baggage live even if baggage is listed answered", yn.call_count == 1)
 
+# --- Bezalel's case: the yes/no is pending but the pointer shows accessibility ------------------------------
+stale = c_state({"current_question": "accessibility", "answered": ["dates", "travelers"], "mixed_baggage_pending": True})
+stale["accessibility"] = {}
+with patch.object(chat, "_mixed_baggage_uniform_choice_by_meaning", return_value=False) as yn, \
+        patch.object(chat, "_guided_extract_answer") as ex:
+    r4 = chat._handle_guided_extraction_turn("k", "m", "לא", [], stale, dict(stale), STEPS)
+check("pending yes/no while the pointer shows accessibility (still open): the reply is read as the yes/no",
+      yn.call_count == 1 and ex.call_count == 0)
+check("...hand bag saved, pending cleared, and accessibility (still open) is asked next with its own hint",
+      (r4["trip_update"].get("flight") or {}).get("baggage") == ["personal_item"]
+      and r4["trip_update"]["guided"].get("mixed_baggage_pending") is False
+      and r4["trip_update"]["guided"].get("current_question") == "accessibility"
+      and "נגישות" in (r4.get("dynamic_hint") or ""))
+
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")
 sys.exit(1 if FAILED else 0)
