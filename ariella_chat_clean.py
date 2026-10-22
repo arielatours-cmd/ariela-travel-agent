@@ -5076,14 +5076,30 @@ def _destination_gateway_unresolved_places(state):
     state = state if isinstance(state, dict) else {}
     if state.get("destination_airports"):
         return []
-    if not _guided_baggage_applies(state):
-        # Mirrors _guided_baggage_applies's own gate exactly (flights
-        # actually in requested_services) - a gateway airport is only
-        # ever needed once a flight is actually being searched for.
-        return []
     destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
     places = [str(p).strip() for p in (destination.get("places") or []) if str(p or "").strip()]
     if not places:
+        return []
+    # Dry-run 5, scenario A (Shlomo/Shaked, 22.10.2026, qa-dryrun branch,
+    # qa/dryrun/2026-10-22-dr5-typos/dr5_A.log, Paphos): on the VERY FIRST
+    # turn - destination+dates+travelers all named together - this used to
+    # gate on _guided_baggage_applies (requires "flights" already IN
+    # requested_services). But requested_services only gets "flights"
+    # added by the SAME destination-trip-intent fallback this function's
+    # own caller runs AFTER this point in the pipeline (trip_update's
+    # "A normal trip request to a destination implies Ariella should
+    # handle flights..." block) - so on a turn where the raw extractor
+    # itself didn't also independently set requested_services, this gate
+    # read false on the very turn it most needed to read true, and the
+    # whole guard never fired: destination_airports stayed unresolved all
+    # the way to Tinkerbell's own reply, with no classifier call ever
+    # correcting it. Mirrors that SAME fallback's own condition instead -
+    # a destination was named and flights were never explicitly declined
+    # - which needs nothing computed later in the turn to already exist.
+    decisions = state.get("service_decisions") if isinstance(state.get("service_decisions"), dict) else {}
+    flight_decision = decisions.get("flights")
+    flight_wanted = flight_decision.get("wanted") if isinstance(flight_decision, dict) else flight_decision
+    if flight_wanted is False:
         return []
     airports = _load_airports()
     unresolved = []
@@ -11324,7 +11340,22 @@ def _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_upd
     extraction itself (guided_wrote_baggage - the caller compares baggage
     before/after the guided dispatch) gets this one check. The guided
     extraction already decides mixed_per_passenger itself, so it is never
-    second-guessed."""
+    second-guessed.
+
+    Dry-run 5, scenario B (Shlomo/Shaked, 22.10.2026, Zadar): a SIBLING
+    gap, not the one above - EXTRACTOR_SYSTEM complying CORRECTLY with its
+    own "leave flight.baggage empty for a mixed request" instruction. The
+    opening message named destination+dates+travelers AND described mixed
+    per-passenger needs in the same breath, with "baggage" nowhere near
+    the live guided field yet (accessibility comes first) - nothing wrote
+    anything (correct), but nothing ever flagged the mention either, so it
+    was simply lost; once baggage eventually became the live field, it was
+    asked about completely fresh. A second branch below catches exactly
+    this: flight.baggage genuinely still empty, baggage not yet answered,
+    a cheap keyword+traveler-count pre-filter on the message itself (cost
+    control only, never the decision - the same guided classifier above
+    still makes that call), and mixed_baggage_pending is set proactively,
+    with nothing to revert since nothing was ever saved."""
     if "baggage" not in (guided_steps or ()) or guided_wrote_baggage:
         return trip_update
     statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
@@ -11340,21 +11371,58 @@ def _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_upd
     prior = prior if isinstance(prior, list) else []
     now = (trip_update.get("flight") or {}).get("baggage") if isinstance(trip_update.get("flight"), dict) else None
     now = now if isinstance(now, list) else []
-    if not now or sorted(map(str, now)) == sorted(map(str, prior)):
+    if now and sorted(map(str, now)) != sorted(map(str, prior)):
+        result = _guided_extract_answer(key, model, "baggage", message, history, trip_update, guided_steps)
+        if not (isinstance(result, dict) and result.get("mixed_per_passenger")):
+            return trip_update
+        trip_update = dict(trip_update)
+        trip_update["flight"] = dict(trip_update.get("flight") or {}, baggage=list(prior))
+        guided = dict(guided)
+        guided["mixed_baggage_pending"] = True
+        guided["current_question"], guided["attempts"] = "baggage", 0
+        guided["answered"] = [f for f in (guided.get("answered") or []) if f != "baggage"]
+        trip_update["guided"] = guided
+        trip_update["_guided_ask_hint"] = _mixed_baggage_payment_time_hint()
+        trip_update.pop("_baggage_note_hint", None)
+        record_diagnostic_event("mixed_baggage_safety_net", {"reverted_types": sorted(map(str, now))})
+        return trip_update
+    # Dry-run 5, scenario B (Shlomo/Shaked, 22.10.2026, Zadar, qa-dryrun
+    # branch): the opening message named destination+dates+travelers AND
+    # already described mixed per-passenger baggage needs in the same
+    # breath ("לי מספיק טרולי, לשתיים האחרות מזוודה") - EXTRACTOR_SYSTEM's
+    # own instruction correctly left flight.baggage empty for a mixed
+    # request (the branch above only ever catches the OPPOSITE compliance
+    # failure, where it wrongly wrote something). But with "baggage" not
+    # yet the live guided field this turn (accessibility still comes
+    # first), nothing else ever looked at this message for baggage
+    # meaning at all - the mention was simply lost, and once baggage
+    # finally became the live field on some later turn, it was asked
+    # about completely fresh, as if the customer had never mentioned it.
+    # A cheap keyword+traveler-count pre-filter (cost control, not a
+    # phrase-list decision - the model still decides) before the SAME
+    # guided baggage classifier already used above, checked proactively
+    # even though baggage isn't live yet, so mixed_baggage_pending is set
+    # the moment it's genuinely mentioned, not only once asked about.
+    if now or "baggage" in (guided.get("answered") or []):
+        return trip_update
+    msg_text = str(message or "")
+    if not any(w in msg_text for w in ("כבודה", "טרולי", "מזוודה", "תיק")):
+        return trip_update
+    travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
+    try:
+        traveler_total = int(travelers.get("adults") or 0) + int(travelers.get("children") or 0)
+    except (TypeError, ValueError):
+        traveler_total = 0
+    if traveler_total < 2:
         return trip_update
     result = _guided_extract_answer(key, model, "baggage", message, history, trip_update, guided_steps)
     if not (isinstance(result, dict) and result.get("mixed_per_passenger")):
         return trip_update
     trip_update = dict(trip_update)
-    trip_update["flight"] = dict(trip_update.get("flight") or {}, baggage=list(prior))
     guided = dict(guided)
     guided["mixed_baggage_pending"] = True
-    guided["current_question"], guided["attempts"] = "baggage", 0
-    guided["answered"] = [f for f in (guided.get("answered") or []) if f != "baggage"]
     trip_update["guided"] = guided
-    trip_update["_guided_ask_hint"] = _mixed_baggage_payment_time_hint()
-    trip_update.pop("_baggage_note_hint", None)
-    record_diagnostic_event("mixed_baggage_safety_net", {"reverted_types": sorted(map(str, now))})
+    record_diagnostic_event("mixed_baggage_safety_net", {"first_mention_before_live": True})
     return trip_update
 
 
@@ -15784,6 +15852,18 @@ def _chat_clean_impl():
         _now_budget = trip_update.get("budget_per_person") if isinstance(trip_update.get("budget_per_person"), dict) else {}
         if _now_budget.get("amount") and not _prior_budget.get("amount"):
             _just_given.append("התקציב")
+        # Dry-run 5, scenario B (Shlomo/Shaked, 22.10.2026, Zadar): once
+        # _destination_gateway_answer_by_meaning verifies a gateway code
+        # against the real catalog this exact turn, nothing left it
+        # uncertain - yet Tinkerbell's own free text still asked "רוצה
+        # לוודא איתך - שדה התעופה הוא זדאר (ZAD)?", an unneeded
+        # confirmation of a fact already fully verified (not merely
+        # claimed). Same fix as budget's own first-time-given case: tell
+        # her explicitly this turn that it was just settled, so she states
+        # it as fact rather than re-asking what the catalog already
+        # confirmed.
+        if not (trip_state.get("destination_airports") or []) and (trip_update.get("destination_airports") or []):
+            _just_given.append("שדה התעופה ליעד (כבר אומת מול הקטלוג - אין צורך לשאול שוב או לבקש אישור עליו)")
         if _just_given:
             trip_update["_just_given_hint"] = (
                 "הלקוח מסר עכשיו לראשונה, בהודעה הזו: " + ", ".join(_just_given) + ". אשרי בקצרה שזה נקלט עכשיו - "

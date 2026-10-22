@@ -166,19 +166,43 @@ check("first mention with NO history at all (empty conversation) - the "
       result.get("destination_airports") == ["SZG"] and len(calls) == 1)
 
 # =====================================================================
-# Scenario ('E'-shape): destination genuinely resolved some other way this
-# turn (e.g. a route got approved) - _destination_gateway_unresolved_places
-# itself returns empty, so the call must not fire.
+# Dry-run 5, scenario A (Shlomo/Shaked, 22.10.2026, Paphos): the gate used
+# to require "flights" already IN requested_services - but on the VERY
+# FIRST turn (destination+dates+travelers all named together), that list
+# only gets "flights" added by the destination-trip-intent fallback the
+# caller runs AFTER this classifier, so the gate read false exactly when
+# it most needed to read true and the guard never fired at all - the live
+# bug (destination_airports stayed unresolved, Tinkerbell claimed "no
+# commercial airport"). Fixed: mirrors that same fallback's own condition
+# (a destination was named and flights were never explicitly declined),
+# which needs nothing computed later in the turn to already exist - so an
+# EMPTY requested_services alone, with no explicit decline either, must
+# still fire.
 # =====================================================================
 calls = []
-state_no_flights = dict(BASE_STATE, requested_services=[], service_decisions={})
+state_requested_services_not_yet_set = dict(BASE_STATE, requested_services=[], service_decisions={})
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
     result = chat._destination_gateway_answer_by_meaning(
         "זלצבורג מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        state_no_flights,
+        state_requested_services_not_yet_set,
     )
-check("flights not even requested (nothing to resolve): the call never fires",
+check("dry-run 5 fix: requested_services still empty (not yet set by the later fallback) - the call still fires",
+      result.get("destination_airports") == ["SZG"] and len(calls) == 1)
+
+# =====================================================================
+# Scenario ('E'-shape): flights genuinely, explicitly declined this trip -
+# the only real signal that nothing should be resolved here at all.
+# =====================================================================
+calls = []
+state_flights_declined = dict(BASE_STATE, requested_services=[], service_decisions={"flights": {"wanted": False}})
+with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
+    result = chat._destination_gateway_answer_by_meaning(
+        "זלצבורג מתאים לנו",
+        [{"role": "assistant", "content": GATEWAY_REPLY}],
+        state_flights_declined,
+    )
+check("flights explicitly declined (nothing to resolve): the call never fires",
       len(calls) == 0)
 
 # =====================================================================
