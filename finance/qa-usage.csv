@@ -9,3 +9,4 @@ date,run,type,turns,calls,est_usd,source,notes
 2026-10-22,dry-run-4,dry (ARIELA-QA),54,181,2.17,שקד (usage.txt),"סה''כ יבשות היום: 187 סבבים/634 קריאות ≈$7.45"
 2026-10-22,dry-run-5 (partial),dry (ARIELA-QA),,,,שקד,"נעצרה בגלל באג בסקריפט; usage.txt לא נוצר, ולכן אין מספר קריאות"
 2026-10-22,dry-run-5b,dry (ARIELA-QA),52,202,2.27,שקד (usage.txt),"70 תשובות/40 classifier/השאר extractor; קלט 431,401, פלט 52,402, cache read 3,085,338, cache write 106,356 → $2.27 (‏$0.044 לסבב); ה-classifier העלה ל-3.9 קריאות לסבב (היה 3.4); סה''כ יבשות היום: 239 סבבים/836 קריאות ≈$9.72 + הרצה 5"
+2026-10-22,dry-run-5c,dry (ARIELA-QA),49,209,2.27,שקד (usage.txt),"22:15–22:30 UTC; 66 תשובות/44 classifier/השאר extractor; קלט 416,659, פלט 53,696, cache read 2,944,428, cache write 123,825 → $2.27 (‏$0.046 לסבב, 4.3 קריאות לסבב); סה''כ יבשות היום: ~288 סבבים/1,045 קריאות ≈$12.0"
