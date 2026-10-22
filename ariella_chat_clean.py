@@ -14125,13 +14125,38 @@ def _chat_clean_impl():
                             # of what this guard decides here. The merged
                             # value must be rolled back to what it was
                             # before this turn, not just left unused.
-                            decisions[service] = prior_decisions.get(service)
+                            if service in prior_decisions:
+                                decisions[service] = prior_decisions.get(service)
+                            else:
+                                decisions.pop(service, None)
                             continue
                     services.discard(service)
                     statuses[service] = "declined"
             trip_update["requested_services"] = list(services)
             trip_update["service_decisions"] = decisions
             trip_update["session_status"] = statuses
+        # Run-11 B (Valencia, 22.10): "לא" to "continue to a daily route?"
+        # also left lodging "declined" (never asked). The guard above only
+        # rolls back an unproven service_decisions wanted=false - an
+        # extractor writing session_status "declined" directly went straight
+        # through _merge_trip_state. A domain that was pending/unset becomes
+        # declined only together with a decline decision for it
+        # (service_decisions wanted=false, which every real decline path
+        # writes); otherwise it keeps its prior status.
+        _statuses_now = dict(trip_update.get("session_status") or {})
+        _decisions_now = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
+        _prior_statuses_for_guard = trip_state.get("session_status") if isinstance(trip_state.get("session_status"), dict) else {}
+        _reverted_declines = []
+        for _svc in ("lodging", "car", "trip_planning"):
+            _d = _decisions_now.get(_svc)
+            _declined_by_decision = (_d.get("wanted") if isinstance(_d, dict) else _d) is False
+            if (_statuses_now.get(_svc) == "declined" and _prior_statuses_for_guard.get(_svc) in (None, "pending")
+                    and not _declined_by_decision):
+                _statuses_now[_svc] = _prior_statuses_for_guard.get(_svc) or "pending"
+                _reverted_declines.append(_svc)
+        if _reverted_declines:
+            trip_update["session_status"] = _statuses_now
+            record_diagnostic_event("unexplained_status_decline_reverted", {"services": _reverted_declines})
         # Safety net for a short decline ("לא"/"גם לא כרגע" etc.) to Ariella's
         # own previous lodging/car question. Applied the same way as the
         # extractor's own decisions above so it authoritatively overrides a

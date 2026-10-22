@@ -23,6 +23,7 @@ _context: contextvars.ContextVar[dict] = contextvars.ContextVar("ai_usage_contex
 DIAGNOSTIC_EVENT_SOURCES = (
     "restart_signal", "guided_redirect", "dates_change", "destination_change",
     "customer_scan_worker_error", "trip_type_ski_claim", "dates_pipeline",
+    "mixed_baggage_safety_net", "unexplained_status_decline_reverted",
 )
 _NON_USAGE_SOURCES = ("turn_total",) + DIAGNOSTIC_EVENT_SOURCES
 
