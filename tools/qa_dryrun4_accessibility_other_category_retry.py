@@ -176,9 +176,10 @@ check(
     "accessibility" in (tu5.get("guided") or {}).get("answered", []),
 )
 check(
-    "regression: needs=['other'] is still saved even though details has nothing to show",
+    "dr5c fix (previously a gap - see qa_dryrun5c_prv18_medical_privacy.py): needs=['other'] is "
+    "saved, and details now falls back to the generic phrase instead of staying empty",
     (tu5.get("accessibility") or {}).get("needs") == ["other"]
-    and not (tu5.get("accessibility") or {}).get("details"),
+    and (tu5.get("accessibility") or {}).get("details") == chat._ACCESSIBILITY_DETAIL_PHRASES_HE["other"],
 )
 
 # Regression: the exact live example sentence, now correctly classified by
