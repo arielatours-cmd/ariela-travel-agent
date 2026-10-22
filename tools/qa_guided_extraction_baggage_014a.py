@@ -115,8 +115,8 @@ def _fake_post_claude_factory(guided_response):
 # =====================================================================
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
 import config as _config
-check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+baggage+lodging",
-      chat._guided_extraction_steps() == {"dates", "travelers", "baggage", "lodging"})
+check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+accessibility+baggage+lodging",
+      chat._guided_extraction_steps() == {"dates", "travelers", "accessibility", "baggage", "lodging"})
 
 # =====================================================================
 # Flag off (kill switch) / baggage not requested at all -> complete no-op,

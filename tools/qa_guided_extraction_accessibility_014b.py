@@ -10,11 +10,19 @@ wording:
    herself, in her own main reply call (mocked here as "תשובה לדוגמה."
    throughout - this suite tests the STATE/HINT contract).
 2. No quick-reply buttons anywhere, ever - including the yes/no itself.
-3. Three legal/product constraints ride along on every accessibility hint:
-   one yes/no question, non-medical illustrative examples only, and the
-   code must never ask "why" or "what condition" (Dan, via Ofek).
+3. Legal/product constraints ride along on every accessibility hint: one
+   yes/no question, the code must never ask "why" or "what condition"
+   (Dan, via Ofek). REVISED by the business owner (22.10.2026): the
+   yes/no question itself must name NO example at all (not even a
+   non-medical one like a stroller or wheelchair) - only the open
+   follow-up, asked after "yes", may still illustrate the kind of thing
+   that helps. The yes/no hint must also carry Dan's PRV-17 disclosure
+   woven in: answering is optional, and the answer is kept only for that
+   trip.
 4. Dan's corrected privacy-policy wording (not "never saved to your
-   account" - the precise sentence he approved).
+   account" - the precise sentence he approved), extended 22.10.2026 to
+   name the services it affects (flight/lodging/car/plan) and state it is
+   used for no other purpose.
 
 Builds on 014a's same flag, `guided` state field and extraction method
 (model-based JSON, never a regex phrase list).
@@ -257,8 +265,24 @@ check("no-buttons rule: open-detail hint never contains '['",
       "[" not in chat._accessibility_ask_hint(True, 0) and "[" not in chat._accessibility_ask_hint(True, 1))
 check("legal rule: the hint explicitly forbids asking why/what medical condition",
       "למה" in chat._accessibility_ask_hint(False, 0) and "מצב רפואי" in chat._accessibility_ask_hint(False, 0))
-check("legal rule: illustrative examples in the hint are non-medical (stroller/wheelchair/mobility)",
-      "עגלת תינוק" in chat._accessibility_ask_hint(False, 0) and "כיסא גלגלים" in chat._accessibility_ask_hint(False, 0))
+# REVISED (22.10.2026, business owner's explicit decision): the yes/no
+# question itself must name NO example at all, not even a non-medical one -
+# unlike every earlier version of this hint, which positively suggested
+# "עגלת תינוק"/"כיסא גלגלים" as illustrative options.
+check("legal rule (22.10 revision): the yes/no hint explicitly forbids "
+      "naming ANY example at all, never suggests one affirmatively",
+      "בלי למנות שום דוגמה" in chat._accessibility_ask_hint(False, 0)
+      and "שאלי שאלת כן/לא" in chat._accessibility_ask_hint(False, 0))
+check("legal rule (22.10 revision): the yes/no hint carries Dan's PRV-17 "
+      "disclosure - optional, kept only for this trip",
+      "לא חובה" in chat._accessibility_ask_hint(False, 0)
+      and "יישמר רק לחופשה הזו" in chat._accessibility_ask_hint(False, 0))
+check("the open follow-up (after 'yes') asks what would help across "
+      "flight/lodging/car/itinerary, never just a vague 'the trip'",
+      "הטיסה" in chat._accessibility_ask_hint(True, 0)
+      and "הלינה" in chat._accessibility_ask_hint(True, 0)
+      and "הרכב" in chat._accessibility_ask_hint(True, 0)
+      and "המסלול" in chat._accessibility_ask_hint(True, 0))
 
 # --- 7b. (Shaked, 2026-10-17, regression against 8a58d4e, same root cause
 #     as #75) Model call fails on the very FIRST turn, on a message
@@ -302,7 +326,9 @@ check("service hint is empty when needed is not True",
 check("service hint is empty with no accessibility state at all",
       chat._accessibility_hint_text({"active_session": "lodging"}) == "")
 
-# --- 9. privacy policy copy (Dan's corrected wording, spec section 6) ---
+# --- 9. privacy policy copy (Dan's corrected wording, spec section 6,
+#     extended 22.10.2026 per the business owner: names the services the
+#     need affects and states it is used for no other purpose) ---
 privacy_src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates", "privacy.html"), encoding="utf-8").read()
 check("privacy policy (Hebrew): Dan's corrected wording is present verbatim",
       "נשמור רק את הצורך המעשי, בלי אבחנה או מצב רפואי" in privacy_src
@@ -312,6 +338,12 @@ check("privacy policy (English): Dan's corrected wording is present verbatim",
       and "not carried over to a future vacation or saved to your profile" in privacy_src)
 check("privacy policy no longer uses the imprecise 'never saved to your account' phrasing Dan flagged",
       "לעולם לא נשמר בחשבון" not in privacy_src)
+check("privacy policy (22.10 revision, Hebrew): names the services the "
+      "need affects and states no other purpose",
+      "טיסה, לינה, רכב ומסלול" in privacy_src and "לא נשתמש בזה לשום מטרה אחרת" in privacy_src)
+check("privacy policy (22.10 revision, English): names the services the "
+      "need affects and states no other purpose",
+      "flight, lodging, car and itinerary" in privacy_src and "do not use it for any other purpose" in privacy_src)
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email LIKE 'qa-014b-%@example.com'")
