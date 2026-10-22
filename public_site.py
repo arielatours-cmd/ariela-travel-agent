@@ -3103,38 +3103,11 @@ def account():
     radar_alerts_by_trip = latest_trip_alerts([t["id"] for t in trips])
     for trip in trips:
         trip["radar_alert"] = radar_alerts_by_trip.get(trip["id"])
-    try:
-        member_travelers = member_profile.list_travelers(member_id)
-    except Exception:
-        logging.exception("member_profile.list_travelers failed member=%s", member_id)
-        member_travelers = []
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
         personal_search_plans=PERSONAL_SEARCH_PLANS,
-        member_travelers=member_travelers,
     )
-
-
-@site.post("/account/travelers/<int:traveler_id>/update")
-@login_required
-def update_member_traveler(traveler_id):
-    """Task 010a: the customer corrects a remembered traveller's age/gender."""
-    if not member_profile.update_traveler(
-        session["member_id"], traveler_id,
-        age=request.form.get("age"), gender=request.form.get("gender"),
-    ):
-        abort(404)
-    return redirect(url_for("site.account") + "#my-profile")
-
-
-@site.post("/account/travelers/<int:traveler_id>/delete")
-@login_required
-def delete_member_traveler(traveler_id):
-    """Task 010a: the customer removes a remembered traveller (soft delete)."""
-    if not member_profile.delete_traveler(session["member_id"], traveler_id):
-        abort(404)
-    return redirect(url_for("site.account") + "#my-profile")
 
 
 
