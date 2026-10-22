@@ -3170,33 +3170,43 @@ def _carry_on_label(detail):
     return f"{count} טרולים"
 
 
+# The three final summary wordings the business owner approved (22.10,
+# relayed by Bezalel; Shaked's QA criteria "final baggage summary lines").
+# One line per booking - a group booking is always one uniform choice
+# (20.10), so it names the highest tier only and never a count or size
+# ("2 מזוודות"/"3 מזוודות" came from the old count-based label).
+_CANONICAL_BAGGAGE_LINES = {
+    "checked_bag": 'כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה)',
+    "carry_on_only": 'כבודה: טרולי 8–10 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה)',
+    "personal_item": 'כבודה: תיק יד לכל נוסע (בהתאם לתנאי חברת התעופה)',
+}
+_BAGGAGE_TIER = {
+    "checked_bag": "checked_bag", "checked": "checked_bag",
+    "carry_on_only": "carry_on_only", "carry_on": "carry_on_only",
+    "personal_item": "personal_item",
+    # "no baggage at all" still flies with the personal item every ticket
+    # includes - the lowest tier, never a made-up "none" line.
+    "none": "personal_item", "no_baggage": "personal_item",
+}
+
+
 def _flight_baggage_line(flight):
-    """The one-line baggage summary fact, or None when nothing is known
-    yet. Factored out of _flight_summary_text so the same exact wording
-    (including the shared-suitcase and self-contradiction overrides) is
-    available to _ensure_flight_summary_completeness."""
+    """The one canonical baggage summary line, built only from state, or
+    None when nothing is known yet. Used by _flight_summary_text, the
+    final-summary fallback and _ensure_flight_summary_completeness (which
+    replaces whatever "כבודה:" line the model wrote with this one).
+
+    Always one of the three approved wordings in _CANONICAL_BAGGAGE_LINES,
+    by the highest tier present (checked > carry-on > hand bag) - no count,
+    no size: baggage_detail is deliberately not used here."""
     flight = flight if isinstance(flight, dict) else {}
     baggage = flight.get("baggage") or []
-    if not baggage:
-        return None
-    baggage_labels = {"carry_on_only": "טרולי בלבד", "checked_bag": "כולל מזוודה בבטן המטוס", "personal_item": "תיק קטן בלבד"}
-    # Per Shaked's stage-2 run-1 finding (Budapest, main 5b46648), extended
-    # 2026-10-17 to carry count/unit, not just shared/not-shared: the
-    # customer's checked-bag phrasing must never default to a flat
-    # per-passenger assumption when they said otherwise.
-    baggage_detail = flight.get("baggage_detail") if isinstance(flight.get("baggage_detail"), dict) else {}
-    if "checked_bag" in baggage and baggage_detail.get("checked_bag"):
-        baggage_labels = dict(baggage_labels, checked_bag=_checked_bag_label(baggage_detail.get("checked_bag")))
-    # Per Shaked's PR #65 review: "carry_on_only" literally means "ONLY a
-    # carry-on, no checked bag" (see the system prompt's own definition),
-    # so once checked_bag is ALSO in the same list, "טרולי בלבד" directly
-    # contradicts the checked_bag label sitting right next to it in the
-    # same sentence ("טרולי בלבד, כולל מזוודה..."). Drop the "בלבד" (only)
-    # framing in exactly that combination - the fact worth stating is that
-    # everyone brings a carry-on too, not that it's the ONLY thing.
-    if "checked_bag" in baggage and "carry_on_only" in baggage:
-        baggage_labels = dict(baggage_labels, carry_on_only="טרולי לכל נוסע")
-    return "כבודה: " + ", ".join(baggage_labels.get(b, b) for b in baggage)
+    baggage = baggage if isinstance(baggage, list) else [baggage]
+    tiers = {_BAGGAGE_TIER.get(str(b)) for b in baggage} - {None}
+    for tier in ("checked_bag", "carry_on_only", "personal_item"):
+        if tier in tiers:
+            return _CANONICAL_BAGGAGE_LINES[tier]
+    return None
 
 
 # Per Shaked's stage-2 run-5 finding (London, 4/5, ba101e4): the customer
