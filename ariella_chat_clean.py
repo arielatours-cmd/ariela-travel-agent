@@ -2951,12 +2951,27 @@ def _required_state_gaps(state):
         # Country/region and flight gateway are separate facts. Broad geographic
         # requests must not silently resolve to an arbitrary airport.
         destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
-        destination_mode = str(destination.get("mode") or "").lower()
-        # A ski gateway always needs the catalog resolution regardless of
-        # how specific the stated destination is (even a named resort still
-        # needs its gateway airports derived from the ski catalog).
         is_ski_trip = str(state.get("trip_type") or "").lower() == "ski"
-        if (is_ski_trip or destination_mode in {"country","region","area","broad"}) and not destination_airports:
+        # Dry-run 4 finding 3 (Shaked/Shlomo, 22.10.2026, Rovinj/Pula): this
+        # used to only fire for a broad destination_mode (country/region/
+        # area/broad) or a ski trip - a SPECIFIC named city/town with no
+        # catalog entry of its own (destination.places non-empty, mode
+        # "specific"/"city") fell through this check entirely whenever the
+        # deterministic catalog resolution elsewhere in the pipeline found
+        # no match, leaving destination_airports silently empty with
+        # NOTHING ever flagging it as unresolved. Seen live: "פולה מתאים
+        # לנו" (Pula suits us) - destination_airports stayed None the whole
+        # conversation, flights still reached session_status "complete",
+        # and the final approval summary went out ("כתבי מאשרת") naming
+        # PUY only in Tinkerbell's own free narrative text, never in a
+        # saved, searchable field. The "destination" gap just above (line
+        # ~2929) already covers "nothing named at all" - once a real place
+        # HAS been named (destination.places non-empty, any mode) but the
+        # airport genuinely never resolved, that is always a real gap, not
+        # only for the broad-geography case the original comment above
+        # describes. Never a request for approval with no field saved to
+        # search on.
+        if (destination.get("places") or []) and not destination_airports:
             gaps.append("destination_airports")
         # Per product owner (Carmit, confirmed explicitly): once the customer
         # genuinely requested trip_planning and its route is approved, more
