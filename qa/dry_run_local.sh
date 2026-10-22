@@ -38,6 +38,13 @@ WT="$(mktemp -d "${TMPDIR:-/tmp}/ariela-dryrun-wt-XXXXXX")"
 SERVER_PID=""
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null || true
+  [ -n "$SERVER_PID" ] && wait "$SERVER_PID" 2>/dev/null || true
+  # Fold the SQLite WAL back into dryrun.db and drop the -wal/-shm side files,
+  # so only dryrun.db is left to publish.
+  if [ -f "$OUT/dryrun.db" ]; then
+    python3 -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("PRAGMA wal_checkpoint(TRUNCATE)"); c.close()' "$OUT/dryrun.db" 2>/dev/null || true
+    rm -f "$OUT/dryrun.db-wal" "$OUT/dryrun.db-shm"
+  fi
   git -C "$REPO" worktree remove --force "$WT" 2>/dev/null || true
 }
 trap cleanup EXIT
