@@ -4794,6 +4794,10 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # She composes the actual question/retry/confirmation herself, in
         # her own voice, with no quick-reply buttons ever.
         continuity += "\n- " + str(state.get("_guided_ask_hint")) + "\n"
+    if state.get("_shift_candidate_hint"):
+        # One-turn hint set in _chat_clean_impl when a shift_days candidate
+        # was created this turn.
+        continuity += "\n- " + str(state.get("_shift_candidate_hint")) + "\n"
     if state.get("_dates_changed_hint"):
         # One-turn hint set in _chat_clean_impl when explicit new dates
         # replaced already-set ones this turn.
@@ -14389,6 +14393,7 @@ def _chat_clean_impl():
         # mechanism (_accept_single_proposed_date_range) the weekday-pair
         # and duration flows already rely on - no new "apply the
         # confirmation" code needed, just feeding it the same shape.
+        trip_update.pop("_shift_candidate_hint", None)
         if prior_dates.get("departure") and prior_dates.get("return"):
             _shift_days = relative_date_hint.get("shift_days") if isinstance(relative_date_hint, dict) else None
             _shift_model_evidence_ok = (
@@ -14438,6 +14443,15 @@ def _chat_clean_impl():
                         "period": f"{_old_dep.strftime('%d.%m.%Y')}–{_old_ret.strftime('%d.%m.%Y')}",
                         "needs_confirmation": True, "candidate_ranges": [_shift_label],
                     })
+                    # Run-10 Genoa, Shlomo's decision (22.10): the confirmation
+                    # stays, but it is the ONLY question - show the shifted
+                    # dates and ask if they fit, never a separate "both the
+                    # departure and the return?" (a shift always moves both).
+                    trip_update["_shift_candidate_hint"] = (
+                        "הלקוח ביקש להזיז את התאריכים, והתאריכים המוזזים כבר חושבו (הזזה תמיד חלה על היציאה ועל "
+                        f"החזרה יחד). הציגי אותם עכשיו עם {_DATE_OPTIONS_PLACEHOLDER} ושאלי אם זה מתאים - זה האישור "
+                        "היחיד. אל תשאלי שאלת ביניים על הכוונה, למשל אם להזיז גם את היציאה וגם את החזרה."
+                    )
                     _dates_pipeline_gates.append({"gate": "shift_days", "outcome": "candidate_created", "source": _shift_gate_source})
                 except ValueError:
                     _dates_pipeline_gates.append({"gate": "shift_days", "outcome": "parse_error_on_apply", "source": _shift_gate_source})

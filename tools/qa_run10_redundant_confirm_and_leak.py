@@ -7,7 +7,10 @@ asked "רק לוודא - חוזרים לתאריכים המקוריים: 09.05�
 factually wrong. Fix: a one-turn hint (_dates_changed_hint), set before the
 reply is written: already saved, don't ask, don't call them original.
 The relative-shift confirmation ("לדחות ביום" -> pending candidate that must
-be confirmed) is a deliberate mechanism and is NOT touched here.
+be confirmed) is a deliberate mechanism and stays. Per Shlomo (22.10) it is
+the ONLY question: a one-turn hint (_shift_candidate_hint) tells the model to
+show the shifted dates with {{DATE_OPTIONS}} and ask if they fit, never a
+separate "גם את היציאה וגם את החזרה?".
 
 Zaragoza: "נראה שהסתפק לי לתת סיכום לפי המצב הנוכחי, כולל ציון שלינה ורכב
 לא נדרשים..." - the model narrating a conflict between two instructions:
@@ -129,6 +132,40 @@ st, dyn = turn("qa-r10-genoa-unverified@example.com", "החברים טסים 9 �
                {"departure": "2027-05-09", "return": "2027-05-13"}, "לא מופיע בהודעה")
 check("unverified evidence: dates not changed, no hint",
       (st.get("dates") or {}).get("departure") == "2027-05-07" and "כבר נשמרו בפועל" not in dyn)
+
+# --- Shift: the confirmation stays, but it shows the shifted dates directly (Shlomo, 22.10) ---
+def fake_shift(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "state_extractor":
+        return json.dumps({"restart_request": False, "restart_evidence": None, "dates_evidence": None,
+                           "destination_evidence": None, "trip_type_evidence": None,
+                           "relative_date_hint": {"shift_days": 1}, "relative_date_hint_evidence": "לדחות ביום",
+                           "trip_update": {}}, ensure_ascii=False)
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "tinkerbell_reply":
+        seen.setdefault("dyn", []).append(system_dynamic)
+        return "{{DATE_OPTIONS}} - מתאים?"
+    return "{}"
+
+
+seen.clear()
+m = _make_member("qa-r10-genoa-shift@example.com")
+database.save_ariella_conversation(m, [
+    {"role": "user", "content": "גנואה, זוג, 7-11 במאי 2027"},
+    {"role": "assistant", "content": "קלטתי. לתכנן גם מסלול?"},
+], json.loads(json.dumps(BASE)))
+with patch.object(chat, "_post_claude", side_effect=fake_shift):
+    whatsapp_bridge.ariella_turn(m, "אפשר לדחות ביום?")
+st = (database.load_ariella_conversation(m) or {}).get("trip_state") or {}
+dyn = "\n".join(seen.get("dyn") or [])
+d = st.get("dates") or {}
+check("shift: still a pending candidate needing confirmation (decision kept)",
+      d.get("needs_confirmation") is True and d.get("departure") == "2027-05-07" and len(d.get("candidate_ranges") or []) == 1)
+check("shift: the hint says show {{DATE_OPTIONS}} and ask if it fits - the only confirmation",
+      "{{DATE_OPTIONS}}" in dyn and "האישור היחיד" in dyn)
+check("shift: the hint forbids the 'both departure and return?' intermediate question", "שאלת ביניים" in dyn)
+st2, dyn2 = turn("qa-r10-genoa-noshift@example.com", "מעולה, נמשיך", None, None)
+check("no shift this turn -> no shift hint", "האישור היחיד" not in dyn2 and "_shift_candidate_hint" not in st2)
 
 # --- The relative-shift confirmation mechanism is untouched -----------------------------------
 src = open(os.path.join(os.path.dirname(__file__), "..", "ariella_chat_clean.py"), encoding="utf-8").read()
