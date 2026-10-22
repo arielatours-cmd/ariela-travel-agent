@@ -4743,15 +4743,22 @@ def _destination_catalog_hint(state):
     airports = _load_airports()
     facts, unknown = [], []
     for place in places:
-        needle = place.casefold()
+        # Task 020a (Shaked, dry-run 2 on #144/#139): this comparison used
+        # to be a plain casefold - "וולנסיה" never matched the catalog's
+        # "ולנסיה" here even after _match_city_exact itself was fixed, so
+        # the redundant "just to confirm - Valencia (VLC)?" question kept
+        # coming back. _normalize_he_spelling on both sides is the same
+        # comparison-only equivalence _match_city_exact already uses.
+        needle = _normalize_he_spelling(place)
+        needle_casefold = place.casefold()
         cities = [a for a in airports
-                  if needle in {str(a.get("city_he") or "").strip().casefold(), str(a.get("city_en") or "").strip().casefold()}
-                  or needle == str(a.get("code") or "").strip().casefold()]
+                  if needle in {_normalize_he_spelling(a.get("city_he")), _normalize_he_spelling(a.get("city_en"))}
+                  or needle_casefold == str(a.get("code") or "").strip().casefold()]
         if cities:
             facts += [f"{a.get('city_he') or a.get('code')} ({a.get('code')}), {a.get('country_he') or ''}".rstrip(", ")
                       for a in cities]
             continue
-        is_country = any(needle in {str(a.get("country_he") or "").strip().casefold(), str(a.get("country_en") or "").strip().casefold()}
+        is_country = any(needle in {_normalize_he_spelling(a.get("country_he")), _normalize_he_spelling(a.get("country_en"))}
                          for a in airports)
         if not is_country:
             unknown.append(place)
@@ -5621,18 +5628,32 @@ def _known_destination_names():
         return _KNOWN_DESTINATION_NAMES_CACHE
     known = {}
     country_needles = set()
+    # Task 020a QA test 7: at load time, warn (never silently auto-pick)
+    # when two DIFFERENT real catalog names (not aliases/islands - those
+    # are expected to collapse onto a canonical city on purpose) would
+    # become indistinguishable under _normalize_he_spelling - a genuine
+    # catalog data problem to flag for Ofek, not something this function
+    # can safely resolve on its own.
+    _he_spelling_collision_check = {}
     for airport in _load_airports():
         for he_key, en_key in (("country_he", "country_en"), ("city_he", "city_en")):
             he = str(airport.get(he_key) or "").strip()
             en = str(airport.get(en_key) or "").strip()
             if he:
                 known[he] = he
+                _he_spelling_collision_check.setdefault(_normalize_he_spelling(he), set()).add(he)
                 if he_key == "country_he":
                     country_needles.add(he)
             if en:
                 known[en.lower()] = en
                 if en_key == "country_en":
                     country_needles.add(en.lower())
+    for _norm, _names in _he_spelling_collision_check.items():
+        if len(_names) > 1:
+            logging.warning(
+                "020a: catalog names normalize to the same Hebrew spelling (%s): %s - not auto-resolved",
+                _norm, sorted(_names),
+            )
     # Ski resorts aren't in the airport catalog at all (they're matched
     # separately in _resolve_ski_destination_airports against SKI_RESORTS),
     # so a resort name alone never counted as a "known destination" here -
@@ -6116,6 +6137,20 @@ def _deterministic_destination_facts(history, message, state=None):
     ]
     known = _known_destination_names()
     country_needles = _known_destination_country_needles()
+    # Task 020a: deliberately NOT extended to this raw-text scan. A trial
+    # version matched each needle via a spelling-variant regex (the
+    # doubled-ו/י quantifier from _he_spelling_variant_regex) directly
+    # against the unnormalized text - caught live by the deterministic-
+    # understanding QA suite: Lyon's own doubled-ו variant of "ליון"
+    # ("ליוון") is letter-for-letter identical to "ל" (to) + "יוון"
+    # (Greece), so "טסה מחיפה ליוון" (flying to Greece) got matched as
+    # Lyon instead. Unlike _match_city_exact (which only ever compares an
+    # already-isolated candidate string), a continuous free-text scan has
+    # no natural place to stop a fuzzy letter expansion from bleeding into
+    # an unrelated following word - this needs a real word-boundary-aware
+    # design (or model-based recognition) before it's safe, not a quick
+    # regex. Flagged to Ofek/Shlomo rather than guessed at here; this scan
+    # stays a plain substring match exactly as before.
     for text in texts:
         text = text.lower()
         candidates = []  # [(start, end, label, is_country), ...]
@@ -7709,6 +7744,41 @@ def _normalize_place_name(name):
     return re.sub(r"[\s\-'׳״\"]", "", str(name or "").strip().lower())
 
 
+# Task 020a (approved by the business owner 22.10.2026, relayed by Shlomo,
+# after dry-run 1's Valencia/וולנסיה live miss - product/dev-tasks/020a-
+# hebrew-spelling-variants.md, ofek branch): comparison-only Hebrew
+# spelling equivalences. Deliberately narrow per the dev task's own scope -
+# ש/ס and א/ע word-initial confusions are explicitly left out until the
+# catalog is checked for collisions first. Never used for anything shown
+# to the customer - every display path still re-fetches the catalog's own
+# official name (see _match_city_exact's own return value: an airport
+# code, never a name).
+_HE_DOUBLING_LETTERS = ("ו", "י")
+_HE_CONFUSABLE_GROUPS = ("טת", "קכך")
+
+
+def _normalize_he_spelling(name):
+    """020a comparison-only normalization, layered on top of
+    _normalize_place_name's existing whitespace/hyphen/quote stripping:
+    collapses a doubled ו/י ("וולנסיה") down to one ("ולנסיה"), and maps
+    each confusable group above to one representative letter (ט/ת -> ת,
+    ק/כ/ך -> כ) so either spelling compares equal. Position-insensitive -
+    for a plain equality compare (_match_city_exact) only. Deliberately
+    NOT used for a continuous free-text scan (_deterministic_destination_
+    facts) - see that function's own comment for why a fuzzy letter
+    expansion is unsafe there (it can bleed into an unrelated adjacent
+    word, e.g. Lyon's own doubled-ו variant colliding with "ל"+"יוון")."""
+    import re
+    s = _normalize_place_name(name)
+    for letter in _HE_DOUBLING_LETTERS:
+        s = re.sub(letter + "{2,}", letter, s)
+    for group in _HE_CONFUSABLE_GROUPS:
+        representative = group[-1]
+        for letter in group[:-1]:
+            s = s.replace(letter, representative)
+    return s
+
+
 def _match_city_exact(name, airports):
     """Exact-match (never substring-contains) a captured city name against
     the airport catalog. Seen live (Shaked): "הרקליון" (Heraklion) silently
@@ -7717,17 +7787,26 @@ def _match_city_exact(name, airports):
     would have searched Lyon, France instead of Heraklion, Crete). A short
     name should never match merely by appearing somewhere inside a longer,
     different city's name. Alternate spellings are handled through the
-    explicit alias table above instead of loosening the match itself."""
-    needle = _normalize_place_name(name)
+    explicit alias table above instead of loosening the match itself.
+
+    Task 020a: _normalize_he_spelling (a strict superset of _normalize_
+    place_name - whitespace/hyphen/quote stripping plus the comparison-
+    only ktiv-male/confusable-letter equivalences) replaces the plain
+    normalize call here, so "וולנסיה" (customer) and "ולנסיה" (catalog)
+    compare equal without ever loosening this function's own exact-match
+    (never substring) guarantee - the Heraklion/Lyon lesson above still
+    holds regardless, since the two normalized strings remain different
+    lengths/letters entirely."""
+    needle = _normalize_he_spelling(name)
     if not needle:
         return None
     candidates = {needle}
-    alias = _CITY_NAME_ALIASES.get(needle)
+    alias = _CITY_NAME_ALIASES.get(_normalize_place_name(name))
     if alias:
-        candidates.add(_normalize_place_name(alias))
+        candidates.add(_normalize_he_spelling(alias))
     for airport in airports:
         for key in ("city_he", "city_en"):
-            hay = _normalize_place_name(airport.get(key))
+            hay = _normalize_he_spelling(airport.get(key))
             if hay and hay in candidates:
                 return str(airport.get("code") or "").upper()
     return None
