@@ -6934,6 +6934,105 @@ def _baggage_answer_by_meaning(message, history, state):
     return {}
 
 
+def _verify_catalog_airport_code(code, city_en):
+    """The business owner's directive (22.10.2026, relayed by Shlomo, on
+    round 12 finding D): stop chasing Hebrew spelling variants/aliases for
+    recognition - recognition (which real-world city/airport is this)
+    belongs to the model's own world knowledge, which already covers it
+    far better than any catalog of hand-maintained aliases ever could; the
+    code's only job is VERIFICATION, never recognition. Given a candidate
+    IATA code and the English city name the model attributed to it,
+    confirm the code genuinely exists in our own airport catalog AND that
+    catalog entry's city_en is really the same city - both must hold, so
+    a right-sounding code attached to the wrong city is never accepted on
+    the code match alone. Returns the verified code (exactly as the
+    catalog spells it) or None - never invents a code, never adjusts a
+    merely-close city name into a match."""
+    code = str(code or "").strip().upper()
+    city_en = str(city_en or "").strip()
+    if not code or not city_en:
+        return None
+    for airport in _load_airports():
+        if str(airport.get("code") or "").strip().upper() != code:
+            continue
+        catalog_city_en = str(airport.get("city_en") or "").strip()
+        if catalog_city_en and catalog_city_en.casefold() == city_en.casefold():
+            return str(airport.get("code") or "").strip().upper()
+        return None
+    return None
+
+
+def _destination_gateway_answer_by_meaning(message, history, state):
+    """Mirrors _budget_answer_by_meaning/_baggage_answer_by_meaning's exact
+    pattern. Round 12 finding D (Shaked/Shlomo, 22.10.2026, Hallstatt/
+    Salzburg): the customer volunteered a real, catalogued city name
+    ("זלצבורג מתאים לנו") answering the OPEN gateway question
+    (_destination_gateway_question_hint, which per its own rule never
+    proposes a specific candidate - a genuinely open question, not a
+    confirm-or-reject one) - but the raw extractor, busy with the dates
+    question asked in the very same breath, never wrote destination_
+    airports. EXTRACTOR_SYSTEM's own instruction to capture this is the
+    ONLY mechanism today, with no deterministic backstop at all - the same
+    "a fact stated while another question is in focus gets dropped"
+    failure class as the mixed-baggage guard (dry-run 4 finding 1), just
+    with no guard whatsoever behind it rather than one with a wrong
+    condition.
+
+    Fixed the same way those siblings are: when destination_airports is
+    still genuinely unresolved AND the last thing Ariella actually asked
+    was this exact open gateway question (checked the same way _budget_
+    answer_by_meaning/_baggage_answer_by_meaning gate on their own
+    question's topic words), a single dedicated classifier call runs.
+
+    Per the business owner's directive (22.10.2026): recognition (which
+    real city/airport the customer means, even from "פפוס" or "פולה")
+    belongs to the model's own world knowledge, not a hand-maintained
+    Hebrew alias/spelling table - the call asks the model directly for
+    the English city name AND the IATA code it believes answers the
+    customer's message, never a raw Hebrew name to feed into fuzzy
+    catalog matching. The code's own job is verification only
+    (_verify_catalog_airport_code): the candidate code must genuinely
+    exist in our catalog AND that entry's city_en must really be the same
+    city - only then is destination_airports written, in the catalog's
+    own verified spelling/code, never the model's claim taken on faith.
+    No match (an uncatalogued place, or the model unsure) writes nothing,
+    and the open question stays open exactly as today, never a guess."""
+    destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
+    if destination_airports:
+        return {}
+    if not _destination_gateway_unresolved_places(state):
+        return {}
+    last_assistant = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and x.get("role") == "assistant"), "")
+    if not any(w in last_assistant for w in ("שדה תעופה", "לנחות", "להמריא")):
+        return {}
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return {}
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    prompt = (
+        "הסוכנת שאלה את הלקוח שאלה פתוחה על שדה התעופה/העיר הקרובים ביותר ליעד שלו לנחיתה והמראה "
+        "(בלי להציע שם ספציפי בשאלה עצמה). קראי את תשובת הלקוח, גם אם היא עונה גם על שאלה אחרת "
+        "באותה הודעה, וזהי לפי הידע הכללי שלך על העולם האמיתי (גם אם הלקוח כתב בעברית, בכתיב חלקי "
+        "או לא מדויק) איזו עיר/שדה תעופה אמיתיים הוא מתכוון אליהם. החזירי JSON בלבד: "
+        "{\"city_en\": \"<שם העיר באנגלית, כפי שמוכרת בעולם האמיתי>\", \"iata_code\": \"<קוד ה-IATA "
+        "של שדה התעופה הקרוב ביותר לעיר הזו>\"} אם הלקוח ציין שם מקום כלשהו לנחיתה/המראה, או "
+        "{\"city_en\": null, \"iata_code\": null} אם התשובה לא עונה על שאלת שדה התעופה בכלל, או אם "
+        "אינך בטוחה איזו עיר/שדה הכוונה. לעולם אל תנחשי בספק - רק אם את בטוחה."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "שאלת הסוכנת: " + last_assistant[-500:] + "\nתשובת הלקוח: " + str(message or ""), 60, include_history=False, source="classifier")
+        raw = raw.strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return {}
+    verified_code = _verify_catalog_airport_code(data.get("iata_code"), data.get("city_en"))
+    if not verified_code:
+        return {}
+    return {"destination_airports": [verified_code]}
+
+
 def _itinerary_acceptance_by_meaning(message):
     """Mirrors _budget_answer_by_meaning's exact pattern. Seen live
     (Shaked, qa-s82, Cyprus): "יפה מאוד, מאשרים את המסלול" is an
@@ -15210,6 +15309,7 @@ def _chat_clean_impl():
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
+        trip_update = _merge_trip_state(trip_update, _destination_gateway_answer_by_meaning(message, history, trip_update))
         # zd9 (Shaked, run-9, Bilbao): neither general baggage path may run
         # at all while guided.mixed_baggage_pending is set at this turn's
         # start - this turn's message answers the yes/no meta-question
