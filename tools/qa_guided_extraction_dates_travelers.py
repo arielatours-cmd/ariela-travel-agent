@@ -100,8 +100,8 @@ def _fake_post_claude_factory(guided_response):
 # =====================================================================
 os.environ.pop("GUIDED_EXTRACTION_STEPS", None)
 import config as _config
-check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+baggage+lodging",
-      chat._guided_extraction_steps() == {"dates", "travelers", "baggage", "lodging"})
+check("code-level default (config.GUIDED_EXTRACTION_STEPS_DEFAULT) covers dates+travelers+accessibility+baggage+lodging",
+      chat._guided_extraction_steps() == {"dates", "travelers", "accessibility", "baggage", "lodging"})
 check("the Render env var, when actually set, overrides the code default (empty = kill switch)",
       (lambda: (os.environ.__setitem__("GUIDED_EXTRACTION_STEPS", ""), chat._guided_extraction_steps() == set(), os.environ.pop("GUIDED_EXTRACTION_STEPS", None))[1])())
 
@@ -197,8 +197,12 @@ check("scenario 1: the hint describes travelers, not a fixed question",
 check("scenario 1: the reply is Tinkerbell's own (mocked) text, never a dict-literal question",
       r1.get("reply") == "תשובה לדוגמה.")
 
-# --- 2. "באמצע נובמבר, בערך שבוע" -> low confidence, confirm hint, no
-#     invented exact date ---
+# --- 2. "באמצע נובמבר, בערך שבוע" -> low confidence, no invented exact
+#     date. Per Bezalel's task 2 (22.10, the business owner's "no redundant
+#     confirmations"): a clear period with no exact days is NOT confirmed
+#     back ("מתכוונת לאמצע נובמבר?") - no hint, the question stays open,
+#     and the date-options flow shows the concrete options instead. (Was:
+#     "a confirm hint is set" - the 014a "answered + low" row.) ---
 member2 = _make_member("qa-guided-s2@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "departure": None, "return": None, "nights": None,
@@ -211,9 +215,10 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu2 = r2.get("trip_update") or {}
 check("scenario 2: low confidence -> no exact departure/return invented",
       not (tu2.get("dates") or {}).get("departure") and not (tu2.get("dates") or {}).get("return"))
-check("scenario 2: a confirm hint is set, question stays open",
-      "ודא" in str(tu2.get("_guided_ask_hint") or "") and (tu2.get("guided") or {}).get("current_question") == "dates")
-check("scenario 2: confirm hint never offers buttons",
+check("scenario 2: no redundant confirm hint for a clear period, question stays open",
+      "ודא" not in str(tu2.get("_guided_ask_hint") or "") and (tu2.get("guided") or {}).get("current_question") == "dates")
+check("scenario 2: the period itself is saved", (tu2.get("dates") or {}).get("period") == "אמצע נובמבר")
+check("scenario 2: no hint offers buttons",
       "[" not in str(tu2.get("_guided_ask_hint") or ""))
 
 # --- 3. "14-16 במרץ" -> 2 nights (regression: a previously-fixed bug in

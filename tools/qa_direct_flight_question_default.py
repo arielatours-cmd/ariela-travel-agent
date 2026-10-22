@@ -211,8 +211,8 @@ check("the summary line for the sentinel reads as an honest fact about "
       chat._flight_connection_line({"connection_preference": "no_direct_route"}) == "טיסה עם עצירה (אין טיסה ישירה ליעד)")
 check("regression: 'direct' and 'אין העדפה' still render exactly as "
       "before - the new sentinel check never shadows them",
-      chat._flight_connection_line({"connection_preference": "direct"}) == "טיסה ישירה בלבד"
-      and chat._flight_connection_line({"connection_preference": "אין העדפה"}) == "ישירה או עם קונקשן")
+      chat._flight_connection_line({"connection_preference": "direct"}) == "מעדיפים טיסה ישירה"
+      and chat._flight_connection_line({"connection_preference": "אין העדפה"}) == "אין העדפה לטיסה ישירה")  # the prompt's own summary wording (22.10)
 
 # =====================================================================
 # 5. _direct_route_hint_text - all four branches, highest-priority first.

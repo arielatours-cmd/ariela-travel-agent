@@ -343,7 +343,7 @@ MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 # merges regardless, so there is no live-site exposure risk in defaulting
 # it on immediately - requiring a separate Render env var first would need
 # the business owner herself, for no added safety.
-GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers,baggage,lodging"
+GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers,accessibility,baggage,lodging"
 
 # Deployment helpers materialize source changes during the build. Importing those
 # mutation scripts at application startup made a second process try to patch the

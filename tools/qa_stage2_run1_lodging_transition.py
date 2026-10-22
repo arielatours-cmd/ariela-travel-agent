@@ -481,17 +481,18 @@ with sqlite3.connect(DB) as conn:
 #    that combination. --
 
 _COMBINED_STATE = {"flight": {"baggage": ["carry_on_only", "checked_bag"], "baggage_detail": {"checked_bag": {"count": 2}}}}
+# _flight_summary_text now uses the canonical approved line (Bezalel's task
+# 3, 22.10): one uniform line by the highest tier - still never the
+# self-contradicting "טרולי בלבד" next to a suitcase.
 check("Shaked's exact self-contradiction repro (_flight_summary_text): "
-      "carry_on_only reads 'לכל נוסע', never 'בלבד', once checked_bag is "
-      "also in the list",
-      "טרולי לכל נוסע" in chat._flight_summary_text(_COMBINED_STATE)
+      "carry_on + checked -> the one canonical suitcase line, never 'טרולי בלבד'",
+      'כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה)' in chat._flight_summary_text(_COMBINED_STATE)
       and "טרולי בלבד" not in chat._flight_summary_text(_COMBINED_STATE))
 check("the same fix applies to _baggage_summary (car-session context)",
       "טרולי לכל נוסע" in chat._baggage_summary(_COMBINED_STATE)
       and "טרולי בלבד" not in chat._baggage_summary(_COMBINED_STATE))
-check("regression: carry_on_only ALONE (no checked_bag) still reads "
-      "'בלבד' - the fix only applies to the combined case",
-      "טרולי בלבד" in chat._flight_summary_text({"flight": {"baggage": ["carry_on_only"]}}))
+check("regression: carry_on_only ALONE -> the canonical trolley line",
+      'כבודה: טרולי 8–10 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה)' in chat._flight_summary_text({"flight": {"baggage": ["carry_on_only"]}}))
 
 # -- Non-blocking item fixed anyway (same new function): a PARTIAL lodging
 #    arrangement ("כבר יש לנו איפה לישון בלילה הראשון, צריך לשאר הלילות")
