@@ -3259,6 +3259,32 @@ def _flight_summary_text(state):
     return "סיכום בקשת הטיסה:\n" + "\n".join(lines) + "\n\n" + approval_line
 
 
+_AVAILABILITY_HEDGE_RES = (
+    # "(בכפוף לזמינות בפועל בחיפוש)" / "(בהתאם לזמינות)" - the whole parenthetical
+    re.compile(r"\s*\([^()\n]*?(?:בכפוף|בהתאם|כפוף)\s+לזמינות[^()\n]*\)"),
+    # ", בכפוף לזמינות בפועל בחיפוש" / " - בהתאם לזמינות" - up to the end of the clause
+    re.compile(r"\s*[,–-]?\s*(?:בכפוף|בהתאם|כפוף)\s+לזמינות(?:\s+בפועל)?(?:\s+(?:בחיפוש|בטיסות|באתר))?(?=[.,;:!?\n)]|$)"),
+)
+
+
+def _strip_summary_availability_hedges(reply):
+    """Stage-1 run-8 (Shaked, Santorini): "מעדיפים טיסה ישירה (בכפוף לזמינות
+    בפועל בחיפוש)". The system prompt already forbids hedging a summary fact
+    with availability ("לא 'ישירה, בהתאם לזמינות בפועל'"), and the business
+    owner approved dropping it (22.10) - availability is the search's job,
+    not a condition on what the customer asked for. A probabilistic model
+    can still add it, so it is removed here, without touching the fact.
+    Only in a summary (the approval request, or an updated "סיכום" shown
+    after a change, which may not repeat the approval request) - never in
+    ordinary conversation."""
+    text = str(reply or "")
+    if not any(p in text for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת", "סיכום")):
+        return reply
+    for pattern in _AVAILABILITY_HEDGE_RES:
+        text = pattern.sub("", text)
+    return text
+
+
 def _ensure_flight_summary_completeness(reply, state):
     """Deterministic safety net, same philosophy as the other helpers in
     this file: Tinkerbell's own final "כתבי מאשרת" summary is free text,
@@ -3352,6 +3378,7 @@ def _ensure_flight_summary_completeness(reply, state):
         kept = [(s, term) for s, term in sentences if "אין העדפה לטיסה ישירה" not in s]
         if len(kept) != len(sentences):
             text = "".join(s for s, _t in kept)
+
 
     # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin,
     # exact transcript): "אני ואמא מסתדרות עם תיק קטן, לאחיין צריך
@@ -4866,6 +4893,7 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
     reply = _ensure_flight_summary_completeness(reply, state)
+    reply = _strip_summary_availability_hedges(reply)
     reply = _strip_unconfirmed_airports(reply, state)
     # Captured BEFORE substitution (Timișoara, run-9): once _render_date_
     # placeholders runs, the placeholder itself is gone from the text
