@@ -3083,8 +3083,6 @@ def account():
             dedicated = {
                 "OTP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bucharest%2C_Romania_%28Unsplash%29.jpg",
                 "ZRH": "https://images.unsplash.com/photo-1527668752968-14dc70a27c95?auto=format&fit=crop&w=900&q=82",
-                "OTP": "https://cdn.xplorer.co.il/xImages/site/image%2859%29.jpeg",
-                "KRK": "https://plikimpi.krakow.pl/zalacznik/563964/4.jpg",
                 "LCA": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=82",
                 "ATH": "https://images.unsplash.com/photo-1555993539-1732b0258235?auto=format&fit=crop&w=900&q=82",
             }

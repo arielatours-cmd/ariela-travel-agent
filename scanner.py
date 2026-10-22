@@ -12,7 +12,7 @@ from config import (
     MAX_SEARCHES_PER_SCAN, CUSTOMER_SCAN_MAX_API_REQUESTS, SERPAPI_API_KEY, TRIP_LENGTHS_DAYS,
     DB_PATH, MONTHLY_SCAN_REUSE_HOURS, WIDE_SCAN_DESTINATION_LIMIT,
 )
-from database import (create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference,
+from database import (GENERIC_DESTINATION_IMAGE, create_scan_run, finish_scan_run, get_setting, insert_offer, price_history_reference,
     set_setting, latest_scan_cycle_index, update_scan_progress, clear_scan_stop, scan_stop_requested,
     ranked_destinations, destination_trends_are_stale, save_destination_trends, record_route_availability)
 from scoring import calculate_deal_score
@@ -807,9 +807,11 @@ def search_hotels(query: str, checkin_date: str, checkout_date: str, adults: int
         rate = prop.get("rate_per_night") or {}
         total = prop.get("total_rate") or {}
         images = prop.get("images") or []
+        # Din (22.10): no provider "original_image" fallback - the general
+        # image instead.
         thumbnail = None
         if images and isinstance(images[0], dict):
-            thumbnail = images[0].get("thumbnail") or images[0].get("original_image")
+            thumbnail = images[0].get("thumbnail") or GENERIC_DESTINATION_IMAGE
         hotel_class = prop.get("hotel_class")
         try:
             hotel_class_num = int(str(hotel_class).strip()[:1]) if hotel_class not in (None, "") else None
