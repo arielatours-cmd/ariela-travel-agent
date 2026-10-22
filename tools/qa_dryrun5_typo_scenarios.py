@@ -134,9 +134,24 @@ check(
     "finding B repro: nothing is saved to flight.baggage (nothing to revert - it was never written)",
     not (out.get("flight") or {}).get("baggage"),
 )
+# Dry-run 5b re-verification (22.10.2026): the ORIGINAL version of this fix
+# left current_question alone here - but since the guided dispatcher
+# already ran earlier THIS SAME TURN (before this safety net), leaving it
+# alone meant the mixed-baggage explanation+yes/no was never actually
+# shown to the customer this turn either, and the NEXT turn's unrelated
+# answer (e.g. budget) got misread as a reply to a question never asked.
+# Fixed to force current_question to baggage and the hint to the payment-
+# time explanation immediately, mirroring the sibling "2+ types wrongly
+# saved" branch exactly.
 check(
-    "finding B repro: current_question is left alone (still accessibility - baggage isn't live yet)",
-    out["guided"].get("current_question") == "accessibility",
+    "finding B repro (dr5b re-verification): current_question is forced to baggage "
+    "THIS SAME TURN, so the explanation actually reaches the customer now",
+    out["guided"].get("current_question") == "baggage",
+)
+check(
+    "finding B repro (dr5b re-verification): the hint is the payment-time explanation+yes/no, "
+    "not whatever field the dispatcher had already resolved this turn (e.g. accessibility)",
+    out.get("_guided_ask_hint") == chat._mixed_baggage_payment_time_hint(),
 )
 
 # Regression: a single traveler (no one else to have different needs) never triggers this.
@@ -150,16 +165,44 @@ check(
     out2["guided"].get("mixed_baggage_pending") is not True and not mock_extract_unused.called,
 )
 
-# Regression: a message with no baggage-related word at all never calls the classifier.
+# Shlomo's direct follow-up (22.10.2026, same cycle as the dr5b report):
+# the ORIGINAL version of this pre-filter also required a literal keyword
+# match ("כבודה"/"טרולי"/"מזוודה"/"תיק" substring) before calling the
+# classifier - but that silently missed exactly the typo'd spellings this
+# whole dry-run cycle is about ("מזוודע", "טרולו"). Removed; the gate is
+# now state-only (more than one traveler, baggage still empty) - the
+# classifier is called regardless of which words the message happens to
+# use, so a typo never blocks recognition.
+trip_state_typo = base_state()
+trip_state_typo["travelers"] = {"adults": 3, "children": 0}
+trip_update_typo = dict(trip_state_typo)
+TYPO_MIXED_MESSAGE = "אני ושתי חברות לזדאר, 2 עד 6 ביולי. לי מספיק טרולו, לשתיים האחרות מזוודע"
+with patch.object(chat, "_guided_extract_answer", return_value=MIXED_RESULT) as mock_extract_typo, \
+        patch.object(chat, "record_diagnostic_event"):
+    out_typo = chat._mixed_baggage_safety_net("k", "m", TYPO_MIXED_MESSAGE, [], trip_state_typo, trip_update_typo, STEPS)
+check(
+    "dr5b fix: a typo'd baggage mention ('טרולו'/'מזוודע', no exact-word match) still "
+    "reaches the classifier (state-only gate, no keyword filter to miss it)",
+    mock_extract_typo.called,
+)
+check(
+    "dr5b fix: the typo'd mention still correctly sets mixed_baggage_pending once the "
+    "classifier (the model, not a word list) recognizes it as mixed",
+    out_typo["guided"].get("mixed_baggage_pending") is True,
+)
+
+# Regression: a message with no baggage-related word at all STILL calls the
+# classifier now (state-only gate) - it just won't find anything to flag.
 trip_state_no_kw = base_state()
 trip_state_no_kw["travelers"] = {"adults": 3, "children": 0}
 trip_update_no_kw = dict(trip_state_no_kw)
-with patch.object(chat, "_guided_extract_answer") as mock_extract_unused2, \
+with patch.object(chat, "_guided_extract_answer", return_value=NOT_MIXED_RESULT) as mock_extract_unused2, \
         patch.object(chat, "record_diagnostic_event"):
     out3 = chat._mixed_baggage_safety_net("k", "m", "אני ושתי חברות לזדאר, 2 עד 6 ביולי", [], trip_state_no_kw, trip_update_no_kw, STEPS)
 check(
-    "regression: no baggage-related word in the message never calls the classifier",
-    not mock_extract_unused2.called,
+    "regression: a message with no baggage-related word at all still calls the classifier "
+    "now (state-only gate), which correctly finds nothing mixed to flag",
+    mock_extract_unused2.called and out3["guided"].get("mixed_baggage_pending") is not True,
 )
 
 # Regression: classifier says NOT mixed -> nothing is flagged.

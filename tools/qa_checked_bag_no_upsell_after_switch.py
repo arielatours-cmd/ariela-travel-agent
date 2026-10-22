@@ -92,7 +92,14 @@ def turn(state, extracted):
     def fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
         seen.setdefault(source, system_dynamic)
         if source == "state_extractor":
-            return json.dumps({"restart_request": False, "trip_update": extracted}, ensure_ascii=False)
+            # Dry-run 5b sticky-baggage guard (_guard_baggage_change_evidence):
+            # a claimed flight.baggage change now requires a genuine
+            # baggage_evidence quote from the current message, mirroring
+            # destination_evidence/dates_evidence - supplied here since this
+            # test's own message ("רגע, נעבור למזוודה לכל אחד") genuinely
+            # names the new baggage type.
+            baggage_ev = "מזוודה" if (extracted.get("flight") or {}).get("baggage") else None
+            return json.dumps({"restart_request": False, "trip_update": extracted, "baggage_evidence": baggage_ev}, ensure_ascii=False)
         return "עדכנתי."
 
     with patch.object(chat, "_post_claude", side_effect=fake):

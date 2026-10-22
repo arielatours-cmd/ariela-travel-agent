@@ -303,6 +303,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
 - הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים בקבוצה - אי אפשר להזמין סוג שונה לנוסעים שונים באותה הזמנה. לכן כשהלקוח משייך סוג כבודה שונה לנוסעים/קבוצות שונים בתוך אותה תשובה (בכל ניסוח - גם תיאור צד-לצד כמו "אני מסתדרת עם תיק קטן, השתיים האחרות רוצות מזוודה גדולה" או "לי מזוודה, לאמא מספיק טרולי", לא רק ניגוד מפורש עם "אבל"), לעולם אל תרשמי כמה סוגים שונים ברשימה כאילו כולם רלוונטיים לכל הקבוצה, ולעולם אל תפתרי את הבקשה בעצמך לערך יחיד (לא checked_bag ולא כל ערך אחר) - לפי ההחלטה המפורשת של בעלת העסק (22.10) בקשה כזו לא נפתרת ולא נשמרת כלל כאן: השאירי את flight.baggage כפי שהיה (null/ריק אם עדיין לא נקבע) - הטיפול בבקשה מעורבת (הסבר שכבודה שונה לכל נוסע אפשר להוסיף רק בעמוד התשלום, ואז שאלת כן/לא על כבודה אחידה לכולם) קורה במקום אחר, לא בחילוץ הזה. זה שונה לגמרי ממקרה שבו הלקוח מבקש בפירוש כמה סוגים לכל הקבוצה כולה (למשל "טרולי וגם מזוודה לכולנו") - זו בקשה אחידה לשני פריטים, לא בקשה מעורבת, ונשמרת כפי שהיא.
 - כשהתשובה הנוכחית גם מאשרת וגם קובעת בפירוש סוג כבודה יחיד לכל הקבוצה, באותה הודעה עצמה, כמענה לשאלה שנשאלה בתור הקודם אם לבחור כבודה אחידה אחת לכולם (לאחר שבתור קודם זוהתה בקשה מעורבת-לפי-נוסע) - כתבי flight.baggage עם הסוג היחיד הזה כרגיל, וגם מלאי את flight.baggage_detail_evidence בציטוט מילה-במילה מההודעה הנוכחית שמראה את הסוג שנקבע (למשל "כן, מזוודה לכולם" → הציטוט "מזוודה"). בלי ציטוט אמיתי כזה שתומך בסוג יחיד ומפורש מההודעה הנוכחית - השאירי flight.baggage כפי שהיה, בדיוק כמו בבקשה מעורבת רגילה.
+- ברגע ש-flight.baggage כבר נקבע (לא ריק) ב-state שקיבלת, הוא סגור כמו תאריכים שכבר נקבעו: שינוי שלו דורש ציטוט מילה-במילה מההודעה הנוכחית של הלקוח שמראה שהוא אכן אמר משהו חדש על כבודה - בדיוק אותו מנגנון evidence כמו destination_evidence/dates_evidence. אם את כותבת flight.baggage שונה מהערך הקיים, מלאי גם את baggage_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו destination_evidence) בציטוט כזה. בלי ציטוט אמיתי - אל תכתבי ערך שונה בכלל, השאירי את flight.baggage כפי שהיה. תשובת כן/לא לשאלה לא-קשורה (כמו "יש לכם לינה?") היא בדיוק המקרה הזה - לעולם אינה סיבה לשנות סוג כבודה שכבר נקבע.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
 - אם נאמרה מדינה או יעד רחב עם כמה שערי כניסה סבירים, אל תמציאי שדה יעד ואל תסמני את בחירת היעד לטיסה כמושלמת. destination_airports נשאר ריק עד שהלקוח בוחר אחד/כמה/כולם, או עד שמסלול שאושר קובע את שער הכניסה.
@@ -317,7 +318,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - אל תסמני כשדה חסר שירות שהלקוח אמר שאינו רוצה.
 - ready_for_summary=true רק כאשר יש כוונת חיפוש וכל שדות החובה לשירותים המבוקשים מלאים.
 
-החזירי JSON תקין בלבד, עם תשעת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence/relative_date_hint/relative_date_hint_evidence/link_request/link_request_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
+החזירי JSON תקין בלבד, עם עשרת השדות restart_request/restart_evidence/dates_evidence/destination_evidence/trip_type_evidence/relative_date_hint/relative_date_hint_evidence/link_request/link_request_evidence/baggage_evidence תמיד ראשונים (לפני trip_update עצמו) - כדי שהם לעולם לא ייחתכו אם הפלט שלך מתקצר:
 {
  "restart_request":false,
  "restart_evidence":null,
@@ -328,6 +329,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
  "relative_date_hint_evidence":null,
  "link_request":false,
  "link_request_evidence":null,
+ "baggage_evidence":null,
  "trip_update":{
   "trip_type":null,
   "travelers":{"adults":null,"children":null,"child_ages":[],"child_genders":[],"infants":null,"composition":null},
@@ -789,6 +791,29 @@ def _parse_destination_evidence(text):
         data = json.loads(raw)
         if isinstance(data, dict):
             return data.get('destination_evidence')
+    except Exception:
+        pass
+    return None
+
+
+def _parse_baggage_evidence(text):
+    """Pull baggage_evidence (sibling of trip_update, not inside it) out of
+    the SAME raw JSON the extractor already returned every turn - mirrors
+    _parse_destination_evidence exactly. Defaults to None on any parse
+    failure - a flight.baggage change is never trusted without a real quote
+    behind it (dry-run 5b, 22.10.2026, scenario A turn 9: a plain "יש לנו"
+    answering an unrelated lodging yes/no question flipped flight.baggage
+    from personal_item to carry_on_only with no customer input about
+    baggage at all - the exact same bug class _guard_destination_change_
+    evidence already exists to prevent for destination, but nothing
+    equivalent existed for baggage)."""
+    raw = str(text or '').strip()
+    if raw.startswith('```'):
+        raw = raw.replace('```json', '', 1).replace('```', '').strip()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data.get('baggage_evidence')
     except Exception:
         pass
     return None
@@ -1500,6 +1525,62 @@ def _retry_if_one_of_several_candidates_shown(key, model, history, message, stat
         "הזכרת במפורש רק אחת מהן (כשאלת אישור על טווח ספציפי), בלי להציג את כל האפשרויות הממתינות "
         "יחד. נסחי את התשובה הזו מחדש: הציגי את כל האפשרויות הממתינות יחד, באמצעות המחרוזת המדויקת "
         f"{_DATE_OPTIONS_PLACEHOLDER} - ולעולם אל תבחרי אחת מהן בעצמך לשאלת כן/לא נפרדת."
+    )
+    return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
+
+
+def _retry_if_pending_dates_ignored(key, model, history, message, state, reply, had_date_options_token):
+    """Structural safety net (dry-run 5b, 22.10.2026, scenario C, Hallstatt/
+    Salzburg): "בסוף החודש הבא, לחמישה ימים" was correctly understood and
+    turned into two real candidate ranges (dates.candidate_ranges,
+    needs_confirmation=True) THAT SAME FIRST turn - but that turn's reply
+    was about the destination gateway question instead (correctly, a
+    higher-priority unresolved fact). Once the gateway resolved the very
+    next turn, dates genuinely became the live question (guided.
+    current_question == "dates", nothing higher-priority competing) - yet
+    Tinkerbell's own reply asked a completely fresh, open "מתי בערך תרצה
+    לצאת?" as if the customer had never said anything about dates at all,
+    ignoring the real pending candidates sitting in state and _dates_truth_
+    hint's own standing instruction to present them via {{DATE_OPTIONS}}.
+
+    Neither existing date backstop catches this shape: _retry_if_dates_
+    invented only fires on an invented/mismatched date actually written in
+    the reply (there is none here - she wrote no date at all), and
+    _retry_if_one_of_several_candidates_shown only fires when exactly ONE
+    real candidate is named without the placeholder (she named zero). This
+    is the missing third shape: the placeholder is absent AND not a single
+    candidate range is mentioned either - a genuine skip, not a format
+    slip in an otherwise-engaged reply.
+
+    Scoped exactly like the other date backstops (flights stage only, one
+    retry only - _date_retry skips it) PLUS a check mirroring _guard_
+    baggage_type_self_picked/_guard_accessibility_question_skipped's own
+    gating: only when dates is genuinely this turn's winning topic (guided.
+    current_question == "dates" and _turn_question_arbiter's own winning
+    kind is "guided") - never when some other higher-priority hint
+    legitimately won the turn instead, in which case not mentioning dates
+    at all is the CORRECT behavior, not a skip."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("active_session") not in (None, "flights") or had_date_options_token:
+        return None
+    dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
+    if not dates.get("needs_confirmation") or not (dates.get("candidate_ranges") or []):
+        return None
+    guided = state.get("guided") if isinstance(state.get("guided"), dict) else {}
+    if guided.get("current_question") != "dates":
+        return None
+    _, winning_kind = _turn_question_arbiter(state)
+    if winning_kind != "guided":
+        return None
+    if _mentioned_date_ranges(reply) or _mentioned_date_day_months(reply):
+        return None
+    state2 = dict(state)
+    state2["_date_hallucination_correction_hint"] = (
+        "יש כרגע אפשרויות תאריכים ממתינות ב-state (dates.candidate_ranges), אבל בתשובה הקודמת שלך "
+        "לא הזכרת אותן בכלל ושאלת שאלה פתוחה כאילו הלקוח מעולם לא אמר דבר על מועד הטיול - בעוד "
+        "שהוא כן אמר (הנתון כבר קיים ב-state). נסחי את התשובה הזו מחדש: הציגי את האפשרויות הממתינות "
+        f"באמצעות המחרוזת המדויקת {_DATE_OPTIONS_PLACEHOLDER} ושאלי אם זה מתאים - לעולם אל תשאלי "
+        "מחדש מתי הלקוח רוצה לצאת כאילו זה נתון חדש."
     )
     return _call_tinkerbell(key, model, history, message, state2, _date_retry=True)
 
@@ -3537,11 +3618,35 @@ def _guided_question_actually_asked(key, model, reply, topic_description):
     about topic_description is actually present. Fails OPEN (returns True)
     on any error/empty key - never forces an extra retry loop when the
     classifier itself is unavailable; the original reply stands as-is,
-    same fail-open convention as every other classifier in this file."""
+    same fail-open convention as every other classifier in this file.
+
+    Dry-run 5b item 6 (22.10.2026, Shlomo's explicit cost-control
+    suggestion): this mechanism's own classifier call ran 40 times across
+    52 turns in the dry-run 5b report (~18 retries, 70 tinkerbell_reply
+    calls vs 52 turns - nearly double the normal rate). A cheap, PURELY
+    STRUCTURAL pre-filter (never a phrase/word-list judgment about the
+    model's own content - a question mark's presence is punctuation, not
+    meaning) skips the call entirely whenever the reply contains no "?"
+    at all: a reply with literally no question mark anywhere cannot be
+    genuinely asking anything, about any topic, so there is nothing for
+    the classifier to usefully judge - straight to "not asked", no model
+    call needed to confirm the absence of punctuation that isn't there.
+    The classifier is still called whenever a "?" IS present, since only
+    the model can judge whether that question is genuinely about
+    topic_description or about something else entirely (a question mark
+    alone never settles that). Accepted trade-off (per the business
+    owner's own direction): a reply that asks about the WRONG topic but
+    still contains "?" still reaches the classifier as before, unaffected -
+    this pre-filter only ever shortcuts the "no question mark anywhere"
+    case, which _guided_redirect_field already has no special recovery
+    for anyway (a plain non-question reply was never going to redirect to
+    a different field either)."""
     text = str(reply or "").strip()
     key = str(key or "").strip()
     if not text or not key:
         return True
+    if "?" not in text:
+        return False
     prompt = (
         "להלן תשובה שסוכנת נסיעות כתבה ללקוח. קראי אותה וקבעי: האם היא שואלת את הלקוח, "
         "כשאלה אמיתית בתוך התשובה עצמה (לא רק אזכור אגבי), על הנושא הבא: " + topic_description + "? "
@@ -5339,6 +5444,15 @@ def _turn_question_arbiter(state):
         return str(state.get("_shift_candidate_hint")), "shift_candidate"
     if mixed_pending and guided_hint:
         return str(guided_hint), "guided_mixed_baggage"
+    # Dry-run 5b (22.10.2026, scenario E, "the most severe" per Shlomo's
+    # relay): once _destination_gateway_answer_by_meaning verifies TWO
+    # distinct real-world candidates for an ambiguous destination name
+    # (e.g. "ברגם" = Bergen or Bergamo), that is a strictly more specific,
+    # more urgent fact than the fully generic open gateway question below -
+    # checked first, same tier.
+    destination_ambiguous_hint = state.get("_destination_ambiguous_hint")
+    if destination_ambiguous_hint:
+        return str(destination_ambiguous_hint), "destination_ambiguous"
     # Dry-run 2 finding #5 (Rovinj/Pula): a destination with no catalog
     # entry of its own, still genuinely unresolved - checked just above
     # the standing guided question (nothing else about the trip can be
@@ -5694,6 +5808,11 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         )
         if retried is not None:
             return retried
+        retried = _retry_if_pending_dates_ignored(
+            key, model, history, message, state, reply, _had_date_options_token
+        )
+        if retried is not None:
+            return retried
     # Absolute last resort (Shlomo's explicit instruction: under no
     # circumstances does an empty sentence or the placeholder itself reach
     # the customer) - if dropping an unresolved placeholder's own sentence,
@@ -5826,7 +5945,7 @@ def _post_summary_dates_context_hint(state):
 
 
 def _extract_trip_update(key, model, history, message, state=None):
-    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence, extractor_parse_error, extractor_diag).
+    """Returns (trip_update_dict, restart_request, restart_evidence, dates_evidence, destination_evidence, trip_type_evidence, relative_date_hint, relative_date_hint_evidence, link_request, link_request_evidence, baggage_evidence, extractor_parse_error, extractor_diag).
 
     restart_request/restart_evidence are folded into this SAME call's JSON
     output (siblings of trip_update, see EXTRACTOR_SYSTEM) rather than a
@@ -5859,7 +5978,13 @@ def _extract_trip_update(key, model, history, message, state=None):
     the model's job is only to recognize that the customer is asking for a
     link, via the same verbatim-quote evidence gate as every field above -
     it never decides whether a search is still running or already
-    finished. The call site alone answers that, from trip_state."""
+    finished. The call site alone answers that, from trip_state.
+
+    baggage_evidence (dry-run 5b, 22.10.2026, scenario A turn 9): mirrors
+    destination_evidence's exact mechanism for flight.baggage - once a
+    baggage type is already settled, the extractor may only change it with
+    a genuine current-message quote behind it. See _parse_baggage_evidence/
+    _guard_baggage_change_evidence."""
     try:
         gateway_hint = _multi_gateway_hint(state)
         gateway_hint_text = ""
@@ -5954,6 +6079,7 @@ def _extract_trip_update(key, model, history, message, state=None):
         trip_type_evidence = _parse_trip_type_evidence(raw)
         relative_date_hint, relative_date_hint_evidence = _parse_relative_date_hint(raw)
         link_request, link_request_evidence = _parse_link_request_signal(raw)
+        baggage_evidence = _parse_baggage_evidence(raw)
         # Run-9 diagnostics only (21-22.10.2026, Shlomo's relay): whether
         # the raw JSON itself failed to parse as a dict at all - distinct
         # from every field above defaulting to None/empty on a field
@@ -5977,10 +6103,10 @@ def _extract_trip_update(key, model, history, message, state=None):
         return (
             parsed, restart_request, restart_evidence, dates_evidence, destination_evidence,
             trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
-            link_request, link_request_evidence, extractor_parse_error, extractor_diag,
+            link_request, link_request_evidence, baggage_evidence, extractor_parse_error, extractor_diag,
         )
     except Exception:
-        return {}, False, None, None, None, None, None, None, False, None, True, {}
+        return {}, False, None, None, None, None, None, None, False, None, None, True, {}
 
 
 _KNOWN_DESTINATION_NAMES_CACHE = None
@@ -6467,6 +6593,58 @@ def _guard_destination_change_evidence(trip_state, trip_update, destination_evid
         trip_update["destination"] = dict(prior_destination)
     if airports_changed:
         trip_update["destination_airports"] = list(prior_airports)
+    return trip_update
+
+
+def _guard_baggage_change_evidence(trip_state, trip_update, baggage_evidence, message):
+    """Dry-run 5b (22.10.2026, scenario A turn 9, mandatory fix per Shlomo's
+    relay): a plain "יש לנו" answering an unrelated LODGING yes/no question
+    silently flipped flight.baggage from ["personal_item"] to
+    ["carry_on_only"] - the customer said nothing about baggage at all that
+    turn. The exact same bug class _guard_destination_change_evidence
+    already exists to prevent for destination/destination_airports had no
+    equivalent for baggage. Mirrors that guard's exact pattern: once
+    flight.baggage is already set, the extractor's own trip_update may only
+    replace it when a genuine verbatim quote from the customer's CURRENT
+    message (baggage_evidence) justifies the change. No quote, no change -
+    reverts to the prior, already-settled value. Never touches
+    baggage_detail/baggage_detail_evidence - those already have their own
+    separate guard (_validate_baggage_detail_against_message).
+
+    Runs immediately after the raw extractor merge, same as the destination
+    guard - before any deterministic baggage-resolution path (guided
+    dispatch, _mixed_baggage_safety_net, the regex fallback) has a chance to
+    run from whatever this leaves in trip_update; those paths have their own
+    separate, unaffected write mechanisms (a real guided-flow answer is
+    never an unevidenced extractor claim, so it is never blocked here).
+
+    Records a baggage_change diagnostic - the structured before/after
+    values only (the closed baggage-type list, never the customer's own
+    free-text message) - so a live failure of this same mechanism is
+    visible the same way destination_change already makes an equivalent
+    destination failure visible."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    prior_flight = trip_state.get("flight") if isinstance(trip_state.get("flight"), dict) else {}
+    prior_baggage = [str(b) for b in (prior_flight.get("baggage") or []) if str(b).strip()]
+    if not prior_baggage:
+        return trip_update  # nothing settled yet to protect
+    new_flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
+    new_baggage = [str(b) for b in (new_flight.get("baggage") or []) if str(b).strip()]
+    if not new_baggage or set(new_baggage) == set(prior_baggage):
+        return trip_update
+    verified = _value_has_verbatim_evidence(baggage_evidence, message)
+    record_diagnostic_event("baggage_change", {
+        "prior_baggage": prior_baggage,
+        "claimed_baggage": new_baggage,
+        "verified": verified,
+    })
+    if verified:
+        return trip_update  # a genuine quote justifies the change
+    trip_update = dict(trip_update)
+    new_flight = dict(new_flight)
+    new_flight["baggage"] = list(prior_baggage)
+    trip_update["flight"] = new_flight
     return trip_update
 
 
@@ -7262,39 +7440,62 @@ def _destination_gateway_answer_by_meaning(message, history, state):
     condition.
 
     Fixed the same way those siblings are: when destination_airports is
-    still genuinely unresolved AND the last thing Ariella actually asked
-    was this exact open gateway question (checked the same way _budget_
-    answer_by_meaning/_baggage_answer_by_meaning gate on their own
-    question's topic words), a single dedicated classifier call runs.
+    still genuinely unresolved, a single dedicated classifier call runs on
+    every turn (the only real gate is destination_airports still being
+    empty - see _destination_gateway_unresolved_places).
 
     Per the business owner's directive (22.10.2026): recognition (which
     real city/airport the customer means, even from "פפוס" or "פולה")
     belongs to the model's own world knowledge, not a hand-maintained
-    Hebrew alias/spelling table - the call asks the model directly for
-    the English city name AND the IATA code it believes answers the
-    customer's message, never a raw Hebrew name to feed into fuzzy
-    catalog matching. The code's own job is verification only
-    (_verify_catalog_airport_code): the candidate code must genuinely
-    exist in our catalog AND that entry's city_en must really be the same
-    city - only then is destination_airports written, in the catalog's
-    own verified spelling/code, never the model's claim taken on faith.
-    No match (an uncatalogued place, or the model unsure) writes nothing,
-    and the open question stays open exactly as today, never a guess."""
+    Hebrew alias/spelling table - the code's own job is verification only
+    (_verify_catalog_airport_code): a candidate code must genuinely exist
+    in our catalog AND that entry's city_en must really be the same city -
+    only then is destination_airports written, in the catalog's own
+    verified spelling/code, never the model's claim taken on faith.
+
+    Dry-run 5b (22.10.2026, scenario E, "the most severe" per Shlomo's
+    relay): "ברגם" was silently resolved to Bergamo (Italy, BGY) with NO
+    question ever asked, even though "ברגם" just as plausibly means Bergen
+    (Norway, BGO) - a real resolve-the-wrong-country failure, with nothing
+    in the conversation ever pinning down which one was meant. Root cause:
+    the old prompt handed the model the unresolved place NAME directly and
+    "the agent's prior message, for context only" - letting it answer its
+    own question from stale context or its own prior framing rather than
+    requiring genuine evidence from the CURRENT message. Two fixes, both
+    mirroring mechanisms already proven elsewhere in this file:
+    1. evidence (mirrors destination_evidence/dates_evidence exactly): the
+       model must return a verbatim quote from the customer's CURRENT
+       message that actually names/refers to the destination. Verified via
+       the same _value_has_verbatim_evidence helper used everywhere else;
+       no quote (or an invented one) means nothing resolves this turn,
+       whatever the model otherwise claims - never trusted on recognition
+       alone.
+    2. candidates (up to 2): when more than one real-world meaning is
+       genuinely plausible (exactly scenario E's "ברגם" shape), the model
+       returns BOTH real candidates instead of silently picking one. Once
+       each is independently verified against the catalog:
+       - exactly 1 verified candidate -> destination_airports is written
+         (the catalog's verified code), AND destination.places is updated
+         to the catalog's own verified spelling (city_he when the base
+         catalog has it, else city_en) - replacing the customer's typo'd
+         string, per the business owner's explicit instruction that the
+         VERIFIED name must land in destination.places, not stay garbled.
+       - 2 distinct verified candidates -> nothing is written yet; a
+         one-turn ephemeral hint (_destination_ambiguous_hint, exactly the
+         _shift_candidate_hint/_just_given_hint pattern) names both real
+         options so _turn_question_arbiter asks ONE clarifying question
+         between them. The customer's next reply (naming either city) is
+         evidence-gated through this exact same function again - no new
+         persistent state needed, the unresolved gate alone keeps it live.
+       - 0 verified (uncatalogued place, or the model unsure) -> nothing
+         changes, the generic open gateway question stays live exactly as
+         before, never a guess."""
     destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
     if destination_airports:
         return {}
     unresolved_places = _destination_gateway_unresolved_places(state)
     if not unresolved_places:
         return {}
-    # Shlomo's refinement (22.10.2026, round 12 C/E - Paphos/Zadar): the
-    # failure already happens on the VERY FIRST mention of the place, with
-    # the deterministic catalog match finding nothing - before any open
-    # gateway question has ever been asked about it (the previous, narrower
-    # gate here required the last assistant turn to already be that open
-    # question, which only helps from the SECOND mention onward). Fires
-    # whenever a place was named and genuinely never resolved, full stop -
-    # the only real gate is destination_airports still being empty, which
-    # keeps this from firing at all once resolved.
     last_assistant = next(
         (str(x.get("content") or "") for x in reversed(history or [])
          if isinstance(x, dict) and x.get("role") == "assistant"), "")
@@ -7304,27 +7505,67 @@ def _destination_gateway_answer_by_meaning(message, history, state):
     model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
     prompt = (
         "הלקוח מתכנן טיול ליעד הבא, שאין לו שדה תעופה מאומת אצלנו: " + ", ".join(unresolved_places) + ". "
-        "קראי את תשובת הלקוח (ואת ההודעה הקודמת של הסוכנת, אם יש, להקשר בלבד) וזהי לפי הידע הכללי "
-        "שלך על העולם האמיתי (גם אם הלקוח כתב בעברית, בכתיב חלקי או לא מדויק, או ציין את שם היעד "
-        "עצמו/אזור קרוב אליו/שדה תעופה מפורש) איזו עיר/שדה תעופה אמיתיים משרתים את היעד הזה לנחיתה "
-        "והמראה - בין אם הלקוח ציין זאת כתשובה לשאלה פתוחה, ובין אם ציין זאת מיוזמתו תוך כדי משהו "
-        "אחר (למשל יחד עם תאריכים). החזירי JSON בלבד: "
-        "{\"city_en\": \"<שם העיר באנגלית, כפי שמוכרת בעולם האמיתי>\", \"iata_code\": \"<קוד ה-IATA "
-        "של שדה התעופה הקרוב ביותר לעיר הזו>\"} אם יש בהודעה ציון של עיר/שדה ספציפיים (גם רק "
-        "שם היעד/האזור עצמו, אם הוא בעצמו עיר אמיתית עם שדה תעופה), או "
-        "{\"city_en\": null, \"iata_code\": null} אם אין כל ציון כזה, או אם אינך בטוחה. "
-        "לעולם אל תנחשי בספק - רק אם את בטוחה."
+        "קראי את ההודעה הנוכחית של הלקוח (הודעת הסוכנת הקודמת, אם יש, להקשר בלבד - אסור להתבסס עליה "
+        "כעובדה או כמקור לזיהוי, רק ההודעה הנוכחית של הלקוח עצמו קובעת).\n"
+        "מצאי בהודעה הנוכחית של הלקוח ציטוט מילה-במילה שבו הוא בעצמו מזכיר את היעד/האזור/שם עיר/שדה "
+        "תעופה (גם אם בכתיב חלקי, שגוי, או תעתיק לא מדויק) - בלי ציטוט כזה מתוך ההודעה הנוכחית עצמה, "
+        "אל תחזירי שום מועמד בכלל, גם אם את חושבת שאת יודעת למה הוא מתכוון מהקשר קודם.\n"
+        "לפי הידע הכללי שלך על העולם האמיתי, זהי איזו עיר/שדה תעופה אמיתיים משרתים את היעד הזה לנחיתה "
+        "והמראה. ברוב המקרים יש משמעות סבירה אחת בלבד - החזירי מועמד יחיד. אך כאשר השם שהלקוח כתב יכול "
+        "להתפרש באמת כשתי ערים שונות אמיתיות בעולם (למשל שמות דומים/זהים במדינות שונות), ואינך יכולה "
+        "לדעת לאיזו מהן הוא מתכוון, החזירי את שתי האפשרויות הסבירות ביותר - לעולם לא יותר משתיים, "
+        "ולעולם לא שתיים כשבאמת יש רק משמעות סבירה אחת.\n"
+        "החזירי JSON בלבד: {\"evidence\": \"<הציטוט המדויק, מילה-במילה, מתוך ההודעה הנוכחית של הלקוח>\" "
+        "(או null אם אין כזה), \"candidates\": [{\"city_en\": \"<שם העיר באנגלית>\", \"iata_code\": "
+        "\"<קוד IATA>\"}, ...]} - 0, 1 או 2 איברים ברשימה. אם אין ציון כזה בהודעה, או שאינך בטוחה כלל, "
+        "החזירי evidence null ו-candidates ריקה. לעולם אל תנחשי בספק - רק כשאת בטוחה."
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת (הקשר בלבד): " + last_assistant[-500:] + "\nהודעת הלקוח: " + str(message or ""), 60, include_history=False, source="classifier")
+        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת (הקשר בלבד): " + last_assistant[-500:] + "\nהודעת הלקוח: " + str(message or ""), 150, include_history=False, source="classifier")
         raw = raw.strip()
         data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
     except Exception:
         return {}
-    verified_code = _verify_catalog_airport_code(data.get("iata_code"), data.get("city_en"))
-    if not verified_code:
+    if not isinstance(data, dict):
         return {}
-    return {"destination_airports": [verified_code]}
+    if not _value_has_verbatim_evidence(data.get("evidence"), message):
+        return {}
+    raw_candidates = data.get("candidates") if isinstance(data.get("candidates"), list) else []
+    verified = []
+    seen_codes = set()
+    for candidate in raw_candidates[:2]:
+        if not isinstance(candidate, dict):
+            continue
+        code = _verify_catalog_airport_code(candidate.get("iata_code"), candidate.get("city_en"))
+        if code and code not in seen_codes:
+            seen_codes.add(code)
+            verified.append(code)
+    if not verified:
+        return {}
+    if len(verified) == 1:
+        airport = _catalog_airport_by_code(verified[0]) or {}
+        verified_name = str(airport.get("city_he") or "").strip() or str(airport.get("city_en") or "").strip() or verified[0]
+        return {
+            "destination_airports": verified,
+            "destination": {"places": [verified_name]},
+        }
+    # Exactly 2 distinct verified candidates: a genuine real-world
+    # ambiguity - never silently pick one. Ask once, naming both.
+    options_text = []
+    for code in verified:
+        airport = _catalog_airport_by_code(code) or {}
+        name = str(airport.get("city_he") or "").strip() or str(airport.get("city_en") or "").strip() or code
+        country = str(airport.get("country_he") or airport.get("country_en") or "").strip()
+        options_text.append(f"{name} ({country})" if country else name)
+    return {
+        "_destination_ambiguous_hint": (
+            "השם שהלקוח כתב יכול להתכוון לשני יעדים אמיתיים שונים, ששניהם אומתו מול הקטלוג: "
+            + " או ".join(options_text) + ". שאלי שאלה אחת, בניסוח שלך, שמבררת בוודאות לאיזה מהם "
+            "הלקוח מתכוון - נקבי בשני היעדים בשמם כדי שיוכל לבחור ביניהם. לעולם אל תבחרי אחד מהם "
+            "בעצמך, אל תכתבי destination_airports, ואל תציגי אף אחד מהם בסיכום (גם לא בשורת "
+            "\"נחיתה:\") לפני שהלקוח אישר במפורש לאיזה מהם הוא מתכוון."
+        ),
+    }
 
 
 def _itinerary_acceptance_by_meaning(message):
@@ -11352,10 +11593,19 @@ def _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_upd
     was simply lost; once baggage eventually became the live field, it was
     asked about completely fresh. A second branch below catches exactly
     this: flight.baggage genuinely still empty, baggage not yet answered,
-    a cheap keyword+traveler-count pre-filter on the message itself (cost
-    control only, never the decision - the same guided classifier above
-    still makes that call), and mixed_baggage_pending is set proactively,
-    with nothing to revert since nothing was ever saved."""
+    a STATE-ONLY pre-filter (more than one traveler - cost control only,
+    never the decision, the same guided classifier below still makes that
+    call), and mixed_baggage_pending is set proactively, with nothing to
+    revert since nothing was ever saved.
+
+    Per Shlomo's direct follow-up on this exact branch (22.10.2026, same
+    cycle as the dry-run 5b report): the first version of this pre-filter
+    also required a literal keyword match ("כבודה"/"טרולי"/"מזוודה"/"תיק"
+    as a substring) before calling the classifier - but a keyword gate
+    silently misses exactly the typo'd spellings this whole dry-run cycle
+    is about ("מזוודע", "טרולו"), meaning the one case this branch exists
+    for could itself never reach the classifier. Removed; the gate is
+    state-only now."""
     if "baggage" not in (guided_steps or ()) or guided_wrote_baggage:
         return trip_update
     statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
@@ -11398,15 +11648,17 @@ def _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_upd
     # meaning at all - the mention was simply lost, and once baggage
     # finally became the live field on some later turn, it was asked
     # about completely fresh, as if the customer had never mentioned it.
-    # A cheap keyword+traveler-count pre-filter (cost control, not a
-    # phrase-list decision - the model still decides) before the SAME
-    # guided baggage classifier already used above, checked proactively
-    # even though baggage isn't live yet, so mixed_baggage_pending is set
-    # the moment it's genuinely mentioned, not only once asked about.
+    # Shlomo's direct follow-up note on this exact branch (22.10.2026,
+    # crossed in transit with the dr5b report itself): a keyword pre-
+    # filter here ("כבודה"/"טרולי"/"מזוודה"/"תיק" as a literal substring
+    # match) would silently miss exactly the typo'd spellings this whole
+    # dry-run cycle is about ("מזוודע", "טרולו") - the one case this
+    # proactive branch exists FOR would then never even reach the
+    # classifier. Per his explicit instruction, the gate is state-only:
+    # more than one traveler, and baggage still genuinely empty - never a
+    # word list standing between the message and the model's own
+    # recognition of it.
     if now or "baggage" in (guided.get("answered") or []):
-        return trip_update
-    msg_text = str(message or "")
-    if not any(w in msg_text for w in ("כבודה", "טרולי", "מזוודה", "תיק")):
         return trip_update
     travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
     try:
@@ -11421,7 +11673,25 @@ def _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_upd
     trip_update = dict(trip_update)
     guided = dict(guided)
     guided["mixed_baggage_pending"] = True
+    # Dry-run 5b re-verification (22.10.2026, scenario B, Zadar - the dr5b
+    # report ran on a pre-fix SHA): setting ONLY the pending flag here, with
+    # nothing forcing this turn's own reply, let the guided dispatcher
+    # (which already ran earlier this same turn, before this safety net)
+    # keep whatever field it had already resolved as current_question
+    # (e.g. accessibility/budget) - so THIS turn's reply never actually
+    # surfaced the mixed-baggage explanation or asked the yes/no question
+    # at all. The customer's NEXT message (an unrelated answer to whatever
+    # WAS asked) then got read by the dispatcher as if it were the yes/no
+    # answer, producing a confusing "please answer yes/no" retry to a
+    # question never actually shown. Fixed to mirror the sibling "2+ types
+    # wrongly saved" branch immediately above exactly: force current_
+    # question/attempts to baggage and the hint to the payment-time
+    # explanation+yes/no THIS SAME TURN, so the explanation genuinely
+    # reaches the customer before any answer to it is expected.
+    guided["current_question"], guided["attempts"] = "baggage", 0
     trip_update["guided"] = guided
+    trip_update["_guided_ask_hint"] = _mixed_baggage_payment_time_hint()
+    trip_update.pop("_baggage_note_hint", None)
     record_diagnostic_event("mixed_baggage_safety_net", {"first_mention_before_live": True})
     return trip_update
 
@@ -12808,10 +13078,31 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # normally below - guarded by its own flag (not `attempts`, whose
         # count may already be nonzero from an earlier unrelated "unclear"
         # retry on this same field).
+        # Dry-run 5b item 4 (22.10.2026, scenario A, Paphos): the live
+        # transcript's open follow-up answer ("אמא שלי עברה ניתוח בברך
+        # והיא מתקשה ללכת מרחקים ארוכים" - word-for-word the exact example
+        # already baked into the classifier's own prompt for
+        # detail_category:"walking_long_distance") still ended up saved as
+        # needs:["other"] with NO details at all. Root cause: this retry's
+        # ORIGINAL condition only widened the check to the literal string
+        # "other" - but the live result actually had detail_category
+        # null/missing (not the string "other") while needs still
+        # contained "other" - a WORSE outcome than the literal "other"
+        # case this retry already exists to catch (that one at least maps
+        # to a real, if generic, phrase - "התאמה מיוחדת אחרת" - via
+        # _ACCESSIBILITY_DETAIL_PHRASES_HE; a null/invalid category maps
+        # to nothing at all, so acc["details"] never gets set downstream
+        # in _guided_field_update_and_confirm). Widened to the SAME
+        # underlying signal _guided_field_update_and_confirm itself uses -
+        # whatever _ACCESSIBILITY_DETAIL_PHRASES_HE actually computes for
+        # this detail_category - rather than re-deriving a narrower,
+        # string-literal-only version of the same check here.
+        _detail_category_value = str(result.get("detail_category") or "")
+        _computed_details = _ACCESSIBILITY_DETAIL_PHRASES_HE.get(_detail_category_value)
         if (
             awaiting_detail_before
             and confidence == "high"
-            and str(result.get("detail_category") or "") == "other"
+            and (not _computed_details or _detail_category_value == "other")
             and not guided.get("accessibility_other_retried")
         ):
             guided["accessibility_other_retried"] = True
@@ -15072,7 +15363,7 @@ def _chat_clean_impl():
         (
             extracted, restart_request, restart_evidence, dates_evidence, destination_evidence,
             trip_type_evidence, relative_date_hint, relative_date_hint_evidence,
-            link_request, link_request_evidence, extractor_parse_error, extractor_diag,
+            link_request, link_request_evidence, baggage_evidence, extractor_parse_error, extractor_diag,
         ) = _extract_trip_update(key, model, history, message, trip_state)
 
         # Customer asking for a link back to their vacation/dashboard (20.10,
@@ -15206,6 +15497,7 @@ def _chat_clean_impl():
         trip_update = _guard_mixed_baggage_pending_write(trip_state, trip_update, message)
         trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
         trip_update = _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message)
+        trip_update = _guard_baggage_change_evidence(trip_state, trip_update, baggage_evidence, message)
         trip_update = _guard_ski_trip_type_evidence(trip_state, trip_update, trip_type_evidence, message)
         trip_update = _clear_stale_gateway_airports(trip_update)
         trip_update = _protect_destination_airports_from_car_reply(trip_state, trip_update, message)
@@ -15823,6 +16115,7 @@ def _chat_clean_impl():
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
+        trip_update.pop("_destination_ambiguous_hint", None)
         trip_update = _merge_trip_state(trip_update, _destination_gateway_answer_by_meaning(message, history, trip_update))
         # zd9 (Shaked, run-9, Bilbao): neither general baggage path may run
         # at all while guided.mixed_baggage_pending is set at this turn's

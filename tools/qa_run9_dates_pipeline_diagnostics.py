@@ -111,10 +111,11 @@ key = os.getenv("ANTHROPIC_API_KEY", "test-key-not-real")
 model = "claude-sonnet-5"
 with patch.object(chat, "_post_claude", return_value="not valid json at all {{{"):
     _result = chat._extract_trip_update(key, model, [], "שלום", {})
-check("_extract_trip_update returns 12 elements now (extractor_parse_error + "
-      "extractor_diag appended, the latter added once the real run-9 root "
-      "cause - truncation - was confirmed)",
-      len(_result) == 12)
+check("_extract_trip_update returns 13 elements now (baggage_evidence added "
+      "for dry-run 5b's sticky-baggage guard, alongside extractor_parse_error + "
+      "extractor_diag appended earlier once the real run-9 root cause - "
+      "truncation - was confirmed)",
+      len(_result) == 13)
 check("_extract_trip_update: a raw response that isn't valid JSON sets extractor_parse_error=True",
       _result[-2] is True)
 check("_extract_trip_update: extractor_diag is a dict with no customer text, "

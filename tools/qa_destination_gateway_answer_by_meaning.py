@@ -17,15 +17,26 @@ IATA code, verified against the catalog by _verify_catalog_airport_code.
 Shlomo's refinement (22.10.2026, round 12 C/E - Paphos/Zadar): the first
 version here ALSO required the last assistant turn to already be the open
 gateway question - but live, the failure happens on the very FIRST
-mention of the place (before any open question was ever asked), where
-Tinkerbell confidently claimed "no commercial airport" instead of
-recognizing her own uncertainty (root cause: _destination_catalog_hint's
-deterministic catalog match uses Hebrew spelling normalization, which
-does not bridge "פפוס" (missing א) to the catalog's "פאפוס" - the model's
-own real-world knowledge does). The gate no longer requires a prior
-question at all - it fires on the very first unresolved mention, so this
-guard can resolve the field (same turn, before the reply is drafted)
-before Tinkerbell ever has to say anything about it.
+mention of the place (before any open question was ever asked). The gate
+no longer requires a prior question at all - it fires on the very first
+unresolved mention.
+
+Dry-run 5b rewrite (22.10.2026, scenario E, "the most severe" per Shlomo's
+relay): "ברגם" was silently resolved to Bergamo with NO question ever
+asked, even though "ברגם" just as plausibly means Bergen - a genuine
+resolve-the-wrong-country failure. The classifier's JSON schema changed:
+- "evidence": a verbatim quote from the CUSTOMER'S CURRENT message,
+  verified the same way destination_evidence/dates_evidence already are
+  (_value_has_verbatim_evidence) - no quote, nothing resolves, regardless
+  of what the model otherwise claims. This prevents resolving from stale
+  context (the agent's own prior message) rather than the real message.
+- "candidates": a list of 0-2 {city_en, iata_code} objects instead of a
+  single city_en/iata_code pair. Exactly 1 verified candidate writes
+  destination_airports AND destination.places (replacing the customer's
+  typo'd string with the catalog's verified spelling). Exactly 2 distinct
+  verified candidates write NOTHING yet - a one-turn _destination_
+  ambiguous_hint names both real options so Tinkerbell asks ONE
+  clarifying question between them, never silently picking one.
 
 Per Shlomo's explicit condition: the QA must show how many times the
 classifier call actually fires across representative scenarios (not just
@@ -38,6 +49,7 @@ Run: python3 tools/qa_destination_gateway_answer_by_meaning.py
 """
 import os
 import sys
+import json
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -74,13 +86,23 @@ def _counting_post_claude(calls):
     def fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
         if source == "classifier" and _MARKER in str(system_static or ""):
             calls.append(message)
-            if "זלצבורג" in str(message or ""):
-                return '{"city_en": "Salzburg", "iata_code": "SZG"}'
-            if "פאפוס" in str(message or "") or "פפוס" in str(message or ""):
-                return '{"city_en": "Paphos", "iata_code": "PFO"}'
-            if "זדאר" in str(message or ""):
-                return '{"city_en": "Zadar", "iata_code": "ZAD"}'
-            return '{"city_en": null, "iata_code": null}'
+            msg = str(message or "")
+            if "זלצבורג" in msg:
+                return json.dumps({"evidence": "זלצבורג", "candidates": [{"city_en": "Salzburg", "iata_code": "SZG"}]})
+            if "פאפוס" in msg or "פפוס" in msg:
+                return json.dumps({"evidence": "פפוס" if "פפוס" in msg else "פאפוס", "candidates": [{"city_en": "Paphos", "iata_code": "PFO"}]})
+            if "זדאר" in msg:
+                return json.dumps({"evidence": "זדאר", "candidates": [{"city_en": "Zadar", "iata_code": "ZAD"}]})
+            if "ברגם" in msg:
+                # Scenario E's exact ambiguous shape: two real, distinct meanings.
+                return json.dumps({
+                    "evidence": "ברגם",
+                    "candidates": [
+                        {"city_en": "Bergen", "iata_code": "BGO"},
+                        {"city_en": "Bergamo", "iata_code": "BGY"},
+                    ],
+                })
+            return json.dumps({"evidence": None, "candidates": []})
         return "{}"
     return fake
 
@@ -99,6 +121,8 @@ with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)
     )
 check("scenario D (Hallstatt repro): the named gateway city is resolved to a real code",
       result.get("destination_airports") == ["SZG"])
+check("scenario D: destination.places is also updated to the verified spelling",
+      result.get("destination", {}).get("places") == ["זלצבורג"])
 check("scenario D: the classifier call fired exactly once",
       len(calls) == 1)
 
@@ -166,18 +190,9 @@ check("first mention with NO history at all (empty conversation) - the "
       result.get("destination_airports") == ["SZG"] and len(calls) == 1)
 
 # =====================================================================
-# Dry-run 5, scenario A (Shlomo/Shaked, 22.10.2026, Paphos): the gate used
-# to require "flights" already IN requested_services - but on the VERY
-# FIRST turn (destination+dates+travelers all named together), that list
-# only gets "flights" added by the destination-trip-intent fallback the
-# caller runs AFTER this classifier, so the gate read false exactly when
-# it most needed to read true and the guard never fired at all - the live
-# bug (destination_airports stayed unresolved, Tinkerbell claimed "no
-# commercial airport"). Fixed: mirrors that same fallback's own condition
-# (a destination was named and flights were never explicitly declined),
-# which needs nothing computed later in the turn to already exist - so an
-# EMPTY requested_services alone, with no explicit decline either, must
-# still fire.
+# Dry-run 5, scenario A (Shlomo/Shaked, 22.10.2026, Paphos): requested_
+# services still empty (not yet set by the later destination-trip-intent
+# fallback) must still fire.
 # =====================================================================
 calls = []
 state_requested_services_not_yet_set = dict(BASE_STATE, requested_services=[], service_decisions={})
@@ -219,6 +234,156 @@ with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)
 check("regression: an unrecognized place name writes nothing (never a guess)",
       result == {})
 
+
+# =====================================================================
+# Dry-run 5b item 1 (scenario E, "most severe"): genuine real-world
+# ambiguity ("ברגם" = Bergen or Bergamo) asks ONE question naming both,
+# never silently picks one.
+# =====================================================================
+calls = []
+state_bergen = dict(BASE_STATE, destination={"places": ["ברגם"], "mode": None, "status": "known"})
+with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
+    result_bergen = chat._destination_gateway_answer_by_meaning(
+        "ברגם מתאים לנו",
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        state_bergen,
+    )
+check("scenario E fix: an ambiguous real-world name writes NO destination_airports yet",
+      not result_bergen.get("destination_airports"))
+check("scenario E fix: destination.places is never silently overwritten either",
+      "destination" not in result_bergen)
+check("scenario E fix: a one-turn _destination_ambiguous_hint names BOTH real options",
+      "Bergen" in result_bergen.get("_destination_ambiguous_hint", "")
+      or "ברגן" in result_bergen.get("_destination_ambiguous_hint", ""))
+check("scenario E fix: the hint also names the other real option (Bergamo)",
+      "Bergamo" in result_bergen.get("_destination_ambiguous_hint", "")
+      or "ברגמו" in result_bergen.get("_destination_ambiguous_hint", ""))
+check("scenario E fix: the hint explicitly forbids Tinkerbell from picking one herself",
+      "לעולם אל תבחרי אחד מהם בעצמך" in result_bergen.get("_destination_ambiguous_hint", ""))
+
+
+# =====================================================================
+# Dry-run 5b item 1: the evidence requirement itself - no verbatim quote
+# from the CURRENT message means nothing resolves, however confident the
+# model's candidates otherwise look (prevents resolving from stale
+# context/the agent's own prior message instead of the real one).
+# =====================================================================
+def _fake_no_evidence(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        return json.dumps({"evidence": "מילה שלא נמצאת בהודעה בכלל", "candidates": [{"city_en": "Salzburg", "iata_code": "SZG"}]})
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_no_evidence):
+    result_no_evidence = chat._destination_gateway_answer_by_meaning(
+        "זלצבורג מתאים לנו",
+        [{"role": "assistant", "content": GATEWAY_REPLY}],
+        BASE_STATE,
+    )
+check("evidence gate: a fabricated/invented quote that isn't genuinely in the message -> nothing resolves",
+      result_no_evidence == {})
+
+
+def _fake_null_evidence(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        return json.dumps({"evidence": None, "candidates": [{"city_en": "Salzburg", "iata_code": "SZG"}]})
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_null_evidence):
+    result_null_evidence = chat._destination_gateway_answer_by_meaning(
+        "זלצבורג מתאים לנו",
+        [{"role": "assistant", "content": GATEWAY_REPLY}],
+        BASE_STATE,
+    )
+check("evidence gate: null evidence with a confident-looking candidate -> nothing resolves either",
+      result_null_evidence == {})
+
+
+# =====================================================================
+# Two candidates returned but only ONE actually verifies against the
+# catalog (the other is a model hallucination/uncatalogued) - resolves
+# as a single verified match, not treated as ambiguous.
+# =====================================================================
+def _fake_one_of_two_verifies(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        return json.dumps({
+            "evidence": "זלצבורג",
+            "candidates": [
+                {"city_en": "Salzburg", "iata_code": "SZG"},
+                {"city_en": "Nonexistentville", "iata_code": "ZZZ"},
+            ],
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_one_of_two_verifies):
+    result_one_verifies = chat._destination_gateway_answer_by_meaning(
+        "זלצבורג מתאים לנו",
+        [{"role": "assistant", "content": GATEWAY_REPLY}],
+        BASE_STATE,
+    )
+check("only one of two claimed candidates actually verifies against the catalog -> "
+      "resolved directly as a single match, never treated as ambiguous",
+      result_one_verifies.get("destination_airports") == ["SZG"]
+      and "_destination_ambiguous_hint" not in result_one_verifies)
+
+
+# =====================================================================
+# Two candidates returned, both resolve to the SAME verified code (model
+# redundancy) - deduped to a single match, never a spurious ambiguous ask.
+# =====================================================================
+def _fake_duplicate_candidate(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        return json.dumps({
+            "evidence": "זלצבורג",
+            "candidates": [
+                {"city_en": "Salzburg", "iata_code": "SZG"},
+                {"city_en": "Salzburg", "iata_code": "SZG"},
+            ],
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_duplicate_candidate):
+    result_dup = chat._destination_gateway_answer_by_meaning(
+        "זלצבורג מתאים לנו",
+        [{"role": "assistant", "content": GATEWAY_REPLY}],
+        BASE_STATE,
+    )
+check("two candidates that verify to the SAME code are deduped - a single match, never ambiguous",
+      result_dup.get("destination_airports") == ["SZG"]
+      and "_destination_ambiguous_hint" not in result_dup)
+
+
+# =====================================================================
+# More than 2 candidates in the model's own (malformed) output - only the
+# first 2 are ever considered, per the explicit "never more than two" rule.
+# =====================================================================
+def _fake_three_candidates(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        return json.dumps({
+            "evidence": "ברגם",
+            "candidates": [
+                {"city_en": "Bergen", "iata_code": "BGO"},
+                {"city_en": "Bergamo", "iata_code": "BGY"},
+                {"city_en": "Zadar", "iata_code": "ZAD"},
+            ],
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_three_candidates):
+    result_three = chat._destination_gateway_answer_by_meaning(
+        "ברגם מתאים לנו",
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        dict(BASE_STATE, destination={"places": ["ברגם"], "mode": None, "status": "known"}),
+    )
+check("more than 2 claimed candidates: only the first 2 are ever considered (never 3-way ambiguity)",
+      "Zadar" not in result_three.get("_destination_ambiguous_hint", "")
+      and "ZAD" not in result_three.get("_destination_ambiguous_hint", ""))
+
+
 # =====================================================================
 # _verify_catalog_airport_code: the verification primitive directly.
 # =====================================================================
@@ -253,6 +418,8 @@ with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)
 check("business owner's example: 'פפוס' (no א) still resolves to PFO via the "
       "model's own recognition, not a Hebrew alias table",
       result.get("destination_airports") == ["PFO"])
+check("business owner's example: destination.places is updated to the catalog's verified spelling",
+      result.get("destination", {}).get("places") == ["פאפוס"])
 
 # =====================================================================
 # Round 12 finding E (Zadar) + Ido's own explicit warning (22.10.2026,
@@ -281,12 +448,16 @@ check("direct: _verify_catalog_airport_code itself recognizes ZAD/Zadar "
 
 # =====================================================================
 # Full-pipeline wiring: the new call is actually merged into trip_update
-# by the main turn-processing path, not just a standalone function.
+# by the main turn-processing path, not just a standalone function; the
+# ambiguous hint is wired into the single-question arbiter at the same
+# priority tier as the generic gateway question.
 # =====================================================================
+_SOURCE = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             "ariella_chat_clean.py"), encoding="utf-8").read()
 check("the new classifier is wired into the main merge pipeline (source present)",
-      "_destination_gateway_answer_by_meaning(message, history, trip_update)" in
-      open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                         "ariella_chat_clean.py"), encoding="utf-8").read())
+      "_destination_gateway_answer_by_meaning(message, history, trip_update)" in _SOURCE)
+check("_destination_ambiguous_hint is wired into _turn_question_arbiter",
+      '"_destination_ambiguous_hint"' in _SOURCE and '"destination_ambiguous"' in _SOURCE)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")

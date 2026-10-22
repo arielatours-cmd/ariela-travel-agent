@@ -495,6 +495,12 @@ def _post_claude_baggage_change_post_summary(key, model, system_static, system_d
                 "month_relative": None, "part_of_month": None, "duration_days": None, "shift_days": None,
             },
             "relative_date_hint_evidence": None,
+            # Dry-run 5b sticky-baggage guard (_guard_baggage_change_evidence):
+            # a claimed flight.baggage change now requires a genuine
+            # baggage_evidence quote from the current message - supplied here
+            # since the message itself ("...נרצה גם מזוודה בבטן המטוס")
+            # genuinely names the new baggage type.
+            "baggage_evidence": "מזוודה בבטן המטוס",
         })
     if source == "guided_extract":
         return json.dumps({"status": "other_topic", "field": None, "evidence": None})

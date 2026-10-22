@@ -120,6 +120,88 @@ check(
 )
 
 
+# =====================================================================
+# Dry-run 5b item 4 (22.10.2026, scenario A, Paphos): "אמא שלי עברה ניתוח
+# בברך והיא מתקשה ללכת מרחקים ארוכים" - word-for-word the exact example
+# already baked into the classifier's own prompt for detail_category:
+# "walking_long_distance" - still ended up saved as needs:["other"] with
+# NO details at all. Root cause: the retry above only widened to the
+# literal string "other" - but the live result had detail_category
+# null/missing (not the string "other") while needs still contained
+# "other" - WORSE than the literal "other" case (that one at least maps
+# to a real phrase via _ACCESSIBILITY_DETAIL_PHRASES_HE; null maps to
+# nothing, so acc["details"] never gets set at all downstream). Fixed to
+# widen the retry trigger to "whatever _ACCESSIBILITY_DETAIL_PHRASES_HE
+# actually computes is falsy" (covers null/invalid too), not just the
+# literal string "other".
+# =====================================================================
+NULL_CATEGORY_RESULT = {
+    "status": "answered", "needed": True, "needs": ["other"], "detail_category": None,
+    "confidence": "high", "also_mentioned": None, "correction": None,
+}
+state4 = awaiting_detail_state()
+r4 = run(state4, "אמא שלי עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים", NULL_CATEGORY_RESULT)
+tu4 = r4["trip_update"]
+check(
+    "dr5b fix: a null/missing detail_category (needs=['other'] but no usable "
+    "category at all) does NOT close accessibility with nothing recorded - it retries",
+    "accessibility" not in (tu4.get("guided") or {}).get("answered", []),
+)
+check(
+    "dr5b fix: current_question stays 'accessibility' for the retry",
+    (tu4.get("guided") or {}).get("current_question") == "accessibility",
+)
+check(
+    "dr5b fix: the retry flag is set so a second attempt is accepted",
+    bool((tu4.get("guided") or {}).get("accessibility_other_retried")),
+)
+check(
+    "dr5b fix: nothing is merged into accessibility.details yet (still awaiting detail next turn)",
+    not (tu4.get("accessibility") or {}).get("details"),
+)
+check(
+    "dr5b fix: a concrete retry hint is returned, not the generic settle flow",
+    "עדיין כללי מדי" in str(r4.get("dynamic_hint") or ""),
+)
+
+# Regression: a SECOND null-category answer in a row (post-retry) is
+# accepted as final rather than looping forever, exactly like the literal
+# "other" case - needs=["other"] is saved even with no details phrase.
+state5 = awaiting_detail_state()
+state5["guided"]["accessibility_other_retried"] = True
+r5 = run(state5, "סתם קשה לה קצת", NULL_CATEGORY_RESULT)
+tu5 = r5["trip_update"]
+check(
+    "regression: a second null-category answer (post-retry) IS accepted and closes accessibility",
+    "accessibility" in (tu5.get("guided") or {}).get("answered", []),
+)
+check(
+    "regression: needs=['other'] is still saved even though details has nothing to show",
+    (tu5.get("accessibility") or {}).get("needs") == ["other"]
+    and not (tu5.get("accessibility") or {}).get("details"),
+)
+
+# Regression: the exact live example sentence, now correctly classified by
+# the model as walking_long_distance (the prompt's own baked-in example) -
+# never retried, settles immediately with the real phrase saved.
+WALKING_LONG_DISTANCE_RESULT = {
+    "status": "answered", "needed": True, "needs": ["other"], "detail_category": "walking_long_distance",
+    "confidence": "high", "also_mentioned": None, "correction": None,
+}
+state6 = awaiting_detail_state()
+r6 = run(state6, "אמא שלי עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים", WALKING_LONG_DISTANCE_RESULT)
+tu6 = r6["trip_update"]
+check(
+    "regression: a correctly classified specific category (walking_long_distance) is "
+    "accepted on the first answer, no retry",
+    "accessibility" in (tu6.get("guided") or {}).get("answered", []),
+)
+check(
+    "regression: the real practical phrase is saved, not the generic 'other' label",
+    (tu6.get("accessibility") or {}).get("details") == chat._ACCESSIBILITY_DETAIL_PHRASES_HE["walking_long_distance"],
+)
+
+
 print()
 if FAILED:
     print(f"{len(FAILED)} CHECK(S) FAILED:")
