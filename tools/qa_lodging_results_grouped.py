@@ -1,4 +1,7 @@
-"""QA for lodging revenue item 4 (22.10, on top of PR #147): the lodging
+"""(22.10: every test hotel carries a booking link - a result without one is no longer shown, see
+tools/qa_lodging_book_button.py.)
+
+QA for lodging revenue item 4 (22.10, on top of PR #147): the lodging
 results (lodging_offers) on the account page are grouped by stop + dates,
 with a heading per group.
 
@@ -67,9 +70,9 @@ BASE = {"destinations": "FCO", "departure_date": "2027-05-01", "return_date": "2
 
 # --- Multi-stop: grouped by stop + dates, in route order ------------------------------------------------
 html = page("qa-lodging-groups-multi@example.com", dict(BASE, lodging_offers=[
-    {"name": "Roma A", "segment_location": "רומא", "segment_dates": "2027-05-01 – 2027-05-04"},
-    {"name": "Roma B", "segment_location": "רומא", "segment_dates": "2027-05-01 – 2027-05-04"},
-    {"name": "Firenze A", "segment_location": "פירנצה", "segment_dates": "2027-05-04 – 2027-05-08"},
+    {"name": "Roma A", "link": "https://hotel.example/Roma-A", "segment_location": "רומא", "segment_dates": "2027-05-01 – 2027-05-04"},
+    {"name": "Roma B", "link": "https://hotel.example/Roma-B", "segment_location": "רומא", "segment_dates": "2027-05-01 – 2027-05-04"},
+    {"name": "Firenze A", "link": "https://hotel.example/Firenze-A", "segment_location": "פירנצה", "segment_dates": "2027-05-04 – 2027-05-08"},
 ]))
 h = headings(html)
 check("multi-stop: one heading per stop, in route order", h == ["רומא · 01.05.2027 – 04.05.2027", "פירנצה · 04.05.2027 – 08.05.2027"])
@@ -79,15 +82,15 @@ check("the old per-card segment line is gone (the heading replaces it)", "lodgin
 
 # --- Same stop twice with different dates -> two groups -----------------------------------------------
 html = page("qa-lodging-groups-return@example.com", dict(BASE, lodging_offers=[
-    {"name": "Roma 1", "segment_location": "רומא", "segment_dates": "2027-05-01 – 2027-05-03"},
-    {"name": "Napoli", "segment_location": "נאפולי", "segment_dates": "2027-05-03 – 2027-05-06"},
-    {"name": "Roma 2", "segment_location": "רומא", "segment_dates": "2027-05-06 – 2027-05-08"},
+    {"name": "Roma 1", "link": "https://hotel.example/Roma-1", "segment_location": "רומא", "segment_dates": "2027-05-01 – 2027-05-03"},
+    {"name": "Napoli", "link": "https://hotel.example/Napoli", "segment_location": "נאפולי", "segment_dates": "2027-05-03 – 2027-05-06"},
+    {"name": "Roma 2", "link": "https://hotel.example/Roma-2", "segment_location": "רומא", "segment_dates": "2027-05-06 – 2027-05-08"},
 ]))
 check("a stop visited twice (different dates) -> two separate groups",
       headings(html) == ["רומא · 01.05.2027 – 03.05.2027", "נאפולי · 03.05.2027 – 06.05.2027", "רומא · 06.05.2027 – 08.05.2027"])
 
 # --- No segments (the usual case): one group, destination + trip dates --------------------------------
-html = page("qa-lodging-groups-single@example.com", dict(BASE, lodging_offers=[{"name": "Hotel One"}, {"name": "Hotel Two"}]))
+html = page("qa-lodging-groups-single@example.com", dict(BASE, lodging_offers=[{"name": "Hotel One", "link": "https://hotel.example/Hotel-One"}, {"name": "Hotel Two", "link": "https://hotel.example/Hotel-Two"}]))
 h = headings(html)
 check("no segments: exactly one heading", len(h) == 1)
 # The destination part is the trip card's own display name (trip.destination_display - "איטליה" for FCO).
