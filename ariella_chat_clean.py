@@ -303,6 +303,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - לפני שיצאה סריקה בפועל, אסור להבטיח ללקוח טיסה ספציפית ("יש לכם טיסה ישירה מנתב"ג לבנגקוק ב-15.7.2027, בדיוק מה שרצית") או לדבר על תקציב מסוים כאילו הוא כבר הושג ("תקציב של 4000 לטיסה ישירה נשמע סביר, אני אדאג לזה") - אלה טענות על תוצאה שעוד לא נבדקה. הנוסח הנכון קודם לסריקה מתייחס לבקשה/להעדפה של הלקוח בלבד ("קלטתי - טיסה ישירה, תקציב עד 4,000 ₪"), לעולם לא כאילו התוצאה כבר נמצאה או מובטחת.
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
 - הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים בקבוצה - אי אפשר להזמין סוג שונה לנוסעים שונים באותה הזמנה. לכן כשהלקוח משייך סוג כבודה שונה לנוסעים/קבוצות שונים בתוך אותה תשובה (בכל ניסוח - גם תיאור צד-לצד כמו "אני מסתדרת עם תיק קטן, השתיים האחרות רוצות מזוודה גדולה", לא רק ניגוד מפורש עם "אבל"), לעולם אל תרשמי כמה סוגים שונים ברשימה כאילו כולם רלוונטיים לכל הקבוצה, ולעולם אל תפתרי את הבקשה בעצמך לערך יחיד (לא checked_bag ולא כל ערך אחר) - לפי ההחלטה המפורשת של בעלת העסק (22.10) בקשה כזו לא נפתרת ולא נשמרת כלל כאן: השאירי את flight.baggage כפי שהיה (null/ריק אם עדיין לא נקבע) - הטיפול בבקשה מעורבת (הסבר שכבודה שונה לכל נוסע אפשר להוסיף רק בעמוד התשלום, ואז שאלת כן/לא על כבודה אחידה לכולם) קורה במקום אחר, לא בחילוץ הזה. זה שונה לגמרי ממקרה שבו הלקוח מבקש בפירוש כמה סוגים לכל הקבוצה כולה (למשל "טרולי וגם מזוודה לכולנו") - זו בקשה אחידה לשני פריטים, לא בקשה מעורבת, ונשמרת כפי שהיא.
+- כשהתשובה הנוכחית גם מאשרת וגם קובעת בפירוש סוג כבודה יחיד לכל הקבוצה, באותה הודעה עצמה, כמענה לשאלה שנשאלה בתור הקודם אם לבחור כבודה אחידה אחת לכולם (לאחר שבתור קודם זוהתה בקשה מעורבת-לפי-נוסע) - כתבי flight.baggage עם הסוג היחיד הזה כרגיל, וגם מלאי את flight.baggage_detail_evidence בציטוט מילה-במילה מההודעה הנוכחית שמראה את הסוג שנקבע (למשל "כן, מזוודה לכולם" → הציטוט "מזוודה"). בלי ציטוט אמיתי כזה שתומך בסוג יחיד ומפורש מההודעה הנוכחית - השאירי flight.baggage כפי שהיה, בדיוק כמו בבקשה מעורבת רגילה.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
 - אם נאמרה מדינה או יעד רחב עם כמה שערי כניסה סבירים, אל תמציאי שדה יעד ואל תסמני את בחירת היעד לטיסה כמושלמת. destination_airports נשאר ריק עד שהלקוח בוחר אחד/כמה/כולם, או עד שמסלול שאושר קובע את שער הכניסה.
@@ -5507,7 +5508,7 @@ def _guard_unjustified_gateway_narrowing(state, message, history):
     return state
 
 
-def _guard_mixed_baggage_pending_write(trip_state, trip_update):
+def _guard_mixed_baggage_pending_write(trip_state, trip_update, message=None):
     """zd9 live finding (Shaked, run-9, Bilbao, relayed by Shlomo 22.10.2026),
     on PR #128 after it merged: guided.mixed_baggage_pending=True exists
     specifically so the CUSTOMER's next message is read as the yes/no
@@ -5532,7 +5533,24 @@ def _guard_mixed_baggage_pending_write(trip_state, trip_update):
     other general paths that can write flight.baggage) are skipped
     outright at their own call sites for the same reason, not reverted
     here - skipping avoids running a classifier call whose result would
-    just be discarded anyway."""
+    just be discarded anyway.
+
+    Same-turn-choice follow-up (22.10.2026, Shlomo's relay of the business
+    owner's decision right after Shaked approved the zd9/zd10 fix above):
+    discarding the type unconditionally meant "כן, מזוודה לכולם" still led
+    to a redundant re-ask of the normal baggage question right after "yes"
+    - the type the customer already named in the same breath was thrown
+    away for no reason. Before reverting, a single clean type with a
+    genuine flight.baggage_detail_evidence quote from THIS message (the
+    same evidence field/instruction EXTRACTOR_SYSTEM already uses for
+    baggage_detail, now also required for this exact same-breath case -
+    see its prompt text) is preserved in the transient trip_update[
+    "_mixed_baggage_evidenced_type"] key, never persisted as real state.
+    _handle_guided_extraction_turn's own "yes" branch consumes it ONLY
+    after its OWN classifier call independently confirms this message
+    means "yes" - this guard never decides yes/no meaning itself. A bare
+    "yes" alone (no same-breath type, so no evidence) leaves nothing
+    there and the normal re-ask still happens exactly as before."""
     trip_state = trip_state if isinstance(trip_state, dict) else {}
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     was_pending = bool((trip_state.get("guided") or {}).get("mixed_baggage_pending"))
@@ -5542,6 +5560,14 @@ def _guard_mixed_baggage_pending_write(trip_state, trip_update):
     new_flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
     if new_flight.get("baggage") == prior_flight.get("baggage") and new_flight.get("baggage_detail") == prior_flight.get("baggage_detail"):
         return trip_update  # nothing actually changed, nothing to revert
+    new_baggage = new_flight.get("baggage")
+    trip_update = dict(trip_update)
+    if (
+        isinstance(new_baggage, list) and len(new_baggage) == 1
+        and new_baggage[0] in ("carry_on_only", "checked_bag", "personal_item")
+        and _value_has_verbatim_evidence(new_flight.get("baggage_detail_evidence"), message)
+    ):
+        trip_update["_mixed_baggage_evidenced_type"] = new_baggage[0]
     reverted_flight = dict(new_flight)
     if "baggage" in prior_flight:
         reverted_flight["baggage"] = prior_flight.get("baggage")
@@ -5551,7 +5577,9 @@ def _guard_mixed_baggage_pending_write(trip_state, trip_update):
         reverted_flight["baggage_detail"] = prior_flight.get("baggage_detail")
     else:
         reverted_flight.pop("baggage_detail", None)
-    return dict(trip_update, flight=reverted_flight)
+    reverted_flight.pop("baggage_detail_evidence", None)
+    trip_update["flight"] = reverted_flight
+    return trip_update
 
 
 def _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message):
@@ -10842,15 +10870,47 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # A mixed per-passenger request was flagged last turn (see the
         # "status == answered" branch below) - this turn's reply answers
         # THAT yes/no question, never a fresh baggage extraction attempt.
+        # 22.10 same-turn-choice follow-up: popped here (never left in
+        # trip_update, so it never leaks into persisted state) regardless
+        # of what uniform_choice turns out to be below - only the "yes"
+        # branch actually uses it.
+        evidenced_type = trip_update.pop("_mixed_baggage_evidenced_type", None)
         uniform_choice = _mixed_baggage_uniform_choice_by_meaning(message)
         if uniform_choice is None:
             guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
             trip_update["guided"] = guided
             return {"trip_update": trip_update, "dynamic_hint": _mixed_baggage_confirm_retry_hint()}
         guided["mixed_baggage_pending"] = False
+        if uniform_choice and evidenced_type:
+            # "yes" + the same-breath type the customer already named
+            # ("כן, מזוודה לכולם"), verified against THIS message by
+            # _guard_mixed_baggage_pending_write above - save it directly
+            # instead of asking the normal baggage question all over
+            # again right after "yes".
+            trip_update = _merge_trip_state(trip_update, {"flight": {"baggage": [evidenced_type]}})
+            if current_question not in answered:
+                answered.append(current_question)
+            next_field = next(
+                (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+                None,
+            )
+            guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
+            trip_update["guided"] = guided
+            next_hint = _guided_ask_hint(next_field, 0) if next_field else None
+            baggage_note = _baggage_followup_hint([evidenced_type])
+            if next_hint and baggage_note:
+                return {
+                    "trip_update": trip_update,
+                    "dynamic_hint": (
+                        "שני חלקים בהודעה הזו - זה עדיין נחשב הודעה אחת עם שאלה אחת בלבד, לא הפרה של כלל השאלה האחת: "
+                        "(1) " + baggage_note + " (2) " + next_hint
+                    ),
+                }
+            return {"trip_update": trip_update, "dynamic_hint": baggage_note or next_hint}
         if uniform_choice:
-            # "yes" - proceed to the normal single-group baggage question,
-            # exactly as if the mixed description never happened.
+            # "yes" alone, with no evidenced same-breath type - proceed to
+            # the normal single-group baggage question, exactly as if the
+            # mixed description never happened.
             guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
             trip_update["guided"] = guided
             return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(current_question, 0)}
@@ -13331,7 +13391,7 @@ def _chat_clean_impl():
             })
 
         trip_update = _merge_trip_state(trip_state, extracted)
-        trip_update = _guard_mixed_baggage_pending_write(trip_state, trip_update)
+        trip_update = _guard_mixed_baggage_pending_write(trip_state, trip_update, message)
         trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
         trip_update = _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message)
         trip_update = _guard_ski_trip_type_evidence(trip_state, trip_update, trip_type_evidence, message)
