@@ -4,7 +4,7 @@
 **תזמון:** אחרי 020. התמונות עצמן מגיעות מאופק כעבודת נתונים, ברגע שהרשת מאפשרת.
 
 ## 1. נתונים (אופק)
-- **קבצים:** `static/img/destinations/<IATA>/<n>.webp`. בשלב א, 4 תמונות לכל אחד מ-37 יעדי הדילים (`DESTINATIONS` ב-config.py). רוחב 1200 פיקסלים, WebP באיכות 80, עד כ-200KB.
+- **קבצים:** `static/img/destinations/<IATA>/<n>.webp` (הטיוטה המוכנה: `product/assets/destinations/` ו-`product/data/destination_images_draft.json` בענף ofek, 148 תמונות. בפיתוח מעבירים אותן למקום הזה). בשלב א, 4 תמונות לכל אחד מ-37 יעדי הדילים (`DESTINATIONS` ב-config.py). רוחב 1200 פיקסלים, WebP באיכות 80, עד כ-200KB.
 - **מטא-דאטה:** `data/destination_images.json`.
 ```json
 {"code":"LIS","file":"static/img/destinations/LIS/1.webp","source":"unsplash|pexels|wikimedia",
