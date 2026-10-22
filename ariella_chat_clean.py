@@ -2243,15 +2243,30 @@ _ACCESSIBILITY_SERVICE_HINT = {
 def _accessibility_hint_text(state):
     """Only engages once GUIDED_EXTRACTION_STEPS covers "accessibility" and
     the customer actually said yes - a blank/"no" accessibility field never
-    changes a single word of any reply (spec section 5)."""
+    changes a single word of any reply (spec section 5).
+
+    FIXED per Shaked's live finding on PR #76 (22.10.2026): this used to
+    fire on EVERY turn once needed=True, so Tinkerbell brought accessibility
+    up in every single reply for the rest of the conversation. Now fires
+    only when starting a new service session (flight/lodging/car/trip_
+    planning) that hasn't been told about it yet, or at the final summary/
+    approval gate - never in between. accessibility.announced (a list of
+    session names already given the note) is updated by this function's one
+    caller right after a non-empty hint fires - see its call site."""
     state = state if isinstance(state, dict) else {}
     if "accessibility" not in _guided_extraction_steps():
         return ""
     acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
     if acc.get("needed") is not True:
         return ""
+    active = str(state.get("active_session") or "")
+    announced = acc.get("announced") if isinstance(acc.get("announced"), list) else []
+    at_summary = bool(state.get("ready_for_summary"))
+    session_just_started = bool(active) and active not in announced
+    if not at_summary and not session_just_started:
+        return ""
     need_text = acc.get("details") or ", ".join(acc.get("needs") or []) or "התאמה מיוחדת"
-    service_hint = _ACCESSIBILITY_SERVICE_HINT.get(str(state.get("active_session") or ""), "")
+    service_hint = _ACCESSIBILITY_SERVICE_HINT.get(active, "")
     hint = f"\nללקוח יש צורך בנגישות/התאמה שצוין בשיחה: {need_text}. התייחסי אליו בתשובה הזו."
     if service_hint:
         hint += f" {service_hint}"
@@ -3235,6 +3250,21 @@ def _flight_travelers_line(travelers) -> str | None:
     return "נוסעים: " + party
 
 
+def _flight_accessibility_line(state) -> str | None:
+    """Deterministic accessibility line for the flight summary, same
+    principle as baggage/dates/travelers above (Shaked's request, PR #76,
+    22.10.2026): a genuinely-known need must never be silently left out of
+    Tinkerbell's own free-text summary. Only the practical need - never a
+    diagnosis or medical condition, which is never stored here to begin
+    with (see _guided_field_update_and_confirm's accessibility branch)."""
+    state = state if isinstance(state, dict) else {}
+    acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
+    if acc.get("needed") is not True:
+        return None
+    need_text = acc.get("details") or ", ".join(acc.get("needs") or []) or "התאמה מיוחדת"
+    return f"התאמות נגישות: {need_text}"
+
+
 def _flight_summary_text(state):
     """Deterministic flight-request summary built straight from state - the
     honest fallback when the claims_execution safety net catches Tinkerbell
@@ -3499,6 +3529,10 @@ def _ensure_flight_summary_completeness(reply, state):
             missing.append(line)
     if "ישיר" not in text and "קונקשן" not in text:
         line = _flight_connection_line(flight)
+        if line:
+            missing.append(line)
+    if "נגישות" not in text:
+        line = _flight_accessibility_line(state)
         if line:
             missing.append(line)
     if not missing:
@@ -4882,6 +4916,16 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     declined_domains_hint_text = _declined_domains_hint(state)
     gender_hint_text = _gender_hint_text(state)
     accessibility_hint_text = _accessibility_hint_text(state)
+    if accessibility_hint_text and state.get("active_session"):
+        # Mark this session as "told" so the hint above doesn't repeat for
+        # every later turn of the same session (the bug this fixes) - see
+        # _accessibility_hint_text's own docstring.
+        acc_for_announce = dict(state.get("accessibility") or {})
+        announced_sessions = list(acc_for_announce.get("announced") or [])
+        if state["active_session"] not in announced_sessions:
+            announced_sessions.append(state["active_session"])
+            acc_for_announce["announced"] = announced_sessions
+            state["accessibility"] = acc_for_announce
     # The raw state JSON dump below is a second, separate path that can leak
     # an irrelevant upcoming_vacations list into the prompt just like the
     # continuity hint above - exclude it here too when it isn't relevant to

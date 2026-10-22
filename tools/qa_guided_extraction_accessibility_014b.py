@@ -359,6 +359,97 @@ check("privacy policy section 7 (English): covers chat storage, the AI "
       and "the AI provider that runs Ariella" in privacy_src
       and "Deleting your account also deletes your conversations" in privacy_src)
 
+# =====================================================================
+# 10. Shaked's live finding on PR #76 (22.10.2026): once needed=True, the
+#     hint fired on EVERY turn, so Tinkerbell mentioned accessibility in
+#     every reply for the rest of the conversation. Fixed: fires only
+#     when starting a session not yet told about it, or at the summary.
+# =====================================================================
+_NEED_STATE = {"accessibility": {"needed": True, "needs": ["stroller"]}}
+check("repeat-fix: first turn of a session (not yet announced) still fires",
+      bool(chat._accessibility_hint_text(dict(_NEED_STATE, active_session="flights"))))
+check("repeat-fix: a LATER turn of the SAME session (already announced, "
+      "not at the summary gate) no longer fires - this is the bug itself",
+      chat._accessibility_hint_text(dict(
+          _NEED_STATE, active_session="flights",
+          accessibility={"needed": True, "needs": ["stroller"], "announced": ["flights"]},
+      )) == "")
+check("repeat-fix: the summary/approval gate (ready_for_summary=True) "
+      "still fires even if every session was already announced",
+      bool(chat._accessibility_hint_text(dict(
+          _NEED_STATE, active_session=None, ready_for_summary=True,
+          accessibility={"needed": True, "needs": ["stroller"], "announced": ["flights", "lodging"]},
+      ))))
+check("repeat-fix: a DIFFERENT session not yet announced still fires, even "
+      "though an earlier session already was",
+      bool(chat._accessibility_hint_text(dict(
+          _NEED_STATE, active_session="lodging",
+          accessibility={"needed": True, "needs": ["stroller"], "announced": ["flights"]},
+      ))))
+
+# End-to-end: two consecutive turns in the same flights session must not
+# repeat the hint into Tinkerbell's own prompt the second time, but the
+# "announced" bookkeeping must persist across the HTTP round-trip.
+_captured_system_dynamic = []
+
+
+def _capturing_post_claude(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
+    if source == "tinkerbell_reply":
+        _captured_system_dynamic.append(system_dynamic)
+        return "תשובה לדוגמה."
+    if source == "state_extractor":
+        return "{}"
+    if source == "guided_extract":
+        return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    return "{}"
+
+
+member_repeat = _make_member("qa-014b-repeat@example.com")
+needy_state = dict(ROME_STATE_BASE, accessibility={"needed": True, "needs": ["stroller"]})
+with patch.object(chat, "_post_claude", side_effect=_capturing_post_claude):
+    r_turn1 = _post("עוד שאלה על הטיסה", [], dict(needy_state), member_repeat)
+    tu_turn1 = r_turn1.get("trip_update") or {}
+    r_turn2 = _post("עוד שאלה על הטיסה", [], dict(tu_turn1), member_repeat)
+check("repeat-fix end-to-end: turn 1 announces 'flights' in state",
+      "flights" in ((tu_turn1.get("accessibility") or {}).get("announced") or []))
+check("repeat-fix end-to-end: turn 1's own prompt carries the accessibility hint",
+      len(_captured_system_dynamic) >= 1 and "התייחסי אליו בתשובה הזו" in _captured_system_dynamic[0])
+check("repeat-fix end-to-end: turn 2 (same still-open flights session) does "
+      "NOT repeat the hint into the prompt",
+      len(_captured_system_dynamic) >= 2 and "התייחסי אליו בתשובה הזו" not in _captured_system_dynamic[1])
+
+# =====================================================================
+# 11. Deterministic accessibility line in the flight summary (Shaked's
+#     second request on #76): a known need must never be silently left
+#     out of Tinkerbell's own free-text "כתבי מאשרת" summary, same
+#     principle as budget/baggage/dates/travelers.
+# =====================================================================
+check("_flight_accessibility_line: known need -> the canonical line",
+      chat._flight_accessibility_line({"accessibility": {"needed": True, "needs": ["stroller"]}}) == "התאמות נגישות: stroller")
+check("_flight_accessibility_line: needed=False -> None (nothing to state)",
+      chat._flight_accessibility_line({"accessibility": {"needed": False}}) is None)
+check("_flight_accessibility_line: no accessibility state at all -> None",
+      chat._flight_accessibility_line({}) is None)
+
+_summary_reply_missing = "סיכום בקשת הטיסה:\nיעד: רומא\n\nאם כל הפרטים נכונים, כתבי מאשרת."
+_fixed = chat._ensure_flight_summary_completeness(
+    _summary_reply_missing, {"accessibility": {"needed": True, "details": "עזרה בעלייה למטוס"}},
+)
+check("_ensure_flight_summary_completeness: a known accessibility need "
+      "missing from the free-text summary is appended",
+      "נגישות" in _fixed and "עזרה בעלייה למטוס" in _fixed)
+
+_summary_reply_present = (
+    "סיכום בקשת הטיסה:\nיעד: רומא\nהתאמות נגישות: עזרה בעלייה למטוס\n\n"
+    "אם כל הפרטים נכונים, כתבי מאשרת."
+)
+_unchanged = chat._ensure_flight_summary_completeness(
+    _summary_reply_present, {"accessibility": {"needed": True, "details": "עזרה בעלייה למטוס"}},
+)
+check("_ensure_flight_summary_completeness: already-mentioned accessibility "
+      "is never duplicated",
+      _unchanged.count("נגישות") == 1)
+
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email LIKE 'qa-014b-%@example.com'")
     conn.commit()
