@@ -72,8 +72,12 @@ check("personal_item alone still mentions BOTH a trolley and a suitcase "
       "can be added later",
       "טרולי" in _note_personal_item and "מזוודה" in _note_personal_item)
 
-check("checked_bag (top tier) still needs no note at all",
-      chat._baggage_followup_hint(["checked_bag"]) is None)
+# 22.10 (business owner, replacing a rejected after-the-fact filter): the
+# checked bag still gets NO "can add" note for the customer - the hint is
+# now an explicit instruction to the model NOT to write one (was None).
+check("checked_bag (top tier) still needs no note at all - explicit 'add nothing' instruction instead of None",
+      "אל תוסיפי שום משפט על הוספת כבודה נוספת" in (chat._baggage_followup_hint(["checked_bag"]) or "")
+      and "שאפשר תמיד להוסיף" not in (chat._baggage_followup_hint(["checked_bag"]) or ""))
 
 # =====================================================================
 # End-to-end simulation of s1a1/s1a3's exact shape: baggage is the

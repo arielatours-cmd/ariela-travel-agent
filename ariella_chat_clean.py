@@ -4963,6 +4963,10 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
             "גם אם נושא אחר עדיין פתוח - הוא יחכה לתורו. השאלה/הנחיה עצמה: "
             + str(state.get("_guided_ask_hint")) + "\n"
         )
+    if state.get("_baggage_note_hint"):
+        # One-turn baggage instruction set in _chat_clean_impl when the
+        # guided dispatcher didn't carry it (see _baggage_followup_hint).
+        continuity += "\n- " + str(state.get("_baggage_note_hint")) + "\n"
     if state.get("_shift_candidate_hint"):
         # One-turn hint set in _chat_clean_impl when a shift_days candidate
         # was created this turn.
@@ -10259,10 +10263,19 @@ def _baggage_followup_hint(baggage_values):
     message, never a separate follow-up question or confirmation request.
     A checked bag (the top tier) needs no note at all; anything below it
     can always be upgraded at the airline's own website when booking.
-    Returns None for checked_bag (nothing to add)."""
+    For checked_bag (nothing to add) it returns the opposite instruction
+    instead of None (22.10, Shlomo/the business owner, replacing a rejected
+    after-the-fact text filter): tell the model up front not to offer any
+    extra baggage at all - seen after a post-summary switch to a suitcase,
+    where the reply still added "אפשר להוסיף גם תיק קטן... באתר חברת
+    התעופה"."""
     values = baggage_values if isinstance(baggage_values, list) else []
     if "checked_bag" in values:
-        return None
+        return (
+            "נשמרה מזוודה בבטן המטוס - זו הכבודה הכוללת ביותר, ואין מה להוסיף לה. "
+            "אל תוסיפי שום משפט על הוספת כבודה נוספת (תיק, תיק יד, טרולי או מזוודה), "
+            "לא באתר חברת התעופה ולא בשום מקום אחר."
+        )
     if "carry_on_only" in values:
         what = "שאפשר תמיד להוסיף מזוודה בבטן המטוס"
     else:
@@ -14247,6 +14260,23 @@ def _chat_clean_impl():
                     trip_update["_guided_ask_hint"] = guided_hint
                 else:
                     trip_update.pop("_guided_ask_hint", None)
+
+        # Baggage switched TO a checked bag this turn outside the guided
+        # dispatcher (e.g. right after the summary, when every domain is
+        # already decided and it doesn't run at all): its no-upsell
+        # instruction (_baggage_followup_hint) still has to reach this
+        # turn's reply BEFORE it is written - a one-turn hint, cleared on
+        # every other turn so it never lingers.
+        _baggage_prior = (trip_state.get("flight") or {}).get("baggage") if isinstance(trip_state, dict) else None
+        _baggage_now = (trip_update.get("flight") or {}).get("baggage")
+        _baggage_prior = _baggage_prior if isinstance(_baggage_prior, list) else []
+        _baggage_now = _baggage_now if isinstance(_baggage_now, list) else []
+        _checked_note = _baggage_followup_hint(_baggage_now) if "checked_bag" in _baggage_now else None
+        if (_checked_note and sorted(map(str, _baggage_now)) != sorted(map(str, _baggage_prior))
+                and _checked_note not in str(trip_update.get("_guided_ask_hint") or "")):
+            trip_update["_baggage_note_hint"] = _checked_note
+        else:
+            trip_update.pop("_baggage_note_hint", None)
 
         # Bologna live finding (20.10, Shlomo's relay, r90b2): the sticky-
         # dates re-lock logic further below must never discard a value the
