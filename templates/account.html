@@ -223,9 +223,6 @@
                 </div>
               {% endfor %}
             </div>
-            <form method="post" action="{{ url_for('site.search_lodging', trip_id=trip.id) }}" class="lodging-search-again">
-              <button type="submit" class="lodging-search-btn secondary">חיפוש מחדש</button>
-            </form>
           {% else %}
             {% if a.get('lodging_search_error') %}<div class="lodging-search-error">{{ a.get('lodging_search_error') }}</div>{% endif %}
             <div class="booking-lodging-cta">

@@ -12,7 +12,7 @@ import threading
 import random
 import requests
 import re
-from urllib.parse import parse_qsl, quote, urlencode
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 from datetime import date, datetime
 from functools import wraps
 from zoneinfo import ZoneInfo
@@ -217,6 +217,18 @@ def _cj_booking_wrap(destination_url: str, sid: str | None = None) -> str:
     if sid:
         params["sid"] = sid
     return CJ_BOOKING_EVERGREEN_LINK + "?" + urlencode(params, quote_via=quote)
+
+
+def _is_booking_com_url(url: str | None) -> bool:
+    """True for a real booking.com URL - used to decide which outbound
+    links are eligible for _cj_booking_wrap. Never wrap a link to another
+    supplier (Hotels.com, Expedia, the hotel's own site, ...): there is no
+    approved CJ advertiser for those, so CJ would just reject the click."""
+    try:
+        host = (urlsplit(str(url or "")).netloc or "").lower().split(":", 1)[0]
+    except Exception:
+        return False
+    return host == "booking.com" or host.endswith(".booking.com")
 
 
 _SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
@@ -5128,6 +5140,24 @@ def _save_trip_answers(trip_id: int, answers: dict) -> None:
         conn.commit()
 
 
+def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int) -> list[dict]:
+    """Seen live (Shaked): every Google Hotels result card's own "view and
+    book" button sends the customer straight to booking.com, uncredited -
+    SerpApi's google_hotels engine returns each property's real booking
+    link as-is, with no affiliate attribution. Booking.com is the one
+    CJ-approved lodging partner (CJ_BOOKING_EVERGREEN_LINK), so any result
+    link that actually goes to booking.com is routed through the same CJ
+    wrap the dedicated partner card uses, tied back to this vacation via
+    sid. A result pointing at a different supplier (the hotel's own site,
+    another OTA) is left untouched - there is no approved program for
+    those, so wrapping it would just send the click nowhere."""
+    for hotel in hotels:
+        link = hotel.get("link")
+        if link and _is_booking_com_url(link):
+            hotel["link"] = _cj_booking_wrap(link, sid=f"trip{trip_id}")
+    return hotels
+
+
 def _run_lodging_search(trip_id: int, answers: dict) -> None:
     """Execute a real lodging search (SerpApi's Google Hotels engine) for one
     trip and persist the results plus a completion flag the waiting page and
@@ -5220,7 +5250,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                     any_ok = True
                 except Exception:
                     logging.exception("Segment lodging search failed for trip %s (%s)", trip_id, seg.get("location"))
-            answers["lodging_offers"] = all_hotels[:15]
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links(all_hotels[:15], trip_id)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None if any_ok else "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."
             answers["_lodging_search_result"] = {
@@ -5285,7 +5315,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 max_price=_max_price_for(dep, ret), vacation_rentals=vacation_rentals,
                 min_hotel_class=min_hotel_class,
             )
-            answers["lodging_offers"] = (result.get("hotels") or [])[:10]
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links((result.get("hotels") or [])[:10], trip_id)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None
             answers["_lodging_search_result"] = {"status": "ok", "count": len(answers["lodging_offers"])}
@@ -5419,18 +5449,32 @@ def _int_or(value, default):
 
 def _lodging_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     """Outbound CJ-tracked URL for one lodging card (sid ties a commission
-    back to the vacation in CJ reports)."""
+    back to the vacation in CJ reports). LODGING_AFFILIATE_LINK is a
+    generic CJ advertiser deep-link, set once some lodging partner is
+    approved. Seen live (Shaked): it defaults to Agoda, which CJ has never
+    actually approved for this account - the only approved lodging partner
+    today is Booking.com MEA, via CJ_BOOKING_EVERGREEN_LINK (see
+    _cj_booking_wrap). So whenever LODGING_AFFILIATE_LINK itself isn't
+    configured, fall back to a Booking.com search URL wrapped the same
+    way, instead of silently producing an uncredited/broken link."""
+    airport = _AIRPORT_LOCALIZATION.get(iata) or {}
+    city = airport.get("city_en") or iata
+    dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
+    adults = _int_or(answers.get("adults"), 2) or 1
+    children = _int_or(answers.get("children"), 0)
+    rooms = _int_or(answers.get("lodging_rooms"), 1) or 1
+    if not LODGING_AFFILIATE_LINK:
+        search_url = "https://www.booking.com/searchresults.html?" + urlencode({
+            "ss": city, "checkin": dep, "checkout": ret,
+            "group_adults": adults, "group_children": children, "no_rooms": rooms,
+        }, quote_via=quote)
+        return _cj_booking_wrap(search_url, sid=f"trip{trip_id}")
     params = {"sid": f"trip{trip_id}"}
     if LODGING_SEARCH_URL_TEMPLATE:
-        airport = _AIRPORT_LOCALIZATION.get(iata) or {}
         try:
             params["url"] = LODGING_SEARCH_URL_TEMPLATE.format(
-                city=airport.get("city_en") or iata,
-                checkin=answers.get("departure_date") or "",
-                checkout=answers.get("return_date") or "",
-                adults=_int_or(answers.get("adults"), 2) or 1,
-                children=_int_or(answers.get("children"), 0),
-                rooms=_int_or(answers.get("lodging_rooms"), 1) or 1,
+                city=city, checkin=dep, checkout=ret,
+                adults=adults, children=children, rooms=rooms,
             )
         except (KeyError, IndexError, ValueError):
             logging.warning("LODGING_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
@@ -5441,8 +5485,12 @@ def _lodging_partner_url(answers: dict, iata: str, trip_id: int) -> str:
 def _lodging_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     """One card per destination (max 3) for a trip that asked for lodging,
     each linking out to the approved lodging partner. No price on the card:
-    the real, priced options are the Google Hotels results below it."""
-    if not LODGING_AFFILIATE_LINK or not isinstance(answers, dict):
+    the real, priced options are the Google Hotels results below it.
+    LODGING_AFFILIATE_LINK (a generic, not-yet-approved CJ advertiser link)
+    takes priority when set; otherwise this falls back to Booking.com MEA
+    via CJ_BOOKING_EVERGREEN_LINK, the lodging partner actually approved
+    today - see _lodging_partner_url."""
+    if not (LODGING_AFFILIATE_LINK or CJ_BOOKING_EVERGREEN_LINK) or not isinstance(answers, dict):
         return []
     wants_lodging = "lodging" in (answers.get("_requested_services") or []) or answers.get("lodging_type")
     if not wants_lodging:
@@ -5451,6 +5499,7 @@ def _lodging_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
     adults, children = _int_or(answers.get("adults"), 0), _int_or(answers.get("children"), 0)
     guests = (f"{adults} מבוגרים" if adults else "") + (f", {children} ילדים" if children else "")
+    supplier = LODGING_PARTNER_NAME if LODGING_AFFILIATE_LINK else "Booking.com"
     cards = []
     for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
         airport = _AIRPORT_LOCALIZATION.get(code) or {}
@@ -5459,7 +5508,7 @@ def _lodging_partner_cards(trip_id: int, answers: dict) -> list[dict]:
             "name": f"לינה ב{city}" + (f" · {kind}" if kind else ""),
             "dates": f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else "",
             "guests": guests,
-            "supplier": LODGING_PARTNER_NAME,
+            "supplier": supplier,
             "link": f"/trip/{trip_id}/book-lodging/{code}",
         })
     return cards
@@ -5552,15 +5601,16 @@ def book_lodging(trip_id, code):
             (trip_id, session["member_id"]),
         ).fetchone()
     code = str(code or "").upper()
-    if not row or not LODGING_AFFILIATE_LINK:
+    if not row or not (LODGING_AFFILIATE_LINK or CJ_BOOKING_EVERGREEN_LINK):
         return redirect(url_for("site.account"))
     answers = dict(_trip_dict(row).get("answers") or {})
     if code not in _trip_destination_codes({"answers": answers}):
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
     url = _lodging_partner_url(answers, code, trip_id)
+    supplier = LODGING_PARTNER_NAME if LODGING_AFFILIATE_LINK else "Booking.com"
     record_booking_click(
         member_id=session["member_id"], destination_code=code,
-        supplier=LODGING_PARTNER_NAME, outbound_date=answers.get("departure_date"),
+        supplier=supplier, outbound_date=answers.get("departure_date"),
         return_date=answers.get("return_date"), booking_url=url, affiliate_network="cj",
     )
     return redirect(url)
