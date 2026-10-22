@@ -10261,7 +10261,7 @@ _LODGING_ALSO_MENTIONED_SCHEMA = (
 )
 
 
-def _lodging_guided_prompt(field, state, recent):
+def _lodging_guided_prompt(field, state, recent, last_question_note=""):
     details = _lodging_details(state)
     state_line = f"מצב נוכחי - פרטי לינה: {json.dumps(details, ensure_ascii=False)}.\n"
     also_mentioned_rule = (
@@ -10270,7 +10270,13 @@ def _lodging_guided_prompt(field, state, recent):
         "אם level נמסר, מלאי גם evidence - ציטוט מילה-במילה, בדיוק כפי שהוא כתוב, מתוך ההודעה הנוכחית, שעליו "
         "התבססת. בלי ציטוט אמיתי כזה - level עצמו null."
     )
+    # Run-10 (Shaked/Shlomo, 22.10.2026): same guard as dates/travelers/
+    # baggage/accessibility above - grounds the model with what Ariella's
+    # last message ACTUALLY asked, so a reply that really answers some
+    # other open gap isn't force-fit onto this lodging sub-field.
     other_topic_rule = "אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, נושא אחר) - status=\"other_topic\"."
+    if last_question_note:
+        other_topic_rule += " " + last_question_note
     if field == "lodging_type":
         label = "איזה סוג לינה מתאים לו"
         rules = (
@@ -10345,10 +10351,58 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
         if isinstance(x, dict) and x.get("content")
     )
     today_str = date.today().isoformat()
+    # Run-10 live finding (Shaked/Shlomo, 22.10.2026, Genoa/Karlovy Vary/
+    # Torun): guided.current_question names which field THIS call is
+    # extracting against, but nothing here previously told the model
+    # whether Tinkerbell's own last message actually asked about that
+    # field at all - she can (and, seen live, sometimes does) ask about a
+    # completely different open gap in the same turn (e.g. direct-flight
+    # preference) instead of the guided question the hint asked for. Given
+    # only "recent" (the raw last-4-messages dump) and a prompt that
+    # ASSERTS "Ariella asked the yes/no accessibility question" as a given
+    # fact, the model anchored on that assertion rather than checking it -
+    # a bare "לא חובה" (really answering the direct-flight question) got
+    # force-fit as the accessibility answer (needed=False) in three of the
+    # five run-10 conversations.
+    #
+    # Fix: explicitly surface the REAL last question - _last_question_
+    # clause, the same deterministic (non-model, non-word-list) sentence-
+    # boundary extraction already used for the connection-preference gap's
+    # own dual-call mismatch (_connection_preference_pending_hint, PR
+    # #116) - as its own grounded fact, and instruct the model to compare
+    # it against the field it's being asked to extract. The MODEL still
+    # decides from genuine meaning whether the customer's reply answers
+    # this field or that other one; this only stops it from skipping the
+    # comparison because the prompt's own framing already told it what to
+    # assume.
+    _prior_assistant_text = ""
+    for _hist_item in reversed(history or []):
+        if isinstance(_hist_item, dict) and str(_hist_item.get("role") or "").lower() == "assistant":
+            _prior_assistant_text = str(_hist_item.get("content") or "")
+            break
+    _last_actual_question = _last_question_clause(_prior_assistant_text)
+    last_question_note = (
+        f'חשוב: ההודעה האחרונה שאריאלה שלחה בפועל בשיחה הסתיימה בשאלה הזו, מילה במילה: "{_last_actual_question}". '
+        "לפני שאת מחליטה על status, בדקי לפי המשמעות האמיתית שלה (לא ניחוש) האם זו אותה שאלה שתוארה למעלה. "
+        "אם זו שאלה אחרת לגמרי, וההודעה הנוכחית של הלקוח עונה על השאלה האחרת ההיא ולא על זו שתוארה למעלה - "
+        'status="other_topic", גם אם תוכן התשובה יכול להישמע כמו תשובה אפשרית גם לנושא שתואר למעלה.'
+    ) if _last_actual_question else ""
     # Task 014b: once accessibility is part of this flag, a customer can
     # volunteer it unprompted while answering the dates/travelers question
     # (spec section 4) - captured the same way these two fields already
-    # catch each other.
+    # catch each other. Run-10 (Zaragoza): merely stating a baby's AGE
+    # while answering "travelers" ("התינוקת שלנו בת שנה") got misread as a
+    # volunteered accessibility NEED (needed=True, needs=[infant]) with no
+    # actual need described - infants.count already captures the baby as a
+    # traveler on its own; also_mentioned.accessibility must stay reserved
+    # for a genuinely described need (help boarding, a stroller to gate-
+    # check, etc.), never fired by the baby's mere presence/age alone.
+    _accessibility_volunteer_rule = (
+        " אם הלקוח הזכיר מיוזמתו צורך ממשי בעזרה/התאמה (למשל עגלת תינוק, כיסא גלגלים, קושי "
+        "בהליכה) - מלאי גם את also_mentioned.accessibility, עם הצורך המעשי בלבד, בלי אבחנה רפואית. "
+        "ציון עצם קיומו של תינוק/ילד בקבוצה (גיל, מגדר) בלבד, בלי שום תיאור של צורך בעזרה, אינו מספיק - "
+        "אל תמלאי also_mentioned.accessibility רק מזה."
+    )
     ask_also_accessibility = "accessibility" in guided_steps and not _guided_field_known_with_confidence("accessibility", state)
     if field == "baggage":
         current_flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
@@ -10398,6 +10452,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
             "הודעה, בלי להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל "
             "(שאלה אחרת, נושא אחר) - status=\"other_topic\". אם ההודעה "
             "מתקנת כבודה שכבר נקבעה - status=\"answered\" ומלאי correction.\n"
+            f"{last_question_note}\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic",'
             '"no_baggage":true|false,'
@@ -10410,16 +10465,13 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
         )
     elif field in _LODGING_GUIDED_SUBFIELDS:
-        prompt = _lodging_guided_prompt(field, state, recent)
+        prompt = _lodging_guided_prompt(field, state, recent, last_question_note)
     elif field == "dates":
         also_schema = '"also_mentioned":{"travelers":{...}|null'
         also_rule = "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי להשלים בעצמך."
         if ask_also_accessibility:
             also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
-            also_rule += (
-                " אם הלקוח הזכיר מיוזמתו צורך בנגישות/התאמה - מלאי גם את "
-                "also_mentioned.accessibility, עם הצורך המעשי בלבד, בלי אבחנה רפואית."
-            )
+            also_rule += _accessibility_volunteer_rule
         also_schema += "}"
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מתי לטוס ולכמה לילות. חלצי "
@@ -10442,6 +10494,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
             f"{also_rule} אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, "
             "נושא אחר) - status=\"other_topic\". אם ההודעה מתקנת תאריך "
             "שכבר נקבע - status=\"answered\" ומלאי correction.\n"
+            f"{last_question_note}\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic","departure":"YYYY-MM-DD"|null,'
             '"return":"YYYY-MM-DD"|null,"nights":int|null,"period":"טקסט חופשי"|null,'
@@ -10454,10 +10507,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
         also_rule = "also_mentioned: רק פרטי תאריכים שנאמרו במפורש באותה הודעה."
         if ask_also_accessibility:
             also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
-            also_rule += (
-                " אם הלקוח הזכיר מיוזמתו צורך בנגישות/התאמה (למשל עגלת תינוק, כיסא גלגלים, קושי "
-                "בהליכה) - מלאי גם את also_mentioned.accessibility, עם הצורך המעשי בלבד, בלי אבחנה רפואית."
-            )
+            also_rule += _accessibility_volunteer_rule
         also_schema += "}"
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מי נוסע. חלצי מתשובת הלקוח "
@@ -10471,6 +10521,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
             "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\". "
             "אם ההודעה מתקנת מספר נוסעים שכבר נקבע - status=\"answered\" "
             "ומלאי correction.\n"
+            f"{last_question_note}\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic","adults":int|null,'
             '"children":int|null,"child_ages":[int,...],'
@@ -10498,6 +10549,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
                 "מתוך הערכים: stroller, wheelchair, reduced_mobility, infant, other. "
                 "אסור להמציא - אם לא ברור מה בדיוק צריך, confidence:\"low\". "
                 "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
+                f"{last_question_note}\n"
                 "החזירי JSON בלבד, בדיוק במבנה: "
                 '{"status":"answered|unclear|other_topic","needed":true,'
                 '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
@@ -10515,6 +10567,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
                 "details מיד - אסור להמציא צורך שלא נאמר. בלי אבחנה או מצב "
                 "רפואי - אם נכתבה סיבה רפואית, סכמי אותה לצורך מעשי בלבד. "
                 "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
+                f"{last_question_note}\n"
                 "החזירי JSON בלבד, בדיוק במבנה: "
                 '{"status":"answered|unclear|other_topic","needed":true|false|null,'
                 '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
