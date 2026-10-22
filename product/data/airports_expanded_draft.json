@@ -3887,7 +3887,8 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "BPS",
@@ -4397,9 +4398,7 @@
 "city_he": "סן סלבדור",
 "name_he": "נמל התעופה הבינלאומי סן סלבדור",
 "country_he": "איי בהאמה",
-"aliases_he": [
-"סן סלבדור"
-],
+"aliases_he": [],
 "he_confidence": "medium",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
@@ -9495,7 +9494,8 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "XCR",

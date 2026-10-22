@@ -190,7 +190,10 @@
    ],
    "verified": false,
    "source": "טיוטה של אופק, לבדיקה. רק קודים שקיימים בקטלוג",
-   "checked_at": "2026-10-22"
+   "checked_at": "2026-10-22",
+   "aliases_he": [
+    "קומו"
+   ]
   },
   {
    "city_he": "מרמריס",
@@ -220,29 +223,6 @@
    "country": "GR",
    "nearest_codes": [
     "SKG"
-   ],
-   "verified": false,
-   "source": "טיוטה של אופק, לבדיקה. רק קודים שקיימים בקטלוג",
-   "checked_at": "2026-10-22"
-  },
-  {
-   "city_he": "קפדוקיה",
-   "city_en": "Cappadocia",
-   "country": "TR",
-   "nearest_codes": [
-    "NAV",
-    "ASR"
-   ],
-   "verified": false,
-   "source": "טיוטה של אופק, לבדיקה. רק קודים שקיימים בקטלוג",
-   "checked_at": "2026-10-22"
-  },
-  {
-   "city_he": "בודרום",
-   "city_en": "Bodrum",
-   "country": "TR",
-   "nearest_codes": [
-    "BJV"
    ],
    "verified": false,
    "source": "טיוטה של אופק, לבדיקה. רק קודים שקיימים בקטלוג",
