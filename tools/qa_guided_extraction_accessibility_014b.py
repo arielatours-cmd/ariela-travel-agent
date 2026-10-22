@@ -213,7 +213,7 @@ check("scenario 4a: accessibility stays open (not yet in answered)",
       and (tu4a.get("guided") or {}).get("current_question") == "accessibility")
 
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
-    "status": "answered", "needed": True, "needs": ["reduced_mobility"], "details": "קושי בהליכה ארוכה",
+    "status": "answered", "needed": True, "needs": ["reduced_mobility"], "detail_category": "walking_long_distance",
     "confidence": "high", "also_mentioned": None, "correction": None,
 })):
     state4b = dict(ROME_STATE_BASE)
@@ -223,27 +223,38 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu4b = r4b.get("trip_update") or {}
 acc4b = tu4b.get("accessibility") or {}
 check("scenario 4b: the follow-up's answer fills needs/details",
-      acc4b.get("needs") == ["reduced_mobility"] and acc4b.get("details") == "קושי בהליכה ארוכה")
+      acc4b.get("needs") == ["reduced_mobility"] and acc4b.get("details") == "קושי בהליכה למרחקים ארוכים")
 check("scenario 4b: now marked answered",
       "accessibility" in ((tu4b.get("guided") or {}).get("answered") or []))
 
-# --- 5. Medical reason -> only the practical need is ever stored (the
-#     code stores whatever the model returns verbatim; the no-diagnosis
-#     rule lives in the extraction prompt, same architecture as the other
-#     guided fields - this proves the code adds no diagnosis of its own
-#     and doesn't leak the raw message text instead of the model's need). ---
+# --- 5. Dry-run 3 / Din PRV-18 (Shaked, 22.10.2026): the exact live finding
+#     - a real medical reason survived verbatim into accessibility.details
+#     despite the prompt already saying not to. Fixed structurally: details
+#     is never the model's own free text again - _guided_field_update_and_
+#     confirm builds it in CODE from _ACCESSIBILITY_DETAIL_PHRASES_HE, a
+#     closed table, keyed only by the detail_category the model classifies
+#     into. This is the exact real message and exact required output Din
+#     specified - even if the model (here, mocked) tried to also return a
+#     "details" key with the raw medical text, the code never reads it. ---
 member5 = _make_member("qa-014b-s5@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
-    "status": "answered", "needed": True, "needs": ["reduced_mobility"], "details": "קושי בהליכה ארוכה",
+    "status": "answered", "needed": True, "needs": ["reduced_mobility"],
+    "detail_category": "walking_long_distance",
+    "details": "אמא שלי עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים",
     "confidence": "high", "also_mentioned": None, "correction": None,
 })):
     state5 = dict(ROME_STATE_BASE)
     state5["guided"] = {"current_question": "accessibility", "attempts": 0, "answered": ["dates", "travelers"]}
-    r5 = _post("יש לי טרשת נפוצה וקשה לי ללכת", [], state5, member5)
+    r5 = _post("אמא שלי עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים", [], state5, member5)
 tu5 = r5.get("trip_update") or {}
 acc5 = tu5.get("accessibility") or {}
-check("scenario 5: only the practical need is stored, never the raw medical reason/diagnosis",
-      acc5.get("details") == "קושי בהליכה ארוכה" and "טרשת" not in json.dumps(tu5, ensure_ascii=False))
+check("scenario 5 (Din PRV-18, exact dry-run 3 example): details is EXACTLY "
+      "'קושי בהליכה למרחקים ארוכים' - nothing more, nothing less",
+      acc5.get("details") == "קושי בהליכה למרחקים ארוכים")
+check("scenario 5: no medical term (ניתוח/ברך/אמא) survives anywhere in "
+      "trip_update, even though the mocked model tried to return it in "
+      "its own 'details' field - the code never reads that key at all",
+      not any(term in json.dumps(tu5, ensure_ascii=False) for term in ("ניתוח", "ברך", "אמא שלי")))
 
 # --- 6. New vacation -> accessibility is cleared, the question is asked
 #     again (vacation-scoped field, never carried to a future vacation) ---

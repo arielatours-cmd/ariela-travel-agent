@@ -1970,9 +1970,17 @@ def _advance_sessions(state):
         # domain's own gaps, so the all(...) check alone missed it and let
         # ready_for_summary (the one real approval moment) go True anyway.
         # See _guided_incomplete_fields's own docstring.
+        #
+        # Dry-run 2 finding #5 (Shaked/Shlomo, 22.10, Rovinj/Pula): the same
+        # principle applies to a destination with no catalog entry of its
+        # own - destination_airports stayed None the entire conversation
+        # while the final summary still silently printed a specific
+        # "נחיתה:" field (Pula) the customer never actually chose. See
+        # _destination_gateway_unresolved's own docstring.
         state["ready_for_summary"] = (
             all(v in ("complete","declined") for v in statuses.values())
             and not _guided_incomplete_fields(state)
+            and not _destination_gateway_unresolved(state)
         )
     return state
 
@@ -4715,12 +4723,124 @@ def _destination_catalog_hint(state):
         line += ("\nשדה/שדות הנחיתה ביעד לפי רשימת שדות התעופה (מקור אמת - אל תמציאי תעתיק, קוד או מדינה "
                  "משלך, השתמשי בדיוק בזה): " + " / ".join(dict.fromkeys(facts)) + ".")
     if unknown:
+        # Dry-run 3 (Shaked, 22.10.2026, Rovinj/E): "offer the nearest
+        # airport, instead of naming one you're not sure about" already
+        # told Tinkerbell not to guess - yet live, for a real Croatian
+        # town, she still confidently invented a real-sounding city pair
+        # in the WRONG COUNTRY entirely, rather than recognizing her own
+        # uncertainty. Strengthened below with an explicit, blunt
+        # certainty test (city exists + airport really serves it + right
+        # country, ALL THREE) instead of a named example - a concrete
+        # example here would itself become scripted content this same
+        # background fact risks echoing verbatim into every unrelated
+        # destination's hint (this function is shared by every
+        # uncatalogued place, not just Rovinj). This is NOT a ban on ever
+        # naming a real, correctly identified city/code (Genoa/GOA-style
+        # cities still need that, see public_site._chat_recover_search_
+        # facts) - only on presenting one that fails this test.
         line += ("\nהיעד " + ", ".join(unknown) + " לא נמצא ברשימת שדות התעופה שלנו, כך שאין כאן עובדה מאומתת "
                  "על שדה הנחיתה. כשאת מציינת שדה נחיתה (גם בשורת \"נחיתה:\" בסיכום), זה חייב להיות שדה תעופה "
                  "מסחרי אמיתי שמשרת את העיר הזו, עם הקוד הנכון שלו, ובמדינה שבה העיר באמת נמצאת - בדקי זאת "
-                 "לפני שאת כותבת. אם לעיר עצמה אין שדה תעופה מסחרי, אמרי זאת בפשטות והציעי את השדה הקרוב "
-                 "ביותר בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
+                 "לפני שאת כותבת. שלושת התנאים האלה - שהעיר קיימת באמת, שהשדה שבחרת משרת אותה באמת, ושהוא "
+                 "במדינה הנכונה - חייבים כולם להיות ודאיים אצלך; אם ולו אחד מהם לא ודאי, אסור לך להמציא או "
+                 "לנחש עיר/שדה/מדינה קרובים, אפילו אם הם נשמעים סבירים ומדויקים. אם לעיר עצמה אין שדה תעופה "
+                 "מסחרי, או שאת לא בטוחה בשדה הקרוב ביותר - אמרי זאת בפשטות והציעי את השדה הקרוב ביותר "
+                 "בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
     return line
+
+
+def _destination_gateway_unresolved_places(state):
+    """Dry-run 2 finding #5 (Shaked/Shlomo, 22.10, Rovinj/Pula): a
+    destination with no catalog entry of its own (no city/country match -
+    same classification _destination_catalog_hint's own "unknown" branch
+    already uses) needs the customer to pick a nearby gateway airport -
+    today this was only ever a background FACT hint, competing
+    unreliably against whatever else was open that turn. Seen live: the
+    nearby options (Pula/Zagreb) were mentioned as plain info across
+    several turns while a completely different question got asked each
+    time, destination_airports stayed None for the entire conversation,
+    and the final summary still silently printed "נחיתה: פולה" - a
+    specific choice the customer never actually made.
+
+    Returns every destination place still genuinely unresolved this way
+    (empty list = nothing unresolved). Not yet sharing _destination_
+    catalog_hint's own lookup loop directly (this branch predates #144's
+    _normalize_he_spelling fix to that function) - converges once merged;
+    duplicated here deliberately rather than reaching into a sibling PR's
+    in-flight change."""
+    state = state if isinstance(state, dict) else {}
+    if state.get("destination_airports"):
+        return []
+    if not _guided_baggage_applies(state):
+        # Mirrors _guided_baggage_applies's own gate exactly (flights
+        # actually in requested_services) - a gateway airport is only
+        # ever needed once a flight is actually being searched for.
+        return []
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip() for p in (destination.get("places") or []) if str(p or "").strip()]
+    if not places:
+        return []
+    airports = _load_airports()
+    unresolved = []
+    for place in places:
+        needle = place.casefold()
+        matched = any(
+            needle in {str(a.get("city_he") or "").strip().casefold(), str(a.get("city_en") or "").strip().casefold()}
+            or needle == str(a.get("code") or "").strip().casefold()
+            for a in airports
+        )
+        if matched:
+            continue
+        is_country = any(
+            needle in {str(a.get("country_he") or "").strip().casefold(), str(a.get("country_en") or "").strip().casefold()}
+            for a in airports
+        )
+        if not is_country:
+            unresolved.append(place)
+    return unresolved
+
+
+def _destination_gateway_unresolved(state):
+    """True when _destination_gateway_unresolved_places(state) is
+    non-empty - used to gate ready_for_summary (_advance_sessions) and
+    the premature-approval/closing_claim safety nets, mirroring
+    _guided_incomplete_fields's own role for accessibility."""
+    return bool(_destination_gateway_unresolved_places(state))
+
+
+def _destination_gateway_question_hint(state):
+    """The arbiter's own QUESTION-framed version of the same fact
+    _destination_catalog_hint's "unknown" branch already states as
+    background - this is what actually reaches Tinkerbell as THIS turn's
+    one live question when nothing higher-priority (clarify/shift/mixed-
+    baggage) is live, via _turn_question_arbiter. Returns "" when
+    nothing is unresolved.
+
+    Dry-run 3 (Shaked, 22.10.2026, Rovinj/E): the original wording asked
+    for an open question but still let Tinkerbell freely NAME candidate
+    cities/airports in it - live, she invented "פוג'ה וקונסטנצה ברומניה"
+    for Rovinj (a real Croatian town; neither suggestion is even in the
+    right country). The business owner's decision: never a city list.
+    Structurally, a suggested gateway may only ever be a real catalog code
+    in the SAME country as the destination - this function (a pure,
+    synchronous, no-model-call arbiter candidate, by design) has no
+    verified country for an uncatalogued place to check that against, so
+    until a real city->country/nearest-gateway data source exists (see
+    the backlog note on this PR), the safe half of that rule is enforced
+    unconditionally: no specific city or airport code may be proposed at
+    all - genuinely open, asking which airport the customer themselves
+    would prefer, never a guess offered for them to merely confirm."""
+    unresolved = _destination_gateway_unresolved_places(state)
+    if not unresolved:
+        return ""
+    return (
+        "היעד " + ", ".join(unresolved) + " ככל הנראה חסר שדה תעופה מסחרי רשום משלו - אין כאן עובדה מאומתת "
+        "על שדה הנחיתה, ואין לך מקור מאומת לאיזו מדינה העיר הזו שייכת או לאיזה שדה תעופה קרוב אליה. "
+        "שאלי שאלה פתוחה אחת, בניסוח שלך, לגבי שדה התעופה הקרוב ביותר שבו לנחות ולהמריא - "
+        "בלי להציע או לנקוב בשום שם עיר, שדה תעופה, או קוד IATA ספציפי בשאלה עצמה, אפילו לא כניחוש "
+        "או כדוגמה. זו החלטה אמיתית שהלקוח צריך לספק בעצמו, לא לאשר הצעה שלך. לעולם אל תבחרי שדה נחיתה "
+        "בשבילו ואל תכתבי אותו בסיכום (גם לא בשורת \"נחיתה:\") לפני שהוא אישר במפורש איזה שדה."
+    )
 
 
 def _destination_gateway_summary(state):
@@ -4826,6 +4946,87 @@ def _fix_departure_name(reply, state, history, message):
         + [str(message or "")]
     )
     return reply if "נתניה" in user_text else reply.replace("נתניה", 'נתב"ג')
+
+
+def _turn_question_arbiter(state):
+    """Dry-run 2 (Shaked/Shlomo, 22.10.2026) + the business owner's approved
+    direction (22.10): several "ask about X" one-shot hints can legitimately
+    be live on the same turn - guided's own sequenced question, a just-
+    computed date-shift candidate, genuine doubt about the customer's last
+    answer. Before this, EACH of these was concatenated unconditionally
+    into the same prompt, with only guided's own hint carrying an explicit
+    "this is the only thing to ask" framing - which produced two distinct
+    live failures: (run-10/#140) Tinkerbell began composing one question,
+    then abandoned it mid-sentence for a different competing hint,
+    leaving a dangling fragment (e.g. the accessibility disclaimer cut off
+    for a direct-flight question instead); (dry-run 2, case A) a stale
+    guided hint left over from a resolved accessibility/baggage turn beat
+    a genuinely live, more urgent _shift_candidate_hint, so {{DATE_OPTIONS}}
+    never appeared at all. Centralizing the choice here, and handing
+    Tinkerbell ONLY the winner (with the priority framing), removes the
+    competition entirely rather than trying to word it away.
+
+    A hint that loses is never cleared or forgotten - its own underlying
+    state (guided.current_question, guided.mixed_baggage_pending, the
+    pending date candidate, etc.) is completely untouched here, so it is
+    asked again next turn exactly as it would be today; only which ONE
+    gets worded to Tinkerbell as "the question for this turn" is decided.
+    Pure "fact" hints (_baggage_note_hint, _dates_changed_hint, gateway/
+    weekday/nights/dates_truth/declined_domains/gender/accessibility
+    background hints, the various summaries) are never part of this -
+    they always pass through regardless of which question wins, exactly
+    as before.
+
+    Priority, highest first:
+    1. _gap_clarify_question - genuine doubt about the customer's own
+       LAST answer; misreading it is worse than delaying any other topic.
+    2. A direct continuation of what the customer's OWN message this turn
+       produced - _shift_candidate_hint, or guided's own hint when it is
+       actually the mixed-baggage payment-time explanation+yes/no
+       (guided.mixed_baggage_pending - per Shlomo's explicit addition,
+       22.10): both are reactions to this exact message, never a standing
+       background question that can simply wait a turn.
+    3. _guided_ask_hint in every other case - the standing, deliberately-
+       sequenced guided question (dates -> travelers -> accessibility ->
+       baggage -> lodging subfields).
+    4. _gap_repeat_rephrase_hint / _resume_choice_hint - specific
+       situational asks that in practice essentially never co-occur with
+       the above.
+
+    Returns (text, label) for the winner, or (None, None) when nothing is
+    live this turn."""
+    state = state if isinstance(state, dict) else {}
+    guided = state.get("guided") if isinstance(state.get("guided"), dict) else {}
+    mixed_pending = bool(guided.get("mixed_baggage_pending"))
+    guided_hint = state.get("_guided_ask_hint")
+    if state.get("_gap_clarify_question"):
+        return (
+            "יש ספק לגבי התשובה האחרונה של הלקוח. אל תנחשי ואל תחזרי מילה במילה על "
+            "השאלה הקודמת. נסחי בקול הטבעי שלך בדיוק את שאלת האימות הבאה (אפשר "
+            "לנסח מחדש, אך לשמור על אותה המשמעות בדיוק): "
+            + json.dumps(state.get("_gap_clarify_question"), ensure_ascii=False),
+            "gap_clarify",
+        )
+    if state.get("_shift_candidate_hint"):
+        return str(state.get("_shift_candidate_hint")), "shift_candidate"
+    if mixed_pending and guided_hint:
+        return str(guided_hint), "guided_mixed_baggage"
+    # Dry-run 2 finding #5 (Rovinj/Pula): a destination with no catalog
+    # entry of its own, still genuinely unresolved - checked just above
+    # the standing guided question (nothing else about the trip can be
+    # properly summarized without a landing airport), same tier as the
+    # standing guided question conceptually. See _destination_gateway_
+    # unresolved_places's own docstring.
+    destination_gateway_hint = _destination_gateway_question_hint(state)
+    if destination_gateway_hint:
+        return destination_gateway_hint, "destination_gateway"
+    if guided_hint:
+        return str(guided_hint), "guided"
+    if state.get("_gap_repeat_rephrase_hint"):
+        return str(state.get("_gap_repeat_rephrase_hint")), "gap_repeat_rephrase"
+    if state.get("_resume_choice_hint"):
+        return str(state.get("_resume_choice_hint")), "resume_choice"
+    return None, None
 
 
 def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False):
@@ -4935,79 +5136,39 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
                 ", טוב לראות אותך שוב!\" או ניסוח חם ונייטרלי מגדרית דומה) - זו בדיוק הנקודה שבה הפנייה "
                 "צריכה להיות אישית.\n"
             )
-    if state.get("_guided_ask_hint"):
-        # Task 014a (rebuilt 2026-10-17 per the business owner's final
-        # decision): the code never sends a fixed sentence as the reply -
-        # it only decides which fact to find out next (guided.current_
-        # question), and hands this one free-text principle to Tinkerbell.
-        # She composes the actual question/retry/confirmation herself, in
-        # her own voice, with no quick-reply buttons ever.
-        #
-        # Run-10 live finding (Shaked/Shlomo, 22.10.2026, qa/reports/
-        # 2026-10-22-stage1-live-run10.md, part (a) of the central
-        # accessibility finding): guided's own hint used to land in this
-        # same prompt ALONGSIDE other open-gap instructions below (direct-
-        # flight preference, gender, etc., all unconditionally
-        # concatenated into system_dynamic/continuity regardless of
-        # whether a guided field is live) with nothing telling Tinkerbell
-        # which one to actually ask about THIS turn - seen live, she asked
-        # the direct-flight question instead of the pending accessibility
-        # one in three of five run-10 conversations, so guided's own
-        # current_question was never actually asked at all (the mismatch
-        # PR #137 already protects the EXTRACTION side against, but the
-        # root cause - the wrong question getting asked in the first
-        # place - was still open). A guided field in progress is always
-        # the single most specific, deliberately-sequenced open question
-        # in the conversation (dates -> travelers -> accessibility ->
-        # baggage -> lodging, one at a time) - it must always win over
-        # every other open topic's own hint elsewhere in this same
-        # prompt. Stated explicitly, directly beside the hint itself,
-        # rather than by suppressing the other hints (which still carry
-        # factual grounding - e.g. "no verified direct route" - genuinely
-        # needed even on a turn where that topic isn't being asked about).
+    # Dry-run 2 (Shaked/Shlomo, 22.10.2026) + the business owner's approved
+    # direction: one arbiter picks the single live "question" hint for
+    # this turn (see _turn_question_arbiter's own docstring for the full
+    # history and priority order) - replaces the old unconditional,
+    # independent injection of _guided_ask_hint/_shift_candidate_hint/
+    # _gap_repeat_rephrase_hint/_gap_clarify_question/_resume_choice_hint,
+    # which could leave more than one "ask about X" signal competing in
+    # the same prompt. A hint that loses stays completely untouched in
+    # state and is asked again normally next turn.
+    _turn_question_text, _turn_question_kind = _turn_question_arbiter(state)
+    if _turn_question_text:
         continuity += (
             "\n- השאלה/הנחיה הבאה היא הדבר היחיד שצריך לברר מול הלקוח בהודעה הזו - "
             "היא גוברת על כל נושא פתוח אחר שמוזכר במקום אחר בהנחיות (למשל העדפת טיסה "
             "ישירה, תקציב, או כל שדה חסר אחר). אל תשאלי שום שאלה אחרת באותה הודעה, "
             "גם אם נושא אחר עדיין פתוח - הוא יחכה לתורו. השאלה/הנחיה עצמה: "
-            + str(state.get("_guided_ask_hint")) + "\n"
+            + _turn_question_text + "\n"
         )
     if state.get("_baggage_note_hint"):
         # One-turn baggage instruction set in _chat_clean_impl when the
         # guided dispatcher didn't carry it (see _baggage_followup_hint).
+        # A statement, not a question - always passes through as fact.
         continuity += "\n- " + str(state.get("_baggage_note_hint")) + "\n"
-    if state.get("_shift_candidate_hint"):
-        # One-turn hint set in _chat_clean_impl when a shift_days candidate
-        # was created this turn.
-        continuity += "\n- " + str(state.get("_shift_candidate_hint")) + "\n"
     if state.get("_dates_changed_hint"):
         # One-turn hint set in _chat_clean_impl when explicit new dates
-        # replaced already-set ones this turn.
+        # replaced already-set ones this turn. An acknowledgment, not a
+        # question - always passes through as fact.
         continuity += "\n- " + str(state.get("_dates_changed_hint")) + "\n"
     if state.get("_date_hallucination_correction_hint"):
         # Set by _retry_if_dates_invented below, on the one corrective
         # re-call it makes when the first reply named a date that matches
         # neither the real confirmed dates nor a real pending candidate.
         continuity += "\n- " + str(state.get("_date_hallucination_correction_hint")) + "\n"
-    if state.get("_gap_repeat_rephrase_hint"):
-        # Set on state_for_tinkerbell only (never on trip_update itself -
-        # see _apply_gap_repeat_guard's own docstring on why that mattered):
-        # some open gap's own fixed question was already asked twice in a
-        # row and still unresolved - per Shlomo's relay of the business
-        # owner's stage-1 run-5 directive (Paphos), the third ask must
-        # never repeat the identical fixed text again; rephrase in her own
-        # words with concrete example answers this time.
-        continuity += "\n- " + str(state.get("_gap_repeat_rephrase_hint")) + "\n"
-    if state.get("_gap_clarify_question"):
-        # Per the business owner's explicit instruction (2026-10-13): when
-        # the model that interprets an open answer is genuinely unsure, the
-        # right move is a short confirmation reflecting what it understood -
-        # never a guess, and never a verbatim repeat of the same question.
-        # _understand_open_gap_answer already produced that exact question;
-        # hand it to Tinkerbell to weave into its own natural voice rather
-        # than injecting it raw.
-        continuity += """
-- יש ספק לגבי התשובה האחרונה של הלקוח. אל תנחשי ואל תחזרי מילה במילה על השאלה הקודמת. נסחי בקול הטבעי שלך בדיוק את שאלת האימות הבאה (אפשר לנסח מחדש, אך לשמור על אותה המשמעות בדיוק): """ + json.dumps(state.get("_gap_clarify_question"), ensure_ascii=False) + "\n"
     if state.get("_link_request_pending"):
         # Per Shaked's review of the first version of this fix (20.10):
         # the code (never the model) decides whether there's a vacation to
@@ -5023,17 +5184,10 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
             continuity += """
 - הלקוח ביקש קישור לחופשה/ללוח שלו, אבל עדיין אין חופשה שאפשר לקשר אליה (שום חיפוש טיסות עוד לא אושר). הסבירי זאת בקצרה ובחום (לדוגמה: עדיין אוספים את הפרטים, ברגע שיאושר חיפוש יהיה קישור ישיר) - לעולם לא "אין לי אפשרות לשלוח קישורים" או כל ניסוח שאומר שאת לא יכולה לשלוח קישור. מיד אחרי זה, באותה הודעה, המשיכי ישירות לשאלה הפתוחה הבאה שבאמת רלוונטית כרגע - אל תסיימי את ההודעה רק בהסבר.
 """
-    if state.get("_resume_choice_hint"):
-        # Per Shaked's second review of PR #84 (18.10.2026): the resume_
-        # choice_pending flow (continue an existing open vacation vs. start
-        # new) must never send a fixed sentence at any of its stages - the
-        # same "code decides the state, Tinkerbell composes the words"
-        # principle _guided_ask_hint already established for 014a. The one
-        # question/acknowledgment/confirmation needed this turn is handed
-        # here as a free-text instruction, never literal customer-facing
-        # text, and gendered phrasing resolves on its own the same way it
-        # already does everywhere else Tinkerbell composes freely.
-        continuity += "\n- " + str(state.get("_resume_choice_hint")) + "\n"
+    # _resume_choice_hint and _gap_repeat_rephrase_hint are now handled
+    # by _turn_question_arbiter above (same free-text, never-a-fixed-
+    # sentence principle, now also subject to the single-question
+    # priority order).
     upcoming = state.get("upcoming_vacations") if isinstance(state.get("upcoming_vacations"), list) else []
     has_destination = bool((state.get("destination") or {}).get("places")) if isinstance(state.get("destination"), dict) else False
     # Carmit caught this live (2026-10-14): mid-way through planning a new
@@ -10149,6 +10303,51 @@ def _guided_incomplete_fields(state):
     ]
 
 
+def _force_guided_field_retry(key, model, history, message, trip_update, _log_context=""):
+    """Run-11 (Shaked, 22.10, Bari/Valencia/Bordeaux/Rovinj), extended for
+    dry-run 2 finding #4: every domain's own gaps are already closed, but a
+    universal guided field (accessibility first in priority order) is
+    still genuinely open per _guided_incomplete_fields - force its own
+    hint again, as the last thing Tinkerbell sees, and retry. Originally
+    built only for the premature-מאשרת safety net (#143); factored out
+    here so the SEPARATE "deceptive success" closing_claim safety net
+    (a false "מעבירה אותך..." claim with no pending DOMAIN left, but
+    accessibility still unasked) can reuse the exact same mechanism rather
+    than silently letting the false claim through unchecked - seen live
+    (dry-run 2, case E): the premature-מאשרת gate correctly withheld the
+    literal מאשר/מאשרת wording, but Tinkerbell's retried reply used this
+    different closing phrasing instead, which closing_claim's own domain-
+    only pending_domain check had no way to catch.
+
+    Also handles dry-run 2 finding #5 (Rovinj/Pula): a destination with no
+    catalog entry of its own, still genuinely unresolved per _destination_
+    gateway_unresolved - nothing needs explicit setting here, since
+    _turn_question_arbiter picks it up directly from trip_update's own
+    destination/destination_airports on the retry.
+
+    Returns the new reply text on success, or None (nothing to force, or
+    the retry call itself failed - the caller keeps whatever reply it
+    already had)."""
+    guided_still_open = _guided_incomplete_fields(trip_update)
+    if guided_still_open:
+        open_field = guided_still_open[0]
+        forced_hint = (
+            _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0)
+            if open_field == "accessibility" else _guided_ask_hint(open_field, 0)
+        )
+        guided_forced = dict(trip_update.get("guided") or {})
+        guided_forced["current_question"] = open_field
+        trip_update["guided"] = guided_forced
+        trip_update["_guided_ask_hint"] = forced_hint
+    elif not _destination_gateway_unresolved(trip_update):
+        return None
+    try:
+        return _call_tinkerbell(key, model, history, message, trip_update)
+    except Exception as exc:
+        logging.exception("Tinkerbell reply failed on %s guided-field gap: %s", _log_context or "forced", exc)
+        return None
+
+
 def _guided_ask_hint(field, attempts):
     desc = _GUIDED_FIELD_HINT_DESCRIPTION.get(field, field)
     # Per Shaked's live finding (18.10, qa/reports/2026-10-18-resume-live.md,
@@ -10218,6 +10417,30 @@ def _guided_correction_hint(label, confirm_desc):
 
 
 _GUIDED_ACCESSIBILITY_NEED_VALUES = ("stroller", "wheelchair", "reduced_mobility", "infant", "other")
+
+# Din (PRV-18, 22.10.2026, dry-run 3 - a real medical detail, "אמא שלי
+# עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים", survived verbatim into
+# accessibility.details despite the prompt already saying not to): the
+# free-text "details" the model wrote is never trusted or stored directly
+# again. The model instead classifies the practical need into ONE
+# category from this closed list - accessibility.details is built in code
+# from this table only (see _guided_field_update_and_confirm), so the
+# actual stored text can never be anything the model wrote itself, medical
+# detail included; a category outside this exact set is simply dropped,
+# never guessed at or passed through.
+_ACCESSIBILITY_DETAIL_PHRASES_HE = {
+    "walking_short": "קושי בהליכה",
+    "walking_long_distance": "קושי בהליכה למרחקים ארוכים",
+    "stairs": "קושי בעלייה/ירידה במדרגות",
+    "wheelchair": "שימוש בכיסא גלגלים",
+    "stroller": "שימוש בעגלת תינוק",
+    "escort": "צורך בליווי",
+    "luggage_help": "עזרה בנשיאה/בטיפול בכבודה",
+    "boarding_help": "עזרה בעלייה/ירידה מהמטוס",
+    "hearing": "קושי בשמיעה",
+    "vision": "קושי בראייה",
+    "other": "התאמה מיוחדת אחרת",
+}
 # Per Shaked's QA on #76 (22.10.2026): these are internal schema values,
 # never shown to the customer or in the Hebrew summary/hint as-is - a
 # value label mapping, same principle as _BAGGAGE_HE for baggage types.
@@ -10651,9 +10874,18 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
     # traveler on its own; also_mentioned.accessibility must stay reserved
     # for a genuinely described need (help boarding, a stroller to gate-
     # check, etc.), never fired by the baby's mere presence/age alone.
+    # Din (PRV-18): detail_category is a closed list, never free text - see
+    # _ACCESSIBILITY_DETAIL_PHRASES_HE and _guided_field_update_and_confirm,
+    # which builds the actual stored details from this category alone.
     _accessibility_volunteer_rule = (
         " אם הלקוח הזכיר מיוזמתו צורך ממשי בעזרה/התאמה (למשל עגלת תינוק, כיסא גלגלים, קושי "
-        "בהליכה) - מלאי גם את also_mentioned.accessibility, עם הצורך המעשי בלבד, בלי אבחנה רפואית. "
+        "בהליכה) - מלאי גם את also_mentioned.accessibility, עם needs וגם detail_category "
+        "(קטגוריה אחת מתוך: walking_short, walking_long_distance, stairs, wheelchair, stroller, "
+        "escort, luggage_help, boarding_help, hearing, vision, other - לעולם לא תיאור חופשי "
+        "משלך). אם הלקוח כתב גם סיבה/אבחנה רפואית (שם מחלה, ניתוח, מצב רפואי) - סווגי רק את "
+        "הצורך המעשי הנובע ממנה לקטגוריה המתאימה, בלי לכתוב את הניתוח/האבחנה/הפרט הרפואי "
+        "בשום שדה - לדוגמה, 'אמא שלי עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים' מסווג "
+        "ל-detail_category: \"walking_long_distance\" בלבד. "
         "ציון עצם קיומו של תינוק/ילד בקבוצה (גיל, מגדר) בלבד, בלי שום תיאור של צורך בעזרה, אינו מספיק - "
         "אל תמלאי also_mentioned.accessibility רק מזה."
     )
@@ -10729,7 +10961,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
         also_schema = '"also_mentioned":{"travelers":{...}|null'
         also_rule = "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי להשלים בעצמך."
         if ask_also_accessibility:
-            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
+            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"detail_category":"..."}|null'
             also_rule += _accessibility_volunteer_rule
         also_schema += "}"
         prompt = (
@@ -10765,7 +10997,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
         also_schema = '"also_mentioned":{"dates":{...}|null'
         also_rule = "also_mentioned: רק פרטי תאריכים שנאמרו במפורש באותה הודעה."
         if ask_also_accessibility:
-            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
+            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"detail_category":"..."}|null'
             also_rule += _accessibility_volunteer_rule
         also_schema += "}"
         prompt = (
@@ -10796,15 +11028,36 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
         # follow-up asking what would actually help. Which one is live is
         # read from state, never tracked separately.
         awaiting_detail = _accessibility_awaiting_detail(state)
+        # Din (PRV-18, 22.10.2026): details is never free text the model
+        # writes - it is built in code (_guided_field_update_and_confirm)
+        # from _ACCESSIBILITY_DETAIL_PHRASES_HE, a closed table, keyed by
+        # the detail_category the model classifies into below. A medical
+        # reason (diagnosis, surgery, illness) must never appear in
+        # detail_category or anywhere in this response - only the real-
+        # world practical consequence, classified into the ONE closed
+        # category that fits best.
+        _detail_category_schema = (
+            '"detail_category":"walking_short"|"walking_long_distance"|"stairs"|"wheelchair"|'
+            '"stroller"|"escort"|"luggage_help"|"boarding_help"|"hearing"|"vision"|"other"|null'
+        )
+        _detail_category_rule = (
+            "סווגי את הצורך המעשי לקטגוריה אחת בלבד מתוך רשימה סגורה: "
+            "walking_short (קושי בהליכה, ללא פירוט מרחק), walking_long_distance (קושי בהליכה "
+            "למרחקים ארוכים ספציפית), stairs (קושי במדרגות), wheelchair (כיסא גלגלים), "
+            "stroller (עגלת תינוק), escort (צורך בליווי/מלווה), luggage_help (עזרה בכבודה), "
+            "boarding_help (עזרה בעלייה/ירידה מהמטוס), hearing (קושי בשמיעה), vision (קושי "
+            "בראייה), other (כל צורך אחר שלא מתאים לאף קטגוריה למעלה). לעולם אל תכתבי תיאור "
+            "חופשי משלך, שם מחלה, ניתוח, או כל פרט רפואי - רק קטגוריה אחת מהרשימה הסגורה "
+            "הזו, הנובעת מהצורך המעשי בלבד. לדוגמה, 'אמא שלי עברה ניתוח בברך והיא מתקשה "
+            "ללכת מרחקים ארוכים' מסווג ל-detail_category: \"walking_long_distance\" בלבד - "
+            "בלי לכתוב את הניתוח או הברך בשום שדה."
+        )
         if awaiting_detail:
             prompt = (
                 "אריאלה (סוכנת נסיעות) שאלה את הלקוח שאלה פתוחה: מה יעזור "
                 "להם בדרך, אחרי שהלקוח ענה שכן יש צורך בהתאמה (נגישות).\n"
                 f"4 ההודעות האחרונות: {recent}\n"
-                "כללים: רשמי רק את הצורך המעשי (כיסא גלגלים, עגלת תינוק, "
-                "קושי בהליכה ארוכה וכד') - **בלי אבחנה או מצב רפואי**. אם "
-                "הלקוח כותב סיבה רפואית (למשל שם מחלה), סכמי אותה לצורך "
-                "מעשי בלבד, בלי לכתוב את השם הרפואי עצמו. needs היא רשימה "
+                f"כללים: {_detail_category_rule} needs היא רשימה "
                 "מתוך הערכים: stroller, wheelchair, reduced_mobility, infant, other. "
                 "אסור להמציא - אם לא ברור מה בדיוק צריך, confidence:\"low\". "
                 "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
@@ -10812,7 +11065,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
                 "החזירי JSON בלבד, בדיוק במבנה: "
                 '{"status":"answered|unclear|other_topic","needed":true,'
                 '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
-                '"details":"תיאור קצר של הצורך בלבד"|null,"confidence":"high|low",'
+                f'{_detail_category_schema},"confidence":"high|low",'
                 '"also_mentioned":null,"correction":null}'
             )
         else:
@@ -10823,14 +11076,13 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
                 f"4 ההודעות האחרונות: {recent}\n"
                 "כללים: אם הלקוח ציין בתשובה גם את הצורך עצמו (למשל \"כן, יש "
                 "לנו עגלה\" או \"אבא שלי בכיסא גלגלים\"), מלאי גם את needs/"
-                "details מיד - אסור להמציא צורך שלא נאמר. בלי אבחנה או מצב "
-                "רפואי - אם נכתבה סיבה רפואית, סכמי אותה לצורך מעשי בלבד. "
+                f"detail_category מיד - אסור להמציא צורך שלא נאמר. {_detail_category_rule} "
                 "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
                 f"{last_question_note}\n"
                 "החזירי JSON בלבד, בדיוק במבנה: "
                 '{"status":"answered|unclear|other_topic","needed":true|false|null,'
                 '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
-                '"details":"תיאור קצר של הצורך בלבד"|null,"confidence":"high|low",'
+                f'{_detail_category_schema},"confidence":"high|low",'
                 '"also_mentioned":null,"correction":null}'
             )
     try:
@@ -11184,7 +11436,11 @@ def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_
         if needed is None:
             return {}, None
         needs = [n for n in (result.get("needs") or []) if n in _GUIDED_ACCESSIBILITY_NEED_VALUES] if isinstance(result.get("needs"), list) else []
-        details = result.get("details") if isinstance(result.get("details"), str) and result.get("details").strip() else None
+        # Din (PRV-18): details is never the model's own free text - only
+        # ever the exact phrase this closed table maps detail_category to.
+        # Any category outside the table (including a model omission) is
+        # simply dropped, never guessed at or passed through raw.
+        details = _ACCESSIBILITY_DETAIL_PHRASES_HE.get(str(result.get("detail_category") or ""))
         acc = {"asked": True, "needed": needed}
         if needed:
             if needs:
@@ -11449,7 +11705,20 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
             trip_update["guided"] = guided
             next_hint = _guided_ask_hint(next_field, 0) if next_field else None
-            baggage_note = _baggage_followup_hint([evidenced_type])
+            # zd10-class finding, recurring (Shaked, dry-run 3, 22.10.2026,
+            # case A): the reply claimed "מזוודה בבטן המטוס" (checked_bag)
+            # while the real saved value was a trolley (carry_on_only) -
+            # the exact same composition drift _baggage_followup_hint's own
+            # upsell note already caused once for the "no" branch below
+            # (mentioning other tiers that CAN be added later gives
+            # Tinkerbell words to misremember as the choice just made).
+            # State itself updated correctly both times - only the
+            # sentence describing it drifted. Same fix: state explicitly,
+            # by name, exactly what WAS saved, before the upsell note.
+            baggage_note = (
+                f"נשמר {_BAGGAGE_HE.get(evidenced_type, evidenced_type)} לכל הקבוצה - ציינו זאת בוודאות. "
+                + (_baggage_followup_hint([evidenced_type]) or "")
+            ).strip()
             if next_hint and baggage_note:
                 return {
                     "trip_update": trip_update,
@@ -14338,6 +14607,23 @@ def _chat_clean_impl():
         # this turn" - comparing against this snapshot is what tells the
         # two apart (see the capture right after the dispatch call).
         _dates_before_guided_dispatch = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+        # Dry-run 2 (Shaked/Shlomo, 22.10, case A): unlike its one-turn
+        # siblings (_baggage_note_hint, _dates_changed_hint, _shift_
+        # candidate_hint - each explicitly popped every turn their own
+        # condition doesn't hold), _guided_ask_hint was ONLY ever touched
+        # from inside the "if guided_steps and not _all_domains_already_
+        # decided:" block below. The moment that outer condition itself
+        # flips to False (guided genuinely has nothing left open, accessi-
+        # bility included, per #143) the block is skipped entirely and the
+        # hint is never cleared - it stays frozen at whatever it last said
+        # (seen live: an old baggage-turn hint) and keeps injecting itself,
+        # with its own "this is the only thing to ask, overrides every
+        # other topic" framing, into every later, completely unrelated
+        # turn - a post-summary date-shift turn included, where it silently
+        # beat out {{DATE_OPTIONS}}. Unconditional pop first, mirroring the
+        # sibling pattern exactly, closes this for good regardless of which
+        # path below does or doesn't re-set it this turn.
+        trip_update.pop("_guided_ask_hint", None)
         if guided_steps and not _all_domains_already_decided:
             guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
             if guided_turn is not None:
@@ -14351,8 +14637,35 @@ def _chat_clean_impl():
                 guided_hint = guided_turn.get("dynamic_hint")
                 if guided_hint:
                     trip_update["_guided_ask_hint"] = guided_hint
-                else:
-                    trip_update.pop("_guided_ask_hint", None)
+            # Dry-run 3 (Shaked, 22.10.2026, B/C/E): _handle_guided_extraction_
+            # turn legitimately returns None (or a dynamic_hint of None) on a
+            # genuinely unrelated aside ("not changed" branches) - that was
+            # read as "nothing to steer with", so the unconditional pop just
+            # above left _guided_ask_hint empty for the rest of the turn. But
+            # guided.current_question can still be genuinely open (e.g.
+            # accessibility, never actually asked yet) regardless of whether
+            # THIS turn's message touched it - an unrelated aside is not the
+            # same as the question no longer being pending. Previously
+            # (qa_guided_extraction_*_014a.py scenarios 5/9/12) this was
+            # believed correct - "don't force a hint onto an unrelated
+            # message, let normal routing handle it" - but normal routing
+            # never actually asks it either, so the question silently went
+            # unasked for turn after turn. Rebuilt fresh every time from
+            # whatever current_question is RIGHT NOW (never the frozen
+            # string this whole mechanism exists to avoid) - never a NEW
+            # redirect, never forced buttons/phrasing, just the same plain
+            # hint _handle_guided_extraction_turn itself would have returned
+            # had anything changed. The arbiter below still decides whether
+            # it wins this turn against any one-shot event.
+            if not trip_update.get("_guided_ask_hint"):
+                _still_open_question = (trip_update.get("guided") or {}).get("current_question")
+                if _still_open_question:
+                    _still_open_attempts = int((trip_update.get("guided") or {}).get("attempts") or 0)
+                    trip_update["_guided_ask_hint"] = (
+                        _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), _still_open_attempts)
+                        if _still_open_question == "accessibility"
+                        else _guided_ask_hint(_still_open_question, _still_open_attempts)
+                    )
 
         # Baggage switched TO a checked bag this turn outside the guided
         # dispatcher (e.g. right after the summary, when every domain is
@@ -15249,33 +15562,10 @@ def _chat_clean_impl():
                         except Exception as exc:
                             logging.exception("Tinkerbell reply failed on premature-מאשרת active-domain gap: %s", exc)
                     if not _active_gap_handled:
-                        # Run-11 (Shaked, 22.10, Bari/Valencia/Bordeaux/Rovinj):
-                        # every domain's own gaps above were already closed -
-                        # what's actually still missing is a universal guided
-                        # field (accessibility first in priority order), which
-                        # lives outside any single domain. Seen live: the hint
-                        # the main dispatch set earlier this turn was already
-                        # there and Tinkerbell still composed the full summary
-                        # anyway - force it again, as the last thing she sees
-                        # before this retry, same mechanism _handle_guided_
-                        # extraction_turn itself uses. State alone picks the
-                        # field, never a scan of her reply text.
-                        _guided_still_open = _guided_incomplete_fields(trip_update)
-                        if _guided_still_open:
-                            _open_field = _guided_still_open[0]
-                            _forced_hint = (
-                                _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0)
-                                if _open_field == "accessibility" else _guided_ask_hint(_open_field, 0)
-                            )
-                            _guided_forced = dict(trip_update.get("guided") or {})
-                            _guided_forced["current_question"] = _open_field
-                            trip_update["guided"] = _guided_forced
-                            trip_update["_guided_ask_hint"] = _forced_hint
-                            try:
-                                reply = _call_tinkerbell(key, model, history, message, trip_update)
-                                _active_gap_handled = True
-                            except Exception as exc:
-                                logging.exception("Tinkerbell reply failed on premature-מאשרת guided-field gap: %s", exc)
+                        _forced_reply = _force_guided_field_retry(key, model, history, message, trip_update, "premature-מאשרת")
+                        if _forced_reply is not None:
+                            reply = _forced_reply
+                            _active_gap_handled = True
                     if not _active_gap_handled:
                         # Not phrased as "is it all correct or do you want to fix
                         # something?" - that compound question leaves a plain
@@ -15686,6 +15976,19 @@ def _chat_clean_impl():
                 remaining_labels = {"lodging": "לינה", "car": "השכרת רכב", "trip_planning": "מסלול ואטרקציות"}
                 label = remaining_labels.get(pending_domain, pending_domain)
                 reply = f"עוד דבר אחד לפני שסוגרים - {_g(trip_update.get('user_gender'), 'תרצה', 'תרצי')} שאעזור גם עם {label}?"
+        elif closing_claim:
+            # Dry-run 2 (Shaked/Shlomo, 22.10, case E): every one of the
+            # four domains really is complete/declined (pending_domain is
+            # correctly empty) - but a universal guided field (accessibility
+            # per #143) is still genuinely open, outside any single domain,
+            # so this false "מעבירה אותך..." claim would otherwise sail
+            # straight through untouched (the premature-מאשרת safety net
+            # only catches the literal מאשר/מאשרת wording, which this
+            # phrasing never used). Same forced-retry mechanism, same
+            # state-only field choice.
+            _forced_reply = _force_guided_field_retry(key, model, history, message, trip_update, "closing-claim")
+            if _forced_reply is not None:
+                reply = _forced_reply
 
         reply = _redirect_reopened_closed_domain_question(reply, trip_update)
         reply = _redirect_false_flight_closure_claim(reply, trip_update)
