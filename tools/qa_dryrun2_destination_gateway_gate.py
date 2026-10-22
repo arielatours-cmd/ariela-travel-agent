@@ -207,6 +207,37 @@ check("dry-run 2 case E (Rovinj) FIX: destination_airports was never "
 check("ready_for_summary correctly stayed False",
       tu_e.get("ready_for_summary") is False)
 
+# =====================================================================
+# Dry-run 3 (Shaked, 22.10.2026): the hint TEXT itself must never let
+# Tinkerbell propose a specific city/airport/country of her own - live,
+# for this exact Rovinj case, she invented a real-sounding but wrong-
+# country pair ("פוג'ה וקונסטנצה ברומניה" - Rovinj is in Croatia) instead
+# of asking a genuinely open question. Covers both of the two sibling
+# hint functions this bug lived in.
+# =====================================================================
+rovinj_state = {
+    "destination": {"places": ["רוביני"], "mode": "specific", "status": "known"},
+    "requested_services": ["flights"],
+}
+gateway_question = chat._destination_gateway_question_hint(rovinj_state)
+check("dry-run 3 FIX: the arbiter's own gateway question hint explicitly "
+      "forbids proposing any specific city/airport/code",
+      "בלי להציע או לנקוב בשום שם עיר" in gateway_question)
+check("dry-run 3 FIX: the gateway question hint itself never names a "
+      "real or invented city/country as an example",
+      "קרואטיה" not in gateway_question and "רומניה" not in gateway_question
+      and "פולה" not in gateway_question and "זאגרב" not in gateway_question)
+
+catalog_fact = chat._destination_gateway_summary(rovinj_state)
+check("dry-run 3 FIX: the background catalog-fact hint requires all three "
+      "of city-exists/airport-really-serves-it/right-country to be "
+      "certain before naming one, not just 'check first'",
+      "שלושת התנאים האלה" in catalog_fact and "חייבים כולם להיות ודאיים" in catalog_fact)
+check("dry-run 3 FIX: the catalog-fact hint also never names a concrete "
+      "example city/country of its own (would leak into every unrelated "
+      "destination's hint, not just Rovinj's)",
+      "קרואטיה" not in catalog_fact and "רומניה" not in catalog_fact)
+
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email LIKE 'qa-dryrun2-%@example.com'")
     conn.commit()

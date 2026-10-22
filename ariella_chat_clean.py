@@ -4723,11 +4723,29 @@ def _destination_catalog_hint(state):
         line += ("\nשדה/שדות הנחיתה ביעד לפי רשימת שדות התעופה (מקור אמת - אל תמציאי תעתיק, קוד או מדינה "
                  "משלך, השתמשי בדיוק בזה): " + " / ".join(dict.fromkeys(facts)) + ".")
     if unknown:
+        # Dry-run 3 (Shaked, 22.10.2026, Rovinj/E): "offer the nearest
+        # airport, instead of naming one you're not sure about" already
+        # told Tinkerbell not to guess - yet live, for a real Croatian
+        # town, she still confidently invented a real-sounding city pair
+        # in the WRONG COUNTRY entirely, rather than recognizing her own
+        # uncertainty. Strengthened below with an explicit, blunt
+        # certainty test (city exists + airport really serves it + right
+        # country, ALL THREE) instead of a named example - a concrete
+        # example here would itself become scripted content this same
+        # background fact risks echoing verbatim into every unrelated
+        # destination's hint (this function is shared by every
+        # uncatalogued place, not just Rovinj). This is NOT a ban on ever
+        # naming a real, correctly identified city/code (Genoa/GOA-style
+        # cities still need that, see public_site._chat_recover_search_
+        # facts) - only on presenting one that fails this test.
         line += ("\nהיעד " + ", ".join(unknown) + " לא נמצא ברשימת שדות התעופה שלנו, כך שאין כאן עובדה מאומתת "
                  "על שדה הנחיתה. כשאת מציינת שדה נחיתה (גם בשורת \"נחיתה:\" בסיכום), זה חייב להיות שדה תעופה "
                  "מסחרי אמיתי שמשרת את העיר הזו, עם הקוד הנכון שלו, ובמדינה שבה העיר באמת נמצאת - בדקי זאת "
-                 "לפני שאת כותבת. אם לעיר עצמה אין שדה תעופה מסחרי, אמרי זאת בפשטות והציעי את השדה הקרוב "
-                 "ביותר בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
+                 "לפני שאת כותבת. שלושת התנאים האלה - שהעיר קיימת באמת, שהשדה שבחרת משרת אותה באמת, ושהוא "
+                 "במדינה הנכונה - חייבים כולם להיות ודאיים אצלך; אם ולו אחד מהם לא ודאי, אסור לך להמציא או "
+                 "לנחש עיר/שדה/מדינה קרובים, אפילו אם הם נשמעים סבירים ומדויקים. אם לעיר עצמה אין שדה תעופה "
+                 "מסחרי, או שאת לא בטוחה בשדה הקרוב ביותר - אמרי זאת בפשטות והציעי את השדה הקרוב ביותר "
+                 "בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
     return line
 
 
@@ -4796,15 +4814,32 @@ def _destination_gateway_question_hint(state):
     background - this is what actually reaches Tinkerbell as THIS turn's
     one live question when nothing higher-priority (clarify/shift/mixed-
     baggage) is live, via _turn_question_arbiter. Returns "" when
-    nothing is unresolved."""
+    nothing is unresolved.
+
+    Dry-run 3 (Shaked, 22.10.2026, Rovinj/E): the original wording asked
+    for an open question but still let Tinkerbell freely NAME candidate
+    cities/airports in it - live, she invented "פוג'ה וקונסטנצה ברומניה"
+    for Rovinj (a real Croatian town; neither suggestion is even in the
+    right country). The business owner's decision: never a city list.
+    Structurally, a suggested gateway may only ever be a real catalog code
+    in the SAME country as the destination - this function (a pure,
+    synchronous, no-model-call arbiter candidate, by design) has no
+    verified country for an uncatalogued place to check that against, so
+    until a real city->country/nearest-gateway data source exists (see
+    the backlog note on this PR), the safe half of that rule is enforced
+    unconditionally: no specific city or airport code may be proposed at
+    all - genuinely open, asking which airport the customer themselves
+    would prefer, never a guess offered for them to merely confirm."""
     unresolved = _destination_gateway_unresolved_places(state)
     if not unresolved:
         return ""
     return (
         "היעד " + ", ".join(unresolved) + " ככל הנראה חסר שדה תעופה מסחרי רשום משלו - אין כאן עובדה מאומתת "
-        "על שדה הנחיתה. שאלי שאלה פתוחה אחת, בניסוח שלך, לגבי שדה התעופה הקרוב ביותר שבו לנחות ולהמריא - "
-        "זו החלטה אמיתית שהלקוח צריך לאשר בעצמו. לעולם אל תבחרי שדה נחיתה בשבילו ואל תכתבי אותו בסיכום "
-        "(גם לא בשורת \"נחיתה:\") לפני שהוא אישר במפורש איזה שדה."
+        "על שדה הנחיתה, ואין לך מקור מאומת לאיזו מדינה העיר הזו שייכת או לאיזה שדה תעופה קרוב אליה. "
+        "שאלי שאלה פתוחה אחת, בניסוח שלך, לגבי שדה התעופה הקרוב ביותר שבו לנחות ולהמריא - "
+        "בלי להציע או לנקוב בשום שם עיר, שדה תעופה, או קוד IATA ספציפי בשאלה עצמה, אפילו לא כניחוש "
+        "או כדוגמה. זו החלטה אמיתית שהלקוח צריך לספק בעצמו, לא לאשר הצעה שלך. לעולם אל תבחרי שדה נחיתה "
+        "בשבילו ואל תכתבי אותו בסיכום (גם לא בשורת \"נחיתה:\") לפני שהוא אישר במפורש איזה שדה."
     )
 
 
@@ -10382,6 +10417,30 @@ def _guided_correction_hint(label, confirm_desc):
 
 
 _GUIDED_ACCESSIBILITY_NEED_VALUES = ("stroller", "wheelchair", "reduced_mobility", "infant", "other")
+
+# Din (PRV-18, 22.10.2026, dry-run 3 - a real medical detail, "אמא שלי
+# עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים", survived verbatim into
+# accessibility.details despite the prompt already saying not to): the
+# free-text "details" the model wrote is never trusted or stored directly
+# again. The model instead classifies the practical need into ONE
+# category from this closed list - accessibility.details is built in code
+# from this table only (see _guided_field_update_and_confirm), so the
+# actual stored text can never be anything the model wrote itself, medical
+# detail included; a category outside this exact set is simply dropped,
+# never guessed at or passed through.
+_ACCESSIBILITY_DETAIL_PHRASES_HE = {
+    "walking_short": "קושי בהליכה",
+    "walking_long_distance": "קושי בהליכה למרחקים ארוכים",
+    "stairs": "קושי בעלייה/ירידה במדרגות",
+    "wheelchair": "שימוש בכיסא גלגלים",
+    "stroller": "שימוש בעגלת תינוק",
+    "escort": "צורך בליווי",
+    "luggage_help": "עזרה בנשיאה/בטיפול בכבודה",
+    "boarding_help": "עזרה בעלייה/ירידה מהמטוס",
+    "hearing": "קושי בשמיעה",
+    "vision": "קושי בראייה",
+    "other": "התאמה מיוחדת אחרת",
+}
 # Per Shaked's QA on #76 (22.10.2026): these are internal schema values,
 # never shown to the customer or in the Hebrew summary/hint as-is - a
 # value label mapping, same principle as _BAGGAGE_HE for baggage types.
@@ -10815,9 +10874,18 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
     # traveler on its own; also_mentioned.accessibility must stay reserved
     # for a genuinely described need (help boarding, a stroller to gate-
     # check, etc.), never fired by the baby's mere presence/age alone.
+    # Din (PRV-18): detail_category is a closed list, never free text - see
+    # _ACCESSIBILITY_DETAIL_PHRASES_HE and _guided_field_update_and_confirm,
+    # which builds the actual stored details from this category alone.
     _accessibility_volunteer_rule = (
         " אם הלקוח הזכיר מיוזמתו צורך ממשי בעזרה/התאמה (למשל עגלת תינוק, כיסא גלגלים, קושי "
-        "בהליכה) - מלאי גם את also_mentioned.accessibility, עם הצורך המעשי בלבד, בלי אבחנה רפואית. "
+        "בהליכה) - מלאי גם את also_mentioned.accessibility, עם needs וגם detail_category "
+        "(קטגוריה אחת מתוך: walking_short, walking_long_distance, stairs, wheelchair, stroller, "
+        "escort, luggage_help, boarding_help, hearing, vision, other - לעולם לא תיאור חופשי "
+        "משלך). אם הלקוח כתב גם סיבה/אבחנה רפואית (שם מחלה, ניתוח, מצב רפואי) - סווגי רק את "
+        "הצורך המעשי הנובע ממנה לקטגוריה המתאימה, בלי לכתוב את הניתוח/האבחנה/הפרט הרפואי "
+        "בשום שדה - לדוגמה, 'אמא שלי עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים' מסווג "
+        "ל-detail_category: \"walking_long_distance\" בלבד. "
         "ציון עצם קיומו של תינוק/ילד בקבוצה (גיל, מגדר) בלבד, בלי שום תיאור של צורך בעזרה, אינו מספיק - "
         "אל תמלאי also_mentioned.accessibility רק מזה."
     )
@@ -10893,7 +10961,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
         also_schema = '"also_mentioned":{"travelers":{...}|null'
         also_rule = "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי להשלים בעצמך."
         if ask_also_accessibility:
-            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
+            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"detail_category":"..."}|null'
             also_rule += _accessibility_volunteer_rule
         also_schema += "}"
         prompt = (
@@ -10929,7 +10997,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
         also_schema = '"also_mentioned":{"dates":{...}|null'
         also_rule = "also_mentioned: רק פרטי תאריכים שנאמרו במפורש באותה הודעה."
         if ask_also_accessibility:
-            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
+            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"detail_category":"..."}|null'
             also_rule += _accessibility_volunteer_rule
         also_schema += "}"
         prompt = (
@@ -10960,15 +11028,36 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
         # follow-up asking what would actually help. Which one is live is
         # read from state, never tracked separately.
         awaiting_detail = _accessibility_awaiting_detail(state)
+        # Din (PRV-18, 22.10.2026): details is never free text the model
+        # writes - it is built in code (_guided_field_update_and_confirm)
+        # from _ACCESSIBILITY_DETAIL_PHRASES_HE, a closed table, keyed by
+        # the detail_category the model classifies into below. A medical
+        # reason (diagnosis, surgery, illness) must never appear in
+        # detail_category or anywhere in this response - only the real-
+        # world practical consequence, classified into the ONE closed
+        # category that fits best.
+        _detail_category_schema = (
+            '"detail_category":"walking_short"|"walking_long_distance"|"stairs"|"wheelchair"|'
+            '"stroller"|"escort"|"luggage_help"|"boarding_help"|"hearing"|"vision"|"other"|null'
+        )
+        _detail_category_rule = (
+            "סווגי את הצורך המעשי לקטגוריה אחת בלבד מתוך רשימה סגורה: "
+            "walking_short (קושי בהליכה, ללא פירוט מרחק), walking_long_distance (קושי בהליכה "
+            "למרחקים ארוכים ספציפית), stairs (קושי במדרגות), wheelchair (כיסא גלגלים), "
+            "stroller (עגלת תינוק), escort (צורך בליווי/מלווה), luggage_help (עזרה בכבודה), "
+            "boarding_help (עזרה בעלייה/ירידה מהמטוס), hearing (קושי בשמיעה), vision (קושי "
+            "בראייה), other (כל צורך אחר שלא מתאים לאף קטגוריה למעלה). לעולם אל תכתבי תיאור "
+            "חופשי משלך, שם מחלה, ניתוח, או כל פרט רפואי - רק קטגוריה אחת מהרשימה הסגורה "
+            "הזו, הנובעת מהצורך המעשי בלבד. לדוגמה, 'אמא שלי עברה ניתוח בברך והיא מתקשה "
+            "ללכת מרחקים ארוכים' מסווג ל-detail_category: \"walking_long_distance\" בלבד - "
+            "בלי לכתוב את הניתוח או הברך בשום שדה."
+        )
         if awaiting_detail:
             prompt = (
                 "אריאלה (סוכנת נסיעות) שאלה את הלקוח שאלה פתוחה: מה יעזור "
                 "להם בדרך, אחרי שהלקוח ענה שכן יש צורך בהתאמה (נגישות).\n"
                 f"4 ההודעות האחרונות: {recent}\n"
-                "כללים: רשמי רק את הצורך המעשי (כיסא גלגלים, עגלת תינוק, "
-                "קושי בהליכה ארוכה וכד') - **בלי אבחנה או מצב רפואי**. אם "
-                "הלקוח כותב סיבה רפואית (למשל שם מחלה), סכמי אותה לצורך "
-                "מעשי בלבד, בלי לכתוב את השם הרפואי עצמו. needs היא רשימה "
+                f"כללים: {_detail_category_rule} needs היא רשימה "
                 "מתוך הערכים: stroller, wheelchair, reduced_mobility, infant, other. "
                 "אסור להמציא - אם לא ברור מה בדיוק צריך, confidence:\"low\". "
                 "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
@@ -10976,7 +11065,7 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
                 "החזירי JSON בלבד, בדיוק במבנה: "
                 '{"status":"answered|unclear|other_topic","needed":true,'
                 '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
-                '"details":"תיאור קצר של הצורך בלבד"|null,"confidence":"high|low",'
+                f'{_detail_category_schema},"confidence":"high|low",'
                 '"also_mentioned":null,"correction":null}'
             )
         else:
@@ -10987,14 +11076,13 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
                 f"4 ההודעות האחרונות: {recent}\n"
                 "כללים: אם הלקוח ציין בתשובה גם את הצורך עצמו (למשל \"כן, יש "
                 "לנו עגלה\" או \"אבא שלי בכיסא גלגלים\"), מלאי גם את needs/"
-                "details מיד - אסור להמציא צורך שלא נאמר. בלי אבחנה או מצב "
-                "רפואי - אם נכתבה סיבה רפואית, סכמי אותה לצורך מעשי בלבד. "
+                f"detail_category מיד - אסור להמציא צורך שלא נאמר. {_detail_category_rule} "
                 "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
                 f"{last_question_note}\n"
                 "החזירי JSON בלבד, בדיוק במבנה: "
                 '{"status":"answered|unclear|other_topic","needed":true|false|null,'
                 '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
-                '"details":"תיאור קצר של הצורך בלבד"|null,"confidence":"high|low",'
+                f'{_detail_category_schema},"confidence":"high|low",'
                 '"also_mentioned":null,"correction":null}'
             )
     try:
@@ -11348,7 +11436,11 @@ def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_
         if needed is None:
             return {}, None
         needs = [n for n in (result.get("needs") or []) if n in _GUIDED_ACCESSIBILITY_NEED_VALUES] if isinstance(result.get("needs"), list) else []
-        details = result.get("details") if isinstance(result.get("details"), str) and result.get("details").strip() else None
+        # Din (PRV-18): details is never the model's own free text - only
+        # ever the exact phrase this closed table maps detail_category to.
+        # Any category outside the table (including a model omission) is
+        # simply dropped, never guessed at or passed through raw.
+        details = _ACCESSIBILITY_DETAIL_PHRASES_HE.get(str(result.get("detail_category") or ""))
         acc = {"asked": True, "needed": needed}
         if needed:
             if needs:
@@ -11613,7 +11705,20 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
             trip_update["guided"] = guided
             next_hint = _guided_ask_hint(next_field, 0) if next_field else None
-            baggage_note = _baggage_followup_hint([evidenced_type])
+            # zd10-class finding, recurring (Shaked, dry-run 3, 22.10.2026,
+            # case A): the reply claimed "מזוודה בבטן המטוס" (checked_bag)
+            # while the real saved value was a trolley (carry_on_only) -
+            # the exact same composition drift _baggage_followup_hint's own
+            # upsell note already caused once for the "no" branch below
+            # (mentioning other tiers that CAN be added later gives
+            # Tinkerbell words to misremember as the choice just made).
+            # State itself updated correctly both times - only the
+            # sentence describing it drifted. Same fix: state explicitly,
+            # by name, exactly what WAS saved, before the upsell note.
+            baggage_note = (
+                f"נשמר {_BAGGAGE_HE.get(evidenced_type, evidenced_type)} לכל הקבוצה - ציינו זאת בוודאות. "
+                + (_baggage_followup_hint([evidenced_type]) or "")
+            ).strip()
             if next_hint and baggage_note:
                 return {
                     "trip_update": trip_update,
@@ -14532,6 +14637,35 @@ def _chat_clean_impl():
                 guided_hint = guided_turn.get("dynamic_hint")
                 if guided_hint:
                     trip_update["_guided_ask_hint"] = guided_hint
+            # Dry-run 3 (Shaked, 22.10.2026, B/C/E): _handle_guided_extraction_
+            # turn legitimately returns None (or a dynamic_hint of None) on a
+            # genuinely unrelated aside ("not changed" branches) - that was
+            # read as "nothing to steer with", so the unconditional pop just
+            # above left _guided_ask_hint empty for the rest of the turn. But
+            # guided.current_question can still be genuinely open (e.g.
+            # accessibility, never actually asked yet) regardless of whether
+            # THIS turn's message touched it - an unrelated aside is not the
+            # same as the question no longer being pending. Previously
+            # (qa_guided_extraction_*_014a.py scenarios 5/9/12) this was
+            # believed correct - "don't force a hint onto an unrelated
+            # message, let normal routing handle it" - but normal routing
+            # never actually asks it either, so the question silently went
+            # unasked for turn after turn. Rebuilt fresh every time from
+            # whatever current_question is RIGHT NOW (never the frozen
+            # string this whole mechanism exists to avoid) - never a NEW
+            # redirect, never forced buttons/phrasing, just the same plain
+            # hint _handle_guided_extraction_turn itself would have returned
+            # had anything changed. The arbiter below still decides whether
+            # it wins this turn against any one-shot event.
+            if not trip_update.get("_guided_ask_hint"):
+                _still_open_question = (trip_update.get("guided") or {}).get("current_question")
+                if _still_open_question:
+                    _still_open_attempts = int((trip_update.get("guided") or {}).get("attempts") or 0)
+                    trip_update["_guided_ask_hint"] = (
+                        _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), _still_open_attempts)
+                        if _still_open_question == "accessibility"
+                        else _guided_ask_hint(_still_open_question, _still_open_attempts)
+                    )
 
         # Baggage switched TO a checked bag this turn outside the guided
         # dispatcher (e.g. right after the summary, when every domain is

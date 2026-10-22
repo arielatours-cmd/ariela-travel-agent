@@ -146,6 +146,17 @@ check("1. yes+evidenced type: the hint does not ask the normal 3-option baggage 
       "question again (no redundant re-ask)",
       "תיק יד בלבד, רק טרולי" not in str(tu1.get("_guided_ask_hint") or "")
       and "איזו כבודה" not in str(tu1.get("_guided_ask_hint") or ""))
+# Dry-run 3 (Shaked, 22.10.2026, case A): the reply claimed "מזוודה בבטן
+# המטוס" (checked_bag) while the real saved value was a trolley
+# (carry_on_only) - the exact same composition-drift class as zd10 (the
+# upsell note's own mention of other tiers gave Tinkerbell words to
+# misremember as the choice just made), but in this "yes + same-breath
+# type" branch, which never got zd10's explicit-statement fix.
+check("1. yes+evidenced type (dry-run 3 FIX): the hint explicitly states, "
+      "by name, exactly what WAS saved, before any upsell note - never "
+      "leaving Tinkerbell to recall/invent which type was chosen",
+      "נשמר" in str(tu1.get("_guided_ask_hint") or "")
+      and chat._BAGGAGE_HE.get("checked_bag", "checked_bag") in str(tu1.get("_guided_ask_hint") or ""))
 
 # =====================================================================
 # 2. Bare "yes" alone, no same-breath type at all - must behave exactly
