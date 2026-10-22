@@ -5507,6 +5507,53 @@ def _guard_unjustified_gateway_narrowing(state, message, history):
     return state
 
 
+def _guard_mixed_baggage_pending_write(trip_state, trip_update):
+    """zd9 live finding (Shaked, run-9, Bilbao, relayed by Shlomo 22.10.2026),
+    on PR #128 after it merged: guided.mixed_baggage_pending=True exists
+    specifically so the CUSTOMER's next message is read as the yes/no
+    answer to "choose one uniform baggage for everyone?" - never as a
+    fresh baggage description (see _handle_guided_extraction_turn's own
+    "mixed_baggage_pending" branch). But the general extractor
+    (EXTRACTOR_SYSTEM) runs on every turn regardless of guided dispatch,
+    and a "yes" reply that also states the chosen type in the same breath
+    ("נלך על מזוודה לכולם") is, by EXTRACTOR_SYSTEM's own instructions, a
+    perfectly legitimate single-type baggage statement - so it wrote
+    flight.baggage directly this same turn, bypassing the guided
+    dispatch's own "yes" path entirely (which is supposed to ask the
+    normal baggage question NEXT turn, with nothing saved yet).
+
+    Runs immediately after the raw extractor merge, reverting flight.
+    baggage/baggage_detail to whatever they were BEFORE this turn
+    whenever the flag was already set at the turn's start - whatever the
+    extractor wrote. The guided dispatch's own "no" branch (the only
+    legitimate writer of baggage during a pending turn) runs separately,
+    later, from its own code path and is not affected by this guard.
+    _baggage_answer_by_meaning/_deterministic_baggage_facts (the two
+    other general paths that can write flight.baggage) are skipped
+    outright at their own call sites for the same reason, not reverted
+    here - skipping avoids running a classifier call whose result would
+    just be discarded anyway."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    was_pending = bool((trip_state.get("guided") or {}).get("mixed_baggage_pending"))
+    if not was_pending:
+        return trip_update
+    prior_flight = trip_state.get("flight") if isinstance(trip_state.get("flight"), dict) else {}
+    new_flight = trip_update.get("flight") if isinstance(trip_update.get("flight"), dict) else {}
+    if new_flight.get("baggage") == prior_flight.get("baggage") and new_flight.get("baggage_detail") == prior_flight.get("baggage_detail"):
+        return trip_update  # nothing actually changed, nothing to revert
+    reverted_flight = dict(new_flight)
+    if "baggage" in prior_flight:
+        reverted_flight["baggage"] = prior_flight.get("baggage")
+    else:
+        reverted_flight.pop("baggage", None)
+    if "baggage_detail" in prior_flight:
+        reverted_flight["baggage_detail"] = prior_flight.get("baggage_detail")
+    else:
+        reverted_flight.pop("baggage_detail", None)
+    return dict(trip_update, flight=reverted_flight)
+
+
 def _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message):
     """Per the business owner's directive (18.10, Shaked's stage-3 run-5
     direct finding, s3z4 - Palermo, relayed by Shlomo with the explicit
@@ -9897,7 +9944,17 @@ def _mixed_baggage_payment_time_hint():
     whole group right now? The answer is read by meaning next turn (see
     _mixed_baggage_uniform_choice_by_meaning) - "yes" moves on to the
     normal single-group baggage question, "no" keeps the existing
-    carry_on_only default (never a new/invented value)."""
+    carry_on_only default (never a new/invented value).
+
+    REVISED per Shaked's live run-9 finding (zd9, Bilbao, relayed by
+    Shlomo 22.10.2026): the question itself named a specific type
+    ("רוצה שנבחר מזוודה אחידה לכולם?") - naming "מזוודה" there suggests a
+    choice before the customer ever made one, and invites a reply that
+    both answers "yes" AND restates that same type in one breath (exactly
+    what then let the general extractor save it as a direct answer - see
+    _guard_mixed_baggage_pending_write). The yes/no question must stay
+    completely open about WHICH baggage, only asking WHETHER to pick one
+    together."""
     return (
         "הלקוח תיאר כבודה שונה לנוסעים שונים בקבוצה - אבל הזמנה אחת אינה "
         "יכולה לכלול כבודה שונה לנוסעים שונים; אפשר להוסיף כבודה שונה "
@@ -9905,7 +9962,9 @@ def _mixed_baggage_payment_time_hint():
         "בחירת כבודה מסוימת כרגע. הסבירי את זה ללקוח בקצרה, בניסוח שלך "
         "וחם וטבעי, ואז שאלי שאלה אחת ויחידה - כן/לא בלבד, בלי כפתורים: "
         "האם לבחור כבודה אחידה אחת לכל הקבוצה כרגע? לעולם אל תציעי או "
-        "תבטיחי חלוקה שונה בין נוסעים בהזמנה הזו עצמה - רק בתשלום."
+        "תבטיחי חלוקה שונה בין נוסעים בהזמנה הזו עצמה - רק בתשלום. "
+        "השאלה עצמה לא מזכירה ולא מציעה שום סוג כבודה ספציפי (לא מזוודה, "
+        "לא טרולי, לא תיק יד) - היא שואלת רק אם לבחור אחידה, לא איזו."
     )
 
 
@@ -10811,7 +10870,15 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
         trip_update["guided"] = guided
         next_hint = _guided_ask_hint(next_field, 0) if next_field else None
-        baggage_note = _baggage_followup_hint(["personal_item"])
+        # zd10 (Shaked, run-9, Linz, relayed by Shlomo 22.10.2026): the
+        # reply stated "טרולי לכולם" while the real saved value was תיק יד
+        # בלבד (personal_item) - a direct contradiction with the customer.
+        # _baggage_followup_hint's own upsell note mentions a trolley
+        # alongside a suitcase (as things that CAN be added later), and
+        # composing freely from that alone, Tinkerbell apparently picked
+        # one of those words as if it were the choice just made. State
+        # explicitly, before the upsell note, exactly what WAS saved.
+        baggage_note = "נשמר תיק יד בלבד לכל הקבוצה - ציינו זאת בוודאות, לא טרולי ולא מזוודה. " + _baggage_followup_hint(["personal_item"])
         if baggage_note:
             return {
                 "trip_update": trip_update,
@@ -13264,6 +13331,7 @@ def _chat_clean_impl():
             })
 
         trip_update = _merge_trip_state(trip_state, extracted)
+        trip_update = _guard_mixed_baggage_pending_write(trip_state, trip_update)
         trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
         trip_update = _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message)
         trip_update = _guard_ski_trip_type_evidence(trip_state, trip_update, trip_type_evidence, message)
@@ -13764,8 +13832,15 @@ def _chat_clean_impl():
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
-        trip_update = _merge_trip_state(trip_update, _baggage_answer_by_meaning(message, history, trip_update))
-        if "baggage" not in guided_steps or "baggage" in _guided_regex_fallback_fields:
+        # zd9 (Shaked, run-9, Bilbao): neither general baggage path may run
+        # at all while guided.mixed_baggage_pending is set at this turn's
+        # start - this turn's message answers the yes/no meta-question
+        # (see _guard_mixed_baggage_pending_write above), never a fresh
+        # baggage description, however it reads on its own.
+        _mixed_baggage_was_pending = bool((trip_state.get("guided") or {}).get("mixed_baggage_pending"))
+        if not _mixed_baggage_was_pending:
+            trip_update = _merge_trip_state(trip_update, _baggage_answer_by_meaning(message, history, trip_update))
+        if not _mixed_baggage_was_pending and ("baggage" not in guided_steps or "baggage" in _guided_regex_fallback_fields):
             _baggage_travelers = trip_update.get("travelers") if isinstance(trip_update.get("travelers"), dict) else {}
             try:
                 _baggage_traveler_count = sum(
