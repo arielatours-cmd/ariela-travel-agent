@@ -268,6 +268,58 @@ check("regression: the marker is never set on the genuinely-still-pending (off_t
       "_mixed_baggage_just_resolved" not in _tu_offtopic)
 
 
+# =====================================================================
+# Part 7: Shaked's re-review of d842d349 (22.10.2026) - a REAL regression
+# in Part 6's own fix: _mixed_baggage_just_resolved lives directly on
+# trip_update, with no sibling pop of its own (unlike _guided_ask_hint/
+# _destination_ambiguous_hint/_shift_candidate_hint, each explicitly
+# popped every turn). Since the client round-trips trip_update straight
+# back as the NEXT turn's own trip_state (confirmed live, run-12: she saw
+# _guided_ask_hint itself come back that way), an unpopped True here
+# would silently survive forever once set once - wrongly promoting EVERY
+# later standing guided question (lodging, dates, an unrelated "other"
+# baggage mention...) to guided_mixed_baggage tier-2 priority for the
+# rest of the conversation, burying a genuinely live
+# _destination_ambiguous_hint behind it exactly like scenario E. Fixed:
+# an unconditional pop right alongside _guided_ask_hint's own, before the
+# guided dispatch call in the real per-turn handler.
+# =====================================================================
+import inspect  # noqa: E402
+
+_chat_impl_source = inspect.getsource(chat._chat_clean_impl)
+check("Shaked's re-review fix: _mixed_baggage_just_resolved is explicitly popped once per "
+      "turn (mirroring _guided_ask_hint's own sibling pop) - without this the flag would "
+      "silently survive the trip_update -> trip_state client round-trip and stay True for "
+      "the rest of the conversation",
+      'trip_update.pop("_mixed_baggage_just_resolved", None)' in _chat_impl_source)
+
+# Semantic repro of her exact finding: a STALE flag inherited from a long-
+# resolved earlier turn (simulating the round-trip) must never outrank a
+# genuinely live _destination_ambiguous_hint on a LATER, unrelated turn -
+# once popped (exactly as the real per-turn handler now does, right
+# before dispatch), the arbiter correctly falls through to the real
+# winner instead.
+STALE_STATE_BEFORE_POP = {
+    "guided": {"mixed_baggage_pending": False},
+    "_guided_ask_hint": "שאלת לינה רגילה - שלא קשורה בכלל לכבודה",
+    "_destination_ambiguous_hint": "ברגן בנורווגיה או ברגמו באיטליה - שאלי שאלה אחת.",
+    "_mixed_baggage_just_resolved": True,  # stale, from several turns ago
+}
+check("Shaked's finding reproduced in isolation: WITHOUT the pop, a stale "
+      "_mixed_baggage_just_resolved wrongly beats a genuinely live _destination_ambiguous_hint "
+      "on a later, unrelated turn",
+      chat._turn_question_arbiter(STALE_STATE_BEFORE_POP) ==
+      ("שאלת לינה רגילה - שלא קשורה בכלל לכבודה", "guided_mixed_baggage"))
+
+stale_state_after_pop = dict(STALE_STATE_BEFORE_POP)
+stale_state_after_pop.pop("_mixed_baggage_just_resolved", None)
+check("Shaked's fix verified: once popped (as the real per-turn handler now does "
+      "unconditionally, every turn), the same state correctly falls through to the "
+      "genuinely live destination-ambiguity question instead",
+      chat._turn_question_arbiter(stale_state_after_pop) ==
+      ("ברגן בנורווגיה או ברגמו באיטליה - שאלי שאלה אחת.", "destination_ambiguous"))
+
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

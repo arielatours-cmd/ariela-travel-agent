@@ -5599,9 +5599,13 @@ def _turn_question_arbiter(state):
     # genuinely-still-pending case above - it must not fall to tier-3
     # "guided" priority and lose to a still-unresolved destination
     # question, which is what happened live. _mixed_baggage_just_resolved
-    # is the one-turn marker _handle_guided_extraction_turn sets
-    # alongside clearing mixed_baggage_pending, read here only, never
-    # itself persisted into guided.
+    # is the one-turn marker _handle_guided_extraction_turn sets alongside
+    # clearing mixed_baggage_pending, read here only - cleared every turn
+    # by its own unconditional pop (per Shaked's re-review of d842d349:
+    # trip_update round-trips back as the next turn's own trip_state, so
+    # living outside the "guided" dict never made this one-turn on its
+    # own; it needs the same explicit pop _guided_ask_hint's own sibling
+    # hints all rely on).
     if (mixed_pending or state.get("_mixed_baggage_just_resolved")) and guided_hint:
         return str(guided_hint), "guided_mixed_baggage"
     # Dry-run 5b (22.10.2026, scenario E, "the most severe" per Shlomo's
@@ -13249,12 +13253,20 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # to plain tier-3 "guided" priority and could lose to a still-
         # unresolved destination-gateway/ambiguous-name question, even
         # though it is this message's own direct answer. A one-turn marker
-        # (cleared automatically - never in trip_update's own persisted
-        # "guided" dict, so nothing survives past this reply) lets the
-        # arbiter recognize this specific shape without reintroducing the
-        # bug the earlier clearing fixed (mixed_baggage_pending itself
-        # must still read False from here on, or a later turn would
-        # wrongly re-read this resolved yes/no as still pending).
+        # lets the arbiter recognize this specific shape without
+        # reintroducing the bug the earlier clearing fixed (mixed_baggage_
+        # pending itself must still read False from here on, or a later
+        # turn would wrongly re-read this resolved yes/no as still
+        # pending). Shaked's re-review of d842d349 (22.10.2026): this key
+        # lives directly on trip_update, not inside guided - but trip_update
+        # itself still round-trips back as the NEXT turn's own trip_state
+        # (the client sends it straight back; confirmed live, run-12), so
+        # being outside "guided" never made it one-turn on its own. It
+        # relies on its own unconditional pop, right alongside _guided_ask_
+        # hint's own, before the guided dispatch call - without that pop it
+        # would silently stay True for the rest of the conversation,
+        # wrongly promoting every later standing guided question to this
+        # same tier-2 priority.
         trip_update["_mixed_baggage_just_resolved"] = True
         if uniform_choice and evidenced_type:
             # "yes" + the same-breath type the customer already named
@@ -16299,6 +16311,20 @@ def _chat_clean_impl():
         # sibling pattern exactly, closes this for good regardless of which
         # path below does or doesn't re-set it this turn.
         trip_update.pop("_guided_ask_hint", None)
+        # Shaked's re-review of d842d349 (22.10.2026): _mixed_baggage_just_
+        # resolved is exactly the same shape as _guided_ask_hint above - set
+        # inside _handle_guided_extraction_turn, read only this same turn by
+        # _turn_question_arbiter - yet it had no sibling pop of its own. Once
+        # client JS round-trips trip_update back as the NEXT turn's own
+        # trip_state (confirmed live, run-12: _guided_ask_hint itself seen
+        # coming back in trip_state), an unpopped True here would silently
+        # persist for the rest of the conversation, wrongly promoting every
+        # later LEGITIMATE standing guided question (lodging, dates...) to
+        # guided_mixed_baggage tier-2 priority forever - including burying a
+        # genuinely live _destination_ambiguous_hint behind it, the exact
+        # severity-5c bug this whole mechanism exists to prevent. Same
+        # unconditional pop, same place, for the same reason.
+        trip_update.pop("_mixed_baggage_just_resolved", None)
         _baggage_before_guided_dispatch = list((trip_update.get("flight") or {}).get("baggage") or []) if isinstance(trip_update.get("flight"), dict) else []
         if guided_steps and not _all_domains_already_decided:
             guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
