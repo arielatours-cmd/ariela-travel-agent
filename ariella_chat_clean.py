@@ -3297,20 +3297,6 @@ def _flight_dates_line(dates) -> str | None:
     return f"תאריכים: {_he_date_ddmmyyyy(dep)} – {_he_date_ddmmyyyy(ret)}"
 
 
-# Per Shlomo's relay of Shaked's review of PR #113: matches the "תאריכים:"
-# label and whatever value follows it, up to (not including) the next real
-# boundary - another known summary label, the approval-request phrase, a
-# newline, or the end of the text. Used directly against the full text in
-# _ensure_flight_summary_completeness, never via _split_sentences - a dates
-# value always ends in a 4-digit year, and _SENTENCE_BOUNDARY_RE's own
-# digit-adjacency guard (there to avoid splitting INSIDE a date like
-# "15.4.2027") also suppresses the sentence boundary right after it,
-# merging the dates line with whatever comes next into one "sentence".
-_SUMMARY_DATES_LABEL_RE = re.compile(
-    r"תאריכים:.*?(?=[.!?]?\s*(?:כבודה:|תקציב|כתבי מאשרת|כתוב מאשר|מאשר/מאשרת|\n|\Z))", re.DOTALL,
-)
-
-
 _TRAVELERS_SUMMARY_LABEL = "נוסעים:"
 
 
@@ -3411,6 +3397,69 @@ def _flight_summary_text(state):
     else:
         approval_line = "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת."
     return "סיכום בקשת הטיסה:\n" + "\n".join(lines) + "\n\n" + approval_line
+
+
+# Every fixed summary label the system itself defines - the ONLY anchors
+# the canonical-line replacement below looks for (no content scan).
+_SUMMARY_FIXED_LABELS = ("יציאה:", "נחיתה:", "המראה בחזרה:", "תאריכים:", "נוסעים:", "כבודה:", "העדפת טיסה:", "תקציב")
+_SUMMARY_APPROVAL_PHRASES = ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")
+
+
+def _labelled_summary_segment(text, label):
+    """(start, end) of the value carried by a fixed summary label: from the
+    label itself up to - not including - the first of: a newline, another
+    fixed label (_SUMMARY_FIXED_LABELS) or the approval phrase on the same
+    line, or a sentence end ("." / "!" / "?" followed by whitespace or the
+    end of the text). Trailing ", ;" separators before that stop point are
+    left outside the segment. Returns None when the label isn't there.
+
+    Shlomo/Shaked (22.10, rejecting c4b7647): the earlier "label to the end
+    of its sentence" span swallowed a following label on a one-line,
+    comma-separated summary ("נוסעים: 2 מבוגרים, כבודה: מזוודה" lost
+    "כבודה:") - the same span every labelled line used."""
+    start = text.find(label)
+    if start == -1:
+        return None
+    value_from = start + len(label)
+    end = len(text)
+    nl = text.find("\n", value_from)
+    if nl != -1:
+        end = nl
+    for other in _SUMMARY_FIXED_LABELS + _SUMMARY_APPROVAL_PHRASES:
+        if other == label:
+            continue
+        i = text.find(other, value_from, end)
+        if i != -1:
+            end = i
+    m = re.search(r"[.!?](?=\s|$)", text[value_from:end])
+    if m:
+        end = value_from + m.start()
+    while end > value_from and text[end - 1] in " \t,;":
+        end -= 1
+    return start, end
+
+
+def _replace_labelled_summary_line(text, label, canonical):
+    """Replace a fixed label's value with the canonical line built from
+    state (or drop it when canonical is None). Returns (text, found)."""
+    seg = _labelled_summary_segment(text, label)
+    if seg is None:
+        return text, False
+    start, end = seg
+    if canonical is not None:
+        if text[start:end].strip() != canonical.strip():
+            text = text[:start] + canonical + text[end:]
+        return text, True
+    # Not known -> no line. A line left with only a bullet/separators goes
+    # entirely; real text before the label on that line stays.
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    line_end = len(text) if line_end == -1 else line_end
+    rest = (text[line_start:start] + text[end:line_end]).strip(" \t-•*,;.")
+    if not any(ch.isalnum() for ch in rest):
+        return text[:line_start] + text[line_end + 1 if line_end < len(text) else line_end:], True
+    tail = text[end:]
+    return text[:start].rstrip(" ,;") + (tail if tail[:1] in ("\n", ".", "!", "?", "") else " " + tail.lstrip(" ,;")), True
 
 
 def _ensure_flight_summary_completeness(reply, state):
@@ -3514,24 +3563,7 @@ def _ensure_flight_summary_completeness(reply, state):
     # wording, whatever the model wrote on that line, and no line at all
     # when the preference isn't known.
     canonical_connection_line = _flight_connection_summary_line(flight)
-    sentences = _split_sentences(text)
-    for i, (s, term) in enumerate(sentences):
-        label_idx = s.find(_CONNECTION_SUMMARY_LABEL)
-        if label_idx == -1:
-            continue
-        prefix = s[:label_idx]
-        if canonical_connection_line is None:
-            # Not known -> no line at all (the labelled part is dropped).
-            # Only a bullet/whitespace before the label -> drop the whole line;
-            # real text before it (a run-on sentence) is kept as it was.
-            has_text = any(ch.isalnum() for ch in prefix)
-            sentences[i] = ((prefix.rstrip() + ("\n" if term.endswith("\n") else "")) if has_text else "", term)
-        elif s[label_idx:].strip() != canonical_connection_line.strip():
-            sentences[i] = (f"{prefix}{canonical_connection_line}{term}", term)
-        else:
-            break
-        text = "".join(st for st, _t in sentences)
-        break
+    text, _ = _replace_labelled_summary_line(text, _CONNECTION_SUMMARY_LABEL, canonical_connection_line)
 
 
     # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin,
@@ -3558,22 +3590,9 @@ def _ensure_flight_summary_completeness(reply, state):
     # separate "missing" check below instead, which only checks presence.
     canonical_baggage_line = _flight_baggage_line(flight)
     if canonical_baggage_line:
-        sentences = _split_sentences(text)
-        for i, (s, term) in enumerate(sentences):
-            # The "כבודה:" label doesn't always open its own sentence - a
-            # run-on reply can fold it after an intro clause in the same
-            # sentence ("סיכום בקשת הטיסה: כבודה: ..."), with no period
-            # between them. Keep whatever precedes the label untouched and
-            # replace only from the label itself to the sentence's end.
-            label_idx = s.find("כבודה:")
-            if label_idx == -1:
-                continue
-            if s[label_idx:].strip() == canonical_baggage_line.strip():
-                break
-            prefix = s[:label_idx]
-            sentences[i] = (f"{prefix}{canonical_baggage_line}{term}", term)
-            text = "".join(st for st, _t in sentences)
-            break
+        # Whatever precedes the label ("סיכום בקשת הטיסה: כבודה: ...") stays;
+        # only the label's own value is replaced (_labelled_summary_segment).
+        text, _ = _replace_labelled_summary_line(text, "כבודה:", canonical_baggage_line)
 
     # Per Shlomo's relay of Shaked's review of PR #113 (stage-1 run-4,
     # Tallinn): the placeholder architecture above (_dates_truth_hint/
@@ -3603,9 +3622,10 @@ def _ensure_flight_summary_completeness(reply, state):
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     canonical_dates_line = _flight_dates_line(dates)
     if canonical_dates_line:
-        m = _SUMMARY_DATES_LABEL_RE.search(text)
-        if m and m.group(0).strip() != canonical_dates_line.strip():
-            text = text[: m.start()] + canonical_dates_line + text[m.end() :]
+        # Same shared span as every other fixed label now (newline / another
+        # label / approval phrase / a sentence end - a dot INSIDE a date has
+        # no whitespace after it, so it never ends the span).
+        text, _ = _replace_labelled_summary_line(text, "תאריכים:", canonical_dates_line)
 
     missing = []
     if _flight_budget_sentence_index(_split_sentences(text)) is None:
@@ -3667,18 +3687,12 @@ def _ensure_flight_summary_completeness(reply, state):
     # added. No word list on the model's text at all.
     canonical_travelers_line = _flight_travelers_line(travelers)
     if canonical_travelers_line:
-        _found_travelers_label = False
-        sentences = _split_sentences(text)
-        for i, (s, term) in enumerate(sentences):
-            label_idx = s.find(_TRAVELERS_SUMMARY_LABEL)
-            if label_idx == -1:
-                continue
-            _found_travelers_label = True
-            if s[label_idx:].strip() != canonical_travelers_line.strip():
-                sentences[i] = (f"{s[:label_idx]}{canonical_travelers_line}{term}", term)
-                text = "".join(st for st, _t in sentences)
-            break
+        text, _found_travelers_label = _replace_labelled_summary_line(text, _TRAVELERS_SUMMARY_LABEL, canonical_travelers_line)
         if not _found_travelers_label:
+            # Intended (Shlomo, 22.10): no "נוסעים:" label -> the canonical
+            # line is added, even if the model stated the travelers in some
+            # other unlabelled wording (that duplicate is accepted - no word
+            # list on the model's text).
             missing.append(canonical_travelers_line)
     if "ישיר" not in text and "קונקשן" not in text:
         line = _flight_connection_summary_line(flight)

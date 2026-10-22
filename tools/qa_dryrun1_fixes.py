@@ -149,6 +149,26 @@ out = chat._ensure_flight_summary_completeness(reply.replace("נוסעות: 2 (�
 check("no 'נוסעים:' label -> the canonical line is added", "נוסעים: 2 מבוגרים" in out)
 check("_flight_travelers_line: children and infants", chat._flight_travelers_line({"adults": 2, "children": 2, "infants": 1})
       == "נוסעים: 2 מבוגרים, 2 ילדים ותינוק" and chat._flight_travelers_line({"adults": 2, "children": 2}) == "נוסעים: 2 מבוגרים ו-2 ילדים")
+# Shlomo/Shaked (rejecting c4b7647): the label span must stop at the end of the LINE or before
+# another fixed label - a one-line, comma-separated summary must keep every label.
+one_line = ("סיכום: תאריכים: 12.06.2027 – 17.06.2027, נוסעים: 2 מבוגרים, כבודה: מזוודה, "
+            "העדפת טיסה: ישירה, תקציב לאדם: 1500 ₪. אם כל הפרטים נכונים, כתוב מאשר.")
+one_state = {"travelers": {"adults": 2, "infants": 1}, "flight": {"baggage": ["checked_bag"], "connection_preference": "direct"},
+             "budget_per_person": {"amount": 1500, "currency": "ILS"}, "dates": {"departure": "2027-06-12", "return": "2027-06-17"}}
+out = chat._ensure_flight_summary_completeness(one_line, one_state)
+check("one-line summary: every fixed label survives, each exactly once",
+      all(out.count(l) == 1 for l in ("תאריכים:", "נוסעים:", "כבודה:", "העדפת טיסה:", "תקציב")))
+check("one-line summary: each value is the canonical one, in place, separators kept",
+      "נוסעים: 2 מבוגרים ותינוק, כבודה: מזוודה 20–23 ק\"ג לכל נוסע (בהתאם לתנאי חברת התעופה), העדפת טיסה: מעדיפים טיסה ישירה, תקציב" in out
+      and out.rstrip().endswith("אם כל הפרטים נכונים, כתוב מאשר."))
+out = chat._ensure_flight_summary_completeness(one_line, dict(one_state, flight={"baggage": ["checked_bag"]}))
+check("one-line summary, preference unknown: only the 'העדפת טיסה:' part is dropped, the rest of the line stays",
+      "העדפת טיסה" not in out and "כבודה: מזוודה 20–23" in out and "תקציב לאדם: 1500" in out)
+athens = "הסיכום: יעד אתונה, 15.4.2026 עד 19.4.2026, 2 מבוגרים. אם כל הפרטים נכונים, כתבי מאשרת."
+out = chat._ensure_flight_summary_completeness(athens, {"travelers": {"adults": 2}, "dates": {"departure": "2026-04-15", "return": "2026-04-19"}})
+check("Athens (documented, INTENDED): no 'נוסעים:' label -> the canonical line is added even though "
+      "'2 מבוגרים' appears unlabelled - accepted duplicate, no word list on the model's text",
+      "נוסעים: 2 מבוגרים" in out and "2 מבוגרים." in out)
 src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ariella_chat_clean.py"), encoding="utf-8").read()
 check("the 'נוסעות' word check is gone", '"נוסעות" not in text' not in src)
 check("TINKERBELL_SYSTEM: the travelers line has the fixed 'נוסעים:' label", 'בתווית הקבועה "נוסעים:"' in chat.TINKERBELL_SYSTEM)
