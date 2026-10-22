@@ -2400,6 +2400,7 @@ def inject_site_context():
             "car_partner_cards": _car_partner_cards,
             "lodging_partner_cards": _lodging_partner_cards,
             "core_itinerary_text": itinerary_cards.core_itinerary_text,
+            "attraction_price_view": itinerary_cards.attraction_price_view,
             "business": _business_details()}
 
 

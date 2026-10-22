@@ -16,6 +16,8 @@ import os
 import re
 from urllib.parse import quote_plus
 
+from datetime import date, datetime
+
 import requests
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -122,6 +124,110 @@ def core_itinerary_text(text):
     return "\n".join(lines).strip()
 
 
+# Structured price fields per attraction (product/attraction-prices.md) -
+# copied onto each card; what is actually shown is decided at render time by
+# attraction_price_view (the 90-day validity depends on the day it's shown).
+_PRICE_FIELDS = ("price_adult", "price_child", "child_age_range", "free_under_age", "currency",
+                 "free_entry", "price_status", "price_checked_at")
+PRICE_MAX_AGE_DAYS = 90
+# Din's approved wording (DEAL-18, simplified version of 22.10) - never
+# reworded; only the amount/unit are filled in. No check date beside it.
+PRICE_TEXT = "מחיר משוער: כ-{amount} {unit}. המחיר הסופי באתר ההזמנה."
+FREE_ENTRY_TEXT = "כניסה חינם"
+_CURRENCY_SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£", "ILS": "₪"}
+
+
+def _money(amount, currency):
+    value = f"{amount:,.0f}" if float(amount) == int(amount) else f"{amount:,.2f}"
+    symbol = _CURRENCY_SYMBOLS.get(currency)
+    return f"{symbol}{value}" if symbol else f"{value} {currency}"
+
+
+def _age_range(text):
+    """(low, high) inclusive from the DB's child_age_range ("4-12", "עד 17
+    ..."), or None when it doesn't state a plain range."""
+    raw = str(text or "")
+    m = re.match(r"\s*(\d{1,2})\s*[-–]\s*(\d{1,2})(?!\d)", raw)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    m = re.match(r"\s*עד\s*(\d{1,2})(?!\d)", raw)
+    if m:
+        return 0, int(m.group(1))
+    return None
+
+
+def _same_price_for_everyone(info, answers):
+    """True only when every traveler in the party certainly pays the adult
+    price: adults only, or every child's age known and outside both the
+    free age and the child price range. Anything else (a discount or free
+    entry for someone, an unknown age, an unreadable child rule) -> False."""
+    try:
+        children = max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        return False
+    if not children:
+        return True
+    ages = answers.get("age_groups") if isinstance(answers.get("age_groups"), list) else []
+    if len(ages) < children:
+        return False
+    free_under = info.get("free_under_age")
+    child_range = _age_range(info.get("child_age_range"))
+    if info.get("child_age_range") and not child_range:
+        return False
+    for age in ages[:children]:
+        try:
+            age = int(age)
+        except (TypeError, ValueError):
+            return False
+        if isinstance(free_under, int) and not isinstance(free_under, bool) and age <= free_under:
+            return False
+        if child_range and child_range[0] <= age <= child_range[1] and info.get("price_child") != info.get("price_adult"):
+            return False
+    return True
+
+
+def attraction_price_view(info, answers, today=None):
+    """The one price line that may be shown next to an attraction card, per
+    Din's conditions (DEAL-18, simplified wording, relayed 22.10), or None
+    to show no price at all (the links stay either way):
+
+    1. only a verified price (price_status == "ok");
+    2. only when checked within PRICE_MAX_AGE_DAYS (the date isn't shown,
+       but an unknown or older date still means no price);
+    3. "לאדם" only when everyone in the party pays the same adult price;
+       otherwise (a different price by age/party, or unknown ages) the
+       adult price with "לפי מחיר מבוגר × N";
+    4. in the source currency, no conversion;
+    5. "כניסה חינם" only when free_entry is verified (same 1+2);
+    6. Din's wording, exactly (PRICE_TEXT).
+    free_under_age is inclusive (the DB stores 17 for "free under 18")."""
+    info = info if isinstance(info, dict) else {}
+    answers = answers if isinstance(answers, dict) else {}
+    if info.get("price_status") != "ok":
+        return None
+    try:
+        checked = datetime.strptime(str(info.get("price_checked_at") or "")[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    today = today or date.today()
+    if (today - checked).days > PRICE_MAX_AGE_DAYS or checked > today:
+        return None
+    if info.get("free_entry") is True:
+        return {"text": FREE_ENTRY_TEXT}
+    adult = info.get("price_adult")
+    currency = str(info.get("currency") or "").strip().upper()
+    if not isinstance(adult, (int, float)) or isinstance(adult, bool) or adult <= 0 or not re.fullmatch(r"[A-Z]{3}", currency):
+        return None
+    if _same_price_for_everyone(info, answers):
+        return {"text": PRICE_TEXT.format(amount=_money(adult, currency), unit="לאדם")}
+    try:
+        travelers = max(0, int(answers.get("adults") or 0)) + max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        travelers = 0
+    unit = f"למבוגר, לפי מחיר מבוגר × {travelers}" if travelers > 1 else "למבוגר"
+    return {"text": PRICE_TEXT.format(amount=_money(adult, currency), unit=unit)}
+
+
 def build_itinerary_days(text, answers, post_claude, key, model):
     """Structured day cards for an approved itinerary, or [] on failure."""
     core = core_itinerary_text(text)
@@ -153,7 +259,9 @@ def build_itinerary_days(text, answers, post_claude, key, model):
                 "city": city,
                 "description": str(it.get("description") or "").strip(),
                 "duration": str(it.get("duration") or (match or {}).get("משך מומלץ") or "").strip(),
-                "price": str((match or {}).get("מחיר/הערת מחיר") or "").strip(),
+                # Structured, verified price data only (Din, 22.10) - the old
+                # free-text price note is no longer shown.
+                "price_info": {f: (match or {}).get(f) for f in _PRICE_FIELDS},
                 "tickets_url": str((match or {}).get("קישור הזמנה/כרטיסים") or "").strip(),
                 "official_url": str((match or {}).get("אתר רשמי") or "").strip(),
                 "kids": str((match or {}).get("מתאים לילדים") or "").strip(),

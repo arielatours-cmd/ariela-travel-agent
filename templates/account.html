@@ -268,6 +268,7 @@
           .itin-card-en{font-size:12px;color:#8a8a8a}
           .itin-card-desc{margin:2px 0;font-size:13.5px;color:#3f3a33;line-height:1.5}
           .itin-card-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:12.5px;color:#6b6152}
+          .itin-card-price{font-size:12.5px;color:#6b6152;margin-top:4px}
           .itin-card-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
           .itin-btn{font-size:12.5px;font-weight:700;color:#0fc2b0!important;border:1.5px solid #0fc2b0;border-radius:999px;padding:5px 12px;text-decoration:none}
           .itin-btn.primary{background:#0fc2b0;color:#fff!important}
@@ -353,9 +354,13 @@
                         {% if item.get('description') %}<p class="itin-card-desc">{{ item.get('description') }}</p>{% endif %}
                         <div class="itin-card-meta">
                           {% if item.get('duration') %}<span>⏱ {{ item.get('duration') }}</span>{% endif %}
-                          {% if item.get('price') %}<span>🎟 {{ item.get('price') }}</span>{% endif %}
                           {% if item.get('kids') == 'כן' %}<span>👨‍👩‍👧 מתאים לילדים</span>{% endif %}
                         </div>
+                        {# Din's conditions (DEAL-18): a verified, fresh price only - see itinerary_cards.attraction_price_view. #}
+                        {% set price_view = attraction_price_view(item.get('price_info'), a) %}
+                        {% if price_view %}
+                          <div class="itin-card-price">🎟 {{ price_view.text }}</div>
+                        {% endif %}
                         <div class="itin-card-links">
                           {% if item.get('tickets_url') %}<a class="itin-btn primary" href="{{ item.get('tickets_url') }}" target="_blank" rel="noopener">לרכישת כרטיסים</a>{% endif %}
                           {% if item.get('official_url') %}<a class="itin-btn" href="{{ item.get('official_url') }}" target="_blank" rel="noopener">אתר רשמי</a>{% endif %}
@@ -379,7 +384,6 @@
                     <strong>
                       {% if attraction.get('name_he') %}{{ attraction.get('name_he') }} ({{ attraction.get('name') or attraction.get('title') }}){% else %}{{ attraction.get('name') or attraction.get('title') }}{% endif %}
                     </strong>
-                    {% if attraction.get('price') %}<span>מחיר כניסה: {{ attraction.get('price') }}</span>{% endif %}
                     {% if attraction.get('info') %}<span>{{ attraction.get('info') }}</span>{% endif %}
                     {% if attraction.get('booking_url') %}<a href="{{ attraction.get('booking_url') }}" target="_blank" rel="noopener">להזמנת כרטיסים</a>{% endif %}
                   </div>
