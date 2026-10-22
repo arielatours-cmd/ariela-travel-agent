@@ -7,13 +7,21 @@ list. Three separate bugs, all reproduced from the real transcript
    "אוקיי, אז נלך על מזוודה בבטן המטוס לכל השלוש..." (a self-picked
    decision) even though flight.baggage was still genuinely empty and
    baggage had just correctly LOST the arbiter to the still-unresolved
-   destination-gateway question ("לגבי לזדאק..."). The existing _guard_
-   baggage_type_self_picked only fires when baggage IS the winning topic
-   (misses this shape entirely - baggage lost, she addressed it anyway).
-   New _guard_baggage_claimed_without_resolution catches this: flight.
-   baggage still empty + winning kind is NOT guided/guided_mixed_baggage
-   + the reply nonetheless claims a baggage decision -> forced retry,
-   dropping the baggage claim.
+   destination-gateway question ("לגבי לזדאק..."). The real cause: the
+   "yes" to the uniform-baggage meta-question resolved guided.mixed_
+   baggage_pending to False on that SAME turn, and the follow-up hint
+   this produces fell to plain tier-3 "guided" arbiter priority - losing
+   to the destination-gateway question even though it is a direct
+   continuation of the customer's own message this turn. First shipped
+   as a reactive classifier-based backstop (_guard_baggage_claimed_
+   without_resolution, judging the REPLY after the fact); per Shlomo's
+   binding direction (22.10.2026, approving Shaked's static review of
+   6b1efab) the actual root-cause fix is in the arbiter itself - a one-
+   turn _mixed_baggage_just_resolved marker gives that follow-up hint
+   the same guided_mixed_baggage tier-2 priority the still-pending case
+   already had - and the now-redundant reactive guard was removed
+   entirely (it never fires once the arbiter itself never hands baggage
+   a losing turn in the first place).
 
 2. The mixed-baggage yes/no interpreter misread an UNRELATED answer: "לא
    חובה" (not obligatory) genuinely answered the direct-flight-preference
@@ -180,116 +188,14 @@ check("dr5c fix: off_topic produces no confusing baggage-specific dynamic_hint f
 
 
 # =====================================================================
-# Part 5: _guard_baggage_claimed_without_resolution - the new false-claim
-# guard, scoped to when baggage lost the arbiter (not its own turn).
+# Part 5: _guard_baggage_claimed_without_resolution (the first, reactive
+# classifier-based backstop for this bug) was REMOVED per Shlomo's
+# binding direction (22.10.2026, approving Shaked's static review of
+# 6b1efab, point 3): once the arbiter itself never hands baggage a
+# losing turn in the first place (Part 6 below), the after-the-fact
+# "did she falsely claim a baggage decision" guard has nothing left to
+# catch - it no longer exists in ariella_chat_clean.py at all.
 # =====================================================================
-SELF_PICK_REPLY = (
-    "אוקיי, אז נלך על מזוודה בבטן המטוס לכל השלוש - זה יכסה גם את מי שהייתה מסתפקת בטרולי.\n\n"
-    "לגבי לזדאק - אני לא מכירה שדה תעופה בשם הזה. באיזה שדה תרצי לנחות בהלוך?"
-)
-GENUINE_ASK_REPLY = "איזו כבודה תרצו לקחת?"
-
-STATE_BAGGAGE_LOSES_ARBITER = {
-    "guided": {"current_question": "baggage", "attempts": 0, "answered": ["dates", "travelers"], "mixed_baggage_pending": False},
-    "flight": {"baggage": []},
-    "destination": {"places": ["לזדאק"], "mode": "specific", "status": "known"},
-    "destination_airports": [],
-    "requested_services": ["flights"],
-    "service_decisions": {"flights": {"wanted": True}},
-}
-
-
-def _fake_claim_classifier(claimed):
-    def _fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other"):
-        if source == "classifier":
-            return '{"claimed": %s}' % ("true" if claimed else "false")
-        return "התשובה לדוגמה."
-    return _fake
-
-
-with patch.object(chat, "_post_claude", side_effect=_fake_claim_classifier(True)) as mock_claim:
-    result_claim = chat._guard_baggage_claimed_without_resolution(
-        SELF_PICK_REPLY, STATE_BAGGAGE_LOSES_ARBITER, KEY, MODEL, [], "כן",
-    )
-check("scenario B repro: a reply that self-picks/claims a baggage decision while it genuinely "
-      "lost the arbiter triggers a retry (reply changes)",
-      result_claim != SELF_PICK_REPLY)
-
-with patch.object(chat, "_post_claude", side_effect=_fake_claim_classifier(False)) as mock_no_claim:
-    result_no_claim = chat._guard_baggage_claimed_without_resolution(
-        GENUINE_ASK_REPLY, STATE_BAGGAGE_LOSES_ARBITER, KEY, MODEL, [], "כן",
-    )
-check("regression: a reply that genuinely asks (no claim) passes through unchanged",
-      result_no_claim == GENUINE_ASK_REPLY)
-
-# Regression: baggage genuinely IS the winning topic this turn - this
-# guard steps aside entirely (that's _guard_baggage_type_self_picked's
-# own job, never double-checked here). Destination must already be
-# resolved here too, or the destination-gateway question (still
-# genuinely open in STATE_BAGGAGE_LOSES_ARBITER) would keep winning
-# instead, same as the real live turn this whole guard exists for.
-STATE_BAGGAGE_WINS_ARBITER = dict(
-    STATE_BAGGAGE_LOSES_ARBITER,
-    destination_airports=["ZAD"],
-    _guided_ask_hint="שאלת כבודה רגילה",
-)
-with patch.object(chat, "_post_claude") as mock_unused:
-    result_wins = chat._guard_baggage_claimed_without_resolution(
-        SELF_PICK_REPLY, STATE_BAGGAGE_WINS_ARBITER, KEY, MODEL, [], "כן",
-    )
-check("regression: when baggage genuinely IS this turn's winning topic, this guard never fires "
-      "(no classifier call - _guard_baggage_type_self_picked's own job instead)",
-      result_wins == SELF_PICK_REPLY and not mock_unused.called)
-
-# Regression: flight.baggage already genuinely set - nothing to falsely claim.
-STATE_BAGGAGE_ALREADY_SET = dict(STATE_BAGGAGE_LOSES_ARBITER, flight={"baggage": ["checked_bag"]})
-with patch.object(chat, "_post_claude") as mock_unused2:
-    result_already_set = chat._guard_baggage_claimed_without_resolution(
-        SELF_PICK_REPLY, STATE_BAGGAGE_ALREADY_SET, KEY, MODEL, [], "כן",
-    )
-check("regression: flight.baggage already genuinely set - nothing to falsely claim, no classifier call",
-      result_already_set == SELF_PICK_REPLY and not mock_unused2.called)
-
-# Regression: current_question isn't "baggage" at all - never this guard's job.
-STATE_NOT_BAGGAGE_QUESTION = dict(STATE_BAGGAGE_LOSES_ARBITER, guided={"current_question": "accessibility", "attempts": 0, "answered": []})
-with patch.object(chat, "_post_claude") as mock_unused3:
-    result_not_baggage = chat._guard_baggage_claimed_without_resolution(
-        SELF_PICK_REPLY, STATE_NOT_BAGGAGE_QUESTION, KEY, MODEL, [], "כן",
-    )
-check("regression: guided.current_question isn't 'baggage' - never this guard's job, no classifier call",
-      result_not_baggage == SELF_PICK_REPLY and not mock_unused3.called)
-
-# Shaked's static review of 6b1efab (22.10.2026): the reply-text keyword
-# pre-filter ("כבודה"/"טרולי"/"מזוודה"/"תיק") missed the plain plural
-# ("נלך על מזוודות לכולם" has no literal "מזוודה" substring) and is now
-# removed entirely - the classifier runs unconditionally once the three
-# structural gates above it pass, same as its sibling guards. A reply
-# that genuinely never claims a baggage decision (gateway-only) still
-# correctly passes through unchanged once the classifier itself says
-# claimed=false - never because a keyword scan shortcut the call.
-GATEWAY_ONLY_REPLY = "לגבי לזדאק - אני לא מכירה שדה תעופה בשם הזה. באיזה שדה תרצי לנחות בהלוך?"
-with patch.object(chat, "_post_claude", side_effect=_fake_claim_classifier(False)) as mock_gateway_only:
-    result_gateway_only = chat._guard_baggage_claimed_without_resolution(
-        GATEWAY_ONLY_REPLY, STATE_BAGGAGE_LOSES_ARBITER, KEY, MODEL, [], "כן",
-    )
-check("Shaked's fix: the classifier call is unconditional once the three structural gates pass - "
-      "no reply-text keyword pre-filter left to skip a gateway-only reply",
-      mock_gateway_only.called and result_gateway_only == GATEWAY_ONLY_REPLY)
-
-# Shaked's fix: a self-picked claim worded in the plain plural ("מזוודות")
-# - which never matched the old gate's singular "מזוודה" substring - now
-# correctly reaches the classifier and is caught.
-PLURAL_SELF_PICK_REPLY = (
-    "אוקיי, נלך על מזוודות לכולם.\n\n"
-    "לגבי לזדאק - אני לא מכירה שדה תעופה בשם הזה. באיזה שדה תרצי לנחות בהלוך?"
-)
-with patch.object(chat, "_post_claude", side_effect=_fake_claim_classifier(True)) as mock_plural_claim:
-    result_plural_claim = chat._guard_baggage_claimed_without_resolution(
-        PLURAL_SELF_PICK_REPLY, STATE_BAGGAGE_LOSES_ARBITER, KEY, MODEL, [], "כן",
-    )
-check("Shaked's fix: a plural self-pick ('מזוודות', not a substring of the old gate's "
-      "singular 'מזוודה') now reaches the classifier and is caught",
-      mock_plural_claim.called and result_plural_claim != PLURAL_SELF_PICK_REPLY)
 
 
 # =====================================================================
@@ -301,10 +207,8 @@ check("Shaked's fix: a plural self-pick ('מזוודות', not a substring of th
 # gateway/ambiguous question - which is exactly what the live transcript
 # showed: baggage "lost" the arbiter on the very turn its own yes/no was
 # answered, even though that follow-up is a direct continuation of the
-# customer's own message this turn. _guard_baggage_claimed_without_
-# resolution (parts 1/5 above) is a retry-time safety net for when this
-# happens anyway; this is the actual root-cause fix, in the arbiter
-# itself.
+# customer's own message this turn. This is the actual root-cause fix,
+# in the arbiter itself - the reactive guard Part 5 used to test is gone.
 # =====================================================================
 check("_mixed_baggage_just_resolved alone (mixed_baggage_pending already cleared to False "
       "this same turn) still wins the arbiter at the guided_mixed_baggage tier",

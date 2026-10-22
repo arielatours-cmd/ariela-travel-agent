@@ -3808,82 +3808,6 @@ def _guard_accessibility_question_skipped(reply, state, key, model, history, mes
     return _retry_guided_field_question(key, model, history, message, state, "accessibility") or reply
 
 
-def _guard_baggage_claimed_without_resolution(reply, state, key, model, history, message):
-    """Dry-run 5c (22.10.2026, scenario B, Zadar - called out explicitly
-    by Shlomo): _guard_baggage_type_self_picked only fires when baggage
-    is genuinely THIS turn's winning arbiter topic ("guided"/
-    "guided_mixed_baggage") - the live bug was a DIFFERENT shape: baggage
-    was still genuinely pending (flight.baggage empty, the "yes" to the
-    uniform-baggage meta-question just resolved to "now ask the open
-    question", which correctly LOST the arbiter this same turn to the
-    destination-gateway question, still unresolved) - yet the reply
-    still opened with "אוקיי, אז נלך על מזוודה בבטן המטוס לכל השלוש..."
-    (a self-picked DECISION) before going on to ask the real winning
-    topic. _turn_question_arbiter's own framing explicitly tells her the
-    losing topic "will wait its turn, never addressed this message" -
-    she addressed it anyway, drawing on the conversational continuity of
-    her OWN prior turn's question rather than respecting that instruction.
-
-    Scoped to guided.current_question == "baggage" with flight.baggage
-    still genuinely empty, and ONLY when the arbiter's winning kind is
-    NOT "guided"/"guided_mixed_baggage" (that case is already
-    _guard_baggage_type_self_picked's own job - never double-check the
-    same turn twice, for cost). A classifier judges the REPLY alone
-    (never a word list - a claimed decision can be phrased endless ways):
-    does it state, as fact, that a baggage type was chosen/decided? If
-    so, forced retry with a hint to drop the baggage claim entirely and
-    answer ONLY the genuinely winning topic, never a fixed sentence."""
-    state = state if isinstance(state, dict) else {}
-    guided = state.get("guided") if isinstance(state.get("guided"), dict) else {}
-    if guided.get("current_question") != "baggage":
-        return reply
-    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
-    if flight.get("baggage"):
-        return reply
-    _, winning_kind = _turn_question_arbiter(state)
-    if winning_kind in ("guided", "guided_mixed_baggage"):
-        return reply
-    text = str(reply or "").strip()
-    key = str(key or "").strip()
-    if not text or not key:
-        return reply
-    # Shaked's static review of 6b1efab (dry-run 5c, 22.10.2026): the
-    # keyword pre-filter this comment used to describe ("כבודה"/"טרולי"/
-    # "מזוודה"/"תיק") missed the plain plural ("נלך על מזוודות לכולם" has
-    # no literal "מזוודה" substring - the plural form changes the ending)
-    # - a real self-picked claim worded in the plural would have skipped
-    # the classifier entirely, undetected. Removed: the three structural
-    # gates above it (current_question=="baggage", flight.baggage empty,
-    # winning_kind not guided/guided_mixed_baggage) already narrow this to
-    # the same rare shape its siblings _guard_baggage_type_self_picked/
-    # _guard_accessibility_question_skipped call the classifier on
-    # unconditionally, with no reply-text keyword gate of their own either.
-    prompt = (
-        "להלן תשובה שסוכנת נסיעות כתבה ללקוח. קראי אותה וקבעי: האם היא קובעת/מצהירה כעובדה שנבחר/"
-        "נשמר סוג כבודה ספציפי לטיסה (למשל \"נלך על מזוודה\", \"נשמר טרולי לכולם\", \"תיק יד בלבד "
-        "נקלט\") - ולא רק מזכירה את הנושא בלי לקבוע דבר? החזירי JSON בלבד: {\"claimed\": true|false}."
-    )
-    try:
-        raw = _post_claude(key, model, prompt, "", [], "התשובה שצריך לבדוק: " + text, 60, include_history=False, source="classifier")
-        raw = raw.strip()
-        if raw.startswith("```"):
-            raw = raw.strip("`").replace("json", "", 1).strip()
-        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-        if not bool(data.get("claimed")):
-            return reply
-    except Exception:
-        return reply
-    state2 = dict(state)
-    state2["_baggage_false_claim_correction_hint"] = (
-        "בתשובה הקודמת שלך קבעת/הצהרת שנבחר סוג כבודה מסוים, אבל בפועל שום סוג כבודה עדיין לא נשמר "
-        "ושאלת הכבודה גם לא הייתה אמורה להישאל בהודעה הזו (נושא אחר גובר הפעם). נסחי את התשובה הזו "
-        "מחדש בלי לקבוע/להצהיר שום דבר על סוג כבודה - התייחסי אך ורק לשאלה/להנחיה שצוינה לך כדבר "
-        "היחיד לברר הפעם."
-    )
-    retried = _call_tinkerbell(key, model, history, message, state2, _guided_question_retry=True)
-    return retried if retried else reply
-
-
 def _retry_if_medical_detail_leaked(key, model, history, message, state, reply):
     """PRV-18 structural backstop (dry-run 5c, 22.10.2026, scenario A,
     qa/reports/2026-10-22-dryrun5c.md - called BLOCKING by Shlomo): the
@@ -5863,12 +5787,6 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # re-call it makes when the first reply exposed a specific medical
         # reason/diagnosis from the conversation history (PRV-18).
         continuity += "\n- " + str(state.get("_medical_detail_leak_correction_hint")) + "\n"
-    if state.get("_baggage_false_claim_correction_hint"):
-        # Set by _guard_baggage_claimed_without_resolution, on the one
-        # corrective re-call it makes when the first reply falsely
-        # claimed a baggage decision that was never actually resolved
-        # and wasn't even this turn's real topic.
-        continuity += "\n- " + str(state.get("_baggage_false_claim_correction_hint")) + "\n"
     if state.get("_link_request_pending"):
         # Per Shaked's review of the first version of this fix (20.10):
         # the code (never the model) decides whether there's a vacation to
@@ -6017,7 +5935,6 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     if not _guided_question_retry:
         reply = _guard_baggage_type_self_picked(reply, state, key, model, history, message)
         reply = _guard_accessibility_question_skipped(reply, state, key, model, history, message)
-        reply = _guard_baggage_claimed_without_resolution(reply, state, key, model, history, message)
     if not _medical_leak_retry:
         retried_privacy = _retry_if_medical_detail_leaked(key, model, history, message, state, reply)
         if retried_privacy is not None:
