@@ -1,0 +1,7 @@
+usage (model, source, calls, input, output, cache_read, cache_write, errors):
+   claude-sonnet-5 classifier 12 6591 114 0 0 0
+   claude-sonnet-5 guided_extract 23 6482 1484 3491 27815 0
+   claude-sonnet-5 state_extractor 30 51143 21800 462782 15958 0
+   claude-sonnet-5 tinkerbell_reply 33 166867 4352 1041888 32559 0
+chat turns: 30
+usage total: calls=98 input=231083 output=27750 cache_read=1508161 cache_write=76332 errors=0
