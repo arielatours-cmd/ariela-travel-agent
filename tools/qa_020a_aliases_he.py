@@ -87,11 +87,7 @@ check("search time: a country still expands to its airports", "MAD" in public_si
 src = open(os.path.join(ROOT, "public_site.py"), encoding="utf-8").read()
 check("public_site imports _normalize_he_spelling (one source of truth, not a copy)",
       "from ariella_chat_clean import _normalize_he_spelling" in src and "def _normalize_he_spelling" not in src)
-hint = chat._destination_catalog_hint({"destination": {"places": ["וולנסיה"]}})
-check("catalog hint: 'וולנסיה' is a catalog city (VLC), not 'not in our list'", "VLC" in hint and "לא נמצא ברשימת" not in hint)
-check("catalog hint: a country alias is a country (no hint)", chat._destination_catalog_hint({"destination": {"places": ["ויאטנם"]}}) == "")
-check("catalog hint: a city really missing from the catalog is still flagged",
-      "לא נמצא ברשימת" in chat._destination_catalog_hint({"destination": {"places": ["רוביני"]}}))
+# (_destination_catalog_hint's normalization moved to Bezalel's #144 - tested there.)
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")

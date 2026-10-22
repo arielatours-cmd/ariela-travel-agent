@@ -4699,21 +4699,14 @@ def _destination_catalog_hint(state):
     facts, unknown = [], []
     for place in places:
         needle = place.casefold()
-        # 020a (dry-run 1 B): "וולנסיה" vs the catalog's "ולנסיה" - compared
-        # through the shared spelling normalization (and the catalog's own
-        # aliases_he), still an exact match, so a real catalog city is never
-        # treated as "not in our list".
-        norm = _normalize_he_spelling(place)
         cities = [a for a in airports
-                  if norm in {_normalize_he_spelling(v) for v in
-                              [a.get("city_he"), a.get("city_en")] + list(a.get("aliases_he") or []) if v}
+                  if needle in {str(a.get("city_he") or "").strip().casefold(), str(a.get("city_en") or "").strip().casefold()}
                   or needle == str(a.get("code") or "").strip().casefold()]
         if cities:
             facts += [f"{a.get('city_he') or a.get('code')} ({a.get('code')}), {a.get('country_he') or ''}".rstrip(", ")
                       for a in cities]
             continue
-        is_country = any(norm in {_normalize_he_spelling(v) for v in
-                                  [a.get("country_he"), a.get("country_en")] + list(a.get("country_aliases_he") or []) if v}
+        is_country = any(needle in {str(a.get("country_he") or "").strip().casefold(), str(a.get("country_en") or "").strip().casefold()}
                          for a in airports)
         if not is_country:
             unknown.append(place)
