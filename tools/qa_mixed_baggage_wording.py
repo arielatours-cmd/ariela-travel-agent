@@ -190,8 +190,11 @@ check("Phuket yes-path: pending flag cleared, still nothing saved, normal "
 
 
 # =====================================================================
-# Phuket follow-up: customer answers "no" - keeps the EXISTING
-# carry_on_only default, never an invented new value.
+# Phuket follow-up: customer answers "no" - keeps the business owner's
+# default, "תיק יד בלבד" (personal_item - a bare hand bag, the weakest
+# tier). REVISED per Shaked's rejection (22.10, 6ffbe6d): the first
+# version of this saved carry_on_only (a trolley/wheeled carry-on, a
+# different and bigger thing) - never an invented new value either way.
 # =====================================================================
 member_phuket_no = _make_member("qa-phuket-mixed-baggage-no@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("false")):
@@ -202,10 +205,16 @@ with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("fals
     }
     r_phuket_no = _post("לא צריך, תשמרי משהו בסיסי", [], state_phuket_no, member_phuket_no)
 tu_phuket_no = r_phuket_no.get("trip_update") or {}
-check("Phuket no-path: saves the existing carry_on_only value, never a "
-      "new/invented one, and moves on",
-      (tu_phuket_no.get("flight") or {}).get("baggage") == ["carry_on_only"]
+check("Phuket no-path: saves the business owner's default - תיק יד בלבד "
+      "(personal_item), never carry_on_only (a trolley) or any other "
+      "invented value - and moves on",
+      (tu_phuket_no.get("flight") or {}).get("baggage") == ["personal_item"]
       and (tu_phuket_no.get("guided") or {}).get("current_question") != "baggage")
+phuket_no_hint = str(tu_phuket_no.get("_guided_ask_hint") or "")
+check("Phuket no-path: the follow-up note matches personal_item's own "
+      "upsell wording (a trolley OR a suitcase can be added), and never "
+      "repeats the payment-time explanation already said this flow",
+      "טרולי" in phuket_no_hint and "התשלום" not in phuket_no_hint)
 
 
 # =====================================================================

@@ -10718,9 +10718,13 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             guided["current_question"], guided["attempts"], guided["answered"] = current_question, 0, answered
             trip_update["guided"] = guided
             return {"trip_update": trip_update, "dynamic_hint": _guided_ask_hint(current_question, 0)}
-        # "no" - keep the existing carry_on_only value; never invent a new
-        # "no baggage" value (per Shlomo's explicit instruction, 22.10).
-        trip_update = _merge_trip_state(trip_update, {"flight": {"baggage": ["carry_on_only"]}})
+        # "no" - keep the existing "תיק יד בלבד" value (personal_item - a
+        # bare hand bag, the weakest tier; NOT carry_on_only, which is a
+        # trolley/wheeled carry-on, a different and bigger thing). Per
+        # Shaked's rejection of the first version (22.10): the business
+        # owner's own words for the default are "תיק יד בלבד", which maps
+        # to personal_item in this schema - never invent a new value.
+        trip_update = _merge_trip_state(trip_update, {"flight": {"baggage": ["personal_item"]}})
         if current_question not in answered:
             answered.append(current_question)
         next_field = next(
@@ -10730,7 +10734,7 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
         trip_update["guided"] = guided
         next_hint = _guided_ask_hint(next_field, 0) if next_field else None
-        baggage_note = _baggage_followup_hint(["carry_on_only"])
+        baggage_note = _baggage_followup_hint(["personal_item"])
         if baggage_note:
             return {
                 "trip_update": trip_update,

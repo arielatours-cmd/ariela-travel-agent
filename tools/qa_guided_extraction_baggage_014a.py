@@ -241,8 +241,8 @@ check("scenario 2b: the built label states '2', never 'מזוודה אחת'",
 #     that different baggage per passenger can only be added at the
 #     payment stage, then asks one yes/no question - choose the same
 #     baggage for everyone? "Yes" moves on to the normal single-group
-#     question; "no" keeps the EXISTING carry_on_only default, never a
-#     new/invented value. ---
+#     question; "no" keeps the business owner's default, "תיק יד בלבד"
+#     (personal_item), never a new/invented value. ---
 
 
 def _fake_classifier_reply(value):
@@ -300,9 +300,12 @@ check("scenario 2c-yes: baggage field stays open, asking the normal 3-option que
       (tu2c_yes.get("guided") or {}).get("current_question") == "baggage"
       and "תיק יד" in str(tu2c_yes.get("_guided_ask_hint") or ""))
 
-# --- 2c-no: the customer declines - the EXISTING carry_on_only default is
-#     saved (per Shlomo's explicit instruction, 22.10: never invent a new
-#     "no baggage" value when carry_on_only already exists in the schema). ---
+# --- 2c-no: the customer declines - the business owner's default,
+#     "תיק יד בלבד" (personal_item - a bare hand bag, the weakest tier),
+#     is saved. REVISED per Shaked's rejection (22.10, 6ffbe6d): the first
+#     version of this saved carry_on_only (a trolley - a different and
+#     bigger thing than "תיק יד בלבד") - never an invented new value
+#     either way. ---
 member2c_no = _make_member("qa-baggage-s2c-no@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("false")):
     state2c_no = dict(ROME_STATE)
@@ -314,8 +317,9 @@ with patch.object(chat, "_post_claude", side_effect=_fake_classifier_reply("fals
 tu2c_no = r2c_no.get("trip_update") or {}
 check("scenario 2c-no: pending flag cleared",
       not (tu2c_no.get("guided") or {}).get("mixed_baggage_pending"))
-check("scenario 2c-no: saves the EXISTING carry_on_only value, never a new/invented one",
-      (tu2c_no.get("flight") or {}).get("baggage") == ["carry_on_only"])
+check("scenario 2c-no: saves תיק יד בלבד (personal_item), never "
+      "carry_on_only or any other invented value",
+      (tu2c_no.get("flight") or {}).get("baggage") == ["personal_item"])
 check("scenario 2c-no: baggage marked answered and the turn moves on",
       (tu2c_no.get("guided") or {}).get("current_question") != "baggage")
 
