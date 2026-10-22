@@ -3190,6 +3190,11 @@ def _chat_destination_codes(places):
                 city_matches.append(code)
             elif norm in country_values:
                 country_matches.append(code)
+        if not city_matches and not country_matches:
+            # 020 stage B: a city only the extended catalog knows (Zadar ->
+            # ZAD) still gets its real code at search time.
+            from ariella_chat_clean import _extended_airport_matches
+            city_matches = [str(a.get("code") or "").upper() for a in _extended_airport_matches(raw)]
         codes.extend(city_matches if city_matches else country_matches)
     return list(dict.fromkeys(codes))
 

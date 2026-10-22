@@ -2485,6 +2485,16 @@ def _resolve_destination_airports_from_route_names(airports, names):
                         region_codes.append(code)
     if region_codes:
         return region_codes
+    # 020 stage B: a city only the extended catalog knows (Zadar) still
+    # resolves to its real airport(s) - after the island/region pass, before
+    # the country pass.
+    for name in names:
+        for a in _extended_airport_matches(name):
+            code = str(a.get("code") or "").upper()
+            if code and code not in city_codes:
+                city_codes.append(code)
+    if city_codes:
+        return city_codes
     codes = []
     for name in names:
         needle = str(name).strip().lower()
@@ -4767,6 +4777,12 @@ def _destination_catalog_hint(state):
             facts += [f"{a.get('city_he') or a.get('code')} ({a.get('code')}), {a.get('country_he') or ''}".rstrip(", ")
                       for a in cities]
             continue
+        # Round 12 (Zadar): a real city that's only in the extended catalog
+        # is a known airport too - never "no commercial airport".
+        extended = _extended_airport_matches(place)
+        if extended:
+            facts += [_extended_airport_fact(a) for a in extended]
+            continue
         # 020a: the catalog's own alternate spellings count too (Bezalel's
         # agreed follow-up - e.g. a place saved as "ויאטנם").
         is_country = any(needle in {_normalize_he_spelling(v) for v in
@@ -4926,10 +4942,13 @@ def _destination_gateway_summary(state):
         return _destination_catalog_hint(state)
     airports_by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
 
+    extended_by_code = {str(a.get("code") or "").upper(): a for a in _load_extended_airports()}
+
     def _fact(code):
         a = airports_by_code.get(code)
         if not a:
-            return None
+            # 020 stage B: an extended-catalog airport (e.g. ZAD) - English only.
+            return _extended_airport_fact(extended_by_code[code]) if code in extended_by_code else None
         city = a.get("city_he") or code
         country = a.get("country_he") or ""
         return f"{city} ({code})" + (f", {country}" if country else "")
@@ -8002,6 +8021,93 @@ def _match_city_exact(name, airports):
             if hay and hay in candidates:
                 return str(airport.get("code") or "").upper()
     return None
+
+
+_EXTENDED_AIRPORTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "airports_extended.json")
+_EXTENDED_AIRPORTS_CACHE = None
+
+
+def _load_extended_airports():
+    """020 stage B (Ofek's expanded catalog, approved 22.10): airports that
+    are NOT in static/airports.json. Their Hebrew names are unverified -
+    used for matching only; what is ever shown is the English name."""
+    global _EXTENDED_AIRPORTS_CACHE
+    if _EXTENDED_AIRPORTS_CACHE is None:
+        try:
+            with open(_EXTENDED_AIRPORTS_FILE, encoding="utf-8") as fh:
+                rows = json.load(fh).get("airports") or []
+        except Exception:
+            logging.exception("Could not load the extended airport catalog")
+            rows = []
+        _EXTENDED_AIRPORTS_CACHE = [r for r in rows if isinstance(r, dict) and r.get("code")]
+    return _EXTENDED_AIRPORTS_CACHE
+
+
+_EXTENDED_AIRPORTS_INDEX = None
+
+
+def _extended_airports_index():
+    """normalized name -> extended records, built once (a ~1,200-airport
+    linear scan per lookup was ~40ms)."""
+    global _EXTENDED_AIRPORTS_INDEX
+    if _EXTENDED_AIRPORTS_INDEX is None:
+        index = {}
+        for a in _load_extended_airports():
+            if a.get("match_exact_only"):
+                continue
+            names = [a.get("city_he"), a.get("city_en")] + list(a.get("aliases_he") or [])
+            for norm in {_normalize_he_spelling(v) for v in names if v}:
+                if norm:
+                    index.setdefault(norm, []).append(a)
+        _EXTENDED_AIRPORTS_INDEX = index
+    return _EXTENDED_AIRPORTS_INDEX
+
+
+def _extended_airport_matches(name):
+    """Extended-catalog airports for a city name, or [] - a FALLBACK, only
+    for a place the verified catalog doesn't know (Round 12: "לזדאר אין
+    שדה תעופה מסחרי" - Zadar/ZAD wasn't in our list at all). Exact match
+    after the shared spelling normalization (city_he, aliases_he, city_en).
+    A name marked match_exact_only (a common word, or a name like קאן -
+    Caen in the draft, but most often meant as Cannes) is never resolved
+    automatically. Several countries for one name -> its
+    preferred_for_names_he default, else [] (never a guess - the model
+    asks). Several airports of one city are all returned."""
+    raw = str(name or "").strip()
+    norm = _normalize_he_spelling(raw)
+    if not norm:
+        return []
+    # An island/region name ("כרתים") always means every one of its gateways
+    # (_ISLAND_REGION_GATEWAY_AIRPORTS) - never the one extended airport
+    # that happens to carry it as an alias (the draft has כרתים on Sitia).
+    if any(norm == _normalize_he_spelling(region) for region in _ISLAND_REGION_GATEWAY_AIRPORTS):
+        return []
+    hits = list(_extended_airports_index().get(norm) or [])
+    if len({a.get("country") for a in hits}) > 1:
+        hits = [a for a in hits if raw in (a.get("preferred_for_names_he") or [])]
+    return hits
+
+
+def _catalog_airport_by_code(code):
+    """One airport record by IATA code: the verified catalog first, then the
+    extended one (020 stage B) - the lookup a model-returned code (e.g. ZAD)
+    is verified against. None when it's in neither."""
+    code = str(code or "").strip().upper()
+    if not code:
+        return None
+    for a in _load_airports():
+        if str(a.get("code") or "").upper() == code:
+            return a
+    for a in _load_extended_airports():
+        if str(a.get("code") or "").upper() == code:
+            return a
+    return None
+
+
+def _extended_airport_fact(airport):
+    """The displayable fact for an extended-catalog airport - English names
+    only (its Hebrew name is unverified)."""
+    return f"{airport.get('city_en') or airport.get('code')} ({airport.get('code')}), {airport.get('country_en') or ''}".rstrip(", ")
 
 
 def _deterministic_open_jaw_airports(message):
