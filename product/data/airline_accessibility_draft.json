@@ -56,7 +56,7 @@
    "checked_at": "2026-10-22",
    "confidence": "low",
    "notes_he": "לא נמצא דף נגישות/סיוע ייעודי באתר ארקיע. לפי תנאי ההתקשרות: נוסעים עם מוגבלות הזקוקים לסיוע אינם עושים צ'ק-אין אונליין ומקבלים שירות מלא בהתייצבות בשדה. ערוץ כללי (לא ייעודי): וואטסאפ שירות לקוחות 03-6903712 (https://www.arkia.co.il/content/contact-with-arkia). לבדוק ידנית את הצהרת הנגישות באתר.",
-   "display": "official_link_only"
+   "display": "fallback_48h"
   },
   {
    "airline": "Air Haifa",
@@ -243,7 +243,7 @@
   {
    "airline": "Air France",
    "iata": "AF",
-   "assistance_url": "https://wwws.airfrance.us/information/passagers/acheter-billet-avion-pmr-autres-handicaps",
+   "assistance_url": "https://www.airfrance.co.il",
    "phone": null,
    "email": null,
    "notice_he": "48 שעות",
@@ -251,7 +251,7 @@
    "source": "https://wwws.airfrance.us/information/passagers/acheter-billet-avion-pmr-autres-handicaps",
    "checked_at": "2026-10-22",
    "confidence": "high",
-   "notes_he": "שירות SAPHIR: בקשה בעת ההזמנה, לפחות 48 שעות לפני, באתר או בטלפון ייעודי (המספר לא נשלף – לבדוק בגרסת האתר הישראלית airfrance.co.il).",
+   "notes_he": "שירות SAPHIR: בקשה בעת ההזמנה, לפחות 48 שעות לפני, באתר או בטלפון ייעודי (המספר לא נשלף – לבדוק בגרסת האתר הישראלית airfrance.co.il). | דין: הקישור הוחלף ל-airfrance.co.il.",
    "display": "full"
   },
   {
