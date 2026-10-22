@@ -79,6 +79,20 @@ with patch.dict(public_site._AIRPORT_LOCALIZATION, {"BCN": dict(public_site._AIR
 check("without the data entry the spelling isn't known (it really comes from the catalog)",
       chat._known_destination_names().get("ברסלונה") is None)
 
+# --- Normalization at the two remaining lookups (dry-run 1 B, after merging #144) ----------------------
+check("search time: 'וולנסיה' (customer's spelling, kept in places) -> VLC", public_site._chat_destination_codes(["וולנסיה"]) == ["VLC"])
+check("search time: still exact - 'הרקליון' -> HER and 'ליון' -> LYS only",
+      public_site._chat_destination_codes(["הרקליון"]) == ["HER"] and public_site._chat_destination_codes(["ליון"]) == ["LYS"])
+check("search time: a country still expands to its airports", "MAD" in public_site._chat_destination_codes(["ספרד"]))
+src = open(os.path.join(ROOT, "public_site.py"), encoding="utf-8").read()
+check("public_site imports _normalize_he_spelling (one source of truth, not a copy)",
+      "from ariella_chat_clean import _normalize_he_spelling" in src and "def _normalize_he_spelling" not in src)
+hint = chat._destination_catalog_hint({"destination": {"places": ["וולנסיה"]}})
+check("catalog hint: 'וולנסיה' is a catalog city (VLC), not 'not in our list'", "VLC" in hint and "לא נמצא ברשימת" not in hint)
+check("catalog hint: a country alias is a country (no hint)", chat._destination_catalog_hint({"destination": {"places": ["ויאטנם"]}}) == "")
+check("catalog hint: a city really missing from the catalog is still flagged",
+      "לא נמצא ברשימת" in chat._destination_catalog_hint({"destination": {"places": ["רוביני"]}}))
+
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")
 sys.exit(1 if FAILED else 0)

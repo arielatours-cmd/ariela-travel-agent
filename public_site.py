@@ -3142,9 +3142,16 @@ def delete_member_traveler(traveler_id):
 
 def _chat_destination_codes(places):
     """Resolve chat destination labels/codes against the shipped airport catalog."""
+    # 020a: compared through the same Hebrew spelling normalization as the
+    # chat's own catalog match (one source of truth, imported - never
+    # duplicated): destination.places keeps the customer's own spelling
+    # ("וולנסיה"), which must still resolve here at search time. Still an
+    # exact match after normalization, never a substring.
+    from ariella_chat_clean import _normalize_he_spelling
     wanted = [str(x or "").strip().lower() for x in (places or []) if str(x or "").strip()]
     codes = []
     for raw in wanted:
+        norm = _normalize_he_spelling(raw)
         upper = raw.upper()
         if upper in _AIRPORT_LOCALIZATION:
             codes.append(upper)
@@ -3166,9 +3173,11 @@ def _chat_destination_codes(places):
                 str(info.get("country_en") or "").strip().lower(),
                 str(info.get("country") or "").strip().lower(),
             } | {str(x or "").strip().lower() for x in (info.get("country_aliases_he") or [])}
-            if raw in city_values:
+            city_values = {_normalize_he_spelling(v) for v in city_values if v}
+            country_values = {_normalize_he_spelling(v) for v in country_values if v}
+            if norm in city_values:
                 city_matches.append(code)
-            elif raw in country_values:
+            elif norm in country_values:
                 country_matches.append(code)
         codes.extend(city_matches if city_matches else country_matches)
     return list(dict.fromkeys(codes))
