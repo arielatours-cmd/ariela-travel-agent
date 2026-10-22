@@ -372,7 +372,7 @@ check("a parenthetical aside with no internal comma ('/' separated, like "
       ) == "כמה אתם נוסעים (מבוגרים/ילדים)?")
 
 FLIGHTS_STATE = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
-                      flight={"baggage": ["carry_on_only"]})
+                      flight={"baggage": ["carry_on_only"], "connection_preference": "direct"})
 check("a budget question phrased as two alternatives gets the fixed open "
       "question, now correctly pluralized ('שלכם', not 'שלך')",
       chat._enforce_one_option_question(
@@ -385,7 +385,8 @@ check("_flight_gap_question's connection_preference text is pluralized "
       "level directly rather than through a seeded state",
       chat._flight_gap_question(["flight.connection_preference"], {}) == "חשוב לכם שהטיסה תהיה ישירה?")
 FLIGHTS_STATE_BAGGAGE_OPEN = dict(BASE_STATE, active_session="flights", requested_services=["flights"],
-                                   budget_per_person={"amount": 3000})
+                                   budget_per_person={"amount": 3000},
+                                   flight={"connection_preference": "direct"})
 check("the baggage topic still fires correctly for a flights-domain "
       "question when baggage is genuinely the real open gap",
       chat._enforce_one_option_question(
