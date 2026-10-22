@@ -1,0 +1,31 @@
+⟵ אני ושתי חברות לזדאק, 2 עד 6 ביולי. לי מספיק טרולי, לשתיים האחרות מזוודה
+    לפני שממשיכים - חשוב לדעת שבהזמנה אחת כולם צריכים לבחור את אותו סוג כבודה; אם תרצו כבודה שונה לכל אחת, זה אפשרי רק בהמשך, בעמוד התשלום עצמו.  |  | לכן, בשלב הזה - רוצה שנבחר כבודה אחידה אחת לכל השלוש?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] אחידה
+⟵ כן
+    אוקיי, אז נלך על מזוודה בבטן המטוס לכל השלוש - זה יכסה גם את מי שהייתה מסתפקת בטרולי. |  | לגבי לזדאק - אני לא מכירה שדה תעופה בשם הזה ולא יישוב בשם הזה שאני בטוחה בו. באיזה שדה תרצי לנחות בהלוך?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] שדה
+⟵ זדאר מתאים לנו
+    מעולה, זדאר נקלט 😊 |  | מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1100 שקל לאחת
+    נרשם, תקציב של עד 1,100 ש"ח לאדם. |  | לגבי הטיסה - חשוב לך שתהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא חובה
+    לגבי כבודה - בשלב הזה נשמר תיק יד בלבד לכל השלוש, ותמיד אפשר להוסיף טרולי או מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה עצמה. |  |  זה לגמרי לא חובה, ואם כן אז זה יישמר רק לטיול הזה. לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ מסודר
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    סבבה, אז נסגור רק את הטיסה. אפשר תמיד לחזור ולהוסיף שירותים נוספים גם בהמשך. |  | הנה הסיכום: |  | יציאה: נתב״ג (TLV) | נחיתה: זדאר (ZAD), קרואטיה | המראה בחזרה: זדאר (ZAD), קרואטיה |  | תאריכים: 02.07.2027 – 06.07.2027 | נוסעים: 3 מבוגרים | כבודה: תיק יד לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב: עד 1,100 ש"ח לאדם |  | אם כל הפרטים נכונים, כתבי מאשרת.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True

@@ -1,0 +1,39 @@
+⟵ זוג להלשטאט בסוף החודש הבא, לחמישה ימים
+    הלשטאט היא כפר קטן ומקסים באוסטריה - אין בו שדה תעופה, והיעד הקרוב ביותר שבאמת משרת אותו הוא או זלצבורג או לינץ. לאיזה מהם נוח לך יותר לטוס?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] שדה
+⟵ זלצבורד מתאים לנו
+    נהדר, זלצבורג זה בחירה טובה ליעד הזה. |  | מתי בדיוק בא לך לצאת לטיול? יום שבת 21.11.2026–יום רביעי 25.11.2026 או יום חמישי 26.11.2026–יום שני 30.11.2026
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] None
+⟵ האפשרות הראשונה, ונוח לנו לנחות בזלצבורד
+    מעולה, אז הטיול יהיה יום שבת 21.11.2026–יום רביעי 25.11.2026. |  | יש מישהו מכם שזקוק להתאמות נגישות מיוחדות בטיול? זה לגמרי אופציונלי, ואם יש משהו, הוא יישמר רק לחופשה הזו.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא צריך
+    מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1400 שקל לאדם
+    1,400 ש"ח לאדם זה תקציב סביר לקצר כזה.  |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא
+    איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ מזוודה לכל אחד
+    מעולה, ממשיכה עם זה. |  | לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    הנה הסיכום לטיול לזלצבורג: |  | יציאה: נתב״ג (TLV) | נחיתה: זלצבורג (SZG), אוסטריה | המראה בחזרה: זלצבורג (SZG), אוסטריה |  | תאריכים: 21.11.2026 – 25.11.2026 | נוסעים: 2 מבוגרים | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב: עד 1,400 ש"ח לאדם |  | אפשר תמיד לחזור ולהוסיף שירותים נוספים גם בהמשך. |  | אם כל הפרטים נכונים, כתוב מאשר.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True
