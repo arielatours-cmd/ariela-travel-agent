@@ -1,38 +1,32 @@
-"""QA for Shlomo's relay of Shaked's live stage-1 run-1 finding (20.10.2026,
+"""QA for the two GENERAL (non-guided) baggage paths' handling of a mixed
+per-passenger request - EXTRACTOR_SYSTEM (the per-turn extraction prompt
+that runs on EVERY turn regardless of guided dispatch) and
+_baggage_answer_by_meaning (a second, separate single-value classifier
+that also runs unconditionally whenever flight.baggage is still empty
+after a baggage question).
+
+History: Shlomo's relay of Shaked's live stage-1 run-1 finding (20.10.2026,
 b71506d, 1/5 - qa/reports/2026-10-20-stage1-live-run1.md on the shaked
-branch), priority fix #2 of four blocking stage-1:
+branch): s1a2 (טביליסי, אמא ושתי בנות) - "אני רק עם תיק יד, הבנות צריכות
+מזוודה" - a mixed-per-passenger request that EXTRACTOR_SYSTEM naively
+recorded as flight.baggage=['personal_item','checked_bag'], as if both
+items were meant for the whole group. The fix at the time (per the 20.10
+business-owner directive) taught both general paths the same "mixed ->
+collapse to checked_bag" rule the guided-extraction baggage prompt already
+had.
 
-s1a2 (טביליסי, אמא ושתי בנות): "אני רק עם תיק יד, הבנות צריכות מזוודה" -
-a mixed-per-passenger baggage request. The business owner's decision (20.10,
-already implemented in PR #97's guided-extraction baggage branch -
-_guided_field_update_and_confirm's mixed_per_passenger handling) says such a
-request must resolve SILENTLY to the single highest tier (checked_bag),
-never a per-passenger split. Live, it still saved
-flight.baggage=['personal_item','checked_bag'] and replied listing a split
-per passenger - the decision was never actually applied.
-
-Root cause: the "mixed -> collapse to checked_bag" rule only ever existed in
-the GUIDED-extraction baggage prompt (_guided_extract_answer's baggage
-branch) - never in EXTRACTOR_SYSTEM (the general per-turn extraction call
-that runs on EVERY turn regardless of guided dispatch) or in
-_baggage_answer_by_meaning (a second, separate single-value classifier that
-also runs unconditionally whenever flight.baggage is still empty after a
-baggage question). Whichever of these two paths actually captured this
-particular exchange (guided dispatch not engaging that turn for any reason,
-or its own classification simply missing this phrasing), neither general
-path had any concept of "mixed request" at all - EXTRACTOR_SYSTEM's own
-baggage instruction would happily record BOTH "תיק יד" (personal_item) AND
-"מזוודה" (checked_bag) as if they were both meant for the whole group,
-since from a naive literal read, both items genuinely were mentioned in the
-message - exactly matching the live finding.
-
-Both now carry the same semantic instruction the guided prompt already had:
-a booking is always one uniform choice for the whole group, so a mixed
-request collapses to checked_bag rather than being recorded as a
-multi-type list. This is a pure prompt/understanding fix (the model decides
-meaning, never a phrase list) - verified by asserting the instruction text
-is present, and by simulating a model that already follows it correctly to
-confirm the downstream merge produces the right final state.
+FINAL business-owner decision (22.10.2026, 4th and final revision, relayed
+by Shlomo), fully superseding that 20.10 design after Shaked rejected it
+(the real bug class, run-7 bug B, Phuket): resolving a mixed request to
+checked_bag was itself wrong - no value should ever be silently chosen.
+A mixed per-passenger request is never saved by EITHER general path either
+- flight.baggage is left exactly as it was, and the real handling (explain
+that different baggage per passenger can only be added at the payment
+stage, then ask yes/no whether to choose one uniform baggage for the
+group) happens only through the guided-extraction flow (see
+_mixed_baggage_payment_time_hint and tools/qa_guided_extraction_baggage_
+014a.py's scenario 2c). This file keeps the same s1a2 end-to-end repro,
+updated to assert the new no-save behavior instead.
 
 Run: python3 tools/qa_mixed_baggage_general_extractor.py
 """
@@ -68,14 +62,18 @@ def check(name, cond):
 
 # =====================================================================
 # Prompt-text coverage: both general-extraction paths now carry the same
-# "mixed -> collapse to checked_bag" instruction the guided prompt already
-# had, so neither one independently records a naive multi-type split.
+# "mixed -> never resolve, never save" instruction - neither one
+# independently records a naive multi-type split OR a silent single-value
+# resolution any more.
 # =====================================================================
 check("EXTRACTOR_SYSTEM (the general per-turn extraction prompt, runs every "
-      "turn regardless of guided dispatch) now teaches the same "
-      "mixed-per-passenger -> checked_bag collapsing rule",
+      "turn regardless of guided dispatch) now teaches the mixed-"
+      "per-passenger request is never resolved or saved here at all",
       "הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים" in chat.EXTRACTOR_SYSTEM
-      and 'flight.baggage=["checked_bag"]' in chat.EXTRACTOR_SYSTEM)
+      and "לא נפתרת ולא נשמרת כלל כאן" in chat.EXTRACTOR_SYSTEM)
+check("EXTRACTOR_SYSTEM no longer tells the model to collapse a mixed "
+      "request to checked_bag itself",
+      'flight.baggage=["checked_bag"]' not in chat.EXTRACTOR_SYSTEM)
 check("EXTRACTOR_SYSTEM explicitly still allows a genuinely uniform "
       "multi-item request for the whole group (e.g. 'טרולי וגם מזוודה "
       "לכולנו') to be saved as-is - this is not the same as a mixed "
@@ -85,16 +83,16 @@ check("EXTRACTOR_SYSTEM explicitly still allows a genuinely uniform "
 _baggage_meaning_src = __import__("inspect").getsource(chat._baggage_answer_by_meaning)
 check("_baggage_answer_by_meaning (the second, separate single-value "
       "baggage classifier that runs whenever flight.baggage is still "
-      "empty) also now understands a mixed-per-passenger request and "
-      "resolves it to checked_bag",
-      "כבודה אחידה אחת לכל הכרטיסים" in _baggage_meaning_src
-      and "בקשה מעורבת" in _baggage_meaning_src)
+      "empty) also now returns null (no save) for a mixed-per-passenger "
+      "request, never collapsing it to checked_bag itself",
+      "בקשה מעורבת" in _baggage_meaning_src
+      and 'checked_bag"' not in _baggage_meaning_src.split("בקשה מעורבת")[1].split("\\n")[0])
 
 # =====================================================================
 # End-to-end simulation: a model that already follows the new instruction
-# correctly (mocked to return checked_bag for s1a2's exact mixed phrasing)
-# must have its result actually persisted as the uniform, single-type
-# resolution - proving the merge pipeline doesn't lose or override it.
+# correctly (mocked to leave flight.baggage untouched for s1a2's exact
+# mixed phrasing) must result in NOTHING being saved for baggage this
+# turn - proving the merge pipeline doesn't invent or default a value.
 # =====================================================================
 def _make_member(email):
     with sqlite3.connect(DB) as conn:
@@ -119,18 +117,22 @@ _S1A2_MESSAGE = "אני רק עם תיק יד, הבנות צריכות מזוו�
 def _quiet_post_claude(key, model, system_static, system_dynamic, history, message_, max_tokens, include_history=True, source="other"):
     if source == "state_extractor":
         # Simulates the general extractor having correctly learned the new
-        # instruction: a mixed request collapses to checked_bag, never a
-        # naive multi-type list.
+        # instruction: a mixed request is left entirely unresolved here,
+        # never collapsed to any single value.
         return json.dumps({
-            "trip_update": {"flight": {"baggage": ["checked_bag"]}},
+            "trip_update": {},
             "restart_request": False, "restart_evidence": None,
             "dates_evidence": None, "destination_evidence": None, "trip_type_evidence": None,
             "link_request": False, "link_request_evidence": None,
         })
     if source == "guided_extract":
         return json.dumps({"status": "other_topic", "field": None, "evidence": None})
+    if source == "classifier":
+        # _baggage_answer_by_meaning's own call - also returns null for a
+        # mixed request per the updated prompt.
+        return json.dumps({"baggage": None})
     if source == "tinkerbell_reply":
-        return "מצוין, קלטתי את הכבודה."
+        return "מצוין, קלטתי."
     return "{}"
 
 
@@ -156,9 +158,10 @@ with patch.object(chat, "_post_claude", side_effect=_quiet_post_claude):
     })
 data = r.get_json() or {}
 final_baggage = ((data.get("trip_update") or {}).get("flight") or {}).get("baggage")
-check("s1a2's exact live mixed-baggage message resolves to a single uniform "
-      "checked_bag, never a multi-type personal_item+checked_bag split",
-      final_baggage == ["checked_bag"])
+check("s1a2's exact live mixed-baggage message: nothing is saved for "
+      "baggage by the general extraction paths - never a silent "
+      "single-value resolution, never a naive multi-type split",
+      not final_baggage)
 
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
