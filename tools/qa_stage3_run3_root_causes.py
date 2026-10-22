@@ -253,7 +253,7 @@ STALE_BAGGAGE_STATE = {
 }
 
 
-def _fake_guided_extract(key, model, field, message, history, state):
+def _fake_guided_extract(key, model, field, message, history, state, guided_steps=None):
     return {"status": "answered", "confidence": "high",
             "items": [{"type": "carry_on_only"}, {"type": "checked_bag"}], "also_mentioned": None}
 

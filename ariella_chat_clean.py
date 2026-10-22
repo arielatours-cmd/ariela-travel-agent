@@ -2223,6 +2223,57 @@ def _gender_hint_text(state):
     return ""
 
 
+# Task 014b (accessibility, spec section 5): once a need is known, every
+# service adapts its own phrasing - never a blanket mention, and never a
+# promise that can't be verified with the actual supplier.
+_ACCESSIBILITY_SERVICE_HINT = {
+    "flight": (
+        "המלצה לבקש ליווי או כיסא גלגלים בשדה ובחברת התעופה, ומידע על עגלת תינוק "
+        "(נמסרת בשער ברוב החברות) - לוודא מול חברת התעופה, בלי להבטיח."
+    ),
+    "trip_planning": "מסלול עם פחות הליכה ופחות מדרגות, אתרים נגישים, וקצב רגוע.",
+    "lodging": (
+        "חדר נגיש, מעלית, קומה נמוכה, ועריסה לתינוק אם רלוונטי - לפי מה שמופיע בתוצאות עצמן; "
+        "אם אין מידע על כך, לומר שצריך לוודא מול המלון, בלי להבטיח."
+    ),
+    "car": "מקום לעגלה או לכיסא גלגלים, וכיסא בטיחות לתינוק אם רלוונטי.",
+}
+
+
+def _accessibility_hint_text(state):
+    """Only engages once GUIDED_EXTRACTION_STEPS covers "accessibility" and
+    the customer actually said yes - a blank/"no" accessibility field never
+    changes a single word of any reply (spec section 5).
+
+    FIXED per Shaked's live finding on PR #76 (22.10.2026): this used to
+    fire on EVERY turn once needed=True, so Tinkerbell brought accessibility
+    up in every single reply for the rest of the conversation. Now fires
+    only when starting a new service session (flight/lodging/car/trip_
+    planning) that hasn't been told about it yet, or at the final summary/
+    approval gate - never in between. accessibility.announced (a list of
+    session names already given the note) is updated by this function's one
+    caller right after a non-empty hint fires - see its call site."""
+    state = state if isinstance(state, dict) else {}
+    if "accessibility" not in _guided_extraction_steps():
+        return ""
+    acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
+    if acc.get("needed") is not True:
+        return ""
+    active = str(state.get("active_session") or "")
+    announced = acc.get("announced") if isinstance(acc.get("announced"), list) else []
+    at_summary = bool(state.get("ready_for_summary"))
+    session_just_started = bool(active) and active not in announced
+    if not at_summary and not session_just_started:
+        return ""
+    need_text = acc.get("details") or _accessibility_needs_label(acc.get("needs")) or "התאמה מיוחדת"
+    service_hint = _ACCESSIBILITY_SERVICE_HINT.get(active, "")
+    hint = f"\nללקוח יש צורך בנגישות/התאמה שצוין בשיחה: {need_text}. התייחסי אליו בתשובה הזו."
+    if service_hint:
+        hint += f" {service_hint}"
+    hint += " אין להבטיח דבר שלא ניתן לוודא מול הספק בפועל."
+    return hint
+
+
 def _resolve_destination_airports_from_route(state):
     """Deterministic safety net: once trip planning has confirmed a day-by-day
     route, derive the flight gateway from it (or from a plain destination name)
@@ -3199,6 +3250,21 @@ def _flight_travelers_line(travelers) -> str | None:
     return "נוסעים: " + party
 
 
+def _flight_accessibility_line(state) -> str | None:
+    """Deterministic accessibility line for the flight summary, same
+    principle as baggage/dates/travelers above (Shaked's request, PR #76,
+    22.10.2026): a genuinely-known need must never be silently left out of
+    Tinkerbell's own free-text summary. Only the practical need - never a
+    diagnosis or medical condition, which is never stored here to begin
+    with (see _guided_field_update_and_confirm's accessibility branch)."""
+    state = state if isinstance(state, dict) else {}
+    acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
+    if acc.get("needed") is not True:
+        return None
+    need_text = acc.get("details") or _accessibility_needs_label(acc.get("needs")) or "התאמה מיוחדת"
+    return f"התאמות נגישות: {need_text}"
+
+
 def _flight_summary_text(state):
     """Deterministic flight-request summary built straight from state - the
     honest fallback when the claims_execution safety net catches Tinkerbell
@@ -3463,6 +3529,10 @@ def _ensure_flight_summary_completeness(reply, state):
             missing.append(line)
     if "ישיר" not in text and "קונקשן" not in text:
         line = _flight_connection_line(flight)
+        if line:
+            missing.append(line)
+    if "נגישות" not in text:
+        line = _flight_accessibility_line(state)
         if line:
             missing.append(line)
     if not missing:
@@ -4845,6 +4915,17 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     dates_truth_hint_text = _dates_truth_hint(state)
     declined_domains_hint_text = _declined_domains_hint(state)
     gender_hint_text = _gender_hint_text(state)
+    accessibility_hint_text = _accessibility_hint_text(state)
+    if accessibility_hint_text and state.get("active_session"):
+        # Mark this session as "told" so the hint above doesn't repeat for
+        # every later turn of the same session (the bug this fixes) - see
+        # _accessibility_hint_text's own docstring.
+        acc_for_announce = dict(state.get("accessibility") or {})
+        announced_sessions = list(acc_for_announce.get("announced") or [])
+        if state["active_session"] not in announced_sessions:
+            announced_sessions.append(state["active_session"])
+            acc_for_announce["announced"] = announced_sessions
+            state["accessibility"] = acc_for_announce
     # The raw state JSON dump below is a second, separate path that can leak
     # an irrelevant upcoming_vacations list into the prompt just like the
     # continuity hint above - exclude it here too when it isn't relevant to
@@ -4852,7 +4933,7 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     state_for_context = state
     if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
         state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + dates_truth_hint_text + declined_domains_hint_text + gender_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + dates_truth_hint_text + declined_domains_hint_text + gender_hint_text + accessibility_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -9688,7 +9769,7 @@ def _guided_extraction_steps():
     raw = os.getenv("GUIDED_EXTRACTION_STEPS", GUIDED_EXTRACTION_STEPS_DEFAULT).strip()
     if not raw:
         return set()
-    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers", "baggage", "lodging")}
+    return {s.strip() for s in raw.split(",") if s.strip() in ("dates", "travelers", "baggage", "lodging", "accessibility")}
 
 
 def _guided_extraction_model():
@@ -9851,6 +9932,57 @@ def _guided_confirm_hint(field, confirm_desc):
 def _guided_correction_hint(label, confirm_desc):
     value_text = f" ל{confirm_desc}" if confirm_desc else ""
     return f"הלקוח עדכן את {label}{value_text} - ציייני לו בקצרה במשפט אחד שהעדכון נקלט, לא כשאלה."
+
+
+_GUIDED_ACCESSIBILITY_NEED_VALUES = ("stroller", "wheelchair", "reduced_mobility", "infant", "other")
+# Per Shaked's QA on #76 (22.10.2026): these are internal schema values,
+# never shown to the customer or in the Hebrew summary/hint as-is - a
+# value label mapping, same principle as _BAGGAGE_HE for baggage types.
+_ACCESSIBILITY_NEED_HE = {
+    "stroller": "עגלת תינוק", "wheelchair": "כיסא גלגלים",
+    "reduced_mobility": "קושי בהליכה", "infant": "תינוק", "other": "התאמה מיוחדת",
+}
+
+
+def _accessibility_needs_label(needs):
+    """Hebrew label text for a needs list, or "" when empty - shared by
+    every place that composes a need description (hint/summary/confirm),
+    so the internal values (stroller/wheelchair/...) never leak as-is."""
+    return ", ".join(_ACCESSIBILITY_NEED_HE.get(n, n) for n in (needs or []))
+
+
+# Task 014b (accessibility) shares the same mechanism but needs its own
+# hint builder: it has two distinct sub-stages under one field name (the
+# yes/no, and - only once the customer said "yes" with no detail yet - a
+# single open follow-up), and the legal/product constraints that must ride
+# along on EVERY turn of it (Din via Ofek, PRV-17, revised 22.10.2026 per
+# the business owner: the yes/no question itself names NO examples at all
+# - no "עגלת תינוק"/"כיסא גלגלים"/"עזרה בשדה" - and must carry Din's
+# disclosure that answering is optional and the answer is kept only for
+# this trip; after "yes", the open follow-up asks what would help across
+# the flight, lodging, car AND itinerary, never just "the trip" vaguely,
+# and never asks "why" or "what condition").
+def _accessibility_ask_hint(awaiting_detail, attempts):
+    if awaiting_detail:
+        prefix = (
+            "הלקוח אמר שכן יש צורך בהתאמה (נגישות), אבל עדיין לא פירט מה בדיוק. "
+            if not attempts else
+            "הלקוח אמר שכן יש צורך בהתאמה, אבל התשובה הקודמת לגבי מה בדיוק יעזור לו לא הייתה ברורה. "
+        )
+        return (
+            prefix + "שאלי שאלה פתוחה אחת ויחידה, בניסוח שלך, מה כדאי שתדעי כדי להתאים את הטיסה, "
+            "הלינה, הרכב והמסלול - בלי לשאול 'למה' או 'איזה מצב רפואי', ובלי כפתורים."
+        )
+    prefix = (
+        "הפרט הבא לברר: האם מישהו מהנוסעים צריך התאמות נגישות בחופשה. "
+        if not attempts else
+        "עדיין לא ברור אם מישהו מהנוסעים צריך התאמות נגישות - נסחי שוב בצורה שונה. "
+    )
+    return (
+        prefix + "שאלי שאלת כן/לא אחת ויחידה, בניסוח שלך - בלי למנות שום דוגמה (לא עגלת תינוק, "
+        "לא כיסא גלגלים, לא עזרה בשדה ולא שום דוגמה אחרת) - והטמיעי בתוך השאלה עצמה, בניסוח שלך, "
+        "שזה לא חובה ושמה שיכתב יישמר רק לחופשה הזו. לעולם אל תשאלי 'למה' או 'איזה מצב רפואי', ובלי כפתורים."
+    )
 
 
 def _guided_skip_hint(skipped_field, next_field):
@@ -10034,6 +10166,11 @@ def _guided_field_known_with_confidence(field, state):
     if field == "travelers":
         travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
         return travelers.get("adults") is not None
+    if field == "accessibility":
+        acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
+        if acc.get("needed") is False:
+            return True
+        return acc.get("needed") is True and bool(acc.get("needs") or acc.get("details"))
     if field == "baggage":
         flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
         return bool(flight.get("baggage"))
@@ -10054,6 +10191,14 @@ def _guided_field_known_with_confidence(field, state):
         details = _lodging_details(state)
         return bool(details.get("budget") or details.get("level"))
     return False
+
+
+def _accessibility_awaiting_detail(state):
+    """True once the customer said "yes" but hasn't given the actual need
+    yet - the next guided turn must ask the open follow-up (spec section 3),
+    not repeat the yes/no question."""
+    acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
+    return acc.get("needed") is True and not (acc.get("needs") or acc.get("details"))
 
 
 # Each lodging prompt's also_mentioned uses the SAME shape _guided_field_
@@ -10145,14 +10290,16 @@ def _lodging_guided_prompt(field, state, recent):
     )
 
 
-def _guided_extract_answer(key, model, field, message, history, state):
-    """014a guided-question extraction call (source=guided_extract, per
-    spec section 4). Returns the parsed JSON dict, or None on any failure -
-    the caller then falls back to the existing regex for this one message
-    (spec section 5's fail-safe row), never crashing the turn."""
-    if not key or field not in ("dates", "travelers", "baggage") + _LODGING_GUIDED_SUBFIELDS:
+def _guided_extract_answer(key, model, field, message, history, state, guided_steps=None):
+    """014a/014b guided-question extraction call (source=guided_extract,
+    per spec section 4). Returns the parsed JSON dict, or None on any
+    failure - the caller then falls back to the existing regex for this
+    one message (spec section 5's fail-safe row), never crashing the
+    turn."""
+    if not key or field not in ("dates", "travelers", "baggage", "accessibility") + _LODGING_GUIDED_SUBFIELDS:
         return None
     state = state if isinstance(state, dict) else {}
+    guided_steps = guided_steps or set()
     current_dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     current_travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
     recent = " | ".join(
@@ -10160,6 +10307,11 @@ def _guided_extract_answer(key, model, field, message, history, state):
         if isinstance(x, dict) and x.get("content")
     )
     today_str = date.today().isoformat()
+    # Task 014b: once accessibility is part of this flag, a customer can
+    # volunteer it unprompted while answering the dates/travelers question
+    # (spec section 4) - captured the same way these two fields already
+    # catch each other.
+    ask_also_accessibility = "accessibility" in guided_steps and not _guided_field_known_with_confidence("accessibility", state)
     if field == "baggage":
         current_flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
         travelers_total = 0
@@ -10222,6 +10374,15 @@ def _guided_extract_answer(key, model, field, message, history, state):
     elif field in _LODGING_GUIDED_SUBFIELDS:
         prompt = _lodging_guided_prompt(field, state, recent)
     elif field == "dates":
+        also_schema = '"also_mentioned":{"travelers":{...}|null'
+        also_rule = "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי להשלים בעצמך."
+        if ask_also_accessibility:
+            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
+            also_rule += (
+                " אם הלקוח הזכיר מיוזמתו צורך בנגישות/התאמה - מלאי גם את "
+                "also_mentioned.accessibility, עם הצורך המעשי בלבד, בלי אבחנה רפואית."
+            )
+        also_schema += "}"
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מתי לטוס ולכמה לילות. חלצי "
             "מתשובת הלקוח תאריכים, בהתחשב בהקשר.\n"
@@ -10240,18 +10401,26 @@ def _guided_extract_answer(key, model, field, message, history, state):
             "confidence:\"low\". רק כשההודעה עצמה מזהה חד-משמעית איזו "
             "אפשרות (תאריך מפורש, מספר סידורי, או ציטוט שלה) - מלאי "
             "departure/return לפי האפשרות הזו.\n"
-            "also_mentioned: רק פרטי נוסעים שנאמרו במפורש באותה הודעה, בלי "
-            "להשלים בעצמך. אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, "
+            f"{also_rule} אם ההודעה לא עונה על השאלה הזו בכלל (שאלה אחרת, "
             "נושא אחר) - status=\"other_topic\". אם ההודעה מתקנת תאריך "
             "שכבר נקבע - status=\"answered\" ומלאי correction.\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic","departure":"YYYY-MM-DD"|null,'
             '"return":"YYYY-MM-DD"|null,"nights":int|null,"period":"טקסט חופשי"|null,'
             '"flexibility_days":int|null,"confidence":"high|low",'
-            '"also_mentioned":{"travelers":{...}|null},'
+            f'{also_schema},'
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
         )
-    else:
+    elif field == "travelers":
+        also_schema = '"also_mentioned":{"dates":{...}|null'
+        also_rule = "also_mentioned: רק פרטי תאריכים שנאמרו במפורש באותה הודעה."
+        if ask_also_accessibility:
+            also_schema += ',"accessibility":{"needed":true|false,"needs":[...],"details":"..."}|null'
+            also_rule += (
+                " אם הלקוח הזכיר מיוזמתו צורך בנגישות/התאמה (למשל עגלת תינוק, כיסא גלגלים, קושי "
+                "בהליכה) - מלאי גם את also_mentioned.accessibility, עם הצורך המעשי בלבד, בלי אבחנה רפואית."
+            )
+        also_schema += "}"
         prompt = (
             "אריאלה (סוכנת נסיעות) שאלה את הלקוח מי נוסע. חלצי מתשובת הלקוח "
             "את הרכב הנוסעים, בהתחשב בהקשר.\n"
@@ -10260,17 +10429,60 @@ def _guided_extract_answer(key, model, field, message, history, state):
             f"4 ההודעות האחרונות: {recent}\n"
             "כללים: \"זוג\" = 2 מבוגרים. \"אני והבן שלי בן 9\" = 1 מבוגר, 1 "
             "ילד, child_ages=[9], child_genders=[\"male\"]. אסור להמציא נתון "
-            "חסר - אם חסר, null ו-confidence:\"low\". also_mentioned: רק "
-            "פרטי תאריכים שנאמרו במפורש באותה הודעה. אם ההודעה לא עונה על "
-            "השאלה הזו בכלל - status=\"other_topic\". אם ההודעה מתקנת "
-            "מספר נוסעים שכבר נקבע - status=\"answered\" ומלאי correction.\n"
+            f"חסר - אם חסר, null ו-confidence:\"low\". {also_rule} "
+            "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\". "
+            "אם ההודעה מתקנת מספר נוסעים שכבר נקבע - status=\"answered\" "
+            "ומלאי correction.\n"
             "החזירי JSON בלבד, בדיוק במבנה: "
             '{"status":"answered|unclear|other_topic","adults":int|null,'
             '"children":int|null,"child_ages":[int,...],'
             '"child_genders":["male"|"female"|null,...],"infants":int|null,'
-            '"confidence":"high|low","also_mentioned":{"dates":{...}|null},'
+            '"confidence":"high|low",'
+            f'{also_schema},'
             '"correction":{"field":"...","old":"...","new":"..."}|null}'
         )
+    else:
+        # accessibility (task 014b). Two distinct sub-questions share this
+        # one field name (spec section 3): the initial yes/no, and - only
+        # once the customer said "yes" with no detail yet - a single open
+        # follow-up asking what would actually help. Which one is live is
+        # read from state, never tracked separately.
+        awaiting_detail = _accessibility_awaiting_detail(state)
+        if awaiting_detail:
+            prompt = (
+                "אריאלה (סוכנת נסיעות) שאלה את הלקוח שאלה פתוחה: מה יעזור "
+                "להם בדרך, אחרי שהלקוח ענה שכן יש צורך בהתאמה (נגישות).\n"
+                f"4 ההודעות האחרונות: {recent}\n"
+                "כללים: רשמי רק את הצורך המעשי (כיסא גלגלים, עגלת תינוק, "
+                "קושי בהליכה ארוכה וכד') - **בלי אבחנה או מצב רפואי**. אם "
+                "הלקוח כותב סיבה רפואית (למשל שם מחלה), סכמי אותה לצורך "
+                "מעשי בלבד, בלי לכתוב את השם הרפואי עצמו. needs היא רשימה "
+                "מתוך הערכים: stroller, wheelchair, reduced_mobility, infant, other. "
+                "אסור להמציא - אם לא ברור מה בדיוק צריך, confidence:\"low\". "
+                "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
+                "החזירי JSON בלבד, בדיוק במבנה: "
+                '{"status":"answered|unclear|other_topic","needed":true,'
+                '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
+                '"details":"תיאור קצר של הצורך בלבד"|null,"confidence":"high|low",'
+                '"also_mentioned":null,"correction":null}'
+            )
+        else:
+            prompt = (
+                "אריאלה (סוכנת נסיעות) שאלה את הלקוח שאלת כן/לא: האם מישהו "
+                "מהנוסעים צריך התאמה (נגישות) לאורך הטיסה או הטיול - למשל "
+                "עגלת תינוק, כיסא גלגלים או קושי בהליכה.\n"
+                f"4 ההודעות האחרונות: {recent}\n"
+                "כללים: אם הלקוח ציין בתשובה גם את הצורך עצמו (למשל \"כן, יש "
+                "לנו עגלה\" או \"אבא שלי בכיסא גלגלים\"), מלאי גם את needs/"
+                "details מיד - אסור להמציא צורך שלא נאמר. בלי אבחנה או מצב "
+                "רפואי - אם נכתבה סיבה רפואית, סכמי אותה לצורך מעשי בלבד. "
+                "אם ההודעה לא עונה על השאלה הזו בכלל - status=\"other_topic\".\n"
+                "החזירי JSON בלבד, בדיוק במבנה: "
+                '{"status":"answered|unclear|other_topic","needed":true|false|null,'
+                '"needs":["stroller"|"wheelchair"|"reduced_mobility"|"infant"|"other",...],'
+                '"details":"תיאור קצר של הצורך בלבד"|null,"confidence":"high|low",'
+                '"also_mentioned":null,"correction":null}'
+            )
     try:
         raw = _post_claude(key, model, prompt, "", [], "תשובת הלקוח: " + str(message or ""), 300, include_history=False, source="guided_extract")
         raw = raw.strip()
@@ -10617,6 +10829,20 @@ def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_
         else:
             desc = "מספר הנוסעים שצוין"
         return {"travelers": fragment}, desc
+    if field == "accessibility":
+        needed = result.get("needed")
+        if needed is None:
+            return {}, None
+        needs = [n for n in (result.get("needs") or []) if n in _GUIDED_ACCESSIBILITY_NEED_VALUES] if isinstance(result.get("needs"), list) else []
+        details = result.get("details") if isinstance(result.get("details"), str) and result.get("details").strip() else None
+        acc = {"asked": True, "needed": needed}
+        if needed:
+            if needs:
+                acc["needs"] = needs
+            if details:
+                acc["details"] = details
+        desc = (details or _accessibility_needs_label(needs) or "צורך בנגישות") if needed else "אין צורך בנגישות"
+        return {"accessibility": acc}, desc
     if field == "baggage":
         # Per Shlomo/Shaked (2026-10-17, after her review of #78): a bare
         # shared/not-shared boolean silently drops the actual COUNT ("שתי
@@ -10809,13 +11035,17 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     attempts = int(guided.get("attempts") or 0)
     changed = False
 
-    # Added 2026-10-17 (business owner's decision, relayed via Shlomo, after
-    # Shaked's 014a stage-1 run-1): baggage joins dates/travelers here as a
-    # real guided field - unlike those two (universal to every trip), it
-    # only applies once flights are actually requested (_guided_field_applies).
-    # Extended the same day (PR2) with the five lodging sub-fields, which
-    # share one flag ("lodging") via _guided_step_covers.
-    guided_order = ("dates", "travelers", "baggage") + _LODGING_GUIDED_SUBFIELDS
+    # Order matters: task 014b asks accessibility only once both dates and
+    # travelers are resolved (spec section 3, "immediately after the
+    # travelers question") - never before, whatever order guided_steps
+    # lists. Added 2026-10-17 (business owner's decision, relayed via
+    # Shlomo, after Shaked's 014a stage-1 run-1): baggage joins here too -
+    # unlike dates/travelers/accessibility (universal to every trip), it
+    # only applies once flights are actually requested
+    # (_guided_field_applies). Extended the same day (PR2) with the five
+    # lodging sub-fields, which share one flag ("lodging") via
+    # _guided_step_covers.
+    guided_order = ("dates", "travelers", "accessibility", "baggage") + _LODGING_GUIDED_SUBFIELDS
     for f in guided_order:
         if (_guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update)
                 and f not in answered and _guided_field_known_with_confidence(f, trip_update)):
@@ -10890,8 +11120,9 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             }
         return {"trip_update": trip_update, "dynamic_hint": next_hint}
 
-    result = _guided_extract_answer(key, model, current_question, message, history, trip_update)
+    result = _guided_extract_answer(key, model, current_question, message, history, trip_update, guided_steps)
     if result is None:
+        # Fail-safe (spec section 5, last row) - Shaked caught a real
         # regression here (2026-10-17, against 8a58d4e): when the
         # structured call fails for the CURRENT field, only that field
         # fell back to its regex. Any OTHER guided-covered field not yet
@@ -10903,19 +11134,20 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # silently dropped. Fix: every field still unanswered (and still
         # applicable, e.g. lodging/baggage only when requested) falls back
         # too, not just current_question - exactly like main, whenever the
-        # model call itself fails.
+        # model call itself fails. accessibility has no legacy regex of
+        # its own, so including it here is harmless (nothing reads it).
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
+        hint = (
+            _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), attempts)
+            if current_question == "accessibility" else _guided_ask_hint(current_question, attempts)
+        )
         fallback_fields = {
             f for f in guided_order
             if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered
         }
         fallback_fields.add(current_question)
-        return {
-            "trip_update": trip_update,
-            "dynamic_hint": _guided_ask_hint(current_question, attempts),
-            "regex_fallback_fields": fallback_fields,
-        }
+        return {"trip_update": trip_update, "dynamic_hint": hint, "regex_fallback_fields": fallback_fields}
     status = str(result.get("status") or "")
     if status == "other_topic":
         # Per the business owner's 18.10 directive (Madrid/Milano, stage-3
@@ -10992,6 +11224,56 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
         trip_update["guided"] = guided
         return {"trip_update": trip_update, "dynamic_hint": None} if changed else None
+    if current_question == "accessibility":
+        # Task 014b: this one field name covers two different turns - the
+        # yes/no, and (only once "yes" came back with no need yet) a
+        # single open follow-up - which one is live is read straight from
+        # state (_accessibility_awaiting_detail), same principle as every
+        # other guided field: the code always knows what it just asked.
+        # Handled as its own early branch (not the generic unclear/
+        # answered flow below): accessibility never loop-guards after two
+        # unclear answers (it's a plain yes/no, always answerable), and a
+        # bare "yes" with no need specified yet must NOT be treated as
+        # settled - _guided_field_known_with_confidence("accessibility")
+        # is the one check that catches that case the generic flow has no
+        # concept of.
+        awaiting_detail_before = _accessibility_awaiting_detail(trip_update)
+        if status == "unclear":
+            attempts += 1
+            guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "dynamic_hint": _accessibility_ask_hint(awaiting_detail_before, attempts)}
+        # status == "answered"
+        fragment, _ = _guided_field_update_and_confirm("accessibility", result)
+        if fragment:
+            trip_update = _merge_trip_state(trip_update, fragment)
+        confidence = str(result.get("confidence") or "")
+        if not fragment or confidence != "high" or not _guided_field_known_with_confidence("accessibility", trip_update):
+            # Nothing usable, low confidence, or a bare "yes" with no need
+            # specified yet - stay on this field. _accessibility_awaiting_
+            # detail now reads the just-merged state, so once "needed"
+            # turned True this turn it correctly asks the open follow-up
+            # next, instead of repeating the yes/no.
+            guided["current_question"], guided["attempts"], guided["answered"] = "accessibility", 0, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "dynamic_hint": _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0)}
+        answered.append("accessibility")
+        changed = True
+        current_question = None
+        next_field = next(
+            (f for f in guided_order if _guided_step_covers(f, guided_steps) and _guided_field_applies(f, trip_update) and f not in answered),
+            None,
+        )
+        guided["current_question"] = next_field
+        guided["attempts"] = 0
+        guided["answered"] = answered
+        trip_update["guided"] = guided
+        next_hint = (
+            (_accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0) if next_field == "accessibility" else _guided_ask_hint(next_field, 0))
+            if next_field else None
+        )
+        return {"trip_update": trip_update, "dynamic_hint": next_hint}
+
     if status == "unclear":
         attempts += 1
         if attempts >= 2:
@@ -11135,7 +11417,10 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     guided["attempts"] = 0
     guided["answered"] = answered
     trip_update["guided"] = guided
-    next_hint = _guided_ask_hint(next_field, 0) if next_field else None
+    next_hint = (
+        (_accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0) if next_field == "accessibility" else _guided_ask_hint(next_field, 0))
+        if next_field else None
+    )
     if answered_field == "baggage":
         # Per the business owner's decision (20.10): always add the "can
         # always add later" note, then move straight to the next topic in
