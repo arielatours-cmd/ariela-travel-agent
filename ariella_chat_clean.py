@@ -5499,8 +5499,12 @@ _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE = None
 # substring match either way), silently dropping the destination she
 # had just named. Add more pairs here as they're found live - this is
 # a spelling-variant map, not a full destination list, so it stays small.
+# Ski-resort spellings only (020a, 22.10): resorts aren't in the airport
+# catalog, so they stay here. Every airport-catalog spelling (city or
+# country - e.g. "ויאטנם") now lives in static/airports.json itself
+# (aliases_he / country_aliases_he), so a new spelling is a data update, not
+# a code change - see _known_destination_names.
 _DESTINATION_SPELLING_ALIASES = {
-    "ויאטנם": "וייטנאם",
     "ואל טורנס": "ואל תורנס",
     "וואל טורנס": "ואל תורנס",
     "וואל תורנס": "ואל תורנס",
@@ -5569,6 +5573,22 @@ def _known_destination_names():
                 known[en.lower()] = en
                 if en_key == "country_en":
                     country_needles.add(en.lower())
+        # 020a: alternate Hebrew spellings from the catalog itself -
+        # aliases_he for the record's city, country_aliases_he for its
+        # country. Each maps to the official name (what's shown to the
+        # customer); a country alias stays in the country tier, so a
+        # specific place in the same message still wins.
+        city_he = str(airport.get("city_he") or "").strip()
+        country_he = str(airport.get("country_he") or "").strip()
+        for alias in airport.get("aliases_he") or []:
+            alias = str(alias or "").strip()
+            if alias and city_he:
+                known[alias] = city_he
+        for alias in airport.get("country_aliases_he") or []:
+            alias = str(alias or "").strip()
+            if alias and country_he:
+                known[alias] = country_he
+                country_needles.add(alias)
     # Ski resorts aren't in the airport catalog at all (they're matched
     # separately in _resolve_ski_destination_airports against SKI_RESORTS),
     # so a resort name alone never counted as a "known destination" here -
@@ -7662,8 +7682,10 @@ def _match_city_exact(name, airports):
     if alias:
         candidates.add(_normalize_place_name(alias))
     for airport in airports:
-        for key in ("city_he", "city_en"):
-            hay = _normalize_place_name(airport.get(key))
+        # 020a: the catalog's own alternate city spellings (aliases_he)
+        # are exact names too.
+        for value in [airport.get("city_he"), airport.get("city_en")] + list(airport.get("aliases_he") or []):
+            hay = _normalize_place_name(value)
             if hay and hay in candidates:
                 return str(airport.get("code") or "").upper()
     return None

@@ -3155,15 +3155,17 @@ def _chat_destination_codes(places):
         city_matches = []
         country_matches = []
         for code, info in _AIRPORT_LOCALIZATION.items():
+            # 020a: the catalog's alternate Hebrew spellings resolve too
+            # (destination.places keeps the customer's own spelling).
             city_values = {
                 str(info.get("city_he") or "").strip().lower(),
                 str(info.get("city_en") or "").strip().lower(),
-            }
+            } | {str(x or "").strip().lower() for x in (info.get("aliases_he") or [])}
             country_values = {
                 str(info.get("country_he") or "").strip().lower(),
                 str(info.get("country_en") or "").strip().lower(),
                 str(info.get("country") or "").strip().lower(),
-            }
+            } | {str(x or "").strip().lower() for x in (info.get("country_aliases_he") or [])}
             if raw in city_values:
                 city_matches.append(code)
             elif raw in country_values:
