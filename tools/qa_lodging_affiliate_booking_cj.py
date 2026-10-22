@@ -35,6 +35,23 @@ three separate reasons, all fixed here:
    itself still exists and is still reachable from that button and from
    the automatic post-flight-continuation trigger.
 
+4. (Shaked's code review of this same PR, #147) Two gaps that would have
+   kept the fix from actually earning commission in production:
+   a. The wrap only ever ran at search time (_run_lodging_search), so a
+      vacation whose lodging was searched before this fix shipped (e.g.
+      #246) would keep showing its stored, uncredited link forever - a
+      real search never re-runs on its own. Fixed: account() now
+      re-applies _wrap_booking_com_hotel_links to every trip's saved
+      lodging_offers at render time too, covering old data, not just
+      newly searched vacations. The function is idempotent by
+      construction (an already-wrapped link's host is the CJ evergreen
+      link's own, never booking.com's, so a second pass leaves it alone).
+   b. Google Hotels' own links to booking.com already carry someone
+      else's aid/label affiliate parameters. Fixed: both call sites now
+      strip them (_strip_foreign_booking_affiliate_params) before handing
+      the URL to _cj_booking_wrap, so Booking.com credits us, not whoever
+      those parameters originally pointed to.
+
 Run: python3 tools/qa_lodging_affiliate_booking_cj.py
 """
 import os
@@ -91,7 +108,7 @@ def _make_trip(member_id, answers):
         return int(cur.lastrowid)
 
 
-BOOKING_LINK = "https://www.booking.com/hotel/bg/example.he.html?aid=123"
+BOOKING_LINK = "https://www.booking.com/hotel/bg/example.he.html?checkin=2027-05-01"
 BOOKING_SUBDOMAIN_LINK = "https://secure.booking.com/hotel/bg/example.he.html"
 HOTELS_COM_LINK = "https://www.hotels.com/ho123456/example-hotel"
 FAKE_BOOKING_COM_LINK = "https://not-booking.com/hotel/example"
@@ -290,6 +307,77 @@ check("live render with lodging results: the hotel result itself still renders n
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-lodging-button-removed@example.com'")
+    conn.commit()
+
+# =====================================================================
+# 8. _strip_foreign_booking_affiliate_params: removes only aid/label,
+#    leaves every other query parameter (and the path) untouched.
+# =====================================================================
+FOREIGN_AID_LINK = "https://www.booking.com/hotel/bg/example.he.html?aid=999888&label=someone-elses-site&checkin=2027-05-01"
+stripped = public_site._strip_foreign_booking_affiliate_params(FOREIGN_AID_LINK)
+check("aid is removed", "aid=" not in stripped)
+check("label is removed", "label=" not in stripped)
+check("the real query param (checkin) survives", "checkin=2027-05-01" in stripped)
+check("the path is untouched", stripped.startswith("https://www.booking.com/hotel/bg/example.he.html?"))
+no_aid_link = "https://www.booking.com/hotel/bg/example.he.html?checkin=2027-05-01"
+check("a link with nothing foreign to strip is returned unchanged",
+      public_site._strip_foreign_booking_affiliate_params(no_aid_link) == no_aid_link)
+
+# =====================================================================
+# 9. End-to-end: _wrap_booking_com_hotel_links strips the foreign aid/
+#    label BEFORE wrapping, so Booking.com credits us, not whoever aid
+#    originally pointed to.
+# =====================================================================
+with patch.object(public_site, "CJ_BOOKING_EVERGREEN_LINK", "https://www.anrdoezrs.net/click-qa-evergreen"):
+    wrapped_foreign_aid = public_site._wrap_booking_com_hotel_links(
+        [{"name": "Foreign Aid Hotel", "link": FOREIGN_AID_LINK}], 555009,
+    )[0]["link"]
+inner = parse_qs(urlsplit(wrapped_foreign_aid).query).get("url", [""])[0]
+check("the wrapped link's inner destination URL has the foreign aid/label stripped",
+      "aid=999888" not in inner and "label=someone-elses-site" not in inner)
+check("the wrapped link's inner destination URL still has the real hotel path and dates",
+      inner.startswith("https://www.booking.com/hotel/bg/example.he.html?") and "checkin=2027-05-01" in inner)
+
+# =====================================================================
+# 10. Render-time wrap covers OLD vacations (Shaked, #246): a trip whose
+#     lodging_offers were saved BEFORE this fix shipped - bypassing
+#     _wrap_booking_com_hotel_links entirely, exactly like a real pre-fix
+#     search result - still gets a wrapped, credited link once the page
+#     is rendered, not just on a fresh search.
+# =====================================================================
+member_old = _make_member("qa-lodging-old-vacation@example.com")
+OLD_RAW_LINK = "https://www.booking.com/hotel/it/example.html?aid=123123&label=old-partner&checkin=2027-06-01"
+trip_old = _make_trip(member_old, {
+    "destinations": "FCO", "departure_date": "2027-06-01", "return_date": "2027-06-08", "adults": 2,
+    "lodging_offers": [{"name": "Old Pre-Fix Hotel", "link": OLD_RAW_LINK}],
+})
+with client.session_transaction() as sess:
+    sess["member_id"] = member_old
+with patch.object(public_site, "CJ_BOOKING_EVERGREEN_LINK", "https://www.anrdoezrs.net/click-qa-evergreen"):
+    html_old = client.get("/account").get_data(as_text=True)
+check("an old, pre-fix saved vacation's stored link is wrapped at render time, not left raw",
+      OLD_RAW_LINK not in html_old and "https://www.anrdoezrs.net/click-qa-evergreen" in html_old)
+check("the old vacation's foreign aid/label is also stripped at render time",
+      "aid=123123" not in html_old and "label=old-partner" not in html_old)
+check("the old vacation's hotel name still renders normally", "Old Pre-Fix Hotel" in html_old)
+
+# =====================================================================
+# 11. Idempotency: rendering the SAME trip twice never double-wraps -
+#     the second render's link is byte-identical to the first's, not a
+#     CJ link wrapping another CJ link.
+# =====================================================================
+with patch.object(public_site, "CJ_BOOKING_EVERGREEN_LINK", "https://www.anrdoezrs.net/click-qa-evergreen"):
+    html_old_again = client.get("/account").get_data(as_text=True)
+import re as _re
+first_link = _re.search(r'href="(https://www\.anrdoezrs\.net/click-qa-evergreen\?[^"]+)"', html_old)
+second_link = _re.search(r'href="(https://www\.anrdoezrs\.net/click-qa-evergreen\?[^"]+)"', html_old_again)
+check("rendering the same old vacation twice produces the exact same (not doubly-wrapped) link",
+      first_link is not None and second_link is not None and first_link.group(1) == second_link.group(1))
+check("the wrapped link is never wrapped a second time (no nested CJ evergreen link inside itself)",
+      first_link is not None and first_link.group(1).count("anrdoezrs.net") == 1)
+
+with sqlite3.connect(DB) as conn:
+    conn.execute("DELETE FROM members WHERE email IN ('qa-lodging-old-vacation@example.com')")
     conn.commit()
 
 if FAILED:

@@ -12,7 +12,7 @@ import threading
 import random
 import requests
 import re
-from urllib.parse import parse_qsl, quote, urlencode, urlsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 from datetime import date, datetime
 from functools import wraps
 from zoneinfo import ZoneInfo
@@ -229,6 +229,22 @@ def _is_booking_com_url(url: str | None) -> bool:
     except Exception:
         return False
     return host == "booking.com" or host.endswith(".booking.com")
+
+
+def _strip_foreign_booking_affiliate_params(url: str) -> str:
+    """Seen live (Shaked): SerpApi's google_hotels results already carry
+    someone else's Booking.com affiliate attribution (aid, label) baked
+    into the link - whoever SerpApi/Google Hotels associates them with.
+    These must be stripped before wrapping our own CJ tracking link on
+    top, or Booking.com could still credit the booking to that other
+    party instead of us. Every other query parameter (the actual hotel,
+    room, dates) is left untouched."""
+    try:
+        parsed = urlsplit(str(url or ""))
+        kept = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k not in ("aid", "label")]
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(kept, quote_via=quote), parsed.fragment))
+    except Exception:
+        return url
 
 
 _SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
@@ -3115,6 +3131,18 @@ def account():
     radar_alerts_by_trip = latest_trip_alerts([t["id"] for t in trips])
     for trip in trips:
         trip["radar_alert"] = radar_alerts_by_trip.get(trip["id"])
+    # Seen live (Shaked): _wrap_booking_com_hotel_links only ran at search
+    # time, so a vacation whose lodging was searched before this fix
+    # shipped kept showing its stored, uncredited link forever - a real
+    # search never re-runs on its own. Re-applying it here, at render
+    # time, on every page load, covers that old data too - safe to do on
+    # every trip every time: the function is idempotent (see its own
+    # docstring), and persisting the result back is deliberately skipped,
+    # since nothing outside rendering ever needs the wrapped form.
+    for trip in trips:
+        offers = (trip.get("answers") or {}).get("lodging_offers")
+        if offers:
+            trip["answers"]["lodging_offers"] = _wrap_booking_com_hotel_links(offers, trip["id"])
     try:
         member_travelers = member_profile.list_travelers(member_id)
     except Exception:
@@ -5150,11 +5178,22 @@ def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int) -> list[dict
     wrap the dedicated partner card uses, tied back to this vacation via
     sid. A result pointing at a different supplier (the hotel's own site,
     another OTA) is left untouched - there is no approved program for
-    those, so wrapping it would just send the click nowhere."""
+    those, so wrapping it would just send the click nowhere. Before
+    wrapping, any foreign aid/label Booking.com affiliate parameters
+    already on the link are stripped (see
+    _strip_foreign_booking_affiliate_params) - otherwise Booking.com could
+    still credit someone else for the booking.
+
+    Idempotent by construction, never by a special case: a link this
+    function already wrapped points at the CJ evergreen link's own host,
+    never booking.com's, so _is_booking_com_url is false on a second pass
+    and it is left alone - safe to call again on data this already ran
+    on (e.g. at render time, to cover vacations saved before this fix
+    shipped, not just newly searched ones)."""
     for hotel in hotels:
         link = hotel.get("link")
         if link and _is_booking_com_url(link):
-            hotel["link"] = _cj_booking_wrap(link, sid=f"trip{trip_id}")
+            hotel["link"] = _cj_booking_wrap(_strip_foreign_booking_affiliate_params(link), sid=f"trip{trip_id}")
     return hotels
 
 
