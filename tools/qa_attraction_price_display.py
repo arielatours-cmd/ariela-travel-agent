@@ -88,8 +88,10 @@ check("2: a malformed / future date -> no price",
 SAME = "מחיר משוער: כ-€30 לאדם. המחיר הסופי באתר ההזמנה."
 
 
-def per_adult(n, amount="€30"):
-    return f"מחיר משוער: כ-{amount} למבוגר, לפי מחיר מבוגר × {n}. המחיר הסופי באתר ההזמנה."
+def per_adult(n, amount=30, sym="€"):
+    # Din's exact wording for a party that doesn't all pay the adult price (PR #148 review).
+    return (f"מחיר משוער: כ-{sym}{amount} למבוגר. לפי מחיר מבוגר × {n}: כ-{sym}{amount * n} "
+            "(לילדים ייתכן מחיר נמוך יותר). המחיר הסופי באתר ההזמנה.")
 
 
 check("3: adults only -> 'לאדם'", text(CABLE, {"adults": 4}) == SAME)
@@ -97,7 +99,7 @@ check("3: a child above the child range and the free age pays the adult price ->
       text(CABLE, {"adults": 2, "children": 1, "age_groups": [15]}) == SAME)
 check("3: a reduced child price in the party -> 'לפי מחיר מבוגר × N'", text(CABLE, {"adults": 2, "children": 1, "age_groups": [8]}) == per_adult(3))
 check("3: a child free under free_under_age (price differs) -> 'לפי מחיר מבוגר × N'",
-      text(COLOSSEUM, {"adults": 2, "children": 2, "age_groups": [5, 17]}) == per_adult(4, "€18"))
+      text(COLOSSEUM, {"adults": 2, "children": 2, "age_groups": [5, 17]}) == per_adult(4, 18))
 check("3: children's ages unknown -> 'לפי מחיר מבוגר × N'",
       text(CABLE, {"adults": 2, "children": 1}) == per_adult(3) and text(CABLE, {"adults": 2, "children": 2, "age_groups": [15]}) == per_adult(4))
 check("3: free_under_age / child_age_range unknown and ages unknown -> 'לפי מחיר מבוגר × N'",
@@ -119,6 +121,24 @@ check("5: free_entry without a check date -> nothing (never a guess)", view(dict
 check("5: free_entry False/None never shows 'חינם'",
       all("חינם" not in (text(dict(CABLE, free_entry=v), COUPLE) or "") for v in (False, None)))
 
+check("3: Din's example, word for word",
+      text(CABLE, {"adults": 2, "children": 2}) == "מחיר משוער: כ-€30 למבוגר. לפי מחיר מבוגר × 4: כ-€120 (לילדים ייתכן מחיר נמוך יותר). המחיר הסופי באתר ההזמנה.")
+
+# --- Ticket links (Din, PR #148): same domain as the official site, or a listed official operator --------
+tl = ic.attraction_tickets_url
+check("links: same domain as the official site -> shown",
+      tl("https://tickets.colosseo.it/buy", "https://colosseo.it/") == "https://tickets.colosseo.it/buy"
+      and tl("https://www.louvre.fr/billets", "https://www.louvre.fr/") == "https://www.louvre.fr/billets")
+check("links: a reseller on another domain -> not shown",
+      tl("https://www.getyourguide.com/colosseum-t1", "https://colosseo.it/") == ""
+      and tl("https://www.tiqets.com/x", "https://www.louvre.fr/") == "")
+check("links: an official ticket operator from the manual list -> shown",
+      tl("https://www.ticketlouvre.fr/", "https://www.louvre.fr/") == "https://www.ticketlouvre.fr/"
+      and tl("https://tickets.atthetop.ae/x", "https://www.burjkhalifa.ae/") == "https://tickets.atthetop.ae/x")
+check("links: no official link on the card (it equalled the ticket link) -> shown", tl("https://colosseo.it/t", "") == "https://colosseo.it/t")
+check("links: a look-alike domain is not the same site", tl("https://colosseo.it.evil.example/t", "https://colosseo.it/") == "")
+check("links: nothing -> nothing", tl("", "https://colosseo.it/") == "" and tl(None, None) == "")
+
 # --- The page itself -----------------------------------------------------------------------------------------
 src = open(os.path.join(ROOT, "itinerary_cards.py"), encoding="utf-8").read()
 check("cards carry the structured fields (price_info), not the free-text price",
@@ -129,7 +149,8 @@ stale = (date.today() - timedelta(days=120)).isoformat()
 
 def card(name, info):
     return {"name_he": name, "city": "רומא", "description": "", "duration": "", "price": "חופשי-טקסט 99€",
-            "price_info": info, "tickets_url": "https://tickets.example/" + name, "official_url": "", "map_url": "https://maps.example"}
+            "price_info": info, "tickets_url": "https://tickets.example/" + name, "official_url": "https://tickets.example/",
+            "map_url": "https://maps.example"}
 
 
 answers = {"destinations": "FCO", "departure_date": "2027-05-01", "return_date": "2027-05-08", "adults": 2,
@@ -139,6 +160,7 @@ answers = {"destinations": "FCO", "departure_date": "2027-05-01", "return_date":
                card("Stale", dict(COLOSSEUM, price_checked_at=stale)),
                card("Unverified", dict(COLOSSEUM, price_status="needs_check", price_checked_at=fresh)),
                card("Legacy", None),
+               dict(card("Resold", None), tickets_url="https://reseller.example/x", official_url="https://official.example/"),
            ]}]}}
 with sqlite3.connect(database.DB_PATH) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-attraction-price@example.com'")
@@ -163,6 +185,8 @@ if itin_rendered:
           all("€" not in blocks.get(n, "") and "מחיר משוער" not in blocks.get(n, "") and "tickets.example/" + n in blocks.get(n, "")
               for n in ("Stale", "Unverified", "Legacy")))
     check("page: the old free-text price is never shown", "חופשי-טקסט" not in html)
+    check("page: a reseller ticket link is not rendered, the official one is",
+          "reseller.example" not in html and "tickets.example/Fresh" in html)
 
 with sqlite3.connect(database.DB_PATH) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-attraction-price@example.com'")

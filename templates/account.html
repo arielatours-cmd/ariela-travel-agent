@@ -362,7 +362,8 @@
                           <div class="itin-card-price">🎟 {{ price_view.text }}</div>
                         {% endif %}
                         <div class="itin-card-links">
-                          {% if item.get('tickets_url') %}<a class="itin-btn primary" href="{{ item.get('tickets_url') }}" target="_blank" rel="noopener">לרכישת כרטיסים</a>{% endif %}
+                          {% set tickets_link = attraction_tickets_url(item.get('tickets_url'), item.get('official_url')) %}
+                          {% if tickets_link %}<a class="itin-btn primary" href="{{ tickets_link }}" target="_blank" rel="noopener">לרכישת כרטיסים</a>{% endif %}
                           {% if item.get('official_url') %}<a class="itin-btn" href="{{ item.get('official_url') }}" target="_blank" rel="noopener">אתר רשמי</a>{% endif %}
                           <a class="itin-btn" href="{{ item.get('map_url') }}" target="_blank" rel="noopener">📍 במפה</a>
                         </div>
@@ -385,7 +386,8 @@
                       {% if attraction.get('name_he') %}{{ attraction.get('name_he') }} ({{ attraction.get('name') or attraction.get('title') }}){% else %}{{ attraction.get('name') or attraction.get('title') }}{% endif %}
                     </strong>
                     {% if attraction.get('info') %}<span>{{ attraction.get('info') }}</span>{% endif %}
-                    {% if attraction.get('booking_url') %}<a href="{{ attraction.get('booking_url') }}" target="_blank" rel="noopener">להזמנת כרטיסים</a>{% endif %}
+                    {% set attraction_tickets = attraction_tickets_url(attraction.get('booking_url'), attraction.get('official_url')) %}
+                    {% if attraction_tickets %}<a href="{{ attraction_tickets }}" target="_blank" rel="noopener">להזמנת כרטיסים</a>{% endif %}
                   </div>
                 {% endfor %}
                 </div>

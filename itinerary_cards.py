@@ -132,7 +132,12 @@ _PRICE_FIELDS = ("price_adult", "price_child", "child_age_range", "free_under_ag
 PRICE_MAX_AGE_DAYS = 90
 # Din's approved wording (DEAL-18, simplified version of 22.10) - never
 # reworded; only the amount/unit are filled in. No check date beside it.
-PRICE_TEXT = "מחיר משוער: כ-{amount} {unit}. המחיר הסופי באתר ההזמנה."
+PRICE_TEXT = "מחיר משוער: כ-{amount} לאדם. המחיר הסופי באתר ההזמנה."
+# Din (PR #148 review): when not everyone pays the adult price.
+PRICE_TEXT_PER_ADULT = (
+    "מחיר משוער: כ-{amount} למבוגר. לפי מחיר מבוגר × {n}: כ-{total} (לילדים ייתכן מחיר נמוך יותר). "
+    "המחיר הסופי באתר ההזמנה."
+)
 FREE_ENTRY_TEXT = "כניסה חינם"
 _CURRENCY_SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£", "ILS": "₪"}
 
@@ -196,10 +201,10 @@ def attraction_price_view(info, answers, today=None):
        but an unknown or older date still means no price);
     3. "לאדם" only when everyone in the party pays the same adult price;
        otherwise (a different price by age/party, or unknown ages) the
-       adult price with "לפי מחיר מבוגר × N";
+       adult price and "לפי מחיר מבוגר × N: כ-<total>" (PRICE_TEXT_PER_ADULT);
     4. in the source currency, no conversion;
     5. "כניסה חינם" only when free_entry is verified (same 1+2);
-    6. Din's wording, exactly (PRICE_TEXT).
+    6. Din's wording, exactly (PRICE_TEXT / PRICE_TEXT_PER_ADULT).
     free_under_age is inclusive (the DB stores 17 for "free under 18")."""
     info = info if isinstance(info, dict) else {}
     answers = answers if isinstance(answers, dict) else {}
@@ -218,14 +223,51 @@ def attraction_price_view(info, answers, today=None):
     currency = str(info.get("currency") or "").strip().upper()
     if not isinstance(adult, (int, float)) or isinstance(adult, bool) or adult <= 0 or not re.fullmatch(r"[A-Z]{3}", currency):
         return None
-    if _same_price_for_everyone(info, answers):
-        return {"text": PRICE_TEXT.format(amount=_money(adult, currency), unit="לאדם")}
     try:
         travelers = max(0, int(answers.get("adults") or 0)) + max(0, int(answers.get("children") or 0))
     except (TypeError, ValueError):
         travelers = 0
-    unit = f"למבוגר, לפי מחיר מבוגר × {travelers}" if travelers > 1 else "למבוגר"
-    return {"text": PRICE_TEXT.format(amount=_money(adult, currency), unit=unit)}
+    if travelers <= 1 or _same_price_for_everyone(info, answers):
+        return {"text": PRICE_TEXT.format(amount=_money(adult, currency))}
+    return {"text": PRICE_TEXT_PER_ADULT.format(amount=_money(adult, currency), n=travelers,
+                                                total=_money(adult * travelers, currency))}
+
+
+# Din (PR #148 review): a ticket link is shown only on the official site's
+# own domain, or at an official ticketing operator the official site itself
+# sends buyers to (this manual list) - never a reseller.
+OFFICIAL_TICKET_OPERATORS = {
+    "parkovihrvatske.hr",      # Croatia's national parks ticketing (Plitvice, Krka)
+    "imperialtickets.com",     # Schönbrunn's own ticket shop
+    "cityexperiences.com",     # Statue City Cruises - the NPS concession (Statue of Liberty)
+    "tickets.atthetop.ae",     # Burj Khalifa "At the Top"
+    "ticketlouvre.fr",         # the Louvre's ticketing site
+    "thedubaiaquarium.com",    # Dubai Aquarium's own site
+}
+
+
+def _host(url):
+    from urllib.parse import urlsplit
+    host = (urlsplit(str(url or "").strip()).hostname or "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def _same_site(a, b):
+    return bool(a and b) and (a == b or a.endswith("." + b) or b.endswith("." + a))
+
+
+def attraction_tickets_url(tickets_url, official_url):
+    """The ticket link to show, or "" (Din's rule above). An empty
+    official_url here means it equalled the ticket link when the card was
+    built (build_itinerary_days drops the duplicate) - same site."""
+    tickets = str(tickets_url or "").strip()
+    if not tickets:
+        return ""
+    official = str(official_url or "").strip()
+    host = _host(tickets)
+    if not official or _same_site(host, _host(official)):
+        return tickets
+    return tickets if any(_same_site(host, op) for op in OFFICIAL_TICKET_OPERATORS) else ""
 
 
 def build_itinerary_days(text, answers, post_claude, key, model):
