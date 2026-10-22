@@ -1,0 +1,14 @@
+{
+  "_about": "Stage-1 run-6, bug 3: destinations CONFIRMED to have no nonstop flight from Tel Aviv (TLV) at all. Maintained by Ofek, refreshed roughly once a month per product/no-direct-routes.md (branch ofek) - this file is the single source of truth _no_direct_route_known reads, and updating it (add/remove an entry) never requires a code change. A destination NOT in this list is simply unverified either way (never treated as having no direct route) - the direct-flight question is asked for it as normal, exactly as it is for every destination until Ofek confirms otherwise here. Only a destination whose IATA code is listed here, with every one of its resolved IATA codes present (see product/no-direct-routes.md's 'a destination with several flight fields' rule), skips the question.",
+  "source_doc": "product/no-direct-routes.md (branch ofek)",
+  "last_updated": "2026-10-21",
+  "destinations": [
+    {"origin_code": "TLV", "destination_code": "DPS", "destination_name": "באלי", "country_name": "אינדונזיה", "verified_at": "2026-10-21"},
+    {"origin_code": "TLV", "destination_code": "CGK", "destination_name": "ג'קרטה", "country_name": "אינדונזיה", "verified_at": "2026-10-21"},
+    {"origin_code": "TLV", "destination_code": "KUL", "destination_name": "קואלה לומפור", "country_name": "מלזיה", "verified_at": "2026-10-21"},
+    {"origin_code": "TLV", "destination_code": "DOH", "destination_name": "דוחא", "country_name": "קטאר", "verified_at": "2026-10-21"},
+    {"origin_code": "TLV", "destination_code": "MCT", "destination_name": "מוסקט", "country_name": "עומאן", "verified_at": "2026-10-21"},
+    {"origin_code": "TLV", "destination_code": "SIN", "destination_name": "סינגפור", "country_name": "סינגפור", "verified_at": "2026-10-21"},
+    {"origin_code": "TLV", "destination_code": "CPT", "destination_name": "קייפטאון", "country_name": "דרום אפריקה", "verified_at": "2026-10-21"}
+  ]
+}
