@@ -2265,7 +2265,7 @@ def _accessibility_hint_text(state):
     session_just_started = bool(active) and active not in announced
     if not at_summary and not session_just_started:
         return ""
-    need_text = acc.get("details") or ", ".join(acc.get("needs") or []) or "התאמה מיוחדת"
+    need_text = acc.get("details") or _accessibility_needs_label(acc.get("needs")) or "התאמה מיוחדת"
     service_hint = _ACCESSIBILITY_SERVICE_HINT.get(active, "")
     hint = f"\nללקוח יש צורך בנגישות/התאמה שצוין בשיחה: {need_text}. התייחסי אליו בתשובה הזו."
     if service_hint:
@@ -3261,7 +3261,7 @@ def _flight_accessibility_line(state) -> str | None:
     acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
     if acc.get("needed") is not True:
         return None
-    need_text = acc.get("details") or ", ".join(acc.get("needs") or []) or "התאמה מיוחדת"
+    need_text = acc.get("details") or _accessibility_needs_label(acc.get("needs")) or "התאמה מיוחדת"
     return f"התאמות נגישות: {need_text}"
 
 
@@ -9888,6 +9888,20 @@ def _guided_correction_hint(label, confirm_desc):
 
 
 _GUIDED_ACCESSIBILITY_NEED_VALUES = ("stroller", "wheelchair", "reduced_mobility", "infant", "other")
+# Per Shaked's QA on #76 (22.10.2026): these are internal schema values,
+# never shown to the customer or in the Hebrew summary/hint as-is - a
+# value label mapping, same principle as _BAGGAGE_HE for baggage types.
+_ACCESSIBILITY_NEED_HE = {
+    "stroller": "עגלת תינוק", "wheelchair": "כיסא גלגלים",
+    "reduced_mobility": "קושי בהליכה", "infant": "תינוק", "other": "התאמה מיוחדת",
+}
+
+
+def _accessibility_needs_label(needs):
+    """Hebrew label text for a needs list, or "" when empty - shared by
+    every place that composes a need description (hint/summary/confirm),
+    so the internal values (stroller/wheelchair/...) never leak as-is."""
+    return ", ".join(_ACCESSIBILITY_NEED_HE.get(n, n) for n in (needs or []))
 
 
 # Task 014b (accessibility) shares the same mechanism but needs its own
@@ -10768,7 +10782,7 @@ def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_
                 acc["needs"] = needs
             if details:
                 acc["details"] = details
-        desc = (details or ", ".join(needs) or "צורך בנגישות") if needed else "אין צורך בנגישות"
+        desc = (details or _accessibility_needs_label(needs) or "צורך בנגישות") if needed else "אין צורך בנגישות"
         return {"accessibility": acc}, desc
     if field == "baggage":
         # Per Shlomo/Shaked (2026-10-17, after her review of #78): a bare

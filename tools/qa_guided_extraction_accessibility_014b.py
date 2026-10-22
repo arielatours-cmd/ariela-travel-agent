@@ -424,8 +424,26 @@ check("repeat-fix end-to-end: turn 2 (same still-open flights session) does "
 #     out of Tinkerbell's own free-text "כתבי מאשרת" summary, same
 #     principle as budget/baggage/dates/travelers.
 # =====================================================================
-check("_flight_accessibility_line: known need -> the canonical line",
-      chat._flight_accessibility_line({"accessibility": {"needed": True, "needs": ["stroller"]}}) == "התאמות נגישות: stroller")
+check("_flight_accessibility_line: known need -> the canonical line, with "
+      "the Hebrew label for the internal value (Shaked's fix, 22.10: "
+      "never the raw code like 'stroller' itself)",
+      chat._flight_accessibility_line({"accessibility": {"needed": True, "needs": ["stroller"]}}) == "התאמות נגישות: עגלת תינוק")
+check("_accessibility_needs_label: maps every internal code to its "
+      "Hebrew label (Shaked's fix, 22.10)",
+      chat._accessibility_needs_label(["stroller"]) == "עגלת תינוק"
+      and chat._accessibility_needs_label(["wheelchair"]) == "כיסא גלגלים"
+      and chat._accessibility_needs_label(["reduced_mobility"]) == "קושי בהליכה"
+      and chat._accessibility_needs_label(["infant"]) == "תינוק"
+      and chat._accessibility_needs_label(["other"]) == "התאמה מיוחדת")
+check("_accessibility_needs_label: multiple needs join with Hebrew labels, "
+      "never the raw codes",
+      chat._accessibility_needs_label(["stroller", "wheelchair"]) == "עגלת תינוק, כיסא גלגלים")
+check("_accessibility_needs_label: empty/None -> empty string",
+      chat._accessibility_needs_label([]) == "" and chat._accessibility_needs_label(None) == "")
+check("_accessibility_hint_text's own need_text also uses the Hebrew "
+      "label, never the raw code, when no free-text details were given",
+      "עגלת תינוק" in chat._accessibility_hint_text({"accessibility": {"needed": True, "needs": ["stroller"]}, "active_session": "flights"})
+      and "stroller" not in chat._accessibility_hint_text({"accessibility": {"needed": True, "needs": ["stroller"]}, "active_session": "flights"}))
 check("_flight_accessibility_line: needed=False -> None (nothing to state)",
       chat._flight_accessibility_line({"accessibility": {"needed": False}}) is None)
 check("_flight_accessibility_line: no accessibility state at all -> None",
