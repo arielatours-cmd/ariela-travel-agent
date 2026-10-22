@@ -3080,7 +3080,38 @@ def _flight_connection_line(flight):
         return None
     if connection == "no_direct_route":
         return "טיסה עם עצירה (אין טיסה ישירה ליעד)"
-    return "טיסה ישירה בלבד" if "direct" in connection or "nonstop" in connection else "ישירה או עם קונקשן"
+    # The exact wordings TINKERBELL_SYSTEM itself mandates for the summary
+    # ("direct" -> "מעדיפים טיסה ישירה", a known no-preference -> "אין העדפה
+    # לטיסה ישירה"), so the canonical line and the prompt never disagree.
+    return "מעדיפים טיסה ישירה" if "direct" in connection or "nonstop" in connection else "אין העדפה לטיסה ישירה"
+
+
+# A summary line whose subject is the direct/connection preference (no other
+# fact's label on the same line) - the line _ensure_flight_summary_
+# completeness replaces with _flight_connection_line, the same way the
+# "כבודה:"/"תאריכים:" lines are rebuilt from state.
+_CONNECTION_LINE_MARKERS = re.compile(r"ישיר|קונקשן|עציר")
+_OTHER_SUMMARY_FACT_MARKERS = re.compile(r"תאריכ|כבודה|תקציב|נוסע|מבוגר|ילד|לילות|לינה|רכב|יעד|מאשר")
+
+
+def _replace_connection_summary_line(text, canonical_line):
+    """Replaces the summary's own connection-preference line with
+    canonical_line (or drops it when canonical_line is None - the fact
+    isn't known, so no line at all). Only a line that is about the
+    connection preference alone is touched; a line combining several
+    facts is left as it is. Leading bullets/markers are kept."""
+    lines = str(text or "").split("\n")
+    for i, line in enumerate(lines):
+        if not _CONNECTION_LINE_MARKERS.search(line) or _OTHER_SUMMARY_FACT_MARKERS.search(line):
+            continue
+        body_start = next((j for j, ch in enumerate(line) if ch.isalpha()), len(line))
+        prefix = line[:body_start]
+        if canonical_line is None:
+            del lines[i]
+        elif line[body_start:].strip() != canonical_line:
+            lines[i] = prefix + canonical_line
+        return "\n".join(lines)
+    return text
 
 
 def _checked_bag_label(detail):
@@ -3325,32 +3356,6 @@ def _flight_summary_text(state):
     return "סיכום בקשת הטיסה:\n" + "\n".join(lines) + "\n\n" + approval_line
 
 
-_AVAILABILITY_HEDGE_RES = (
-    # "(בכפוף לזמינות בפועל בחיפוש)" / "(בהתאם לזמינות)" - the whole parenthetical
-    re.compile(r"\s*\([^()\n]*?(?:בכפוף|בהתאם|כפוף)\s+לזמינות[^()\n]*\)"),
-    # ", בכפוף לזמינות בפועל בחיפוש" / " - בהתאם לזמינות" - up to the end of the clause
-    re.compile(r"\s*[,–-]?\s*(?:בכפוף|בהתאם|כפוף)\s+לזמינות(?:\s+בפועל)?(?:\s+(?:בחיפוש|בטיסות|באתר))?(?=[.,;:!?\n)]|$)"),
-)
-
-
-def _strip_summary_availability_hedges(reply):
-    """Stage-1 run-8 (Shaked, Santorini): "מעדיפים טיסה ישירה (בכפוף לזמינות
-    בפועל בחיפוש)". The system prompt already forbids hedging a summary fact
-    with availability ("לא 'ישירה, בהתאם לזמינות בפועל'"), and the business
-    owner approved dropping it (22.10) - availability is the search's job,
-    not a condition on what the customer asked for. A probabilistic model
-    can still add it, so it is removed here, without touching the fact.
-    Only in a summary (the approval request, or an updated "סיכום" shown
-    after a change, which may not repeat the approval request) - never in
-    ordinary conversation."""
-    text = str(reply or "")
-    if not any(p in text for p in ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת", "סיכום")):
-        return reply
-    for pattern in _AVAILABILITY_HEDGE_RES:
-        text = pattern.sub("", text)
-    return text
-
-
 def _ensure_flight_summary_completeness(reply, state):
     """Deterministic safety net, same philosophy as the other helpers in
     this file: Tinkerbell's own final "כתבי מאשרת" summary is free text,
@@ -3444,6 +3449,14 @@ def _ensure_flight_summary_completeness(reply, state):
         kept = [(s, term) for s, term in sentences if "אין העדפה לטיסה ישירה" not in s]
         if len(kept) != len(sentences):
             text = "".join(s for s, _t in kept)
+
+    # Per the business owner (22.10, rejecting a word-list hedge filter for
+    # Santorini's "מעדיפים טיסה ישירה (בכפוף לזמינות בפועל בחיפוש)"): the
+    # connection-preference line is rebuilt from state exactly like the
+    # baggage and dates lines below - always _flight_connection_line's own
+    # wording, whatever the model wrote on that line, and no line at all
+    # when the preference isn't known.
+    text = _replace_connection_summary_line(text, _flight_connection_line(flight))
 
 
     # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin,
@@ -4974,7 +4987,6 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
     reply = _ensure_flight_summary_completeness(reply, state)
-    reply = _strip_summary_availability_hedges(reply)
     reply = _strip_unconfirmed_airports(reply, state)
     # Captured BEFORE substitution (Timișoara, run-9): once _render_date_
     # placeholders runs, the placeholder itself is gone from the text

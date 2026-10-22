@@ -70,7 +70,7 @@ check("_flight_budget_line returns None when nothing is known yet",
 check("_flight_baggage_line matches _flight_summary_text's own wording (carry_on_only)",
       chat._flight_baggage_line({"baggage": ["carry_on_only"]}) == "כבודה: טרולי בלבד")
 check("_flight_connection_line reports a direct-only preference",
-      chat._flight_connection_line({"connection_preference": "direct"}) == "טיסה ישירה בלבד")
+      chat._flight_connection_line({"connection_preference": "direct"}) == "מעדיפים טיסה ישירה")
 check("_flight_connection_line returns None when unknown",
       chat._flight_connection_line({}) is None)
 
@@ -118,7 +118,7 @@ check("all three named facts (budget, baggage, connection preference) are "
       "completed together when all three are missing from the reply",
       "תקציב: ללא הגבלה" in _all_three_fixed
       and "כבודה: טרולי בלבד" in _all_three_fixed
-      and "טיסה ישירה בלבד" in _all_three_fixed)
+      and "מעדיפים טיסה ישירה" in _all_three_fixed)
 check("the original statement content and the approval-request sentence "
       "both survive, untouched, around the inserted lines",
       _all_three_fixed.startswith("הנה הסיכום: יעד פריז, 3 לילות, שני מבוגרים.")
