@@ -14,9 +14,10 @@
 #   - chat_multi.py additionally aborts every scan/search/payment request in the browser
 #
 # The model is called ONLY when DRY_RUN_COST_APPROVED=1 (the business owner's
-# approval of the token cost). Then ANTHROPIC_API_KEY is a placeholder
-# ("via-proxy") that the environment's network secret replaces with the real
-# key - the real key is never read, written or printed by this script.
+# approval of the token cost). Then the key comes from ARIELA_QA_KEY (set by
+# the Ariela-QA environment) and is exported as ANTHROPIC_API_KEY to the
+# gunicorn process only; the script fails clearly when it is empty and never
+# prints or writes it.
 # Without approval the server runs with no key (plumbing smoke test only:
 # registration, login, chat round-trip, logging).
 #
@@ -45,25 +46,37 @@ git -C "$REPO" worktree add -q --detach "$WT" "$REF"
 SHA="$(git -C "$WT" rev-parse --short HEAD)"
 echo "dry run: ref=$REF sha=$SHA out=$OUT"
 
-SERVER_ENV=(
-  "PATH=$PATH" "HOME=$HOME"
-  "DB_PATH=$OUT/dryrun.db" "SCHEDULER_ENABLED=false" "SCANNER_ENABLED=false"
-  "ADMIN_TOKEN=dryrun-$STAMP" "FLASK_SECRET_KEY=dryrun-$STAMP" "PUBLIC_BASE_URL=http://127.0.0.1:$PORT"
-)
-# The environment's proxy settings, so the placeholder key reaches the proxy.
-for v in HTTPS_PROXY HTTP_PROXY NO_PROXY https_proxy http_proxy no_proxy SSL_CERT_FILE REQUESTS_CA_BUNDLE; do
-  [ -n "${!v:-}" ] && SERVER_ENV+=("$v=${!v}")
-done
+MODEL_ON=0
 if [ "${DRY_RUN_COST_APPROVED:-0}" = "1" ]; then
   : "${ARIELLA_MODEL:?set ARIELLA_MODEL to the production value before calling the model}"
-  SERVER_ENV+=("ANTHROPIC_API_KEY=via-proxy" "ARIELLA_MODEL=$ARIELLA_MODEL")
-  echo "model: ON ($ARIELLA_MODEL, key via proxy)"
+  if [ -z "${ARIELA_QA_KEY:-}" ]; then
+    echo "ARIELA_QA_KEY is empty - run this in a session of the Ariela-QA environment (the key is not printed)."
+    exit 1
+  fi
+  MODEL_ON=1
+  echo "model: ON ($ARIELLA_MODEL, key from ARIELA_QA_KEY)"
 else
   echo "model: OFF (no DRY_RUN_COST_APPROVED=1) - plumbing smoke test only"
 fi
 
-( cd "$WT" && env -i "${SERVER_ENV[@]}" gunicorn --workers 1 --threads 4 --timeout 120 \
-    --bind "127.0.0.1:$PORT" app:app ) > "$OUT/server.log" 2>&1 &
+# The server gets a clean environment: only the allow-listed variables below
+# survive (so no SerpAPI/WhatsApp/CJ or other secrets), and the key is handed
+# to the gunicorn process alone via export - never on a command line, never printed.
+(
+  cd "$WT"
+  KEEP=" PATH HOME HTTPS_PROXY HTTP_PROXY NO_PROXY https_proxy http_proxy no_proxy SSL_CERT_FILE REQUESTS_CA_BUNDLE "
+  _key="${ARIELA_QA_KEY:-}" _model="${ARIELLA_MODEL:-}"
+  for v in $(compgen -e); do
+    case "$KEEP" in *" $v "*) ;; *) unset "$v" 2>/dev/null || true;; esac
+  done
+  export DB_PATH="$OUT/dryrun.db" SCHEDULER_ENABLED=false SCANNER_ENABLED=false \
+         ADMIN_TOKEN="dryrun-$STAMP" FLASK_SECRET_KEY="dryrun-$STAMP" PUBLIC_BASE_URL="http://127.0.0.1:$PORT"
+  if [ "$MODEL_ON" = "1" ]; then
+    export ANTHROPIC_API_KEY="$_key" ARIELLA_MODEL="$_model"
+  fi
+  unset _key
+  exec gunicorn --workers 1 --threads 4 --timeout 120 --bind "127.0.0.1:$PORT" app:app
+) > "$OUT/server.log" 2>&1 &
 SERVER_PID=$!
 
 for _ in $(seq 1 60); do

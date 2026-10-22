@@ -18,6 +18,6 @@
 - מטרה: להריץ תרחישי שיחה (כמו בהרצות החיות) מול עותק מקומי של האתר, מכל ref (main או PR לפני מיזוג), לפני הרצה חיה.
 - שימוש: `qa/dry_run_local.sh GIT_REF SCENARIO_FILE [OUT_DIR]`; קובץ תרחיש לדוגמה: `qa/live/scenarios/example.sh` (פונקציות reg/drive/say).
 - בטיחות קבועה: DB זמני, בלי scheduler ובלי scanner, בלי מפתחות SerpAPI/WhatsApp; `qa/live/chat_multi.py` חוסם בדפדפן כל בקשת סריקה/תשלום.
-- המודל נקרא רק עם `DRY_RUN_COST_APPROVED=1` (אישור עלות של בעלת העסק) ו-`ARIELLA_MODEL` כמו בייצור; המפתח עובר כ-placeholder ‏(`via-proxy`) שה-network secret של הסביבה מחליף. המפתח האמיתי לא נקרא, לא נכתב ולא מודפס. בלי האישור - בדיקת צנרת בלבד (הרשמה, התחברות, סבב שיחה).
+- המודל נקרא רק עם `DRY_RUN_COST_APPROVED=1` (אישור עלות של בעלת העסק) ו-`ARIELLA_MODEL` כמו בייצור, בסשן של הסביבה Ariela-QA: המפתח נלקח מ-`ARIELA_QA_KEY` ומועבר כ-`ANTHROPIC_API_KEY` לתהליך ה-gunicorn בלבד (סביבה נקייה, רק משתנים מרשימה מותרת). כש-`ARIELA_QA_KEY` ריק - עצירה עם הודעה ברורה. המפתח לא מודפס ולא נכתב. בלי האישור - בדיקת צנרת בלבד (הרשמה, התחברות, סבב שיחה).
 - הכלים ב-`qa/live/` (register / chat_multi / autodrive) עובדים גם מול האתר החי: `ARIELA_BASE` (ברירת מחדל: האתר החי), `ARIELA_QA_OUT` לתיקיית הפלט.
 - ההרצה החיה נשארת שער האישור הסופי (סביבת Render, gunicorn, DB קבוע).
