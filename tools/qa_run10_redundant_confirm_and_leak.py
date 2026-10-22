@@ -167,6 +167,36 @@ check("shift: the hint forbids the 'both departure and return?' intermediate que
 st2, dyn2 = turn("qa-r10-genoa-noshift@example.com", "מעולה, נמשיך", None, None)
 check("no shift this turn -> no shift hint", "האישור היחיד" not in dyn2 and "_shift_candidate_hint" not in st2)
 
+# --- Direct unit check on _dates_truth_hint itself (Shlomo's follow-up on
+#     #141, 22.10): while BASE above simulates the POST-summary Genoa shape
+#     (active_session="trip_planning", where _dates_truth_hint is scoped
+#     off entirely and _shift_candidate_hint alone carries the wording), a
+#     shift request made DURING the flights stage fires _dates_truth_hint's
+#     own candidates branch too, alongside _shift_candidate_hint - its
+#     plural "יש אפשרויות ממתינות" framing (written for the weekday-pair/
+#     duration flows, which CAN offer 2+ real options) risked Tinkerbell
+#     composing a pick-one-from-a-list question around what a shift always
+#     is: ONE single proposed range. Only a true single candidate switches
+#     to the singular wording; a genuine multi-candidate state keeps the
+#     plural one. ------------------------------------------------------
+_one_candidate_state = {"active_session": "flights", "dates": {
+    "needs_confirmation": True, "candidate_ranges": ["יום שישי 07.05.2027–יום שלישי 11.05.2027"],
+}}
+check("shift during the flights stage: _dates_truth_hint uses singular framing "
+      "('one new proposal'), never the plural 'יש אפשרויות ממתינות' wording",
+      "הצעת תאריכים חדשה אחת" in chat._dates_truth_hint(_one_candidate_state)
+      and "יש אפשרויות ממתינות" not in chat._dates_truth_hint(_one_candidate_state))
+check("...and it still asks for one direct confirmation ('מתאים לך?'-style), "
+      "not a pick-one-from-a-list question",
+      "שאלת אישור ישירה אחת" in chat._dates_truth_hint(_one_candidate_state))
+
+_two_candidate_state = {"active_session": "flights", "dates": {
+    "needs_confirmation": True, "candidate_ranges": ["יום א 1.6.2027–יום ו 6.6.2027", "יום ב 2.6.2027–יום ש 7.6.2027"],
+}}
+check("two real candidates -> the plural 'יש אפשרויות ממתינות' framing is kept",
+      "יש אפשרויות ממתינות" in chat._dates_truth_hint(_two_candidate_state)
+      and "הצעת תאריכים חדשה אחת" not in chat._dates_truth_hint(_two_candidate_state))
+
 # --- The relative-shift confirmation mechanism is untouched -----------------------------------
 src = open(os.path.join(os.path.dirname(__file__), "..", "ariella_chat_clean.py"), encoding="utf-8").read()
 check("shift_days still creates a pending candidate (needs_confirmation=True), not touched",

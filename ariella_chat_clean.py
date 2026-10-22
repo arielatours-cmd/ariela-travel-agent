@@ -1109,6 +1109,31 @@ def _dates_truth_hint(state):
         candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
         if not candidates:
             return ""
+        # Run-10 Genoa, Shlomo's explicit follow-up on #141 (22.10): a shift-
+        # days candidate is always a SINGLE proposed range (the whole window
+        # moved together, never a choice among several) - the shared "יש
+        # אפשרויות ממתינות" (plural, "there are pending options") framing
+        # below was written for the weekday-pair/duration flows, which can
+        # genuinely offer 2+ candidates at once. Reusing that same plural
+        # wording here risked Tinkerbell composing something like "יש לך
+        # כמה אפשרויות... איזו מתאימה?" around a single shown value - a
+        # multi-option framing for what must read as one direct proposal
+        # ("לדחות ל-X–Y?"). {_DATE_OPTIONS_PLACEHOLDER} itself still
+        # resolves to the same single value either way (_render_date_
+        # placeholders only ever joins the real candidates with "או") -
+        # this only changes the SURROUNDING instruction's own wording to
+        # match what's actually being shown.
+        if len(candidates) == 1:
+            return (
+                "\nיש הצעת תאריכים חדשה אחת שטרם אושרה בפועל (לא כמה אפשרויות לבחור ביניהן). לעולם אל "
+                "תכתבי שום תאריך קלנדרי בעצמך בתשובה הזו (לא יום בחודש, לא שם חודש, לא מספר) - לא עבור "
+                "ההצעה הזו ולא כתגובה לבקשת שינוי קטנה (\"יום קודם\"/\"להקדים\"/\"להזיז\"). כשאת רוצה "
+                f"להציג אותה, כתבי אך ורק את המחרוזת המדויקת {_DATE_OPTIONS_PLACEHOLDER} "
+                "(בדיוק כך, עם הסוגריים הכפולים, בלי תאריך נוסף לידה) - הקוד יחליף אותה אוטומטית בטקסט "
+                "האמיתי, ונסחי סביבה שאלת אישור ישירה אחת (למשל \"מתאים לך?\"), לא ניסוח של בחירה מתוך "
+                "רשימה. אם ההצעה הזו לא תואמת בדיוק את מה שהלקוח ביקש (למשל ביקש שינוי "
+                f"שעדיין לא חושב), אל תכתבי {_DATE_OPTIONS_PLACEHOLDER} בכלל - שאלי כדי לוודא במקום."
+            )
         return (
             "\nתאריכי הטיול עדיין לא אושרו בפועל - יש אפשרויות ממתינות. לעולם אל תכתבי שום תאריך "
             "קלנדרי בעצמך בתשובה הזו (לא יום בחודש, לא שם חודש, לא מספר) - לא עבור האפשרויות "
