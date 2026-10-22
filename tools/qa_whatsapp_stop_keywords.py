@@ -44,7 +44,7 @@ ROUTED = "__NORMAL_CONVERSATION__"
 routed_texts = []
 
 
-def fake_route_member(member_id, text):
+def fake_route_member(member_id, text, phone=None):
     routed_texts.append(text)
     return ROUTED
 

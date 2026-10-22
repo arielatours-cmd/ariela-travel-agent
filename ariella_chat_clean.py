@@ -5,14 +5,18 @@ import re
 import threading
 import time
 import anthropic
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from flask import Blueprint, jsonify, request, session
 from config import DB_PATH, DESTINATIONS, MULTI_GATEWAY_CITIES, AIRPORT_NAMES
 import sqlite3
 from travel_agents import _conversation, _load_airports
 from ski_catalog import SKI_RESORTS
-from database import save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state, find_member_trip_by_mention, clear_ariella_conversation, get_setting
+from database import (
+    save_ariella_conversation, load_ariella_conversation, reset_ariella_conversation_trip_state,
+    find_member_trip_by_mention, clear_ariella_conversation, get_setting,
+    create_route_job, get_route_job, open_route_job_for_member, update_route_job,
+    append_route_job_queued_message, most_recent_route_job_for_member,
+)
 from ai_usage import record_ai_usage, set_ai_usage_context, record_diagnostic_event
 
 ariella_chat_clean = Blueprint('ariella_chat_clean', __name__)
@@ -90,7 +94,12 @@ def _claude_call_timeout():
     started = getattr(_turn_timing, "turn_started", None)
     if started is None:
         return _TURN_TIMEOUT_BUDGET_SECONDS
-    remaining = _TURN_TIMEOUT_BUDGET_SECONDS - (time.time() - started)
+    # Task 016a: a background route-build thread sets its own, larger
+    # budget_seconds (its 150s absolute timeout, not the website's 90s
+    # per-request one) before calling the engine - unset for every ordinary
+    # synchronous request, so this is a no-op everywhere else.
+    budget = getattr(_turn_timing, "budget_seconds", _TURN_TIMEOUT_BUDGET_SECONDS)
+    remaining = budget - (time.time() - started)
     if remaining <= 0:
         return 0.0
     return max(_MIN_CLAUDE_CALL_TIMEOUT_SECONDS, min(_MAX_CLAUDE_CALL_TIMEOUT_SECONDS, remaining))
@@ -3730,23 +3739,31 @@ def _user_gender_from_approval(message, state):
     return (state or {}).get("user_gender")
 
 
+def _is_approval_word(message) -> bool:
+    """The literal, exact approval trigger word (מאשר/מאשרת), with a
+    redundant leading "כן" stripped - never widened beyond these two words
+    (a bare "כן" alone is not approval). Factored out of _approval_trigger
+    so task 016a's premature-approval-during-route-build check (which has
+    no flight-summary state to gate against - it only needs the literal
+    word itself) can reuse the exact same word-matching rule instead of
+    duplicating it."""
+    msg = str(message or "").strip().lower()
+    if msg in {"מאשר", "מאשרת"}:
+        return True
+    # "כן, מאשרת" / "כן מאשר" ("yes, I confirm") IS the approval word with a
+    # redundant leading "yes" - seen live (Shaked, round 8): this fell
+    # through to the near-miss/typo clarifier ("האם התכוונת לאשר?") instead
+    # of actually approving.
+    msg = re.sub(r"^כן[\s,.!]*", "", msg)
+    return msg in {"מאשר", "מאשרת"}
+
+
 def _approval_trigger(message, history, state):
     """Exact approval executes after the flight summary was visibly presented.
     Do not depend on a stale ready_for_summary flag from the previous HTTP turn.
     """
-    msg = str(message or "").strip().lower()
-    if msg not in {"מאשר", "מאשרת"}:
-        # "כן, מאשרת" / "כן מאשר" ("yes, I confirm") IS the approval word
-        # with a redundant leading "yes" - seen live (Shaked, round 8): this
-        # fell through to the near-miss/typo clarifier ("האם התכוונת
-        # לאשר?") instead of actually approving. Strip a leading "כן" (with
-        # its separating punctuation/whitespace) and recheck against the
-        # same exact two words, so this never widens what counts as
-        # approval beyond "מאשר"/"מאשרת" themselves (a bare "כן" alone
-        # still does not approve).
-        msg = re.sub(r"^כן[\s,.!]*", "", msg)
-        if msg not in {"מאשר", "מאשרת"}:
-            return False
+    if not _is_approval_word(message):
+        return False
     state = state if isinstance(state, dict) else {}
     # Once the flights were approved and are being scanned, "מאשרת" can only
     # be about a later service (car/lodging/route) - seen live: a car
@@ -12213,18 +12230,295 @@ def chat_clean():
         _turn_timing.turn_started = None
 
 
+# Task 016a (ROUTE_BUILD_ASYNC): background route-build dispatch. One open
+# job per member at a time, same dict+lock+is_alive() dedup shape as
+# _queue_lodging_search/_queue_car_search in public_site.py - the
+# difference here is the job itself is recorded in the route_jobs DB table
+# (not just this in-memory dict), so it survives the request that queued it
+# and a restart can at least detect a stale 'building' row (stage 5) instead
+# of losing track of it outright.
+_route_build_threads = {}
+_route_build_threads_lock = threading.Lock()
+_ROUTE_BUILD_TIMEOUT_SECONDS = 150.0
+
+
+def _engine_result_payload(result) -> dict:
+    """Unwraps _run_chat_turn_engine's Flask-shaped return (jsonify(...) or
+    (jsonify(...), status)) into the plain dict every one of its ~30 return
+    sites always carries. Raises if that assumption is somehow violated,
+    which the caller treats as a genuine engine failure."""
+    response = result[0] if isinstance(result, tuple) else result
+    payload = response.get_json() if hasattr(response, "get_json") else None
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"engine returned a non-JSON result: {type(response)!r}")
+    return payload
+
+
+def _run_route_build_job(job_id: int, member_id: int, message: str, history: list, trip_state: dict, channel: str | None) -> None:
+    """Runs _run_chat_turn_engine - the exact same turn-processing code path
+    a synchronous request runs - in whatever thread calls this, then records
+    the result (or failure) on the job row. Not Flask-request-bound: pushes
+    its own app context (needed only because _run_chat_turn_engine's many
+    return sites call jsonify(), which needs current_app) and gives itself
+    the background job's own 150s budget via _turn_timing.budget_seconds,
+    separate from the website's normal 90s per-request budget.
+
+    Per Ofek's spec section 6: a genuine failure (exception, broken JSON,
+    timeout) gets exactly ONE automatic retry before being recorded as
+    failed - tracked via the job row's own `attempt` column. Once the main
+    route itself succeeds, any message that arrived WHILE this job was
+    building (queued_messages, appended by _chat_clean_impl) is replayed in
+    order through the same engine, each one's reply collected into
+    queued_replies - the route is shown first, these corrections/follow-ups
+    surface right after, never silently dropped and never answered out of
+    turn (spec section 6, first row)."""
+    from app import app as _flask_app  # lazy: app.py imports this module first, so app doesn't exist yet at module load time
+    _turn_timing.turn_started = time.time()
+    _turn_timing.budget_seconds = _ROUTE_BUILD_TIMEOUT_SECONDS
+    try:
+        payload = None
+        last_error = None
+        for attempt in (1, 2):
+            if attempt == 2:
+                update_route_job(job_id, attempt=2)
+            try:
+                with _flask_app.app_context():
+                    result = _run_chat_turn_engine(member_id, message, history, trip_state, channel)
+                payload = _engine_result_payload(result)
+                break
+            except Exception as exc:
+                last_error = exc
+                logging.warning("Route build attempt %s failed for member %s (job %s): %s", attempt, member_id, job_id, exc)
+        if payload is None:
+            raise last_error or RuntimeError("route build failed with no payload")
+
+        current_history = list(history) + [
+            {"role": "user", "content": message},
+            {"role": "assistant", "content": str(payload.get("reply") or "")},
+        ]
+        current_trip_state = payload.get("trip_update") if isinstance(payload.get("trip_update"), dict) else trip_state
+
+        # Drain queued_messages (re-read fresh - more could have arrived
+        # after this thread started with its own frozen copy) sequentially
+        # through the same engine, each building on the previous one's
+        # result - exactly like a normal multi-turn conversation.
+        queued_replies = []
+        job_now = get_route_job(job_id) or {}
+        for queued_message in job_now.get("queued_messages") or []:
+            try:
+                with _flask_app.app_context():
+                    queued_result = _run_chat_turn_engine(member_id, queued_message, current_history, current_trip_state, channel)
+                queued_payload = _engine_result_payload(queued_result)
+            except Exception:
+                logging.exception("Replaying a queued message failed for member %s (job %s) - skipping it", member_id, job_id)
+                continue
+            queued_reply = str(queued_payload.get("reply") or "")
+            queued_replies.append(queued_reply)
+            current_history = current_history + [
+                {"role": "user", "content": queued_message},
+                {"role": "assistant", "content": queued_reply},
+            ]
+            if isinstance(queued_payload.get("trip_update"), dict):
+                current_trip_state = queued_payload["trip_update"]
+
+        update_route_job(
+            job_id,
+            status="ready",
+            result_reply=payload.get("reply") or "",
+            result_trip_update=current_trip_state if isinstance(current_trip_state, dict) else {},
+            queued_replies=queued_replies,
+        )
+    except Exception as exc:
+        logging.exception("Background route build failed for member %s (job %s)", member_id, job_id)
+        # Per Ofek's spec section 6: a genuine (double) failure gets ONE
+        # yes/no question (no buttons) asking whether to try again - composed
+        # here, once, and stored as this failed job's own result_reply so
+        # both channels' polling/send code just show it like any other
+        # reply, instead of a generic hardcoded line.
+        retry_question = _route_build_failure_retry_question_reply()
+        update_route_job(job_id, status="failed", error=str(exc)[:500], result_reply=retry_question)
+    finally:
+        with _route_build_threads_lock:
+            _route_build_threads.pop(member_id, None)
+        _turn_timing.turn_started = None
+        _turn_timing.budget_seconds = None
+
+
+def _queue_route_build(member_id: int, channel: str | None, message: str, history: list, trip_state: dict):
+    """Start a background route-build job for this member, unless one is
+    already building. Returns the new job's id, or None when an existing
+    build is still in flight (caller should poll/attach to that one rather
+    than starting a second)."""
+    with _route_build_threads_lock:
+        current = _route_build_threads.get(member_id)
+        if current and current.is_alive():
+            return None
+        job_id = create_route_job(member_id, channel or "website", message, list(history), dict(trip_state))
+        thread = threading.Thread(
+            target=_run_route_build_job,
+            args=(job_id, member_id, message, list(history), dict(trip_state), channel),
+            daemon=True,
+            name=f"ariella-route-build-{member_id}",
+        )
+        _route_build_threads[member_id] = thread
+        thread.start()
+        return job_id
+
+
+def _route_build_async_enabled() -> bool:
+    """Default OFF - everything behaves exactly like today unless this is
+    explicitly turned on. Stage 2 only (detection + a quick ack reply);
+    there is no polling endpoint or in-chat "building..." indicator yet
+    (stage 3), so turning this on before stage 3 ships leaves the customer
+    with only the ack sentence until their NEXT message, which is when the
+    real route (already saved server-side once the job finishes - see
+    _run_chat_turn_engine's own persistence, unchanged) naturally surfaces.
+    Fine for controlled testing, not for production traffic."""
+    return str(os.getenv("ROUTE_BUILD_ASYNC", "0") or "0").strip() == "1"
+
+
+def _turn_expected_to_build_route(trip_state: dict) -> bool:
+    """Task 016a's one state-based signal for "this turn is about to make
+    Tinkerbell attempt a full day-by-day route" - the first draft, or a
+    rebuild after something upstream invalidated the one already proposed.
+    Never a turn that's just asking a trip_planning clarifying question
+    (style/pace) or waiting on "מאשרת" for a route already shown.
+
+    Reuses _session_gaps/_sessionize_state - the SAME gap list that already
+    decides what Tinkerbell's own system prompt asks for next - instead of
+    guessing from the message text (no phrase list): once style+pace are
+    both known and only the route itself is still missing, this exact
+    condition is what lets Tinkerbell move from asking questions to
+    proposing a route, whether that's the very first attempt or a repeat
+    after an earlier reset cleared the route along with everything else.
+    Per Ofek's spec: must never miss a real route-build turn - a narrower,
+    phrase-based detector risks exactly that, so this intentionally stays
+    on the broader, correct-by-construction state check."""
+    if not isinstance(trip_state, dict):
+        return False
+    probe = _sessionize_state(dict(trip_state))
+    if probe.get("active_session") != "trip_planning":
+        return False
+    return _session_gaps(probe, "trip_planning") == ["trip_planning.details.route"]
+
+
+_ROUTE_ACK_SYSTEM = (
+    "את אריאלה. הלקוח ביקש שתבני לו עכשיו מסלול יומי מלא לחופשה, וזה ייקח כמה "
+    "שניות. הודיעי לו במשפט אחד קצר וחם שאת בונה את המסלול עכשיו. בלי שאלה, "
+    "בלי כפתורים, ובלי לפרט שום דבר על המסלול עצמו - רק הודעה שאת עליו."
+)
+_ROUTE_ACK_FALLBACK_TEXT = "אני בונה לכם עכשיו את המסלול המלא, זה ייקח רגע 😊"
+_ROUTE_ACK_TIMEOUT_SECONDS = 8.0
+
+
+def _quick_ack_reply(system_prompt: str, fallback_text: str, message: str, source: str = "route_ack") -> str:
+    """Shared shape for task 016a's several short, fast, Ariella-voiced
+    asides sent while a background route build is in flight - never the
+    real reply. max_tokens=60 and its own fixed ~8s timeout (not the normal
+    per-request budget, which would let this ride the website's full 90s
+    instead of returning fast), per Ofek's spec. A hardcoded fallback
+    sentence covers the call itself failing - never another model call."""
+    key = os.getenv('ANTHROPIC_API_KEY', '').strip()
+    model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
+    prior_budget = getattr(_turn_timing, "budget_seconds", None)
+    _turn_timing.budget_seconds = _ROUTE_ACK_TIMEOUT_SECONDS
+    try:
+        reply = _post_claude(
+            key, model, system_prompt, "", [], message, 60,
+            include_history=False, source=source,
+        ).strip()
+        return reply or fallback_text
+    except Exception:
+        logging.exception("%s call failed - falling back to the hardcoded sentence", source)
+        return fallback_text
+    finally:
+        _turn_timing.budget_seconds = prior_budget
+
+
+def _route_build_ack_reply(message: str) -> str:
+    """The initial "I'm building your route" ack (Ofek's spec section 3)."""
+    return _quick_ack_reply(_ROUTE_ACK_SYSTEM, _ROUTE_ACK_FALLBACK_TEXT, message, source="route_ack")
+
+
+_ROUTE_BUILD_QUEUED_MESSAGE_ACK_SYSTEM = (
+    "את אריאלה. הלקוח כתב לך הודעה בזמן שאת בונה לו מסלול יומי מלא, וזה עדיין "
+    "לא מוכן. הודיעי לו במשפט אחד קצר וחם שקלטת, ושתתייחסי לזה ברגע שהמסלול "
+    "מוכן. בלי שאלה, בלי כפתורים, ובלי לפרט שום דבר על המסלול עצמו."
+)
+_ROUTE_BUILD_QUEUED_MESSAGE_ACK_FALLBACK_TEXT = "קלטתי, אני עדיין בונה את המסלול - אתייחס לזה ברגע שהוא מוכן 😊"
+
+
+def _route_build_queued_message_ack_reply(message: str) -> str:
+    """Task 016a Stage 5: a short aside for a message that arrives WHILE a
+    route is still building (spec section 6, first row) - the message
+    itself is queued separately (append_route_job_queued_message) and
+    replayed once the route is ready; this is only the immediate aside."""
+    return _quick_ack_reply(
+        _ROUTE_BUILD_QUEUED_MESSAGE_ACK_SYSTEM, _ROUTE_BUILD_QUEUED_MESSAGE_ACK_FALLBACK_TEXT,
+        message, source="route_build_queued_ack",
+    )
+
+
+_ROUTE_BUILD_PREMATURE_APPROVAL_SYSTEM = (
+    "את אריאלה. הלקוח כתב 'מאשרת'/'מאשר', אבל את עדיין בונה לו את המסלול "
+    "היומי ועוד לא הראית לו אותו - אי אפשר לאשר מסלול שעוד לא הוצג. הודיעי "
+    "לו במשפט אחד קצר וחם שהמסלול כמעט מוכן, ושתציגי אותו לאישור ברגע שהוא "
+    "מוכן. בלי שאלה, בלי כפתורים."
+)
+_ROUTE_BUILD_PREMATURE_APPROVAL_FALLBACK_TEXT = "המסלול כמעט מוכן - אציג לך אותו לאישור ברגע שהוא מוכן 😊"
+
+
+_ROUTE_BUILD_FAILURE_RETRY_SYSTEM = (
+    "את אריאלה. הייתה בעיה טכנית בבניית המסלול היומי של הלקוח, אחרי שכבר "
+    "ניסית פעמיים. הודיעי לו בחום שהייתה בעיה, ושאלי שאלת כן/לא אחת ויחידה "
+    "אם לנסות שוב לבנות את המסלול. בלי כפתורים, ובלי שום שאלה נוספת."
+)
+_ROUTE_BUILD_FAILURE_RETRY_FALLBACK_TEXT = "הייתה לי בעיה טכנית בבניית המסלול. לנסות שוב?"
+
+
+def _route_build_failure_retry_question_reply() -> str:
+    """Task 016a Stage 5: composed once, when a route build genuinely fails
+    after its one automatic retry (spec section 6, fourth row) - stored as
+    the failed job's own result_reply so both channels show this exact
+    question, and the customer's next message is interpreted as the answer
+    (_chat_clean_impl, via _interpret_yes_no)."""
+    return _quick_ack_reply(
+        _ROUTE_BUILD_FAILURE_RETRY_SYSTEM, _ROUTE_BUILD_FAILURE_RETRY_FALLBACK_TEXT,
+        "(הבניה נכשלה פעמיים)", source="route_build_failure_retry_question",
+    )
+
+
+def _route_build_premature_approval_ack_reply(message: str) -> str:
+    """Task 016a Stage 5: "מאשרת" arriving while the route is still being
+    built (spec section 6, third row) - never queued for replay (approving
+    a route the customer hasn't seen yet would be meaningless once it
+    finally appears; a genuine approval needs a fresh "מאשרת" after)."""
+    return _quick_ack_reply(
+        _ROUTE_BUILD_PREMATURE_APPROVAL_SYSTEM, _ROUTE_BUILD_PREMATURE_APPROVAL_FALLBACK_TEXT,
+        message, source="route_build_premature_approval_ack",
+    )
+
+
 def _chat_clean_impl():
+    """Thin Flask-facing shell: auth check, request-body parsing, and
+    member_id/channel capture only. All real turn-processing logic lives in
+    _run_chat_turn_engine() below, which takes plain parameters instead of
+    reading Flask's session/request directly - task 016a (ROUTE_BUILD_ASYNC)
+    needs that same engine callable from a background thread, which has
+    neither a request nor (without an explicit push) the member's session."""
     if not session.get('member_id'):
         return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.', 'engine_version': ENGINE_VERSION}), 401
 
+    member_id = session.get('member_id')
+    channel = 'whatsapp' if session.get('ariella_channel') == 'whatsapp' else None
     set_ai_usage_context(
-        member_id=session.get('member_id'),
+        member_id=member_id,
         is_test=str(get_setting('qa_test_mode', '0') or '0') == '1',
         # Task 006a: set only by whatsapp_bridge.ariella_turn (via a session
         # flag, before it calls this exact route through the Flask test
         # client) - an ordinary website call never sets this, so its own
         # ai_usage rows are unaffected.
-        channel=('whatsapp' if session.get('ariella_channel') == 'whatsapp' else None),
+        channel=channel,
     )
     body = request.get_json(silent=True) or {}
     message = str(body.get('message') or '').strip()
@@ -12233,11 +12527,102 @@ def _chat_clean_impl():
 
     history = body.get('history') if isinstance(body.get('history'), list) else []
     trip_state = body.get('trip_state') if isinstance(body.get('trip_state'), dict) else {}
+
+    if _route_build_async_enabled():
+        # Resolve against the SAME saved-conversation/stale-reset logic the
+        # engine itself applies, so detection sees the real trip_state this
+        # turn will actually run against - not the browser's possibly-stale
+        # copy. Harmless to resolve twice: _run_chat_turn_engine below (sync
+        # path) or the background job (async path) each redo this on an
+        # already-resolved state, which is a no-op (see _resolve_turn_inputs).
+        resolved_history, resolved_trip_state, _, _ = _resolve_turn_inputs(member_id, message, list(history), dict(trip_state))
+
+        # Spec section 6, fourth row: a build that genuinely failed (after
+        # its one automatic retry) left a yes/no "try again?" question as
+        # that job's own result_reply - this member's very next message is
+        # its answer, by MEANING (never exact wording), classified the same
+        # way every other yes/no gate in this file already is.
+        last_job = most_recent_route_job_for_member(member_id)
+        if last_job and last_job.get("status") == "failed" and not last_job.get("retry_resolved"):
+            key = os.getenv('ANTHROPIC_API_KEY', '').strip()
+            model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
+            answer = _interpret_yes_no(key, model, resolved_history, message, last_job.get("result_reply") or "")
+            if answer == "yes":
+                update_route_job(last_job["id"], retry_resolved=True)
+                job_id = _queue_route_build(member_id, channel, last_job.get("message") or message, last_job.get("history") or [], last_job.get("trip_state") or {})
+                if job_id is not None:
+                    return jsonify({
+                        'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                        'reply': _route_build_ack_reply(message), 'trip_update': resolved_trip_state,
+                        'start_flight_search': False, 'route_build_job_id': job_id,
+                    })
+            else:
+                # "no", or "unclear" (no established re-ask mechanic exists
+                # for this one-off question - documented limitation, see the
+                # PR description): never auto-retry a build the customer
+                # didn't clearly ask for. This exact message goes through
+                # the ordinary synchronous engine, not back into route-build
+                # detection (which would otherwise immediately redispatch a
+                # build, since trip_state still looks exactly like one).
+                update_route_job(last_job["id"], retry_resolved=True)
+                return _run_chat_turn_engine(member_id, message, history, trip_state, channel)
+
+        open_job = open_route_job_for_member(member_id)
+        if open_job is not None:
+            # Spec section 6, sixth row: a 'building' row left over from a
+            # dead process (restart/deploy mid-build) past the 150s absolute
+            # timeout is reclaimed as a failure here too, not just by the
+            # polling endpoint - otherwise this member could never start a
+            # new build at all until the stale row happened to age out some
+            # other way.
+            elapsed_seconds = (_minutes_since(open_job.get("started_at")) or 0) * 60
+            if elapsed_seconds >= _ROUTE_BUILD_TIMEOUT_SECONDS:
+                update_route_job(open_job["id"], status="failed", error="stale building row (restart/deploy recovery)",
+                                  result_reply=_route_build_failure_retry_question_reply())
+                open_job = None
+
+        if open_job is not None:
+            # Spec section 6, second and third rows: never silently drop a
+            # message that arrives while a build is genuinely still running.
+            if _is_approval_word(message):
+                reply = _route_build_premature_approval_ack_reply(message)
+            else:
+                append_route_job_queued_message(open_job["id"], message)
+                reply = _route_build_queued_message_ack_reply(message)
+            return jsonify({
+                'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                'reply': reply, 'trip_update': resolved_trip_state, 'start_flight_search': False,
+            })
+
+        if _turn_expected_to_build_route(resolved_trip_state):
+            job_id = _queue_route_build(member_id, channel, message, resolved_history, resolved_trip_state)
+            if job_id is not None:
+                return jsonify({
+                    'status': 'success', 'agent': 'Ariella', 'engine_version': ENGINE_VERSION,
+                    'reply': _route_build_ack_reply(message), 'trip_update': resolved_trip_state,
+                    'start_flight_search': False, 'route_build_job_id': job_id,
+                })
+
+    return _run_chat_turn_engine(member_id, message, history, trip_state, channel)
+
+
+def _resolve_turn_inputs(member_id, message, history, trip_state):
+    """Resolve the effective history/trip_state for this turn: fall back to
+    the member's own server-saved conversation when the caller sent none,
+    and apply the stale-session reset when the gap since last contact is
+    long enough. Shared by _run_chat_turn_engine (the real per-turn work,
+    unchanged - this is exactly what used to be inline at its own top) and
+    task 016a's background-build detection in _chat_clean_impl, which needs
+    this SAME resolved trip_state to decide sync vs async before any heavy
+    processing starts. Calling it twice for the same turn (detection, then
+    again inside the engine once dispatched) is intentionally harmless -
+    once trip_state is non-empty the resume-from-saved branch below is a
+    no-op, and the stale reset is idempotent against an already-reset state."""
     # Always consult the server-side record, even when the browser already
     # sent its own trip_state - it's the only place that carries a reliable,
     # server-controlled "when did we last actually talk" timestamp (the
     # client's own copy has none), needed below for the stale-session reset.
-    saved_conversation = load_ariella_conversation(session['member_id'])
+    saved_conversation = load_ariella_conversation(member_id)
     # The browser's local cache is per-device and empties on logout/switching
     # devices. When it has no progress at all, resume the member's own
     # server-saved conversation instead of starting over.
@@ -12258,7 +12643,24 @@ def _chat_clean_impl():
     # were just cleared from trip_state would simply be re-mined straight
     # back out of the old messages (seen live, in testing this exact fix).
     history_before_gap = history
-    _member_id = session['member_id']
+
+    _idle_minutes = _minutes_since((saved_conversation or {}).get('updated_at'))
+    stale_reset_happened = False
+    if _idle_minutes is not None and _idle_minutes >= _STALE_SESSION_MINUTES and _has_vacation_progress(trip_state):
+        trip_state = _reset_stale_trip_state(trip_state, message)
+        history = []
+        stale_reset_happened = True
+    return history, trip_state, history_before_gap, stale_reset_happened
+
+
+def _run_chat_turn_engine(member_id, message, history, trip_state, channel=None):
+    """The real per-turn engine (unchanged behavior from the old
+    _chat_clean_impl body below this point) - extracted so a background
+    thread (task 016a) can run the exact same code path a synchronous
+    request runs today, against plain parameters instead of session/request.
+    `channel` is carried through for later stages (WhatsApp ack wiring);
+    nothing below reads it yet."""
+    history, trip_state, history_before_gap, stale_reset_happened = _resolve_turn_inputs(member_id, message, history, trip_state)
 
     def _reply(payload, status=None):
         """The single exit point for every successful turn below (per
@@ -12284,7 +12686,17 @@ def _chat_clean_impl():
         _remember_turn_reset_trip's own established pattern - so a
         same-account concurrent request is appended after, never clobbered.
         Only a genuine 'success' reply is persisted; an error response
-        (400/401/503) means nothing actually happened this turn."""
+        (400/401/503) means nothing actually happened this turn.
+
+        Moved here from _resolve_turn_inputs during the 016a/main merge
+        (22.10.2026): _reply must be reachable from every return site
+        across THIS function's whole body (the real per-turn engine), not
+        just _resolve_turn_inputs's own short 4-tuple return. Reads the
+        `member_id` parameter directly instead of `session['member_id']` -
+        this function already runs outside any Flask request/session
+        context when dispatched from the 016a background-build thread, the
+        exact reason _run_chat_turn_engine takes member_id as a plain
+        parameter in the first place."""
         if payload.get('status') == 'success' and payload.get('reply') is not None:
             try:
                 # Per Shaked's review of #86 (18.10, qa/reports/2026-10-18-
@@ -12297,7 +12709,7 @@ def _chat_clean_impl():
                 # a single call site to keep in sync.
                 if isinstance(payload.get('trip_update'), dict):
                     payload['trip_update'] = _roll_past_dates(payload['trip_update'])
-                existing = load_ariella_conversation(_member_id)
+                existing = load_ariella_conversation(member_id)
                 base_history = (existing or {}).get('history') or history_before_gap
                 full_history = list(base_history) + [
                     {'role': 'user', 'content': message},
@@ -12305,20 +12717,14 @@ def _chat_clean_impl():
                 ]
                 trip_update_to_save = payload.get('trip_update')
                 save_ariella_conversation(
-                    _member_id, full_history[-80:],
+                    member_id, full_history[-80:],
                     trip_update_to_save if isinstance(trip_update_to_save, dict) else {},
                 )
             except Exception:
-                logging.exception("Failed to persist Ariella conversation turn for member %s", _member_id)
+                logging.exception("Failed to persist Ariella conversation turn for member %s", member_id)
         resp = jsonify(payload)
         return (resp, status) if status else resp
 
-    _idle_minutes = _minutes_since((saved_conversation or {}).get('updated_at'))
-    stale_reset_happened = False
-    if _idle_minutes is not None and _idle_minutes >= _STALE_SESSION_MINUTES and _has_vacation_progress(trip_state):
-        trip_state = _reset_stale_trip_state(trip_state, message)
-        history = []
-        stale_reset_happened = True
     key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     model = os.getenv('ARIELLA_MODEL', 'claude-sonnet-5').strip()
 
@@ -12415,7 +12821,7 @@ def _chat_clean_impl():
         _dest_codes = trip_state.get('destination_airports') if isinstance(trip_state.get('destination_airports'), list) else []
         _dates = trip_state.get('dates') if isinstance(trip_state.get('dates'), dict) else {}
         _existing = _find_recent_scanned_vacation(
-            session['member_id'], _dest_codes, trip_state.get('departure_airport'),
+            member_id, _dest_codes, trip_state.get('departure_airport'),
             _dates.get('departure'), _dates.get('return'),
         )
         if _existing:
@@ -12454,7 +12860,6 @@ def _chat_clean_impl():
                 str(trip.get('travel_window') or ''),
             )
 
-        member_id = session.get('member_id')
         matches = find_member_trip_by_mention(member_id, message) if member_id else []
         if len(matches) == 1:
             trip = matches[0]
@@ -12546,7 +12951,6 @@ def _chat_clean_impl():
     pending_resume = trip_state.get("resume_choice_pending") if isinstance(trip_state.get("resume_choice_pending"), dict) else None
     if pending_resume:
         stage = pending_resume.get("stage")
-        member_id = session['member_id']
 
         def _resume_fresh_start(trigger_message):
             # Same clean-slate shape as every sibling "this is actually a new
@@ -12631,7 +13035,6 @@ def _chat_clean_impl():
         options = pending_reopen.get("options") or []
         service = pending_reopen.get("service")
         choice = _pick_reopen_option(message, options, key, model, history)
-        member_id = session['member_id']
         if choice is None and pending_reopen.get("asked_again"):
             # Never loop forever asking the same "which vacation" question -
             # seen live (Shaked, round 4): once this got asked and the
@@ -12755,7 +13158,7 @@ def _chat_clean_impl():
                 services_wanted = [linked_service] + [s for s in services_wanted if s != linked_service]
             else:
                 services_wanted = [linked_service] + services_wanted
-            candidates = _reopenable_trips(session['member_id'], linked_service, " ".join(str(p) for p in open_places), limit=20)
+            candidates = _reopenable_trips(member_id, linked_service, " ".join(str(p) for p in open_places), limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
@@ -12773,7 +13176,7 @@ def _chat_clean_impl():
         if requested_service in _REOPEN_LABELS:
             if requested_service not in services_wanted:
                 services_wanted = [requested_service] + services_wanted
-            candidates = _reopenable_trips(session['member_id'], requested_service, message, limit=20)
+            candidates = _reopenable_trips(member_id, requested_service, message, limit=20)
             if candidates:
                 pending = dict(trip_state)
                 pending["reopen_trip_pending"] = {
@@ -12802,10 +13205,10 @@ def _chat_clean_impl():
         #    also classifies to "new" on its own, with no separate
         #    heuristic needed for it. Only a genuinely UNCLEAR message
         #    costs an extra round trip (the actual "ask" stage below).
-        if not trip_state.get("resume_choice_done") and _has_active_future_trip(session['member_id']):
+        if not trip_state.get("resume_choice_done") and _has_active_future_trip(member_id):
             intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
             if intent == "keep":
-                return _resume_choice_offer_continue(trip_state, session['member_id'])
+                return _resume_choice_offer_continue(trip_state, member_id)
             if intent == "unclear":
                 pending = dict(trip_state)
                 pending["resume_choice_pending"] = {"stage": "ask"}
@@ -12847,7 +13250,7 @@ def _chat_clean_impl():
             _services_elsewhere = [s for s in dict.fromkeys(_all_requested_services(message, trip_state)) if s in _REOPEN_LABELS]
             _reopen_service = _services_elsewhere[0] if _services_elsewhere else None
             if _reopen_service:
-                _reopen_candidates = _reopenable_trips(session['member_id'], _reopen_service, message, limit=20)
+                _reopen_candidates = _reopenable_trips(member_id, _reopen_service, message, limit=20)
                 if _reopen_candidates:
                     pending = dict(trip_state)
                     pending["reopen_trip_pending"] = {
@@ -12882,7 +13285,7 @@ def _chat_clean_impl():
     _asks_about_saved_vacations = any(
         cue in str(message or "") for cue in ("בחופשות שלי", "החופשות שלי", "חופשות שלי", "בכרטיס החופשה", "בכרטיסי החופשה")
     )
-    upcoming = _upcoming_vacations(session['member_id']) if (not _has_active_destination or _asks_about_saved_vacations) else []
+    upcoming = _upcoming_vacations(member_id) if (not _has_active_destination or _asks_about_saved_vacations) else []
     if upcoming:
         trip_state["upcoming_vacations"] = upcoming
     else:
@@ -14440,7 +14843,7 @@ def _chat_clean_impl():
         # their registration data, never from client-supplied state, which
         # can be stale or wrong. Loaded before the sessions advance so the
         # departure default counts toward the flight gaps.
-        trip_update["profile"] = _member_profile(session["member_id"])
+        trip_update["profile"] = _member_profile(member_id)
         trip_update = _apply_home_airport(trip_update)
         # trip_planning must never silently activate itself without a
         # genuine customer decision - see the function's own docstring.
@@ -15618,3 +16021,51 @@ def _chat_clean_impl():
         # writing the link herself (see _link_request_pending's hint).
         'open_existing_flights': link_request_verified and has_vacation_to_link_to,
     })
+
+
+@ariella_chat_clean.get('/api/ariella/route-status/<int:job_id>')
+def route_build_status(job_id):
+    """Task 016a Stage 3: polling endpoint for a background route build,
+    mirroring /trip/<id>/flight-status's own {status, stages:{...}} shape
+    (trip_flight_status, public_site.py) so the in-chat indicator can reuse
+    the same polling idea trip_waiting.html already uses. There is no
+    trip_id yet at this point (the route hasn't been approved/saved as a
+    trip) - a job belongs to the member directly, so membership is checked
+    against route_jobs.member_id instead.
+
+    A job still 'building' past its own 150s absolute timeout (Ofek's
+    spec, section 6) is reported as failed here even if the background
+    thread technically hasn't updated the row yet - the thread enforces
+    this on its own via the same budget, but the client must never be left
+    polling forever if that somehow lags."""
+    if not session.get('member_id'):
+        return jsonify({'status': 'error', 'message': 'נדרשת התחברות כדי לשוחח עם אריאלה.'}), 401
+    job = get_route_job(job_id)
+    if not job or job.get('member_id') != session['member_id']:
+        return jsonify({'status': 'missing'}), 404
+
+    stage = {'ready': 'complete', 'failed': 'failed'}.get(job['status'], 'searching')
+    if stage == 'searching':
+        elapsed_seconds = (_minutes_since(job.get('started_at')) or 0) * 60
+        if elapsed_seconds >= _ROUTE_BUILD_TIMEOUT_SECONDS:
+            stage = 'failed'
+
+    response = {'status': job['status'], 'stages': {'plan': stage}, 'all_done': stage in ('complete', 'failed')}
+    if job['status'] == 'ready':
+        response['reply'] = job.get('result_reply') or ''
+        response['trip_update'] = job.get('result_trip_update') or {}
+        # Spec section 6, first row: messages queued while this job was
+        # still building are replayed through the engine once it's ready
+        # (_run_route_build_job) - each one's own reply, in order, shown
+        # right after the route itself.
+        response['queued_replies'] = job.get('queued_replies') or []
+    elif stage == 'failed':
+        response['error'] = job.get('error') or 'timeout'
+        # The real build thread already composed a yes/no retry question
+        # (_route_build_failure_retry_question_reply) and stored it as this
+        # job's own result_reply; a row still 'building' in the DB but
+        # already past the absolute timeout (detected above, not yet
+        # updated by its own thread) has none yet, so falls back to the
+        # same hardcoded sentence the thread itself would use.
+        response['reply'] = job.get('result_reply') or _ROUTE_BUILD_FAILURE_RETRY_FALLBACK_TEXT
+    return jsonify(response)
