@@ -302,7 +302,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - כנ"ל עוד לפני הסריקה: אם כבר ציינת ללקוח (מידע כללי שלך או בדיקה שבוצעה) שליעד הזה כמעט אין טיסות ישירות מישראל, אסור לשאול שום שאלת המשך על הקונקשן - לא "ישירה או קונקשן", ולא שאלה דומה כמו "חשוב לך לצמצם את זמן ההמתנה בקונקשן, או שזה גמיש?". ברגע שנקבע שאין אפשרות ישירה אמיתית, הנושא סגור לגמרי ועוברים לשאלה הבאה שבאמת חסרה - אסור להמשיך "לחטט" בפרטי הקונקשן כשאלת נימוס או כברירת מחדל.
 - לפני שיצאה סריקה בפועל, אסור להבטיח ללקוח טיסה ספציפית ("יש לכם טיסה ישירה מנתב"ג לבנגקוק ב-15.7.2027, בדיוק מה שרצית") או לדבר על תקציב מסוים כאילו הוא כבר הושג ("תקציב של 4000 לטיסה ישירה נשמע סביר, אני אדאג לזה") - אלה טענות על תוצאה שעוד לא נבדקה. הנוסח הנכון קודם לסריקה מתייחס לבקשה/להעדפה של הלקוח בלבד ("קלטתי - טיסה ישירה, תקציב עד 4,000 ₪"), לעולם לא כאילו התוצאה כבר נמצאה או מובטחת.
 - flight.baggage היא רשימה מתוך הערכים האלה בדיוק, לפי מה שהלקוח ציין: "carry_on_only" (טרולי/כבודת עלייה למטוס בלבד, ללא מזוודה בבטן המטוס - "רק טרולי" ו"טרולי בלבד" הן דוגמאות למשמעות הזו, לא ל"ללא כבודה"), "checked_bag" (יש גם מזוודה בבטן המטוס), "personal_item" (תיק קטן בלבד, אפילו לא טרולי). "none"/"no_baggage" שמורים אך ורק למקרה שהלקוח אמר במפורש שאין לו שום כבודה, כולל לא תיק - לא לניסוח כמו "טרולי בלבד" שאומר בדיוק את ההפך: יש כבודה, רק לא מזוודה.
-- הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים בקבוצה - אי אפשר להזמין סוג שונה לנוסעים שונים באותה הזמנה. לכן כשהלקוח משייך סוג כבודה שונה לנוסעים/קבוצות שונים בתוך אותה תשובה (בכל ניסוח - גם תיאור צד-לצד כמו "אני מסתדרת עם תיק קטן, השתיים האחרות רוצות מזוודה גדולה", לא רק ניגוד מפורש עם "אבל"), לעולם אל תרשמי כמה סוגים שונים ברשימה כאילו כולם רלוונטיים לכל הקבוצה, ולעולם אל תפתרי את הבקשה בעצמך לערך יחיד (לא checked_bag ולא כל ערך אחר) - לפי ההחלטה המפורשת של בעלת העסק (22.10) בקשה כזו לא נפתרת ולא נשמרת כלל כאן: השאירי את flight.baggage כפי שהיה (null/ריק אם עדיין לא נקבע) - הטיפול בבקשה מעורבת (הסבר שכבודה שונה לכל נוסע אפשר להוסיף רק בעמוד התשלום, ואז שאלת כן/לא על כבודה אחידה לכולם) קורה במקום אחר, לא בחילוץ הזה. זה שונה לגמרי ממקרה שבו הלקוח מבקש בפירוש כמה סוגים לכל הקבוצה כולה (למשל "טרולי וגם מזוודה לכולנו") - זו בקשה אחידה לשני פריטים, לא בקשה מעורבת, ונשמרת כפי שהיא.
+- הזמנה היא תמיד כבודה אחידה אחת לכל הכרטיסים בקבוצה - אי אפשר להזמין סוג שונה לנוסעים שונים באותה הזמנה. לכן כשהלקוח משייך סוג כבודה שונה לנוסעים/קבוצות שונים בתוך אותה תשובה (בכל ניסוח - גם תיאור צד-לצד כמו "אני מסתדרת עם תיק קטן, השתיים האחרות רוצות מזוודה גדולה" או "לי מזוודה, לאמא מספיק טרולי", לא רק ניגוד מפורש עם "אבל"), לעולם אל תרשמי כמה סוגים שונים ברשימה כאילו כולם רלוונטיים לכל הקבוצה, ולעולם אל תפתרי את הבקשה בעצמך לערך יחיד (לא checked_bag ולא כל ערך אחר) - לפי ההחלטה המפורשת של בעלת העסק (22.10) בקשה כזו לא נפתרת ולא נשמרת כלל כאן: השאירי את flight.baggage כפי שהיה (null/ריק אם עדיין לא נקבע) - הטיפול בבקשה מעורבת (הסבר שכבודה שונה לכל נוסע אפשר להוסיף רק בעמוד התשלום, ואז שאלת כן/לא על כבודה אחידה לכולם) קורה במקום אחר, לא בחילוץ הזה. זה שונה לגמרי ממקרה שבו הלקוח מבקש בפירוש כמה סוגים לכל הקבוצה כולה (למשל "טרולי וגם מזוודה לכולנו") - זו בקשה אחידה לשני פריטים, לא בקשה מעורבת, ונשמרת כפי שהיא.
 - כשהתשובה הנוכחית גם מאשרת וגם קובעת בפירוש סוג כבודה יחיד לכל הקבוצה, באותה הודעה עצמה, כמענה לשאלה שנשאלה בתור הקודם אם לבחור כבודה אחידה אחת לכולם (לאחר שבתור קודם זוהתה בקשה מעורבת-לפי-נוסע) - כתבי flight.baggage עם הסוג היחיד הזה כרגיל, וגם מלאי את flight.baggage_detail_evidence בציטוט מילה-במילה מההודעה הנוכחית שמראה את הסוג שנקבע (למשל "כן, מזוודה לכולם" → הציטוט "מזוודה"). בלי ציטוט אמיתי כזה שתומך בסוג יחיד ומפורש מההודעה הנוכחית - השאירי flight.baggage כפי שהיה, בדיוק כמו בבקשה מעורבת רגילה.
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
@@ -4574,6 +4574,56 @@ def _baggage_summary(state):
     )
 
 
+def _destination_catalog_hint(state):
+    """Run-10 (Toruń, 22.10): with no destination_airports in state (the
+    usual case for a plain city trip - the codes are resolved only at
+    search time, from the catalog), the summary's "נחיתה:" line was written
+    from the model's own memory: "נחיתה: טורון, קרואטיה" - Toruń is in
+    Poland and has no commercial airport. The facts are now handed over
+    BEFORE the reply, from the same catalog the search uses (exact
+    city-name match, like public_site._chat_destination_codes):
+      - a destination city found in the catalog -> its airport(s) as the
+        landing fact (same wording as when destination_airports is set);
+      - a destination not in the catalog -> no verified fact exists, so an
+        explicit instruction: name only a real commercial airport serving
+        that city, with its real code, in the country the city is really
+        in; if the city has none, say so and offer the nearest airport in
+        one question. (Not a ban on naming a code: for a real city missing
+        from our list - Genoa/GOA - the search itself recovers the code the
+        model wrote, via public_site._chat_recover_search_facts.)
+      - a country (or nothing known) -> no hint, nothing changes."""
+    destination = state.get("destination") if isinstance(state.get("destination"), dict) else {}
+    places = [str(p).strip() for p in (destination.get("places") or []) if str(p or "").strip()]
+    if not places:
+        return ""
+    airports = _load_airports()
+    facts, unknown = [], []
+    for place in places:
+        needle = place.casefold()
+        cities = [a for a in airports
+                  if needle in {str(a.get("city_he") or "").strip().casefold(), str(a.get("city_en") or "").strip().casefold()}
+                  or needle == str(a.get("code") or "").strip().casefold()]
+        if cities:
+            facts += [f"{a.get('city_he') or a.get('code')} ({a.get('code')}), {a.get('country_he') or ''}".rstrip(", ")
+                      for a in cities]
+            continue
+        is_country = any(needle in {str(a.get("country_he") or "").strip().casefold(), str(a.get("country_en") or "").strip().casefold()}
+                         for a in airports)
+        if not is_country:
+            unknown.append(place)
+    line = ""
+    if facts:
+        line += ("\nשדה/שדות הנחיתה ביעד לפי רשימת שדות התעופה (מקור אמת - אל תמציאי תעתיק, קוד או מדינה "
+                 "משלך, השתמשי בדיוק בזה): " + " / ".join(dict.fromkeys(facts)) + ".")
+    if unknown:
+        line += ("\nהיעד " + ", ".join(unknown) + " לא נמצא ברשימת שדות התעופה שלנו, כך שאין כאן עובדה מאומתת "
+                 "על שדה הנחיתה. כשאת מציינת שדה נחיתה (גם בשורת \"נחיתה:\" בסיכום), זה חייב להיות שדה תעופה "
+                 "מסחרי אמיתי שמשרת את העיר הזו, עם הקוד הנכון שלו, ובמדינה שבה העיר באמת נמצאת - בדקי זאת "
+                 "לפני שאת כותבת. אם לעיר עצמה אין שדה תעופה מסחרי, אמרי זאת בפשטות והציעי את השדה הקרוב "
+                 "ביותר בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
+    return line
+
+
 def _destination_gateway_summary(state):
     """Verified Hebrew spelling for the landing/return-departure gateway
     airports, handed over as hard facts - mirrors _departure_summary's own
@@ -4587,7 +4637,7 @@ def _destination_gateway_summary(state):
     too, even when it's the same airport as the landing one."""
     dest_codes = [str(c).upper() for c in (state.get("destination_airports") or []) if c]
     if not dest_codes:
-        return ""
+        return _destination_catalog_hint(state)
     airports_by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
 
     def _fact(code):
@@ -4793,7 +4843,36 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # question), and hands this one free-text principle to Tinkerbell.
         # She composes the actual question/retry/confirmation herself, in
         # her own voice, with no quick-reply buttons ever.
-        continuity += "\n- " + str(state.get("_guided_ask_hint")) + "\n"
+        #
+        # Run-10 live finding (Shaked/Shlomo, 22.10.2026, qa/reports/
+        # 2026-10-22-stage1-live-run10.md, part (a) of the central
+        # accessibility finding): guided's own hint used to land in this
+        # same prompt ALONGSIDE other open-gap instructions below (direct-
+        # flight preference, gender, etc., all unconditionally
+        # concatenated into system_dynamic/continuity regardless of
+        # whether a guided field is live) with nothing telling Tinkerbell
+        # which one to actually ask about THIS turn - seen live, she asked
+        # the direct-flight question instead of the pending accessibility
+        # one in three of five run-10 conversations, so guided's own
+        # current_question was never actually asked at all (the mismatch
+        # PR #137 already protects the EXTRACTION side against, but the
+        # root cause - the wrong question getting asked in the first
+        # place - was still open). A guided field in progress is always
+        # the single most specific, deliberately-sequenced open question
+        # in the conversation (dates -> travelers -> accessibility ->
+        # baggage -> lodging, one at a time) - it must always win over
+        # every other open topic's own hint elsewhere in this same
+        # prompt. Stated explicitly, directly beside the hint itself,
+        # rather than by suppressing the other hints (which still carry
+        # factual grounding - e.g. "no verified direct route" - genuinely
+        # needed even on a turn where that topic isn't being asked about).
+        continuity += (
+            "\n- השאלה/הנחיה הבאה היא הדבר היחיד שצריך לברר מול הלקוח בהודעה הזו - "
+            "היא גוברת על כל נושא פתוח אחר שמוזכר במקום אחר בהנחיות (למשל העדפת טיסה "
+            "ישירה, תקציב, או כל שדה חסר אחר). אל תשאלי שום שאלה אחרת באותה הודעה, "
+            "גם אם נושא אחר עדיין פתוח - הוא יחכה לתורו. השאלה/הנחיה עצמה: "
+            + str(state.get("_guided_ask_hint")) + "\n"
+        )
     if state.get("_shift_candidate_hint"):
         # One-turn hint set in _chat_clean_impl when a shift_days candidate
         # was created this turn.
@@ -10437,8 +10516,10 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
             "מתשובת הלקוח את פריטי הכבודה - לכל פריט: סוג וכמות (אם נאמרה).\n"
             "חשוב: ההזמנה עצמה היא כבודה אחידה לכל הכרטיסים בקבוצה - אי אפשר "
             "להזמין סוג כבודה שונה לנוסעים שונים באותה הזמנה (רק בשתי הזמנות "
-            "נפרדות). לכן אין צורך בפירוט לפי נוסע (מי בדיוק מקבל מה) - רק מה "
-            "הסוג האחיד, ואם נאמרו כמות ו/או גודל.\n"
+            "נפרדות). בדקי קודם כול, לפני כל דבר אחר: האם הלקוח שייך סוגי כבודה "
+            "שונים לנוסעים שונים? אם כן - זו בקשה מעורבת (mixed_per_passenger, "
+            "למטה), ואסור לבחור במקומו סוג אחד מתוכה. רק כשהבקשה אחידה לכולם "
+            "אין צורך בפירוט לפי נוסע - רק הסוג האחיד, ואם נאמרו כמות ו/או גודל.\n"
             f"מספר נוסעים בקבוצה: {travelers_total or 'לא ידוע'}.\n"
             f"מצב נוכחי - כבודה: {json.dumps(current_flight.get('baggage'), ensure_ascii=False)}.\n"
             f"4 ההודעות האחרונות: {recent}\n"
@@ -10460,8 +10541,11 @@ def _guided_extract_answer(key, model, field, message, history, state, guided_st
             "mixed_per_passenger: true כשהלקוח משייך סוג כבודה שונה לנוסעים/"
             "קבוצות שונים בתוך אותה תשובה - בכל ניסוח, לא רק ניגוד מפורש עם "
             "\"אבל\": גם תיאור צד-לצד (\"אני מסתדרת עם תיק קטן, השתיים "
-            "האחרות רוצות מזוודה גדולה\", \"ההורים עם טרולי, לילדים מזוודה\"), "
-            "לא רק \"אני... אבל הם...\". לעולם לא true רק בגלל שיש גם טרולי "
+            "האחרות רוצות מזוודה גדולה\", \"ההורים עם טרולי, לילדים מזוודה\", "
+            "\"לי מזוודה, לאמא מספיק טרולי\" - כל צורה שבה נוסע אחד או קבוצה "
+            "אחת מקבלים סוג אחד, ונוסע או קבוצה אחרים סוג אחר), לא רק \"אני... "
+            "אבל הם...\". גם כשאחד הסוגים מנוסח כמשהו ש\"מספיק\" למישהו - זה "
+            "עדיין שיוך לנוסע מסוים, כלומר מעורב. לעולם לא true רק בגלל שיש גם טרולי "
             "וגם מזוודה לכל הקבוצה כולה (זה לא מעורב - זו בקשה לשני פריטים "
             "אחידים). לפי ההחלטה המפורשת של בעלת העסק (22.10): אין בכלל "
             "אפשרות להזמין כבודה שונה לנוסעים שונים באותה הזמנה - בקשה "
