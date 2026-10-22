@@ -11,7 +11,7 @@ from scoring import calculate_deal_score
 
 # Curated destination landmark photography. Wikimedia Commons Special:Redirect/file
 # URLs are stable remote image URLs and require no additional flight/search API calls.
-DESTINATION_LANDMARK_IMAGES = {"ATH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Parthenon_from_west.jpg", "LCA": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Church_of_Saint_Lazarus,_Larnaca,_Cyprus.jpg", "BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hungarian_Parliament_Building_from_Fisherman%27s_Bastion.jpg", "VIE": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Schloss_Schoenbrunn_Wien_2014_%28Zuschnitt_1%29.jpg", "SOF": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alexander_Nevsky_Cathedral_in_Sofia.jpg", "PRG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg", "FCO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Colosseum_in_Rome,_Italy_-_April_2007.jpg", "MXP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Milan_Cathedral_from_Piazza_del_Duomo.jpg", "CDG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Eiffel_Tower_from_the_Tour_Montparnasse_3,_Paris_May_2014.jpg", "AMS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KeizersgrachtReguliersgrachtAmsterdam.jpg", "BCN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sagrada_Familia_01.jpg", "MAD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Palacio_de_Comunicaciones_-_47.jpg", "LIS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Torre_de_Belem_1.jpg", "LHR": "https://commons.wikimedia.org/wiki/Special:Redirect/file/London_Eye_Twilight_April_2006.jpg", "BER": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brandenburger_Tor_abends.jpg", "MUC": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Neues_Rathaus_Muenchen.jpg", "ZRH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zuerichsee_Zuerich.jpg", "BRU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brussels_Grote_Markt.jpg", "OTP": "https://cdn.xplorer.co.il/xImages/site/image%2859%29.jpeg", "KRK": "https://plikimpi.krakow.pl/zalacznik/563964/4.jpg", "WAW": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Warsaw_Old_Town_Market_Square.jpg", "TBS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tbilisi_view.jpg", "EVN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Yerevan_Opera.jpg", "BEG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Belgrade_skyline.jpg", "SKP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stone_Bridge_Skopje.jpg", "TGD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Podgorica_Millennium_Bridge.jpg", "ZAG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zagreb_Cathedral.jpg", "LJU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ljubljana_from_the_castle.jpg", "BKK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Wat_Arun_Bangkok.jpg", "JFK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Manhattan_from_Weehawken,_NJ.jpg"}
+DESTINATION_LANDMARK_IMAGES = {"ATH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Parthenon_from_west.jpg", "LCA": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Church_of_Saint_Lazarus,_Larnaca,_Cyprus.jpg", "BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hungarian_Parliament_Building_from_Fisherman%27s_Bastion.jpg", "VIE": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Schloss_Schoenbrunn_Wien_2014_%28Zuschnitt_1%29.jpg", "SOF": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alexander_Nevsky_Cathedral_in_Sofia.jpg", "PRG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg", "FCO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Colosseum_in_Rome,_Italy_-_April_2007.jpg", "MXP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Milan_Cathedral_from_Piazza_del_Duomo.jpg", "CDG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Eiffel_Tower_from_the_Tour_Montparnasse_3,_Paris_May_2014.jpg", "AMS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KeizersgrachtReguliersgrachtAmsterdam.jpg", "BCN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sagrada_Familia_01.jpg", "MAD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Palacio_de_Comunicaciones_-_47.jpg", "LIS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Torre_de_Belem_1.jpg", "LHR": "https://commons.wikimedia.org/wiki/Special:Redirect/file/London_Eye_Twilight_April_2006.jpg", "BER": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brandenburger_Tor_abends.jpg", "MUC": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Neues_Rathaus_Muenchen.jpg", "ZRH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zuerichsee_Zuerich.jpg", "BRU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brussels_Grote_Markt.jpg", "WAW": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Warsaw_Old_Town_Market_Square.jpg", "TBS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tbilisi_view.jpg", "EVN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Yerevan_Opera.jpg", "BEG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Belgrade_skyline.jpg", "SKP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stone_Bridge_Skopje.jpg", "TGD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Podgorica_Millennium_Bridge.jpg", "ZAG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zagreb_Cathedral.jpg", "LJU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ljubljana_from_the_castle.jpg", "BKK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Wat_Arun_Bangkok.jpg", "JFK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Manhattan_from_Weehawken,_NJ.jpg"}
 
 # Correct known broken legacy links. Each destination also carries an ordered
 # pool: the landmark first, followed by two verified travel-photo fallbacks, so
@@ -24,6 +24,25 @@ _DESTINATION_IMAGE_FALLBACKS = (
     "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=82",
     "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=82",
 )
+# The general image (Din, legal, 22.10): the only replacement for a photo we
+# hold no rights to, and the last-resort layer behind every deal-card image.
+GENERIC_DESTINATION_IMAGE = _DESTINATION_IMAGE_FALLBACKS[0]
+# Din (IMG-1, 22.10): OTP/KRK pointed at xplorer.co.il / krakow.pl photos we
+# have no rights to - replaced by the general image (full Wikimedia
+# replacement + credits is plan 021).
+DESTINATION_LANDMARK_IMAGES.update({"OTP": GENERIC_DESTINATION_IMAGE, "KRK": GENERIC_DESTINATION_IMAGE})
+
+
+def _wikimedia_thumb(url, width=1200):
+    """Shaked (22.10): Special:Redirect/file/... serves the full-size source
+    file (Lisbon's card came out empty). Ask Wikimedia for a 1200px
+    rendition instead - the same file, never a different image."""
+    if "commons.wikimedia.org/wiki/Special:Redirect/file/" in url and "?" not in url:
+        return f"{url}?width={width}"
+    return url
+
+
+DESTINATION_LANDMARK_IMAGES = {code: _wikimedia_thumb(url) for code, url in DESTINATION_LANDMARK_IMAGES.items()}
 DESTINATION_IMAGE_POOLS = {
     code: [url, *_DESTINATION_IMAGE_FALLBACKS]
     for code, url in DESTINATION_LANDMARK_IMAGES.items()
@@ -1354,11 +1373,13 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
                 "carry_on_8kg": baggage.get("carry_on_8kg") or {"included": None, "known": False},
                 "checked_bag_23kg": baggage.get("checked_bag_23kg") or {"included": None, "known": False},
             },
+            # Din (22.10): never a provider-supplied photo as the fallback -
+            # the general image instead.
             "destination_image_url": (
                 DESTINATION_LANDMARK_IMAGES.get(str(item.get("arrival_code") or "").upper())
-                or payload.get("destination_image_url")
-                or payload.get("image_url")
+                or GENERIC_DESTINATION_IMAGE
             ),
+            "destination_image_fallback": GENERIC_DESTINATION_IMAGE,
             "destination_image_pool": DESTINATION_IMAGE_POOLS.get(
                 str(item.get("arrival_code") or "").upper(), list(_DESTINATION_IMAGE_FALLBACKS)
             ),
