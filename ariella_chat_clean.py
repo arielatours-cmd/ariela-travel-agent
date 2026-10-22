@@ -4831,7 +4831,36 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # question), and hands this one free-text principle to Tinkerbell.
         # She composes the actual question/retry/confirmation herself, in
         # her own voice, with no quick-reply buttons ever.
-        continuity += "\n- " + str(state.get("_guided_ask_hint")) + "\n"
+        #
+        # Run-10 live finding (Shaked/Shlomo, 22.10.2026, qa/reports/
+        # 2026-10-22-stage1-live-run10.md, part (a) of the central
+        # accessibility finding): guided's own hint used to land in this
+        # same prompt ALONGSIDE other open-gap instructions below (direct-
+        # flight preference, gender, etc., all unconditionally
+        # concatenated into system_dynamic/continuity regardless of
+        # whether a guided field is live) with nothing telling Tinkerbell
+        # which one to actually ask about THIS turn - seen live, she asked
+        # the direct-flight question instead of the pending accessibility
+        # one in three of five run-10 conversations, so guided's own
+        # current_question was never actually asked at all (the mismatch
+        # PR #137 already protects the EXTRACTION side against, but the
+        # root cause - the wrong question getting asked in the first
+        # place - was still open). A guided field in progress is always
+        # the single most specific, deliberately-sequenced open question
+        # in the conversation (dates -> travelers -> accessibility ->
+        # baggage -> lodging, one at a time) - it must always win over
+        # every other open topic's own hint elsewhere in this same
+        # prompt. Stated explicitly, directly beside the hint itself,
+        # rather than by suppressing the other hints (which still carry
+        # factual grounding - e.g. "no verified direct route" - genuinely
+        # needed even on a turn where that topic isn't being asked about).
+        continuity += (
+            "\n- השאלה/הנחיה הבאה היא הדבר היחיד שצריך לברר מול הלקוח בהודעה הזו - "
+            "היא גוברת על כל נושא פתוח אחר שמוזכר במקום אחר בהנחיות (למשל העדפת טיסה "
+            "ישירה, תקציב, או כל שדה חסר אחר). אל תשאלי שום שאלה אחרת באותה הודעה, "
+            "גם אם נושא אחר עדיין פתוח - הוא יחכה לתורו. השאלה/הנחיה עצמה: "
+            + str(state.get("_guided_ask_hint")) + "\n"
+        )
     if state.get("_date_hallucination_correction_hint"):
         # Set by _retry_if_dates_invented below, on the one corrective
         # re-call it makes when the first reply named a date that matches
