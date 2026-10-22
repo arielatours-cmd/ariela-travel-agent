@@ -5,9 +5,11 @@ scan of every short string literal containing "?" together with " או "/
 Fixed (all now a single open question or a single-option yes/no, with the
 escape-hatch/explanatory text that doesn't itself ask a second question
 kept as a separate statement, never appended to the question mark):
-- _REOPEN_FIRST_QUESTION (lodging/car/trip_planning) - each used to ask
-  2-3 things at once with "X, Y או Z" framing; now asks only the first
-  thing actually needed, same as _GAP_QUESTION_TEXT's own phrasing.
+- _reopen_first_question_text (lodging/car/trip_planning; a function since
+  20.10.2026's gender-address fix needs it to pick a form, not a static
+  dict) - each used to ask 2-3 things at once with "X, Y או Z" framing; now
+  asks only the first thing actually needed, same as _GAP_QUESTION_TEXT's
+  own phrasing.
 - _pick_reopen_option's single-trip question used to spell out
   "(כן = לחופשה הזו, לא = חופשה חדשה)" - _pick_reopen_option itself
   already resolves a bare כן/לא deterministically regardless of wording,
@@ -42,12 +44,12 @@ def check(name, cond):
         FAILED.append(name)
 
 
-check("_REOPEN_FIRST_QUESTION[lodging] is a single open question",
-      chat._REOPEN_FIRST_QUESTION["lodging"] == "איזה סוג לינה מתאים לכם?")
-check("_REOPEN_FIRST_QUESTION[car] is a single open question",
-      chat._REOPEN_FIRST_QUESTION["car"] == "איזה סוג רכב מתאים לכם?")
-check("_REOPEN_FIRST_QUESTION[trip_planning] is a single open question",
-      chat._REOPEN_FIRST_QUESTION["trip_planning"] == "ספרי לי מה אתם אוהבים לעשות בחופשה.")
+check("_reopen_first_question_text(lodging) is a single open question",
+      chat._reopen_first_question_text("lodging", None) == "איזה סוג לינה מתאים לכם?")
+check("_reopen_first_question_text(car) is a single open question",
+      chat._reopen_first_question_text("car", None) == "איזה סוג רכב מתאים לכם?")
+check("_reopen_first_question_text(trip_planning) is a single open question",
+      chat._reopen_first_question_text("trip_planning", None) == "ספרי לי מה אתם אוהבים לעשות בחופשה.")
 check("_GAP_QUESTION_TEXT[trip_planning.approved] has no escape-clause second question",
       chat._GAP_QUESTION_TEXT["trip_planning.approved"] == "המסלול שהצעתי מתאים לכם?")
 

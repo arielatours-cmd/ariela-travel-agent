@@ -20,9 +20,11 @@ from urllib.parse import quote
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard, render_hfa_routes_dashboard
+import member_profile
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
     MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY, DESTINATIONS,
+    PUBLIC_BASE_URL_WARNING,
 )
 from daily import prepare_daily_batch
 from database import (
@@ -36,11 +38,11 @@ from scanner import run_hourly_scan, run_destination_scan, run_wide_scan, search
 import scanner as _scanner
 from din_agent import enrich_offer_legal_terms
 from schedule_rules import delivery_status
-from public_site import site, _confirm_paid_search
+from public_site import site, _confirm_paid_search, rematch_trip_without_new_scan
 from whatsapp_coexistence import whatsapp_coexistence
 from ariella_chat_v2 import ariella_chat_v2
 from ariella_chat_clean import ariella_chat_clean
-from ai_usage import usage_summary, usage_rows, usage_for_conversation
+from ai_usage import usage_summary, usage_rows, usage_for_conversation, diagnostic_rows, DIAGNOSTIC_EVENT_SOURCES
 from whatsapp_deals_messages import on_whatsapp_deals_paid
 from partner_commissions import sync_cj_commissions, cj_connection_check
 from mailer import mail_check
@@ -425,6 +427,7 @@ def health():
         "minimum_score": MIN_DEAL_SCORE, "maximum_daily_deals": MAX_DAILY_DEALS,
         "admin_protected": bool(ADMIN_TOKEN), "whatsapp": whatsapp_status(),
         "gunicorn_timeout": gunicorn_timeout, "gunicorn_threads": gunicorn_threads,
+        "public_base_url_warning": PUBLIC_BASE_URL_WARNING,
     })
 
 
@@ -491,6 +494,34 @@ def admin_confirm_payment():
     if request.form.get("redirect") == "admin":
         return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
     return jsonify({"status": "success", "trip_id": trip_id})
+
+
+@app.post("/admin/rematch-trip")
+def admin_rematch_trip():
+    """Recovery action for a vacation stuck frozen on an empty matched-offers
+    list (per the business owner's directive, 20.10, vacation 259/trip
+    #158) - re-runs the matching chain against CURRENT inventory, with no
+    new paid scan. Only acts on a trip whose search already finished with
+    nothing pinned; see public_site.rematch_trip_without_new_scan for the
+    full guard and the four-tier fallback chain it reuses from the scan
+    worker itself."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    trip_id = request.form.get("trip_id", type=int) or request.args.get("trip_id", type=int)
+    if not trip_id:
+        return jsonify({"status": "error", "message": "missing trip_id"}), 400
+    result = rematch_trip_without_new_scan(trip_id)
+    supplied = request.args.get("token") or request.form.get("token") or ""
+    redirect_to = request.form.get("redirect")
+    # "scans" added (20.10, vacation 259/trip #158 follow-up) for the new
+    # /admin/scans rematch button - the business owner clicks it from that
+    # page and should land back on it, not on the unrelated deals page.
+    if redirect_to == "scans":
+        return redirect("/admin/scans" + (("?token=" + supplied) if supplied else ""))
+    if redirect_to == "admin":
+        return redirect("/admin" + (("?token=" + supplied) if supplied else ""))
+    return jsonify(result), (200 if result.get("status") == "success" else 400)
 
 
 @app.post("/admin/confirm-whatsapp-payment")
@@ -604,6 +635,41 @@ def admin_ai_usage_conversation(conversation_id):
     if denied: return denied
     rows = usage_for_conversation(conversation_id)
     return jsonify({"status": "success", "conversation_id": conversation_id, "count": len(rows), "calls": rows})
+
+
+@app.get("/admin/ai-usage/diagnostics.csv")
+def admin_ai_usage_diagnostics_csv():
+    """Per Shlomo's follow-up (18.10, qa/reports/2026-10-18-stage3-run4.md):
+    a plain logging.info call for a live-site diagnostic (the reset-
+    confirmation gate, the guided-redirect mismatch) has no value on this
+    infrastructure - no agent has access to Render's own log stream. These
+    events are recorded instead via record_diagnostic_event (see
+    ai_usage.py), as ai_usage rows excluded from every cost total, and
+    exported here so the business owner can download them and Shaked can
+    analyze them - never the customer's own message text, by construction
+    of every caller. ?event= selects one of DIAGNOSTIC_EVENT_SOURCES."""
+    denied = _require_admin()
+    if denied: return denied
+    import csv
+    import io
+    event = request.args.get("event", "").strip()
+    if event not in DIAGNOSTIC_EVENT_SOURCES:
+        return jsonify({
+            "status": "error",
+            "message": f"?event= must be one of {list(DIAGNOSTIC_EVENT_SOURCES)}",
+        }), 400
+    days = request.args.get("days", 30, type=int)
+    include_test = request.args.get("include_test", "0") == "1"
+    rows = diagnostic_rows(event, days=days, include_test=include_test)
+    buffer = io.StringIO()
+    columns = ["id", "created_at", "member_id", "conversation_id", "details"]
+    writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return Response(buffer.getvalue(), mimetype="text/csv", headers={
+        "Content-Disposition": f"attachment; filename=ai-usage-diagnostics-{event}-{days}d.csv"
+    })
 
 
 @app.get("/admin/whatsapp-queue")
@@ -739,6 +805,36 @@ def admin_delete_member():
         })
     delete_member_account(row["id"])
     return jsonify({"status": "success", "applied": True, "member_id": row["id"]})
+
+
+@app.get("/admin/delete-traveler")
+def admin_delete_traveler():
+    """Admin-only path to delete one remembered traveler (business owner,
+    22.10.2026, Din route B / PRV-14): the customer-facing self-service
+    list/edit/delete UI was removed entirely from both account pages - a
+    view/correction/deletion request is now handled by staff, via the
+    Contact page, within 30 days. The underlying data itself is unchanged
+    (still saved and used by Ariella in chat) - only this moves who can
+    act on it. GET with ?member_id=<id>&traveler_id=<id> only explains what
+    would be deleted; ?confirm=1 actually deletes. Same read-by-default,
+    explicit-confirm pattern as /admin/delete-member."""
+    denied = _require_admin()
+    if denied: return denied
+    member_id = request.args.get("member_id", type=int)
+    traveler_id = request.args.get("traveler_id", type=int)
+    if not member_id or not traveler_id:
+        return jsonify({"status": "error", "message": "נדרש member_id ו-traveler_id."}), 400
+    target = next((t for t in member_profile.list_travelers(member_id) if t["id"] == traveler_id), None)
+    if not target:
+        return jsonify({"status": "error", "message": "לא נמצא נוסע תואם."}), 404
+    confirm = request.args.get("confirm", "0") == "1"
+    if not confirm:
+        return jsonify({
+            "status": "success", "would_delete": True, "applied": False,
+            "member_id": member_id, "traveler_id": traveler_id, "label": target["label"],
+        })
+    member_profile.delete_traveler(member_id, traveler_id)
+    return jsonify({"status": "success", "applied": True, "member_id": member_id, "traveler_id": traveler_id})
 
 
 @app.get("/admin/partner-commissions")

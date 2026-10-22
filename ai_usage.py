@@ -16,6 +16,17 @@ log = logging.getLogger(__name__)
 
 _context: contextvars.ContextVar[dict] = contextvars.ContextVar("ai_usage_context", default={})
 
+# Diagnostic-only `source` values recorded via record_diagnostic_event below
+# (never a real Claude API call - empty model, zero tokens) - excluded from
+# every cost/token total in usage_summary/usage_rows, exactly like the
+# pre-existing 'turn_total' source, and read back out via diagnostic_rows.
+DIAGNOSTIC_EVENT_SOURCES = (
+    "restart_signal", "guided_redirect", "dates_change", "destination_change",
+    "customer_scan_worker_error", "trip_type_ski_claim", "dates_pipeline",
+    "mixed_baggage_safety_net", "unexplained_status_decline_reverted",
+)
+_NON_USAGE_SOURCES = ("turn_total",) + DIAGNOSTIC_EVENT_SOURCES
+
 # Official Anthropic API pricing (USD per 1M tokens), filled in from the
 # published pricing page for the model this project actually runs
 # (ARIELLA_MODEL, default claude-sonnet-5) - not guessed. Cache writes use
@@ -96,13 +107,20 @@ def usage_summary(days: int = 30, include_test: bool = False) -> dict:
     page permanently show "unknown pricing" (empty model string matches no
     pricing table entry) and inflated the "calls" count with one extra,
     non-API row per turn. Excluded from every total/breakdown below; their
-    own durations are reported separately via turn_durations."""
+    own durations are reported separately via turn_durations.
+
+    record_diagnostic_event's own sources (DIAGNOSTIC_EVENT_SOURCES - e.g.
+    'restart_signal', 'guided_redirect') are the same shape of row (empty
+    model, zero tokens) for the same reason, and are excluded here too -
+    read back out via diagnostic_rows() instead."""
     with connection() as conn:
         test_clause = "" if include_test else "AND is_test=0"
         since = f"datetime('now','-{int(days)} days')"
+        excluded = ",".join("?" for _ in _NON_USAGE_SOURCES)
         rows = conn.execute(
             f"SELECT * FROM ai_usage WHERE created_at >= {since} {test_clause} "
-            f"AND source != 'turn_total' ORDER BY created_at DESC"
+            f"AND source NOT IN ({excluded}) ORDER BY created_at DESC",
+            _NON_USAGE_SOURCES,
         ).fetchall()
         rows = [_row_to_dict(r) for r in rows]
         turn_rows = conn.execute(
@@ -175,15 +193,18 @@ def usage_summary(days: int = 30, include_test: bool = False) -> dict:
 def usage_rows(days: int = 30, include_test: bool = False) -> list:
     """Row-by-row export (CSV) - every ai_usage column plus estimated cost.
 
-    Excludes source='turn_total' rows (same reason as usage_summary's own
-    docstring: diagnostic-only, no model/tokens/cost of their own) - see
-    turn_duration_rows() for those, reported separately."""
+    Excludes source='turn_total' and record_diagnostic_event's own sources
+    (same reason as usage_summary's own docstring: diagnostic-only, no
+    model/tokens/cost of their own) - see turn_duration_rows()/
+    diagnostic_rows() for those, reported separately."""
     with connection() as conn:
         test_clause = "" if include_test else "AND is_test=0"
         since = f"datetime('now','-{int(days)} days')"
+        excluded = ",".join("?" for _ in _NON_USAGE_SOURCES)
         rows = conn.execute(
             f"SELECT * FROM ai_usage WHERE created_at >= {since} {test_clause} "
-            f"AND source != 'turn_total' ORDER BY created_at DESC"
+            f"AND source NOT IN ({excluded}) ORDER BY created_at DESC",
+            _NON_USAGE_SOURCES,
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
 
@@ -210,7 +231,7 @@ def usage_for_conversation(conversation_id: int) -> list:
         return [_row_to_dict(r) for r in rows]
 
 
-def record_ai_usage(source: str, model: str, usage=None, error=None, thread_id=None, call_started_at=None, call_duration_ms=None):
+def record_ai_usage(source: str, model: str, usage=None, error=None, thread_id=None, call_started_at=None, call_duration_ms=None, details=None):
     """Writes one ai_usage row. Never raises - a failure here (locked DB,
     bad data) must never be allowed to fail the chat turn that triggered it.
 
@@ -218,7 +239,12 @@ def record_ai_usage(source: str, model: str, usage=None, error=None, thread_id=N
     concurrency investigation): optional - only _post_claude's own calls
     pass them, timing the actual client.messages.create() network call
     specifically. Lets /admin/ai-usage.csv answer directly whether
-    different threads' Claude calls genuinely overlap in time."""
+    different threads' Claude calls genuinely overlap in time.
+
+    details (18.10, Shlomo's follow-up on qa/reports/2026-10-18-stage3-
+    run4.md): optional short string for a diagnostic-only row - see
+    record_diagnostic_event below, which is what actually calls this with
+    it set. Plain _post_claude usage calls never pass it."""
     try:
         ctx = _context.get() or {}
         input_tokens = int(getattr(usage, "input_tokens", 0) or 0) if usage is not None else 0
@@ -230,15 +256,54 @@ def record_ai_usage(source: str, model: str, usage=None, error=None, thread_id=N
                 """INSERT INTO ai_usage(
                     created_at, source, member_id, trip_id, conversation_id, model,
                     input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
-                    is_test, error, channel, thread_id, call_started_at, call_duration_ms
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    is_test, error, channel, thread_id, call_started_at, call_duration_ms, details
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     utc_now_iso(), str(source or "other"), ctx.get("member_id"), ctx.get("trip_id"),
                     ctx.get("conversation_id"), str(model or ""), input_tokens, output_tokens,
                     cache_read, cache_write, 1 if ctx.get("is_test") else 0,
                     str(error) if error else None, ctx.get("channel"),
-                    thread_id, call_started_at, call_duration_ms,
+                    thread_id, call_started_at, call_duration_ms, details,
                 ),
             )
     except Exception:
         log.exception("failed to record AI usage (source=%s, model=%s)", source, model)
+
+
+
+def record_diagnostic_event(event: str, details: dict):
+    """Per Shlomo's follow-up (18.10, qa/reports/2026-10-18-stage3-run4.md):
+    a plain logging.info call for a live-site diagnostic has no value on
+    this infrastructure - no agent has access to Render's own log stream.
+    Writes one diagnostic-only ai_usage row instead (source=event, model/
+    tokens all empty/zero, details=compact JSON of the given dict - never
+    the customer's own message text, by construction of every caller),
+    so the business owner can export it via /admin/ai-usage.csv and Shaked
+    can analyze it. event must be one of DIAGNOSTIC_EVENT_SOURCES. Never
+    raises - same guarantee as record_ai_usage."""
+    if event not in DIAGNOSTIC_EVENT_SOURCES:
+        log.warning("record_diagnostic_event: unknown event %r - not recorded", event)
+        return
+    try:
+        payload = json.dumps(details, ensure_ascii=False, default=str)
+    except Exception:
+        log.exception("record_diagnostic_event: details not JSON-serializable for event %r", event)
+        return
+    record_ai_usage(event, "", usage=None, details=payload)
+
+
+def diagnostic_rows(event: str, days: int = 30, include_test: bool = False) -> list:
+    """Row-by-row export of record_diagnostic_event's own rows for one
+    event (source) - kept separate from usage_rows()'s real API-call rows,
+    same reasoning as turn_duration_rows()."""
+    if event not in DIAGNOSTIC_EVENT_SOURCES:
+        return []
+    with connection() as conn:
+        test_clause = "" if include_test else "AND is_test=0"
+        since = f"datetime('now','-{int(days)} days')"
+        rows = conn.execute(
+            f"SELECT id, created_at, member_id, conversation_id, details FROM ai_usage "
+            f"WHERE created_at >= {since} {test_clause} AND source = ? ORDER BY created_at DESC",
+            (event,),
+        ).fetchall()
+        return [dict(r) for r in rows]

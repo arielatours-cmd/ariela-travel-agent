@@ -1,5 +1,7 @@
+import logging
 import os
 import re
+import urllib.parse
 from pathlib import Path
 
 APP_VERSION = "9.7.143-connected-trip"
@@ -10,7 +12,81 @@ _default_db_path = BASE_DIR / "data" / "ariella.db"
 DB_PATH = Path(os.getenv("DB_PATH", str(_default_db_path))).expanduser()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+
+# Known hosting-platform domains that are never valid as a FINAL host on
+# their own - each always has a further suffix (e.g. Render apps are always
+# "*.onrender.com", never bare "*.onrender"). Not an attempt at validating
+# arbitrary TLDs in general (there is no small, stable list of those) - just
+# the specific, concrete class of truncation this project could realistically
+# hit, starting with the exact one that actually happened.
+_TRUNCATED_PLATFORM_HOST_SUFFIXES = ("onrender", "herokuapp", "vercel", "netlify", "railway")
+
+
+_AFFILIATE_LINK_HTML_TAG_RE = re.compile(r'<a\s[^>]*\bhref\s*=\s*"([^"]+)"', re.IGNORECASE)
+
+
+def _sanitize_affiliate_link_env(var_name, raw):
+    """Shlomo's relay (22.10): CJ_BOOKING_EVERGREEN_LINK was pasted into
+    Render as the FULL HTML snippet CJ's dashboard shows next to a tracking
+    link (<a href="..."><img .../></a>), not just the URL inside it -
+    silently breaking every lodging link built from it. Same risk exists
+    for CAR_RENTAL_AFFILIATE_LINK/LODGING_AFFILIATE_LINK, same CJ dashboard.
+
+    If an <a href="..."> tag is present, use the href inside it. Then
+    accept the result only if it's a plausible bare URL (starts with
+    https://, and contains none of '<', '>' or whitespace - any of those
+    means more markup leaked through, or the value is otherwise not a
+    single URL); anything else is logged and treated as blank, exactly
+    like the env var never being set (same as every other invalid-affiliate-
+    config case in this file), rather than being sent out broken."""
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    match = _AFFILIATE_LINK_HTML_TAG_RE.search(raw)
+    candidate = match.group(1).strip() if match else raw
+    if candidate.startswith("https://") and not any(c in candidate for c in ("<", ">", " ", "\t", "\n")):
+        return candidate
+    logging.getLogger(__name__).warning(
+        "%s is not a valid bare https:// URL (got %r) - treating as unset",
+        var_name, raw,
+    )
+    return ""
+
+
+def _public_base_url_warning(url):
+    """None when PUBLIC_BASE_URL is empty (the feature it backs - the
+    WhatsApp vacation link - is simply not used) or looks like a genuine
+    absolute URL; otherwise a short, specific reason.
+
+    Per Shlomo's finding (20.10, stage-1/2 regression): the Render
+    environment's own PUBLIC_BASE_URL was set to a host missing its TLD
+    (".onrender" instead of ".onrender.com"), silently truncating every
+    WhatsApp vacation link this value is used to build - the customer-
+    visible symptom was a browser DNS error on the link. This only
+    SURFACES that kind of misconfiguration early (at startup, in /health)
+    so it's caught before the next deploy rather than rediscovered live by
+    a customer; it does not and cannot fix the environment variable
+    itself - that's the business owner's own Render dashboard."""
+    if not url:
+        return None
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return f"PUBLIC_BASE_URL '{url}' is not an absolute http(s) URL"
+    host = parsed.netloc.split(":")[0]
+    last_label = host.rsplit(".", 1)[-1].lower()
+    if last_label in _TRUNCATED_PLATFORM_HOST_SUFFIXES:
+        return (
+            f"PUBLIC_BASE_URL '{url}' host '{host}' ends in '.{last_label}' - "
+            f"looks like a known hosting platform's domain missing its real "
+            f"suffix (e.g. '.{last_label}.com', not bare '.{last_label}')"
+        )
+    return None
+
+
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+PUBLIC_BASE_URL_WARNING = _public_base_url_warning(PUBLIC_BASE_URL)
+if PUBLIC_BASE_URL_WARNING:
+    logging.getLogger(__name__).warning(PUBLIC_BASE_URL_WARNING)
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY", "").strip()
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "").strip()
 SCANNER_ENABLED = os.getenv("SCANNER_ENABLED", "true").lower() == "true"
@@ -59,7 +135,9 @@ PERSONAL_SEARCH_DAILY_SCAN_MAX_API_REQUESTS_MULTI_GATEWAY = int(os.getenv("PERSO
 # "Evergreen" tracking link CJ issues per publisher (Links -> search
 # "evergreen" in the CJ dashboard). Leave blank until that link is in hand -
 # lodging search then just links straight to Booking.com, uncredited.
-CJ_BOOKING_EVERGREEN_LINK = os.getenv("CJ_BOOKING_EVERGREEN_LINK", "").strip()
+CJ_BOOKING_EVERGREEN_LINK = _sanitize_affiliate_link_env(
+    "CJ_BOOKING_EVERGREEN_LINK", os.getenv("CJ_BOOKING_EVERGREEN_LINK", "")
+)
 # Commission Detail API (task 001a) - detects an actual booking (not just a
 # click) via the commission CJ reports back. Personal Access Token from
 # developers.cj.com; CID is the Publisher account's CID. Sync is off by
@@ -74,10 +152,18 @@ CJ_COMMISSIONS_SYNC_ENABLED = os.getenv("CJ_COMMISSIONS_SYNC_ENABLED", "false").
 # until an advertiser has approved the account - the car tab then keeps its
 # "not connected yet" message. CAR_RENTAL_SEARCH_URL_TEMPLATE optionally
 # points the click at the partner's own search page, pre-filled, using the
-# placeholders {iata}, {pickup_date}, {return_date} (YYYY-MM-DD),
-# {pickup_time}, {return_time} (HH:MM, 10:00 when the customer gave none); it is sent
-# as CJ's standard ?url= deep-link parameter. Blank = partner's home page.
-CAR_RENTAL_AFFILIATE_LINK = os.getenv("CAR_RENTAL_AFFILIATE_LINK", "").strip()
+# placeholders {iata} (pickup airport), {return_iata} (return airport - the
+# pickup one unless the customer named another), {same_return} ("1"/"0"),
+# {pickup_date}, {return_date} (YYYY-MM-DD), and VIP Cars' own location ids
+# {pickup_country}/{pickup_city}/{pickup_location} + {dropoff_*} (from
+# static/vipcars_locations.json - a destination not there gets the partner's
+# home page); {pickup_time}/{return_time} (HH:MM - the customer's own from
+# the chat, else 10:00: VIP Cars requires a time; the customer can change it).
+# It is sent as CJ's standard ?url= deep-link parameter. Blank = partner's
+# home page.
+CAR_RENTAL_AFFILIATE_LINK = _sanitize_affiliate_link_env(
+    "CAR_RENTAL_AFFILIATE_LINK", os.getenv("CAR_RENTAL_AFFILIATE_LINK", "")
+)
 CAR_RENTAL_PARTNER_NAME = os.getenv("CAR_RENTAL_PARTNER_NAME", "VIP Cars").strip() or "VIP Cars"
 CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "").strip()
 # Lodging partner via CJ (Agoda / Trip.com / etc.), same pattern as the car
@@ -88,7 +174,9 @@ CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "")
 # LODGING_SEARCH_URL_TEMPLATE pre-fills the partner's search page, sent as
 # CJ's ?url= deep link, with {city} (English), {checkin}, {checkout}
 # (YYYY-MM-DD), {adults}, {children}, {rooms}.
-LODGING_AFFILIATE_LINK = os.getenv("LODGING_AFFILIATE_LINK", "").strip()
+LODGING_AFFILIATE_LINK = _sanitize_affiliate_link_env(
+    "LODGING_AFFILIATE_LINK", os.getenv("LODGING_AFFILIATE_LINK", "")
+)
 LODGING_PARTNER_NAME = os.getenv("LODGING_PARTNER_NAME", "Agoda").strip() or "Agoda"
 LODGING_SEARCH_URL_TEMPLATE = os.getenv("LODGING_SEARCH_URL_TEMPLATE", "").strip()
 # Flight partner via Travelpayouts: Kiwi.com (task 013a). A secondary
@@ -298,7 +386,7 @@ MAIL_SMTP_PORT = int(os.getenv("MAIL_SMTP_PORT", "465"))
 # merges regardless, so there is no live-site exposure risk in defaulting
 # it on immediately - requiring a separate Render env var first would need
 # the business owner herself, for no added safety.
-GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers,baggage,lodging"
+GUIDED_EXTRACTION_STEPS_DEFAULT = "dates,travelers,accessibility,baggage,lodging"
 
 # Deployment helpers materialize source changes during the build. Importing those
 # mutation scripts at application startup made a second process try to patch the
