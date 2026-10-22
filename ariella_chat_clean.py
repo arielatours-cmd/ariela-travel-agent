@@ -4760,13 +4760,17 @@ def _destination_catalog_hint(state):
         needle = _normalize_he_spelling(place)
         needle_casefold = place.casefold()
         cities = [a for a in airports
-                  if needle in {_normalize_he_spelling(a.get("city_he")), _normalize_he_spelling(a.get("city_en"))}
+                  if needle in {_normalize_he_spelling(v) for v in
+                                [a.get("city_he"), a.get("city_en")] + list(a.get("aliases_he") or []) if v}
                   or needle_casefold == str(a.get("code") or "").strip().casefold()]
         if cities:
             facts += [f"{a.get('city_he') or a.get('code')} ({a.get('code')}), {a.get('country_he') or ''}".rstrip(", ")
                       for a in cities]
             continue
-        is_country = any(needle in {_normalize_he_spelling(a.get("country_he")), _normalize_he_spelling(a.get("country_en"))}
+        # 020a: the catalog's own alternate spellings count too (Bezalel's
+        # agreed follow-up - e.g. a place saved as "ויאטנם").
+        is_country = any(needle in {_normalize_he_spelling(v) for v in
+                                    [a.get("country_he"), a.get("country_en")] + list(a.get("country_aliases_he") or []) if v}
                          for a in airports)
         if not is_country:
             unknown.append(place)
@@ -5731,8 +5735,12 @@ _KNOWN_DESTINATION_COUNTRY_NEEDLES_CACHE = None
 # substring match either way), silently dropping the destination she
 # had just named. Add more pairs here as they're found live - this is
 # a spelling-variant map, not a full destination list, so it stays small.
+# Ski-resort spellings only (020a, 22.10): resorts aren't in the airport
+# catalog, so they stay here. Every airport-catalog spelling (city or
+# country - e.g. "ויאטנם") now lives in static/airports.json itself
+# (aliases_he / country_aliases_he), so a new spelling is a data update, not
+# a code change - see _known_destination_names.
 _DESTINATION_SPELLING_ALIASES = {
-    "ויאטנם": "וייטנאם",
     "ואל טורנס": "ואל תורנס",
     "וואל טורנס": "ואל תורנס",
     "וואל תורנס": "ואל תורנס",
@@ -5809,6 +5817,27 @@ def _known_destination_names():
                 known[en.lower()] = en
                 if en_key == "country_en":
                     country_needles.add(en.lower())
+        # 020a: alternate Hebrew spellings from the catalog itself -
+        # aliases_he for the record's city, country_aliases_he for its
+        # country. Each maps to the official name (what's shown to the
+        # customer); a country alias stays in the country tier, so a
+        # specific place in the same message still wins.
+        city_he = str(airport.get("city_he") or "").strip()
+        country_he = str(airport.get("country_he") or "").strip()
+        for alias in airport.get("aliases_he") or []:
+            alias = str(alias or "").strip()
+            if alias and city_he:
+                known[alias] = city_he
+                # Collision check (Bezalel's, 020a): an alias counts as its
+                # official name, so it only warns if it collides with a
+                # DIFFERENT place.
+                _he_spelling_collision_check.setdefault(_normalize_he_spelling(alias), set()).add(city_he)
+        for alias in airport.get("country_aliases_he") or []:
+            alias = str(alias or "").strip()
+            if alias and country_he:
+                known[alias] = country_he
+                _he_spelling_collision_check.setdefault(_normalize_he_spelling(alias), set()).add(country_he)
+                country_needles.add(alias)
     for _norm, _names in _he_spelling_collision_check.items():
         if len(_names) > 1:
             logging.warning(
@@ -7966,8 +7995,10 @@ def _match_city_exact(name, airports):
     if alias:
         candidates.add(_normalize_he_spelling(alias))
     for airport in airports:
-        for key in ("city_he", "city_en"):
-            hay = _normalize_he_spelling(airport.get(key))
+        # 020a: the catalog's own alternate city spellings (aliases_he)
+        # are exact names too - through the same spelling normalization.
+        for value in [airport.get("city_he"), airport.get("city_en")] + list(airport.get("aliases_he") or []):
+            hay = _normalize_he_spelling(value)
             if hay and hay in candidates:
                 return str(airport.get("code") or "").upper()
     return None
