@@ -1,0 +1,33 @@
+{
+ "_about": "טיוטה (אופק, 22.10.2026) ללוח חופשות בתי הספר והחגים, תוכנית 018/018א. מקור משני בלבד (ישראל היום), וצריך לאמת מול לוח החופשות הרשמי של משרד החינוך לפני כל שימוש בקוד.",
+ "source_doc": "product/plans/018-israeli-holiday-calendar.md",
+ "last_updated": "2026-10-22",
+ "source": {
+  "name": "ישראל היום, לוח חופשות",
+  "url": "https://www.israelhayom.co.il/vacation-calendar",
+  "type": "secondary",
+  "verified_official": false,
+  "needs_verification_against": "לוח החופשות הרשמי של משרד החינוך (חוזר מנכ\"ל / לוח חופשות לשנת הלימודים)"
+ },
+ "fetch_status": {
+  "checked_at": "2026-10-22",
+  "result": "failed",
+  "details_he": "הדף לא נטען. שרת התוכן של האתר (Akamai) החזיר HTTP 403 \"Access Denied\" לכל הניסיונות: curl, WebFetch ודפדפן Chromium מלא. גם דף הבית של האתר חסום, כלומר החסימה היא על כתובת ה-IP של הסביבה ולא על הדף הזה. רשת הסשן עצמה העבירה את הבקשה.",
+  "school_years_found": {
+   "תשפ\"ז": "לא ידוע (הדף לא נטען)",
+   "תשפ\"ח": "לא ידוע (הדף לא נטען)"
+  }
+ },
+ "_note_he": "לפי ההוראה, לא הושלמו תאריכים מהזיכרון. הרשימות ריקות עד שיהיה מקור שאפשר לקרוא בפועל.",
+ "record_format": {
+  "name_he": "שם החופשה או החג",
+  "kind": "school_vacation | holiday",
+  "start_date": "YYYY-MM-DD",
+  "end_date": "YYYY-MM-DD",
+  "hebrew_year": "תשפ\"ז | תשפ\"ח",
+  "source": "israelhayom | moe",
+  "verified_official": false
+ },
+ "school_vacations": [],
+ "holidays": []
+}
