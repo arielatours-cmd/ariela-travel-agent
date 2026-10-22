@@ -80,3 +80,4 @@ no_cache=false, ולכן observed_at נקבע לפי זמן הקבלה אצלנ�
 - בעלת העסק בודקת ב-CJ אילו בקשות אושרו. רכב: Discover Cars, EconomyBookings, AirportRentalCars, Holiday Autos, Surprice. לינה: Agoda, Expedia, Trip.com, Vrbo. כל קישור מ-Get Links עובר לבצלאל לחיבור לכפתורים.
 - הגשה חוזרת ל-Hotels.com, Booking.com MEA ו-Hertz. הייתה מתוכננת לסביבות 16.10.
 - וואטסאפ: המספר העסקי עוד לא מחובר ל-Meta.
+- 22.10 עדכון: יש ב-CJ שלושה שותפים פעילים: Booking.com MEA (לינה, 4%), Surprice (רכב, 7%) ו-VIP Cars (רכב, 10–50%). ב-Render הוגדרו CAR_RENTAL_AFFILIATE_LINK ו-CJ_BOOKING_EVERGREEN_LINK. הרכב עובד דרך CJ, ושקד אימתה. הלינה לא עוברת דרך CJ: _cj_booking_wrap לא בשימוש, ובצלאל מתקן. תבנית לחיפוש רכב עם יעד ותאריכים עדיין פתוחה.
