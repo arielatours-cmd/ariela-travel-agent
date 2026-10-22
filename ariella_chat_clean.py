@@ -271,8 +271,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - תוצר של trip_planning הוא גם מידע משותף: שמרי ב-trip_planning.details את המסלול היומי, נקודת/שדה הכניסה והיציאה שנגזרו ממנו וכל החלטה שאושרה. אם המסלול קובע שדה תעופה, עדכני גם destination_airports כדי שסשן flights יקרא אותו ישירות. המסלול היומי עצמו (trip_planning.details.route) חייב תמיד מבנה קבוע אחד: מערך של אובייקט אחד לכל יום, ובכל אחד מהם מפתח "base" עם שם העיר/האזור שבו לנים באותו לילה (למשל {"day":1,"base":"פאפוס"}) - בלי קשר לניסוח החופשי שבו באמת כתבת את המסלול ללקוח. זה בדיוק כדי שלינה/רכב שנפתחים אחר כך יוכלו לקרוא את אזורי הלינה ישירות מהמסלול המאושר בלי לשאול את הלקוח שוב.
 - trip_planning.details.style (תחומי עניין/סגנון הטיול שהלקוח ציין) הוא רשימת מילים/צירופים קצרים בעברית בלבד - תרגמי את הניסוח החופשי של הלקוח לעברית (למשל "street art" -> "אמנות רחוב"), לעולם לא באנגלית כמו שהלקוח אמר. זה שונה במפורש משמות מקומות (destination.places) ושדות תעופה (destination_airports וכו'), שתמיד נשארים בדיוק כמו שהם (כולל כשהם לועזיים) - הכלל הזה חל רק על ערכי העדפה/סגנון, לא על זהות מקום.
 - כאשר הלקוח מבקש לעבור לשירות אחר, שאלי רק על missing_required של אותו שירות אחרי קריאת כל המידע המשותף. אל תפתחי שאלון מחדש.
-- session_status כולל תמיד flights/lodging/car/trip_planning, וכל אחד הוא pending/active/complete/declined. אל תסמני complete רק כי הלקוח הזכיר את התחום; אריאלה מחשבת השלמה לפי שדות החובה.
-- active_session הוא הסשן היחיד שטינקרבל משלימה כעת.
+- session_status ו-active_session הם שדות שאריאלה מחשבת בקוד בלבד, בדיוק כמו search_confirmed - לעולם אל תכתבי בהם ערך משלך, גם לא ניחוש סביר. השאירי אותם בדיוק כפי שהם מופיעים במצב החופשה שקיבלת (או ריקים/null אם אין לך מידע קודם) - לעולם אל תסמני תחום כ-complete רק כי הלקוח הזכיר אותו או כי נראה שאין יותר מה לשאול עליו; הקוד, לא את, קובע מתי תחום באמת נסגר.
 - אם הלקוח משנה פרט, החליפי רק את אותו פרט. לדוגמה: "במקום מונטנגרו יוון" מחליף destination בלבד; שינוי תאריכים מחליף dates בלבד.
 - אל תמציאי ואל תנחשי. ערך חסר נשאר חסר.
 - תקני סמנטית שגיאת כתיב ברורה רק כשההקשר חד-משמעי. למשל תשובה "ללא תקציר" לשאלת תקציב = budget_per_person.status="unlimited".
@@ -868,7 +867,31 @@ def _parse_trip_update(text):
     try:
         data = json.loads(raw)
         if isinstance(data, dict) and isinstance(data.get('trip_update'), dict):
-            return _normalize_trip_planning_style(data['trip_update'])
+            parsed = _normalize_trip_planning_style(data['trip_update'])
+            # session_status/active_session are code-owned exclusively -
+            # Ariella (_sessionize_state/_advance_sessions) computes them
+            # deterministically from service_decisions and the explicit
+            # decline/offer handling in _chat_clean_impl, the same way
+            # search_confirmed is code-only (see EXTRACTOR_SYSTEM's own
+            # "לא על ידך" note). The schema example still shows both fields
+            # so the model understands the overall state shape, but nothing
+            # here ever merges the model's own guess for them. Seen live
+            # (round 12, Shaked/Shlomo, finding C): the customer answered
+            # "יש לנו" to a lodging-only offer (post_flight_offer=["lodging"]);
+            # the code correctly set lodging="declined", but car - never
+            # addressed by any code path this turn - silently kept whatever
+            # session_status the model itself had written in this same JSON
+            # (here, "complete", for a service nobody had ever asked about or
+            # decided), because _merge_trip_state has no reason to know that
+            # key is special and merges it through like any other. Stripping
+            # it here means _advance_sessions' own prior-turn value (never
+            # the model's) is always the only thing that can seed "car", so
+            # a domain neither explicitly requested nor explicitly declined
+            # can never silently become "complete" just because the model
+            # happened to echo a guess for it.
+            parsed.pop('session_status', None)
+            parsed.pop('active_session', None)
+            return parsed
     except Exception:
         pass
     return {}
@@ -3485,6 +3508,87 @@ def _replace_labelled_summary_line(text, label, canonical):
     return text[:start].rstrip(" ,;") + (tail if tail[:1] in ("\n", ".", "!", "?", "") else " " + tail.lstrip(" ,;")), True
 
 
+_BAGGAGE_TYPE_QUESTION_FALLBACK = (
+    'איזו כבודה לוקחים לטיסה הזו - תיק יד בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק"ג)?'
+)
+
+
+def _guard_baggage_type_self_picked(reply, state):
+    """Deterministic safety net (round-12 live finding E, Shlomo/Shaked,
+    22.10.2026, Zadar/Paphos - qa-dryrun branch "shaked",
+    qa/live/2026-10-22-run12/r12_E.log): the customer answered "כן" to the
+    uniform-baggage yes/no (one baggage type for the whole group?) with no
+    type of her own named in the same breath - exactly the case
+    _guided_ask_hint("baggage", 0) exists for, instructing Tinkerbell to ask
+    a real, single, open question naming the three real options. Instead,
+    her free text picked a type herself ("הכי בטוח שכולכן תזמינו מזוודה
+    בבטן המטוס", reasoning from the fact two of three travelers happened to
+    need a suitcase) and never actually asked at all - this is the
+    customer's decision to make, never Ariella's, per the business owner's
+    explicit baggage-handling rule (22.10, see _checked_bag_label's own
+    docstring on the same rule for the summary side).
+
+    Fires only when flight.baggage genuinely isn't saved yet (state itself
+    is correct here - nothing was wrongly persisted, this is a drafting-
+    only failure) and current_question is "baggage" (Tinkerbell was handed
+    exactly this hint this turn). Checks whether her own actual question
+    (the last clause before the final "?", via _last_question_clause) is
+    about baggage at all; if it isn't - whatever she said instead, question
+    or not - the canonical question replaces the whole reply outright,
+    rather than trying to patch free text that may already have stated a
+    type as if it were a settled decision."""
+    state = state if isinstance(state, dict) else {}
+    guided = state.get("guided") if isinstance(state.get("guided"), dict) else {}
+    if guided.get("current_question") != "baggage":
+        return reply
+    flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
+    if flight.get("baggage"):
+        return reply
+    last_question = _last_question_clause(str(reply or ""))
+    if any(w in last_question for w in ("כבודה", "מזוודה", "טרולי", "תיק")):
+        return reply
+    return _BAGGAGE_TYPE_QUESTION_FALLBACK
+
+
+_ACCESSIBILITY_YES_NO_FALLBACK = (
+    "לפני שממשיכים - האם מישהו מהנוסעים זקוק להתאמת נגישות כלשהי בטיול הזה? "
+    "זה לגמרי לא חובה לענות, וכל מה שתכתבו יישמר רק לחופשה הזו."
+)
+
+
+def _guard_accessibility_question_skipped(reply, state):
+    """Deterministic safety net (dry-run 4 finding 4, Shaked/Shlomo,
+    22.10.2026, Prague/scenario F, qa-dryrun branch, qa/dryrun/
+    2026-10-22-dr4-ABCEF/dr4_F.log): with guided.current_question ==
+    "accessibility" and nothing yet known about it, Tinkerbell's own free
+    text sometimes skips straight to a LATER guided field instead of
+    asking accessibility (live: she asked about baggage - "לגבי כבודה -
+    איזו כבודה תצטרכו לקחת?" - with no accessibility question anywhere in
+    the reply). _guided_redirect_field's existing safety net still
+    recovers the skipped answer correctly once it comes back around on a
+    later turn (nothing is ever lost from state), but the customer
+    experiences accessibility asked AFTER baggage instead of before it -
+    exactly the order the guided flow exists to guarantee.
+
+    Fires only on the YES/NO stage (not _accessibility_awaiting_detail -
+    that stage's open follow-up has no single fixed question to fall back
+    to safely) when accessibility genuinely isn't settled yet. If the
+    reply's own actual question (last clause before the final "?") doesn't
+    mention accessibility/accommodation wording at all, the canonical
+    yes/no question replaces the whole reply - better to ask it correctly
+    now than let the field slip out of order again."""
+    state = state if isinstance(state, dict) else {}
+    guided = state.get("guided") if isinstance(state.get("guided"), dict) else {}
+    if guided.get("current_question") != "accessibility":
+        return reply
+    if _accessibility_awaiting_detail(state) or _guided_field_known_with_confidence("accessibility", state):
+        return reply
+    last_question = _last_question_clause(str(reply or ""))
+    if any(w in last_question for w in ("נגישות", "התאמה", "התאמות")):
+        return reply
+    return _ACCESSIBILITY_YES_NO_FALLBACK
+
+
 def _ensure_flight_summary_completeness(reply, state):
     """Deterministic safety net, same philosophy as the other helpers in
     this file: Tinkerbell's own final "כתבי מאשרת" summary is free text,
@@ -5407,6 +5511,8 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
     reply = _ensure_flight_summary_completeness(reply, state)
+    reply = _guard_baggage_type_self_picked(reply, state)
+    reply = _guard_accessibility_question_skipped(reply, state)
     reply = _strip_unconfirmed_airports(reply, state)
     # Captured BEFORE substitution (Timișoara, run-9): once _render_date_
     # placeholders runs, the placeholder itself is gone from the text
@@ -10787,6 +10893,27 @@ def _accessibility_ask_hint(awaiting_detail, attempts):
     )
 
 
+def _accessibility_other_category_retry_hint():
+    """Dry-run 4 finding 2 (Shaked/Shlomo, 22.10.2026): the open follow-up's
+    detail_category classifier has a closed list of specific buckets
+    (walking_short/stairs/wheelchair/...) plus "other" as a genuine
+    catch-all - but "other" alone ("התאמה מיוחדת אחרת") is useless to check
+    with suppliers; it says nothing about what the customer actually needs.
+    Business owner's approved fix (22.10): the FIRST time a reply classifies
+    as "other", ask one more open follow-up for a more concrete, practical
+    description before accepting it - exactly like the existing unclear-
+    answer retry, but gated on the category itself, not on confidence. A
+    SECOND "other" in a row (post-retry) is accepted as final rather than
+    looping forever - whatever was said still goes to _ACCESSIBILITY_DETAIL_
+    PHRASES_HE's own "other" label, never invented or guessed at."""
+    return (
+        "הלקוח ציין צורך בהתאמת נגישות, אבל התיאור עדיין כללי מדי כדי לבדוק אותו מול ספקים "
+        "(לא משויך לאף קטגוריה מעשית ספציפית כמו הליכה, מדרגות, כיסא גלגלים, שמיעה, ראייה וכו'). "
+        "שאלי שאלה פתוחה אחת ויחידה, בניסוח שלך, מה בדיוק יעזור בפועל - בלי לשאול 'למה' או 'איזה מצב "
+        "רפואי', ובלי כפתורים."
+    )
+
+
 def _guided_skip_hint(skipped_field, next_field):
     """Loop guard (Carmit's explicit directive, Copenhagen stage-1 run-3
     live finding): "איזה סוג לינה?" got asked 15 times in a row with no
@@ -12335,10 +12462,33 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             trip_update["guided"] = guided
             return {"trip_update": trip_update, "dynamic_hint": _accessibility_ask_hint(awaiting_detail_before, attempts)}
         # status == "answered"
+        confidence = str(result.get("confidence") or "")
+        # Dry-run 4 finding 2 (Shaked/Shlomo, 22.10.2026): "other" is a
+        # genuine catch-all bucket in the closed detail_category list, but
+        # accepting it as final the first time wastes the one open follow-
+        # up on a label ("התאמה מיוחדת אחרת") too generic to check with any
+        # supplier. The FIRST time this open follow-up classifies as
+        # "other", ask once more for something concrete before settling -
+        # nothing is merged yet (checked before _guided_field_update_and_
+        # confirm below ever runs), so _accessibility_awaiting_detail still
+        # reads True next turn and this same open-follow-up branch handles
+        # the retry's answer too. A SECOND "other" in a row is accepted
+        # normally below - guarded by its own flag (not `attempts`, whose
+        # count may already be nonzero from an earlier unrelated "unclear"
+        # retry on this same field).
+        if (
+            awaiting_detail_before
+            and confidence == "high"
+            and str(result.get("detail_category") or "") == "other"
+            and not guided.get("accessibility_other_retried")
+        ):
+            guided["accessibility_other_retried"] = True
+            guided["current_question"], guided["attempts"], guided["answered"] = "accessibility", attempts, answered
+            trip_update["guided"] = guided
+            return {"trip_update": trip_update, "dynamic_hint": _accessibility_other_category_retry_hint()}
         fragment, _ = _guided_field_update_and_confirm("accessibility", result)
         if fragment:
             trip_update = _merge_trip_state(trip_update, fragment)
-        confidence = str(result.get("confidence") or "")
         if not fragment or confidence != "high" or not _guided_field_known_with_confidence("accessibility", trip_update):
             # Nothing usable, low confidence, or a bare "yes" with no need
             # specified yet - stay on this field. _accessibility_awaiting_
