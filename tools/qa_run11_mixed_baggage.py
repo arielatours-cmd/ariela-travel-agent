@@ -123,14 +123,15 @@ check("E: accessibility ack uses its own hint - no raw English field name",
 
 
 # --- 4. Safety net (B) -----------------------------------------------------------------------------
-def net(prior, now, extractor_result, guided_extra=None, statuses=None):
+def net(prior, now, extractor_result, guided_extra=None, statuses=None, guided_wrote=False):
     trip_state = state(guided_extra, baggage=prior)
     trip_update = state(guided_extra, baggage=now)
     if statuses:
         trip_update["session_status"] = statuses
     with patch.object(chat, "_guided_extract_answer", return_value=extractor_result) as ex, \
             patch.object(chat, "record_diagnostic_event"):
-        out = chat._mixed_baggage_safety_net("k", "m", "לי ולאשתי מזוודה, לתינוק מספיק תיק קטן", [], trip_state, trip_update, STEPS)
+        out = chat._mixed_baggage_safety_net("k", "m", "לי ולאשתי מזוודה, לתינוק מספיק תיק קטן", [], trip_state, trip_update, STEPS,
+                                                guided_wrote_baggage=guided_wrote)
     return out, ex.call_count
 
 
@@ -143,10 +144,16 @@ check("B: pending + baggage live + the explanation/yes-no hint",
 out, _ = net([], ["carry_on_only", "checked_bag"], dict(single, mixed_per_passenger=False))
 check("uniform two items for everyone (model: not mixed) -> kept as is",
       (out.get("flight") or {}).get("baggage") == ["carry_on_only", "checked_bag"] and "_guided_ask_hint" not in out)
-out, n = net([], ["checked_bag"], mixed)
-check("a single type -> no model call, untouched", n == 0 and (out.get("flight") or {}).get("baggage") == ["checked_bag"])
-out, n = net([], ["checked_bag", "personal_item"], mixed, guided_extra={"answered": ["dates", "travelers", "baggage"]})
-check("guided already settled baggage -> no second guess", n == 0)
+# Dry-run 1 B: the general extractor resolved the mixed message to ONE type, and guided.answered
+# already listed baggage (auto-added from state) - neither may hide it any more.
+out, n = net([], ["checked_bag"], mixed, guided_extra={"answered": ["dates", "travelers", "baggage"]})
+check("dry-run 1 B: a single type written by the extractor + the model says per-passenger -> reverted",
+      n == 1 and (out.get("flight") or {}).get("baggage") == [] and out["guided"].get("mixed_baggage_pending") is True
+      and "baggage" not in out["guided"].get("answered") and PAYMENT_MARK in (out.get("_guided_ask_hint") or ""))
+out, n = net([], ["checked_bag"], dict(single, mixed_per_passenger=False))
+check("a plain single-type answer (model: not mixed) -> kept", n == 1 and (out.get("flight") or {}).get("baggage") == ["checked_bag"])
+out, n = net([], ["checked_bag", "personal_item"], mixed, guided_wrote=True)
+check("written by the guided extraction itself (it already decided mixed) -> no second guess", n == 0)
 ALL_DECIDED = {"flights": "complete", "lodging": "declined", "car": "declined", "trip_planning": "declined"}
 out, n = net([], ["checked_bag", "personal_item"], mixed,
              guided_extra={"answered": ["dates", "travelers", "accessibility"]}, statuses=ALL_DECIDED)
