@@ -11886,6 +11886,18 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             changed = True
     if current_question and not _guided_step_covers(current_question, guided_steps):
         current_question = None
+    # Dry-run 4 C (Bordeaux, 22.10): accessibility was already answered
+    # (in guided.answered) but current_question still pointed at it, so the
+    # next turns kept extracting against accessibility - "לי מזוודה, לאמא
+    # מספיק טרולי" answered while that stale pointer was live never reached
+    # the baggage extraction (no mixed explanation / yes-no; caught only
+    # when baggage came up again 5 turns later). Accessibility's own branch
+    # always moves the pointer on once it is answered, so an answered
+    # accessibility pointer is only ever stale - move on to the next open
+    # field. (Not generalized: dates/travelers/baggage/lodging deliberately
+    # keep the pointer on an answered field for their correction flow.)
+    if current_question == "accessibility" and "accessibility" in answered:
+        current_question = None
     if not current_question:
         # Resolve the live field BEFORE deciding anything else, so the
         # extraction call below always runs against this message too -
