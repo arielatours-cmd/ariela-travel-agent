@@ -1,5 +1,5 @@
 {
-"_about": "טיוטה (אופק, 22.10.2026) לתוכנית 020 שלב ב: קטלוג שדות תעופה מורחב. 188 קיימים (he_verified=true) + 1,217 חדשים מ-OurAirports (large+scheduled+IATA, ובאירופה גם medium). שמות עבריים בחדשים he_verified=false עד בדיקת שקד - לא להציג ללקוח, רק להשוואה. לא בשימוש בקוד. ambiguous_names_he: שם עברי שמשותף לערים במדינות שונות (25 קבוצות, למשל ולנסיה ES/VE, ברצלונה ES/VE). preferred_for_names_he: ברירת מחדל (השדה מהקטלוג הקיים, או הגדול באירופה). בלי ברירת מחדל - אריאלה שואלת כן/לא על אחד.",
+"_about": "טיוטה (אופק, 22.10.2026) לתוכנית 020 שלב ב: קטלוג שדות תעופה מורחב. 188 קיימים (he_verified=true) + 1,217 חדשים מ-OurAirports (large+scheduled+IATA, ובאירופה גם medium). שמות עבריים בחדשים he_verified=false עד בדיקת שקד - לא להציג ללקוח, רק להשוואה. לא בשימוש בקוד. ambiguous_names_he = השם העברי המדויק שמשותף לערים במדינות שונות (26 שמות); preferred_for_names_he = ברירת מחדל אם יש; בלי ברירת מחדל - שאלת הבהרה. same_city_codes = כל השדות של אותה עיר (40 ערים) - לחפש בכולם. תוקן לפי בדיקת שקד 22.10. match_exact_only = שם שהוא גם מילה נפוצה או קצר מאוד: מתאים רק כשהלקוח כתב את שם היעד לבדו או בהקשר ברור של יעד (שקד).",
 "last_updated": "2026-10-22",
 "airports": [
 {
@@ -52,7 +52,11 @@
 "country_he": "ארגנטינה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"EZE",
+"AEP"
+]
 },
 {
 "code": "EVN",
@@ -130,7 +134,11 @@
 "country_he": "ברזיל",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"GRU",
+"CGH"
+]
 },
 {
 "code": "BOJ",
@@ -208,7 +216,11 @@
 "country_he": "סין",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"PEK",
+"PKX"
+]
 },
 {
 "code": "SZX",
@@ -296,7 +308,7 @@
 "name_he": "נמל התעופה ואצלב האוול פראג",
 "country": "CZ",
 "country_en": "Czech Republic",
-"country_he": "צ׳כיה",
+"country_he": "צ'כיה",
 "aliases_he": [],
 "he_verified": true,
 "source": "existing_catalog"
@@ -416,7 +428,11 @@
 "country_he": "צרפת",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"CDG",
+"ORY"
+]
 },
 {
 "code": "ORY",
@@ -429,7 +445,11 @@
 "country_he": "צרפת",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"CDG",
+"ORY"
+]
 },
 {
 "code": "TLS",
@@ -598,7 +618,8 @@
 "country_he": "יוון",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"match_exact_only": true
 },
 {
 "code": "JMK",
@@ -702,7 +723,11 @@
 "country_he": "הודו",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"GOI",
+"GOX"
+]
 },
 {
 "code": "BOM",
@@ -715,7 +740,11 @@
 "country_he": "הודו",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"BOM",
+"NMI"
+]
 },
 {
 "code": "BGY",
@@ -780,7 +809,11 @@
 "country_he": "איטליה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"MXP",
+"LIN"
+]
 },
 {
 "code": "NAP",
@@ -819,7 +852,11 @@
 "country_he": "איטליה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"FCO",
+"CIA"
+]
 },
 {
 "code": "VCE",
@@ -858,7 +895,11 @@
 "country_he": "יפן",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"HND",
+"NRT"
+]
 },
 {
 "code": "NRT",
@@ -871,7 +912,11 @@
 "country_he": "יפן",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"HND",
+"NRT"
+]
 },
 {
 "code": "AMM",
@@ -884,7 +929,11 @@
 "country_he": "ירדן",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"AMM",
+"ADJ"
+]
 },
 {
 "code": "ALA",
@@ -975,7 +1024,11 @@
 "country_he": "מקסיקו",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"MEX",
+"NLU"
+]
 },
 {
 "code": "RMO",
@@ -1079,7 +1132,11 @@
 "country_he": "פולין",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"WAW",
+"WMI"
+]
 },
 {
 "code": "LIS",
@@ -1118,7 +1175,11 @@
 "country_he": "רומניה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"OTP",
+"BBU"
+]
 },
 {
 "code": "BEG",
@@ -1183,7 +1244,11 @@
 "country_he": "דרום אפריקה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"JNB",
+"HLA"
+]
 },
 {
 "code": "ICN",
@@ -1196,7 +1261,11 @@
 "country_he": "קוריאה הדרומית",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"ICN",
+"GMP"
+]
 },
 {
 "code": "BCN",
@@ -1267,7 +1336,11 @@
 "country_he": "סרי לנקה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"CMB",
+"RML"
+]
 },
 {
 "code": "ARN",
@@ -1319,7 +1392,11 @@
 "country_he": "תאילנד",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"BKK",
+"DMK"
+]
 },
 {
 "code": "CNX",
@@ -1384,7 +1461,11 @@
 "country_he": "טורקיה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"IST",
+"SAW"
+]
 },
 {
 "code": "SAW",
@@ -1397,7 +1478,11 @@
 "country_he": "טורקיה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"IST",
+"SAW"
+]
 },
 {
 "code": "ADB",
@@ -1436,7 +1521,11 @@
 "country_he": "איחוד האמירויות",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"DXB",
+"DWC"
+]
 },
 {
 "code": "LGW",
@@ -1449,7 +1538,14 @@
 "country_he": "בריטניה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"LGW",
+"LHR",
+"LTN",
+"STN",
+"LCY"
+]
 },
 {
 "code": "LHR",
@@ -1462,7 +1558,14 @@
 "country_he": "בריטניה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"LGW",
+"LHR",
+"LTN",
+"STN",
+"LCY"
+]
 },
 {
 "code": "LTN",
@@ -1475,7 +1578,14 @@
 "country_he": "בריטניה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"LGW",
+"LHR",
+"LTN",
+"STN",
+"LCY"
+]
 },
 {
 "code": "STN",
@@ -1488,7 +1598,14 @@
 "country_he": "בריטניה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"LGW",
+"LHR",
+"LTN",
+"STN",
+"LCY"
+]
 },
 {
 "code": "BOS",
@@ -1514,7 +1631,11 @@
 "country_he": "ארצות הברית",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"ORD",
+"MDW"
+]
 },
 {
 "code": "LAX",
@@ -1553,7 +1674,11 @@
 "country_he": "ארצות הברית",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"JFK",
+"LGA"
+]
 },
 {
 "code": "LGA",
@@ -1566,7 +1691,11 @@
 "country_he": "ארצות הברית",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"JFK",
+"LGA"
+]
 },
 {
 "code": "EWR",
@@ -1605,7 +1734,11 @@
 "country_he": "ארצות הברית",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"IAD",
+"DCA"
+]
 },
 {
 "code": "TAS",
@@ -1800,7 +1933,11 @@
 "country_he": "איטליה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"MXP",
+"LIN"
+]
 },
 {
 "code": "CIA",
@@ -1813,7 +1950,11 @@
 "country_he": "איטליה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"FCO",
+"CIA"
+]
 },
 {
 "code": "BSL",
@@ -1986,7 +2127,10 @@
 "country": "ES",
 "country_en": "Spain",
 "country_he": "ספרד",
-"aliases_he": [],
+"aliases_he": [
+"וולנסיה",
+"ולנסייה"
+],
 "he_verified": true,
 "source": "existing_catalog",
 "ambiguous_names_he": [
@@ -2020,7 +2164,11 @@
 "country_he": "ספרד",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"TFS",
+"TFN"
+]
 },
 {
 "code": "LPA",
@@ -2111,7 +2259,11 @@
 "country_he": "איסלנד",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"KEF",
+"RKV"
+]
 },
 {
 "code": "DUB",
@@ -2280,7 +2432,11 @@
 "country_he": "סין",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"PVG",
+"SHA"
+]
 },
 {
 "code": "CAN",
@@ -2345,7 +2501,11 @@
 "country_he": "אינדונזיה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"CGK",
+"HLP"
+]
 },
 {
 "code": "MNL",
@@ -2371,7 +2531,11 @@
 "country_he": "מלזיה",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"KUL",
+"SZB"
+]
 },
 {
 "code": "KIX",
@@ -2384,7 +2548,11 @@
 "country_he": "יפן",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"KIX",
+"ITM"
+]
 },
 {
 "code": "RAK",
@@ -2462,7 +2630,11 @@
 "country_he": "ארצות הברית",
 "aliases_he": [],
 "he_verified": true,
-"source": "existing_catalog"
+"source": "existing_catalog",
+"same_city_codes": [
+"MCO",
+"SFB"
+]
 },
 {
 "code": "AAN",
@@ -2494,7 +2666,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"DXB",
+"DWC"
+]
 },
 {
 "code": "FJR",
@@ -2507,7 +2683,6 @@
 "name_he": "נמל התעופה הבינלאומי פוג'ירה",
 "country_he": "איחוד האמירויות",
 "aliases_he": [
-"פוג׳ירה",
 "פוגיירה"
 ],
 "he_confidence": "medium",
@@ -2543,7 +2718,6 @@
 "name_he": "נמל התעופה הבינלאומי שארג'ה",
 "country_he": "איחוד האמירויות",
 "aliases_he": [
-"שארג׳ה",
 "שרג'ה"
 ],
 "he_confidence": "high",
@@ -2626,14 +2800,12 @@
 "city_he": "סנט ג'ונס",
 "name_he": "נמל התעופה הבינלאומי V. C. בירד",
 "country_he": "אנטיגואה וברבודה",
-"aliases_he": [
-"סנט ג׳ונס"
-],
+"aliases_he": [],
 "he_confidence": "medium",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סנתגונס"
+"סנט ג'ונס"
 ]
 },
 {
@@ -2666,7 +2838,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"LAD",
+"NBJ"
+]
 },
 {
 "code": "NBJ",
@@ -2683,7 +2859,11 @@
 ],
 "he_confidence": "medium",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"LAD",
+"NBJ"
+]
 },
 {
 "code": "AEP",
@@ -2700,7 +2880,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"EZE",
+"AEP"
+]
 },
 {
 "code": "BRC",
@@ -2738,8 +2922,8 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"כורדובה",
-"כורדובא"
+"קורדובא",
+"קורדובה"
 ]
 },
 {
@@ -2768,7 +2952,6 @@
 "name_he": "נמל התעופה הבינלאומי גוברנדור הורסיו גוסמן",
 "country_he": "ארגנטינה",
 "aliases_he": [
-"חוחוּי",
 "סן סלבדור דה חוחוי"
 ],
 "he_confidence": "medium",
@@ -2989,7 +3172,11 @@
 ],
 "he_confidence": "medium",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"AVV",
+"MEL"
+]
 },
 {
 "code": "BME",
@@ -3104,7 +3291,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"AVV",
+"MEL"
+]
 },
 {
 "code": "NTL",
@@ -3123,8 +3314,8 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"ניוכסל",
-"ניוכאסל"
+"ניוקסל",
+"ניוקאסל"
 ]
 },
 {
@@ -3185,9 +3376,7 @@
 "city_he": "סידני",
 "name_he": "נמל התעופה הבינלאומי סידני קינגספורד סמית'",
 "country_he": "אוסטרליה",
-"aliases_he": [
-"סידנֵי"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -3199,12 +3388,11 @@
 "country": "AU",
 "country_en": "Australia",
 "type": "large_airport",
-"city_he": "טוּוּמבה",
-"name_he": "נמל התעופה טוּוּמבה וולקמפ",
+"city_he": "טוומבה",
+"name_he": "נמל התעופה טוומבה וולקמפ",
 "country_he": "אוסטרליה",
 "aliases_he": [
-"טואומבה",
-"טוומבה"
+"טואומבה"
 ],
 "he_confidence": "low",
 "he_verified": false,
@@ -3340,7 +3528,7 @@
 "name_he": "נמל התעופה הבינלאומי שאה אמנת",
 "country_he": "בנגלדש",
 "aliases_he": [
-"צ׳טוגרם"
+"צ'טוגרם"
 ],
 "he_confidence": "high",
 "he_verified": false,
@@ -3356,12 +3544,11 @@
 "city_he": "דאקה",
 "name_he": "נמל התעופה הבינלאומי חזרת שאהג'לאל",
 "country_he": "בנגלדש",
-"aliases_he": [
-"דקה"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "ZYL",
@@ -3546,7 +3733,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"המילתון"
+"המילטון"
 ]
 },
 {
@@ -3644,7 +3831,6 @@
 "name_he": "נמל התעופה הבינלאומי חויה אנדינה",
 "country_he": "בוליביה",
 "aliases_he": [
-"אוּיוּני",
 "סלאר דה אויוני"
 ],
 "he_confidence": "medium",
@@ -3750,7 +3936,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"בואהויסתה"
+"בואה ויסטה"
 ]
 },
 {
@@ -3786,7 +3972,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"GRU",
+"CGH"
+]
 },
 {
 "code": "CNF",
@@ -3868,12 +4058,16 @@
 "country_he": "ברזיל",
 "aliases_he": [
 "ריו",
-"ריו דה ז׳נרו",
+"ריו דה ז'נרו",
 "ריו דה זנירו"
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"GIG",
+"SDU"
+]
 },
 {
 "code": "GYN",
@@ -4074,12 +4268,16 @@
 "country_he": "ברזיל",
 "aliases_he": [
 "ריו",
-"ריו דה ז׳נרו",
+"ריו דה ז'נרו",
 "ריו דה זנירו"
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"GIG",
+"SDU"
+]
 },
 {
 "code": "SLZ",
@@ -4151,7 +4349,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"ויתוריה"
+"ויטוריה"
 ]
 },
 {
@@ -4196,7 +4394,7 @@
 "country": "BS",
 "country_en": "Bahamas",
 "type": "large_airport",
-"city_he": "סן סלבדור (בהאמה)",
+"city_he": "סן סלבדור",
 "name_he": "נמל התעופה הבינלאומי סן סלבדור",
 "country_he": "איי בהאמה",
 "aliases_he": [
@@ -4206,7 +4404,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סןסלבדור"
+"סן סלבדור"
 ]
 },
 {
@@ -4219,9 +4417,7 @@
 "city_he": "פארו",
 "name_he": "נמל התעופה הבינלאומי פארו",
 "country_he": "בהוטן",
-"aliases_he": [
-"פרו"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
@@ -4310,7 +4506,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"ברסת"
+"ברסט"
 ]
 },
 {
@@ -4412,7 +4608,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"המילתון"
+"המילטון"
 ]
 },
 {
@@ -4478,7 +4674,6 @@
 "country_he": "קנדה",
 "aliases_he": [
 "קוויבק",
-"קוויבּק",
 "קבק"
 ],
 "he_confidence": "high",
@@ -4597,14 +4792,12 @@
 "city_he": "סנט ג'ונס",
 "name_he": "נמל התעופה הבינלאומי סנט ג'ונס",
 "country_he": "קנדה",
-"aliases_he": [
-"סנט ג׳ונס"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סנתגונס"
+"סנט ג'ונס"
 ]
 },
 {
@@ -4771,9 +4964,7 @@
 "city_he": "ברן",
 "name_he": "נמל התעופה ברן",
 "country_he": "שווייץ",
-"aliases_he": [
-"בֶּרן"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -4806,8 +4997,7 @@
 "name_he": "נמל התעופה הבינלאומי פליקס הופואה-בואני",
 "country_he": "חוף השנהב",
 "aliases_he": [
-"אבידג'אן",
-"אביג׳אן"
+"אבידג'אן"
 ],
 "he_confidence": "high",
 "he_verified": false,
@@ -4857,9 +5047,7 @@
 "city_he": "קונספסיון",
 "name_he": "נמל התעופה הבינלאומי קריאל סור",
 "country_he": "צ'ילה",
-"aliases_he": [
-"קונסֶפסיון"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -4953,7 +5141,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סנתיאגו"
+"סנטיאגו"
 ]
 },
 {
@@ -4966,9 +5154,7 @@
 "city_he": "טמוקו",
 "name_he": "נמל התעופה הבינלאומי לה ארואקניה",
 "country_he": "צ'ילה",
-"aliases_he": [
-"טמוּקו"
-],
+"aliases_he": [],
 "he_confidence": "medium",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -5125,7 +5311,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"CTU",
+"TFU"
+]
 },
 {
 "code": "DAT",
@@ -5683,7 +5873,7 @@
 "country_en": "China",
 "type": "large_airport",
 "city_he": "נאנינג",
-"name_he": "נמל התעופה הבינלאומי נאנינג ווּשׁוּ",
+"name_he": "נמל התעופה הבינלאומי נאנינג וושו",
 "country_he": "סין",
 "aliases_he": [
 "ננינג"
@@ -5703,13 +5893,16 @@
 "name_he": "נמל התעופה הבינלאומי בייג'ינג דאשינג",
 "country_he": "סין",
 "aliases_he": [
-"בייג׳ינג",
 "ביג'ינג",
 "בייגינג"
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"PEK",
+"PKX"
+]
 },
 {
 "code": "RKZ",
@@ -5722,7 +5915,6 @@
 "name_he": "נמל התעופה שיגצה",
 "country_he": "סין",
 "aliases_he": [
-"שיגאצה",
 "שיגאצה"
 ],
 "he_confidence": "low",
@@ -5746,7 +5938,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"PVG",
+"SHA"
+]
 },
 {
 "code": "SHE",
@@ -5798,7 +5994,8 @@
 ],
 "he_confidence": "low",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"notes_he": "השם בעברית הוא העיר שהשדה משרת (שקד: סביר)"
 },
 {
 "code": "SYX",
@@ -5852,7 +6049,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"CTU",
+"TFU"
+]
 },
 {
 "code": "TNA",
@@ -5981,11 +6182,10 @@
 "country": "CN",
 "country_en": "China",
 "type": "large_airport",
-"city_he": "ווּשי",
+"city_he": "וושי",
 "name_he": "נמל התעופה הבינלאומי סונאן שואופאנג",
 "country_he": "סין",
 "aliases_he": [
-"וושי",
 "ווקסי"
 ],
 "he_confidence": "medium",
@@ -6285,8 +6485,8 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סןחוזה",
-"סןחוסה"
+"סן חוסה",
+"סן חוזה"
 ]
 },
 {
@@ -6359,7 +6559,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סנתיאגו"
+"סנטיאגו"
 ]
 },
 {
@@ -6414,7 +6614,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"בואהויסתה"
+"בואה ויסטה"
 ]
 },
 {
@@ -6515,7 +6715,7 @@
 "type": "medium_airport",
 "city_he": "ברנו",
 "name_he": "נמל התעופה ברנו-טורז'אני",
-"country_he": "צ׳כיה",
+"country_he": "צ'כיה",
 "aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
@@ -6530,7 +6730,7 @@
 "type": "large_airport",
 "city_he": "צ'סקה בודייוביצה",
 "name_he": "נמל התעופה צ'סקה בודייוביצה",
-"country_he": "צ׳כיה",
+"country_he": "צ'כיה",
 "aliases_he": [
 "צ'סקה בודיוביצה",
 "בודווייס"
@@ -6548,7 +6748,7 @@
 "type": "large_airport",
 "city_he": "קרלובי וארי",
 "name_he": "נמל התעופה קרלובי וארי",
-"country_he": "צ׳כיה",
+"country_he": "צ'כיה",
 "aliases_he": [
 "קרלובי ורי",
 "קרלסבד"
@@ -6566,7 +6766,7 @@
 "type": "large_airport",
 "city_he": "אוסטרבה",
 "name_he": "נמל התעופה לאוש יאנאצ'ק אוסטרבה",
-"country_he": "צ׳כיה",
+"country_he": "צ'כיה",
 "aliases_he": [
 "אוסטראבה"
 ],
@@ -6583,7 +6783,7 @@
 "type": "large_airport",
 "city_he": "פרדוביצה",
 "name_he": "נמל התעופה פרדוביצה",
-"country_he": "צ׳כיה",
+"country_he": "צ'כיה",
 "aliases_he": [
 "פרדוביצ'ה"
 ],
@@ -6976,7 +7176,6 @@
 "name_he": "נמל התעופה ג'יבוטי-אמבולי",
 "country_he": "ג'יבוטי",
 "aliases_he": [
-"ג׳יבוטי",
 "גיבוטי"
 ],
 "he_confidence": "high",
@@ -6994,7 +7193,6 @@
 "name_he": "נמל התעופה אולבורג",
 "country_he": "דנמרק",
 "aliases_he": [
-"אלבורג",
 "אלבורג"
 ],
 "he_confidence": "high",
@@ -7110,8 +7308,7 @@
 "name_he": "נמל התעופה בורנהולם",
 "country_he": "דנמרק",
 "aliases_he": [
-"בורנהולם",
-"רונֶה"
+"בורנהולם"
 ],
 "he_confidence": "medium",
 "he_verified": false,
@@ -7203,7 +7400,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סנתיאגו"
+"סנטיאגו"
 ]
 },
 {
@@ -7234,9 +7431,7 @@
 "city_he": "אלג'יר",
 "name_he": "נמל התעופה הוארי בומדיין",
 "country_he": "אלג'יריה",
-"aliases_he": [
-"אלג׳יר"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -7304,9 +7499,7 @@
 "city_he": "שלף",
 "name_he": "נמל התעופה הבינלאומי שלף אבובכר בלקאיד",
 "country_he": "אלג'יריה",
-"aliases_he": [
-"שלֵף"
-],
+"aliases_he": [],
 "he_confidence": "low",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -7339,9 +7532,7 @@
 "city_he": "ג'אנט",
 "name_he": "נמל התעופה טיסקה ג'אנט",
 "country_he": "אלג'יריה",
-"aliases_he": [
-"ג׳אנט"
-],
+"aliases_he": [],
 "he_confidence": "low",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -7615,9 +7806,7 @@
 "city_he": "אסיוט",
 "name_he": "נמל התעופה הבינלאומי אסיוט",
 "country_he": "מצרים",
-"aliases_he": [
-"אסיוּט"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -7705,8 +7894,7 @@
 "name_he": "נמל התעופה הבינלאומי לוקסור",
 "country_he": "מצרים",
 "aliases_he": [
-"לוקסר",
-"לוּקסור"
+"לוקסר"
 ],
 "he_confidence": "high",
 "he_verified": false,
@@ -8028,8 +8216,8 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"כורדובה",
-"כורדובא"
+"קורדובא",
+"קורדובה"
 ]
 },
 {
@@ -8076,8 +8264,7 @@
 "name_he": "נמל התעופה רוס",
 "country_he": "ספרד",
 "aliases_he": [
-"ראוס",
-"ראוּס"
+"ראוס"
 ],
 "he_confidence": "medium",
 "he_verified": false,
@@ -8182,7 +8369,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"TFS",
+"TFN"
+]
 },
 {
 "code": "VGO",
@@ -8216,7 +8407,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"ויתוריה"
+"ויטוריה"
 ]
 },
 {
@@ -8796,10 +8987,10 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"ברסת"
+"ברסט"
 ],
 "preferred_for_names_he": [
-"ברסת"
+"ברסט"
 ]
 },
 {
@@ -8931,12 +9122,11 @@
 "city_he": "קאן",
 "name_he": "נמל התעופה קאן קרפיקה",
 "country_he": "צרפת",
-"aliases_he": [
-"כאן"
-],
+"aliases_he": [],
 "he_confidence": "medium",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "CLY",
@@ -9034,7 +9224,8 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "FNI",
@@ -9219,7 +9410,8 @@
 "aliases_he": [],
 "he_confidence": "medium",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "RDZ",
@@ -9251,7 +9443,8 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "SXB",
@@ -9281,12 +9474,11 @@
 "city_he": "טולון",
 "name_he": "נמל התעופה טולון-ייר",
 "country_he": "צרפת",
-"aliases_he": [
-"יר"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "TUF",
@@ -9399,7 +9591,11 @@
 "aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"BFS",
+"BHD"
+]
 },
 {
 "code": "BHD",
@@ -9414,7 +9610,11 @@
 "aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"BFS",
+"BHD"
+]
 },
 {
 "code": "BHX",
@@ -9434,12 +9634,12 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"ברמינגהאם",
-"בירמינגהאם"
+"בירמינגהאם",
+"ברמינגהאם"
 ],
 "preferred_for_names_he": [
-"ברמינגהאם",
-"בירמינגהאם"
+"בירמינגהאם",
+"ברמינגהאם"
 ]
 },
 {
@@ -9639,7 +9839,8 @@
 ],
 "he_confidence": "low",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "INV",
@@ -9701,7 +9902,14 @@
 "aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"LGW",
+"LHR",
+"LTN",
+"STN",
+"LCY"
+]
 },
 {
 "code": "LDY",
@@ -9788,12 +9996,12 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"ניוכסל",
-"ניוכאסל"
+"ניוקסל",
+"ניוקאסל"
 ],
 "preferred_for_names_he": [
-"ניוכסל",
-"ניוכאסל"
+"ניוקסל",
+"ניוקאסל"
 ]
 },
 {
@@ -10102,7 +10310,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"נוכ"
+"נוק"
 ]
 },
 {
@@ -10423,9 +10631,7 @@
 "city_he": "ביסאו",
 "name_he": "נמל התעופה הבינלאומי אוסוולדו ויירה",
 "country_he": "גינאה ביסאו",
-"aliases_he": [
-"ביסאוּ"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -10447,7 +10653,8 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"גורגתאון"
+"ג'ורג' טאון",
+"ג'ורג'טאון"
 ]
 },
 {
@@ -10651,7 +10858,6 @@
 "name_he": "נמל התעופה הבינלאומי פץ'-פוגאני",
 "country_he": "הונגריה",
 "aliases_he": [
-"פץ",
 "פיץ'"
 ],
 "he_confidence": "high",
@@ -10797,7 +11003,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"CGK",
+"HLP"
+]
 },
 {
 "code": "KNO",
@@ -11026,10 +11236,10 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"נוכ"
+"נוק"
 ],
 "preferred_for_names_he": [
-"נוכ"
+"נוק"
 ]
 },
 {
@@ -11295,7 +11505,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"כוצי"
+"קוצ'י"
 ]
 },
 {
@@ -11350,7 +11560,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"GOI",
+"GOX"
+]
 },
 {
 "code": "HSR",
@@ -11401,7 +11615,8 @@
 ],
 "he_confidence": "low",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"notes_he": "השם בעברית הוא העיר שהשדה משרת (שקד: סביר)"
 },
 {
 "code": "HYD",
@@ -11628,7 +11843,11 @@
 ],
 "he_confidence": "medium",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"BOM",
+"NMI"
+]
 },
 {
 "code": "PNQ",
@@ -11991,7 +12210,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"IKA",
+"THR"
+]
 },
 {
 "code": "KER",
@@ -12112,7 +12335,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"IKA",
+"THR"
+]
 },
 {
 "code": "XBJ",
@@ -12248,7 +12475,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"KEF",
+"RKV"
+]
 },
 {
 "code": "VPN",
@@ -12745,7 +12976,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"AMM",
+"ADJ"
+]
 },
 {
 "code": "AQJ",
@@ -12913,7 +13148,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"KIX",
+"ITM"
+]
 },
 {
 "code": "KCZ",
@@ -12932,7 +13171,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"כוצי"
+"קוצ'י"
 ]
 },
 {
@@ -13466,7 +13705,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"ICN",
+"GMP"
+]
 },
 {
 "code": "MWX",
@@ -13568,7 +13811,8 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"גורגתאון"
+"ג'ורג' טאון",
+"ג'ורג'טאון"
 ]
 },
 {
@@ -13805,7 +14049,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"פתרופבלובסכ"
+"פטרופבלובסק"
 ]
 },
 {
@@ -13993,7 +14237,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"CMB",
+"RML"
+]
 },
 {
 "code": "ROB",
@@ -14174,12 +14422,12 @@
 "name_he": "נמל התעופה פס-סאיס הבינלאומי",
 "country_he": "מרוקו",
 "aliases_he": [
-"פאס",
-"פז"
+"פאס"
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "NDR",
@@ -14955,7 +15203,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"MEX",
+"NLU"
+]
 },
 {
 "code": "OAX",
@@ -15259,7 +15511,11 @@
 ],
 "he_confidence": "medium",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"KUL",
+"SZB"
+]
 },
 {
 "code": "APL",
@@ -15421,9 +15677,7 @@
 "city_he": "אבוג'ה",
 "name_he": "נמל התעופה נמדי אזיקיווה הבינלאומי",
 "country_he": "ניגריה",
-"aliases_he": [
-"אבוג׳ה"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
@@ -16358,7 +16612,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"אוכלנד"
+"אוקלנד"
 ]
 },
 {
@@ -17275,7 +17529,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"WAW",
+"WMI"
+]
 },
 {
 "code": "WRO",
@@ -17701,12 +17959,11 @@
 "city_he": "אראד",
 "name_he": "נמל התעופה אראד הבינלאומי",
 "country_he": "רומניה",
-"aliases_he": [
-"ארד"
-],
+"aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "BAY",
@@ -17741,7 +17998,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"OTP",
+"BBU"
+]
 },
 {
 "code": "BCM",
@@ -18135,7 +18396,13 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"DME",
+"SVO",
+"VKO",
+"ZIA"
+]
 },
 {
 "code": "ESL",
@@ -18154,7 +18421,7 @@
 },
 {
 "code": "EYK",
-"city_en": "",
+"city_en": "Beloyarsky",
 "name_en": "Beloyarskiy Airport",
 "country": "RU",
 "country_en": "Russia",
@@ -18458,7 +18725,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סנתפתרסבורג"
+"סנט פטרסבורג"
 ]
 },
 {
@@ -18718,7 +18985,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"פתרופבלובסכ"
+"פטרופבלובסק"
 ]
 },
 {
@@ -18811,7 +19078,13 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"DME",
+"SVO",
+"VKO",
+"ZIA"
+]
 },
 {
 "code": "SVX",
@@ -18937,7 +19210,13 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"DME",
+"SVO",
+"VKO",
+"ZIA"
+]
 },
 {
 "code": "VOG",
@@ -19033,7 +19312,13 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"DME",
+"SVO",
+"VKO",
+"ZIA"
+]
 },
 {
 "code": "KGL",
@@ -19208,7 +19493,7 @@
 "country": "SA",
 "country_en": "Saudi Arabia",
 "type": "large_airport",
-"city_he": "נאום",
+"city_he": "ניאום",
 "name_he": "נמל התעופה מפרץ נאום",
 "country_he": "ערב הסעודית",
 "aliases_he": [
@@ -19216,7 +19501,8 @@
 ],
 "he_confidence": "low",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "RSI",
@@ -19231,7 +19517,8 @@
 "aliases_he": [],
 "he_confidence": "low",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "RUH",
@@ -19870,7 +20157,8 @@
 ],
 "he_confidence": "low",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "MBX",
@@ -20083,7 +20371,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סןסלבדור"
+"סן סלבדור"
 ]
 },
 {
@@ -20119,7 +20407,8 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "DAM",
@@ -20234,7 +20523,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"BKK",
+"DMK"
+]
 },
 {
 "code": "HDY",
@@ -20845,7 +21138,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"TPE",
+"TSA"
+]
 },
 {
 "code": "TSA",
@@ -20863,7 +21160,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"TPE",
+"TSA"
+]
 },
 {
 "code": "DAR",
@@ -21048,8 +21349,8 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"ברמינגהאם",
-"בירמינגהאם"
+"בירמינגהאם",
+"ברמינגהאם"
 ]
 },
 {
@@ -21244,7 +21545,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"DAL",
+"DFW"
+]
 },
 {
 "code": "DCA",
@@ -21261,7 +21566,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"IAD",
+"DCA"
+]
 },
 {
 "code": "DEN",
@@ -21296,7 +21605,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"DAL",
+"DFW"
+]
 },
 {
 "code": "DJT",
@@ -21471,7 +21784,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"HOU",
+"IAH"
+]
 },
 {
 "code": "IAH",
@@ -21488,7 +21805,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"HOU",
+"IAH"
+]
 },
 {
 "code": "IND",
@@ -21603,7 +21924,11 @@
 ],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"ORD",
+"MDW"
+]
 },
 {
 "code": "MEM",
@@ -21697,7 +22022,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"אוכלנד"
+"אוקלנד"
 ]
 },
 {
@@ -21845,7 +22170,7 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סנתפתרסבורג"
+"סנט פטרסבורג"
 ]
 },
 {
@@ -22115,7 +22440,11 @@
 "aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"MCO",
+"SFB"
+]
 },
 {
 "code": "SJC",
@@ -22134,8 +22463,8 @@
 "he_verified": false,
 "source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
 "ambiguous_names_he": [
-"סןחוזה",
-"סןחוסה"
+"סן חוסה",
+"סן חוזה"
 ]
 },
 {
@@ -22713,7 +23042,8 @@
 "aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"match_exact_only": true
 },
 {
 "code": "GXF",
@@ -22854,7 +23184,11 @@
 "aliases_he": [],
 "he_confidence": "high",
 "he_verified": false,
-"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)"
+"source": "OurAirports (github.com/davidmegginson/ourairports-data, 2026-10-22)",
+"same_city_codes": [
+"JNB",
+"HLA"
+]
 },
 {
 "code": "KIM",
