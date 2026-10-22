@@ -3546,10 +3546,42 @@ def _guard_baggage_type_self_picked(reply, state):
     about baggage at all; if it isn't - whatever she said instead, question
     or not - the canonical question replaces the whole reply outright,
     rather than trying to patch free text that may already have stated a
-    type as if it were a settled decision."""
+    type as if it were a settled decision.
+
+    Guarded by _turn_question_arbiter's own winning kind, not just
+    current_question=="baggage" alone (Shaked's qa_run8_post_summary_
+    followups.py regression, found verifying this fix): guided.current_
+    question can legitimately read "baggage" (or "accessibility") as mere
+    bookkeeping on a turn where a HIGHER-PRIORITY one-shot hint - a post-
+    summary date shift, a gap-clarify doubt, an unresolved destination
+    gateway - correctly wins the turn instead and the reply is correctly
+    about that, not baggage at all. Only "guided"/"guided_mixed_baggage"
+    winning means the guided baggage hint is genuinely what Tinkerbell was
+    actually told to ask this turn.
+
+    Also skipped whenever a one-shot FACT hint (_dates_changed_hint/
+    _shift_candidate_hint/_gap_clarify_question) is present this turn (see
+    _guard_accessibility_question_skipped's own docstring for the live
+    Santorini regression this mirrors): the arbiter only decides which
+    QUESTION to ask, never whether to suppress acknowledging a fact that
+    genuinely changed this exact turn."""
     state = state if isinstance(state, dict) else {}
     guided = state.get("guided") if isinstance(state.get("guided"), dict) else {}
     if guided.get("current_question") != "baggage":
+        return reply
+    if state.get("_dates_changed_hint") or state.get("_shift_candidate_hint") or state.get("_gap_clarify_question"):
+        return reply
+    if _dates_pending_change(state.get("dates") if isinstance(state.get("dates"), dict) else {}):
+        return reply
+    # A reply that mentions a concrete date (DD.MM[.YYYY]) anywhere is
+    # never touched, full stop - see _guard_accessibility_question_
+    # skipped's own docstring for Shaked's explicit, reviewed decision
+    # this mirrors (and why the whole reply is checked, not just
+    # _last_question_clause's own extraction).
+    if re.search(r"\d{1,2}\.\d{1,2}(?:\.\d{2,4})?", str(reply or "")):
+        return reply
+    _, _winning_kind = _turn_question_arbiter(state)
+    if _winning_kind not in ("guided", "guided_mixed_baggage"):
         return reply
     flight = state.get("flight") if isinstance(state.get("flight"), dict) else {}
     if flight.get("baggage"):
@@ -3586,12 +3618,74 @@ def _guard_accessibility_question_skipped(reply, state):
     reply's own actual question (last clause before the final "?") doesn't
     mention accessibility/accommodation wording at all, the canonical
     yes/no question replaces the whole reply - better to ask it correctly
-    now than let the field slip out of order again."""
+    now than let the field slip out of order again.
+
+    Guarded by _turn_question_arbiter's own winning kind, not just
+    current_question=="accessibility" alone (Shaked's qa_run8_post_summary_
+    followups.py/qa_run9_*.py regressions, found verifying this fix):
+    guided.current_question can legitimately read "accessibility" as mere
+    bookkeeping (freshly computed this very turn) on a turn where a
+    HIGHER-PRIORITY one-shot hint - a post-summary date shift, explicit
+    new dates, a gap-clarify doubt - correctly wins instead, and the reply
+    is correctly about that, never accessibility at all. Only "guided"
+    winning means the guided accessibility hint is genuinely what
+    Tinkerbell was actually told to ask this turn.
+
+    Also skipped whenever a one-shot FACT hint (_dates_changed_hint/
+    _shift_candidate_hint/_gap_clarify_question) is present this turn
+    (Shaked's qa_run8_post_summary_followups.py Santorini regression,
+    found verifying this fix): the arbiter only decides which QUESTION to
+    ask, never whether to suppress acknowledging a fact that genuinely
+    changed this exact turn (an explicit new date, a confirmed shift) -
+    Tinkerbell correctly reports that fact even on a turn where the
+    guided question nominally "won"; a real accessibility ask still
+    follows normally on the turn after. The same applies to a STANDING
+    pending date candidate from an earlier turn (dates.needs_confirmation
+    + candidate_ranges, _dates_pending_change) - Shaked's own exact live
+    case 1 (qa_relative_date_model_primary.py): a reply that closes
+    baggage and re-asks the still-open date confirmation ("סגרנו את
+    הכבודה - ולגבי התאריכים, 20.11–27.11 מתאים?") must reach the customer
+    untouched - her own explicit, reviewed decision against any reply-text
+    safety net for this exact case.
+
+    Scoped specifically to baggage jumping the queue - never fires once
+    "baggage" is already in guided.answered (Shaked's qa_baggage_followup_
+    code_backup.py regression, found verifying this fix): there, baggage
+    was answered via the GENERAL extractor, outside the guided dispatcher
+    entirely, before accessibility ever got a turn - accessibility then
+    becomes current_question as pure backfill bookkeeping on a LATER,
+    unrelated turn (asking about budget), which _guided_incomplete_fields'
+    own deliberate mechanism already handles on its own schedule. Forcing
+    the accessibility question into that unrelated turn would also destroy
+    the baggage follow-up note this same reply is required to carry. The
+    real dr4_F bug is specifically baggage jumping ahead of accessibility
+    on the SAME turn it is itself first answered (baggage not yet in
+    answered) - never a later, already-settled baggage fact resurfacing
+    accessibility as an afterthought."""
     state = state if isinstance(state, dict) else {}
     guided = state.get("guided") if isinstance(state.get("guided"), dict) else {}
     if guided.get("current_question") != "accessibility":
         return reply
+    if "baggage" in (guided.get("answered") or []):
+        return reply
     if _accessibility_awaiting_detail(state) or _guided_field_known_with_confidence("accessibility", state):
+        return reply
+    if state.get("_dates_changed_hint") or state.get("_shift_candidate_hint") or state.get("_gap_clarify_question"):
+        return reply
+    if _dates_pending_change(state.get("dates") if isinstance(state.get("dates"), dict) else {}):
+        return reply
+    # A reply that mentions a concrete date (DD.MM[.YYYY]) anywhere is
+    # never touched, full stop - Shaked's own explicit, reviewed decision
+    # (qa_relative_date_model_primary.py) rules out any reply-text safety
+    # net for a dates-confirmation question, whatever upstream pipeline
+    # state produced it. Checked against the whole reply, not just
+    # _last_question_clause's own extraction - a dotted date's OWN periods
+    # ("27.11") confuse that helper's sentence-boundary search (it splits
+    # on ".", so "20.11–27.11 מתאים?" is cut down to just "11 מתאים?").
+    if re.search(r"\d{1,2}\.\d{1,2}(?:\.\d{2,4})?", str(reply or "")):
+        return reply
+    _, _winning_kind = _turn_question_arbiter(state)
+    if _winning_kind != "guided":
         return reply
     last_question = _last_question_clause(str(reply or ""))
     if any(w in last_question for w in ("נגישות", "התאמה", "התאמות")):
@@ -4487,6 +4581,53 @@ def _strip_leaked_planning_parenthesis(text, injected_guidance=""):
     cleaned = re.sub(r"[ \t]+\n", "\n", cleaned)
     cleaned = re.sub(r"\n{2,}", "\n", cleaned)
     return cleaned.strip()
+
+
+def _strip_dangling_example_parenthesis(text):
+    """Deterministic safety net (round 12 live finding E, Shlomo/Shaked,
+    22.10.2026, Zadar - qa-dryrun branch "shaked", qa/live/2026-10-22-
+    run12/r12_E.log): the live reply "מעולה, אז נהיה גמישים גם לקונקשן.
+
+     (למשל יש שדות אזוריים שונים שיכולים לשרת את האזור) לתכנן גם מסלול
+    ואטרקציות לחופשה הזו?" contains a dangling example aside - "(למשל
+    ...)" - sitting directly in front of a completely unrelated question,
+    with no sentence of its own ever finishing the thought it started.
+    Whatever it was meant to illustrate, it was abandoned mid-thought
+    rather than folded into a real customer-facing sentence - this isn't
+    _strip_leaked_planning_parenthesis's internal "note to self" shape (no
+    colon, no vocabulary overlap with this turn's injected guidance to
+    check against), just a different way the same underlying habit - an
+    aside that was never actually finished - leaks into the reply.
+
+    Structural, not a guessed phrase list: ANY parenthetical whose own
+    content starts with "למשל" (marking it as an illustrative aside, never
+    a complete thought by itself) is stripped, but ONLY when nothing but
+    whitespace separates its closing paren from the reply's own next
+    question - i.e. it was never actually attached to any sentence
+    introducing what it illustrates. A "(למשל: מלון, דירה או צימר)" sitting
+    right after the question it exemplifies is a completely different
+    shape (text before it, not after) and is never touched."""
+    text = str(text or "")
+    m = re.search(r"\(\s*למשל[^()]*\)", text)
+    if not m:
+        return text
+    # Same structural separation _strip_leaked_planning_parenthesis already
+    # requires (Shaked's own review of that fix): a genuine example aside
+    # sits INLINE, right after the question/sentence it illustrates ("איזה
+    # סוג לינה מתאים לכם (למשל: מלון, דירה או צימר)?" - one single
+    # question). A dangling, abandoned aside instead starts its OWN
+    # paragraph, with a blank line separating it from whatever came
+    # before - exactly the live leak's own shape.
+    prefix = text[:m.start()]
+    if not re.search(r"\n[ \t]*\n[ \t]*\Z", prefix):
+        return text
+    after = text[m.end():].lstrip()
+    if not after or "?" not in after:
+        return text
+    before = prefix.rstrip()
+    if not before:
+        return after
+    return before + "\n\n" + after
 
 
 def _strip_stray_markdown_markers(text):
@@ -5530,6 +5671,7 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     reply = _strip_mixed_hebrew_latin_token(reply)
     reply = _strip_leaked_internal_paragraph(reply)
     reply = _strip_leaked_planning_parenthesis(reply, system_dynamic)
+    reply = _strip_dangling_example_parenthesis(reply)
     reply = _strip_stray_markdown_markers(reply)
     reply = _correct_route_day_weekdays(reply, state)
     reply = _enforce_one_option_question(reply, state)
@@ -10222,6 +10364,20 @@ def _premature_approval_fallback_text(trip_update):
             question = _GAP_QUESTION_TEXT.get(gap)
             if question:
                 return question
+    # Round 12 live finding E (Shlomo/Shaked, 22.10.2026, Zadar - qa/live/
+    # 2026-10-22-run12/r12_E.log): still_open can genuinely be "flights"
+    # itself (here, destination_airports still unresolved) or missing
+    # entirely (active_session/next_session both None, between turns) -
+    # neither was ever handled above, so every one of these fell straight
+    # to the fully generic sentence below with no question in it at all,
+    # the exact qa-s79 dead end this function exists to avoid. Ask the
+    # real flight gap first, same as every other caller of
+    # _flight_gap_question, before giving up on anything concrete.
+    flight_gaps = _session_gaps(trip_update, "flights")
+    if flight_gaps:
+        flight_question = _flight_gap_question(flight_gaps, trip_update)
+        if flight_question:
+            return flight_question
     label = _POST_FLIGHT_LABELS.get(still_open)
     detail = f" (חסר עדיין פרט ב{label})" if label else ""
     return f"עוד לא כל הפרטים נסגרו{detail} - עדיין לא אפשר לאשר. נמשיך לסגור את זה קודם."

@@ -43,6 +43,11 @@ STATE_ACCESSIBILITY_OPEN = {
     "guided": {"current_question": "accessibility", "answered": ["dates", "travelers"], "attempts": 0},
     "accessibility": None,
     "flight": {"baggage": []},
+    # The arbiter must actually pick the guided hint as this turn's winner
+    # (see _turn_question_arbiter) - the guard only fires when nothing
+    # higher-priority (a date shift, a gap-clarify doubt, a destination
+    # gateway question) won instead.
+    "_guided_ask_hint": "הפרט הבא לברר: האם מישהו מהנוסעים צריך התאמות נגישות בחופשה.",
 }
 
 # The exact live reply (Prague, dry-run 4, finding 4, scenario F) - skipped

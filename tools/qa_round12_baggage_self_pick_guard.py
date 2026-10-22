@@ -42,6 +42,11 @@ def check(name, cond):
 STATE_BAGGAGE_OPEN = {
     "guided": {"current_question": "baggage", "answered": ["dates", "travelers"], "mixed_baggage_pending": False},
     "flight": {"baggage": []},
+    # The arbiter must actually pick the guided hint as this turn's winner
+    # (see _turn_question_arbiter) - the guard only fires when nothing
+    # higher-priority (a date shift, a gap-clarify doubt, a destination
+    # gateway question) won instead.
+    "_guided_ask_hint": "הפרט הבא לברר אצל הלקוח: איזו כבודה לוקחים.",
 }
 
 # The exact live reply (Zadar, round 12, finding E) - self-picked a type,
