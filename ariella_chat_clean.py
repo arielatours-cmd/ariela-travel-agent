@@ -1109,6 +1109,31 @@ def _dates_truth_hint(state):
         candidates = dates.get("candidate_ranges") if isinstance(dates.get("candidate_ranges"), list) else []
         if not candidates:
             return ""
+        # Run-10 Genoa, Shlomo's explicit follow-up on #141 (22.10): a shift-
+        # days candidate is always a SINGLE proposed range (the whole window
+        # moved together, never a choice among several) - the shared "יש
+        # אפשרויות ממתינות" (plural, "there are pending options") framing
+        # below was written for the weekday-pair/duration flows, which can
+        # genuinely offer 2+ candidates at once. Reusing that same plural
+        # wording here risked Tinkerbell composing something like "יש לך
+        # כמה אפשרויות... איזו מתאימה?" around a single shown value - a
+        # multi-option framing for what must read as one direct proposal
+        # ("לדחות ל-X–Y?"). {_DATE_OPTIONS_PLACEHOLDER} itself still
+        # resolves to the same single value either way (_render_date_
+        # placeholders only ever joins the real candidates with "או") -
+        # this only changes the SURROUNDING instruction's own wording to
+        # match what's actually being shown.
+        if len(candidates) == 1:
+            return (
+                "\nיש הצעת תאריכים חדשה אחת שטרם אושרה בפועל (לא כמה אפשרויות לבחור ביניהן). לעולם אל "
+                "תכתבי שום תאריך קלנדרי בעצמך בתשובה הזו (לא יום בחודש, לא שם חודש, לא מספר) - לא עבור "
+                "ההצעה הזו ולא כתגובה לבקשת שינוי קטנה (\"יום קודם\"/\"להקדים\"/\"להזיז\"). כשאת רוצה "
+                f"להציג אותה, כתבי אך ורק את המחרוזת המדויקת {_DATE_OPTIONS_PLACEHOLDER} "
+                "(בדיוק כך, עם הסוגריים הכפולים, בלי תאריך נוסף לידה) - הקוד יחליף אותה אוטומטית בטקסט "
+                "האמיתי, ונסחי סביבה שאלת אישור ישירה אחת (למשל \"מתאים לך?\"), לא ניסוח של בחירה מתוך "
+                "רשימה. אם ההצעה הזו לא תואמת בדיוק את מה שהלקוח ביקש (למשל ביקש שינוי "
+                f"שעדיין לא חושב), אל תכתבי {_DATE_OPTIONS_PLACEHOLDER} בכלל - שאלי כדי לוודא במקום."
+            )
         return (
             "\nתאריכי הטיול עדיין לא אושרו בפועל - יש אפשרויות ממתינות. לעולם אל תכתבי שום תאריך "
             "קלנדרי בעצמך בתשובה הזו (לא יום בחודש, לא שם חודש, לא מספר) - לא עבור האפשרויות "
@@ -1527,6 +1552,18 @@ def _declined_domains_hint(state):
     declined = [labels[s] for s in ("lodging", "car", "trip_planning") if statuses.get(s) == "declined"]
     if not declined:
         return ""
+    if state.get("ready_for_summary"):
+        # Run-10 Zaragoza (22.10): on the final-summary turn the "name the
+        # exact list" instruction below contradicted the summary rule (a
+        # declined domain never appears in the summary, and the reminder
+        # there is one general sentence) - the reply narrated the conflict
+        # to the customer ("נראה שהסתפק לי לתת סיכום... כולל ציון שלינה
+        # ורכב לא נדרשים"). On that turn hand over the summary rule only.
+        return (
+            "\nזו הודעת הסיכום הסופי. תחומים שנדחו לא מופיעים בה בכלל - לא בשמם ולא כ\"לא נדרש\". "
+            "לפני שורת האישור מותר משפט תזכורת קצר וכללי אחד שאפשר תמיד לחזור ולהוסיף שירותים, בלי לפרט "
+            "אילו. כתבי את הסיכום ישירות, בלי שום משפט על האופן שבו את בונה אותו."
+        )
     return (
         "\nתחומים שנדחו עד כה בחופשה הזו (עובדה מדויקת מה-state, לא לנחש או לזכור מההקשר): "
         + ", ".join(declined) + ". כל משפט מסוג \"אפשר תמיד לחזור ולבקש עזרה גם ב-X\" חייב לכלול את "
@@ -4861,6 +4898,14 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
             "גם אם נושא אחר עדיין פתוח - הוא יחכה לתורו. השאלה/הנחיה עצמה: "
             + str(state.get("_guided_ask_hint")) + "\n"
         )
+    if state.get("_shift_candidate_hint"):
+        # One-turn hint set in _chat_clean_impl when a shift_days candidate
+        # was created this turn.
+        continuity += "\n- " + str(state.get("_shift_candidate_hint")) + "\n"
+    if state.get("_dates_changed_hint"):
+        # One-turn hint set in _chat_clean_impl when explicit new dates
+        # replaced already-set ones this turn.
+        continuity += "\n- " + str(state.get("_dates_changed_hint")) + "\n"
     if state.get("_date_hallucination_correction_hint"):
         # Set by _retry_if_dates_invented below, on the one corrective
         # re-call it makes when the first reply named a date that matches
@@ -14290,6 +14335,22 @@ def _chat_clean_impl():
         # An explicit new date range in the CURRENT customer message overrides the
         # old approved range. Sticky dates protect against unrelated turns only;
         # they must never block a correction such as "change it to 23-27 May 2027".
+        # Run-10 Genoa (22.10): explicit new dates given after the dates were
+        # already set are applied right here (no pending candidate), yet the
+        # reply asked "רק לוודא - חוזרים לתאריכים המקוריים: ...?" - a
+        # redundant, and wrong, confirmation. One-turn hint, before the reply
+        # is written. (A relative shift stays a pending candidate that must be
+        # confirmed - untouched.)
+        if (current_dates and prior_dates.get("departure") and prior_dates.get("return")
+                and (current_dates.get("departure") != prior_dates.get("departure")
+                     or current_dates.get("return") != prior_dates.get("return"))):
+            trip_update["_dates_changed_hint"] = (
+                "הלקוח ביקש בהודעה הזו תאריכים מפורשים חדשים, והם כבר נשמרו בפועל. אל תבקשי עליהם אישור "
+                "ואל תשאלי \"רק לוודא\"; אל תתארי אותם כ\"מקוריים\", \"קודמים\" או כחזרה לתאריכים "
+                f"אחרים. אשרי בקצרה שהתאריכים עודכנו, עם {_DATES_PLACEHOLDER}."
+            )
+        else:
+            trip_update.pop("_dates_changed_hint", None)
         if current_dates:
             trip_update["dates"] = dict(current_dates)
             trip_update["dates"]["needs_confirmation"] = False
@@ -14441,6 +14502,7 @@ def _chat_clean_impl():
         # mechanism (_accept_single_proposed_date_range) the weekday-pair
         # and duration flows already rely on - no new "apply the
         # confirmation" code needed, just feeding it the same shape.
+        trip_update.pop("_shift_candidate_hint", None)
         if prior_dates.get("departure") and prior_dates.get("return"):
             _shift_days = relative_date_hint.get("shift_days") if isinstance(relative_date_hint, dict) else None
             _shift_model_evidence_ok = (
@@ -14490,6 +14552,15 @@ def _chat_clean_impl():
                         "period": f"{_old_dep.strftime('%d.%m.%Y')}–{_old_ret.strftime('%d.%m.%Y')}",
                         "needs_confirmation": True, "candidate_ranges": [_shift_label],
                     })
+                    # Run-10 Genoa, Shlomo's decision (22.10): the confirmation
+                    # stays, but it is the ONLY question - show the shifted
+                    # dates and ask if they fit, never a separate "both the
+                    # departure and the return?" (a shift always moves both).
+                    trip_update["_shift_candidate_hint"] = (
+                        "הלקוח ביקש להזיז את התאריכים, והתאריכים המוזזים כבר חושבו (הזזה תמיד חלה על היציאה ועל "
+                        f"החזרה יחד). הציגי אותם עכשיו עם {_DATE_OPTIONS_PLACEHOLDER} ושאלי אם זה מתאים - זה האישור "
+                        "היחיד. אל תשאלי שאלת ביניים על הכוונה, למשל אם להזיז גם את היציאה וגם את החזרה."
+                    )
                     _dates_pipeline_gates.append({"gate": "shift_days", "outcome": "candidate_created", "source": _shift_gate_source})
                 except ValueError:
                     _dates_pipeline_gates.append({"gate": "shift_days", "outcome": "parse_error_on_apply", "source": _shift_gate_source})
