@@ -3610,7 +3610,28 @@ def _ensure_flight_summary_completeness(reply, state):
     # regex the date parser itself uses), not just the digit format.
     # (dates itself is already defined above, by the canonical-line-replace
     # block.)
-    if not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text) and not re.search(_HEBREW_MONTH_DATE_RE, text):
+    #
+    # Run-10 Zaragoza (22.10.2026, Shaked's full transcript, relayed by
+    # Shlomo): dates were already represented in Tinkerbell's own
+    # structured summary block via the literal {{DATES}} placeholder
+    # ("סרגוסה, {{DATES}}") - the SAME mechanism _dates_truth_hint
+    # instructs her to use instead of ever writing a calendar date herself
+    # (see its own docstring). This function runs BEFORE _render_date_
+    # placeholders substitutes that token into real digits (the call order
+    # in _call_tinkerbell), so at this point the text genuinely contains
+    # no digit-dot-digit-dot-year pattern and no Hebrew month name yet -
+    # dates got flagged as "missing" and a second, redundant "תאריכים:"
+    # line was appended separately, right before the confirmation
+    # sentence, even though the real date was already sitting right there
+    # in the structured block, just not yet rendered. The unresolved
+    # placeholder token itself (checked the same lenient way _DATE_
+    # PLACEHOLDER_RE already does elsewhere, regardless of the later
+    # substitution) now also counts as "dates are present" here.
+    if (
+        not re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", text)
+        and not re.search(_HEBREW_MONTH_DATE_RE, text)
+        and not _DATE_PLACEHOLDER_RE.search(text)
+    ):
         line = _flight_dates_line(dates)
         if line:
             missing.append(line)
