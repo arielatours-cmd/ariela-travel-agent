@@ -1,0 +1,3 @@
+chat_profile_*/
+*.db-shm
+*.db-wal

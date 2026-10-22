@@ -103,7 +103,7 @@ try:
     rows = db.execute("SELECT model, source, COUNT(*), SUM(input_tokens), SUM(output_tokens), "
                       "SUM(cache_read_input_tokens), SUM(cache_creation_input_tokens), "
                       "SUM(CASE WHEN error IS NOT NULL AND error != '' THEN 1 ELSE 0 END) "
-                      "FROM ai_usage WHERE source != 'turn_total' GROUP BY model, source ORDER BY model, source").fetchall()
+                      "FROM ai_usage WHERE source != 'turn_total' AND COALESCE(model, '') != '' GROUP BY model, source ORDER BY model, source").fetchall()
     turns = db.execute("SELECT COUNT(*) FROM ai_usage WHERE source = 'turn_total'").fetchone()[0]
 except sqlite3.Error as exc:
     print("usage: ai_usage not readable:", exc); sys.exit(0)
@@ -115,4 +115,6 @@ for r in rows:
 print("chat turns: %d" % turns)
 print("usage total: calls=%d input=%d output=%d cache_read=%d cache_write=%d errors=%d" % tuple(total))
 PY
+# Browser profiles hold the local session cookies - never keep or publish them.
+rm -rf "$OUT"/chat_profile_*
 echo "done: sha=$SHA, transcripts and state in $OUT (chat_resp_*.jsonl = full trip_update per turn)"
