@@ -665,8 +665,12 @@ check("K4: the follow-up note mentions BOTH a trolley and a suitcase can "
 
 # --- Direct unit tests of _baggage_followup_hint - the actual decision
 #     table from the business owner's directive. ---
-check("_baggage_followup_hint: checked_bag chosen -> no note at all",
-      chat._baggage_followup_hint(["checked_bag"]) is None)
+# 22.10 (business owner, replacing a rejected after-the-fact filter): the
+# checked bag still gets NO "can add" note for the customer - the hint is
+# now an explicit instruction to the model NOT to write one (was None).
+check("_baggage_followup_hint: checked_bag chosen -> no note at all - explicit 'add nothing' instruction instead of None",
+      "אל תוסיפי שום משפט על הוספת כבודה נוספת" in (chat._baggage_followup_hint(["checked_bag"]) or "")
+      and "שאפשר תמיד להוסיף" not in (chat._baggage_followup_hint(["checked_bag"]) or ""))
 check("_baggage_followup_hint: carry_on_only chosen -> mentions only a "
       "suitcase can be added",
       chat._baggage_followup_hint(["carry_on_only"]) is not None
