@@ -4704,13 +4704,24 @@ def _destination_catalog_hint(state):
     line = ""
     if facts:
         line += ("\nשדה/שדות הנחיתה ביעד לפי רשימת שדות התעופה (מקור אמת - אל תמציאי תעתיק, קוד או מדינה "
-                 "משלך, השתמשי בדיוק בזה): " + " / ".join(dict.fromkeys(facts)) + ".")
+                 "משלך, השתמשי בדיוק בזה): " + " / ".join(dict.fromkeys(facts)) + "."
+                 # Run-11 B (Valencia): the reply read this fact out mid-
+                 # conversation ("לוולנסיה עצמה יש שדה תעופה (VLC), כך שזה
+                 # יהיה היעד שנחפש אליו").
+                 " זו עובדה לשימושך ולשורת \"נחיתה:\" בסיכום - אל תספרי ללקוח על שדה התעופה באמצע השיחה "
+                 "ואל תסבירי עליו, אלא אם הלקוח שאל.")
     if unknown:
         line += ("\nהיעד " + ", ".join(unknown) + " לא נמצא ברשימת שדות התעופה שלנו, כך שאין כאן עובדה מאומתת "
                  "על שדה הנחיתה. כשאת מציינת שדה נחיתה (גם בשורת \"נחיתה:\" בסיכום), זה חייב להיות שדה תעופה "
                  "מסחרי אמיתי שמשרת את העיר הזו, עם הקוד הנכון שלו, ובמדינה שבה העיר באמת נמצאת - בדקי זאת "
                  "לפני שאת כותבת. אם לעיר עצמה אין שדה תעופה מסחרי, אמרי זאת בפשטות והציעי את השדה הקרוב "
-                 "ביותר בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
+                 "ביותר בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם."
+                 # Run-11 E (Rovinj): Pula/Trieste were mentioned as info,
+                 # never asked, Pula then appeared in the summary as if
+                 # chosen - and the airport came up in the same message as
+                 # the baggage question.
+                 " אם יש יותר משדה קרוב אחד, זו שאלה שהלקוח בוחר בה: שאלי אותה כשאלה היחידה בהודעה (לא יחד עם "
+                 "נושא אחר), ולעולם אל תבחרי שדה בעצמך - גם לא בשורת \"נחיתה:\" בסיכום - לפני שהלקוח בחר.")
     return line
 
 
@@ -10037,7 +10048,13 @@ _GUIDED_FIELD_HINT_DESCRIPTION = {
     # between passengers at all (that option doesn't exist in a single
     # booking - see _guided_field_update_and_confirm's mixed_per_passenger
     # handling below).
-    "baggage": "שאלה אחת לכל הקבוצה (לא לכל נוסע בנפרד) עם 3 אפשרויות בדיוק: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק\"ג) - לעולם לא לשאול או להסביר על כבודה שונה לנוסעים שונים",
+    # Run-11 (22.10): the trailing "never ask OR EXPLAIN baggage differing
+    # between passengers" contradicted the business owner's 22.10 decision
+    # (a customer who describes it gets the payment-page explanation + a
+    # yes/no question - _mixed_baggage_payment_time_hint) and reached that
+    # very turn through the redirect ack. Never OPENING such a question
+    # stays in _guided_ask_hint's own baggage text.
+    "baggage": "איזו כבודה לוקחים - שאלה אחת לכל הקבוצה (לא לכל נוסע בנפרד) עם 3 אפשרויות בדיוק: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק\"ג)",
     "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה, צימר או הוסטל",
     "lodging_rooms": "כמה חדרים נדרשים ללינה",
     "lodging_bathrooms": "כמה חדרי רחצה נדרשים בדירה",
@@ -10338,6 +10355,50 @@ def _mixed_baggage_payment_time_hint():
         "השאלה עצמה לא מזכירה ולא מציעה שום סוג כבודה ספציפי (לא מזוודה, "
         "לא טרולי, לא תיק יד) - היא שואלת רק אם לבחור אחידה, לא איזו."
     )
+
+
+def _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_update, guided_steps):
+    """Run-11 B (Valencia, 22.10): "לי ולאשתי מזוודה, לתינוק מספיק תיק
+    קטן" was answered while guided's live question was another field, the
+    redirect never caught it, and a general path saved BOTH types
+    (['checked_bag','personal_item']) - the summary then said "מזוודה לכל
+    נוסע" with no explanation or yes/no question. When this turn's writes
+    leave flight.baggage with several types and the guided flow didn't
+    settle baggage itself, the guided baggage extractor (the model, by
+    meaning - never a phrase list) decides whether it was a per-passenger
+    request. If so: the previous value is restored, nothing is saved, and
+    the payment-page explanation + yes/no question is asked now, exactly
+    like the guided path. A uniform request for two items for everyone
+    ("טרולי וגם מזוודה לכולנו") comes back not-mixed and stays as is."""
+    if "baggage" not in (guided_steps or ()):
+        return trip_update
+    statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+    if statuses and all(str(v) in ("complete", "declined") for v in statuses.values()):
+        # Post-summary the guided dispatcher doesn't run, so a pending
+        # yes/no would never be read - leave such turns to their own flow.
+        return trip_update
+    guided = trip_update.get("guided") if isinstance(trip_update.get("guided"), dict) else {}
+    if guided.get("mixed_baggage_pending") or "baggage" in (guided.get("answered") or []):
+        return trip_update
+    prior = (trip_state.get("flight") or {}).get("baggage") if isinstance(trip_state.get("flight"), dict) else None
+    prior = prior if isinstance(prior, list) else []
+    now = (trip_update.get("flight") or {}).get("baggage") if isinstance(trip_update.get("flight"), dict) else None
+    now = now if isinstance(now, list) else []
+    if len(set(map(str, now))) < 2 or sorted(map(str, now)) == sorted(map(str, prior)):
+        return trip_update
+    result = _guided_extract_answer(key, model, "baggage", message, history, trip_update, guided_steps)
+    if not (isinstance(result, dict) and result.get("mixed_per_passenger")):
+        return trip_update
+    trip_update = dict(trip_update)
+    trip_update["flight"] = dict(trip_update.get("flight") or {}, baggage=list(prior))
+    guided = dict(guided)
+    guided["mixed_baggage_pending"] = True
+    guided["current_question"], guided["attempts"] = "baggage", 0
+    trip_update["guided"] = guided
+    trip_update["_guided_ask_hint"] = _mixed_baggage_payment_time_hint()
+    trip_update.pop("_baggage_note_hint", None)
+    record_diagnostic_event("mixed_baggage_safety_net", {"reverted_types": sorted(map(str, now))})
+    return trip_update
 
 
 def _mixed_baggage_confirm_retry_hint():
@@ -11510,7 +11571,21 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 # of a fresh extraction - but current_question (still
                 # unanswered) stays exactly as it was this turn.
                 guided["mixed_baggage_pending"] = True
-                redirected_fragment, redirected_desc = None, None
+                # Run-11 (C Bordeaux, E Rovinj): with no hint here the
+                # reply said "קלטתי - לך טרולי, ולשתי החברות מזוודות" (or
+                # asked the baggage question again) - never the payment-
+                # page explanation and yes/no; and because current_question
+                # stayed on the other field, the pending branch above (which
+                # reads the yes/no) never ran, so the flag lingered. The
+                # yes/no is asked NOW, so baggage is the live question next
+                # turn; the skipped field stays unanswered and comes back
+                # after it, in guided_order.
+                guided["current_question"], guided["attempts"], guided["answered"] = "baggage", 0, answered
+                trip_update["guided"] = guided
+                _redirect_diagnostic["extract_status"] = (redirected_result or {}).get("status")
+                _redirect_diagnostic["fragment_written"] = False
+                record_diagnostic_event("guided_redirect", _redirect_diagnostic)
+                return {"trip_update": trip_update, "dynamic_hint": _mixed_baggage_payment_time_hint()}
             else:
                 redirected_fragment, redirected_desc = (
                     _guided_field_update_and_confirm(redirected_field, redirected_result)
@@ -11525,6 +11600,11 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 trip_update = _merge_trip_state(trip_update, redirected_fragment)
                 if redirected_field not in answered:
                     answered.append(redirected_field)
+                if redirected_field == "baggage":
+                    # A single baggage type is now saved - nothing left for
+                    # a pending mixed yes/no to decide (run-11 E: the flag
+                    # stayed True after baggage was saved).
+                    guided["mixed_baggage_pending"] = False
                 guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
                 trip_update["guided"] = guided
                 # Per the business owner's explicit rule: never tell the
@@ -11535,7 +11615,14 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 # to improvise a rejection into.
                 label = _GUIDED_FIELD_HINT_DESCRIPTION.get(redirected_field, redirected_field)
                 understood = f"{label}: {redirected_desc}" if redirected_desc else label
-                base_hint = _guided_ask_hint(current_question, attempts)
+                # Run-11 E: _guided_ask_hint has no description for
+                # accessibility and fell back to the raw field name ("הפרט
+                # הבא לברר אצל הלקוח: accessibility", an open question) -
+                # accessibility has its own yes/no hint.
+                base_hint = (
+                    _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), attempts)
+                    if current_question == "accessibility" else _guided_ask_hint(current_question, attempts)
+                )
                 ack_hint = (
                     f"ההודעה הקודמת של הלקוח כבר ענתה בפועל על {understood} - זה נקלט ונשמר. "
                     f"לעולם אל תגידי שזו תשובה לא קשורה או לא מובנת. {base_hint}"
@@ -14511,6 +14598,7 @@ def _chat_clean_impl():
             except (TypeError, ValueError):
                 _baggage_traveler_count = 0
             trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message, _baggage_traveler_count))
+        trip_update = _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_update, guided_steps)
         # Fail-safe only (Shlomo's review of this exact PR, 21.10.2026): this
         # deterministic parser's own word lists must never override or race
         # the extractor's genuine understanding of flight.connection_
