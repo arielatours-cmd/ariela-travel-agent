@@ -242,7 +242,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
     - עיר/יעד עם כמה שדות אפשריים שהלקוח טרם בחר ביניהם: אסור להחליט במקום הלקוח - כתבו את כל האפשרויות ("נחיתה: לרנקה (LCA) או פאפוס (PFO), קפריסין") אם מחפשים בכולם יחד (ואז "(כל השדות)" כש"אין העדפה" נאמר במפורש, למשל "לונדון (כל השדות), אנגליה"), או שאלו לפני הסיכום - לעולם אל תגיעי לסיכום כשdestination_airports עדיין ריק/לא מוכרע (למשל יעד כללי כמו "יוון" או "איים ביוון" בלי שדה שנגזר ממסלול או נבחר על ידי הלקוח).
     - אם היעד דורש גם טיסת פנים נוספת מעבר לנחיתה/המראה הבין-לאומיים (למשל נחיתה בבנגקוק והיעד בפועל הוא קרבי) וזו לא כלולה בחיפוש, ציינו זאת במפורש בסיכום (למשל "שימו לב: הטיסה הפנימית לקרבי אינה כלולה בחיפוש הזה").
     - אם הלקוח כבר הזמין את הטיסות בעצמו (flights declined מהסיבה הזו): כתבו בכל זאת שורה "טיסות: כבר בידיכם" עם השדות שהלקוח מסר אם ידועים - זה חריג יחיד לכלל "שירות שנדחה לא מופיע בסיכום" (ראו למטה), כי יש כאן מידע רלוונטי לציין, לא שירות שפשוט לא התבקש.
-    בנוסף (רק כשטיסה בכלל מבוקשת ולא כבר הוזמנה עצמאית): תאריכים סופיים, הרכב נוסעים, כבודה לכל נוסע (כתבי זאת תמיד במפורש "לכל נוסע"/"לכל אחד" - לעולם לא כניסוח יחיד כללי כמו "מזוודה גדולה" בלי לציין שזה פר נוסע, שנשמע כאילו יש בסך הכל מזוודה אחת לכל הקבוצה), ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, במטבע שהלקוח בפועל ציין - ש"ח/₪ אם שקלים, יורו/€ אם יורו, פאונד אם לירות שטרלינג, דולר/$ אם דולר - לעולם לא קוד המטבע הגולמי כמו "ILS"/"GBP"/"EUR"/"USD", ולעולם לא ברירת מחדל לש"ח כשהלקוח ציין מטבע אחר).
+    בנוסף (רק כשטיסה בכלל מבוקשת ולא כבר הוזמנה עצמאית): תאריכים סופיים, הרכב נוסעים (בשורה משלה שמתחילה תמיד בתווית הקבועה "נוסעים:" - גם כשכל הנוסעות נשים, לא "נוסעות:"), כבודה לכל נוסע (כתבי זאת תמיד במפורש "לכל נוסע"/"לכל אחד" - לעולם לא כניסוח יחיד כללי כמו "מזוודה גדולה" בלי לציין שזה פר נוסע, שנשמע כאילו יש בסך הכל מזוודה אחת לכל הקבוצה), ישירה/קונקשן (רק אם ידוע בפועל - ראו הכלל הבא), תקציב לאדם (אם נאמר, במטבע שהלקוח בפועל ציין - ש"ח/₪ אם שקלים, יורו/€ אם יורו, פאונד אם לירות שטרלינג, דולר/$ אם דולר - לעולם לא קוד המטבע הגולמי כמו "ILS"/"GBP"/"EUR"/"USD", ולעולם לא ברירת מחדל לש"ח כשהלקוח ציין מטבע אחר).
   - מסלול/אטרקציות (אם לא declined): תקציר קצר של המבנה שאושר (לא כל הפרטים מחדש).
   - לינה (אם לא declined): אזור/ים, מספר לילות, סוג לינה, רמה, מספר חדרים, תקציב.
   - רכב (אם לא declined): סוג רכב, מיקום ומועד איסוף והחזרה.
@@ -307,6 +307,7 @@ EXTRACTOR_SYSTEM = '''את טינקרבל בשכבת העברת הנתונים �
 - flight.departure_time_preference/flight.return_time_preference: שדות אופציונליים בלבד - לעולם אל תשאלי עליהם ואל תוסיפי אותם ל-missing_required. שמרי אותם רק אם הלקוח ציין מיוזמתו שעה/חלק יום מועדף לטיסת ההלוך ו/או לטיסת החזור (למשל "טיסה הלוך בבוקר וחזור בערב", "שלא תהיה טיסה מוקדמת מדי"), אחד מהערכים "בוקר" (06:00-12:00), "צהריים" (12:00-18:00) או "ערב" (אחרי 18:00 או לפני 06:00). אם לא נאמר דבר השאירי null - זה לא שדה חובה ולעולם לא מוזכר כחסר.
 - region הוא מידע אופציונלי בלבד. לעולם אל תוסיפי region ל-missing_required ואל תשאלי את הלקוח על אזור רק כדי להשלים state. שמרי region רק אם הלקוח עצמו ציין אזור או אם הוא נובע ממסלול שאושר.
 - אם נאמרה מדינה או יעד רחב עם כמה שערי כניסה סבירים, אל תמציאי שדה יעד ואל תסמני את בחירת היעד לטיסה כמושלמת. destination_airports נשאר ריק עד שהלקוח בוחר אחד/כמה/כולם, או עד שמסלול שאושר קובע את שער הכניסה.
+- כשבהודעה הקודמת שלה אריאלה הציעה ללקוח שדה תעופה קרוב מסוים (למשל כי לעיר עצמה אין שדה תעופה מסחרי, או שהיא לא ברשימת השדות), והלקוח הסכים או בחר בו בהודעה הנוכחית - זו בחירה של הלקוח: כתבי destination_airports עם קוד ה-IATA האמיתי של השדה שנבחר, ומלאי destination_evidence בציטוט מילה-במילה של ההסכמה/הבחירה מההודעה הנוכחית. אם הוצעו כמה שדות והלקוח לא בחר ביניהם, או שלא הסכים, השאירי destination_airports כפי שהוא.
 - ברגע ש-destination.places ו/או destination_airports כבר קיימים (לא ריקים) ב-state שקיבלת, הם סגורים כמו תאריכים שכבר נקבעו: שינוי שלהם (לא רק תוספת, גם החלפה מלאה) דורש ציטוט מילה-במילה מההודעה הנוכחית של הלקוח שמראה שהוא אכן שינה את היעד - בדיוק אותו מנגנון evidence כמו dates_evidence. אם את כותבת destination.places ו/או destination_airports שונים מהערך הקיים, מלאי גם את destination_evidence (ברמת ה-JSON העליון, ליד trip_update - בדיוק כמו dates_evidence/restart_evidence) בציטוט כזה. בלי ציטוט אמיתי - אל תכתבי ערך שונה בכלל, השאירי את הערך הקיים כמו שהוא. תשובת כן/לא לשאלה לא-קשורה (כמו "לתכנן גם מסלול ואטרקציות?") היא בדיוק המקרה הזה - לעולם אינה סיבה לשנות יעד או שדה תעופה.
 - כאשר הלקוח מבהיר שהוא רוצה שירות מסוים בלבד, או ששאר השירותים כבר סגורים/לא נחוצים, החזירי service_decisions מפורש לכל ארבעת התחומים: המבוקש wanted=true וכל התחומים שנשללו במשמעות המשפט wanted=false. requested_services יכיל רק את השירותים המבוקשים.
 - הכלל סימטרי: "רק טיסות", "המלון והרכב כבר סגורים, צריכה טיסה", "רק מקום לינה", "הטיסות כבר הוזמנו, תמצאי מלון", "צריך רק רכב", "רק תבני לי מסלול ואטרקציות" הם דוגמאות למשמעות ולא רשימת ביטויים.
@@ -3304,18 +3305,7 @@ def _flight_dates_line(dates) -> str | None:
     return f"תאריכים: {_he_date_ddmmyyyy(dep)} – {_he_date_ddmmyyyy(ret)}"
 
 
-# Per Shlomo's relay of Shaked's review of PR #113: matches the "תאריכים:"
-# label and whatever value follows it, up to (not including) the next real
-# boundary - another known summary label, the approval-request phrase, a
-# newline, or the end of the text. Used directly against the full text in
-# _ensure_flight_summary_completeness, never via _split_sentences - a dates
-# value always ends in a 4-digit year, and _SENTENCE_BOUNDARY_RE's own
-# digit-adjacency guard (there to avoid splitting INSIDE a date like
-# "15.4.2027") also suppresses the sentence boundary right after it,
-# merging the dates line with whatever comes next into one "sentence".
-_SUMMARY_DATES_LABEL_RE = re.compile(
-    r"תאריכים:.*?(?=[.!?]?\s*(?:כבודה:|תקציב|כתבי מאשרת|כתוב מאשר|מאשר/מאשרת|\n|\Z))", re.DOTALL,
-)
+_TRAVELERS_SUMMARY_LABEL = "נוסעים:"
 
 
 def _flight_travelers_line(travelers) -> str | None:
@@ -3325,10 +3315,20 @@ def _flight_travelers_line(travelers) -> str | None:
     adults = travelers.get("adults")
     if not adults:
         return None
-    children = int(travelers.get("children") or 0)
-    party = f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"
+    try:
+        children = max(0, int(travelers.get("children") or 0))
+        infants = max(0, int(travelers.get("infants") or 0))
+    except (TypeError, ValueError):
+        children, infants = 0, 0
+    # Dry-run 1 (22.10): this line now REPLACES the model's own "נוסעים:"
+    # line (see _ensure_flight_summary_completeness), so infants must be in
+    # it too - otherwise "(2 מבוגרים ותינוק)" would silently disappear.
+    parts = [f"{adults} מבוגרים" if adults != 1 else "מבוגר אחד"]
     if children:
-        party += (f" ו-{children} ילדים" if children != 1 else " וילד אחד")
+        parts.append(f"{children} ילדים" if children != 1 else "ילד אחד")
+    if infants:
+        parts.append(f"{infants} תינוקות" if infants != 1 else "תינוק")
+    party = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " ו" + ("-" if parts[-1][0].isdigit() else "") + parts[-1]
     return "נוסעים: " + party
 
 
@@ -3405,6 +3405,69 @@ def _flight_summary_text(state):
     else:
         approval_line = "אם כל הפרטים נכונים, יש לרשום מאשר/מאשרת."
     return "סיכום בקשת הטיסה:\n" + "\n".join(lines) + "\n\n" + approval_line
+
+
+# Every fixed summary label the system itself defines - the ONLY anchors
+# the canonical-line replacement below looks for (no content scan).
+_SUMMARY_FIXED_LABELS = ("יציאה:", "נחיתה:", "המראה בחזרה:", "תאריכים:", "נוסעים:", "כבודה:", "העדפת טיסה:", "תקציב")
+_SUMMARY_APPROVAL_PHRASES = ("כתבי מאשרת", "כתוב מאשר", "מאשר/מאשרת")
+
+
+def _labelled_summary_segment(text, label):
+    """(start, end) of the value carried by a fixed summary label: from the
+    label itself up to - not including - the first of: a newline, another
+    fixed label (_SUMMARY_FIXED_LABELS) or the approval phrase on the same
+    line, or a sentence end ("." / "!" / "?" followed by whitespace or the
+    end of the text). Trailing ", ;" separators before that stop point are
+    left outside the segment. Returns None when the label isn't there.
+
+    Shlomo/Shaked (22.10, rejecting c4b7647): the earlier "label to the end
+    of its sentence" span swallowed a following label on a one-line,
+    comma-separated summary ("נוסעים: 2 מבוגרים, כבודה: מזוודה" lost
+    "כבודה:") - the same span every labelled line used."""
+    start = text.find(label)
+    if start == -1:
+        return None
+    value_from = start + len(label)
+    end = len(text)
+    nl = text.find("\n", value_from)
+    if nl != -1:
+        end = nl
+    for other in _SUMMARY_FIXED_LABELS + _SUMMARY_APPROVAL_PHRASES:
+        if other == label:
+            continue
+        i = text.find(other, value_from, end)
+        if i != -1:
+            end = i
+    m = re.search(r"[.!?](?=\s|$)", text[value_from:end])
+    if m:
+        end = value_from + m.start()
+    while end > value_from and text[end - 1] in " \t,;":
+        end -= 1
+    return start, end
+
+
+def _replace_labelled_summary_line(text, label, canonical):
+    """Replace a fixed label's value with the canonical line built from
+    state (or drop it when canonical is None). Returns (text, found)."""
+    seg = _labelled_summary_segment(text, label)
+    if seg is None:
+        return text, False
+    start, end = seg
+    if canonical is not None:
+        if text[start:end].strip() != canonical.strip():
+            text = text[:start] + canonical + text[end:]
+        return text, True
+    # Not known -> no line. A line left with only a bullet/separators goes
+    # entirely; real text before the label on that line stays.
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    line_end = len(text) if line_end == -1 else line_end
+    rest = (text[line_start:start] + text[end:line_end]).strip(" \t-•*,;.")
+    if not any(ch.isalnum() for ch in rest):
+        return text[:line_start] + text[line_end + 1 if line_end < len(text) else line_end:], True
+    tail = text[end:]
+    return text[:start].rstrip(" ,;") + (tail if tail[:1] in ("\n", ".", "!", "?", "") else " " + tail.lstrip(" ,;")), True
 
 
 def _ensure_flight_summary_completeness(reply, state):
@@ -3508,24 +3571,7 @@ def _ensure_flight_summary_completeness(reply, state):
     # wording, whatever the model wrote on that line, and no line at all
     # when the preference isn't known.
     canonical_connection_line = _flight_connection_summary_line(flight)
-    sentences = _split_sentences(text)
-    for i, (s, term) in enumerate(sentences):
-        label_idx = s.find(_CONNECTION_SUMMARY_LABEL)
-        if label_idx == -1:
-            continue
-        prefix = s[:label_idx]
-        if canonical_connection_line is None:
-            # Not known -> no line at all (the labelled part is dropped).
-            # Only a bullet/whitespace before the label -> drop the whole line;
-            # real text before it (a run-on sentence) is kept as it was.
-            has_text = any(ch.isalnum() for ch in prefix)
-            sentences[i] = ((prefix.rstrip() + ("\n" if term.endswith("\n") else "")) if has_text else "", term)
-        elif s[label_idx:].strip() != canonical_connection_line.strip():
-            sentences[i] = (f"{prefix}{canonical_connection_line}{term}", term)
-        else:
-            break
-        text = "".join(st for st, _t in sentences)
-        break
+    text, _ = _replace_labelled_summary_line(text, _CONNECTION_SUMMARY_LABEL, canonical_connection_line)
 
 
     # Per Shlomo's relay of Shaked's live stage-1 run-2 finding (Berlin,
@@ -3552,22 +3598,9 @@ def _ensure_flight_summary_completeness(reply, state):
     # separate "missing" check below instead, which only checks presence.
     canonical_baggage_line = _flight_baggage_line(flight)
     if canonical_baggage_line:
-        sentences = _split_sentences(text)
-        for i, (s, term) in enumerate(sentences):
-            # The "כבודה:" label doesn't always open its own sentence - a
-            # run-on reply can fold it after an intro clause in the same
-            # sentence ("סיכום בקשת הטיסה: כבודה: ..."), with no period
-            # between them. Keep whatever precedes the label untouched and
-            # replace only from the label itself to the sentence's end.
-            label_idx = s.find("כבודה:")
-            if label_idx == -1:
-                continue
-            if s[label_idx:].strip() == canonical_baggage_line.strip():
-                break
-            prefix = s[:label_idx]
-            sentences[i] = (f"{prefix}{canonical_baggage_line}{term}", term)
-            text = "".join(st for st, _t in sentences)
-            break
+        # Whatever precedes the label ("סיכום בקשת הטיסה: כבודה: ...") stays;
+        # only the label's own value is replaced (_labelled_summary_segment).
+        text, _ = _replace_labelled_summary_line(text, "כבודה:", canonical_baggage_line)
 
     # Per Shlomo's relay of Shaked's review of PR #113 (stage-1 run-4,
     # Tallinn): the placeholder architecture above (_dates_truth_hint/
@@ -3597,9 +3630,10 @@ def _ensure_flight_summary_completeness(reply, state):
     dates = state.get("dates") if isinstance(state.get("dates"), dict) else {}
     canonical_dates_line = _flight_dates_line(dates)
     if canonical_dates_line:
-        m = _SUMMARY_DATES_LABEL_RE.search(text)
-        if m and m.group(0).strip() != canonical_dates_line.strip():
-            text = text[: m.start()] + canonical_dates_line + text[m.end() :]
+        # Same shared span as every other fixed label now (newline / another
+        # label / approval phrase / a sentence end - a dot INSIDE a date has
+        # no whitespace after it, so it never ends the span).
+        text, _ = _replace_labelled_summary_line(text, "תאריכים:", canonical_dates_line)
 
     missing = []
     if _flight_budget_sentence_index(_split_sentences(text)) is None:
@@ -3653,10 +3687,21 @@ def _ensure_flight_summary_completeness(reply, state):
         if line:
             missing.append(line)
     travelers = state.get("travelers") if isinstance(state.get("travelers"), dict) else {}
-    if "מבוגר" not in text and "נוסעים" not in text:
-        line = _flight_travelers_line(travelers)
-        if line:
-            missing.append(line)
+    # Dry-run 1 C (Bordeaux, 22.10) + Shaked/Shlomo's decision: exactly
+    # like "כבודה:"/"העדפת טיסה:" - the travelers line is found ONLY by its
+    # fixed literal label "נוסעים:" and replaced, from the label to the end
+    # of its sentence, with the canonical line built from state (adults,
+    # children and infants); with no such label the canonical line is
+    # added. No word list on the model's text at all.
+    canonical_travelers_line = _flight_travelers_line(travelers)
+    if canonical_travelers_line:
+        text, _found_travelers_label = _replace_labelled_summary_line(text, _TRAVELERS_SUMMARY_LABEL, canonical_travelers_line)
+        if not _found_travelers_label:
+            # Intended (Shlomo, 22.10): no "נוסעים:" label -> the canonical
+            # line is added, even if the model stated the travelers in some
+            # other unlabelled wording (that duplicate is accepted - no word
+            # list on the model's text).
+            missing.append(canonical_travelers_line)
     if "ישיר" not in text and "קונקשן" not in text:
         line = _flight_connection_summary_line(flight)
         if line:
@@ -4728,7 +4773,12 @@ def _destination_catalog_hint(state):
     line = ""
     if facts:
         line += ("\nשדה/שדות הנחיתה ביעד לפי רשימת שדות התעופה (מקור אמת - אל תמציאי תעתיק, קוד או מדינה "
-                 "משלך, השתמשי בדיוק בזה): " + " / ".join(dict.fromkeys(facts)) + ".")
+                 "משלך, השתמשי בדיוק בזה): " + " / ".join(dict.fromkeys(facts)) + "."
+                 # Run-11 B (Valencia): the reply read this fact out mid-
+                 # conversation ("לוולנסיה עצמה יש שדה תעופה (VLC), כך שזה
+                 # יהיה היעד שנחפש אליו").
+                 " זו עובדה לשימושך ולשורת \"נחיתה:\" בסיכום - אל תספרי ללקוח על שדה התעופה באמצע השיחה "
+                 "ואל תסבירי עליו, אלא אם הלקוח שאל.")
     if unknown:
         # Dry-run 3 (Shaked, 22.10.2026, Rovinj/E): "offer the nearest
         # airport, instead of naming one you're not sure about" already
@@ -4752,7 +4802,13 @@ def _destination_catalog_hint(state):
                  "במדינה הנכונה - חייבים כולם להיות ודאיים אצלך; אם ולו אחד מהם לא ודאי, אסור לך להמציא או "
                  "לנחש עיר/שדה/מדינה קרובים, אפילו אם הם נשמעים סבירים ומדויקים. אם לעיר עצמה אין שדה תעופה "
                  "מסחרי, או שאת לא בטוחה בשדה הקרוב ביותר - אמרי זאת בפשטות והציעי את השדה הקרוב ביותר "
-                 "בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
+                 "בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם."
+                 # Run-11 E (Rovinj): Pula/Trieste were mentioned as info,
+                 # never asked, Pula then appeared in the summary as if
+                 # chosen - and the airport came up in the same message as
+                 # the baggage question.
+                 " אם יש יותר משדה קרוב אחד, זו שאלה שהלקוח בוחר בה: שאלי אותה כשאלה היחידה בהודעה (לא יחד עם "
+                 "נושא אחר), ולעולם אל תבחרי שדה בעצמך - גם לא בשורת \"נחיתה:\" בסיכום - לפני שהלקוח בחר.")
     return line
 
 
@@ -4876,7 +4932,11 @@ def _destination_gateway_summary(state):
 
     dest_facts = [f for f in (_fact(c) for c in dest_codes) if f]
     if not dest_facts:
-        return ""
+        # Dry-run 1 E (Rovinj -> Pula, PUY): a nearby airport the customer
+        # chose that isn't in our list - no verified name to hand over, but
+        # the choice itself is a fact the summary's "נחיתה:" line must carry.
+        return ("\nשדה הנחיתה שהלקוח בחר (לא ברשימת השדות שלנו): " + " / ".join(dest_codes) + ". בשורת \"נחיתה:\" "
+                "בסיכום כתבי את השם האמיתי של השדה עם הקוד הזה בדיוק, ואת המדינה שבה הוא נמצא - לא שדה אחר.")
     line = "\nשדה/שדות הנחיתה ביעד (מקור אמת - אל תמציאי תעתיק עברי משלך, השתמשי בדיוק בשם הזה): " + " / ".join(dest_facts) + "."
     return_codes = [str(c).upper() for c in (state.get("return_departure_airports") or []) if c] or dest_codes
     return_facts = [f for f in (_fact(c) for c in return_codes) if f]
@@ -5166,6 +5226,17 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
         # guided dispatcher didn't carry it (see _baggage_followup_hint).
         # A statement, not a question - always passes through as fact.
         continuity += "\n- " + str(state.get("_baggage_note_hint")) + "\n"
+    if state.get("_just_given_hint"):
+        # One-turn hint set in _chat_clean_impl (a fact given for the first
+        # time this turn). Not part of _turn_question_arbiter's priority
+        # list (that's questions only) - stays unconditional, same as
+        # _baggage_note_hint/_dates_changed_hint below.
+        continuity += "\n- " + str(state.get("_just_given_hint")) + "\n"
+    # _shift_candidate_hint is NOT re-injected here unconditionally: #145's
+    # arbiter (_turn_question_arbiter, above) already returns it directly
+    # when it's the live winner - a second, unconditional injection here
+    # would reintroduce exactly the "two competing question hints in one
+    # prompt" bug #145 fixed.
     if state.get("_dates_changed_hint"):
         # One-turn hint set in _chat_clean_impl when explicit new dates
         # replaced already-set ones this turn. An acknowledgment, not a
@@ -9941,6 +10012,16 @@ def _final_summary_fallback_text(trip_update):
     lines = []
     if places:
         lines.append("יעד: " + ", ".join(places))
+    # Dry-run 1 E: the fallback summary had no landing line at all, even
+    # once the customer had chosen the airport.
+    _dest_codes = [str(c).upper() for c in (trip_update.get("destination_airports") or []) if c]
+    if _dest_codes:
+        _by_code = {str(a.get("code") or "").upper(): a for a in _load_airports()}
+        _landing = []
+        for _c in _dest_codes:
+            _a = _by_code.get(_c)
+            _landing.append(f"{_a.get('city_he') or _c} ({_c})" + (f", {_a.get('country_he')}" if _a.get("country_he") else "") if _a else _c)
+        lines.append("נחיתה: " + " / ".join(_landing))
     for line in (
         _flight_dates_line(dates), _flight_travelers_line(travelers),
         _flight_connection_summary_line(flight), _flight_baggage_line(flight),
@@ -10279,7 +10360,13 @@ _GUIDED_FIELD_HINT_DESCRIPTION = {
     # between passengers at all (that option doesn't exist in a single
     # booking - see _guided_field_update_and_confirm's mixed_per_passenger
     # handling below).
-    "baggage": "שאלה אחת לכל הקבוצה (לא לכל נוסע בנפרד) עם 3 אפשרויות בדיוק: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק\"ג) - לעולם לא לשאול או להסביר על כבודה שונה לנוסעים שונים",
+    # Run-11 (22.10): the trailing "never ask OR EXPLAIN baggage differing
+    # between passengers" contradicted the business owner's 22.10 decision
+    # (a customer who describes it gets the payment-page explanation + a
+    # yes/no question - _mixed_baggage_payment_time_hint) and reached that
+    # very turn through the redirect ack. Never OPENING such a question
+    # stays in _guided_ask_hint's own baggage text.
+    "baggage": "איזו כבודה לוקחים - שאלה אחת לכל הקבוצה (לא לכל נוסע בנפרד) עם 3 אפשרויות בדיוק: תיק יד בלבד, טרולי, או מזוודה בבטן המטוס (20-23 ק\"ג)",
     "lodging_type": "איזה סוג לינה מתאים - מלון, דירה, וילה, צימר או הוסטל",
     "lodging_rooms": "כמה חדרים נדרשים ללינה",
     "lodging_bathrooms": "כמה חדרי רחצה נדרשים בדירה",
@@ -10567,6 +10654,11 @@ def _accessibility_ask_hint(awaiting_detail, attempts):
         prefix + "שאלי שאלת כן/לא אחת ויחידה, בניסוח שלך - בלי למנות שום דוגמה (לא עגלת תינוק, "
         "לא כיסא גלגלים, לא עזרה בשדה ולא שום דוגמה אחרת) - והטמיעי בתוך השאלה עצמה, בניסוח שלך, "
         "שזה לא חובה ושמה שיכתב יישמר רק לחופשה הזו. לעולם אל תשאלי 'למה' או 'איזה מצב רפואי', ובלי כפתורים."
+        # Dry-run 1 (C Bordeaux, E Rovinj, 22.10): the clarification went
+        # out alone ("זה לגמרי לא חובה, ואם תרצי לציין משהו זה יישמר רק
+        # לחופשה הזו.") followed by a different question (budget / route).
+        " ההבהרה הזו היא חלק משאלת הנגישות עצמה, באותו משפט - לעולם לא משפט נפרד. אם את לא שואלת "
+        "בהודעה הזו את שאלת הנגישות עצמה, אל תכתבי את ההבהרה בכלל."
     )
 
 
@@ -10692,6 +10784,62 @@ def _mixed_baggage_payment_time_hint():
         "השאלה עצמה לא מזכירה ולא מציעה שום סוג כבודה ספציפי (לא מזוודה, "
         "לא טרולי, לא תיק יד) - היא שואלת רק אם לבחור אחידה, לא איזו."
     )
+
+
+def _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_update, guided_steps, guided_wrote_baggage=False):
+    """Run-11 B (Valencia, 22.10): "לי ולאשתי מזוודה, לתינוק מספיק תיק
+    קטן" was answered while guided's live question was another field, the
+    redirect never caught it, and a general path saved BOTH types
+    (['checked_bag','personal_item']) - the summary then said "מזוודה לכל
+    נוסע" with no explanation or yes/no question. When this turn's writes
+    leave flight.baggage with several types and the guided flow didn't
+    settle baggage itself, the guided baggage extractor (the model, by
+    meaning - never a phrase list) decides whether it was a per-passenger
+    request. If so: the previous value is restored, nothing is saved, and
+    the payment-page explanation + yes/no question is asked now, exactly
+    like the guided path. A uniform request for two items for everyone
+    ("טרולי וגם מזוודה לכולנו") comes back not-mixed and stays as is.
+
+    Dry-run 1 (Shaked, 22.10): in B the general extractor had already
+    resolved the same message to a SINGLE type (['checked_bag']), so the
+    "2+ types" condition never fired - and since a value known from state
+    is auto-added to guided.answered, "answered" can't tell who wrote it.
+    Now any baggage value written this turn by a path OTHER than the guided
+    extraction itself (guided_wrote_baggage - the caller compares baggage
+    before/after the guided dispatch) gets this one check. The guided
+    extraction already decides mixed_per_passenger itself, so it is never
+    second-guessed."""
+    if "baggage" not in (guided_steps or ()) or guided_wrote_baggage:
+        return trip_update
+    statuses = trip_update.get("session_status") if isinstance(trip_update.get("session_status"), dict) else {}
+    if (statuses and all(str(v) in ("complete", "declined") for v in statuses.values())
+            and not _guided_incomplete_fields(trip_update)):
+        # Post-summary the guided dispatcher doesn't run, so a pending
+        # yes/no would never be read - leave such turns to their own flow.
+        return trip_update
+    guided = trip_update.get("guided") if isinstance(trip_update.get("guided"), dict) else {}
+    if guided.get("mixed_baggage_pending"):
+        return trip_update
+    prior = (trip_state.get("flight") or {}).get("baggage") if isinstance(trip_state.get("flight"), dict) else None
+    prior = prior if isinstance(prior, list) else []
+    now = (trip_update.get("flight") or {}).get("baggage") if isinstance(trip_update.get("flight"), dict) else None
+    now = now if isinstance(now, list) else []
+    if not now or sorted(map(str, now)) == sorted(map(str, prior)):
+        return trip_update
+    result = _guided_extract_answer(key, model, "baggage", message, history, trip_update, guided_steps)
+    if not (isinstance(result, dict) and result.get("mixed_per_passenger")):
+        return trip_update
+    trip_update = dict(trip_update)
+    trip_update["flight"] = dict(trip_update.get("flight") or {}, baggage=list(prior))
+    guided = dict(guided)
+    guided["mixed_baggage_pending"] = True
+    guided["current_question"], guided["attempts"] = "baggage", 0
+    guided["answered"] = [f for f in (guided.get("answered") or []) if f != "baggage"]
+    trip_update["guided"] = guided
+    trip_update["_guided_ask_hint"] = _mixed_baggage_payment_time_hint()
+    trip_update.pop("_baggage_note_hint", None)
+    record_diagnostic_event("mixed_baggage_safety_net", {"reverted_types": sorted(map(str, now))})
+    return trip_update
 
 
 def _mixed_baggage_confirm_retry_hint():
@@ -11783,7 +11931,13 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
             )
             guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
             trip_update["guided"] = guided
-            next_hint = _guided_ask_hint(next_field, 0) if next_field else None
+            next_hint = (
+                # After the mixed yes/no the next field is often accessibility (it
+                # comes before baggage in guided_order) - its own yes/no hint, never
+                # the generic one with the raw field name.
+                (_accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0) if next_field == "accessibility" else _guided_ask_hint(next_field, 0))
+                if next_field else None
+            )
             # zd10-class finding, recurring (Shaked, dry-run 3, 22.10.2026,
             # case A): the reply claimed "מזוודה בבטן המטוס" (checked_bag)
             # while the real saved value was a trolley (carry_on_only) -
@@ -11829,7 +11983,13 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         )
         guided["current_question"], guided["attempts"], guided["answered"] = next_field, 0, answered
         trip_update["guided"] = guided
-        next_hint = _guided_ask_hint(next_field, 0) if next_field else None
+        next_hint = (
+            # After the mixed yes/no the next field is often accessibility (it
+            # comes before baggage in guided_order) - its own yes/no hint, never
+            # the generic one with the raw field name.
+            (_accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), 0) if next_field == "accessibility" else _guided_ask_hint(next_field, 0))
+            if next_field else None
+        )
         # zd10 (Shaked, run-9, Linz, relayed by Shlomo 22.10.2026): the
         # reply stated "טרולי לכולם" while the real saved value was תיק יד
         # בלבד (personal_item) - a direct contradiction with the customer.
@@ -11910,7 +12070,21 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 # of a fresh extraction - but current_question (still
                 # unanswered) stays exactly as it was this turn.
                 guided["mixed_baggage_pending"] = True
-                redirected_fragment, redirected_desc = None, None
+                # Run-11 (C Bordeaux, E Rovinj): with no hint here the
+                # reply said "קלטתי - לך טרולי, ולשתי החברות מזוודות" (or
+                # asked the baggage question again) - never the payment-
+                # page explanation and yes/no; and because current_question
+                # stayed on the other field, the pending branch above (which
+                # reads the yes/no) never ran, so the flag lingered. The
+                # yes/no is asked NOW, so baggage is the live question next
+                # turn; the skipped field stays unanswered and comes back
+                # after it, in guided_order.
+                guided["current_question"], guided["attempts"], guided["answered"] = "baggage", 0, answered
+                trip_update["guided"] = guided
+                _redirect_diagnostic["extract_status"] = (redirected_result or {}).get("status")
+                _redirect_diagnostic["fragment_written"] = False
+                record_diagnostic_event("guided_redirect", _redirect_diagnostic)
+                return {"trip_update": trip_update, "dynamic_hint": _mixed_baggage_payment_time_hint()}
             else:
                 redirected_fragment, redirected_desc = (
                     _guided_field_update_and_confirm(redirected_field, redirected_result)
@@ -11925,6 +12099,11 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 trip_update = _merge_trip_state(trip_update, redirected_fragment)
                 if redirected_field not in answered:
                     answered.append(redirected_field)
+                if redirected_field == "baggage":
+                    # A single baggage type is now saved - nothing left for
+                    # a pending mixed yes/no to decide (run-11 E: the flag
+                    # stayed True after baggage was saved).
+                    guided["mixed_baggage_pending"] = False
                 guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered
                 trip_update["guided"] = guided
                 # Per the business owner's explicit rule: never tell the
@@ -11935,7 +12114,14 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
                 # to improvise a rejection into.
                 label = _GUIDED_FIELD_HINT_DESCRIPTION.get(redirected_field, redirected_field)
                 understood = f"{label}: {redirected_desc}" if redirected_desc else label
-                base_hint = _guided_ask_hint(current_question, attempts)
+                # Run-11 E: _guided_ask_hint has no description for
+                # accessibility and fell back to the raw field name ("הפרט
+                # הבא לברר אצל הלקוח: accessibility", an open question) -
+                # accessibility has its own yes/no hint.
+                base_hint = (
+                    _accessibility_ask_hint(_accessibility_awaiting_detail(trip_update), attempts)
+                    if current_question == "accessibility" else _guided_ask_hint(current_question, attempts)
+                )
                 ack_hint = (
                     f"ההודעה הקודמת של הלקוח כבר ענתה בפועל על {understood} - זה נקלט ונשמר. "
                     f"לעולם אל תגידי שזו תשובה לא קשורה או לא מובנת. {base_hint}"
@@ -14455,13 +14641,38 @@ def _chat_clean_impl():
                             # of what this guard decides here. The merged
                             # value must be rolled back to what it was
                             # before this turn, not just left unused.
-                            decisions[service] = prior_decisions.get(service)
+                            if service in prior_decisions:
+                                decisions[service] = prior_decisions.get(service)
+                            else:
+                                decisions.pop(service, None)
                             continue
                     services.discard(service)
                     statuses[service] = "declined"
             trip_update["requested_services"] = list(services)
             trip_update["service_decisions"] = decisions
             trip_update["session_status"] = statuses
+        # Run-11 B (Valencia, 22.10): "לא" to "continue to a daily route?"
+        # also left lodging "declined" (never asked). The guard above only
+        # rolls back an unproven service_decisions wanted=false - an
+        # extractor writing session_status "declined" directly went straight
+        # through _merge_trip_state. A domain that was pending/unset becomes
+        # declined only together with a decline decision for it
+        # (service_decisions wanted=false, which every real decline path
+        # writes); otherwise it keeps its prior status.
+        _statuses_now = dict(trip_update.get("session_status") or {})
+        _decisions_now = trip_update.get("service_decisions") if isinstance(trip_update.get("service_decisions"), dict) else {}
+        _prior_statuses_for_guard = trip_state.get("session_status") if isinstance(trip_state.get("session_status"), dict) else {}
+        _reverted_declines = []
+        for _svc in ("lodging", "car", "trip_planning"):
+            _d = _decisions_now.get(_svc)
+            _declined_by_decision = (_d.get("wanted") if isinstance(_d, dict) else _d) is False
+            if (_statuses_now.get(_svc) == "declined" and _prior_statuses_for_guard.get(_svc) in (None, "pending")
+                    and not _declined_by_decision):
+                _statuses_now[_svc] = _prior_statuses_for_guard.get(_svc) or "pending"
+                _reverted_declines.append(_svc)
+        if _reverted_declines:
+            trip_update["session_status"] = _statuses_now
+            record_diagnostic_event("unexplained_status_decline_reverted", {"services": _reverted_declines})
         # Safety net for a short decline ("לא"/"גם לא כרגע" etc.) to Ariella's
         # own previous lodging/car question. Applied the same way as the
         # extractor's own decisions above so it authoritatively overrides a
@@ -14703,6 +14914,7 @@ def _chat_clean_impl():
         # sibling pattern exactly, closes this for good regardless of which
         # path below does or doesn't re-set it this turn.
         trip_update.pop("_guided_ask_hint", None)
+        _baggage_before_guided_dispatch = list((trip_update.get("flight") or {}).get("baggage") or []) if isinstance(trip_update.get("flight"), dict) else []
         if guided_steps and not _all_domains_already_decided:
             guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
             if guided_turn is not None:
@@ -14783,6 +14995,10 @@ def _chat_clean_impl():
         # _dates_before_guided_dispatch (captured above, BEFORE the
         # dispatch call) isolates only a change the dispatcher itself made.
         _dates_after_guided_dispatch = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+        _guided_wrote_baggage = (
+            sorted(map(str, (trip_update.get("flight") or {}).get("baggage") or [])) != sorted(map(str, _baggage_before_guided_dispatch))
+            if isinstance(trip_update.get("flight"), dict) else False
+        )
         _guided_confirmed_dates = (
             _dates_after_guided_dispatch
             if _dates_after_guided_dispatch != _dates_before_guided_dispatch
@@ -14996,6 +15212,24 @@ def _chat_clean_impl():
             except (TypeError, ValueError):
                 _baggage_traveler_count = 0
             trip_update = _merge_trip_state(trip_update, _deterministic_baggage_facts(message, _baggage_traveler_count))
+        trip_update = _mixed_baggage_safety_net(key, model, message, history, trip_state, trip_update, guided_steps,
+                                                guided_wrote_baggage=_guided_wrote_baggage)
+        # Dry-run 1 (E Rovinj, 22.10): right after the customer gave the
+        # budget for the FIRST time, the reply said "התקציב כבר ידוע לי" -
+        # the state the reply sees already holds it, so it read as an old
+        # fact. One-turn hint naming what became known only now.
+        _just_given = []
+        _prior_budget = trip_state.get("budget_per_person") if isinstance(trip_state.get("budget_per_person"), dict) else {}
+        _now_budget = trip_update.get("budget_per_person") if isinstance(trip_update.get("budget_per_person"), dict) else {}
+        if _now_budget.get("amount") and not _prior_budget.get("amount"):
+            _just_given.append("התקציב")
+        if _just_given:
+            trip_update["_just_given_hint"] = (
+                "הלקוח מסר עכשיו לראשונה, בהודעה הזו: " + ", ".join(_just_given) + ". אשרי בקצרה שזה נקלט עכשיו - "
+                "לעולם אל תציגי את זה כאילו היה ידוע לך כבר קודם (לא \"כבר ידוע לי\" ולא \"כבר יש לי\")."
+            )
+        else:
+            trip_update.pop("_just_given_hint", None)
         # Fail-safe only (Shlomo's review of this exact PR, 21.10.2026): this
         # deterministic parser's own word lists must never override or race
         # the extractor's genuine understanding of flight.connection_
