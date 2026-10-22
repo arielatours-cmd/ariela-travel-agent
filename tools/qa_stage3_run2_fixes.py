@@ -143,7 +143,7 @@ ROME_STATE = {
 
 
 def _fake_extract(guided_response):
-    def _f(key, model, field, message, history, trip_update):
+    def _f(key, model, field, message, history, trip_update, guided_steps=None):
         return guided_response
     return _f
 
