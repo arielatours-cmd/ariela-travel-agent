@@ -1,13 +1,12 @@
 {
- "_about": "טיוטה (אופק, 22.10.2026) ללוח חופשות בתי הספר והחגים, תוכנית 018/018א. מקור משני בלבד (ישראל היום), וצריך לאמת מול לוח החופשות הרשמי של משרד החינוך לפני כל שימוש בקוד.",
+ "_about": "לוח חופשות בתי הספר, תשפ\"ז, לתוכנית 018/018א. **מקור רשמי:** לוח משרד החינוך, שבעלת העסק הדביקה (22.10.2026). הלוח חל על גנים, יסודי, חטיבות ביניים וחינוך מיוחד, ולא על חטיבות עליונות. בטקסט המקורי היו שתי טעויות הקלדה (2026 במקום 2027) בתענית אסתר ובאסרו חג פסח, ושני ימים אלה הם ימי לימודים ולא נכללו. **חסרים:** החופש הגדול 2027 ותשפ\"ח. ישראל היום נשאר חסום ולא שימש מקור.",
  "source_doc": "product/plans/018-israeli-holiday-calendar.md",
  "last_updated": "2026-10-22",
  "source": {
-  "name": "ישראל היום, לוח חופשות",
-  "url": "https://www.israelhayom.co.il/vacation-calendar",
-  "type": "secondary",
-  "verified_official": false,
-  "needs_verification_against": "לוח החופשות הרשמי של משרד החינוך (חוזר מנכ\"ל / לוח חופשות לשנת הלימודים)"
+  "name": "לוח החגים והחופשות של משרד החינוך, תשפ\"ז (הועבר על ידי בעלת העסק)",
+  "relay": "ceo/relay/2026-10-22-school-holidays-5787.md (branch ceo)",
+  "type": "official",
+  "verified_official": true
  },
  "fetch_status": {
   "checked_at": "2026-10-22",
@@ -18,7 +17,6 @@
    "תשפ\"ח": "לא ידוע (הדף לא נטען)"
   }
  },
- "_note_he": "לפי ההוראה, לא הושלמו תאריכים מהזיכרון. הרשימות ריקות עד שיהיה מקור שאפשר לקרוא בפועל.",
  "record_format": {
   "name_he": "שם החופשה או החג",
   "kind": "school_vacation | holiday",
@@ -28,6 +26,139 @@
   "source": "israelhayom | moe",
   "verified_official": false
  },
- "school_vacations": [],
- "holidays": []
+ "school_vacations": [
+  {
+   "key": "rosh_hashana",
+   "names_he": [
+    "ראש השנה"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2026-09-11",
+   "end": "2026-09-13",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22",
+   "note_he": "הלימודים מתחדשים ב-14.9.2026"
+  },
+  {
+   "key": "yom_kippur",
+   "names_he": [
+    "יום כיפור",
+    "כיפור"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2026-09-20",
+   "end": "2026-09-21",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22"
+  },
+  {
+   "key": "between_kippur_sukkot",
+   "names_he": [
+    "בין כיפור לסוכות"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2026-09-22",
+   "end": "2026-09-24",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22"
+  },
+  {
+   "key": "sukkot",
+   "names_he": [
+    "סוכות",
+    "חג הסוכות"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2026-09-25",
+   "end": "2026-10-03",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22",
+   "note_he": "הלימודים מתחדשים ב-4.10.2026"
+  },
+  {
+   "key": "hanukkah",
+   "names_he": [
+    "חנוכה",
+    "חופשת חנוכה"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2026-12-06",
+   "end": "2026-12-12",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22",
+   "note_he": "חופשת בית הספר. הלימודים מתחדשים ב-13.12.2026"
+  },
+  {
+   "key": "purim",
+   "names_he": [
+    "פורים"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2027-03-23",
+   "end": "2027-03-24",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22",
+   "note_he": "הלימודים מתחדשים ב-25.3.2027"
+  },
+  {
+   "key": "pesach",
+   "names_he": [
+    "פסח",
+    "חופשת פסח"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2027-04-13",
+   "end": "2027-04-28",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22",
+   "note_he": "הלימודים מתחדשים ב-29.4.2027"
+  },
+  {
+   "key": "yom_haatzmaut",
+   "names_he": [
+    "יום העצמאות"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2027-05-12",
+   "end": "2027-05-12",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22"
+  },
+  {
+   "key": "shavuot",
+   "names_he": [
+    "שבועות"
+   ],
+   "kind": "school_vacation",
+   "school_year": "תשפ\"ז",
+   "start": "2027-06-10",
+   "end": "2027-06-11",
+   "source": "moe",
+   "verified_official": true,
+   "checked_at": "2026-10-22",
+   "note_he": "הלימודים מתחדשים ב-13.6.2027"
+  }
+ ],
+ "holidays": [],
+ "missing_he": [
+  "החופש הגדול 2027",
+  "שנת תשפ\"ח כולה",
+  "תאריכי החגים עצמם כשהם שונים מחופשת בית הספר (למשל חנוכה ופסח). לא הושלמו מהזיכרון"
+ ]
 }
