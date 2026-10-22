@@ -179,6 +179,11 @@ def _same_price_for_everyone(info, answers):
     child_range = _age_range(info.get("child_age_range"))
     if info.get("child_age_range") and not child_range:
         return False
+    child_price = info.get("price_child")
+    if child_price is not None and child_price != info.get("price_adult") and not child_range:
+        # Shaked (PR #148 review): a different child price with no readable
+        # age range - we can't tell which children it applies to.
+        return False
     for age in ages[:children]:
         try:
             age = int(age)
@@ -189,6 +194,26 @@ def _same_price_for_everyone(info, answers):
         if child_range and child_range[0] <= age <= child_range[1] and info.get("price_child") != info.get("price_adult"):
             return False
     return True
+
+
+def _certainly_free_children(info, answers):
+    """How many children in the party certainly enter free: known age at or
+    under free_under_age (inclusive, as the DB stores it)."""
+    free_under = info.get("free_under_age")
+    if not isinstance(free_under, int) or isinstance(free_under, bool):
+        return 0
+    try:
+        children = max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        return 0
+    ages = answers.get("age_groups") if isinstance(answers.get("age_groups"), list) else []
+    free = 0
+    for age in ages[:children]:
+        try:
+            free += int(age) <= free_under
+        except (TypeError, ValueError):
+            continue
+    return free
 
 
 def attraction_price_view(info, answers, today=None):
@@ -229,8 +254,11 @@ def attraction_price_view(info, answers, today=None):
         travelers = 0
     if travelers <= 1 or _same_price_for_everyone(info, answers):
         return {"text": PRICE_TEXT.format(amount=_money(adult, currency))}
-    return {"text": PRICE_TEXT_PER_ADULT.format(amount=_money(adult, currency), n=travelers,
-                                                total=_money(adult * travelers, currency))}
+    # Shlomo (PR #148 review): a child certainly free (known age <= free_
+    # under_age) isn't counted in N, so the total isn't inflated.
+    paying = max(1, travelers - _certainly_free_children(info, answers))
+    return {"text": PRICE_TEXT_PER_ADULT.format(amount=_money(adult, currency), n=paying,
+                                                total=_money(adult * paying, currency))}
 
 
 # Din (PR #148 review): a ticket link is shown only on the official site's

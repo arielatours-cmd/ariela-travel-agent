@@ -99,7 +99,15 @@ check("3: a child above the child range and the free age pays the adult price ->
       text(CABLE, {"adults": 2, "children": 1, "age_groups": [15]}) == SAME)
 check("3: a reduced child price in the party -> 'לפי מחיר מבוגר × N'", text(CABLE, {"adults": 2, "children": 1, "age_groups": [8]}) == per_adult(3))
 check("3: a child free under free_under_age (price differs) -> 'לפי מחיר מבוגר × N'",
-      text(COLOSSEUM, {"adults": 2, "children": 2, "age_groups": [5, 17]}) == per_adult(4, 18))
+      text(COLOSSEUM, {"adults": 2, "children": 2, "age_groups": [5, 17]}) == per_adult(2, 18))
+# Shaked/Shlomo (PR #148 review, 2 fixes):
+check("3 (fix): a different child price with NO readable age range, child aged 8 -> never 'לאדם'",
+      text(dict(CABLE, price_child=15, child_age_range=None, free_under_age=None), {"adults": 2, "children": 1, "age_groups": [8]})
+      == per_adult(3))
+check("3 (improvement): children certainly free (known age <= free_under_age) aren't counted in N",
+      text(COLOSSEUM, {"adults": 2, "children": 2, "age_groups": [5, 17]}) == per_adult(2, 18)
+      and text(CABLE, {"adults": 2, "children": 2, "age_groups": [2, 8]}) == per_adult(3)
+      and text(COLOSSEUM, {"adults": 2, "children": 2, "age_groups": [5]}) == per_adult(3, 18))
 check("3: children's ages unknown -> 'לפי מחיר מבוגר × N'",
       text(CABLE, {"adults": 2, "children": 1}) == per_adult(3) and text(CABLE, {"adults": 2, "children": 2, "age_groups": [15]}) == per_adult(4))
 check("3: free_under_age / child_age_range unknown and ages unknown -> 'לפי מחיר מבוגר × N'",
