@@ -8,10 +8,12 @@ Shlomo/Bezalel - Lisbon 21-25.3.2027 screenshot):
 2. Results grouped by the place agreed in the route, with its nights - not
    the country: "ליסבון · 4 לילות · 21.03.2027 – 25.03.2027".
    lodging.details.location_segments (a text extraction) was empty there,
-   so the stops now come from the APPROVED itinerary's own days (base, else
-   city): one stop keeps the single search (its query already knows the
+   so the stops now come from the APPROVED itinerary's own days - the base
+   only (23.10: only the agreed lodging places, never a day trip's city; a
+   day with no base stays at the previous base): one stop keeps the single search (its query already knows the
    area / ski resort) and only takes its heading from the route; several
-   stops -> one search per stop with its own dates.
+   stops -> one search per stop with its own dates. One night reads
+   "לילה אחד" / "1 night" (23.10).
 
 Offline (search_hotels stubbed - no paid call). Run:
 python3 tools/qa_lodging_route_groups.py
@@ -61,8 +63,16 @@ check("two stops -> one segment per stop, each with its own nights and dates",
                      {"location": "פורטו", "date_from": "2027-03-23", "date_to": "2027-03-25", "nights": 2}])
 check("a day's base wins over its city (where they sleep)",
       seg(dict(LISBON, _approved_itinerary={"days": [{"city": "סינטרה", "base": "ליסבון"}] * 4}))[0]["location"] == "ליסבון")
-check("a night with no place -> [] (never a guess)",
-      seg(dict(LISBON, _approved_itinerary={"days": [{"city": "ליסבון"}, {"city": ""}, {"city": "ליסבון"}, {"city": "ליסבון"}]})) == [])
+check("a day trip (the day's city is elsewhere, no base) never becomes a lodging stop - the previous base holds",
+      seg(dict(LISBON, _approved_itinerary={"days": [{"city": "ליסבון", "base": "ליסבון"}, {"city": "סינטרה", "base": None},
+                                                     {"city": "קשקאיש"}, {"city": "ליסבון", "base": "ליסבון"}]}))
+      == [{"location": "ליסבון", "date_from": "2027-03-21", "date_to": "2027-03-25", "nights": 4}])
+check("the day's city alone is never a lodging place: no base on the first night -> [] (never a guess)",
+      seg(dict(LISBON, _approved_itinerary={"days": [{"city": "ליסבון"}, {"city": "ליסבון"}, {"city": "ליסבון"}, {"city": "ליסבון"}]})) == [])
+check("a move to a new base mid-route is a new stop",
+      seg(dict(LISBON, _approved_itinerary={"days": [{"base": "ליסבון"}, {"city": "סינטרה"}, {"base": "פורטו"}, {}]}))
+      == [{"location": "ליסבון", "date_from": "2027-03-21", "date_to": "2027-03-23", "nights": 2},
+          {"location": "פורטו", "date_from": "2027-03-23", "date_to": "2027-03-25", "nights": 2}])
 check("fewer days than nights -> []", seg(dict(LISBON, _approved_itinerary=itinerary("ליסבון", "ליסבון"))) == [])
 check("no itinerary / no dates -> []",
       seg(dict(LISBON, _approved_itinerary=None)) == [] and seg(dict(LISBON, departure_date=None)) == [])
@@ -125,6 +135,22 @@ check("page: a CJ (booking.com) result is labelled 'קישור שותף', linkin
       len(aff) == 3 and all("קישור שותף" in c and "/affiliate-disclosure" in c and "sponsored" in c for c in aff))
 check("page: a non-affiliate result is NOT labelled as an affiliate link",
       len(own) == 1 and "קישור שותף" not in own[0] and "sponsored" not in own[0])
+
+# --- One night: "לילה אחד" / "1 night" -----------------------------------------------------------------------
+one_night = [{"name": "Hotel Sintra", "link": "https://hotel-own-site.example/a", "segment_location": "ליסבון",
+              "segment_dates": "2027-03-21 – 2027-03-22", "segment_nights": 1},
+             {"name": "Hotel Porto", "link": "https://hotel-own-site.example/b", "segment_location": "פורטו",
+              "segment_dates": "2027-03-22 – 2027-03-25", "segment_nights": 3}]
+with sqlite3.connect(database.DB_PATH) as conn:
+    conn.execute("UPDATE trip_requests SET answers_json=? WHERE member_id=?",
+                 (json.dumps(dict(LISBON, lodging_offers=one_night), ensure_ascii=False), member_id))
+    conn.commit()
+he = re.findall(r'<h4 class="lodging-results-group-title">([^<]*)</h4>', client.get("/account?lang=he").get_data(as_text=True))
+en = re.findall(r'<h4 class="lodging-results-group-title">([^<]*)</h4>', client.get("/account?lang=en").get_data(as_text=True))
+check("HE: one night reads 'לילה אחד', several 'N לילות'",
+      he == ["ליסבון · לילה אחד · 21.03.2027 – 22.03.2027", "פורטו · 3 לילות · 22.03.2027 – 25.03.2027"])
+check("EN: one night reads '1 night', several 'N nights'",
+      len(en) == 2 and " · 1 night · " in en[0] and " · 3 nights · " in en[1] and "לילה" not in "".join(en))
 
 with sqlite3.connect(database.DB_PATH) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-lodging-route@example.com'")

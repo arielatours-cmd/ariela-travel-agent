@@ -5384,8 +5384,12 @@ def _lodging_segments_from_itinerary(answers: dict) -> list[dict]:
     ("פורטוגל") instead of "ליסבון · 4 לילות". lodging.details.location_
     segments is a best-effort text extraction and was empty there; the
     approved itinerary's own structure is the reliable source. Night i is
-    spent at day i+1's base (or city). [] when the itinerary, the trip
-    dates or any night's place is missing - never a guess."""
+    spent at day i+1's base - ONLY the base (where they sleep), never the
+    day's city, which on a day trip is the day-trip destination (the
+    business owner, 23.10: only the lodging places agreed in the route, no
+    day trips). A day with no base stays at the previous night's base; []
+    when the itinerary, the trip dates or the first night's base is missing
+    - never a guess."""
     itinerary = answers.get("_approved_itinerary") if isinstance(answers.get("_approved_itinerary"), dict) else {}
     days = [d for d in (itinerary.get("days") or []) if isinstance(d, dict)]
     try:
@@ -5398,7 +5402,7 @@ def _lodging_segments_from_itinerary(answers: dict) -> list[dict]:
         return []
     places = []
     for day in days[:nights]:
-        place = str(day.get("base") or day.get("city") or "").strip()
+        place = str(day.get("base") or "").strip() or (places[-1] if places else "")
         if not place:
             return []
         places.append(place)
