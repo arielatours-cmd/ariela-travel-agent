@@ -4,7 +4,7 @@
 <section class="ariella-new-chat" data-ariella-new-chat>
   <div class="ariella-chat-card">
     <header class="ariella-chat-header">
-      <img class="ariella-chat-avatar" src="{{ url_for('static', filename='ariella-avatar-approved.jpg') }}" alt="אריאלה">
+      <img class="ariella-chat-avatar" src="{{ url_for('static', filename='ariella-avatar-approved.jpg') }}" alt="{{ 'Ariella' if site_lang == 'en' else 'אריאלה' }}">
       <div><h1>{{ 'Ariella — My Travel Agent' if site_lang == 'en' else 'אריאלה - סוכנת הנסיעות שלי' }}</h1><span>{{ 'Online' if site_lang == 'en' else 'כאן בשבילך' }}</span></div>
 {# Temporarily forced on for Carmit's live testing marathon - was gated
    behind {% if qa_test_mode %}, which needs the admin token to toggle on
@@ -67,6 +67,10 @@
     return allResolved;
   }
   let history=[];
+  // English site: fixed wrapper messages keep their Hebrew `content` (the only
+  // field the server passes to the model) and show an English `display`.
+  const IS_EN={{ 'true' if site_lang == 'en' else 'false' }};
+  function pushFixed(he,en,agent){const m={role:'assistant',content:he,agent:agent||'Ariella'};if(IS_EN&&en)m.display=en;history.push(m);add('assistant',m.display||he);save();}
   let waitingForReply=false;
   // Explicit one-time reset for clean QA. Ordinary refreshes never clear customer history.
   if(new URLSearchParams(location.search).get('reset_chat')==='1'){
@@ -176,7 +180,7 @@
   }
   function hideTyping(){if(typingEl){typingEl.remove();typingEl=null;}}
   function add(role,text){hideTyping();const el=document.createElement('div');el.className='ariella-msg '+role;const body=document.createElement('span');appendFormattedText(body,text,role==='assistant');el.appendChild(body);box.appendChild(el);lastMessageEl=el;lastMessageRole=role;if(role==='assistant'){requestAnimationFrame(()=>scrollElementToTop(el));}else{scrollBoxToBottom();}return el;}
-  function addVacationLink(tripId,anchor){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#'+(anchor||'travel')+'-'+tripId;a.textContent='למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);lastMessageEl=el;lastMessageRole='assistant';requestAnimationFrame(()=>scrollElementToTop(el));}
+  function addVacationLink(tripId,anchor){if(!tripId)return;const el=document.createElement('div');el.className='ariella-msg assistant';const a=document.createElement('a');a.href='/account#'+(anchor||'travel')+'-'+tripId;a.textContent=IS_EN?'Go straight to my vacation card':'למעבר ישיר לכרטיסיית החופשה שלי';a.style.cssText='display:inline-block;color:#147d77;font-weight:700;text-decoration:underline';el.appendChild(a);box.appendChild(el);lastMessageEl=el;lastMessageRole='assistant';requestAnimationFrame(()=>scrollElementToTop(el));}
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState!=='visible'||!lastMessageEl||!lastMessageEl.isConnected)return;
     // A short delay: right when the tab becomes visible again, the keyboard
@@ -219,14 +223,20 @@
         +'פשוט '+write+' לי בשפה חופשית מה בא לך. אני אשאל כמה שאלות קצרות, אמצא לך טיסות אמיתיות במחיר הטוב ביותר, ואם '+wantTo+' אפשר גם להמשיך יחד ללינה, רכב שכור ואפילו תכנון מסלול יומי ליעד.\n\n'
         +'כל נסיעה שאנחנו בונים יחד נשמרת בכרטיסיית החופשות שלך, ותמיד אפשר לחזור ולעדכן אותן.\n\n'
         +'לפני שנתחיל — מה מתאים לך הפעם: חופשה רגילה, נסיעת עסקים, או חופשת סקי?';
-      history=[{role:'assistant',content:text,agent:'Ariella'}];save();
+      const welcome={role:'assistant',content:text,agent:'Ariella'};
+      if(IS_EN)welcome.display=(name?'Hi '+name+' 😊 So good to see you!':'Hi 😊 So good to see you!')+'\n\n'
+        +"I'm Ariella, your personal travel agent — powered by AI, but working for you just like a real agent.\n\n"
+        +"Just tell me in your own words what you'd like. I'll ask a few short questions and find you real flights at the best price, and if you like we can continue together to lodging, a rental car and even a day-by-day itinerary.\n\n"
+        +'Every trip we build together is saved in your vacations tab, and you can always come back and update it.\n\n'
+        +'Before we start — what fits this time: a regular vacation, a business trip, or a ski vacation?';
+      history=[welcome];save();
     }
-    history.forEach(x=>add(x.role==='user'?'user':'assistant',x.content||''));
+    history.forEach(x=>add(x.role==='user'?'user':'assistant',x.display||x.content||''));
   }
   initChat();
   const resetChatBtn=document.getElementById('ariellaResetChatBtn');
   if(resetChatBtn)resetChatBtn.addEventListener('click',async()=>{
-    if(!confirm('לאפס לגמרי את השיחה עם אריאלה? זה ימחק את כל ההיסטוריה לצמיתות ואי אפשר לבטל.'))return;
+    if(!confirm(IS_EN?'Completely reset your chat with Ariella? This permanently deletes the whole history and cannot be undone.':'לאפס לגמרי את השיחה עם אריאלה? זה ימחק את כל ההיסטוריה לצמיתות ואי אפשר לבטל.'))return;
     resetChatBtn.disabled=true;
     try{
       await fetch('/api/ariella/reset-conversation',{method:'POST'});
@@ -403,8 +413,7 @@
           started=await start.json().catch(()=>({}));
         }catch(e){
           allowRetryAfterFailedLaunch();
-          const netErr='התחברות לשרת נכשלה בזמן פתיחת החיפוש. כתבי מאשרת שוב כדי לנסות פעם נוספת.';
-          history.push({role:'assistant',content:netErr,agent:'Ariella'});add('assistant',netErr);save();
+          pushFixed('התחברות לשרת נכשלה בזמן פתיחת החיפוש. כתבי מאשרת שוב כדי לנסות פעם נוספת.',"Connecting to the server failed while starting the search. Type \"מאשרת\" (approve) again to retry.");
           return;
         }
         if(start.ok&&['success','queued'].includes(started.status)&&started.account_url){
@@ -453,8 +462,7 @@
           // (39 ILS) action - explain why, then send the customer to the
           // vacation card to choose that plan, instead of silently either
           // blocking the change or spawning a second, duplicate vacation.
-          const payMsg=String(started.message||'השינוי הזה דורש מעקב יומי בתשלום.');
-          history.push({role:'assistant',content:payMsg,agent:'Ariella'});add('assistant',payMsg);save();
+          pushFixed(String(started.message||'השינוי הזה דורש מעקב יומי בתשלום.'),String(started.message_en||'This change requires paid daily tracking.'));
           await new Promise(resolve=>setTimeout(resolve,4000));
           location.href=started.account_url;return;
         }
@@ -462,16 +470,14 @@
           // The customer already has an active vacation for this exact
           // origin/destination/dates. Explain why, then hand off to the
           // existing results instead of spending another free scan.
-          const dupMsg=String(started.message||'כבר יש לך חיפוש פעיל לחופשה הזו.');
-          history.push({role:'assistant',content:dupMsg,agent:'Ariella'});add('assistant',dupMsg);save();
+          pushFixed(String(started.message||'כבר יש לך חיפוש פעיל לחופשה הזו.'),String(started.message_en||'You already have an active search for this vacation.'));
           await new Promise(resolve=>setTimeout(resolve,4000));
           location.href=started.account_url;return;
         }
         // The approval reply was already rendered above. Never append it twice
         // when starting the scan fails; surface the actual handoff error instead.
         allowRetryAfterFailedLaunch();
-        const startError=String(started.message||'לא הצלחתי להתחיל את החיפוש כרגע. כתבי מאשרת שוב כדי לנסות פעם נוספת.');
-        history.push({role:'assistant',content:startError,agent:'Ariella'});add('assistant',startError);save();
+        pushFixed(String(started.message||'לא הצלחתי להתחיל את החיפוש כרגע. כתבי מאשרת שוב כדי לנסות פעם נוספת.'),String(started.message_en||(started.message?'':"I couldn't start the search right now. Type \"מאשרת\" (approve) again to retry.")));
         return;
       }
       if(postFlightTripId>0){
@@ -491,8 +497,7 @@
       if(savedPlanTripId>0)addVacationLink(savedPlanTripId);
       if(data.open_existing_trip_id)addVacationLink(data.open_existing_trip_id,'vacation');
     }catch(e){
-      const reply='יש לי תקלה רגעית בשיחה. נסו לשלוח שוב בעוד רגע.';
-      history.push({role:'assistant',content:reply,agent:'Tinkerbell'});add('assistant',reply);save();
+      pushFixed('יש לי תקלה רגעית בשיחה. נסו לשלוח שוב בעוד רגע.','I have a temporary problem with the chat. Please try sending again in a moment.','Tinkerbell');
     }finally{
       hideTyping();
       waitingForReply=false;send.disabled=false;input.disabled=false;

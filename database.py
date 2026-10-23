@@ -5,32 +5,59 @@ from statistics import median
 from urllib.parse import quote_plus
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
-from config import DB_PATH
+from pathlib import Path
+from config import DB_PATH, PUBLIC_BASE_URL
 from baggage_pricing import policy_roundtrip_total, policy_personal_item_included
 from scoring import calculate_deal_score
 
 # Curated destination landmark photography. Wikimedia Commons Special:Redirect/file
 # URLs are stable remote image URLs and require no additional flight/search API calls.
-DESTINATION_LANDMARK_IMAGES = {"ATH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Parthenon_from_west.jpg", "LCA": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Church_of_Saint_Lazarus,_Larnaca,_Cyprus.jpg", "BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hungarian_Parliament_Building_from_Fisherman%27s_Bastion.jpg", "VIE": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Schloss_Schoenbrunn_Wien_2014_%28Zuschnitt_1%29.jpg", "SOF": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alexander_Nevsky_Cathedral_in_Sofia.jpg", "PRG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg", "FCO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Colosseum_in_Rome,_Italy_-_April_2007.jpg", "MXP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Milan_Cathedral_from_Piazza_del_Duomo.jpg", "CDG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Eiffel_Tower_from_the_Tour_Montparnasse_3,_Paris_May_2014.jpg", "AMS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KeizersgrachtReguliersgrachtAmsterdam.jpg", "BCN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sagrada_Familia_01.jpg", "MAD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Palacio_de_Comunicaciones_-_47.jpg", "LIS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Torre_de_Belem_1.jpg", "LHR": "https://commons.wikimedia.org/wiki/Special:Redirect/file/London_Eye_Twilight_April_2006.jpg", "BER": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brandenburger_Tor_abends.jpg", "MUC": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Neues_Rathaus_Muenchen.jpg", "ZRH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zuerichsee_Zuerich.jpg", "BRU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brussels_Grote_Markt.jpg", "WAW": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Warsaw_Old_Town_Market_Square.jpg", "TBS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tbilisi_view.jpg", "EVN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Yerevan_Opera.jpg", "BEG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Belgrade_skyline.jpg", "SKP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stone_Bridge_Skopje.jpg", "TGD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Podgorica_Millennium_Bridge.jpg", "ZAG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zagreb_Cathedral.jpg", "LJU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ljubljana_from_the_castle.jpg", "BKK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Wat_Arun_Bangkok.jpg", "JFK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Manhattan_from_Weehawken,_NJ.jpg"}
+DESTINATION_LANDMARK_IMAGES = {"ATH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Parthenon_from_west.jpg", "LCA": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Church_of_Saint_Lazarus,_Larnaca,_Cyprus.jpg", "BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Budapest%2C_view_from_the_Fisherman%27s_Bastion_to_the_Hungarian_Parliament_Building.jpg", "VIE": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Schloss_Schoenbrunn_Wien_2014_%28Zuschnitt_1%29.jpg", "SOF": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alexander_Nevsky_Cathedral_in_Sofia.jpg", "PRG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg", "FCO": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Colosseum_in_Rome,_Italy_-_April_2007.jpg", "MXP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Milan_Cathedral_from_Piazza_del_Duomo.jpg", "CDG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Eiffel_Tower_from_the_Tour_Montparnasse_3,_Paris_May_2014.jpg", "AMS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KeizersgrachtReguliersgrachtAmsterdam.jpg", "BCN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sagrada_Familia_01.jpg", "MAD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Palacio_de_Comunicaciones_-_47.jpg", "LIS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Torre_de_Belem_1.jpg", "LHR": "https://commons.wikimedia.org/wiki/Special:Redirect/file/London_Eye_Twilight_April_2006.jpg", "BER": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brandenburger_Tor_abends.jpg", "MUC": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Neues_Rathaus_Muenchen.jpg", "ZRH": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zuerichsee_Zuerich.jpg", "BRU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Brussels_Grote_Markt.jpg", "WAW": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Warsaw_Old_Town_Market_Square.jpg", "TBS": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tbilisi_view.jpg", "EVN": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Yerevan_Opera.jpg", "BEG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Belgrade_skyline.jpg", "SKP": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stone_Bridge_Skopje.jpg", "TGD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Podgorica_Millennium_Bridge.jpg", "ZAG": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zagreb_Cathedral.jpg", "LJU": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ljubljana_from_the_castle.jpg", "BKK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Wat_Arun_Bangkok.jpg", "JFK": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Manhattan_from_Weehawken,_NJ.jpg"}
 
 # Correct known broken legacy links. Each destination also carries an ordered
 # pool: the landmark first, followed by two verified travel-photo fallbacks, so
 # a remote 404 never leaves a blank card.
 DESTINATION_LANDMARK_IMAGES.update({
-    "LCA": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=82",
     "BUD": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Budapest%2C_view_from_the_Fisherman%27s_Bastion_to_the_Hungarian_Parliament_Building.jpg",
 })
-_DESTINATION_IMAGE_FALLBACKS = (
-    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=82",
-    "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=82",
-)
 # The general image (Din, legal, 22.10): the only replacement for a photo we
 # hold no rights to, and the last-resort layer behind every deal-card image.
-GENERIC_DESTINATION_IMAGE = _DESTINATION_IMAGE_FALLBACKS[0]
-# Din (IMG-1, 22.10): OTP/KRK pointed at xplorer.co.il / krakow.pl photos we
-# have no rights to - replaced by the general image (full Wikimedia
-# replacement + credits is plan 021).
-DESTINATION_LANDMARK_IMAGES.update({"OTP": GENERIC_DESTINATION_IMAGE, "KRK": GENERIC_DESTINATION_IMAGE})
+# 23.10 (the business owner): the desert road (Unsplash photo-1500530855697)
+# looked like the destination itself - now Ofek's CC0 plane wing above the
+# clouds, served from our own static folder (absolute when PUBLIC_BASE_URL is
+# set, so a WhatsApp image still resolves).
+GENERIC_DESTINATION_IMAGE = f"{PUBLIC_BASE_URL}/static/img/destinations/_default.webp"
+# Shlomo (23.10): no source without a verified licence, even an unused layer -
+# the general image is the only fallback.
+_DESTINATION_IMAGE_FALLBACKS = (GENERIC_DESTINATION_IMAGE,)
+
+# 23.10 (Ofek, interim fix until 021a): every landmark verified against the
+# Wikimedia Commons API - the file exists, licence PD/CC0/CC BY/CC BY-SA only
+# (Din, IMG-1). url_1200 replaces the Special:Redirect links (9 of them 404'd,
+# so LIS/VIE/ZRH/... showed the general image); PRG -> Charles Bridge; OTP/KRK
+# get a real photo again. credit_text is Din's credit format, shown on the
+# card when the licence requires it (no entry = no credit needed).
+_LANDMARK_FIX_FILE = Path(__file__).resolve().parent / "static" / "img" / "destinations" / "landmarks.json"
+DESTINATION_IMAGE_CREDITS = {}
+try:
+    _landmark_fix = json.loads(_LANDMARK_FIX_FILE.read_text(encoding="utf-8")).get("images") or {}
+except Exception:
+    logging.getLogger(__name__).exception("Could not read %s", _LANDMARK_FIX_FILE)
+    _landmark_fix = {}
+for _code, _item in _landmark_fix.items():
+    if not isinstance(_item, dict) or _item.get("status") == "keep_current" or not _item.get("url_1200"):
+        continue
+    DESTINATION_LANDMARK_IMAGES[_code] = _item["url_1200"]
+    if _item.get("credit_text") and _item.get("artist") and _item.get("license"):
+        # The card builds Din's line from these parts in either language (Hebrew
+        # "צילום: X / רישיון, דרך Wikimedia Commons" - credit_text is exactly that -
+        # with the Latin part in <bdi>; English "Photo: X / license, via Wikimedia Commons").
+        DESTINATION_IMAGE_CREDITS[_code] = {
+            "artist": _item["artist"],
+            "license": _item["license"],
+            # Din (23.10): the whole credit line links to the photo's own Commons page.
+            "page": _item.get("page") if str(_item.get("page") or "").startswith("https://commons.wikimedia.org/") else None,
+        }
 
 
 def _wikimedia_thumb(url, width=1200):
@@ -54,6 +81,9 @@ DESTINATION_LANDMARK_IMAGES.update({
     "BGY": DESTINATION_LANDMARK_IMAGES["MXP"],
     "LIN": DESTINATION_LANDMARK_IMAGES["MXP"],
 })
+for _code, _same in (("CIA", "FCO"), ("BGY", "MXP"), ("LIN", "MXP")):
+    if _same in DESTINATION_IMAGE_CREDITS:
+        DESTINATION_IMAGE_CREDITS[_code] = DESTINATION_IMAGE_CREDITS[_same]
 
 
 def _full_roundtrip_google_url(departure: str, arrival: str, outbound_date: str, return_date: str) -> str:
@@ -1380,6 +1410,11 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
                 or GENERIC_DESTINATION_IMAGE
             ),
             "destination_image_fallback": GENERIC_DESTINATION_IMAGE,
+            # Din's credit (IMG-1) for the landmark photo, when its licence requires one.
+            "destination_image_credit": (
+                DESTINATION_IMAGE_CREDITS.get(str(item.get("arrival_code") or "").upper())
+                if DESTINATION_LANDMARK_IMAGES.get(str(item.get("arrival_code") or "").upper()) else None
+            ),
             "destination_image_pool": DESTINATION_IMAGE_POOLS.get(
                 str(item.get("arrival_code") or "").upper(), list(_DESTINATION_IMAGE_FALLBACKS)
             ),
