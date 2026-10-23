@@ -14,6 +14,7 @@ Offline. Run: python3 tools/qa_landmark_images_fix.py
 """
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -65,8 +66,20 @@ with app.test_request_context("/"):
     he = app.jinja_env.from_string(FULL).render(o=base, lang="he")
     en = app.jinja_env.from_string(FULL).render(o=base, lang="en")
     none = app.jinja_env.from_string(FULL).render(o=dict(base, arrival_code="ATH", destination_image_url=L["ATH"], destination_image_credit=None), lang="he")
-check("card HE: Din's credit text on the photo", fix["LIS"]["credit_text"] in he and "deal-image-credit" in he)
-check("card EN: the same credit in English", "Photo: " in en and "via Wikimedia Commons" in en and "צילום" not in en)
+import html as _html  # noqa: E402
+lis = fix["LIS"]
+check("card HE: Din's credit text on the photo (the Latin part in <bdi> - Tom's QA: the comma jumped in RTL)",
+      f"צילום: <bdi>{lis['artist']} / {lis['license']}</bdi>, דרך Wikimedia Commons" in _html.unescape(he)
+      and re.sub(r"</?bdi>", "", _html.unescape(he)).count(lis["credit_text"]) == 1)
+check("card EN: the fixed English wording, never the Hebrew (Tom's QA)",
+      f"Photo: {lis['artist']} / {lis['license']}, via Wikimedia Commons" in _html.unescape(en) and "צילום" not in en)
+# Tom's QA (23.10): Wikimedia answers 400 to a 1200px thumbnail ("Use thumbnail sizes listed on w.wiki/GHai"),
+# so the card fell back to our plane wing with someone else's credit on it. Offline guard: every thumbnail is 1280px.
+thumbs = [v["url_1200"] for v in fix.values() if v.get("url_1200") and "/thumb/" in v["url_1200"]]
+check("every Commons thumbnail is 1280px wide (1200px returns HTTP 400)",
+      thumbs and all(re.search(r"/1280px-[^/]+$", u) for u in thumbs) and not any("/1200px-" in u for u in L.values()))
+dbsrc = open(os.path.join(ROOT, "database.py"), encoding="utf-8").read()
+check("no dead destination_image_url override on payload in recent_offers (Tom's QA)", 'payload["destination_image_url"]' not in dbsrc)
 check("card: no credit when the licence needs none (ATH, public domain)", "deal-image-credit" not in none)
 page = fix["LIS"]["page"]
 check("Din 23.10: the whole credit line links to the photo's Commons page (he/en)",

@@ -50,12 +50,13 @@ for _code, _item in _landmark_fix.items():
     if not isinstance(_item, dict) or _item.get("status") == "keep_current" or not _item.get("url_1200"):
         continue
     DESTINATION_LANDMARK_IMAGES[_code] = _item["url_1200"]
-    if _item.get("credit_text"):
-        # Hebrew: Din's text as is; English: the same format, same parts.
+    if _item.get("credit_text") and _item.get("artist") and _item.get("license"):
+        # The card builds Din's line from these parts in either language (Hebrew
+        # "צילום: X / רישיון, דרך Wikimedia Commons" - credit_text is exactly that -
+        # with the Latin part in <bdi>; English "Photo: X / license, via Wikimedia Commons").
         DESTINATION_IMAGE_CREDITS[_code] = {
-            "he": _item["credit_text"],
-            "en": f"Photo: {_item.get('artist')} / {_item.get('license')}, via Wikimedia Commons"
-            if _item.get("artist") and _item.get("license") else None,
+            "artist": _item["artist"],
+            "license": _item["license"],
             # Din (23.10): the whole credit line links to the photo's own Commons page.
             "page": _item.get("page") if str(_item.get("page") or "").startswith("https://commons.wikimedia.org/") else None,
         }
@@ -1180,9 +1181,6 @@ def recent_offers(limit: int = 50, minimum_score: int | None = None, offer_ids: 
         payload["observed_at"] = item.get("observed_at") or payload.get("observed_at")
         payload["last_seen_at"] = latest_observations.get(int(item.get("id"))) or item.get("last_seen_at") or item.get("observed_at") or payload.get("observed_at")
         payload["scan_started_at"] = item.get("scan_started_at")
-        mapped_image = DESTINATION_LANDMARK_IMAGES.get(str(payload.get("arrival_code") or item.get("arrival_code") or "").upper())
-        if mapped_image:
-            payload["destination_image_url"] = mapped_image
         if item.get("trip_id") is not None:
             payload["trip_id"] = item.get("trip_id")
         deal_score = payload.get("deal_score") or {}

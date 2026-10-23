@@ -60,8 +60,8 @@ check("the general image is a curated fallback, not a provider photo", GENERIC.e
 
 # --- 3a. Wikimedia thumbnails --------------------------------------------------------------------------
 lis = database.DESTINATION_LANDMARK_IMAGES["LIS"]
-check("Lisbon: a direct 1200px Wikimedia rendition (the Special:Redirect file 404'd)",
-      lis.startswith("https://upload.wikimedia.org/") and "1200px-" in lis)
+check("Lisbon: a direct 1280px Wikimedia rendition (the Special:Redirect file 404'd; 1200px is not an allowed size)",
+      lis.startswith("https://upload.wikimedia.org/") and "/1280px-" in lis)
 check("every Special:Redirect link carries ?width=1200 (pools too)",
       all("?width=1200" in u for u in database.DESTINATION_LANDMARK_IMAGES.values() if "Special:Redirect" in u)
       and all("?width=1200" in p[0] for p in database.DESTINATION_IMAGE_POOLS.values() if "Special:Redirect" in p[0]))
