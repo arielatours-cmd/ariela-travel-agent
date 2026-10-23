@@ -6779,6 +6779,94 @@ def _guard_mixed_baggage_pending_write(trip_state, trip_update, message=None):
     return trip_update
 
 
+def _reinforce_explicit_destination_correction(trip_state, trip_update, destination_evidence, message):
+    """Dry-run 5h (23.10.2026, Shaked's live finding, business owner's
+    explicit directive relayed by Shlomo): once a destination is already
+    resolved, an explicit customer correction naming a real, different
+    destination ("ברגן, בנורווגיה" after Bergamo/BGY was already saved)
+    did not stick - Ariella's own reply confirmed the correction in text
+    ("אעדכן את זה"), but destination_airports stayed the old value and the
+    final summary still showed the wrong city. Investigated and ruled out:
+    _guard_destination_change_evidence itself works correctly (verified
+    directly) - it lets a change through whenever destination_evidence
+    verifies, and reverts only when it does not. The gap is upstream: the
+    general EXTRACTOR_SYSTEM call does not reliably supply a verified
+    destination_evidence quote for this kind of correction, even when its
+    own reply text plainly recognizes it.
+
+    Fixed per the business owner's explicit directive: model recognition +
+    catalog verification, never a word list. A single dedicated classifier
+    call - same architecture as _destination_gateway_answer_by_meaning -
+    runs ONLY when destination_airports is already resolved (a correction
+    is only meaningful once there's something to correct) AND the raw
+    extractor's own destination_evidence did NOT already verify (the
+    common, working case is left untouched - no extra cost there). It asks
+    whether the customer's CURRENT message states an explicit, confident
+    correction to a DIFFERENT real destination than the one already saved,
+    requiring a verbatim quote exactly like destination_evidence/evidence
+    everywhere else in this file. The candidate is verified against the
+    catalog (_verify_catalog_airport_code) and must differ from every
+    airport already resolved - otherwise this is not a correction at all.
+    When genuine, destination_evidence is set to that verified quote (so
+    the very next call, _guard_destination_change_evidence, sees real
+    evidence and lets the change through on its own, unchanged logic) and
+    trip_update's destination/destination_airports are set to the
+    catalog's own verified value - exactly how _destination_gateway_
+    answer_by_meaning already writes a single verified candidate.
+
+    Never resolves an AMBIGUOUS correction (two equally plausible real
+    candidates) on its own - that stays a question for a later round,
+    consistent with this file's standing disambiguation mechanism; only a
+    single, catalog-verified candidate is ever trusted here."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    trip_update = trip_update if isinstance(trip_update, dict) else {}
+    prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
+    if not prior_airports:
+        return trip_update, destination_evidence  # nothing resolved yet to correct
+    if _value_has_verbatim_evidence(destination_evidence, message):
+        return trip_update, destination_evidence  # the extractor's own evidence already verifies - nothing to add
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return trip_update, destination_evidence
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+    prior_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
+    prior_places_text = ", ".join(str(p) for p in (prior_destination.get("places") or []) if str(p).strip()) or ", ".join(prior_airports)
+    prompt = (
+        "ליעד הטיול כבר נקבע ונשמר אצלנו: " + prior_places_text + " (קודי שדה תעופה: " + ", ".join(prior_airports) + "). "
+        "קראי את ההודעה הנוכחית של הלקוח וקבעי: האם הלקוח אומר במפורש ובביטחון שזה לא היעד הנכון, "
+        "ומתכוון בפועל ליעד אמיתי אחר (עיר/מדינה/שדה תעופה אמיתיים) - לא שאלה, לא ספק, לא תוספת (כמו עצירה "
+        "נוספת), אלא תיקון מפורש ליעד עצמו.\n"
+        "מצאי בהודעה הנוכחית של הלקוח ציטוט מילה-במילה שמבטא את התיקון הזה - בלי ציטוט כזה מתוך ההודעה "
+        "הנוכחית עצמה, אל תחזירי שום מועמד בכלל.\n"
+        "אם יש תיקון מפורש כזה, לפי הידע הכללי שלך על העולם האמיתי, זהי איזו עיר/שדה תעופה אמיתיים משרתים "
+        "את היעד החדש הזה. החזירי מועמד רק כשאת בטוחה שזהו באמת יעד אחר מזה שכבר נקבע - לעולם לא ניחוש.\n"
+        "החזירי JSON בלבד: {\"evidence\": \"<הציטוט המדויק, מילה-במילה, מתוך ההודעה הנוכחית של הלקוח>\" "
+        "(או null אם אין תיקון מפורש כזה), \"candidate\": {\"city_en\": \"<שם העיר באנגלית>\", \"iata_code\": "
+        "\"<קוד IATA>\"} (או null)}. אם אין תיקון מפורש בהודעה, או שאינך בטוחה כלל, החזירי evidence null "
+        "ו-candidate null. לעולם אל תנחשי בספק - רק כשאת בטוחה."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [], "הודעת הלקוח: " + str(message or ""), 150, include_history=False, source="classifier")
+        raw = raw.strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return trip_update, destination_evidence
+    if not isinstance(data, dict):
+        return trip_update, destination_evidence
+    correction_evidence = data.get("evidence")
+    if not _value_has_verbatim_evidence(correction_evidence, message):
+        return trip_update, destination_evidence
+    candidate = data.get("candidate") if isinstance(data.get("candidate"), dict) else {}
+    code = _verify_catalog_airport_code(candidate.get("iata_code"), candidate.get("city_en"))
+    if not code or code in prior_airports:
+        return trip_update, destination_evidence  # not verified, or not actually a different destination
+    verified_name = _verified_catalog_display_name(code)
+    trip_update = dict(trip_update)
+    trip_update["destination_airports"] = [code]
+    trip_update["destination"] = {"places": [verified_name]}
+    return trip_update, correction_evidence
+
+
 def _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message):
     """Per the business owner's directive (18.10, Shaked's stage-3 run-5
     direct finding, s3z4 - Palermo, relayed by Shlomo with the explicit
@@ -8377,7 +8465,19 @@ def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_
     # words, so this is the same priority rule as the prefix forms, not
     # the "unrelated city named in passing" case the per-candidate near-
     # match loop below still guards against.
+    # Dry-run 5h (23.10.2026, Shlomo's explicit fallback instruction - E1's
+    # live turn-0 outcome still unverified at the time of this change): a
+    # diagnostic event on every genuinely fresh resolution (prior_airports
+    # empty, new_airports non-empty - necessarily written by the raw
+    # extractor's own trip_update, since nothing earlier in the pipeline
+    # writes destination_airports fresh) - never the customer's own
+    # message text, only derived fields, same convention as destination_
+    # change/destination_ambiguity_override. Lets the next dry-run give an
+    # answer even if this fix still doesn't close E1.
     if any(_catalog_near_neighbor_cities(form, max_distance=0) for forms in candidate_forms for form in forms):
+        record_diagnostic_event("destination_fresh_resolution", {
+            "extractor_wrote_airports": new_airports, "decision": "kept_exact_match",
+        })
         return trip_update
     for forms in candidate_forms:
         winning_needle, near_cities = None, {}
@@ -8391,7 +8491,14 @@ def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_
             prior_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
             trip_update["destination"] = dict(prior_destination, places=[winning_needle], status="known")
             trip_update["destination_airports"] = list(prior_airports)
+            record_diagnostic_event("destination_fresh_resolution", {
+                "extractor_wrote_airports": new_airports, "decision": "reverted_ambiguous",
+                "near_cities": sorted(near_cities.keys()),
+            })
             return trip_update
+    record_diagnostic_event("destination_fresh_resolution", {
+        "extractor_wrote_airports": new_airports, "decision": "kept_no_catalog_match",
+    })
     return trip_update
 
 
@@ -16563,6 +16670,7 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _guard_mixed_baggage_pending_write(trip_state, trip_update, message)
         trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
+        trip_update, destination_evidence = _reinforce_explicit_destination_correction(trip_state, trip_update, destination_evidence, message)
         trip_update = _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message)
         trip_update = _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_evidence, message)
         trip_update = _guard_baggage_change_evidence(trip_state, trip_update, baggage_evidence, message)
