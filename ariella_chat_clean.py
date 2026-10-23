@@ -8012,7 +8012,23 @@ def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_
     recomputing the identical catalog signal on the identical string and
     reframing its own one classifier call accordingly. No hint text is
     built here at all; this function only ever decides whether to revert,
-    never how to phrase asking about it."""
+    never how to phrase asking about it.
+
+    Shaked's static review of a0744a31 (23.10.2026, approved fix by
+    Shlomo): the stripped form used to be tried unconditionally whenever
+    the full needle itself wasn't a 2-way ambiguity - but destination_
+    evidence is usually just the bare city name (the model quotes the
+    place itself, not a leading preposition that happened to precede it
+    in the sentence), so an EXACT full-name match (e.g. "מדריד") still
+    fell through to the stripped form ("דריד"), which can coincidentally
+    land within edit-distance 1 of two unrelated real cities - wrongly
+    reverting a perfectly correct, unambiguous resolution. Scanned against
+    the full catalog (824 names): 24 real cities starting with ל/ב/מ
+    (Miami, Bergen, Belgrade, Boston, Bari, Malta, among others) hit this.
+    Fixed: the moment any candidate form matches ANYTHING in the catalog
+    at all (a decisive exact match, a single near match, or a genuine
+    2-way ambiguity), that is the final answer - the stripped form is
+    only ever tried when the fuller form matched nothing whatsoever."""
     trip_state = trip_state if isinstance(trip_state, dict) else {}
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
@@ -8027,9 +8043,13 @@ def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_
         candidates_to_try.append(needle[1:])
     winning_needle, near_cities = None, {}
     for candidate in candidates_to_try:
-        near_cities = _catalog_near_neighbor_cities(candidate)
-        if len(near_cities) == 2:
-            winning_needle = candidate
+        found = _catalog_near_neighbor_cities(candidate)
+        if found:
+            # Something matched this candidate form - decisive exact
+            # match, a single near match, or a genuine 2-way ambiguity.
+            # Never fall through to strip a real leading letter off a
+            # form that already resolved against the real catalog.
+            winning_needle, near_cities = candidate, found
             break
     if len(near_cities) != 2:
         return trip_update
