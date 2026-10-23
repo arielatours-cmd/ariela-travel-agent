@@ -86,6 +86,14 @@ def _status_payload() -> dict:
     }
 
 
+# Consecutive text messages now go through a short per-phone debounce queue
+# (see whatsapp.py's _queue_text_message/_flush_text_queue) before firing a
+# real route_inbound/ariella_turn call. A near-zero window here keeps every
+# existing time.sleep(...) below (already there to let the background
+# webhook thread finish) more than sufficient, without adding real delay to
+# this test run or rewriting its timing.
+whatsapp.WHATSAPP_DEBOUNCE_SECONDS = 0.01
+
 # --- Setup: a QA member linked to PHONE ---
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email=?", (EMAIL,))

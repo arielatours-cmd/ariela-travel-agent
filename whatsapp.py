@@ -14,6 +14,7 @@ from config import (
     PUBLIC_BASE_URL,
     WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_API_VERSION,
+    WHATSAPP_DEBOUNCE_SECONDS,
     WHATSAPP_INBOUND_ALLOWLIST,
     WHATSAPP_INBOUND_ENABLED,
     WHATSAPP_PHONE_NUMBER_ID,
@@ -493,6 +494,71 @@ def _extract_button_payload(message: dict) -> str | None:
     return None
 
 
+# Per-phone debounce queue for consecutive text messages (see
+# config.WHATSAPP_DEBOUNCE_SECONDS). Each inbound webhook delivery already
+# runs in its own fire-and-forget thread (see whatsapp_webhook below) with
+# no coordination between them - two real messages from the same customer
+# a few seconds apart would otherwise spawn two concurrent route_inbound/
+# ariella_turn calls, both reading the same saved conversation history and
+# racing on the write back (whichever save_ariella_conversation call lands
+# last silently wins, dropping the other turn), with no guarantee the
+# replies even arrive in order. _wa_queue_guard protects the two dicts
+# below; _wa_phone_run_locks holds one lock per phone number so a flush
+# already in progress for that phone is waited on (never skipped, never
+# raced) rather than running concurrently with the next one.
+_wa_queue_guard = threading.Lock()
+_wa_pending_texts: dict[str, list[str]] = {}
+_wa_pending_timers: dict[str, threading.Timer] = {}
+_wa_phone_run_locks: dict[str, threading.Lock] = {}
+
+
+def _phone_run_lock(phone: str) -> threading.Lock:
+    with _wa_queue_guard:
+        lock = _wa_phone_run_locks.get(phone)
+        if lock is None:
+            lock = threading.Lock()
+            _wa_phone_run_locks[phone] = lock
+        return lock
+
+
+def _queue_text_message(phone: str, phone_hash_val: str, text: str, profile_name: str) -> None:
+    """Appends to this phone's pending batch and (re)starts its debounce
+    timer. Each new message cancels the previous timer, so the batch only
+    flushes once the customer has been quiet for WHATSAPP_DEBOUNCE_SECONDS -
+    exactly the "typing across several bubbles" case this exists for."""
+    with _wa_queue_guard:
+        _wa_pending_texts.setdefault(phone, []).append(text)
+        existing_timer = _wa_pending_timers.get(phone)
+        if existing_timer is not None:
+            existing_timer.cancel()
+        timer = threading.Timer(
+            WHATSAPP_DEBOUNCE_SECONDS, _flush_text_queue, args=(phone, phone_hash_val, profile_name),
+        )
+        timer.daemon = True
+        _wa_pending_timers[phone] = timer
+        timer.start()
+
+
+def _flush_text_queue(phone: str, phone_hash_val: str, profile_name: str) -> None:
+    with _wa_queue_guard:
+        texts = _wa_pending_texts.pop(phone, [])
+        _wa_pending_timers.pop(phone, None)
+    if not texts:
+        return
+    # One combined turn, not N - the customer's separate bubbles were one
+    # thought split across messages; Tinkerbell sees them as a single
+    # message, in the order they were actually sent.
+    combined_text = "\n".join(t for t in texts if t)
+    with _phone_run_lock(phone):
+        from nova_conversation import route_inbound
+        try:
+            reply = route_inbound(phone, combined_text, profile_name=profile_name, button_payload=None)
+        except Exception:
+            log.exception("WhatsApp inbound: route_inbound failed (debounced batch)")
+            reply = "קרתה תקלה זמנית, ננסה שוב בעוד רגע 🙏"
+        _reply_and_log(phone, phone_hash_val, reply)
+
+
 def _process_one_message(message: dict, profile_name: str) -> None:
     wa_message_id = str(message.get("id") or "")
     phone = str(message.get("from") or "")
@@ -521,6 +587,14 @@ def _process_one_message(message: dict, profile_name: str) -> None:
         return
 
     log_whatsapp_message(wa_message_id, phone_hash_val, _member_id_for_log(phone), "in", msg_type, text, button_payload, "received")
+
+    # Plain text goes through the debounce queue (see above) so several
+    # messages typed in quick succession become one Ariella turn. A button/
+    # interactive tap is a single deliberate action, not prose to batch with
+    # anything else - handled immediately, exactly as before.
+    if msg_type == "text":
+        _queue_text_message(phone, phone_hash_val, text, profile_name)
+        return
 
     from nova_conversation import route_inbound
     try:
