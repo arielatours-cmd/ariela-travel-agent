@@ -5778,6 +5778,18 @@ def _vipcars_location(iata: str) -> dict | None:
     return entry
 
 
+def _vipcars_page(iata: str) -> str | None:
+    """VIP Cars' own static page for an airport whose search ids aren't
+    verified yet (static/vipcars_locations.json "pages" - from VIP Cars'
+    sitemap only, never a built URL), or None."""
+    try:
+        data = json.loads(_VIPCARS_LOCATIONS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    page = (data.get("pages") or {}).get(str(iata or "").upper())
+    return page if isinstance(page, str) and page.startswith("https://www.vipcars.com/car-rental/") else None
+
+
 def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     """Outbound CJ-tracked URL for one car-rental card. The sid lets CJ
     reports tie a commission back to the vacation it came from.
@@ -5813,7 +5825,14 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
         try:
             params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(**fields)
         except KeyError:
-            logging.info("Car partner link for %s->%s: no verified partner location ids; linking to partner home page", iata, return_iata)
+            # No verified ids: the pickup airport's own VIP Cars page from its
+            # sitemap when there is one (no dates, but the right place -
+            # Shlomo/Ofek 23.10), else the partner's home page.
+            page = _vipcars_page(iata)
+            if page:
+                params["url"] = page
+            logging.info("Car partner link for %s->%s: no verified partner location ids; linking to %s",
+                         iata, return_iata, "the airport's VIP Cars page" if page else "partner home page")
         except (IndexError, ValueError):
             logging.warning("CAR_RENTAL_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
     joiner = "&" if "?" in CAR_RENTAL_AFFILIATE_LINK else "?"
