@@ -191,7 +191,7 @@
 
         <div class="vacation-panel" id="lodging-{{ trip.id }}">
           <h3>אפשרויות לינה ליעד ולתאריכים שלכם</h3>
-          {% for stay in lodging_partner_cards(trip.id, a) %}
+          {% macro partner_stay_card(stay) %}
             <div class="lodging-result-card lodging-partner-card">
               <div class="lodging-result-info">
                 <strong>🏨 {{ stay.name }}</strong>
@@ -202,21 +202,37 @@
                 <p class="affiliate-disclosure">קישור שותף: אם תזמינו דרך {{ stay.supplier }}, אריאלה מקבלת עמלה מהספק.</p>
               </div>
             </div>
-          {% endfor %}
+          {% endmacro %}
           {% set lodging_offers = a.get('lodging_offers') or [] %}
+          {% set partner_stays = lodging_partner_cards(trip.id, a) %}
+          {# Item 4 (lodging revenue, 22.10): results grouped by stop + dates, a heading per group. The server
+             already tags each segment search's hotels with segment_location/segment_dates (in route order);
+             untagged results (the usual single search) form one group: the destination + the trip's dates.
+             The business owner (22.10): a result with no booking link isn't shown at all; a group left with
+             nothing bookable shows only its heading + the dedicated partner card(s) with their dates. #}
+          {% set default_group_label = (trip.destination_display or trip.request_name or 'לינה') ~ ((' · ' ~ (a.get('departure_date') ~ ' – ' ~ a.get('return_date'))|he_dates) if a.get('departure_date') and a.get('return_date') else '') %}
+          {% set lodging_groups = [] %}
+          {% for hotel in lodging_offers %}
+            {% set group_label = ((hotel.get('segment_location') ~ ((' · ' ~ hotel.get('segment_dates')|he_dates) if hotel.get('segment_dates') else '')) if hotel.get('segment_location') else default_group_label) %}
+            {% if not lodging_groups or lodging_groups[-1].label != group_label %}{% set _ = lodging_groups.append({'label': group_label, 'hotels': []}) %}{% endif %}
+            {% if hotel.get('link') %}{% set _ = lodging_groups[-1].hotels.append(hotel) %}{% endif %}
+          {% endfor %}
+          {% set any_empty_group = lodging_groups|selectattr('hotels', 'equalto', [])|list %}
+          {% if not any_empty_group %}
+          {% for stay in partner_stays %}
+            {{ partner_stay_card(stay) }}
+          {% endfor %}
+          {% endif %}
           {% if lodging_offers %}
-            {# Item 4 (lodging revenue, 22.10): results grouped by stop + dates, a heading per group. The server
-               already tags each segment search's hotels with segment_location/segment_dates (in route order);
-               untagged results (the usual single search) form one group: the destination + the trip's dates. #}
-            {% set default_group_label = (trip.destination_display or trip.request_name or 'לינה') ~ ((' · ' ~ (a.get('departure_date') ~ ' – ' ~ a.get('return_date'))|he_dates) if a.get('departure_date') and a.get('return_date') else '') %}
             <div class="lodging-results-list">
-              {% set ns = namespace(group=none) %}
-              {% for hotel in lodging_offers %}
-                {% set group_label = ((hotel.get('segment_location') ~ ((' · ' ~ hotel.get('segment_dates')|he_dates) if hotel.get('segment_dates') else '')) if hotel.get('segment_location') else default_group_label) %}
-                {% if group_label != ns.group %}
-                  {% set ns.group = group_label %}
-                  <h4 class="lodging-results-group-title">{{ group_label }}</h4>
+              {% for group in lodging_groups %}
+                <h4 class="lodging-results-group-title">{{ group.label }}</h4>
+                {% if not group.hotels %}
+                  {% for stay in partner_stays %}
+            {{ partner_stay_card(stay) }}
+                  {% endfor %}
                 {% endif %}
+                {% for hotel in group.hotels %}
                 <div class="lodging-result-card">
                   {% if hotel.get('thumbnail') %}<img class="lodging-thumb" src="{{ hotel.get('thumbnail') }}" alt="" loading="lazy">{% endif %}
                   <div class="lodging-result-info">
@@ -227,9 +243,14 @@
                     </div>
                     {% if hotel.get('nearby_places') %}<div class="lodging-result-nearby">קרוב ל: {{ hotel.get('nearby_places')|join(', ') }}</div>{% endif %}
                     {% if hotel.get('price_per_night_ils') %}<div class="lodging-result-price">₪{{ hotel.get('price_per_night_ils')|round|int }} ללילה{% if hotel.get('total_price_ils') %} · סה"כ ₪{{ hotel.get('total_price_ils')|round|int }}{% endif %}</div>{% endif %}
-                    {% if hotel.get('link') %}<a class="lodging-result-link" href="{{ hotel.get('link') }}" target="_blank" rel="noopener">צפייה ופרטים</a>{% endif %}
+                    {% if hotel.get('link') %}
+                      {% set affiliate = is_affiliate_lodging_link(hotel.get('link')) %}
+                      <a class="lodging-search-btn car-partner-btn lodging-book-btn" href="{{ hotel.get('link') }}" target="_blank" rel="noopener{{ ' sponsored' if affiliate else '' }}">להזמנה ←</a>
+                      {% if affiliate %}<a class="affiliate-disclosure lodging-affiliate-label" href="{{ url_for('site.affiliates') }}" target="_blank" rel="noopener">קישור שותף</a>{% endif %}
+                    {% endif %}
                   </div>
                 </div>
+                {% endfor %}
               {% endfor %}
             </div>
           {% else %}
