@@ -7678,13 +7678,28 @@ def _normalize_he_final_letters(s):
     return "".join(_HE_FINAL_LETTERS.get(c, c) for c in str(s or ""))
 
 
-def _levenshtein_distance(a, b):
+def _levenshtein_distance(a, b, max_distance=None):
     """Plain edit distance (insert/delete/substitute, cost 1 each),
-    final-letter-normalized first. No external dependency - the catalog
-    is small enough (~1,400 entries) that a pure-Python DP table per
-    lookup is cheap."""
+    final-letter-normalized first.
+
+    Dry-run 5e performance finding (Shaked, 23.10.2026): the message-wide
+    catalog scan (_catalog_near_neighbor_cities, approved 23.10.2026) can
+    call this thousands of times per turn (every 1-4-word window x 2
+    forms x ~1,400 catalog entries) - building the full O(len(a)*len(b))
+    DP table for every single one, even entries wildly different in
+    length from the needle, measured at 3.2-9.5 CPU seconds for a real
+    customer message with a typo (blocking Render's single worker for
+    every other customer meanwhile). max_distance, when given, is a
+    cheap pre-filter: an edit distance of at most max_distance can never
+    be reached when the two (length-preserving-normalized) strings
+    differ in length by more than max_distance (each extra length-diff
+    character needs at least one insert/delete) - skip the DP table
+    entirely in that case. Callers that don't pass max_distance (e.g. the
+    direct QA checks) get the exact distance exactly as before."""
     a, b = _normalize_he_final_letters(a), _normalize_he_final_letters(b)
     m, n = len(a), len(b)
+    if max_distance is not None and abs(m - n) > max_distance:
+        return max_distance + 1
     if m == 0:
         return n
     if n == 0:
@@ -7752,29 +7767,24 @@ def _catalog_near_neighbor_cities(needle, max_distance=1):
     needle = str(needle or "").strip()
     if not needle:
         return {}
+    needle_norm = _normalize_he_final_letters(needle)
+    needle_len = len(needle_norm)
     exact = {}
     near = {}
-    for airport in list(_load_airports()):
-        city_he = str(airport.get("city_he") or "").strip()
-        if not city_he:
+    for city_he, city_he_norm, code, match_exact_only in _catalog_near_neighbor_entries():
+        # Dry-run 5e performance fix (Shaked, 23.10.2026): cheap length-
+        # based pre-filter before the O(len*len) DP table - see
+        # _levenshtein_distance's own docstring for why this is safe.
+        # This alone is what brings a 40-word message with a typo from
+        # ~9.5s down to the sub-0.2s target, since the vast majority of
+        # the ~1,400 catalog entries differ wildly in length from any one
+        # word/window of a real message.
+        if abs(len(city_he_norm) - needle_len) > max_distance:
             continue
-        code = airport.get("code")
-        distance = _levenshtein_distance(needle, city_he)
+        distance = _levenshtein_distance(needle_norm, city_he_norm)
         if distance == 0:
             exact.setdefault(city_he, []).append(code)
-        elif distance <= max_distance:
-            near.setdefault(city_he, []).append(code)
-    for airport in list(_load_extended_airports()):
-        if str(airport.get("he_confidence") or "").lower() != "high":
-            continue
-        city_he = str(airport.get("city_he") or "").strip()
-        if not city_he:
-            continue
-        code = airport.get("code")
-        distance = _levenshtein_distance(needle, city_he)
-        if distance == 0:
-            exact.setdefault(city_he, []).append(code)
-        elif distance <= max_distance and not airport.get("match_exact_only"):
+        elif distance <= max_distance and not match_exact_only:
             # Shaked's static review of 17587cfa (23.10.2026): a name
             # flagged match_exact_only (a common word, or a name usually
             # meant as something else - mirrors _extended_airport_matches'
@@ -7782,9 +7792,68 @@ def _catalog_near_neighbor_cities(needle, max_distance=1):
             # literal one. Without this, "פראד" (a typo for "פראג") also
             # matched "אראד"/Arad (ARW, match_exact_only) at distance 1,
             # turning a decisive single near-match into a false 2-way
-            # ambiguity {Prague, Arad}.
+            # ambiguity {Prague, Arad}. Exact matches are exempt (a
+            # match_exact_only name is still a literal, exact answer to
+            # itself - the whole point of the flag).
             near.setdefault(city_he, []).append(code)
     return exact if exact else near
+
+
+_CATALOG_NEAR_NEIGHBOR_ENTRIES_CACHE = None
+
+
+def _catalog_near_neighbor_entries():
+    """Pre-extracted, pre-normalized (city_he, city_he_normalized, code,
+    match_exact_only) tuples for both catalogs (static always included,
+    extended filtered to he_confidence=="high" only) - built once per
+    process. Dry-run 5e performance fix (Shaked, 23.10.2026): _catalog_
+    near_neighbor_cities can now be called thousands of times per turn
+    (every message word-window x form) - re-deriving city_he and
+    normalizing it from scratch on every single comparison, every single
+    call, was pure waste once the underlying catalog lists themselves
+    were already cached (_load_airports/_load_extended_airports)."""
+    global _CATALOG_NEAR_NEIGHBOR_ENTRIES_CACHE
+    if _CATALOG_NEAR_NEIGHBOR_ENTRIES_CACHE is None:
+        entries = []
+        for airport in _load_airports():
+            city_he = str(airport.get("city_he") or "").strip()
+            if not city_he:
+                continue
+            entries.append((city_he, _normalize_he_final_letters(city_he), airport.get("code"), False))
+        for airport in _load_extended_airports():
+            if str(airport.get("he_confidence") or "").lower() != "high":
+                continue
+            city_he = str(airport.get("city_he") or "").strip()
+            if not city_he:
+                continue
+            entries.append((city_he, _normalize_he_final_letters(city_he), airport.get("code"),
+                             bool(airport.get("match_exact_only"))))
+        _CATALOG_NEAR_NEIGHBOR_ENTRIES_CACHE = entries
+    return _CATALOG_NEAR_NEIGHBOR_ENTRIES_CACHE
+
+
+_CATALOG_MULTIWORD_FIRST_WORDS_CACHE = None
+
+
+def _catalog_multiword_first_words():
+    """The first word of every multi-word catalog city name (e.g. "דה"
+    from "דה נאנג"/Da Nang, "בניה" from "בניה לוקה"/Banja Luka) - built
+    once per process. Dry-run 5e performance fix (Shaked, 23.10.2026):
+    _reresolve_ambiguous_fresh_destination uses this to skip generating
+    a 2-4-word window at a message position unless that word could
+    plausibly start a real multi-word name - most words never do, and
+    generating every window regardless (824 names are mostly 1 word)
+    was most of the remaining cost after the length-filter/caching
+    fixes to _catalog_near_neighbor_cities itself."""
+    global _CATALOG_MULTIWORD_FIRST_WORDS_CACHE
+    if _CATALOG_MULTIWORD_FIRST_WORDS_CACHE is None:
+        first_words = set()
+        for city_he, _norm, _code, _flag in _catalog_near_neighbor_entries():
+            parts = city_he.split(" ", 1)
+            if len(parts) == 2 and parts[0]:
+                first_words.add(parts[0])
+        _CATALOG_MULTIWORD_FIRST_WORDS_CACHE = first_words
+    return _CATALOG_MULTIWORD_FIRST_WORDS_CACHE
 
 
 def _destination_gateway_answer_by_meaning(message, history, state):
@@ -8103,11 +8172,27 @@ def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_
     # (824 names are at most 4 words long) joined back with single
     # spaces, matching the catalog's own city_he spacing exactly.
     _words = re.findall(r"[א-ת]+(?:['׳][א-ת]*)?", str(message or ""))
+    _multiword_first_words = _catalog_multiword_first_words()
     tokens = []
-    for n in (1, 2, 3, 4):
-        for i in range(len(_words) - n + 1):
+    for i, word in enumerate(_words):
+        if len(word) >= 3 and word not in tokens:
+            tokens.append(word)
+        # Dry-run 5e performance fix (Shaked, 23.10.2026): only bother
+        # building a 2-4-word window starting here when this word (as-is,
+        # or with a leading ל/ב/מ stripped) could plausibly START a real
+        # multi-word catalog name - generating every window regardless
+        # was still ~0.3s on a 41-word message even after the length-
+        # filter/caching fixes above, almost all of it wasted scanning
+        # windows that can never match (most words never start a real
+        # multi-word name at all).
+        _stripped = word[1:] if len(word) >= 3 and word[0] in "לבמ" else None
+        if word not in _multiword_first_words and (_stripped is None or _stripped not in _multiword_first_words):
+            continue
+        for n in (2, 3, 4):
+            if i + n > len(_words):
+                break
             candidate = " ".join(_words[i:i + n])
-            if len(candidate) >= 3 and candidate not in tokens:
+            if candidate not in tokens:
                 tokens.append(candidate)
     if _value_has_verbatim_evidence(destination_evidence, message):
         evidence = str(destination_evidence or "").strip()
