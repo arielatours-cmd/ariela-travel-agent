@@ -9,7 +9,7 @@ for k in list(os.environ):
 logging.disable(logging.CRITICAL)
 import app as A
 app=A.app
-urls=["/","/deals","/trip/new","/about","/contact","/join","/login","/affiliates","/terms","/privacy","/account"]
+urls=["/","/deals","/trip/new","/about","/contact","/join","/login","/affiliate-disclosure","/terms","/privacy","/account"]
 res={}
 with app.test_client() as c:
     for u in urls:
