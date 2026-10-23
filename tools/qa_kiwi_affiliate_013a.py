@@ -288,8 +288,11 @@ for path in ("/terms?lang=he", "/affiliate-disclosure?lang=he", "/deals?lang=he"
     check(f"{path}: no 'ללא עמלה' claim", "ללא עמלה" not in client.get(path).get_data(as_text=True))
 
 account = open(os.path.join(os.path.dirname(__file__), "..", "templates", "account.html"), encoding="utf-8").read()
-check("lodging + car partner cards carry the affiliate disclosure",
-      account.count("קישור שותף: אם תזמינו דרך") == 2)
+# 23.10 (the business owner, via Shlomo): the partner cards' commission sentence became a short
+# "קישור שותף" / "Affiliate link" label linking to the disclosure page (the lodging results' label, #153).
+check("lodging + car partner cards carry the affiliate label, linking to the disclosure page",
+      account.count("<a class=\"affiliate-disclosure lodging-affiliate-label\" href=\"{{ url_for('site.affiliates') }}\"") == 3
+      and "קישור שותף: אם תזמינו דרך" not in account)
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")
