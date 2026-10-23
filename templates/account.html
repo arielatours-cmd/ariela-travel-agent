@@ -204,9 +204,9 @@
                 <strong>🏨 {{ stay.name }}</strong>
                 {% if stay.dates %}<div class="lodging-result-meta"><span>{{ stay.dates }}</span></div>{% endif %}
                 {% if stay.guests %}<div class="lodging-result-meta"><span>{{ stay.guests }}</span></div>{% endif %}
-                <div class="lodging-result-meta"><span>{{ 'Live prices and availability on' if site_lang == 'en' else 'מחירים וזמינות בזמן אמת באתר' }} {{ stay.supplier }}</span></div>
+                {% if stay.supplier %}<div class="lodging-result-meta"><span>{{ 'Live prices and availability on' if site_lang == 'en' else 'מחירים וזמינות בזמן אמת באתר' }} {{ stay.supplier }}</span></div>{% endif %}
                 <a class="lodging-search-btn car-partner-btn" href="{{ stay.link }}" target="_blank" rel="noopener sponsored">{{ 'Go to booking →' if site_lang == 'en' else 'למעבר להזמנה ←' }}</a>
-                <p class="affiliate-disclosure">קישור שותף: אם תזמינו דרך {{ stay.supplier }}, אריאלה מקבלת עמלה מהספק.</p>
+                <p class="affiliate-disclosure">קישור שותף: אם תזמינו דרך {{ stay.supplier or 'הספק' }}, אריאלה מקבלת עמלה מהספק.</p>
               </div>
             </div>
           {% endmacro %}
@@ -342,9 +342,9 @@
                     <div class="lodging-result-meta"><span>{{ car.pickup }}</span></div>
                     {% if car.pickup_when %}<div class="lodging-result-meta"><span>{{ 'Pick-up:' if site_lang == 'en' else 'איסוף:' }} {{ car.pickup_when }}</span></div>{% endif %}
                     {% if car.return_when %}<div class="lodging-result-meta"><span>{{ 'Return:' if site_lang == 'en' else 'החזרה:' }} {{ car.return_when }}</span></div>{% endif %}
-                    <div class="lodging-result-meta"><span>{{ 'Live prices and availability on' if site_lang == 'en' else 'מחירים וזמינות בזמן אמת באתר' }} {{ car.supplier }}</span></div>
+                    {% if car.supplier %}<div class="lodging-result-meta"><span>{{ 'Live prices and availability on' if site_lang == 'en' else 'מחירים וזמינות בזמן אמת באתר' }} {{ car.supplier }}</span></div>{% endif %}
                     <a class="lodging-search-btn car-partner-btn" href="{{ car.link }}" target="_blank" rel="noopener sponsored">{{ 'Go to booking →' if site_lang == 'en' else 'למעבר להזמנה ←' }}</a>
-                    <p class="affiliate-disclosure">קישור שותף: אם תזמינו דרך {{ car.supplier }}, אריאלה מקבלת עמלה מהספק.</p>
+                    <p class="affiliate-disclosure">קישור שותף: אם תזמינו דרך {{ car.supplier or 'הספק' }}, אריאלה מקבלת עמלה מהספק.</p>
                   </div>
                 </div>
               {% endfor %}

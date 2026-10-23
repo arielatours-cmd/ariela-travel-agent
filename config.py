@@ -53,6 +53,27 @@ def _sanitize_affiliate_link_env(var_name, raw):
     return ""
 
 
+def _sanitize_partner_name_env(var_name, raw, default):
+    """Business owner's screenshot (23.10): the car card read "Live prices and
+    availability on https://www.jdoqocy.com/..." - a tracking URL had been
+    pasted into the partner NAME env var. A partner name is shown to the
+    customer as text, so a URL or markup there is never displayed: it is
+    logged and treated as no name ("a supplier name or nothing"); the card
+    then simply omits the name. Unset keeps the default name."""
+    if raw is None:
+        return default
+    name = raw.strip()
+    if not name:
+        return default
+    lowered = name.lower()
+    if "://" in lowered or lowered.startswith("www.") or any(c in name for c in ("<", ">", "/", "?", "=")):
+        logging.getLogger(__name__).warning(
+            "%s looks like a URL/markup, not a partner name (got %r) - not showing it", var_name, raw,
+        )
+        return ""
+    return name
+
+
 def _public_base_url_warning(url):
     """None when PUBLIC_BASE_URL is empty (the feature it backs - the
     WhatsApp vacation link - is simply not used) or looks like a genuine
@@ -164,7 +185,9 @@ CJ_COMMISSIONS_SYNC_ENABLED = os.getenv("CJ_COMMISSIONS_SYNC_ENABLED", "false").
 CAR_RENTAL_AFFILIATE_LINK = _sanitize_affiliate_link_env(
     "CAR_RENTAL_AFFILIATE_LINK", os.getenv("CAR_RENTAL_AFFILIATE_LINK", "")
 )
-CAR_RENTAL_PARTNER_NAME = os.getenv("CAR_RENTAL_PARTNER_NAME", "VIP Cars").strip() or "VIP Cars"
+CAR_RENTAL_PARTNER_NAME = _sanitize_partner_name_env(
+    "CAR_RENTAL_PARTNER_NAME", os.getenv("CAR_RENTAL_PARTNER_NAME"), "VIP Cars"
+)
 CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "").strip()
 # Lodging partner via CJ (Agoda / Trip.com / etc.), same pattern as the car
 # partner: the lodging tab keeps its real Google Hotels results for price
@@ -177,7 +200,9 @@ CAR_RENTAL_SEARCH_URL_TEMPLATE = os.getenv("CAR_RENTAL_SEARCH_URL_TEMPLATE", "")
 LODGING_AFFILIATE_LINK = _sanitize_affiliate_link_env(
     "LODGING_AFFILIATE_LINK", os.getenv("LODGING_AFFILIATE_LINK", "")
 )
-LODGING_PARTNER_NAME = os.getenv("LODGING_PARTNER_NAME", "Agoda").strip() or "Agoda"
+LODGING_PARTNER_NAME = _sanitize_partner_name_env(
+    "LODGING_PARTNER_NAME", os.getenv("LODGING_PARTNER_NAME"), "Agoda"
+)
 LODGING_SEARCH_URL_TEMPLATE = os.getenv("LODGING_SEARCH_URL_TEMPLATE", "").strip()
 # Flight partner via Travelpayouts: Kiwi.com (task 013a). A secondary
 # "check on Kiwi.com too" button on direct-flight deal cards, next to the
