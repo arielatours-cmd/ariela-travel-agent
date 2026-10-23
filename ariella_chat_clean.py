@@ -13389,6 +13389,30 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
     # keep the pointer on an answered field for their correction flow.)
     if current_question == "accessibility" and "accessibility" in answered:
         current_question = None
+    # Dry-run 5d C (Shaked, 23.10.2026, Hallstatt/Salzburg) - approved by
+    # Shlomo as a narrowly-scoped fix, NOT the broad "field in answered"
+    # generalization that broke 4 existing tests when tried before: when
+    # dates gets resolved through a SEPARATE deterministic path (choosing
+    # one of two pre-offered candidates via _deterministic_candidate_
+    # choice_facts, never through this guided extraction branch itself),
+    # nothing here ever moves current_question off "dates" - unlike
+    # accessibility, _guided_field_known_with_confidence("dates", ...)
+    # alone isn't a safe signal to advance on (a date can be provisionally
+    # populated while still awaiting the customer's confirmation). The
+    # live repro: departure/return were already concrete and needs_
+    # confirmation already False from turn 1 onward, yet current_question
+    # stayed stuck on "dates" through turn 9 - 5 repeated "when exactly do
+    # you want to leave" questions despite the state already knowing the
+    # answer. Scoped to exactly dates.needs_confirmation is False AND both
+    # departure/return concrete - never travelers/baggage/lodging, which
+    # keep their pointer deliberately for their own correction flow.
+    dates_now = trip_update.get("dates") if isinstance(trip_update.get("dates"), dict) else {}
+    if (current_question == "dates" and dates_now.get("needs_confirmation") is False
+            and dates_now.get("departure") and dates_now.get("return")):
+        if "dates" not in answered:
+            answered.append("dates")
+            changed = True
+        current_question = None
     # Bezalel's root-cause note (22.10): the mixed-baggage yes/no is a
     # one-time pending commitment - the reply to it must be read as that
     # answer whatever field the pointer shows (another path, e.g. the
