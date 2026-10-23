@@ -1,4 +1,5 @@
 <!doctype html>
+{% from "_deal_card.html" import kiwi_disclosure %}
 <html lang="{{ site_lang }}" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">
 <head>
   <meta charset="utf-8">
@@ -20,7 +21,7 @@
     {% if affiliate_partner %}<h1 id="booking-title">{{ ('Continuing to ' ~ affiliate_partner ~ '…') if site_lang == 'en' else ('עוברים לאתר ' ~ affiliate_partner ~ '…') }}</h1>
     <p><span id="booking-note">{% if affiliate_deep_link %}{{ ('The search for this route and these dates opens on ' ~ affiliate_partner ~ '.') if site_lang == 'en' else ('החיפוש למסלול ולתאריכים האלה נפתח באתר ' ~ affiliate_partner ~ '.') }}{% else %}{{ ('The ' ~ affiliate_partner ~ ' search page opens; enter the route and dates there.') if site_lang == 'en' else ('דף החיפוש של ' ~ affiliate_partner ~ ' נפתח, ושם מזינים את המסלול והתאריכים.') }}{% endif %}</span><span class="thanks">{% else %}<h1 id="booking-title">{{ 'Ariella is preparing your exact booking…' if site_lang == 'en' else 'אריאלה מכינה את ההזמנה המדויקת שלכם…' }}</h1>
     <p><span id="booking-note">{{ 'The flight and passenger details are being filled in.' if site_lang == 'en' else 'פרטי הטיסה ומספר הנוסעים מתמלאים כעת.' }}</span><span class="thanks">{% endif %}{{ 'Thank you for choosing Ariella' if site_lang == 'en' else 'תודה שבחרתם באריאלה' }}</span></p>
-    {% if affiliate_partner == 'Kiwi.com' %}<p class="affiliate-disclosure">{{ 'Affiliate link: if you book through Kiwi.com, Ariella receives a commission from Kiwi.com. Booking, payment, changes and cancellations are handled by Kiwi.com under its terms.' if site_lang == 'en' else 'קישור שותף: אם תזמינו דרך Kiwi.com, אריאלה מקבלת עמלה מ-Kiwi.com. ההזמנה, התשלום, השינויים והביטולים מתבצעים מול Kiwi.com ובהתאם לתנאיו.' }}</p>{% endif %}
+    {% if affiliate_partner == 'Kiwi.com' %}<p class="affiliate-disclosure">{{ kiwi_disclosure(site_lang) }}</p>{% endif %}
     <div class="progress" aria-hidden="true"><i></i></div>
     <div id="two-step-buttons" style="display:none;margin-top:20px;flex-direction:column;gap:10px"></div>
   </section>
