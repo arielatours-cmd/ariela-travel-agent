@@ -8029,7 +8029,23 @@ def _destination_gateway_answer_by_meaning(message, history, state):
     # structural nudge the model still has the final, evidence-gated say
     # over (one candidate, both, or neither - never a forced pick).
     catalog_candidates_text = ""
-    near_cities = _catalog_near_neighbor_cities(unresolved_places[0])
+    # Dry-run 5g (23.10.2026, Shaked's live finding on 0f78d081, scenario E2):
+    # the raw unresolved place can legitimately still carry its leading
+    # ל/ב/מ preposition (e.g. "לברגם" from "...לברגם, 12 עד..." - the
+    # extractor captures it exactly as written, same ambiguity _reresolve_
+    # ambiguous_fresh_destination's own docstring already documents).
+    # Checking only the raw form missed the real 2-way match entirely
+    # (edit distance 2, not 1, to either "ברגן"/"ברגמו") - near_cities came
+    # back empty, this whole function's dry-run 5f/5g disambiguation-
+    # evidence requirement never engaged at all, and the ORIGINAL bug
+    # (blind single-candidate trust) reproduced through this gap. Fixed by
+    # trying the ל/ב/מ-stripped form too when the raw form alone finds
+    # nothing - mirrors _reresolve_ambiguous_fresh_destination's own
+    # candidate_forms handling of the exact same ambiguity.
+    _unresolved_place = str(unresolved_places[0] or "")
+    near_cities = _catalog_near_neighbor_cities(_unresolved_place)
+    if not near_cities and len(_unresolved_place) >= 3 and _unresolved_place[0] in "לבמ":
+        near_cities = _catalog_near_neighbor_cities(_unresolved_place[1:])
     structural_codes = []
     if len(near_cities) == 2:
         named = []

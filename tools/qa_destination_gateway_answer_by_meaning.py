@@ -649,6 +649,90 @@ _AI_USAGE_SOURCE = open(
 check("dry-run 5f FIX: a new destination_ambiguity_override diagnostic event is registered",
       "destination_ambiguity_override" in _AI_USAGE_SOURCE)
 
+
+# =====================================================================
+# Dry-run 5g (23.10.2026, Shaked's LIVE finding on 0f78d081, scenarios E1
+# and E2): the raw unresolved place can legitimately still carry its
+# leading ל/ב/מ preposition exactly as the extractor captured it (e.g.
+# "לברגם" from "...לברגם, 12 עד..."). near_cities was computed only on
+# that raw form - edit distance 2, not 1, to either real city - so it came
+# back EMPTY, the whole dry-run 5f/5g disambiguation-evidence requirement
+# never engaged at all, and the single verified candidate was blindly
+# trusted exactly like the original (pre-dry-run-5c) bug, through this
+# gap. E2 additionally got stuck in an 8x open-question loop, since with
+# no catalog_candidates_text nudge the model couldn't confidently name
+# even one candidate either.
+# =====================================================================
+state_bergen_lamed = dict(BASE_STATE, destination={"places": ["לברגם"], "mode": None, "status": "known"})
+
+check("dry-run 5g FIX: near_cities on the raw ל-prefixed place alone is still empty "
+      "(confirms the gap existed before the fix)",
+      chat._catalog_near_neighbor_cities("לברגם") == {})
+check("dry-run 5g FIX: near_cities on the ל-stripped form correctly finds both real candidates",
+      set(chat._catalog_near_neighbor_cities("ברגם").keys()) == {"ברגן", "ברגמו"})
+
+
+def _fake_lamed_bergam_single_pick(candidate_en, candidate_code, disambiguating_evidence):
+    def fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+        if source == "classifier" and _MARKER in str(system_static or ""):
+            return json.dumps({
+                "evidence": "לברגם",
+                "candidates": [{"city_en": candidate_en, "iata_code": candidate_code}],
+                "disambiguating_evidence": disambiguating_evidence,
+            })
+        return "{}"
+    return fake
+
+
+# E1's repro message, exactly as Shaked ran it live: a single confident
+# pick with NO genuine disambiguating evidence must now be forced
+# ambiguous (this is the live bug - it was silently resolving to Bergamo).
+with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergamo", "BGY", None)):
+    result_e1 = chat._destination_gateway_answer_by_meaning(
+        "אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני",
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        state_bergen_lamed,
+    )
+check("dry-run 5g FIX (E1 repro, ל-prefixed place, no genuine evidence): "
+      "no longer silently resolves to Bergamo - forced ambiguous",
+      not result_e1.get("destination_airports") and "_destination_ambiguous_hint" in result_e1)
+
+# E2's repro message: with the gap fixed, the model gets the structural
+# nudge and (no genuine evidence this time) must still be forced ambiguous
+# rather than stalling with 0 candidates in an open-question loop.
+with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergen", "BGO", None)):
+    result_e2_no_evidence = chat._destination_gateway_answer_by_meaning(
+        "אני ובעלי לברגם בנורווגיה",
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        state_bergen_lamed,
+    )
+check("dry-run 5g FIX (E2 repro, ל-prefixed place, no genuine evidence): forced ambiguous, "
+      "not left stuck with 0 candidates",
+      not result_e2_no_evidence.get("destination_airports") and "_destination_ambiguous_hint" in result_e2_no_evidence)
+
+# E2 with the customer's own genuine country evidence ("בנורווגיה") present
+# in the message - must now resolve directly to Bergen.
+with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergen", "BGO", "בנורווגיה")):
+    result_e2_genuine = chat._destination_gateway_answer_by_meaning(
+        "אני ובעלי לברגם בנורווגיה",
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        state_bergen_lamed,
+    )
+check("dry-run 5g FIX (E2 repro, ל-prefixed place, genuine 'בנורווגיה' evidence): "
+      "resolves directly to Bergen",
+      result_e2_genuine.get("destination_airports") == ["BGO"]
+      and "_destination_ambiguous_hint" not in result_e2_genuine)
+
+# The exact message text from Shaked's dry-run 5g report
+# (qa/reports/2026-10-23-dryrun5g.md, branch shaked): "לברגם בנורווגיה".
+with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergen", "BGO", "בנורווגיה")):
+    result_e2_exact_repro = chat._destination_gateway_answer_by_meaning(
+        "לברגם בנורווגיה", [], state_bergen_lamed,
+    )
+check("dry-run 5g FIX (E2 EXACT repro text 'לברגם בנורווגיה'): resolves directly to Bergen",
+      result_e2_exact_repro.get("destination_airports") == ["BGO"]
+      and "_destination_ambiguous_hint" not in result_e2_exact_repro)
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)
