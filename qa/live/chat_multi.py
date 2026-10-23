@@ -71,32 +71,51 @@ with sync_playwright() as p:
         page.fill("#ariellaNewChatInput", msg)
         page.press("#ariellaNewChatInput", "Enter")
         deadline = time.time() + 180
+        start_url = page.url
+        HANDOFF = HERE / f"handoff_{SC}.jsonl"
+        def _route_panel():
+            return page.evaluate("""() => { const p = [...document.querySelectorAll('.vacation-panel')].find(e => /מסלול|Itinerary|itinerary/.test(e.querySelector('h3')?.textContent || ''));
+              if (!p) return {route_panel: null};
+              return {route_panel: true, route_panel_open: p.classList.contains('active') || getComputedStyle(p).display !== 'none',
+                      text: (p.innerText || '').slice(0, 600), maps: p.querySelectorAll('iframe, img, .map, [class*=map]').length,
+                      cards: p.querySelectorAll('[class*=card], [class*=day]').length}; }""")
+        def _log_handoff(rec):
+            with HANDOFF.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"msg": msg, **rec}, ensure_ascii=False) + "\n")
         if msg.strip() == "מאשרת":
-            # Owner 23.10: right after the hand-off to the vacation page (no reload) the route tab must show
-            # a "building..." state or the enriched route - never raw chat text. Capture at arrival and +30s.
-            start_url = page.url
-            for _ in range(60):
+            # Owner 23.10 (updated): no hand-off before "מאשרת"; after it a waiting page, then /account with the
+            # route tab already enriched and open - no reload. Record every page on the way, screenshot at arrival
+            # on /account and 30s later.
+            seen = [start_url]
+            for _ in range(120):  # up to ~3 minutes for waiting page -> /account
                 page.wait_for_timeout(1500)
-                if page.url != start_url:
+                if page.url != seen[-1]:
+                    seen.append(page.url)
+                    page.screenshot(path=str(HERE / f"handoff_{SC}_step{len(seen)-1}.png"), full_page=True)
+                    _log_handoff({"at": "navigated", "url": page.url.replace(BASE, "")})
+                if "/account" in page.url:
                     break
-            if page.url != start_url:
+            if "/account" in page.url:
                 try: page.wait_for_load_state("domcontentloaded", timeout=30000)
                 except Exception: pass
                 for tag, wait_ms in (("0s", 0), ("30s", 30000)):
                     page.wait_for_timeout(wait_ms)
                     page.screenshot(path=str(HERE / f"handoff_{SC}_{tag}.png"), full_page=True)
-                    info = page.evaluate("""() => { const p = [...document.querySelectorAll('.vacation-panel')].find(e => /מסלול|Itinerary|itinerary/.test(e.querySelector('h3')?.textContent || ''));
-                      if (!p) return {route_panel: null};
-                      return {route_panel: true, text: (p.innerText || '').slice(0, 600), maps: p.querySelectorAll('iframe, img, .map, [class*=map]').length,
-                              cards: p.querySelectorAll('[class*=card], [class*=day]').length}; }""")
-                    with (HERE / f"handoff_{SC}.jsonl").open("a", encoding="utf-8") as f:
-                        f.write(json.dumps({"at": tag, "url": page.url.replace(BASE, ""), **info}, ensure_ascii=False) + "\n")
+                    _log_handoff({"at": tag, "url": page.url.replace(BASE, ""), "path": [u.replace(BASE, "") for u in seen], **_route_panel()})
+            if page.url != start_url:
                 deadline = 0  # left the chat page - no reply bubble to wait for
         while time.time() < deadline:
             page.wait_for_timeout(1500)
+            if page.url != start_url:
+                break
             if page.locator(sel).count() > before and page.locator("#ariellaNewChatMessages .ariella-typing").count() == 0:
                 break
         page.wait_for_timeout(2500)
+        if msg.strip() != "מאשרת" and page.url != start_url:
+            # FAIL by the owner's rule: the chat left for another page without the customer's approval.
+            page.screenshot(path=str(HERE / f"handoff_{SC}_before_confirm.png"), full_page=True)
+            _log_handoff({"at": "NAVIGATED_BEFORE_CONFIRM", "url": page.url.replace(BASE, "")})
+            print("!! NAVIGATED BEFORE CONFIRM:", page.url.replace(BASE, ""))
         if LIVE_SEARCH and msg.strip() == "מאשרת":
             # the approved trip hands off to the vacation card - let the scan launch finish
             try: page.wait_for_load_state("networkidle", timeout=60000)
