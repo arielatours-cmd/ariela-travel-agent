@@ -481,8 +481,8 @@ check("cost gate regression: a genuine explicit correction still reaches the "
 #     catalog scan - every real catalog name, bare and with a leading
 #     ל/ב/מ preposition prepended to simulate how it would appear in a
 #     real message - run through the actual message tokenizer, checking
-#     for a false structural 2-way ambiguity against a DIFFERENT real
-#     catalog name. Root cause (confirmed): the tokenizer's word regex
+#     for a false structural ambiguity against a DIFFERENT real catalog
+#     name. Root cause (confirmed): the tokenizer's word regex
 #     (r"[א-ת]+...") does not include hyphens, so a hyphenated catalog
 #     name ("פורט-או-פרנס"/Port-au-Prince, "לי-ג'יאנג"/Lijiang) gets split
 #     into separate words that never rejoin into the hyphenated form the
@@ -492,23 +492,35 @@ check("cost gate regression: a genuine explicit correction still reaches the "
 #     first word, so the window never exact-matches the catalog's own
 #     (unprefixed) stored name either.
 #
-#     EXPLICITLY NOT FIXED YET - Shlomo/the business owner must decide
-#     first: condition א (exact match always wins, no question asked)
-#     would resolve "ליון" decisively as Lyon/France the moment it's
-#     spelled correctly - exactly the business owner's own Lyon/Greece
-#     example, so fixing the tokenizer in this area touches the same
-#     judgment call. This test pins the CURRENT known false-positive set
-#     exactly, so any further change is checked against a known baseline
-#     instead of silently drifting - never asserts "zero" here.
+#     EXPLICITLY NOT FIXED YET (task tracked separately) - this is a
+#     genuine tokenizer bug (the hyphenated/prefixed name never resolves
+#     to anything, catalog match or not), unrelated to the Lyon/Greece
+#     exact-match exception below. This test pins the CURRENT known
+#     false-positive set exactly, so any further change is checked
+#     against a known baseline instead of silently drifting - never
+#     asserts "zero" here.
+#
+#     Four OTHER names the same full scan turns up (באלי/Bali, לואנדה/
+#     Luanda, ליון/Lyon, מנאוס/Manaus) are deliberately excluded from this
+#     false-positive set - they are not a tokenizer bug at all, but the
+#     Lyon/Greece exact-match exception (section 14 below) correctly
+#     firing: each is itself an exact catalog CITY match whose own
+#     ל/ב/מ-stripped sibling genuinely lands distance 1 from a different
+#     real catalog country (מאלי/Mali, רואנדה/Rwanda, יוון/Greece,
+#     לאוס/Laos) - a real collision, not noise, so it is SUPPOSED to
+#     surface as a structural ambiguity now.
 # =====================================================================
 _KNOWN_CATALOG_SCAN_FALSE_POSITIVES = {
     "איי בהאמה", "איי שלמה", "כף ורדה", "לי-ג'יאנג", "פורט-או-פרנס", "קוסטה ריקה",
 }
+_KNOWN_EXACT_MATCH_EXCEPTION_NAMES = {"באלי", "לואנדה", "ליון", "מנאוס"}
 _catalog_names = sorted(set(
     name for name, _norm, _kind, _payload, _flag in chat._catalog_near_neighbor_place_entries()
 ))
 _found_false_positives = set()
 for _name in _catalog_names:
+    if _name in _KNOWN_EXACT_MATCH_EXCEPTION_NAMES:
+        continue
     for _variant in (_name, "ל" + _name, "ב" + _name, "מ" + _name):
         _tokens = chat._destination_message_tokens("אני רוצה לטוס " + _variant + " בקיץ", None)
         _exact_hit, _near, _needle = chat._scan_destination_tokens(_tokens)
@@ -523,6 +535,54 @@ check(f"catalog scan: no NEW false 2-way ambiguities beyond the known, "
 check("catalog scan: the known false-positive set hasn't silently shrunk either "
       "(this test would need updating, not silently passing, if it had)",
       _found_false_positives == _KNOWN_CATALOG_SCAN_FALSE_POSITIVES)
+
+# =====================================================================
+# 14. The business owner's concrete "ליון/יוון" EXCEPTION to condition א
+#     (23.10.2026, relayed by Shlomo): an exact catalog CITY match is no
+#     longer unconditionally decisive when its own ל/ב/מ-stripped sibling
+#     is a near (distance-1) match for a DIFFERENT real catalog country -
+#     "ליון" exactly matches Lyon, but strip the ל and "יון" lands
+#     distance 1 from "יוון"/Greece. Ask once, naming both, UNLESS the
+#     customer's own quote already decides it ("ליון בצרפת").
+# =====================================================================
+LYON_FRESH_STATE = {"destination_airports": []}
+LYON_UPDATE = {"destination_airports": ["LYS"], "destination": {"places": ["ליון"], "mode": "specific", "status": "known"}}
+
+check("condition א exception: the raw structural scan now finds a genuine "
+      "multi-way ambiguity for bare 'ליון' instead of a decisive exact hit",
+      chat._scan_destination_tokens(chat._destination_message_tokens("לטוס ליון בקיץ", None))[0] is False)
+
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
+        "evidence": "ליון", "disambiguating_evidence": None,
+        "candidates": [{"type": "city", "city_en": "Lyon", "iata_code": "LYS"}]})):
+    lyon_bare = chat._resolve_destination_by_meaning(
+        LYON_FRESH_STATE, dict(LYON_UPDATE), None, "אני רוצה לטוס ליון בחודש הבא", [])
+check("Lyon/Greece EXCEPTION: a bare 'ליון' with no disambiguating quote is never "
+      "silently resolved to Lyon - destination_airports stays empty",
+      lyon_bare.get("destination_airports") == [])
+check("Lyon/Greece EXCEPTION: a forced question is raised instead, naming the "
+      "real catalog candidates", bool(lyon_bare.get("_destination_ambiguous_hint")))
+
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
+        "evidence": "ליון בצרפת", "disambiguating_evidence": "בצרפת",
+        "candidates": [{"type": "city", "city_en": "Lyon", "iata_code": "LYS"}]})):
+    lyon_decisive = chat._resolve_destination_by_meaning(
+        LYON_FRESH_STATE, dict(LYON_UPDATE), None, "אני רוצה לטוס ליון בצרפת בחודש הבא", [])
+check("Lyon/Greece EXCEPTION: a decisive quote in the SAME message ('ליון בצרפת') "
+      "still resolves straight to Lyon, no question asked",
+      lyon_decisive.get("destination_airports") == ["LYS"]
+      and not lyon_decisive.get("_destination_ambiguous_hint"))
+
+# The exact same mechanism, generalized - not hardcoded to Lyon/Greece -
+# catches three OTHER real exact-city/stripped-country collisions the
+# full catalog scan (section 13) turns up for free: Bali/Mali,
+# Luanda/Rwanda, Manaus/Laos.
+for _city_name, _expected_country in (("באלי", "מאלי"), ("לואנדה", "רואנדה"), ("מנאוס", "לאוס")):
+    _hit, _near, _ = chat._scan_destination_tokens(
+        chat._destination_message_tokens(f"לטוס {_city_name} בקיץ", None))
+    check(f"condition א exception generalizes (no hardcoded word list): "
+          f"{_city_name}/{_expected_country} is caught the same way as ליון/יוון",
+          _hit is False and _expected_country in _near)
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-unified-destination-rule@example.com'")

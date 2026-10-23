@@ -8040,20 +8040,73 @@ def _scan_destination_tokens(tokens):
     ANY token/form, anywhere, wins outright before any near-match is ever
     trusted - the same message-wide ordering Shaked's static reviews of
     6dbb3be0/318fd69a established (23.10.2026), now also covering country
-    names per the unified destination rule. Returns (exact_hit,
-    near_places, winning_needle): exact_hit is True the moment any form
-    exact-matches anything (city or country) anywhere in the message -
-    decisive, the caller never reverts a resolution or asks a forced
-    question in that case. Otherwise near_places is the first genuine
-    2-way near-ambiguity found across any token (city vs city, country vs
-    country, or city vs country), with winning_needle the exact form that
-    produced it."""
+    names per the unified destination rule.
+
+    EXCEPTION to condition א (the business owner, 23.10.2026, her own
+    concrete "ליון/יוון" example): a word that is itself an EXACT catalog
+    CITY match can still be a genuine ל/ב/מ-preposition typo for a
+    DIFFERENT real country - "ליון" exactly matches the city Lyon as
+    written, but strip its leading ל and "יון" lands distance 1 from
+    "יוון" (Greece), a real catalog country name. Condition א would
+    otherwise collapse this straight to Lyon and never even consider
+    Greece. Checked first, before the general exact-wins pass below: only
+    for a bare word that actually carries a stripped sibling (len>=3,
+    leading ל/ב/מ), only when the bare form's exact match is a city (not
+    already a country - no prefix ambiguity to resolve there), and only
+    when the stripped sibling near-matches one or more real countries at
+    distance 1 (not 0 - an exact country match on the stripped form is
+    the unrelated, already-decisive "יוון written exactly" case, not this
+    one). Real catalog data can make this a 3-way, not just 2-way (the
+    same stripped "יון" also lands distance 1 from "יפן"/Japan, pure
+    incidental Hebrew-spelling noise, not a real reading of the word) -
+    every near country found is included, never arbitrarily dropped to
+    force a clean pair: the structural signal's only job is deciding
+    whether this is worth a model call at all, never which candidate is
+    semantically real, so every genuine catalog near-match is handed to
+    the model (which still never offers the customer more than two of its
+    own final candidates, per _run_destination_recognition's unchanged
+    prompt). Flows into the existing ask-once-unless-corroborated
+    machinery (_run_destination_recognition / _quote_identifies_candidate_
+    place) rather than needing a separate mechanism - "ליון בצרפת" already
+    names France in the same message, so the normal corroborating-quote
+    check resolves it to Lyon without asking.
+
+    Returns (exact_hit, near_places, winning_needle): exact_hit is True
+    the moment any form exact-matches anything (city or country) anywhere
+    in the message - decisive, the caller never reverts a resolution or
+    asks a forced question in that case. Otherwise near_places is the
+    first genuine multi-way (2 or more) near-ambiguity found across any
+    token (city vs city, country vs country, or city vs one-or-more
+    countries), with winning_needle the exact form that produced it."""
     candidate_forms = _destination_candidate_forms(tokens)
+    for forms in candidate_forms:
+        if len(forms) != 2:
+            continue
+        bare, stripped = forms
+        exact_bare = _catalog_near_neighbor_places(bare, max_distance=0)
+        city_hit = next(((name, v) for name, v in exact_bare.items() if v[0] == "city"), None)
+        if not city_hit:
+            continue
+        near_stripped = _catalog_near_neighbor_places(stripped, max_distance=1)
+        country_hits = {name: v for name, v in near_stripped.items() if v[0] == "country"}
+        if country_hits:
+            city_name, city_value = city_hit
+            merged = {city_name: city_value}
+            merged.update(country_hits)
+            return False, merged, bare
     if any(_catalog_near_neighbor_places(form, max_distance=0) for forms in candidate_forms for form in forms):
         return True, {}, None
     for forms in candidate_forms:
         for form in forms:
             found = _catalog_near_neighbor_places(form)
+            # Exactly 2 here (unchanged from before this exception existed)
+            # - this is the pre-existing, already-reviewed general signal,
+            # deliberately kept narrow; only the new exception branch above
+            # is allowed to surface a 3-way (Lyon/Greece/Japan), never this
+            # unrelated general path (no connection to the ל/ב/מ-prefix
+            # collision at all - widening this to >=2 surfaced unrelated
+            # coincidental 3-way Hebrew near-neighbor noise with nothing to
+            # do with this fix, e.g. "סיירה לאונה").
             if len(found) == 2:
                 return False, found, form
     return False, {}, None
@@ -8101,7 +8154,7 @@ def _destination_message_mentions_different_place(message, destination_evidence,
                     return True
 
     _, near_places, _ = _scan_destination_tokens(tokens)
-    if len(near_places) == 2:
+    if len(near_places) >= 2:
         for name_he, (kind, codes) in near_places.items():
             if _differs_from_prior(name_he, kind, codes):
                 return True
@@ -8165,9 +8218,9 @@ def _destination_ambiguous_hint_from_candidates(candidates):
         else:
             options_text.append(str(value))
     return (
-        "השם שהלקוח כתב יכול להתכוון לשני יעדים אמיתיים שונים, ששניהם אומתו מול הקטלוג: "
+        "השם שהלקוח כתב יכול להתכוון למספר יעדים אמיתיים שונים, שכולם אומתו מול הקטלוג: "
         + " או ".join(options_text) + ". שאלי שאלה אחת, בניסוח שלך, שמבררת בוודאות לאיזה מהם "
-        "הלקוח מתכוון - נקבי בשני היעדים בשמם כדי שיוכל לבחור ביניהם. לעולם אל תבחרי אחד מהם "
+        "הלקוח מתכוון - נקבי ביעדים האלה בשמם כדי שיוכל לבחור ביניהם. לעולם אל תבחרי אחד מהם "
         "בעצמך, אל תכתבי destination_airports, ואל תציגי אף אחד מהם בסיכום (גם לא בשורת "
         "\"נחיתה:\") לפני שהלקוח אישר במפורש לאיזה מהם הוא מתכוון. אם הלקוח יבחר במדינה, "
         "המשיכי בזרימה הרגילה של יעד ברמת מדינה - בלי לבחור שדה תעופה מיוזמתך."
@@ -8228,7 +8281,7 @@ def _run_destination_recognition(trip_update, destination_evidence, message, his
 
     tokens = _destination_message_tokens(message, destination_evidence)
     exact_hit, near_places, _needle = _scan_destination_tokens(tokens)
-    structurally_ambiguous = not exact_hit and len(near_places) == 2
+    structurally_ambiguous = not exact_hit and len(near_places) >= 2
 
     catalog_candidates_text = ""
     if structurally_ambiguous:
@@ -8243,15 +8296,17 @@ def _run_destination_recognition(trip_update, destination_evidence, message, his
             else:
                 named.append(name_he + " (מדינה)")
         catalog_candidates_text = (
-            "\nלפי הקטלוג שלנו, הניסוח הזה קרוב מאוד בכתיב (כמעט זהה) לשני יעדים אמיתיים שונים - עיר "
+            "\nלפי הקטלוג שלנו, הניסוח הזה קרוב מאוד בכתיב (כמעט זהה) למספר יעדים אמיתיים שונים - עיר "
             "ו/או מדינה: " + " וגם ל-".join(named) + ". קבעי, לפי הראיה בהודעה הנוכחית של הלקוח בלבד "
-            "(לא ניחוש): למי משני היעדים האלה הוא מתכוון - לאחד מהם בלבד, לשניהם (אם הניסוח שלו עצמו "
-            "באמת לא מבדיל ביניהם), או לאף אחד מהם (אם הוא בעצם מתכוון למשהו אחר לגמרי). לעולם אל "
-            "תמציאי מועמד שלישי שלא הוזכר כאן.\n"
-            "חשוב: אם את בוחרת באחד מהשניים בלבד (ולא בשניהם), עליך למצוא בהודעה הנוכחית של הלקוח "
-            "ציטוט מילה-במילה נוסף, שהוא איננו שם היעד עצמו (או צורת הכתיב שלו), אלא פרט אחר שבאמת "
-            "מבדיל ביניהם - למשל שם המדינה/האזור, שדה תעופה, או כל רמז אחר. בלי ציטוט מבדיל כזה, אסור "
-            "לך לבחור רק אחד מהשניים - את חייבת להחזיר את שניהם, כי מבחינתנו זו עדיין אי-ודאות אמיתית.\n"
+            "(לא ניחוש): למי מהיעדים האלה הוא מתכוון - לאחד מהם בלבד, ליותר מאחד מהם (אם הניסוח שלו "
+            "עצמו באמת לא מבדיל ביניהם), או לאף אחד מהם (אם הוא בעצם מתכוון למשהו אחר לגמרי). לעולם "
+            "אל תמציאי מועמד שלא הוזכר כאן, ולעולם אל תחזירי יותר משני מועמדים בתשובתך הסופית - אם "
+            "יותר משניים מהיעדים שהוזכרו נשמעים סבירים, בחרי את שני הסבירים ביותר לפי הידע הכללי שלך.\n"
+            "חשוב: אם את בוחרת רק בחלק מהיעדים שהוזכרו למעלה (ולא בכולם), עליך למצוא בהודעה הנוכחית "
+            "של הלקוח ציטוט מילה-במילה נוסף, שהוא איננו שם היעד עצמו (או צורת הכתיב שלו), אלא פרט אחר "
+            "שבאמת מבדיל ביניהם - למשל שם המדינה/האזור, שדה תעופה, או כל רמז אחר. בלי ציטוט מבדיל כזה, "
+            "אסור לך לבחור רק חלק מהיעדים הסבירים - את חייבת להחזיר את כולם (עד שניים, הסבירים "
+            "ביותר), כי מבחינתנו זו עדיין אי-ודאות אמיתית.\n"
         )
 
     if unresolved_places is not None:
@@ -8400,6 +8455,15 @@ def _resolve_destination_by_meaning(trip_state, trip_update, destination_evidenc
        second-guessed by a merely-similar-looking different real place
        (condition א, now extended to country names too - "יוון" written
        exactly is decisive even though "ליון" is a near neighbor of it).
+       EXCEPTION (the business owner's own concrete example, 23.10.2026):
+       when the exact match is a CITY whose own ל/ב/מ-stripped sibling is
+       a near (distance-1) match for a DIFFERENT real country - "ליון"
+       exactly matches Lyon, but strip the ל and "יון" is distance 1 from
+       "יוון"/Greece - that is genuine 2-way ambiguity, not a decisive
+       exact hit; see _scan_destination_tokens's own docstring. Flows
+       into rule 3 below exactly like any other 2-way ambiguity, so a
+       decisive quote in the same message ("ליון בצרפת") still resolves
+       it without asking.
     2. Otherwise, the raw customer wording plus every near-catalog
        candidate (cities AND countries together) go to a single model
        call for recognition. A single verified candidate is trusted
@@ -8490,10 +8554,10 @@ def _resolve_destination_by_meaning(trip_state, trip_update, destination_evidenc
         # Guard against the structural signal being about a completely
         # unrelated word elsewhere in the message (QA live finding,
         # 23.10.2026, Sicily/CTA+PMO vs "מלון"->"לון"->Lyon/Libya) - only
-        # a genuine 2-way ambiguity that is actually about the value just
-        # resolved (shares a code or the exact catalog name) is ever
+        # a genuine multi-way ambiguity that is actually about the value
+        # just resolved (shares a code or the exact catalog name) is ever
         # reverted; see _near_places_relevant's own docstring.
-        if len(near_places) == 2 and _near_places_relevant(near_places, new_airports, new_places):
+        if len(near_places) >= 2 and _near_places_relevant(near_places, new_airports, new_places):
             trip_update["destination"] = dict(prior_destination, places=[winning_needle], status="known")
             trip_update["destination_airports"] = list(prior_airports)
             record_diagnostic_event("destination_fresh_resolution", {
@@ -8573,7 +8637,7 @@ def _reverify_fresh_destination_resolution(trip_state, trip_update, destination_
         return trip_update
     tokens = _destination_message_tokens(message, destination_evidence)
     exact_hit, near_places, winning_needle = _scan_destination_tokens(tokens)
-    if exact_hit or len(near_places) != 2:
+    if exact_hit or len(near_places) < 2:
         return trip_update
     new_destination = trip_update.get("destination") if isinstance(trip_update.get("destination"), dict) else {}
     new_places = [str(p) for p in (new_destination.get("places") or []) if str(p).strip()]
