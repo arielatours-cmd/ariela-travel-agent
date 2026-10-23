@@ -104,7 +104,18 @@ def _wiki_image(name_en, city):
 _ALLOWED_IMAGE_LICENSES = re.compile(r"^(public domain|pd\b|cc0|cc by(-sa)?( \d(\.\d)?)?)", re.IGNORECASE)
 
 
-_UNKNOWN_ARTIST = re.compile(r"^(unknown( author| photographer)?|anonymous|anon\.?|author unknown|n/?a)$", re.IGNORECASE)
+# Din (IMG-1): a known author only. Any value made only of "unknown"/"anonymous"
+# words plus a role word ("Unknown artist", "Anonymous (photographer)", "author
+# unknown", "N/A") is no author - whatever the punctuation or parentheses.
+_UNKNOWN_WORDS = {"unknown", "anonymous", "anon", "unidentified", "unnamed"}
+_UNKNOWN_PHRASES = (["n", "a"], ["na"], ["not", "known"])
+_ROLE_WORDS = {"artist", "author", "photographer", "photo", "creator", "painter", "by"}
+
+
+def _is_unknown_artist(text):
+    words = re.findall(r"[^\W\d_]+", str(text or "").lower())
+    core = [w for w in words if w not in _ROLE_WORDS]
+    return not core or core in _UNKNOWN_PHRASES or set(core) <= _UNKNOWN_WORDS
 
 
 def _commons_text(raw):
@@ -140,7 +151,7 @@ def _image_license(file_title):
             meta = info.get("extmetadata") or {}
             license_name = _commons_text((meta.get("LicenseShortName") or {}).get("value"))
             artist = _commons_text((meta.get("Artist") or {}).get("value"))
-            if _UNKNOWN_ARTIST.match(artist):
+            if _is_unknown_artist(artist):
                 artist = ""  # Din: a known author only
             page_url = str(info.get("descriptionurl") or "")
             if (page_url.startswith("https://commons.wikimedia.org/") and artist and license_name
