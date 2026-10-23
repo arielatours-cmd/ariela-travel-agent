@@ -24,7 +24,14 @@ for turn in range(32):
     t=b.get('trip_update') or {}
     log.append((msg,r,(t.get('session_status') or {}),(t.get('travelers') or {}).get('adults'),(t.get('flight') or {}).get('connection_preference')))
     print('⟵',msg);print('   ',r.replace('\n',' | ')[:500]);print('    ss=',t.get('session_status'),'ready=',t.get('ready_for_summary'))
-    if 'מאשר' in r and t.get('ready_for_summary'): break
+    if 'מאשר' in r and t.get('ready_for_summary'):
+        # Live runs with LIVE_SEARCH=1 only (owner 23.10): approve, so the flight scan really starts.
+        if os.environ.get('LIVE_SEARCH')=='1':
+            subprocess.run([sys.executable,CHAT,sc,'מאשרת'],capture_output=True,timeout=320)
+            sl=OUT/f'search_{sc}.jsonl'
+            res=[json.loads(x) for x in sl.read_text().splitlines()] if sl.exists() else []
+            print('⟵ מאשרת');print('    search:',res[-1] if res else 'NO start-flight-search request')
+        break
     if not b.get('reply'): print('    !! no reply at', datetime.datetime.utcnow().strftime('%H:%M:%S'),'UTC'); msg=msg; continue
     if inject:
         print('    [inject]'); msg=inject.pop(0); continue

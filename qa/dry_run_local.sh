@@ -93,6 +93,7 @@ done
 curl -sf "http://127.0.0.1:$PORT/health" > /dev/null || { echo "server did not start - see $OUT/server.log"; exit 1; }
 
 export ARIELA_BASE="http://127.0.0.1:$PORT" ARIELA_QA_OUT="$OUT"
+unset LIVE_SEARCH   # dry runs never search (local DB, no inventory)
 reg()   { python3 "$LIVE_DIR/register.py" "$@" 2>&1 | head -2; }
 drive() { timeout 1700 python3 "$LIVE_DIR/autodrive.py" "$@"; }
 say()   { local sc=$1; shift; for m in "$@"; do echo "[$sc] U: $m @$(date -u +%H:%M:%S)";

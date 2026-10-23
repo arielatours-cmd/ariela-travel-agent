@@ -1,6 +1,9 @@
 """Send one customer message to Ariela ($ARIELA_BASE, default: the live site) and print her reply.
 Persistent browser profile keeps cookies + localStorage (trip_state) between steps.
-HARD GUARD: every scan/search/payment endpoint is aborted at the network layer."""
+HARD GUARD: every scan/search/payment endpoint is aborted at the network layer.
+Single exception (business owner, in this session, 23.10.2026: "מאשרת ריצה בסבבים חיים אבל לא בכל ריצה"):
+LIVE_SEARCH=1, set per live run, lets /api/ariella/start-flight-search through - live site only, never a
+local dry-run server. Payment/booking/lodging and car searches/WhatsApp stay blocked always. Default: blocked."""
 import json, os, re, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -12,7 +15,10 @@ SC = sys.argv[1]  # scenario id, e.g. s1
 PROFILE = HERE / f"chat_profile_{SC}"
 LOG = HERE / f"chat_log_{SC}.jsonl"
 EMAIL, PASSWORD = f"arielatours+qa-{SC}@gmail.com", "QA-shaked-2026!"
-BLOCK = re.compile(r"/(api/ariella/start-flight-search|trip/\d+/(search-now|renew-search|search-lodging|search-car|free-alternative|checkout|dev-bypass-payment)|book/|whatsapp-opt-in)")
+LIVE_SEARCH = os.environ.get("LIVE_SEARCH") == "1"
+if LIVE_SEARCH and BASE != "https://ariela-travel-agent.onrender.com":
+    sys.exit("LIVE_SEARCH=1 is allowed only against the live site - dry runs stay blocked")
+BLOCK = re.compile(r"/(" + ("" if LIVE_SEARCH else r"api/ariella/start-flight-search|") + r"trip/\d+/(search-now|renew-search|search-lodging|search-car|free-alternative|checkout|dev-bypass-payment)|book/|whatsapp-opt-in)")
 blocked = []
 T0 = time.time()*1000
 
@@ -39,6 +45,14 @@ with sync_playwright() as p:
                 f.write(json.dumps({"msg": msg, "status": resp.status, "at": time.strftime("%H:%M:%S", time.gmtime()), "ms": round(time.time()*1000 - T0), "body": body}, ensure_ascii=False) + "\n")
     page.on("request", lambda r: globals().__setitem__("T0", time.time()*1000) if "/api/ariella/chat-clean" in r.url else None)
     page.on("response", _cap)
+    def _search(resp):
+        if "/api/ariella/start-flight-search" in resp.url:
+            try: body = resp.json()
+            except Exception: body = {"_raw_status": resp.status}
+            keep = {k: body.get(k) for k in ("status", "message", "trip_id", "account_url")} if isinstance(body, dict) else {}
+            with (HERE / f"search_{SC}.jsonl").open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"msg": msg, "http": resp.status, "at": time.strftime("%H:%M:%S", time.gmtime()), "body": keep}, ensure_ascii=False) + "\n")
+    page.on("response", _search)
     page.goto(BASE + "/trip/new?lang=he", wait_until="networkidle", timeout=90000)
     if "/login" in page.url:
         page.fill("input[name=email]", EMAIL); page.fill("input[name=password]", PASSWORD)
@@ -62,6 +76,11 @@ with sync_playwright() as p:
             if page.locator(sel).count() > before and page.locator("#ariellaNewChatMessages .ariella-typing").count() == 0:
                 break
         page.wait_for_timeout(2500)
+        if LIVE_SEARCH and msg.strip() == "מאשרת":
+            # the approved trip hands off to the vacation card - let the scan launch finish
+            try: page.wait_for_load_state("networkidle", timeout=60000)
+            except Exception: pass
+            page.wait_for_timeout(5000)
     replies = [t.strip() for t in page.locator(sel).all_inner_texts()]
     new = replies[before:] if msg else replies[-1:]
     state = page.evaluate("() => { const out = {}; for (const k of Object.keys(localStorage)) out[k] = localStorage.getItem(k); return out; }")
