@@ -2597,6 +2597,8 @@ def inject_site_context():
             "car_partner_cards": _car_partner_cards,
             "lodging_partner_cards": _lodging_partner_cards,
             "core_itinerary_text": itinerary_cards.core_itinerary_text,
+            "attraction_price_view": itinerary_cards.attraction_price_view,
+            "attraction_tickets_url": itinerary_cards.attraction_tickets_url,
             "is_affiliate_lodging_link": _is_affiliate_lodging_link,
             "business": _business_details()}
 

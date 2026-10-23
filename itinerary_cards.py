@@ -16,6 +16,8 @@ import os
 import re
 from urllib.parse import quote_plus
 
+from datetime import date, datetime
+
 import requests
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -122,6 +124,180 @@ def core_itinerary_text(text):
     return "\n".join(lines).strip()
 
 
+# Structured price fields per attraction (product/attraction-prices.md) -
+# copied onto each card; what is actually shown is decided at render time by
+# attraction_price_view (the 90-day validity depends on the day it's shown).
+_PRICE_FIELDS = ("price_adult", "price_child", "child_age_range", "free_under_age", "currency",
+                 "free_entry", "price_status", "price_checked_at")
+PRICE_MAX_AGE_DAYS = 90
+# Din's approved wording (DEAL-18, simplified version of 22.10) - never
+# reworded; only the amount/unit are filled in. No check date beside it.
+PRICE_TEXT = "מחיר משוער: כ-{amount} לאדם. המחיר הסופי באתר ההזמנה."
+# Din (PR #148 review): when not everyone pays the adult price.
+PRICE_TEXT_PER_ADULT = (
+    "מחיר משוער: כ-{amount} למבוגר. לפי מחיר מבוגר × {n}: כ-{total} (לילדים ייתכן מחיר נמוך יותר). "
+    "המחיר הסופי באתר ההזמנה."
+)
+FREE_ENTRY_TEXT = "כניסה חינם"
+_CURRENCY_SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£", "ILS": "₪"}
+
+
+def _money(amount, currency):
+    value = f"{amount:,.0f}" if float(amount) == int(amount) else f"{amount:,.2f}"
+    symbol = _CURRENCY_SYMBOLS.get(currency)
+    return f"{symbol}{value}" if symbol else f"{value} {currency}"
+
+
+def _age_range(text):
+    """(low, high) inclusive from the DB's child_age_range ("4-12", "עד 17
+    ..."), or None when it doesn't state a plain range."""
+    raw = str(text or "")
+    m = re.match(r"\s*(\d{1,2})\s*[-–]\s*(\d{1,2})(?!\d)", raw)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    m = re.match(r"\s*עד\s*(\d{1,2})(?!\d)", raw)
+    if m:
+        return 0, int(m.group(1))
+    return None
+
+
+def _same_price_for_everyone(info, answers):
+    """True only when every traveler in the party certainly pays the adult
+    price: adults only, or every child's age known and outside both the
+    free age and the child price range. Anything else (a discount or free
+    entry for someone, an unknown age, an unreadable child rule) -> False."""
+    try:
+        children = max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        return False
+    if not children:
+        return True
+    ages = answers.get("age_groups") if isinstance(answers.get("age_groups"), list) else []
+    if len(ages) < children:
+        return False
+    free_under = info.get("free_under_age")
+    child_range = _age_range(info.get("child_age_range"))
+    if info.get("child_age_range") and not child_range:
+        return False
+    child_price = info.get("price_child")
+    if child_price is not None and child_price != info.get("price_adult") and not child_range:
+        # Shaked (PR #148 review): a different child price with no readable
+        # age range - we can't tell which children it applies to.
+        return False
+    for age in ages[:children]:
+        try:
+            age = int(age)
+        except (TypeError, ValueError):
+            return False
+        if isinstance(free_under, int) and not isinstance(free_under, bool) and age <= free_under:
+            return False
+        if child_range and child_range[0] <= age <= child_range[1] and info.get("price_child") != info.get("price_adult"):
+            return False
+    return True
+
+
+def _certainly_free_children(info, answers):
+    """How many children in the party certainly enter free: known age at or
+    under free_under_age (inclusive, as the DB stores it)."""
+    free_under = info.get("free_under_age")
+    if not isinstance(free_under, int) or isinstance(free_under, bool):
+        return 0
+    try:
+        children = max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        return 0
+    ages = answers.get("age_groups") if isinstance(answers.get("age_groups"), list) else []
+    free = 0
+    for age in ages[:children]:
+        try:
+            free += int(age) <= free_under
+        except (TypeError, ValueError):
+            continue
+    return free
+
+
+def attraction_price_view(info, answers, today=None):
+    """The one price line that may be shown next to an attraction card, per
+    Din's conditions (DEAL-18, simplified wording, relayed 22.10), or None
+    to show no price at all (the links stay either way):
+
+    1. only a verified price (price_status == "ok");
+    2. only when checked within PRICE_MAX_AGE_DAYS (the date isn't shown,
+       but an unknown or older date still means no price);
+    3. "לאדם" only when everyone in the party pays the same adult price;
+       otherwise (a different price by age/party, or unknown ages) the
+       adult price and "לפי מחיר מבוגר × N: כ-<total>" (PRICE_TEXT_PER_ADULT);
+    4. in the source currency, no conversion;
+    5. "כניסה חינם" only when free_entry is verified (same 1+2);
+    6. Din's wording, exactly (PRICE_TEXT / PRICE_TEXT_PER_ADULT).
+    free_under_age is inclusive (the DB stores 17 for "free under 18")."""
+    info = info if isinstance(info, dict) else {}
+    answers = answers if isinstance(answers, dict) else {}
+    if info.get("price_status") != "ok":
+        return None
+    try:
+        checked = datetime.strptime(str(info.get("price_checked_at") or "")[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    today = today or date.today()
+    if (today - checked).days > PRICE_MAX_AGE_DAYS or checked > today:
+        return None
+    if info.get("free_entry") is True:
+        return {"text": FREE_ENTRY_TEXT}
+    adult = info.get("price_adult")
+    currency = str(info.get("currency") or "").strip().upper()
+    if not isinstance(adult, (int, float)) or isinstance(adult, bool) or adult <= 0 or not re.fullmatch(r"[A-Z]{3}", currency):
+        return None
+    try:
+        travelers = max(0, int(answers.get("adults") or 0)) + max(0, int(answers.get("children") or 0))
+    except (TypeError, ValueError):
+        travelers = 0
+    if travelers <= 1 or _same_price_for_everyone(info, answers):
+        return {"text": PRICE_TEXT.format(amount=_money(adult, currency))}
+    # Shlomo (PR #148 review): a child certainly free (known age <= free_
+    # under_age) isn't counted in N, so the total isn't inflated.
+    paying = max(1, travelers - _certainly_free_children(info, answers))
+    return {"text": PRICE_TEXT_PER_ADULT.format(amount=_money(adult, currency), n=paying,
+                                                total=_money(adult * paying, currency))}
+
+
+# Din (PR #148 review): a ticket link is shown only on the official site's
+# own domain, or at an official ticketing operator the official site itself
+# sends buyers to (this manual list) - never a reseller.
+OFFICIAL_TICKET_OPERATORS = {
+    "parkovihrvatske.hr",      # Croatia's national parks ticketing (Plitvice, Krka)
+    "imperialtickets.com",     # Schönbrunn's own ticket shop
+    "cityexperiences.com",     # Statue City Cruises - the NPS concession (Statue of Liberty)
+    "tickets.atthetop.ae",     # Burj Khalifa "At the Top"
+    "ticketlouvre.fr",         # the Louvre's ticketing site
+    "thedubaiaquarium.com",    # Dubai Aquarium's own site
+}
+
+
+def _host(url):
+    from urllib.parse import urlsplit
+    host = (urlsplit(str(url or "").strip()).hostname or "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def _same_site(a, b):
+    return bool(a and b) and (a == b or a.endswith("." + b) or b.endswith("." + a))
+
+
+def attraction_tickets_url(tickets_url, official_url):
+    """The ticket link to show, or "" (Din's rule above). An empty
+    official_url here means it equalled the ticket link when the card was
+    built (build_itinerary_days drops the duplicate) - same site."""
+    tickets = str(tickets_url or "").strip()
+    if not tickets:
+        return ""
+    official = str(official_url or "").strip()
+    host = _host(tickets)
+    if not official or _same_site(host, _host(official)):
+        return tickets
+    return tickets if any(_same_site(host, op) for op in OFFICIAL_TICKET_OPERATORS) else ""
+
+
 def build_itinerary_days(text, answers, post_claude, key, model):
     """Structured day cards for an approved itinerary, or [] on failure."""
     core = core_itinerary_text(text)
@@ -153,7 +329,9 @@ def build_itinerary_days(text, answers, post_claude, key, model):
                 "city": city,
                 "description": str(it.get("description") or "").strip(),
                 "duration": str(it.get("duration") or (match or {}).get("משך מומלץ") or "").strip(),
-                "price": str((match or {}).get("מחיר/הערת מחיר") or "").strip(),
+                # Structured, verified price data only (Din, 22.10) - the old
+                # free-text price note is no longer shown.
+                "price_info": {f: (match or {}).get(f) for f in _PRICE_FIELDS},
                 "tickets_url": str((match or {}).get("קישור הזמנה/כרטיסים") or "").strip(),
                 "official_url": str((match or {}).get("אתר רשמי") or "").strip(),
                 "kids": str((match or {}).get("מתאים לילדים") or "").strip(),
