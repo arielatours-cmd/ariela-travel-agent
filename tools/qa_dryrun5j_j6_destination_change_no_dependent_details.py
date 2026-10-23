@@ -9,11 +9,24 @@ destination-dependent genuinely exists; if there isn't, save and continue
 silently.
 
 Fixed: _destination_dependent_details_exist (ariella_chat_clean.py) checks
-whether destination_airports/trip_planning.details.route/a real lodging
-or car detail already exists; when none do, the destination-change gate
-applies the change immediately via the shared _apply_destination_change
-helper instead of asking. The genuine case (something real to lose) is
-unaffected - same question, same mechanism as before.
+whether trip_planning.details.route/a real lodging or car detail already
+exists; when none do, the destination-change gate applies the change
+immediately via the shared _apply_destination_change helper instead of
+asking. The genuine case (something real to lose) is unaffected - same
+question, same mechanism as before.
+
+UPDATED (23.10.2026, Shaked's static review of 0dc89e77, SHA she rejected):
+the first version of this fix also counted destination_airports/return_
+departure_airports as "dependent details" - but the REAL live J6 scenario
+(qa/reports/2026-10-23-review-0dc89e7.md) has EXACTLY destination_airports
+=['VIE'] with nothing else, since the OLD destination (Vienna) obviously
+already has its own derived gateway code the moment it was settled at
+all - that is not independent destination-dependent PROGRESS, just the
+destination fact itself, which _apply_destination_change already clears
+and replaces unconditionally either way. Counting it wrongly kept the
+original bug alive for the exact case this fix exists for. The fixture
+below now matches that real scenario precisely instead of an artificially
+"nothing at all" state the live bug never actually looked like.
 
 Run: python3 tools/qa_dryrun5j_j6_destination_change_no_dependent_details.py
 """
@@ -71,11 +84,20 @@ with client.session_transaction() as sess:
 REBUILD_QUESTION_SNIPPET = "למחוק את הפרטים שתלויים ביעד"
 
 # =====================================================================
-# J6 FIX: nothing destination-dependent yet (no route, no lodging, no
-# car, no destination_airports) -> change applies silently, no question.
+# J6 FIX: the ACTUAL real-world scenario (Shaked's own review, SHA
+# 0dc89e77) - destination_airports already set (['VIE'], the settled
+# Vienna trip's own gateway) but no route/lodging/car details at all ->
+# change applies silently, no question. destination_airports alone must
+# NEVER count as "dependent details" here - see _destination_dependent_
+# details_exist's own docstring.
 # =====================================================================
 EMPTY_VIENNA_STATE = {
     "destination": {"places": ["וינה"], "mode": "specific", "status": "known"},
+    "destination_airports": ["VIE"],
+    "requested_services": ["flights"],
+    "dates": {"departure": "2026-12-01", "return": "2026-12-05"},
+    "travelers": {"adults": 2, "children": 0, "child_ages": []},
+    "departure_airport": "TLV",
     "lodging": {"interested": "unknown", "details": {}},
     "car": {"interested": "unknown", "details": {}},
     "trip_planning": {"interested": "unknown", "details": {}},
@@ -93,6 +115,9 @@ update = data.get("trip_update") or {}
 
 check("J6 FIX: no dependent details -> the rebuild question is NOT asked",
       REBUILD_QUESTION_SNIPPET not in reply)
+check("J6 FIX (Shaked's review of 0dc89e77): the reply has genuine forward "
+      "motion - never a dead-end 'let's continue from here' with no actual "
+      "next question", "נמשיך מכאן." not in reply and len(reply.strip()) > 0)
 check("J6 FIX: the destination is updated to Prague immediately, with no "
       "pending confirmation gate left open",
       "פראג" in ((update.get("destination") or {}).get("places") or [])

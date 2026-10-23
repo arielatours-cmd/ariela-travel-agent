@@ -15472,13 +15472,21 @@ def _destination_dependent_details_exist(trip_state):
     and continue, exactly like applying a "yes" answer would, but without
     ever asking the (now meaningless) question at all.
 
-    True when ANY of destination_airports, trip_planning.details.route,
-    a real lodging.details value, or a real car.details value is already
-    set - the same four things the question's own wording names
-    ("המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד")."""
+    True when trip_planning.details.route, a real lodging.details value,
+    or a real car.details value is already set - the ACTUAL services the
+    business owner's own wording names ("המסלול, הלינה, נקודות הרכב").
+    destination_airports/return_departure_airports are deliberately NOT
+    checked here (Shaked's static review of 0dc89e77, 23.10.2026): they
+    are the OLD destination's own derived gateway codes, not independent
+    destination-dependent PROGRESS - of course they are set once any
+    destination is picked at all, settled or not, and _apply_destination_
+    change already clears and replaces them unconditionally regardless of
+    this check's answer. The real-world J6 scenario (qa/reports/2026-10-
+    23-review-0dc89e7.md) has exactly destination_airports=['VIE'] with
+    nothing else - counting that alone wrongly kept the gate firing on
+    the very case this fix exists for ("not just a flight" is the
+    business owner's own standing rule)."""
     trip_state = trip_state if isinstance(trip_state, dict) else {}
-    if trip_state.get("destination_airports") or trip_state.get("return_departure_airports"):
-        return True
     trip_planning = trip_state.get("trip_planning") if isinstance(trip_state.get("trip_planning"), dict) else {}
     planning_details = trip_planning.get("details") if isinstance(trip_planning.get("details"), dict) else {}
     if planning_details.get("route"):
@@ -16733,8 +16741,15 @@ def _chat_clean_impl():
             # _destination_dependent_details_exist's own docstring.
             if not _destination_dependent_details_exist(kept):
                 changed = _apply_destination_change(kept, pending_new_trip)
+                # Shaked's static review of 0dc89e77 (23.10.2026): a bare
+                # "let's continue from here" with no actual next question
+                # stalled the conversation - ask the real, concrete thing
+                # still missing (same mechanism as every other gap-driven
+                # reply in this file), never a dead-end acknowledgment.
+                _next_q = _flight_gap_question(_session_gaps(changed, "flights"), changed)
+                reply = f'בסדר, היעד עודכן ל{pending_new_trip}.' + (f' {_next_q}' if _next_q else ' נמשיך מכאן.')
                 return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                                'reply':f'בסדר, היעד עודכן ל{pending_new_trip}. נמשיך מכאן.',
+                                'reply':reply,
                                 'trip_update':changed,'start_flight_search':False})
             kept["destination_change_pending"] = pending_new_trip
             return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
@@ -16769,9 +16784,15 @@ def _chat_clean_impl():
         # _destination_dependent_details_exist's own docstring.
         if not _destination_dependent_details_exist(trip_state):
             changed = _apply_destination_change(trip_state, destination_change)
+            # Shaked's static review of 0dc89e77 (23.10.2026): ask the
+            # real, concrete next-missing thing, never a dead-end
+            # acknowledgment with no forward motion - see the sibling
+            # "keep" branch above for the identical fix.
+            _next_q = _flight_gap_question(_session_gaps(changed, "flights"), changed)
+            reply = f'בסדר, היעד עודכן ל{destination_change}.' + (f' {_next_q}' if _next_q else ' נמשיך מכאן.')
             return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
-                'reply':f'בסדר, היעד עודכן ל{destination_change}. נמשיך מכאן.',
+                'reply':reply,
                 'trip_update':changed,'start_flight_search':False
             })
         pending = dict(trip_state)
