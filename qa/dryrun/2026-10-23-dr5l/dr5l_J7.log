@@ -1,0 +1,35 @@
+⟵ אני ובעלי לוינה, 8 עד 12 בינואר
+    מעולה, וינה בחורף נשמעת כיף!  |  | לפני שאמשיך עם הטיסות - האם מישהו מכם זקוק להתאמות נגישות כלשהן בטיול? זה ממש לא חובה לענות, ואם כן זה יישמר רק לחופשה הזו.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [inject]
+⟵ רגע, בעצם נעדיף פראד
+    ברור, פראג זה יעד נהדר לינואר. רק רוצה לוודא שהעדכון ליעד אכן נקלט אצלי לפני שנמשיך - בינתיים אני ממשיכה לבדוק את זה. |  | בכל מקרה, האם מישהו מכם זקוק להתאמות נגישות כלשהן בטיול? זה לא חובה לענות, ואם כן זה יישמר רק לחופשה הזה.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1200 שקל לאדם
+    מעולה, נרשם. |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ עדיף ישירה
+    איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ מזוודה לכל אחד
+    מעולה, אז לכל אחד מכם תהיה מזוודה בבטן המטוס. |  | סגרנו את פרטי הטיסה - יום שישי 08.01.2027–יום שלישי 12.01.2027, שני נוסעים, מזוודה לכל אחד, עדיפות לטיסה ישירה, תקציב עד 1,200 ש"ח לאדם. |  | לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ יש לנו
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    בסדר גמור. תמיד אפשר לחזור ולהוסיף שירותים נוספים בהמשך אם תרצי. |  | הנה הסיכום לפני אישור: |  | יציאה: נתב״ג (TLV) | נחיתה: פראג (PRG), צ׳כיה | המראה בחזרה: פראג (PRG), צ׳כיה |  | תאריכים: 08.01.2027 – 12.01.2027 | נוסעים: 2 מבוגרים | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: מעדיפים טיסה ישירה | תקציב: עד 1,200 ש"ח לאדם |  | אם כל הפרטים נכונים, כתבי מאשרת.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True

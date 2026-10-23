@@ -1,0 +1,11 @@
+usage (model, source, calls, input, output, cache_read, cache_write, errors):
+   claude-sonnet-5 classifier 31 11874 559 1545 3356 0
+   claude-sonnet-5 guided_extract 49 6240 3883 28661 66983 0
+   claude-sonnet-5 state_extractor 35 55878 27207 578272 17008 0
+   claude-sonnet-5 tinkerbell_reply 47 216984 5711 1562436 33966 0
+chat turns: 36
+timing classifier         calls=31 avg_ms=833 max_ms=1557 max_output_tokens=116
+timing guided_extract     calls=49 avg_ms=1231 max_ms=2624 max_output_tokens=187
+timing state_extractor    calls=35 avg_ms=5924 max_ms=7832 max_output_tokens=943
+timing tinkerbell_reply   calls=47 avg_ms=2521 max_ms=5505 max_output_tokens=347
+usage total: calls=162 input=290976 output=37360 cache_read=2170914 cache_write=121313 errors=0

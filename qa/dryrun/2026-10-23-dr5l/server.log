@@ -1,0 +1,399 @@
+[2026-10-23 16:12:34 +0000] [550] [INFO] Starting gunicorn 23.0.0
+[2026-10-23 16:12:34 +0000] [550] [INFO] Listening at: http://127.0.0.1:8765 (550)
+[2026-10-23 16:12:34 +0000] [550] [INFO] Using worker: gthread
+[2026-10-23 16:12:34 +0000] [555] [INFO] Booting worker with pid: 555
+2026-10-23 16:12:54,596 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:12:57,203 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:00,410 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:02,060 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:03,197 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:03,375 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:04,468 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:04,524 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:05,160 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:06,419 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:07,629 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:07,972 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:10,434 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:23,826 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:24,866 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:25,364 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:25,818 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:26,567 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:26,882 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:27,380 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:28,373 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:29,488 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:30,142 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:30,987 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:31,037 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:13:32,156 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:32,858 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:44,684 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:45,847 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:46,717 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:47,994 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:48,625 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:49,778 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:50,405 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:50,738 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:51,373 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:51,470 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:52,984 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:53,016 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:13:53,261 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:53,984 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:13:55,729 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:03,390 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:05,936 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:06,035 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:07,016 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:08,117 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:08,390 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:10,020 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:10,602 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:10,621 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:11,479 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:12,676 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:13,529 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:13,544 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:14:27,768 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:28,271 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:28,846 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:29,302 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:30,013 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:31,723 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:32,038 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:32,886 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:32,918 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:14:33,006 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:33,839 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:48,092 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:48,249 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:49,449 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:49,451 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:50,607 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:51,923 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:55,132 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:14:55,157 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:14:56,141 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:09,325 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:10,430 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:11,580 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:11,600 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:15:11,882 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:26,906 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:27,477 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:27,576 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:28,223 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:28,972 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:29,423 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:29,432 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:15:43,998 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:45,504 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:46,234 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:48,634 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:49,231 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:52,089 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:15:52,102 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:16:07,343 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:10,680 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:13,053 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:14,309 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:15,813 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:16,147 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:17,141 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:18,053 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:18,646 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:18,913 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:23,043 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:23,714 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:38,009 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:39,103 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:39,914 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:40,931 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:41,816 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:42,169 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:42,814 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:42,970 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:43,809 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:44,855 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:46,560 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:47,378 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:47,400 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:16:47,793 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:16:47,803 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:17:02,040 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:02,769 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:03,052 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:03,731 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:03,893 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:04,662 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:05,047 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:06,655 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:07,054 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:07,683 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:07,891 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:08,513 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:09,806 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:09,838 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:17:10,091 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:10,101 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:17:19,592 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:20,818 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:22,002 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:24,882 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:25,608 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:26,054 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:26,266 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:27,179 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:28,965 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:28,987 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:17:29,122 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:29,135 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:17:43,122 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:43,753 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:44,303 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:45,406 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:46,836 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:46,860 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:17:46,980 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:47,834 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:17:47,844 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:18:01,539 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:01,890 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:02,785 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:02,807 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:18:03,116 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:04,358 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:07,967 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:07,976 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:18:17,142 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:18,198 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:20,157 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:20,190 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:18:21,416 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:23,796 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:23,806 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:18:35,519 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:37,924 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:38,607 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:40,045 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:40,072 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:18:40,155 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:43,635 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:43,649 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 16:18:54,909 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:18:58,825 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:19:03,264 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 16:19:03,274 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-K023px/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-K023px/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+[2026-10-23 16:19:06 +0000] [550] [INFO] Handling signal: term
+[2026-10-23 16:19:07 +0000] [555] [INFO] Worker exiting (pid: 555)
+[2026-10-23 16:19:08 +0000] [550] [INFO] Shutting down: Master

@@ -1,0 +1,33 @@
+[dr5l0] U: אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני @16:12:45
+רק שרוצה לוודא - כשאתה אומר "ברגם", אתה מתכוון לברגמו שבאיטליה (ליד מילאנו), או שמא לברגן שבנורווגיה? שני היעדים האלה נשמעים דומה בעברית, אז רציתי לוודא לפני שממשיכים.
+⟵ ברגן, בנורווגיה
+    מעולה, יום שבת 12.06.2027–יום חמישי 17.06.2027 לברגן זה נשמע כמו טיול משפחתי נהדר. |  | רציתי לשאול - האם מישהו מכם זקוק להתאמות נגישות כלשהן בחופשה הזו? זה לגמרי לא חובה לציין, ואם כן, זה יישמר רק לטיול הנוכחי.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1500 שקל לאדם
+    הבנתי, עד 1,500 ש"ח לאדם - מתאים. |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ עדיף ישירה
+    איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ מזוודה לכל אחד
+    מעולה, הטיסות שלכם סגורות.  |  | בוא נדבר רגע על תכנון המסלול בברגן - זה יעד נהדר לטבע ונופים. לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ מסודר
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    בסדר גמור, לא בעיה. אפשר תמיד לחזור ולבקש עזרה גם בתחומים האלה בהמשך אם תשנה את דעתך. |  | הנה הסיכום של הטיול לברגן: |  | יציאה: נתב״ג (TLV) | נחיתה: ברגן (BGO), נורווגיה | המראה בחזרה: ברגן (BGO), נורווגיה |  | תאריכים: 12.06.2027 – 17.06.2027 | נוסעים: 2 מבוגרים ותינוק | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: מעדיפים טיסה ישירה | תקציב: עד 1,500 ש"ח לאדם |  | אם כל הפרטים נכונים, כתוב מאשר.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True
