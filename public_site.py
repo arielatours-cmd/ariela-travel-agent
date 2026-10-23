@@ -34,6 +34,7 @@ from scoring import (
 )
 import booking_demand
 import itinerary_cards
+from money_format import format_nis
 import member_profile
 from hfa_routes import hfa_route_check
 from radar_alerts import evaluate_trip_alert
@@ -82,11 +83,8 @@ def _he_dates(value):
 
 @site.app_template_filter("nis")
 def _nis(value):
-    """An ILS amount for the English site: "NIS 1,306" (Hebrew keeps ₪)."""
-    try:
-        return f"NIS {int(round(float(value))):,}"
-    except (TypeError, ValueError):
-        return f"NIS {value}"
+    """An ILS amount for the English site: "1,306 NIS" (Hebrew keeps ₪)."""
+    return format_nis(value)
 
 
 _SHEKEL_AMOUNT = re.compile(r"₪\s?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s?₪")
@@ -94,7 +92,7 @@ _SHEKEL_AMOUNT = re.compile(r"₪\s?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s?
 
 @site.app_template_filter("en_currency")
 def _en_currency(text):
-    """Rewrite every ₪ amount inside English free text as "NIS 1,306" -
+    """Rewrite every ₪ amount inside English free text as "1,306 NIS" -
     e.g. booking_choice_reason_en saved by older scans ("A cheaper option by ₪80")."""
     def _swap(match):
         return _nis((match.group(1) or match.group(2)).replace(",", ""))
@@ -4123,7 +4121,7 @@ def ariella_start_flight_search():
                         "או יעד בכל שלב במהלך תקופת המעקב."
                     ),
                     "message_en": (
-                        "Changing the destination or dates of an approved vacation is part of paid daily tracking (NIS 39) - "
+                        f"Changing the destination or dates of an approved vacation is part of paid daily tracking ({format_nis(39)}) - "
                         "taking you to the vacation card to choose that plan. After payment you can change dates "
                         "or destination at any point during the tracking period."
                     ),
