@@ -8,16 +8,16 @@
    "המזהים נלקחו מכפתורי \"View Deal\" בדף, שקוראים ל-change_search(..., pickup_country, pickup_city, pickup_location, ...) ובונים את כתובת www.vipcars.com/search/.",
    "מופה רק אם כל הכפתורים בדף מצביעים על אותה שלישייה, והמדינה והעיר זהות למדינה ולעיר של הדף עצמו (default_values בדף). בדפים בלי מבצעים משלהם האתר מציג מבצעים של מיקום אחר (למשל דף סמוס מציג את אתונה, דף ספליט מציג את צרפת), ולכן הם לא מופו.",
    "אומת מול הדוגמה: ליסבון 120/1788/777, ו-Lisbon Downtown היא 6118.",
-   "ה-autocomplete של טופס החיפוש נטען מ-res.supplycars.com, שחסום ברשת של הסביבה, ולכן לא נבדק."
+   "ה-autocomplete של טופס החיפוש (res.supplycars.com/be1/node.php?load_type=sat) נבדק ב-2026-10-23 והשלים 10 יעדי דילים שלא היו להם כפתורים מאומתים בדף. התשובה מכילה add_loc(location, country, city) לכל מיקום, ונבחר המיקום עם סמל Airport וקוד ה-IATA הנכון. אומת מול ליסבון (777/120/1788), שם המיקום אומת שוב דרך load_type=loc_name, ומזהה המדינה הושווה למזהים של שדות אחרים באותה מדינה בקובץ."
   ],
   "search_url_template": "https://www.vipcars.com/search/?aff=vipcars_web&language=en&pickup_country={country}&pickup_city={city}&pickup_location={location}&dropoff_city={city}&dropoff_location={location}&pickup_date=YYYY-MM-DD&pickup_time=10%3A00&dropoff_date=YYYY-MM-DD&dropoff_time=10%3A00&rc=us&currency=USD&page=search",
   "note_he": "בדף יש גם pickup_loc ב-default_values (בליסבון 2751) - זה מזהה אחר מזה של החיפוש (777). לא להשתמש בו.",
   "counts": {
    "catalog_airports_excluding_israel": 186,
-   "mapped": 122,
-   "unverified": 64,
+   "mapped": 132,
+   "unverified": 54,
    "deal_destinations": 37,
-   "deal_destinations_mapped": 27
+   "deal_destinations_mapped": 37
   }
  },
  "airports": {
@@ -93,6 +93,15 @@
    "source_page": "https://www.vipcars.com/car-rental/france/paris/charles-de-gaulle-cdg-airport",
    "in_deals": true
   },
+  "DXB": {
+   "country": 164,
+   "city": 2178,
+   "location": 701,
+   "vipcars_name": "Dubai International Airport [DXB]",
+   "source_page": "https://www.vipcars.com/car-rental/united-arab-emirates/dubai/dubai-airport-t1",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=DXB"
+  },
   "EVN": {
    "country": 486,
    "city": 9962,
@@ -101,6 +110,53 @@
    "source_page": "https://www.vipcars.com/car-rental/armenia/yerevan/yerevan-airport",
    "in_deals": true
   },
+  "FCO": {
+   "country": 77,
+   "city": 230173,
+   "location": 5883,
+   "vipcars_name": "Rome Fiumicino Airport [FCO]",
+   "source_page": "https://www.vipcars.com/car-rental/italy/rome/fiumicino-airport",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=FCO"
+  },
+  "GYD": {
+   "country": 420,
+   "city": 7981,
+   "location": 11453,
+   "vipcars_name": "Baku Airport [GYD]",
+   "source_page": "https://www.vipcars.com/car-rental/azerbaijan/baku/baku-airport",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=GYD",
+   "note_he": "מזהה המדינה בחיפוש הוא 420, ולא 3992 שמופיע בדף המיקום. כל מיקומי אזרבייג'ן ב-autocomplete משתמשים ב-420."
+  },
+  "HAN": {
+   "country": 2361,
+   "city": 59393,
+   "location": 16908,
+   "vipcars_name": "Hanoi Airport [HAN]",
+   "source_page": "https://www.vipcars.com/car-rental/vietnam/hanoi/hanoi-airport",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=HAN",
+   "note_he": "מזהה המדינה בחיפוש הוא 2361, ולא 4277 שמופיע בדף המיקום. כל מיקומי וייטנאם ב-autocomplete משתמשים ב-2361."
+  },
+  "JFK": {
+   "country": 201,
+   "city": 229824,
+   "location": 7119,
+   "vipcars_name": "New York City JFK Airport [JFK]",
+   "source_page": "https://www.vipcars.com/car-rental/usa-new-york/new-york-city/john-f-kennedy-airport",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=JFK"
+  },
+  "KRK": {
+   "country": 119,
+   "city": 1737,
+   "location": 668,
+   "vipcars_name": "Krakow Airport [KRK]",
+   "source_page": "https://www.vipcars.com/car-rental/poland/krakow/krakow-airport",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=KRK"
+  },
   "LCA": {
    "country": 42,
    "city": 380,
@@ -108,6 +164,15 @@
    "vipcars_name": "Larnaca Airport (LCA)",
    "source_page": "https://www.vipcars.com/car-rental/cyprus/larnaca/larnaca-airport",
    "in_deals": true
+  },
+  "LHR": {
+   "country": 165,
+   "city": 2259,
+   "location": 547,
+   "vipcars_name": "London Heathrow Airport [LHR]",
+   "source_page": "https://www.vipcars.com/car-rental/united-kingdom/london/heathrow-airport",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=LHR"
   },
   "LIS": {
    "country": 120,
@@ -124,6 +189,15 @@
    "vipcars_name": "Ljubljana Airport (LJU)",
    "source_page": "https://www.vipcars.com/car-rental/slovenia/ljubljana/ljubljana-airport",
    "in_deals": true
+  },
+  "MAD": {
+   "country": 522,
+   "city": 10930,
+   "location": 433,
+   "vipcars_name": "Madrid Airport [MAD]",
+   "source_page": "https://www.vipcars.com/car-rental/spain-mainland/madrid/madrid-airport-terminal-4",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=MAD"
   },
   "MLA": {
    "country": 94,
@@ -173,6 +247,15 @@
    "source_page": "https://www.vipcars.com/car-rental/czech-republic/prague/prague-airport",
    "in_deals": true
   },
+  "RMO": {
+   "country": 101,
+   "city": 1602,
+   "location": 8743,
+   "vipcars_name": "Chisinau Airport [RMO]",
+   "source_page": "https://www.vipcars.com/car-rental/moldova/chisinau/chisinau-airport",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=RMO"
+  },
   "SKP": {
    "country": 91,
    "city": 1516,
@@ -220,6 +303,15 @@
    "vipcars_name": "Vienna Airport (VIE)",
    "source_page": "https://www.vipcars.com/car-rental/austria/vienna/vienna-airport",
    "in_deals": true
+  },
+  "WAW": {
+   "country": 119,
+   "city": 1744,
+   "location": 10921,
+   "vipcars_name": "Warsaw Chopin Airport [WAW]",
+   "source_page": "https://www.vipcars.com/car-rental/poland/warsaw/chopin-intl-airport",
+   "in_deals": true,
+   "source_autocomplete": "https://res.supplycars.com/be1/node.php?load_type=sat&type=pickup&lang=33&language=en&count=30&key=WAW"
   },
   "ZAG": {
    "country": 40,
@@ -999,100 +1091,6 @@
   }
  },
  "unverified": {
-  "DXB": {
-   "city_en": "Dubai",
-   "country_en": "United Arab Emirates",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/united-arab-emirates/dubai/dubai-airport-t1",
-   "page_country_id": 164,
-   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
-  },
-  "FCO": {
-   "city_en": "Rome",
-   "country_en": "Italy",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/italy/rome/fiumicino-airport",
-   "page_country_id": 77,
-   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
-   "button_ids_unverified": [
-    {
-     "country": 77,
-     "city": 230173,
-     "location": 5883
-    }
-   ]
-  },
-  "GYD": {
-   "city_en": "Baku",
-   "country_en": "Azerbaijan",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/azerbaijan/baku/baku-airport",
-   "page_country_id": 3992,
-   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
-  },
-  "HAN": {
-   "city_en": "Hanoi",
-   "country_en": "Vietnam",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/vietnam/hanoi/hanoi-airport",
-   "page_country_id": 4277,
-   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
-  },
-  "JFK": {
-   "city_en": "New York",
-   "country_en": "United States",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/usa-new-york/new-york-city/john-f-kennedy-airport",
-   "page_country_id": 201,
-   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
-   "button_ids_unverified": [
-    {
-     "country": 201,
-     "city": 229824,
-     "location": 7119
-    }
-   ]
-  },
-  "KRK": {
-   "city_en": "Krakow",
-   "country_en": "Poland",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/poland/krakow/krakow-airport",
-   "page_country_id": 119,
-   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
-  },
-  "LHR": {
-   "city_en": "London",
-   "country_en": "United Kingdom",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/united-kingdom/london/heathrow-airport",
-   "page_country_id": 165,
-   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
-  },
-  "MAD": {
-   "city_en": "Madrid",
-   "country_en": "Spain",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/spain-mainland/madrid/madrid-airport-terminal-4",
-   "page_country_id": 522,
-   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
-  },
-  "RMO": {
-   "city_en": "Chisinau",
-   "country_en": "Moldova",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/moldova/chisinau/chisinau-airport",
-   "page_country_id": 101,
-   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
-  },
-  "WAW": {
-   "city_en": "Warsaw",
-   "country_en": "Poland",
-   "in_deals": true,
-   "vipcars_page": "https://www.vipcars.com/car-rental/poland/warsaw/chopin-intl-airport",
-   "page_country_id": 119,
-   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
-  },
   "ADD": {
    "city_en": "Addis Ababa",
    "country_en": "Ethiopia",
