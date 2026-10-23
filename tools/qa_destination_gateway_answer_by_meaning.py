@@ -561,28 +561,64 @@ for noisy_evidence, label in [
           not result_noisy.get("destination_airports"))
 
 
-def _fake_bergen_single_pick_genuine_disambiguation(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
-    if source == "classifier" and _MARKER in str(system_static or ""):
-        # A genuinely distinguishing quote, verbatim in the message, that
-        # is NOT the destination name itself - e.g. the country.
-        return json.dumps({
-            "evidence": "ברגם",
-            "candidates": [{"city_en": "Bergamo", "iata_code": "BGY"}],
-            "disambiguating_evidence": "באיטליה",
-        })
-    return "{}"
+# =====================================================================
+# Shaked's SECOND review (23.10.2026, of 9419b02e): the stopword-based
+# design above still let through unrelated context words it never saw
+# before ("אשתי", "התינוק", "בעלי" - none are place names at all, so the
+# edit-distance-to-the-name check alone let them "survive"). Six exact
+# quotes she tested directly, all of which must STILL be rejected now
+# that the check is catalog-verified (country_he / same-country city_he)
+# rather than word-list-based.
+# =====================================================================
+for noisy_evidence, label in [
+    ("אני, אשתי והתינוק שלנו בן שנה לברגם", "family context, no real place name"),
+    ("והתינוק שלנו בן שנה לברגם", "family context, no real place name"),
+    ("שלנו בן שנה לברגם", "family context, no real place name"),
+    ("אשתי והתינוק", "unrelated context, no place name at all"),
+    ("ובעלי לברגם", "unrelated context plus the name itself"),
+    ("אני ובעלי", "unrelated context, no place name at all"),
+]:
+    message_with_evidence = f"{noisy_evidence} מתאים לנו"
+    with patch.object(chat, "_post_claude", side_effect=_make_fake_bergen_disambiguation(noisy_evidence)):
+        result_noisy2 = chat._destination_gateway_answer_by_meaning(
+            message_with_evidence,
+            [{"role": "assistant", "content": UNRELATED_REPLY}],
+            state_bergen,
+        )
+    check(f"dry-run 5f FIX (Shaked's 2nd review): disambiguating_evidence {noisy_evidence!r} "
+          f"({label}) is still rejected - no real country/city match, forced ambiguous",
+          not result_noisy2.get("destination_airports"))
 
 
-with patch.object(chat, "_post_claude", side_effect=_fake_bergen_single_pick_genuine_disambiguation):
-    result_bergen_genuine = chat._destination_gateway_answer_by_meaning(
-        "ברגם באיטליה מתאים לנו",
-        [{"role": "assistant", "content": UNRELATED_REPLY}],
-        state_bergen,
-    )
-check("dry-run 5f FIX regression: a GENUINE disambiguating quote (the country, "
-      "verbatim in the message, distinct from the destination name) still resolves directly",
-      result_bergen_genuine.get("destination_airports") == ["BGY"]
-      and "_destination_ambiguous_hint" not in result_bergen_genuine)
+def _make_fake_bergen_candidate_disambiguation(candidate_en, candidate_code, evidence_text):
+    def fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+        if source == "classifier" and _MARKER in str(system_static or ""):
+            return json.dumps({
+                "evidence": "ברגם",
+                "candidates": [{"city_en": candidate_en, "iata_code": candidate_code}],
+                "disambiguating_evidence": evidence_text,
+            })
+        return "{}"
+    return fake
+
+
+for candidate_en, candidate_code, genuine_evidence, label in [
+    ("Bergamo", "BGY", "באיטליה", "the candidate's own real country"),
+    ("Bergamo", "BGY", "ליד מילאנו", "a DIFFERENT real catalog city (Milan) in the same country"),
+    ("Bergen", "BGO", "בנורווגיה", "the OTHER candidate's own real country"),
+]:
+    message_with_evidence = f"ברגם {genuine_evidence} מתאים לנו"
+    with patch.object(chat, "_post_claude",
+                       side_effect=_make_fake_bergen_candidate_disambiguation(candidate_en, candidate_code, genuine_evidence)):
+        result_genuine = chat._destination_gateway_answer_by_meaning(
+            message_with_evidence,
+            [{"role": "assistant", "content": UNRELATED_REPLY}],
+            state_bergen,
+        )
+    check(f"dry-run 5f FIX (Shaked's 2nd review): disambiguating_evidence {genuine_evidence!r} "
+          f"({label}) is catalog-verified as genuine - resolves directly to {candidate_en}",
+          result_genuine.get("destination_airports") == [candidate_code]
+          and "_destination_ambiguous_hint" not in result_genuine)
 
 
 def _fake_bergen_single_pick_fabricated_disambiguation(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):

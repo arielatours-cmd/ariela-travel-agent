@@ -7856,63 +7856,79 @@ def _catalog_multiword_first_words():
     return _CATALOG_MULTIWORD_FIRST_WORDS_CACHE
 
 
-# Dry-run 5f (23.10.2026, Shaked's review of 6f52bd07): date/duration words
-# that can legitimately appear alongside a genuine disambiguating quote
-# ("לברגם, 12 עד 17 ביוני") but never distinguish Bergen from Bergamo on
-# their own - excluded so a quote padded only with these still counts as
-# NOT genuinely disambiguating. Deliberately narrow (date/number vocabulary
-# only, never a stand-in for recognizing what city/region the customer
-# meant - that stays the model's job via destination_evidence/candidates).
-_HE_DATE_DURATION_STOPWORDS = {
-    "בן", "שנה", "שנים", "עד", "מ", "יום", "ימים", "שבוע", "שבועות",
-    "חודש", "חודשים", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
-    "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
-}
+_CATALOG_CITIES_BY_COUNTRY_CACHE = None
 
 
-def _disambiguating_quote_is_genuine(quote, reference_names, message):
-    """Dry-run 5f (23.10.2026): Shaked's own finding on the first version of
-    this check (6f52bd07) - a plain "quote != the unresolved place name"
-    comparison only catches an EXACT echo. It let through quotes that are
-    still nothing but the same name wrapped in a preposition or noise, none
-    of which actually distinguishes between the structurally-ambiguous
-    candidates: "לברגם" (same word, ל prefix), "ברגם," (trailing
-    punctuation), "בן שנה לברגם" (irrelevant context), "לברגם, 12 עד 17
-    ביוני" (dates added, nothing distinguishing). Every one of these still
-    satisfied the old check and would have silently resolved to one
-    candidate with no question asked - exactly the bug this whole function
-    exists to prevent.
+def _catalog_cities_by_country():
+    """country_he -> set of every real catalog city_he/alias in that
+    country (static catalog always included; extended catalog filtered to
+    he_confidence=="high", same threshold _catalog_near_neighbor_entries
+    uses) - built once per process. The one source of truth for "does this
+    word genuinely name a place in country X", per Shaked's dry-run 5f
+    design (see _quote_identifies_candidate_region below) - never derived
+    per call."""
+    global _CATALOG_CITIES_BY_COUNTRY_CACHE
+    if _CATALOG_CITIES_BY_COUNTRY_CACHE is None:
+        by_country = {}
+        for airport in _load_airports():
+            country_he = str(airport.get("country_he") or "").strip()
+            city_he = str(airport.get("city_he") or "").strip()
+            if country_he and city_he:
+                by_country.setdefault(country_he, set()).add(city_he)
+        for airport in _load_extended_airports():
+            if str(airport.get("he_confidence") or "").lower() != "high":
+                continue
+            country_he = str(airport.get("country_he") or "").strip()
+            city_he = str(airport.get("city_he") or "").strip()
+            if not country_he:
+                continue
+            if city_he:
+                by_country.setdefault(country_he, set()).add(city_he)
+            for alias in (airport.get("aliases_he") or []):
+                alias = str(alias or "").strip()
+                if alias:
+                    by_country.setdefault(country_he, set()).add(alias)
+        _CATALOG_CITIES_BY_COUNTRY_CACHE = by_country
+    return _CATALOG_CITIES_BY_COUNTRY_CACHE
 
-    Fixed per Shaked's own proposed design: split the quote into words:
-    a word only counts as genuinely distinguishing when, after stripping a
-    leading ל/ב/מ (the same preposition-vs-name-part ambiguity handled
-    throughout this file) and excluding date/duration vocabulary
-    (_HE_DATE_DURATION_STOPWORDS), it is NOT within edit distance 1 (final-
-    letter-normalized, same threshold _catalog_near_neighbor_cities uses)
-    of the unresolved place name itself or of either real candidate city
-    name. True only when at least one such word survives - a quote that is
-    entirely made of the name/its forms and/or date noise is never trusted,
-    however verbatim it is in the message."""
+
+def _quote_identifies_candidate_region(quote, candidate_code, message):
+    """Dry-run 5f (23.10.2026, Shaked's SECOND review, of 9419b02e): her own
+    finding on the first fix's stopword-based design - excluding a fixed
+    list of date/context words still let through ANY other word that
+    merely wasn't close-in-spelling to the place name, including totally
+    unrelated context the customer happened to also write in the same
+    breath ("אשתי והתינוק", "ובעלי", "שלנו") - six such quotes she tested
+    directly all wrongly counted as "genuine". Her own objection, stated
+    directly: a hand-maintained word list can never be complete, and the
+    business owner doesn't want one anyway - exactly the standing rule
+    elsewhere in this file (_value_has_verbatim_evidence's own docstring)
+    against word/phrase lists substituting for real verification.
+
+    Fixed per her own redesigned proposal: never a word list at all - a
+    single candidate is trusted only when the disambiguating quote
+    (already verbatim-verified in the message) contains a word that,
+    after stripping a leading ל/ב/מ, is an EXACT catalog match: either the
+    candidate's own real country_he, or the city_he/alias of a DIFFERENT
+    real catalog airport in that same country (e.g. "ליד מילאנו" counts
+    for Bergamo/Italy, since Milan is a real Italian catalog city - not
+    because "מילאנו" happens to be unlike "ברגם"). Random context words
+    never match a real country or city name, so they can never pass this
+    check by construction - no stopword list needed, or possible to leave
+    incomplete."""
+    if not _value_has_verbatim_evidence(quote, message):
+        return False
+    airport = _catalog_airport_by_code(candidate_code) or {}
+    country_he = str(airport.get("country_he") or "").strip()
+    if not country_he:
+        return False
+    valid_words = {country_he} | _catalog_cities_by_country().get(country_he, set())
     words = re.findall(r"[א-ת]+(?:['׳][א-ת]*)?", str(quote or ""))
-    if not words:
-        return False
-    reference_norms = [
-        _normalize_he_final_letters(str(name or "").strip())
-        for name in reference_names if str(name or "").strip()
-    ]
-    if not reference_norms:
-        return False
     for word in words:
         forms = [word]
         if len(word) >= 2 and word[0] in "לבמ":
             forms.append(word[1:])
-        if any(f in _HE_DATE_DURATION_STOPWORDS for f in forms):
-            continue
-        is_close_to_a_reference_name = any(
-            _levenshtein_distance(_normalize_he_final_letters(f), ref, max_distance=1) <= 1
-            for f in forms for ref in reference_norms
-        )
-        if not is_close_to_a_reference_name:
+        if any(f in valid_words for f in forms):
             return True
     return False
 
@@ -8104,11 +8120,9 @@ def _destination_gateway_answer_by_meaning(message, history, state):
     if len(verified) == 1 and len(near_cities) == 2:
         disambiguating_evidence = data.get("disambiguating_evidence")
         normalized_evidence = re.sub(r"\s+", " ", str(disambiguating_evidence or "").strip())
-        reference_names = [unresolved_places[0]] + list(near_cities.keys())
         has_genuine_disambiguation = (
             bool(normalized_evidence)
-            and _value_has_verbatim_evidence(disambiguating_evidence, message)
-            and _disambiguating_quote_is_genuine(disambiguating_evidence, reference_names, message)
+            and _quote_identifies_candidate_region(disambiguating_evidence, verified[0], message)
         )
         record_diagnostic_event("destination_ambiguity_override", {
             "unresolved_place": unresolved_places[0],
