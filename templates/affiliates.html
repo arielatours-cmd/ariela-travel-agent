@@ -1,1 +1,28 @@
-{% extends "base.html" %}{% block title %}{{ "Affiliate Disclosure — Ariella" if site_lang == "en" else "גילוי נאות וקישורי שותפים — אריאלה" }}{% endblock %}{% block content %}<section class="article-section"><div class="shell narrow article-copy legal-copy">{% if site_lang == "en" %}<h1>Affiliate Disclosure</h1>{% if kiwi_enabled() %}<p>Some links on the site are affiliate links (through CJ and Travelpayouts) for flights, lodging and car rental. When you book through them, Ariella receives a commission from the provider. The commission does not affect the booking terms with the provider, and an affiliate link is marked as such next to its button.</p><p>The booking remains a transaction between the user and the third-party provider.</p>{% else %}<p>Ariella may link to airlines, online travel agencies and other travel providers. Some may be affiliate links.</p><p>When a user follows such a link and/or completes a booking, Ariella may receive compensation from the provider. The booking remains a transaction between the user and the third-party provider.</p>{% endif %}<p>If sponsored results or paid advertising are introduced, they will be appropriately identified.</p><p class="legal-note">Working draft for legal review before launch.</p>{% else %}<h1>גילוי נאות וקישורי שותפים</h1>{% if kiwi_enabled() %}<p>חלק מהקישורים באתר הם קישורי שותפים (באמצעות CJ ו-Travelpayouts), לטיסות, לינה והשכרת רכב. כשמבצעים הזמנה דרכם, אריאלה מקבלת עמלה מהספק. העמלה אינה משפיעה על תנאי ההזמנה מול הספק, וקישור שותף מסומן ככזה ליד הכפתור.</p><p>ההזמנה עצמה נשארת עסקה בין המשתמש לספק החיצוני.</p>{% else %}<p>Ariella עשויה לכלול קישורים לחברות תעופה, סוכנויות נסיעות מקוונות וספקי תיירות אחרים. חלקם עשויים להיות קישורי שותפים.</p><p>כאשר משתמש עובר דרך קישור כזה ו/או משלים הזמנה, Ariella עשויה לקבל עמלה או תגמול מהספק. ההזמנה עצמה נשארת עסקה בין המשתמש לספק החיצוני.</p>{% endif %}<p>אם בעתיד יוצגו תוצאות ממומנות או פרסום בתשלום, הם יסומנו באופן מתאים.</p><p class="legal-note">נוסח עבודה לבדיקה משפטית לפני השקה.</p>{% endif %}</div></section>{% endblock %}
+{% extends "base.html" %}{% block title %}{{ "Affiliate Disclosure — Ariella" if site_lang == "en" else "גילוי נאות וקישורי שותפים — אריאלה" }}{% endblock %}{% block content %}{# Din's approved wording (23.10.2026, din-reports: legal/drafts/affiliate-disclosure.md), word for word. Shown always, the same
+   whether or not the Kiwi.com link is live. A new partner, or anything passed to a partner beyond the technical trip id (sid), updates this page in the same PR. #}<section class="article-section"><div class="shell narrow article-copy legal-copy">{% if site_lang == "en" %}<h1>Affiliate Disclosure</h1>
+<h2>What an "Affiliate link" is</h2>
+<p>Some booking buttons on the site are affiliate links. When you book a flight, a stay or a car through them, the provider pays Ariella a commission. These buttons are marked "Affiliate link".</p>
+<h2>Our partners</h2>
+<p>We currently work with the CJ and Travelpayouts affiliate programs (including Kiwi.com). This list will be updated if partners are added.</p>
+<h2>What it means for you</h2>
+<ul>
+<li>The commission is paid by the provider and is not added to the price you pay.</li>
+<li>The booking and payment are made directly with the provider, under its terms: price, cancellation and changes. Ariella is not a party to the transaction.</li>
+<li>Ariella's recommendations are based on how well an option fits your preferences and on price, not on the commission.</li>
+<li>When you click an affiliate link, we pass the partner only a technical trip identifier, so the booking can be attributed. No name, phone number or email is passed. See our <a href="{{ url_for('site.privacy') }}">Privacy Policy</a>.</li>
+</ul>
+<h2>Questions</h2>
+<p>Contact us through the <a href="{{ url_for('site.contact') }}">Contact</a> page.</p>{% else %}<h1>גילוי נאות וקישורי שותפים</h1>
+<h2>מה זה "קישור שותף"</h2>
+<p>חלק מכפתורי ההזמנה באתר הם קישורי שותפים. כשתזמינו דרכם טיסה, לינה או רכב, הספק משלם לאריאלה עמלה. הכפתורים האלה מסומנים במילים "קישור שותף".</p>
+<h2>מי השותפים</h2>
+<p>כרגע אנחנו עובדים עם תוכניות השותפים של CJ ו-Travelpayouts (כולל Kiwi.com). הרשימה תתעדכן אם יתווספו שותפים.</p>
+<h2>מה זה אומר בשבילכם</h2>
+<ul>
+<li>העמלה משולמת על ידי הספק, והיא לא נוספת למחיר שאתם משלמים.</li>
+<li>ההזמנה והתשלום נעשים ישירות מול הספק, ובתנאים שלו: מחיר, ביטול ושינויים. אריאלה איננה צד לעסקה.</li>
+<li>ההמלצות של אריאלה מבוססות על ההתאמה להעדפות שלכם ועל המחיר, ולא על גובה העמלה.</li>
+<li>כשאתם לוחצים על קישור שותף, אנחנו מעבירים לשותף רק מזהה טכני של החופשה, כדי לשייך את ההזמנה. לא מועברים שם, טלפון או אימייל. פרטים נוספים ב<a href="{{ url_for('site.privacy') }}">מדיניות הפרטיות</a>.</li>
+</ul>
+<h2>שאלות</h2>
+<p>אפשר לפנות אלינו דרך עמוד <a href="{{ url_for('site.contact') }}">יצירת קשר</a>.</p>{% endif %}</div></section>{% endblock %}

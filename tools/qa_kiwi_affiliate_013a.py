@@ -275,7 +275,11 @@ configure()
 for path in LEGAL:
     r = client.get(path)
     text = r.get_data(as_text=True)
-    check(f"nothing configured: {path} renders with the old copy", r.status_code == 200 and "Travelpayouts" not in text)
+    if "affiliate-disclosure" in path:
+        # Din 23.10 (LEG-9): the disclosure page shows its explicit copy always, not only when Kiwi is on.
+        check(f"nothing configured: {path} still shows Din's explicit copy", r.status_code == 200 and "Travelpayouts" in text)
+    else:
+        check(f"nothing configured: {path} renders with the old copy", r.status_code == 200 and "Travelpayouts" not in text)
 configure(link=SHORT_LINK)
 for path in LEGAL:
     r = client.get(path)
