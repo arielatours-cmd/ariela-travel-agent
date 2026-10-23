@@ -2937,3 +2937,7 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 html[dir="ltr"] .deal-alert-switch{text-align:left!important}
 html[dir="ltr"] body .deal-card-v970 .deal-reasons-title,
 html[dir="ltr"] body .deal-card-v970 .deal-reasons-footer>div{text-align:left!important}
+
+/* "קישור שותף" / "Affiliate link" inside the Kiwi block of the flight card (#162, Tom's QA 23.10): every <a> in
+   .deal-price-box is styled as the big blue booking button - the label is a plain inline link, not a button. */
+.ariella-deal-card .deal-price-box .kiwi-affiliate .affiliate-disclosure a{display:inline!important;width:auto!important;max-width:none!important;padding:0!important;margin:0!important;background:none!important;box-shadow:none!important;border:0!important;border-radius:0!important;color:inherit!important;font-size:inherit!important;font-weight:700!important;text-decoration:underline!important}

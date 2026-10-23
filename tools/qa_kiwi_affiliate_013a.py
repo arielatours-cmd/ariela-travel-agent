@@ -44,11 +44,12 @@ import app as app_module  # noqa: E402
 import public_site  # noqa: E402
 from database import connection  # noqa: E402
 
-HE_DISCLOSURE = ("קישור שותף: אם תזמינו דרך Kiwi.com, אריאלה מקבלת עמלה מ-Kiwi.com. "
+# Din (23.10): the commission sentence became the "קישור שותף" / "Affiliate link" label linking to the
+# disclosure page; who handles the booking stays in full.
+HE_DISCLOSURE = ('<a class="lodging-affiliate-label" href="/affiliate-disclosure" target="_blank" rel="noopener">קישור שותף</a> · '
                  "ההזמנה, התשלום, השינויים והביטולים מתבצעים מול Kiwi.com ובהתאם לתנאיו.")
-EN_DISCLOSURE = ("Affiliate link: if you book through Kiwi.com, Ariella receives a commission "
-                 "from Kiwi.com. Booking, payment, changes and cancellations are handled by "
-                 "Kiwi.com under its terms.")
+EN_DISCLOSURE = ('<a class="lodging-affiliate-label" href="/affiliate-disclosure" target="_blank" rel="noopener">Affiliate link</a> · '
+                 "Booking, payment, changes and cancellations are handled by Kiwi.com under its terms.")
 SHORT_LINK = "https://kiwi.tpk.lu/TESTLINK"
 # A made-up template in the shape of a Travelpayouts deep link - not a real
 # program id; the real format comes from the Travelpayouts Links tool.
@@ -293,6 +294,29 @@ account = open(os.path.join(os.path.dirname(__file__), "..", "templates", "accou
 check("lodging + car partner cards carry the affiliate label, linking to the disclosure page",
       account.count("<a class=\"affiliate-disclosure lodging-affiliate-label\" href=\"{{ url_for('site.affiliates') }}\"") == 3
       and "קישור שותף: אם תזמינו דרך" not in account)
+
+root = os.path.join(os.path.dirname(__file__), "..", "templates")
+card_src = open(os.path.join(root, "_deal_card.html"), encoding="utf-8").read()
+fwd_src = open(os.path.join(root, "booking_forward.html"), encoding="utf-8").read()
+check("Din 23.10: the Kiwi commission sentence is gone from the flight card and the transition page (he/en)",
+      not any(x in card_src + fwd_src for x in ("אריאלה מקבלת עמלה מ-Kiwi.com", "Ariella receives a commission from Kiwi.com")))
+check("Din 23.10: the transition page uses the same disclosure macro as the card", "kiwi_disclosure(site_lang)" in fwd_src)
+check("Din 23.10: the separate-tickets warning (5.9) is untouched, in full",
+      "הספק מוכר את ההלוך והחזור כשני כרטיסים נפרדים." in fwd_src
+      and "This provider sells outbound and return as two separate tickets." in fwd_src)
+site_css = open(os.path.join(root, "..", "static", "site.css"), encoding="utf-8").read()
+base_html = open(os.path.join(root, "base.html"), encoding="utf-8").read()
+# Tom's QA (23.10): every <a> in .deal-price-box is styled as the blue booking button - the label
+# rendered as a full-width blue bar with an orphan "·". A targeted rule keeps it a plain inline link
+# (checked in Chromium at 375px: display inline, no background, 12px, ~64px wide, he/en).
+kiwi_rule = ".ariella-deal-card .deal-price-box .kiwi-affiliate .affiliate-disclosure a{"
+check("CSS: the label inside the card's price box is an inline link, not the booking button",
+      kiwi_rule in site_css and all(x in site_css.split(kiwi_rule, 1)[1].split("}", 1)[0]
+                                    for x in ("display:inline!important", "background:none!important", "padding:0!important",
+                                              "font-size:inherit!important", "width:auto!important")))
+check("CSS: the rule comes after the generic .deal-price-box a button rules (wins the cascade)",
+      site_css.index(kiwi_rule) > site_css.rindex(".deal-price-box a{"))
+check("site.css cache-busting version bumped for the fix", "site.css') }}?v=20261023-kiwi-label" in base_html)
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")
