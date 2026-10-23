@@ -5361,13 +5361,31 @@ def _destination_catalog_hint(state):
                  "במדינה הנכונה - חייבים כולם להיות ודאיים אצלך; אם ולו אחד מהם לא ודאי, אסור לך להמציא או "
                  "לנחש עיר/שדה/מדינה קרובים, אפילו אם הם נשמעים סבירים ומדויקים. אם לעיר עצמה אין שדה תעופה "
                  "מסחרי, או שאת לא בטוחה בשדה הקרוב ביותר - אמרי זאת בפשטות והציעי את השדה הקרוב ביותר "
-                 "בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם."
-                 # Run-11 E (Rovinj): Pula/Trieste were mentioned as info,
-                 # never asked, Pula then appeared in the summary as if
-                 # chosen - and the airport came up in the same message as
-                 # the baggage question.
-                 " אם יש יותר משדה קרוב אחד, זו שאלה שהלקוח בוחר בה: שאלי אותה כשאלה היחידה בהודעה (לא יחד עם "
-                 "נושא אחר), ולעולם אל תבחרי שדה בעצמך - גם לא בשורת \"נחיתה:\" בסיכום - לפני שהלקוח בחר.")
+                 "בשאלה אחת, במקום להציג שדה או מדינה שאינך בטוחה בהם.")
+        # Shaked/Shlomo's 5j finding (J0, 23.10.2026): this "fact" hint is
+        # never gated by _turn_question_arbiter (by design - a background
+        # fact must survive regardless of which question wins), but its
+        # own trailing sentence below is itself phrased as a competing
+        # "ask this as your one question" instruction - a second, generic
+        # one, right after the arbiter's own specific one ("the following
+        # question is the ONLY thing to ask... overrides every other open
+        # topic") for the EXACT SAME underlying situation (Bergen/Bergamo:
+        # "ברגם" has no catalog entry of its own precisely because it is
+        # the still-unresolved ambiguous spelling). Seen live: Tinkerbell
+        # asked the generic "which airport would you like to land at?"
+        # instead of the arbiter's specific "Bergen/Norway or Bergamo/
+        # Italy?". Only add this sentence when _turn_question_arbiter
+        # genuinely has nothing more specific of its own for this turn -
+        # _destination_ambiguous_hint already covers "more than one
+        # nearby option, ask the customer to choose" far more precisely
+        # (naming the real candidates) whenever it's live.
+        if not state.get("_destination_ambiguous_hint"):
+            # Run-11 E (Rovinj): Pula/Trieste were mentioned as info,
+            # never asked, Pula then appeared in the summary as if
+            # chosen - and the airport came up in the same message as
+            # the baggage question.
+            line += (" אם יש יותר משדה קרוב אחד, זו שאלה שהלקוח בוחר בה: שאלי אותה כשאלה היחידה בהודעה (לא יחד "
+                     "עם נושא אחר), ולעולם אל תבחרי שדה בעצמך - גם לא בשורת \"נחיתה:\" בסיכום - לפני שהלקוח בחר.")
     return line
 
 
@@ -8071,41 +8089,52 @@ def _scan_destination_tokens(tokens):
     names per the unified destination rule.
 
     EXCEPTION to condition א (the business owner, 23.10.2026, her own
-    concrete "ליון/יוון" example): a word that is itself an EXACT catalog
-    CITY match can still be a genuine ל/ב/מ-preposition typo for a
-    DIFFERENT real country - "ליון" exactly matches the city Lyon as
-    written, but strip its leading ל and "יון" lands distance 1 from
-    "יוון" (Greece), a real catalog country name. Condition א would
-    otherwise collapse this straight to Lyon and never even consider
-    Greece. Checked first, before the general exact-wins pass below: only
-    for a bare word that actually carries a stripped sibling (len>=3,
-    leading ל/ב/מ), only when the bare form's exact match is a city (not
-    already a country - no prefix ambiguity to resolve there), and only
-    when the stripped sibling near-matches one or more real countries at
-    distance 1 (not 0 - an exact country match on the stripped form is
-    the unrelated, already-decisive "יוון written exactly" case, not this
-    one). Real catalog data can make this a 3-way, not just 2-way (the
-    same stripped "יון" also lands distance 1 from "יפן"/Japan, pure
-    incidental Hebrew-spelling noise, not a real reading of the word) -
-    every near country found is included, never arbitrarily dropped to
-    force a clean pair: the structural signal's only job is deciding
-    whether this is worth a model call at all, never which candidate is
-    semantically real, so every genuine catalog near-match is handed to
-    the model (which still never offers the customer more than two of its
-    own final candidates, per _run_destination_recognition's unchanged
-    prompt). Flows into the existing ask-once-unless-corroborated
-    machinery (_run_destination_recognition / _quote_identifies_candidate_
-    place) rather than needing a separate mechanism - "ליון בצרפת" already
-    names France in the same message, so the normal corroborating-quote
-    check resolves it to Lyon without asking.
+    concrete "ליון/יוון" example, refined by her own follow-up decision
+    the same day after Shaked's review of 70f84795): a word that is
+    itself an EXACT catalog CITY match can still be a genuine ל/ב/מ-
+    preposition typo for a DIFFERENT real country - "ליון" exactly
+    matches the city Lyon as written, but strip its leading ל and "יון"
+    lands distance 1 from "יוון" (Greece), a real catalog country name.
+    Condition א would otherwise collapse this straight to Lyon and never
+    even consider Greece.
 
-    Returns (exact_hit, near_places, winning_needle): exact_hit is True
-    the moment any form exact-matches anything (city or country) anywhere
-    in the message - decisive, the caller never reverts a resolution or
-    asks a forced question in that case. Otherwise near_places is the
-    first genuine multi-way (2 or more) near-ambiguity found across any
-    token (city vs city, country vs country, or city vs one-or-more
-    countries), with winning_needle the exact form that produced it."""
+    An EARLIER version of this exception (committed, then reviewed)
+    tried to filter this structurally - first a plain edit-distance-1
+    test, then (after Shaked found that too broad - it also caught
+    באלי/מאלי, לואנדה/רואנדה, מנאוס/לאוס, three ordinary common cities
+    each coincidentally one edit from an unrelated country) a stricter
+    "genuine חסר/מלא spelling variant only" test. The business owner's
+    own final decision REJECTED filtering this structurally at all:
+    "במקום כלל אותיות ו'/י'... כשיש התאמה מדויקת לעיר וגם מדינה קרובה,
+    זה רק מועמד לספק... המודל מחליט אם יש ספק אמיתי" - a cheap exact-
+    city-match-plus-nearby-country finding is only ever a CANDIDATE for
+    doubt, never itself a forced question; the existing recognition call
+    (_run_destination_recognition) already has real-world judgment the
+    catalog's raw edit-distance never can, so it alone decides whether
+    "ליון" is genuinely ambiguous (probably yes) or "חופשה באלי" is not
+    (Bali, confidently, no question) - never a letter-pattern rule.
+    Checked first, before the general exact-wins pass below: only for a
+    bare word that actually carries a stripped sibling (len>=3, leading
+    ל/ב/מ), only when the bare form's exact match is a city (not already
+    a country - no prefix ambiguity to resolve there), and only when the
+    stripped sibling near-matches one or more real countries at distance
+    1 (not 0 - an exact country match on the stripped form is the
+    unrelated, already-decisive "יוון written exactly" case, not this
+    one). The caller (_run_destination_recognition) knows this candidate
+    set came from this exception (is_exact_city_exception, the 4th
+    return value) and, unlike the ordinary near/near structural signal,
+    never forces a corroborating quote before trusting the model's own
+    single confident pick - see that function's own docstring.
+
+    Returns (exact_hit, near_places, winning_needle, is_exact_city_
+    exception): exact_hit is True the moment any form exact-matches
+    anything (city or country) anywhere in the message - decisive, the
+    caller never reverts a resolution or asks a forced question in that
+    case. Otherwise near_places is the first genuine multi-way (2 or
+    more) near-ambiguity found across any token (city vs city, country
+    vs country, or city vs one-or-more countries), with winning_needle
+    the exact form that produced it, and is_exact_city_exception True
+    only when near_places came from this specific exception branch."""
     candidate_forms = _destination_candidate_forms(tokens)
     for forms in candidate_forms:
         if len(forms) != 2:
@@ -8121,9 +8150,9 @@ def _scan_destination_tokens(tokens):
             city_name, city_value = city_hit
             merged = {city_name: city_value}
             merged.update(country_hits)
-            return False, merged, bare
+            return False, merged, bare, True
     if any(_catalog_near_neighbor_places(form, max_distance=0) for forms in candidate_forms for form in forms):
-        return True, {}, None
+        return True, {}, None, False
     for forms in candidate_forms:
         for form in forms:
             found = _catalog_near_neighbor_places(form)
@@ -8136,8 +8165,8 @@ def _scan_destination_tokens(tokens):
             # coincidental 3-way Hebrew near-neighbor noise with nothing to
             # do with this fix, e.g. "סיירה לאונה").
             if len(found) == 2:
-                return False, found, form
-    return False, {}, None
+                return False, found, form, False
+    return False, {}, None, False
 
 
 def _destination_message_mentions_different_place(message, destination_evidence, prior_airports, prior_places):
@@ -8181,7 +8210,7 @@ def _destination_message_mentions_different_place(message, destination_evidence,
                 if _differs_from_prior(name_he, kind, codes):
                     return True
 
-    _, near_places, _ = _scan_destination_tokens(tokens)
+    _, near_places, _, _ = _scan_destination_tokens(tokens)
     if len(near_places) >= 2:
         for name_he, (kind, codes) in near_places.items():
             if _differs_from_prior(name_he, kind, codes):
@@ -8308,11 +8337,26 @@ def _run_destination_recognition(trip_update, destination_evidence, message, his
     model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
 
     tokens = _destination_message_tokens(message, destination_evidence)
-    exact_hit, near_places, _needle = _scan_destination_tokens(tokens)
-    structurally_ambiguous = not exact_hit and len(near_places) >= 2
+    exact_hit, near_places, _needle, is_exact_city_exception = _scan_destination_tokens(tokens)
+    # has_structural_candidates: show the model the real catalog candidates
+    # either way. structurally_ambiguous: additionally FORCE a corroborating
+    # quote before trusting a single confident pick - never for the exact-
+    # city-match exception (condition א's own "ליון/יוון" exception, see
+    # _scan_destination_tokens's own docstring). The business owner's final
+    # decision on that exception (23.10.2026, after Shaked's review of
+    # 70f84795): an exact-city-match-plus-nearby-country finding is only
+    # ever a CANDIDATE for doubt, never a forced question by itself - the
+    # model's own real-world judgment alone decides whether "ליון" is
+    # genuinely ambiguous or "חופשה באלי" plainly is not, exactly the same
+    # trust a single verified candidate already gets with NO structural
+    # signal at all (rule 2). Only the ordinary near/near structural
+    # signal (Bergen/Bergamo - two genuine near-misses, neither an exact
+    # match) still requires that extra corroboration.
+    has_structural_candidates = not exact_hit and len(near_places) >= 2
+    structurally_ambiguous = has_structural_candidates and not is_exact_city_exception
 
     catalog_candidates_text = ""
-    if structurally_ambiguous:
+    if has_structural_candidates:
         named = []
         for name_he, (kind, codes) in near_places.items():
             if kind == "city":
@@ -8330,12 +8374,15 @@ def _run_destination_recognition(trip_update, destination_evidence, message, his
             "עצמו באמת לא מבדיל ביניהם), או לאף אחד מהם (אם הוא בעצם מתכוון למשהו אחר לגמרי). לעולם "
             "אל תמציאי מועמד שלא הוזכר כאן, ולעולם אל תחזירי יותר משני מועמדים בתשובתך הסופית - אם "
             "יותר משניים מהיעדים שהוזכרו נשמעים סבירים, בחרי את שני הסבירים ביותר לפי הידע הכללי שלך.\n"
-            "חשוב: אם את בוחרת רק בחלק מהיעדים שהוזכרו למעלה (ולא בכולם), עליך למצוא בהודעה הנוכחית "
-            "של הלקוח ציטוט מילה-במילה נוסף, שהוא איננו שם היעד עצמו (או צורת הכתיב שלו), אלא פרט אחר "
-            "שבאמת מבדיל ביניהם - למשל שם המדינה/האזור, שדה תעופה, או כל רמז אחר. בלי ציטוט מבדיל כזה, "
-            "אסור לך לבחור רק חלק מהיעדים הסבירים - את חייבת להחזיר את כולם (עד שניים, הסבירים "
-            "ביותר), כי מבחינתנו זו עדיין אי-ודאות אמיתית.\n"
         )
+        if structurally_ambiguous:
+            catalog_candidates_text += (
+                "חשוב: אם את בוחרת רק בחלק מהיעדים שהוזכרו למעלה (ולא בכולם), עליך למצוא בהודעה הנוכחית "
+                "של הלקוח ציטוט מילה-במילה נוסף, שהוא איננו שם היעד עצמו (או צורת הכתיב שלו), אלא פרט אחר "
+                "שבאמת מבדיל ביניהם - למשל שם המדינה/האזור, שדה תעופה, או כל רמז אחר. בלי ציטוט מבדיל כזה, "
+                "אסור לך לבחור רק חלק מהיעדים הסבירים - את חייבת להחזיר את כולם (עד שניים, הסבירים "
+                "ביותר), כי מבחינתנו זו עדיין אי-ודאות אמיתית.\n"
+            )
 
     if unresolved_places is not None:
         intro = (
@@ -8572,11 +8619,33 @@ def _resolve_destination_by_meaning(trip_state, trip_update, destination_evidenc
             if airports_changed:
                 trip_update["destination_airports"] = list(prior_airports)
             new_airports = trip_update.get("destination_airports") or []
+            # Shaked's static review (23.10.2026, of 70f84795): a genuine
+            # typo'd correction ("בעצם נעדיף פראד"/"לברצלונע"/"לאמסטרם")
+            # has no exact catalog match AND no clean 2-way near-ambiguity
+            # either (it's simply too garbled to land near anything, or
+            # near only one thing) - the cost gate below (_destination_
+            # message_mentions_different_place) was built to SKIP the
+            # model call for the common case (nothing destination-related
+            # this turn), but it was also silently skipping the one case
+            # that matters most here: the EXTRACTOR ITSELF already
+            # believed the destination changed this very turn. Reverting
+            # and then falling through to the cost-gated branch below lost
+            # the correction for good - "an explicit correction is always
+            # saved" (rule 4) failing exactly when the spelling is bad
+            # enough to need the model's help the most. Only the extractor
+            # proposing a change this turn reaches here at all (rare), so
+            # unconditionally trying real recognition - never silently
+            # giving up - costs nothing on the common, unrelated-turn path
+            # the cost gate still protects everywhere else.
+            return _run_destination_recognition(
+                trip_update, destination_evidence, message, history,
+                None, prior_airports, prior_destination,
+            )
 
     fresh_resolution = not prior_airports and bool(new_airports)
     if fresh_resolution:
         tokens = _destination_message_tokens(message, destination_evidence)
-        exact_hit, near_places, winning_needle = _scan_destination_tokens(tokens)
+        exact_hit, near_places, winning_needle, _is_exception = _scan_destination_tokens(tokens)
         if exact_hit:
             return trip_update
         # Guard against the structural signal being about a completely
@@ -8664,7 +8733,7 @@ def _reverify_fresh_destination_resolution(trip_state, trip_update, destination_
     if prior_airports or not new_airports:
         return trip_update
     tokens = _destination_message_tokens(message, destination_evidence)
-    exact_hit, near_places, winning_needle = _scan_destination_tokens(tokens)
+    exact_hit, near_places, winning_needle, _is_exception = _scan_destination_tokens(tokens)
     if exact_hit or len(near_places) < 2:
         return trip_update
     new_destination = trip_update.get("destination") if isinstance(trip_update.get("destination"), dict) else {}
@@ -15388,6 +15457,72 @@ def chat_reset_conversation():
     return jsonify({'status': 'success'})
 
 
+def _destination_dependent_details_exist(trip_state):
+    """Shaked/Shlomo's 5j finding J6 (23.10.2026, qa/reports/2026-10-23-
+    dryrun5j.md): after "בעצם נעדיף פראג במקום וינה" (actually let's go
+    with Prague instead of Vienna), Ariella asked "should I delete the
+    route/lodging/car details that depend on the destination and rebuild
+    them?" even though the trip had none of those yet - a question about
+    destroying and rebuilding something that was never built in the first
+    place. The destination-change gate below always asked this same
+    question unconditionally, regardless of whether there was actually
+    anything destination-dependent to lose. Per the business owner's
+    instruction (relayed by Shlomo): only ask when something destination-
+    dependent genuinely exists; otherwise just save the new destination
+    and continue, exactly like applying a "yes" answer would, but without
+    ever asking the (now meaningless) question at all.
+
+    True when ANY of destination_airports, trip_planning.details.route,
+    a real lodging.details value, or a real car.details value is already
+    set - the same four things the question's own wording names
+    ("המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד")."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    if trip_state.get("destination_airports") or trip_state.get("return_departure_airports"):
+        return True
+    trip_planning = trip_state.get("trip_planning") if isinstance(trip_state.get("trip_planning"), dict) else {}
+    planning_details = trip_planning.get("details") if isinstance(trip_planning.get("details"), dict) else {}
+    if planning_details.get("route"):
+        return True
+    lodging = trip_state.get("lodging") if isinstance(trip_state.get("lodging"), dict) else {}
+    lodging_details = lodging.get("details") if isinstance(lodging.get("details"), dict) else {}
+    if any(lodging_details.values()):
+        return True
+    car = trip_state.get("car") if isinstance(trip_state.get("car"), dict) else {}
+    car_details = car.get("details") if isinstance(car.get("details"), dict) else {}
+    if any(car_details.values()):
+        return True
+    return False
+
+
+def _apply_destination_change(trip_state, new_destination):
+    """The actual state transition for a confirmed destination change -
+    shared by the "yes, delete and rebuild" answer and (per J6, see
+    _destination_dependent_details_exist's own docstring) the silent
+    fast path when there is nothing destination-dependent to lose in the
+    first place, so both apply the exact same change instead of two
+    separately-maintained copies of it."""
+    changed = dict(trip_state)
+    changed.pop("destination_change_pending", None)
+    changed["destination"] = {"places": [new_destination], "mode": "specific", "status": "known"}
+    # The old destination's arrival/return gateway codes are specific to
+    # that place (e.g. BUD for Budapest) and the system prompt treats
+    # destination_airports as locked once set, so a swap that left them
+    # in place would permanently strand the new destination on the old
+    # airport.
+    changed.pop("destination_airports", None)
+    changed.pop("return_departure_airports", None)
+    old_lodging = changed.get("lodging") if isinstance(changed.get("lodging"), dict) else {}
+    old_car = changed.get("car") if isinstance(changed.get("car"), dict) else {}
+    old_plan = changed.get("trip_planning") if isinstance(changed.get("trip_planning"), dict) else {}
+    changed["lodging"] = {"interested": old_lodging.get("interested", "unknown"), "details": {}}
+    changed["car"] = {"interested": old_car.get("interested", "unknown"), "details": {}}
+    changed["trip_planning"] = {"interested": old_plan.get("interested", "unknown"), "details": {}}
+    changed["ready_for_summary"] = False
+    changed["search_confirmed"] = False
+    changed["missing_required"] = []
+    return changed
+
+
 @ariella_chat_clean.post('/api/ariella/chat-clean')
 def chat_clean():
     """Thin per-turn timing wrapper around _chat_clean_impl() (the real
@@ -16591,6 +16726,16 @@ def _chat_clean_impl():
         if intent == "keep":
             kept = dict(trip_state)
             kept.pop("new_trip_pending", None)
+            # J6 fix (23.10.2026, Shaked/Shlomo): nothing destination-
+            # dependent to lose yet -> apply the change silently instead
+            # of asking a question about deleting/rebuilding details that
+            # were never built in the first place. See
+            # _destination_dependent_details_exist's own docstring.
+            if not _destination_dependent_details_exist(kept):
+                changed = _apply_destination_change(kept, pending_new_trip)
+                return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                                'reply':f'בסדר, היעד עודכן ל{pending_new_trip}. נמשיך מכאן.',
+                                'trip_update':changed,'start_flight_search':False})
             kept["destination_change_pending"] = pending_new_trip
             return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                             'reply':'שינוי היעד משנה גם את המסלול, הלינה, נקודות הרכב ופרטי הטיסה שתלויים ביעד. למחוק את הפרטים שתלויים ביעד ולבנות אותם מחדש ליעד החדש?',
@@ -16617,6 +16762,18 @@ def _chat_clean_impl():
                         'trip_update':pending,'start_flight_search':False})
 
     if destination_change and not trip_state.get("destination_change_pending"):
+        # J6 fix (23.10.2026, Shaked/Shlomo, "בעצם נעדיף פראג במקום וינה"):
+        # nothing destination-dependent to lose yet -> apply the change
+        # silently instead of asking a question about deleting/rebuilding
+        # details that were never built in the first place. See
+        # _destination_dependent_details_exist's own docstring.
+        if not _destination_dependent_details_exist(trip_state):
+            changed = _apply_destination_change(trip_state, destination_change)
+            return _reply({
+                'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
+                'reply':f'בסדר, היעד עודכן ל{destination_change}. נמשיך מכאן.',
+                'trip_update':changed,'start_flight_search':False
+            })
         pending = dict(trip_state)
         pending["destination_change_pending"] = destination_change
         return _reply({
@@ -16642,25 +16799,8 @@ def _chat_clean_impl():
             _dest_change_yes = _intent == "yes"
             _dest_change_no = _intent == "no"
         if _dest_change_yes:
-            changed = dict(trip_state)
-            new_destination = changed.pop("destination_change_pending")
-            changed["destination"] = {"places":[new_destination],"mode":"specific","status":"known"}
-            # The old destination's arrival/return gateway codes are specific
-            # to that place (e.g. BUD for Budapest) and the system prompt
-            # treats destination_airports as locked once set, so a swap that
-            # left them in place would permanently strand the new destination
-            # on the old airport.
-            changed.pop("destination_airports", None)
-            changed.pop("return_departure_airports", None)
-            old_lodging = changed.get("lodging") if isinstance(changed.get("lodging"), dict) else {}
-            old_car = changed.get("car") if isinstance(changed.get("car"), dict) else {}
-            old_plan = changed.get("trip_planning") if isinstance(changed.get("trip_planning"), dict) else {}
-            changed["lodging"] = {"interested":old_lodging.get("interested","unknown"),"details":{}}
-            changed["car"] = {"interested":old_car.get("interested","unknown"),"details":{}}
-            changed["trip_planning"] = {"interested":old_plan.get("interested","unknown"),"details":{}}
-            changed["ready_for_summary"] = False
-            changed["search_confirmed"] = False
-            changed["missing_required"] = []
+            new_destination = trip_state.get("destination_change_pending")
+            changed = _apply_destination_change(trip_state, new_destination)
             return _reply({
                 'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
                 'reply':'בסדר. היעד עודכן. את המסלול, הלינה והרכב נבנה מחדש בהתאם ליעד החדש.',

@@ -81,7 +81,7 @@ def _no_recognition(*a, **kw):
 #    catalog city is decisive even though it structurally neighbors a
 #    different real city/country - no model call needed, no question.
 # =====================================================================
-exact_hit, near, needle = chat._scan_destination_tokens(chat._destination_message_tokens("רוצים לטוס לוינה בקיץ", None))
+exact_hit, near, needle, _is_exc = chat._scan_destination_tokens(chat._destination_message_tokens("רוצים לטוס לוינה בקיץ", None))
 check("condition 1: an exact catalog match ('וינה'/Vienna) is decisive even though it's "
       "distance-1 from 'ורנה'/'וילנה' too", exact_hit is True)
 
@@ -139,7 +139,7 @@ check("E1 regression: a genuine corroborating quote ('ליד מילאנו', a re
 #    preposition - the old gateway path needed its own stripped-form
 #    retry; the unified function's shared tokenizer must still catch it.
 # =====================================================================
-exact_hit_e2, near_e2, needle_e2 = chat._scan_destination_tokens(chat._destination_message_tokens(E1_MESSAGE, "לברגם"))
+exact_hit_e2, near_e2, needle_e2, _is_exc = chat._scan_destination_tokens(chat._destination_message_tokens(E1_MESSAGE, "לברגם"))
 check("E2 regression: the shared tokenizer still finds the 2-way Bergen/Bergamo ambiguity "
       "through the raw ל-prefixed message token, no exact hit anywhere",
       exact_hit_e2 is False and len(near_e2) == 2)
@@ -150,7 +150,7 @@ check("E2 regression: the shared tokenizer still finds the 2-way Bergen/Bergamo 
 #    match - condition 1 applies across every candidate FORM, not just
 #    the first one tried.
 # =====================================================================
-exact_hit_macau, _, _ = chat._scan_destination_tokens(chat._destination_message_tokens("רוצים לטוס במקאו בסוף השנה", None))
+exact_hit_macau, _, _, _is_exc = chat._scan_destination_tokens(chat._destination_message_tokens("רוצים לטוס במקאו בסוף השנה", None))
 check("Macau ordering FIX: 'במקאו' (ב-prefixed) resolves via its stripped exact match "
       "('מקאו') rather than stopping at a near-miss on the raw form", exact_hit_macau is True)
 
@@ -504,16 +504,21 @@ check("cost gate regression: a genuine explicit correction still reaches the "
 #     if this ever regresses, it should fail loudly, not silently widen
 #     the known set back).
 #
-#     Four OTHER names the same full scan turns up (באלי/Bali, לואנדה/
-#     Luanda, ליון/Lyon, מנאוס/Manaus) are deliberately excluded - they
-#     are not a tokenizer bug at all, but the Lyon/Greece exact-match
-#     exception (section 14 below) correctly firing: each is itself an
-#     exact catalog CITY match whose own ל/ב/מ-stripped sibling genuinely
-#     lands distance 1 from a different real catalog country (מאלי/Mali,
-#     רואנדה/Rwanda, יוון/Greece, לאוס/Laos) - a real collision, not
-#     noise, so it is SUPPOSED to surface as a structural ambiguity now.
+#     "ליון"/Lyon, "באלי"/Bali, "לואנדה"/Luanda and "מנאוס"/Manaus are
+#     deliberately excluded - none is a tokenizer bug at all, but the
+#     exact-city-match exception (section 14 below) correctly flagging
+#     each as a CANDIDATE for doubt (an exact catalog CITY match whose
+#     own ל/ב/מ-stripped sibling also near-matches a different real
+#     catalog country). Per the business owner's final decision (23.10.2026,
+#     after Shaked's review of 70f84795 found an earlier, structurally-
+#     filtered version of this exception either too broad or too narrow):
+#     this finding is never itself a forced question, only a cheap
+#     candidate handed to the existing recognition call, which alone
+#     decides based on real-world judgment whether to ask (see section 14).
+#     So being flagged here is expected and harmless for all four, not a
+#     false positive to fix.
 # =====================================================================
-_KNOWN_EXACT_MATCH_EXCEPTION_NAMES = {"באלי", "לואנדה", "ליון", "מנאוס"}
+_KNOWN_EXACT_MATCH_EXCEPTION_NAMES = {"ליון", "באלי", "לואנדה", "מנאוס"}
 _catalog_names = sorted(set(
     name for name, _norm, _kind, _payload, _flag in chat._catalog_near_neighbor_place_entries()
 ))
@@ -523,7 +528,7 @@ for _name in _catalog_names:
         continue
     for _variant in (_name, "ל" + _name, "ב" + _name, "מ" + _name):
         _tokens = chat._destination_message_tokens("אני רוצה לטוס " + _variant + " בקיץ", None)
-        _exact_hit, _near, _needle = chat._scan_destination_tokens(_tokens)
+        _exact_hit, _near, _needle, _is_exc = chat._scan_destination_tokens(_tokens)
         if not _exact_hit and len(_near) == 2:
             _found_false_positives.add(_name)
             break
@@ -536,50 +541,142 @@ check(f"catalog scan FIX: zero false 2-way ambiguities across all "
 # =====================================================================
 # 14. The business owner's concrete "ליון/יוון" EXCEPTION to condition א
 #     (23.10.2026, relayed by Shlomo): an exact catalog CITY match is no
-#     longer unconditionally decisive when its own ל/ב/מ-stripped sibling
-#     is a near (distance-1) match for a DIFFERENT real catalog country -
+#     longer unconditionally decisive the moment its own ל/ב/מ-stripped
+#     sibling is also a near match for a DIFFERENT real catalog country -
 #     "ליון" exactly matches Lyon, but strip the ל and "יון" lands
-#     distance 1 from "יוון"/Greece. Ask once, naming both, UNLESS the
-#     customer's own quote already decides it ("ליון בצרפת").
+#     distance 1 from "יוון"/Greece.
+#
+#     TWO ROUNDS of refinement on HOW to decide whether this is a real
+#     question worth asking, both superseded by the business owner's own
+#     final call: round 1 (committed) trusted plain edit-distance-1,
+#     which Shaked's static review of 70f84795 found too broad - it also
+#     fired for three ordinary, unambiguous cities (באלי/Bali, לואנדה/
+#     Luanda, מנאוס/Manaus), each coincidentally one edit from an
+#     unrelated country; round 2 (also committed) tried a stricter
+#     חסר/מלא-spelling-only filter instead. The business owner's final
+#     decision REJECTED filtering this structurally at all: a cheap
+#     exact-city-match-plus-nearby-country finding is only ever a
+#     CANDIDATE for doubt, never itself a forced question - the existing
+#     recognition call's own real-world judgment decides whether "ליון"
+#     is genuinely ambiguous (probably yes - the model itself returns 2
+#     candidates) or "חופשה באלי" plainly is not (Bali, confidently - the
+#     model returns exactly 1, and it is trusted outright, with NO
+#     corroborating quote required, unlike the ordinary near/near
+#     structural signal). See _scan_destination_tokens's and
+#     _run_destination_recognition's own docstrings.
 # =====================================================================
 LYON_FRESH_STATE = {"destination_airports": []}
 LYON_UPDATE = {"destination_airports": ["LYS"], "destination": {"places": ["ליון"], "mode": "specific", "status": "known"}}
 
-check("condition א exception: the raw structural scan now finds a genuine "
-      "multi-way ambiguity for bare 'ליון' instead of a decisive exact hit",
-      chat._scan_destination_tokens(chat._destination_message_tokens("לטוס ליון בקיץ", None))[0] is False)
+_lyon_hit, _lyon_near, _lyon_needle, _lyon_is_exception = chat._scan_destination_tokens(
+    chat._destination_message_tokens("לטוס ליון בקיץ", None))
+check("condition א exception: the raw structural scan finds 'ליון' a candidate "
+      "for doubt (city Lyon, near country Greece) instead of a decisive exact hit",
+      _lyon_hit is False and "יוון" in _lyon_near)
+check("condition א exception: flagged as the exact-city-match exception, never "
+      "the ordinary near/near structural signal", _lyon_is_exception is True)
+
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
+        "evidence": "ליון", "disambiguating_evidence": None,
+        "candidates": [{"type": "city", "city_en": "Lyon", "iata_code": "LYS"},
+                        {"type": "country", "country_en": "Greece"}]})):
+    lyon_model_unsure = chat._resolve_destination_by_meaning(
+        LYON_FRESH_STATE, dict(LYON_UPDATE), None, "אני רוצה לטוס ליון בחודש הבא", [])
+check("Lyon/Greece: when the MODEL ITSELF genuinely cannot decide (returns both "
+      "real candidates), a bare 'ליון' is never silently resolved to Lyon - "
+      "destination_airports stays empty", lyon_model_unsure.get("destination_airports") == [])
+check("Lyon/Greece: a forced question is raised instead, naming the real "
+      "catalog candidates", bool(lyon_model_unsure.get("_destination_ambiguous_hint")))
 
 with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
         "evidence": "ליון", "disambiguating_evidence": None,
         "candidates": [{"type": "city", "city_en": "Lyon", "iata_code": "LYS"}]})):
-    lyon_bare = chat._resolve_destination_by_meaning(
+    lyon_model_confident = chat._resolve_destination_by_meaning(
         LYON_FRESH_STATE, dict(LYON_UPDATE), None, "אני רוצה לטוס ליון בחודש הבא", [])
-check("Lyon/Greece EXCEPTION: a bare 'ליון' with no disambiguating quote is never "
-      "silently resolved to Lyon - destination_airports stays empty",
-      lyon_bare.get("destination_airports") == [])
-check("Lyon/Greece EXCEPTION: a forced question is raised instead, naming the "
-      "real catalog candidates", bool(lyon_bare.get("_destination_ambiguous_hint")))
+check("Lyon/Greece FIX (the business owner's final decision): when the model "
+      "itself is confident (returns a single candidate), it is trusted directly - "
+      "NO corroborating quote required, unlike the ordinary near/near signal",
+      lyon_model_confident.get("destination_airports") == ["LYS"]
+      and not lyon_model_confident.get("_destination_ambiguous_hint"))
 
 with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
         "evidence": "ליון בצרפת", "disambiguating_evidence": "בצרפת",
         "candidates": [{"type": "city", "city_en": "Lyon", "iata_code": "LYS"}]})):
     lyon_decisive = chat._resolve_destination_by_meaning(
         LYON_FRESH_STATE, dict(LYON_UPDATE), None, "אני רוצה לטוס ליון בצרפת בחודש הבא", [])
-check("Lyon/Greece EXCEPTION: a decisive quote in the SAME message ('ליון בצרפת') "
+check("Lyon/Greece: a decisive quote in the SAME message ('ליון בצרפת') "
       "still resolves straight to Lyon, no question asked",
       lyon_decisive.get("destination_airports") == ["LYS"]
       and not lyon_decisive.get("_destination_ambiguous_hint"))
 
-# The exact same mechanism, generalized - not hardcoded to Lyon/Greece -
-# catches three OTHER real exact-city/stripped-country collisions the
-# full catalog scan (section 13) turns up for free: Bali/Mali,
-# Luanda/Rwanda, Manaus/Laos.
-for _city_name, _expected_country in (("באלי", "מאלי"), ("לואנדה", "רואנדה"), ("מנאוס", "לאוס")):
-    _hit, _near, _ = chat._scan_destination_tokens(
+# Shaked's static review of 70f84795 (23.10.2026): the structural finding
+# alone also fires for three other real, common catalog cities, each
+# coincidentally one edit from an unrelated country - but per the business
+# owner's final design, that is harmless by construction: it only ever
+# becomes a question if the MODEL ITSELF cannot decide. A confident single
+# pick (the overwhelmingly common real case) is trusted directly, same as
+# Lyon above - never structurally filtered, never a letter-pattern rule.
+for _city_name, _city_en, _code in (("באלי", "Bali", "DPS"), ("לואנדה", "Luanda", "LAD"), ("מנאוס", "Manaus", "MAO")):
+    _hit, _near, _, _is_exc = chat._scan_destination_tokens(
         chat._destination_message_tokens(f"לטוס {_city_name} בקיץ", None))
-    check(f"condition א exception generalizes (no hardcoded word list): "
-          f"{_city_name}/{_expected_country} is caught the same way as ליון/יוון",
-          _hit is False and _expected_country in _near)
+    check(f"condition א exception: {_city_name} is ALSO flagged as a candidate for "
+          "doubt structurally (same mechanism as Lyon, no special-casing)",
+          _hit is False and _is_exc is True)
+    _fresh_state = {"destination_airports": []}
+    _update = {"destination_airports": [_code], "destination": {"places": [_city_name], "mode": "specific", "status": "known"}}
+    with patch.object(chat, "_post_claude", side_effect=lambda *a, _en=_city_en, _c=_code, **kw: json.dumps({
+            "evidence": _city_name, "disambiguating_evidence": None,
+            "candidates": [{"type": "city", "city_en": _en, "iata_code": _c}]})):
+        _result = chat._resolve_destination_by_meaning(_fresh_state, dict(_update), None, f"לטוס {_city_name} בקיץ", [])
+    check(f"condition א exception FIX (business owner's final decision, no longer "
+          f"a forced question): {_city_name} resolves directly since the model is "
+          "confident - no corroboration needed, no question asked",
+          _result.get("destination_airports") == [_code] and not _result.get("_destination_ambiguous_hint"))
+
+# =====================================================================
+# 15. Shaked's static review of 70f84795 (23.10.2026), finding 1: a
+#     genuine typo'd correction ("בעצם נעדיף פראד"/"לברצלונע"/"לאמסטרם")
+#     has no exact catalog match AND no clean 2-way near-ambiguity either
+#     (too garbled to land near anything, or near only one thing) - the
+#     cost gate was built to skip the model call for the common,
+#     unrelated-turn case, but it was ALSO silently skipping the one case
+#     that matters most: the extractor itself already believed the
+#     destination changed this very turn (places_changed/airports_
+#     changed). Reverting and then falling through to the cost-gated
+#     branch lost the correction for good, violating rule 4 ("an explicit
+#     correction is always saved") exactly when the spelling is bad
+#     enough to need the model's help the most. Fixed: when the extractor
+#     itself proposes a change this turn, always try real recognition
+#     before/instead of a silent revert - never gated by the cheap
+#     catalog pre-check, since this path is rare by construction (only
+#     turns where the extractor itself claims a destination change).
+# =====================================================================
+VIE_STATE = {"destination_airports": ["VIE"], "destination": {"places": ["וינה"], "mode": "specific", "status": "known"}}
+TYPO_UPDATE = dict(VIE_STATE, destination={"places": ["פראד"], "mode": "specific", "status": "known"})
+
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
+        "evidence": "פראד", "disambiguating_evidence": None,
+        "candidates": [{"type": "city", "city_en": "Prague", "iata_code": "PRG"}]})):
+    typo_result = chat._resolve_destination_by_meaning(
+        VIE_STATE, dict(TYPO_UPDATE), None, "בעצם נעדיף פראד", [])
+check("cost gate FIX (Shaked's finding 1): a genuine typo'd correction with no exact/"
+      "near catalog signal at all is still recognized and saved, not silently lost",
+      typo_result.get("destination_airports") == ["PRG"])
+
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
+        "evidence": None, "candidates": [], "disambiguating_evidence": None})):
+    typo_no_evidence = chat._resolve_destination_by_meaning(
+        VIE_STATE, dict(TYPO_UPDATE), None, "בעצם נעדיף פראד", [])
+check("regression: when the model genuinely finds nothing either, the safe revert "
+      "to the prior destination still holds (never invents a destination)",
+      typo_no_evidence.get("destination_airports") == ["VIE"])
+
+_typo_calls = []
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: (_typo_calls.append(1), "{}")[1]):
+    chat._resolve_destination_by_meaning(VIE_STATE, dict(VIE_STATE), None, "מה לגבי כבודה?", [])
+check("cost gate regression: an ordinary unrelated turn (extractor proposes no "
+      "destination change at all) still spends zero model calls",
+      len(_typo_calls) == 0)
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-unified-destination-rule@example.com'")
