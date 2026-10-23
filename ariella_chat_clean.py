@@ -7856,6 +7856,67 @@ def _catalog_multiword_first_words():
     return _CATALOG_MULTIWORD_FIRST_WORDS_CACHE
 
 
+# Dry-run 5f (23.10.2026, Shaked's review of 6f52bd07): date/duration words
+# that can legitimately appear alongside a genuine disambiguating quote
+# ("לברגם, 12 עד 17 ביוני") but never distinguish Bergen from Bergamo on
+# their own - excluded so a quote padded only with these still counts as
+# NOT genuinely disambiguating. Deliberately narrow (date/number vocabulary
+# only, never a stand-in for recognizing what city/region the customer
+# meant - that stays the model's job via destination_evidence/candidates).
+_HE_DATE_DURATION_STOPWORDS = {
+    "בן", "שנה", "שנים", "עד", "מ", "יום", "ימים", "שבוע", "שבועות",
+    "חודש", "חודשים", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+    "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
+}
+
+
+def _disambiguating_quote_is_genuine(quote, reference_names, message):
+    """Dry-run 5f (23.10.2026): Shaked's own finding on the first version of
+    this check (6f52bd07) - a plain "quote != the unresolved place name"
+    comparison only catches an EXACT echo. It let through quotes that are
+    still nothing but the same name wrapped in a preposition or noise, none
+    of which actually distinguishes between the structurally-ambiguous
+    candidates: "לברגם" (same word, ל prefix), "ברגם," (trailing
+    punctuation), "בן שנה לברגם" (irrelevant context), "לברגם, 12 עד 17
+    ביוני" (dates added, nothing distinguishing). Every one of these still
+    satisfied the old check and would have silently resolved to one
+    candidate with no question asked - exactly the bug this whole function
+    exists to prevent.
+
+    Fixed per Shaked's own proposed design: split the quote into words:
+    a word only counts as genuinely distinguishing when, after stripping a
+    leading ל/ב/מ (the same preposition-vs-name-part ambiguity handled
+    throughout this file) and excluding date/duration vocabulary
+    (_HE_DATE_DURATION_STOPWORDS), it is NOT within edit distance 1 (final-
+    letter-normalized, same threshold _catalog_near_neighbor_cities uses)
+    of the unresolved place name itself or of either real candidate city
+    name. True only when at least one such word survives - a quote that is
+    entirely made of the name/its forms and/or date noise is never trusted,
+    however verbatim it is in the message."""
+    words = re.findall(r"[א-ת]+(?:['׳][א-ת]*)?", str(quote or ""))
+    if not words:
+        return False
+    reference_norms = [
+        _normalize_he_final_letters(str(name or "").strip())
+        for name in reference_names if str(name or "").strip()
+    ]
+    if not reference_norms:
+        return False
+    for word in words:
+        forms = [word]
+        if len(word) >= 2 and word[0] in "לבמ":
+            forms.append(word[1:])
+        if any(f in _HE_DATE_DURATION_STOPWORDS for f in forms):
+            continue
+        is_close_to_a_reference_name = any(
+            _levenshtein_distance(_normalize_he_final_letters(f), ref, max_distance=1) <= 1
+            for f in forms for ref in reference_norms
+        )
+        if not is_close_to_a_reference_name:
+            return True
+    return False
+
+
 def _destination_gateway_answer_by_meaning(message, history, state):
     """Mirrors _budget_answer_by_meaning/_baggage_answer_by_meaning's exact
     pattern. Round 12 finding D (Shaked/Shlomo, 22.10.2026, Hallstatt/
@@ -8043,11 +8104,11 @@ def _destination_gateway_answer_by_meaning(message, history, state):
     if len(verified) == 1 and len(near_cities) == 2:
         disambiguating_evidence = data.get("disambiguating_evidence")
         normalized_evidence = re.sub(r"\s+", " ", str(disambiguating_evidence or "").strip())
-        normalized_place = re.sub(r"\s+", " ", str(unresolved_places[0] or "").strip())
+        reference_names = [unresolved_places[0]] + list(near_cities.keys())
         has_genuine_disambiguation = (
             bool(normalized_evidence)
-            and normalized_evidence != normalized_place
             and _value_has_verbatim_evidence(disambiguating_evidence, message)
+            and _disambiguating_quote_is_genuine(disambiguating_evidence, reference_names, message)
         )
         record_diagnostic_event("destination_ambiguity_override", {
             "unresolved_place": unresolved_places[0],

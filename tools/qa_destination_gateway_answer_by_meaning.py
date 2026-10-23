@@ -524,6 +524,43 @@ check("dry-run 5f FIX regression: disambiguating_evidence that merely echoes the
       not result_bergen_echo.get("destination_airports"))
 
 
+# =====================================================================
+# Shaked's own review of 6f52bd07 (23.10.2026): the exact-string-equality
+# echo check above only catches an IDENTICAL echo - it let through a quote
+# that's still nothing but the same name wrapped in a preposition, trailing
+# punctuation, irrelevant context, or date noise. Four cases she named
+# directly, each of which must STILL be rejected.
+# =====================================================================
+def _make_fake_bergen_disambiguation(evidence_text):
+    def fake(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+        if source == "classifier" and _MARKER in str(system_static or ""):
+            return json.dumps({
+                "evidence": "ברגם",
+                "candidates": [{"city_en": "Bergamo", "iata_code": "BGY"}],
+                "disambiguating_evidence": evidence_text,
+            })
+        return "{}"
+    return fake
+
+
+for noisy_evidence, label in [
+    ("לברגם", "same word with a ל prefix"),
+    ("ברגם,", "same word with trailing punctuation"),
+    ("בן שנה לברגם", "irrelevant context, no real distinguishing content"),
+    ("לברגם, 12 עד 17 ביוני", "dates added, nothing actually distinguishing"),
+]:
+    message_with_evidence = f"{noisy_evidence} מתאים לנו"
+    with patch.object(chat, "_post_claude", side_effect=_make_fake_bergen_disambiguation(noisy_evidence)):
+        result_noisy = chat._destination_gateway_answer_by_meaning(
+            message_with_evidence,
+            [{"role": "assistant", "content": UNRELATED_REPLY}],
+            state_bergen,
+        )
+    check(f"dry-run 5f FIX (Shaked's review): disambiguating_evidence {noisy_evidence!r} "
+          f"({label}) is still rejected as non-genuine - forced ambiguous",
+          not result_noisy.get("destination_airports"))
+
+
 def _fake_bergen_single_pick_genuine_disambiguation(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
     if source == "classifier" and _MARKER in str(system_static or ""):
         # A genuinely distinguishing quote, verbatim in the message, that
