@@ -413,7 +413,7 @@
                           {% if item.get('official_url') %}<a class="itin-btn" href="{{ item.get('official_url') }}" target="_blank" rel="noopener">{{ 'Official site' if site_lang == 'en' else 'אתר רשמי' }}</a>{% endif %}
                           <a class="itin-btn" href="{{ item.get('map_url') }}" target="_blank" rel="noopener">📍 {{ 'Map' if site_lang == 'en' else 'במפה' }}</a>
                         </div>
-                        {% set ic = item.get('image_credit') %}{% if item.get('image') and ic %}<a class="itin-card-credit" href="{{ ic.page }}" target="_blank" rel="noopener" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">{{ ('Photo: ' ~ ic.artist ~ ' / ' ~ ic.license ~ ', via Wikimedia Commons') if site_lang == 'en' else ('צילום: ' ~ ic.artist ~ ' / ' ~ ic.license ~ ', דרך Wikimedia Commons') }}</a>{% endif %}
+                        {% set ic = item.get('image_credit') %}{% if item.get('image') and ic %}<a class="itin-card-credit" href="{{ ic.page }}" target="_blank" rel="noopener" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">{% if site_lang == 'en' %}Photo: {{ ic.artist }} / {{ ic.license }}, via Wikimedia Commons{% else %}צילום: <bdi>{{ ic.artist }} / {{ ic.license }}</bdi>, דרך Wikimedia Commons{% endif %}</a>{% endif %}
                       </div>
                     </article>
                   {% endfor %}

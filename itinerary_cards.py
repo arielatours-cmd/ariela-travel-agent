@@ -10,6 +10,7 @@ Honesty rules (per product owner):
   that isn't in the DB gets a map link only.
 - Images come from Wikipedia's page image for the place, when one exists.
 """
+import html
 import json
 import logging
 import os
@@ -103,6 +104,25 @@ def _wiki_image(name_en, city):
 _ALLOWED_IMAGE_LICENSES = re.compile(r"^(public domain|pd\b|cc0|cc by(-sa)?( \d(\.\d)?)?)", re.IGNORECASE)
 
 
+_UNKNOWN_ARTIST = re.compile(r"^(unknown( author| photographer)?|anonymous|anon\.?|author unknown|n/?a)$", re.IGNORECASE)
+
+
+def _commons_text(raw):
+    """Plain text from a Commons extmetadata HTML value. Hidden elements
+    (display:none - e.g. "Anonymous" followed by a hidden "Unknown author",
+    Tom's QA on File:Ponte Vecchio, Florence.jpg) are dropped before the
+    tags, then entities are decoded."""
+    text = str(raw or "")
+    text = re.sub(r"<(\w+)[^>]*display\s*:\s*none[^>]*>.*?</\1>", "", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<[^>]+>", "", text)
+    for _ in range(3):  # double-escaped entities too ("&amp;amp;")
+        unescaped = html.unescape(text)
+        if unescaped == text:
+            break
+        text = unescaped
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _image_license(file_title):
     """Licence metadata for a Wikipedia page image: {"artist", "license",
     "page"} when the file is on Commons under an allowed licence, else None
@@ -118,12 +138,13 @@ def _image_license(file_title):
         for page in ((resp.json().get("query") or {}).get("pages") or {}).values():
             info = (page.get("imageinfo") or [{}])[0]
             meta = info.get("extmetadata") or {}
-            license_name = str((meta.get("LicenseShortName") or {}).get("value") or "").strip()
-            artist = re.sub(r"<[^>]+>", "", str((meta.get("Artist") or {}).get("value") or "")).strip()
-            artist = re.sub(r"\s+", " ", artist)
+            license_name = _commons_text((meta.get("LicenseShortName") or {}).get("value"))
+            artist = _commons_text((meta.get("Artist") or {}).get("value"))
+            if _UNKNOWN_ARTIST.match(artist):
+                artist = ""  # Din: a known author only
             page_url = str(info.get("descriptionurl") or "")
             if (page_url.startswith("https://commons.wikimedia.org/") and artist and license_name
-                    and _ALLOWED_IMAGE_LICENSES.match(license_name) and not re.search(r"\b(NC|ND)\b", license_name)):
+                    and _ALLOWED_IMAGE_LICENSES.match(license_name) and not re.search(r"\b(nc|nd)\b", license_name.lower())):
                 return {"artist": artist, "license": license_name, "page": page_url}
     except Exception:
         logging.info("Wikimedia licence lookup failed for %s", file_title)

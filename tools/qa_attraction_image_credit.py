@@ -66,6 +66,20 @@ for lic in ("CC BY-NC-SA 2.0", "CC BY-ND 3.0", "Fair use", ""):
         check(f"licence '{lic or '(none)'}' -> no photo", itinerary_cards._wiki_image_licensed("Belem Tower", "Lisbon") == ("", None))
 with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY-SA 4.0", artist="")):
     check("no known author -> no photo", itinerary_cards._wiki_image_licensed("Belem Tower", "Lisbon") == ("", None))
+# Tom's QA (23.10): the real Artist HTML of File:Ponte Vecchio, Florence.jpg - stripping the tags alone gave
+# "AnonymousUnknown author", which passed as an author.
+PONTE = '<span>Anonymous</span><span style="display:none">Unknown author</span>'
+with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY-SA 3.0", artist=PONTE)):
+    check("Ponte Vecchio's real Artist HTML (Anonymous + hidden 'Unknown author') -> no photo",
+          itinerary_cards._wiki_image_licensed("Ponte Vecchio", "Florence") == ("", None))
+for unknown in ("Unknown author", "unknown", "Anonymous", "<i>Unknown photographer</i>"):
+    with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY 4.0", artist=unknown)):
+        check(f"author '{unknown}' -> no photo", itinerary_cards._wiki_image_licensed("X", "Y") == ("", None))
+with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY 4.0", artist='<a href="u">Jane &amp;amp; Co</a>')):
+    check("entities decoded, double-escaped too ('&amp;amp;' -> '&')",
+          (itinerary_cards._wiki_image_licensed("X", "Y")[1] or {}).get("artist") == "Jane & Co")
+with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("cc by-nc 2.0")):
+    check("NC/ND rejected whatever the case ('cc by-nc')", itinerary_cards._wiki_image_licensed("X", "Y") == ("", None))
 with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY-SA 4.0", page="https://en.wikipedia.org/wiki/File:Belem.jpg")):
     check("a local (non-Commons) file -> no photo", itinerary_cards._wiki_image_licensed("Belem Tower", "Lisbon") == ("", None))
 
@@ -90,9 +104,9 @@ with client.session_transaction() as sess:
 he = client.get("/account?lang=he").get_data(as_text=True)
 en = client.get("/account?lang=en").get_data(as_text=True)
 check("a licensed photo is shown", "thumb/Belem.jpg" in he)
-check("HE credit in Din's format, linking to the Commons page",
+check("HE credit in Din's format, linking to the Commons page, the author/licence in <bdi> (Tom's QA, as in #165)",
       '<a class="itin-card-credit" href="https://commons.wikimedia.org/wiki/File:Belem.jpg" target="_blank" rel="noopener" dir="rtl">'
-      "צילום: Jane Doe / CC BY-SA 4.0, דרך Wikimedia Commons</a>" in he)
+      "צילום: <bdi>Jane Doe / CC BY-SA 4.0</bdi>, דרך Wikimedia Commons</a>" in he)
 check("EN credit in Din's format", "Photo: Jane Doe / CC BY-SA 4.0, via Wikimedia Commons</a>" in en)
 check("a card built before this (no licence info) -> no photo", "thumb/Old.jpg" not in he and "thumb/Old.jpg" not in en)
 with sqlite3.connect(database.DB_PATH) as conn:
