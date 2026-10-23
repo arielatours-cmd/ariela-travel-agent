@@ -8025,10 +8025,23 @@ def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_
     reverting a perfectly correct, unambiguous resolution. Scanned against
     the full catalog (824 names): 24 real cities starting with ל/ב/מ
     (Miami, Bergen, Belgrade, Boston, Bari, Malta, among others) hit this.
-    Fixed: the moment any candidate form matches ANYTHING in the catalog
-    at all (a decisive exact match, a single near match, or a genuine
-    2-way ambiguity), that is the final answer - the stripped form is
-    only ever tried when the fuller form matched nothing whatsoever."""
+    Fixed in 6dbb3be0: the moment any candidate form matches ANYTHING in
+    the catalog at all, that was treated as the final answer.
+
+    Shaked's static review of 6dbb3be0 (23.10.2026) found that fix still
+    too narrow: when the customer's raw quote ALREADY includes a leading
+    ל/ב (e.g. "לדבלין"), the FULL form itself can land within edit-
+    distance 1 of two unrelated cities (e.g. "לדבלין" is distance-1 from
+    both "דבלין"/Dublin and "לובלין"/Lublin) - the loop stopped there,
+    on a near (non-exact) match, and never reached the stripped form
+    ("דבלין"), which has the real EXACT match. 18 catalog names with a
+    leading ל/ב hit this ("לדבלין"->{Dublin,Lublin}, "לאוסקה"->{Osaka,...},
+    among others). Fixed: an exact (distance-0) match on ANY candidate
+    form is checked FIRST, across all forms, before any near-match
+    (ambiguity) check runs at all - exact-anywhere always wins over
+    near-somewhere-else, exactly like condition א already does within a
+    single form. Only when no candidate form has an exact match does the
+    near-match loop run, stopping at the first form with any match."""
     trip_state = trip_state if isinstance(trip_state, dict) else {}
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
@@ -8041,14 +8054,20 @@ def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_
     candidates_to_try = [needle]
     if len(needle) >= 3 and needle[0] in "לבמ":
         candidates_to_try.append(needle[1:])
+    for candidate in candidates_to_try:
+        if _catalog_near_neighbor_cities(candidate, max_distance=0):
+            # A decisive exact match on SOME candidate form - never
+            # second-guessed by a near-miss on another form (e.g.
+            # "לדבלין" is near two cities, but its stripped form "דבלין"
+            # is an exact match to the real one - that wins outright).
+            return trip_update
     winning_needle, near_cities = None, {}
     for candidate in candidates_to_try:
         found = _catalog_near_neighbor_cities(candidate)
         if found:
-            # Something matched this candidate form - decisive exact
-            # match, a single near match, or a genuine 2-way ambiguity.
-            # Never fall through to strip a real leading letter off a
-            # form that already resolved against the real catalog.
+            # No candidate form had an exact match (checked above) - a
+            # near match (single or genuine 2-way ambiguity) on the
+            # first candidate form that has one is the final answer.
             winning_needle, near_cities = candidate, found
             break
     if len(near_cities) != 2:
