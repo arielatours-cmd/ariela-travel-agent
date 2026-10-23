@@ -4,7 +4,8 @@ results showed the button + "מציג תוצאות אמיתיות (כולל מב
 
 - The button and its text are gone, in Hebrew and English.
 - No results and no partner card -> the heading + a plain empty-state line,
-  like the car tab (no empty frame).
+  like the car tab (no empty frame) - also after a failed search: no message
+  without an action button (Shlomo, 23.10), the saved error isn't shown.
 - A partner card (Booking.com/CJ) still shows when there are no results,
   with no empty-state line under it.
 - The "להזמנה" / "Book" buttons of existing lodging results are untouched.
@@ -77,6 +78,13 @@ check("HE no results, no partner card: no button, a plain empty-state line",
       "<button" not in he and "כאן יוצגו אפשרויות לינה" in he)
 check("EN no results, no partner card: no button, a plain empty-state line",
       "<button" not in en and "Lodging options will appear here" in en and "Search real lodging" not in en)
+
+with patch.object(public_site, "_lodging_partner_cards", return_value=[]):
+    err = lodging_panel(page("qa-lodging-btn-err@example.com", dict(BASE, lodging_search_error="החיפוש נכשל, אפשר לנסות שוב בעוד רגע.")))
+    err_en = lodging_panel(page("qa-lodging-btn-err-en@example.com", dict(BASE, lodging_search_error="החיפוש נכשל, אפשר לנסות שוב בעוד רגע."), lang="en"))
+check("a saved search error isn't shown (no message without an action) - the same empty state instead",
+      "החיפוש נכשל" not in err and 'class="lodging-search-error"' not in err and "כאן יוצגו אפשרויות לינה" in err)
+check("EN: the same for a saved search error", 'class="lodging-search-error"' not in err_en and "Lodging options will appear here" in err_en)
 
 STAY = {"name": "Booking.com", "supplier": "Booking.com", "link": "https://example.com/stay", "dates": "", "guests": ""}
 with patch.object(public_site, "_lodging_partner_cards", return_value=[STAY]):

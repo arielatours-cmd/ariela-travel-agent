@@ -264,9 +264,9 @@
               {% endfor %}
             </div>
           {% else %}
-            {% if a.get('lodging_search_error') %}<div class="lodging-search-error">{{ a.get('lodging_search_error')|lodging_error_en if site_lang == 'en' else a.get('lodging_search_error') }}</div>{% endif %}
             {# The business owner (23.10): the "search real lodging" button and its text are gone. With no
-               results and no partner card the tab shows a plain empty-state line, like the car tab. #}
+               results and no partner card the tab shows a plain empty-state line, like the car tab - also
+               after a failed search (no message without an action button; the saved error isn't shown). #}
             {% if not partner_stays %}
             <div class="vacation-empty">{{ 'Lodging options will appear here based on your destination, dates and number of guests.' if site_lang == 'en' else 'כאן יוצגו אפשרויות לינה לפי היעד, התאריכים ומספר האורחים.' }}</div>
             {% endif %}
