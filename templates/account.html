@@ -265,19 +265,16 @@
             </div>
           {% else %}
             {% if a.get('lodging_search_error') %}<div class="lodging-search-error">{{ a.get('lodging_search_error')|lodging_error_en if site_lang == 'en' else a.get('lodging_search_error') }}</div>{% endif %}
-            <div class="booking-lodging-cta">
-              <form method="post" action="{{ url_for('site.search_lodging', trip_id=trip.id) }}">
-                <button type="submit" class="lodging-search-btn">{{ 'Search real lodging' if site_lang == 'en' else 'חיפוש לינה אמיתית' }}</button>
-              </form>
-              <small>{{ 'Shows real results (including Booking.com and other sites) for your destination, dates and number of guests.' if site_lang == 'en' else 'מציג תוצאות אמיתיות (כולל מבוקינג ואתרים נוספים) לפי היעד, התאריכים ומספר האורחים.' }}</small>
-            </div>
+            {# The business owner (23.10): the "search real lodging" button and its text are gone. With no
+               results and no partner card the tab shows a plain empty-state line, like the car tab. #}
+            {% if not partner_stays %}
+            <div class="vacation-empty">{{ 'Lodging options will appear here based on your destination, dates and number of guests.' if site_lang == 'en' else 'כאן יוצגו אפשרויות לינה לפי היעד, התאריכים ומספר האורחים.' }}</div>
+            {% endif %}
           {% endif %}
         </div>
         <style>
-          .booking-lodging-cta{text-align:center;padding:18px}
           .lodging-search-btn{display:inline-block;background:#0fc2b0;color:#fff!important;font-weight:800;padding:12px 28px;border-radius:999px;box-shadow:0 7px 20px rgba(15,194,176,.3);border:0;cursor:pointer;font-size:14px}
           .lodging-search-btn.secondary{background:#fff;color:#0fc2b0!important;border:1.5px solid #0fc2b0;box-shadow:none;padding:9px 20px;font-size:13px}
-          .booking-lodging-cta small{display:block;color:#8a7f6c;font-size:12px;margin-top:10px}
           .lodging-partner-card{margin-bottom:14px;border-color:#0fc2b0}
           .lodging-search-error{background:#fff3f0;border:1px solid #f3c6bb;color:#9a3b23;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;text-align:center}
           .lodging-results-list{display:grid;gap:14px;margin-bottom:14px}
