@@ -158,6 +158,13 @@
           .sub-plan-btn strong{display:block;color:#3a3025;font-size:11.5px;margin-bottom:2px}
           .sub-plan-btn small{color:#6d6459;font-size:10px;line-height:1.3}
           @media(max-width:520px){.sub-row{font-size:11.5px}}
+          .vacation-panel h3{white-space:nowrap}
+          .vacation-panel h3 .panel-title-short{display:none}
+          @media(max-width:480px){
+            .vacation-panel h3{font-size:1rem}
+            .vacation-panel h3 .panel-title-full{display:none}
+            .vacation-panel h3 .panel-title-short{display:inline}
+          }
         </style>
 
         <button type="button" class="vacation-collapse-toggle">{{ 'לפתיחה' if not loop.first else 'לסגירה' }}</button>
@@ -190,7 +197,7 @@
         </div>
 
         <div class="vacation-panel" id="lodging-{{ trip.id }}">
-          <h3>אפשרויות לינה ליעד ולתאריכים שלכם</h3>
+          <h3><span class="panel-title-full">אפשרויות לינה ליעד ולתאריכים שלכם</span><span class="panel-title-short">אפשרויות לינה</span></h3>
           {% macro partner_stay_card(stay) %}
             <div class="lodging-result-card lodging-partner-card">
               <div class="lodging-result-info">
