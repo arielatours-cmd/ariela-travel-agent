@@ -1,0 +1,56 @@
+⟵ זוג לפירמצה, 15 עד 21 באפריל, ובא לנו גם כמה ימים בסיינה
+    מעולה, פירנצה וסיינה זה שילוב נהדר. יום חמישי 15.04.2027–יום רביעי 21.04.2027 - שבוע טוב ליעד הזה. |  | רק לפני שנמשיך - האם מישהו מכם זקוק להתאמות נגישות כלשהן בטיול? זה לגמרי לא חובה, ואם כן זה יישמר רק לחופשה הזו.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    תודה. מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1500 שקל לאדם
+    תקציב של 1,500 ש"ח לאדם נקלט, תודה. |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא משנה
+    בסדר גמור. איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ מזוודה לכל אחד
+    מעולה, אז כל אחד עם מזוודה בבטן המטוס.  |  | לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ כן
+    נהדר! ספרו לי מה אתם אוהבים לעשות בחופשה.
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'active'} ready= False
+    !! no question mark
+    [topic] סגנון
+⟵ אמנות, יין ואוכל טוב, בלי לרוץ
+    מושלם - פירנצה וסיינה עם קצב רגוע, אמנות, יין טוב ואוכל איטלקי אמיתי. בניתי לכם מסלול שמתחלק בין שתי הערים ועם נגיעה לכרמים של קיאנטי באמצע. |  | יום 1, 15.4 (חמישי) | הגעה לפירנצה, התארגנות במלון. בשעות אחה"צ טיילו לאט ברובע האוֹלְטְרַרְנוֹ - פחות תיירותי, מלא בתי קפה וסדנאות אומנים. ארוחת ערב בטברנה משפחתית קטנה. |  | יום 2, 16.4 (שישי) | יום אמנות בפירנצה: גלריית האקדמיה (לראות את הדוד של מיכלאנג'לו בלי לעמוד בתור ארוכה - כדאי לקנות כרטיס מראש), ואז כיכר הדואומו והקתדרלה. אחה"צ גלריית אופיצי 
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'active'} ready= False
+    [topic] אישור
+⟵ מושלם, מתאים לנו
+    מצוין, המסלול מאושר. תרצי שאמשיך גם עם לינה לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'complete'} ready= False
+    [topic] לינה
+⟵ כן
+    איפה תעדיפו לישון - בפירנצה ובסיינה כפי שבנינו במסלול?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'active', 'trip_planning': 'complete'} ready= False
+    [topic] לינה
+⟵ כן
+    נעדכן את זה בהמשך בקלות. כמה חדרים תצטרכו ללינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'active', 'trip_planning': 'complete'} ready= False
+    [topic] חדרים
+⟵ חדר אחד
+    מה התקציב שלכם ללילה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'active', 'trip_planning': 'complete'} ready= False
+    [topic] תקציב_לינה
+⟵ עד 700 שקל ללילה
+    לסדר גם רכב שכור לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'complete', 'trip_planning': 'complete'} ready= False
+    [topic] רכב
+⟵ לא
+    אין בעיה, לא נזמין רכב - תמיד אפשר לחזור ולהוסיף את זה בהמשך אם תתחדש בכם המחשבה. |  | הטיול לפירנצה וסיינה |  | יציאה: נתב"ג (TLV) | נחיתה: פירנצה (FLR), איטליה | המראה בחזרה: פירנצה (FLR), איטליה | תאריכים: 15.04.2027 – 21.04.2027 | נוסעים: 2 מבוגרים | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב לאדם: 1,500 ש"ח |  | מסלול: 7 ימים בקצב רגוע בין פירנצה וסיינה - אמנות, יין וטעימות בקיאנטי, עם 3 לילות בפירנצה, לילה אחד בסיינה בדרך, ועוד 2 
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'complete', 'trip_planning': 'complete'} ready= True
+⟵ מאשרת
+    search: {'msg': 'מאשרת', 'http': 200, 'at': '14:33:24', 'body': {'status': 'queued', 'message': None, 'trip_id': 1, 'account_url': '/account#vacation-1'}}
+{"route_panel": true, "url": "/account", "length": 9168, "maps": 0, "cards": 126, "hebrew_runs": ["מסלול ואטרקציות\n          \n          \n            \n              \n                \n                  \n                    יום ", "פירנצה\n                  \n                  הגעה לפירנצה ורובע האולטררנו\n                  הגעה והתארגנות", "ואחריה טיול רגוע ברובע הציורי אולטררנו", "רובע האוֹלְטְרַרְנוֹ\n                        ", "שכונה אותנטית ופחות תיירותית עם בתי קפה וסדנאות אומנים", "נעימה לשיטוט איטי", "שעתיים\n                          \n                          \n                        \n                        \n                          \n                          \n                          ", "במפה\n                        \n                      \n                    \n                  \n                  ", "לינה", "פירנצה\n                \n              \n                \n                  \n                    יום "]}
+{"route_panel": true, "url": "/account", "length": 9078, "maps": 0, "cards": 126, "hebrew_runs": ["פירנצה\n                  \n                  הגעה לפירנצה ורובע האולטררנו\n                  הגעה והתארגנות", "ואחריה טיול רגוע ברובע הציורי אולטררנו", "רובע האוֹלְטְרַרְנוֹ\n                        ", "שכונה אותנטית ופחות תיירותית עם בתי קפה וסדנאות אומנים", "נעימה לשיטוט איטי", "פירנצה\n                \n              \n                \n                  \n                    ", "פירנצה\n                  \n                  יום אמנות בפירנצה\n                  יום המוקדש לגלריות האמנות הגדולות ולכיכר הדואומו המרכזית", "גלריית האקדמיה\n                        "]}
