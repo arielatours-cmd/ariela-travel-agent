@@ -3583,6 +3583,7 @@ def _enrich_approved_attractions(planning, assistant_plan):
                 "name_he": name_he,
                 "price": str(match.get("מחיר/הערת מחיר") or "").strip(),
                 "info": " • ".join(x for x in info_parts if x),
+                "info_en": str(match.get("duration_en") or "").strip(),
                 "booking_url": str(match.get("קישור הזמנה/כרטיסים") or match.get("אתר רשמי") or "").strip(),
             })
         else:

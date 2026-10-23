@@ -329,6 +329,7 @@ def build_itinerary_days(text, answers, post_claude, key, model):
                 "city": city,
                 "description": str(it.get("description") or "").strip(),
                 "duration": str(it.get("duration") or (match or {}).get("משך מומלץ") or "").strip(),
+                "duration_en": str((match or {}).get("duration_en") or "").strip(),
                 # Structured, verified price data only (Din, 22.10) - the old
                 # free-text price note is no longer shown.
                 "price_info": {f: (match or {}).get(f) for f in _PRICE_FIELDS},
