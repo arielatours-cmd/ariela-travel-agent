@@ -266,13 +266,26 @@ MISSED_REASON_EN = {
     "הגעה קצרה ונוחה משדה התעופה": "Short/easy airport transfer",
 }
 _TIME_PREF_EN = {"בוקר": "morning", "צהריים": "afternoon", "ערב": "evening"}
+
+
+def _time_pref_label_en(label, pref):
+    """"Outbound time (evening)"; an unknown preference value (e.g. "לילה")
+    is dropped rather than shown in Hebrew: just "Outbound time"."""
+    pref = str(pref or "").strip()
+    if pref in _TIME_PREF_EN:
+        return f"{label} ({_TIME_PREF_EN[pref]})"
+    if pref and not re.search(r"[\u0590-\u05FF]", pref):
+        return f"{label} ({pref})"
+    return label
+
+
 _MISSED_REASON_PATTERNS_EN = (
     (re.compile(r"^(\d+) ימים$"), lambda m: f"{m.group(1)} days"),
     (re.compile(r"^עד (\d+) קונקשן/ים$"), lambda m: f"Up to {m.group(1)} connection(s)"),
-    (re.compile(r"^שעת טיסה הלוך \((.+)\)$"), lambda m: f"Outbound time ({_TIME_PREF_EN.get(m.group(1), m.group(1))})"),
-    (re.compile(r"^שעת טיסה חזור \((.+)\)$"), lambda m: f"Return time ({_TIME_PREF_EN.get(m.group(1), m.group(1))})"),
-    (re.compile(r"^Outbound time \((.+)\)$"), lambda m: f"Outbound time ({_TIME_PREF_EN.get(m.group(1), m.group(1))})"),
-    (re.compile(r"^Return time \((.+)\)$"), lambda m: f"Return time ({_TIME_PREF_EN.get(m.group(1), m.group(1))})"),
+    (re.compile(r"^שעת טיסה הלוך \((.+)\)$"), lambda m: _time_pref_label_en("Outbound time", m.group(1))),
+    (re.compile(r"^שעת טיסה חזור \((.+)\)$"), lambda m: _time_pref_label_en("Return time", m.group(1))),
+    (re.compile(r"^Outbound time \((.+)\)$"), lambda m: _time_pref_label_en("Outbound time", m.group(1))),
+    (re.compile(r"^Return time \((.+)\)$"), lambda m: _time_pref_label_en("Return time", m.group(1))),
 )
 
 
@@ -2013,12 +2026,12 @@ def _objective_match_details(offer, trip):
     if dep_pref:
         dep_minutes = _scoring_minutes_of_day(offer.get("departure_time"))
         dep_ok = dep_minutes is not None and _scoring_time_band(dep_minutes) == _SCORING_TIME_PREF_TO_BAND.get(dep_pref)
-        add(dep_ok, f"שעת טיסה הלוך ({dep_pref})", f"Outbound time ({_TIME_PREF_EN.get(dep_pref, dep_pref)})")
+        add(dep_ok, f"שעת טיסה הלוך ({dep_pref})", _time_pref_label_en("Outbound time", dep_pref))
     ret_pref = str(answers.get("return_time_preference") or "").strip()
     if ret_pref:
         ret_minutes = _scoring_minutes_of_day(offer.get("return_departure_time"))
         ret_ok = ret_minutes is not None and _scoring_time_band(ret_minutes) == _SCORING_TIME_PREF_TO_BAND.get(ret_pref)
-        add(ret_ok, f"שעת טיסה חזור ({ret_pref})", f"Return time ({_TIME_PREF_EN.get(ret_pref, ret_pref)})")
+        add(ret_ok, f"שעת טיסה חזור ({ret_pref})", _time_pref_label_en("Return time", ret_pref))
 
     # Regular-vacation preferences: every selected item is part of the 100% match.
     if str(answers.get("vacation_type") or "standard") == "standard":

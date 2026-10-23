@@ -253,10 +253,15 @@ def check_missed_reasons() -> tuple[list[str], int]:
     for text in sorted(texts):
         if not public_site._missed_reason_en(text):
             failures.append(f"missing English for 'Missing:' label {text!r} - add it to public_site.MISSED_REASON_EN")
-    for sample in ("5 ימים", "עד 1 קונקשן/ים", "שעת טיסה הלוך (ערב)", "שעת טיסה חזור (בוקר)"):
+    samples = ("5 ימים", "עד 1 קונקשן/ים", "שעת טיסה הלוך (ערב)", "שעת טיסה חזור (בוקר)",
+               # an unknown time-preference value must not leak in Hebrew (Shaked, 23.10)
+               "שעת טיסה חזור (לילה)", "Return time (לילה)")
+    for sample in samples:
         if re.search(r"[֐-׿]", public_site._missed_reason_en(sample)) or not public_site._missed_reason_en(sample):
             failures.append(f"f-string 'Missing:' label {sample!r} has no English pattern")
-    return failures, len(texts) + 4
+    if public_site._time_pref_label_en("Return time", "לילה") != "Return time":
+        failures.append("unknown time preference: expected plain 'Return time'")
+    return failures, len(texts) + len(samples)
 
 
 def _contains(actual, expected) -> bool:
