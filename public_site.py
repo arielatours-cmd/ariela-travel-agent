@@ -675,7 +675,7 @@ def _ski_selected_condition_details(offer, trip):
         "snow": ("snow", "סיכוי גבוה לשלג טוב", "Snow reliability"),
         "family": ("family", "מתאים למשפחות", "Family friendly"),
         "large": ("size", "אתר גדול ומגוון", "Large & varied resort"),
-        "value": ("value", "מחיר משתלם", "Good value"),
+        "value": ("value", "מחיר משתלם", "Good price"),
         "atmosphere": ("atmosphere", "מסעדות ואווירה", "Restaurants & atmosphere"),
         "nightlife": ("nightlife", "Après-ski וחיי לילה", "Après-ski & nightlife"),
         "spa": ("spa", "ספא ופינוקים", "Spa & pampering"),
