@@ -66,12 +66,12 @@
               {% if 'direct' in deal_priorities %}<li><b>{{ 'Flight preference:' if site_lang == 'en' else 'העדפת טיסה:' }}</b> {{ 'Direct only' if site_lang == 'en' else 'ישירה בלבד' }}</li>{% endif %}
               {% if baggage_list %}<li><b>{{ 'Baggage:' if site_lang == 'en' else 'כבודה:' }}</b> {% for b in baggage_list %}{{ baggage_he.get(b|string|lower, b) }}{{ ', ' if not loop.last }}{% endfor %}</li>{% endif %}
               {% if a.get('vacation_type') == 'business' and a.get('cabin_class') and a.get('cabin_class') != 'any' %}
-                <li><b>{{ 'Cabin class:' if site_lang == 'en' else 'מחלקת טיסה:' }}</b> {{ a.get('cabin_class') }}</li>
+                <li><b>{{ 'Cabin class:' if site_lang == 'en' else 'מחלקת טיסה:' }}</b> {{ a.get('cabin_class')|answer_label('cabin_class') }}</li>
               {% endif %}
               {% if a.get('vacation_type') == 'ski' %}
                 {% if a.get('ski_resort_names') %}<li><b>{{ 'Ski resort:' if site_lang == 'en' else 'אתר סקי:' }}</b> {{ (a.get('ski_resort_names') if site_lang == 'en' else (a.get('ski_resort_names_he') or a.get('ski_resort_names')))|join(', ') }}</li>{% endif %}
-                {% if a.get('ski_skill_level') %}<li><b>{{ 'Ski level:' if site_lang == 'en' else 'רמת סקי:' }}</b> {{ a.get('ski_skill_level') }}</li>{% endif %}
-                {% if a.get('ski_transfer_choice') and a.get('ski_transfer_choice') != 'any' %}<li><b>{{ 'Airport transfer:' if site_lang == 'en' else 'העברה משדה התעופה:' }}</b> {{ a.get('ski_transfer_choice') }}</li>{% endif %}
+                {% if a.get('ski_skill_level') %}<li><b>{{ 'Ski level:' if site_lang == 'en' else 'רמת סקי:' }}</b> {{ a.get('ski_skill_level')|answer_label('ski_skill_level') }}</li>{% endif %}
+                {% if a.get('ski_transfer_choice') and a.get('ski_transfer_choice') != 'any' %}<li><b>{{ 'Airport transfer:' if site_lang == 'en' else 'העברה משדה התעופה:' }}</b> {{ a.get('ski_transfer_choice')|answer_label('ski_transfer_choice') }}</li>{% endif %}
               {% endif %}
             </ul>
           </div>
@@ -220,7 +220,7 @@
           {% set default_group_label = (trip.destination_display or trip.request_name or ('Lodging' if site_lang == 'en' else 'לינה')) ~ ((' · ' ~ (a.get('departure_date') ~ ' – ' ~ a.get('return_date'))|he_dates) if a.get('departure_date') and a.get('return_date') else '') %}
           {% set lodging_groups = [] %}
           {% for hotel in lodging_offers %}
-            {% set group_label = ((hotel.get('segment_location') ~ ((' · ' ~ hotel.get('segment_dates')|he_dates) if hotel.get('segment_dates') else '')) if hotel.get('segment_location') else default_group_label) %}
+            {% set group_label = ((hotel.get('segment_location')|place_label ~ ((' · ' ~ hotel.get('segment_dates')|he_dates) if hotel.get('segment_dates') else '')) if hotel.get('segment_location') else default_group_label) %}
             {% if not lodging_groups or lodging_groups[-1].label != group_label %}{% set _ = lodging_groups.append({'label': group_label, 'hotels': []}) %}{% endif %}
             {% if hotel.get('link') %}{% set _ = lodging_groups[-1].hotels.append(hotel) %}{% endif %}
           {% endfor %}
