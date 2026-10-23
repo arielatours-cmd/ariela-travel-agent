@@ -57,7 +57,7 @@
       "verified": false
     }
   ],
-  "current_serpapi_plan": "אין מנוי פעיל (בוטל 8.10) — יתרה 4,817 חיפושים",
+  "current_serpapi_plan": "אין מנוי פעיל (Cancelled, תאריך 2026-10-23) — יתרה 4,492 חיפושים ב-23.10 08:57; לא ודאי שהיתרה נשמרת אחרי 23.10",
   "wide_scan_cap_per_run": 220,
   "wide_scan_avg_requests_per_run": 220,
   "paid_scan_requests_single_gateway": 3,
@@ -218,5 +218,14 @@
   "plan_changes_included": {
     "scan": 1,
     "update": null
-  }
+  },
+  "serpapi_checkpoints": [
+    {
+      "time": "2026-10-23 08:57",
+      "searches_left": 4492,
+      "used_since_2026-10-14": 320,
+      "source": "צילום חשבון SerpAPI, בעלת העסק דרך שלמה 23.10",
+      "note": "סתירה: תמיכת SerpAPI אמרה בצ'אט ב-8.10 שהיתרה נשמרת עד הרשמה מחדש; עמוד המחירים (serpapi.com/pricing) אומר שאחרי ביטול משתמשים ביתרה עד תאריך החידוש ושחיפושים לא עוברים לחודש הבא; לבדוק את היתרה ב-24.10"
+    }
+  ]
 }
