@@ -341,6 +341,99 @@ check("E1 e2e (real endpoint): the extractor's own direct fresh resolution to Be
 check("E1 e2e (real endpoint): a one-turn ambiguous hint naming both real candidates is "
       "produced instead", bool(tu_e2e.get("_destination_ambiguous_hint")))
 
+# =====================================================================
+# 9. Shaked's own sharper static finding (23.10.2026, re-reading 5369766b
+#    with no live diagnostics needed): E1's REAL root cause was never the
+#    extractor writing destination_airports directly - it only ever
+#    corrected destination.places to the catalog's own exact spelling
+#    ("ברגמו"), leaving destination_airports empty. _resolve_destination_
+#    airports_from_route's own "plain destination name" fallback then
+#    derived BGY from that ALREADY-CORRECTED spelling at the end of the
+#    turn, with the original ambiguity invisible by then - neither the
+#    FRESH branch (destination_airports was still empty when the early
+#    call ran) nor the UNRESOLVED branch (places already matched a real
+#    catalog city exactly) ever saw it. _reverify_fresh_destination_
+#    resolution is the end-of-turn invariant that catches this.
+# =====================================================================
+E1_SHAKED_ROUTE_BYPASS_STATE = {
+    "destination": {"places": ["ברגמו"], "mode": "specific", "status": "known"},
+}  # no destination_airports key at all - exactly the extractor's own output
+
+
+def _fake_e1_route_bypass(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier":
+        return json.dumps({"evidence": "לברגם", "disambiguating_evidence": None,
+                            "candidates": [{"type": "city", "city_en": "Bergamo", "iata_code": "BGY"}]})
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_e1_route_bypass):
+    tu_after_early = chat._resolve_destination_by_meaning(
+        {}, dict(E1_SHAKED_ROUTE_BYPASS_STATE), None, E1_MESSAGE, [])
+    check("Shaked's static finding: the early call alone does NOT catch this shape - "
+          "destination.places still exactly matches Bergamo, destination_airports still empty "
+          "(confirms the gap existed before the late invariant)",
+          not tu_after_early.get("destination_airports")
+          and tu_after_early.get("destination", {}).get("places") == ["ברגמו"])
+    tu_after_route = chat._resolve_destination_airports_from_route(dict(tu_after_early))
+    check("Shaked's static finding reproduced: the route resolver's 'plain destination name' "
+          "fallback silently derives BGY from the already-corrected spelling, bypassing the "
+          "early call entirely", tu_after_route.get("destination_airports") == ["BGY"])
+    tu_final = chat._reverify_fresh_destination_resolution({}, dict(tu_after_route), None, E1_MESSAGE, [])
+check("E1 FIX (Shaked's own root cause): the late invariant catches the route resolver's "
+      "bypass and reverts it - destination_airports does NOT silently end up BGY",
+      not tu_final.get("destination_airports"))
+check("E1 FIX (Shaked's own root cause): a one-turn ambiguous hint naming both real "
+      "candidates is produced instead", bool(tu_final.get("_destination_ambiguous_hint")))
+
+# =====================================================================
+# 10. Shaked's own point 2: a genuinely CONFIRMED customer choice must
+#     never be reverted by the late invariant - it is already an exact
+#     catalog match to real wording actually used this turn.
+# =====================================================================
+hallstatt_tu = chat._reverify_fresh_destination_resolution(
+    {}, {"destination": {"places": ["זלצבורג"], "mode": "specific", "status": "known"},
+         "destination_airports": ["SZG"]},
+    None, "זלצבורג מתאים לנו", [])
+check("regression (Hallstatt/Salzburg confirmed choice): the late invariant never touches "
+      "an exact catalog match actually named in the message",
+      hallstatt_tu.get("destination_airports") == ["SZG"])
+
+# A confirmed answer with NOTHING catalog-relevant in the message at all
+# (e.g. a route/ski resort confirmation with no place name in this one
+# message) must also be left untouched - no exact hit and no 2-way
+# near-ambiguity means nothing to revert.
+route_confirm_tu = chat._reverify_fresh_destination_resolution(
+    {}, {"destination": {"places": ["Zagreb"], "mode": "specific", "status": "known"},
+         "destination_airports": ["ZAG"]},
+    None, "מאשרים את המסלול, נשמע מעולה", [])
+check("regression (approved route with no place-name in this message): the late invariant "
+      "leaves a confirmed resolution untouched when the message has no ambiguous token at all",
+      route_confirm_tu.get("destination_airports") == ["ZAG"])
+
+# =====================================================================
+# 11. QA live finding (23.10.2026, qa_round6_reopen_gate_after_approved_
+#     route, Sicily): the message-wide structural scan found an
+#     unrelated word elsewhere in the message ("מלון"/hotel, stripped of
+#     its leading מ -> "לון", distance-1 from both "ליון"/Lyon and
+#     "לוב"/Libya) and silently replaced a perfectly correct, unambiguous
+#     region-to-airports resolution (Sicily -> CTA+PMO, a deterministic
+#     multi-airport match, never itself a typo/ambiguity case) with the
+#     unrelated collision. _near_places_relevant now guards every
+#     deterministic use of the structural signal against exactly this.
+# =====================================================================
+sicily_route_resolved = {
+    "destination": {"places": ["סיציליה"], "mode": "specific", "status": "known"},
+    "destination_airports": ["CTA", "PMO"],
+}
+sicily_late = chat._reverify_fresh_destination_resolution(
+    {}, dict(sicily_route_resolved), None, "כן, גם לינה. מלון בבקשה", [])
+check("regression (Sicily/CTA+PMO vs unrelated 'מלון'->'לון'->Lyon/Libya collision): the "
+      "late invariant never touches a resolution that has nothing to do with the "
+      "structurally-flagged candidates",
+      sicily_late.get("destination_airports") == ["CTA", "PMO"]
+      and sicily_late.get("destination", {}).get("places") == ["סיציליה"])
+
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-unified-destination-rule@example.com'")
     conn.commit()
