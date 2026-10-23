@@ -246,7 +246,7 @@
                     {% if hotel.get('link') %}
                       {% set affiliate = is_affiliate_lodging_link(hotel.get('link')) %}
                       <a class="lodging-search-btn car-partner-btn lodging-book-btn" href="{{ hotel.get('link') }}" target="_blank" rel="noopener{{ ' sponsored' if affiliate else '' }}">{{ 'Book →' if site_lang == 'en' else 'להזמנה ←' }}</a>
-                      {% if affiliate %}<a class="affiliate-disclosure lodging-affiliate-label" href="{{ url_for('site.affiliates') }}" target="_blank" rel="noopener">קישור שותף</a>{% endif %}
+                      {% if affiliate %}<a class="affiliate-disclosure lodging-affiliate-label" href="{{ url_for('site.affiliates') }}" target="_blank" rel="noopener">{{ 'Affiliate link' if site_lang == 'en' else 'קישור שותף' }}</a>{% endif %}
                     {% endif %}
                   </div>
                 </div>
