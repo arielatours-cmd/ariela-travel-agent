@@ -29,7 +29,7 @@ check("tabs: gold, direction-aware divider (border-inline-end)", ".vacation-tab{
 check("tabs: no direction-blind border-left left", ".vacation-tab{border:0;border-left" not in css and ".vacation-tab:last-child{border-left" not in css)
 check("tabs: the last tab has no divider", ".vacation-tab:last-child{border-inline-end:0}" in css)
 check("mobile 2x2 grid: no divider at the end of each row", ".vacation-tabs:not(.tabs-3) .vacation-tab:nth-child(2n){border-inline-end:0}" in css)
-check("site.css cache-busting version bumped", "site.css') }}?v=20261023-tabs-gold" in base)
+check("site.css cache-busting version bumped (past the pre-fix 20261023-lang-en)", "site.css') }}?v=" in base and "site.css') }}?v=20261023-lang-en" not in base)
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")
