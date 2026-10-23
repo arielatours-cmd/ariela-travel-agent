@@ -416,6 +416,49 @@ def _strip_foreign_booking_affiliate_params(url: str) -> str:
         return url
 
 
+def _booking_com_party_params(answers: dict) -> list[tuple]:
+    """Booking.com's guest parameters for the vacation's party (the business
+    owner, 23.10 - Shaked's booking-links audit: every booking button must
+    arrive with the dates AND the travelers). Booking.com shows no price for a
+    room with a child until it knows the child's age, so an "age" is repeated
+    per child - the customer's own child_ages (answers["age_groups"]); a child
+    whose age the chat never got is counted but its age isn't guessed.
+    no_rooms is the customer's own lodging answer (lodging.details.rooms),
+    default 1."""
+    adults = _int_or(answers.get("adults"), 2) or 1
+    children = _int_or(answers.get("children"), 0)
+    ages = []
+    for age in (answers.get("age_groups") if isinstance(answers.get("age_groups"), list) else []):
+        try:
+            age = int(age)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= age <= 17:
+            ages.append(age)
+    params = [("group_adults", adults), ("group_children", children)]
+    params += [("age", age) for age in ages[:children]]
+    params.append(("no_rooms", _int_or(answers.get("lodging_rooms"), 1) or 1))
+    return params
+
+
+_BOOKING_COM_STAY_KEYS = {"checkin", "checkout", "group_adults", "group_children", "age", "no_rooms",
+                          "req_adults", "req_children", "req_age"}
+
+
+def _with_booking_com_stay(url: str, checkin: str, checkout: str, answers: dict) -> str:
+    """A booking.com hotel link from Google Hotels opens the hotel page empty
+    (Shaked's audit, 23.10). Fill in the stay - the dates and the party -
+    replacing whatever stay parameters the link already carried; every other
+    parameter (the hotel itself, aid/label already stripped) is kept."""
+    try:
+        parsed = urlsplit(str(url or ""))
+        kept = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k not in _BOOKING_COM_STAY_KEYS]
+        stay = ([("checkin", checkin), ("checkout", checkout)] if checkin and checkout else []) + _booking_com_party_params(answers)
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(kept + stay, quote_via=quote), parsed.fragment))
+    except Exception:
+        return url
+
+
 _SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
 try:
     _loaded_ski = json.loads(_SKI_DB_FILE.read_text(encoding="utf-8")).get("resorts", [])
@@ -5339,7 +5382,7 @@ def _save_trip_answers(trip_id: int, answers: dict) -> None:
         conn.commit()
 
 
-def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int) -> list[dict]:
+def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int, answers: dict | None = None) -> list[dict]:
     """Seen live (Shaked): every Google Hotels result card's own "view and
     book" button sends the customer straight to booking.com, uncredited -
     SerpApi's google_hotels engine returns each property's real booking
@@ -5360,11 +5403,22 @@ def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int) -> list[dict
     never booking.com's, so _is_booking_com_url is false on a second pass
     and it is left alone - safe to call again on data this already ran
     on (e.g. at render time, to cover vacations saved before this fix
-    shipped, not just newly searched ones)."""
+    shipped, not just newly searched ones).
+
+    With the vacation's answers (at search time), the link first gets the
+    stay filled in - the hotel's own segment dates (else the trip's) and
+    the party (_with_booking_com_stay) - so the customer lands on the hotel
+    page with prices, not an empty search (Shaked's audit, 23.10)."""
     for hotel in hotels:
         link = hotel.get("link")
         if link and _is_booking_com_url(link):
-            hotel["link"] = _cj_booking_wrap(_strip_foreign_booking_affiliate_params(link), sid=f"trip{trip_id}")
+            link = _strip_foreign_booking_affiliate_params(link)
+            if answers is not None:
+                seg_from, _, seg_to = str(hotel.get("segment_dates") or "").partition(" – ")
+                checkin = seg_from.strip() or str(answers.get("departure_date") or "")
+                checkout = seg_to.strip() or str(answers.get("return_date") or "")
+                link = _with_booking_com_stay(link, checkin, checkout, answers)
+            hotel["link"] = _cj_booking_wrap(link, sid=f"trip{trip_id}")
     return hotels
 
 
@@ -5520,7 +5574,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                     any_ok = True
                 except Exception:
                     logging.exception("Segment lodging search failed for trip %s (%s)", trip_id, seg.get("location"))
-            answers["lodging_offers"] = _wrap_booking_com_hotel_links(all_hotels[:15], trip_id)
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links(all_hotels[:15], trip_id, answers)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None if any_ok else "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."
             answers["_lodging_search_result"] = {
@@ -5597,7 +5651,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 hotel["segment_location"] = label
                 hotel["segment_dates"] = f"{dep} – {ret}"
                 hotel["segment_nights"] = _nights_between(dep, ret)
-            answers["lodging_offers"] = _wrap_booking_com_hotel_links(hotels, trip_id)
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links(hotels, trip_id, answers)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None
             answers["_lodging_search_result"] = {"status": "ok", "count": len(answers["lodging_offers"])}
@@ -5813,10 +5867,9 @@ def _lodging_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     children = _int_or(answers.get("children"), 0)
     rooms = _int_or(answers.get("lodging_rooms"), 1) or 1
     if not LODGING_AFFILIATE_LINK:
-        search_url = "https://www.booking.com/searchresults.html?" + urlencode({
-            "ss": city, "checkin": dep, "checkout": ret,
-            "group_adults": adults, "group_children": children, "no_rooms": rooms,
-        }, quote_via=quote)
+        # Every child's age too (Shaked's audit, 23.10) - see _booking_com_party_params.
+        search_url = "https://www.booking.com/searchresults.html?" + urlencode(
+            [("ss", city), ("checkin", dep), ("checkout", ret)] + _booking_com_party_params(answers), quote_via=quote)
         return _cj_booking_wrap(search_url, sid=f"trip{trip_id}")
     params = {"sid": f"trip{trip_id}"}
     if LODGING_SEARCH_URL_TEMPLATE:
