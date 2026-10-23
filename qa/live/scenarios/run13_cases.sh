@@ -9,7 +9,7 @@
 #    together with the date choice, while the dates question is open -> saved (SZG), never asked again.
 #  D "המבורד" (Hamburg, HAM, ג->ד): post-summary shift (one date + yes/no), explicit dates (no confirm),
 #    suitcase switch (no upsell).
-#  E "ברגם" (Bergen, BGO, ן->ם) + baby: accessibility asked, not inferred; mixed -> "כן, מזוודה לכולם".
+#  E "ברגם" (Bergen/Bergamo, ן->ם) + baby: one question naming both -> "ברגן, בנורווגיה" (BGO); accessibility asked, not inferred; mixed -> "כן, מזוודה לכולם".
 _pids=""
 reg ${P}a ${PH}1 female
 drive ${P}a A "אני ואמא שלי לפפוס, 20 עד 25 באפריל" '{"נגישות":["כן","אמא שלי עברה ניתוח בברך והיא מתקשה ללכת מרחקים ארוכים"],"שדה":"פאפוס מתאים לנו","כבודה":"לי מזוודה, לאמא מספיק טרולי","אחידה":"לא","תקציב":"עד 1300 שקל לאחת","ישיר":"לא משנה","מסלול":"לא","לינה":"יש לנו","רכב":"לא"}' > ${P}_A.log 2>&1 &
@@ -26,4 +26,7 @@ reg ${P}d ${PH}4 female
 _pids="${_pids:-} $!"
 wait $_pids; _pids=""   # only our drivers - never the dry-run server running in the background
 reg ${P}e ${PH}5 male
-drive ${P}e E "אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני" '{"נגישות":"לא","כבודה":"לי ולאשתי מזוודה, לתינוק מספיק תיק קטן","אחידה":"כן, מזוודה לכולם","תקציב":"עד 1500 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"מסודר","רכב":"לא"}' > ${P}_E.log 2>&1
+# "ברגם" alone is equally close to Bergen and Bergamo (dry run 5g): ONE question naming both is expected,
+# answered "ברגן, בנורווגיה" (the first turn goes through `say` so its reply is logged on its own).
+( say ${P}e "אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני"
+drive ${P}e E "ברגן, בנורווגיה" '{"נגישות":"לא","כבודה":"לי ולאשתי מזוודה, לתינוק מספיק תיק קטן","אחידה":"כן, מזוודה לכולם","תקציב":"עד 1500 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"מסודר","רכב":"לא"}' ) > ${P}_E.log 2>&1
