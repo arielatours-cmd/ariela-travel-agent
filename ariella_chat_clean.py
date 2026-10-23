@@ -7953,10 +7953,12 @@ def _destination_gateway_answer_by_meaning(message, history, state):
     # over (one candidate, both, or neither - never a forced pick).
     catalog_candidates_text = ""
     near_cities = _catalog_near_neighbor_cities(unresolved_places[0])
+    structural_codes = []
     if len(near_cities) == 2:
         named = []
         for city_he, codes in near_cities.items():
             code = codes[0]
+            structural_codes.append(code)
             airport = _catalog_airport_by_code(code) or {}
             city_en = str(airport.get("city_en") or city_he).strip()
             country = str(airport.get("country_he") or airport.get("country_en") or "").strip()
@@ -7967,6 +7969,11 @@ def _destination_gateway_answer_by_meaning(message, history, state):
             "למי משתי הערים האלה הוא מתכוון - לאחת מהן בלבד, לשתיהן (אם הניסוח שלו עצמו באמת לא "
             "מבדיל ביניהן), או לאף אחת מהן (אם הוא בעצם מתכוון למשהו אחר לגמרי). לעולם אל תמציאי "
             "מועמד שלישי שלא הוזכר כאן.\n"
+            "חשוב: אם את בוחרת באחת משתי הערים האלה בלבד (ולא בשתיהן), עליך למצוא בהודעה הנוכחית "
+            "של הלקוח ציטוט מילה-במילה נוסף, שהוא איננו שם היעד עצמו (או צורת הכתיב שלו), אלא פרט "
+            "אחר שבאמת מבדיל בין שתי הערים - למשל שם המדינה/האזור, שדה תעופה, או כל רמז אחר שמראה "
+            "שהלקוח התכוון לעיר הספציפית הזו ולא לרעותה. בלי ציטוט מבדיל כזה, אסור לך לבחור רק אחת "
+            "מהשתיים - את חייבת להחזיר את שתיהן, כי מבחינתנו זו עדיין אי-ודאות אמיתית.\n"
         )
     prompt = (
         "הלקוח מתכנן טיול ליעד הבא, שאין לו שדה תעופה מאומת אצלנו: " + ", ".join(unresolved_places) + ". "
@@ -7989,11 +7996,12 @@ def _destination_gateway_answer_by_meaning(message, history, state):
         "ולעולם לא שתיים כשבאמת יש רק משמעות סבירה אחת.\n"
         "החזירי JSON בלבד: {\"evidence\": \"<הציטוט המדויק, מילה-במילה, מתוך ההודעה הנוכחית של הלקוח>\" "
         "(או null אם אין כזה), \"candidates\": [{\"city_en\": \"<שם העיר באנגלית>\", \"iata_code\": "
-        "\"<קוד IATA>\"}, ...]} - 0, 1 או 2 איברים ברשימה. אם אין ציון כזה בהודעה, או שאינך בטוחה כלל, "
-        "החזירי evidence null ו-candidates ריקה. לעולם אל תנחשי בספק - רק כשאת בטוחה."
+        "\"<קוד IATA>\"}, ...], \"disambiguating_evidence\": \"<הציטוט המבדיל הנוסף, רק כשרלוונטי לפי "
+        "ההנחיה למעלה>\" (או null)} - 0, 1 או 2 איברים ברשימת candidates. אם אין ציון כזה בהודעה, או "
+        "שאינך בטוחה כלל, החזירי evidence null ו-candidates ריקה. לעולם אל תנחשי בספק - רק כשאת בטוחה."
     )
     try:
-        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת (הקשר בלבד): " + last_assistant[-500:] + "\nהודעת הלקוח: " + str(message or ""), 150, include_history=False, source="classifier")
+        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת (הקשר בלבד): " + last_assistant[-500:] + "\nהודעת הלקוח: " + str(message or ""), 220, include_history=False, source="classifier")
         raw = raw.strip()
         data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
     except Exception:
@@ -8014,6 +8022,43 @@ def _destination_gateway_answer_by_meaning(message, history, state):
             verified.append(code)
     if not verified:
         return {}
+    # Dry-run 5f (23.10.2026, Shaked's live finding, 4th recurrence of this
+    # exact failure class): "ברגם" still silently resolved to Bergamo (BGY)
+    # with no question asked, even with the structural catalog signal (both
+    # fixes above) in place. Root cause (Shaked's own diagnosis, verified
+    # against this function's real behavior): the classifier was still
+    # free to satisfy the ordinary "evidence" field with nothing more than
+    # the destination name itself (trivially true - it's the raw typo that
+    # triggered this whole function) and then simply pick ONE of the two
+    # structurally-ambiguous candidates, landing on the single-verified-
+    # candidate path with no genuine disambiguation ever performed. When
+    # the catalog's own structural signal already proved a genuine 2-way
+    # ambiguity (near_cities length 2) but the model still verified only
+    # ONE candidate, that single pick is never trusted on its own anymore -
+    # it must be backed by disambiguating_evidence (a SEPARATE verbatim
+    # quote, genuinely distinct from the destination name itself, per the
+    # prompt instruction above). Without it, the structural signal wins and
+    # both real catalog candidates are asked about - never the model's
+    # unsupported single guess.
+    if len(verified) == 1 and len(near_cities) == 2:
+        disambiguating_evidence = data.get("disambiguating_evidence")
+        normalized_evidence = re.sub(r"\s+", " ", str(disambiguating_evidence or "").strip())
+        normalized_place = re.sub(r"\s+", " ", str(unresolved_places[0] or "").strip())
+        has_genuine_disambiguation = (
+            bool(normalized_evidence)
+            and normalized_evidence != normalized_place
+            and _value_has_verbatim_evidence(disambiguating_evidence, message)
+        )
+        record_diagnostic_event("destination_ambiguity_override", {
+            "unresolved_place": unresolved_places[0],
+            "near_cities": sorted(near_cities.keys()),
+            "model_verified_code": verified[0],
+            "disambiguating_evidence_present": bool(normalized_evidence),
+            "disambiguating_evidence_genuine": has_genuine_disambiguation,
+            "forced_ambiguous": not has_genuine_disambiguation,
+        })
+        if not has_genuine_disambiguation:
+            return {"_destination_ambiguous_hint": _destination_ambiguous_hint_from_codes(structural_codes)}
     if len(verified) == 1:
         verified_name = _verified_catalog_display_name(verified[0])
         return {

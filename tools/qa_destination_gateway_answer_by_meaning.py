@@ -459,6 +459,123 @@ check("the new classifier is wired into the main merge pipeline (source present)
 check("_destination_ambiguous_hint is wired into _turn_question_arbiter",
       '"_destination_ambiguous_hint"' in _SOURCE and '"destination_ambiguous"' in _SOURCE)
 
+# =====================================================================
+# Dry-run 5f (23.10.2026, Shaked's LIVE finding, 4th recurrence): "ברגם"
+# was STILL silently resolved to Bergamo (BGY) with no question asked,
+# even with the structural catalog signal in place - because the model
+# was still free to satisfy the ordinary "evidence" field with nothing
+# more than the destination name itself, then simply pick ONE of the two
+# structurally-ambiguous candidates. Verified locally by Shaked:
+# _reresolve_ambiguous_fresh_destination correctly left it unresolved, so
+# the live bug was here, in this function's single-candidate trust path.
+# Fixed: when the catalog's own near_cities signal already proved a real
+# 2-way ambiguity but the model verified only ONE candidate, that pick is
+# no longer trusted unless backed by disambiguating_evidence - a SEPARATE
+# verbatim quote, genuinely distinct from the destination name itself.
+# =====================================================================
+def _fake_bergen_single_pick_no_disambiguation(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        # The exact live failure shape: evidence is just the raw typo'd
+        # name itself, no genuinely distinguishing quote supplied.
+        return json.dumps({
+            "evidence": "ברגם",
+            "candidates": [{"city_en": "Bergamo", "iata_code": "BGY"}],
+            "disambiguating_evidence": None,
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_bergen_single_pick_no_disambiguation):
+    result_bergen_unsupported = chat._destination_gateway_answer_by_meaning(
+        "ברגם מתאים לנו",
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        state_bergen,
+    )
+check("dry-run 5f FIX: a single-candidate pick (Bergamo) with NO genuine "
+      "disambiguating evidence is no longer trusted - destination_airports stays empty",
+      not result_bergen_unsupported.get("destination_airports"))
+check("dry-run 5f FIX: the structural signal forces BOTH real catalog candidates into the hint",
+      ("Bergen" in result_bergen_unsupported.get("_destination_ambiguous_hint", "")
+       or "ברגן" in result_bergen_unsupported.get("_destination_ambiguous_hint", ""))
+      and ("Bergamo" in result_bergen_unsupported.get("_destination_ambiguous_hint", "")
+           or "ברגמו" in result_bergen_unsupported.get("_destination_ambiguous_hint", "")))
+
+
+def _fake_bergen_single_pick_echo_disambiguation(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        # The model echoes the SAME bare name into disambiguating_evidence
+        # too (no genuinely new information) - must still be rejected.
+        return json.dumps({
+            "evidence": "ברגם",
+            "candidates": [{"city_en": "Bergamo", "iata_code": "BGY"}],
+            "disambiguating_evidence": "ברגם",
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_bergen_single_pick_echo_disambiguation):
+    result_bergen_echo = chat._destination_gateway_answer_by_meaning(
+        "ברגם מתאים לנו",
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        state_bergen,
+    )
+check("dry-run 5f FIX regression: disambiguating_evidence that merely echoes the "
+      "destination name itself (no new information) is also rejected - still forced ambiguous",
+      not result_bergen_echo.get("destination_airports"))
+
+
+def _fake_bergen_single_pick_genuine_disambiguation(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        # A genuinely distinguishing quote, verbatim in the message, that
+        # is NOT the destination name itself - e.g. the country.
+        return json.dumps({
+            "evidence": "ברגם",
+            "candidates": [{"city_en": "Bergamo", "iata_code": "BGY"}],
+            "disambiguating_evidence": "באיטליה",
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_bergen_single_pick_genuine_disambiguation):
+    result_bergen_genuine = chat._destination_gateway_answer_by_meaning(
+        "ברגם באיטליה מתאים לנו",
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        state_bergen,
+    )
+check("dry-run 5f FIX regression: a GENUINE disambiguating quote (the country, "
+      "verbatim in the message, distinct from the destination name) still resolves directly",
+      result_bergen_genuine.get("destination_airports") == ["BGY"]
+      and "_destination_ambiguous_hint" not in result_bergen_genuine)
+
+
+def _fake_bergen_single_pick_fabricated_disambiguation(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        # A disambiguating quote that ISN'T actually in the message at all
+        # (fabricated) - the verbatim-evidence gate must still catch it.
+        return json.dumps({
+            "evidence": "ברגם",
+            "candidates": [{"city_en": "Bergamo", "iata_code": "BGY"}],
+            "disambiguating_evidence": "באיטליה",
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_bergen_single_pick_fabricated_disambiguation):
+    result_bergen_fabricated = chat._destination_gateway_answer_by_meaning(
+        "ברגם מתאים לנו",  # the message never actually mentions a country
+        [{"role": "assistant", "content": UNRELATED_REPLY}],
+        state_bergen,
+    )
+check("dry-run 5f FIX regression: a disambiguating quote that isn't genuinely in the "
+      "CURRENT message (fabricated) is rejected by the same verbatim-evidence gate - still forced ambiguous",
+      not result_bergen_fabricated.get("destination_airports"))
+
+_AI_USAGE_SOURCE = open(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ai_usage.py"),
+    encoding="utf-8").read()
+check("dry-run 5f FIX: a new destination_ambiguity_override diagnostic event is registered",
+      "destination_ambiguity_override" in _AI_USAGE_SOURCE)
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)
