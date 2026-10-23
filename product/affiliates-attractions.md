@@ -65,3 +65,12 @@
 - [Awin – Viator](https://ui.awin.com/merchant-profile/11018)
 - [Tiqets – API לשותפים](https://www.tiqets.com/partner-program/blog/tiqets-partner-api-affiliates/)
 - [Go City – תוכנית שותפים](https://gocity.com/en/affiliate-program)
+
+## השלמה (23.10, בדיקה ממוקדת של Travelpayouts)
+- **עוד ב-Travelpayouts:**
+  - Go City: עד 6%.
+  - Sputnik8 ו-Tripster: מכוונים לשוק דובר הרוסית, ולכן לא רלוונטיים לנו.
+- **Tiqets:** במדריך המותגים של Travelpayouts הוא מסומן "App Attribution". כלומר ייתכן שהזמנה באפליקציה כן נספרת [לאמת]. זה הספק היחיד מבין הגדולים שזה אולי נכון לגביו.
+- **Viator ב-Awin:** אושר ב-4% ובעוגייה ל-30 יום, בלי פארקי שעשועים וסיורים וירטואליים. **לא כדאי להצטרף ל-Awin בשביל Viator.**
+- **deep link:** את הקישור יוצרים בכלי "Create link" של Travelpayouts על כל עמוד מוצר. לבדיקה, פותחים את הקישור המקוצר ומוודאים שהוא מכיל `marker=<המזהה שלנו>`.
+- **המלצה מעודכנת:** GetYourGuide ו-Viator כבסיס. Tiqets לכרטיסי מוזיאונים במערב אירופה ובדובאי. Klook רק לבנגקוק, להנוי ולדובאי.
