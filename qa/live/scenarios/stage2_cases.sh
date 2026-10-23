@@ -31,3 +31,15 @@ _pids="${_pids:-} $!"
 wait $_pids; _pids=""   # only our drivers - never the dry-run server running in the background
 reg ${P}5 ${PH}5 male
 drive ${P}5 S5 "אני ושני חברים לפראד, 10 עד 14 בינואר, עד 1000 שקל לאחד, טרולי לכל אחד, לא חייב ישירה" '{"נגישות":"לא","כבודה":"טרולי לכל אחד","תקציב":"עד 1000 שקל לאחד","ישיר":"לא חייב","מסלול":"כן","סגנון":"בירה, חיי לילה והעיר העתיקה","קצב":"עמוס","אישור":"אחלה, מתאים לנו","לינה":"מסודר","רכב":"לא"}' > ${P}_S5.log 2>&1
+# S6 return to an existing vacation (owner 23.10: "כשחוזרים לסשן על חופשה קיימת - בסיום הסשן שולחים סיכום של אותו
+# סשן בלבד! ללא אפשרות לסריקה נוספת של מידע שכבר ניתן בעבר!"): a flight-only vacation is closed first (live: with
+# "מאשרת" and the scan), then the customer comes back in the same chat for a route.
+# Expected: (a) the second summary covers the route only - no flight block, no new "כתבי מאשרת" for the flight;
+# (b) after approving it, no new /api/ariella/start-flight-search (live: search_${P}6.jsonl keeps exactly 1 entry;
+# dry: no start-flight-search in chat_log blocked list after the return); the route is attached to the same vacation;
+# (c) nothing already answered is asked again (accessibility, dates, travelers, baggage, budget).
+reg ${P}6 ${PH}6 female
+( drive ${P}6 S6a "אני ובעלי לרומא, 9 עד 14 במרץ, עד 1300 שקל לאדם, טרולי לכל אחד, עדיף ישירה" '{"נגישות":"לא","כבודה":"טרולי לכל אחד","תקציב":"עד 1300 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"יש לנו","רכב":"לא"}'
+  echo "---- return to the same vacation ----"
+  drive ${P}6 S6b "רגע, בכל זאת נשמח למסלול לחופשה הזו ברומא" '{"מסלול":"כן","סגנון":"היסטוריה, אוכל איטלקי ושכונות יפות","קצב":"רגוע","אישור":"מעולה, מתאים לנו","לינה":"יש לנו","רכב":"לא"}'
+  say ${P}6 "מאשרת" ) > ${P}_S6.log 2>&1
