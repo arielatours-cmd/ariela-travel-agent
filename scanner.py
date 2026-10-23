@@ -498,16 +498,16 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
         if cheapest_any[2]:
             if flight["booking_supplier_is_direct"]:
                 reason_he = f"נמצאה אפשרות זולה יותר ב־₪{diff}, אך היא כוללת כרטיסים נפרדים. אריאלה העדיפה הזמנה ישירה מחברת התעופה במחיר מעט גבוה יותר."
-                reason_en = f"A cheaper option by ₪{diff} was found, but it uses separate tickets. Ariella preferred direct booking with the airline for a slightly higher price."
+                reason_en = f"A cheaper option by NIS {diff:,} was found, but it uses separate tickets. Ariella preferred direct booking with the airline for a slightly higher price."
             else:
                 reason_he = f"נמצאה אפשרות זולה יותר ב־₪{diff}, אך היא כוללת כרטיסים נפרדים. אריאלה העדיפה אפשרות הזמנה מאושרת ופשוטה יותר."
-                reason_en = f"A cheaper option by ₪{diff} was found, but it uses separate tickets. Ariella preferred an approved, simpler booking option."
+                reason_en = f"A cheaper option by NIS {diff:,} was found, but it uses separate tickets. Ariella preferred an approved, simpler booking option."
         elif flight["booking_supplier_is_direct"]:
             reason_he = f"נמצאה אפשרות זולה יותר ב־₪{diff} דרך ספק אחר. אריאלה העדיפה הזמנה ישירה מחברת התעופה כי פער המחיר קטן."
-            reason_en = f"A cheaper option by ₪{diff} was found through another seller. Ariella preferred direct airline booking because the price difference is small."
+            reason_en = f"A cheaper option by NIS {diff:,} was found through another seller. Ariella preferred direct airline booking because the price difference is small."
         elif flight["booking_supplier_approved"]:
             reason_he = f"נמצאה אפשרות זולה יותר ב־₪{diff} אצל ספק שלא אושר. אריאלה העדיפה ספק מאושר במחיר מעט גבוה יותר."
-            reason_en = f"A cheaper option by ₪{diff} was found with an unapproved seller. Ariella preferred an approved seller for a slightly higher price."
+            reason_en = f"A cheaper option by NIS {diff:,} was found with an unapproved seller. Ariella preferred an approved seller for a slightly higher price."
     flight["booking_choice_reason_he"] = reason_he
     flight["booking_choice_reason_en"] = reason_en
 
