@@ -1,0 +1,31 @@
+⟵ אני ושתי חברות לברגם באיטליה, 10 עד 14 בספטמבר
+    ברגמו לשלושתכן - נשמע מעולה!  |  | רק שאלה אחת לפני שממשיכים: האם מישהי מכן צריכה התאמות נגישות כלשהן בחופשה? זה לא חובה כמובן, ואם כן - מה שתכתבי יישמר רק לטיול הזה.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    מעולה. ועוד דבר קטן - איזו כבודה תרצו לקחת? יש אפשרות לתיק יד בלבד, טרולי, או מזוודה בבטן המטוס (עד 20-23 ק"ג לכל אחת).
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ טרולי לכל אחת
+    טוב, שימי לב שבכל שלב אפשר להוסיף גם מזוודה בבטן המטוס ישירות באתר חברת התעופה בזמן ההזמנה, אם בסוף תרצו יותר מקום. |  | יש לכן הגבלת תקציב לטיסה לאדם?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 900 שקל לאחת
+    נרשם, 900 שקל לאדם זה תקציב סביר לטווח הזה. |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ עדיף ישירה
+    בדיוק, זה מה שכבר סימנתי לכן.  |  | לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ מסודר
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    להלן סיכום הבקשה שלך: |  | טיסה | יציאה: נתב״ג (TLV) | נחיתה: ברגמו (BGY), איטליה | המראה בחזרה: ברגמו (BGY), איטליה | תאריכים: 10.09.2027 – 14.09.2027 | נוסעים: 3 מבוגרים | כבודה: טרולי 8–10 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: מעדיפים טיסה ישירה | תקציב: 900 ש"ח לאדם |  | אפשר תמיד לחזור בהמשך ולהוסיף שירותים נוספים גם אם עכשיו בחרתן שלא. |  | אם כל הפרטים נכונים, כתבי מאשרת.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True

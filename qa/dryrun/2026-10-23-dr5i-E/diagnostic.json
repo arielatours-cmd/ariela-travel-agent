@@ -1,0 +1,1745 @@
+[
+ {
+  "id": 5,
+  "created_at": "2026-10-23T10:08:13.427829+00:00",
+  "conversation_id": null,
+  "source": "guided_redirect",
+  "details": {
+   "current_question": "accessibility",
+   "candidates": [],
+   "redirect_target": null,
+   "extract_status": null,
+   "extract_confidence": null,
+   "fragment_written": null
+  }
+ },
+ {
+  "id": 8,
+  "created_at": "2026-10-23T10:08:15.132577+00:00",
+  "conversation_id": null,
+  "source": "guided_redirect",
+  "details": {
+   "current_question": "accessibility",
+   "candidates": [],
+   "redirect_target": null,
+   "extract_status": null,
+   "extract_confidence": null,
+   "fragment_written": null
+  }
+ },
+ {
+  "id": 11,
+  "created_at": "2026-10-23T10:08:16.564426+00:00",
+  "conversation_id": null,
+  "source": "destination_ambiguity_override",
+  "details": {
+   "unresolved_place": "לברגם",
+   "near_cities": [
+    "ברגמו",
+    "ברגן"
+   ],
+   "model_verified_code": "BGO",
+   "disambiguating_evidence_present": true,
+   "disambiguating_evidence_genuine": true,
+   "forced_ambiguous": false
+  }
+ },
+ {
+  "id": 20,
+  "created_at": "2026-10-23T10:08:35.345595+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 21,
+  "created_at": "2026-10-23T10:08:35.347353+00:00",
+  "conversation_id": null,
+  "source": "destination_change",
+  "details": {
+   "places_changed": true,
+   "airports_changed": false,
+   "prior_places": [
+    "ברגמו"
+   ],
+   "claimed_places": [
+    "ברגן"
+   ],
+   "prior_airports": [
+    "BGY"
+   ],
+   "claimed_airports": [
+    "BGY"
+   ],
+   "verified": true
+  }
+ },
+ {
+  "id": 24,
+  "created_at": "2026-10-23T10:08:37.414265+00:00",
+  "conversation_id": null,
+  "source": "guided_redirect",
+  "details": {
+   "current_question": "accessibility",
+   "candidates": [
+    "baggage"
+   ],
+   "redirect_target": null,
+   "extract_status": null,
+   "extract_confidence": null,
+   "fragment_written": null
+  }
+ },
+ {
+  "id": 25,
+  "created_at": "2026-10-23T10:08:37.415504+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 27,
+  "created_at": "2026-10-23T10:08:37.608804+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 30,
+  "created_at": "2026-10-23T10:08:39.148728+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-06-12",
+    "dates_return": "2027-06-17",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 810,
+    "starts_with_brace": true,
+    "ends_with_brace": true,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 32,
+  "created_at": "2026-10-23T10:08:39.299025+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 34,
+  "created_at": "2026-10-23T10:08:40.413039+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-07-03",
+    "dates_return": "2027-07-08",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 847,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-07-03",
+    "final_return": "2027-07-08",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 43,
+  "created_at": "2026-10-23T10:08:57.835962+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 45,
+  "created_at": "2026-10-23T10:08:58.799937+00:00",
+  "conversation_id": null,
+  "source": "guided_redirect",
+  "details": {
+   "current_question": "baggage",
+   "candidates": [],
+   "redirect_target": null,
+   "extract_status": null,
+   "extract_confidence": null,
+   "fragment_written": null
+  }
+ },
+ {
+  "id": 46,
+  "created_at": "2026-10-23T10:08:58.803289+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 48,
+  "created_at": "2026-10-23T10:09:00.031709+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 50,
+  "created_at": "2026-10-23T10:09:01.147831+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": null,
+    "dates_return": null,
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": true,
+    "stop_reason": "end_turn",
+    "output_tokens": 67,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-07-03",
+    "final_return": "2027-07-08",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 53,
+  "created_at": "2026-10-23T10:09:02.005105+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 57,
+  "created_at": "2026-10-23T10:09:06.030469+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-06-12",
+    "dates_return": "2027-06-17",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 770,
+    "starts_with_brace": true,
+    "ends_with_brace": true,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 65,
+  "created_at": "2026-10-23T10:09:19.673591+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 67,
+  "created_at": "2026-10-23T10:09:20.837206+00:00",
+  "conversation_id": null,
+  "source": "guided_redirect",
+  "details": {
+   "current_question": "baggage",
+   "candidates": [],
+   "redirect_target": null,
+   "extract_status": null,
+   "extract_confidence": null,
+   "fragment_written": null
+  }
+ },
+ {
+  "id": 68,
+  "created_at": "2026-10-23T10:09:20.839147+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 70,
+  "created_at": "2026-10-23T10:09:21.170786+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 72,
+  "created_at": "2026-10-23T10:09:22.004613+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-07-03",
+    "dates_return": "2027-07-08",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 736,
+    "starts_with_brace": true,
+    "ends_with_brace": true,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-07-03",
+    "final_return": "2027-07-08",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 74,
+  "created_at": "2026-10-23T10:09:22.394825+00:00",
+  "conversation_id": null,
+  "source": "guided_redirect",
+  "details": {
+   "current_question": "baggage",
+   "candidates": [],
+   "redirect_target": null,
+   "extract_status": null,
+   "extract_confidence": null,
+   "fragment_written": null
+  }
+ },
+ {
+  "id": 75,
+  "created_at": "2026-10-23T10:09:22.396307+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 78,
+  "created_at": "2026-10-23T10:09:23.779496+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": null,
+    "dates_return": null,
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": true,
+    "stop_reason": "end_turn",
+    "output_tokens": 88,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 86,
+  "created_at": "2026-10-23T10:09:38.310418+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 88,
+  "created_at": "2026-10-23T10:09:39.623457+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 90,
+  "created_at": "2026-10-23T10:09:40.959070+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-07-03",
+    "dates_return": "2027-07-08",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 855,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-07-03",
+    "final_return": "2027-07-08",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 92,
+  "created_at": "2026-10-23T10:09:42.700713+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 94,
+  "created_at": "2026-10-23T10:09:43.924582+00:00",
+  "conversation_id": null,
+  "source": "guided_redirect",
+  "details": {
+   "current_question": "baggage",
+   "candidates": [],
+   "redirect_target": null,
+   "extract_status": null,
+   "extract_confidence": null,
+   "fragment_written": null
+  }
+ },
+ {
+  "id": 95,
+  "created_at": "2026-10-23T10:09:43.926565+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 99,
+  "created_at": "2026-10-23T10:09:46.416735+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-06-12",
+    "dates_return": "2027-06-17",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 823,
+    "starts_with_brace": true,
+    "ends_with_brace": true,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 104,
+  "created_at": "2026-10-23T10:09:59.125686+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 105,
+  "created_at": "2026-10-23T10:09:59.133293+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 106,
+  "created_at": "2026-10-23T10:09:59.138888+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-07-03",
+    "dates_return": "2027-07-08",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 867,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-07-03",
+    "final_return": "2027-07-08",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 110,
+  "created_at": "2026-10-23T10:10:02.698362+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 112,
+  "created_at": "2026-10-23T10:10:04.326066+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 114,
+  "created_at": "2026-10-23T10:10:05.075967+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-06-12",
+    "dates_return": "2027-06-17",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 756,
+    "starts_with_brace": true,
+    "ends_with_brace": true,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 119,
+  "created_at": "2026-10-23T10:10:17.827772+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 121,
+  "created_at": "2026-10-23T10:10:18.534214+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 122,
+  "created_at": "2026-10-23T10:10:18.537728+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": null,
+    "dates_return": null,
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": true,
+    "stop_reason": "end_turn",
+    "output_tokens": 950,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-07-03",
+    "final_return": "2027-07-08",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 126,
+  "created_at": "2026-10-23T10:10:23.026551+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 128,
+  "created_at": "2026-10-23T10:10:23.707597+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 129,
+  "created_at": "2026-10-23T10:10:23.710641+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-06-12",
+    "dates_return": "2027-06-17",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 886,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 133,
+  "created_at": "2026-10-23T10:10:34.852162+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 134,
+  "created_at": "2026-10-23T10:10:34.857276+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 135,
+  "created_at": "2026-10-23T10:10:34.861171+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-07-03",
+    "dates_return": "2027-07-08",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 915,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-07-03",
+    "final_return": "2027-07-08",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 140,
+  "created_at": "2026-10-23T10:10:42.866577+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 141,
+  "created_at": "2026-10-23T10:10:42.872924+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 142,
+  "created_at": "2026-10-23T10:10:42.878306+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-06-12",
+    "dates_return": "2027-06-17",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 868,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 146,
+  "created_at": "2026-10-23T10:10:59.334154+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 148,
+  "created_at": "2026-10-23T10:11:00.381243+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 149,
+  "created_at": "2026-10-23T10:11:00.383042+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-06-12",
+    "dates_return": "2027-06-17",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 858,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 153,
+  "created_at": "2026-10-23T10:11:17.634445+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 154,
+  "created_at": "2026-10-23T10:11:17.638925+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 155,
+  "created_at": "2026-10-23T10:11:17.641715+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-06-12",
+    "dates_return": "2027-06-17",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 886,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-06-12",
+    "final_return": "2027-06-17",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 163,
+  "created_at": "2026-10-23T10:11:47.675360+00:00",
+  "conversation_id": null,
+  "source": "guided_redirect",
+  "details": {
+   "current_question": "accessibility",
+   "candidates": [
+    "baggage"
+   ],
+   "redirect_target": null,
+   "extract_status": null,
+   "extract_confidence": null,
+   "fragment_written": null
+  }
+ },
+ {
+  "id": 169,
+  "created_at": "2026-10-23T10:12:12.324742+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 172,
+  "created_at": "2026-10-23T10:12:14.315880+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 174,
+  "created_at": "2026-10-23T10:12:15.725573+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-09-10",
+    "dates_return": "2027-09-14",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 853,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-09-10",
+    "final_return": "2027-09-14",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 180,
+  "created_at": "2026-10-23T10:12:37.140232+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 182,
+  "created_at": "2026-10-23T10:12:38.646481+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 184,
+  "created_at": "2026-10-23T10:12:40.078220+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-09-10",
+    "dates_return": "2027-09-14",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 904,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-09-10",
+    "final_return": "2027-09-14",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 188,
+  "created_at": "2026-10-23T10:12:56.538925+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 189,
+  "created_at": "2026-10-23T10:12:56.547288+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 190,
+  "created_at": "2026-10-23T10:12:56.552886+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-09-10",
+    "dates_return": "2027-09-14",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 856,
+    "starts_with_brace": true,
+    "ends_with_brace": true,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-09-10",
+    "final_return": "2027-09-14",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 194,
+  "created_at": "2026-10-23T10:13:13.138183+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 195,
+  "created_at": "2026-10-23T10:13:13.142690+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 196,
+  "created_at": "2026-10-23T10:13:13.145622+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-09-10",
+    "dates_return": "2027-09-14",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 888,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-09-10",
+    "final_return": "2027-09-14",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 200,
+  "created_at": "2026-10-23T10:13:33.438372+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 201,
+  "created_at": "2026-10-23T10:13:33.446165+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 202,
+  "created_at": "2026-10-23T10:13:33.450611+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": null,
+    "dates_return": null,
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": true,
+    "stop_reason": "end_turn",
+    "output_tokens": 1098,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-09-10",
+    "final_return": "2027-09-14",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 206,
+  "created_at": "2026-10-23T10:13:52.125345+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 208,
+  "created_at": "2026-10-23T10:13:52.968697+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 209,
+  "created_at": "2026-10-23T10:13:52.973694+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-09-10",
+    "dates_return": "2027-09-14",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 957,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-09-10",
+    "final_return": "2027-09-14",
+    "final_needs_confirmation": false
+   }
+  }
+ },
+ {
+  "id": 213,
+  "created_at": "2026-10-23T10:14:08.365282+00:00",
+  "conversation_id": null,
+  "source": "restart_signal",
+  "details": {
+   "restart_request": false,
+   "evidence_verified": null
+  }
+ },
+ {
+  "id": 214,
+  "created_at": "2026-10-23T10:14:08.370940+00:00",
+  "conversation_id": null,
+  "source": "dates_change",
+  "details": {
+   "present": false,
+   "verified": null
+  }
+ },
+ {
+  "id": 215,
+  "created_at": "2026-10-23T10:14:08.374560+00:00",
+  "conversation_id": null,
+  "source": "dates_pipeline",
+  "details": {
+   "extractor": {
+    "relative_date_hint": null,
+    "dates_departure": "2027-09-10",
+    "dates_return": "2027-09-14",
+    "dates_evidence_present": false,
+    "dates_evidence_len": 0,
+    "relative_date_hint_evidence_present": false,
+    "relative_date_hint_evidence_len": 0,
+    "parse_error": false,
+    "stop_reason": "end_turn",
+    "output_tokens": 935,
+    "starts_with_brace": false,
+    "ends_with_brace": false,
+    "retried_on_truncation": false
+   },
+   "gates": [
+    {
+     "gate": "extractor_evidence",
+     "outcome": "no_differing_date"
+    },
+    {
+     "gate": "guided",
+     "outcome": "no_dates_update"
+    },
+    {
+     "gate": "sticky_lock",
+     "outcome": "relocked_to_prior"
+    },
+    {
+     "gate": "shift_days",
+     "outcome": "no_shift_detected",
+     "source": "none"
+    }
+   ],
+   "result": {
+    "candidate_created": false,
+    "dates_changed": false,
+    "final_departure": "2027-09-10",
+    "final_return": "2027-09-14",
+    "final_needs_confirmation": false
+   }
+  }
+ }
+]
