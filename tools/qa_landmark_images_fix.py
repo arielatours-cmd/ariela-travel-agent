@@ -5,7 +5,7 @@ the business owner via Shlomo - interim fix until 021a).
   landmark_images_fix.json: each landmark checked against the Wikimedia
   Commons API (file exists; PD/CC0/CC BY/CC BY-SA only - Din, IMG-1).
 - The 9 that 404'd (LIS, VIE, ZRH, BRU, WAW, EVN, BEG, TGD, LJU) are
-  replaced, PRG -> Charles Bridge, OTP/KRK get a real photo again, LCA kept.
+  replaced, PRG -> Charles Bridge, OTP/KRK get a real photo again; LCA (an Unsplash photo, no verified licence) -> the general image.
 - The general image: the desert road -> Ofek's CC0 plane wing, our own file.
 - credit_text (Din's format) is shown on the deal card when the licence
   requires it; English uses the same format and parts.
@@ -42,7 +42,9 @@ check("the 9 that 404'd + PRG/OTP/KRK are Commons files now, no Special:Redirect
       all(L[c].startswith("https://upload.wikimedia.org/") for c in ("LIS", "VIE", "ZRH", "BRU", "WAW", "EVN", "BEG", "TGD", "LJU", "PRG", "OTP", "KRK"))
       and not any("Special:Redirect" in u for u in L.values()))
 check("PRG: Charles Bridge", "Charles" in fix["PRG"]["title"] or "Karl" in fix["PRG"]["title"])
-check("LCA kept as it was", L["LCA"].startswith("https://images.unsplash.com/photo-1507525428034"))
+check("Shlomo 23.10: LCA's Unsplash photo (no verified licence) -> the general image, no credit; no Unsplash landmark left",
+      L["LCA"] == database.GENERIC_DESTINATION_IMAGE and "LCA" not in database.DESTINATION_IMAGE_CREDITS
+      and not any("unsplash.com" in u for u in L.values()))
 check("licences: PD / CC0 / CC BY / CC BY-SA only (Din, IMG-1)",
       all(any(x in v.get("license", "") for x in ("Public domain", "CC0", "CC BY")) and "NC" not in v.get("license", "") and "ND" not in v.get("license", "")
           for v in fix.values() if v["status"] != "keep_current"))
