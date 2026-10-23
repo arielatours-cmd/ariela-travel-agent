@@ -161,7 +161,7 @@ def _fake_bergen_classifier(key, model, system_static, system_dynamic, history, 
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_bergen_classifier):
-    result = chat._destination_gateway_answer_by_meaning("ברגם מתאים לנו", [], BERGEN_STATE)
+    result = chat._resolve_destination_by_meaning(BERGEN_STATE, dict(BERGEN_STATE), None, "ברגם מתאים לנו", [])
 check("scenario E FIX: 'ברגם' no longer silently resolves - nothing is written to destination_airports",
       not result.get("destination_airports"))
 check("scenario E FIX: a one-turn ambiguous hint is produced instead, naming both real options",
@@ -185,14 +185,14 @@ def _fake_zadar_classifier(key, model, system_static, system_dynamic, history, m
     if source == "classifier":
         _calls2.append(system_static)
         check("regression: no catalog signal -> the prompt never names any specific candidate city",
-              "לפי הקטלוג שלנו, השם הזה קרוב מאוד" not in system_static)
+              "לפי הקטלוג שלנו, הניסוח הזה קרוב מאוד" not in system_static)
         return json.dumps({"evidence": "זדאר", "candidates": [{"city_en": "Zadar", "iata_code": "ZAD"}]})
     return "{}"
 
 
 ZADAR_STATE = dict(BERGEN_STATE, destination={"places": ["זדאר"], "mode": None, "status": "known"})
 with patch.object(chat, "_post_claude", side_effect=_fake_zadar_classifier):
-    result_zadar = chat._destination_gateway_answer_by_meaning("זדאר מתאים לנו", [], ZADAR_STATE)
+    result_zadar = chat._resolve_destination_by_meaning(ZADAR_STATE, dict(ZADAR_STATE), None, "זדאר מתאים לנו", [])
 check("regression: an unambiguous name (no catalog near-neighbor) still resolves normally, "
       "single call, single verified candidate",
       result_zadar.get("destination_airports") == ["ZAD"] and len(_calls2) == 1)

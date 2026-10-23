@@ -51,6 +51,7 @@ def check(name, cond):
 # rest of the process's life).
 chat._catalog_near_neighbor_entries()
 chat._catalog_multiword_first_words()
+chat._catalog_country_entries()
 
 PRIOR_STATE = {"destination_airports": []}
 UPDATE = {"destination_airports": ["XXX"], "destination": {"places": ["זדאק"], "mode": "specific", "status": "known"}}
@@ -75,7 +76,7 @@ def timed_runs(message, n=5):
     times = []
     for _ in range(n):
         t0 = time.time()
-        chat._reresolve_ambiguous_fresh_destination(PRIOR_STATE, dict(UPDATE), None, message)
+        chat._resolve_destination_by_meaning(PRIOR_STATE, dict(UPDATE), None, message, [])
         times.append(time.time() - t0)
     return times
 

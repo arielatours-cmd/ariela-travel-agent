@@ -108,7 +108,7 @@ def _fake_zadar_classifier(key, model, system_static, system_dynamic, history, m
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_zadar_classifier):
-    result = chat._destination_gateway_answer_by_meaning("זדאר מתאים לנו", [], BASE_STATE)
+    result = chat._resolve_destination_by_meaning(BASE_STATE, dict(BASE_STATE), None, "זדאר מתאים לנו", [])
 check("dr5c fix: destination.places is written as 'Zadar' (city_en), never the extended "
       "catalog's own unverified 'זאדאר'",
       result.get("destination", {}).get("places") == ["Zadar"])

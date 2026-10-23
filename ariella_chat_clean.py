@@ -220,6 +220,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אישור "רק לוודא" הוא בדיוק אותה שאלה חוזרת אסורה כמו לשאול מחדש בגלוי - גם כשהיא מנוסחת כווידוא ולא כשאלה. "רק לוודא - התקציב לטיסה הוא עד 3,000 ש"ח, נכון?" או "רק כדי לוודא - אתם לוקחים גם מזוודה בבטן המטוס?" על פרט (מספר נוסעים, תקציב, כבודה וכו') שהלקוח כבר מסר במפורש וחד-משמעית, בלי שום סתירה או עמימות אמיתית בדבריו - אסורים בדיוק כמו "כמה אתם?" על הרכב נוסעים ידוע. ההבדל היחיד שמצדיק וידוא אמיתי הוא סתירה/עמימות ממשית במה שהלקוח עצמו אמר (למשל תאריך שלא תואם ליום בשבוע שציין) - לא עצם הניסוח כ"וידוא" במקום כשאלה ישירה.
 - תאריכי יציאה וחזרה מדויקים שכבר קיימים ב-state הם סגורים. אסור לפתוח אותם מחדש, להציע שוב חלופות או לשאול איזו אפשרות עדיפה בעקבות תשובה על מסלול/אטרקציות/רכב/לינה או תגובה כללית כמו "נשמע אחלה". פתחי תאריכים מחדש רק אם הלקוח עצמו מבקש לשנות תאריך או מוסר תאריך/טווח חדש.
 - אותו כלל בדיוק חל על destination_airports/return_departure_airports שכבר נקבעו: הם סגורים. לעולם אל תעלי מיוזמתך שדה תעופה חלופי (למשל "יש גם X, אבל נשארים עם Y") ואל תטילי ספק בבחירה שכבר בוצעה - גם אם ביעד יש בעולם האמיתי שדה תעופה נוסף אפשרי. זה נכון גם אמצע תכנון מסלול, גם כשעונים על שאלה אחרת לגמרי. פתחי זאת מחדש רק אם הלקוח עצמו מבקש במפורש לשקול שדה אחר.
+- כשהלקוח מבקש לתקן את היעד (למשל "לא, בעצם X"), אל תאשרי בתשובתך שהשינוי בוצע ("אעדכן את זה", "קלטתי, עכשיו X") אלא אם ה-state שקיבלת בפועל בתור הזה כבר משקף את היעד החדש (destination.places/destination_airports). אם ה-state עדיין מציג את היעד הקודם, התייחסי לדברי הלקוח כבקשה שעוד לא אומתה - לעולם אל תבטיחי בטקסט שינוי שלא נשמר בפועל; זה בדיוק מה שגרם בעבר לתשובה לומר "אעדכן" בזמן שהיעד הישן נשאר שמור ונכנס לסיכום הסופי.
 - חריג צר אחד לכלל הסגור שלמעלה: ברגע שהלקוח ביקש במפורש תכנון מסלול (trip_planning) והמסלול אושר בפועל, אם destination_airports עדיין כולל יותר משדה תעופה אחד, זו החלטה אמיתית שטרם נשאלה - לא "פתיחה מחדש" של בחירה קיימת. missing_required יכלול במקרה הזה flight.gateway_narrow; שאלי שאלה קונקרטית אחת אם לצמצם לשדה אחד (כדי לחסוך בסריקות) או להמשיך לחפש בשני השדות/בכולם יחד, וציינו את שמות השדות הספציפיים מה-state בלבד. לאחר שהלקוח עונה (שדה ספציפי, או "שניהם"/"כולם"/"אין העדפה"), אל תשאלי שוב - זה נכנס לקטגוריית "שאלה שכבר נענתה" הרגילה.
 - כשחודש או תאריך יום+חודש מוזכרים בלי שנה, קבעי את השנה אוטומטית ביחס לתאריך הנוכחי: אם התאריך עדיין לפנינו השנה — השנה הנוכחית; אם הוא כבר עבר — השנה הבאה. לדוגמה, בספטמבר 2026 "28.7" פירושו 28.7.2027. אסור לשאול "באיזו שנה?" במקרה כזה. שאלי שנה רק אם הלקוח עצמו נתן מידע שסותר את החישוב או שיש יותר מפרשנות סבירה אחת.
 - התאריך הנוכחי יוזרק אלייך בכל פנייה. לעולם אל תציעי, תסכמי או תאשרי תאריך שכבר עבר אלא אם הלקוח ביקש במפורש לדבר על העבר. יום+חודש ללא שנה חייב להפוך למופע העתידי הקרוב ביותר שלו. לדוגמה, כשהיום בספטמבר 2026, 28.6 פירושו 28.6.2027 ולא 2026.
@@ -6779,154 +6780,6 @@ def _guard_mixed_baggage_pending_write(trip_state, trip_update, message=None):
     return trip_update
 
 
-def _reinforce_explicit_destination_correction(trip_state, trip_update, destination_evidence, message):
-    """Dry-run 5h (23.10.2026, Shaked's live finding, business owner's
-    explicit directive relayed by Shlomo): once a destination is already
-    resolved, an explicit customer correction naming a real, different
-    destination ("ברגן, בנורווגיה" after Bergamo/BGY was already saved)
-    did not stick - Ariella's own reply confirmed the correction in text
-    ("אעדכן את זה"), but destination_airports stayed the old value and the
-    final summary still showed the wrong city. Investigated and ruled out:
-    _guard_destination_change_evidence itself works correctly (verified
-    directly) - it lets a change through whenever destination_evidence
-    verifies, and reverts only when it does not. The gap is upstream: the
-    general EXTRACTOR_SYSTEM call does not reliably supply a verified
-    destination_evidence quote for this kind of correction, even when its
-    own reply text plainly recognizes it.
-
-    Fixed per the business owner's explicit directive: model recognition +
-    catalog verification, never a word list. A single dedicated classifier
-    call - same architecture as _destination_gateway_answer_by_meaning -
-    runs ONLY when destination_airports is already resolved (a correction
-    is only meaningful once there's something to correct) AND the raw
-    extractor's own destination_evidence did NOT already verify (the
-    common, working case is left untouched - no extra cost there). It asks
-    whether the customer's CURRENT message states an explicit, confident
-    correction to a DIFFERENT real destination than the one already saved,
-    requiring a verbatim quote exactly like destination_evidence/evidence
-    everywhere else in this file. The candidate is verified against the
-    catalog (_verify_catalog_airport_code) and must differ from every
-    airport already resolved - otherwise this is not a correction at all.
-    When genuine, destination_evidence is set to that verified quote (so
-    the very next call, _guard_destination_change_evidence, sees real
-    evidence and lets the change through on its own, unchanged logic) and
-    trip_update's destination/destination_airports are set to the
-    catalog's own verified value - exactly how _destination_gateway_
-    answer_by_meaning already writes a single verified candidate.
-
-    Never resolves an AMBIGUOUS correction (two equally plausible real
-    candidates) on its own - that stays a question for a later round,
-    consistent with this file's standing disambiguation mechanism; only a
-    single, catalog-verified candidate is ever trusted here."""
-    trip_state = trip_state if isinstance(trip_state, dict) else {}
-    trip_update = trip_update if isinstance(trip_update, dict) else {}
-    prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
-    if not prior_airports:
-        return trip_update, destination_evidence  # nothing resolved yet to correct
-    if _value_has_verbatim_evidence(destination_evidence, message):
-        return trip_update, destination_evidence  # the extractor's own evidence already verifies - nothing to add
-    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        return trip_update, destination_evidence
-    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
-    prior_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
-    prior_places_text = ", ".join(str(p) for p in (prior_destination.get("places") or []) if str(p).strip()) or ", ".join(prior_airports)
-    prompt = (
-        "ליעד הטיול כבר נקבע ונשמר אצלנו: " + prior_places_text + " (קודי שדה תעופה: " + ", ".join(prior_airports) + "). "
-        "קראי את ההודעה הנוכחית של הלקוח וקבעי: האם הלקוח אומר במפורש ובביטחון שזה לא היעד הנכון, "
-        "ומתכוון בפועל ליעד אמיתי אחר (עיר/מדינה/שדה תעופה אמיתיים) - לא שאלה, לא ספק, לא תוספת (כמו עצירה "
-        "נוספת), אלא תיקון מפורש ליעד עצמו.\n"
-        "מצאי בהודעה הנוכחית של הלקוח ציטוט מילה-במילה שמבטא את התיקון הזה - בלי ציטוט כזה מתוך ההודעה "
-        "הנוכחית עצמה, אל תחזירי שום מועמד בכלל.\n"
-        "אם יש תיקון מפורש כזה, לפי הידע הכללי שלך על העולם האמיתי, זהי איזו עיר/שדה תעופה אמיתיים משרתים "
-        "את היעד החדש הזה. החזירי מועמד רק כשאת בטוחה שזהו באמת יעד אחר מזה שכבר נקבע - לעולם לא ניחוש.\n"
-        "החזירי JSON בלבד: {\"evidence\": \"<הציטוט המדויק, מילה-במילה, מתוך ההודעה הנוכחית של הלקוח>\" "
-        "(או null אם אין תיקון מפורש כזה), \"candidate\": {\"city_en\": \"<שם העיר באנגלית>\", \"iata_code\": "
-        "\"<קוד IATA>\"} (או null)}. אם אין תיקון מפורש בהודעה, או שאינך בטוחה כלל, החזירי evidence null "
-        "ו-candidate null. לעולם אל תנחשי בספק - רק כשאת בטוחה."
-    )
-    try:
-        raw = _post_claude(key, model, prompt, "", [], "הודעת הלקוח: " + str(message or ""), 150, include_history=False, source="classifier")
-        raw = raw.strip()
-        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-    except Exception:
-        return trip_update, destination_evidence
-    if not isinstance(data, dict):
-        return trip_update, destination_evidence
-    correction_evidence = data.get("evidence")
-    if not _value_has_verbatim_evidence(correction_evidence, message):
-        return trip_update, destination_evidence
-    candidate = data.get("candidate") if isinstance(data.get("candidate"), dict) else {}
-    code = _verify_catalog_airport_code(candidate.get("iata_code"), candidate.get("city_en"))
-    if not code or code in prior_airports:
-        return trip_update, destination_evidence  # not verified, or not actually a different destination
-    verified_name = _verified_catalog_display_name(code)
-    trip_update = dict(trip_update)
-    trip_update["destination_airports"] = [code]
-    trip_update["destination"] = {"places": [verified_name]}
-    return trip_update, correction_evidence
-
-
-def _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message):
-    """Per the business owner's directive (18.10, Shaked's stage-3 run-5
-    direct finding, s3z4 - Palermo, relayed by Shlomo with the explicit
-    mechanism to use): a plain "כן" answering an unrelated trip_planning
-    yes/no question was followed by destination_airports silently replaced
-    with an entirely unrelated list (SZG/PRG/CAI/SSH - no overlap with
-    Palermo/Italy at all). Whatever the underlying cause, the fix is the
-    same evidence-gated pattern already used for restart_request/dates:
-    once a destination (places) or its resolved destination_airports is
-    already set, the extractor's own trip_update may only replace either
-    one when a genuine verbatim quote from the customer's CURRENT message
-    justifies the change - exactly mirroring dates_evidence/restart_
-    evidence. No quote, no change - both fields revert to their prior,
-    already-settled values. Runs immediately after the raw extractor merge,
-    before any deterministic route/ski/gateway-narrowing resolver - those
-    run afterward from whatever this leaves in trip_update and have their
-    own separate, unaffected guards (a real approved route legitimately
-    changing destination_airports is not an extractor claim, so it is never
-    blocked here).
-
-    Also records a destination_change diagnostic - the structured before/
-    after values only (airport codes, place names already part of the
-    structured destination field), never the customer's own free-text
-    message - so a live failure of this same mechanism (if the model
-    simply never supplies destination_evidence) is visible the same way
-    dates_change already makes an equivalent dates failure visible."""
-    trip_state = trip_state if isinstance(trip_state, dict) else {}
-    trip_update = trip_update if isinstance(trip_update, dict) else {}
-    prior_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
-    prior_places = [str(p) for p in (prior_destination.get("places") or []) if str(p).strip()]
-    prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
-    if not prior_places and not prior_airports:
-        return trip_update  # nothing resolved yet to protect
-    new_destination = trip_update.get("destination") if isinstance(trip_update.get("destination"), dict) else {}
-    new_places = [str(p) for p in (new_destination.get("places") or []) if str(p).strip()]
-    new_airports = trip_update.get("destination_airports") if isinstance(trip_update.get("destination_airports"), list) else []
-    places_changed = bool(prior_places) and bool(new_places) and set(new_places) != set(prior_places)
-    airports_changed = bool(prior_airports) and bool(new_airports) and set(new_airports) != set(prior_airports)
-    if not places_changed and not airports_changed:
-        return trip_update
-    verified = _value_has_verbatim_evidence(destination_evidence, message)
-    record_diagnostic_event("destination_change", {
-        "places_changed": places_changed,
-        "airports_changed": airports_changed,
-        "prior_places": prior_places,
-        "claimed_places": new_places,
-        "prior_airports": prior_airports,
-        "claimed_airports": new_airports,
-        "verified": verified,
-    })
-    if verified:
-        return trip_update  # a genuine quote justifies the change
-    trip_update = dict(trip_update)
-    if places_changed:
-        trip_update["destination"] = dict(prior_destination)
-    if airports_changed:
-        trip_update["destination_airports"] = list(prior_airports)
-    return trip_update
-
-
 def _guard_baggage_change_evidence(trip_state, trip_update, baggage_evidence, message):
     """Dry-run 5b (22.10.2026, scenario A turn 9, mandatory fix per Shlomo's
     relay): a plain "יש לנו" answering an unrelated LODGING yes/no question
@@ -7980,7 +7833,77 @@ def _catalog_cities_by_country():
     return _CATALOG_CITIES_BY_COUNTRY_CACHE
 
 
-def _quote_identifies_candidate_region(quote, candidate_code, message):
+_CATALOG_COUNTRY_ENTRIES_CACHE = None
+
+
+def _catalog_country_entries():
+    """Pre-extracted, pre-normalized (country_he, country_he_normalized)
+    pairs for every real catalog country (shares _catalog_cities_by_
+    country's own country set, so a country only counts here when it
+    genuinely has at least one real catalog city) - built once per
+    process, the country-name counterpart to _catalog_near_neighbor_
+    entries."""
+    global _CATALOG_COUNTRY_ENTRIES_CACHE
+    if _CATALOG_COUNTRY_ENTRIES_CACHE is None:
+        _CATALOG_COUNTRY_ENTRIES_CACHE = [
+            (country_he, _normalize_he_final_letters(country_he))
+            for country_he in _catalog_cities_by_country()
+        ]
+    return _CATALOG_COUNTRY_ENTRIES_CACHE
+
+
+def _catalog_near_neighbor_countries(needle, max_distance=1):
+    """Country-name counterpart to _catalog_near_neighbor_cities - the
+    exact same exact-wins-over-near logic (condition א), scanning real
+    catalog country names instead of city names. Returns {country_he:
+    True} for the exact match(es), or every near-distance country name
+    when no exact match exists."""
+    needle = str(needle or "").strip()
+    if not needle:
+        return {}
+    needle_norm = _normalize_he_final_letters(needle)
+    needle_len = len(needle_norm)
+    exact, near = {}, {}
+    for country_he, country_norm in _catalog_country_entries():
+        if abs(len(country_norm) - needle_len) > max_distance:
+            continue
+        distance = _levenshtein_distance(needle_norm, country_norm)
+        if distance == 0:
+            exact[country_he] = True
+        elif distance <= max_distance:
+            near[country_he] = True
+    return exact if exact else near
+
+
+def _catalog_near_neighbor_places(needle, max_distance=1):
+    """The business owner's unified destination rule (23.10.2026, Carmit,
+    relayed by Shlomo, in direct response to her own city/country
+    collision concern: "ואם יהיו עוד לקוחות שיטעו בכיתוב? לשם ליון שבצרפת
+    או ליוון המדינה?"): a country is exactly as real and catalog-
+    checkable a destination answer as a city is, and the two must compete
+    for the same raw customer wording on EQUAL footing - not in two
+    separate, uncoordinated checks where a city's own near-match could
+    wrongly suppress a genuine country collision, or vice versa. Combines
+    _catalog_near_neighbor_cities and _catalog_near_neighbor_countries,
+    re-applying condition א (exact beats near) ACROSS both together.
+    Returns {name_he: ("city", [codes]) | ("country", None)} - either the
+    single exact-match group (across both types), or every distinct
+    near-distance group (across both types) when no exact match exists
+    at all."""
+    exact_cities = _catalog_near_neighbor_cities(needle, max_distance=0)
+    exact_countries = _catalog_near_neighbor_countries(needle, max_distance=0)
+    if exact_cities or exact_countries:
+        result = {name: ("city", codes) for name, codes in exact_cities.items()}
+        result.update({name: ("country", None) for name in exact_countries})
+        return result
+    near_cities = _catalog_near_neighbor_cities(needle, max_distance=max_distance)
+    near_countries = _catalog_near_neighbor_countries(needle, max_distance=max_distance)
+    result = {name: ("city", codes) for name, codes in near_cities.items()}
+    result.update({name: ("country", None) for name in near_countries})
+    return result
+
+
+def _quote_identifies_candidate_place(quote, candidate_kind, candidate_value, message):
     """Dry-run 5f (23.10.2026, Shaked's SECOND review, of 9419b02e): her own
     finding on the first fix's stopword-based design - excluding a fixed
     list of date/context words still let through ANY other word that
@@ -7993,21 +7916,27 @@ def _quote_identifies_candidate_region(quote, candidate_code, message):
     elsewhere in this file (_value_has_verbatim_evidence's own docstring)
     against word/phrase lists substituting for real verification.
 
-    Fixed per her own redesigned proposal: never a word list at all - a
-    single candidate is trusted only when the disambiguating quote
-    (already verbatim-verified in the message) contains a word that,
-    after stripping a leading ל/ב/מ, is an EXACT catalog match: either the
-    candidate's own real country_he, or the city_he/alias of a DIFFERENT
-    real catalog airport in that same country (e.g. "ליד מילאנו" counts
-    for Bergamo/Italy, since Milan is a real Italian catalog city - not
-    because "מילאנו" happens to be unlike "ברגם"). Random context words
-    never match a real country or city name, so they can never pass this
-    check by construction - no stopword list needed, or possible to leave
-    incomplete."""
+    Fixed per her own redesigned proposal, now generalized to a candidate
+    of EITHER type (the unified destination rule's own country extension,
+    23.10.2026) - never a word list at all: a single candidate is trusted
+    only when the disambiguating quote (already verbatim-verified in the
+    message) contains a word that, after stripping a leading ל/ב/מ, is an
+    EXACT catalog match: either the candidate's own real country (its
+    country_he when candidate_kind is "city", or the country name itself
+    when candidate_kind is "country"), or the city_he/alias of a
+    DIFFERENT real catalog city in that same country (e.g. "ליד מילאנו"
+    counts for Bergamo/Italy, since Milan is a real Italian catalog city -
+    not because "מילאנו" happens to be unlike "ברגם"). Random context
+    words never match a real country or city name, so they can never pass
+    this check by construction - no stopword list needed, or possible to
+    leave incomplete."""
     if not _value_has_verbatim_evidence(quote, message):
         return False
-    airport = _catalog_airport_by_code(candidate_code) or {}
-    country_he = str(airport.get("country_he") or "").strip()
+    if candidate_kind == "city":
+        airport = _catalog_airport_by_code(candidate_value) or {}
+        country_he = str(airport.get("country_he") or "").strip()
+    else:
+        country_he = str(candidate_value or "").strip()
     if not country_he:
         return False
     valid_words = {country_he} | _catalog_cities_by_country().get(country_he, set())
@@ -8021,485 +7950,440 @@ def _quote_identifies_candidate_region(quote, candidate_code, message):
     return False
 
 
-def _destination_gateway_answer_by_meaning(message, history, state):
-    """Mirrors _budget_answer_by_meaning/_baggage_answer_by_meaning's exact
-    pattern. Round 12 finding D (Shaked/Shlomo, 22.10.2026, Hallstatt/
-    Salzburg): the customer volunteered a real, catalogued city name
-    ("זלצבורג מתאים לנו") answering the OPEN gateway question
-    (_destination_gateway_question_hint, which per its own rule never
-    proposes a specific candidate - a genuinely open question, not a
-    confirm-or-reject one) - but the raw extractor, busy with the dates
-    question asked in the very same breath, never wrote destination_
-    airports. EXTRACTOR_SYSTEM's own instruction to capture this is the
-    ONLY mechanism today, with no deterministic backstop at all - the same
-    "a fact stated while another question is in focus gets dropped"
-    failure class as the mixed-baggage guard (dry-run 4 finding 1), just
-    with no guard whatsoever behind it rather than one with a wrong
-    condition.
-
-    Fixed the same way those siblings are: when destination_airports is
-    still genuinely unresolved, a single dedicated classifier call runs on
-    every turn (the only real gate is destination_airports still being
-    empty - see _destination_gateway_unresolved_places).
-
-    Per the business owner's directive (22.10.2026): recognition (which
-    real city/airport the customer means, even from "פפוס" or "פולה")
-    belongs to the model's own world knowledge, not a hand-maintained
-    Hebrew alias/spelling table - the code's own job is verification only
-    (_verify_catalog_airport_code): a candidate code must genuinely exist
-    in our catalog AND that entry's city_en must really be the same city -
-    only then is destination_airports written, in the catalog's own
-    verified spelling/code, never the model's claim taken on faith.
-
-    Dry-run 5b (22.10.2026, scenario E, "the most severe" per Shlomo's
-    relay): "ברגם" was silently resolved to Bergamo (Italy, BGY) with NO
-    question ever asked, even though "ברגם" just as plausibly means Bergen
-    (Norway, BGO) - a real resolve-the-wrong-country failure, with nothing
-    in the conversation ever pinning down which one was meant. Root cause:
-    the old prompt handed the model the unresolved place NAME directly and
-    "the agent's prior message, for context only" - letting it answer its
-    own question from stale context or its own prior framing rather than
-    requiring genuine evidence from the CURRENT message. Two fixes, both
-    mirroring mechanisms already proven elsewhere in this file:
-    1. evidence (mirrors destination_evidence/dates_evidence exactly): the
-       model must return a verbatim quote from the customer's CURRENT
-       message that actually names/refers to the destination. Verified via
-       the same _value_has_verbatim_evidence helper used everywhere else;
-       no quote (or an invented one) means nothing resolves this turn,
-       whatever the model otherwise claims - never trusted on recognition
-       alone.
-    2. candidates (up to 2): when more than one real-world meaning is
-       genuinely plausible (exactly scenario E's "ברגם" shape), the model
-       returns BOTH real candidates instead of silently picking one. Once
-       each is independently verified against the catalog:
-       - exactly 1 verified candidate -> destination_airports is written
-         (the catalog's verified code), AND destination.places is updated
-         to the catalog's own verified spelling (city_he when the base
-         catalog has it, else city_en) - replacing the customer's typo'd
-         string, per the business owner's explicit instruction that the
-         VERIFIED name must land in destination.places, not stay garbled.
-       - 2 distinct verified candidates -> nothing is written yet; a
-         one-turn ephemeral hint (_destination_ambiguous_hint, exactly the
-         _shift_candidate_hint/_just_given_hint pattern) names both real
-         options so _turn_question_arbiter asks ONE clarifying question
-         between them. The customer's next reply (naming either city) is
-         evidence-gated through this exact same function again - no new
-         persistent state needed, the unresolved gate alone keeps it live.
-       - 0 verified (uncatalogued place, or the model unsure) -> nothing
-         changes, the generic open gateway question stays live exactly as
-         before, never a guess."""
-    destination_airports = state.get("destination_airports") if isinstance(state.get("destination_airports"), list) else []
-    if destination_airports:
-        return {}
-    unresolved_places = _destination_gateway_unresolved_places(state)
-    if not unresolved_places:
-        return {}
-    last_assistant = next(
-        (str(x.get("content") or "") for x in reversed(history or [])
-         if isinstance(x, dict) and x.get("role") == "assistant"), "")
-    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        return {}
-    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
-    # Dry-run 5c item 1 (22.10.2026, scenario E, "ברגם" -> Bergamo twice in
-    # a row with no question ever asked - approved by Shlomo 22.10.2026):
-    # a cheap, structural catalog scan (never the recognition itself -
-    # see _catalog_near_neighbor_cities's own docstring) runs BEFORE the
-    # model call. When it finds exactly 2 distinct real catalog cities
-    # within edit-distance 1 of the raw unresolved name (condition א: an
-    # exact match to one of them is decisive and suppresses this signal
-    # entirely - verified empirically against all 37 real deal
-    # destinations/1,405 combined-catalog entries, zero false positives),
-    # the SAME single call below is reframed to name those two specific
-    # real candidates explicitly instead of leaving recognition fully
-    # open - cost-neutral (still exactly one call), and replaces "trust
-    # the model to self-report ambiguity" (failed twice live) with a
-    # structural nudge the model still has the final, evidence-gated say
-    # over (one candidate, both, or neither - never a forced pick).
-    catalog_candidates_text = ""
-    # Dry-run 5g (23.10.2026, Shaked's live finding on 0f78d081, scenario E2):
-    # the raw unresolved place can legitimately still carry its leading
-    # ל/ב/מ preposition (e.g. "לברגם" from "...לברגם, 12 עד..." - the
-    # extractor captures it exactly as written, same ambiguity _reresolve_
-    # ambiguous_fresh_destination's own docstring already documents).
-    # Checking only the raw form missed the real 2-way match entirely
-    # (edit distance 2, not 1, to either "ברגן"/"ברגמו") - near_cities came
-    # back empty, this whole function's dry-run 5f/5g disambiguation-
-    # evidence requirement never engaged at all, and the ORIGINAL bug
-    # (blind single-candidate trust) reproduced through this gap. Fixed by
-    # trying the ל/ב/מ-stripped form too - mirrors _reresolve_ambiguous_
-    # fresh_destination's own candidate_forms handling of the exact same
-    # ambiguity.
-    _unresolved_place = str(unresolved_places[0] or "")
-    _unresolved_forms = [_unresolved_place]
-    if len(_unresolved_place) >= 3 and _unresolved_place[0] in "לבמ":
-        _unresolved_forms.append(_unresolved_place[1:])
-    # Shaked's follow-up static review of bbf7d990 (23.10.2026): checking
-    # the raw form first and only falling back to the stripped form when
-    # the raw form found NOTHING still missed cases where the raw form
-    # finds a NEAR (non-exact) match that stops the search before the
-    # stripped form's own EXACT match ever gets a chance - e.g. "במקאו"
-    # (with the ב prefix): the raw form alone lands near an unrelated
-    # city, while the stripped form "מקאו" is an exact match to the real
-    # Macau. Fixed the same way _reresolve_ambiguous_fresh_destination's
-    # own multi-form search already works: an exact match on ANY form is
-    # checked first, across every form, before any near-match on any form
-    # is ever trusted.
-    near_cities = {}
-    for _form in _unresolved_forms:
-        _exact = _catalog_near_neighbor_cities(_form, max_distance=0)
-        if _exact:
-            near_cities = _exact
-            break
-    if not near_cities:
-        for _form in _unresolved_forms:
-            _found = _catalog_near_neighbor_cities(_form)
-            if _found:
-                near_cities = _found
-                break
-    structural_codes = []
-    if len(near_cities) == 2:
-        named = []
-        for city_he, codes in near_cities.items():
-            code = codes[0]
-            structural_codes.append(code)
-            airport = _catalog_airport_by_code(code) or {}
-            city_en = str(airport.get("city_en") or city_he).strip()
-            country = str(airport.get("country_he") or airport.get("country_en") or "").strip()
-            named.append(f"{city_en}" + (f" ({country})" if country else ""))
-        catalog_candidates_text = (
-            "\nלפי הקטלוג שלנו, השם הזה קרוב מאוד בכתיב (כמעט זהה) לשתי ערים אמיתיות שונות: "
-            + " וגם ל-".join(named) + ". קבעי, לפי הראיה בהודעה הנוכחית של הלקוח בלבד (לא ניחוש): "
-            "למי משתי הערים האלה הוא מתכוון - לאחת מהן בלבד, לשתיהן (אם הניסוח שלו עצמו באמת לא "
-            "מבדיל ביניהן), או לאף אחת מהן (אם הוא בעצם מתכוון למשהו אחר לגמרי). לעולם אל תמציאי "
-            "מועמד שלישי שלא הוזכר כאן.\n"
-            "חשוב: אם את בוחרת באחת משתי הערים האלה בלבד (ולא בשתיהן), עליך למצוא בהודעה הנוכחית "
-            "של הלקוח ציטוט מילה-במילה נוסף, שהוא איננו שם היעד עצמו (או צורת הכתיב שלו), אלא פרט "
-            "אחר שבאמת מבדיל בין שתי הערים - למשל שם המדינה/האזור, שדה תעופה, או כל רמז אחר שמראה "
-            "שהלקוח התכוון לעיר הספציפית הזו ולא לרעותה. בלי ציטוט מבדיל כזה, אסור לך לבחור רק אחת "
-            "מהשתיים - את חייבת להחזיר את שתיהן, כי מבחינתנו זו עדיין אי-ודאות אמיתית.\n"
-        )
-    prompt = (
-        "הלקוח מתכנן טיול ליעד הבא, שאין לו שדה תעופה מאומת אצלנו: " + ", ".join(unresolved_places) + ". "
-        "קראי את ההודעה הנוכחית של הלקוח (הודעת הסוכנת הקודמת, אם יש, להקשר בלבד - אסור להתבסס עליה "
-        "כעובדה או כמקור לזיהוי, רק ההודעה הנוכחית של הלקוח עצמו קובעת).\n"
-        "מצאי בהודעה הנוכחית של הלקוח ציטוט מילה-במילה שבו הוא בעצמו מזכיר את היעד/האזור/שם עיר/שדה "
-        "תעופה (גם אם בכתיב חלקי, שגוי, או תעתיק לא מדויק) - בלי ציטוט כזה מתוך ההודעה הנוכחית עצמה, "
-        "אל תחזירי שום מועמד בכלל, גם אם את חושבת שאת יודעת למה הוא מתכוון מהקשר קודם.\n"
-        "שימי לב: השם שצוין למעלה כ\"אין לו שדה תעופה מאומת\" נלקח כפי שהוא מתוך ההודעה, ולעיתים הוא "
-        "כולל בטעות גם מילת יחס פותחת שאינה חלק משם היעד עצמו (למשל \"ל\" כמו ב\"ל-X\" = \"אל X\", או "
-        "\"ב\"/\"מ\") - שקלי גם את האפשרות שהאות הפותחת היא מילת יחס ולא חלק מהשם (למשל \"לזדאק\" עשוי "
-        "להיות \"ל\" + \"זדאק\", כלומר \"אל זדאר\" בכתיב שגוי), לצד האפשרות שהיא כן חלק אמיתי מהשם (יש "
-        "ערים אמיתיות שמתחילות באותן אותיות, למשל לונדון, ליסבון, מילאנו) - החליטי לפי מה שבאמת נשמע "
-        "כעיר אמיתית בעולם, לא לפי ניחוש עיוור.\n"
-        + catalog_candidates_text +
-        "לפי הידע הכללי שלך על העולם האמיתי, זהי איזו עיר/שדה תעופה אמיתיים משרתים את היעד הזה לנחיתה "
-        "והמראה. ברוב המקרים יש משמעות סבירה אחת בלבד - החזירי מועמד יחיד. אך כאשר השם שהלקוח כתב יכול "
-        "להתפרש באמת כשתי ערים שונות אמיתיות בעולם (למשל שמות דומים/זהים במדינות שונות), ואינך יכולה "
-        "לדעת לאיזו מהן הוא מתכוון, החזירי את שתי האפשרויות הסבירות ביותר - לעולם לא יותר משתיים, "
-        "ולעולם לא שתיים כשבאמת יש רק משמעות סבירה אחת.\n"
-        "החזירי JSON בלבד: {\"evidence\": \"<הציטוט המדויק, מילה-במילה, מתוך ההודעה הנוכחית של הלקוח>\" "
-        "(או null אם אין כזה), \"candidates\": [{\"city_en\": \"<שם העיר באנגלית>\", \"iata_code\": "
-        "\"<קוד IATA>\"}, ...], \"disambiguating_evidence\": \"<הציטוט המבדיל הנוסף, רק כשרלוונטי לפי "
-        "ההנחיה למעלה>\" (או null)} - 0, 1 או 2 איברים ברשימת candidates. אם אין ציון כזה בהודעה, או "
-        "שאינך בטוחה כלל, החזירי evidence null ו-candidates ריקה. לעולם אל תנחשי בספק - רק כשאת בטוחה."
-    )
-    try:
-        raw = _post_claude(key, model, prompt, "", [], "הודעת הסוכנת הקודמת (הקשר בלבד): " + last_assistant[-500:] + "\nהודעת הלקוח: " + str(message or ""), 220, include_history=False, source="classifier")
-        raw = raw.strip()
-        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-    except Exception:
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    if not _value_has_verbatim_evidence(data.get("evidence"), message):
-        return {}
-    raw_candidates = data.get("candidates") if isinstance(data.get("candidates"), list) else []
-    verified = []
-    seen_codes = set()
-    for candidate in raw_candidates[:2]:
-        if not isinstance(candidate, dict):
-            continue
-        code = _verify_catalog_airport_code(candidate.get("iata_code"), candidate.get("city_en"))
-        if code and code not in seen_codes:
-            seen_codes.add(code)
-            verified.append(code)
-    if not verified:
-        return {}
-    # Dry-run 5f (23.10.2026, Shaked's live finding, 4th recurrence of this
-    # exact failure class): "ברגם" still silently resolved to Bergamo (BGY)
-    # with no question asked, even with the structural catalog signal (both
-    # fixes above) in place. Root cause (Shaked's own diagnosis, verified
-    # against this function's real behavior): the classifier was still
-    # free to satisfy the ordinary "evidence" field with nothing more than
-    # the destination name itself (trivially true - it's the raw typo that
-    # triggered this whole function) and then simply pick ONE of the two
-    # structurally-ambiguous candidates, landing on the single-verified-
-    # candidate path with no genuine disambiguation ever performed. When
-    # the catalog's own structural signal already proved a genuine 2-way
-    # ambiguity (near_cities length 2) but the model still verified only
-    # ONE candidate, that single pick is never trusted on its own anymore -
-    # it must be backed by disambiguating_evidence (a SEPARATE verbatim
-    # quote, genuinely distinct from the destination name itself, per the
-    # prompt instruction above). Without it, the structural signal wins and
-    # both real catalog candidates are asked about - never the model's
-    # unsupported single guess.
-    if len(verified) == 1 and len(near_cities) == 2:
-        disambiguating_evidence = data.get("disambiguating_evidence")
-        normalized_evidence = re.sub(r"\s+", " ", str(disambiguating_evidence or "").strip())
-        has_genuine_disambiguation = (
-            bool(normalized_evidence)
-            and _quote_identifies_candidate_region(disambiguating_evidence, verified[0], message)
-        )
-        record_diagnostic_event("destination_ambiguity_override", {
-            "unresolved_place": unresolved_places[0],
-            "near_cities": sorted(near_cities.keys()),
-            "model_verified_code": verified[0],
-            "disambiguating_evidence_present": bool(normalized_evidence),
-            "disambiguating_evidence_genuine": has_genuine_disambiguation,
-            "forced_ambiguous": not has_genuine_disambiguation,
-        })
-        if not has_genuine_disambiguation:
-            return {"_destination_ambiguous_hint": _destination_ambiguous_hint_from_codes(structural_codes)}
-    if len(verified) == 1:
-        verified_name = _verified_catalog_display_name(verified[0])
-        return {
-            "destination_airports": verified,
-            "destination": {"places": [verified_name]},
-        }
-    # Exactly 2 distinct verified candidates: a genuine real-world
-    # ambiguity - never silently pick one. Ask once, naming both.
-    return {"_destination_ambiguous_hint": _destination_ambiguous_hint_from_codes(verified)}
-
-
-def _destination_ambiguous_hint_from_codes(codes):
-    """Shared by both callers of the one-question, name-both-candidates
-    ambiguity hint (condition ג, Shlomo's approval of dry-run 5c item 1,
-    22.10.2026): _destination_gateway_answer_by_meaning's own classifier-
-    verified candidates, and _reresolve_ambiguous_fresh_destination's
-    structural catalog-only signal (dry-run 5d item 2, Shaked, 23.10.2026)
-    - extracted so both build the exact same wording from a plain list of
-    verified IATA codes."""
-    options_text = []
-    for code in codes:
-        airport = _catalog_airport_by_code(code) or {}
-        name = _verified_catalog_display_name(code)
-        country = str(airport.get("country_he") or airport.get("country_en") or "").strip()
-        options_text.append(f"{name} ({country})" if country else name)
-    return (
-        "השם שהלקוח כתב יכול להתכוון לשני יעדים אמיתיים שונים, ששניהם אומתו מול הקטלוג: "
-        + " או ".join(options_text) + ". שאלי שאלה אחת, בניסוח שלך, שמבררת בוודאות לאיזה מהם "
-        "הלקוח מתכוון - נקבי בשני היעדים בשמם כדי שיוכל לבחור ביניהם. לעולם אל תבחרי אחד מהם "
-        "בעצמך, אל תכתבי destination_airports, ואל תציגי אף אחד מהם בסיכום (גם לא בשורת "
-        "\"נחיתה:\") לפני שהלקוח אישר במפורש לאיזה מהם הוא מתכוון."
-    )
-
-
-def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_evidence, message):
-    """Dry-run 5d item 2 (Shaked, 23.10.2026, scenario E, "ברגם"->Bergamo
-    with no question ever asked - the THIRD live occurrence of this exact
-    bug): _catalog_near_neighbor_cities (the structural signal Shlomo
-    approved 22.10.2026) only ever ran inside _destination_gateway_
-    answer_by_meaning, gated on destination_airports still being
-    unresolved - but the general extractor can resolve destination.places/
-    destination_airports directly, in the SAME turn, from its own world
-    knowledge, without that path ever running at all (confirmed live:
-    both fields were already set on turn 0 itself). Shaked's fix: run the
-    same catalog check "also when the extractor already resolved the
-    destination this turn, on the string the customer wrote."
-
-    Scoped to a genuinely FRESH resolution this turn (destination_airports
-    empty before, non-empty now) - an already-settled destination changing
-    is _guard_destination_change_evidence's own job (runs first, right
-    before this), never re-litigated here. The needle is destination_
-    evidence - the model's own verbatim quote, verified against the
-    message exactly like _guard_destination_change_evidence's own check -
-    never the extractor's own corrected/resolved spelling (checking
-    "ברגמו" against the catalog would trivially exact-match Bergamo itself
-    and suppress the whole signal via condition א; the raw customer
-    wording, "ברגם", is what is genuinely ambiguous). A single leading
-    Hebrew preposition (ל/ב/מ) is tried both ways, mirroring the same
-    preposition handling _destination_gateway_answer_by_meaning's own
-    prompt already asks the model to consider for "לזדאק"-style typos.
-
-    When exactly 2 real catalog cities match (condition א still applies -
-    an exact match is decisive, inherited directly from _catalog_near_
-    neighbor_cities itself), the fresh resolution is reverted: destination_
-    airports goes back to empty, and destination.places is set to whichever
-    form (the raw quote, or it with one leading preposition letter
-    stripped) actually produced the 2-way match - NOT the hint text
-    itself. This deliberately leaves the destination exactly as "a named
-    but still-unresolved place", so _destination_gateway_answer_by_meaning
-    (which already runs later this SAME turn, unconditionally, right after
-    its own _destination_ambiguous_hint pop) picks it up completely
-    normally through its own existing, already-approved mechanism -
-    recomputing the identical catalog signal on the identical string and
-    reframing its own one classifier call accordingly. No hint text is
-    built here at all; this function only ever decides whether to revert,
-    never how to phrase asking about it.
-
-    Shaked's static review of a0744a31 (23.10.2026, approved fix by
-    Shlomo): the stripped form used to be tried unconditionally whenever
-    the full needle itself wasn't a 2-way ambiguity - but destination_
-    evidence is usually just the bare city name (the model quotes the
-    place itself, not a leading preposition that happened to precede it
-    in the sentence), so an EXACT full-name match (e.g. "מדריד") still
-    fell through to the stripped form ("דריד"), which can coincidentally
-    land within edit-distance 1 of two unrelated real cities - wrongly
-    reverting a perfectly correct, unambiguous resolution. Scanned against
-    the full catalog (824 names): 24 real cities starting with ל/ב/מ
-    (Miami, Bergen, Belgrade, Boston, Bari, Malta, among others) hit this.
-    Fixed in 6dbb3be0: the moment any candidate form matches ANYTHING in
-    the catalog at all, that was treated as the final answer.
-
-    Shaked's static review of 6dbb3be0 (23.10.2026) found that fix still
-    too narrow: when the customer's raw quote ALREADY includes a leading
-    ל/ב (e.g. "לדבלין"), the FULL form itself can land within edit-
-    distance 1 of two unrelated cities (e.g. "לדבלין" is distance-1 from
-    both "דבלין"/Dublin and "לובלין"/Lublin) - the loop stopped there,
-    on a near (non-exact) match, and never reached the stripped form
-    ("דבלין"), which has the real EXACT match. 18 catalog names with a
-    leading ל/ב hit this ("לדבלין"->{Dublin,Lublin}, "לאוסקה"->{Osaka,...},
-    among others). Fixed in 318fd69a: an exact (distance-0) match on ANY
-    candidate form of the SAME word is checked first, before any near-
-    match check for that word.
-
-    Shaked's 4th live repro (23.10.2026, dry-run 5e, "ברגמו"/BGY saved
-    turn 0, no ambiguity question ever asked) + Shlomo's approved change
-    of approach: this entire mechanism depended on destination_evidence -
-    the MODEL's own claimed verbatim quote. When the model's extraction
-    call omits it, or returns something that fails _value_has_verbatim_
-    evidence, the whole structural signal silently never ran at all, no
-    matter how genuinely ambiguous the customer's own wording was. Fixed:
-    the check no longer depends on what the model chose to quote - it now
-    scans the CUSTOMER'S OWN raw message directly. Candidates are every
-    run of 1-4 consecutive Hebrew words (catalog city names are up to 4
-    words, e.g. "בניה לוקה"/Banja Luka, "סאו טומה"/Sao Tome - a single-
-    word-only tokenizer would never exact-match these, wrongly falling
-    through to a spurious near-match on one half instead), each tried
-    both as-is and with one leading preposition letter (ל/ב/מ) stripped
-    from its first word.
-
-    An exact (distance-0) match on ANY candidate - any word-window, any
-    form - is checked FIRST, across the ENTIRE message, before any near-
-    match check runs at all (mirroring condition א and the ל/ב-prefix
-    fix, 318fd69a, now generalized across word-windows too): if found,
-    the whole message is treated as decisively resolved, no reversion.
-    This is deliberately message-wide, not per-candidate-only - a single
-    word WINDOW overlapping a real multi-word name (e.g. "נאנג" out of
-    "דה נאנג"/Da Nang) can itself land within edit-distance 1 of two
-    unrelated cities, and the two windows are forms of the SAME
-    underlying phrase, not independent words, so the short window's
-    coincidental near-miss must never fire before the longer window's
-    real exact match is found. The accepted trade-off, same direction as
-    condition א's own standing precedent: a message that happens to also
-    name a second, different real catalog city exactly would suppress a
-    genuine ambiguity in a third, unrelated phrase too - judged rarer and
-    less costly than the demonstrated, systematic multi-word/geresh
-    failure this fixes. Only once NO candidate anywhere has an exact
-    match does the near-match loop run, stopping at the first candidate
-    with a genuine 2-way ambiguity. destination_evidence, when it still
-    verifies, is folded in as one more candidate (never required,
-    occasionally catches a form the plain word-window generation misses)
-    - strictly additive, never the sole source again."""
-    trip_state = trip_state if isinstance(trip_state, dict) else {}
-    trip_update = trip_update if isinstance(trip_update, dict) else {}
-    prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
-    new_airports = trip_update.get("destination_airports") if isinstance(trip_update.get("destination_airports"), list) else []
-    if prior_airports or not new_airports:
-        return trip_update  # not a fresh first-time resolution this turn
-    # Catalog city names are not always one word (114 of 824, e.g. "בניה
-    # לוקה"/Banja Luka, "סאו טומה"/Sao Tome, up to 4 words) and some
-    # include an internal geresh ("ג'ירונה"/Girona, "בראץ'") - a single-
-    # word-only tokenizer would never exact-match these at all, wrongly
-    # treating a real, unambiguous multi-word/geresh name as if it had no
-    # catalog match and falling through to a spurious near-match on one
-    # of its halves. Words are Hebrew letter runs that may contain an
-    # internal geresh; candidates are every run of 1-4 consecutive words
-    # (824 names are at most 4 words long) joined back with single
-    # spaces, matching the catalog's own city_he spacing exactly.
-    _words = re.findall(r"[א-ת]+(?:['׳][א-ת]*)?", str(message or ""))
-    _multiword_first_words = _catalog_multiword_first_words()
+def _destination_message_tokens(message, destination_evidence):
+    """Shared raw-wording token generator for the unified destination
+    rule (_resolve_destination_by_meaning) - every run of 1-4 consecutive
+    Hebrew words/geresh-words in the customer's CURRENT message (catalog
+    place names run up to 4 words, e.g. "בניה לוקה"/Banja Luka, "סאו
+    טומה"/Sao Tome), gated the same performance-safe way the original
+    tokenizer was (dry-run 5e, Shaked, 23.10.2026): a 2-4-word window is
+    only generated starting at a word that could plausibly start a real
+    multi-word catalog name. destination_evidence, when it verifies, is
+    folded in as one more token - strictly additive, never the sole
+    source (dry-run 5e, scenario E's 4th live recurrence: the model's own
+    claimed quote is not always supplied, so the raw message must never
+    be the only source either)."""
+    words = re.findall(r"[א-ת]+(?:['׳][א-ת]*)?", str(message or ""))
+    multiword_first_words = _catalog_multiword_first_words()
     tokens = []
-    for i, word in enumerate(_words):
+    for i, word in enumerate(words):
         if len(word) >= 3 and word not in tokens:
             tokens.append(word)
-        # Dry-run 5e performance fix (Shaked, 23.10.2026): only bother
-        # building a 2-4-word window starting here when this word (as-is,
-        # or with a leading ל/ב/מ stripped) could plausibly START a real
-        # multi-word catalog name - generating every window regardless
-        # was still ~0.3s on a 41-word message even after the length-
-        # filter/caching fixes above, almost all of it wasted scanning
-        # windows that can never match (most words never start a real
-        # multi-word name at all).
-        _stripped = word[1:] if len(word) >= 3 and word[0] in "לבמ" else None
-        if word not in _multiword_first_words and (_stripped is None or _stripped not in _multiword_first_words):
+        stripped = word[1:] if len(word) >= 3 and word[0] in "לבמ" else None
+        if word not in multiword_first_words and (stripped is None or stripped not in multiword_first_words):
             continue
         for n in (2, 3, 4):
-            if i + n > len(_words):
+            if i + n > len(words):
                 break
-            candidate = " ".join(_words[i:i + n])
+            candidate = " ".join(words[i:i + n])
             if candidate not in tokens:
                 tokens.append(candidate)
     if _value_has_verbatim_evidence(destination_evidence, message):
         evidence = str(destination_evidence or "").strip()
         if evidence and evidence not in tokens:
             tokens.append(evidence)
-    # Candidate forms per token: itself, plus itself with one leading
-    # preposition letter (ל/ב/מ) stripped from its first word.
-    candidate_forms = []
-    for token in tokens:
-        forms = [token]
-        if len(token) >= 3 and token[0] in "לבמ":
-            forms.append(token[1:])
-        candidate_forms.append(forms)
-    # Exact match on ANY candidate (any token, any form) is checked
-    # FIRST, across the whole message, before any near-match check runs
-    # at all - mirroring condition א and the ל/ב-prefix fix (318fd69a),
-    # now generalized across tokens too. Without this, a single-word
-    # WINDOW overlapping a real multi-word name (e.g. "נאנג" out of "דה
-    # נאנג"/Da Nang) could itself land within edit-distance 1 of two
-    # unrelated cities and wrongly revert BEFORE the loop ever reached
-    # the longer window with the real, decisive exact match - the two
-    # windows are forms of the SAME underlying phrase, not independent
-    # words, so this is the same priority rule as the prefix forms, not
-    # the "unrelated city named in passing" case the per-candidate near-
-    # match loop below still guards against.
-    # Dry-run 5h (23.10.2026, Shlomo's explicit fallback instruction - E1's
-    # live turn-0 outcome still unverified at the time of this change): a
-    # diagnostic event on every genuinely fresh resolution (prior_airports
-    # empty, new_airports non-empty - necessarily written by the raw
-    # extractor's own trip_update, since nothing earlier in the pipeline
-    # writes destination_airports fresh) - never the customer's own
-    # message text, only derived fields, same convention as destination_
-    # change/destination_ambiguity_override. Lets the next dry-run give an
-    # answer even if this fix still doesn't close E1.
-    if any(_catalog_near_neighbor_cities(form, max_distance=0) for forms in candidate_forms for form in forms):
-        record_diagnostic_event("destination_fresh_resolution", {
-            "extractor_wrote_airports": new_airports, "decision": "kept_exact_match",
-        })
-        return trip_update
+    return tokens
+
+
+def _destination_candidate_forms(tokens):
+    """Each token, plus itself with one leading ל/ב/מ preposition letter
+    stripped from its first word - a raw place name can retain a Hebrew
+    preposition that isn't part of the place name itself (e.g. "לברגם" =
+    "ל" + "ברגם")."""
+    return [
+        ([token, token[1:]] if len(token) >= 3 and token[0] in "לבמ" else [token])
+        for token in tokens
+    ]
+
+
+def _scan_destination_tokens(tokens):
+    """Scans every token/form against the combined city+country catalog
+    (_catalog_near_neighbor_places). Condition א first: an EXACT match on
+    ANY token/form, anywhere, wins outright before any near-match is ever
+    trusted - the same message-wide ordering Shaked's static reviews of
+    6dbb3be0/318fd69a established (23.10.2026), now also covering country
+    names per the unified destination rule. Returns (exact_hit,
+    near_places, winning_needle): exact_hit is True the moment any form
+    exact-matches anything (city or country) anywhere in the message -
+    decisive, the caller never reverts a resolution or asks a forced
+    question in that case. Otherwise near_places is the first genuine
+    2-way near-ambiguity found across any token (city vs city, country vs
+    country, or city vs country), with winning_needle the exact form that
+    produced it."""
+    candidate_forms = _destination_candidate_forms(tokens)
+    if any(_catalog_near_neighbor_places(form, max_distance=0) for forms in candidate_forms for form in forms):
+        return True, {}, None
     for forms in candidate_forms:
-        winning_needle, near_cities = None, {}
         for form in forms:
-            found = _catalog_near_neighbor_cities(form)
-            if found:
-                winning_needle, near_cities = form, found
-                break
-        if len(near_cities) == 2:
+            found = _catalog_near_neighbor_places(form)
+            if len(found) == 2:
+                return False, found, form
+    return False, {}, None
+
+
+def _verify_catalog_country_name(country_en):
+    """Country counterpart to _verify_catalog_airport_code (same
+    verification-not-recognition principle, per the business owner's own
+    standing directive): confirms the model's claimed English country
+    name genuinely matches a real country_en in our own catalog, and
+    returns the catalog's own Hebrew country name (never the model's
+    spelling) - or None. Never invents a country, never adjusts a merely-
+    close name into a match."""
+    country_en = str(country_en or "").strip()
+    if not country_en:
+        return None
+    for airport in _load_airports():
+        if str(airport.get("country_en") or "").strip().casefold() == country_en.casefold():
+            return str(airport.get("country_he") or "").strip() or None
+    for airport in _load_extended_airports():
+        if str(airport.get("he_confidence") or "").lower() != "high":
+            continue
+        if str(airport.get("country_en") or "").strip().casefold() == country_en.casefold():
+            return str(airport.get("country_he") or "").strip() or None
+    return None
+
+
+def _verify_destination_candidate(candidate):
+    """The single verification gate every model-returned destination
+    candidate passes through, whether it names a city or a country -
+    countries are exactly as real and catalog-checkable a destination
+    answer as cities, per the business owner's own directive (23.10.2026,
+    her Lyon/Greece collision concern), never hand-waved. Returns
+    ("city", verified_code) or ("country", verified_country_he), or None."""
+    if not isinstance(candidate, dict):
+        return None
+    kind = str(candidate.get("type") or "").strip().lower()
+    if kind == "country" or (kind != "city" and candidate.get("country_en") and not candidate.get("iata_code")):
+        country_he = _verify_catalog_country_name(candidate.get("country_en"))
+        return ("country", country_he) if country_he else None
+    code = _verify_catalog_airport_code(candidate.get("iata_code"), candidate.get("city_en"))
+    return ("city", code) if code else None
+
+
+def _destination_ambiguous_hint_from_candidates(candidates):
+    """Builds the one-question, name-both-candidates hint consumed by
+    _turn_question_arbiter - shared by every exit of the unified
+    destination rule that ends in a genuine 2-way ambiguity, for ANY mix
+    of candidate types: city vs city, country vs country, or a city vs a
+    DIFFERENT country (the business owner's own Lyon/Greece example,
+    23.10.2026). Each candidate is ("city", iata_code) or ("country",
+    country_he)."""
+    options_text = []
+    for kind, value in candidates:
+        if kind == "city":
+            airport = _catalog_airport_by_code(value) or {}
+            name = _verified_catalog_display_name(value)
+            country = str(airport.get("country_he") or airport.get("country_en") or "").strip()
+            options_text.append(f"{name} ({country})" if country else name)
+        else:
+            options_text.append(str(value))
+    return (
+        "השם שהלקוח כתב יכול להתכוון לשני יעדים אמיתיים שונים, ששניהם אומתו מול הקטלוג: "
+        + " או ".join(options_text) + ". שאלי שאלה אחת, בניסוח שלך, שמבררת בוודאות לאיזה מהם "
+        "הלקוח מתכוון - נקבי בשני היעדים בשמם כדי שיוכל לבחור ביניהם. לעולם אל תבחרי אחד מהם "
+        "בעצמך, אל תכתבי destination_airports, ואל תציגי אף אחד מהם בסיכום (גם לא בשורת "
+        "\"נחיתה:\") לפני שהלקוח אישר במפורש לאיזה מהם הוא מתכוון. אם הלקוח יבחר במדינה, "
+        "המשיכי בזרימה הרגילה של יעד ברמת מדינה - בלי לבחור שדה תעופה מיוזמתך."
+    )
+
+
+def _run_destination_recognition(trip_update, destination_evidence, message, history,
+                                  unresolved_places, prior_airports, prior_destination):
+    """The single model-backed recognition call shared by every caller of
+    the unified destination rule (_resolve_destination_by_meaning) -
+    mirrors _budget_answer_by_meaning's exact pattern. unresolved_places
+    is a list naming the open-gateway framing (destination genuinely not
+    yet resolved, or a just-reverted ambiguous fresh resolution) when not
+    None; None means the already-settled-destination correction framing
+    instead - everything else (the catalog structural signal, the
+    verification gate, the single-vs-two-candidate handling) is identical
+    either way, which is the entire point of having unified them."""
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return trip_update
+    model = os.getenv("ARIELLA_MODEL", "claude-sonnet-5").strip()
+
+    tokens = _destination_message_tokens(message, destination_evidence)
+    exact_hit, near_places, _needle = _scan_destination_tokens(tokens)
+    structurally_ambiguous = not exact_hit and len(near_places) == 2
+
+    catalog_candidates_text = ""
+    if structurally_ambiguous:
+        named = []
+        for name_he, (kind, codes) in near_places.items():
+            if kind == "city":
+                code = codes[0]
+                airport = _catalog_airport_by_code(code) or {}
+                city_en = str(airport.get("city_en") or name_he).strip()
+                country = str(airport.get("country_he") or airport.get("country_en") or "").strip()
+                named.append(f"{city_en}" + (f" ({country})" if country else ""))
+            else:
+                named.append(name_he + " (מדינה)")
+        catalog_candidates_text = (
+            "\nלפי הקטלוג שלנו, הניסוח הזה קרוב מאוד בכתיב (כמעט זהה) לשני יעדים אמיתיים שונים - עיר "
+            "ו/או מדינה: " + " וגם ל-".join(named) + ". קבעי, לפי הראיה בהודעה הנוכחית של הלקוח בלבד "
+            "(לא ניחוש): למי משני היעדים האלה הוא מתכוון - לאחד מהם בלבד, לשניהם (אם הניסוח שלו עצמו "
+            "באמת לא מבדיל ביניהם), או לאף אחד מהם (אם הוא בעצם מתכוון למשהו אחר לגמרי). לעולם אל "
+            "תמציאי מועמד שלישי שלא הוזכר כאן.\n"
+            "חשוב: אם את בוחרת באחד מהשניים בלבד (ולא בשניהם), עליך למצוא בהודעה הנוכחית של הלקוח "
+            "ציטוט מילה-במילה נוסף, שהוא איננו שם היעד עצמו (או צורת הכתיב שלו), אלא פרט אחר שבאמת "
+            "מבדיל ביניהם - למשל שם המדינה/האזור, שדה תעופה, או כל רמז אחר. בלי ציטוט מבדיל כזה, אסור "
+            "לך לבחור רק אחד מהשניים - את חייבת להחזיר את שניהם, כי מבחינתנו זו עדיין אי-ודאות אמיתית.\n"
+        )
+
+    if unresolved_places is not None:
+        intro = (
+            "הלקוח מתכנן טיול ליעד הבא, שאין לו שדה תעופה מאומת אצלנו: " + ", ".join(unresolved_places) + ". "
+            "קראי את ההודעה הנוכחית של הלקוח (הודעת הסוכנת הקודמת, אם יש, להקשר בלבד - אסור להתבסס "
+            "עליה כעובדה או כמקור לזיהוי, רק ההודעה הנוכחית של הלקוח עצמו קובעת).\n"
+        )
+    else:
+        prior_places_text = (", ".join(str(p) for p in (prior_destination.get("places") or []) if str(p).strip())
+                              or ", ".join(prior_airports))
+        intro = (
+            "ליעד הטיול כבר נקבע ונשמר אצלנו: " + prior_places_text + " (קודי שדה תעופה: "
+            + ", ".join(prior_airports) + "). קראי את ההודעה הנוכחית של הלקוח וקבעי: האם הלקוח אומר "
+            "במפורש ובביטחון שזה לא היעד הנכון, ומתכוון בפועל ליעד אמיתי אחר (עיר או מדינה אמיתיים) - "
+            "לא שאלה, לא ספק, לא תוספת (כמו עצירה נוספת), אלא תיקון מפורש ליעד עצמו.\n"
+        )
+
+    last_assistant = next(
+        (str(x.get("content") or "") for x in reversed(history or [])
+         if isinstance(x, dict) and x.get("role") == "assistant"), "")
+
+    prompt = (
+        intro +
+        "מצאי בהודעה הנוכחית של הלקוח ציטוט מילה-במילה שבו הוא בעצמו מזכיר את היעד/האזור/שם עיר/מדינה/"
+        "שדה תעופה (גם אם בכתיב חלקי, שגוי, או תעתיק לא מדויק) - בלי ציטוט כזה מתוך ההודעה הנוכחית "
+        "עצמה, אל תחזירי שום מועמד בכלל, גם אם את חושבת שאת יודעת למה הוא מתכוון מהקשר קודם.\n"
+        "שימי לב: שם שמוזכר לעיתים כולל בטעות גם מילת יחס פותחת שאינה חלק מהשם עצמו (למשל \"ל\" כמו "
+        "ב\"ל-X\" = \"אל X\", או \"ב\"/\"מ\") - שקלי גם את האפשרות הזו, לצד האפשרות שהיא כן חלק אמיתי "
+        "מהשם (יש שמות אמיתיים שמתחילים באותן אותיות, למשל לונדון, ליסבון, מילאנו) - החליטי לפי מה "
+        "שבאמת נשמע כמקום אמיתי בעולם, לא לפי ניחוש עיוור.\n"
+        + catalog_candidates_text +
+        "לפי הידע הכללי שלך על העולם האמיתי, זהי איזו עיר/שדה תעופה או מדינה אמיתיים משרתים את היעד "
+        "הזה. ברוב המקרים יש משמעות סבירה אחת בלבד - החזירי מועמד יחיד. אך כאשר השם שהלקוח כתב יכול "
+        "להתפרש באמת כשני יעדים שונים אמיתיים בעולם (עיר או מדינה, בכל שילוב), ואינך יכולה לדעת לאיזה "
+        "מהם הוא מתכוון, החזירי את שתי האפשרויות הסבירות ביותר - לעולם לא יותר משתיים.\n"
+        "החזירי JSON בלבד: {\"evidence\": \"<הציטוט המדויק, מילה-במילה, מתוך ההודעה הנוכחית של הלקוח>\" "
+        "(או null אם אין כזה), \"candidates\": [{\"type\": \"city\"|\"country\", \"city_en\": \"<שם העיר "
+        "באנגלית, רק כשtype הוא city>\", \"iata_code\": \"<קוד IATA, רק כשtype הוא city>\", \"country_en\": "
+        "\"<שם המדינה באנגלית, רק כשtype הוא country>\"}, ...], \"disambiguating_evidence\": \"<הציטוט "
+        "המבדיל הנוסף, רק כשרלוונטי לפי ההנחיה למעלה>\" (או null)} - 0, 1 או 2 איברים ברשימת candidates. "
+        "אם אין ציון כזה בהודעה, או שאינך בטוחה כלל, החזירי evidence null ו-candidates ריקה. לעולם אל "
+        "תנחשי בספק - רק כשאת בטוחה."
+    )
+    try:
+        raw = _post_claude(key, model, prompt, "", [],
+                            "הודעת הסוכנת הקודמת (הקשר בלבד): " + last_assistant[-500:] + "\nהודעת הלקוח: " + str(message or ""),
+                            220, include_history=False, source="classifier")
+        raw = raw.strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+    except Exception:
+        return trip_update
+    if not isinstance(data, dict):
+        return trip_update
+    if not _value_has_verbatim_evidence(data.get("evidence"), message):
+        return trip_update
+    raw_candidates = data.get("candidates") if isinstance(data.get("candidates"), list) else []
+    verified = []
+    seen = set()
+    for candidate in raw_candidates[:2]:
+        result = _verify_destination_candidate(candidate)
+        if result and result not in seen:
+            seen.add(result)
+            verified.append(result)
+    if not verified:
+        return trip_update
+
+    if len(verified) == 1 and structurally_ambiguous:
+        disambiguating_evidence = data.get("disambiguating_evidence")
+        normalized_evidence = re.sub(r"\s+", " ", str(disambiguating_evidence or "").strip())
+        kind, value = verified[0]
+        has_genuine_disambiguation = (
+            bool(normalized_evidence)
+            and _quote_identifies_candidate_place(disambiguating_evidence, kind, value, message)
+        )
+        record_diagnostic_event("destination_ambiguity_override", {
+            "near_places": sorted(near_places.keys()),
+            "model_verified": f"{kind}:{value}",
+            "disambiguating_evidence_present": bool(normalized_evidence),
+            "disambiguating_evidence_genuine": has_genuine_disambiguation,
+            "forced_ambiguous": not has_genuine_disambiguation,
+        })
+        if not has_genuine_disambiguation:
+            structural_candidates = [
+                (kind, (codes[0] if kind == "city" else name_he))
+                for name_he, (kind, codes) in near_places.items()
+            ]
             trip_update = dict(trip_update)
-            prior_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
+            trip_update["_destination_ambiguous_hint"] = _destination_ambiguous_hint_from_candidates(structural_candidates)
+            return trip_update
+
+    if len(verified) == 1:
+        kind, value = verified[0]
+        trip_update = dict(trip_update)
+        if kind == "city":
+            if unresolved_places is None and value in prior_airports:
+                return trip_update  # the "correction" names the SAME destination already saved
+            trip_update["destination_airports"] = [value]
+            trip_update["destination"] = {"places": [_verified_catalog_display_name(value)]}
+        else:
+            if (unresolved_places is None and prior_destination.get("mode") == "country"
+                    and value in (prior_destination.get("places") or [])):
+                return trip_update  # same country already saved
+            trip_update["destination_airports"] = []
+            trip_update["destination"] = {"places": [value], "mode": "country", "status": "known"}
+        return trip_update
+
+    # Exactly 2 distinct verified candidates: a genuine real-world
+    # ambiguity (city vs city, country vs country, or city vs a
+    # different country) - never silently pick one. Ask once, naming
+    # both; choosing the country continues into the existing country-
+    # level destination flow (destination.mode="country", no airports
+    # chosen here) with no new narrowing logic needed.
+    trip_update = dict(trip_update)
+    trip_update["_destination_ambiguous_hint"] = _destination_ambiguous_hint_from_candidates(verified)
+    return trip_update
+
+
+def _resolve_destination_by_meaning(trip_state, trip_update, destination_evidence, message, history):
+    """THE unified destination-resolution rule (the business owner's
+    explicit directive, 23.10.2026, relayed by Shlomo, on the 5th live
+    recurrence of the same "ambiguous place name silently misresolved"
+    bug class and her own city/country collision concern, Lyon/Greece:
+    "צריך להכניס חוק כללי שמקיף הכל... לא מוסיפים עוד טלאי... תאחד את
+    הנתיבים הקיימים (gateway, reresolve, reinforce) לפונקציה אחת שכל
+    הנתיבים עוברים דרכה"). Replaces _destination_gateway_answer_by_
+    meaning, _reresolve_ambiguous_fresh_destination, _reinforce_explicit_
+    destination_correction and _guard_destination_change_evidence - ONE
+    function, ONE rule, for every shape a destination determination can
+    take this turn.
+
+    The rule, exactly as approved:
+    1. An EXACT catalog match (city or country, distance 0) for a word
+       the customer actually wrote this turn is always decisive - never
+       second-guessed by a merely-similar-looking different real place
+       (condition א, now extended to country names too - "יוון" written
+       exactly is decisive even though "ליון" is a near neighbor of it).
+    2. Otherwise, the raw customer wording plus every near-catalog
+       candidate (cities AND countries together) go to a single model
+       call for recognition. A single verified candidate is trusted
+       outright UNLESS the catalog's own structural signal already found
+       a genuine 2-way near-ambiguity for that same wording, in which
+       case it additionally needs a separate, catalog-verified
+       corroborating quote (_quote_identifies_candidate_place) - dry-run
+       5f/5g's own mechanism, now the single source of truth rather than
+       one of three.
+    3. Two genuinely plausible candidates (city vs city, country vs
+       country, or a city vs a DIFFERENT country) -> never silently pick
+       one; ask ONE question naming both. Choosing the country continues
+       into the existing country-level destination flow (destination.
+       mode="country", destination_airports left empty) exactly like any
+       other country-level destination - no new narrowing logic needed,
+       see _destination_gateway_unresolved_places's own docstring.
+    4. An explicit customer correction, once recognized and catalog-
+       verified by this same mechanism, always overrides whatever is
+       already saved and is itself saved as the new value - never left to
+       the extractor's own unguarded claim.
+    5. Ariella's reply text must never be the only place a destination
+       change lives (see the matching TINKERBELL_SYSTEM instruction) -
+       this function is what actually persists it to trip_update.
+
+    Runs exactly once per turn, covering every shape:
+      - ALREADY SETTLED, extractor proposes a change: an already-resolved
+        destination (destination_airports, or a country/region/area/
+        broad-level destination.places) moving to a different value in
+        the extractor's own trip_update is never trusted without genuine
+        destination_evidence - reverted first if unverified (mirrors the
+        old _guard_destination_change_evidence exactly).
+      - FRESH: destination_airports was empty in trip_state but the raw
+        extractor just wrote it this very turn - re-verified against the
+        customer's own raw wording, never the extractor's own corrected
+        spelling (checking "ברגמו" against the catalog would trivially
+        exact-match Bergamo itself and suppress the whole signal via
+        condition א; the raw customer wording, "ברגם", is what is
+        genuinely ambiguous). A genuine 2-way structural ambiguity here
+        chains directly into the same recognition call below, instead of
+        reverting and silently waiting for a later pass that no longer
+        exists separately.
+      - ALREADY SETTLED, no extractor change proposed (or it was just
+        reverted above): still checked for an EXPLICIT customer
+        correction via the same recognition call, gated on the
+        extractor's own destination_evidence not already verifying (the
+        common, already-correctly-extracted case costs nothing extra).
+      - UNRESOLVED: the old open-gateway case - a named place with no
+        catalog airport of its own yet."""
+    trip_state = trip_state if isinstance(trip_state, dict) else {}
+    trip_update = dict(trip_update) if isinstance(trip_update, dict) else {}
+    trip_update.pop("_destination_ambiguous_hint", None)
+    message = str(message or "")
+
+    prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
+    prior_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
+    prior_places = [str(p) for p in (prior_destination.get("places") or []) if str(p).strip()]
+    already_settled = bool(prior_airports) or (
+        bool(prior_places) and prior_destination.get("mode") in ("country", "region", "area", "broad")
+    )
+
+    new_airports = trip_update.get("destination_airports") if isinstance(trip_update.get("destination_airports"), list) else []
+    new_destination = trip_update.get("destination") if isinstance(trip_update.get("destination"), dict) else {}
+    new_places = [str(p) for p in (new_destination.get("places") or []) if str(p).strip()]
+    places_changed = bool(prior_places) and bool(new_places) and set(new_places) != set(prior_places)
+    airports_changed = bool(prior_airports) and bool(new_airports) and set(new_airports) != set(prior_airports)
+
+    if already_settled and (places_changed or airports_changed):
+        verified_evidence = _value_has_verbatim_evidence(destination_evidence, message)
+        record_diagnostic_event("destination_change", {
+            "places_changed": places_changed, "airports_changed": airports_changed,
+            "prior_places": prior_places, "claimed_places": new_places,
+            "prior_airports": prior_airports, "claimed_airports": new_airports,
+            "verified": verified_evidence,
+        })
+        if not verified_evidence:
+            if places_changed:
+                trip_update["destination"] = dict(prior_destination)
+            if airports_changed:
+                trip_update["destination_airports"] = list(prior_airports)
+            new_airports = trip_update.get("destination_airports") or []
+
+    fresh_resolution = not prior_airports and bool(new_airports)
+    if fresh_resolution:
+        tokens = _destination_message_tokens(message, destination_evidence)
+        exact_hit, near_places, winning_needle = _scan_destination_tokens(tokens)
+        if exact_hit:
+            return trip_update
+        if len(near_places) == 2:
             trip_update["destination"] = dict(prior_destination, places=[winning_needle], status="known")
             trip_update["destination_airports"] = list(prior_airports)
             record_diagnostic_event("destination_fresh_resolution", {
                 "extractor_wrote_airports": new_airports, "decision": "reverted_ambiguous",
-                "near_cities": sorted(near_cities.keys()),
+                "near_places": sorted(near_places.keys()),
             })
+            return _run_destination_recognition(
+                trip_update, destination_evidence, message, history,
+                [winning_needle], prior_airports, prior_destination,
+            )
+        record_diagnostic_event("destination_fresh_resolution", {
+            "extractor_wrote_airports": new_airports, "decision": "kept_no_catalog_match",
+        })
+        return trip_update
+
+    if already_settled:
+        if _value_has_verbatim_evidence(destination_evidence, message):
             return trip_update
-    record_diagnostic_event("destination_fresh_resolution", {
-        "extractor_wrote_airports": new_airports, "decision": "kept_no_catalog_match",
-    })
-    return trip_update
+        return _run_destination_recognition(
+            trip_update, destination_evidence, message, history,
+            None, prior_airports, prior_destination,
+        )
+
+    unresolved_places = _destination_gateway_unresolved_places(trip_update)
+    if not unresolved_places:
+        return trip_update
+    return _run_destination_recognition(
+        trip_update, destination_evidence, message, history,
+        unresolved_places, prior_airports, prior_destination,
+    )
 
 
 def _itinerary_acceptance_by_meaning(message):
@@ -16670,9 +16554,7 @@ def _chat_clean_impl():
         trip_update = _merge_trip_state(trip_state, extracted)
         trip_update = _guard_mixed_baggage_pending_write(trip_state, trip_update, message)
         trip_update = _guard_premature_route_approval(trip_state, trip_update, history)
-        trip_update, destination_evidence = _reinforce_explicit_destination_correction(trip_state, trip_update, destination_evidence, message)
-        trip_update = _guard_destination_change_evidence(trip_state, trip_update, destination_evidence, message)
-        trip_update = _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_evidence, message)
+        trip_update = _resolve_destination_by_meaning(trip_state, trip_update, destination_evidence, message, history)
         trip_update = _guard_baggage_change_evidence(trip_state, trip_update, baggage_evidence, message)
         trip_update = _guard_ski_trip_type_evidence(trip_state, trip_update, trip_type_evidence, message)
         trip_update = _clear_stale_gateway_airports(trip_update)
@@ -17305,8 +17187,6 @@ def _chat_clean_impl():
             trip_update["next_session"] = None
         trip_update = _merge_trip_state(trip_update, _deterministic_budget_facts(message))
         trip_update = _merge_trip_state(trip_update, _budget_answer_by_meaning(message, history, trip_update))
-        trip_update.pop("_destination_ambiguous_hint", None)
-        trip_update = _merge_trip_state(trip_update, _destination_gateway_answer_by_meaning(message, history, trip_update))
         # zd9 (Shaked, run-9, Bilbao): neither general baggage path may run
         # at all while guided.mixed_baggage_pending is set at this turn's
         # start - this turn's message answers the yes/no meta-question
