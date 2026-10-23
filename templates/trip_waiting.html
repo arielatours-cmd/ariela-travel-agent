@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}אריאלה מכינה את החופשה שלך{% endblock %}
+{% block title %}{{ 'Ariella is preparing your vacation' if site_lang == 'en' else 'אריאלה מכינה את החופשה שלך' }}{% endblock %}
 {% block content %}
-<section class="ariella-search-wait" dir="rtl">
+<section class="ariella-search-wait" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">
   <div class="search-wait-card">
     <div class="travel-animation" aria-hidden="true">
-      <div class="globe" role="img" aria-label="גלובוס צבעוני">🌍</div>
+      <div class="globe" role="img" aria-label="{{ 'Colorful globe' if site_lang == 'en' else 'גלובוס צבעוני' }}">🌍</div>
       <div class="flight-orbit"><span class="orbit-plane">✈</span></div>
     </div>
-    <h1 id="stageTitle">מחפשת את הטיסות המתאימות לך…</h1>
-    <p id="stageText">בודקת קודם את האפשרויות שכבר קיימות אצל אריאלה, ואם צריך ממשיכה לחיפוש חדש.</p>
+    <h1 id="stageTitle">{{ 'Searching for the right flights for you…' if site_lang == 'en' else 'מחפשת את הטיסות המתאימות לך…' }}</h1>
+    <p id="stageText">{{ 'First checking the options Ariella already has, and running a new search if needed.' if site_lang == 'en' else 'בודקת קודם את האפשרויות שכבר קיימות אצל אריאלה, ואם צריך ממשיכה לחיפוש חדש.' }}</p>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     <div class="stage-row">
-      <span class="stage active" data-stage="flight">טיסות</span>
-      <span class="stage" data-stage="lodging">לינה</span>
-      <span class="stage" data-stage="car">רכב</span>
-      {% if show_plan_stage %}<span class="stage" data-stage="plan">מסלול</span>{% endif %}
+      <span class="stage active" data-stage="flight">{{ 'Flights' if site_lang == 'en' else 'טיסות' }}</span>
+      <span class="stage" data-stage="lodging">{{ 'Lodging' if site_lang == 'en' else 'לינה' }}</span>
+      <span class="stage" data-stage="car">{{ 'Car' if site_lang == 'en' else 'רכב' }}</span>
+      {% if show_plan_stage %}<span class="stage" data-stage="plan">{{ 'Itinerary' if site_lang == 'en' else 'מסלול' }}</span>{% endif %}
     </div>
     <div class="search-dots"><i></i><i></i><i></i></div>
-    <small>המסך מתעדכן בזמן שהחופשה שלך מתקדמת.</small>
+    <small>{{ 'This screen updates as your vacation comes together.' if site_lang == 'en' else 'המסך מתעדכן בזמן שהחופשה שלך מתקדמת.' }}</small>
   </div>
 </section>
 <style>
@@ -38,7 +38,13 @@
  const nodes=[...document.querySelectorAll('.stage')];
  const order=['flight','lodging','car','plan'];
  const hideFlight={{ 'true' if hide_flight_stage else 'false' }};
- const copy={
+ const copy={{ 'true' if site_lang == 'en' else 'false' }}?{
+   flight:['✈️','Searching for the right flights for you…','Comparing options and checking they match your dates and request.'],
+   lodging:['🏨','Searching for real lodging…','Checking hotels and apartments that fit your dates and number of guests.'],
+   car:['🚗','Checking rental cars…','Matching a car to your number of travelers and baggage.'],
+   plan:['🗺️','Arranging your itinerary and attractions…','The itinerary you approved is saved as part of your vacation.'],
+   done:['✨','Your vacation is ready…','Taking you to My Vacations now.']
+ }:{
    flight:['✈️','מחפשת את הטיסות המתאימות לך…','משווה אפשרויות ובודקת התאמה לתאריכים ולבקשה שלך.'],
    lodging:['🏨','יוצאת לחיפוש לינה אמיתי…','בודקת מלונות ודירות שמתאימים לתאריכים ולמספר האורחים.'],
    car:['🚗','בודקת רכב שכור…','מתאימה רכב למספר הנוסעים ולכבודה.'],

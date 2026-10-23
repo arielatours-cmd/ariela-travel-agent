@@ -152,6 +152,87 @@ def _deal_reason_en(reason):
     return "Selected after comparing options"
 
 
+# Trip-answer values shown on the vacation card (Shlomo's decision, 23.10):
+# fixed codes get a label in both languages; Hebrew values from the chat get an
+# English label for the common ones; anything else is shown exactly as saved.
+_ANSWER_LABELS = {
+    "ski_skill_level": {
+        "first_time": ("פעם ראשונה", "First time"),
+        "beginner": ("מתחילים", "Beginner"),
+        "intermediate": ("בינוניים", "Intermediate"),
+        "advanced": ("מתקדמים", "Advanced"),
+        "mixed": ("רמות מעורבות", "Mixed levels"),
+    },
+    "ski_transfer_choice": {
+        "90": ("עד 90 דקות מהשדה", "Up to 90 min from the airport"),
+        "180": ("עד 180 דקות מהשדה", "Up to 180 min from the airport"),
+    },
+    "cabin_class": {
+        "economy": ("תיירים", "Economy"),
+        "premium_economy": ("פרימיום אקונומי", "Premium economy"),
+        "business": ("עסקים", "Business"),
+        "first": ("ראשונה", "First"),
+        "תיירים": ("תיירים", "Economy"),
+        "פרימיום": ("פרימיום", "Premium economy"),
+        "עסקים": ("עסקים", "Business"),
+        "ראשונה": ("ראשונה", "First"),
+    },
+    "lodging_type": {
+        "מלון": ("מלון", "Hotel"),
+        "דירה": ("דירה", "Apartment"),
+        "וילה": ("וילה", "Villa"),
+        "צימר": ("צימר", "Zimmer (B&B)"),
+        "הוסטל": ("הוסטל", "Hostel"),
+        "אין העדפה": ("אין העדפה", ""),
+    },
+    "car_transmission": {
+        "אוטומטי": ("אוטומטי", "Automatic"),
+        "ידני": ("ידני", "Manual"),
+    },
+    "car_vehicle_type": {
+        "קטן": ("קטן", "Small"),
+        "רכב קטן": ("רכב קטן", "Small car"),
+        "משפחתי": ("משפחתי", "Family"),
+        "רכב משפחתי": ("רכב משפחתי", "Family car"),
+        "גדול": ("גדול", "Large"),
+        "רכב גדול": ("רכב גדול", "Large car"),
+        "SUV": ("SUV", "SUV"),
+        "ג'יפ": ("ג'יפ", "Jeep"),
+        "ג׳יפ": ("ג׳יפ", "Jeep"),
+        "7 מקומות": ("7 מקומות", "7-seater"),
+        "מיניוואן": ("מיניוואן", "Minivan"),
+    },
+}
+
+
+@site.app_template_filter("answer_label")
+def _answer_label(value, field):
+    raw = str(value if value is not None else "").strip()
+    labels = (_ANSWER_LABELS.get(field) or {}).get(raw) or (_ANSWER_LABELS.get(field) or {}).get(raw.lower())
+    if not labels:
+        return raw
+    return labels[1] if _lang() == "en" else labels[0]
+
+
+_CITY_EN_BY_HE = {}
+
+
+def _place_en(name):
+    """English city name for a Hebrew place from the chat (segment stops),
+    via static/airports.json - anything not found is returned as is."""
+    raw = str(name or "").strip()
+    if not _CITY_EN_BY_HE:
+        for row in _AIRPORT_LOCALIZATION.values():
+            if row.get("city_he") and row.get("city_en"):
+                _CITY_EN_BY_HE.setdefault(str(row["city_he"]).strip(), row["city_en"])
+    return _CITY_EN_BY_HE.get(raw, raw)
+
+
+@site.app_template_filter("place_label")
+def _place_label(name):
+    return _place_en(name) if _lang() == "en" else name
+
+
 _LODGING_SEARCH_ERRORS_EN = {
     "חסר יעד או תאריכים כדי לחפש לינה.": "A destination or dates are missing, so lodging can't be searched yet.",
 }
@@ -3870,7 +3951,8 @@ def ariella_start_flight_search():
     if flight_wanted and "flights" not in services:
         services.add("flights")
     if not flight_wanted:
-        return jsonify({"status":"error","message":"לא סומן חיפוש טיסות בבקשה המאושרת."}), 400
+        return jsonify({"status":"error","message":"לא סומן חיפוש טיסות בבקשה המאושרת.",
+                        "message_en":"A flight search wasn't marked in the approved request."}), 400
 
     destination = state.get("destination") or {}
     places = destination.get("places") or []
@@ -3888,7 +3970,8 @@ def ariella_start_flight_search():
     # execution time. Tinkerbell must first resolve the gateway choice with the customer.
     destination_mode = str(destination.get("mode") or "").lower()
     if destination_mode in {"country","region","area","broad"} and not selected_destination_airports:
-        return jsonify({"status":"error","message":"יש להשלים בחירת שדה או שדות יעד לפני סריקת הטיסות."}), 400
+        return jsonify({"status":"error","message":"יש להשלים בחירת שדה או שדות יעד לפני סריקת הטיסות.",
+                        "message_en":"Please choose the destination airport(s) before the flight search."}), 400
     history = body.get("history") if isinstance(body.get("history"), list) else []
     recovered_codes, recovered_labels, recovered_dates = _chat_recover_search_facts(history)
     if not destination_codes and recovered_codes:
@@ -3907,7 +3990,8 @@ def ariella_start_flight_search():
             print(f"[CHAT-HANDOFF] narrowing country destination {destination_codes} -> {narrowed} from approved conversation", flush=True)
             destination_codes = narrowed
     if places and not destination_codes:
-        return jsonify({"status":"error","message":"לא הצלחתי לזהות את יעד הטיסה לצורך הסריקה."}), 400
+        return jsonify({"status":"error","message":"לא הצלחתי לזהות את יעד הטיסה לצורך הסריקה.",
+                        "message_en":"I couldn't identify the flight destination for the search."}), 400
 
     travelers = state.get("travelers") or {}
     dates = state.get("dates") or {}
@@ -3917,7 +4001,8 @@ def ariella_start_flight_search():
     # Task 011a: from Haifa only Air Haifa's routes exist - never search
     # HFA -> a destination it does not fly to (data/hfa_routes.json).
     if departure_airport == "HFA" and destination_codes and hfa_route_check(destination_codes) == "not_served":
-        return jsonify({"status": "error", "message": "מחיפה אין טיסה ישירה ליעד הזה. אפשר לבקש מאריאלה לבדוק מנתב\"ג."}), 400
+        return jsonify({"status": "error", "message": "מחיפה אין טיסה ישירה ליעד הזה. אפשר לבקש מאריאלה לבדוק מנתב\"ג.",
+                        "message_en": "There is no direct flight from Haifa to this destination. You can ask Ariella to check from Ben Gurion (TLV)."}), 400
     # Execution uses the approved structured state as the sole source of truth.
     # Never rebuild approved dates from prose/history at handoff time.
     dep = _chat_iso_date(dates.get("departure"))
@@ -3926,14 +4011,17 @@ def ariella_start_flight_search():
     month = period[:7] if len(period) >= 7 and period[:4].isdigit() else ""
     date_mode = "exact" if dep and ret else ("month" if month else "flexible")
     if not destination_codes:
-        return jsonify({"status":"error","message":"חסר יעד טיסה ולכן לא נפתחה חופשה ריקה."}), 400
+        return jsonify({"status":"error","message":"חסר יעד טיסה ולכן לא נפתחה חופשה ריקה.",
+                        "message_en":"The flight destination is missing, so no empty vacation was opened."}), 400
     if date_mode == "flexible":
-        return jsonify({"status":"error","message":"חסרים תאריכי חיפוש ולכן לא נפתחה חופשה ריקה."}), 400
+        return jsonify({"status":"error","message":"חסרים תאריכי חיפוש ולכן לא נפתחה חופשה ריקה.",
+                        "message_en":"The search dates are missing, so no empty vacation was opened."}), 400
     # Never open a vacation (and spend a scan) on dates that already passed -
     # seen live: a 28.6.2026 trip approved in October 2026 created a new
     # vacation whose scan then failed.
     if dep and dep < date.today().isoformat():
-        return jsonify({"status":"error","message":"תאריך היציאה כבר עבר, ולכן לא נפתח חיפוש. כדאי לבדוק עם אריאלה את התאריכים (כנראה התכוונת לשנה הבאה)."}), 400
+        return jsonify({"status":"error","message":"תאריך היציאה כבר עבר, ולכן לא נפתח חיפוש. כדאי לבדוק עם אריאלה את התאריכים (כנראה התכוונת לשנה הבאה).",
+                        "message_en":"The departure date has already passed, so no search was started. Please check the dates with Ariella (you probably meant next year)."}), 400
 
     # A departure airport with very limited service (e.g. Haifa) can have
     # zero real flights to a given destination. Once a live search has
@@ -3946,6 +4034,7 @@ def ariella_start_flight_search():
             return jsonify({
                 "status": "no_service_from_departure",
                 "message": f"נראה שאין כרגע טיסות זמינות משדה {dep_name} ליעד הזה. מומלץ לבחור שדה תעופה אחר (כמו נתב״ג) כדי שאוכל לחפש עבורכם.",
+                "message_en": f"There seem to be no flights available right now from {(_AIRPORT_LOCALIZATION.get(departure_airport) or {}).get('city_en') or departure_airport} to this destination. Please choose another airport (such as Ben Gurion, TLV) so I can search for you.",
             }), 200
 
     deal_priorities = _flight_direct_priority(flight)
@@ -4022,6 +4111,7 @@ def ariella_start_flight_search():
                         "status": "queued", "trip_id": existing_trip_id,
                         "account_url": url_for("site.account") + f"#vacation-{existing_trip_id}",
                         "message": "מעדכנת את החופשה שלך לפרטים החדשים וסורקת מחדש.",
+                        "message_en": "Updating your vacation with the new details and searching again.",
                     })
                 return jsonify({
                     "status": "change_requires_payment",
@@ -4031,6 +4121,11 @@ def ariella_start_flight_search():
                         "שינוי יעד או תאריכים לחופשה שכבר אושרה הוא חלק מהמעקב היומי בתשלום (39 ₪) - "
                         "מעבירה אותך לכרטיסייה כדי לבחור את המסלול הזה. לאחר התשלום אפשר לשנות תאריכים "
                         "או יעד בכל שלב במהלך תקופת המעקב."
+                    ),
+                    "message_en": (
+                        "Changing the destination or dates of an approved vacation is part of paid daily tracking (NIS 39) - "
+                        "taking you to the vacation card to choose that plan. After payment you can change dates "
+                        "or destination at any point during the tracking period."
                     ),
                 })
 
@@ -4044,6 +4139,7 @@ def ariella_start_flight_search():
             "trip_id": duplicate_trip_id,
             "account_url": url_for("site.account") + f"#vacation-{duplicate_trip_id}",
             "message": "כבר יש לך חיפוש פעיל לטיסה הזו. מעבירה אותך לתוצאות הקיימות — ואם תרצי עדכון מחיר יומי טרי, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה.",
+            "message_en": "You already have an active search for this flight. Taking you to the existing results - for a fresh daily price update, you can turn on paid daily tracking from the vacation card.",
         })
 
     trip_type_value = str(state.get("trip_type") or "").strip().lower()
@@ -5695,7 +5791,7 @@ def _lodging_partner_cards(trip_id: int, answers: dict) -> list[dict]:
             name = f"לינה ב{airport.get('city_he') or AIRPORT_NAMES.get(code, code)}"
             dates = f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else ""
         cards.append({
-            "name": name + (f" · {kind}" if kind else ""),
+            "name": name + (f" · {_answer_label(kind, 'lodging_type')}" if _answer_label(kind, "lodging_type") else ""),
             "dates": dates,
             "guests": guests,
             "supplier": supplier,
@@ -5722,8 +5818,8 @@ def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     en = _lang() == "en"
     title = _msg("רכב שכור", "Rental car") + "".join(
         f" · {part}" for part in (
-            vehicle if vehicle != "אין העדפה" else "",
-            transmission if transmission != "לא משנה" else "",
+            _answer_label(vehicle, "car_vehicle_type") if vehicle != "אין העדפה" else "",
+            _answer_label(transmission, "car_transmission") if transmission != "לא משנה" else "",
             (f"{seats} seats" if en else f"{seats} מקומות") if seats and f"{seats} מקומות" not in vehicle else "",
         ) if part
     )
