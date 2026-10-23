@@ -220,7 +220,10 @@
           {% set default_group_label = (trip.destination_display or trip.request_name or ('Lodging' if site_lang == 'en' else 'לינה')) ~ ((' · ' ~ (a.get('departure_date') ~ ' – ' ~ a.get('return_date'))|he_dates) if a.get('departure_date') and a.get('return_date') else '') %}
           {% set lodging_groups = [] %}
           {% for hotel in lodging_offers %}
-            {% set group_label = ((hotel.get('segment_location')|place_label ~ ((' · ' ~ hotel.get('segment_dates')|he_dates) if hotel.get('segment_dates') else '')) if hotel.get('segment_location') else default_group_label) %}
+            {# The place agreed in the route + its nights ("ליסבון · 4 לילות · 21.03.2027 – 25.03.2027"; 1 -> "לילה אחד" / "1 night"). #}
+            {% set seg_nights = hotel.get('segment_nights') %}
+            {% set nights_label = ((('1 night' if seg_nights == 1 else seg_nights ~ ' nights') if site_lang == 'en' else ('לילה אחד' if seg_nights == 1 else seg_nights ~ ' לילות')) if seg_nights else '') %}
+            {% set group_label = ((hotel.get('segment_location')|place_label ~ ((' · ' ~ nights_label) if nights_label else '') ~ ((' · ' ~ hotel.get('segment_dates')|he_dates) if hotel.get('segment_dates') else '')) if hotel.get('segment_location') else default_group_label) %}
             {% if not lodging_groups or lodging_groups[-1].label != group_label %}{% set _ = lodging_groups.append({'label': group_label, 'hotels': []}) %}{% endif %}
             {% if hotel.get('link') %}{% set _ = lodging_groups[-1].hotels.append(hotel) %}{% endif %}
           {% endfor %}

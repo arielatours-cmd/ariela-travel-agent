@@ -5368,6 +5368,57 @@ def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int) -> list[dict
     return hotels
 
 
+def _nights_between(date_from, date_to) -> int | None:
+    try:
+        n = (datetime.strptime(str(date_to)[:10], "%Y-%m-%d") - datetime.strptime(str(date_from)[:10], "%Y-%m-%d")).days
+    except ValueError:
+        return None
+    return n if n > 0 else None
+
+
+def _lodging_segments_from_itinerary(answers: dict) -> list[dict]:
+    """Where each night is spent, from the APPROVED day-by-day itinerary
+    (_approved_itinerary.days - each day's base, else its city), grouped
+    into consecutive stays: [{location, date_from, date_to, nights}].
+
+    The business owner (22.10, Lisbon 21-25.3): every lodging offer must
+    follow the place agreed in the route - the tab showed the country
+    ("פורטוגל") instead of "ליסבון · 4 לילות". lodging.details.location_
+    segments is a best-effort text extraction and was empty there; the
+    approved itinerary's own structure is the reliable source. Night i is
+    spent at day i+1's base - ONLY the base (where they sleep), never the
+    day's city, which on a day trip is the day-trip destination (the
+    business owner, 23.10: only the lodging places agreed in the route, no
+    day trips). A day with no base stays at the previous night's base; []
+    when the itinerary, the trip dates or the first night's base is missing
+    - never a guess."""
+    itinerary = answers.get("_approved_itinerary") if isinstance(answers.get("_approved_itinerary"), dict) else {}
+    days = [d for d in (itinerary.get("days") or []) if isinstance(d, dict)]
+    try:
+        dep = datetime.strptime(str(answers.get("departure_date") or "")[:10], "%Y-%m-%d").date()
+        ret = datetime.strptime(str(answers.get("return_date") or "")[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return []
+    nights = (ret - dep).days
+    if not days or nights <= 0 or len(days) < nights:
+        return []
+    places = []
+    for day in days[:nights]:
+        place = str(day.get("base") or "").strip() or (places[-1] if places else "")
+        if not place:
+            return []
+        places.append(place)
+    segments = []
+    for i, place in enumerate(places):
+        if segments and segments[-1]["location"] == place:
+            segments[-1]["nights"] += 1
+            segments[-1]["date_to"] = (dep + timedelta(days=i + 1)).isoformat()
+        else:
+            segments.append({"location": place, "date_from": (dep + timedelta(days=i)).isoformat(),
+                             "date_to": (dep + timedelta(days=i + 1)).isoformat(), "nights": 1})
+    return segments
+
+
 def _run_lodging_search(trip_id: int, answers: dict) -> None:
     """Execute a real lodging search (SerpApi's Google Hotels engine) for one
     trip and persist the results plus a completion flag the waiting page and
@@ -5437,6 +5488,14 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
         s for s in (answers.get("lodging_location_segments") or [])
         if isinstance(s, dict) and s.get("location") and s.get("date_from") and s.get("date_to")
     ]
+    # The approved itinerary is the reliable multi-stop source when the text
+    # extraction found nothing (see _lodging_segments_from_itinerary).
+    itinerary_segments = [] if segments else _lodging_segments_from_itinerary(answers)
+    if len(itinerary_segments) > 1:
+        segments = itinerary_segments
+    # A single stop keeps the single search below (its query already knows
+    # the lodging area / ski resort) - only its heading comes from the route.
+    single_stop = itinerary_segments[0] if len(itinerary_segments) == 1 else None
 
     try:
         if segments:
@@ -5456,6 +5515,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                     for hotel in seg_hotels:
                         hotel["segment_location"] = seg["location"]
                         hotel["segment_dates"] = f"{seg['date_from']} – {seg['date_to']}"
+                        hotel["segment_nights"] = seg.get("nights") or _nights_between(seg["date_from"], seg["date_to"])
                     all_hotels.extend(seg_hotels)
                     any_ok = True
                 except Exception:
@@ -5525,7 +5585,19 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 max_price=_max_price_for(dep, ret), vacation_rentals=vacation_rentals,
                 min_hotel_class=min_hotel_class,
             )
-            answers["lodging_offers"] = _wrap_booking_com_hotel_links((result.get("hotels") or [])[:10], trip_id)
+            hotels = (result.get("hotels") or [])[:10]
+            # The group heading names the place the customer actually sleeps
+            # (the route's own stop, else the destination city) - never the
+            # country the trip card shows.
+            label = (single_stop or {}).get("location") or area or (
+                ski_resort_names[0] if str(answers.get("vacation_type") or "standard") == "ski" and ski_resort_names
+                else (_AIRPORT_LOCALIZATION.get(destination_codes[0], {}).get("city_he") or dest_city)
+            )
+            for hotel in hotels:
+                hotel["segment_location"] = label
+                hotel["segment_dates"] = f"{dep} – {ret}"
+                hotel["segment_nights"] = _nights_between(dep, ret)
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links(hotels, trip_id)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None
             answers["_lodging_search_result"] = {"status": "ok", "count": len(answers["lodging_offers"])}
