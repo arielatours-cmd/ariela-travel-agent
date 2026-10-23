@@ -128,6 +128,14 @@ for r in rows:
     print("  ", *r)
     total = [a + (b or 0) for a, b in zip(total, r[2:])]
 print("chat turns: %d" % turns)
+# Per-source call time (e.g. the route-structuring call is source "other"): avg/max ms and max output tokens.
+try:
+    for src, n, avg_ms, max_ms, max_out in db.execute(
+            "SELECT source, COUNT(*), AVG(call_duration_ms), MAX(call_duration_ms), MAX(output_tokens) FROM ai_usage "
+            "WHERE source != 'turn_total' AND COALESCE(model, '') != '' GROUP BY source ORDER BY source"):
+        print("timing %-18s calls=%d avg_ms=%s max_ms=%s max_output_tokens=%s" % (src, n, int(avg_ms or 0), max_ms, max_out))
+except sqlite3.Error as exc:
+    print("timing: not readable:", exc)
 print("usage total: calls=%d input=%d output=%d cache_read=%d cache_write=%d errors=%d" % tuple(total))
 PY
 # Diagnostic events (record_diagnostic_event: source = the event name, empty model, details = JSON of
