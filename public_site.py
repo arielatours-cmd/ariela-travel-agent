@@ -226,6 +226,14 @@ def _place_en(name):
     return _CITY_EN_BY_HE.get(raw, raw)
 
 
+@site.app_template_filter("no_hebrew")
+def _no_hebrew(text):
+    """'' for text that still contains Hebrew - the English page shows nothing
+    rather than a Hebrew fallback (itinerary cards built before their _en fields)."""
+    text = str(text or "")
+    return "" if re.search(r"[\u0590-\u05FF]", text) else text
+
+
 @site.app_template_filter("place_label")
 def _place_label(name):
     return _place_en(name) if _lang() == "en" else name

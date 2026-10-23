@@ -42,8 +42,9 @@ _STRUCTURE_PROMPT = """את ממירה מסלול טיול שאושר (טקסט 
 - duration: משך ביקור מומלץ קצר (למשל "שעתיים", "חצי יום") או null.
 - date: YYYY-MM-DD אם אפשר להסיק מהטקסט או מתאריך היציאה שניתן, אחרת null.
 - base: היישוב/האזור שבו ישנים באותו לילה, אם צוין, אחרת null.
+- לכל שדה טקסט יש גם תאום באנגלית (title_en, city_en, base_en, summary_en, description_en, duration_en) - אותו תוכן בדיוק באנגלית טבעית, עבור לקוחות שגולשים באתר באנגלית. לא מוסיפים ולא משמיטים כלום ביחס לעברית; שמות מקומות בשמם המקובל באנגלית. null כשהשדה העברי null.
 החזירי JSON בלבד בפורמט:
-{"days":[{"day":1,"date":null,"title":"כותרת קצרה ליום","city":"העיר/האזור העיקרי","base":null,"summary":"משפט אחד על היום","items":[{"name_he":"","name_en":null,"city":"","description":"","duration":null}]}]}"""
+{"days":[{"day":1,"date":null,"title":"כותרת קצרה ליום","title_en":"Short day title","city":"העיר/האזור העיקרי","city_en":"Main city/area","base":null,"base_en":null,"summary":"משפט אחד על היום","summary_en":"One sentence about the day","items":[{"name_he":"","name_en":null,"city":"","description":"","description_en":"","duration":null,"duration_en":null}]}]}"""
 
 
 def _load_db():
@@ -305,7 +306,7 @@ def build_itinerary_days(text, answers, post_claude, key, model):
         return []
     context = f"תאריך יציאה: {answers.get('departure_date') or 'לא ידוע'}, תאריך חזרה: {answers.get('return_date') or 'לא ידוע'}"
     try:
-        raw = post_claude(key, model, _STRUCTURE_PROMPT, context, [], "המסלול שאושר:\n" + core, 6000, include_history=False)
+        raw = post_claude(key, model, _STRUCTURE_PROMPT, context, [], "המסלול שאושר:\n" + core, 10000, include_history=False)
         days = _parse_json(raw).get("days") or []
     except Exception:
         logging.exception("Itinerary structuring failed")
@@ -327,9 +328,11 @@ def build_itinerary_days(text, answers, post_claude, key, model):
                 "name_he": name_he or name_en,
                 "name_en": name_en if name_en and name_en != name_he else "",
                 "city": city,
+                "name_catalog": str((match or {}).get("שם האטרקציה") or "").strip(),
                 "description": str(it.get("description") or "").strip(),
+                "description_en": str(it.get("description_en") or "").strip(),
                 "duration": str(it.get("duration") or (match or {}).get("משך מומלץ") or "").strip(),
-                "duration_en": str((match or {}).get("duration_en") or "").strip(),
+                "duration_en": str(it.get("duration_en") or (match or {}).get("duration_en") or "").strip(),
                 # Structured, verified price data only (Din, 22.10) - the old
                 # free-text price note is no longer shown.
                 "price_info": {f: (match or {}).get(f) for f in _PRICE_FIELDS},
@@ -346,9 +349,13 @@ def build_itinerary_days(text, answers, post_claude, key, model):
             "day": d.get("day"),
             "date": str(d.get("date") or "").strip(),
             "title": str(d.get("title") or "").strip(),
+            "title_en": str(d.get("title_en") or "").strip(),
             "city": str(d.get("city") or "").strip(),
+            "city_en": str(d.get("city_en") or "").strip(),
             "base": str(d.get("base") or "").strip(),
+            "base_en": str(d.get("base_en") or "").strip(),
             "summary": str(d.get("summary") or "").strip(),
+            "summary_en": str(d.get("summary_en") or "").strip(),
             "items": items,
         })
     return result

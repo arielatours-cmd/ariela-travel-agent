@@ -385,17 +385,23 @@
                   <header class="itin-day-head">
                     <span class="itin-day-num">{{ 'Day' if site_lang == 'en' else 'יום' }} {{ day.get('day') or loop.index }}</span>
                     {% if day.get('date') %}<span class="itin-day-date">{{ day.get('date')[8:10] }}.{{ day.get('date')[5:7] }}</span>{% endif %}
-                    {% if day.get('city') %}<span class="itin-day-city">{{ day.get('city') }}</span>{% endif %}
+                    {# English: the structuring call's _en twins; a card built before them shows no Hebrew (empty = hidden). #}
+                    {% set day_city = (day.get('city_en') or day.get('city')|place_label|no_hebrew) if site_lang == 'en' else day.get('city') %}
+                    {% if day_city %}<span class="itin-day-city">{{ day_city }}</span>{% endif %}
                   </header>
-                  {% if day.get('title') %}<h4 class="itin-day-title">{{ day.get('title') }}</h4>{% endif %}
-                  {% if day.get('summary') %}<p class="itin-day-summary">{{ day.get('summary') }}</p>{% endif %}
+                  {% set day_title = day.get('title_en') if site_lang == 'en' else day.get('title') %}
+                  {% set day_summary = day.get('summary_en') if site_lang == 'en' else day.get('summary') %}
+                  {% if day_title %}<h4 class="itin-day-title">{{ day_title }}</h4>{% endif %}
+                  {% if day_summary %}<p class="itin-day-summary">{{ day_summary }}</p>{% endif %}
                   {% for item in day.get('items') or [] %}
                     <article class="itin-card">
-                      {% if item.get('image') %}<img class="itin-card-img" src="{{ item.get('image') }}" alt="{{ item.get('name_he') }}" loading="lazy">{% endif %}
+                      {% set item_name = (item.get('name_catalog') or item.get('name_en') or item.get('name_he')|no_hebrew) if site_lang == 'en' else item.get('name_he') %}
+                      {% if item.get('image') %}<img class="itin-card-img" src="{{ item.get('image') }}" alt="{{ item_name }}" loading="lazy">{% endif %}
                       <div class="itin-card-body">
-                        <strong class="itin-card-name">{{ item.get('name_he') }}</strong>
-                        {% if item.get('name_en') %}<span class="itin-card-en">{{ item.get('name_en') }}</span>{% endif %}
-                        {% if item.get('description') %}<p class="itin-card-desc">{{ item.get('description') }}</p>{% endif %}
+                        <strong class="itin-card-name">{{ item_name }}</strong>
+                        {% if item.get('name_en') and site_lang != 'en' %}<span class="itin-card-en">{{ item.get('name_en') }}</span>{% endif %}
+                        {% set item_desc = item.get('description_en') if site_lang == 'en' else item.get('description') %}
+                        {% if item_desc %}<p class="itin-card-desc">{{ item_desc }}</p>{% endif %}
                         <div class="itin-card-meta">
                           {# English: the catalog's duration_en only, never the Hebrew value (empty = nothing shown). #}
                           {% set item_duration = item.get('duration_en') if site_lang == 'en' else item.get('duration') %}
@@ -417,7 +423,8 @@
                       </div>
                     </article>
                   {% endfor %}
-                  {% if day.get('base') %}<div class="itin-day-base">🛏 {{ 'Stay:' if site_lang == 'en' else 'לינה:' }} {{ day.get('base') }}</div>{% endif %}
+                  {% set day_base = (day.get('base_en') or day.get('base')|place_label|no_hebrew) if site_lang == 'en' else day.get('base') %}
+                  {% if day_base %}<div class="itin-day-base">🛏 {{ 'Stay:' if site_lang == 'en' else 'לינה:' }} {{ day_base }}</div>{% endif %}
                 </section>
               {% endfor %}
             </div>
