@@ -7777,20 +7777,33 @@ _CATALOG_MULTIWORD_FIRST_WORDS_CACHE = None
 
 
 def _catalog_multiword_first_words():
-    """The first word of every multi-word catalog city name (e.g. "דה"
-    from "דה נאנג"/Da Nang, "בניה" from "בניה לוקה"/Banja Luka) - built
-    once per process. Dry-run 5e performance fix (Shaked, 23.10.2026):
-    _reresolve_ambiguous_fresh_destination uses this to skip generating
-    a 2-4-word window at a message position unless that word could
-    plausibly start a real multi-word name - most words never do, and
-    generating every window regardless (824 names are mostly 1 word)
+    """The first word of every multi-word catalog place name - city OR
+    country (e.g. "דה" from "דה נאנג"/Da Nang, "בניה" from "בניה לוקה"/
+    Banja Luka, "איי" from "איי בהאמה"/Bahamas, "כף" from "כף ורדה"/Cape
+    Verde) - built once per process. Dry-run 5e performance fix (Shaked,
+    23.10.2026): _reresolve_ambiguous_fresh_destination uses this to skip
+    generating a 2-4-word window at a message position unless that word
+    could plausibly start a real multi-word name - most words never do,
+    and generating every window regardless (824 names are mostly 1 word)
     was most of the remaining cost after the length-filter/caching
-    fixes to _catalog_near_neighbor_cities itself."""
+    fixes to _catalog_near_neighbor_cities itself.
+
+    Originally scanned city names only - fixed (23.10.2026, part of the
+    catalog-scan false-positive cleanup Shlomo asked for) to also scan
+    country names: a multi-word COUNTRY name like "איי בהאמה" never
+    triggered window generation at all before this, so the window
+    "באיי בהאמה" was never even built for a message tokenizer to try -
+    not a stripping/joining bug, this gate simply never fired for any
+    country."""
     global _CATALOG_MULTIWORD_FIRST_WORDS_CACHE
     if _CATALOG_MULTIWORD_FIRST_WORDS_CACHE is None:
         first_words = set()
         for city_he, _norm, _code, _flag in _catalog_near_neighbor_entries():
             parts = city_he.split(" ", 1)
+            if len(parts) == 2 and parts[0]:
+                first_words.add(parts[0])
+        for country_he, _norm in _catalog_country_entries():
+            parts = country_he.split(" ", 1)
             if len(parts) == 2 and parts[0]:
                 first_words.add(parts[0])
         _CATALOG_MULTIWORD_FIRST_WORDS_CACHE = first_words
@@ -7941,6 +7954,21 @@ def _catalog_near_neighbor_places(needle, max_distance=1):
     return exact if exact else near
 
 
+# Shared Hebrew word regex for every raw-message/quote tokenizer in this
+# unified destination rule. Fixed (23.10.2026, catalog-scan cleanup Shlomo
+# asked for) to also capture a hyphen between Hebrew letters as part of
+# the same word - a hyphenated catalog name ("פורט-או-פרנס"/Port-au-
+# Prince, "לי-ג'יאנג"/Lijiang) was previously split by the old regex
+# (hyphen not in the character class) into separate words that could
+# only ever be rejoined with a SPACE, never the catalog's own hyphenated
+# spelling, so it could never exact-match no matter how the words were
+# joined. A hyphen only extends a match when it sits directly between
+# Hebrew letters with no gap, so an ordinary dash used as punctuation
+# ("... - אבל") is unaffected (the space before/after it already ends any
+# match there).
+_HEBREW_WORD_RE = r"[א-ת]+(?:['׳-][א-ת]*)*"
+
+
 def _quote_identifies_candidate_place(quote, candidate_kind, candidate_value, message):
     """Dry-run 5f (23.10.2026, Shaked's SECOND review, of 9419b02e): her own
     finding on the first fix's stopword-based design - excluding a fixed
@@ -7978,7 +8006,7 @@ def _quote_identifies_candidate_place(quote, candidate_kind, candidate_value, me
     if not country_he:
         return False
     valid_words = {country_he} | _catalog_cities_by_country().get(country_he, set())
-    words = re.findall(r"[א-ת]+(?:['׳][א-ת]*)?", str(quote or ""))
+    words = re.findall(_HEBREW_WORD_RE, str(quote or ""))
     for word in words:
         forms = [word]
         if len(word) >= 2 and word[0] in "לבמ":
@@ -8001,7 +8029,7 @@ def _destination_message_tokens(message, destination_evidence):
     source (dry-run 5e, scenario E's 4th live recurrence: the model's own
     claimed quote is not always supplied, so the raw message must never
     be the only source either)."""
-    words = re.findall(r"[א-ת]+(?:['׳][א-ת]*)?", str(message or ""))
+    words = re.findall(_HEBREW_WORD_RE, str(message or ""))
     multiword_first_words = _catalog_multiword_first_words()
     tokens = []
     for i, word in enumerate(words):

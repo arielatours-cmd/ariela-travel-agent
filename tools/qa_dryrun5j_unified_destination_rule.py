@@ -482,37 +482,37 @@ check("cost gate regression: a genuine explicit correction still reaches the "
 #     ל/ב/מ preposition prepended to simulate how it would appear in a
 #     real message - run through the actual message tokenizer, checking
 #     for a false structural ambiguity against a DIFFERENT real catalog
-#     name. Root cause (confirmed): the tokenizer's word regex
-#     (r"[א-ת]+...") does not include hyphens, so a hyphenated catalog
-#     name ("פורט-או-פרנס"/Port-au-Prince, "לי-ג'יאנג"/Lijiang) gets split
-#     into separate words that never rejoin into the hyphenated form the
-#     catalog itself stores; a related gap affects multi-word names whose
-#     FIRST word carries a leading ל/ב/מ in the message ("איי בהאמה" as
-#     "באיי בהאמה") - the word-window joiner uses the raw, un-stripped
-#     first word, so the window never exact-matches the catalog's own
-#     (unprefixed) stored name either.
+#     name.
 #
-#     EXPLICITLY NOT FIXED YET (task tracked separately) - this is a
-#     genuine tokenizer bug (the hyphenated/prefixed name never resolves
-#     to anything, catalog match or not), unrelated to the Lyon/Greece
-#     exact-match exception below. This test pins the CURRENT known
-#     false-positive set exactly, so any further change is checked
-#     against a known baseline instead of silently drifting - never
-#     asserts "zero" here.
+#     FIXED (23.10.2026, Shlomo's own instruction, once this test had
+#     pinned the exact false-positive set) - two distinct root causes:
+#     (1) the tokenizer's word regex did not include a hyphen between
+#     Hebrew letters as part of the same word, so a hyphenated catalog
+#     name ("פורט-או-פרנס"/Port-au-Prince, "לי-ג'יאנג"/Lijiang) got split
+#     into separate words that could only ever be rejoined with a SPACE,
+#     never the catalog's own hyphenated spelling - now _HEBREW_WORD_RE
+#     captures the hyphen too, so these are a single token like any other
+#     word (see its own docstring); (2) _catalog_multiword_first_words
+#     only ever scanned CITY names, so a multi-word COUNTRY name ("איי
+#     בהאמה"/Bahamas, "איי שלמה"/Solomon Islands, "כף ורדה"/Cape Verde,
+#     "קוסטה ריקה"/Costa Rica) never triggered window generation at all -
+#     not a stripping/joining bug, this gate simply never fired for any
+#     country before now.
+#
+#     This test now asserts zero false positives (previously pinned a
+#     known set of exactly 6 as a baseline while the bug was still open -
+#     if this ever regresses, it should fail loudly, not silently widen
+#     the known set back).
 #
 #     Four OTHER names the same full scan turns up (באלי/Bali, לואנדה/
-#     Luanda, ליון/Lyon, מנאוס/Manaus) are deliberately excluded from this
-#     false-positive set - they are not a tokenizer bug at all, but the
-#     Lyon/Greece exact-match exception (section 14 below) correctly
-#     firing: each is itself an exact catalog CITY match whose own
-#     ל/ב/מ-stripped sibling genuinely lands distance 1 from a different
-#     real catalog country (מאלי/Mali, רואנדה/Rwanda, יוון/Greece,
-#     לאוס/Laos) - a real collision, not noise, so it is SUPPOSED to
-#     surface as a structural ambiguity now.
+#     Luanda, ליון/Lyon, מנאוס/Manaus) are deliberately excluded - they
+#     are not a tokenizer bug at all, but the Lyon/Greece exact-match
+#     exception (section 14 below) correctly firing: each is itself an
+#     exact catalog CITY match whose own ל/ב/מ-stripped sibling genuinely
+#     lands distance 1 from a different real catalog country (מאלי/Mali,
+#     רואנדה/Rwanda, יוון/Greece, לאוס/Laos) - a real collision, not
+#     noise, so it is SUPPOSED to surface as a structural ambiguity now.
 # =====================================================================
-_KNOWN_CATALOG_SCAN_FALSE_POSITIVES = {
-    "איי בהאמה", "איי שלמה", "כף ורדה", "לי-ג'יאנג", "פורט-או-פרנס", "קוסטה ריקה",
-}
 _KNOWN_EXACT_MATCH_EXCEPTION_NAMES = {"באלי", "לואנדה", "ליון", "מנאוס"}
 _catalog_names = sorted(set(
     name for name, _norm, _kind, _payload, _flag in chat._catalog_near_neighbor_place_entries()
@@ -528,13 +528,10 @@ for _name in _catalog_names:
             _found_false_positives.add(_name)
             break
 
-check(f"catalog scan: no NEW false 2-way ambiguities beyond the known, "
-      f"not-yet-fixed set ({len(_KNOWN_CATALOG_SCAN_FALSE_POSITIVES)} names - "
-      "hyphenated/multi-word-with-prefixed-first-word catalog names)",
-      _found_false_positives <= _KNOWN_CATALOG_SCAN_FALSE_POSITIVES)
-check("catalog scan: the known false-positive set hasn't silently shrunk either "
-      "(this test would need updating, not silently passing, if it had)",
-      _found_false_positives == _KNOWN_CATALOG_SCAN_FALSE_POSITIVES)
+check(f"catalog scan FIX: zero false 2-way ambiguities across all "
+      f"{len(_catalog_names)} catalog names (hyphenated names and "
+      "multi-word country names both resolve to their real exact match now)",
+      not _found_false_positives)
 
 # =====================================================================
 # 14. The business owner's concrete "ליון/יוון" EXCEPTION to condition א
