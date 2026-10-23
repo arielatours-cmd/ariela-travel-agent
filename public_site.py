@@ -80,6 +80,89 @@ def _he_dates(value):
     return re.sub(r"(\d{4})-(\d{2})-(\d{2})", _swap, text)
 
 
+@site.app_template_filter("nis")
+def _nis(value):
+    """An ILS amount for the English site: "NIS 1,306" (Hebrew keeps ₪)."""
+    try:
+        return f"NIS {int(round(float(value))):,}"
+    except (TypeError, ValueError):
+        return f"NIS {value}"
+
+
+_SHEKEL_AMOUNT = re.compile(r"₪\s?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s?₪")
+
+
+@site.app_template_filter("en_currency")
+def _en_currency(text):
+    """Rewrite every ₪ amount inside English free text as "NIS 1,306" -
+    e.g. booking_choice_reason_en saved by older scans ("A cheaper option by ₪80")."""
+    def _swap(match):
+        return _nis((match.group(1) or match.group(2)).replace(",", ""))
+    return _SHEKEL_AMOUNT.sub(_swap, str(text or ""))
+
+
+@site.app_template_filter("en_weekday_date")
+def _en_weekday_date(value):
+    """An ISO date as an English flight-leg date: "Sat, 20 Feb 2027".
+    The scanner only stores a Hebrew display string (display_he)."""
+    raw = str(value or "")[:10]
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").strftime("%a, %d %b %Y")
+    except ValueError:
+        return raw
+
+
+# "Why Ariella selected this deal" in English. Keys are the Hebrew reasons that
+# reach display_reasons: scoring.py's reasons (": +N" stripped in database.py),
+# _reason_label's replacements and database.py's own fallbacks. qa/run_qa.py
+# fails when scoring.py or database.py adds a displayed reason missing here, so
+# a new reason can no longer silently fall back to the generic line.
+DEAL_REASON_EN = {
+    "מחיר נמוך משמעותית": "Significantly lower price",
+    "מסלול טיסה נוח": "Convenient route",
+    "תנאי כבודה טובים": "Good baggage terms",
+    "שעות טיסה נוחות": "Convenient flight times",
+    "הזדמנות נדירה": "Rare opportunity",
+    "טיסה ישירה": "Direct flight",
+    "קונקשן אחד": "One connection",
+    "מסלול משתלם": "Good-value route",
+    "נבחר לאחר השוואת אפשרויות": "Selected after comparing options",
+    "כבודה כלולה": "Baggage included",
+    "איכות מסלול (ישירה)": "Direct itinerary",
+    "המחיר הזול ביותר שנמצא לתאריכים האלה": "Lowest price found for these dates",
+    "מחיר נמוך לעומת טיסות דומות": "Low price compared with similar flights",
+    "מזוודה 20 ק״ג ומעלה כלולה": "Checked bag (20 kg+) included",
+    "טרולי כלול": "Carry-on included",
+    "תיק גב כלול": "Backpack included",
+    "מקסימום ניצול זמן היום": "Makes the most of your day",
+    "מקסימום ניצול זמן חופשה": "Makes the most of your vacation time",
+}
+
+
+@site.app_template_filter("deal_reason_en")
+def _deal_reason_en(reason):
+    text = str(reason or "").strip()
+    if text in DEAL_REASON_EN:
+        return DEAL_REASON_EN[text]
+    # Reasons built with _msg (closest-match / business ranking) are already
+    # English on the English site.
+    if not re.search(r"[֐-׿]", text):
+        return text
+    logging.warning("deal reason without an English translation: %s", text)
+    return "Selected after comparing options"
+
+
+_LODGING_SEARCH_ERRORS_EN = {
+    "חסר יעד או תאריכים כדי לחפש לינה.": "A destination or dates are missing, so lodging can't be searched yet.",
+}
+
+
+@site.app_template_filter("lodging_error_en")
+def _lodging_error_en(message):
+    """lodging_search_error is saved in Hebrew in the trip answers."""
+    return _LODGING_SEARCH_ERRORS_EN.get(str(message or "").strip(), "The search failed. You can try again in a moment.")
+
+
 # A day mention ("יום 1 (ראשון)", "יום ראשון", "יום שני:"...) counts as
 # itinerary shape UNLESS it's immediately preceded by a calendar date - that
 # specific pattern ("27.06.2027 (יום ראשון)") is how a flight-approval
@@ -2996,6 +3079,52 @@ def go_kiwi(offer_id):
     )
 
 
+def _trip_destination_display(trip):
+    """The vacation card title, in the site language (also used by checkout)."""
+    answers = trip.get("answers") or {}
+    try:
+        destination_codes = sorted(_trip_destination_codes(trip))
+    except Exception:
+        destination_codes = []
+    if str(answers.get("vacation_type") or "") == "ski":
+        # ski_target_labels comes from the manual resort-picker form;
+        # ski_resort_names(_he) comes from the Ariella chat flow, which
+        # determines the resort through conversation instead. Either one
+        # means a specific resort was actually pinned down. The catalog
+        # names in ski_resort_names are English, so English shows them as is.
+        ski_labels = answers.get("ski_target_labels") or []
+        if not ski_labels and answers.get("ski_resort_names"):
+            if _lang() == "en":
+                ski_labels = list(answers.get("ski_resort_names"))
+            else:
+                ski_labels = answers.get("ski_resort_names_he") or _ski_resort_he_names(answers.get("ski_resort_names"))
+        if ski_labels:
+            return _msg(
+                "חופשת סקי — " + " • ".join(ski_labels),
+                "Ski vacation — " + " • ".join(ski_labels),
+            )
+        return _msg(
+            "חופשת סקי — אריאלה תבחר אתר סקי",
+            "Ski vacation — Ariella chooses a ski resort",
+        )
+    if destination_codes:
+        # The card shows the destination COUNTRY, not the individual
+        # airport city names - a Croatia trip with DBV+SPU gateways
+        # should read "קרואטיה", not "דוברובניק • ספליט". Dedup by
+        # country so a multi-gateway trip within one country still
+        # shows a single name.
+        labels = []
+        for code in destination_codes:
+            info = _AIRPORT_LOCALIZATION.get(code, {})
+            country_he = info.get("country_he") or info.get("city_he") or code
+            country_en = info.get("country_en") or info.get("city_en") or code
+            label = country_en if _lang() == "en" else country_he
+            if label not in labels:
+                labels.append(label)
+        return " • ".join(labels)
+    return trip.get("request_name") or _msg("חופשה", "Vacation")
+
+
 @site.get("/account")
 @login_required
 def account():
@@ -3073,42 +3202,7 @@ def account():
             destination_codes = sorted(_trip_destination_codes(trip))
         except Exception:
             destination_codes = []
-        destination_info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {}) if destination_codes else {}
-        if str(answers.get("vacation_type") or "") == "ski":
-            # ski_target_labels comes from the manual resort-picker form;
-            # ski_resort_names(_he) comes from the Ariella chat flow, which
-            # determines the resort through conversation instead. Either one
-            # means a specific resort was actually pinned down.
-            ski_labels = answers.get("ski_target_labels") or []
-            if not ski_labels and answers.get("ski_resort_names"):
-                ski_labels = answers.get("ski_resort_names_he") or _ski_resort_he_names(answers.get("ski_resort_names"))
-            if ski_labels:
-                trip["destination_display"] = _msg(
-                    "חופשת סקי — " + " • ".join(ski_labels),
-                    "Ski vacation — " + " • ".join(ski_labels),
-                )
-            else:
-                trip["destination_display"] = _msg(
-                    "חופשת סקי — אריאלה תבחר אתר סקי",
-                    "Ski vacation — Ariella chooses a ski resort",
-                )
-        elif destination_codes:
-            # The card shows the destination COUNTRY, not the individual
-            # airport city names - a Croatia trip with DBV+SPU gateways
-            # should read "קרואטיה", not "דוברובניק • ספליט". Dedup by
-            # country so a multi-gateway trip within one country still
-            # shows a single name.
-            labels = []
-            for code in destination_codes:
-                info = _AIRPORT_LOCALIZATION.get(code, {})
-                country_he = info.get("country_he") or info.get("city_he") or code
-                country_en = info.get("country_en") or info.get("city_en") or code
-                label = country_en if _lang() == "en" else country_he
-                if label not in labels:
-                    labels.append(label)
-            trip["destination_display"] = " • ".join(labels)
-        else:
-            trip["destination_display"] = trip.get("request_name") or _msg("חופשה", "Vacation")
+        trip["destination_display"] = _trip_destination_display(trip)
 
         if str(answers.get("vacation_type") or "") == "ski":
             trip["image_url"] = "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=82"
@@ -5524,7 +5618,7 @@ def _car_when(iso_date, text) -> str:
     if not iso_date:
         return ""
     time = _car_time(text)
-    return _he_date(iso_date) + (f" בשעה {time}" if time else " · שעה לפי הטיסה")
+    return _he_date(iso_date) + (_msg(f" בשעה {time}", f" at {time}") if time else _msg(" · שעה לפי הטיסה", " · time to match your flight"))
 
 
 def _int_or(value, default):
@@ -5585,15 +5679,24 @@ def _lodging_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     kind = str(answers.get("lodging_type") or "").strip()
     dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
     adults, children = _int_or(answers.get("adults"), 0), _int_or(answers.get("children"), 0)
-    guests = (f"{adults} מבוגרים" if adults else "") + (f", {children} ילדים" if children else "")
+    if _lang() == "en":
+        guests = (f"{adults} adult{'s' if adults != 1 else ''}" if adults else "") + (
+            f", {children} {'child' if children == 1 else 'children'}" if children else "")
+    else:
+        guests = (f"{adults} מבוגרים" if adults else "") + (f", {children} ילדים" if children else "")
     supplier = LODGING_PARTNER_NAME if LODGING_AFFILIATE_LINK else "Booking.com"
     cards = []
     for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
         airport = _AIRPORT_LOCALIZATION.get(code) or {}
-        city = airport.get("city_he") or AIRPORT_NAMES.get(code, code)
+        if _lang() == "en":
+            name = f"Stay in {airport.get('city_en') or code}"
+            dates = f"From {_he_date(dep)} to {_he_date(ret)}" if dep and ret else ""
+        else:
+            name = f"לינה ב{airport.get('city_he') or AIRPORT_NAMES.get(code, code)}"
+            dates = f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else ""
         cards.append({
-            "name": f"לינה ב{city}" + (f" · {kind}" if kind else ""),
-            "dates": f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else "",
+            "name": name + (f" · {kind}" if kind else ""),
+            "dates": dates,
             "guests": guests,
             "supplier": supplier,
             "link": f"/trip/{trip_id}/book-lodging/{code}",
@@ -5616,24 +5719,39 @@ def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     vehicle = str(answers.get("car_vehicle_type") or "").strip()
     transmission = str(answers.get("car_transmission") or "").strip()
     seats = answers.get("car_seats")
-    title = "רכב שכור" + "".join(
+    en = _lang() == "en"
+    title = _msg("רכב שכור", "Rental car") + "".join(
         f" · {part}" for part in (
             vehicle if vehicle != "אין העדפה" else "",
             transmission if transmission != "לא משנה" else "",
-            f"{seats} מקומות" if seats and f"{seats} מקומות" not in vehicle else "",
+            (f"{seats} seats" if en else f"{seats} מקומות") if seats and f"{seats} מקומות" not in vehicle else "",
         ) if part
     )
     dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
+
+    def airport_name(code):
+        if en:
+            return (_AIRPORT_LOCALIZATION.get(code) or {}).get("city_en") or code
+        return AIRPORT_NAMES.get(code, code)
+
     cards = []
     for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
         return_code = _car_return_iata(answers, code)
+        if en:
+            pickup = (
+                f"Pick-up and return at {airport_name(code)} airport ({code})" if return_code == code else
+                f"Pick-up at {airport_name(code)} airport ({code}), return at "
+                f"{airport_name(return_code)} airport ({return_code})"
+            )
+        else:
+            pickup = (
+                f"איסוף והחזרה בשדה התעופה {airport_name(code)} ({code})" if return_code == code else
+                f"איסוף בשדה התעופה {airport_name(code)} ({code}), החזרה בשדה התעופה "
+                f"{airport_name(return_code)} ({return_code})"
+            )
         cards.append({
             "name": title,
-            "pickup": (
-                f"איסוף והחזרה בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code})" if return_code == code else
-                f"איסוף בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code}), החזרה בשדה התעופה "
-                f"{AIRPORT_NAMES.get(return_code, return_code)} ({return_code})"
-            ),
+            "pickup": pickup,
             "pickup_when": _car_when(dep, answers.get("car_pickup")),
             "return_when": _car_when(ret, answers.get("car_return")),
             "supplier": CAR_RENTAL_PARTNER_NAME,
@@ -5791,6 +5909,9 @@ def trip_checkout(trip_id):
     plan_info = PERSONAL_SEARCH_PLANS.get(plan)
     if trip.get("subscription_status") != "pending" or not plan_info:
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+    # Same localized title as the vacation card - request_name alone is the
+    # Hebrew name from the chat ("Daily tracking for ליסבון" in English).
+    trip["destination_display"] = _trip_destination_display(trip)
     return render_template("trip_checkout.html", trip=trip, plan=plan, plan_info=plan_info)
 
 

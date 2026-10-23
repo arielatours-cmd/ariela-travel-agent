@@ -5,6 +5,7 @@ Checks:
   2. names      pyflakes: undefined names (the class of bug behind QA v9.7.132)
   3. routes     every GET page answers < 500, as a visitor and as a logged-in member
   4. cases      deterministic Hebrew parsers match qa/cases.json
+  5. reasons    every displayed deal reason (scoring.py/database.py) has an English translation
 
 Usage: python qa/run_qa.py [--out qa/reports/latest.md]
 Exit code is non-zero when any check fails.
@@ -137,6 +138,94 @@ def check_password_reset() -> list[str]:
     return failures
 
 
+# Reasons that scoring.py builds but never shows in "Why Ariella selected this
+# deal": _time_preference_points' reasons only go into components (see the
+# comment in calculate_deal_score), never into the displayed reasons list.
+_REASONS_NOT_DISPLAYED = {"_time_preference_points"}
+
+
+def _displayed_reason_texts() -> tuple[set[str], list[str]]:
+    """Every fixed Hebrew reason scoring.py / database.py can put in display_reasons.
+
+    Reads the source (AST) instead of running the scorer, so a new reason is
+    caught even when no test input happens to produce it. A reason that can't
+    be resolved to a fixed string is itself reported as a failure.
+    """
+    import ast
+    import re
+    texts, unresolved = set(), []
+
+    def norm(text):
+        return text.split(": +", 1)[0].strip()
+
+    def names_assigned(func, name):
+        """String constants assigned to `name` in func (incl. tuple unpacking)."""
+        out = []
+        for node in ast.walk(func):
+            if not isinstance(node, ast.Assign):
+                continue
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == name and isinstance(node.value, ast.Constant):
+                    out.append(node.value.value)
+                if isinstance(target, ast.Tuple) and isinstance(node.value, ast.Tuple):
+                    for t, v in zip(target.elts, node.value.elts):
+                        if isinstance(t, ast.Name) and t.id == name and isinstance(v, ast.Constant):
+                            out.append(v.value)
+        return [v for v in out if isinstance(v, str)]
+
+    def resolve(node, func, where):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return [node.value]
+        if isinstance(node, ast.IfExp):
+            return resolve(node.body, func, where) + resolve(node.orelse, func, where)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and isinstance(node.left, ast.Constant):
+            return [node.left.value]  # "text: +" + str(points)
+        if isinstance(node, ast.JoinedStr):
+            head = node.values[0] if node.values else None
+            if isinstance(head, ast.Constant):
+                return [head.value]  # f"text: +{points}"
+            if isinstance(head, ast.FormattedValue) and isinstance(head.value, ast.Name):
+                found = names_assigned(func, head.value.id)  # f"{baggage_reason}: +{points}"
+                if found:
+                    return found
+        unresolved.append(f"{where}: displayed reason is not a fixed string - add it to DEAL_REASON_EN by hand and teach this check")
+        return []
+
+    for fname, list_names in (("scoring.py", {"reasons"}), ("database.py", {"display_reasons"})):
+        tree = ast.parse((ROOT / fname).read_text(encoding="utf-8"))
+        funcs = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        for func in funcs:
+            if func.name in _REASONS_NOT_DISPLAYED:
+                continue
+            for node in ast.walk(func):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and node.func.attr in {"append", "insert"} and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id in list_names and node.args):
+                    arg = node.args[-1]
+                    if isinstance(arg, ast.Name):
+                        continue  # database.py inserts booking_choice_reason_he (shown separately, has an _en twin)
+                    for text in resolve(arg, func, f"{fname}:{node.lineno}"):
+                        if re.search(r"[֐-׿]", text):
+                            texts.add(norm(text))
+            # database.py _reason_label: English score keys -> Hebrew labels.
+            if func.name == "_reason_label":
+                for node in ast.walk(func):
+                    if isinstance(node, ast.Dict):
+                        texts.update(norm(v.value) for v in node.values if isinstance(v, ast.Constant))
+    return texts, unresolved
+
+
+def check_deal_reasons() -> tuple[list[str], int]:
+    """Every displayed deal reason must have an English translation, so the
+    English card never falls back to a duplicated generic line (lang=en scan, 23.10)."""
+    import public_site
+    texts, failures = _displayed_reason_texts()
+    for text in sorted(texts):
+        if text not in public_site.DEAL_REASON_EN:
+            failures.append(f"missing English for deal reason {text!r} - add it to public_site.DEAL_REASON_EN")
+    return failures, len(texts)
+
+
 def _contains(actual, expected) -> bool:
     if isinstance(expected, dict):
         return isinstance(actual, dict) and all(k in actual and _contains(actual[k], v) for k, v in expected.items())
@@ -180,6 +269,8 @@ def main() -> int:
     route_fail, n_routes = check_routes()
     add("עמודי האתר", route_fail, f" — {n_routes} עמודים × מבקר/מחובר")
     add("איפוס סיסמה (תהליך מלא)", check_password_reset())
+    reason_fail, n_reasons = check_deal_reasons()
+    add("תרגום סיבות הדיל לאנגלית", reason_fail, f" — {n_reasons} סיבות")
     case_fail, n_cases = check_cases()
     add("הבנת שיחה (מפענחים דטרמיניסטיים)", case_fail, f" — {n_cases} מקרים")
 

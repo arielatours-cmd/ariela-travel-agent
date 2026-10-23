@@ -43,10 +43,14 @@ account_html_src = open(
     encoding="utf-8",
 ).read()
 
-check("the lodging h3 carries a full-text span with the original wording",
-      '<span class="panel-title-full">אפשרויות לינה ליעד ולתאריכים שלכם</span>' in account_html_src)
-check("the lodging h3 also carries a shortened mobile span",
-      '<span class="panel-title-short">אפשרויות לינה</span>' in account_html_src)
+check("the lodging h3's full-text span carries both the Hebrew and English (site_lang) wording",
+      '<span class="panel-title-full">' in account_html_src
+      and "Lodging options for your destination and dates" in account_html_src
+      and "אפשרויות לינה ליעד ולתאריכים שלכם" in account_html_src)
+check("the lodging h3's shortened mobile span carries both the Hebrew and English (site_lang) wording",
+      '<span class="panel-title-short">' in account_html_src
+      and "'Lodging' if site_lang == 'en'" in account_html_src
+      and "אפשרויות לינה" in account_html_src)
 check("the short span is hidden by default (desktop-first)",
       ".vacation-panel h3 .panel-title-short{display:none}" in account_html_src)
 check("a <=480px media query flips full/short and shrinks the header font-size",
@@ -91,10 +95,17 @@ with client.session_transaction() as sess:
     sess["member_id"] = member_id
 resp = client.get("/account")
 body = resp.get_data(as_text=True)
-check("a real /account render still renders the lodging panel header with both spans intact",
+check("a real /account render (default Hebrew) still renders the lodging panel header with both spans intact",
       resp.status_code == 200
       and '<span class="panel-title-full">אפשרויות לינה ליעד ולתאריכים שלכם</span>' in body
       and '<span class="panel-title-short">אפשרויות לינה</span>' in body)
+
+resp_en = client.get("/account?lang=en")
+body_en = resp_en.get_data(as_text=True)
+check("a real /account?lang=en render shows the English wording in both spans",
+      resp_en.status_code == 200
+      and '<span class="panel-title-full">Lodging options for your destination and dates</span>' in body_en
+      and '<span class="panel-title-short">Lodging</span>' in body_en)
 
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-mobile-header@example.com'")
