@@ -66,6 +66,9 @@ with app.test_request_context("/"):
     he = app.jinja_env.from_string(FULL).render(o=base, lang="he")
     en = app.jinja_env.from_string(FULL).render(o=base, lang="en")
     none = app.jinja_env.from_string(FULL).render(o=dict(base, arrival_code="ATH", destination_image_url=L["ATH"], destination_image_credit=None), lang="he")
+check("Shlomo 23.10: no Unsplash city layer left - the general image is the only fallback in every pool",
+      database._DESTINATION_IMAGE_FALLBACKS == (database.GENERIC_DESTINATION_IMAGE,)
+      and not any("photo-1477959858617" in u for p in database.DESTINATION_IMAGE_POOLS.values() for u in p))
 import html as _html  # noqa: E402
 lis = fix["LIS"]
 check("card HE: Din's credit text on the photo (the Latin part in <bdi> - Tom's QA: the comma jumped in RTL)",

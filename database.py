@@ -28,10 +28,9 @@ DESTINATION_LANDMARK_IMAGES.update({
 # clouds, served from our own static folder (absolute when PUBLIC_BASE_URL is
 # set, so a WhatsApp image still resolves).
 GENERIC_DESTINATION_IMAGE = f"{PUBLIC_BASE_URL}/static/img/destinations/_default.webp"
-_DESTINATION_IMAGE_FALLBACKS = (
-    GENERIC_DESTINATION_IMAGE,
-    "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=82",
-)
+# Shlomo (23.10): no source without a verified licence, even an unused layer -
+# the general image is the only fallback.
+_DESTINATION_IMAGE_FALLBACKS = (GENERIC_DESTINATION_IMAGE,)
 
 # 23.10 (Ofek, interim fix until 021a): every landmark verified against the
 # Wikimedia Commons API - the file exists, licence PD/CC0/CC BY/CC BY-SA only
