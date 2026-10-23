@@ -733,6 +733,115 @@ check("dry-run 5g FIX (E2 EXACT repro text 'לברגם בנורווגיה'): res
       result_e2_exact_repro.get("destination_airports") == ["BGO"]
       and "_destination_ambiguous_hint" not in result_e2_exact_repro)
 
+
+# =====================================================================
+# Shlomo's own investigation (23.10.2026) of E1's real input (qa-dryrun
+# branch, chat_log_dr5g1.jsonl): E1's actual turn-0 message was NEVER bare
+# "ברגם" - it was "אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני",
+# the exact same ל-prefixed root cause as E2. Same fix (bbf7d990),
+# verified directly against the real message text.
+# =====================================================================
+MSG_E1_EXACT = "אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני"
+
+with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergamo", "BGY", None)):
+    result_e1_exact_no_evidence = chat._destination_gateway_answer_by_meaning(
+        MSG_E1_EXACT, [{"role": "assistant", "content": UNRELATED_REPLY}], state_bergen_lamed,
+    )
+check("dry-run 5g FIX (E1 EXACT repro text, turn 0, no genuine evidence): "
+      "no longer silently resolves to Bergamo - forced ambiguous",
+      not result_e1_exact_no_evidence.get("destination_airports")
+      and "_destination_ambiguous_hint" in result_e1_exact_no_evidence)
+
+# _reresolve_ambiguous_fresh_destination (the sibling function) on this
+# same exact message - confirms it was always correct in isolation, as
+# Shaked found; the gap was only in the gateway function's near_cities.
+_e1_prior_state = {"destination_airports": []}
+_e1_fresh_update = {"destination_airports": ["BGY"], "destination": {"places": ["ברגמו"], "mode": "specific", "status": "known"}}
+result_e1_reresolve = chat._reresolve_ambiguous_fresh_destination(_e1_prior_state, _e1_fresh_update, "לברגם", MSG_E1_EXACT)
+check("dry-run 5g: _reresolve_ambiguous_fresh_destination on the exact E1 message "
+      "correctly reverts a fresh same-turn resolution (already worked before this fix)",
+      result_e1_reresolve.get("destination_airports") == [])
+
+# Turn 1 of E1's live scenario: the customer answers the (now correctly
+# asked) ambiguous question with "ברגן, בנורווגיה" - must resolve to Bergen.
+def _fake_turn1_answer(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        return json.dumps({
+            "evidence": "ברגן, בנורווגיה",
+            "candidates": [{"city_en": "Bergen", "iata_code": "BGO"}],
+            "disambiguating_evidence": "בנורווגיה",
+        })
+    return "{}"
+
+
+state_turn1_unresolved = dict(BASE_STATE, destination={"places": ["ברגם"], "mode": None, "status": "known"})
+with patch.object(chat, "_post_claude", side_effect=_fake_turn1_answer):
+    result_e1_turn1 = chat._destination_gateway_answer_by_meaning(
+        "ברגן, בנורווגיה", [{"role": "assistant", "content": UNRELATED_REPLY}], state_turn1_unresolved,
+    )
+check("dry-run 5g: once turn 0 correctly stays ambiguous, the customer's own next-turn answer "
+      "('ברגן, בנורווגיה') resolves cleanly to Bergen",
+      result_e1_turn1.get("destination_airports") == ["BGO"])
+
+# Shlomo's defense-in-depth question: is _guard_destination_change_evidence
+# itself the reason an explicit later correction doesn't overwrite an
+# already-resolved (wrong) destination? Verified directly: the guard lets
+# the change through whenever destination_evidence verifies, and only
+# reverts when it does not - this is the guard working exactly as
+# designed, not a bug in it. (Separately: if EXTRACTOR_SYSTEM itself fails
+# to supply destination_evidence for this kind of correction, that is a
+# distinct, NOT-yet-investigated prompt-level gap - out of scope here.)
+_prior_state_bgy = {"destination_airports": ["BGY"], "destination": {"places": ["ברגמו"]}}
+_trip_update_correction = {"destination_airports": ["BGO"], "destination": {"places": ["ברגן"]}}
+_correction_message = "לא, זה בעצם ברגן, בנורווגיה"
+result_guard_with_evidence = chat._guard_destination_change_evidence(
+    _prior_state_bgy, _trip_update_correction, "ברגן, בנורווגיה", _correction_message)
+check("dry-run 5g: _guard_destination_change_evidence itself is NOT the bug - it lets an "
+      "explicit correction through when the extractor supplies a verified destination_evidence quote",
+      result_guard_with_evidence.get("destination_airports") == ["BGO"])
+result_guard_without_evidence = chat._guard_destination_change_evidence(
+    _prior_state_bgy, _trip_update_correction, None, _correction_message)
+check("dry-run 5g: REGRESSION GUARD - without destination_evidence, the guard correctly keeps "
+      "reverting to the prior value (working as designed, not a bug)",
+      result_guard_without_evidence.get("destination_airports") == ["BGY"])
+
+
+# =====================================================================
+# Shaked's follow-up static review of bbf7d990 (23.10.2026, non-blocking
+# but a real gap): checking the raw form first and only falling back to
+# the stripped form when the raw form found NOTHING missed the case where
+# the raw form finds a NEAR (non-exact) match - stopping the search
+# before the stripped form's own EXACT match ever gets a chance. Her named
+# example: "במקאו" (with the ב prefix) - the raw form lands near an
+# unrelated city ("במקו"), while the stripped form "מקאו" is an exact
+# match to the real catalog city. Fixed: an exact match on ANY form wins,
+# checked across every form before any near match is trusted.
+# =====================================================================
+check("dry-run 5g FIX (Shaked's ordering review): the raw ב-prefixed 'במקאו' alone "
+      "produces a (wrong) 2-way near-match set, not the real exact match",
+      set(chat._catalog_near_neighbor_cities("במקאו").keys()) == {"במקו", "מקאו"})
+check("dry-run 5g FIX (Shaked's ordering review): the ב-stripped 'מקאו' is a real exact match",
+      chat._catalog_near_neighbor_cities("מקאו", max_distance=0) == {"מקאו": ["MFM"]})
+
+_MACAU_CITY_EN = (chat._catalog_airport_by_code("MFM") or {}).get("city_en")
+
+
+def _fake_macau(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier" and _MARKER in str(system_static or ""):
+        return json.dumps({"evidence": "במקאו", "candidates": [{"city_en": _MACAU_CITY_EN, "iata_code": "MFM"}]})
+    return "{}"
+
+
+state_macau = dict(BASE_STATE, destination={"places": ["במקאו"], "mode": None, "status": "known"})
+with patch.object(chat, "_post_claude", side_effect=_fake_macau):
+    result_macau = chat._destination_gateway_answer_by_meaning(
+        "אני רוצה לטוס במקאו", [], state_macau,
+    )
+check("dry-run 5g FIX (Shaked's ordering review): 'במקאו' now resolves decisively via the "
+      "stripped form's exact match, never treated as a false 2-way ambiguity",
+      result_macau.get("destination_airports") == ["MFM"]
+      and "_destination_ambiguous_hint" not in result_macau)
+
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)

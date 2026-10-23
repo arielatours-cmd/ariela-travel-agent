@@ -8039,13 +8039,36 @@ def _destination_gateway_answer_by_meaning(message, history, state):
     # back empty, this whole function's dry-run 5f/5g disambiguation-
     # evidence requirement never engaged at all, and the ORIGINAL bug
     # (blind single-candidate trust) reproduced through this gap. Fixed by
-    # trying the ל/ב/מ-stripped form too when the raw form alone finds
-    # nothing - mirrors _reresolve_ambiguous_fresh_destination's own
-    # candidate_forms handling of the exact same ambiguity.
+    # trying the ל/ב/מ-stripped form too - mirrors _reresolve_ambiguous_
+    # fresh_destination's own candidate_forms handling of the exact same
+    # ambiguity.
     _unresolved_place = str(unresolved_places[0] or "")
-    near_cities = _catalog_near_neighbor_cities(_unresolved_place)
-    if not near_cities and len(_unresolved_place) >= 3 and _unresolved_place[0] in "לבמ":
-        near_cities = _catalog_near_neighbor_cities(_unresolved_place[1:])
+    _unresolved_forms = [_unresolved_place]
+    if len(_unresolved_place) >= 3 and _unresolved_place[0] in "לבמ":
+        _unresolved_forms.append(_unresolved_place[1:])
+    # Shaked's follow-up static review of bbf7d990 (23.10.2026): checking
+    # the raw form first and only falling back to the stripped form when
+    # the raw form found NOTHING still missed cases where the raw form
+    # finds a NEAR (non-exact) match that stops the search before the
+    # stripped form's own EXACT match ever gets a chance - e.g. "במקאו"
+    # (with the ב prefix): the raw form alone lands near an unrelated
+    # city, while the stripped form "מקאו" is an exact match to the real
+    # Macau. Fixed the same way _reresolve_ambiguous_fresh_destination's
+    # own multi-form search already works: an exact match on ANY form is
+    # checked first, across every form, before any near-match on any form
+    # is ever trusted.
+    near_cities = {}
+    for _form in _unresolved_forms:
+        _exact = _catalog_near_neighbor_cities(_form, max_distance=0)
+        if _exact:
+            near_cities = _exact
+            break
+    if not near_cities:
+        for _form in _unresolved_forms:
+            _found = _catalog_near_neighbor_cities(_form)
+            if _found:
+                near_cities = _found
+                break
     structural_codes = []
     if len(near_cities) == 2:
         named = []
