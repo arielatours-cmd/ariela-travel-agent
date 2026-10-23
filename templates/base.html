@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20261023-tabs-gold">
   {% if request.endpoint != 'site.feedback' %}
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}?v=20260917-imagepreload1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}?v=20261023-lang-en-v2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}?v=20261023-card-align">
   {% endif %}
   {% if request.endpoint not in ['site.new_trip','site.feedback','site.deals'] %}
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-trip-regular.css') }}">
