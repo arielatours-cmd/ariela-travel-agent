@@ -131,7 +131,7 @@ TINKERBELL_SYSTEM = '''את מלוות החופשה של אריאלה. אריא�
 - אין חובה לשאול שאלה בכל הודעה. לעיתים התשובה הטובה ביותר היא פשוט תגובה או המלצה.
 - אם כבר נאמר פרט בשיחה או במצב החופשה המצטבר, זכרי אותו. אם הלקוח משנה אותו, התייחסי לגרסה החדשה. אסור לשאול שוב פרט שכבר ידוע.
 - אם הלקוח אומר חופשה חדשה, טיול חדש, להתחיל מחדש, מהתחלה, לשנות כיוון או ניסוח דומה שמשתמע ממנו רצון להתחיל מחדש/לשנות כיוון, אל תמחקי ואל תשני עדיין שום מידע. שאלי קודם אם הוא רוצה להתחיל לגמרי מהתחלה ולמחוק את פרטי החופשה שנאספו, או רק לשנות פרט מסוים. אם הוא רוצה שינוי נקודתי, שאלי מה לשנות רק אם לא כתב זאת כבר. אם הוא מבקש במפורש למחוק הכול לאחר שאלת האימות, מתחילים ממצב חופשה ריק.
-- אל תחזרי על פרטים שכבר נאמרו כדי לאשר אותם, אלא אם יש אי-בהירות אמיתית.
+- אל תחזרי על פרטים שכבר נאמרו כדי לאשר אותם, אלא אם יש אי-בהירות אמיתית. זה חל גם כשההודעה הנוכחית של הלקוח עצמה היא שמסרה את הפרט, בצורה מפורשת וחד-משמעית: תאריכים מדויקים ("אפשר לצאת ב-9.5 ולחזור ב-13.5") או שינוי כבודה מפורש ("בעצם נעדיף מזוודה לכל אחד") מתקבלים ונרשמים כמו שהם, בלי שאלת "מתאים לך?"/"נכון?" נוספת על אותו פרט עצמו - שאלת אישור כזו רלוונטית רק כשהניסוח של הלקוח עצמו באמת משתמע לשתי פרשנויות אפשריות, לא כברירת מחדל על כל פרט קונקרטי.
 - אל תפעילי חיפוש ואל תטעני שחיפשת טיסות, מלונות או מחירים בשלב הזה.
 - כלל כללי: לעולם אל תתארי בטקסט פעולה ("מעבירה אותך לתוצאות", "יוצאת לסריקה", "שולחת את הפרטים", "בודקת עכשיו") אלא אם היא באמת מתבצעת באותה תגובה בפועל (למשל search_intent/start_flight_search שמסומנים כאן). אם שום פעולה כזו לא קורית כרגע, המשיכי בשיחה הרגילה בלי לתאר מעבר/פעולה שלא קיימת - תיאור פעולה שלא קורית משאיר את הלקוח מחכה לדבר שלא יגיע.
 - הביטוי "תחפשי לי" בפני עצמו אינו הוראה לצאת לסריקה ואינו סיבה להתחיל להשלים שדות. המשיכי בשיחה טבעית לפי ההקשר.
@@ -8044,46 +8044,110 @@ def _reresolve_ambiguous_fresh_destination(trip_state, trip_update, destination_
     on a near (non-exact) match, and never reached the stripped form
     ("דבלין"), which has the real EXACT match. 18 catalog names with a
     leading ל/ב hit this ("לדבלין"->{Dublin,Lublin}, "לאוסקה"->{Osaka,...},
-    among others). Fixed: an exact (distance-0) match on ANY candidate
-    form is checked FIRST, across all forms, before any near-match
-    (ambiguity) check runs at all - exact-anywhere always wins over
-    near-somewhere-else, exactly like condition א already does within a
-    single form. Only when no candidate form has an exact match does the
-    near-match loop run, stopping at the first form with any match."""
+    among others). Fixed in 318fd69a: an exact (distance-0) match on ANY
+    candidate form of the SAME word is checked first, before any near-
+    match check for that word.
+
+    Shaked's 4th live repro (23.10.2026, dry-run 5e, "ברגמו"/BGY saved
+    turn 0, no ambiguity question ever asked) + Shlomo's approved change
+    of approach: this entire mechanism depended on destination_evidence -
+    the MODEL's own claimed verbatim quote. When the model's extraction
+    call omits it, or returns something that fails _value_has_verbatim_
+    evidence, the whole structural signal silently never ran at all, no
+    matter how genuinely ambiguous the customer's own wording was. Fixed:
+    the check no longer depends on what the model chose to quote - it now
+    scans the CUSTOMER'S OWN raw message directly. Candidates are every
+    run of 1-4 consecutive Hebrew words (catalog city names are up to 4
+    words, e.g. "בניה לוקה"/Banja Luka, "סאו טומה"/Sao Tome - a single-
+    word-only tokenizer would never exact-match these, wrongly falling
+    through to a spurious near-match on one half instead), each tried
+    both as-is and with one leading preposition letter (ל/ב/מ) stripped
+    from its first word.
+
+    An exact (distance-0) match on ANY candidate - any word-window, any
+    form - is checked FIRST, across the ENTIRE message, before any near-
+    match check runs at all (mirroring condition א and the ל/ב-prefix
+    fix, 318fd69a, now generalized across word-windows too): if found,
+    the whole message is treated as decisively resolved, no reversion.
+    This is deliberately message-wide, not per-candidate-only - a single
+    word WINDOW overlapping a real multi-word name (e.g. "נאנג" out of
+    "דה נאנג"/Da Nang) can itself land within edit-distance 1 of two
+    unrelated cities, and the two windows are forms of the SAME
+    underlying phrase, not independent words, so the short window's
+    coincidental near-miss must never fire before the longer window's
+    real exact match is found. The accepted trade-off, same direction as
+    condition א's own standing precedent: a message that happens to also
+    name a second, different real catalog city exactly would suppress a
+    genuine ambiguity in a third, unrelated phrase too - judged rarer and
+    less costly than the demonstrated, systematic multi-word/geresh
+    failure this fixes. Only once NO candidate anywhere has an exact
+    match does the near-match loop run, stopping at the first candidate
+    with a genuine 2-way ambiguity. destination_evidence, when it still
+    verifies, is folded in as one more candidate (never required,
+    occasionally catches a form the plain word-window generation misses)
+    - strictly additive, never the sole source again."""
     trip_state = trip_state if isinstance(trip_state, dict) else {}
     trip_update = trip_update if isinstance(trip_update, dict) else {}
     prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
     new_airports = trip_update.get("destination_airports") if isinstance(trip_update.get("destination_airports"), list) else []
     if prior_airports or not new_airports:
         return trip_update  # not a fresh first-time resolution this turn
-    if not _value_has_verbatim_evidence(destination_evidence, message):
+    # Catalog city names are not always one word (114 of 824, e.g. "בניה
+    # לוקה"/Banja Luka, "סאו טומה"/Sao Tome, up to 4 words) and some
+    # include an internal geresh ("ג'ירונה"/Girona, "בראץ'") - a single-
+    # word-only tokenizer would never exact-match these at all, wrongly
+    # treating a real, unambiguous multi-word/geresh name as if it had no
+    # catalog match and falling through to a spurious near-match on one
+    # of its halves. Words are Hebrew letter runs that may contain an
+    # internal geresh; candidates are every run of 1-4 consecutive words
+    # (824 names are at most 4 words long) joined back with single
+    # spaces, matching the catalog's own city_he spacing exactly.
+    _words = re.findall(r"[א-ת]+(?:['׳][א-ת]*)?", str(message or ""))
+    tokens = []
+    for n in (1, 2, 3, 4):
+        for i in range(len(_words) - n + 1):
+            candidate = " ".join(_words[i:i + n])
+            if len(candidate) >= 3 and candidate not in tokens:
+                tokens.append(candidate)
+    if _value_has_verbatim_evidence(destination_evidence, message):
+        evidence = str(destination_evidence or "").strip()
+        if evidence and evidence not in tokens:
+            tokens.append(evidence)
+    # Candidate forms per token: itself, plus itself with one leading
+    # preposition letter (ל/ב/מ) stripped from its first word.
+    candidate_forms = []
+    for token in tokens:
+        forms = [token]
+        if len(token) >= 3 and token[0] in "לבמ":
+            forms.append(token[1:])
+        candidate_forms.append(forms)
+    # Exact match on ANY candidate (any token, any form) is checked
+    # FIRST, across the whole message, before any near-match check runs
+    # at all - mirroring condition א and the ל/ב-prefix fix (318fd69a),
+    # now generalized across tokens too. Without this, a single-word
+    # WINDOW overlapping a real multi-word name (e.g. "נאנג" out of "דה
+    # נאנג"/Da Nang) could itself land within edit-distance 1 of two
+    # unrelated cities and wrongly revert BEFORE the loop ever reached
+    # the longer window with the real, decisive exact match - the two
+    # windows are forms of the SAME underlying phrase, not independent
+    # words, so this is the same priority rule as the prefix forms, not
+    # the "unrelated city named in passing" case the per-candidate near-
+    # match loop below still guards against.
+    if any(_catalog_near_neighbor_cities(form, max_distance=0) for forms in candidate_forms for form in forms):
         return trip_update
-    needle = str(destination_evidence or "").strip()
-    candidates_to_try = [needle]
-    if len(needle) >= 3 and needle[0] in "לבמ":
-        candidates_to_try.append(needle[1:])
-    for candidate in candidates_to_try:
-        if _catalog_near_neighbor_cities(candidate, max_distance=0):
-            # A decisive exact match on SOME candidate form - never
-            # second-guessed by a near-miss on another form (e.g.
-            # "לדבלין" is near two cities, but its stripped form "דבלין"
-            # is an exact match to the real one - that wins outright).
+    for forms in candidate_forms:
+        winning_needle, near_cities = None, {}
+        for form in forms:
+            found = _catalog_near_neighbor_cities(form)
+            if found:
+                winning_needle, near_cities = form, found
+                break
+        if len(near_cities) == 2:
+            trip_update = dict(trip_update)
+            prior_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
+            trip_update["destination"] = dict(prior_destination, places=[winning_needle], status="known")
+            trip_update["destination_airports"] = list(prior_airports)
             return trip_update
-    winning_needle, near_cities = None, {}
-    for candidate in candidates_to_try:
-        found = _catalog_near_neighbor_cities(candidate)
-        if found:
-            # No candidate form had an exact match (checked above) - a
-            # near match (single or genuine 2-way ambiguity) on the
-            # first candidate form that has one is the final answer.
-            winning_needle, near_cities = candidate, found
-            break
-    if len(near_cities) != 2:
-        return trip_update
-    trip_update = dict(trip_update)
-    prior_destination = trip_state.get("destination") if isinstance(trip_state.get("destination"), dict) else {}
-    trip_update["destination"] = dict(prior_destination, places=[winning_needle], status="known")
-    trip_update["destination_airports"] = list(prior_airports)
     return trip_update
 
 
@@ -13770,6 +13834,41 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         # is the one check that catches that case the generic flow has no
         # concept of.
         awaiting_detail_before = _accessibility_awaiting_detail(trip_update)
+        # Dry-run 5e, scenario C (Shaked/Shlomo, 23.10.2026, Hallstatt/
+        # Salzburg): the arbiter's hint correctly moved to accessibility
+        # the SAME turn dates resolved (28b250a's own fix working exactly
+        # as intended) - but Tinkerbell's actual reply kept asking "מתי
+        # בדיוק תרצו לצאת" (a prompt-compliance gap, the same class as
+        # scenario B's baggage-skip), never accessibility at all. The
+        # extraction call above still blindly ran against current_
+        # question's NAME, with no concept of what Tinkerbell actually
+        # asked - the customer's plain "כן" (answering the dates re-ask
+        # she actually saw) got classified as a real accessibility
+        # "answered" (needed=true, needs=["other"]), a flat misattri-
+        # bution: the pointer said accessibility, but nothing about THIS
+        # turn's exchange genuinely was. Shlomo's explicit fix: before
+        # trusting a genuine "answered" extraction, verify (the SAME
+        # classifier _guard_accessibility_question_skipped already uses)
+        # that Tinkerbell's own immediately-preceding reply actually asked
+        # about accessibility - if it demonstrably asked about something
+        # else instead, this extraction is downgraded to "unclear" (the
+        # existing branch just below), never saved, attempts bumped, and
+        # accessibility is asked again for real next turn - exactly the
+        # recovery an honestly-unclear answer already gets, never a new
+        # code path. Scoped to status=="answered" only (an "unclear"/
+        # "other_topic" result needs no second-guessing - it was never
+        # about to be saved as accessibility anyway) and to accessibility
+        # only for now (the one field this live repro hit).
+        if status == "answered":
+            _last_reply = next(
+                (str(h.get("content") or "") for h in reversed(history or [])
+                 if isinstance(h, dict) and h.get("role") == "assistant"),
+                None,
+            )
+            if _last_reply and not _guided_question_actually_asked(
+                key, model, _last_reply, "האם מישהו מהנוסעים זקוק להתאמת נגישות בטיול"
+            ):
+                status = "unclear"
         if status == "unclear":
             attempts += 1
             guided["current_question"], guided["attempts"], guided["answered"] = current_question, attempts, answered

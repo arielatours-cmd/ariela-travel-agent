@@ -28,6 +28,21 @@ which Shaked herself scanned):
   2. Confirmation that "ברגם" (the original scenario E repro) still
      correctly resolves as a genuine 2-way ambiguity (Bergen/Bergamo).
 
+Round 3 (23.10.2026, Shaked's dry-run 5e live finding on this branch -
+destination_evidence missing entirely, "ברגמו"/BGY saved turn 0 with no
+ambiguity question at all - Shlomo's approved change of approach):
+destination_evidence was the SOLE source of candidates; when the
+model's extraction omitted it, the whole structural signal never ran.
+Fixed: scan the customer's own raw message directly (every 1-4
+consecutive-Hebrew-word window, since 114/824 catalog names are multi-
+word and some contain an internal geresh, e.g. "בניה לוקה"/Banja Luka,
+"ג'ירונה"/Girona - a single-word tokenizer found a coincidental near-
+miss on a WORD FRAGMENT of these before ever reaching the longer
+window's real exact match, wrongly reverting 100% of them in this
+file's own first attempt at this scan). Fixed: an exact match on ANY
+word-window anywhere in the message is checked first, across the whole
+message, before any near-match check runs.
+
 This file drives the real function end-to-end (_reresolve_ambiguous_
 fresh_destination itself, not a re-implementation of its logic) for
 every check, so it exercises the exact mechanism in production.
@@ -61,7 +76,12 @@ def resolve_fresh(evidence_text):
         "destination_airports": ["XXX"],
         "destination": {"places": [evidence_text], "mode": "specific", "status": "known"},
     }
-    message = f"אני רוצה לטוס ל{evidence_text}"
+    # Dry-run 5e (23.10.2026): the message is now scanned token-by-token
+    # against the full catalog (Shlomo's approved E fix), so a short
+    # message keeps this scan's runtime reasonable without weakening
+    # coverage - the destination token itself is still exactly what gets
+    # exercised either way.
+    message = f"ל{evidence_text}"
     return chat._reresolve_ambiguous_fresh_destination(prior_state, update, evidence_text, message)
 
 
@@ -153,6 +173,33 @@ check("REGRESSION GUARD: 'ברגם' reverted destination.places carries the raw 
 near_cities = chat._catalog_near_neighbor_cities("ברגם")
 check("REGRESSION GUARD: 'ברגם' still correctly resolves to exactly {Bergen, Bergamo}",
       set(near_cities.keys()) == {"ברגן", "ברגמו"})
+
+
+# =====================================================================
+# Part 2b (round 3, Shaked's dry-run 5e live finding): no destination_
+# evidence at all, scanning the raw message directly - the exact live
+# failure shape (the model never supplied it). Also the multi-word/
+# geresh names this round's fix specifically targets, bare and ל-
+# prefixed, with NO destination_evidence supplied either.
+# =====================================================================
+def resolve_fresh_no_evidence(evidence_text):
+    prior_state = {"destination_airports": []}
+    update = {
+        "destination_airports": ["XXX"],
+        "destination": {"places": [evidence_text], "mode": "specific", "status": "known"},
+    }
+    message = f"ל{evidence_text}"
+    return chat._reresolve_ambiguous_fresh_destination(prior_state, update, None, message)
+
+
+check("round 3 FIX: 'ברגם' is still caught as ambiguous even with NO destination_evidence "
+      "at all (the exact live failure shape - the model never supplied it)",
+      is_reverted_to_ambiguous(resolve_fresh_no_evidence("ברגם")))
+
+for multiword in ["בניה לוקה", "ג'ירונה", "בראץ'", "דה נאנג", "סאו טומה"]:
+    check(f"round 3 FIX: multi-word/geresh catalog name '{multiword}' resolves decisively "
+          f"with NO destination_evidence, even ל-prefixed",
+          not is_reverted_to_ambiguous(resolve_fresh_no_evidence(multiword)))
 
 
 # =====================================================================

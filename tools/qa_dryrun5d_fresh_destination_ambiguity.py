@@ -100,14 +100,34 @@ check("regression: destination_airports already resolved before this turn (a CHA
       "first-time resolution) is never this guard's job",
       result_already_resolved == dict(TRIP_UPDATE_BERGAMO_RESOLVED))
 
-# Regression: no destination_evidence at all, or it doesn't verify against
-# the message - never revert on an unverified/hallucinated quote.
+# Dry-run 5e (23.10.2026, Shaked's 4th live repro): destination_evidence
+# was precisely the single point of failure this live case hit (the
+# model's extraction omitted it, so the structural signal never ran at
+# all despite the customer's own message containing the genuinely
+# ambiguous "לברגם"). Shlomo's approved fix removed the dependency on
+# destination_evidence entirely - the message's own tokens are scanned
+# directly, so a genuinely ambiguous word IN THE MESSAGE still correctly
+# reverts even with NO destination_evidence supplied at all.
 result_no_evidence = chat._reresolve_ambiguous_fresh_destination(
     TRIP_STATE_FRESH, dict(TRIP_UPDATE_BERGAMO_RESOLVED), None,
     "אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני",
 )
-check("regression: no destination_evidence at all -> never reverts (nothing to verify)",
-      result_no_evidence.get("destination_airports") == ["BGY"])
+check("dry-run 5e FIX: no destination_evidence at all, but the message itself contains the "
+      "genuinely ambiguous 'לברגם' -> still correctly reverts (the whole point of the fix)",
+      result_no_evidence.get("destination_airports") == [])
+check("dry-run 5e FIX: the reverted destination.places carries the message's own ambiguous "
+      "token (stripped form), for the gateway mechanism to pick up",
+      result_no_evidence.get("destination", {}).get("places") == ["ברגם"])
+
+# Regression: no destination_evidence AND the message itself has no
+# catalog-ambiguous token either -> never reverts (nothing to find).
+result_no_evidence_no_ambiguity = chat._reresolve_ambiguous_fresh_destination(
+    TRIP_STATE_FRESH, dict(TRIP_UPDATE_BERGAMO_RESOLVED), None,
+    "משהו לגמרי אחר שלא קשור ליעד בכלל",
+)
+check("regression: no destination_evidence and no ambiguous token anywhere in the message "
+      "-> never reverts",
+      result_no_evidence_no_ambiguity.get("destination_airports") == ["BGY"])
 
 result_fake_evidence = chat._reresolve_ambiguous_fresh_destination(
     TRIP_STATE_FRESH, dict(TRIP_UPDATE_BERGAMO_RESOLVED), "לברגם", "משהו לגמרי אחר שלא קשור",
