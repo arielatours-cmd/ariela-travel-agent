@@ -68,6 +68,14 @@ with app.test_request_context("/"):
 check("card HE: Din's credit text on the photo", fix["LIS"]["credit_text"] in he and "deal-image-credit" in he)
 check("card EN: the same credit in English", "Photo: " in en and "via Wikimedia Commons" in en and "צילום" not in en)
 check("card: no credit when the licence needs none (ATH, public domain)", "deal-image-credit" not in none)
+page = fix["LIS"]["page"]
+check("Din 23.10: the whole credit line links to the photo's Commons page (he/en)",
+      all(f'<a class="deal-image-credit" href="{page}" target="_blank" rel="noopener"' in h for h in (he, en)))
+check("every credit carries its Commons page", all(c.get("page", "").startswith("https://commons.wikimedia.org/")
+                                                   for c in database.DESTINATION_IMAGE_CREDITS.values()))
+src = "".join(open(os.path.join(ROOT, "templates", f), encoding="utf-8").read() for f in os.listdir(os.path.join(ROOT, "templates")) if f.endswith(".html"))
+check("Din 23.10 (b): the 'My vacations' trip card renders no destination image (trip.image_url isn't used by any template)",
+      "trip.image_url" not in src and "trip['image_url']" not in src and 'trip["image_url"]' not in src)
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")

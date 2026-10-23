@@ -56,6 +56,8 @@ for _code, _item in _landmark_fix.items():
             "he": _item["credit_text"],
             "en": f"Photo: {_item.get('artist')} / {_item.get('license')}, via Wikimedia Commons"
             if _item.get("artist") and _item.get("license") else None,
+            # Din (23.10): the whole credit line links to the photo's own Commons page.
+            "page": _item.get("page") if str(_item.get("page") or "").startswith("https://commons.wikimedia.org/") else None,
         }
 
 
