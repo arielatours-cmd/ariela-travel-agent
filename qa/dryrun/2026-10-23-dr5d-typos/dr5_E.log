@@ -1,0 +1,35 @@
+⟵ אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני
+    מעולה, ברגמו עם יום שבת 12.06.2027–יום חמישי 17.06.2027 - חמישה לילות נשמעים כמו טיול משפחתי נחמד. |  | מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1500 שקל לאדם
+    נרשם, עד 1,500 ש"ח לאדם. |  | רוצה שאבדוק גם אם מישהו מכם זקוק להתאמות נגישות מיוחדות בטיול הזה? זה לגמרי לא חובה, ואם יש משהו הוא יישמר רק לחופשה הנוכחית.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    תודה. חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ עדיף ישירה
+    איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ לי ולאשתי מזוודה, לתינוק מספיק תיק קטן
+    הזמנה אחת לא יכולה לכלול סוגי כבודה שונים לכל נוסע בנפרד - את האפשרות להתאים כבודה ספציפית לכל נוסע אפשר להוסיף בהמשך, בעמוד התשלום. כרגע אפשר לבחור סוג כבודה אחיד אחד לכל הקבוצה. |  | רוצה שנבחר כבודה אחידה אחת לכולכם לעת עתה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] אחידה
+⟵ כן, מזוודה לכולם
+    מעולה, נשמרה מזוודה אחת לכל נוסע מתוך שלושתכם. |  | לגבי המשך הטיול לברגמו - תרצה שאמשיך לתכנון מסלול ואטרקציות ליעד?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ מסודר
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    הנה סיכום הבקשה שלך לפני שאני יוצאת לחיפוש: |  | טיסה: | יציאה: נתב״ג (TLV) | נחיתה: ברגמו (BGY), איטליה | המראה בחזרה: ברגמו (BGY), איטליה |  | תאריכים: 12.06.2027 – 17.06.2027 | נוסעים: 2 מבוגרים ותינוק | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: מעדיפים טיסה ישירה | תקציב: עד 1,500 ש"ח לאדם |  | אפשר תמיד לחזור בהמשך ולהוסיף שירותים נוספים לטיול. |  | אם כל הפרטים נכונים, כתוב מאשר.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True
