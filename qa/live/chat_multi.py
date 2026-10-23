@@ -71,6 +71,27 @@ with sync_playwright() as p:
         page.fill("#ariellaNewChatInput", msg)
         page.press("#ariellaNewChatInput", "Enter")
         deadline = time.time() + 180
+        if msg.strip() == "מאשרת":
+            # Owner 23.10: right after the hand-off to the vacation page (no reload) the route tab must show
+            # a "building..." state or the enriched route - never raw chat text. Capture at arrival and +30s.
+            start_url = page.url
+            for _ in range(60):
+                page.wait_for_timeout(1500)
+                if page.url != start_url:
+                    break
+            if page.url != start_url:
+                try: page.wait_for_load_state("domcontentloaded", timeout=30000)
+                except Exception: pass
+                for tag, wait_ms in (("0s", 0), ("30s", 30000)):
+                    page.wait_for_timeout(wait_ms)
+                    page.screenshot(path=str(HERE / f"handoff_{SC}_{tag}.png"), full_page=True)
+                    info = page.evaluate("""() => { const p = [...document.querySelectorAll('.vacation-panel')].find(e => /מסלול|Itinerary|itinerary/.test(e.querySelector('h3')?.textContent || ''));
+                      if (!p) return {route_panel: null};
+                      return {route_panel: true, text: (p.innerText || '').slice(0, 600), maps: p.querySelectorAll('iframe, img, .map, [class*=map]').length,
+                              cards: p.querySelectorAll('[class*=card], [class*=day]').length}; }""")
+                    with (HERE / f"handoff_{SC}.jsonl").open("a", encoding="utf-8") as f:
+                        f.write(json.dumps({"at": tag, "url": page.url.replace(BASE, ""), **info}, ensure_ascii=False) + "\n")
+                deadline = 0  # left the chat page - no reply bubble to wait for
         while time.time() < deadline:
             page.wait_for_timeout(1500)
             if page.locator(sel).count() > before and page.locator("#ariellaNewChatMessages .ariella-typing").count() == 0:
