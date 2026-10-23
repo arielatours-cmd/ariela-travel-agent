@@ -1,0 +1,420 @@
+[2026-10-23 15:22:11 +0000] [561] [INFO] Starting gunicorn 23.0.0
+[2026-10-23 15:22:11 +0000] [561] [INFO] Listening at: http://127.0.0.1:8765 (561)
+[2026-10-23 15:22:11 +0000] [561] [INFO] Using worker: gthread
+[2026-10-23 15:22:11 +0000] [566] [INFO] Booting worker with pid: 566
+2026-10-23 15:22:29,178 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:31,571 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:35,047 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:36,891 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:37,257 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:38,520 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:38,948 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:40,272 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:40,633 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:42,085 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:43,292 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:44,955 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:55,586 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:56,590 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:57,627 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:58,703 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:22:59,805 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:00,575 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:02,795 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:02,970 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:03,458 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:03,474 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:23:04,915 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:05,826 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:06,901 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:08,006 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:11,480 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:12,344 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:17,335 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:18,379 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:20,202 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:21,319 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:23,126 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:23,837 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:23,855 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:23:27,167 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:28,229 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:29,069 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:30,118 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:32,154 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:32,768 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:35,269 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:39,023 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:40,592 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:42,292 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:44,611 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:44,630 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:23:45,282 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:47,872 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:50,676 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:53,069 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:53,746 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:56,434 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:23:59,319 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:01,046 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:01,055 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:24:12,056 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:14,349 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:14,372 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:15,782 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:17,457 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:18,342 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:21,166 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:21,177 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:24:32,584 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:34,122 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:35,496 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:35,967 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:38,074 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:38,096 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:24:39,125 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:52,363 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:53,338 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:53,561 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:55,404 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:58,548 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:24:58,558 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:25:09,862 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:10,602 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:12,543 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:12,614 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:16,860 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:19,963 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:19,970 ERROR root: Attraction search failed for Norway
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:25:28,400 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:31,259 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:34,514 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:48,269 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:51,093 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:54,697 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:56,767 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:57,360 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:58,063 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:59,024 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:59,628 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:25:59,907 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:01,103 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:02,619 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:04,341 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:04,623 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:05,514 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:19,537 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:20,289 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:20,674 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:21,512 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:21,636 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:22,106 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:22,698 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:23,383 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:25,520 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:25,752 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:26,215 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:28,286 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:37,982 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:40,054 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:40,578 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:41,483 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:42,615 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:42,719 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:44,635 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:44,825 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:45,486 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:47,722 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:26:48,304 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:02,222 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:02,616 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:03,492 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:03,858 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:04,110 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:05,092 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:05,161 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:07,559 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:08,477 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:09,212 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:11,395 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:21,515 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:21,971 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:22,557 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:23,075 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:23,427 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:26,020 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:26,700 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:27,778 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:40,586 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:40,872 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:41,710 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:42,776 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:42,836 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:44,953 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:57,726 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:58,460 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:59,561 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:27:59,914 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:02,170 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:13,665 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:15,404 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:17,112 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:18,748 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:20,724 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:33,907 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:34,810 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:36,820 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:51,554 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:54,874 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:28:57,968 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:11,285 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:14,187 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:17,122 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:18,187 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:20,201 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:20,242 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:21,025 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:21,251 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:22,362 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:24,252 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:25,673 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:26,470 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:29,147 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:38,837 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:39,051 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:39,883 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:40,047 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:40,486 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:40,874 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:41,929 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:42,240 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:43,044 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:43,959 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:44,797 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:44,841 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:54,444 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:55,500 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:57,464 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:58,171 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:58,553 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:29:59,580 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:00,597 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:00,801 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:01,835 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:03,618 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:04,206 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:06,703 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:14,257 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:15,470 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:18,798 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:19,650 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:19,948 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:21,013 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:22,154 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:23,531 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:24,440 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:33,664 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:34,726 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:36,145 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:37,672 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:38,467 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:39,123 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:40,520 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:44,164 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:53,374 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:55,842 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:58,000 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:30:59,813 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:12,865 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:13,618 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:14,491 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:15,621 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:15,870 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:17,161 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:31,483 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:31,916 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:34,280 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:35,122 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:37,287 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:38,515 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:52,244 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:58,472 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:31:59,730 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:01,081 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:04,553 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:05,180 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:28,448 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:29,511 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:30,370 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:31,508 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:34,216 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:34,831 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:34,848 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:32:49,066 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:50,228 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:50,824 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:51,911 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:54,567 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:55,451 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:57,588 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:32:57,613 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:33:11,260 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:12,643 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:15,155 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:18,417 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:19,060 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:19,076 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:33:34,819 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:36,026 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:37,304 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:40,730 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:40,749 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:33:56,186 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:58,073 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:33:58,094 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:34:12,165 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:34:12,847 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:34:15,347 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:34:15,370 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 15:34:30,230 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:34:34,009 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:34:37,048 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 15:34:37,055 ERROR root: Attraction search failed for Czech Republic
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 109, in _research_and_write
+    search_results = _search_country_attractions(country_en)
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/attractions_coverage.py", line 83, in _search_country_attractions
+    "api_key": _serpapi_key(),
+               ~~~~~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-bMgmZ3/scanner.py", line 29, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+[2026-10-23 15:34:39 +0000] [561] [INFO] Handling signal: term
+[2026-10-23 15:34:40 +0000] [566] [INFO] Worker exiting (pid: 566)
+[2026-10-23 15:34:41 +0000] [561] [INFO] Shutting down: Master

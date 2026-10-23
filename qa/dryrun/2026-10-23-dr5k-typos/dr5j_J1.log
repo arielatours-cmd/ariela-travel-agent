@@ -1,0 +1,33 @@
+[dr5j1] U: אני ואשתי ליון, 5 עד 10 במאי @15:22:24
+באיזה שדה תרצה לנחות בהלוך?
+⟵ ליון בצרפת
+    מצוין, קלטתי - ליון.  |  | רק לוודא, יש מישהו מכם שזקוק להתאמות נגישות כלשהן בטיול? זה לא חובה כמובן, ואם כן זה יישמר רק לחופשה הזו.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    מעולה. מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1300 שקל לאדם
+    התקציב נקלט, 1,300 ש"ח לאדם.  |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא משנה
+    איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ טרולי לכל אחד
+    מעולה - אפשר תמיד להוסיף גם מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה אם תתלבטו בהמשך. |  | סגרנו את פרטי הטיסה! לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ יש לנו
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    הטיול לליון, יום רביעי 05.05.2027–יום שני 10.05.2027: |  | יציאה: נתב״ג (TLV) | נחיתה: ליון (LYS), צרפת | המראה בחזרה: ליון (LYS), צרפת |  | נוסעים: 2 מבוגרים | כבודה: טרולי 8–10 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב: 1,300 ש"ח לאדם |  | בכל שלב אפשר לחזור ולהוסיף שירותים נוספים לטיול הזה. |  | אם כל הפרטים נכונים, כתוב מאשר.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True

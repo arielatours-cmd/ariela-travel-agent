@@ -1,0 +1,31 @@
+⟵ אני לבד לאמסטרם, 2 עד 6 בנובמבר
+    נשמע מצוין, יציאה לאמסטרדם ב-יום שני 02.11.2026–יום שישי 06.11.2026. |  | לפני שנסגור את הטיסה - האם מישהו מכם זקוק להתאמות נגישות בטיול הזה? זה לגמרי אופציונלי, ואם יש צורך כזה, מה שתכתוב יישמר רק לחופשה הזו.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1000 שקל
+    התקציב נקלט, עד 1,000 ש"ח לאדם. |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא חובה
+    טוב, אין בעיה. |  | איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ תיק יד בלבד
+    סבבה, אפשר תמיד להוסיף טרולי או מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה אם תתחרט. |  | בנושא אחר - האם תרצה שאעזור גם בתכנון מסלול יומי לאמסטרדם?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ יש לי
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    אפשר תמיד לחזור ולהוסיף שירותים נוספים בהמשך אם תרצה. |  | הנה הסיכום: |  | יציאה: נתב״ג (TLV) | נחיתה: אמסטרדם (AMS), הולנד | המראה בחזרה: אמסטרדם (AMS), הולנד | תאריכים: 02.11.2026 – 06.11.2026 | נוסעים: מבוגר אחד | כבודה: תיק יד לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב: עד 1,000 ש״ח לאדם |  | אם כל הפרטים נכונים, כתוב מאשר.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True

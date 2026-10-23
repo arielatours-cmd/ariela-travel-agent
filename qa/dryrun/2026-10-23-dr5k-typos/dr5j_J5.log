@@ -1,0 +1,31 @@
+⟵ אני ובעלי לסבילה שבספרד, 20 עד 26 באפריל
+    מעולה, סביליה בתאריכים יום שלישי 20.04.2027–יום שני 26.04.2027 נשמע כמו רעיון מצוין לחופשה זוגית. |  | מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1500 שקל לאדם
+    נרשם, 1,500 ש"ח לאדם זה התקציב לטיסה. |  | יש לכם מישהו מהנוסעים שצריך התאמות נגישות בחופשה? זה לא חובה כמובן, ואם כן - מה שתכתבו יישמר רק לחופשה הזו.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא משנה
+    איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ מזוודה לכל אחד
+    מעולה, שתי מזוודות - אחת לכל אחד מכם, זה כל מה שצריך בשביל הטיסה. |  | לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ יש לנו
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    הנה הסיכום לטיול לסביליה: |  | יציאה: נתב״ג (TLV) | נחיתה: סביליה (SVQ), ספרד | המראה בחזרה: סביליה (SVQ), ספרד |  | תאריכים: 20.04.2027 – 26.04.2027 | נוסעים: 2 מבוגרים | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב: עד 1,500 ש"ח לאדם |  | תמיד אפשר לחזור בהמשך ולהוסיף שירותים נוספים אם יתעורר צורך. |  | אם כל הפרטים נכונים, כתבי מאשרת.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True

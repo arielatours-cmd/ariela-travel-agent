@@ -1,0 +1,35 @@
+⟵ אני והחברה שלי לוינה, 1 עד 5 בדצמבר
+    נשמע מעולה, שתי החברות ביעד חגיגי כמו וינה! הטיסות שלכן יהיו יום שלישי 01.12.2026–יום שבת 05.12.2026. |  | רק רציתי לשאול - יש מישהי מכן שצריכה התאמות נגישות מיוחדות בטיול? זה לגמרי לא חובה לציין, אבל אם כן, אני אשמור את זה רק לחופשה הזו.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [inject]
+⟵ רגע, בעצם נעדיף פראג במקום וינה
+    בסדר, היעד עודכן לפראג. מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1000 שקל לאחת
+    תקציב של עד 1,000 ש"ח לאדם - קלטתי. |  | ורק עוד שאלה אחת - יש מישהי מכן שצריכה התאמות נגישות מיוחדות בטיול? זה לא חובה כלל, ואם כן, אני פשוט אשמור את זה רק לחופשה הנוכחית.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    מעולה, תודה.  |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ עדיף ישירה
+    תרשם לי - עדיפות לטיסה ישירה. |  | איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ טרולי לכל אחת
+    מעולה, טרולי לכל אחת - סימנתי. דרך אגב, תמיד אפשר גם להוסיף מזוודה בבטן המטוס בהמשך, ישירות באתר חברת התעופה בזמן ההזמנה, אם תרצו. |  | עכשיו, עם סיום פרטי הטיסה - בפראג, רוצה שאעזור גם לבנות מסלול יומי לטיול?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ מסודר
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    הנה סיכום הבקשה שלך לפראג: |  | טיסה: | יציאה: נתב״ג (TLV) | נחיתה: פראג (PRG), צ׳כיה | המראה בחזרה: פראג (PRG), צ׳כיה |  | תאריכים: 01.12.2026 – 05.12.2026 | נוסעים: 2 מבוגרים | כבודה: טרולי 8–10 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: מעדיפים טיסה ישירה | תקציב: עד 1,000 ש"ח לאדם |  | תמיד אפשר לחזור ולהוסיף שירותים נוספים בהמשך אם תרצי. |  | אם כל הפרטים נכונים, כתבי מאשרת.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True
