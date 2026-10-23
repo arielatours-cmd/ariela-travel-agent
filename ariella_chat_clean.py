@@ -7774,7 +7774,15 @@ def _catalog_near_neighbor_cities(needle, max_distance=1):
         distance = _levenshtein_distance(needle, city_he)
         if distance == 0:
             exact.setdefault(city_he, []).append(code)
-        elif distance <= max_distance:
+        elif distance <= max_distance and not airport.get("match_exact_only"):
+            # Shaked's static review of 17587cfa (23.10.2026): a name
+            # flagged match_exact_only (a common word, or a name usually
+            # meant as something else - mirrors _extended_airport_matches'
+            # own exclusion) is never a plausible FUZZY candidate, only a
+            # literal one. Without this, "פראד" (a typo for "פראג") also
+            # matched "אראד"/Arad (ARW, match_exact_only) at distance 1,
+            # turning a decisive single near-match into a false 2-way
+            # ambiguity {Prague, Arad}.
             near.setdefault(city_he, []).append(code)
     return exact if exact else near
 

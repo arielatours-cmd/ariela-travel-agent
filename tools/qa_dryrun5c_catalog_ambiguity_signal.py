@@ -118,6 +118,20 @@ check("regression: a name with no real catalog neighbor at all returns empty",
 check("regression: empty/None input never crashes",
       chat._catalog_near_neighbor_cities("") == {} and chat._catalog_near_neighbor_cities(None) == {})
 
+# Shaked's static review of 17587cfa (23.10.2026): a catalog entry marked
+# match_exact_only (ARW/Arad - a common-enough name the business owner
+# never wants auto-resolved, mirrors _extended_airport_matches' own
+# exclusion) must never join the NEAR-match (fuzzy) signal, only ever an
+# EXACT one - "פראד" (a typo for Prague, "פראג") used to also land within
+# edit-distance 1 of "אראד"/Arad, turning a decisive single near-match
+# into a false 2-way ambiguity.
+check("FIX: match_exact_only entries (e.g. Arad/ARW) never join the NEAR-match "
+      "signal - 'פראד' resolves decisively to Prague alone, not {Prague, Arad}",
+      chat._catalog_near_neighbor_cities("פראד") == {"פראג": ["PRG"]})
+check("regression: match_exact_only entries are still reachable via an EXACT match - "
+      "'אראד' itself still resolves to Arad",
+      chat._catalog_near_neighbor_cities("אראד") == {"אראד": ["ARW"]})
+
 
 # =====================================================================
 # Part 2: _destination_gateway_answer_by_meaning - end-to-end with the
