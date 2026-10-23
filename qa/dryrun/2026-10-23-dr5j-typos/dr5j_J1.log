@@ -1,0 +1,35 @@
+[dr5j1] U: אני ואשתי ליון, 5 עד 10 במאי @12:56:30
+מעולה, ליון זה יעד נהדר לזוגי! יום רביעי 05.05.2027–יום שני 10.05.2027 זה בדיוק 5 לילות, אז זה מסתדר יפה.
+
+יש משהו שחשוב לך לדעת - האם צריך התאמות נגישות כלשהן לחופשה הזו? זה לגמרי לא חובה כמובן, ואם כן זה יישמר רק לטיול הזה.
+⟵ ליון בצרפת
+    נהדר, יום רביעי 05.05.2027–יום שני 10.05.2027 לליון, צרפת מסודר. |  | ורק עוד נקודה קטנה - האם צריך התאמות נגישות כלשהן בחופשה הזו? זה לא חובה כמובן, ואם כן זה יישמר רק לטיול הזה.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    אין בעיה. מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1300 שקל לאדם
+    מעולה, 1,300 ש"ח לאדם נשמר. |  | ועוד דבר - איזו כבודה תצטרכו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ טרולי לכל אחד
+    מעולה, רשמתי טרולי לכל אחד. רק שים לב שתמיד אפשר להוסיף גם מזוודה בבטן המטוס באתר חברת התעופה בזמן ההזמנה אם תצטרכו. |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא משנה
+    מעולה, פרטי הטיסה מלאים. תרצה שאמשיך גם עם תכנון מסלול ואטרקציות?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ יש לנו
+    עוד דבר אחד לפני שסוגרים - תרצה שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    הנה סיכום הבקשה שלך: |  | יציאה: נתב"ג (TLV) | נחיתה: ליון (LYS), צרפת | המראה בחזרה: ליון (LYS), צרפת |  | תאריכים: 05.05.2027 – 10.05.2027 | נוסעים: 2 מבוגרים | כבודה: טרולי 8–10 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב: 1,300 ש"ח לאדם |  | תמיד אפשר לחזור ולהוסיף שירותים נוספים בהמשך אם תרצה. |  | אם כל הפרטים נכונים, כתוב מאשר.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True

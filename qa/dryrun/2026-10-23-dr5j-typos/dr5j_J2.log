@@ -1,0 +1,37 @@
+[dr5j2] U: זוג למלגה בסוף מרץ, לשבוע @12:59:30
+קודם כל כדאי שנוודא - כשאת אומרת מלגה, את מתכוונת למלאגה שבספרד, או שהכוונה למלטה?
+⟵ מלאגה שבספרד
+    מעולה, מלאגה זה יעד נהדר! 🌞 בואי נדייק את התאריכים - מתי בדיוק תרצי לצאת לטיול? |  | יום שני 22.03.2027–יום שני 29.03.2027 או יום רביעי 24.03.2027–יום רביעי 31.03.2027
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] None
+⟵ האפשרות הראשונה
+    מעולה, נקבע. עכשיו רק לדייק משהו קטן - האם מישהו מהנוסעים צריך התאמות נגישות כלשהן בטיול? זה בכלל לא חובה לענות, ואם כן, זה יישמר אך ורק לחופשה הזו.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    תודה! מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1200 שקל לאדם
+    1200 שקל לאדם, מתועד - תודה!  |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ עדיף ישירה
+    מעולה. איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ מזוודה לכל אחד
+    התחשבנו בבקשה - מזוודה בבטן המטוס לכל אחד מכם זה הכבודה המקיפה ביותר, אין צורך בשום דבר נוסף. |  | עכשיו, לגבי הטיול עצמו - תרצו שאציע לכם מסלול ימים לטיול במלאגה והסביבה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ לא
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם לינה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'declined'} ready= False
+    [topic] לינה
+⟵ יש לנו
+    עוד דבר אחד לפני שסוגרים - תרצי שאעזור גם עם השכרת רכב?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= False
+    [topic] רכב
+⟵ לא
+    הנה הסיכום לטיול למלאגה: |  | טיסה: | יציאה: נתב"ג (TLV) | נחיתה: מלאגה (AGP), ספרד | המראה בחזרה: מלאגה (AGP), ספרד |  | תאריכים: 22.03.2027 – 29.03.2027 | נוסעים: 2 מבוגרים | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: מעדיפים טיסה ישירה | תקציב לאדם: 1,200 ש"ח |  | תמיד אפשר לחזור ולהוסיף שירותים נוספים גם מאוחר יותר. |  | אם כל הפרטים נכונים, כתבי מאשרת.
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'declined', 'trip_planning': 'declined'} ready= True
