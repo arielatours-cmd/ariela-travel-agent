@@ -1,49 +1,48 @@
-"""QA for _destination_gateway_answer_by_meaning (ariella_chat_clean.py),
-built for round 12 finding D (Shaked/Shlomo, 22.10.2026, Hallstatt/
-Salzburg) - the same "fact stated while another question is in focus gets
-dropped" class as dry-run 4 finding 1 (mixed baggage), but for the
-destination-gateway open question (_destination_gateway_question_hint):
-"זלצבורג מתאים לנו" (Salzburg suits us), said in the same message as
-answering the dates question, never got written to destination_airports -
-EXTRACTOR_SYSTEM's own instruction to capture this was the only mechanism,
-with no deterministic backstop at all.
+"""QA for the unified destination-resolution rule, _resolve_destination_
+by_meaning (ariella_chat_clean.py) - MIGRATED (23.10.2026, the business
+owner's "חוק כללי שמקיף הכל" mandate) from this file's original target,
+_destination_gateway_answer_by_meaning, which _resolve_destination_by_
+meaning now replaces along with _reresolve_ambiguous_fresh_destination,
+_reinforce_explicit_destination_correction and _guard_destination_change_
+evidence - ONE function, ONE rule, for every shape a destination
+determination can take in a turn (unresolved/open-gateway, a fresh
+same-turn resolution, or an already-settled destination possibly being
+corrected). Every scenario below is migrated 1:1 from the four original
+functions' own regression history; only the call shape and a few return-
+value assertions changed to match the new function's signature and
+full-trip_update (not partial-patch) return value - no scenario's intent
+was dropped.
 
-Fixed by mirroring _budget_answer_by_meaning/_baggage_answer_by_meaning's
-pattern: gated on destination_airports still empty and the gateway
-question still genuinely unresolved (_destination_gateway_unresolved_
-places) - a single classifier call asks the model for the real city_en/
-IATA code, verified against the catalog by _verify_catalog_airport_code.
-
-Shlomo's refinement (22.10.2026, round 12 C/E - Paphos/Zadar): the first
-version here ALSO required the last assistant turn to already be the open
-gateway question - but live, the failure happens on the very FIRST
-mention of the place (before any open question was ever asked). The gate
-no longer requires a prior question at all - it fires on the very first
-unresolved mention.
-
-Dry-run 5b rewrite (22.10.2026, scenario E, "the most severe" per Shlomo's
-relay): "ברגם" was silently resolved to Bergamo with NO question ever
-asked, even though "ברגם" just as plausibly means Bergen - a genuine
-resolve-the-wrong-country failure. The classifier's JSON schema changed:
-- "evidence": a verbatim quote from the CUSTOMER'S CURRENT message,
-  verified the same way destination_evidence/dates_evidence already are
-  (_value_has_verbatim_evidence) - no quote, nothing resolves, regardless
-  of what the model otherwise claims. This prevents resolving from stale
-  context (the agent's own prior message) rather than the real message.
-- "candidates": a list of 0-2 {city_en, iata_code} objects instead of a
-  single city_en/iata_code pair. Exactly 1 verified candidate writes
-  destination_airports AND destination.places (replacing the customer's
-  typo'd string with the catalog's verified spelling). Exactly 2 distinct
-  verified candidates write NOTHING yet - a one-turn _destination_
-  ambiguous_hint names both real options so Tinkerbell asks ONE
-  clarifying question between them, never silently picking one.
-
-Per Shlomo's explicit condition: the QA must show how many times the
-classifier call actually fires across representative scenarios (not just
-that it works) - each scenario below counts calls tagged
-source="classifier" whose prompt is this specific one (distinguished by
-a marker substring unique to it), confirming it only fires in the narrow
-window this guard is meant for, never on unrelated turns.
+Original history, preserved for context (round 12 finding D, Shaked/
+Shlomo, 22.10.2026, Hallstatt/Salzburg - the same "fact stated while
+another question is in focus gets dropped" class as dry-run 4 finding 1
+(mixed baggage), but for the destination-gateway open question): fixed by
+mirroring _budget_answer_by_meaning/_baggage_answer_by_meaning's pattern -
+gated on destination_airports still empty and the gateway question still
+genuinely unresolved, a single classifier call asks the model for the
+real city_en/IATA code, verified against the catalog by _verify_catalog_
+airport_code. Shlomo's refinement (22.10.2026, round 12 C/E): the gate
+fires on the very first unresolved mention, no prior open question
+required. Dry-run 5b rewrite (22.10.2026, scenario E, "ברגם"): the
+classifier's JSON schema gained "evidence" (a verbatim customer quote,
+_value_has_verbatim_evidence-gated) and "candidates" (0-2 entries,
+exactly 2 distinct verified candidates -> a one-turn ambiguous hint
+naming both, never a silent pick). Dry-run 5c item 1: a structural
+catalog pre-check (near-neighbor scan) reframes the SAME call when
+exactly 2 real catalog places are within edit distance 1, with condition
+א (an exact match is always decisive). Dry-run 5f/5g: a single verified
+candidate backed only by the structural signal (no genuine, catalog-
+verified disambiguating quote) is no longer trusted - forced ambiguous
+instead; multi-form (ל/ב/מ-stripped) and ordering fixes for "לברגם"/
+"במקאו". The unification (23.10.2026) folds in: _reresolve_ambiguous_
+fresh_destination's job (re-verify a same-turn fresh resolution against
+the customer's OWN raw wording, not the extractor's corrected spelling),
+_reinforce_explicit_destination_correction's job (an already-settled
+destination can be explicitly corrected via this same recognition call),
+_guard_destination_change_evidence's job (an already-settled destination
+changing without genuine evidence is reverted first), and generalizes
+the catalog signal/candidates to COUNTRY names too, not just cities (the
+business owner's own Lyon/Greece collision concern).
 
 Run: python3 tools/qa_destination_gateway_answer_by_meaning.py
 """
@@ -67,6 +66,8 @@ def check(name, cond):
         FAILED.append(name)
 
 
+# The gateway (unresolved-destination) framing's own intro text - still
+# present verbatim in _run_destination_recognition's prompt-building.
 _MARKER = "שאין לו שדה תעופה מאומת אצלנו"
 GATEWAY_REPLY = (
     "היעד הלשטאט ככל הנראה חסר שדה תעופה מסחרי רשום משלו - "
@@ -80,6 +81,18 @@ BASE_STATE = {
     "requested_services": ["flights"],
     "service_decisions": {"flights": {"wanted": True, "source": "destination_trip_intent"}},
 }
+
+
+def _resolve(state, message, history):
+    """Shared call wrapper: the unified function takes (trip_state,
+    trip_update, destination_evidence, message, history) and returns the
+    FULL trip_update (not a partial patch) - every migrated test below
+    treats `state` as both the prior trip_state and this turn's starting
+    trip_update (nothing else has changed yet this turn), with no
+    caller-supplied destination_evidence (the old gateway function never
+    took one either - its own "evidence" always came from the model's
+    JSON reply, never a function argument)."""
+    return chat._resolve_destination_by_meaning(state, dict(state), None, message, history)
 
 
 def _counting_post_claude(calls):
@@ -114,10 +127,10 @@ def _counting_post_claude(calls):
 # =====================================================================
 calls = []
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
+    result = _resolve(
+        BASE_STATE,
         "2 עד 6 ביולי, וזלצבורג מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        BASE_STATE,
     )
 check("scenario D (Hallstatt repro): the named gateway city is resolved to a real code",
       result.get("destination_airports") == ["SZG"])
@@ -134,30 +147,40 @@ check("scenario D: the classifier call fired exactly once",
 # =====================================================================
 calls = []
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
+    result = _resolve(
+        BASE_STATE,
         "עד 1500 שקל לאדם",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        BASE_STATE,
     )
 check("unrelated answer while gateway question open: nothing written",
-      result == {})
+      not result.get("destination_airports") and "_destination_ambiguous_hint" not in result
+      and result.get("destination", {}).get("places") == ["הלשטאט"])
 check("unrelated answer while gateway question open: the call still fired once "
       "(it has to check) - never silently guessed", len(calls) == 1)
 
 # =====================================================================
-# Scenario ('B'-shape): destination_airports already resolved - the call
-# must never fire at all, regardless of what the last assistant message was.
+# Scenario ('B'-shape): destination_airports already resolved. Under the
+# unified rule this is no longer a hard "never fires" gate (that was the
+# old, separate gateway function's own narrow job) - an already-settled
+# destination is now ALSO checked for an explicit customer correction via
+# this same call (_reinforce_explicit_destination_correction's absorbed
+# job). Here the message ("כן, זלצבורג מתאים") plainly agrees with the
+# ALREADY-resolved destination, not a correction away from it, so nothing
+# changes either way. The gateway-shaped call counter still reads 0,
+# since this turn's recognition call (if any) uses the different
+# "already settled" prompt framing, not the gateway marker.
 # =====================================================================
 calls = []
 state_resolved = dict(BASE_STATE, destination_airports=["SZG"])
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
+    result = _resolve(
+        state_resolved,
         "כן, זלצבורג מתאים",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        state_resolved,
     )
-check("destination_airports already resolved: nothing written", result == {})
-check("destination_airports already resolved: the call never fires (saves the cost)",
+check("destination_airports already resolved: nothing written (agreeing with the "
+      "existing destination is not a correction)", result.get("destination_airports") == ["SZG"])
+check("destination_airports already resolved: no gateway-shaped recognition call fires",
       len(calls) == 0)
 
 # =====================================================================
@@ -169,10 +192,10 @@ check("destination_airports already resolved: the call never fires (saves the co
 # =====================================================================
 calls = []
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
+    result = _resolve(
+        dict(BASE_STATE, destination={"places": ["פפוס"], "mode": None, "status": "known"}),
         "לפפוס, לקפריסין",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        dict(BASE_STATE, destination={"places": ["פפוס"], "mode": None, "status": "known"}),
     )
 check("first mention (no gateway question ever asked yet): the call still "
       "fires and resolves 'פפוס' to PFO via the model's own recognition",
@@ -180,11 +203,7 @@ check("first mention (no gateway question ever asked yet): the call still "
 
 calls = []
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
-        "לזלצבורג",
-        [],
-        BASE_STATE,
-    )
+    result = _resolve(BASE_STATE, "לזלצבורג", [])
 check("first mention with NO history at all (empty conversation) - the "
       "call still fires and resolves",
       result.get("destination_airports") == ["SZG"] and len(calls) == 1)
@@ -197,10 +216,10 @@ check("first mention with NO history at all (empty conversation) - the "
 calls = []
 state_requested_services_not_yet_set = dict(BASE_STATE, requested_services=[], service_decisions={})
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
+    result = _resolve(
+        state_requested_services_not_yet_set,
         "זלצבורג מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        state_requested_services_not_yet_set,
     )
 check("dry-run 5 fix: requested_services still empty (not yet set by the later fallback) - the call still fires",
       result.get("destination_airports") == ["SZG"] and len(calls) == 1)
@@ -212,10 +231,10 @@ check("dry-run 5 fix: requested_services still empty (not yet set by the later f
 calls = []
 state_flights_declined = dict(BASE_STATE, requested_services=[], service_decisions={"flights": {"wanted": False}})
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
+    result = _resolve(
+        state_flights_declined,
         "זלצבורג מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        state_flights_declined,
     )
 check("flights explicitly declined (nothing to resolve): the call never fires",
       len(calls) == 0)
@@ -226,13 +245,13 @@ check("flights explicitly declined (nothing to resolve): the call never fires",
 # =====================================================================
 calls = []
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
+    result = _resolve(
+        BASE_STATE,
         "משהו שלא קיים בשום קטלוג",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        BASE_STATE,
     )
 check("regression: an unrecognized place name writes nothing (never a guess)",
-      result == {})
+      not result.get("destination_airports") and "_destination_ambiguous_hint" not in result)
 
 
 # =====================================================================
@@ -243,15 +262,15 @@ check("regression: an unrecognized place name writes nothing (never a guess)",
 calls = []
 state_bergen = dict(BASE_STATE, destination={"places": ["ברגם"], "mode": None, "status": "known"})
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result_bergen = chat._destination_gateway_answer_by_meaning(
+    result_bergen = _resolve(
+        state_bergen,
         "ברגם מתאים לנו",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        state_bergen,
     )
 check("scenario E fix: an ambiguous real-world name writes NO destination_airports yet",
       not result_bergen.get("destination_airports"))
 check("scenario E fix: destination.places is never silently overwritten either",
-      "destination" not in result_bergen)
+      result_bergen.get("destination", {}).get("places") == ["ברגם"])
 check("scenario E fix: a one-turn _destination_ambiguous_hint names BOTH real options",
       "Bergen" in result_bergen.get("_destination_ambiguous_hint", "")
       or "ברגן" in result_bergen.get("_destination_ambiguous_hint", ""))
@@ -275,13 +294,13 @@ def _fake_no_evidence(key, model, system_static, system_dynamic, history, messag
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_no_evidence):
-    result_no_evidence = chat._destination_gateway_answer_by_meaning(
+    result_no_evidence = _resolve(
+        BASE_STATE,
         "זלצבורג מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        BASE_STATE,
     )
 check("evidence gate: a fabricated/invented quote that isn't genuinely in the message -> nothing resolves",
-      result_no_evidence == {})
+      not result_no_evidence.get("destination_airports") and "_destination_ambiguous_hint" not in result_no_evidence)
 
 
 def _fake_null_evidence(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
@@ -291,13 +310,13 @@ def _fake_null_evidence(key, model, system_static, system_dynamic, history, mess
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_null_evidence):
-    result_null_evidence = chat._destination_gateway_answer_by_meaning(
+    result_null_evidence = _resolve(
+        BASE_STATE,
         "זלצבורג מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        BASE_STATE,
     )
 check("evidence gate: null evidence with a confident-looking candidate -> nothing resolves either",
-      result_null_evidence == {})
+      not result_null_evidence.get("destination_airports") and "_destination_ambiguous_hint" not in result_null_evidence)
 
 
 # =====================================================================
@@ -318,10 +337,10 @@ def _fake_one_of_two_verifies(key, model, system_static, system_dynamic, history
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_one_of_two_verifies):
-    result_one_verifies = chat._destination_gateway_answer_by_meaning(
+    result_one_verifies = _resolve(
+        BASE_STATE,
         "זלצבורג מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        BASE_STATE,
     )
 check("only one of two claimed candidates actually verifies against the catalog -> "
       "resolved directly as a single match, never treated as ambiguous",
@@ -346,10 +365,10 @@ def _fake_duplicate_candidate(key, model, system_static, system_dynamic, history
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_duplicate_candidate):
-    result_dup = chat._destination_gateway_answer_by_meaning(
+    result_dup = _resolve(
+        BASE_STATE,
         "זלצבורג מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        BASE_STATE,
     )
 check("two candidates that verify to the SAME code are deduped - a single match, never ambiguous",
       result_dup.get("destination_airports") == ["SZG"]
@@ -374,10 +393,10 @@ def _fake_three_candidates(key, model, system_static, system_dynamic, history, m
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_three_candidates):
-    result_three = chat._destination_gateway_answer_by_meaning(
+    result_three = _resolve(
+        dict(BASE_STATE, destination={"places": ["ברגם"], "mode": None, "status": "known"}),
         "ברגם מתאים לנו",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        dict(BASE_STATE, destination={"places": ["ברגם"], "mode": None, "status": "known"}),
     )
 check("more than 2 claimed candidates: only the first 2 are ever considered (never 3-way ambiguity)",
       "Zadar" not in result_three.get("_destination_ambiguous_hint", "")
@@ -410,10 +429,10 @@ check("empty code or city -> rejected, never crashes",
 calls = []
 state_paphos = dict(BASE_STATE, destination={"places": ["פפוס"], "mode": None, "status": "known"})
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls)):
-    result = chat._destination_gateway_answer_by_meaning(
+    result = _resolve(
+        state_paphos,
         "פפוס מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        state_paphos,
     )
 check("business owner's example: 'פפוס' (no א) still resolves to PFO via the "
       "model's own recognition, not a Hebrew alias table",
@@ -434,10 +453,10 @@ check("business owner's example: destination.places is updated to the catalog's 
 calls_zadar = []
 state_zadar = dict(BASE_STATE, destination={"places": ["זדאר"], "mode": None, "status": "known"})
 with patch.object(chat, "_post_claude", side_effect=_counting_post_claude(calls_zadar)):
-    result_zadar = chat._destination_gateway_answer_by_meaning(
+    result_zadar = _resolve(
+        state_zadar,
         "זדאר מתאים לנו",
         [{"role": "assistant", "content": GATEWAY_REPLY}],
-        state_zadar,
     )
 check("round 12 finding E: 'זדאר' resolves to ZAD via the extended catalog "
       "(_catalog_airport_by_code), not just the verified static one",
@@ -447,15 +466,15 @@ check("direct: _verify_catalog_airport_code itself recognizes ZAD/Zadar "
       chat._verify_catalog_airport_code("ZAD", "Zadar") == "ZAD")
 
 # =====================================================================
-# Full-pipeline wiring: the new call is actually merged into trip_update
-# by the main turn-processing path, not just a standalone function; the
-# ambiguous hint is wired into the single-question arbiter at the same
-# priority tier as the generic gateway question.
+# Full-pipeline wiring: the unified call is actually wired into the main
+# turn-processing path, not just a standalone function; the ambiguous
+# hint is wired into the single-question arbiter at the same priority
+# tier as the generic gateway question.
 # =====================================================================
 _SOURCE = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                              "ariella_chat_clean.py"), encoding="utf-8").read()
-check("the new classifier is wired into the main merge pipeline (source present)",
-      "_destination_gateway_answer_by_meaning(message, history, trip_update)" in _SOURCE)
+check("the unified function is wired into the main merge pipeline (call site present)",
+      "trip_update = _resolve_destination_by_meaning(trip_state, trip_update, destination_evidence, message, history)" in _SOURCE)
 check("_destination_ambiguous_hint is wired into _turn_question_arbiter",
       '"_destination_ambiguous_hint"' in _SOURCE and '"destination_ambiguous"' in _SOURCE)
 
@@ -465,13 +484,11 @@ check("_destination_ambiguous_hint is wired into _turn_question_arbiter",
 # even with the structural catalog signal in place - because the model
 # was still free to satisfy the ordinary "evidence" field with nothing
 # more than the destination name itself, then simply pick ONE of the two
-# structurally-ambiguous candidates. Verified locally by Shaked:
-# _reresolve_ambiguous_fresh_destination correctly left it unresolved, so
-# the live bug was here, in this function's single-candidate trust path.
-# Fixed: when the catalog's own near_cities signal already proved a real
-# 2-way ambiguity but the model verified only ONE candidate, that pick is
-# no longer trusted unless backed by disambiguating_evidence - a SEPARATE
-# verbatim quote, genuinely distinct from the destination name itself.
+# structurally-ambiguous candidates. Fixed: when the catalog's own
+# structural signal already proved a real 2-way ambiguity but the model
+# verified only ONE candidate, that pick is no longer trusted unless
+# backed by disambiguating_evidence - a SEPARATE verbatim quote,
+# genuinely distinct from the destination name itself.
 # =====================================================================
 def _fake_bergen_single_pick_no_disambiguation(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
     if source == "classifier" and _MARKER in str(system_static or ""):
@@ -486,10 +503,10 @@ def _fake_bergen_single_pick_no_disambiguation(key, model, system_static, system
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_bergen_single_pick_no_disambiguation):
-    result_bergen_unsupported = chat._destination_gateway_answer_by_meaning(
+    result_bergen_unsupported = _resolve(
+        state_bergen,
         "ברגם מתאים לנו",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        state_bergen,
     )
 check("dry-run 5f FIX: a single-candidate pick (Bergamo) with NO genuine "
       "disambiguating evidence is no longer trusted - destination_airports stays empty",
@@ -514,10 +531,10 @@ def _fake_bergen_single_pick_echo_disambiguation(key, model, system_static, syst
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_bergen_single_pick_echo_disambiguation):
-    result_bergen_echo = chat._destination_gateway_answer_by_meaning(
+    result_bergen_echo = _resolve(
+        state_bergen,
         "ברגם מתאים לנו",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        state_bergen,
     )
 check("dry-run 5f FIX regression: disambiguating_evidence that merely echoes the "
       "destination name itself (no new information) is also rejected - still forced ambiguous",
@@ -551,10 +568,10 @@ for noisy_evidence, label in [
 ]:
     message_with_evidence = f"{noisy_evidence} מתאים לנו"
     with patch.object(chat, "_post_claude", side_effect=_make_fake_bergen_disambiguation(noisy_evidence)):
-        result_noisy = chat._destination_gateway_answer_by_meaning(
+        result_noisy = _resolve(
+            state_bergen,
             message_with_evidence,
             [{"role": "assistant", "content": UNRELATED_REPLY}],
-            state_bergen,
         )
     check(f"dry-run 5f FIX (Shaked's review): disambiguating_evidence {noisy_evidence!r} "
           f"({label}) is still rejected as non-genuine - forced ambiguous",
@@ -580,10 +597,10 @@ for noisy_evidence, label in [
 ]:
     message_with_evidence = f"{noisy_evidence} מתאים לנו"
     with patch.object(chat, "_post_claude", side_effect=_make_fake_bergen_disambiguation(noisy_evidence)):
-        result_noisy2 = chat._destination_gateway_answer_by_meaning(
+        result_noisy2 = _resolve(
+            state_bergen,
             message_with_evidence,
             [{"role": "assistant", "content": UNRELATED_REPLY}],
-            state_bergen,
         )
     check(f"dry-run 5f FIX (Shaked's 2nd review): disambiguating_evidence {noisy_evidence!r} "
           f"({label}) is still rejected - no real country/city match, forced ambiguous",
@@ -610,10 +627,10 @@ for candidate_en, candidate_code, genuine_evidence, label in [
     message_with_evidence = f"ברגם {genuine_evidence} מתאים לנו"
     with patch.object(chat, "_post_claude",
                        side_effect=_make_fake_bergen_candidate_disambiguation(candidate_en, candidate_code, genuine_evidence)):
-        result_genuine = chat._destination_gateway_answer_by_meaning(
+        result_genuine = _resolve(
+            state_bergen,
             message_with_evidence,
             [{"role": "assistant", "content": UNRELATED_REPLY}],
-            state_bergen,
         )
     check(f"dry-run 5f FIX (Shaked's 2nd review): disambiguating_evidence {genuine_evidence!r} "
           f"({label}) is catalog-verified as genuine - resolves directly to {candidate_en}",
@@ -634,10 +651,10 @@ def _fake_bergen_single_pick_fabricated_disambiguation(key, model, system_static
 
 
 with patch.object(chat, "_post_claude", side_effect=_fake_bergen_single_pick_fabricated_disambiguation):
-    result_bergen_fabricated = chat._destination_gateway_answer_by_meaning(
+    result_bergen_fabricated = _resolve(
+        state_bergen,
         "ברגם מתאים לנו",  # the message never actually mentions a country
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        state_bergen,
     )
 check("dry-run 5f FIX regression: a disambiguating quote that isn't genuinely in the "
       "CURRENT message (fabricated) is rejected by the same verbatim-evidence gate - still forced ambiguous",
@@ -688,35 +705,44 @@ def _fake_lamed_bergam_single_pick(candidate_en, candidate_code, disambiguating_
 # pick with NO genuine disambiguating evidence must now be forced
 # ambiguous (this is the live bug - it was silently resolving to Bergamo).
 with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergamo", "BGY", None)):
-    result_e1 = chat._destination_gateway_answer_by_meaning(
+    result_e1 = _resolve(
+        state_bergen_lamed,
         "אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        state_bergen_lamed,
     )
 check("dry-run 5g FIX (E1 repro, ל-prefixed place, no genuine evidence): "
       "no longer silently resolves to Bergamo - forced ambiguous",
       not result_e1.get("destination_airports") and "_destination_ambiguous_hint" in result_e1)
 
 # E2's repro message: with the gap fixed, the model gets the structural
-# nudge and (no genuine evidence this time) must still be forced ambiguous
-# rather than stalling with 0 candidates in an open-question loop.
+# nudge. Under the unified rule's message-wide exact-match scan (an
+# improvement over the old gateway function, which only ever scanned the
+# single unresolved-place NAME, never the customer's own full sentence),
+# the message itself already contains "בנורווגיה" (Norway) - after
+# stripping its own leading ב, that's an EXACT catalog country match
+# (condition א), which is decisive on its own even though the model's
+# disambiguating_evidence field is None here. Correctly resolves to
+# Bergen directly, rather than forcing an ambiguous question the raw
+# wording itself already answers.
 with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergen", "BGO", None)):
-    result_e2_no_evidence = chat._destination_gateway_answer_by_meaning(
+    result_e2_no_evidence = _resolve(
+        state_bergen_lamed,
         "אני ובעלי לברגם בנורווגיה",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        state_bergen_lamed,
     )
-check("dry-run 5g FIX (E2 repro, ל-prefixed place, no genuine evidence): forced ambiguous, "
-      "not left stuck with 0 candidates",
-      not result_e2_no_evidence.get("destination_airports") and "_destination_ambiguous_hint" in result_e2_no_evidence)
+check("dry-run 5g FIX (E2 repro, ל-prefixed place, no model-supplied disambiguation, "
+      "but the message itself names Norway exactly): resolves directly to Bergen via "
+      "condition א's message-wide exact match, never stuck with 0 candidates",
+      result_e2_no_evidence.get("destination_airports") == ["BGO"]
+      and "_destination_ambiguous_hint" not in result_e2_no_evidence)
 
 # E2 with the customer's own genuine country evidence ("בנורווגיה") present
 # in the message - must now resolve directly to Bergen.
 with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergen", "BGO", "בנורווגיה")):
-    result_e2_genuine = chat._destination_gateway_answer_by_meaning(
+    result_e2_genuine = _resolve(
+        state_bergen_lamed,
         "אני ובעלי לברגם בנורווגיה",
         [{"role": "assistant", "content": UNRELATED_REPLY}],
-        state_bergen_lamed,
     )
 check("dry-run 5g FIX (E2 repro, ל-prefixed place, genuine 'בנורווגיה' evidence): "
       "resolves directly to Bergen",
@@ -726,9 +752,7 @@ check("dry-run 5g FIX (E2 repro, ל-prefixed place, genuine 'בנורווגיה'
 # The exact message text from Shaked's dry-run 5g report
 # (qa/reports/2026-10-23-dryrun5g.md, branch shaked): "לברגם בנורווגיה".
 with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergen", "BGO", "בנורווגיה")):
-    result_e2_exact_repro = chat._destination_gateway_answer_by_meaning(
-        "לברגם בנורווגיה", [], state_bergen_lamed,
-    )
+    result_e2_exact_repro = _resolve(state_bergen_lamed, "לברגם בנורווגיה", [])
 check("dry-run 5g FIX (E2 EXACT repro text 'לברגם בנורווגיה'): resolves directly to Bergen",
       result_e2_exact_repro.get("destination_airports") == ["BGO"]
       and "_destination_ambiguous_hint" not in result_e2_exact_repro)
@@ -744,22 +768,28 @@ check("dry-run 5g FIX (E2 EXACT repro text 'לברגם בנורווגיה'): res
 MSG_E1_EXACT = "אני, אשתי והתינוק שלנו בן שנה לברגם, 12 עד 17 ביוני"
 
 with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergamo", "BGY", None)):
-    result_e1_exact_no_evidence = chat._destination_gateway_answer_by_meaning(
-        MSG_E1_EXACT, [{"role": "assistant", "content": UNRELATED_REPLY}], state_bergen_lamed,
+    result_e1_exact_no_evidence = _resolve(
+        state_bergen_lamed, MSG_E1_EXACT, [{"role": "assistant", "content": UNRELATED_REPLY}],
     )
 check("dry-run 5g FIX (E1 EXACT repro text, turn 0, no genuine evidence): "
       "no longer silently resolves to Bergamo - forced ambiguous",
       not result_e1_exact_no_evidence.get("destination_airports")
       and "_destination_ambiguous_hint" in result_e1_exact_no_evidence)
 
-# _reresolve_ambiguous_fresh_destination (the sibling function) on this
-# same exact message - confirms it was always correct in isolation, as
-# Shaked found; the gap was only in the gateway function's near_cities.
+# The unified function's own FRESH-resolution branch (absorbing the old,
+# separate _reresolve_ambiguous_fresh_destination) on this same exact
+# message: the raw extractor already wrote a fresh BGY this turn (prior
+# empty) - confirms the revert-then-chain-into-recognition path correctly
+# reverts (the chained recognition call below, mocked to pick Bergamo
+# with no genuine disambiguation, still can't resolve it either - forced
+# ambiguous, destination_airports stays empty).
 _e1_prior_state = {"destination_airports": []}
 _e1_fresh_update = {"destination_airports": ["BGY"], "destination": {"places": ["ברגמו"], "mode": "specific", "status": "known"}}
-result_e1_reresolve = chat._reresolve_ambiguous_fresh_destination(_e1_prior_state, _e1_fresh_update, "לברגם", MSG_E1_EXACT)
-check("dry-run 5g: _reresolve_ambiguous_fresh_destination on the exact E1 message "
-      "correctly reverts a fresh same-turn resolution (already worked before this fix)",
+with patch.object(chat, "_post_claude", side_effect=_fake_lamed_bergam_single_pick("Bergamo", "BGY", None)):
+    result_e1_reresolve = chat._resolve_destination_by_meaning(
+        _e1_prior_state, dict(_e1_fresh_update), "לברגם", MSG_E1_EXACT, [])
+check("dry-run 5g: the unified function's FRESH branch on the exact E1 message "
+      "correctly reverts a fresh same-turn resolution (absorbs the old sibling function's own job)",
       result_e1_reresolve.get("destination_airports") == [])
 
 # Turn 1 of E1's live scenario: the customer answers the (now correctly
@@ -776,33 +806,41 @@ def _fake_turn1_answer(key, model, system_static, system_dynamic, history, messa
 
 state_turn1_unresolved = dict(BASE_STATE, destination={"places": ["ברגם"], "mode": None, "status": "known"})
 with patch.object(chat, "_post_claude", side_effect=_fake_turn1_answer):
-    result_e1_turn1 = chat._destination_gateway_answer_by_meaning(
-        "ברגן, בנורווגיה", [{"role": "assistant", "content": UNRELATED_REPLY}], state_turn1_unresolved,
+    result_e1_turn1 = _resolve(
+        state_turn1_unresolved, "ברגן, בנורווגיה", [{"role": "assistant", "content": UNRELATED_REPLY}],
     )
 check("dry-run 5g: once turn 0 correctly stays ambiguous, the customer's own next-turn answer "
       "('ברגן, בנורווגיה') resolves cleanly to Bergen",
       result_e1_turn1.get("destination_airports") == ["BGO"])
 
-# Shlomo's defense-in-depth question: is _guard_destination_change_evidence
+# Shlomo's defense-in-depth question: is the already-settled-change guard
 # itself the reason an explicit later correction doesn't overwrite an
-# already-resolved (wrong) destination? Verified directly: the guard lets
-# the change through whenever destination_evidence verifies, and only
-# reverts when it does not - this is the guard working exactly as
-# designed, not a bug in it. (Separately: if EXTRACTOR_SYSTEM itself fails
-# to supply destination_evidence for this kind of correction, that is a
-# distinct, NOT-yet-investigated prompt-level gap - out of scope here.)
+# already-resolved (wrong) destination? Verified directly through the
+# unified function: it lets the change through whenever destination_
+# evidence verifies, and only reverts when it does not - this is the
+# guard logic working exactly as designed, not a bug in it. (Separately:
+# if EXTRACTOR_SYSTEM itself fails to supply destination_evidence for
+# this kind of correction, the unified function's own ALREADY-SETTLED
+# recognition call is the backstop that absorbed the old _reinforce_
+# explicit_destination_correction's job for exactly that gap.)
 _prior_state_bgy = {"destination_airports": ["BGY"], "destination": {"places": ["ברגמו"]}}
 _trip_update_correction = {"destination_airports": ["BGO"], "destination": {"places": ["ברגן"]}}
 _correction_message = "לא, זה בעצם ברגן, בנורווגיה"
-result_guard_with_evidence = chat._guard_destination_change_evidence(
-    _prior_state_bgy, _trip_update_correction, "ברגן, בנורווגיה", _correction_message)
-check("dry-run 5g: _guard_destination_change_evidence itself is NOT the bug - it lets an "
+result_guard_with_evidence = chat._resolve_destination_by_meaning(
+    _prior_state_bgy, dict(_trip_update_correction), "ברגן, בנורווגיה", _correction_message, [])
+check("dry-run 5g: the already-settled-change guard itself is NOT the bug - it lets an "
       "explicit correction through when the extractor supplies a verified destination_evidence quote",
       result_guard_with_evidence.get("destination_airports") == ["BGO"])
-result_guard_without_evidence = chat._guard_destination_change_evidence(
-    _prior_state_bgy, _trip_update_correction, None, _correction_message)
-check("dry-run 5g: REGRESSION GUARD - without destination_evidence, the guard correctly keeps "
-      "reverting to the prior value (working as designed, not a bug)",
+
+# Without destination_evidence, the extractor's own unverified claim is
+# reverted first - then the SAME call's already-settled recognition step
+# also runs (absorbing _reinforce_explicit_destination_correction's job);
+# mocked here to find nothing, so the final state stays reverted at BGY.
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({"evidence": None, "candidates": []})):
+    result_guard_without_evidence = chat._resolve_destination_by_meaning(
+        _prior_state_bgy, dict(_trip_update_correction), None, _correction_message, [])
+check("dry-run 5g: REGRESSION GUARD - without destination_evidence, the extractor's unverified "
+      "claim is reverted to the prior value (working as designed, not a bug)",
       result_guard_without_evidence.get("destination_airports") == ["BGY"])
 
 
@@ -834,9 +872,7 @@ def _fake_macau(key, model, system_static, system_dynamic, history, message, max
 
 state_macau = dict(BASE_STATE, destination={"places": ["במקאו"], "mode": None, "status": "known"})
 with patch.object(chat, "_post_claude", side_effect=_fake_macau):
-    result_macau = chat._destination_gateway_answer_by_meaning(
-        "אני רוצה לטוס במקאו", [], state_macau,
-    )
+    result_macau = _resolve(state_macau, "אני רוצה לטוס במקאו", [])
 check("dry-run 5g FIX (Shaked's ordering review): 'במקאו' now resolves decisively via the "
       "stripped form's exact match, never treated as a false 2-way ambiguity",
       result_macau.get("destination_airports") == ["MFM"]
