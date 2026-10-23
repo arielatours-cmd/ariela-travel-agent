@@ -100,6 +100,29 @@ with patch.object(public_site, "CJ_BOOKING_EVERGREEN_LINK", CJ):
     old = public_site._wrap_booking_com_hotel_links([{"link": GOOGLE}], 9)[0]["link"]
 check("render-time wrap without answers: only strip + wrap, as before", ("checkin", "2020-01-01") in inner(old)[1])
 
+# --- Tom's QA follow-ups (23.10) ----------------------------------------------------------------------------
+with patch.object(public_site, "CJ_BOOKING_EVERGREEN_LINK", CJ), patch.object(public_site, "LODGING_AFFILIATE_LINK", ""):
+    _, q_nodates = inner(public_site._lodging_partner_url(dict(MUNICH, departure_date=None, return_date=None), "MUC", 247))
+    # A trip from the site form: age_groups holds groups ("children", "teens"), not ages.
+    _, q_groups = inner(public_site._lodging_partner_url(dict(MUNICH, children=2, age_groups=["children", "teens"]), "MUC", 247))
+check("no dates yet -> no empty checkin= / checkout=", not any(k in ("checkin", "checkout") for k, _ in q_nodates))
+check("site-form age groups ('children', 'teens') are not ages -> no age sent, never a representative guess",
+      ("group_children", "2") in q_groups and not [v for k, v in q_groups if k == "age"])
+VIP = ("https://www.vipcars.com/search/?language=en&pickup_country={pickup_country}&pickup_city={pickup_city}"
+       "&pickup_location={pickup_location}&dropoff_country={dropoff_country}&dropoff_city={dropoff_city}"
+       "&dropoff_location={dropoff_location}&pickup_date={pickup_date}&pickup_time={pickup_time}"
+       "&dropoff_date={return_date}&dropoff_time={return_time}&page=search")
+with patch.object(public_site, "CAR_RENTAL_SEARCH_URL_TEMPLATE", VIP), \
+        patch.object(public_site, "CAR_RENTAL_AFFILIATE_LINK", "https://www.tkqlhce.com/click-qa"):
+    car_url = parse_qs(urlsplit(public_site._car_partner_url({"destinations": "LIS"}, "LIS", 246)).query)["url"][0]
+    car_q = parse_qsl(urlsplit(car_url).query, keep_blank_values=True)
+    dated = parse_qs(urlsplit(parse_qs(urlsplit(public_site._car_partner_url(
+        {"destinations": "LIS", "departure_date": "2027-05-01", "return_date": "2027-05-08"}, "LIS", 246)).query)["url"][0]).query)
+check("car, no dates yet -> no empty pickup_date= / dropoff_date= (and nothing else empty)",
+      not any(v == "" for _, v in car_q) and not any(k in ("pickup_date", "dropoff_date") for k, _ in car_q)
+      and ("pickup_location", "777") in car_q)
+check("car, with dates -> the dates are still there", dated.get("pickup_date") == ["2027-05-01"] and dated.get("dropoff_date") == ["2027-05-08"])
+
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")
 sys.exit(1 if FAILED else 0)

@@ -5804,6 +5804,17 @@ def _vipcars_page(iata: str) -> str | None:
     return page if isinstance(page, str) and page.startswith("https://www.vipcars.com/car-rental/") else None
 
 
+def _drop_empty_query_params(url: str) -> str:
+    """The same URL without query parameters whose value came out empty
+    (e.g. pickup_date= on a trip with no dates yet)."""
+    try:
+        parsed = urlsplit(url)
+        kept = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if v != ""]
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(kept, quote_via=quote), parsed.fragment))
+    except Exception:
+        return url
+
+
 def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     """Outbound CJ-tracked URL for one car-rental card. The sid lets CJ
     reports tie a commission back to the vacation it came from.
@@ -5837,7 +5848,8 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
                 for key in ("country", "city", "location"):
                     fields[f"{prefix}_{key}"] = loc[key]
         try:
-            params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(**fields)
+            # Tom's QA (23.10): a trip with no dates yet must not send pickup_date= / dropoff_date= empty.
+            params["url"] = _drop_empty_query_params(CAR_RENTAL_SEARCH_URL_TEMPLATE.format(**fields))
         except KeyError:
             # No verified ids: the pickup airport's own VIP Cars page from its
             # sitemap when there is one (no dates, but the right place -
@@ -5901,8 +5913,10 @@ def _lodging_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     rooms = _int_or(answers.get("lodging_rooms"), 1) or 1
     if not LODGING_AFFILIATE_LINK:
         # Every child's age too (Shaked's audit, 23.10) - see _booking_com_party_params.
+        # Tom's QA (23.10): no empty checkin=/checkout= when the trip has no dates yet.
+        dates = [("checkin", dep), ("checkout", ret)] if dep and ret else []
         search_url = "https://www.booking.com/searchresults.html?" + urlencode(
-            [("ss", city), ("checkin", dep), ("checkout", ret)] + _booking_com_party_params(answers), quote_via=quote)
+            [("ss", city)] + dates + _booking_com_party_params(answers), quote_via=quote)
         return _cj_booking_wrap(search_url, sid=f"trip{trip_id}")
     params = {"sid": f"trip{trip_id}"}
     if LODGING_SEARCH_URL_TEMPLATE:
