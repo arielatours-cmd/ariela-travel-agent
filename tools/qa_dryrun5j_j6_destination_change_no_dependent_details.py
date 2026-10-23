@@ -28,6 +28,19 @@ original bug alive for the exact case this fix exists for. The fixture
 below now matches that real scenario precisely instead of an artificially
 "nothing at all" state the live bug never actually looked like.
 
+UPDATED AGAIN (23.10.2026, Shaked's static review of 892d10ad, SHA she
+also rejected): _apply_destination_change clears destination_airports,
+and this fast path never goes through a model call to re-resolve it -
+_flight_gap_question then asked "which airport would you like to land
+at?" even for Prague, a destination with exactly one real catalog
+airport. Fixed by running the SAME deterministic catalog resolvers the
+main pipeline always runs (_resolve_destination_airports_from_route,
+_resolve_ski_destination_airports) on `changed` before computing the
+next question - safe here specifically because the destination name
+already passed a deterministic exact/near-exact catalog match earlier
+in this same turn (known_destinations), unlike a raw, possibly-ambiguous
+customer typo elsewhere in the file.
+
 Run: python3 tools/qa_dryrun5j_j6_destination_change_no_dependent_details.py
 """
 import os
@@ -122,6 +135,14 @@ check("J6 FIX: the destination is updated to Prague immediately, with no "
       "pending confirmation gate left open",
       "פראג" in ((update.get("destination") or {}).get("places") or [])
       and not update.get("destination_change_pending"))
+check("J6 FIX (Shaked's SECOND review, of 892d10ad): the new destination's "
+      "own catalog airport is re-resolved deterministically (PRG for Prague) "
+      "instead of leaving destination_airports empty",
+      update.get("destination_airports") == ["PRG"])
+check("J6 FIX (Shaked's SECOND review): since Prague has exactly one real "
+      "catalog airport, the needless 'which airport would you like to land "
+      "at?' question is never asked - the gateway is already resolved",
+      "באיזה שדה" not in reply)
 
 # =====================================================================
 # Regression: a REAL destination-dependent detail already exists (route) -

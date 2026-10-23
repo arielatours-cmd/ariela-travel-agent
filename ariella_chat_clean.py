@@ -16741,11 +16741,26 @@ def _chat_clean_impl():
             # _destination_dependent_details_exist's own docstring.
             if not _destination_dependent_details_exist(kept):
                 changed = _apply_destination_change(kept, pending_new_trip)
-                # Shaked's static review of 0dc89e77 (23.10.2026): a bare
-                # "let's continue from here" with no actual next question
-                # stalled the conversation - ask the real, concrete thing
-                # still missing (same mechanism as every other gap-driven
-                # reply in this file), never a dead-end acknowledgment.
+                # Shaked's static review of 892d10ad (23.10.2026): _apply_
+                # destination_change clears destination_airports, and this
+                # path never goes through a model call to re-resolve it -
+                # without this, _flight_gap_question asked "which airport
+                # would you like to land at" even for a destination with
+                # only one real catalog airport (e.g. Prague), a needless
+                # question. The destination name here already passed a
+                # deterministic exact/near-exact catalog match earlier
+                # this same turn (known_destinations), so the route
+                # resolver's own plain-name catalog lookup is safe to run
+                # directly - same deterministic resolution the main
+                # pipeline always runs, just invoked here too before
+                # asking what's still missing.
+                changed = _resolve_destination_airports_from_route(changed)
+                changed = _resolve_ski_destination_airports(changed)
+                # A bare "let's continue from here" with no actual next
+                # question stalled the conversation - ask the real,
+                # concrete thing still missing (same mechanism as every
+                # other gap-driven reply in this file), never a dead-end
+                # acknowledgment.
                 _next_q = _flight_gap_question(_session_gaps(changed, "flights"), changed)
                 reply = f'בסדר, היעד עודכן ל{pending_new_trip}.' + (f' {_next_q}' if _next_q else ' נמשיך מכאן.')
                 return _reply({'status':'success','agent':'Ariella','engine_version':ENGINE_VERSION,
@@ -16784,10 +16799,14 @@ def _chat_clean_impl():
         # _destination_dependent_details_exist's own docstring.
         if not _destination_dependent_details_exist(trip_state):
             changed = _apply_destination_change(trip_state, destination_change)
-            # Shaked's static review of 0dc89e77 (23.10.2026): ask the
-            # real, concrete next-missing thing, never a dead-end
-            # acknowledgment with no forward motion - see the sibling
-            # "keep" branch above for the identical fix.
+            # Shaked's static review of 892d10ad (23.10.2026): re-resolve
+            # the new destination's own catalog airport deterministically
+            # before asking what's missing - see the sibling "keep" branch
+            # above for the full explanation (same fix, same reasoning).
+            changed = _resolve_destination_airports_from_route(changed)
+            changed = _resolve_ski_destination_airports(changed)
+            # Ask the real, concrete next-missing thing, never a dead-end
+            # acknowledgment with no forward motion.
             _next_q = _flight_gap_question(_session_gaps(changed, "flights"), changed)
             reply = f'בסדר, היעד עודכן ל{destination_change}.' + (f' {_next_q}' if _next_q else ' נמשיך מכאן.')
             return _reply({
