@@ -75,6 +75,16 @@ with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY-S
 for unknown in ("Unknown author", "unknown", "Anonymous", "<i>Unknown photographer</i>"):
     with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY 4.0", artist=unknown)):
         check(f"author '{unknown}' -> no photo", itinerary_cards._wiki_image_licensed("X", "Y") == ("", None))
+# Tom's recheck (23.10): "Unknown artist" and "Anonymous (photographer)" still passed - any value made only of
+# unknown/anonymous words plus a role word (artist/author/photographer, parentheses, punctuation) is no author.
+for unknown in ("Unknown artist", "Anonymous (photographer)", "author unknown", "Unknown Author.", "N/A", "Not known",
+                "Unidentified photographer", "Anon.", "<span>Unknown</span> <span>artist</span>"):
+    with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY 4.0", artist=unknown)):
+        check(f"author '{unknown}' -> no photo", itinerary_cards._wiki_image_licensed("X", "Y") == ("", None))
+for real in ("Bob (photographer)", "Anonymous Coward Studio", "Ann Nony", "王小明", "DIMSFIKAS"):
+    with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY 4.0", artist=real)):
+        check(f"a real author '{real}' still gets the photo + credit",
+              (itinerary_cards._wiki_image_licensed("X", "Y")[1] or {}).get("artist") == real)
 with patch.object(itinerary_cards.requests, "get", side_effect=fake_api("CC BY 4.0", artist='<a href="u">Jane &amp;amp; Co</a>')):
     check("entities decoded, double-escaped too ('&amp;amp;' -> '&')",
           (itinerary_cards._wiki_image_licensed("X", "Y")[1] or {}).get("artist") == "Jane & Co")
