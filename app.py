@@ -20,6 +20,7 @@ from urllib.parse import quote
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 from admin import render_dashboard, render_feedback_dashboard, render_analytics_dashboard, render_hfa_routes_dashboard
+import member_profile
 from config import (
     ADMIN_TOKEN, APP_VERSION, DB_PATH, ISRAEL_TZ, MAX_DAILY_DEALS,
     MIN_DEAL_SCORE, SCHEDULER_ENABLED, FLASK_SECRET_KEY, DESTINATIONS,
@@ -804,6 +805,36 @@ def admin_delete_member():
         })
     delete_member_account(row["id"])
     return jsonify({"status": "success", "applied": True, "member_id": row["id"]})
+
+
+@app.get("/admin/delete-traveler")
+def admin_delete_traveler():
+    """Admin-only path to delete one remembered traveler (business owner,
+    22.10.2026, Din route B / PRV-14): the customer-facing self-service
+    list/edit/delete UI was removed entirely from both account pages - a
+    view/correction/deletion request is now handled by staff, via the
+    Contact page, within 30 days. The underlying data itself is unchanged
+    (still saved and used by Ariella in chat) - only this moves who can
+    act on it. GET with ?member_id=<id>&traveler_id=<id> only explains what
+    would be deleted; ?confirm=1 actually deletes. Same read-by-default,
+    explicit-confirm pattern as /admin/delete-member."""
+    denied = _require_admin()
+    if denied: return denied
+    member_id = request.args.get("member_id", type=int)
+    traveler_id = request.args.get("traveler_id", type=int)
+    if not member_id or not traveler_id:
+        return jsonify({"status": "error", "message": "נדרש member_id ו-traveler_id."}), 400
+    target = next((t for t in member_profile.list_travelers(member_id) if t["id"] == traveler_id), None)
+    if not target:
+        return jsonify({"status": "error", "message": "לא נמצא נוסע תואם."}), 404
+    confirm = request.args.get("confirm", "0") == "1"
+    if not confirm:
+        return jsonify({
+            "status": "success", "would_delete": True, "applied": False,
+            "member_id": member_id, "traveler_id": traveler_id, "label": target["label"],
+        })
+    member_profile.delete_traveler(member_id, traveler_id)
+    return jsonify({"status": "success", "applied": True, "member_id": member_id, "traveler_id": traveler_id})
 
 
 @app.get("/admin/partner-commissions")

@@ -143,7 +143,7 @@ ROME_STATE = {
 
 
 def _fake_extract(guided_response):
-    def _f(key, model, field, message, history, trip_update):
+    def _f(key, model, field, message, history, trip_update, guided_steps=None):
         return guided_response
     return _f
 
@@ -209,10 +209,13 @@ check("Athens repro: travelers known in state also get appended in the "
       "מבוגרים" in athens_reply)
 check("Athens repro: a summary that already states the dates (any "
       "phrasing containing a dd.mm.yyyy date) is left untouched",
+      # Updated 22.10 (dry-run 1, Shaked/Shlomo's decision): the travelers
+      # fact is now recognized only by its fixed "נוסעים:" label (like
+      # "כבודה:"), so the summary here carries the label.
       chat._ensure_flight_summary_completeness(
-          "הסיכום: יעד אתונה, 15.4.2026 עד 19.4.2026, 2 מבוגרים. אם כל הפרטים נכונים, כתבי מאשרת.",
+          "הסיכום: יעד אתונה, 15.4.2026 עד 19.4.2026, נוסעים: 2 מבוגרים. אם כל הפרטים נכונים, כתבי מאשרת.",
           ATHENS_STATE,
-      ) == "הסיכום: יעד אתונה, 15.4.2026 עד 19.4.2026, 2 מבוגרים. אם כל הפרטים נכונים, כתבי מאשרת.")
+      ) == "הסיכום: יעד אתונה, 15.4.2026 עד 19.4.2026, נוסעים: 2 מבוגרים. אם כל הפרטים נכונים, כתבי מאשרת.")
 
 ROME_FLIGHT_STATE = {
     "destination": {"places": ["רומא"]},
@@ -300,7 +303,7 @@ check("Paris repro: the fallback never re-asks about the route/style/"
 check("Paris repro: the fallback still contains a real flight summary "
       "built from state (destination, dates, connection preference)",
       "פריז" in paris_fallback and "10.12.2026" not in paris_fallback  # sanity: wrong date never appears
-      and "20.12.2026" in paris_fallback and "טיסה ישירה בלבד" in paris_fallback)
+      and "20.12.2026" in paris_fallback and "מעדיפים טיסה ישירה" in paris_fallback)
 check("Paris repro (Shaked's PR #81 review, criterion 5): the fallback is "
       "genuinely COMPLETE - the lodging line (apartment, bedrooms, "
       "bathrooms, area, no budget limit) is included too, not just flights",
