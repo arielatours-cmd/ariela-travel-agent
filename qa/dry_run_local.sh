@@ -123,6 +123,26 @@ for r in rows:
 print("chat turns: %d" % turns)
 print("usage total: calls=%d input=%d output=%d cache_read=%d cache_write=%d errors=%d" % tuple(total))
 PY
+# Diagnostic events (record_diagnostic_event: source = the event name, empty model, details = JSON of
+# derived fields, never the customer's raw message) - exported so a dry run can be analysed after
+# dryrun.db is gone.
+python3 - "$OUT/dryrun.db" "$OUT/diagnostic.json" <<'PY'
+import json, sqlite3, sys
+db = sqlite3.connect(sys.argv[1]); db.row_factory = sqlite3.Row
+try:
+    rows = db.execute("SELECT id, created_at, conversation_id, source, details FROM ai_usage "
+                      "WHERE COALESCE(model, '') = '' AND source != 'turn_total' ORDER BY id").fetchall()
+except sqlite3.Error as exc:
+    rows = []; print("diagnostic: ai_usage not readable:", exc)
+out = []
+for r in rows:
+    d = dict(r)
+    try: d["details"] = json.loads(d["details"] or "null")
+    except ValueError: pass
+    out.append(d)
+json.dump(out, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+print("diagnostic events: %d -> diagnostic.json" % len(out))
+PY
 # Browser profiles hold the local session cookies - never keep or publish them.
 rm -rf "$OUT"/chat_profile_*
 echo "done: sha=$SHA, transcripts and state in $OUT (chat_resp_*.jsonl = full trip_update per turn)"
