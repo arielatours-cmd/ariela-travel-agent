@@ -287,8 +287,15 @@
    "reason_he": "היום מוצגת התמונה הכללית (אין זכויות על הקודמת)"
   },
   "LCA": {
-   "status": "keep_current",
-   "note_he": "היום Unsplash (חוף), עובד. הקובץ הישן ב-Wikimedia לא קיים, אבל הוא לא בשימוש"
+   "status": "replacement",
+   "title": "File:Church of Saint Lazarus – Front Façade.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Viaggiamocela",
+   "page": "https://commons.wikimedia.org/wiki/File:Church_of_Saint_Lazarus_%E2%80%93_Front_Fa%C3%A7ade.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Church_of_Saint_Lazarus_%E2%80%93_Front_Fa%C3%A7ade.jpg/1280px-Church_of_Saint_Lazarus_%E2%80%93_Front_Fa%C3%A7ade.jpg",
+   "credit_text": "צילום: Viaggiamocela / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "location_verified_he": "23.10: כנסיית לזרוס הקדוש, לרנקה. קטגוריות ב-Commons: Churches in Larnaca, Cultural heritage monuments in Cyprus. נבדק בעין: בלי אנשים מזוהים ובלי לוגו",
+   "reason_he": "לבקשת שלמה, 23.10: LCA הציג את התמונה הכללית"
   }
  }
 }
