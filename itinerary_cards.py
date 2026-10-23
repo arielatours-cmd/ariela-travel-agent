@@ -98,6 +98,59 @@ def _wiki_image(name_en, city):
     return ""
 
 
+# Din (IMG-1, 23.10): Wikimedia photos only under PD / CC0 / CC BY / CC BY-SA,
+# each shown with a credit linking to its Commons page; anything else -> no photo.
+_ALLOWED_IMAGE_LICENSES = re.compile(r"^(public domain|pd\b|cc0|cc by(-sa)?( \d(\.\d)?)?)", re.IGNORECASE)
+
+
+def _image_license(file_title):
+    """Licence metadata for a Wikipedia page image: {"artist", "license",
+    "page"} when the file is on Commons under an allowed licence, else None
+    (a local "fair use" file, NC/ND, unknown author or licence)."""
+    if not file_title:
+        return None
+    try:
+        resp = requests.get(_WIKI_API, headers=_WIKI_HEADERS, timeout=6, params={
+            "action": "query", "format": "json", "titles": f"File:{file_title}",
+            "prop": "imageinfo", "iiprop": "extmetadata|url",
+            "iiextmetadatafilter": "LicenseShortName|Artist",
+        })
+        for page in ((resp.json().get("query") or {}).get("pages") or {}).values():
+            info = (page.get("imageinfo") or [{}])[0]
+            meta = info.get("extmetadata") or {}
+            license_name = str((meta.get("LicenseShortName") or {}).get("value") or "").strip()
+            artist = re.sub(r"<[^>]+>", "", str((meta.get("Artist") or {}).get("value") or "")).strip()
+            artist = re.sub(r"\s+", " ", artist)
+            page_url = str(info.get("descriptionurl") or "")
+            if (page_url.startswith("https://commons.wikimedia.org/") and artist and license_name
+                    and _ALLOWED_IMAGE_LICENSES.match(license_name) and not re.search(r"\b(NC|ND)\b", license_name)):
+                return {"artist": artist, "license": license_name, "page": page_url}
+    except Exception:
+        logging.info("Wikimedia licence lookup failed for %s", file_title)
+    return None
+
+
+def _wiki_image_licensed(name_en, city):
+    """(thumbnail, credit) for the place's Wikipedia page image - only when
+    the file's licence allows it (see _image_license); else ("", None)."""
+    if not name_en:
+        return "", None
+    try:
+        resp = requests.get(_WIKI_API, headers=_WIKI_HEADERS, timeout=6, params={
+            "action": "query", "format": "json", "generator": "search",
+            "gsrsearch": f"{name_en} {city or ''}".strip(), "gsrlimit": 1,
+            "prop": "pageimages", "piprop": "thumbnail|name", "pithumbsize": 480,
+        })
+        for page in ((resp.json().get("query") or {}).get("pages") or {}).values():
+            thumb = (page.get("thumbnail") or {}).get("source")
+            credit = _image_license(page.get("pageimage")) if thumb else None
+            if thumb and credit:
+                return thumb, credit
+    except Exception:
+        logging.info("Wikipedia image lookup failed for %s", name_en)
+    return "", None
+
+
 def _parse_json(raw):
     raw = str(raw or "").strip()
     if raw.startswith("```"):
@@ -336,8 +389,8 @@ def build_itinerary_days(text, answers, post_claude, key, model):
                 "official_url": str((match or {}).get("אתר רשמי") or "").strip(),
                 "kids": str((match or {}).get("מתאים לילדים") or "").strip(),
                 "map_url": "https://www.google.com/maps/search/?api=1&query=" + quote_plus(f"{name_en or name_he} {city}".strip()),
-                "image": _wiki_image(name_en, city),
             }
+            card["image"], card["image_credit"] = _wiki_image_licensed(name_en, city)
             if card["official_url"] == card["tickets_url"]:
                 card["official_url"] = ""
             items.append(card)
