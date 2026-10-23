@@ -1,5 +1,5 @@
 {
- "_about": "אימות DESTINATION_LANDMARK_IMAGES (database.py) מול Wikimedia Commons API, 23.10.2026 (אופק). בשביל עידו: להחליף את הכתובות ב-url_1200 ולהציג קרדיט (credit_text) לפי IMG-1. רישיונות רק PD, CC0, CC BY ו-CC BY-SA.",
+ "_about": "אימות DESTINATION_LANDMARK_IMAGES (database.py) מול Wikimedia Commons API, 23.10.2026 (אופק). בשביל עידו: להחליף את הכתובות ב-url_1200 ולהציג קרדיט (credit_text) לפי IMG-1. רישיונות רק PD, CC0, CC BY ו-CC BY-SA. עדכון 23.10: הכתובות ב-url_1200 הן ברוחב 1280, כי Wikimedia מחזירה 400 על 1200. שם השדה נשאר כמו שהוא, כדי לא לשבור קוד קיים.",
  "generic_image": {
   "proposal": "כנף מטוס מעל עננים",
   "title": "File:Boeing-737-800-wing-20060527-001.jpg",
@@ -170,7 +170,7 @@
    "license": "CC BY-SA 4.0",
    "artist": "Berthold Werner",
    "page": "https://commons.wikimedia.org/wiki/File:Lisbon_Torre_de_Bel%C3%A9m_BW_2018-10-03_16-33-21.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Lisbon_Torre_de_Bel%C3%A9m_BW_2018-10-03_16-33-21.jpg/1200px-Lisbon_Torre_de_Bel%C3%A9m_BW_2018-10-03_16-33-21.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Lisbon_Torre_de_Bel%C3%A9m_BW_2018-10-03_16-33-21.jpg/1280px-Lisbon_Torre_de_Bel%C3%A9m_BW_2018-10-03_16-33-21.jpg",
    "credit_text": "צילום: Berthold Werner / CC BY-SA 4.0, דרך Wikimedia Commons",
    "reason_he": "הקובץ הקודם לא קיים (404)"
   },
@@ -180,7 +180,7 @@
    "license": "CC BY-SA 3.0 de",
    "artist": "Thomas Wolf, www.foto-tw.de",
    "page": "https://commons.wikimedia.org/wiki/File:Schloss_Sch%C3%B6nbrunn_Wien_2014_(Zuschnitt_1).jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Schloss_Sch%C3%B6nbrunn_Wien_2014_%28Zuschnitt_1%29.jpg/1200px-Schloss_Sch%C3%B6nbrunn_Wien_2014_%28Zuschnitt_1%29.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Schloss_Sch%C3%B6nbrunn_Wien_2014_%28Zuschnitt_1%29.jpg/1280px-Schloss_Sch%C3%B6nbrunn_Wien_2014_%28Zuschnitt_1%29.jpg",
    "credit_text": "צילום: Thomas Wolf, www.foto-tw.de / CC BY-SA 3.0 de, דרך Wikimedia Commons",
    "reason_he": "הקובץ הקודם לא קיים (404)"
   },
@@ -190,7 +190,7 @@
    "license": "CC BY-SA 3.0",
    "artist": "Daniel Kraft",
    "page": "https://commons.wikimedia.org/wiki/File:Z%C3%BCrich_view_Quaibr%C3%BCcke_20200702.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Z%C3%BCrich_view_Quaibr%C3%BCcke_20200702.jpg/1200px-Z%C3%BCrich_view_Quaibr%C3%BCcke_20200702.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Z%C3%BCrich_view_Quaibr%C3%BCcke_20200702.jpg/1280px-Z%C3%BCrich_view_Quaibr%C3%BCcke_20200702.jpg",
    "credit_text": "צילום: Daniel Kraft / CC BY-SA 3.0, דרך Wikimedia Commons",
    "reason_he": "הקובץ הקודם לא קיים (404)"
   },
@@ -200,7 +200,7 @@
    "license": "CC BY-SA 4.0",
    "artist": "Diego Delso",
    "page": "https://commons.wikimedia.org/wiki/File:Edificios_en_la_Grand-Place,_Bruselas,_B%C3%A9lgica,_2021-12-15,_DD_184-186_HDR.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Edificios_en_la_Grand-Place%2C_Bruselas%2C_B%C3%A9lgica%2C_2021-12-15%2C_DD_184-186_HDR.jpg/1200px-Edificios_en_la_Grand-Place%2C_Bruselas%2C_B%C3%A9lgica%2C_2021-12-15%2C_DD_184-186_HDR.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Edificios_en_la_Grand-Place%2C_Bruselas%2C_B%C3%A9lgica%2C_2021-12-15%2C_DD_184-186_HDR.jpg/1280px-Edificios_en_la_Grand-Place%2C_Bruselas%2C_B%C3%A9lgica%2C_2021-12-15%2C_DD_184-186_HDR.jpg",
    "credit_text": "צילום: Diego Delso / CC BY-SA 4.0, דרך Wikimedia Commons",
    "reason_he": "הקובץ הקודם לא קיים (404)"
   },
@@ -210,7 +210,7 @@
    "license": "CC BY 4.0",
    "artist": "Igor123121",
    "page": "https://commons.wikimedia.org/wiki/File:Old_Town_Market_Square.,_2026,_Warsaw,_Poland.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Old_Town_Market_Square.%2C_2026%2C_Warsaw%2C_Poland.jpg/1200px-Old_Town_Market_Square.%2C_2026%2C_Warsaw%2C_Poland.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Old_Town_Market_Square.%2C_2026%2C_Warsaw%2C_Poland.jpg/1280px-Old_Town_Market_Square.%2C_2026%2C_Warsaw%2C_Poland.jpg",
    "credit_text": "צילום: Igor123121 / CC BY 4.0, דרך Wikimedia Commons",
    "reason_he": "הקובץ הקודם לא קיים (404)"
   },
@@ -220,7 +220,7 @@
    "license": "CC BY-SA 3.0",
    "artist": "Սէրուժ Ուրիշեան (Serouj Ourishian)",
    "page": "https://commons.wikimedia.org/wiki/File:Mount_Ararat_and_the_Yerevan_skyline.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Mount_Ararat_and_the_Yerevan_skyline.jpg/1200px-Mount_Ararat_and_the_Yerevan_skyline.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Mount_Ararat_and_the_Yerevan_skyline.jpg/1280px-Mount_Ararat_and_the_Yerevan_skyline.jpg",
    "credit_text": "צילום: Սէրուժ Ուրիշեան (Serouj Ourishian) / CC BY-SA 3.0, דרך Wikimedia Commons",
    "reason_he": "הקובץ הקודם לא קיים (404)"
   },
@@ -230,7 +230,7 @@
    "license": "CC BY-SA 4.0",
    "artist": "Œil de verre",
    "page": "https://commons.wikimedia.org/wiki/File:Sava-Danube-Confluence-2009-08-09.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/Sava-Danube-Confluence-2009-08-09.jpg/1200px-Sava-Danube-Confluence-2009-08-09.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/Sava-Danube-Confluence-2009-08-09.jpg/1280px-Sava-Danube-Confluence-2009-08-09.jpg",
    "credit_text": "צילום: Œil de verre / CC BY-SA 4.0, דרך Wikimedia Commons",
    "reason_he": "הקובץ הקודם לא קיים (404)"
   },
@@ -240,9 +240,10 @@
    "license": "CC BY 3.0",
    "artist": "ines lukic",
    "page": "https://commons.wikimedia.org/wiki/File:Moj_grad_-_panoramio.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Moj_grad_-_panoramio.jpg/1200px-Moj_grad_-_panoramio.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Moj_grad_-_panoramio.jpg/1280px-Moj_grad_-_panoramio.jpg",
    "credit_text": "צילום: ines lukic / CC BY 3.0, דרך Wikimedia Commons",
-   "reason_he": "הקובץ הקודם לא קיים (404)"
+   "reason_he": "הקובץ הקודם לא קיים (404)",
+   "location_verified_he": "אומת 23.10 מול Commons: Category:Podgorica, Category:Millennium Bridge (Montenegro). קואורדינטות 42.452436, 19.245086 (מבט מגבעת Malo brdo על פודגוריצה, 22.6.2011)."
   },
   "LJU": {
    "status": "replacement",
@@ -250,7 +251,7 @@
    "license": "CC BY-SA 4.0",
    "artist": "Petar Milošević",
    "page": "https://commons.wikimedia.org/wiki/File:Tromostovje_in_Pre%C5%A1ernov_trg_(Tromostovje_and_Pre%C5%A1eren_Square).jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Tromostovje_in_Pre%C5%A1ernov_trg_%28Tromostovje_and_Pre%C5%A1eren_Square%29.jpg/1200px-Tromostovje_in_Pre%C5%A1ernov_trg_%28Tromostovje_and_Pre%C5%A1eren_Square%29.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Tromostovje_in_Pre%C5%A1ernov_trg_%28Tromostovje_and_Pre%C5%A1eren_Square%29.jpg/1280px-Tromostovje_in_Pre%C5%A1ernov_trg_%28Tromostovje_and_Pre%C5%A1eren_Square%29.jpg",
    "credit_text": "צילום: Petar Milošević / CC BY-SA 4.0, דרך Wikimedia Commons",
    "reason_he": "הקובץ הקודם לא קיים (404)",
    "note_he": "תמונת לילה מלמעלה. חלשה, ועדיף להחליף במאגר 021 כשהוא ייכנס"
@@ -261,7 +262,7 @@
    "license": "CC BY-SA 4.0",
    "artist": "DXR",
    "page": "https://commons.wikimedia.org/wiki/File:North_view_of_Charles_Bridge_from_M%C3%A1nes%C5%AFv_most,_Prague_20160808_1.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/North_view_of_Charles_Bridge_from_M%C3%A1nes%C5%AFv_most%2C_Prague_20160808_1.jpg/1200px-North_view_of_Charles_Bridge_from_M%C3%A1nes%C5%AFv_most%2C_Prague_20160808_1.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/North_view_of_Charles_Bridge_from_M%C3%A1nes%C5%AFv_most%2C_Prague_20160808_1.jpg/1280px-North_view_of_Charles_Bridge_from_M%C3%A1nes%C5%AFv_most%2C_Prague_20160808_1.jpg",
    "credit_text": "צילום: DXR / CC BY-SA 4.0, דרך Wikimedia Commons",
    "reason_he": "רישיון FAL, שלא ברשימה של דין"
   },
@@ -271,7 +272,7 @@
    "license": "CC BY-SA 4.0",
    "artist": "Diego Delso",
    "page": "https://commons.wikimedia.org/wiki/File:Avenida_de_la_Uni%C3%B3n,_Bucarest,_Ruman%C3%ADa,_2016-05-29,_DD_57.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Avenida_de_la_Uni%C3%B3n%2C_Bucarest%2C_Ruman%C3%ADa%2C_2016-05-29%2C_DD_57.jpg/1200px-Avenida_de_la_Uni%C3%B3n%2C_Bucarest%2C_Ruman%C3%ADa%2C_2016-05-29%2C_DD_57.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Avenida_de_la_Uni%C3%B3n%2C_Bucarest%2C_Ruman%C3%ADa%2C_2016-05-29%2C_DD_57.jpg/1280px-Avenida_de_la_Uni%C3%B3n%2C_Bucarest%2C_Ruman%C3%ADa%2C_2016-05-29%2C_DD_57.jpg",
    "credit_text": "צילום: Diego Delso / CC BY-SA 4.0, דרך Wikimedia Commons",
    "reason_he": "היום מוצגת התמונה הכללית (אין זכויות על הקודמת)"
   },
@@ -281,7 +282,7 @@
    "license": "CC BY-SA 4.0",
    "artist": "Ingo Mehling",
    "page": "https://commons.wikimedia.org/wiki/File:Krakow_-_Wawel_from_Vistula_-_4.jpg",
-   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Krakow_-_Wawel_from_Vistula_-_4.jpg/1200px-Krakow_-_Wawel_from_Vistula_-_4.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Krakow_-_Wawel_from_Vistula_-_4.jpg/1280px-Krakow_-_Wawel_from_Vistula_-_4.jpg",
    "credit_text": "צילום: Ingo Mehling / CC BY-SA 4.0, דרך Wikimedia Commons",
    "reason_he": "היום מוצגת התמונה הכללית (אין זכויות על הקודמת)"
   },
