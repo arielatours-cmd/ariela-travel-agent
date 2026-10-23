@@ -1,4 +1,5 @@
-"""QA for task 010a stage 1 - cumulative member_travelers list + "My profile".
+"""QA for task 010a stage 1 - cumulative member_travelers list, and its later
+removal from customer view (business owner, 22.10.2026, Din's route B / PRV-14).
 
 Per product/dev-tasks/010a-customer-profile.md (ofek branch), stage 1 only.
 Acceptance criteria covered (on a temporary DB, offline):
@@ -7,12 +8,17 @@ Acceptance criteria covered (on a temporary DB, offline):
   2. two ungendered children 9 and 10, then "boy 10" -> both candidates
      flagged needs_review=1, no merge and no new row (decision 16.10)
   3. a child who did not travel this time stays on the list
-  4. delete from "My profile" sets deleted_at and the row never comes back;
-     deleting the account deletes everything
-  7. a new customer with no history sees no change on the account page
-  8. another member cannot update or delete a traveller that is not theirs
+  4. delete sets deleted_at and the row never comes back; deleting the
+     account deletes everything
+  7. the "what Ariella remembers about me" section is gone from every
+     customer-facing page (it briefly moved to /account/details, then the
+     business owner reversed that and asked for it to be removed entirely)
+  8. only the new admin-only path (see app.admin_delete_traveler) can
+     delete a traveler now - there is no customer-facing route left at all
 Plus: one-time migration from ariella_travel_companions, extra adults,
-promotion of a grown child to adult, and the privacy page.
+promotion of a grown child to adult, the Contact-page footer link, and the
+privacy page's wording (routes a view/correction/deletion request through
+staff via Contact, handled within 30 days - never names a screen).
 
 Run: python3 tools/qa_member_travelers_010a.py
 """
@@ -138,55 +144,65 @@ check("a girl of 17 recorded 17 months ago is shown as an adult", listing and li
 mp.sync_trip_travelers(m5, {"adults": 1, "child_ages": []}, "2026-06-01")
 check("...and her record is updated to kind='adult'", rows(m5)[0]["kind"] == "adult")
 
-# --- 7. New customer: account page unchanged ---------------------------------------
+# --- 7. Removed entirely from customer view (business owner, 22.10.2026, Din's ---
+#        route B / PRV-14, replacing the earlier "moved to account details" plan):
+#        the whole "what Ariella remembers about me" section is gone from every
+#        customer-facing page. The data itself is unchanged - still saved and
+#        used by Ariella in chat - only the customer self-service display and
+#        the self-service update/delete HTTP routes are removed. A view/
+#        correction/deletion request now goes through staff via the Contact
+#        page (see the privacy-policy check below), and staff act on it
+#        through the new admin-only path tested in section 8.
 m7 = make_member("qa7@example.com")
 r = client_for(m7).get("/account")
 page = r.get_data(as_text=True)
 check("7: new customer: account page renders", r.status_code == 200)
-check("7: new customer: no 'what Ariella remembers' section", "מה אריאלה זוכרת עליי" not in page and "my-profile" not in page)
-r = client_for(m1).get("/account")
-page = r.get_data(as_text=True)
-check("profile section shows for a customer with travellers", "מה אריאלה זוכרת עליי" in page)
-check("profile lists 'ילד, בערך בן 10'", "ילד, בערך בן 10" in page or "ילד, בערך בן 11" in page)
-check("profile has update + delete forms", "/account/travelers/" in page and "/update" in page and "/delete" in page)
-review_page = client_for(m2).get("/account").get_data(as_text=True)
-check("needs_review row is marked gently", "ייתכן שזה אותו ילד, תקנו אם צריך" in review_page)
+check("7: new customer: vacations page never shows the profile section", "מה אריאלה זוכרת עליי" not in page and "my-profile" not in page)
+check("7: new customer: account details page never shows the profile section either",
+      "מה אריאלה זוכרת עליי" not in client_for(m7).get("/account/details").get_data(as_text=True))
+check("profile section is gone from the vacations page even for a customer with travellers",
+      "מה אריאלה זוכרת עליי" not in client_for(m1).get("/account").get_data(as_text=True))
+check("profile section is gone from account details too, even for a customer with travellers",
+      "מה אריאלה זוכרת עליי" not in client_for(m1).get("/account/details").get_data(as_text=True))
+check("the old customer-facing update/delete routes are gone entirely",
+      not any(r.rule.startswith("/account/travelers/") for r in app.url_map.iter_rules()))
 
-# --- 8. Ownership -------------------------------------------------------------------
+# --- 8. Admin-only delete path (replaces customer self-service) --------------------
 target = rows(m1, children_only=True)[0]
-other = client_for(m2)
-r = other.post(f"/account/travelers/{target['id']}/update", data={"age": "3", "gender": "female"})
-check("8: another member updating my traveller -> 404", r.status_code == 404)
-r = other.post(f"/account/travelers/{target['id']}/delete")
-check("8: another member deleting my traveller -> 404", r.status_code == 404)
-after = next(x for x in rows(m1, include_deleted=True) if x["id"] == target["id"])
-check("8: the row is untouched", after["age_at_record"] == target["age_at_record"] and after["deleted_at"] is None)
-r = app.test_client().post(f"/account/travelers/{target['id']}/delete")
-check("8: logged-out delete -> redirect to login, nothing deleted",
-      r.status_code == 302 and "login" in r.headers.get("Location", "") and rows(m1, include_deleted=True)[0]["deleted_at"] is None)
+target_label = next(t["label"] for t in mp.list_travelers(m1) if t["id"] == target["id"])
+admin = app.test_client()
+r = admin.get(f"/admin/delete-traveler?member_id={m2}&traveler_id={target['id']}")
+check("8: a traveler id that isn't this member's -> 404, nothing deleted",
+      r.status_code == 404 and rows(m1, include_deleted=True, children_only=True)[0]["id"] == target["id"]
+      and rows(m1, include_deleted=True, children_only=True)[0]["deleted_at"] is None)
+r = admin.get(f"/admin/delete-traveler?member_id={m1}")
+check("8: missing traveler_id -> 400", r.status_code == 400)
+r = admin.get(f"/admin/delete-traveler?member_id={m1}&traveler_id={target['id']}")
+preview = r.get_json()
+check("8: without confirm=1, only a preview is returned - nothing deleted",
+      r.status_code == 200 and preview.get("would_delete") is True and preview.get("applied") is False
+      and preview.get("label") == target_label
+      and rows(m1, include_deleted=True, children_only=True)[0]["deleted_at"] is None)
+r = admin.get(f"/admin/delete-traveler?member_id={m1}&traveler_id={target['id']}&confirm=1")
+gone = next(x for x in rows(m1, include_deleted=True) if x["id"] == target["id"])
+check("8: confirm=1 actually deletes (soft delete)", r.status_code == 200 and r.get_json().get("applied") is True and gone["deleted_at"] is not None)
+check("8 (Din): deleted row has every personal field NULL",
+      all(gone[f] is None for f in ("first_name", "relationship", "gender", "age_at_record", "age_recorded_at")))
+r = admin.get(f"/admin/delete-traveler?member_id={m1}&traveler_id={target['id']}&confirm=1")
+check("8: deleting an already-deleted traveler -> 404", r.status_code == 404)
 
-# own update
-owner = client_for(m1)
-r = owner.post(f"/account/travelers/{target['id']}/update", data={"age": "11", "gender": "male"})
-fixed = next(x for x in rows(m1) if x["id"] == target["id"])
-check("own update -> redirect back to profile", r.status_code == 302 and "#my-profile" in r.headers.get("Location", ""))
-check("own update -> age saved, source edited_by_customer, needs_review cleared",
-      fixed["age_at_record"] == 11 and fixed["source"] == "edited_by_customer" and fixed["needs_review"] == 0)
-
-# --- 4. Delete ---------------------------------------------------------------------
+# --- 4. Delete (direct, as member_profile.delete_traveler - still used internally) --
 girl_id = next(x["id"] for x in rows(m1, children_only=True) if x["gender"] == "female")
-r = owner.post(f"/account/travelers/{girl_id}/delete")
+check("4: delete -> deleted_at set (soft delete)", mp.delete_traveler(m1, girl_id))
 gone = next(x for x in rows(m1, include_deleted=True) if x["id"] == girl_id)
-check("4: delete -> deleted_at set (soft delete)", r.status_code == 302 and gone["deleted_at"] is not None)
+check("4: deleted_at actually set", gone["deleted_at"] is not None)
 check("4: deleted row not listed", girl_id not in [t["id"] for t in mp.list_travelers(m1)])
 check("4 (Din): deleted row has every personal field NULL",
       all(gone[f] is None for f in ("first_name", "relationship", "gender", "age_at_record", "age_recorded_at")))
 mp.sync_trip_travelers(m1, {"adults": 2, "child_ages": [17], "child_genders": ["female"]}, "2027-07-20")
 gone_again = next(x for x in rows(m1, include_deleted=True) if x["id"] == girl_id)
 check("4: a later vacation never revives the deleted row", gone_again["deleted_at"] is not None and gone_again["age_at_record"] is None)
-check("4: deleting twice -> 404", owner.post(f"/account/travelers/{girl_id}/delete").status_code == 404)
-check("4: profile page no longer shows the deleted row",
-      f"/account/travelers/{girl_id}/delete" not in owner.get("/account").get_data(as_text=True))
+check("4: deleting twice -> False", not mp.delete_traveler(m1, girl_id))
 
 check("4: account deletion removes all member_travelers rows",
       database.delete_member_account(m1) and rows(m1, include_deleted=True) == [])
@@ -214,7 +230,7 @@ check("migration: the old table is kept (row still there before any delete)", st
 mp.sync_trip_travelers(m6, {"adults": 2, "child_ages": []}, "2026-05-01")
 check("migration: a named companion counts as the second adult (no unnamed duplicate)", len(rows(m6)) == 1)
 noa = rows(m6)[0]
-check("delete a named traveller -> 200/redirect", client_for(m6).post(f"/account/travelers/{noa['id']}/delete").status_code == 302)
+check("delete a named traveller", mp.delete_traveler(m6, noa["id"]))
 noa_after = rows(m6, include_deleted=True)[0]
 check("delete (Din): name, relationship and all personal fields are NULL",
       all(noa_after[f] is None for f in ("first_name", "relationship", "gender", "age_at_record", "age_recorded_at"))
@@ -227,10 +243,21 @@ check("delete (Din): the matching ariella_travel_companions row is gone", left =
 src = open(os.path.join(os.path.dirname(__file__), "..", "public_site.py"), encoding="utf-8").read()
 check("sync is called right after the chat creates the trip",
       "member_profile.sync_trip_travelers(session[\"member_id\"], travelers)" in src)
+check("the Contact link exists in the site footer (#131)",
+      'url_for(\'site.contact\'' in open(os.path.join(os.path.dirname(__file__), "..", "templates", "_site_footer.html"), encoding="utf-8").read())
 for path in ("/privacy?lang=he", "/privacy?lang=en"):
     text = app.test_client().get(path).get_data(as_text=True)
-    check(f"{path} explains the saved traveller list and the right to delete it",
-          ("מה אריאלה זוכרת עליי" in text) if path.endswith("he") else ("What Ariella remembers about me" in text))
+    # Route B (business owner, 22.10.2026, Din's condition PRV-14 - replaces
+    # the earlier "moved to account details" plan): the policy must never
+    # point at a screen that no longer exists - it now routes a view/
+    # correction/deletion request through staff via the Contact page,
+    # handled within 30 days, instead of naming any self-service screen.
+    check(f"{path} routes the request through the Contact page with a 30-day SLA",
+          ('דרך עמוד "יצירת קשר", והבקשה תטופל בתוך 30 ימים' in text) if path.endswith("he")
+          else ('through the "Contact" page, and the request will be handled within 30 days' in text))
+    check(f"{path} no longer names the removed self-service heading or the account details page",
+          ("מה אריאלה זוכרת עליי" not in text and "פרטי החשבון" not in text) if path.endswith("he")
+          else ("What Ariella remembers about me" not in text and "Account Details" not in text))
     check(f"{path} carries Din's exact wording",
           ("מחיקת נוסע מוחקת את פרטיו, ומחיקת החשבון מוחקת את כל הרשימה." in text) if path.endswith("he")
           else ("Deleting a traveler deletes their details, and deleting your account deletes the whole list." in text))

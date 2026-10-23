@@ -12,7 +12,7 @@ import threading
 import random
 import requests
 import re
-from urllib.parse import parse_qsl, quote, urlencode
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 from datetime import date, datetime
 from functools import wraps
 from zoneinfo import ZoneInfo
@@ -34,6 +34,7 @@ from scoring import (
 )
 import booking_demand
 import itinerary_cards
+from money_format import format_nis
 import member_profile
 from hfa_routes import hfa_route_check
 from radar_alerts import evaluate_trip_alert
@@ -78,6 +79,167 @@ def _he_dates(value):
         return f"{d}.{m}.{y}"
 
     return re.sub(r"(\d{4})-(\d{2})-(\d{2})", _swap, text)
+
+
+@site.app_template_filter("nis")
+def _nis(value):
+    """An ILS amount for the English site: "1,306 NIS" (Hebrew keeps ₪)."""
+    return format_nis(value)
+
+
+_SHEKEL_AMOUNT = re.compile(r"₪\s?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s?₪")
+
+
+@site.app_template_filter("en_currency")
+def _en_currency(text):
+    """Rewrite every ₪ amount inside English free text as "1,306 NIS" -
+    e.g. booking_choice_reason_en saved by older scans ("A cheaper option by ₪80")."""
+    def _swap(match):
+        return _nis((match.group(1) or match.group(2)).replace(",", ""))
+    return _SHEKEL_AMOUNT.sub(_swap, str(text or ""))
+
+
+@site.app_template_filter("en_weekday_date")
+def _en_weekday_date(value):
+    """An ISO date as an English flight-leg date: "Sat, 20 Feb 2027".
+    The scanner only stores a Hebrew display string (display_he)."""
+    raw = str(value or "")[:10]
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").strftime("%a, %d %b %Y")
+    except ValueError:
+        return raw
+
+
+# "Why Ariella selected this deal" in English. Keys are the Hebrew reasons that
+# reach display_reasons: scoring.py's reasons (": +N" stripped in database.py),
+# _reason_label's replacements and database.py's own fallbacks. qa/run_qa.py
+# fails when scoring.py or database.py adds a displayed reason missing here, so
+# a new reason can no longer silently fall back to the generic line.
+DEAL_REASON_EN = {
+    "מחיר נמוך משמעותית": "Significantly lower price",
+    "מסלול טיסה נוח": "Convenient route",
+    "תנאי כבודה טובים": "Good baggage terms",
+    "שעות טיסה נוחות": "Convenient flight times",
+    "הזדמנות נדירה": "Rare opportunity",
+    "טיסה ישירה": "Direct flight",
+    "קונקשן אחד": "One connection",
+    "מסלול משתלם": "Good-value route",
+    "נבחר לאחר השוואת אפשרויות": "Selected after comparing options",
+    "כבודה כלולה": "Baggage included",
+    "איכות מסלול (ישירה)": "Direct itinerary",
+    "המחיר הזול ביותר שנמצא לתאריכים האלה": "Lowest price found for these dates",
+    "מחיר נמוך לעומת טיסות דומות": "Low price compared with similar flights",
+    "מזוודה 20 ק״ג ומעלה כלולה": "Checked bag (20 kg+) included",
+    "טרולי כלול": "Carry-on included",
+    "תיק גב כלול": "Backpack included",
+    "מקסימום ניצול זמן היום": "Makes the most of your day",
+    "מקסימום ניצול זמן חופשה": "Makes the most of your vacation time",
+}
+
+
+@site.app_template_filter("deal_reason_en")
+def _deal_reason_en(reason):
+    text = str(reason or "").strip()
+    if text in DEAL_REASON_EN:
+        return DEAL_REASON_EN[text]
+    # Reasons built with _msg (closest-match / business ranking) are already
+    # English on the English site.
+    if not re.search(r"[֐-׿]", text):
+        return text
+    logging.warning("deal reason without an English translation: %s", text)
+    return "Selected after comparing options"
+
+
+# Trip-answer values shown on the vacation card (Shlomo's decision, 23.10):
+# fixed codes get a label in both languages; Hebrew values from the chat get an
+# English label for the common ones; anything else is shown exactly as saved.
+_ANSWER_LABELS = {
+    "ski_skill_level": {
+        "first_time": ("פעם ראשונה", "First time"),
+        "beginner": ("מתחילים", "Beginner"),
+        "intermediate": ("בינוניים", "Intermediate"),
+        "advanced": ("מתקדמים", "Advanced"),
+        "mixed": ("רמות מעורבות", "Mixed levels"),
+    },
+    "ski_transfer_choice": {
+        "90": ("עד 90 דקות מהשדה", "Up to 90 min from the airport"),
+        "180": ("עד 180 דקות מהשדה", "Up to 180 min from the airport"),
+    },
+    "cabin_class": {
+        "economy": ("תיירים", "Economy"),
+        "premium_economy": ("פרימיום אקונומי", "Premium economy"),
+        "business": ("עסקים", "Business"),
+        "first": ("ראשונה", "First"),
+        "תיירים": ("תיירים", "Economy"),
+        "פרימיום": ("פרימיום", "Premium economy"),
+        "עסקים": ("עסקים", "Business"),
+        "ראשונה": ("ראשונה", "First"),
+    },
+    "lodging_type": {
+        "מלון": ("מלון", "Hotel"),
+        "דירה": ("דירה", "Apartment"),
+        "וילה": ("וילה", "Villa"),
+        "צימר": ("צימר", "Zimmer (B&B)"),
+        "הוסטל": ("הוסטל", "Hostel"),
+        "אין העדפה": ("אין העדפה", ""),
+    },
+    "car_transmission": {
+        "אוטומטי": ("אוטומטי", "Automatic"),
+        "ידני": ("ידני", "Manual"),
+    },
+    "car_vehicle_type": {
+        "קטן": ("קטן", "Small"),
+        "רכב קטן": ("רכב קטן", "Small car"),
+        "משפחתי": ("משפחתי", "Family"),
+        "רכב משפחתי": ("רכב משפחתי", "Family car"),
+        "גדול": ("גדול", "Large"),
+        "רכב גדול": ("רכב גדול", "Large car"),
+        "SUV": ("SUV", "SUV"),
+        "ג'יפ": ("ג'יפ", "Jeep"),
+        "ג׳יפ": ("ג׳יפ", "Jeep"),
+        "7 מקומות": ("7 מקומות", "7-seater"),
+        "מיניוואן": ("מיניוואן", "Minivan"),
+    },
+}
+
+
+@site.app_template_filter("answer_label")
+def _answer_label(value, field):
+    raw = str(value if value is not None else "").strip()
+    labels = (_ANSWER_LABELS.get(field) or {}).get(raw) or (_ANSWER_LABELS.get(field) or {}).get(raw.lower())
+    if not labels:
+        return raw
+    return labels[1] if _lang() == "en" else labels[0]
+
+
+_CITY_EN_BY_HE = {}
+
+
+def _place_en(name):
+    """English city name for a Hebrew place from the chat (segment stops),
+    via static/airports.json - anything not found is returned as is."""
+    raw = str(name or "").strip()
+    if not _CITY_EN_BY_HE:
+        for row in _AIRPORT_LOCALIZATION.values():
+            if row.get("city_he") and row.get("city_en"):
+                _CITY_EN_BY_HE.setdefault(str(row["city_he"]).strip(), row["city_en"])
+    return _CITY_EN_BY_HE.get(raw, raw)
+
+
+@site.app_template_filter("place_label")
+def _place_label(name):
+    return _place_en(name) if _lang() == "en" else name
+
+
+_LODGING_SEARCH_ERRORS_EN = {
+    "חסר יעד או תאריכים כדי לחפש לינה.": "A destination or dates are missing, so lodging can't be searched yet.",
+}
+
+
+@site.app_template_filter("lodging_error_en")
+def _lodging_error_en(message):
+    """lodging_search_error is saved in Hebrew in the trip answers."""
+    return _LODGING_SEARCH_ERRORS_EN.get(str(message or "").strip(), "The search failed. You can try again in a moment.")
 
 
 # A day mention ("יום 1 (ראשון)", "יום ראשון", "יום שני:"...) counts as
@@ -206,6 +368,13 @@ except Exception:
     _AIRPORT_LOCALIZATION = {}
 
 
+def _is_affiliate_lodging_link(link) -> bool:
+    """True only for a link that really goes out through our CJ Booking.com
+    wrap (_cj_booking_wrap) - the only lodging result link that is an
+    affiliate link, so the only one labelled "קישור שותף"."""
+    return bool(CJ_BOOKING_EVERGREEN_LINK) and str(link or "").startswith(CJ_BOOKING_EVERGREEN_LINK + "?")
+
+
 def _cj_booking_wrap(destination_url: str, sid: str | None = None) -> str:
     """Wrap a plain Booking.com URL behind our CJ "Evergreen" tracking link
     (Booking.com's URL structure means CJ's own deep-link generator can't do
@@ -217,6 +386,34 @@ def _cj_booking_wrap(destination_url: str, sid: str | None = None) -> str:
     if sid:
         params["sid"] = sid
     return CJ_BOOKING_EVERGREEN_LINK + "?" + urlencode(params, quote_via=quote)
+
+
+def _is_booking_com_url(url: str | None) -> bool:
+    """True for a real booking.com URL - used to decide which outbound
+    links are eligible for _cj_booking_wrap. Never wrap a link to another
+    supplier (Hotels.com, Expedia, the hotel's own site, ...): there is no
+    approved CJ advertiser for those, so CJ would just reject the click."""
+    try:
+        host = (urlsplit(str(url or "")).netloc or "").lower().split(":", 1)[0]
+    except Exception:
+        return False
+    return host == "booking.com" or host.endswith(".booking.com")
+
+
+def _strip_foreign_booking_affiliate_params(url: str) -> str:
+    """Seen live (Shaked): SerpApi's google_hotels results already carry
+    someone else's Booking.com affiliate attribution (aid, label) baked
+    into the link - whoever SerpApi/Google Hotels associates them with.
+    These must be stripped before wrapping our own CJ tracking link on
+    top, or Booking.com could still credit the booking to that other
+    party instead of us. Every other query parameter (the actual hotel,
+    room, dates) is left untouched."""
+    try:
+        parsed = urlsplit(str(url or ""))
+        kept = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k not in ("aid", "label")]
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(kept, quote_via=quote), parsed.fragment))
+    except Exception:
+        return url
 
 
 _SKI_DB_FILE = Path(__file__).resolve().parent / "data" / "ski_resorts.json"
@@ -2402,6 +2599,7 @@ def inject_site_context():
             "core_itinerary_text": itinerary_cards.core_itinerary_text,
             "attraction_price_view": itinerary_cards.attraction_price_view,
             "attraction_tickets_url": itinerary_cards.attraction_tickets_url,
+            "is_affiliate_lodging_link": _is_affiliate_lodging_link,
             "business": _business_details()}
 
 
@@ -2962,6 +3160,52 @@ def go_kiwi(offer_id):
     )
 
 
+def _trip_destination_display(trip):
+    """The vacation card title, in the site language (also used by checkout)."""
+    answers = trip.get("answers") or {}
+    try:
+        destination_codes = sorted(_trip_destination_codes(trip))
+    except Exception:
+        destination_codes = []
+    if str(answers.get("vacation_type") or "") == "ski":
+        # ski_target_labels comes from the manual resort-picker form;
+        # ski_resort_names(_he) comes from the Ariella chat flow, which
+        # determines the resort through conversation instead. Either one
+        # means a specific resort was actually pinned down. The catalog
+        # names in ski_resort_names are English, so English shows them as is.
+        ski_labels = answers.get("ski_target_labels") or []
+        if not ski_labels and answers.get("ski_resort_names"):
+            if _lang() == "en":
+                ski_labels = list(answers.get("ski_resort_names"))
+            else:
+                ski_labels = answers.get("ski_resort_names_he") or _ski_resort_he_names(answers.get("ski_resort_names"))
+        if ski_labels:
+            return _msg(
+                "חופשת סקי — " + " • ".join(ski_labels),
+                "Ski vacation — " + " • ".join(ski_labels),
+            )
+        return _msg(
+            "חופשת סקי — אריאלה תבחר אתר סקי",
+            "Ski vacation — Ariella chooses a ski resort",
+        )
+    if destination_codes:
+        # The card shows the destination COUNTRY, not the individual
+        # airport city names - a Croatia trip with DBV+SPU gateways
+        # should read "קרואטיה", not "דוברובניק • ספליט". Dedup by
+        # country so a multi-gateway trip within one country still
+        # shows a single name.
+        labels = []
+        for code in destination_codes:
+            info = _AIRPORT_LOCALIZATION.get(code, {})
+            country_he = info.get("country_he") or info.get("city_he") or code
+            country_en = info.get("country_en") or info.get("city_en") or code
+            label = country_en if _lang() == "en" else country_he
+            if label not in labels:
+                labels.append(label)
+        return " • ".join(labels)
+    return trip.get("request_name") or _msg("חופשה", "Vacation")
+
+
 @site.get("/account")
 @login_required
 def account():
@@ -3039,42 +3283,7 @@ def account():
             destination_codes = sorted(_trip_destination_codes(trip))
         except Exception:
             destination_codes = []
-        destination_info = _AIRPORT_LOCALIZATION.get(destination_codes[0], {}) if destination_codes else {}
-        if str(answers.get("vacation_type") or "") == "ski":
-            # ski_target_labels comes from the manual resort-picker form;
-            # ski_resort_names(_he) comes from the Ariella chat flow, which
-            # determines the resort through conversation instead. Either one
-            # means a specific resort was actually pinned down.
-            ski_labels = answers.get("ski_target_labels") or []
-            if not ski_labels and answers.get("ski_resort_names"):
-                ski_labels = answers.get("ski_resort_names_he") or _ski_resort_he_names(answers.get("ski_resort_names"))
-            if ski_labels:
-                trip["destination_display"] = _msg(
-                    "חופשת סקי — " + " • ".join(ski_labels),
-                    "Ski vacation — " + " • ".join(ski_labels),
-                )
-            else:
-                trip["destination_display"] = _msg(
-                    "חופשת סקי — אריאלה תבחר אתר סקי",
-                    "Ski vacation — Ariella chooses a ski resort",
-                )
-        elif destination_codes:
-            # The card shows the destination COUNTRY, not the individual
-            # airport city names - a Croatia trip with DBV+SPU gateways
-            # should read "קרואטיה", not "דוברובניק • ספליט". Dedup by
-            # country so a multi-gateway trip within one country still
-            # shows a single name.
-            labels = []
-            for code in destination_codes:
-                info = _AIRPORT_LOCALIZATION.get(code, {})
-                country_he = info.get("country_he") or info.get("city_he") or code
-                country_en = info.get("country_en") or info.get("city_en") or code
-                label = country_en if _lang() == "en" else country_he
-                if label not in labels:
-                    labels.append(label)
-            trip["destination_display"] = " • ".join(labels)
-        else:
-            trip["destination_display"] = trip.get("request_name") or _msg("חופשה", "Vacation")
+        trip["destination_display"] = _trip_destination_display(trip)
 
         if str(answers.get("vacation_type") or "") == "ski":
             trip["image_url"] = "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=82"
@@ -3105,38 +3314,23 @@ def account():
     radar_alerts_by_trip = latest_trip_alerts([t["id"] for t in trips])
     for trip in trips:
         trip["radar_alert"] = radar_alerts_by_trip.get(trip["id"])
-    try:
-        member_travelers = member_profile.list_travelers(member_id)
-    except Exception:
-        logging.exception("member_profile.list_travelers failed member=%s", member_id)
-        member_travelers = []
+    # Seen live (Shaked): _wrap_booking_com_hotel_links only ran at search
+    # time, so a vacation whose lodging was searched before this fix
+    # shipped kept showing its stored, uncredited link forever - a real
+    # search never re-runs on its own. Re-applying it here, at render
+    # time, on every page load, covers that old data too - safe to do on
+    # every trip every time: the function is idempotent (see its own
+    # docstring), and persisting the result back is deliberately skipped,
+    # since nothing outside rendering ever needs the wrapped form.
+    for trip in trips:
+        offers = (trip.get("answers") or {}).get("lodging_offers")
+        if offers:
+            trip["answers"]["lodging_offers"] = _wrap_booking_com_hotel_links(offers, trip["id"])
     return render_template(
         "account.html", member=dict(member_row), trips=trips,
         welcome=request.args.get("welcome") == "1",
         personal_search_plans=PERSONAL_SEARCH_PLANS,
-        member_travelers=member_travelers,
     )
-
-
-@site.post("/account/travelers/<int:traveler_id>/update")
-@login_required
-def update_member_traveler(traveler_id):
-    """Task 010a: the customer corrects a remembered traveller's age/gender."""
-    if not member_profile.update_traveler(
-        session["member_id"], traveler_id,
-        age=request.form.get("age"), gender=request.form.get("gender"),
-    ):
-        abort(404)
-    return redirect(url_for("site.account") + "#my-profile")
-
-
-@site.post("/account/travelers/<int:traveler_id>/delete")
-@login_required
-def delete_member_traveler(traveler_id):
-    """Task 010a: the customer removes a remembered traveller (soft delete)."""
-    if not member_profile.delete_traveler(session["member_id"], traveler_id):
-        abort(404)
-    return redirect(url_for("site.account") + "#my-profile")
 
 
 
@@ -3757,7 +3951,8 @@ def ariella_start_flight_search():
     if flight_wanted and "flights" not in services:
         services.add("flights")
     if not flight_wanted:
-        return jsonify({"status":"error","message":"לא סומן חיפוש טיסות בבקשה המאושרת."}), 400
+        return jsonify({"status":"error","message":"לא סומן חיפוש טיסות בבקשה המאושרת.",
+                        "message_en":"A flight search wasn't marked in the approved request."}), 400
 
     destination = state.get("destination") or {}
     places = destination.get("places") or []
@@ -3775,7 +3970,8 @@ def ariella_start_flight_search():
     # execution time. Tinkerbell must first resolve the gateway choice with the customer.
     destination_mode = str(destination.get("mode") or "").lower()
     if destination_mode in {"country","region","area","broad"} and not selected_destination_airports:
-        return jsonify({"status":"error","message":"יש להשלים בחירת שדה או שדות יעד לפני סריקת הטיסות."}), 400
+        return jsonify({"status":"error","message":"יש להשלים בחירת שדה או שדות יעד לפני סריקת הטיסות.",
+                        "message_en":"Please choose the destination airport(s) before the flight search."}), 400
     history = body.get("history") if isinstance(body.get("history"), list) else []
     recovered_codes, recovered_labels, recovered_dates = _chat_recover_search_facts(history)
     if not destination_codes and recovered_codes:
@@ -3794,7 +3990,8 @@ def ariella_start_flight_search():
             print(f"[CHAT-HANDOFF] narrowing country destination {destination_codes} -> {narrowed} from approved conversation", flush=True)
             destination_codes = narrowed
     if places and not destination_codes:
-        return jsonify({"status":"error","message":"לא הצלחתי לזהות את יעד הטיסה לצורך הסריקה."}), 400
+        return jsonify({"status":"error","message":"לא הצלחתי לזהות את יעד הטיסה לצורך הסריקה.",
+                        "message_en":"I couldn't identify the flight destination for the search."}), 400
 
     travelers = state.get("travelers") or {}
     dates = state.get("dates") or {}
@@ -3804,7 +4001,8 @@ def ariella_start_flight_search():
     # Task 011a: from Haifa only Air Haifa's routes exist - never search
     # HFA -> a destination it does not fly to (data/hfa_routes.json).
     if departure_airport == "HFA" and destination_codes and hfa_route_check(destination_codes) == "not_served":
-        return jsonify({"status": "error", "message": "מחיפה אין טיסה ישירה ליעד הזה. אפשר לבקש מאריאלה לבדוק מנתב\"ג."}), 400
+        return jsonify({"status": "error", "message": "מחיפה אין טיסה ישירה ליעד הזה. אפשר לבקש מאריאלה לבדוק מנתב\"ג.",
+                        "message_en": "There is no direct flight from Haifa to this destination. You can ask Ariella to check from Ben Gurion (TLV)."}), 400
     # Execution uses the approved structured state as the sole source of truth.
     # Never rebuild approved dates from prose/history at handoff time.
     dep = _chat_iso_date(dates.get("departure"))
@@ -3813,14 +4011,17 @@ def ariella_start_flight_search():
     month = period[:7] if len(period) >= 7 and period[:4].isdigit() else ""
     date_mode = "exact" if dep and ret else ("month" if month else "flexible")
     if not destination_codes:
-        return jsonify({"status":"error","message":"חסר יעד טיסה ולכן לא נפתחה חופשה ריקה."}), 400
+        return jsonify({"status":"error","message":"חסר יעד טיסה ולכן לא נפתחה חופשה ריקה.",
+                        "message_en":"The flight destination is missing, so no empty vacation was opened."}), 400
     if date_mode == "flexible":
-        return jsonify({"status":"error","message":"חסרים תאריכי חיפוש ולכן לא נפתחה חופשה ריקה."}), 400
+        return jsonify({"status":"error","message":"חסרים תאריכי חיפוש ולכן לא נפתחה חופשה ריקה.",
+                        "message_en":"The search dates are missing, so no empty vacation was opened."}), 400
     # Never open a vacation (and spend a scan) on dates that already passed -
     # seen live: a 28.6.2026 trip approved in October 2026 created a new
     # vacation whose scan then failed.
     if dep and dep < date.today().isoformat():
-        return jsonify({"status":"error","message":"תאריך היציאה כבר עבר, ולכן לא נפתח חיפוש. כדאי לבדוק עם אריאלה את התאריכים (כנראה התכוונת לשנה הבאה)."}), 400
+        return jsonify({"status":"error","message":"תאריך היציאה כבר עבר, ולכן לא נפתח חיפוש. כדאי לבדוק עם אריאלה את התאריכים (כנראה התכוונת לשנה הבאה).",
+                        "message_en":"The departure date has already passed, so no search was started. Please check the dates with Ariella (you probably meant next year)."}), 400
 
     # A departure airport with very limited service (e.g. Haifa) can have
     # zero real flights to a given destination. Once a live search has
@@ -3833,6 +4034,7 @@ def ariella_start_flight_search():
             return jsonify({
                 "status": "no_service_from_departure",
                 "message": f"נראה שאין כרגע טיסות זמינות משדה {dep_name} ליעד הזה. מומלץ לבחור שדה תעופה אחר (כמו נתב״ג) כדי שאוכל לחפש עבורכם.",
+                "message_en": f"There seem to be no flights available right now from {(_AIRPORT_LOCALIZATION.get(departure_airport) or {}).get('city_en') or departure_airport} to this destination. Please choose another airport (such as Ben Gurion, TLV) so I can search for you.",
             }), 200
 
     deal_priorities = _flight_direct_priority(flight)
@@ -3909,6 +4111,7 @@ def ariella_start_flight_search():
                         "status": "queued", "trip_id": existing_trip_id,
                         "account_url": url_for("site.account") + f"#vacation-{existing_trip_id}",
                         "message": "מעדכנת את החופשה שלך לפרטים החדשים וסורקת מחדש.",
+                        "message_en": "Updating your vacation with the new details and searching again.",
                     })
                 return jsonify({
                     "status": "change_requires_payment",
@@ -3918,6 +4121,11 @@ def ariella_start_flight_search():
                         "שינוי יעד או תאריכים לחופשה שכבר אושרה הוא חלק מהמעקב היומי בתשלום (39 ₪) - "
                         "מעבירה אותך לכרטיסייה כדי לבחור את המסלול הזה. לאחר התשלום אפשר לשנות תאריכים "
                         "או יעד בכל שלב במהלך תקופת המעקב."
+                    ),
+                    "message_en": (
+                        f"Changing the destination or dates of an approved vacation is part of paid daily tracking ({format_nis(39)}) - "
+                        "taking you to the vacation card to choose that plan. After payment you can change dates "
+                        "or destination at any point during the tracking period."
                     ),
                 })
 
@@ -3931,6 +4139,7 @@ def ariella_start_flight_search():
             "trip_id": duplicate_trip_id,
             "account_url": url_for("site.account") + f"#vacation-{duplicate_trip_id}",
             "message": "כבר יש לך חיפוש פעיל לטיסה הזו. מעבירה אותך לתוצאות הקיימות — ואם תרצי עדכון מחיר יומי טרי, אפשר להפעיל מעקב יומי בתשלום מכרטיסיית החופשה.",
+            "message_en": "You already have an active search for this flight. Taking you to the existing results - for a fresh daily price update, you can turn on paid daily tracking from the vacation card.",
         })
 
     trip_type_value = str(state.get("trip_type") or "").strip().lower()
@@ -5130,6 +5339,35 @@ def _save_trip_answers(trip_id: int, answers: dict) -> None:
         conn.commit()
 
 
+def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int) -> list[dict]:
+    """Seen live (Shaked): every Google Hotels result card's own "view and
+    book" button sends the customer straight to booking.com, uncredited -
+    SerpApi's google_hotels engine returns each property's real booking
+    link as-is, with no affiliate attribution. Booking.com is the one
+    CJ-approved lodging partner (CJ_BOOKING_EVERGREEN_LINK), so any result
+    link that actually goes to booking.com is routed through the same CJ
+    wrap the dedicated partner card uses, tied back to this vacation via
+    sid. A result pointing at a different supplier (the hotel's own site,
+    another OTA) is left untouched - there is no approved program for
+    those, so wrapping it would just send the click nowhere. Before
+    wrapping, any foreign aid/label Booking.com affiliate parameters
+    already on the link are stripped (see
+    _strip_foreign_booking_affiliate_params) - otherwise Booking.com could
+    still credit someone else for the booking.
+
+    Idempotent by construction, never by a special case: a link this
+    function already wrapped points at the CJ evergreen link's own host,
+    never booking.com's, so _is_booking_com_url is false on a second pass
+    and it is left alone - safe to call again on data this already ran
+    on (e.g. at render time, to cover vacations saved before this fix
+    shipped, not just newly searched ones)."""
+    for hotel in hotels:
+        link = hotel.get("link")
+        if link and _is_booking_com_url(link):
+            hotel["link"] = _cj_booking_wrap(_strip_foreign_booking_affiliate_params(link), sid=f"trip{trip_id}")
+    return hotels
+
+
 def _run_lodging_search(trip_id: int, answers: dict) -> None:
     """Execute a real lodging search (SerpApi's Google Hotels engine) for one
     trip and persist the results plus a completion flag the waiting page and
@@ -5222,7 +5460,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                     any_ok = True
                 except Exception:
                     logging.exception("Segment lodging search failed for trip %s (%s)", trip_id, seg.get("location"))
-            answers["lodging_offers"] = all_hotels[:15]
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links(all_hotels[:15], trip_id)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None if any_ok else "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."
             answers["_lodging_search_result"] = {
@@ -5287,7 +5525,7 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 max_price=_max_price_for(dep, ret), vacation_rentals=vacation_rentals,
                 min_hotel_class=min_hotel_class,
             )
-            answers["lodging_offers"] = (result.get("hotels") or [])[:10]
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links((result.get("hotels") or [])[:10], trip_id)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None
             answers["_lodging_search_result"] = {"status": "ok", "count": len(answers["lodging_offers"])}
@@ -5370,20 +5608,87 @@ def _run_car_search(trip_id: int, answers: dict) -> None:
     _save_trip_answers(trip_id, answers)
 
 
+def _car_return_iata(answers: dict, pickup_iata: str) -> str:
+    """The airport the car goes back to: a different airport only when the
+    customer's own return-location answer (car.details.return) clearly names
+    one - by its IATA code, or by the exact catalog name (whole word) of a
+    city other than the pickup's that has a single airport. Anything else
+    (nothing said, the pickup city itself, an ambiguous multi-airport city,
+    several places) -> the pickup airport ("same place")."""
+    text = str((answers or {}).get("car_return") or "")
+    if not text.strip():
+        return pickup_iata
+    codes = {c for c in re.findall(r"(?<![A-Za-z])([A-Z]{3})(?![A-Za-z])", text) if c in _AIRPORT_LOCALIZATION}
+    if codes:
+        codes.discard(pickup_iata)
+        return codes.pop() if len(codes) == 1 else pickup_iata
+    pickup_info = _AIRPORT_LOCALIZATION.get(pickup_iata) or {}
+    pickup_city = str(pickup_info.get("city_en") or "").strip().lower()
+    cities = {}
+    for code, info in _AIRPORT_LOCALIZATION.items():
+        for name in (info.get("city_he"), info.get("city_en")):
+            name = str(name or "").strip()
+            if name and re.search(r"(?<![\w])[בלמ]?" + re.escape(name) + r"(?![\w])", text, re.IGNORECASE):
+                cities.setdefault(str(info.get("city_en") or name).strip().lower(), set()).add(code)
+    if pickup_city in cities or len(cities) != 1:
+        return pickup_iata
+    (city_codes,) = cities.values()
+    return next(iter(city_codes)) if len(city_codes) == 1 else pickup_iata
+
+
+_VIPCARS_LOCATIONS_FILE = Path(__file__).resolve().parent / "static" / "vipcars_locations.json"
+
+
+def _vipcars_location(iata: str) -> dict | None:
+    """VIP Cars' own ids for an airport: {"country", "city", "location"}
+    (static/vipcars_locations.json - verified entries only), or None."""
+    try:
+        data = json.loads(_VIPCARS_LOCATIONS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    entry = (data.get("locations") or {}).get(str(iata or "").upper())
+    if not isinstance(entry, dict) or not all(isinstance(entry.get(k), int) for k in ("country", "city", "location")):
+        return None
+    return entry
+
+
 def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     """Outbound CJ-tracked URL for one car-rental card. The sid lets CJ
-    reports tie a commission back to the vacation it came from."""
+    reports tie a commission back to the vacation it came from.
+
+    Per the business owner's decision (22.10, relayed by Shlomo): VIP Cars
+    gets the pickup airport, the pickup and return dates, and where the car
+    goes back ({return_iata}; {same_return} "1"/"0"). Times: VIP Cars
+    rejects a search with no pick-up time ("Please provide a valid Pick-up
+    Time", the business owner's own test), so {pickup_time}/{return_time}
+    carry the HH:MM the customer gave in the chat (car.details.pickup/
+    return), or 10:00 - the customer can change it on VIP Cars' page."""
     params = {"sid": f"trip{trip_id}"}
     if CAR_RENTAL_SEARCH_URL_TEMPLATE:
+        return_iata = _car_return_iata(answers, iata)
+        fields = {
+            "iata": iata,
+            "return_iata": return_iata,
+            "same_return": "1" if return_iata == iata else "0",
+            "pickup_date": answers.get("departure_date") or "",
+            "return_date": answers.get("return_date") or "",
+            "pickup_time": _car_time(answers.get("car_pickup")) or "10:00",
+            "return_time": _car_time(answers.get("car_return")) or "10:00",
+        }
+        # VIP Cars identifies places by its own ids, not IATA (a real search
+        # by the business owner, 22.10). Only filled when BOTH ends are in
+        # the verified mapping - a template that needs them and is missing
+        # one falls to the partner's home page, never a half-filled search.
+        pickup_loc, dropoff_loc = _vipcars_location(iata), _vipcars_location(return_iata)
+        if pickup_loc and dropoff_loc:
+            for prefix, loc in (("pickup", pickup_loc), ("dropoff", dropoff_loc)):
+                for key in ("country", "city", "location"):
+                    fields[f"{prefix}_{key}"] = loc[key]
         try:
-            params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(
-                iata=iata,
-                pickup_date=answers.get("departure_date") or "",
-                return_date=answers.get("return_date") or "",
-                pickup_time=_car_time(answers.get("car_pickup")) or "10:00",
-                return_time=_car_time(answers.get("car_return")) or "10:00",
-            )
-        except (KeyError, IndexError, ValueError):
+            params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(**fields)
+        except KeyError:
+            logging.info("Car partner link for %s->%s: no verified partner location ids; linking to partner home page", iata, return_iata)
+        except (IndexError, ValueError):
             logging.warning("CAR_RENTAL_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
     joiner = "&" if "?" in CAR_RENTAL_AFFILIATE_LINK else "?"
     return CAR_RENTAL_AFFILIATE_LINK + joiner + urlencode(params, quote_via=quote)
@@ -5409,7 +5714,7 @@ def _car_when(iso_date, text) -> str:
     if not iso_date:
         return ""
     time = _car_time(text)
-    return _he_date(iso_date) + (f" בשעה {time}" if time else " · שעה לפי הטיסה")
+    return _he_date(iso_date) + (_msg(f" בשעה {time}", f" at {time}") if time else _msg(" · שעה לפי הטיסה", " · time to match your flight"))
 
 
 def _int_or(value, default):
@@ -5421,18 +5726,32 @@ def _int_or(value, default):
 
 def _lodging_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     """Outbound CJ-tracked URL for one lodging card (sid ties a commission
-    back to the vacation in CJ reports)."""
+    back to the vacation in CJ reports). LODGING_AFFILIATE_LINK is a
+    generic CJ advertiser deep-link, set once some lodging partner is
+    approved. Seen live (Shaked): it defaults to Agoda, which CJ has never
+    actually approved for this account - the only approved lodging partner
+    today is Booking.com MEA, via CJ_BOOKING_EVERGREEN_LINK (see
+    _cj_booking_wrap). So whenever LODGING_AFFILIATE_LINK itself isn't
+    configured, fall back to a Booking.com search URL wrapped the same
+    way, instead of silently producing an uncredited/broken link."""
+    airport = _AIRPORT_LOCALIZATION.get(iata) or {}
+    city = airport.get("city_en") or iata
+    dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
+    adults = _int_or(answers.get("adults"), 2) or 1
+    children = _int_or(answers.get("children"), 0)
+    rooms = _int_or(answers.get("lodging_rooms"), 1) or 1
+    if not LODGING_AFFILIATE_LINK:
+        search_url = "https://www.booking.com/searchresults.html?" + urlencode({
+            "ss": city, "checkin": dep, "checkout": ret,
+            "group_adults": adults, "group_children": children, "no_rooms": rooms,
+        }, quote_via=quote)
+        return _cj_booking_wrap(search_url, sid=f"trip{trip_id}")
     params = {"sid": f"trip{trip_id}"}
     if LODGING_SEARCH_URL_TEMPLATE:
-        airport = _AIRPORT_LOCALIZATION.get(iata) or {}
         try:
             params["url"] = LODGING_SEARCH_URL_TEMPLATE.format(
-                city=airport.get("city_en") or iata,
-                checkin=answers.get("departure_date") or "",
-                checkout=answers.get("return_date") or "",
-                adults=_int_or(answers.get("adults"), 2) or 1,
-                children=_int_or(answers.get("children"), 0),
-                rooms=_int_or(answers.get("lodging_rooms"), 1) or 1,
+                city=city, checkin=dep, checkout=ret,
+                adults=adults, children=children, rooms=rooms,
             )
         except (KeyError, IndexError, ValueError):
             logging.warning("LODGING_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
@@ -5443,8 +5762,12 @@ def _lodging_partner_url(answers: dict, iata: str, trip_id: int) -> str:
 def _lodging_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     """One card per destination (max 3) for a trip that asked for lodging,
     each linking out to the approved lodging partner. No price on the card:
-    the real, priced options are the Google Hotels results below it."""
-    if not LODGING_AFFILIATE_LINK or not isinstance(answers, dict):
+    the real, priced options are the Google Hotels results below it.
+    LODGING_AFFILIATE_LINK (a generic, not-yet-approved CJ advertiser link)
+    takes priority when set; otherwise this falls back to Booking.com MEA
+    via CJ_BOOKING_EVERGREEN_LINK, the lodging partner actually approved
+    today - see _lodging_partner_url."""
+    if not (LODGING_AFFILIATE_LINK or CJ_BOOKING_EVERGREEN_LINK) or not isinstance(answers, dict):
         return []
     wants_lodging = "lodging" in (answers.get("_requested_services") or []) or answers.get("lodging_type")
     if not wants_lodging:
@@ -5452,16 +5775,26 @@ def _lodging_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     kind = str(answers.get("lodging_type") or "").strip()
     dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
     adults, children = _int_or(answers.get("adults"), 0), _int_or(answers.get("children"), 0)
-    guests = (f"{adults} מבוגרים" if adults else "") + (f", {children} ילדים" if children else "")
+    if _lang() == "en":
+        guests = (f"{adults} adult{'s' if adults != 1 else ''}" if adults else "") + (
+            f", {children} {'child' if children == 1 else 'children'}" if children else "")
+    else:
+        guests = (f"{adults} מבוגרים" if adults else "") + (f", {children} ילדים" if children else "")
+    supplier = LODGING_PARTNER_NAME if LODGING_AFFILIATE_LINK else "Booking.com"
     cards = []
     for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
         airport = _AIRPORT_LOCALIZATION.get(code) or {}
-        city = airport.get("city_he") or AIRPORT_NAMES.get(code, code)
+        if _lang() == "en":
+            name = f"Stay in {airport.get('city_en') or code}"
+            dates = f"From {_he_date(dep)} to {_he_date(ret)}" if dep and ret else ""
+        else:
+            name = f"לינה ב{airport.get('city_he') or AIRPORT_NAMES.get(code, code)}"
+            dates = f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else ""
         cards.append({
-            "name": f"לינה ב{city}" + (f" · {kind}" if kind else ""),
-            "dates": f"מ-{_he_date(dep)} עד {_he_date(ret)}" if dep and ret else "",
+            "name": name + (f" · {_answer_label(kind, 'lodging_type')}" if _answer_label(kind, "lodging_type") else ""),
+            "dates": dates,
             "guests": guests,
-            "supplier": LODGING_PARTNER_NAME,
+            "supplier": supplier,
             "link": f"/trip/{trip_id}/book-lodging/{code}",
         })
     return cards
@@ -5482,19 +5815,39 @@ def _car_partner_cards(trip_id: int, answers: dict) -> list[dict]:
     vehicle = str(answers.get("car_vehicle_type") or "").strip()
     transmission = str(answers.get("car_transmission") or "").strip()
     seats = answers.get("car_seats")
-    title = "רכב שכור" + "".join(
+    en = _lang() == "en"
+    title = _msg("רכב שכור", "Rental car") + "".join(
         f" · {part}" for part in (
-            vehicle if vehicle != "אין העדפה" else "",
-            transmission if transmission != "לא משנה" else "",
-            f"{seats} מקומות" if seats and f"{seats} מקומות" not in vehicle else "",
+            _answer_label(vehicle, "car_vehicle_type") if vehicle != "אין העדפה" else "",
+            _answer_label(transmission, "car_transmission") if transmission != "לא משנה" else "",
+            (f"{seats} seats" if en else f"{seats} מקומות") if seats and f"{seats} מקומות" not in vehicle else "",
         ) if part
     )
     dep, ret = answers.get("departure_date") or "", answers.get("return_date") or ""
+
+    def airport_name(code):
+        if en:
+            return (_AIRPORT_LOCALIZATION.get(code) or {}).get("city_en") or code
+        return AIRPORT_NAMES.get(code, code)
+
     cards = []
     for code in sorted(_trip_destination_codes({"answers": answers}))[:3]:
+        return_code = _car_return_iata(answers, code)
+        if en:
+            pickup = (
+                f"Pick-up and return at {airport_name(code)} airport ({code})" if return_code == code else
+                f"Pick-up at {airport_name(code)} airport ({code}), return at "
+                f"{airport_name(return_code)} airport ({return_code})"
+            )
+        else:
+            pickup = (
+                f"איסוף והחזרה בשדה התעופה {airport_name(code)} ({code})" if return_code == code else
+                f"איסוף בשדה התעופה {airport_name(code)} ({code}), החזרה בשדה התעופה "
+                f"{airport_name(return_code)} ({return_code})"
+            )
         cards.append({
             "name": title,
-            "pickup": f"איסוף והחזרה בשדה התעופה {AIRPORT_NAMES.get(code, code)} ({code})",
+            "pickup": pickup,
             "pickup_when": _car_when(dep, answers.get("car_pickup")),
             "return_when": _car_when(ret, answers.get("car_return")),
             "supplier": CAR_RENTAL_PARTNER_NAME,
@@ -5554,15 +5907,16 @@ def book_lodging(trip_id, code):
             (trip_id, session["member_id"]),
         ).fetchone()
     code = str(code or "").upper()
-    if not row or not LODGING_AFFILIATE_LINK:
+    if not row or not (LODGING_AFFILIATE_LINK or CJ_BOOKING_EVERGREEN_LINK):
         return redirect(url_for("site.account"))
     answers = dict(_trip_dict(row).get("answers") or {})
     if code not in _trip_destination_codes({"answers": answers}):
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
     url = _lodging_partner_url(answers, code, trip_id)
+    supplier = LODGING_PARTNER_NAME if LODGING_AFFILIATE_LINK else "Booking.com"
     record_booking_click(
         member_id=session["member_id"], destination_code=code,
-        supplier=LODGING_PARTNER_NAME, outbound_date=answers.get("departure_date"),
+        supplier=supplier, outbound_date=answers.get("departure_date"),
         return_date=answers.get("return_date"), booking_url=url, affiliate_network="cj",
     )
     return redirect(url)
@@ -5651,6 +6005,9 @@ def trip_checkout(trip_id):
     plan_info = PERSONAL_SEARCH_PLANS.get(plan)
     if trip.get("subscription_status") != "pending" or not plan_info:
         return redirect(url_for("site.account") + f"#vacation-{trip_id}")
+    # Same localized title as the vacation card - request_name alone is the
+    # Hebrew name from the chat ("Daily tracking for ליסבון" in English).
+    trip["destination_display"] = _trip_destination_display(trip)
     return render_template("trip_checkout.html", trip=trip, plan=plan, plan_info=plan_info)
 
 

@@ -10,10 +10,10 @@
       {% if preload_image %}<link rel="preload" as="image" href="{{ preload_image }}" fetchpriority="high">{% endif %}
     {% endfor %}
   {% endif %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20261016-profile010a-kiwi013a">
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=20261023-lang-en">
   {% if request.endpoint != 'site.feedback' %}
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deals-header.css') }}?v=20260917-imagepreload1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}?v=20260923-terms6">
+  <link rel="stylesheet" href="{{ url_for('static', filename='mobile-deal-card-fixes.css') }}?v=20261023-lang-en-v2">
   {% endif %}
   {% if request.endpoint not in ['site.new_trip','site.feedback','site.deals'] %}
   <link rel="stylesheet" href="{{ url_for('static', filename='mobile-trip-regular.css') }}">
@@ -55,7 +55,7 @@
 {% block site_footer %}{% include "_site_footer.html" %}{% endblock %}
 <script>document.querySelectorAll('.check-card input').forEach(input=>{const update=()=>input.closest('.check-card')?.classList.toggle('selected',input.checked);input.addEventListener('change',update);update();});</script>
 {% if request.endpoint not in ['site.feedback','site.deals'] %}<script src="{{ url_for('static', filename='airport-picker.js') }}"></script>{% endif %}
-{% if request.endpoint not in ['site.new_trip','site.feedback','site.deals'] %}<script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20260917-qa4"></script>{% endif %}
+{% if request.endpoint not in ['site.new_trip','site.feedback','site.deals'] %}<script src="{{ url_for('static', filename='questionnaire-fixes-20260906.js') }}?v=20261023-lang-en-nis"></script>{% endif %}
 <script id="ariella-account-first-name-only">(function(){if(location.pathname!='/account'||document.documentElement.lang==='en')return;function fix(){const h=document.querySelector('.account-new-content h1');if(!h)return;const raw=(h.textContent||'').replace(/^\s*שלום\s*[,،]?\s*/,'').trim();const first=raw.split(/\s+/)[0]||'';h.textContent=first?'שלום '+first:'שלום';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix,{once:true});else fix();})();</script>
 <script id="ariella-split-account-name">(function(){if(location.pathname!='/account/details')return;function split(){const full=document.querySelector('input[name="full_name"]');if(!full||full.dataset.split==='1')return;full.dataset.split='1';const label=full.closest('label');if(!label)return;const value=(full.value||'').trim(),parts=value.split(/\s+/).filter(Boolean),first=parts.shift()||'',last=parts.join(' ');const firstLabel=document.createElement('label'),lastLabel=document.createElement('label');firstLabel.textContent=document.documentElement.lang==='en'?'First name':'שם פרטי';lastLabel.textContent=document.documentElement.lang==='en'?'Last name':'שם משפחה';const firstInput=document.createElement('input'),lastInput=document.createElement('input');firstInput.type=lastInput.type='text';firstInput.autocomplete='given-name';lastInput.autocomplete='family-name';firstInput.value=first;lastInput.value=last;firstInput.required=lastInput.required=true;firstLabel.appendChild(firstInput);lastLabel.appendChild(lastInput);full.type='hidden';full.required=false;label.parentNode.insertBefore(firstLabel,label);label.parentNode.insertBefore(lastLabel,label);label.style.display='none';const form=full.form;if(form)form.addEventListener('submit',()=>{full.value=(firstInput.value.trim()+' '+lastInput.value.trim()).trim();});}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',split,{once:true});else split();})();</script>
 {% if request.endpoint not in ['site.feedback','site.deals'] %}<script src="{{ url_for('static', filename='ariella-ui-runtime-20260909.js') }}?v=20260917-qa4"></script>{% endif %}

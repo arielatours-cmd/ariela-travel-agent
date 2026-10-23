@@ -2932,3 +2932,8 @@ html[lang="en"] .trip-title-line h3{direction:ltr!important;text-align:left!impo
 .ariella-deal-card .deal-price-box .kiwi-affiliate{width:100%;margin-top:12px;display:flex;flex-direction:column;gap:6px}
 .ariella-deal-card .deal-price-box .kiwi-affiliate a.kiwi-affiliate-btn{display:block;width:100%;padding:10px 12px!important;font-size:15px!important;font-weight:700;color:#123e7a!important;background:#fff!important;border:1px solid #123e7a;border-radius:8px;text-decoration:none;box-shadow:none}
 .ariella-deal-card .deal-price-box .affiliate-disclosure,.affiliate-disclosure{margin:0;font-size:12px;line-height:1.5;color:#5f5b55;text-align:start}
+
+/* English site (html dir=ltr): left-align English text that the rules above pin to the right for Hebrew */
+html[dir="ltr"] .deal-alert-switch{text-align:left!important}
+html[dir="ltr"] body .deal-card-v970 .deal-reasons-title,
+html[dir="ltr"] body .deal-card-v970 .deal-reasons-footer>div{text-align:left!important}

@@ -411,8 +411,16 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu5 = r5.get("trip_update") or {}
 check("scenario 5: baggage question stays open (current_question unchanged)",
       (tu5.get("guided") or {}).get("current_question") == "baggage")
-check("scenario 5: no guided hint forced onto this unrelated message",
-      not tu5.get("_guided_ask_hint"))
+# Dry-run 3 (Shaked, 22.10.2026): reversed from the original expectation
+# here - "no hint forced, normal routing handles it" silently stopped the
+# still-open question from ever being asked again across an unrelated
+# turn (seen live for accessibility across turns 1-3 in B/C/E). A
+# genuinely open current_question still gets its own plain hint rebuilt
+# fresh every turn, never a NEW redirect and never forced wording.
+check("scenario 5: the still-open baggage question gets its own hint "
+      "rebuilt, even on this unrelated aside - never left with no "
+      "steering at all",
+      "תיק יד בלבד" in str(tu5.get("_guided_ask_hint") or ""))
 
 # --- 6. correction: baggage already answered, customer corrects it ->
 #     correction hint, and a CLOSED flights session reopens ---

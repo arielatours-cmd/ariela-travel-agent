@@ -195,6 +195,10 @@ if itin_rendered:
     check("page: the old free-text price is never shown", "חופשי-טקסט" not in html)
     check("page: a reseller ticket link is not rendered, the official one is",
           "reseller.example" not in html and "tickets.example/Fresh" in html)
+    en = client.get("/account?lang=en").get_data(as_text=True)
+    check("page EN: Din's wording is Hebrew only - no price line on the English page (the links stay, in English)",
+          "מחיר משוער" not in en and '<div class="itin-card-price">' not in en and "Buy tickets" in en and "tickets.example/Fresh" in en)
+    client.get("/account?lang=he")
 
 with sqlite3.connect(database.DB_PATH) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-attraction-price@example.com'")
