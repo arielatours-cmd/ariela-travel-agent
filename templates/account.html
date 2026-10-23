@@ -1,6 +1,11 @@
 {% extends "base.html" %}{% from "_deal_card.html" import deal_card %}
 {% block title %}{{ 'My Vacations' if site_lang == 'en' else 'החופשות שלי' }}{% endblock %}
 {% block content %}
+{% macro plan_from_tab(trip_id, plan) %}{% if plan_from_empty_tab_enabled %}
+  {# The business owner (23.10): an empty tab -> back to the chat to plan just that part (hidden until the chat side is ready). #}
+  {% set plan_labels = {'flights': ('Find flights for this trip', 'לחפש טיסות לחופשה זו'), 'lodging': ('Plan lodging for this trip', 'לתכנן לינה לחופשה זו'), 'car': ('Plan a car for this trip', 'לתכנן רכב לחופשה זו'), 'route': ('Plan an itinerary for this trip', 'לתכנן מסלול לחופשה זו')} %}
+  <div class="plan-from-tab"><a class="lodging-search-btn plan-from-tab-btn" href="{{ url_for('site.new_trip', trip=trip_id, plan=plan) }}">{{ plan_labels[plan][0] if site_lang == 'en' else plan_labels[plan][1] }}</a></div>
+{% endif %}{% endmacro %}
 <section class="vacations-hero">
   <div class="vacations-hero-shade"></div>
   <div class="shell vacations-hero-content">
@@ -191,8 +196,10 @@
             {% endif %}
           {% elif a.get('_flight_search_finished') %}
             <div class="vacation-empty">{% set direct_only = (a.get('flight') or {}).get('connection_preference') == 'direct' %}{% if site_lang == 'en' %}Ariella finished searching and found no flights that exactly match your request{% if direct_only %} (including direct flights only){% endif %}. You can go back to the chat and ask to change a detail (such as also allowing connecting flights) to widen the search.{% else %}אריאלה סיימה לחפש ולא מצאה טיסות שתואמות בדיוק לבקשה שלך{% if direct_only %} (כולל טיסה ישירה בלבד){% endif %}. אפשר לחזור לצ'אט ולבקש לשנות פרט (כמו לאפשר גם טיסות עם קונקשן) כדי שהחיפוש יתרחב.{% endif %}</div>
+            {{ plan_from_tab(trip.id, 'flights') }}
           {% else %}
             <div class="vacation-empty">{{ 'Ariella is still searching for the best-matching flights.' if site_lang == 'en' else 'אריאלה עדיין מחפשת את הטיסות המתאימות ביותר.' }}</div>
+            {% if 'flights' not in (a.get('_requested_services') or []) %}{{ plan_from_tab(trip.id, 'flights') }}{% endif %}
           {% endif %}
         </div>
 
@@ -269,6 +276,7 @@
                after a failed search (no message without an action button; the saved error isn't shown). #}
             {% if not partner_stays %}
             <div class="vacation-empty">{{ 'Lodging options will appear here based on your destination, dates and number of guests.' if site_lang == 'en' else 'כאן יוצגו אפשרויות לינה לפי היעד, התאריכים ומספר האורחים.' }}</div>
+            {{ plan_from_tab(trip.id, 'lodging') }}
             {% endif %}
           {% endif %}
         </div>
@@ -276,6 +284,7 @@
           .lodging-search-btn{display:inline-block;background:#0fc2b0;color:#fff!important;font-weight:800;padding:12px 28px;border-radius:999px;box-shadow:0 7px 20px rgba(15,194,176,.3);border:0;cursor:pointer;font-size:14px}
           .lodging-search-btn.secondary{background:#fff;color:#0fc2b0!important;border:1.5px solid #0fc2b0;box-shadow:none;padding:9px 20px;font-size:13px}
           .lodging-partner-card{margin-bottom:14px;border-color:#0fc2b0}
+          .plan-from-tab{text-align:center;margin-top:14px}
           .lodging-search-error{background:#fff3f0;border:1px solid #f3c6bb;color:#9a3b23;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;text-align:center}
           .lodging-results-list{display:grid;gap:14px;margin-bottom:14px}
           .lodging-result-card{display:flex;gap:12px;background:#fff;border:1px solid #e5dccd;border-radius:12px;padding:12px;box-shadow:0 2px 8px #0000000a}
@@ -361,6 +370,7 @@
             <div class="vacation-empty">{{ 'Ariella is checking rental cars for this vacation.' if site_lang == 'en' else 'אריאלה בודקת רכב שכור לחופשה הזו.' }}</div>
           {% else %}
             <div class="vacation-empty">{{ 'Car options will appear here based on your travelers, baggage, pick-up and return.' if site_lang == 'en' else 'כאן יוצגו אפשרויות רכב לפי מספר הנוסעים, הכבודה, האיסוף וההחזרה שבחרתם.' }}</div>
+            {{ plan_from_tab(trip.id, 'car') }}
           {% endif %}
         </div>
 
@@ -430,6 +440,7 @@
             </div>
           {% else %}
             <div class="vacation-empty">{{ 'Attractions and links from Ariella\'s collection will appear here, based on your vacation style and route.' if site_lang == 'en' else 'כאן יוצגו אטרקציות וקישורים מתוך מאגר אריאלה לפי סגנון החופשה והמסלול.' }}</div>
+            {{ plan_from_tab(trip.id, 'route') }}
           {% endif %}
         </div>
         {% endif %}

@@ -368,6 +368,19 @@ except Exception:
     _AIRPORT_LOCALIZATION = {}
 
 
+# The business owner (23.10, via Shlomo): an empty tab (flights / lodging / car /
+# itinerary) gets one button back to the chat to plan just that part -
+# /trip/new?trip=<id>&plan=flights|lodging|car|route. The chat side (loading
+# the vacation, asking only about that part) is Bezalel's; until it's ready
+# the button is hidden. Off unless PLAN_FROM_EMPTY_TAB_ENABLED=1 - the one
+# place to swap in Bezalel's own condition.
+PLAN_FROM_EMPTY_TAB_PLANS = ("flights", "lodging", "car", "route")
+
+
+def _plan_from_empty_tab_enabled() -> bool:
+    return os.getenv("PLAN_FROM_EMPTY_TAB_ENABLED", "").strip() == "1"
+
+
 def _is_affiliate_lodging_link(link) -> bool:
     """True only for a link that really goes out through our CJ Booking.com
     wrap (_cj_booking_wrap) - the only lodging result link that is an
@@ -2643,6 +2656,7 @@ def inject_site_context():
             "attraction_price_view": itinerary_cards.attraction_price_view,
             "attraction_tickets_url": itinerary_cards.attraction_tickets_url,
             "is_affiliate_lodging_link": _is_affiliate_lodging_link,
+            "plan_from_empty_tab_enabled": _plan_from_empty_tab_enabled(),
             "business": _business_details()}
 
 
