@@ -68,3 +68,13 @@
 - **מה קורה:** ב-Commons, השדה `Artist` של יוצר לא ידוע מגיע כ-`<span lang="en">Anonymous</span><span style="display:none">Unknown author</span>`. הסרת התגים מדביקה את שני הטקסטים, והתוצאה "AnonymousUnknown author". זה נחשב "יוצר", והתמונה מוצגת עם הקרדיט "צילום: AnonymousUnknown author / Public domain". גם "Unknown author" לבד מתקבל. לפי ההגדרה של ה-PR ("רק עם יוצר ידוע") צריך לדחות את זה. ב-PD אין חובת קרדיט, אבל ב-CC BY עם יוצר לא ידוע אי אפשר לתת קרדיט כמו שצריך.
 - **שחזור:** הקובץ האמיתי `File:Ponte Vecchio, Florence.jpg` ב-Commons. ראו גם את המקרה המדומה בטבלה בסעיף 1.
 - **הצעת תיקון:** להסיר קודם רכיבים עם `display:none`, להריץ `html.unescape` ולצמצם רווחים, ואז לדחות "Unknown author", "Anonymous" ו-"unknown" (בלי רגישות לאותיות). כדאי גם לעטוף את שם היוצר ב-`<bdi>` בתבנית, ולהשוות NC/ND בלי רגישות לאותיות.
+
+---
+
+## השלמה לסעיף 2 (אחרי הטיפ של שקד: User-Agent והפסקות של 4–12 שניות)
+- `en.wikipedia.org` **עדיין חסום** (proxy 403, לא 429), ולכן הריצה מקצה לקצה של `_wiki_image_licensed` עדיין לא אפשרית בסביבה הזו.
+- דרך commons API, `_image_license` על קבצים נוספים:
+  - פיאצה דל קמפו: `Piazza del Campo 2014 01.jpg` → `Perituss / CC0` ✅. thumbnail `/500px-`. טעינה דרך upload.wikimedia.org: **206** ✅
+  - מגדל ג'וטו: `CampanileGiotto-01.jpg` → `Thermos / CC BY-SA 2.5` ✅. `/500px-`. טעינה: **206** ✅
+  - פונטה וקיו (קובץ אחר): `Ponte Vecchio at dusk 1.JPG` → `Martin Falbisoner / CC BY-SA 3.0` ✅. `/500px-`. טעינה: **206** ✅
+- **סיכום:** על כל 5 האטרקציות בדקתי את הרישיון, היוצר והדף בקבצים אמיתיים. הקובץ היחיד שנכשל הוא `Ponte Vecchio, Florence.jpg` (ממצא 1). ה-thumbnails שה-API מחזיר הם ברוחב 500 ונטענים (206). ההחלטה ❌ לא משתנה, בגלל ממצא 1.
