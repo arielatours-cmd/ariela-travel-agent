@@ -363,8 +363,17 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
 tu9 = r9.get("trip_update") or {}
 check("scenario 9: dates question stays open (current_question unchanged)",
       (tu9.get("guided") or {}).get("current_question") == "dates")
-check("scenario 9: no guided hint forced onto this unrelated message - normal routing handles it",
-      not tu9.get("_guided_ask_hint"))
+# Dry-run 3 (Shaked, 22.10.2026): reversed from the original expectation
+# here ("no hint forced, normal routing handles it") - that silently
+# stopped the still-open question from ever being asked again across an
+# unrelated turn (seen live for accessibility across turns 1-3 in B/C/E).
+# A genuinely open current_question still gets its own plain hint rebuilt
+# fresh every turn, never a NEW redirect and never forced wording - just
+# what _handle_guided_extraction_turn would itself have returned had
+# anything changed this turn.
+check("scenario 9: the still-open dates question gets its own hint rebuilt, "
+      "even on this unrelated aside - never left with no steering at all",
+      "מתי הלקוח רוצה לטוס" in str(tu9.get("_guided_ask_hint") or ""))
 
 # --- 10. Broken JSON from the model on a FOLLOW-UP turn -> falls back to
 #     the existing regex, no crash, and a hint is still set ---
