@@ -212,6 +212,17 @@
     {"id": "roll-past-departure-next-year", "fn": "_roll_past_dates", "args": [{"dates": {"departure": "2026-07-01", "return": "2026-07-10"}}], "expect": {"dates": {"departure": "2027-07-01", "return": "2027-07-10"}}, "source": "#86 3389bbe (s3y2 טוסקנה)"},
     {"id": "roll-cross-year-return", "fn": "_roll_past_dates", "args": [{"dates": {"departure": "2026-12-28", "return": "2026-01-03"}}], "expect": {"dates": {"departure": "2026-12-28", "return": "2027-01-03"}}, "source": "#86 3389bbe"},
     {"id": "roll-reversed-same-season-flags", "fn": "_roll_past_dates", "args": [{"dates": {"departure": "2027-03-05", "return": "2027-03-01"}}], "expect": {"dates": {"needs_confirmation": true}}, "source": "#86 3389bbe"},
-    {"id": "baggage-label-uniform-ignores-unit", "fn": "_checked_bag_label", "args": [{"count": 1, "unit": "per_child"}], "expect_contains": ["לכל נוסע"], "source": "#87 7bdcb75; עודכן 20.10 — כבודה אחידה לכל הכרטיסים, אין פירוט לפי נוסע (החלטת בעלת העסק, #91)"}
+    {"id": "baggage-label-uniform-ignores-unit", "fn": "_checked_bag_label", "args": [{"count": 1, "unit": "per_child"}], "expect_contains": ["לכל נוסע"], "source": "#87 7bdcb75; עודכן 20.10 — כבודה אחידה לכל הכרטיסים, אין פירוט לפי נוסע (החלטת בעלת העסק, #91)"},
+    {"id": "he-spelling-double-vav", "fn": "_normalize_he_spelling", "args": ["וולנסיה"], "expect": "ולנסיה", "source": "#145 4ea5558"},
+    {"id": "he-spelling-double-yod", "fn": "_normalize_he_spelling", "args": ["ולנסייה"], "expect": "ולנסיה", "source": "#145 4ea5558"},
+    {"id": "arbiter-gap-clarify-beats-guided", "fn": "_turn_question_arbiter", "args": [{"_gap_clarify_question": "X", "_guided_ask_hint": "G"}], "expect_contains": ["gap_clarify"], "source": "#145 4ea5558"},
+    {"id": "arbiter-shift-beats-guided", "fn": "_turn_question_arbiter", "args": [{"_shift_candidate_hint": "S", "_guided_ask_hint": "G"}], "expect_contains": ["shift_candidate"], "source": "#145 4ea5558"},
+    {"id": "arbiter-mixed-baggage-pending", "fn": "_turn_question_arbiter", "args": [{"guided": {"mixed_baggage_pending": true}, "_guided_ask_hint": "G"}], "expect_contains": ["guided_mixed_baggage"], "source": "#145 4ea5558"},
+    {"id": "arbiter-nothing-live", "fn": "_turn_question_arbiter", "args": [{}], "expect_contains": ["(None, None)"], "source": "#145 4ea5558"},
+    {"id": "accessibility-blocks-summary-when-unasked", "fn": "_guided_incomplete_fields", "args": [{"dates": {"departure": "2027-01-01", "return": "2027-01-05"}, "travelers": {"adults": 2}, "guided": {"answered": ["dates", "travelers"]}}], "expect": ["accessibility"], "source": "#143 a31ecad"},
+    {"id": "accessibility-answered-no-gap", "fn": "_guided_incomplete_fields", "args": [{"dates": {"departure": "2027-01-01", "return": "2027-01-05"}, "travelers": {"adults": 2}, "accessibility": {"asked": true, "needed": false}, "guided": {"answered": ["dates", "travelers", "accessibility"]}}], "expect": [], "source": "#143 a31ecad"},
+    {"id": "accessibility-line-practical-need", "fn": "_flight_accessibility_line", "args": [{"accessibility": {"asked": true, "needed": true, "details": "קושי בהליכה למרחקים ארוכים"}}], "expect": "התאמות נגישות: קושי בהליכה למרחקים ארוכים", "source": "#145 4ea5558"},
+    {"id": "accessibility-line-none-when-not-needed", "fn": "_flight_accessibility_line", "args": [{"accessibility": {"asked": true, "needed": false}}], "expect": null, "source": "#145 4ea5558"},
+    {"id": "mixed-baggage-hint-payment-step", "fn": "_mixed_baggage_payment_time_hint", "args": [], "expect_contains": ["עמוד התשלום"], "source": "#128 90d98d2"}
   ]
 }
