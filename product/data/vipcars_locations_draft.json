@@ -1,0 +1,1696 @@
+{
+ "_meta": {
+  "description_he": "מיפוי קוד IATA למזהים הפנימיים של VIP Cars לחיפוש רכב באיסוף משדה התעופה (pickup_country, pickup_city, pickup_location). טיוטת נתונים בלבד, בלי שינוי קוד.",
+  "verified_at": "2026-10-22",
+  "method_he": [
+   "רשימת כל דפי המיקום נלקחה מ-www.vipcars.com/location.xml (מתוך sitemap.xml). מזהי המדינות מעמוד הספרייה www.vipcars.com/car-rental.",
+   "לכל שדה בקטלוג נמצא דף שדה תעופה שהכותרת שלו מכילה את קוד ה-IATA, למשל \"Car Rental Lisbon Airport (LIS)\".",
+   "המזהים נלקחו מכפתורי \"View Deal\" בדף, שקוראים ל-change_search(..., pickup_country, pickup_city, pickup_location, ...) ובונים את כתובת www.vipcars.com/search/.",
+   "מופה רק אם כל הכפתורים בדף מצביעים על אותה שלישייה, והמדינה והעיר זהות למדינה ולעיר של הדף עצמו (default_values בדף). בדפים בלי מבצעים משלהם האתר מציג מבצעים של מיקום אחר (למשל דף סמוס מציג את אתונה, דף ספליט מציג את צרפת), ולכן הם לא מופו.",
+   "אומת מול הדוגמה: ליסבון 120/1788/777, ו-Lisbon Downtown היא 6118.",
+   "ה-autocomplete של טופס החיפוש נטען מ-res.supplycars.com, שחסום ברשת של הסביבה, ולכן לא נבדק."
+  ],
+  "search_url_template": "https://www.vipcars.com/search/?aff=vipcars_web&language=en&pickup_country={country}&pickup_city={city}&pickup_location={location}&dropoff_city={city}&dropoff_location={location}&pickup_date=YYYY-MM-DD&pickup_time=10%3A00&dropoff_date=YYYY-MM-DD&dropoff_time=10%3A00&rc=us&currency=USD&page=search",
+  "note_he": "בדף יש גם pickup_loc ב-default_values (בליסבון 2751) - זה מזהה אחר מזה של החיפוש (777). לא להשתמש בו.",
+  "counts": {
+   "catalog_airports_excluding_israel": 186,
+   "mapped": 122,
+   "unverified": 64,
+   "deal_destinations": 37,
+   "deal_destinations_mapped": 27
+  }
+ },
+ "airports": {
+  "AMS": {
+   "country": 106,
+   "city": 1619,
+   "location": 767,
+   "vipcars_name": "Amsterdam Airport (AMS)",
+   "source_page": "https://www.vipcars.com/car-rental/netherlands/amsterdam/amsterdam-airport",
+   "in_deals": true
+  },
+  "ATH": {
+   "country": 62,
+   "city": 1259,
+   "location": 482,
+   "vipcars_name": "Athens Airport (ATH)",
+   "source_page": "https://www.vipcars.com/car-rental/greece/athens/athens-airport",
+   "in_deals": true
+  },
+  "BCN": {
+   "country": 522,
+   "city": 10905,
+   "location": 397,
+   "vipcars_name": "Barcelona Airport (BCN)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-mainland/barcelona/barcelona-airport",
+   "in_deals": true
+  },
+  "BEG": {
+   "country": 499,
+   "city": 10003,
+   "location": 859,
+   "vipcars_name": "Belgrade Airport (BEG)",
+   "source_page": "https://www.vipcars.com/car-rental/serbia/belgrade/belgrade-airport",
+   "in_deals": true
+  },
+  "BER": {
+   "country": 60,
+   "city": 924,
+   "location": 52200564,
+   "vipcars_name": "Berlin Brandenburg Airport (BER)",
+   "source_page": "https://www.vipcars.com/car-rental/germany/berlin/berlin-brandenburg-airport",
+   "in_deals": true
+  },
+  "BKK": {
+   "country": 465,
+   "city": 8019,
+   "location": 10020,
+   "vipcars_name": "Bangkok Suvarnabhumi Airport (BKK)",
+   "source_page": "https://www.vipcars.com/car-rental/thailand/bangkok/bangkok-suvarnabhumi-airport",
+   "in_deals": true
+  },
+  "BRU": {
+   "country": 14,
+   "city": 211,
+   "location": 771,
+   "vipcars_name": "Brussels Airport (BRU)",
+   "source_page": "https://www.vipcars.com/car-rental/belgium/brussels/brussels-airport",
+   "in_deals": true
+  },
+  "BUD": {
+   "country": 69,
+   "city": 1320,
+   "location": 635,
+   "vipcars_name": "Budapest Airport (BUD)",
+   "source_page": "https://www.vipcars.com/car-rental/hungary/budapest/budapest-airport",
+   "in_deals": true
+  },
+  "CDG": {
+   "country": 55,
+   "city": 751,
+   "location": 477,
+   "vipcars_name": "Charles de Gaulle CDG Airport (CDG)",
+   "source_page": "https://www.vipcars.com/car-rental/france/paris/charles-de-gaulle-cdg-airport",
+   "in_deals": true
+  },
+  "EVN": {
+   "country": 486,
+   "city": 9962,
+   "location": 7190,
+   "vipcars_name": "Yerevan Airport (EVN)",
+   "source_page": "https://www.vipcars.com/car-rental/armenia/yerevan/yerevan-airport",
+   "in_deals": true
+  },
+  "LCA": {
+   "country": 42,
+   "city": 380,
+   "location": 758,
+   "vipcars_name": "Larnaca Airport (LCA)",
+   "source_page": "https://www.vipcars.com/car-rental/cyprus/larnaca/larnaca-airport",
+   "in_deals": true
+  },
+  "LIS": {
+   "country": 120,
+   "city": 1788,
+   "location": 777,
+   "vipcars_name": "Lisbon Airport (LIS)",
+   "source_page": "https://www.vipcars.com/car-rental/portugal/lisbon/lisbon-airport",
+   "in_deals": true
+  },
+  "LJU": {
+   "country": 135,
+   "city": 1884,
+   "location": 765,
+   "vipcars_name": "Ljubljana Airport (LJU)",
+   "source_page": "https://www.vipcars.com/car-rental/slovenia/ljubljana/ljubljana-airport",
+   "in_deals": true
+  },
+  "MLA": {
+   "country": 94,
+   "city": 1547,
+   "location": 7121,
+   "vipcars_name": "Valletta Malta Airport (MLA)",
+   "source_page": "https://www.vipcars.com/car-rental/malta/valletta/valletta-malta-airport",
+   "in_deals": true
+  },
+  "MUC": {
+   "country": 60,
+   "city": 1125,
+   "location": 544,
+   "vipcars_name": "Munich Airport (MUC)",
+   "source_page": "https://www.vipcars.com/car-rental/germany/munich/munich-airport",
+   "in_deals": true
+  },
+  "MXP": {
+   "country": 77,
+   "city": 1430,
+   "location": 382,
+   "vipcars_name": "Malpensa Airport (MXP)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/milan/malpensa-airport",
+   "in_deals": true
+  },
+  "OTP": {
+   "country": 125,
+   "city": 1851,
+   "location": 8902,
+   "vipcars_name": "Otopeni Airport (OTP)",
+   "source_page": "https://www.vipcars.com/car-rental/romania/bucharest/otopeni-airport",
+   "in_deals": true
+  },
+  "PFO": {
+   "country": 42,
+   "city": 383,
+   "location": 760,
+   "vipcars_name": "Paphos Airport (PFO)",
+   "source_page": "https://www.vipcars.com/car-rental/cyprus/paphos/paphos-airport",
+   "in_deals": true
+  },
+  "PRG": {
+   "country": 43,
+   "city": 395,
+   "location": 756,
+   "vipcars_name": "Prague Airport (PRG)",
+   "source_page": "https://www.vipcars.com/car-rental/czech-republic/prague/prague-airport",
+   "in_deals": true
+  },
+  "SKP": {
+   "country": 91,
+   "city": 1516,
+   "location": 791,
+   "vipcars_name": "Skopje Airport (SKP)",
+   "source_page": "https://www.vipcars.com/car-rental/macedonia/skopje/skopje-airport",
+   "in_deals": true
+  },
+  "SOF": {
+   "country": 21,
+   "city": 258,
+   "location": 780,
+   "vipcars_name": "Sofia Airport (SOF)",
+   "source_page": "https://www.vipcars.com/car-rental/bulgaria/sofia/sofia-airport",
+   "in_deals": true
+  },
+  "TBS": {
+   "country": 435,
+   "city": 9665,
+   "location": 7193,
+   "vipcars_name": "Tbilisi Airport (TBS)",
+   "source_page": "https://www.vipcars.com/car-rental/georgia/tbilisi/tbilisi-airport",
+   "in_deals": true
+  },
+  "TGD": {
+   "country": 529,
+   "city": 11225,
+   "location": 5625,
+   "vipcars_name": "Podgorica Airport (TGD)",
+   "source_page": "https://www.vipcars.com/car-rental/montenegro/podgorica/podgorica-airport",
+   "in_deals": true
+  },
+  "TIA": {
+   "country": 418,
+   "city": 9671,
+   "location": 864,
+   "vipcars_name": "Tirana Airport (TIA)",
+   "source_page": "https://www.vipcars.com/car-rental/albania/tirana/tirana-airport",
+   "in_deals": true
+  },
+  "VIE": {
+   "country": 12,
+   "city": 202,
+   "location": 657,
+   "vipcars_name": "Vienna Airport (VIE)",
+   "source_page": "https://www.vipcars.com/car-rental/austria/vienna/vienna-airport",
+   "in_deals": true
+  },
+  "ZAG": {
+   "country": 40,
+   "city": 377,
+   "location": 797,
+   "vipcars_name": "Zagreb Airport (ZAG)",
+   "source_page": "https://www.vipcars.com/car-rental/croatia/zagreb/zagreb-airport",
+   "in_deals": true
+  },
+  "ZRH": {
+   "country": 153,
+   "city": 2125,
+   "location": 720,
+   "vipcars_name": "Zurich Airport (ZRH)",
+   "source_page": "https://www.vipcars.com/car-rental/switzerland/zurich/zurich-airport",
+   "in_deals": true
+  },
+  "ADB": {
+   "country": 162,
+   "city": 2160,
+   "location": 12186,
+   "vipcars_name": "Izmir Airport (ADB)",
+   "source_page": "https://www.vipcars.com/car-rental/turkey/izmir/izmir-airport",
+   "in_deals": false
+  },
+  "AGP": {
+   "country": 522,
+   "city": 11376,
+   "location": 436,
+   "vipcars_name": "Malaga Airport (AGP)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-mainland/malaga/malaga-airport",
+   "in_deals": false
+  },
+  "ALA": {
+   "country": 82,
+   "city": 1494,
+   "location": 709881,
+   "vipcars_name": "Almaty Airport (ALA)",
+   "source_page": "https://www.vipcars.com/car-rental/kazakhstan/almaty/almaty-airport",
+   "in_deals": false
+  },
+  "ALC": {
+   "country": 522,
+   "city": 11367,
+   "location": 392,
+   "vipcars_name": "Alicante Airport (ALC)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-mainland/alicante/alicante-airport",
+   "in_deals": false
+  },
+  "AMM": {
+   "country": 80,
+   "city": 1491,
+   "location": 6959,
+   "vipcars_name": "Queen Alia International Airport (AMM)",
+   "source_page": "https://www.vipcars.com/car-rental/jordan/amman/queen-alia-intl-airport",
+   "in_deals": false
+  },
+  "ARN": {
+   "country": 152,
+   "city": 2068,
+   "location": 877,
+   "vipcars_name": "Arlanda Airport (ARN)",
+   "source_page": "https://www.vipcars.com/car-rental/sweden/stockholm/arlanda-airport",
+   "in_deals": false
+  },
+  "AUH": {
+   "country": 164,
+   "city": 2176,
+   "location": 8058,
+   "vipcars_name": "Abu Dhabi Airport (AUH)",
+   "source_page": "https://www.vipcars.com/car-rental/united-arab-emirates/abu-dhabi/abu-dhabi-airport",
+   "in_deals": false
+  },
+  "AYT": {
+   "country": 162,
+   "city": 2150,
+   "location": 5196,
+   "vipcars_name": "Antalya Airport (AYT)",
+   "source_page": "https://www.vipcars.com/car-rental/turkey/antalya/antalya-airport",
+   "in_deals": false
+  },
+  "BGO": {
+   "country": 112,
+   "city": 1663,
+   "location": 492,
+   "vipcars_name": "Bergen Airport (BGO)",
+   "source_page": "https://www.vipcars.com/car-rental/norway/bergen/bergen-airport",
+   "in_deals": false
+  },
+  "BGY": {
+   "country": 77,
+   "city": 1375,
+   "location": 370,
+   "vipcars_name": "Bergamo Airport (BGY)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/bergamo/bergamo-airport",
+   "in_deals": false
+  },
+  "BIO": {
+   "country": 522,
+   "city": 10906,
+   "location": 398,
+   "vipcars_name": "Bilbao Airport (BIO)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-mainland/bilbao/bilbao-airport",
+   "in_deals": false
+  },
+  "BLQ": {
+   "country": 77,
+   "city": 1377,
+   "location": 371,
+   "vipcars_name": "Bologna Airport (BLQ)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/bologna/bologna-airport",
+   "in_deals": false
+  },
+  "BOD": {
+   "country": 55,
+   "city": 531,
+   "location": 400,
+   "vipcars_name": "Bordeaux Airport (BOD)",
+   "source_page": "https://www.vipcars.com/car-rental/france/bordeaux/bordeaux-airport",
+   "in_deals": false
+  },
+  "BOJ": {
+   "country": 21,
+   "city": 256,
+   "location": 779,
+   "vipcars_name": "Burgas Airport (BOJ)",
+   "source_page": "https://www.vipcars.com/car-rental/bulgaria/burgas/burgas-airport",
+   "in_deals": false
+  },
+  "BOS": {
+   "country": 190,
+   "city": 2538,
+   "location": 184,
+   "vipcars_name": "Boston Airport (BOS)",
+   "source_page": "https://www.vipcars.com/car-rental/usa-massachusetts/boston/boston-airport",
+   "in_deals": false
+  },
+  "BRI": {
+   "country": 77,
+   "city": 1373,
+   "location": 369,
+   "vipcars_name": "Bari Airport (BRI)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/bari/bari-airport",
+   "in_deals": false
+  },
+  "BSL": {
+   "country": 153,
+   "city": 2085,
+   "location": 712,
+   "vipcars_name": "Basel Airport (BSL)",
+   "source_page": "https://www.vipcars.com/car-rental/switzerland/basel/basel-airport",
+   "in_deals": false
+  },
+  "BTS": {
+   "country": 134,
+   "city": 1874,
+   "location": 782,
+   "vipcars_name": "Bratislava Airport (BTS)",
+   "source_page": "https://www.vipcars.com/car-rental/slovakia/bratislava/bratislava-airport",
+   "in_deals": false
+  },
+  "CAI": {
+   "country": 48,
+   "city": 439,
+   "location": 13826,
+   "vipcars_name": "Cairo Airport (CAI)",
+   "source_page": "https://www.vipcars.com/car-rental/egypt/cairo/cairo-airport",
+   "in_deals": false
+  },
+  "CGN": {
+   "country": 60,
+   "city": 951,
+   "location": 542,
+   "vipcars_name": "Cologne Bonn Airport (CGN)",
+   "source_page": "https://www.vipcars.com/car-rental/germany/cologne/cologne-bonn-airport",
+   "in_deals": false
+  },
+  "CMB": {
+   "country": 146,
+   "city": 2016,
+   "location": 8315,
+   "vipcars_name": "Colombo International Airport (CMB)",
+   "source_page": "https://www.vipcars.com/car-rental/sri-lanka/colombo/colombo-intl-airport",
+   "in_deals": false
+  },
+  "CMF": {
+   "country": 55,
+   "city": 565,
+   "location": 437,
+   "vipcars_name": "Chambery Airport (CMF)",
+   "source_page": "https://www.vipcars.com/car-rental/france/chambery/chambery-airport",
+   "in_deals": false
+  },
+  "CMN": {
+   "country": 103,
+   "city": 1605,
+   "location": 688,
+   "vipcars_name": "Casablanca Airport (CMN)",
+   "source_page": "https://www.vipcars.com/car-rental/morocco/casablanca/casablanca-airport",
+   "in_deals": false
+  },
+  "CNX": {
+   "country": 465,
+   "city": 40276,
+   "location": 9854,
+   "vipcars_name": "Chiang Mai International Airport (CNX)",
+   "source_page": "https://www.vipcars.com/car-rental/thailand/chiang-mai/chiang-mai-intl-airport",
+   "in_deals": false
+  },
+  "CPH": {
+   "country": 44,
+   "city": 402,
+   "location": 895,
+   "vipcars_name": "Copenhagen Airport (CPH)",
+   "source_page": "https://www.vipcars.com/car-rental/denmark/copenhagen/copenhagen-airport",
+   "in_deals": false
+  },
+  "DBV": {
+   "country": 40,
+   "city": 362,
+   "location": 786,
+   "vipcars_name": "Dubrovnik Airport (DBV)",
+   "source_page": "https://www.vipcars.com/car-rental/croatia/dubrovnik/dubrovnik-airport",
+   "in_deals": false
+  },
+  "DEL": {
+   "country": 441,
+   "city": 10379,
+   "location": 17000,
+   "vipcars_name": "New Delhi Airport (DEL)",
+   "source_page": "https://www.vipcars.com/car-rental/india/new-delhi/new-delhi-airport",
+   "in_deals": false
+  },
+  "DLM": {
+   "country": 162,
+   "city": 2154,
+   "location": 12181,
+   "vipcars_name": "Dalaman Airport (DLM)",
+   "source_page": "https://www.vipcars.com/car-rental/turkey/dalaman/dalaman-airport",
+   "in_deals": false
+  },
+  "DOH": {
+   "country": 123,
+   "city": 1844,
+   "location": 705,
+   "vipcars_name": "Doha Airport (DOH)",
+   "source_page": "https://www.vipcars.com/car-rental/qatar/doha/doha-airport",
+   "in_deals": false
+  },
+  "DPS": {
+   "country": 72,
+   "city": 8287,
+   "location": 9569,
+   "vipcars_name": "Bali Airport (DPS)",
+   "source_page": "https://www.vipcars.com/car-rental/indonesia/bali/bali-airport",
+   "in_deals": false
+  },
+  "DUB": {
+   "country": 75,
+   "city": 1351,
+   "location": 787,
+   "vipcars_name": "Dublin Airport (DUB)",
+   "source_page": "https://www.vipcars.com/car-rental/ireland/dublin/dublin-airport",
+   "in_deals": false
+  },
+  "DUS": {
+   "country": 60,
+   "city": 10795,
+   "location": 526,
+   "vipcars_name": "Dusseldorf Airport (DUS)",
+   "source_page": "https://www.vipcars.com/car-rental/germany/dusseldorf/dusseldorf-airport",
+   "in_deals": false
+  },
+  "EDI": {
+   "country": 165,
+   "city": 2227,
+   "location": 512,
+   "vipcars_name": "Edinburgh Airport (EDI)",
+   "source_page": "https://www.vipcars.com/car-rental/united-kingdom/edinburgh/edinburgh-airport",
+   "in_deals": false
+  },
+  "EWR": {
+   "country": 199,
+   "city": 12252,
+   "location": 200,
+   "vipcars_name": "Newark Airport (EWR)",
+   "source_page": "https://www.vipcars.com/car-rental/usa-new-jersey/newark/newark-airport",
+   "in_deals": false
+  },
+  "EZE": {
+   "country": 9,
+   "city": 8,
+   "location": 11425,
+   "vipcars_name": "Ezeiza Ministro Pistarini Airport (EZE)",
+   "source_page": "https://www.vipcars.com/car-rental/argentina/buenos-aires/ezeiza-ministro-pistarini-airport",
+   "in_deals": false
+  },
+  "FAO": {
+   "country": 120,
+   "city": 1774,
+   "location": 513,
+   "vipcars_name": "Faro Airport (FAO)",
+   "source_page": "https://www.vipcars.com/car-rental/portugal/faro/faro-airport",
+   "in_deals": false
+  },
+  "FLR": {
+   "country": 77,
+   "city": 1402,
+   "location": 375,
+   "vipcars_name": "Florence Airport (FLR)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/florence/florence-airport",
+   "in_deals": false
+  },
+  "FRA": {
+   "country": 60,
+   "city": 996,
+   "location": 529,
+   "vipcars_name": "Frankfurt Airport (FRA)",
+   "source_page": "https://www.vipcars.com/car-rental/germany/frankfurt/frankfurt-airport",
+   "in_deals": false
+  },
+  "GOT": {
+   "country": 152,
+   "city": 2035,
+   "location": 7896,
+   "vipcars_name": "Landvetter Airport (GOT)",
+   "source_page": "https://www.vipcars.com/car-rental/sweden/gothenburg/landvetter-airport",
+   "in_deals": false
+  },
+  "GRU": {
+   "country": 20,
+   "city": 8173,
+   "location": 574,
+   "vipcars_name": "Guarulhos Airport (GRU)",
+   "source_page": "https://www.vipcars.com/car-rental/brazil/sao-paulo/guarulhos-airport",
+   "in_deals": false
+  },
+  "HAM": {
+   "country": 60,
+   "city": 1035,
+   "location": 531,
+   "vipcars_name": "Hamburg Airport (HAM)",
+   "source_page": "https://www.vipcars.com/car-rental/germany/hamburg/hamburg-airport",
+   "in_deals": false
+  },
+  "HEL": {
+   "country": 53,
+   "city": 457,
+   "location": 8840,
+   "vipcars_name": "Helsinki Airport (HEL)",
+   "source_page": "https://www.vipcars.com/car-rental/finland/helsinki/helsinki-airport",
+   "in_deals": false
+  },
+  "HKT": {
+   "country": 465,
+   "city": 8620,
+   "location": 734,
+   "vipcars_name": "Phuket Airport (HKT)",
+   "source_page": "https://www.vipcars.com/car-rental/thailand/phuket/phuket-airport",
+   "in_deals": false
+  },
+  "HND": {
+   "country": 495,
+   "city": 10551,
+   "location": 5490,
+   "vipcars_name": "Tokyo Haneda Airport (HND)",
+   "source_page": "https://www.vipcars.com/car-rental/japan/tokyo/tokyo-haneda-airport",
+   "in_deals": false
+  },
+  "IBZ": {
+   "country": 564,
+   "city": 11433,
+   "location": 430,
+   "vipcars_name": "Ibiza Airport (IBZ)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-balearic-islands/ibiza/ibiza-airport",
+   "in_deals": false
+  },
+  "ICN": {
+   "country": 1449,
+   "city": 38549,
+   "location": 8243,
+   "vipcars_name": "Incheon Int Airport (ICN)",
+   "source_page": "https://www.vipcars.com/car-rental/south-korea/incheon/incheon-int-airport",
+   "in_deals": false
+  },
+  "INN": {
+   "country": 12,
+   "city": 197,
+   "location": 651,
+   "vipcars_name": "Innsbruck Airport (INN)",
+   "source_page": "https://www.vipcars.com/car-rental/austria/innsbruck/innsbruck-airport",
+   "in_deals": false
+  },
+  "IST": {
+   "country": 162,
+   "city": 2159,
+   "location": 3634923,
+   "vipcars_name": "Car Hire Istanbul New Airport [IST]",
+   "source_page": "https://www.vipcars.com/car-rental/turkey/istanbul/istanbul-airport",
+   "in_deals": false
+  },
+  "KIX": {
+   "country": 495,
+   "city": 10539,
+   "location": 5476,
+   "vipcars_name": "Kansai Airport (KIX)",
+   "source_page": "https://www.vipcars.com/car-rental/japan/osaka/kansai-airport",
+   "in_deals": false
+  },
+  "KTW": {
+   "country": 119,
+   "city": 1735,
+   "location": 667,
+   "vipcars_name": "Katowice International Airport (KTW)",
+   "source_page": "https://www.vipcars.com/car-rental/poland/katowice/katowice-intl-airport",
+   "in_deals": false
+  },
+  "KUL": {
+   "country": 93,
+   "city": 1521,
+   "location": 8789,
+   "vipcars_name": "Kuala Lumpur Airport (KUL)",
+   "source_page": "https://www.vipcars.com/car-rental/malaysia/kuala-lumpur/kuala-lumpur-airport",
+   "in_deals": false
+  },
+  "LAS": {
+   "country": 197,
+   "city": 2602,
+   "location": 205,
+   "vipcars_name": "Las Vegas Airport (LAS)",
+   "source_page": "https://www.vipcars.com/car-rental/usa-nevada/las-vegas/las-vegas-airport",
+   "in_deals": false
+  },
+  "LAX": {
+   "country": 174,
+   "city": 2377,
+   "location": 16,
+   "vipcars_name": "Los Angeles Airport (LAX)",
+   "source_page": "https://www.vipcars.com/car-rental/usa-california/los-angeles/los-angeles-airport",
+   "in_deals": false
+  },
+  "LIN": {
+   "country": 77,
+   "city": 1430,
+   "location": 384,
+   "vipcars_name": "Linate Airport (LIN)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/milan/linate-airport",
+   "in_deals": false
+  },
+  "LPA": {
+   "country": 519,
+   "city": 11415,
+   "location": 468,
+   "vipcars_name": "Las Palmas Airport (LPA)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-canary-islands/gran-canaria/las-palmas-airport",
+   "in_deals": false
+  },
+  "LTN": {
+   "country": 165,
+   "city": 2259,
+   "location": 548,
+   "vipcars_name": "London Luton Airport (LTN)",
+   "source_page": "https://www.vipcars.com/car-rental/united-kingdom/london/london-luton-airport",
+   "in_deals": false
+  },
+  "MAH": {
+   "country": 564,
+   "city": 11435,
+   "location": 435,
+   "vipcars_name": "Menorca Airport (MAH)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-balearic-islands/menorca/menorca-airport",
+   "in_deals": false
+  },
+  "MAN": {
+   "country": 165,
+   "city": 2264,
+   "location": 549,
+   "vipcars_name": "Manchester Airport (MAN)",
+   "source_page": "https://www.vipcars.com/car-rental/united-kingdom/manchester/manchester-airport",
+   "in_deals": false
+  },
+  "MCO": {
+   "country": 178,
+   "city": 2450,
+   "location": 5,
+   "vipcars_name": "Orlando Airport (MCO)",
+   "source_page": "https://www.vipcars.com/car-rental/usa-florida/orlando/orlando-airport",
+   "in_deals": false
+  },
+  "MCT": {
+   "country": 113,
+   "city": 1717,
+   "location": 8608,
+   "vipcars_name": "Muscat Airport (MCT)",
+   "source_page": "https://www.vipcars.com/car-rental/oman/muscat/muscat-airport",
+   "in_deals": false
+  },
+  "MEX": {
+   "country": 100,
+   "city": 1585,
+   "location": 615,
+   "vipcars_name": "Mexico City Airport (MEX)",
+   "source_page": "https://www.vipcars.com/car-rental/mexico/mexico-city/mexico-city-airport",
+   "in_deals": false
+  },
+  "MNL": {
+   "country": 448,
+   "city": 9054,
+   "location": 462487,
+   "vipcars_name": "Manila Airport (MNL)",
+   "source_page": "https://www.vipcars.com/car-rental/philippines/manila/manila-airport",
+   "in_deals": false
+  },
+  "MRS": {
+   "country": 55,
+   "city": 697,
+   "location": 463,
+   "vipcars_name": "Marseille Airport (MRS)",
+   "source_page": "https://www.vipcars.com/car-rental/france/marseille/marseille-airport",
+   "in_deals": false
+  },
+  "NAP": {
+   "country": 77,
+   "city": 1434,
+   "location": 385,
+   "vipcars_name": "Naples Airport (NAP)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/naples/naples-airport",
+   "in_deals": false
+  },
+  "NBO": {
+   "country": 83,
+   "city": 1497,
+   "location": 8768,
+   "vipcars_name": "Nairobi Airport (NBO)",
+   "source_page": "https://www.vipcars.com/car-rental/kenya/nairobi/nairobi-airport",
+   "in_deals": false
+  },
+  "NCE": {
+   "country": 55,
+   "city": 735,
+   "location": 470,
+   "vipcars_name": "Nice Airport (NCE)",
+   "source_page": "https://www.vipcars.com/car-rental/france/nice/nice-airport",
+   "in_deals": false
+  },
+  "NRT": {
+   "country": 495,
+   "city": 10551,
+   "location": 323257,
+   "vipcars_name": "Narita Airport (NRT)",
+   "source_page": "https://www.vipcars.com/car-rental/japan/tokyo/narita-airport",
+   "in_deals": false
+  },
+  "NTE": {
+   "country": 55,
+   "city": 731,
+   "location": 469,
+   "vipcars_name": "Nantes Airport (NTE)",
+   "source_page": "https://www.vipcars.com/car-rental/france/nantes/nantes-airport",
+   "in_deals": false
+  },
+  "OPO": {
+   "country": 120,
+   "city": 1814,
+   "location": 778,
+   "vipcars_name": "Porto Airport (OPO)",
+   "source_page": "https://www.vipcars.com/car-rental/portugal/porto/porto-airport",
+   "in_deals": false
+  },
+  "ORD": {
+   "country": 182,
+   "city": 2491,
+   "location": 35,
+   "vipcars_name": "Chicago O'Hare Airport (ORD)",
+   "source_page": "https://www.vipcars.com/car-rental/usa-illinois/chicago/chicago-o-hare-airport",
+   "in_deals": false
+  },
+  "ORY": {
+   "country": 55,
+   "city": 751,
+   "location": 472,
+   "vipcars_name": "Paris Orly Airport (ORY)",
+   "source_page": "https://www.vipcars.com/car-rental/france/paris/paris-orly-airport",
+   "in_deals": false
+  },
+  "OSL": {
+   "country": 112,
+   "city": 1694,
+   "location": 488,
+   "vipcars_name": "Gardermoen Airport (OSL)",
+   "source_page": "https://www.vipcars.com/car-rental/norway/oslo/gardermoen-airport",
+   "in_deals": false
+  },
+  "PDV": {
+   "country": 21,
+   "city": 257,
+   "location": 11843,
+   "vipcars_name": "Plovdiv Airport (PDV)",
+   "source_page": "https://www.vipcars.com/car-rental/bulgaria/plovdiv/plovdiv-airport",
+   "in_deals": false
+  },
+  "PMI": {
+   "country": 564,
+   "city": 11434,
+   "location": 442,
+   "vipcars_name": "Palma De Mallorca Airport (PMI)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-balearic-islands/mallorca/palma-de-mallorca-airport",
+   "in_deals": false
+  },
+  "PSA": {
+   "country": 77,
+   "city": 1445,
+   "location": 391,
+   "vipcars_name": "Pisa Airport (PSA)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/pisa/pisa-airport",
+   "in_deals": false
+  },
+  "RAK": {
+   "country": 103,
+   "city": 1607,
+   "location": 693,
+   "vipcars_name": "Marrakech Airport (RAK)",
+   "source_page": "https://www.vipcars.com/car-rental/morocco/marrakech/marrakech-airport",
+   "in_deals": false
+  },
+  "RIX": {
+   "country": 85,
+   "city": 1502,
+   "location": 5629,
+   "vipcars_name": "Riga Airport (RIX)",
+   "source_page": "https://www.vipcars.com/car-rental/latvia/riga/riga-airport",
+   "in_deals": false
+  },
+  "SAW": {
+   "country": 162,
+   "city": 2159,
+   "location": 830,
+   "vipcars_name": "Sabiha Gokcen International Airport (SAW)",
+   "source_page": "https://www.vipcars.com/car-rental/turkey/istanbul/sabiha-gokcen-intl-airport",
+   "in_deals": false
+  },
+  "SFO": {
+   "country": 174,
+   "city": 2399,
+   "location": 23,
+   "vipcars_name": "San Francisco Airport (SFO)",
+   "source_page": "https://www.vipcars.com/car-rental/usa-california/san-francisco/san-francisco-airport",
+   "in_deals": false
+  },
+  "SIN": {
+   "country": 454,
+   "city": 9517,
+   "location": 700,
+   "vipcars_name": "Singapore Changi Airport (SIN)",
+   "source_page": "https://www.vipcars.com/car-rental/singapore/singapore/singapore-changi-airport",
+   "in_deals": false
+  },
+  "SJJ": {
+   "country": 487,
+   "city": 9980,
+   "location": 811,
+   "vipcars_name": "Sarajevo Airport (SJJ)",
+   "source_page": "https://www.vipcars.com/car-rental/bosnia-and-herzegovina/sarajevo/sarajevo-airport",
+   "in_deals": false
+  },
+  "SKG": {
+   "country": 62,
+   "city": 1300,
+   "location": 816,
+   "vipcars_name": "Thessaloniki Airport (SKG)",
+   "source_page": "https://www.vipcars.com/car-rental/greece/thessaloniki/thessaloniki-airport",
+   "in_deals": false
+  },
+  "SSH": {
+   "country": 48,
+   "city": 443,
+   "location": 10154,
+   "vipcars_name": "Sharm El Sheikh Airport (SSH)",
+   "source_page": "https://www.vipcars.com/car-rental/egypt/sharm-el-sheikh/sharm-el-sheikh-airport",
+   "in_deals": false
+  },
+  "STR": {
+   "country": 60,
+   "city": 1213,
+   "location": 546,
+   "vipcars_name": "Stuttgart Airport (STR)",
+   "source_page": "https://www.vipcars.com/car-rental/germany/stuttgart/stuttgart-airport",
+   "in_deals": false
+  },
+  "SVQ": {
+   "country": 522,
+   "city": 11500,
+   "location": 447,
+   "vipcars_name": "Seville Airport (SVQ)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-mainland/seville/seville-airport",
+   "in_deals": false
+  },
+  "SZG": {
+   "country": 12,
+   "city": 200,
+   "location": 655,
+   "vipcars_name": "Salzburg Airport (SZG)",
+   "source_page": "https://www.vipcars.com/car-rental/austria/salzburg/salzburg-airport",
+   "in_deals": false
+  },
+  "TFS": {
+   "country": 519,
+   "city": 10886,
+   "location": 6663,
+   "vipcars_name": "Tenerife Airport South (TFS)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-canary-islands/tenerife/tenerife-airport-south",
+   "in_deals": false
+  },
+  "TIV": {
+   "country": 529,
+   "city": 11226,
+   "location": 862,
+   "vipcars_name": "Tivat Airport (TIV)",
+   "source_page": "https://www.vipcars.com/car-rental/montenegro/tivat/tivat-airport",
+   "in_deals": false
+  },
+  "TLS": {
+   "country": 55,
+   "city": 839,
+   "location": 486,
+   "vipcars_name": "Toulouse Airport (TLS)",
+   "source_page": "https://www.vipcars.com/car-rental/france/toulouse/toulouse-airport",
+   "in_deals": false
+  },
+  "TRN": {
+   "country": 77,
+   "city": 1480,
+   "location": 408,
+   "vipcars_name": "Turin Airport (TRN)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/turin/turin-airport",
+   "in_deals": false
+  },
+  "VCE": {
+   "country": 77,
+   "city": 1483,
+   "location": 410,
+   "vipcars_name": "Venice Airport (VCE)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/venice/venice-airport",
+   "in_deals": false
+  },
+  "VLC": {
+   "country": 522,
+   "city": 11452,
+   "location": 448,
+   "vipcars_name": "Valencia Airport (VLC)",
+   "source_page": "https://www.vipcars.com/car-rental/spain-mainland/valencia/valencia-airport",
+   "in_deals": false
+  },
+  "VRN": {
+   "country": 77,
+   "city": 1485,
+   "location": 412,
+   "vipcars_name": "Verona Airport (VRN)",
+   "source_page": "https://www.vipcars.com/car-rental/italy/verona/verona-airport",
+   "in_deals": false
+  },
+  "YUL": {
+   "country": 24,
+   "city": 8752,
+   "location": 604,
+   "vipcars_name": "Montreal Airport (YUL)",
+   "source_page": "https://www.vipcars.com/car-rental/canada/montreal/montreal-airport",
+   "in_deals": false
+  },
+  "YYZ": {
+   "country": 24,
+   "city": 7914,
+   "location": 633,
+   "vipcars_name": "Toronto Pearson International Airport (YYZ)",
+   "source_page": "https://www.vipcars.com/car-rental/canada/toronto/toronto-pearson-intl-airport",
+   "in_deals": false
+  }
+ },
+ "unverified": {
+  "DXB": {
+   "city_en": "Dubai",
+   "country_en": "United Arab Emirates",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/united-arab-emirates/dubai/dubai-airport-t1",
+   "page_country_id": 164,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "FCO": {
+   "city_en": "Rome",
+   "country_en": "Italy",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/italy/rome/fiumicino-airport",
+   "page_country_id": 77,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 77,
+     "city": 230173,
+     "location": 5883
+    }
+   ]
+  },
+  "GYD": {
+   "city_en": "Baku",
+   "country_en": "Azerbaijan",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/azerbaijan/baku/baku-airport",
+   "page_country_id": 3992,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "HAN": {
+   "city_en": "Hanoi",
+   "country_en": "Vietnam",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/vietnam/hanoi/hanoi-airport",
+   "page_country_id": 4277,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "JFK": {
+   "city_en": "New York",
+   "country_en": "United States",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/usa-new-york/new-york-city/john-f-kennedy-airport",
+   "page_country_id": 201,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 201,
+     "city": 229824,
+     "location": 7119
+    }
+   ]
+  },
+  "KRK": {
+   "city_en": "Krakow",
+   "country_en": "Poland",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/poland/krakow/krakow-airport",
+   "page_country_id": 119,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "LHR": {
+   "city_en": "London",
+   "country_en": "United Kingdom",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/united-kingdom/london/heathrow-airport",
+   "page_country_id": 165,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "MAD": {
+   "city_en": "Madrid",
+   "country_en": "Spain",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/spain-mainland/madrid/madrid-airport-terminal-4",
+   "page_country_id": 522,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "RMO": {
+   "city_en": "Chisinau",
+   "country_en": "Moldova",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/moldova/chisinau/chisinau-airport",
+   "page_country_id": 101,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "WAW": {
+   "city_en": "Warsaw",
+   "country_en": "Poland",
+   "in_deals": true,
+   "vipcars_page": "https://www.vipcars.com/car-rental/poland/warsaw/chopin-intl-airport",
+   "page_country_id": 119,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "ADD": {
+   "city_en": "Addis Ababa",
+   "country_en": "Ethiopia",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "BOM": {
+   "city_en": "Mumbai",
+   "country_en": "India",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/india/mumbai/mumbai-airport",
+   "page_country_id": 441,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 441,
+     "city": 234201,
+     "location": 16997
+    }
+   ]
+  },
+  "BUS": {
+   "city_en": "Batumi",
+   "country_en": "Georgia",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/georgia/batumi/batumi-international-airport",
+   "page_country_id": 435,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 435,
+     "city": 231140,
+     "location": 10223
+    }
+   ]
+  },
+  "CAG": {
+   "city_en": "Cagliari",
+   "country_en": "Italy",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/italy-sardinia/cagliari/cagliari-airport",
+   "page_country_id": 4136,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "CAN": {
+   "city_en": "Guangzhou",
+   "country_en": "China",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/china/guangzhou/guangzhou-baiyun-airport",
+   "page_country_id": 428,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "CFU": {
+   "city_en": "Corfu",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/corfu/corfu-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 503113,
+     "location": 83443844
+    }
+   ]
+  },
+  "CGK": {
+   "city_en": "Jakarta",
+   "country_en": "Indonesia",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/indonesia/jakarta/jakarta-soekarno-hatta-airport",
+   "page_country_id": 72,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 72,
+     "city": 1341,
+     "location": 8111
+    }
+   ]
+  },
+  "CHQ": {
+   "city_en": "Chania",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/chania-crete-island/chania-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 448593,
+     "location": 32165674
+    }
+   ]
+  },
+  "CIA": {
+   "city_en": "Rome",
+   "country_en": "Italy",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/italy/rome/ciampino-airport",
+   "page_country_id": 77,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 77,
+     "city": 230173,
+     "location": 5882
+    }
+   ]
+  },
+  "CPT": {
+   "city_en": "Cape Town",
+   "country_en": "South Africa",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/south-africa/cape-town/cape-town-intl-airport",
+   "page_country_id": 1686,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "CTA": {
+   "city_en": "Catania",
+   "country_en": "Italy",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/italy-sicily/catania/catania-airport",
+   "page_country_id": 4124,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "DAD": {
+   "city_en": "Da Nang",
+   "country_en": "Vietnam",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/vietnam/da-nang/da-nang-airport",
+   "page_country_id": 4277,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "EFL": {
+   "city_en": "Kefalonia",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/kefalonia/kefalonia-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 228816,
+     "location": 810
+    }
+   ]
+  },
+  "GHV": {
+   "city_en": "Brasov",
+   "country_en": "Romania",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "GNB": {
+   "city_en": "Grenoble",
+   "country_en": "France",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/france/grenoble/grenoble-airport",
+   "page_country_id": 55,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "GOI": {
+   "city_en": "Goa",
+   "country_en": "India",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "GRX": {
+   "city_en": "Granada",
+   "country_en": "Spain",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/spain-mainland/granada/granada-airport",
+   "page_country_id": 522,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 522,
+     "city": 10901,
+     "location": 11839
+    },
+    {
+     "country": 522,
+     "city": 10905,
+     "location": 11118
+    },
+    {
+     "country": 522,
+     "city": 10905,
+     "location": 397
+    }
+   ]
+  },
+  "GVA": {
+   "city_en": "Geneva",
+   "country_en": "Switzerland",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/switzerland/geneva-swiss-side/geneva-airport",
+   "page_country_id": 153,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 153,
+     "city": 230398,
+     "location": 6734
+    }
+   ]
+  },
+  "HER": {
+   "city_en": "Heraklion",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/crete-heraklion/heraklion-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 448599,
+     "location": 32165671
+    }
+   ]
+  },
+  "HKG": {
+   "city_en": "Hong Kong",
+   "country_en": "Hong Kong",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/hong-kong/hong-kong/hong-kong-airport",
+   "page_country_id": 440,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "IAD": {
+   "city_en": "Washington",
+   "country_en": "United States",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/usa-washington-dc/washington-dc/washington-dulles-airport",
+   "page_country_id": 218,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "INI": {
+   "city_en": "Niš",
+   "country_en": "Serbia",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/serbia/nis/nis-airport",
+   "page_country_id": 499,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 499,
+     "city": 10003,
+     "location": 859
+    }
+   ]
+  },
+  "JMK": {
+   "city_en": "Mykonos",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/mykonos/mykonos-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 228817,
+     "location": 812
+    }
+   ]
+  },
+  "JNB": {
+   "city_en": "Johannesburg",
+   "country_en": "South Africa",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/south-africa/johannesburg/o-r-tambo-intl-airport",
+   "page_country_id": 1686,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "JSI": {
+   "city_en": "Skiathos",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/skiathos/skiathos-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 1259,
+     "location": 482
+    }
+   ]
+  },
+  "JTR": {
+   "city_en": "Santorini",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/santorini/santorini-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 230192,
+     "location": 6044
+    }
+   ]
+  },
+  "KEF": {
+   "city_en": "Reykjavik",
+   "country_en": "Iceland",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/iceland/keflavik/keflavik-intl-airport",
+   "page_country_id": 71,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 71,
+     "city": 228790,
+     "location": 644
+    }
+   ]
+  },
+  "KGS": {
+   "city_en": "Kos",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/kos/kos-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 230185,
+     "location": 9810
+    }
+   ]
+  },
+  "KLX": {
+   "city_en": "Kalamata",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/kalamata/kalamata-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 228814,
+     "location": 807
+    }
+   ]
+  },
+  "KUT": {
+   "city_en": "Kutaisi",
+   "country_en": "Georgia",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "LGA": {
+   "city_en": "New York",
+   "country_en": "United States",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/usa-new-york/new-york-city/la-guardia-airport",
+   "page_country_id": 201,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 201,
+     "city": 229824,
+     "location": 11318
+    }
+   ]
+  },
+  "LGW": {
+   "city_en": "London",
+   "country_en": "United Kingdom",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/united-kingdom/london/gatwick-airport",
+   "page_country_id": 165,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "LYS": {
+   "city_en": "Lyon",
+   "country_en": "France",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/france/lyon/lyon-airport",
+   "page_country_id": 55,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "MIA": {
+   "city_en": "Miami",
+   "country_en": "United States",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/usa-florida/miami/miami-airport",
+   "page_country_id": 178,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 178,
+     "city": 2448,
+     "location": 28
+    }
+   ]
+  },
+  "MJT": {
+   "city_en": "Lesvos",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/lesvos-mytilini/mytilini-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 230186,
+     "location": 16740
+    }
+   ]
+  },
+  "MLE": {
+   "city_en": "Male",
+   "country_en": "Maldives",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "MRU": {
+   "city_en": "Mauritius",
+   "country_en": "Mauritius",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "OLB": {
+   "city_en": "Olbia",
+   "country_en": "Italy",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/italy-sardinia/olbia/olbia-airport",
+   "page_country_id": 4136,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "PEK": {
+   "city_en": "Beijing",
+   "country_en": "China",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/china/beijing/beijing-capital-airport",
+   "page_country_id": 428,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "PMO": {
+   "city_en": "Palermo",
+   "country_en": "Italy",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/italy/sicily-palermo/palermo-airport",
+   "page_country_id": 4124,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "PRN": {
+   "city_en": "Pristina",
+   "country_en": "Kosovo",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "PVG": {
+   "city_en": "Shanghai",
+   "country_en": "China",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/china/shanghai/pudong-airport",
+   "page_country_id": 428,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "RHO": {
+   "city_en": "Rhodes",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/rhodes/rhodes-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 228818,
+     "location": 814
+    }
+   ]
+  },
+  "SEZ": {
+   "city_en": "Mahe",
+   "country_en": "Seychelles",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/seychelles/victoria-mahe-island/seychelles-airport",
+   "page_country_id": 453,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 453,
+     "city": 9571,
+     "location": 11086
+    }
+   ]
+  },
+  "SGN": {
+   "city_en": "Ho Chi Minh City",
+   "country_en": "Vietnam",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/vietnam/ho-chi-minh-city-saigon/ho-chi-minh-airport",
+   "page_country_id": 4277,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "SMI": {
+   "city_en": "Samos",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/samos/samos-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 1259,
+     "location": 482
+    }
+   ]
+  },
+  "SPU": {
+   "city_en": "Split",
+   "country_en": "Croatia",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/croatia/split/split-airport",
+   "page_country_id": 40,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "STN": {
+   "city_en": "London",
+   "country_en": "United Kingdom",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/united-kingdom/london/stansted-airport",
+   "page_country_id": 165,
+   "reason_he": "יש דף לשדה, אבל אין בו כפתורי \"View Deal\", ולכן אין מזהה חיפוש מאומת"
+  },
+  "SZX": {
+   "city_en": "Shenzhen",
+   "country_en": "China",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "TAS": {
+   "city_en": "Tashkent",
+   "country_en": "Uzbekistan",
+   "in_deals": false,
+   "reason_he": "לא נמצא ב-VIP Cars דף שדה תעופה עם הקוד הזה בכותרת (באתר location.xml)"
+  },
+  "VAR": {
+   "city_en": "Varna",
+   "country_en": "Bulgaria",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/bulgaria/varna/varna-airport",
+   "page_country_id": 21,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "VNO": {
+   "city_en": "Vilnius",
+   "country_en": "Lithuania",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/lithuania/vilnius/vilnius-airport",
+   "page_country_id": 88,
+   "reason_he": "כפתורי החיפוש בדף שייכים למדינה אחרת (תצוגת ברירת מחדל של האתר), לא לשדה הזה"
+  },
+  "ZNZ": {
+   "city_en": "Zanzibar",
+   "country_en": "Tanzania",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/tanzania/zanzibar-unguja-island/zanzibar-international-airport",
+   "page_country_id": 155,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 155,
+     "city": 628875,
+     "location": 52682795
+    }
+   ]
+  },
+  "ZTH": {
+   "city_en": "Zakynthos",
+   "country_en": "Greece",
+   "in_deals": false,
+   "vipcars_page": "https://www.vipcars.com/car-rental/greece/zakynthos/zakynthos-airport",
+   "page_country_id": 62,
+   "reason_he": "כפתורי החיפוש בדף מצביעים על עיר אחרת ממה שהדף מציין. ייתכן שזה השדה, וייתכן שזו תצוגת ברירת מחדל. לא אומת, לא לשימוש בלי בדיקה",
+   "button_ids_unverified": [
+    {
+     "country": 62,
+     "city": 228820,
+     "location": 817
+    }
+   ]
+  }
+ }
+}
