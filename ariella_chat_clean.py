@@ -10355,6 +10355,30 @@ def _enforce_one_option_question(reply, state):
 
     active_session = state.get("active_session")
 
+    # Shaked's static review of 4cbe9ab3 (dry-run 5k, 23.10.2026, J0/J1):
+    # when the arbiter's OWN winning choice for this turn is a destination
+    # question - either a genuine 2-way ambiguity ("ברגן (נורווגיה) או
+    # ברגמו (איטליה)?", "ליון בצרפת או יוון?", destination_ambiguous) or a
+    # genuinely-unresolved gateway naming real nearby options ("פולה או
+    # טריאסטה?", destination_gateway) - that single question legitimately
+    # names two real places with " או ", the business owner's own
+    # sanctioned "ask once, naming both" format, never the free-improvised
+    # "X או Y" this whole function exists to catch. The plain "' או ' in
+    # the sentence" check below has no way to tell the two apart by text
+    # alone, and was silently replacing the arbiter's own correct,
+    # specific question with the generic _flight_gap_question fallback
+    # ("באיזה שדה תרצה לנחות בהלוך?") - reproduced live word-for-word
+    # (qa-dryrun 5k, chat_resp_dr5j0.jsonl) for destination_ambiguous, and
+    # confirmed to hit destination_gateway (Rovinj/Pula-Trieste) the exact
+    # same way once active_session="flights" (her own flagged, verified
+    # risk). Asking _turn_question_arbiter directly for what ACTUALLY won
+    # this turn (not merely whether a hint is theoretically available in
+    # state) is the precise signal - the same function _call_tinkerbell
+    # itself uses to decide what this turn's one question even is.
+    _winning_text, _winning_kind = _turn_question_arbiter(state)
+    if _winning_kind in ("destination_ambiguous", "destination_gateway"):
+        return reply
+
     bundled = False
     if len(question_idx) == 1:
         only_q = sentences[question_idx[0]][0]
