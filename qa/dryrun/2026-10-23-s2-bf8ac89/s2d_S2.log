@@ -1,0 +1,56 @@
+⟵ זוג לפירמצה, 15 עד 21 באפריל, ובא לנו גם כמה ימים בסיינה
+    יפה, טוסקנה באביב זה שילוב מנצח. נחמד לשלב גם את סיינה בטיול - שומרת את זה בשביל התכנון שאחרי הטיסות. |  | כדי להתקדם עם הטיסות - האם יש למישהו מכם מגבלות נגישות שכדאי שאדע עליהן לחופשה הזו? זה לא חובה כמובן, ומה שתכתבי יישמר רק לטיול הזה.
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] נגישות
+⟵ לא
+    תודה שעדכנת. מה התקציב שלכם לאדם לטיסה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] תקציב
+⟵ עד 1500 שקל לאדם
+    מעולה, קלטתי את התקציב. |  | חשוב לכם שהטיסה תהיה ישירה?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] ישיר
+⟵ לא משנה
+    איזו כבודה תרצו לקחת?
+    ss= {'car': 'pending', 'flights': 'active', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] כבודה
+⟵ מזוודה לכל אחד
+    מעולה, אז עם מזוודה בבטן המטוס לכל אחד - אין צורך בכלום נוסף, זה הכיסוי המלא. |  | לתכנן גם מסלול ואטרקציות לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'pending'} ready= False
+    [topic] מסלול
+⟵ כן
+    ספרו לי מה אתם אוהבים לעשות בחופשה.
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'active'} ready= False
+    !! no question mark
+    [topic] סגנון
+⟵ אמנות, יין ואוכל טוב, בלי לרוץ
+    מצוין, זה בדיוק מה שפירנצה וסיינה מציעות על מגש. |  | בואו נבנה מסלול רגוע של 7 ימים בין שתי הערים, עם דגש על גלריות, כרמים ומסעדות טובות: |  | יום 1, 15.4 (חמישי) | נחיתה בפירנצה, התארגנות במלון ופתיחה רגועה - טיילת ערב לאורך הארנו, קפה באחת הפיאצות ליד פונטה וקיו, וארוחת ערב ראשונה באיזור סנטו ספיריטו. |  | יום 2, 16.4 (שישי) | גלריית האקדמיה (דוד של מיכלאנג'לו) בבוקר, ואחר כך שיטוט בדואומו ובמגדל ג'וטו. צהריים בשוק מרכאטו צ'נטרלה. אחר הצהריים חופשי לטיול רגלי בסמטאות האולטרנו. |  | יום 3, 17.
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'active'} ready= False
+    [topic] אישור
+⟵ מושלם, מתאים לנו
+    מצוין, המסלול מאושר. תרצי שאמשיך גם עם לינה לחופשה הזו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'pending', 'trip_planning': 'complete'} ready= False
+    [topic] לינה
+⟵ כן
+    לפי המסלול תתחלקו בין פירנצה לסיינה, אז נסדר לינה בשתי הערים. |  | איזה סוג לינה מתאים לכם?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'active', 'trip_planning': 'complete'} ready= False
+    [topic] סוג_לינה
+⟵ מלון
+    כמה חדרים תרצו?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'active', 'trip_planning': 'complete'} ready= False
+    [topic] חדרים
+⟵ חדר אחד
+    יש לכם תקציב מסוים בראש ללילה?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'active', 'trip_planning': 'complete'} ready= False
+    [topic] תקציב_לינה
+⟵ עד 700 שקל ללילה
+    מעולה, זה בהחלט אפשרי בשתי הערים ברמה טובה. |  | תרצו שאסדר גם השכרת רכב לנסיעה בין פירנצה לסיינה ולטיול ביקבים?
+    ss= {'car': 'pending', 'flights': 'complete', 'lodging': 'complete', 'trip_planning': 'complete'} ready= False
+    [topic] רכב
+⟵ לא
+    אין בעיה, אפשר תמיד לחזור ולהוסיף שירותים נוספים בהמשך. |  | הנה הסיכום המלא: |  | יציאה: נתב״ג (TLV) | נחיתה: פירנצה (FLR), איטליה | המראה בחזרה: פירנצה (FLR), איטליה | תאריכים: 15.04.2027 – 21.04.2027 | נוסעים: 2 מבוגרים | כבודה: מזוודה 20–23 ק"ג לכל נוסע (בהתאם לתנאי חברת התעופה) | העדפת טיסה: אין העדפה לטיסה ישירה | תקציב לטיסה: עד 1,500 ש"ח לאדם |  | מסלול: 7 ימים בין פירנצה וסיינה, בדגש על אמנות, יין ואוכל טוב, בקצב רגוע - כולל אופיצי, האקדמיה, סיור יקבים בצ'יאנטי וטיול בסיינה ההיסטורית. |
+    ss= {'car': 'declined', 'flights': 'complete', 'lodging': 'complete', 'trip_planning': 'complete'} ready= True
+⟵ מאשרת
+    search: {'msg': 'מאשרת', 'http': 200, 'at': '14:31:29', 'body': {'status': 'queued', 'message': None, 'trip_id': 1, 'account_url': '/account#vacation-1'}}
+{"route_panel": true, "url": "/account", "length": 1195, "maps": 0, "cards": 0, "hebrew_runs": ["מסלול ואטרקציות\n          \n          \n            \n              יום ", "חמישי", "נחיתה בפירנצה", "התארגנות במלון ופתיחה רגועה - טיילת ערב לאורך הארנו", "קפה באחת הפיאצות ליד פונטה וקיו", "וארוחת ערב ראשונה באיזור סנטו ספיריטו", "יום ", "שישי", "גלריית האקדמיה ", "דוד של מיכלאנג'לו"]}
+{"route_panel": true, "url": "/account", "length": 15167, "maps": 0, "cards": 152, "hebrew_runs": []}

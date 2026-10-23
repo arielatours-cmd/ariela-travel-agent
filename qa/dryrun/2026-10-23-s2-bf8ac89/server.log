@@ -1,0 +1,102 @@
+[2026-10-23 14:26:17 +0000] [796] [INFO] Starting gunicorn 23.0.0
+[2026-10-23 14:26:17 +0000] [796] [INFO] Listening at: http://127.0.0.1:8766 (796)
+[2026-10-23 14:26:17 +0000] [796] [INFO] Using worker: gthread
+[2026-10-23 14:26:17 +0000] [801] [INFO] Booting worker with pid: 801
+2026-10-23 14:26:30,292 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:26:36,944 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:26:39,524 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:26:43,905 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:26:57,477 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:26:58,639 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:01,351 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:14,763 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:15,800 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:17,562 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:33,670 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:35,596 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:38,466 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:53,876 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:55,954 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:27:57,829 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:28:00,829 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:28:14,897 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:28:19,167 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:28:22,459 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:28:38,565 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:28:58,126 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:14,430 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:15,924 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:31,175 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:32,722 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:34,916 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:38,552 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:54,819 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:55,790 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:58,274 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:29:59,686 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:30:16,352 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:30:17,306 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:30:20,276 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:30:22,221 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:30:39,257 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:30:40,936 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:30:43,508 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:30:59,361 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:31:04,455 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:31:09,641 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:31:26,301 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:31:29,361 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+[DB-FIRST] trip=1 destination_codes=['FLR'] dates=2027-04-15->2027-04-21 fetched=0 qualified=0 candidates=[]
+[DB-FIRST] trip=1 no qualified DB match; queueing external initial scan
+2026-10-23 14:31:29,413 ERROR root: Lodging search failed for trip 1
+Traceback (most recent call last):
+  File "/tmp/ariela-dryrun-wt-8ueLQ1/public_site.py", line 5530, in _run_lodging_search
+    result = search_hotels(
+        query=city, checkin_date=dep, checkout_date=ret,
+    ...<2 lines>...
+        min_hotel_class=min_hotel_class,
+    )
+  File "/tmp/ariela-dryrun-wt-8ueLQ1/scanner.py", line 776, in search_hotels
+    "api_key": _api_key(),
+               ~~~~~~~~^^
+  File "/tmp/ariela-dryrun-wt-8ueLQ1/scanner.py", line 30, in _api_key
+    raise RuntimeError("SERPAPI_API_KEY is missing in Render Environment.")
+RuntimeError: SERPAPI_API_KEY is missing in Render Environment.
+[CUSTOMER-SCAN-ERROR] trip=1 run=1 TLV-FLR 2027-04-15..2027-04-21: SERPAPI_API_KEY is missing in Render Environment.
+2026-10-23 14:32:09,787 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:32:10,019 INFO root: Wikipedia image lookup failed for Arno River
+2026-10-23 14:32:10,270 INFO root: Wikipedia image lookup failed for Ponte Vecchio
+2026-10-23 14:32:10,540 INFO root: Wikipedia image lookup failed for Santo Spirito
+2026-10-23 14:32:10,816 INFO root: Wikipedia image lookup failed for Galleria dell'Accademia
+2026-10-23 14:32:11,025 INFO root: Wikipedia image lookup failed for Florence Cathedral (Duomo)
+2026-10-23 14:32:11,246 INFO root: Wikipedia image lookup failed for Giotto's Campanile
+2026-10-23 14:32:11,263 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-10-23 14:32:11,443 INFO root: Wikipedia image lookup failed for Mercato Centrale
+2026-10-23 14:32:11,486 INFO root: Wikipedia image lookup failed for Arno River
+2026-10-23 14:32:11,642 INFO root: Wikipedia image lookup failed for Oltrarno
+2026-10-23 14:32:11,744 INFO root: Wikipedia image lookup failed for Ponte Vecchio
+2026-10-23 14:32:11,851 INFO root: Wikipedia image lookup failed for Uffizi Gallery
+2026-10-23 14:32:12,037 INFO root: Wikipedia image lookup failed for Santo Spirito
+2026-10-23 14:32:12,076 INFO root: Wikipedia image lookup failed for Ponte Vecchio
+2026-10-23 14:32:12,285 INFO root: Wikipedia image lookup failed for Piazza del Campo
+2026-10-23 14:32:12,393 INFO root: Wikipedia image lookup failed for Galleria dell'Accademia
+2026-10-23 14:32:12,561 INFO root: Wikipedia image lookup failed for Siena Cathedral
+2026-10-23 14:32:12,657 INFO root: Wikipedia image lookup failed for Florence Cathedral (Duomo)
+2026-10-23 14:32:12,803 INFO root: Wikipedia image lookup failed for Chianti Wineries
+2026-10-23 14:32:12,864 INFO root: Wikipedia image lookup failed for Giotto's Campanile
+2026-10-23 14:32:13,065 INFO root: Wikipedia image lookup failed for Pinacoteca Nazionale
+2026-10-23 14:32:13,077 INFO root: Wikipedia image lookup failed for Mercato Centrale
+2026-10-23 14:32:13,279 INFO root: Wikipedia image lookup failed for Santa Croce
+2026-10-23 14:32:13,319 INFO root: Wikipedia image lookup failed for Oltrarno
+2026-10-23 14:32:13,528 INFO root: Wikipedia image lookup failed for Uffizi Gallery
+2026-10-23 14:32:13,550 INFO root: Wikipedia image lookup failed for Mercato di San Lorenzo
+2026-10-23 14:32:13,556 INFO root: Wikipedia image lookup failed for Ponte Vecchio
+2026-10-23 14:32:13,824 INFO root: Wikipedia image lookup failed for Piazza del Campo
+2026-10-23 14:32:14,053 INFO root: Wikipedia image lookup failed for Siena Cathedral
+2026-10-23 14:32:14,085 INFO root: Wikipedia image lookup failed for Chianti wine region
+2026-10-23 14:32:14,117 INFO root: Wikipedia image lookup failed for Pinacoteca Nazionale di Siena
+2026-10-23 14:32:14,381 INFO root: Wikipedia image lookup failed for Santa Croce
+2026-10-23 14:32:14,412 INFO root: Wikipedia image lookup failed for Mercato di San Lorenzo
+[2026-10-23 14:32:17 +0000] [796] [INFO] Handling signal: term
+[2026-10-23 14:32:17 +0000] [801] [INFO] Worker exiting (pid: 801)
+[2026-10-23 14:32:18 +0000] [796] [INFO] Shutting down: Master
