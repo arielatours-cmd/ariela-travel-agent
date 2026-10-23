@@ -93,7 +93,14 @@ done
 curl -sf "http://127.0.0.1:$PORT/health" > /dev/null || { echo "server did not start - see $OUT/server.log"; exit 1; }
 
 export ARIELA_BASE="http://127.0.0.1:$PORT" ARIELA_QA_OUT="$OUT"
-unset LIVE_SEARCH   # dry runs never search (local DB, no inventory)
+unset LIVE_SEARCH   # dry runs never search the live site (local DB, no inventory)
+# DRY_ALLOW_LOCAL_SEARCH=1 (Shlomo 23.10): "מאשרת" reaches the LOCAL server so the vacation, route cards and hand-off
+# can be checked. Safe by construction: the server env above has no SerpAPI/CJ keys and SCANNER_ENABLED=false.
+if [ "${DRY_ALLOW_LOCAL_SEARCH:-0}" = "1" ]; then
+  if grep -q '"serpapi_configured":true' "$OUT/health.json"; then echo "refusing DRY_ALLOW_LOCAL_SEARCH: local server reports SerpAPI configured"; exit 1; fi
+  echo "DRY_ALLOW_LOCAL_SEARCH=1: start-flight-search allowed against the local server only (no SerpAPI key)"
+  export DRY_ALLOW_LOCAL_SEARCH
+fi
 reg()   { python3 "$LIVE_DIR/register.py" "$@" 2>&1 | head -2; }
 drive() { timeout 1700 python3 "$LIVE_DIR/autodrive.py" "$@"; }
 say()   { local sc=$1; shift; for m in "$@"; do echo "[$sc] U: $m @$(date -u +%H:%M:%S)";

@@ -25,8 +25,9 @@ for turn in range(32):
     log.append((msg,r,(t.get('session_status') or {}),(t.get('travelers') or {}).get('adults'),(t.get('flight') or {}).get('connection_preference')))
     print('⟵',msg);print('   ',r.replace('\n',' | ')[:500]);print('    ss=',t.get('session_status'),'ready=',t.get('ready_for_summary'))
     if 'מאשר' in r and t.get('ready_for_summary'):
-        # Live runs with LIVE_SEARCH=1 only (owner 23.10): approve, so the flight scan really starts.
-        if os.environ.get('LIVE_SEARCH')=='1':
+        # Live runs with LIVE_SEARCH=1 (owner 23.10), or dry runs with DRY_ALLOW_LOCAL_SEARCH=1 (local server only,
+        # no SerpAPI key): approve, so the vacation is created and the hand-off can be checked.
+        if os.environ.get('LIVE_SEARCH')=='1' or os.environ.get('DRY_ALLOW_LOCAL_SEARCH')=='1':
             subprocess.run([sys.executable,CHAT,sc,'מאשרת'],capture_output=True,timeout=320)
             sl=OUT/f'search_{sc}.jsonl'
             res=[json.loads(x) for x in sl.read_text().splitlines()] if sl.exists() else []

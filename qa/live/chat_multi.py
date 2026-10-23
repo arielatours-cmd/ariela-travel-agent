@@ -18,7 +18,13 @@ EMAIL, PASSWORD = f"arielatours+qa-{SC}@gmail.com", "QA-shaked-2026!"
 LIVE_SEARCH = os.environ.get("LIVE_SEARCH") == "1"
 if LIVE_SEARCH and BASE != "https://ariela-travel-agent.onrender.com":
     sys.exit("LIVE_SEARCH=1 is allowed only against the live site - dry runs stay blocked")
-BLOCK = re.compile(r"/(" + ("" if LIVE_SEARCH else r"api/ariella/start-flight-search|") + r"trip/\d+/(search-now|renew-search|search-lodging|search-car|free-alternative|checkout|dev-bypass-payment)|book/|whatsapp-opt-in)")
+# Dry runs only (Shlomo 23.10): DRY_ALLOW_LOCAL_SEARCH=1 lets start-flight-search reach the LOCAL dry-run server,
+# which has no SerpAPI key and SCANNER_ENABLED=false (qa/dry_run_local.sh) - the vacation is created locally so
+# the route cards / hand-off can be checked; nothing leaves the machine. Never against a non-local server.
+DRY_LOCAL_SEARCH = os.environ.get("DRY_ALLOW_LOCAL_SEARCH") == "1"
+if DRY_LOCAL_SEARCH and not BASE.startswith("http://127.0.0.1:"):
+    sys.exit("DRY_ALLOW_LOCAL_SEARCH=1 is allowed only against the local dry-run server")
+BLOCK = re.compile(r"/(" + ("" if (LIVE_SEARCH or DRY_LOCAL_SEARCH) else r"api/ariella/start-flight-search|") + r"trip/\d+/(search-now|renew-search|search-lodging|search-car|free-alternative|checkout|dev-bypass-payment)|book/|whatsapp-opt-in)")
 blocked = []
 T0 = time.time()*1000
 
@@ -116,7 +122,7 @@ with sync_playwright() as p:
             page.screenshot(path=str(HERE / f"handoff_{SC}_before_confirm.png"), full_page=True)
             _log_handoff({"at": "NAVIGATED_BEFORE_CONFIRM", "url": page.url.replace(BASE, "")})
             print("!! NAVIGATED BEFORE CONFIRM:", page.url.replace(BASE, ""))
-        if LIVE_SEARCH and msg.strip() == "מאשרת":
+        if (LIVE_SEARCH or DRY_LOCAL_SEARCH) and msg.strip() == "מאשרת":
             # the approved trip hands off to the vacation card - let the scan launch finish
             try: page.wait_for_load_state("networkidle", timeout=60000)
             except Exception: pass
