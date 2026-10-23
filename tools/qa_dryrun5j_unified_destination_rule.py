@@ -434,6 +434,96 @@ check("regression (Sicily/CTA+PMO vs unrelated 'מלון'->'לון'->Lyon/Libya 
       sicily_late.get("destination_airports") == ["CTA", "PMO"]
       and sicily_late.get("destination", {}).get("places") == ["סיציליה"])
 
+# =====================================================================
+# 12. Shaked's static review finding 1 (23.10.2026, SHA 0fe4ff5e): without
+#     a cost gate, the already-settled branch spent a real model call on
+#     EVERY turn for the rest of the conversation whenever destination_
+#     evidence didn't verify - which is most turns (baggage, dates,
+#     accessibility...). _destination_message_mentions_different_place
+#     is the cheap catalog pre-check that fixes this.
+# =====================================================================
+def _counting_fake_dest(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    _dest_calls.append(source)
+    return "{}"
+
+
+_dest_calls = []
+with patch.object(chat, "_post_claude", side_effect=_counting_fake_dest):
+    unrelated_result = chat._resolve_destination_by_meaning(
+        TRIP_STATE_BGY, dict(TRIP_STATE_BGY), None, "מה לגבי כבודה? אנחנו רוצים גם מזוודה", [])
+check("cost gate: a turn with nothing catalog-relevant at all spends no model call",
+      len(_dest_calls) == 0 and unrelated_result.get("destination_airports") == ["BGY"])
+
+# Live finding while building this gate itself: an ordinary word ("מאוד",
+# "very") stripped of its leading מ lands near an obscure, unrelated
+# catalog city ("מאון") at distance 1 - a single ISOLATED near-match like
+# this must never alone trigger the model call (same noise class as the
+# Sicily/"לון" finding above, now guarded in the cost gate too).
+_dest_calls = []
+with patch.object(chat, "_post_claude", side_effect=_counting_fake_dest):
+    noisy_same_dest_result = chat._resolve_destination_by_meaning(
+        TRIP_STATE_BGY, dict(TRIP_STATE_BGY), None, "כן, ברגמו מתאים לנו מאוד", [])
+check("cost gate regression: a re-mention of the SAME destination plus an "
+      "unrelated noisy near-collision ('מאוד'->'מאון') spends no model call",
+      len(_dest_calls) == 0 and noisy_same_dest_result.get("destination_airports") == ["BGY"])
+
+# A genuine explicit correction (exact match to a different real city)
+# must still go through - the gate only skips irrelevant turns, never a
+# real correction attempt.
+with patch.object(chat, "_post_claude", side_effect=_fake_correction):
+    gated_correction_result = chat._resolve_destination_by_meaning(
+        TRIP_STATE_BGY, dict(TRIP_STATE_BGY), None, "לא, בעצם ברגן, בנורווגיה", [])
+check("cost gate regression: a genuine explicit correction still reaches the "
+      "model and resolves", gated_correction_result.get("destination_airports") == ["BGO"])
+
+# =====================================================================
+# 13. Shaked's static review finding 2 (23.10.2026, SHA 0fe4ff5e): a full
+#     catalog scan - every real catalog name, bare and with a leading
+#     ל/ב/מ preposition prepended to simulate how it would appear in a
+#     real message - run through the actual message tokenizer, checking
+#     for a false structural 2-way ambiguity against a DIFFERENT real
+#     catalog name. Root cause (confirmed): the tokenizer's word regex
+#     (r"[א-ת]+...") does not include hyphens, so a hyphenated catalog
+#     name ("פורט-או-פרנס"/Port-au-Prince, "לי-ג'יאנג"/Lijiang) gets split
+#     into separate words that never rejoin into the hyphenated form the
+#     catalog itself stores; a related gap affects multi-word names whose
+#     FIRST word carries a leading ל/ב/מ in the message ("איי בהאמה" as
+#     "באיי בהאמה") - the word-window joiner uses the raw, un-stripped
+#     first word, so the window never exact-matches the catalog's own
+#     (unprefixed) stored name either.
+#
+#     EXPLICITLY NOT FIXED YET - Shlomo/the business owner must decide
+#     first: condition א (exact match always wins, no question asked)
+#     would resolve "ליון" decisively as Lyon/France the moment it's
+#     spelled correctly - exactly the business owner's own Lyon/Greece
+#     example, so fixing the tokenizer in this area touches the same
+#     judgment call. This test pins the CURRENT known false-positive set
+#     exactly, so any further change is checked against a known baseline
+#     instead of silently drifting - never asserts "zero" here.
+# =====================================================================
+_KNOWN_CATALOG_SCAN_FALSE_POSITIVES = {
+    "איי בהאמה", "איי שלמה", "כף ורדה", "לי-ג'יאנג", "פורט-או-פרנס", "קוסטה ריקה",
+}
+_catalog_names = sorted(set(
+    name for name, _norm, _kind, _payload, _flag in chat._catalog_near_neighbor_place_entries()
+))
+_found_false_positives = set()
+for _name in _catalog_names:
+    for _variant in (_name, "ל" + _name, "ב" + _name, "מ" + _name):
+        _tokens = chat._destination_message_tokens("אני רוצה לטוס " + _variant + " בקיץ", None)
+        _exact_hit, _near, _needle = chat._scan_destination_tokens(_tokens)
+        if not _exact_hit and len(_near) == 2:
+            _found_false_positives.add(_name)
+            break
+
+check(f"catalog scan: no NEW false 2-way ambiguities beyond the known, "
+      f"not-yet-fixed set ({len(_KNOWN_CATALOG_SCAN_FALSE_POSITIVES)} names - "
+      "hyphenated/multi-word-with-prefixed-first-word catalog names)",
+      _found_false_positives <= _KNOWN_CATALOG_SCAN_FALSE_POSITIVES)
+check("catalog scan: the known false-positive set hasn't silently shrunk either "
+      "(this test would need updating, not silently passing, if it had)",
+      _found_false_positives == _KNOWN_CATALOG_SCAN_FALSE_POSITIVES)
+
 with sqlite3.connect(DB) as conn:
     conn.execute("DELETE FROM members WHERE email='qa-unified-destination-rule@example.com'")
     conn.commit()

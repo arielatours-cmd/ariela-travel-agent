@@ -8059,6 +8059,55 @@ def _scan_destination_tokens(tokens):
     return False, {}, None
 
 
+def _destination_message_mentions_different_place(message, destination_evidence, prior_airports, prior_places):
+    """Cost gate for _resolve_destination_by_meaning's already-settled
+    branch (Shaked's static review, 23.10.2026, SHA 0fe4ff5e): without
+    this, once a destination is already resolved, every turn for the rest
+    of the conversation where destination_evidence doesn't verify - which
+    is most turns, since most of a conversation has nothing to do with
+    the destination at all (baggage, dates, accessibility...) - spent a
+    real model call via _run_destination_recognition. A cheap,
+    deterministic catalog pre-check first: only worth that call when the
+    raw customer message actually mentions (exactly, or as part of a
+    genuine structural 2-way near-ambiguity) a real catalog place whose
+    code/name genuinely differs from what's already saved - never a word
+    list, purely catalog membership, same principle as every other gate
+    in this file.
+
+    A single ISOLATED near-match (distance 1, not part of a genuine 2-way
+    ambiguity) is deliberately never trusted here on its own - caught
+    live while testing this exact gate: an ordinary word like "מאוד"
+    ("very"), stripped of its leading מ, lands at distance 1 from "מאון"
+    (Mubi, an obscure extended-catalog city) with nothing else nearby -
+    coincidental noise, not evidence of anything, the same risk class
+    _near_places_relevant already guards the deterministic revert paths
+    against (the Sicily/"מלון"->"לון" finding). An EXACT match is strong
+    enough to trust alone; a near match only counts when _scan_
+    destination_tokens's own stricter two-candidate structural signal
+    confirms it."""
+    tokens = _destination_message_tokens(message, destination_evidence)
+    prior_codes = {str(c).upper() for c in (prior_airports or []) if c}
+    prior_names = {str(p) for p in (prior_places or []) if p}
+
+    def _differs_from_prior(name_he, kind, codes):
+        if kind == "city":
+            return bool(codes) and not prior_codes.intersection(str(c).upper() for c in codes)
+        return name_he not in prior_names
+
+    for forms in _destination_candidate_forms(tokens):
+        for form in forms:
+            for name_he, (kind, codes) in _catalog_near_neighbor_places(form, max_distance=0).items():
+                if _differs_from_prior(name_he, kind, codes):
+                    return True
+
+    _, near_places, _ = _scan_destination_tokens(tokens)
+    if len(near_places) == 2:
+        for name_he, (kind, codes) in near_places.items():
+            if _differs_from_prior(name_he, kind, codes):
+                return True
+    return False
+
+
 def _verify_catalog_country_name(country_en):
     """Country counterpart to _verify_catalog_airport_code (same
     verification-not-recognition principle, per the business owner's own
@@ -8462,6 +8511,8 @@ def _resolve_destination_by_meaning(trip_state, trip_update, destination_evidenc
 
     if already_settled:
         if _value_has_verbatim_evidence(destination_evidence, message):
+            return trip_update
+        if not _destination_message_mentions_different_place(message, destination_evidence, prior_airports, prior_places):
             return trip_update
         return _run_destination_recognition(
             trip_update, destination_evidence, message, history,
