@@ -16,7 +16,10 @@ Now:
   brief names the vacation, explains the subscription rule and points to it -
   no dates, no questions, no scan;
 - a plain "continue" with nothing open keeps the R3 answer (nothing open, no
-  vacation named).
+  vacation named);
+- (Shlomo, 24.10) the same when the scanned vacation still has an open topic
+  such as lodging: a change request gets the subscription brief (which says
+  the open topic can go on as usual); just continuing goes on as usual.
 
 Every understanding is the (fake) model's; asserts check the brief handed to
 the reply model and the state - never wording. Offline. Run:
@@ -60,10 +63,10 @@ def member(email):
     return mid
 
 
-def scanned_trip(member_id, name, code, dep, ret, subscription="none"):
+def scanned_trip(member_id, name, code, dep, ret, subscription="none", lodging="declined"):
     answers = {"origin_airports": ["TLV"], "destinations": code, "departure_date": dep, "return_date": ret, "adults": 2,
                "_flight_search_finished": True,
-               "_session_status": {"flights": "complete", "lodging": "declined", "car": "declined", "trip_planning": "declined"}}
+               "_session_status": {"flights": "complete", "lodging": lodging, "car": "declined", "trip_planning": "declined"}}
     with sqlite3.connect(database.DB_PATH) as conn:
         tid = conn.execute(
             "INSERT INTO trip_requests (member_id, request_name, travel_window, created_at, status, answers_json, subscription_status) VALUES(?,?,?,?,?,?,?)",
@@ -146,6 +149,23 @@ with patch.object(chat, "_post_claude", side_effect=fake):
     reply4 = whatsapp_bridge.ariella_turn(m4, "אפשר לדחות את כל הטיסה ביום אחד?")
     check("with an active subscription: the change goes through the tracking, no 'join the subscription'",
           "כבר יש מנוי מעקב יומי פעיל" in reply4 and "להצטרף למנוי" not in reply4)
+
+    # --- Shlomo 24.10: a scanned vacation that still has an OPEN topic (lodging) -------------------------
+    m6 = member("qa-scanned-change-open@example.com")
+    scanned_trip(m6, "המבורג", "HAM", "2027-05-06", "2027-05-10", lodging="pending")
+    reply6 = whatsapp_bridge.ariella_turn(m6, "אפשר לדחות את כל הטיסה ביום אחד?")
+    state6 = (database.load_ariella_conversation(m6) or {}).get("trip_state") or {}
+    check("open topic + a change request -> still the subscription brief (the rule is about the scanned details)",
+          "המבורג" in reply6 and "מנוי המעקב היומי בתשלום" in reply6 and not state6.get("resume_choice_pending"))
+    check("open topic: the brief says the open topic (lodging) can go on as usual, without the subscription",
+          "אפשר להמשיך לתכנן כרגיל, בלי מנוי" in reply6 and "לינה" in reply6)
+    m7 = member("qa-scanned-change-open-continue@example.com")
+    scanned_trip(m7, "המבורג", "HAM", "2027-05-06", "2027-05-10", lodging="pending")
+    whatsapp_bridge.ariella_turn(m7, "הי")
+    reply7 = whatsapp_bridge.ariella_turn(m7, "להמשיך")
+    state7 = (database.load_ariella_conversation(m7) or {}).get("trip_state") or {}
+    check("open topic + just 'continue' -> continues as usual (confirm the open vacation), no subscription brief",
+          (state7.get("resume_choice_pending") or {}).get("stage") == "confirm_one" and "מנוי" not in reply7)
 
     # --- the helper itself ---------------------------------------------------------------------------------
     m5 = member("qa-scanned-change-past@example.com")
