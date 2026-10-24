@@ -4544,8 +4544,11 @@ def _looks_like_approval_typo(message, state=None, history=None):
                for target in ("מאשר", "מאשרת")) >= 0.72
 
 
-def _interpret_pending_choice(key, model, history, message, question_kind):
-    """Interpret free-form customer answers to a pending conversational choice."""
+def _interpret_pending_choice(key, model, history, message, question_kind, context=""):
+    """Interpret free-form customer answers to a pending conversational choice.
+    context: optional facts the model needs to understand the answer (e.g.
+    the customer's existing vacations, when the conversation itself has no
+    history of them yet)."""
     if not key:
         return "unclear"
     prompt = """את מסווגת כוונת לקוח מתוך הקשר השיחה. הלקוח רשאי לענות בכל ניסוח טבעי וגם עם שגיאות כתיב.
@@ -4554,17 +4557,26 @@ def _interpret_pending_choice(key, model, history, message, question_kind):
 NEW = הלקוח רוצה להתחיל חופשה חדשה ולוותר על פרטי החופשה הקודמת.
 KEEP = הלקוח רוצה להישאר בחופשה הקיימת או רק לשנות בה פרט.
 UNCLEAR = אי אפשר להבין בבטחה.
+כאשר question_kind=change_existing:
+CHANGE = הלקוח מבקש לשנות פרט בחופשה קיימת שכבר נקבעה (למשל לדחות או להקדים תאריכים, לשנות כבודה, נוסעים או יעד).
+OTHER = כל דבר אחר: להמשיך לתכנן נושא פתוח, לשאול שאלה, להתחיל חופשה חדשה, ברכה.
+UNCLEAR = אי אפשר להבין בבטחה.
 הביני משמעות והקשר; אל תדרשי מילת קסם ואל תסתמכי על התאמת מחרוזת."""
     try:
         raw = _post_claude(
             key, model, prompt, "", history if isinstance(history, list) else [],
-            "question_kind=" + str(question_kind) + "\nתשובת הלקוח: " + str(message or ""),
+            "question_kind=" + str(question_kind) + (("\nהקשר: " + str(context)) if context else "")
+            + "\nתשובת הלקוח: " + str(message or ""),
             20, include_history=True, source="classifier"
         ).strip().upper()
         if raw.startswith("NEW"):
             return "new"
         if raw.startswith("KEEP"):
             return "keep"
+        if question_kind == "change_existing" and raw.startswith("CHANGE"):
+            return "change"
+        if question_kind == "change_existing" and raw.startswith("OTHER"):
+            return "other"
     except Exception:
         pass
     return "unclear"
@@ -15192,6 +15204,76 @@ def _resumable_vacations(member_id, limit=20):
     return result[:limit]
 
 
+def _scanned_upcoming_vacations(member_id, limit=10):
+    """The customer's active vacations still ahead of today - every one of
+    them already went out to a real scan (a trip_requests row is only ever
+    created once a scan launches - see _find_recent_scanned_vacation).
+    [{id, name, window, subscribed}], newest first.
+
+    Per the business owner (24.10, live round 13 D, relayed by Shlomo): "אי
+    אפשר לשנות חופשה שיצאה לסריקה אלא אם משלמים מנוי". A customer asking
+    to change one of these must hear that it's their existing vacation and
+    that a change is possible only with the paid daily-tracking
+    subscription - never "you have no open vacation" (what
+    _resumable_vacations alone says once every service is settled)."""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT id, request_name, travel_window, answers_json, subscription_status FROM trip_requests "
+            "WHERE member_id=? AND status='active' ORDER BY id DESC LIMIT 50",
+            (member_id,),
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    today = date.today().isoformat()
+    result = []
+    for row in rows:
+        try:
+            answers = json.loads(row["answers_json"] or "{}")
+        except Exception:
+            continue
+        dep = str(answers.get("departure_date") or "")[:10]
+        month = str(answers.get("travel_month") or answers.get("outbound_month") or "")[:7]
+        if not ((dep and dep > today) or (not dep and month and month >= today[:7])):
+            continue
+        result.append({
+            "id": int(row["id"]), "name": str(row["request_name"] or "").strip() or "החופשה",
+            "window": _he_date_window(row["travel_window"]),
+            "subscribed": str(row["subscription_status"] or "") == "active",
+        })
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _scanned_vacation_change_hint(vacations):
+    """The model's brief for a change request to a vacation that was
+    already scanned (the business owner, 24.10): name it, explain the rule,
+    point to the subscription - the reply itself is the model's own."""
+    def desc(v):
+        return f"{v['name']} ({v['window']})" if v.get("window") else v["name"]
+    unsubscribed = [v for v in vacations if not v.get("subscribed")]
+    subscribed = [v for v in vacations if v.get("subscribed")]
+    parts = []
+    if len(vacations) == 1:
+        parts.append(f"ללקוח יש חופשה קיימת אחת: {desc(vacations[0])}. התייחסי אליה בשמה - זו החופשה שלו, לעולם אל תאמרי שאין לו חופשה פתוחה.")
+    else:
+        parts.append("ללקוח יש כמה חופשות קיימות: " + "; ".join(desc(v) for v in vacations)
+                     + ". התייחסי אליהן בשמן - לעולם אל תאמרי שאין לו חופשה פתוחה.")
+    if unsubscribed:
+        parts.append("חופשה שכבר יצאה לסריקה אי אפשר לשנות (תאריכים, כבודה, נוסעים או כל פרט אחר) אלא עם מנוי המעקב היומי בתשלום. "
+                     "הסבירי זאת בקצרה ובחום, והפני אותו להצטרף למנוי בעמוד 'החופשות שלי', בלשונית 'מעקב יומי בתשלום' של החופשה - "
+                     "עם המנוי אפשר לעשות את השינוי.")
+    if subscribed:
+        parts.append("ל" + ("חופשה" if len(subscribed) == 1 else "חופשות") + " "
+                     + "; ".join(desc(v) for v in subscribed)
+                     + " כבר יש מנוי מעקב יומי פעיל - אמרי שהשינוי נעשה דרך המעקב בעמוד 'החופשות שלי'.")
+    parts.append("אל תציעי תאריכים או פרטים חדשים, אל תשאלי שום שאלה על פרטי החופשה, ואל תתחילי חיפוש או תכנון חדש.")
+    return " ".join(parts)
+
+
 def _upcoming_vacations(member_id, limit=3):
     """The customer's upcoming active vacations and which of lodging/car/
     route each still lacks - so a customer coming back after "not now"
@@ -15977,6 +16059,20 @@ def _chat_clean_impl():
         open question resolves to it."""
         resumable = _resumable_vacations(member_id_)
         if not resumable:
+            # Nothing left OPEN to continue - but when the customer is asking
+            # to CHANGE a detail of a vacation that was already scanned (every
+            # service settled), the answer is the subscription rule, never
+            # "you have no open vacation" (the business owner, 24.10, live
+            # round 13 D). A plain "continue planning" keeps the R3 answer
+            # below (nothing open, no vacation named) - the model tells them
+            # apart by meaning, from the message and the history.
+            scanned = _scanned_upcoming_vacations(member_id_)
+            if scanned and _interpret_pending_choice(
+                    key, model, history, message, "change_existing",
+                    context="ללקוח יש חופשות קיימות: " + "; ".join(f"{v['name']} ({v['window']})" for v in scanned)) == "change":
+                kept = dict(base_trip_state, resume_choice_done=True, scanned_change_notice=True)
+                kept.pop("resume_choice_pending", None)
+                return _resume_hint_reply(_scanned_vacation_change_hint(scanned), kept)
             fresh = {
                 'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
                 'active_session': None, 'resume_choice_done': True,
@@ -16264,8 +16360,24 @@ def _chat_clean_impl():
         #    also classifies to "new" on its own, with no separate
         #    heuristic needed for it. Only a genuinely UNCLEAR message
         #    costs an extra round trip (the actual "ask" stage below).
+        # Live round 13 D, later turns: once the subscription rule was given
+        # in this conversation, a further change request ("ובעצם אפשר לצאת
+        # ב-9.5?", "ונעדיף מזוודה") is still about that scanned vacation -
+        # never a new trip on an empty state. The model decides, by meaning.
+        if trip_state.get("scanned_change_notice"):
+            _scanned = _scanned_upcoming_vacations(session['member_id'])
+            if _scanned and _interpret_pending_choice(
+                    key, model, history, message, "change_existing",
+                    context="ללקוח יש חופשות קיימות: " + "; ".join(f"{v['name']} ({v['window']})" for v in _scanned)) == "change":
+                return _resume_hint_reply(_scanned_vacation_change_hint(_scanned), dict(trip_state))
         if not trip_state.get("resume_choice_done") and _has_active_future_trip(session['member_id']):
-            intent = _interpret_pending_choice(key, model, history, message, "new_vacation")
+            # Live round 13 D: a fresh conversation (empty state) opening with
+            # "אפשר לדחות את כל הטיסה ביום אחד?" has no history telling the
+            # classifier any vacation exists - tell it, so a change request
+            # to an existing vacation is understood as KEEP.
+            _existing = _scanned_upcoming_vacations(session['member_id'])
+            _context = ("ללקוח יש חופשות קיימות: " + "; ".join(f"{v['name']} ({v['window']})" for v in _existing)) if _existing else ""
+            intent = _interpret_pending_choice(key, model, history, message, "new_vacation", context=_context)
             if intent == "keep":
                 return _resume_choice_offer_continue(trip_state, session['member_id'])
             if intent == "unclear":
