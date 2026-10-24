@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Complete payment' if site_lang == 'en' else 'השלמת תשלום' }}{% endblock %}
 {% block content %}
-<section class="trip-checkout-page" dir="rtl">
+<section class="trip-checkout-page" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">
   <div class="checkout-card">
     <a class="checkout-back" href="{{ url_for('site.account') }}#vacation-{{ trip.id }}">&larr; {{ 'Back to my vacations' if site_lang == 'en' else 'חזרה לחופשות שלי' }}</a>
     <h1>{{ 'Daily tracking for' if site_lang == 'en' else 'מעקב יומי עבור' }} {{ trip.destination_display or trip.request_name }}</h1>
     <div class="checkout-plan">
       <strong>{{ plan_info.label_en if site_lang == 'en' else plan_info.label_he }}</strong>
-      <span class="checkout-price">{{ plan_info.price_ils }} ₪</span>
+      <span class="checkout-price">{{ plan_info.price_ils|nis if site_lang == 'en' else (plan_info.price_ils|string ~ ' ₪') }}</span>
       <p>{{ plan_info.desc_en if site_lang == 'en' else plan_info.desc_he }}</p>
       <small>{{ 'One-time payment, valid for a month. Not a recurring subscription - no card details are stored.' if site_lang == 'en' else 'תשלום חד-פעמי, בתוקף לחודש. לא מנוי מתחדש - לא נשמרים פרטי אשראי.' }}</small>
     </div>

@@ -9,7 +9,7 @@
       <div><strong>{{ 'Outbound' if site_lang == 'en' else 'הלוך' }}</strong><br>{{ offer.outbound_date }}{% if offer.departure_time %} · {{ offer.departure_time }}{% endif %}</div>
       <div><strong>{{ 'Return' if site_lang == 'en' else 'חזור' }}</strong><br>{{ offer.return_date }}{% if offer.return_departure_time %} · {{ offer.return_departure_time }}{% endif %}</div>
       <div><strong>{{ 'Airline' if site_lang == 'en' else 'חברת תעופה' }}</strong><br>{{ offer.airline or '—' }}</div>
-      <div><strong>{{ 'Price found' if site_lang == 'en' else 'המחיר שנמצא' }}</strong><br>₪{{ '%.0f'|format(offer.price_ils or 0) }}</div>
+      <div><strong>{{ 'Price found' if site_lang == 'en' else 'המחיר שנמצא' }}</strong><br>{% if site_lang == 'en' %}{{ (offer.price_ils or 0)|nis }}{% else %}₪{{ '%.0f'|format(offer.price_ils or 0) }}{% endif %}</div>
     </div>
 
     <p class="handoff-note">

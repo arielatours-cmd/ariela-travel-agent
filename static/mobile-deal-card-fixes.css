@@ -54,6 +54,12 @@
   .deal-card-v970 .baggage-terms-flex{display:flex!important;align-items:center!important;gap:10px!important}
   .deal-card-v970 .baggage-terms-flex ul{flex:0 0 48%!important;min-width:0!important;margin:0!important;padding:0!important;gap:4px!important}
   .deal-card-v970 .deal-baggage li{min-height:24px!important;padding:2px 0!important;font-size:11px!important;grid-template-columns:20px 1fr auto!important;gap:4px!important}
+  /* v9.7.68 (23.10, business owner screenshot, lang=en): the narrower 48%
+     baggage column was sized for Hebrew's short "יש לבדוק" - the longer
+     English "Check with provider" kept its desktop nowrap here too and
+     overflowed past the column's edge, overlapping the consumer-protection/
+     change-cancel block beside it. Let it wrap onto a second line instead. */
+  .deal-card-v970 .bag-status-price{white-space:normal!important}
   .deal-card-v970 .bag-svg{font-size:14px!important}
   .deal-card-v970 .bag-svg.checked{font-size:14px!important;transform:none!important}
   .deal-card-v970 .baggage-terms-inline{display:flex!important;flex:1 1 auto!important;min-width:0!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:8px!important;margin:0!important;padding:0!important;border:0!important;text-align:center!important}
@@ -140,4 +146,21 @@
   }
   .deal-card-v970 .connection-airport{display:block!important;max-width:100%!important}
   .deal-card-v970 .connection-wait{display:block!important;margin-top:2px!important;font-size:8.5px!important}
+}
+
+/* English site: the leg title/date are LTR text (the rules above are written for Hebrew) */
+html[dir="ltr"] .deal-card-v970 .leg-title{text-align:left!important;direction:ltr!important}
+html[dir="ltr"] .deal-card-v970 .leg-date{direction:ltr!important}
+
+/* "אפשרות שכדאי להכיר" / "לא כולל: ..." note at the top of the card (the business owner, 23.10):
+   the card's layout direction is LTR, so in Hebrew the note sat on the left. Its own text direction. */
+.deal-card-v970.deal-he .deal-close-match-note{direction:rtl!important;text-align:right!important}
+.deal-card-v970.deal-en .deal-close-match-note{direction:ltr!important;text-align:left!important}
+
+/* "Total flight duration" (the business owner, 23.10): on mobile the outbound line was pinned right but the
+   return line followed text-align:left in English, so it sat mid-card after the airline. Both legs, both
+   languages: the airline on the left, the duration pinned right. */
+@media (max-width:760px){
+  .deal-card-v970.deal-he .leg-duration,
+  .deal-card-v970.deal-en .leg-duration{text-align:right!important}
 }

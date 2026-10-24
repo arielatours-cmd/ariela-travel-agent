@@ -52,13 +52,16 @@ for dirpath, _dirs, files in os.walk(ROOT):
             if re.search(r"https?://[^\s\"']*(xplorer\.co\.il|plikimpi\.krakow\.pl)", text):
                 bad.append(os.path.relpath(os.path.join(dirpath, f), ROOT))
 check("no xplorer.co.il / plikimpi.krakow.pl image URL in code or templates", not bad)
-check("OTP and KRK use the general image",
-      database.DESTINATION_LANDMARK_IMAGES["OTP"] == GENERIC and database.DESTINATION_LANDMARK_IMAGES["KRK"] == GENERIC)
-check("the general image is a curated fallback, not a provider photo", GENERIC.startswith("https://images.unsplash.com/"))
+# 23.10 (Ofek's Commons-verified list, static/img/destinations/landmarks.json): OTP/KRK have a licensed
+# Wikimedia photo again, and the general image is our own CC0 file (plane wing) - see qa_landmark_images_fix.py.
+check("OTP and KRK: a licensed Wikimedia photo (never the old xplorer/krakow.pl ones)",
+      all(database.DESTINATION_LANDMARK_IMAGES[c].startswith("https://upload.wikimedia.org/") for c in ("OTP", "KRK")))
+check("the general image is a curated fallback, not a provider photo", GENERIC.endswith("/static/img/destinations/_default.webp"))
 
 # --- 3a. Wikimedia thumbnails --------------------------------------------------------------------------
 lis = database.DESTINATION_LANDMARK_IMAGES["LIS"]
-check("Lisbon: Wikimedia Special:Redirect asks for a 1200px rendition", lis.endswith("Torre_de_Belem_1.jpg?width=1200"))
+check("Lisbon: a direct 1280px Wikimedia rendition (the Special:Redirect file 404'd; 1200px is not an allowed size)",
+      lis.startswith("https://upload.wikimedia.org/") and "/1280px-" in lis)
 check("every Special:Redirect link carries ?width=1200 (pools too)",
       all("?width=1200" in u for u in database.DESTINATION_LANDMARK_IMAGES.values() if "Special:Redirect" in u)
       and all("?width=1200" in p[0] for p in database.DESTINATION_IMAGE_POOLS.values() if "Special:Redirect" in p[0]))

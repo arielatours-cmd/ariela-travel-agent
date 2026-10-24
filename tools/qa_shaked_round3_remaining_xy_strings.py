@@ -83,6 +83,13 @@ for node in ast.walk(tree):
 ALLOWED_SUBSTRINGS = (
     'לא "X, Y או Z?"',  # TINKERBELL_SYSTEM's own instruction, not a live question
     "אפשר לציין יעד או תאריך, או להגיד שזו חופשה חדשה",  # a statement, not a question - Shaked's own "borderline, your call"
+    # Baggage's own deliberate exception (business owner, 20.10 - see
+    # _guided_ask_hint's own docstring): the 3 real baggage options are
+    # meant to be named in one question, unlike every other guided field.
+    # _BAGGAGE_TYPE_QUESTION_FALLBACK (round-12 finding E, 22.10) is the
+    # canonical deterministic fallback for this same field, so it follows
+    # the same exception.
+    "תיק יד בלבד, טרולי, או מזוודה בבטן המטוס",
 )
 unexpected = [(ln, s) for ln, s in hits if not any(a in s for a in ALLOWED_SUBSTRINGS)]
 check(f"no unexpected 'X or Y?' strings remain (found: {[ln for ln, _ in unexpected]})",
