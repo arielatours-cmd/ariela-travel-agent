@@ -3,9 +3,11 @@ business owner, 24.10) - no translation, one structuring call.
 
   - no answers["_lang"] (every vacation today) or "he": the Hebrew prompt and
     message exactly as before, catalog duration from "משך מומלץ"
-  - answers["_lang"] == "en": _STRUCTURE_PROMPT_EN, an English context and
-    message, the model's "name" becomes the card's display name, catalog
-    duration from duration_en (never the Hebrew value)
+  - any other code (answers["_lang"] is a general language code - Shlomo,
+    24.10): one template asking for that language ("en" -> English, "fr" ->
+    French), an English context and message, the model's "name" becomes the
+    card's display name, catalog duration from duration_<lang> (never the
+    Hebrew value; empty when that column doesn't exist)
   - core_itinerary_text also trims an English "Day 1: ..." itinerary
 
 Offline (the model call and the Wikipedia lookup are stubbed).
@@ -71,7 +73,7 @@ calls.clear()
 days = ic.build_itinerary_days(EN_TEXT, {"_lang": "en", "departure_date": "2027-05-01"}, fake_post(EN_REPLY), "k", "m")
 c = calls[0]
 check("en: one structuring call (no translation call)", len(calls) == 1)
-check("en: the English prompt", c["system"] is ic._STRUCTURE_PROMPT_EN)
+check("en: the prompt asks for English", c["system"] == ic._structure_prompt_for("en") and "in English" in c["system"])
 check("en: English context and message", c["context"].startswith("Departure date: 2027-05-01") and c["message"].startswith("Approved itinerary:\n"))
 check("en: the message is the trimmed English itinerary", "Here is your plan" not in c["message"] and "Shall I save it?" not in c["message"]
       and "Day 1:" in c["message"] and "Day 2:" in c["message"])
@@ -79,9 +81,23 @@ item = days[0]["items"][0]
 check("en: the model's 'name' is the card's display name", item["name_he"] == "Hagar Qim temples", item["name_he"])
 check("en: catalog duration from duration_en, never Hebrew", item["duration"] == "2-3 hours", item["duration"])
 check("en: day title/summary as the model wrote them", days[0]["title"] == "Temple valley" and days[0]["summary"] == "A day of history")
-check("en: the English prompt has the same JSON keys as the Hebrew one (except name)",
-      all(k in ic._STRUCTURE_PROMPT_EN for k in ('"days"', '"title"', '"city"', '"base"', '"summary"', '"items"', '"name_en"', '"description"', '"duration"'))
-      and '"name_he"' not in ic._STRUCTURE_PROMPT_EN)
+en_prompt = ic._structure_prompt_for("en")
+check("en: the prompt has the same JSON keys as the Hebrew one (except name)",
+      all(k in en_prompt for k in ('"days"', '"title"', '"city"', '"base"', '"summary"', '"items"', '"name_en"', '"description"', '"duration"'))
+      and '"name_he"' not in en_prompt)
+check("en: the schema in the prompt is valid JSON", bool(json.loads(en_prompt.split("format:\n", 1)[1])))
+
+# --- Another language: same path, no code change ----------------------------------------------
+calls.clear()
+days = ic.build_itinerary_days(EN_TEXT, {"_lang": "fr"}, fake_post(EN_REPLY), "k", "m")
+c = calls[0]
+check("fr: the same single template, asking for French", c["system"] == ic._structure_prompt_for("fr") and "in French" in c["system"])
+check("fr: no catalog duration in Hebrew (no duration_fr column -> empty)", days[0]["items"][0]["duration"] == "", days[0]["items"][0]["duration"])
+check("an unknown code is passed to the model as is", "in xx" in ic._structure_prompt_for("xx"))
+check("_lang is a general code: missing / empty / 'he' -> Hebrew, case-insensitive",
+      ic._vacation_lang({}) == "he" and ic._vacation_lang({"_lang": ""}) == "he" and ic._vacation_lang({"_lang": "EN"}) == "en")
+src = open(os.path.join(ROOT, "itinerary_cards.py"), encoding="utf-8").read().split("def build_itinerary_days", 1)[1]
+check("no hard-coded 'en' branch in build_itinerary_days", '== "en"' not in src and "'en'" not in src)
 
 print()
 print("ALL ITINERARY-LANG-PROMPT TESTS PASSED" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")

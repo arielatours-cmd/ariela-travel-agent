@@ -34,7 +34,7 @@ _DAY_LINE = re.compile(
     r"(?<![א-ת])יום\s+(?:\d{1,2}(?!\d)|(?:ה?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת|אחרון)))"
 )
 
-# English itinerary text from a customer who chats in English ("Day 1: ...").
+# Itinerary text from a customer who chats in English ("Day 1: ...").
 _DAY_LINE_EN = re.compile(r"\bDay\s+\d{1,2}(?!\d)", re.IGNORECASE)
 
 _STRUCTURE_PROMPT = """את ממירה מסלול טיול שאושר (טקסט חופשי בעברית) למבנה JSON עבור כרטיסי מסלול.
@@ -49,23 +49,38 @@ _STRUCTURE_PROMPT = """את ממירה מסלול טיול שאושר (טקסט 
 החזירי JSON בלבד בפורמט:
 {"days":[{"day":1,"date":null,"title":"כותרת קצרה ליום","city":"העיר/האזור העיקרי","base":null,"summary":"משפט אחד על היום","items":[{"name_he":"","name_en":null,"city":"","description":"","duration":null}]}]}"""
 
-# The same structuring step for a vacation whose customer chats in English
-# (answers["_lang"] == "en", Shlomo/business owner 24.10): the itinerary is
-# created in the customer's language, not translated - an instruction to the
-# model, same schema and keys, one call. "name" is the place's display name.
-_STRUCTURE_PROMPT_EN = """You convert an approved trip itinerary (free English text) into JSON for itinerary cards.
+# The same structuring step for a vacation whose customer chats in another
+# language (answers["_lang"], a general language code - "en" today, more later;
+# Shlomo/business owner 24.10): the itinerary is created in the customer's
+# language, not translated - an instruction to the model, same schema and keys,
+# one call. "name" is the place's display name. {language} is filled in by
+# _structure_prompt_for; any code other than "he" uses this one template.
+_STRUCTURE_PROMPT_FOREIGN = """You convert an approved trip itinerary (free text) into JSON for itinerary cards.
 Rules:
 - Include only days and places that appear in the text. Do not add attractions that were not mentioned.
 - items are specific places to visit (a site, museum, park, neighborhood, beach, a named recommended restaurant) - not general activities such as "dinner", "rest" or "drive".
-- description: 1-2 sentences in English - what the place is and why it is worth visiting, in a friendly tone. No prices, no opening hours and no links.
-- name: the place's name as the itinerary gives it, in English.
+- description: 1-2 sentences in {language} - what the place is and why it is worth visiting, in a friendly tone. No prices, no opening hours and no links.
+- name: the place's name as the itinerary gives it, in {language}.
 - name_en: the place's commonly used English name (as on Wikipedia/maps), or null if it has no specific name.
-- duration: a short recommended visit length (e.g. "2 hours", "half a day") or null.
+- duration: a short recommended visit length, in {language}, or null.
 - date: YYYY-MM-DD if it can be inferred from the text or the given departure date, otherwise null.
 - base: the town/area where the night is spent, if stated, otherwise null.
-- All text fields are in English.
+- Write every text field (title, city, base, summary, name, description, duration) in {language}.
 Return JSON only, in this format:
-{"days":[{"day":1,"date":null,"title":"Short day title","city":"Main city/area","base":null,"summary":"One sentence about the day","items":[{"name":"","name_en":null,"city":"","description":"","duration":null}]}]}"""
+{{"days":[{{"day":1,"date":null,"title":"","city":"","base":null,"summary":"","items":[{{"name":"","name_en":null,"city":"","description":"","duration":null}}]}}]}}"""
+# Language names for the model; an unknown code is passed as is (the model
+# understands ISO codes too). Adding a language needs no code change.
+_LANGUAGE_NAMES = {"en": "English", "fr": "French", "de": "German", "es": "Spanish", "it": "Italian",
+                   "ru": "Russian", "ar": "Arabic", "pt": "Portuguese", "nl": "Dutch"}
+
+
+def _vacation_lang(answers):
+    """The vacation's language code; missing/empty means Hebrew."""
+    return str((answers or {}).get("_lang") or "he").strip().lower() or "he"
+
+
+def _structure_prompt_for(lang):
+    return _STRUCTURE_PROMPT_FOREIGN.format(language=_LANGUAGE_NAMES.get(lang, lang))
 
 
 def _load_db():
@@ -409,10 +424,11 @@ def build_itinerary_days(text, answers, post_claude, key, model):
     core = core_itinerary_text(text)
     if not core:
         return []
-    english = str((answers or {}).get("_lang") or "").lower() == "en"
-    if english:
+    lang = _vacation_lang(answers)
+    foreign = lang != "he"
+    if foreign:
         context = f"Departure date: {answers.get('departure_date') or 'unknown'}, return date: {answers.get('return_date') or 'unknown'}"
-        prompt, message = _STRUCTURE_PROMPT_EN, "Approved itinerary:\n" + core
+        prompt, message = _structure_prompt_for(lang), "Approved itinerary:\n" + core
     else:
         context = f"תאריך יציאה: {answers.get('departure_date') or 'לא ידוע'}, תאריך חזרה: {answers.get('return_date') or 'לא ידוע'}"
         prompt, message = _STRUCTURE_PROMPT, "המסלול שאושר:\n" + core
@@ -431,18 +447,21 @@ def build_itinerary_days(text, answers, post_claude, key, model):
         for it in d.get("items") or []:
             if not isinstance(it, dict) or not str(it.get("name_he") or it.get("name") or it.get("name_en") or "").strip():
                 continue
-            # name_he is the card's display name; an English itinerary's model
+            # name_he is the card's display name; a non-Hebrew itinerary's model
             # output calls it "name" (and it is never matched as Hebrew below).
-            name_he = str(it.get("name_he") or (it.get("name") if english else "") or "").strip()
+            name_he = str(it.get("name_he") or (it.get("name") if foreign else "") or "").strip()
             name_en = str(it.get("name_en") or "").strip()
             city = str(it.get("city") or d.get("city") or "").strip()
-            match = _db_match(records, name_en, "" if english else name_he)
+            match = _db_match(records, name_en, "" if foreign else name_he)
             card = {
                 "name_he": name_he or name_en,
                 "name_en": name_en if name_en and name_en != name_he else "",
                 "city": city,
                 "description": str(it.get("description") or "").strip(),
-                "duration": str(it.get("duration") or (match or {}).get("duration_en" if english else "משך מומלץ") or "").strip(),
+                # Catalog duration in the vacation's language: "משך מומלץ" for
+                # Hebrew, duration_<lang> otherwise (only duration_en exists
+                # today) - never the Hebrew value on a non-Hebrew vacation.
+                "duration": str(it.get("duration") or (match or {}).get(f"duration_{lang}" if foreign else "משך מומלץ") or "").strip(),
                 # Structured, verified price data only (Din, 22.10) - the old
                 # free-text price note is no longer shown.
                 "price_info": {f: (match or {}).get(f) for f in _PRICE_FIELDS},
