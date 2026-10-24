@@ -211,7 +211,7 @@
                 <strong>🏨 {{ stay.name }}</strong>
                 {% if stay.dates %}<div class="lodging-result-meta"><span>{{ stay.dates }}</span></div>{% endif %}
                 {% if stay.guests %}<div class="lodging-result-meta"><span>{{ stay.guests }}</span></div>{% endif %}
-                <div class="lodging-result-meta"><span>{{ 'Live prices and availability on' if site_lang == 'en' else 'מחירים וזמינות בזמן אמת באתר' }} {{ stay.supplier }}</span></div>
+                {% if stay.supplier %}<div class="lodging-result-meta"><span>{{ 'Live prices and availability on' if site_lang == 'en' else 'מחירים וזמינות בזמן אמת באתר' }} {{ stay.supplier }}</span></div>{% endif %}
                 <a class="lodging-search-btn car-partner-btn" href="{{ stay.link }}" target="_blank" rel="noopener sponsored">{{ 'Go to booking →' if site_lang == 'en' else 'למעבר להזמנה ←' }}</a>
                 <a class="affiliate-disclosure lodging-affiliate-label" href="{{ url_for('site.affiliates') }}" target="_blank" rel="noopener">{{ 'Affiliate link' if site_lang == 'en' else 'קישור שותף' }}</a>
               </div>
@@ -353,7 +353,7 @@
                     <div class="lodging-result-meta"><span>{{ car.pickup }}</span></div>
                     {% if car.pickup_when %}<div class="lodging-result-meta"><span>{{ 'Pick-up:' if site_lang == 'en' else 'איסוף:' }} {{ car.pickup_when }}</span></div>{% endif %}
                     {% if car.return_when %}<div class="lodging-result-meta"><span>{{ 'Return:' if site_lang == 'en' else 'החזרה:' }} {{ car.return_when }}</span></div>{% endif %}
-                    <div class="lodging-result-meta"><span>{{ 'Live prices and availability on' if site_lang == 'en' else 'מחירים וזמינות בזמן אמת באתר' }} {{ car.supplier }}</span></div>
+                    {% if car.supplier %}<div class="lodging-result-meta"><span>{{ 'Live prices and availability on' if site_lang == 'en' else 'מחירים וזמינות בזמן אמת באתר' }} {{ car.supplier }}</span></div>{% endif %}
                     <a class="lodging-search-btn car-partner-btn" href="{{ car.link }}" target="_blank" rel="noopener sponsored">{{ 'Go to booking →' if site_lang == 'en' else 'למעבר להזמנה ←' }}</a>
                     <a class="affiliate-disclosure lodging-affiliate-label" href="{{ url_for('site.affiliates') }}" target="_blank" rel="noopener">{{ 'Affiliate link' if site_lang == 'en' else 'קישור שותף' }}</a>
                   </div>
@@ -398,7 +398,9 @@
                         {% if item.get('name_en') %}<span class="itin-card-en">{{ item.get('name_en') }}</span>{% endif %}
                         {% if item.get('description') %}<p class="itin-card-desc">{{ item.get('description') }}</p>{% endif %}
                         <div class="itin-card-meta">
-                          {% if item.get('duration') %}<span>⏱ {{ item.get('duration') }}</span>{% endif %}
+                          {# English: the catalog's duration_en only, never the Hebrew value (empty = nothing shown). #}
+                          {% set item_duration = item.get('duration_en') if site_lang == 'en' else item.get('duration') %}
+                          {% if item_duration %}<span>⏱ {{ item_duration }}</span>{% endif %}
                           {% if item.get('kids') == 'כן' %}<span>👨‍👩‍👧 {{ 'Kid-friendly' if site_lang == 'en' else 'מתאים לילדים' }}</span>{% endif %}
                         </div>
                         {# Din's conditions (DEAL-18): a verified, fresh price only - see itinerary_cards.attraction_price_view. #}
@@ -423,16 +425,17 @@
             </div>
           {% elif itinerary and itinerary.get('text') %}
             <div class="vacation-itinerary">
-              <div style="white-space:pre-line">{{ core_itinerary_text(itinerary.get('text')) }}</div>
+              <div style="white-space:pre-line">{{ core_itinerary_text(itinerary.get('text'), a.get('_lang')) }}</div>
               {% set attractions = itinerary.get('attractions', []) %}
               {% if attractions %}
                 <div class="vacation-attractions-list">
                 {% for attraction in attractions %}
                   <div class="vacation-attraction">
                     <strong>
-                      {% if attraction.get('name_he') %}{{ attraction.get('name_he') }} ({{ attraction.get('name') or attraction.get('title') }}){% else %}{{ attraction.get('name') or attraction.get('title') }}{% endif %}
+                      {% if attraction.get('name_he') and site_lang != 'en' %}{{ attraction.get('name_he') }} ({{ attraction.get('name') or attraction.get('title') }}){% else %}{{ attraction.get('name') or attraction.get('title') }}{% endif %}
                     </strong>
-                    {% if attraction.get('info') %}<span>{{ attraction.get('info') }}</span>{% endif %}
+                    {% set attraction_info = attraction.get('info_en') if site_lang == 'en' else attraction.get('info') %}
+                    {% if attraction_info %}<span>{{ attraction_info }}</span>{% endif %}
                     {% set attraction_tickets = attraction_tickets_url(attraction.get('booking_url'), attraction.get('official_url')) %}
                     {% if attraction_tickets %}<a href="{{ attraction_tickets }}" target="_blank" rel="noopener">{{ 'Book tickets' if site_lang == 'en' else 'להזמנת כרטיסים' }}</a>{% endif %}
                   </div>
