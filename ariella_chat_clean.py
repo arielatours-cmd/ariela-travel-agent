@@ -8311,6 +8311,36 @@ def _destination_ambiguous_hint_from_candidates(candidates):
     )
 
 
+def _destination_single_guess_hint_from_candidate(candidate):
+    """Rule-2 extension (the business owner's directive, 24.10.2026, round-
+    13 finding B live, "זדאק" meant Zadar - edit-distance 2, so the
+    catalog's own near-match scan had nothing to fall back to at all):
+    when there is no exact match and no near-catalog candidate, the
+    customer's place-name-shaped words still reach the model (see
+    _run_destination_recognition's own best_guess field, asked for
+    alongside the stricter candidates list) - but when the model isn't
+    confident enough for that stricter, auto-trusted list, its own best-
+    effort guess is still catalog-verified (never invented) and named in
+    ONE confirming question, never a bare "which airport?" with nothing
+    named. Her own words: "לעולם לא שאלה כללית 'באיזה שדה' כשהלקוח כתב
+    שם של מקום." `candidate` is the same ("city", code)/("country",
+    country_he) tuple _verify_destination_candidate returns."""
+    kind, value = candidate
+    if kind == "city":
+        airport = _catalog_airport_by_code(value) or {}
+        name = _verified_catalog_display_name(value)
+        country = str(airport.get("country_he") or airport.get("country_en") or "").strip()
+        label = f"{name} ({country})" if country else name
+    else:
+        label = str(value)
+    return (
+        f"השם שהלקוח כתב לא תואם בוודאות מלאה שום יעד בקטלוג, אך קרוב ביותר ל{label} "
+        "(מאומת מול הקטלוג). שאלי שאלה אחת, בניסוח שלך, שמוודאת אם זהו אכן היעד שהתכוון "
+        'אליו (למשל "התכוונת ל...?") - לעולם אל תניחי שזה נכון בלי אישורו המפורש, אל תכתבי '
+        "destination_airports, ואל תציגי זאת בסיכום (גם לא בשורת \"נחיתה:\") לפני אישור."
+    )
+
+
 def _near_places_relevant(near_places, codes, place_names):
     """Guards every deterministic use of the message-wide structural
     signal (_scan_destination_tokens/_catalog_near_neighbor_places) - QA
@@ -8449,9 +8479,14 @@ def _run_destination_recognition(trip_update, destination_evidence, message, his
         "(או null אם אין כזה), \"candidates\": [{\"type\": \"city\"|\"country\", \"city_en\": \"<שם העיר "
         "באנגלית, רק כשtype הוא city>\", \"iata_code\": \"<קוד IATA, רק כשtype הוא city>\", \"country_en\": "
         "\"<שם המדינה באנגלית, רק כשtype הוא country>\"}, ...], \"disambiguating_evidence\": \"<הציטוט "
-        "המבדיל הנוסף, רק כשרלוונטי לפי ההנחיה למעלה>\" (או null)} - 0, 1 או 2 איברים ברשימת candidates. "
-        "אם אין ציון כזה בהודעה, או שאינך בטוחה כלל, החזירי evidence null ו-candidates ריקה. לעולם אל "
-        "תנחשי בספק - רק כשאת בטוחה."
+        "המבדיל הנוסף, רק כשרלוונטי לפי ההנחיה למעלה>\" (או null), \"best_guess\": <אובייקט יחיד באותו "
+        "מבנה כמו איבר ב-candidates, או null> } - 0, 1 או 2 איברים ברשימת candidates. "
+        "אם אין ציון כזה בהודעה, או שאינך בטוחה כלל עבור candidates, החזירי evidence null ו-candidates "
+        "ריקה. לעולם אל תנחשי בספק ברשימת candidates - רק כשאת בטוחה.\n"
+        "best_guess הוא שדה נפרד: אם אינך בטוחה מספיק בשביל candidates, אבל יש לך השערה סבירה (גם לא "
+        "בטוחה) למה הלקוח כנראה מתכוון - צייני אותה כאן, גם כשהכתיב שהלקוח כתב משובש/שגוי ואינו תואם "
+        "ציטוט מדויק. ערכי זה לעולם לא יישמר אוטומטית - הוא ישמש רק לשאלת אימות אחת שתציג אותו ללקוח "
+        "ותבקש אישור מפורש. אם אין לך אפילו השערה סבירה אחת, השאירי best_guess null."
     )
     try:
         raw = _post_claude(key, model, prompt, "", [],
@@ -8460,12 +8495,16 @@ def _run_destination_recognition(trip_update, destination_evidence, message, his
         raw = raw.strip()
         data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
     except Exception:
-        return trip_update
+        data = None
     if not isinstance(data, dict):
-        return trip_update
-    if not _value_has_verbatim_evidence(data.get("evidence"), message):
-        return trip_update
-    raw_candidates = data.get("candidates") if isinstance(data.get("candidates"), list) else []
+        data = None
+    # The strict `candidates` list still requires verbatim evidence (it
+    # can be trusted directly with NO question, so it must never rest on
+    # a quote the model itself invented) - but `best_guess` below is
+    # deliberately NOT gated on this, since by design it only ever
+    # produces a confirming QUESTION, never an auto-saved value.
+    evidence_verified = bool(data) and _value_has_verbatim_evidence(data.get("evidence"), message)
+    raw_candidates = (data.get("candidates") if evidence_verified and isinstance(data.get("candidates"), list) else [])
     verified = []
     seen = set()
     for candidate in raw_candidates[:2]:
@@ -8474,6 +8513,42 @@ def _run_destination_recognition(trip_update, destination_evidence, message, his
             seen.add(result)
             verified.append(result)
     if not verified:
+        # Shaked's live round-13 finding (E, "ברגם", a8b6425): every one of
+        # the above "the model's response is unusable" cases (parse error,
+        # no verbatim evidence, no verified candidate at all) used to just
+        # silently return trip_update unchanged, even when the catalog's
+        # OWN structural scan already found a genuine 2-way near-ambiguity
+        # for this exact wording (near_places={ברגמו, ברגן}) - the live
+        # customer got no question and no candidates at all, and Ariella
+        # improvised her own confusing free-text ("בברגם עצמה אין שדה
+        # תעופה") instead. The structural signal is a real, catalog-
+        # verified fact regardless of what the model did or didn't say -
+        # fall back to it exactly like the "no genuine disambiguation"
+        # branch below already does for its own case.
+        if structurally_ambiguous:
+            structural_candidates = [
+                (kind, (codes[0] if kind == "city" else name_he))
+                for name_he, (kind, codes) in near_places.items()
+            ]
+            trip_update = dict(trip_update)
+            trip_update["_destination_ambiguous_hint"] = _destination_ambiguous_hint_from_candidates(structural_candidates)
+        else:
+            # The business owner's directive (24.10.2026, round-13 finding
+            # B live, "זדאק" for Zadar - edit-distance 2, so the catalog's
+            # OWN near-match scan has nothing at all to fall back to):
+            # extension to the unified rule - when there is no exact match
+            # AND no near-catalog candidate, we still never stop at a bare,
+            # unqualified "which airport would you like to land at?"
+            # question when the customer wrote something place-shaped. The
+            # model's own best-effort guess (best_guess, asked for above)
+            # is catalog-verified exactly like any other candidate and, if
+            # it verifies, named in ONE confirming question instead - her
+            # own words: "לעולם לא שאלה כללית 'באיזה שדה' כשהלקוח כתב שם
+            # של מקום."
+            best_guess = _verify_destination_candidate(data.get("best_guess")) if isinstance(data, dict) else None
+            if best_guess:
+                trip_update = dict(trip_update)
+                trip_update["_destination_ambiguous_hint"] = _destination_single_guess_hint_from_candidate(best_guess)
         return trip_update
 
     if len(verified) == 1 and structurally_ambiguous:
