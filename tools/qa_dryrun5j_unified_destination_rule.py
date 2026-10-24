@@ -135,6 +135,87 @@ check("E1 regression: a genuine corroborating quote ('ליד מילאנו', a re
       e1_corroborated.get("destination_airports") == ["BGY"])
 
 # =====================================================================
+# 2b. Shaked's live round-13 finding (E, "ברגם", 24.10.2026, a8b6425,
+#     qa/reports/2026-10-24-live13.md): when the model's classifier call
+#     returns NOTHING usable at all (no evidence, no candidates - "{}"),
+#     not just "a single unsupported pick" (E1 above), the structural
+#     2-way ambiguity (ברגמו/ברגן) must still produce the ambiguous-hint
+#     question instead of silently returning with no hint at all. Live,
+#     Ariella free-texted "בברגם עצמה אין שדה תעופה" instead of asking.
+# =====================================================================
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: "{}"):
+    e1_empty_model_result = chat._resolve_destination_by_meaning(
+        E1_PRIOR_STATE, dict(E1_FRESH_UPDATE), "לברגם", E1_MESSAGE, [])
+check("ROUND-13 E FIX: when the model's classifier call returns nothing "
+      "usable at all, the catalog's own structural 2-way ambiguity still "
+      "produces the ambiguous-hint question instead of silently giving up",
+      bool(e1_empty_model_result.get("_destination_ambiguous_hint"))
+      and "ברגמו" in e1_empty_model_result["_destination_ambiguous_hint"]
+      and "ברגן" in e1_empty_model_result["_destination_ambiguous_hint"])
+check("ROUND-13 E regression: destination_airports is still not silently "
+      "kept as the reverted BGY value",
+      not e1_empty_model_result.get("destination_airports"))
+
+# =====================================================================
+# 2c. Shaked's live round-13 finding B (24.10.2026, "זדאק" meant Zadar,
+#     edit-distance 2 - the catalog's own near-match scan has nothing at
+#     all to fall back to, unlike E's distance-1 "ברגם"): the business
+#     owner's own directive - extension to the unified rule, rule 2 -
+#     when there is no exact match AND no near-catalog candidate, never
+#     stop at a bare "which airport?" question. The customer's words
+#     still reach the model (best_guess, alongside the stricter
+#     candidates field); its own best-effort guess is catalog-verified
+#     and, if it verifies, named in ONE confirming question instead.
+# =====================================================================
+ZADAR_PRIOR_STATE = {}
+ZADAR_UPDATE = {"destination": {"places": ["זדאק"], "mode": "specific", "status": "known"}}
+ZADAR_MESSAGE = "שלוש חברות, לזדאק, לחמישה ימים"
+
+
+def _fake_zadar_best_guess_only(key, model, system_static, system_dynamic, history, message, max_tokens, include_history=True, source="other", **kw):
+    if source == "classifier":
+        # Not confident enough for the strict candidates list (no verbatim
+        # evidence/empty candidates), but a real best_guess is offered.
+        return json.dumps({
+            "evidence": None, "candidates": [], "disambiguating_evidence": None,
+            "best_guess": {"type": "city", "city_en": "Zadar", "iata_code": "ZAD"},
+        })
+    return "{}"
+
+
+with patch.object(chat, "_post_claude", side_effect=_fake_zadar_best_guess_only):
+    zadar_result = chat._resolve_destination_by_meaning(
+        ZADAR_PRIOR_STATE, dict(ZADAR_UPDATE), None, ZADAR_MESSAGE, [])
+check("ROUND-13 B FIX: a catalog-verified best_guess (Zadar/ZAD), even "
+      "without strict-candidate confidence, produces a confirming hint "
+      "naming the real place instead of a bare generic question",
+      bool(zadar_result.get("_destination_ambiguous_hint"))
+      and "Zadar" in zadar_result["_destination_ambiguous_hint"])
+check("ROUND-13 B FIX: the guess is never auto-applied - destination_airports "
+      "stays empty until the customer actually confirms",
+      not zadar_result.get("destination_airports"))
+
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
+        "evidence": None, "candidates": [], "disambiguating_evidence": None, "best_guess": None})):
+    zadar_no_guess_result = chat._resolve_destination_by_meaning(
+        ZADAR_PRIOR_STATE, dict(ZADAR_UPDATE), None, ZADAR_MESSAGE, [])
+check("ROUND-13 B regression: when the model genuinely has no guess at all "
+      "(best_guess null too), nothing crashes and no hint is invented",
+      not zadar_no_guess_result.get("_destination_ambiguous_hint")
+      and not zadar_no_guess_result.get("destination_airports"))
+
+with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
+        "evidence": "זדאק", "candidates": [{"type": "city", "city_en": "Zadar", "iata_code": "ZAD"}],
+        "disambiguating_evidence": None, "best_guess": None})):
+    zadar_confident_result = chat._resolve_destination_by_meaning(
+        ZADAR_PRIOR_STATE, dict(ZADAR_UPDATE), "זדאק", ZADAR_MESSAGE, [])
+check("ROUND-13 B regression: when the model IS confident (verbatim evidence "
+      "+ a real candidate), the destination still resolves directly with no "
+      "question at all - best_guess never interferes with the normal path",
+      zadar_confident_result.get("destination_airports") == ["ZAD"]
+      and not zadar_confident_result.get("_destination_ambiguous_hint"))
+
+# =====================================================================
 # 3. E2 (dry-run 5g): the raw unresolved place keeps its leading ל/ב/מ
 #    preposition - the old gateway path needed its own stripped-form
 #    retry; the unified function's shared tokenizer must still catch it.
