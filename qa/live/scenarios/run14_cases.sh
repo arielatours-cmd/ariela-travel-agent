@@ -2,8 +2,10 @@
 # Owner rules: recycle 2 of 5 within 48h (B Zadar, E Bergen from run 13), diversify the rest; every scenario has a
 # real typo; LIVE_SEARCH=1 per run (owner 23.10). Criteria updated 24.10 (scanned vacation -> subscription only;
 # understanding through the model, no word lists).
-#  R1 NEW "תמליצי לי" (owner 24.10): no destination -> 2-3 catalog destinations after AT MOST one question; dates/
-#     travelers/etc. only after a destination is chosen.
+#  R1 NEW "תמליצי לי" (owner 24.10, updated): no destination -> Ariela draws the customer out with open questions
+#     about the direction (kind of trip, atmosphere, preferences - several allowed), then recommends catalog
+#     destinations. Before a destination is chosen: NO dates/budget/travelers/baggage/accessibility questions.
+#     A detail the customer said herself ("בפברואר", "לשבוע") is saved.
 #  R2 RECYCLED run-13 B "זדאק" (Zadar, ZAD): recognised (or ONE question naming Zadar); never a generic airport question.
 #  R3 RECYCLED run-13 E "ברגם" + baby: ONE question naming Bergen AND Bergamo; never "אין שדה".
 #  R4 NEW "ולנסיע" (Valencia, VLC, ה->ע) + accessibility "כן": owner 24.10 (DECISIONS.md): "כן" to accessibility = treat as wheelchair-level, whatever the reason; no follow-up asking what is needed, no "אדאג להתאמה"; needed=true and the summary shows a wheelchair-level adjustment; a medical detail the customer volunteers is NOT saved (PRV-18).
@@ -14,6 +16,7 @@ _pids=""
 reg ${P}1 ${PH}1 female
 ( say ${P}1 "אני ובן הזוג שלי רוצים לטוס בפברואר לשבוע, אבל אין לנו מושג לאן. תמליצי לנו?"
   say ${P}1 "משהו לא רחוק, עם אוכל טוב ומזג אוויר נעים"
+  say ${P}1 "אנחנו אוהבים לשוטט בעיר עם קצב רגוע, קצת ים זה בונוס"
   drive ${P}1 R1 "נלך על ההמלצה הראשונה שלך" '{"תאריכים":["האפשרות הראשונה","כן"],"נגישות":"לא","כבודה":"טרולי לכל אחד","תקציב":"עד 1300 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"יש לנו","רכב":"לא"}' ) > ${P}_R1.log 2>&1 &
 _pids="${_pids:-} $!"
 reg ${P}2 ${PH}2 female

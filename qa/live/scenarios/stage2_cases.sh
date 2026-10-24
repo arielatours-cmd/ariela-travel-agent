@@ -53,13 +53,13 @@ reg ${P}6 ${PH}6 female
   echo "---- flight change on the scanned vacation (expect: subscription referral, no change) ----"
   say ${P}6 "רגע, אפשר לדחות את הטיסה ביום אחד?"
   ) > ${P}_S6.log 2>&1
-# S7 "recommend me a destination" (owner 24.10, live finding: Ariela kept asking the guided questions before any
-# destination existed). Expected: 2-3 destinations from the catalog, after AT MOST one question (e.g. what kind
-# of trip); dates/travelers/baggage/budget asked only AFTER a destination is chosen. Then normal stage-2 flow.
-# The first turns go through `say` so each reply is logged on its own; the second `say` answers the one
-# allowed question if Ariela asked one (otherwise it simply adds a preference).
+# S7 "recommend me a destination" (owner 24.10, updated: "לדובב את הלקוח כדי להבין מה הכיוון אבל לא להמשיך בסבב
+# השאלות עד שלא הוחלט על יעד"). Expected: open questions about the direction (several allowed), then catalog
+# recommendations; NO dates/budget/travelers/baggage/accessibility before a destination is chosen; details the
+# customer gave herself ("בפברואר", "לשבוע") are kept. Then the normal stage-2 flow.
 reg ${P}7 ${PH}7 female
 ( say ${P}7 "אני ובן הזוג שלי רוצים לטוס בפברואר לשבוע, אבל אין לנו מושג לאן. תמליצי לנו?"
   say ${P}7 "משהו לא רחוק, עם אוכל טוב ומזג אוויר נעים"
+  say ${P}7 "אנחנו אוהבים לשוטט בעיר עם קצב רגוע, קצת ים זה בונוס"
   drive ${P}7 S7 "נלך על ההמלצה הראשונה שלך" '{"תאריכים":["האפשרות הראשונה","כן"],"נגישות":"לא","כבודה":"טרולי לכל אחד","תקציב":"עד 1300 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"כן","סגנון":"אוכל מקומי ושיטוט רגוע","קצב":"רגוע","אישור":"מעולה, מתאים לנו","לינה":"יש לנו","רכב":"לא"}'
   ) > ${P}_S7.log 2>&1
