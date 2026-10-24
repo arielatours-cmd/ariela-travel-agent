@@ -1,6 +1,845 @@
 {
-  "_note": "IATA -> VIP Cars' own location ids (pickup_/dropoff_ country, city, location) for the airport itself. Verified from a real vipcars.com search by the business owner (22.10). Add an airport only from a real search or VIP Cars' own location data - never guessed.",
-  "locations": {
-    "LIS": {"country": 120, "city": 1788, "location": 777, "name": "Lisbon Airport"}
+ "_note": "IATA -> VIP Cars' own location ids (pickup_/dropoff_ country, city, location) for the airport itself. Verified from a real vipcars.com search by the business owner (22.10). Add an airport only from a real search or VIP Cars' own location data - never guessed. 23.10: the 132 airports Ofek mapped from VIP Cars' own airport pages (ofek 8dc085c, product/data/vipcars_locations_draft.json - only entries whose every search button points at the page's own airport; the 'unverified' list is not included). LIS = the business owner's own search.",
+ "locations": {
+  "ADB": {
+   "country": 162,
+   "city": 2160,
+   "location": 12186,
+   "name": "Izmir Airport (ADB)"
+  },
+  "AGP": {
+   "country": 522,
+   "city": 11376,
+   "location": 436,
+   "name": "Malaga Airport (AGP)"
+  },
+  "ALA": {
+   "country": 82,
+   "city": 1494,
+   "location": 709881,
+   "name": "Almaty Airport (ALA)"
+  },
+  "ALC": {
+   "country": 522,
+   "city": 11367,
+   "location": 392,
+   "name": "Alicante Airport (ALC)"
+  },
+  "AMM": {
+   "country": 80,
+   "city": 1491,
+   "location": 6959,
+   "name": "Queen Alia International Airport (AMM)"
+  },
+  "AMS": {
+   "country": 106,
+   "city": 1619,
+   "location": 767,
+   "name": "Amsterdam Airport (AMS)"
+  },
+  "ARN": {
+   "country": 152,
+   "city": 2068,
+   "location": 877,
+   "name": "Arlanda Airport (ARN)"
+  },
+  "ATH": {
+   "country": 62,
+   "city": 1259,
+   "location": 482,
+   "name": "Athens Airport (ATH)"
+  },
+  "AUH": {
+   "country": 164,
+   "city": 2176,
+   "location": 8058,
+   "name": "Abu Dhabi Airport (AUH)"
+  },
+  "AYT": {
+   "country": 162,
+   "city": 2150,
+   "location": 5196,
+   "name": "Antalya Airport (AYT)"
+  },
+  "BCN": {
+   "country": 522,
+   "city": 10905,
+   "location": 397,
+   "name": "Barcelona Airport (BCN)"
+  },
+  "BEG": {
+   "country": 499,
+   "city": 10003,
+   "location": 859,
+   "name": "Belgrade Airport (BEG)"
+  },
+  "BER": {
+   "country": 60,
+   "city": 924,
+   "location": 52200564,
+   "name": "Berlin Brandenburg Airport (BER)"
+  },
+  "BGO": {
+   "country": 112,
+   "city": 1663,
+   "location": 492,
+   "name": "Bergen Airport (BGO)"
+  },
+  "BGY": {
+   "country": 77,
+   "city": 1375,
+   "location": 370,
+   "name": "Bergamo Airport (BGY)"
+  },
+  "BIO": {
+   "country": 522,
+   "city": 10906,
+   "location": 398,
+   "name": "Bilbao Airport (BIO)"
+  },
+  "BKK": {
+   "country": 465,
+   "city": 8019,
+   "location": 10020,
+   "name": "Bangkok Suvarnabhumi Airport (BKK)"
+  },
+  "BLQ": {
+   "country": 77,
+   "city": 1377,
+   "location": 371,
+   "name": "Bologna Airport (BLQ)"
+  },
+  "BOD": {
+   "country": 55,
+   "city": 531,
+   "location": 400,
+   "name": "Bordeaux Airport (BOD)"
+  },
+  "BOJ": {
+   "country": 21,
+   "city": 256,
+   "location": 779,
+   "name": "Burgas Airport (BOJ)"
+  },
+  "BOS": {
+   "country": 190,
+   "city": 2538,
+   "location": 184,
+   "name": "Boston Airport (BOS)"
+  },
+  "BRI": {
+   "country": 77,
+   "city": 1373,
+   "location": 369,
+   "name": "Bari Airport (BRI)"
+  },
+  "BRU": {
+   "country": 14,
+   "city": 211,
+   "location": 771,
+   "name": "Brussels Airport (BRU)"
+  },
+  "BSL": {
+   "country": 153,
+   "city": 2085,
+   "location": 712,
+   "name": "Basel Airport (BSL)"
+  },
+  "BTS": {
+   "country": 134,
+   "city": 1874,
+   "location": 782,
+   "name": "Bratislava Airport (BTS)"
+  },
+  "BUD": {
+   "country": 69,
+   "city": 1320,
+   "location": 635,
+   "name": "Budapest Airport (BUD)"
+  },
+  "CAI": {
+   "country": 48,
+   "city": 439,
+   "location": 13826,
+   "name": "Cairo Airport (CAI)"
+  },
+  "CDG": {
+   "country": 55,
+   "city": 751,
+   "location": 477,
+   "name": "Charles de Gaulle CDG Airport (CDG)"
+  },
+  "CGN": {
+   "country": 60,
+   "city": 951,
+   "location": 542,
+   "name": "Cologne Bonn Airport (CGN)"
+  },
+  "CMB": {
+   "country": 146,
+   "city": 2016,
+   "location": 8315,
+   "name": "Colombo International Airport (CMB)"
+  },
+  "CMF": {
+   "country": 55,
+   "city": 565,
+   "location": 437,
+   "name": "Chambery Airport (CMF)"
+  },
+  "CMN": {
+   "country": 103,
+   "city": 1605,
+   "location": 688,
+   "name": "Casablanca Airport (CMN)"
+  },
+  "CNX": {
+   "country": 465,
+   "city": 40276,
+   "location": 9854,
+   "name": "Chiang Mai International Airport (CNX)"
+  },
+  "CPH": {
+   "country": 44,
+   "city": 402,
+   "location": 895,
+   "name": "Copenhagen Airport (CPH)"
+  },
+  "DBV": {
+   "country": 40,
+   "city": 362,
+   "location": 786,
+   "name": "Dubrovnik Airport (DBV)"
+  },
+  "DEL": {
+   "country": 441,
+   "city": 10379,
+   "location": 17000,
+   "name": "New Delhi Airport (DEL)"
+  },
+  "DLM": {
+   "country": 162,
+   "city": 2154,
+   "location": 12181,
+   "name": "Dalaman Airport (DLM)"
+  },
+  "DOH": {
+   "country": 123,
+   "city": 1844,
+   "location": 705,
+   "name": "Doha Airport (DOH)"
+  },
+  "DPS": {
+   "country": 72,
+   "city": 8287,
+   "location": 9569,
+   "name": "Bali Airport (DPS)"
+  },
+  "DUB": {
+   "country": 75,
+   "city": 1351,
+   "location": 787,
+   "name": "Dublin Airport (DUB)"
+  },
+  "DUS": {
+   "country": 60,
+   "city": 10795,
+   "location": 526,
+   "name": "Dusseldorf Airport (DUS)"
+  },
+  "DXB": {
+   "country": 164,
+   "city": 2178,
+   "location": 701,
+   "name": "Dubai International Airport [DXB]"
+  },
+  "EDI": {
+   "country": 165,
+   "city": 2227,
+   "location": 512,
+   "name": "Edinburgh Airport (EDI)"
+  },
+  "EVN": {
+   "country": 486,
+   "city": 9962,
+   "location": 7190,
+   "name": "Yerevan Airport (EVN)"
+  },
+  "EWR": {
+   "country": 199,
+   "city": 12252,
+   "location": 200,
+   "name": "Newark Airport (EWR)"
+  },
+  "EZE": {
+   "country": 9,
+   "city": 8,
+   "location": 11425,
+   "name": "Ezeiza Ministro Pistarini Airport (EZE)"
+  },
+  "FAO": {
+   "country": 120,
+   "city": 1774,
+   "location": 513,
+   "name": "Faro Airport (FAO)"
+  },
+  "FCO": {
+   "country": 77,
+   "city": 230173,
+   "location": 5883,
+   "name": "Rome Fiumicino Airport [FCO]"
+  },
+  "FLR": {
+   "country": 77,
+   "city": 1402,
+   "location": 375,
+   "name": "Florence Airport (FLR)"
+  },
+  "FRA": {
+   "country": 60,
+   "city": 996,
+   "location": 529,
+   "name": "Frankfurt Airport (FRA)"
+  },
+  "GOT": {
+   "country": 152,
+   "city": 2035,
+   "location": 7896,
+   "name": "Landvetter Airport (GOT)"
+  },
+  "GRU": {
+   "country": 20,
+   "city": 8173,
+   "location": 574,
+   "name": "Guarulhos Airport (GRU)"
+  },
+  "GYD": {
+   "country": 420,
+   "city": 7981,
+   "location": 11453,
+   "name": "Baku Airport [GYD]"
+  },
+  "HAM": {
+   "country": 60,
+   "city": 1035,
+   "location": 531,
+   "name": "Hamburg Airport (HAM)"
+  },
+  "HAN": {
+   "country": 2361,
+   "city": 59393,
+   "location": 16908,
+   "name": "Hanoi Airport [HAN]"
+  },
+  "HEL": {
+   "country": 53,
+   "city": 457,
+   "location": 8840,
+   "name": "Helsinki Airport (HEL)"
+  },
+  "HKT": {
+   "country": 465,
+   "city": 8620,
+   "location": 734,
+   "name": "Phuket Airport (HKT)"
+  },
+  "HND": {
+   "country": 495,
+   "city": 10551,
+   "location": 5490,
+   "name": "Tokyo Haneda Airport (HND)"
+  },
+  "IBZ": {
+   "country": 564,
+   "city": 11433,
+   "location": 430,
+   "name": "Ibiza Airport (IBZ)"
+  },
+  "ICN": {
+   "country": 1449,
+   "city": 38549,
+   "location": 8243,
+   "name": "Incheon Int Airport (ICN)"
+  },
+  "INN": {
+   "country": 12,
+   "city": 197,
+   "location": 651,
+   "name": "Innsbruck Airport (INN)"
+  },
+  "IST": {
+   "country": 162,
+   "city": 2159,
+   "location": 3634923,
+   "name": "Car Hire Istanbul New Airport [IST]"
+  },
+  "JFK": {
+   "country": 201,
+   "city": 229824,
+   "location": 7119,
+   "name": "New York City JFK Airport [JFK]"
+  },
+  "KIX": {
+   "country": 495,
+   "city": 10539,
+   "location": 5476,
+   "name": "Kansai Airport (KIX)"
+  },
+  "KRK": {
+   "country": 119,
+   "city": 1737,
+   "location": 668,
+   "name": "Krakow Airport [KRK]"
+  },
+  "KTW": {
+   "country": 119,
+   "city": 1735,
+   "location": 667,
+   "name": "Katowice International Airport (KTW)"
+  },
+  "KUL": {
+   "country": 93,
+   "city": 1521,
+   "location": 8789,
+   "name": "Kuala Lumpur Airport (KUL)"
+  },
+  "LAS": {
+   "country": 197,
+   "city": 2602,
+   "location": 205,
+   "name": "Las Vegas Airport (LAS)"
+  },
+  "LAX": {
+   "country": 174,
+   "city": 2377,
+   "location": 16,
+   "name": "Los Angeles Airport (LAX)"
+  },
+  "LCA": {
+   "country": 42,
+   "city": 380,
+   "location": 758,
+   "name": "Larnaca Airport (LCA)"
+  },
+  "LHR": {
+   "country": 165,
+   "city": 2259,
+   "location": 547,
+   "name": "London Heathrow Airport [LHR]"
+  },
+  "LIN": {
+   "country": 77,
+   "city": 1430,
+   "location": 384,
+   "name": "Linate Airport (LIN)"
+  },
+  "LIS": {
+   "country": 120,
+   "city": 1788,
+   "location": 777,
+   "name": "Lisbon Airport"
+  },
+  "LJU": {
+   "country": 135,
+   "city": 1884,
+   "location": 765,
+   "name": "Ljubljana Airport (LJU)"
+  },
+  "LPA": {
+   "country": 519,
+   "city": 11415,
+   "location": 468,
+   "name": "Las Palmas Airport (LPA)"
+  },
+  "LTN": {
+   "country": 165,
+   "city": 2259,
+   "location": 548,
+   "name": "London Luton Airport (LTN)"
+  },
+  "MAD": {
+   "country": 522,
+   "city": 10930,
+   "location": 433,
+   "name": "Madrid Airport [MAD]"
+  },
+  "MAH": {
+   "country": 564,
+   "city": 11435,
+   "location": 435,
+   "name": "Menorca Airport (MAH)"
+  },
+  "MAN": {
+   "country": 165,
+   "city": 2264,
+   "location": 549,
+   "name": "Manchester Airport (MAN)"
+  },
+  "MCO": {
+   "country": 178,
+   "city": 2450,
+   "location": 5,
+   "name": "Orlando Airport (MCO)"
+  },
+  "MCT": {
+   "country": 113,
+   "city": 1717,
+   "location": 8608,
+   "name": "Muscat Airport (MCT)"
+  },
+  "MEX": {
+   "country": 100,
+   "city": 1585,
+   "location": 615,
+   "name": "Mexico City Airport (MEX)"
+  },
+  "MLA": {
+   "country": 94,
+   "city": 1547,
+   "location": 7121,
+   "name": "Valletta Malta Airport (MLA)"
+  },
+  "MNL": {
+   "country": 448,
+   "city": 9054,
+   "location": 462487,
+   "name": "Manila Airport (MNL)"
+  },
+  "MRS": {
+   "country": 55,
+   "city": 697,
+   "location": 463,
+   "name": "Marseille Airport (MRS)"
+  },
+  "MUC": {
+   "country": 60,
+   "city": 1125,
+   "location": 544,
+   "name": "Munich Airport (MUC)"
+  },
+  "MXP": {
+   "country": 77,
+   "city": 1430,
+   "location": 382,
+   "name": "Malpensa Airport (MXP)"
+  },
+  "NAP": {
+   "country": 77,
+   "city": 1434,
+   "location": 385,
+   "name": "Naples Airport (NAP)"
+  },
+  "NBO": {
+   "country": 83,
+   "city": 1497,
+   "location": 8768,
+   "name": "Nairobi Airport (NBO)"
+  },
+  "NCE": {
+   "country": 55,
+   "city": 735,
+   "location": 470,
+   "name": "Nice Airport (NCE)"
+  },
+  "NRT": {
+   "country": 495,
+   "city": 10551,
+   "location": 323257,
+   "name": "Narita Airport (NRT)"
+  },
+  "NTE": {
+   "country": 55,
+   "city": 731,
+   "location": 469,
+   "name": "Nantes Airport (NTE)"
+  },
+  "OPO": {
+   "country": 120,
+   "city": 1814,
+   "location": 778,
+   "name": "Porto Airport (OPO)"
+  },
+  "ORD": {
+   "country": 182,
+   "city": 2491,
+   "location": 35,
+   "name": "Chicago O'Hare Airport (ORD)"
+  },
+  "ORY": {
+   "country": 55,
+   "city": 751,
+   "location": 472,
+   "name": "Paris Orly Airport (ORY)"
+  },
+  "OSL": {
+   "country": 112,
+   "city": 1694,
+   "location": 488,
+   "name": "Gardermoen Airport (OSL)"
+  },
+  "OTP": {
+   "country": 125,
+   "city": 1851,
+   "location": 8902,
+   "name": "Otopeni Airport (OTP)"
+  },
+  "PDV": {
+   "country": 21,
+   "city": 257,
+   "location": 11843,
+   "name": "Plovdiv Airport (PDV)"
+  },
+  "PFO": {
+   "country": 42,
+   "city": 383,
+   "location": 760,
+   "name": "Paphos Airport (PFO)"
+  },
+  "PMI": {
+   "country": 564,
+   "city": 11434,
+   "location": 442,
+   "name": "Palma De Mallorca Airport (PMI)"
+  },
+  "PRG": {
+   "country": 43,
+   "city": 395,
+   "location": 756,
+   "name": "Prague Airport (PRG)"
+  },
+  "PSA": {
+   "country": 77,
+   "city": 1445,
+   "location": 391,
+   "name": "Pisa Airport (PSA)"
+  },
+  "RAK": {
+   "country": 103,
+   "city": 1607,
+   "location": 693,
+   "name": "Marrakech Airport (RAK)"
+  },
+  "RIX": {
+   "country": 85,
+   "city": 1502,
+   "location": 5629,
+   "name": "Riga Airport (RIX)"
+  },
+  "RMO": {
+   "country": 101,
+   "city": 1602,
+   "location": 8743,
+   "name": "Chisinau Airport [RMO]"
+  },
+  "SAW": {
+   "country": 162,
+   "city": 2159,
+   "location": 830,
+   "name": "Sabiha Gokcen International Airport (SAW)"
+  },
+  "SFO": {
+   "country": 174,
+   "city": 2399,
+   "location": 23,
+   "name": "San Francisco Airport (SFO)"
+  },
+  "SIN": {
+   "country": 454,
+   "city": 9517,
+   "location": 700,
+   "name": "Singapore Changi Airport (SIN)"
+  },
+  "SJJ": {
+   "country": 487,
+   "city": 9980,
+   "location": 811,
+   "name": "Sarajevo Airport (SJJ)"
+  },
+  "SKG": {
+   "country": 62,
+   "city": 1300,
+   "location": 816,
+   "name": "Thessaloniki Airport (SKG)"
+  },
+  "SKP": {
+   "country": 91,
+   "city": 1516,
+   "location": 791,
+   "name": "Skopje Airport (SKP)"
+  },
+  "SOF": {
+   "country": 21,
+   "city": 258,
+   "location": 780,
+   "name": "Sofia Airport (SOF)"
+  },
+  "SSH": {
+   "country": 48,
+   "city": 443,
+   "location": 10154,
+   "name": "Sharm El Sheikh Airport (SSH)"
+  },
+  "STR": {
+   "country": 60,
+   "city": 1213,
+   "location": 546,
+   "name": "Stuttgart Airport (STR)"
+  },
+  "SVQ": {
+   "country": 522,
+   "city": 11500,
+   "location": 447,
+   "name": "Seville Airport (SVQ)"
+  },
+  "SZG": {
+   "country": 12,
+   "city": 200,
+   "location": 655,
+   "name": "Salzburg Airport (SZG)"
+  },
+  "TBS": {
+   "country": 435,
+   "city": 9665,
+   "location": 7193,
+   "name": "Tbilisi Airport (TBS)"
+  },
+  "TFS": {
+   "country": 519,
+   "city": 10886,
+   "location": 6663,
+   "name": "Tenerife Airport South (TFS)"
+  },
+  "TGD": {
+   "country": 529,
+   "city": 11225,
+   "location": 5625,
+   "name": "Podgorica Airport (TGD)"
+  },
+  "TIA": {
+   "country": 418,
+   "city": 9671,
+   "location": 864,
+   "name": "Tirana Airport (TIA)"
+  },
+  "TIV": {
+   "country": 529,
+   "city": 11226,
+   "location": 862,
+   "name": "Tivat Airport (TIV)"
+  },
+  "TLS": {
+   "country": 55,
+   "city": 839,
+   "location": 486,
+   "name": "Toulouse Airport (TLS)"
+  },
+  "TRN": {
+   "country": 77,
+   "city": 1480,
+   "location": 408,
+   "name": "Turin Airport (TRN)"
+  },
+  "VCE": {
+   "country": 77,
+   "city": 1483,
+   "location": 410,
+   "name": "Venice Airport (VCE)"
+  },
+  "VIE": {
+   "country": 12,
+   "city": 202,
+   "location": 657,
+   "name": "Vienna Airport (VIE)"
+  },
+  "VLC": {
+   "country": 522,
+   "city": 11452,
+   "location": 448,
+   "name": "Valencia Airport (VLC)"
+  },
+  "VRN": {
+   "country": 77,
+   "city": 1485,
+   "location": 412,
+   "name": "Verona Airport (VRN)"
+  },
+  "WAW": {
+   "country": 119,
+   "city": 1744,
+   "location": 10921,
+   "name": "Warsaw Chopin Airport [WAW]"
+  },
+  "YUL": {
+   "country": 24,
+   "city": 8752,
+   "location": 604,
+   "name": "Montreal Airport (YUL)"
+  },
+  "YYZ": {
+   "country": 24,
+   "city": 7914,
+   "location": 633,
+   "name": "Toronto Pearson International Airport (YYZ)"
+  },
+  "ZAG": {
+   "country": 40,
+   "city": 377,
+   "location": 797,
+   "name": "Zagreb Airport (ZAG)"
+  },
+  "ZRH": {
+   "country": 153,
+   "city": 2125,
+   "location": 720,
+   "name": "Zurich Airport (ZRH)"
   }
+ },
+ "_pages_note": "23.10 (Shlomo/Ofek): airports whose search ids aren't verified yet - VIP Cars' own static airport page from its sitemap (www.vipcars.com/location.xml, ofek 8dc085c 'unverified' -> vipcars_page). No dates, but better than the home page. Only pages that exist in the sitemap - never a built/guessed URL. Ofek completes the ids in stage 4.",
+ "pages": {
+  "BOM": "https://www.vipcars.com/car-rental/india/mumbai/mumbai-airport",
+  "BUS": "https://www.vipcars.com/car-rental/georgia/batumi/batumi-international-airport",
+  "CAG": "https://www.vipcars.com/car-rental/italy-sardinia/cagliari/cagliari-airport",
+  "CAN": "https://www.vipcars.com/car-rental/china/guangzhou/guangzhou-baiyun-airport",
+  "CFU": "https://www.vipcars.com/car-rental/greece/corfu/corfu-airport",
+  "CGK": "https://www.vipcars.com/car-rental/indonesia/jakarta/jakarta-soekarno-hatta-airport",
+  "CHQ": "https://www.vipcars.com/car-rental/greece/chania-crete-island/chania-airport",
+  "CIA": "https://www.vipcars.com/car-rental/italy/rome/ciampino-airport",
+  "CPT": "https://www.vipcars.com/car-rental/south-africa/cape-town/cape-town-intl-airport",
+  "CTA": "https://www.vipcars.com/car-rental/italy-sicily/catania/catania-airport",
+  "DAD": "https://www.vipcars.com/car-rental/vietnam/da-nang/da-nang-airport",
+  "EFL": "https://www.vipcars.com/car-rental/greece/kefalonia/kefalonia-airport",
+  "GNB": "https://www.vipcars.com/car-rental/france/grenoble/grenoble-airport",
+  "GRX": "https://www.vipcars.com/car-rental/spain-mainland/granada/granada-airport",
+  "GVA": "https://www.vipcars.com/car-rental/switzerland/geneva-swiss-side/geneva-airport",
+  "HER": "https://www.vipcars.com/car-rental/greece/crete-heraklion/heraklion-airport",
+  "HKG": "https://www.vipcars.com/car-rental/hong-kong/hong-kong/hong-kong-airport",
+  "IAD": "https://www.vipcars.com/car-rental/usa-washington-dc/washington-dc/washington-dulles-airport",
+  "INI": "https://www.vipcars.com/car-rental/serbia/nis/nis-airport",
+  "JMK": "https://www.vipcars.com/car-rental/greece/mykonos/mykonos-airport",
+  "JNB": "https://www.vipcars.com/car-rental/south-africa/johannesburg/o-r-tambo-intl-airport",
+  "JSI": "https://www.vipcars.com/car-rental/greece/skiathos/skiathos-airport",
+  "JTR": "https://www.vipcars.com/car-rental/greece/santorini/santorini-airport",
+  "KEF": "https://www.vipcars.com/car-rental/iceland/keflavik/keflavik-intl-airport",
+  "KGS": "https://www.vipcars.com/car-rental/greece/kos/kos-airport",
+  "KLX": "https://www.vipcars.com/car-rental/greece/kalamata/kalamata-airport",
+  "LGA": "https://www.vipcars.com/car-rental/usa-new-york/new-york-city/la-guardia-airport",
+  "LGW": "https://www.vipcars.com/car-rental/united-kingdom/london/gatwick-airport",
+  "LYS": "https://www.vipcars.com/car-rental/france/lyon/lyon-airport",
+  "MIA": "https://www.vipcars.com/car-rental/usa-florida/miami/miami-airport",
+  "MJT": "https://www.vipcars.com/car-rental/greece/lesvos-mytilini/mytilini-airport",
+  "OLB": "https://www.vipcars.com/car-rental/italy-sardinia/olbia/olbia-airport",
+  "PEK": "https://www.vipcars.com/car-rental/china/beijing/beijing-capital-airport",
+  "PMO": "https://www.vipcars.com/car-rental/italy/sicily-palermo/palermo-airport",
+  "PVG": "https://www.vipcars.com/car-rental/china/shanghai/pudong-airport",
+  "RHO": "https://www.vipcars.com/car-rental/greece/rhodes/rhodes-airport",
+  "SEZ": "https://www.vipcars.com/car-rental/seychelles/victoria-mahe-island/seychelles-airport",
+  "SGN": "https://www.vipcars.com/car-rental/vietnam/ho-chi-minh-city-saigon/ho-chi-minh-airport",
+  "SMI": "https://www.vipcars.com/car-rental/greece/samos/samos-airport",
+  "SPU": "https://www.vipcars.com/car-rental/croatia/split/split-airport",
+  "STN": "https://www.vipcars.com/car-rental/united-kingdom/london/stansted-airport",
+  "VAR": "https://www.vipcars.com/car-rental/bulgaria/varna/varna-airport",
+  "VNO": "https://www.vipcars.com/car-rental/lithuania/vilnius/vilnius-airport",
+  "ZNZ": "https://www.vipcars.com/car-rental/tanzania/zanzibar-unguja-island/zanzibar-international-airport",
+  "ZTH": "https://www.vipcars.com/car-rental/greece/zakynthos/zakynthos-airport"
+ }
 }
