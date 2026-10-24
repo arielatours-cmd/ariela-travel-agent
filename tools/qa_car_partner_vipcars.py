@@ -17,6 +17,7 @@ business owner's to enter in Render once the format is confirmed.
 
 Offline. Run: python3 tools/qa_car_partner_vipcars.py
 """
+import json
 import os
 import sys
 import tempfile
@@ -98,12 +99,14 @@ check("VIP: no times in the chat -> pickup_time/dropoff_time 10:00 (never missin
 check("VIP: the colon is percent-encoded inside CJ's url= (10%3A00), decoded back by CJ",
       "10%253A00" in out or "10%3A00" in out)
 check("VIP: no tid / aff in what we build", "tid" not in v and "aff" not in v and "tid=" not in out and "aff=" not in out)
-out, q, v = inner(ANS, iata="FCO", template=VIP)
-check("VIP: a destination with no verified ids (FCO) -> partner home page, no url=", "url" not in q and q.get("sid") == ["trip7"])
-out, q, v = inner(dict(LIS_ANS, car_return="return at FAO"), iata="LIS", template=VIP)
+# 23.10: FCO/FAO are mapped now (Ofek's 132 airports) - HFA/GVA are still unmapped.
+out, q, v = inner(dict(ANS, destinations="HFA"), iata="HFA", template=VIP)
+check("VIP: a destination with no verified ids (HFA) -> partner home page, no url=", "url" not in q and q.get("sid") == ["trip7"])
+out, q, v = inner(dict(LIS_ANS, car_return="return at GVA"), iata="LIS", template=VIP)
 check("VIP: return airport with no verified ids -> home page (never half-filled)", "url" not in q)
 src_map = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "vipcars_locations.json"), encoding="utf-8").read()
-check("mapping file: LIS = 120/1788/777 (the verified search)", '"LIS": {"country": 120, "city": 1788, "location": 777' in src_map)
+lis_map = json.loads(src_map)["locations"]["LIS"]
+check("mapping file: LIS = 120/1788/777 (the verified search)", (lis_map["country"], lis_map["city"], lis_map["location"]) == (120, 1788, 777))
 
 # Card text
 with patch.object(public_site, "CAR_RENTAL_AFFILIATE_LINK", CJ):

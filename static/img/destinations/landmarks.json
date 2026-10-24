@@ -1,0 +1,300 @@
+{
+ "_about": "אימות DESTINATION_LANDMARK_IMAGES (database.py) מול Wikimedia Commons API, 23.10.2026 (אופק). בשביל עידו: להחליף את הכתובות ב-url_1200 ולהציג קרדיט (credit_text) לפי IMG-1. רישיונות רק PD, CC0, CC BY ו-CC BY-SA. 23.10 (Tom's QA): Wikimedia rejects 1200px thumbnails (HTTP 400, not a listed size) - the 12 replacements now use 1280px, like the 17 existing ones.",
+ "generic_image": {
+  "proposal": "כנף מטוס מעל עננים",
+  "title": "File:Boeing-737-800-wing-20060527-001.jpg",
+  "license": "CC0",
+  "artist": "Gary Houston",
+  "page": "https://commons.wikimedia.org/wiki/File:Boeing-737-800-wing-20060527-001.jpg",
+  "local_file": "product/assets/destinations/_default.webp",
+  "credit_text": null,
+  "replaces": "images.unsplash.com/photo-1500530855697 (כביש מדברי)"
+ },
+ "images": {
+  "ATH": {
+   "status": "verified_existing",
+   "title": "File:Parthenon from west.jpg",
+   "license": "Public domain",
+   "artist": "User:Mountain",
+   "page": "https://commons.wikimedia.org/wiki/File:Parthenon_from_west.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Parthenon_from_west.jpg/1280px-Parthenon_from_west.jpg",
+   "credit_text": null
+  },
+  "BUD": {
+   "status": "verified_existing",
+   "title": "File:Budapest, view from the Fisherman's Bastion to the Hungarian Parliament Building.jpg",
+   "license": "CC BY 4.0",
+   "artist": "Dguendel",
+   "page": "https://commons.wikimedia.org/wiki/File:Budapest,_view_from_the_Fisherman%27s_Bastion_to_the_Hungarian_Parliament_Building.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Budapest%2C_view_from_the_Fisherman%27s_Bastion_to_the_Hungarian_Parliament_Building.jpg/1280px-Budapest%2C_view_from_the_Fisherman%27s_Bastion_to_the_Hungarian_Parliament_Building.jpg",
+   "credit_text": "צילום: Dguendel / CC BY 4.0, דרך Wikimedia Commons"
+  },
+  "SOF": {
+   "status": "verified_existing",
+   "title": "File:Alexander Nevsky Cathedral in Sofia.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "DIMSFIKAS",
+   "page": "https://commons.wikimedia.org/wiki/File:Alexander_Nevsky_Cathedral_in_Sofia.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/7/73/Alexander_Nevsky_Cathedral_in_Sofia.jpg",
+   "credit_text": "צילום: DIMSFIKAS / CC BY-SA 3.0, דרך Wikimedia Commons"
+  },
+  "FCO": {
+   "status": "verified_existing",
+   "title": "File:Colosseum in Rome, Italy - April 2007.jpg",
+   "license": "CC BY-SA 2.5",
+   "artist": "Diliff",
+   "page": "https://commons.wikimedia.org/wiki/File:Colosseum_in_Rome,_Italy_-_April_2007.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Colosseum_in_Rome%2C_Italy_-_April_2007.jpg/1280px-Colosseum_in_Rome%2C_Italy_-_April_2007.jpg",
+   "credit_text": "צילום: Diliff / CC BY-SA 2.5, דרך Wikimedia Commons"
+  },
+  "MXP": {
+   "status": "verified_existing",
+   "title": "File:Milan Cathedral from Piazza del Duomo.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "Jiuguang Wang",
+   "page": "https://commons.wikimedia.org/wiki/File:Milan_Cathedral_from_Piazza_del_Duomo.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Milan_Cathedral_from_Piazza_del_Duomo.jpg/1280px-Milan_Cathedral_from_Piazza_del_Duomo.jpg",
+   "credit_text": "צילום: Jiuguang Wang / CC BY-SA 3.0, דרך Wikimedia Commons"
+  },
+  "CDG": {
+   "status": "verified_existing",
+   "title": "File:Eiffel Tower from the Tour Montparnasse 3, Paris May 2014.jpg",
+   "license": "CC BY 2.0",
+   "artist": "David McSpadden from Daly City, United States",
+   "page": "https://commons.wikimedia.org/wiki/File:Eiffel_Tower_from_the_Tour_Montparnasse_3,_Paris_May_2014.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Eiffel_Tower_from_the_Tour_Montparnasse_3%2C_Paris_May_2014.jpg/1280px-Eiffel_Tower_from_the_Tour_Montparnasse_3%2C_Paris_May_2014.jpg",
+   "credit_text": "צילום: David McSpadden from Daly City, United States / CC BY 2.0, דרך Wikimedia Commons"
+  },
+  "AMS": {
+   "status": "verified_existing",
+   "title": "File:KeizersgrachtReguliersgrachtAmsterdam.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "Massimo Catarinella",
+   "page": "https://commons.wikimedia.org/wiki/File:KeizersgrachtReguliersgrachtAmsterdam.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/KeizersgrachtReguliersgrachtAmsterdam.jpg/1280px-KeizersgrachtReguliersgrachtAmsterdam.jpg",
+   "credit_text": "צילום: Massimo Catarinella / CC BY-SA 3.0, דרך Wikimedia Commons"
+  },
+  "BCN": {
+   "status": "verified_existing",
+   "title": "File:Sagrada Familia 01.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "Bernard Gagnon",
+   "page": "https://commons.wikimedia.org/wiki/File:Sagrada_Familia_01.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Sagrada_Familia_01.jpg/1280px-Sagrada_Familia_01.jpg",
+   "credit_text": "צילום: Bernard Gagnon / CC BY-SA 3.0, דרך Wikimedia Commons"
+  },
+  "MAD": {
+   "status": "verified_existing",
+   "title": "File:Palacio de Comunicaciones - 47.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "Carlos Delgado",
+   "page": "https://commons.wikimedia.org/wiki/File:Palacio_de_Comunicaciones_-_47.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Palacio_de_Comunicaciones_-_47.jpg/1280px-Palacio_de_Comunicaciones_-_47.jpg",
+   "credit_text": "צילום: Carlos Delgado / CC BY-SA 3.0, דרך Wikimedia Commons"
+  },
+  "LHR": {
+   "status": "verified_existing",
+   "title": "File:London Eye Twilight April 2006.jpg",
+   "license": "CC BY 2.5",
+   "artist": "User:Diliff",
+   "page": "https://commons.wikimedia.org/wiki/File:London_Eye_Twilight_April_2006.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/London_Eye_Twilight_April_2006.jpg/1280px-London_Eye_Twilight_April_2006.jpg",
+   "credit_text": "צילום: User:Diliff / CC BY 2.5, דרך Wikimedia Commons"
+  },
+  "BER": {
+   "status": "verified_existing",
+   "title": "File:Brandenburger Tor abends.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "Thomas Wolf, www.foto-tw.de",
+   "page": "https://commons.wikimedia.org/wiki/File:Brandenburger_Tor_abends.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Brandenburger_Tor_abends.jpg/1280px-Brandenburger_Tor_abends.jpg",
+   "credit_text": "צילום: Thomas Wolf, www.foto-tw.de / CC BY-SA 3.0, דרך Wikimedia Commons"
+  },
+  "MUC": {
+   "status": "verified_existing",
+   "title": "File:Neues Rathaus Muenchen.jpg",
+   "license": "CC0",
+   "artist": "Helmlechner",
+   "page": "https://commons.wikimedia.org/wiki/File:Neues_Rathaus_Muenchen.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Neues_Rathaus_Muenchen.jpg/1280px-Neues_Rathaus_Muenchen.jpg",
+   "credit_text": null
+  },
+  "TBS": {
+   "status": "verified_existing",
+   "title": "File:Tbilisi view.jpg",
+   "license": "Public domain",
+   "artist": "Shikhlinski",
+   "page": "https://commons.wikimedia.org/wiki/File:Tbilisi_view.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Tbilisi_view.jpg/1280px-Tbilisi_view.jpg",
+   "credit_text": null
+  },
+  "SKP": {
+   "status": "verified_existing",
+   "title": "File:Stone Bridge Skopje.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "kallerna",
+   "page": "https://commons.wikimedia.org/wiki/File:Stone_Bridge_Skopje.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Stone_Bridge_Skopje.jpg/1280px-Stone_Bridge_Skopje.jpg",
+   "credit_text": "צילום: kallerna / CC BY-SA 4.0, דרך Wikimedia Commons"
+  },
+  "ZAG": {
+   "status": "verified_existing",
+   "title": "File:Zagreb Cathedral.jpg",
+   "license": "CC BY 2.0",
+   "artist": "Alistair young",
+   "page": "https://commons.wikimedia.org/wiki/File:Zagreb_Cathedral.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Zagreb_Cathedral.jpg/1280px-Zagreb_Cathedral.jpg",
+   "credit_text": "צילום: Alistair young / CC BY 2.0, דרך Wikimedia Commons"
+  },
+  "BKK": {
+   "status": "verified_existing",
+   "title": "File:Wat Arun Bangkok.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Cun Cun",
+   "page": "https://commons.wikimedia.org/wiki/File:Wat_Arun_Bangkok.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Wat_Arun_Bangkok.jpg/1280px-Wat_Arun_Bangkok.jpg",
+   "credit_text": "צילום: Cun Cun / CC BY-SA 4.0, דרך Wikimedia Commons"
+  },
+  "JFK": {
+   "status": "verified_existing",
+   "title": "File:Manhattan from Weehawken, NJ.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "Dmitry Avdeev",
+   "page": "https://commons.wikimedia.org/wiki/File:Manhattan_from_Weehawken,_NJ.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Manhattan_from_Weehawken%2C_NJ.jpg/1280px-Manhattan_from_Weehawken%2C_NJ.jpg",
+   "credit_text": "צילום: Dmitry Avdeev / CC BY-SA 3.0, דרך Wikimedia Commons"
+  },
+  "LIS": {
+   "status": "replacement",
+   "title": "File:Lisbon Torre de Belém BW 2018-10-03 16-33-21.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Berthold Werner",
+   "page": "https://commons.wikimedia.org/wiki/File:Lisbon_Torre_de_Bel%C3%A9m_BW_2018-10-03_16-33-21.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Lisbon_Torre_de_Bel%C3%A9m_BW_2018-10-03_16-33-21.jpg/1280px-Lisbon_Torre_de_Bel%C3%A9m_BW_2018-10-03_16-33-21.jpg",
+   "credit_text": "צילום: Berthold Werner / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)"
+  },
+  "VIE": {
+   "status": "replacement",
+   "title": "File:Schloss Schönbrunn Wien 2014 (Zuschnitt 1).jpg",
+   "license": "CC BY-SA 3.0 de",
+   "artist": "Thomas Wolf, www.foto-tw.de",
+   "page": "https://commons.wikimedia.org/wiki/File:Schloss_Sch%C3%B6nbrunn_Wien_2014_(Zuschnitt_1).jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Schloss_Sch%C3%B6nbrunn_Wien_2014_%28Zuschnitt_1%29.jpg/1280px-Schloss_Sch%C3%B6nbrunn_Wien_2014_%28Zuschnitt_1%29.jpg",
+   "credit_text": "צילום: Thomas Wolf, www.foto-tw.de / CC BY-SA 3.0 de, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)"
+  },
+  "ZRH": {
+   "status": "replacement",
+   "title": "File:Zürich view Quaibrücke 20200702.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "Daniel Kraft",
+   "page": "https://commons.wikimedia.org/wiki/File:Z%C3%BCrich_view_Quaibr%C3%BCcke_20200702.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Z%C3%BCrich_view_Quaibr%C3%BCcke_20200702.jpg/1280px-Z%C3%BCrich_view_Quaibr%C3%BCcke_20200702.jpg",
+   "credit_text": "צילום: Daniel Kraft / CC BY-SA 3.0, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)"
+  },
+  "BRU": {
+   "status": "replacement",
+   "title": "File:Edificios en la Grand-Place, Bruselas, Bélgica, 2021-12-15, DD 184-186 HDR.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Diego Delso",
+   "page": "https://commons.wikimedia.org/wiki/File:Edificios_en_la_Grand-Place,_Bruselas,_B%C3%A9lgica,_2021-12-15,_DD_184-186_HDR.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Edificios_en_la_Grand-Place%2C_Bruselas%2C_B%C3%A9lgica%2C_2021-12-15%2C_DD_184-186_HDR.jpg/1280px-Edificios_en_la_Grand-Place%2C_Bruselas%2C_B%C3%A9lgica%2C_2021-12-15%2C_DD_184-186_HDR.jpg",
+   "credit_text": "צילום: Diego Delso / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)"
+  },
+  "WAW": {
+   "status": "replacement",
+   "title": "File:Old Town Market Square., 2026, Warsaw, Poland.jpg",
+   "license": "CC BY 4.0",
+   "artist": "Igor123121",
+   "page": "https://commons.wikimedia.org/wiki/File:Old_Town_Market_Square.,_2026,_Warsaw,_Poland.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Old_Town_Market_Square.%2C_2026%2C_Warsaw%2C_Poland.jpg/1280px-Old_Town_Market_Square.%2C_2026%2C_Warsaw%2C_Poland.jpg",
+   "credit_text": "צילום: Igor123121 / CC BY 4.0, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)"
+  },
+  "EVN": {
+   "status": "replacement",
+   "title": "File:Mount Ararat and the Yerevan skyline.jpg",
+   "license": "CC BY-SA 3.0",
+   "artist": "Սէրուժ Ուրիշեան (Serouj Ourishian)",
+   "page": "https://commons.wikimedia.org/wiki/File:Mount_Ararat_and_the_Yerevan_skyline.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Mount_Ararat_and_the_Yerevan_skyline.jpg/1280px-Mount_Ararat_and_the_Yerevan_skyline.jpg",
+   "credit_text": "צילום: Սէրուժ Ուրիշեան (Serouj Ourishian) / CC BY-SA 3.0, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)"
+  },
+  "BEG": {
+   "status": "replacement",
+   "title": "File:Sava-Danube-Confluence-2009-08-09.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Œil de verre",
+   "page": "https://commons.wikimedia.org/wiki/File:Sava-Danube-Confluence-2009-08-09.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/Sava-Danube-Confluence-2009-08-09.jpg/1280px-Sava-Danube-Confluence-2009-08-09.jpg",
+   "credit_text": "צילום: Œil de verre / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)"
+  },
+  "TGD": {
+   "status": "replacement",
+   "title": "File:Moj grad - panoramio.jpg",
+   "license": "CC BY 3.0",
+   "artist": "ines lukic",
+   "page": "https://commons.wikimedia.org/wiki/File:Moj_grad_-_panoramio.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Moj_grad_-_panoramio.jpg/1280px-Moj_grad_-_panoramio.jpg",
+   "credit_text": "צילום: ines lukic / CC BY 3.0, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)"
+  },
+  "LJU": {
+   "status": "replacement",
+   "title": "File:Tromostovje in Prešernov trg (Tromostovje and Prešeren Square).jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Petar Milošević",
+   "page": "https://commons.wikimedia.org/wiki/File:Tromostovje_in_Pre%C5%A1ernov_trg_(Tromostovje_and_Pre%C5%A1eren_Square).jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Tromostovje_in_Pre%C5%A1ernov_trg_%28Tromostovje_and_Pre%C5%A1eren_Square%29.jpg/1280px-Tromostovje_in_Pre%C5%A1ernov_trg_%28Tromostovje_and_Pre%C5%A1eren_Square%29.jpg",
+   "credit_text": "צילום: Petar Milošević / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "reason_he": "הקובץ הקודם לא קיים (404)",
+   "note_he": "תמונת לילה מלמעלה. חלשה, ועדיף להחליף במאגר 021 כשהוא ייכנס"
+  },
+  "PRG": {
+   "status": "replacement",
+   "title": "File:North view of Charles Bridge from Mánesův most, Prague 20160808 1.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "DXR",
+   "page": "https://commons.wikimedia.org/wiki/File:North_view_of_Charles_Bridge_from_M%C3%A1nes%C5%AFv_most,_Prague_20160808_1.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/North_view_of_Charles_Bridge_from_M%C3%A1nes%C5%AFv_most%2C_Prague_20160808_1.jpg/1280px-North_view_of_Charles_Bridge_from_M%C3%A1nes%C5%AFv_most%2C_Prague_20160808_1.jpg",
+   "credit_text": "צילום: DXR / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "reason_he": "רישיון FAL, שלא ברשימה של דין"
+  },
+  "OTP": {
+   "status": "replacement",
+   "title": "File:Avenida de la Unión, Bucarest, Rumanía, 2016-05-29, DD 57.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Diego Delso",
+   "page": "https://commons.wikimedia.org/wiki/File:Avenida_de_la_Uni%C3%B3n,_Bucarest,_Ruman%C3%ADa,_2016-05-29,_DD_57.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Avenida_de_la_Uni%C3%B3n%2C_Bucarest%2C_Ruman%C3%ADa%2C_2016-05-29%2C_DD_57.jpg/1280px-Avenida_de_la_Uni%C3%B3n%2C_Bucarest%2C_Ruman%C3%ADa%2C_2016-05-29%2C_DD_57.jpg",
+   "credit_text": "צילום: Diego Delso / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "reason_he": "היום מוצגת התמונה הכללית (אין זכויות על הקודמת)"
+  },
+  "KRK": {
+   "status": "replacement",
+   "title": "File:Krakow - Wawel from Vistula - 4.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Ingo Mehling",
+   "page": "https://commons.wikimedia.org/wiki/File:Krakow_-_Wawel_from_Vistula_-_4.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Krakow_-_Wawel_from_Vistula_-_4.jpg/1280px-Krakow_-_Wawel_from_Vistula_-_4.jpg",
+   "credit_text": "צילום: Ingo Mehling / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "reason_he": "היום מוצגת התמונה הכללית (אין זכויות על הקודמת)"
+  },
+  "LCA": {
+   "status": "replacement",
+   "title": "File:Church of Saint Lazarus – Front Façade.jpg",
+   "license": "CC BY-SA 4.0",
+   "artist": "Viaggiamocela",
+   "page": "https://commons.wikimedia.org/wiki/File:Church_of_Saint_Lazarus_%E2%80%93_Front_Fa%C3%A7ade.jpg",
+   "url_1200": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Church_of_Saint_Lazarus_%E2%80%93_Front_Fa%C3%A7ade.jpg/1280px-Church_of_Saint_Lazarus_%E2%80%93_Front_Fa%C3%A7ade.jpg",
+   "credit_text": "צילום: Viaggiamocela / CC BY-SA 4.0, דרך Wikimedia Commons",
+   "location_verified_he": "23.10: כנסיית לזרוס הקדוש, לרנקה. קטגוריות ב-Commons: Churches in Larnaca, Cultural heritage monuments in Cyprus. נבדק בעין: בלי אנשים מזוהים ובלי לוגו",
+   "reason_he": "לבקשת שלמה, 23.10: LCA הציג את התמונה הכללית"
+  }
+ }
+}

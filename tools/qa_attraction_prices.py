@@ -84,7 +84,7 @@ check("stage 2 alias applied: Colosseum €18", colosseum["price_adult"] == 18 a
 check("records without a draft entry stay all-null + needs_check", all(
     r["price_adult"] is None for _, r in records if r["price_status"] == "needs_check" and r["price_official_url"] is None))
 
-# --- Free-text field kept, nothing new displayed ---------------------------------------------
+# --- Free-text field kept in the data ---------------------------------------------
 malta = next(r for rel, r in records if rel == "data/attractions_malta.json")
 check("the free-text 'מחיר/הערת מחיר' field is kept", "מחיר/הערת מחיר" in malta and malta["מחיר/הערת מחיר"])
 import travel_agents  # noqa: E402
@@ -93,8 +93,10 @@ check("travel_agents output keys unchanged (no price_* fields exposed)",
       match_keys == {"name", "country", "region", "city", "type", "score", "reasons", "duration", "difficulty",
                      "accessibility", "price", "official_url", "booking_url", "notes"})
 src = open(os.path.join(ROOT, "itinerary_cards.py"), encoding="utf-8").read()
-check("itinerary card still reads only the free-text price field",
-      "price_adult" not in src and "price_status" not in src and '"מחיר/הערת מחיר"' in src)
+# Updated 22.10 (the display task, Din's conditions - tools/qa_attraction_price_display.py): the card
+# now carries the structured fields and the free-text price is no longer shown.
+check("itinerary card carries the structured price fields, not the free-text price",
+      '"price_info"' in src and '"מחיר/הערת מחיר"' not in src)
 
 # --- Malta airport --------------------------------------------------------------------------------
 with open(os.path.join(ROOT, "static", "airports.json"), encoding="utf-8") as fh:
