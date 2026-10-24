@@ -544,6 +544,13 @@ def enrich_booking_options(flight: dict, departure: str, arrival: str, outbound_
     return flight, 1
 
 
+def _price_sort_key(flight: dict) -> float:
+    """Sort key for "cheapest first": a flight with no usable price goes LAST
+    (Shaked, #183 review) - never 0, which would put it at the top."""
+    price = flight.get("price")
+    return float(price) if isinstance(price, (int, float)) else float("inf")
+
+
 def search_flights(departure: str, arrival: str, outbound_date: str, return_date: str, max_outbounds: int | None = None, adults: int = 1, children: int = 0, travel_class: str = "1") -> dict:
     """Evaluate every outbound/return combination returned by Google Flights.
 
@@ -574,7 +581,7 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
     # so the cap could keep "best" outbounds and drop cheaper ones. Cut the
     # cheapest ones instead - same number of outbounds, no extra API calls.
     if max_outbounds is not None:
-        unique_outbounds = sorted(unique_outbounds, key=lambda f: float(f.get("price") or 0))
+        unique_outbounds = sorted(unique_outbounds, key=_price_sort_key)
         unique_outbounds = unique_outbounds[:max(1, int(max_outbounds))]
 
     # Whether Google returned any outbound flight at all is a reliable signal
@@ -689,7 +696,7 @@ def search_open_jaw_flights(departure: str, outbound_arrival: str, return_depart
     ret_items = [f for f in (ret_data.get("best_flights") or []) + (ret_data.get("other_flights") or []) if isinstance(f.get("price"), (int, float))]
     if max_outbounds is not None:
         # Same as search_flights: the cheapest outbounds, not best_flights first (no extra API calls).
-        out_items = sorted(out_items, key=lambda f: float(f.get("price") or 0))
+        out_items = sorted(out_items, key=_price_sort_key)
         out_items = out_items[:max(1, int(max_outbounds))]
 
     try:
