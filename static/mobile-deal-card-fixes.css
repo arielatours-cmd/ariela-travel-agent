@@ -151,3 +151,16 @@
 /* English site: the leg title/date are LTR text (the rules above are written for Hebrew) */
 html[dir="ltr"] .deal-card-v970 .leg-title{text-align:left!important;direction:ltr!important}
 html[dir="ltr"] .deal-card-v970 .leg-date{direction:ltr!important}
+
+/* "אפשרות שכדאי להכיר" / "לא כולל: ..." note at the top of the card (the business owner, 23.10):
+   the card's layout direction is LTR, so in Hebrew the note sat on the left. Its own text direction. */
+.deal-card-v970.deal-he .deal-close-match-note{direction:rtl!important;text-align:right!important}
+.deal-card-v970.deal-en .deal-close-match-note{direction:ltr!important;text-align:left!important}
+
+/* "Total flight duration" (the business owner, 23.10): on mobile the outbound line was pinned right but the
+   return line followed text-align:left in English, so it sat mid-card after the airline. Both legs, both
+   languages: the airline on the left, the duration pinned right. */
+@media (max-width:760px){
+  .deal-card-v970.deal-he .leg-duration,
+  .deal-card-v970.deal-en .leg-duration{text-align:right!important}
+}

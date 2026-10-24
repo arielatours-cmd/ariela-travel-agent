@@ -285,9 +285,9 @@ check("exactly one 'חיפוש מחדש' button remains in the template source (
       account_html_src.count("חיפוש מחדש") == 1)
 check("the surviving 'search again' button still belongs to the car tab (search_car), untouched",
       "action=\"{{ url_for('site.search_car', trip_id=trip.id) }}\" class=\"lodging-search-again\"" in account_html_src)
-check("the lodging tab's first-search button (no results yet) is untouched",
-      'action="{{ url_for(\'site.search_lodging\', trip_id=trip.id) }}">' in account_html_src
-      and "חיפוש לינה אמיתית" in account_html_src)
+check("the lodging tab's first-search button is gone too (the business owner, 23.10)",
+      "url_for('site.search_lodging'" not in account_html_src
+      and "חיפוש לינה אמיתית" not in account_html_src)
 
 member_id2 = _make_member("qa-lodging-button-removed@example.com")
 trip_with_offers = _make_trip(member_id2, {

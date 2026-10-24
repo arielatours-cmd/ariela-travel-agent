@@ -470,9 +470,24 @@ def _recommended_itinerary(profile, attractions):
     return plan
 
 
+_AIRPORTS_CACHE = None
+
+
 def _load_airports():
-    data = _load_json(_AIRPORTS_FILE, [])
-    return data if isinstance(data, list) else []
+    # Dry-run 5e (23.10.2026): the static catalog file never changes at
+    # runtime, but every call here re-read and re-parsed it from disk with
+    # no caching at all - fine at the old call volume, but the new per-
+    # message-token catalog scan (_catalog_near_neighbor_cities, approved
+    # by Shlomo 23.10.2026) can call this many times in a single turn.
+    # Cached once per process, mirroring the extended catalog's own
+    # _EXTENDED_AIRPORTS_CACHE pattern - every caller already treats the
+    # result as read-only (dict/list comprehensions, never in-place
+    # mutation of the returned rows).
+    global _AIRPORTS_CACHE
+    if _AIRPORTS_CACHE is None:
+        data = _load_json(_AIRPORTS_FILE, [])
+        _AIRPORTS_CACHE = data if isinstance(data, list) else []
+    return _AIRPORTS_CACHE
 
 
 def _airport_options(profile):

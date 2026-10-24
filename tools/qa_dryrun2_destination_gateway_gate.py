@@ -98,9 +98,21 @@ check("a bare country name is never flagged unresolved (no gateway question for 
       not chat._destination_gateway_unresolved({
           "destination": {"places": ["קרואטיה"]}, "requested_services": ["flights"],
       }))
-check("flights not actually requested: never flagged (nothing to resolve a gateway for)",
+# Dry-run 5, scenario A (22.10.2026): the gate no longer keys off
+# requested_services alone (that list only gets "flights" added by the
+# SAME destination-trip-intent fallback that runs after this check in the
+# real pipeline - gating on it left the very first turn, before that
+# fallback ever runs, unprotected). The only genuine "nothing to resolve a
+# gateway for" signal is flights EXPLICITLY declined.
+check("flights explicitly declined: never flagged (nothing to resolve a gateway for)",
       not chat._destination_gateway_unresolved({
           "destination": {"places": ["רוביני"]}, "requested_services": ["lodging"],
+          "service_decisions": {"flights": {"wanted": False}},
+      }))
+check("requested_services not yet populated but flights never declined either: still flagged "
+      "(dry-run 5 fix - this is the live first-turn shape, not 'lodging only')",
+      chat._destination_gateway_unresolved({
+          "destination": {"places": ["רוביני"]}, "requested_services": [],
       }))
 check("no destination known at all: never flagged",
       not chat._destination_gateway_unresolved({"requested_services": ["flights"]}))

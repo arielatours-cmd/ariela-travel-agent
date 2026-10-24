@@ -73,7 +73,7 @@ base_html = open(
     encoding="utf-8",
 ).read()
 check("the stylesheet link's cache-busting version was bumped so browsers pick up the fix",
-      "mobile-deal-card-fixes.css') }}?v=20261023-lang-en-v2" in base_html)
+      "mobile-deal-card-fixes.css') }}?v=20261023-card-align" in base_html)
 
 
 def _make_member(email):
