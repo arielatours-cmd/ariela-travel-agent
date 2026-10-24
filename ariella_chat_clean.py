@@ -5499,6 +5499,32 @@ def _destination_gateway_question_hint(state):
     )
 
 
+def _destination_change_confirmed_fact_text(state):
+    """Shaked's dry-run 5l finding (J7, "וינה -> פראד", qa/reports/2026-10-
+    23-dryrun5l.md): the destination correction IS saved to trip_update
+    this very turn - TINKERBELL_SYSTEM's own instruction already permits
+    confirming it once the state she receives reflects the new value -
+    but the raw state JSON dump alone gives no EXPLICIT signal that this
+    is a FRESH confirmation versus a long-settled fact, so she hedged with
+    language describing a save that hasn't actually happened yet ("רק
+    רוצה לוודא שהעדכון נקלט אצלי... בינתיים אני ממשיכה לבדוק את זה"),
+    confusing the customer about work that is already done. Fixed the
+    same way J6's silent destination-change path already avoids this
+    exact failure: an explicit, unambiguous FACT sentence, never left to
+    the model's own inference from a bare JSON diff. One-turn marker, set
+    only by _run_destination_recognition's own already-settled-correction
+    branch and popped at the top of _resolve_destination_by_meaning."""
+    value = state.get("_destination_change_confirmed_fact")
+    if not value:
+        return ""
+    return (
+        f'\nעובדה ודאית: היעד תוקן ונשמר הרגע ל{value}. אשרי זאת בפשטות '
+        'ובביטחון ("היעד עודכן ל...") - לעולם אל תביעי ספק ואל תתארי בדיקה '
+        'שעוד מתבצעת (כמו "רוצה לוודא שזה נקלט"/"ממשיכה לבדוק") - זה כבר '
+        'נשמר בפועל, ואין שום צורך לאמת זאת שוב.'
+    )
+
+
 def _destination_gateway_summary(state):
     """Verified Hebrew spelling for the landing/return-departure gateway
     airports, handed over as hard facts - mirrors _departure_summary's own
@@ -6009,7 +6035,8 @@ def _call_tinkerbell(key, model, history, message, state=None, _date_retry=False
     state_for_context = state
     if state.get("upcoming_vacations") and not _upcoming_hint_relevant:
         state_for_context = {k: v for k, v in state.items() if k != "upcoming_vacations"}
-    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + dates_truth_hint_text + declined_domains_hint_text + gender_hint_text + accessibility_hint_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
+    destination_change_confirmed_text = _destination_change_confirmed_fact_text(state)
+    system_dynamic = continuity + '\nהתאריך הנוכחי: ' + date.today().isoformat() + '\nמצב החופשה המצטבר שכבר ידוע:\n' + _state_context(state_for_context) + gateway_hint_text + direct_route_hint_text + weekday_hint_text + nights_hint_text + dates_truth_hint_text + declined_domains_hint_text + gender_hint_text + accessibility_hint_text + destination_change_confirmed_text + _travelers_summary(state) + _baggage_summary(state) + _departure_summary(state) + _destination_gateway_summary(state)
     reply = _post_claude(key, model, TINKERBELL_SYSTEM, system_dynamic, history, message, 1500, include_history=True, source="tinkerbell_reply").strip()
     reply = _fix_known_typos(reply)
     reply = _fix_departure_name(reply, state, history, message)
@@ -8491,13 +8518,31 @@ def _run_destination_recognition(trip_update, destination_evidence, message, his
             if unresolved_places is None and value in prior_airports:
                 return trip_update  # the "correction" names the SAME destination already saved
             trip_update["destination_airports"] = [value]
-            trip_update["destination"] = {"places": [_verified_catalog_display_name(value)]}
+            display_name = _verified_catalog_display_name(value)
+            trip_update["destination"] = {"places": [display_name]}
         else:
             if (unresolved_places is None and prior_destination.get("mode") == "country"
                     and value in (prior_destination.get("places") or [])):
                 return trip_update  # same country already saved
             trip_update["destination_airports"] = []
             trip_update["destination"] = {"places": [value], "mode": "country", "status": "known"}
+            display_name = value
+        # Shaked's dry-run 5l finding (J7, "וינה -> פראד"): this branch only
+        # ever runs for a genuine CORRECTION of an already-settled
+        # destination (unresolved_places is None - the "same as already
+        # saved" cases above already returned early) - the change IS saved
+        # to trip_update this very turn, but Tinkerbell sees only the raw
+        # state JSON with no signal that this is a FRESH confirmation
+        # versus a long-settled fact, so she hedged with language
+        # describing a save that hadn't happened yet ("רק רוצה לוודא
+        # שהעדכון נקלט... בינתיים אני ממשיכה לבדוק"). A one-turn marker,
+        # surfaced as an explicit FACT sentence by _destination_change_
+        # confirmed_fact_text (never left to the model's own inference from
+        # a bare JSON diff) - same philosophy as every other deterministic
+        # fact in this file, and the same outcome J6's silent path already
+        # gets for free since it composes its own reply text directly.
+        if unresolved_places is None:
+            trip_update["_destination_change_confirmed_fact"] = display_name
         return trip_update
 
     # Exactly 2 distinct verified candidates: a genuine real-world
@@ -8590,6 +8635,10 @@ def _resolve_destination_by_meaning(trip_state, trip_update, destination_evidenc
     trip_state = trip_state if isinstance(trip_state, dict) else {}
     trip_update = dict(trip_update) if isinstance(trip_update, dict) else {}
     trip_update.pop("_destination_ambiguous_hint", None)
+    # One-turn marker (see _run_destination_recognition's own comment) -
+    # never allowed to survive into a SECOND turn's trip_state if this
+    # turn's correction wasn't re-triggered.
+    trip_update.pop("_destination_change_confirmed_fact", None)
     message = str(message or "")
 
     prior_airports = trip_state.get("destination_airports") if isinstance(trip_state.get("destination_airports"), list) else []
@@ -8641,6 +8690,22 @@ def _resolve_destination_by_meaning(trip_state, trip_update, destination_evidenc
                 trip_update, destination_evidence, message, history,
                 None, prior_airports, prior_destination,
             )
+        # Shaked's re-review of 7fb03d9e (dry-run 5l, J7, "וינה -> פראד",
+        # qa-dryrun 763e540, chat_resp_dr5l7.jsonl): this is the branch the
+        # REAL live J7 turn actually takes - the extractor's own evidence
+        # is a verbatim quote ("פראד") already present in the message, so
+        # verified_evidence is True here and _run_destination_recognition
+        # is NEVER reached at all (it only runs for the unverified/typo-
+        # recognition case above, or the separate already-settled-
+        # correction path further below). My first attempt at this fix
+        # only set the one-turn marker inside _run_destination_recognition,
+        # so it never fired for the actual repro. Set it here too, in this
+        # branch specifically - the only place that actually closes a
+        # genuine, already-verified destination change this turn.
+        elif places_changed and new_places:
+            trip_update["_destination_change_confirmed_fact"] = new_places[0]
+        elif airports_changed and new_airports:
+            trip_update["_destination_change_confirmed_fact"] = _verified_catalog_display_name(new_airports[0])
 
     fresh_resolution = not prior_airports and bool(new_airports)
     if fresh_resolution:
@@ -10375,9 +10440,32 @@ def _enforce_one_option_question(reply, state):
     # this turn (not merely whether a hint is theoretically available in
     # state) is the precise signal - the same function _call_tinkerbell
     # itself uses to decide what this turn's one question even is.
+    #
+    # Per Shaked's static review of 103be976 (same dry-run 5k, approved for
+    # 5l with this one follow-up): the ORIGINAL version of this branch
+    # returned the whole reply untouched unconditionally, which also
+    # disabled the "only one question sentence" enforcement entirely for
+    # these two turns - Tinkerbell bundling the destination question with
+    # an unrelated second question in the same reply ("ברגן (נורווגיה) או
+    # ברגמו (איטליה)? ואיזו כבודה תיקחו?") passed through with both
+    # questions intact. Only the "' או ' in THIS sentence" check needs
+    # exempting - "one question per turn" still applies to everything
+    # else. When more than one question sentence is present, the
+    # destination question is identified structurally as the one
+    # containing " או " (the arbiter's own sanctioned marker, never used
+    # by a plain unrelated question), every OTHER question sentence is
+    # dropped exactly like the generic multi-question path below already
+    # does, and only that one sentence is kept.
     _winning_text, _winning_kind = _turn_question_arbiter(state)
     if _winning_kind in ("destination_ambiguous", "destination_gateway"):
-        return reply
+        if len(question_idx) == 1:
+            return reply
+        _dest_idx = [i for i in question_idx if " או " in sentences[i][0]]
+        if _dest_idx:
+            _keep_idx = _dest_idx[-1]
+            _drop = set(question_idx) - {_keep_idx}
+            _kept = "".join(s for i, (s, _term) in enumerate(sentences) if i not in _drop)
+            return _kept.strip()
 
     bundled = False
     if len(question_idx) == 1:

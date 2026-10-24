@@ -25,6 +25,17 @@ and returns the reply completely untouched whenever the winning kind is
 available in state" check, which could be true even when something else
 won the arbiter this turn instead.
 
+UPDATED (23.10.2026, Shaked's static review of 103be976, approved for 5l
+with this one follow-up): the original fix's unconditional "return reply
+untouched" also disabled "one question per turn" entirely for these two
+turns - a reply bundling the destination question with an unrelated SECOND
+question ("ברגן (נורווגיה) או ברגמו (איטליה)? ואיזו כבודה תיקחו?") passed
+through with both questions intact. Fixed: only the " או " check on the
+destination sentence ITSELF is exempted; when more than one question
+sentence is present, every sentence other than the one structurally
+containing " או " (the arbiter's own sanctioned marker) is still dropped,
+exactly like the generic multi-question path.
+
 Run: python3 tools/qa_dryrun5k_enforce_one_option_destination_question.py
 """
 import os
@@ -92,6 +103,21 @@ check("FIX (Shaked's own flagged risk, confirmed live): a genuinely-"
       "unresolved gateway's own nearby-options question (Pula/Trieste) is "
       "also never replaced",
       chat._enforce_one_option_question(PULA_TRIESTE_Q, STATE_GATEWAY) == PULA_TRIESTE_Q)
+
+# =====================================================================
+# FOLLOW-UP FIX (Shaked's review of 103be976): the destination question
+# bundled with an UNRELATED second question in the same reply must still
+# have the second question dropped - only the "או" inside the destination
+# sentence itself is exempt, not "one question per turn" generally.
+# =====================================================================
+BUNDLED_WITH_BAGGAGE = "ברגן (נורווגיה) או ברגמו (איטליה)? ואיזו כבודה תיקחו?"
+_bundled_result = chat._enforce_one_option_question(BUNDLED_WITH_BAGGAGE, STATE_AMBIGUOUS)
+check("FOLLOW-UP FIX: the destination question itself (with its own "
+      "sanctioned 'או') is kept",
+      "ברגן (נורווגיה) או ברגמו (איטליה)?" in _bundled_result)
+check("FOLLOW-UP FIX: the unrelated bundled baggage question is dropped, "
+      "not kept alongside it",
+      "כבודה" not in _bundled_result)
 
 # =====================================================================
 # Regression: an ordinary, genuinely-bundled question UNRELATED to any
