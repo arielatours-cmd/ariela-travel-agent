@@ -425,7 +425,7 @@
             </div>
           {% elif itinerary and itinerary.get('text') %}
             <div class="vacation-itinerary">
-              <div style="white-space:pre-line">{{ core_itinerary_text(itinerary.get('text')) }}</div>
+              <div style="white-space:pre-line">{{ core_itinerary_text(itinerary.get('text'), a.get('_lang')) }}</div>
               {% set attractions = itinerary.get('attractions', []) %}
               {% if attractions %}
                 <div class="vacation-attractions-list">
