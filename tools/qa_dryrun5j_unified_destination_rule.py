@@ -662,6 +662,9 @@ with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps(
 check("cost gate FIX (Shaked's finding 1): a genuine typo'd correction with no exact/"
       "near catalog signal at all is still recognized and saved, not silently lost",
       typo_result.get("destination_airports") == ["PRG"])
+check("dry-run 5l FIX (J7): the same-turn save sets an explicit confirmed-fact "
+      "marker Tinkerbell can state plainly, instead of hedging about a save that "
+      "already happened", typo_result.get("_destination_change_confirmed_fact") == "פראג")
 
 with patch.object(chat, "_post_claude", side_effect=lambda *a, **kw: json.dumps({
         "evidence": None, "candidates": [], "disambiguating_evidence": None})):
