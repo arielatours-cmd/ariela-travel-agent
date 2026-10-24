@@ -368,6 +368,19 @@ except Exception:
     _AIRPORT_LOCALIZATION = {}
 
 
+# The business owner (23.10, via Shlomo): an empty tab (flights / lodging / car /
+# itinerary) gets one button back to the chat to plan just that part -
+# /trip/new?trip=<id>&plan=flights|lodging|car|route. The chat side (loading
+# the vacation, asking only about that part) is Bezalel's; until it's ready
+# the button is hidden. Off unless PLAN_FROM_EMPTY_TAB_ENABLED=1 - the one
+# place to swap in Bezalel's own condition.
+PLAN_FROM_EMPTY_TAB_PLANS = ("flights", "lodging", "car", "route")
+
+
+def _plan_from_empty_tab_enabled() -> bool:
+    return os.getenv("PLAN_FROM_EMPTY_TAB_ENABLED", "").strip() == "1"
+
+
 def _is_affiliate_lodging_link(link) -> bool:
     """True only for a link that really goes out through our CJ Booking.com
     wrap (_cj_booking_wrap) - the only lodging result link that is an
@@ -412,6 +425,49 @@ def _strip_foreign_booking_affiliate_params(url: str) -> str:
         parsed = urlsplit(str(url or ""))
         kept = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k not in ("aid", "label")]
         return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(kept, quote_via=quote), parsed.fragment))
+    except Exception:
+        return url
+
+
+def _booking_com_party_params(answers: dict) -> list[tuple]:
+    """Booking.com's guest parameters for the vacation's party (the business
+    owner, 23.10 - Shaked's booking-links audit: every booking button must
+    arrive with the dates AND the travelers). Booking.com shows no price for a
+    room with a child until it knows the child's age, so an "age" is repeated
+    per child - the customer's own child_ages (answers["age_groups"]); a child
+    whose age the chat never got is counted but its age isn't guessed.
+    no_rooms is the customer's own lodging answer (lodging.details.rooms),
+    default 1."""
+    adults = _int_or(answers.get("adults"), 2) or 1
+    children = _int_or(answers.get("children"), 0)
+    ages = []
+    for age in (answers.get("age_groups") if isinstance(answers.get("age_groups"), list) else []):
+        try:
+            age = int(age)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= age <= 17:
+            ages.append(age)
+    params = [("group_adults", adults), ("group_children", children)]
+    params += [("age", age) for age in ages[:children]]
+    params.append(("no_rooms", _int_or(answers.get("lodging_rooms"), 1) or 1))
+    return params
+
+
+_BOOKING_COM_STAY_KEYS = {"checkin", "checkout", "group_adults", "group_children", "age", "no_rooms",
+                          "req_adults", "req_children", "req_age"}
+
+
+def _with_booking_com_stay(url: str, checkin: str, checkout: str, answers: dict) -> str:
+    """A booking.com hotel link from Google Hotels opens the hotel page empty
+    (Shaked's audit, 23.10). Fill in the stay - the dates and the party -
+    replacing whatever stay parameters the link already carried; every other
+    parameter (the hotel itself, aid/label already stripped) is kept."""
+    try:
+        parsed = urlsplit(str(url or ""))
+        kept = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k not in _BOOKING_COM_STAY_KEYS]
+        stay = ([("checkin", checkin), ("checkout", checkout)] if checkin and checkout else []) + _booking_com_party_params(answers)
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(kept + stay, quote_via=quote), parsed.fragment))
     except Exception:
         return url
 
@@ -2597,7 +2653,10 @@ def inject_site_context():
             "car_partner_cards": _car_partner_cards,
             "lodging_partner_cards": _lodging_partner_cards,
             "core_itinerary_text": itinerary_cards.core_itinerary_text,
+            "attraction_price_view": itinerary_cards.attraction_price_view,
+            "attraction_tickets_url": itinerary_cards.attraction_tickets_url,
             "is_affiliate_lodging_link": _is_affiliate_lodging_link,
+            "plan_from_empty_tab_enabled": _plan_from_empty_tab_enabled(),
             "business": _business_details()}
 
 
@@ -3334,9 +3393,16 @@ def account():
 
 def _chat_destination_codes(places):
     """Resolve chat destination labels/codes against the shipped airport catalog."""
+    # 020a: compared through the same Hebrew spelling normalization as the
+    # chat's own catalog match (one source of truth, imported - never
+    # duplicated): destination.places keeps the customer's own spelling
+    # ("וולנסיה"), which must still resolve here at search time. Still an
+    # exact match after normalization, never a substring.
+    from ariella_chat_clean import _normalize_he_spelling
     wanted = [str(x or "").strip().lower() for x in (places or []) if str(x or "").strip()]
     codes = []
     for raw in wanted:
+        norm = _normalize_he_spelling(raw)
         upper = raw.upper()
         if upper in _AIRPORT_LOCALIZATION:
             codes.append(upper)
@@ -3347,19 +3413,28 @@ def _chat_destination_codes(places):
         city_matches = []
         country_matches = []
         for code, info in _AIRPORT_LOCALIZATION.items():
+            # 020a: the catalog's alternate Hebrew spellings resolve too
+            # (destination.places keeps the customer's own spelling).
             city_values = {
                 str(info.get("city_he") or "").strip().lower(),
                 str(info.get("city_en") or "").strip().lower(),
-            }
+            } | {str(x or "").strip().lower() for x in (info.get("aliases_he") or [])}
             country_values = {
                 str(info.get("country_he") or "").strip().lower(),
                 str(info.get("country_en") or "").strip().lower(),
                 str(info.get("country") or "").strip().lower(),
-            }
-            if raw in city_values:
+            } | {str(x or "").strip().lower() for x in (info.get("country_aliases_he") or [])}
+            city_values = {_normalize_he_spelling(v) for v in city_values if v}
+            country_values = {_normalize_he_spelling(v) for v in country_values if v}
+            if norm in city_values:
                 city_matches.append(code)
-            elif raw in country_values:
+            elif norm in country_values:
                 country_matches.append(code)
+        if not city_matches and not country_matches:
+            # 020 stage B: a city only the extended catalog knows (Zadar ->
+            # ZAD) still gets its real code at search time.
+            from ariella_chat_clean import _extended_airport_matches
+            city_matches = [str(a.get("code") or "").upper() for a in _extended_airport_matches(raw)]
         codes.extend(city_matches if city_matches else country_matches)
     return list(dict.fromkeys(codes))
 
@@ -5337,7 +5412,7 @@ def _save_trip_answers(trip_id: int, answers: dict) -> None:
         conn.commit()
 
 
-def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int) -> list[dict]:
+def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int, answers: dict | None = None) -> list[dict]:
     """Seen live (Shaked): every Google Hotels result card's own "view and
     book" button sends the customer straight to booking.com, uncredited -
     SerpApi's google_hotels engine returns each property's real booking
@@ -5358,12 +5433,74 @@ def _wrap_booking_com_hotel_links(hotels: list[dict], trip_id: int) -> list[dict
     never booking.com's, so _is_booking_com_url is false on a second pass
     and it is left alone - safe to call again on data this already ran
     on (e.g. at render time, to cover vacations saved before this fix
-    shipped, not just newly searched ones)."""
+    shipped, not just newly searched ones).
+
+    With the vacation's answers (at search time), the link first gets the
+    stay filled in - the hotel's own segment dates (else the trip's) and
+    the party (_with_booking_com_stay) - so the customer lands on the hotel
+    page with prices, not an empty search (Shaked's audit, 23.10)."""
     for hotel in hotels:
         link = hotel.get("link")
         if link and _is_booking_com_url(link):
-            hotel["link"] = _cj_booking_wrap(_strip_foreign_booking_affiliate_params(link), sid=f"trip{trip_id}")
+            link = _strip_foreign_booking_affiliate_params(link)
+            if answers is not None:
+                seg_from, _, seg_to = str(hotel.get("segment_dates") or "").partition(" – ")
+                checkin = seg_from.strip() or str(answers.get("departure_date") or "")
+                checkout = seg_to.strip() or str(answers.get("return_date") or "")
+                link = _with_booking_com_stay(link, checkin, checkout, answers)
+            hotel["link"] = _cj_booking_wrap(link, sid=f"trip{trip_id}")
     return hotels
+
+
+def _nights_between(date_from, date_to) -> int | None:
+    try:
+        n = (datetime.strptime(str(date_to)[:10], "%Y-%m-%d") - datetime.strptime(str(date_from)[:10], "%Y-%m-%d")).days
+    except ValueError:
+        return None
+    return n if n > 0 else None
+
+
+def _lodging_segments_from_itinerary(answers: dict) -> list[dict]:
+    """Where each night is spent, from the APPROVED day-by-day itinerary
+    (_approved_itinerary.days - each day's base, else its city), grouped
+    into consecutive stays: [{location, date_from, date_to, nights}].
+
+    The business owner (22.10, Lisbon 21-25.3): every lodging offer must
+    follow the place agreed in the route - the tab showed the country
+    ("פורטוגל") instead of "ליסבון · 4 לילות". lodging.details.location_
+    segments is a best-effort text extraction and was empty there; the
+    approved itinerary's own structure is the reliable source. Night i is
+    spent at day i+1's base - ONLY the base (where they sleep), never the
+    day's city, which on a day trip is the day-trip destination (the
+    business owner, 23.10: only the lodging places agreed in the route, no
+    day trips). A day with no base stays at the previous night's base; []
+    when the itinerary, the trip dates or the first night's base is missing
+    - never a guess."""
+    itinerary = answers.get("_approved_itinerary") if isinstance(answers.get("_approved_itinerary"), dict) else {}
+    days = [d for d in (itinerary.get("days") or []) if isinstance(d, dict)]
+    try:
+        dep = datetime.strptime(str(answers.get("departure_date") or "")[:10], "%Y-%m-%d").date()
+        ret = datetime.strptime(str(answers.get("return_date") or "")[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return []
+    nights = (ret - dep).days
+    if not days or nights <= 0 or len(days) < nights:
+        return []
+    places = []
+    for day in days[:nights]:
+        place = str(day.get("base") or "").strip() or (places[-1] if places else "")
+        if not place:
+            return []
+        places.append(place)
+    segments = []
+    for i, place in enumerate(places):
+        if segments and segments[-1]["location"] == place:
+            segments[-1]["nights"] += 1
+            segments[-1]["date_to"] = (dep + timedelta(days=i + 1)).isoformat()
+        else:
+            segments.append({"location": place, "date_from": (dep + timedelta(days=i)).isoformat(),
+                             "date_to": (dep + timedelta(days=i + 1)).isoformat(), "nights": 1})
+    return segments
 
 
 def _run_lodging_search(trip_id: int, answers: dict) -> None:
@@ -5435,6 +5572,14 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
         s for s in (answers.get("lodging_location_segments") or [])
         if isinstance(s, dict) and s.get("location") and s.get("date_from") and s.get("date_to")
     ]
+    # The approved itinerary is the reliable multi-stop source when the text
+    # extraction found nothing (see _lodging_segments_from_itinerary).
+    itinerary_segments = [] if segments else _lodging_segments_from_itinerary(answers)
+    if len(itinerary_segments) > 1:
+        segments = itinerary_segments
+    # A single stop keeps the single search below (its query already knows
+    # the lodging area / ski resort) - only its heading comes from the route.
+    single_stop = itinerary_segments[0] if len(itinerary_segments) == 1 else None
 
     try:
         if segments:
@@ -5454,11 +5599,12 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                     for hotel in seg_hotels:
                         hotel["segment_location"] = seg["location"]
                         hotel["segment_dates"] = f"{seg['date_from']} – {seg['date_to']}"
+                        hotel["segment_nights"] = seg.get("nights") or _nights_between(seg["date_from"], seg["date_to"])
                     all_hotels.extend(seg_hotels)
                     any_ok = True
                 except Exception:
                     logging.exception("Segment lodging search failed for trip %s (%s)", trip_id, seg.get("location"))
-            answers["lodging_offers"] = _wrap_booking_com_hotel_links(all_hotels[:15], trip_id)
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links(all_hotels[:15], trip_id, answers)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None if any_ok else "החיפוש נכשל, אפשר לנסות שוב בעוד רגע."
             answers["_lodging_search_result"] = {
@@ -5523,7 +5669,19 @@ def _run_lodging_search(trip_id: int, answers: dict) -> None:
                 max_price=_max_price_for(dep, ret), vacation_rentals=vacation_rentals,
                 min_hotel_class=min_hotel_class,
             )
-            answers["lodging_offers"] = _wrap_booking_com_hotel_links((result.get("hotels") or [])[:10], trip_id)
+            hotels = (result.get("hotels") or [])[:10]
+            # The group heading names the place the customer actually sleeps
+            # (the route's own stop, else the destination city) - never the
+            # country the trip card shows.
+            label = (single_stop or {}).get("location") or area or (
+                ski_resort_names[0] if str(answers.get("vacation_type") or "standard") == "ski" and ski_resort_names
+                else (_AIRPORT_LOCALIZATION.get(destination_codes[0], {}).get("city_he") or dest_city)
+            )
+            for hotel in hotels:
+                hotel["segment_location"] = label
+                hotel["segment_dates"] = f"{dep} – {ret}"
+                hotel["segment_nights"] = _nights_between(dep, ret)
+            answers["lodging_offers"] = _wrap_booking_com_hotel_links(hotels, trip_id, answers)
             answers["lodging_searched_at"] = utc_now_iso()
             answers["lodging_search_error"] = None
             answers["_lodging_search_result"] = {"status": "ok", "count": len(answers["lodging_offers"])}
@@ -5650,6 +5808,29 @@ def _vipcars_location(iata: str) -> dict | None:
     return entry
 
 
+def _vipcars_page(iata: str) -> str | None:
+    """VIP Cars' own static page for an airport whose search ids aren't
+    verified yet (static/vipcars_locations.json "pages" - from VIP Cars'
+    sitemap only, never a built URL), or None."""
+    try:
+        data = json.loads(_VIPCARS_LOCATIONS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    page = (data.get("pages") or {}).get(str(iata or "").upper())
+    return page if isinstance(page, str) and page.startswith("https://www.vipcars.com/car-rental/") else None
+
+
+def _drop_empty_query_params(url: str) -> str:
+    """The same URL without query parameters whose value came out empty
+    (e.g. pickup_date= on a trip with no dates yet)."""
+    try:
+        parsed = urlsplit(url)
+        kept = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if v != ""]
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(kept, quote_via=quote), parsed.fragment))
+    except Exception:
+        return url
+
+
 def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     """Outbound CJ-tracked URL for one car-rental card. The sid lets CJ
     reports tie a commission back to the vacation it came from.
@@ -5683,9 +5864,17 @@ def _car_partner_url(answers: dict, iata: str, trip_id: int) -> str:
                 for key in ("country", "city", "location"):
                     fields[f"{prefix}_{key}"] = loc[key]
         try:
-            params["url"] = CAR_RENTAL_SEARCH_URL_TEMPLATE.format(**fields)
+            # Tom's QA (23.10): a trip with no dates yet must not send pickup_date= / dropoff_date= empty.
+            params["url"] = _drop_empty_query_params(CAR_RENTAL_SEARCH_URL_TEMPLATE.format(**fields))
         except KeyError:
-            logging.info("Car partner link for %s->%s: no verified partner location ids; linking to partner home page", iata, return_iata)
+            # No verified ids: the pickup airport's own VIP Cars page from its
+            # sitemap when there is one (no dates, but the right place -
+            # Shlomo/Ofek 23.10), else the partner's home page.
+            page = _vipcars_page(iata)
+            if page:
+                params["url"] = page
+            logging.info("Car partner link for %s->%s: no verified partner location ids; linking to %s",
+                         iata, return_iata, "the airport's VIP Cars page" if page else "partner home page")
         except (IndexError, ValueError):
             logging.warning("CAR_RENTAL_SEARCH_URL_TEMPLATE is malformed; linking to partner home page")
     joiner = "&" if "?" in CAR_RENTAL_AFFILIATE_LINK else "?"
@@ -5739,10 +5928,11 @@ def _lodging_partner_url(answers: dict, iata: str, trip_id: int) -> str:
     children = _int_or(answers.get("children"), 0)
     rooms = _int_or(answers.get("lodging_rooms"), 1) or 1
     if not LODGING_AFFILIATE_LINK:
-        search_url = "https://www.booking.com/searchresults.html?" + urlencode({
-            "ss": city, "checkin": dep, "checkout": ret,
-            "group_adults": adults, "group_children": children, "no_rooms": rooms,
-        }, quote_via=quote)
+        # Every child's age too (Shaked's audit, 23.10) - see _booking_com_party_params.
+        # Tom's QA (23.10): no empty checkin=/checkout= when the trip has no dates yet.
+        dates = [("checkin", dep), ("checkout", ret)] if dep and ret else []
+        search_url = "https://www.booking.com/searchresults.html?" + urlencode(
+            [("ss", city)] + dates + _booking_com_party_params(answers), quote_via=quote)
         return _cj_booking_wrap(search_url, sid=f"trip{trip_id}")
     params = {"sid": f"trip{trip_id}"}
     if LODGING_SEARCH_URL_TEMPLATE:

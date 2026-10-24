@@ -1347,7 +1347,10 @@
     "name_he": "נמל התעופה הבינלאומי נוי באי",
     "country": "VN",
     "country_en": "Vietnam",
-    "country_he": "וייטנאם"
+    "country_he": "וייטנאם",
+    "country_aliases_he": [
+      "ויאטנם"
+    ]
   },
   {
     "code": "FLR",
@@ -1757,7 +1760,10 @@
     "name_he": "נמל התעופה הבינלאומי טאן סון נהאט",
     "country": "VN",
     "country_en": "Vietnam",
-    "country_he": "וייטנאם"
+    "country_he": "וייטנאם",
+    "country_aliases_he": [
+      "ויאטנם"
+    ]
   },
   {
     "code": "DAD",
@@ -1767,7 +1773,10 @@
     "name_he": "נמל התעופה הבינלאומי דה נאנג",
     "country": "VN",
     "country_en": "Vietnam",
-    "country_he": "וייטנאם"
+    "country_he": "וייטנאם",
+    "country_aliases_he": [
+      "ויאטנם"
+    ]
   },
   {
     "code": "DPS",
