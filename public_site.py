@@ -231,6 +231,79 @@ def _place_label(name):
     return _place_en(name) if _lang() == "en" else name
 
 
+# "Missing:" on a flight card, in English. request_missed_reasons is saved with
+# the pinned offer, often by a background job with no request (so in Hebrew),
+# and then shown to an English visitor too - translate at render time. Keys are
+# the Hebrew labels of _objective_match_details / _ski_selected_condition_details
+# (qa/run_qa.py fails if one is missing here).
+MISSED_REASON_EN = {
+    "טיסה ישירה": "Direct flight",
+    "כבודה": "Baggage",
+    "התאריכים שביקשת": "Requested dates",
+    "החודשים שביקשת": "Requested months",
+    "תקציב": "Budget",
+    "מחיר משתלם": "Good price",
+    "בטן־גב": "Beach & relaxation",
+    "טבע ונופים": "Nature & scenery",
+    "מסלולים וטיולים": "Hiking & touring",
+    "ערים ותרבות": "Cities & culture",
+    "אטרקציות לילדים": "Kids' attractions",
+    "אוכל וקולינריה": "Food & cuisine",
+    "קניות": "Shopping",
+    "יעד פחות עמוס": "Less crowded",
+    "מזג אוויר נעים": "Pleasant weather",
+    "חיי לילה": "Nightlife",
+    "רוגע ופינוק": "Relaxation",
+    "מתאים לרמת הגלישה": "Matches ski level",
+    "מרחק מתאים משדה התעופה": "Airport transfer distance",
+    "סיכוי גבוה לשלג טוב": "Snow reliability",
+    "מתאים למשפחות": "Family friendly",
+    "אתר גדול ומגוון": "Large & varied resort",
+    "מסעדות ואווירה": "Restaurants & atmosphere",
+    "Après-ski וחיי לילה": "Après-ski & nightlife",
+    "ספא ופינוקים": "Spa & pampering",
+    "אתר שמתאים לרמת הגלישה": "Resort fits ski level",
+    "הגעה קצרה ונוחה משדה התעופה": "Short/easy airport transfer",
+}
+_TIME_PREF_EN = {"בוקר": "morning", "צהריים": "afternoon", "ערב": "evening"}
+
+
+def _time_pref_label_en(label, pref):
+    """"Outbound time (evening)"; an unknown preference value (e.g. "לילה")
+    is dropped rather than shown in Hebrew: just "Outbound time"."""
+    pref = str(pref or "").strip()
+    if pref in _TIME_PREF_EN:
+        return f"{label} ({_TIME_PREF_EN[pref]})"
+    if pref and not re.search(r"[\u0590-\u05FF]", pref):
+        return f"{label} ({pref})"
+    return label
+
+
+_MISSED_REASON_PATTERNS_EN = (
+    (re.compile(r"^(\d+) ימים$"), lambda m: f"{m.group(1)} days"),
+    (re.compile(r"^עד (\d+) קונקשן/ים$"), lambda m: f"Up to {m.group(1)} connection(s)"),
+    (re.compile(r"^שעת טיסה הלוך \((.+)\)$"), lambda m: _time_pref_label_en("Outbound time", m.group(1))),
+    (re.compile(r"^שעת טיסה חזור \((.+)\)$"), lambda m: _time_pref_label_en("Return time", m.group(1))),
+    (re.compile(r"^Outbound time \((.+)\)$"), lambda m: _time_pref_label_en("Outbound time", m.group(1))),
+    (re.compile(r"^Return time \((.+)\)$"), lambda m: _time_pref_label_en("Return time", m.group(1))),
+)
+
+
+@site.app_template_filter("missed_reason_en")
+def _missed_reason_en(reason):
+    text = str(reason or "").strip()
+    if text in MISSED_REASON_EN:
+        return MISSED_REASON_EN[text]
+    for pattern, render in _MISSED_REASON_PATTERNS_EN:
+        match = pattern.match(text)
+        if match:
+            return render(match)
+    if re.search(r"[\u0590-\u05FF]", text):
+        logging.warning("missed reason without an English translation: %s", text)
+        return ""
+    return text
+
+
 _LODGING_SEARCH_ERRORS_EN = {
     "חסר יעד או תאריכים כדי לחפש לינה.": "A destination or dates are missing, so lodging can't be searched yet.",
 }
@@ -658,7 +731,7 @@ def _ski_selected_condition_details(offer, trip):
         "snow": ("snow", "סיכוי גבוה לשלג טוב", "Snow reliability"),
         "family": ("family", "מתאים למשפחות", "Family friendly"),
         "large": ("size", "אתר גדול ומגוון", "Large & varied resort"),
-        "value": ("value", "מחיר משתלם", "Good value"),
+        "value": ("value", "מחיר משתלם", "Good price"),
         "atmosphere": ("atmosphere", "מסעדות ואווירה", "Restaurants & atmosphere"),
         "nightlife": ("nightlife", "Après-ski וחיי לילה", "Après-ski & nightlife"),
         "spa": ("spa", "ספא ופינוקים", "Spa & pampering"),
@@ -2009,12 +2082,12 @@ def _objective_match_details(offer, trip):
     if dep_pref:
         dep_minutes = _scoring_minutes_of_day(offer.get("departure_time"))
         dep_ok = dep_minutes is not None and _scoring_time_band(dep_minutes) == _SCORING_TIME_PREF_TO_BAND.get(dep_pref)
-        add(dep_ok, f"שעת טיסה הלוך ({dep_pref})", f"Outbound time ({dep_pref})")
+        add(dep_ok, f"שעת טיסה הלוך ({dep_pref})", _time_pref_label_en("Outbound time", dep_pref))
     ret_pref = str(answers.get("return_time_preference") or "").strip()
     if ret_pref:
         ret_minutes = _scoring_minutes_of_day(offer.get("return_departure_time"))
         ret_ok = ret_minutes is not None and _scoring_time_band(ret_minutes) == _SCORING_TIME_PREF_TO_BAND.get(ret_pref)
-        add(ret_ok, f"שעת טיסה חזור ({ret_pref})", f"Return time ({ret_pref})")
+        add(ret_ok, f"שעת טיסה חזור ({ret_pref})", _time_pref_label_en("Return time", ret_pref))
 
     # Regular-vacation preferences: every selected item is part of the 100% match.
     if str(answers.get("vacation_type") or "standard") == "standard":
