@@ -398,7 +398,9 @@
                         {% if item.get('name_en') %}<span class="itin-card-en">{{ item.get('name_en') }}</span>{% endif %}
                         {% if item.get('description') %}<p class="itin-card-desc">{{ item.get('description') }}</p>{% endif %}
                         <div class="itin-card-meta">
-                          {% if item.get('duration') %}<span>⏱ {{ item.get('duration') }}</span>{% endif %}
+                          {# English: the catalog's duration_en only, never the Hebrew value (empty = nothing shown). #}
+                          {% set item_duration = item.get('duration_en') if site_lang == 'en' else item.get('duration') %}
+                          {% if item_duration %}<span>⏱ {{ item_duration }}</span>{% endif %}
                           {% if item.get('kids') == 'כן' %}<span>👨‍👩‍👧 {{ 'Kid-friendly' if site_lang == 'en' else 'מתאים לילדים' }}</span>{% endif %}
                         </div>
                         {# Din's conditions (DEAL-18): a verified, fresh price only - see itinerary_cards.attraction_price_view. #}
@@ -430,9 +432,10 @@
                 {% for attraction in attractions %}
                   <div class="vacation-attraction">
                     <strong>
-                      {% if attraction.get('name_he') %}{{ attraction.get('name_he') }} ({{ attraction.get('name') or attraction.get('title') }}){% else %}{{ attraction.get('name') or attraction.get('title') }}{% endif %}
+                      {% if attraction.get('name_he') and site_lang != 'en' %}{{ attraction.get('name_he') }} ({{ attraction.get('name') or attraction.get('title') }}){% else %}{{ attraction.get('name') or attraction.get('title') }}{% endif %}
                     </strong>
-                    {% if attraction.get('info') %}<span>{{ attraction.get('info') }}</span>{% endif %}
+                    {% set attraction_info = attraction.get('info_en') if site_lang == 'en' else attraction.get('info') %}
+                    {% if attraction_info %}<span>{{ attraction_info }}</span>{% endif %}
                     {% set attraction_tickets = attraction_tickets_url(attraction.get('booking_url'), attraction.get('official_url')) %}
                     {% if attraction_tickets %}<a href="{{ attraction_tickets }}" target="_blank" rel="noopener">{{ 'Book tickets' if site_lang == 'en' else 'להזמנת כרטיסים' }}</a>{% endif %}
                   </div>
