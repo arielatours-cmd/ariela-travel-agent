@@ -1183,6 +1183,27 @@ def _budget_ceiling_ils(trip):
     return amount * rate * 1.10
 
 
+def _budget_overage_ils(offer, trip):
+    """How far (ILS, per person) an offer that misses the budget is above the
+    customer's own stated budget - what the deal card's "חורג מהתקציב המועדף
+    ב-X ₪" note shows. Live round 13 F (24.10, Shlomo): the card already had
+    that note, but nothing ever set budget_overage_ils, so a customer only
+    ever saw "לא כולל: תקציב" with no amount. None when there's no budget, or
+    the offer is within it (the agreed 10% tolerance included - the same
+    ceiling _offer_within_budget uses); the amount itself is against the stated
+    budget, without the tolerance."""
+    ceiling = _budget_ceiling_ils(trip)
+    if ceiling is None:
+        return None
+    try:
+        price = float(offer.get("price_ils") or 0)
+    except (TypeError, ValueError):
+        return None
+    if price <= ceiling:
+        return None
+    return round(price - ceiling / 1.10)
+
+
 def _offer_within_budget(offer, trip):
     """Per-person budget is a hard ceiling with the agreed 10% tolerance,
     already converted to ILS and scaled to the full party by
@@ -2238,6 +2259,10 @@ def _resolved_trip_offers(all_offers, trip, limit=5):
             copy.setdefault("customer_choice_label_he", "אפשרות שכדאי להכיר")
             copy.setdefault("customer_choice_label_en", "An option worth seeing")
         copy["_conditions_met_count"] = len(_matched)
+        # The note also says "but a strong match for the rest of your preferences" -
+        # true only when the budget is the one condition this offer misses.
+        copy["budget_overage_ils"] = (_budget_overage_ils(copy, trip)
+                                      if len(_missed) == 1 and _missed[0] in ("תקציב", "Budget") else None)
         merged.append(copy)
 
     # Per the business owner's explicit decision (20.10, vacation 259/trip
