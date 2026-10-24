@@ -9,6 +9,11 @@
 #    together with the date choice, while the dates question is open -> saved (SZG), never asked again.
 #  D "המבורד" (Hamburg, HAM, ג->ד): post-summary shift (one date + yes/no), explicit dates (no confirm),
 #    suitcase switch (no upsell).
+#    UPDATED by the owner 24.10 ("אי אפשר לשנות חופשה שיצאה לסריקה אלא אם משלמים מנוי"): when the trip was
+#    approved and scanned (live, LIVE_SEARCH=1), a later date/baggage change request must NOT change it - Ariela
+#    recognises the existing vacation (never "אין חופשה פתוחה"), explains a scanned vacation can be changed only
+#    with the paid daily-tracking subscription and points to it; no new dates offered, no re-asking, no scan.
+#    (Dry runs, where no scan happened, keep the original expectation.)
 #  E "ברגם" (Bergen/Bergamo, ן->ם) + baby: one question naming both -> "ברגן, בנורווגיה" (BGO); accessibility asked, not inferred; mixed -> "כן, מזוודה לכולם".
 _pids=""
 reg ${P}a ${PH}1 female

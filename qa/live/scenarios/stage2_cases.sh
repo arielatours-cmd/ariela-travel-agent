@@ -42,9 +42,14 @@ drive ${P}5 S5 "אני ושני חברים לפראד, 10 עד 14 בינואר, 
 # (b) after approving it, no new /api/ariella/start-flight-search (live: search_${P}6.jsonl keeps exactly 1 entry;
 # dry: no start-flight-search in chat_log blocked list after the return); the route is attached to the same vacation;
 # (c) nothing already answered is asked again (accessibility, dates, travelers, baggage, budget).
+# (d) owner 24.10: adding a route to a scanned vacation is NOT a flight change - allowed. A FLIGHT change on it
+#     ("אפשר לדחות את הטיסה ביום?", sent after S6b) is allowed only with the paid subscription: Ariela recognises
+#     the vacation, explains, points to the subscription; no new dates, no re-asking, no scan.
 reg ${P}6 ${PH}6 female
 ( drive ${P}6 S6a "אני ובעלי לרומא, 9 עד 14 במרץ, עד 1300 שקל לאדם, טרולי לכל אחד, עדיף ישירה" '{"נגישות":"לא","כבודה":"טרולי לכל אחד","תקציב":"עד 1300 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"יש לנו","רכב":"לא"}'
   echo "---- return to the same vacation ----"
   drive ${P}6 S6b "רגע, בכל זאת נשמח למסלול לחופשה הזו ברומא" '{"מסלול":"כן","סגנון":"היסטוריה, אוכל איטלקי ושכונות יפות","קצב":"רגוע","אישור":"מעולה, מתאים לנו","לינה":"יש לנו","רכב":"לא"}'
   [ "${LIVE_SEARCH:-0}" = 1 ] || say ${P}6 "מאשרת"   # live: autodrive already sent it (and logged the search)
+  echo "---- flight change on the scanned vacation (expect: subscription referral, no change) ----"
+  say ${P}6 "רגע, אפשר לדחות את הטיסה ביום אחד?"
   ) > ${P}_S6.log 2>&1
