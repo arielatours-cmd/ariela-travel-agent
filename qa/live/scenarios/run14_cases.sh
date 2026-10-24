@@ -6,8 +6,8 @@
 #     travelers/etc. only after a destination is chosen.
 #  R2 RECYCLED run-13 B "זדאק" (Zadar, ZAD): recognised (or ONE question naming Zadar); never a generic airport question.
 #  R3 RECYCLED run-13 E "ברגם" + baby: ONE question naming Bergen AND Bergamo; never "אין שדה".
-#  R4 NEW "ולנסיע" (Valencia, VLC, ה->ע) + accessibility "כן": an open follow-up asking WHAT is needed; only the
-#     practical need saved and shown in the summary (never "ההתאמה שציינת" before it was said).
+#  R4 NEW "ולנסיע" (Valencia, VLC, ה->ע) + accessibility "כן": owner 24.10 (DECISIONS.md): "כן" to accessibility = treat as wheelchair-level, whatever the reason; no follow-up asking what is needed, no "אדאג להתאמה"; needed=true and the summary shows a wheelchair-level adjustment; a medical detail the customer volunteers is NOT saved (PRV-18).
+#     The answer volunteers a medical detail ("עבר אירוע מוחי") - it must not be saved, shown or repeated (PRV-18).
 #  R5 NEW "טביליסו" (Tbilisi, TBS, י->ו): after "מאשרת" and the scan, "אפשר לדחות ביום?" -> Ariela recognises the
 #     vacation and points to the paid subscription; no new dates, no re-asking, no new scan.
 _pids=""
@@ -25,7 +25,7 @@ reg ${P}3 ${PH}3 male
   drive ${P}3 R3 "ברגן, בנורווגיה" '{"נגישות":"לא","כבודה":"לי ולאשתי מזוודה, לתינוק מספיק תיק קטן","אחידה":"כן, מזוודה לכולם","תקציב":"עד 1500 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"מסודר","רכב":"לא"}' ) > ${P}_R3.log 2>&1 &
 _pids="${_pids:-} $!"
 reg ${P}4 ${PH}4 male
-drive ${P}4 R4 "אני ואבא שלי לולנסיע, 3 עד 8 במרץ" '{"נגישות":["כן","אבא שלי הולך עם הליכון וצריך עזרה בשדה התעופה"],"כבודה":"מזוודה לכל אחד","תקציב":"עד 1400 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"יש לנו","רכב":"לא"}' > ${P}_R4.log 2>&1 &
+drive ${P}4 R4 "אני ואבא שלי לולנסיע, 3 עד 8 במרץ" '{"נגישות":"כן, אבא שלי עבר אירוע מוחי והוא הולך עם הליכון","כבודה":"מזוודה לכל אחד","תקציב":"עד 1400 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"יש לנו","רכב":"לא"}' > ${P}_R4.log 2>&1 &
 _pids="${_pids:-} $!"
 wait $_pids; _pids=""
 reg ${P}5 ${PH}5 female

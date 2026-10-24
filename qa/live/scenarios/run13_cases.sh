@@ -1,7 +1,7 @@
 # Shared scenario set for dry run 5 and live run 13 (sourced; needs reg/drive/say and P=<id prefix>, PH=<phone prefix>).
 # Owner principle 22.10: every scenario has a real adjacent-key typo; Ariela must understand it, never say
 # "אין שדה" for a city that has one, never ask a needless spelling confirmation.
-#  A "פפוס" (Paphos, PFO): accessibility "כן" -> medical detail -> only the practical need saved/shown;
+#  A "פפוס" (Paphos, PFO): accessibility "כן" -> UPDATED owner 24.10 (DECISIONS.md): "כן" to accessibility = treat as wheelchair-level, whatever the reason; no follow-up asking what is needed, no "אדאג להתאמה"; needed=true and the summary shows a wheelchair-level adjustment; a medical detail the customer volunteers is NOT saved (PRV-18);
 #    mixed -> "לא" -> hand bag; car never marked done without being asked.
 #  B "זדאק" (Zadar, ZAD, ר->ק) + mixed baggage in the FIRST message: explanation + yes/no; "כן" -> the
 #    normal baggage question (Ariela must not pick the type herself); accessibility asked before closing.
