@@ -100,8 +100,8 @@ check("no segments: every hotel still renders", "Hotel One" in html and "Hotel T
 
 # --- Unchanged parts --------------------------------------------------------------------------------------
 html = page("qa-lodging-groups-empty@example.com", dict(BASE))
-check("no results yet: no group heading, the first-search button is still there",
-      not headings(html) and "חיפוש לינה אמיתית" in html)
+check("no results yet: no group heading, no search button, a plain empty-state line (like the car tab)",
+      not headings(html) and "חיפוש לינה אמיתית" not in html and "כאן יוצגו אפשרויות לינה" in html)
 
 with sqlite3.connect(database.DB_PATH) as conn:
     conn.execute("DELETE FROM members WHERE email LIKE 'qa-lodging-groups-%'")

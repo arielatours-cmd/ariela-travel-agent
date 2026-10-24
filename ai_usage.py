@@ -24,6 +24,7 @@ DIAGNOSTIC_EVENT_SOURCES = (
     "restart_signal", "guided_redirect", "dates_change", "destination_change",
     "customer_scan_worker_error", "trip_type_ski_claim", "dates_pipeline",
     "mixed_baggage_safety_net", "unexplained_status_decline_reverted",
+    "baggage_change", "destination_ambiguity_override", "destination_fresh_resolution",
 )
 _NON_USAGE_SOURCES = ("turn_total",) + DIAGNOSTIC_EVENT_SOURCES
 
