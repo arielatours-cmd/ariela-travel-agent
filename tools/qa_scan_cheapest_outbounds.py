@@ -68,8 +68,12 @@ src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 oj = src[src.index("def search_open_jaw_flights"):]
 oj = oj[:oj.index("\ndef ")]
 check("open-jaw search: the outbound cut is also by price",
-      'out_items = sorted(out_items, key=lambda f: float(f.get("price") or 0))' in oj
+      'out_items = sorted(out_items, key=_price_sort_key)' in oj
       and oj.index("sorted(out_items") < oj.index("out_items = out_items[:max(1, int(max_outbounds))]"))
+# Shaked (#183 review): a flight with no price must sort LAST, never as 0 at the top.
+ordered = sorted([{"price": 1300}, {"price": None}, {}, {"price": "n/a"}, {"price": 0}, {"price": 900}], key=scanner._price_sort_key)
+check("no usable price -> last (inf), never first as 0; a real 0 stays a real 0",
+      [o.get("price") for o in ordered][:3] == [0, 900, 1300] and all(not isinstance(o.get("price"), (int, float)) for o in ordered[3:]))
 
 print()
 print("ALL PASS" if not FAILED else f"{len(FAILED)} FAILED: {FAILED}")

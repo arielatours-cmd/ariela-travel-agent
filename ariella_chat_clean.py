@@ -15248,7 +15248,7 @@ def _scanned_upcoming_vacations(member_id, limit=10):
     return result
 
 
-def _scanned_vacation_change_hint(vacations):
+def _scanned_vacation_change_hint(vacations, open_topics=None):
     """The model's brief for a change request to a vacation that was
     already scanned (the business owner, 24.10): name it, explain the rule,
     point to the subscription - the reply itself is the model's own."""
@@ -15271,6 +15271,13 @@ def _scanned_vacation_change_hint(vacations):
                      + "; ".join(desc(v) for v in subscribed)
                      + " כבר יש מנוי מעקב יומי פעיל - אמרי שהשינוי נעשה דרך המעקב בעמוד 'החופשות שלי'.")
     parts.append("אל תציעי תאריכים או פרטים חדשים, אל תשאלי שום שאלה על פרטי החופשה, ואל תתחילי חיפוש או תכנון חדש.")
+    # A topic still open on one of these vacations (e.g. lodging) can go on as
+    # usual - only the scanned details need the subscription (Shlomo, 24.10).
+    open_topics = {k: v for k, v in (open_topics or {}).items() if v}
+    if open_topics:
+        parts.append("מה שעדיין פתוח בחופשה אפשר להמשיך לתכנן כרגיל, בלי מנוי: "
+                     + "; ".join(f"{name}: {', '.join(labels)}" for name, labels in open_topics.items())
+                     + ". אפשר לציין זאת במשפט אחד, בלי לשאול.")
     return " ".join(parts)
 
 
@@ -16057,22 +16064,24 @@ def _chat_clean_impl():
         "continue" (no extra round trip needed - per Shaked's second PR
         #84 review) and when an explicit answer to the "ask" stage's own
         open question resolves to it."""
+        # A customer asking to CHANGE a detail of a vacation that was already
+        # scanned gets the subscription rule (the business owner, 24.10, live
+        # round 13 D) - whether or not that vacation still has an open topic
+        # (lodging/car/route): the rule is about the scanned details, so the
+        # open topic doesn't change it (Shlomo, 24.10). Continuing an open
+        # topic goes on as usual below, and a plain "continue" with nothing
+        # open keeps the R3 answer (nothing open, no vacation named) - the
+        # model tells these apart by meaning, from the message and history.
+        scanned = _scanned_upcoming_vacations(member_id_)
+        if scanned and _interpret_pending_choice(
+                key, model, history, message, "change_existing",
+                context="ללקוח יש חופשות קיימות: " + "; ".join(f"{v['name']} ({v['window']})" for v in scanned)) == "change":
+            kept = dict(base_trip_state, resume_choice_done=True, scanned_change_notice=True)
+            kept.pop("resume_choice_pending", None)
+            open_topics = {t["name"]: t.get("missing_labels") or [] for t in _resumable_vacations(member_id_)}
+            return _resume_hint_reply(_scanned_vacation_change_hint(scanned, open_topics), kept)
         resumable = _resumable_vacations(member_id_)
         if not resumable:
-            # Nothing left OPEN to continue - but when the customer is asking
-            # to CHANGE a detail of a vacation that was already scanned (every
-            # service settled), the answer is the subscription rule, never
-            # "you have no open vacation" (the business owner, 24.10, live
-            # round 13 D). A plain "continue planning" keeps the R3 answer
-            # below (nothing open, no vacation named) - the model tells them
-            # apart by meaning, from the message and the history.
-            scanned = _scanned_upcoming_vacations(member_id_)
-            if scanned and _interpret_pending_choice(
-                    key, model, history, message, "change_existing",
-                    context="ללקוח יש חופשות קיימות: " + "; ".join(f"{v['name']} ({v['window']})" for v in scanned)) == "change":
-                kept = dict(base_trip_state, resume_choice_done=True, scanned_change_notice=True)
-                kept.pop("resume_choice_pending", None)
-                return _resume_hint_reply(_scanned_vacation_change_hint(scanned), kept)
             fresh = {
                 'session_status': {'flights': 'pending', 'lodging': 'pending', 'car': 'pending', 'trip_planning': 'pending'},
                 'active_session': None, 'resume_choice_done': True,
