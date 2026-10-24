@@ -139,13 +139,13 @@ check("truncation repro: the retry recovers the real parsed trip_update "
       _result[0].get("dates", {}).get("departure") == "2027-06-11")
 check("truncation repro: extractor_parse_error is False after the "
       "successful retry",
-      _result[-2] is False)
+      _result[-3] is False)
 check("truncation repro: extractor_diag correctly reflects the RETRY's own "
       "stop_reason/output_tokens (the attempt that actually succeeded), "
       "and retried=True",
-      _result[-1]["stop_reason"] == "end_turn"
-      and _result[-1]["output_tokens"] == 180
-      and _result[-1]["retried"] is True)
+      _result[-2]["stop_reason"] == "end_turn"
+      and _result[-2]["output_tokens"] == 180
+      and _result[-2]["retried"] is True)
 
 # Regression: a genuinely malformed (non-truncated) response must never
 # trigger a wasted retry - a bigger budget would not fix it anyway.
@@ -168,7 +168,7 @@ check("regression: a malformed-but-not-truncated response (stop_reason="
       _calls2["n"] == 1)
 check("regression: extractor_parse_error is still True (genuinely "
       "unparseable), and retried is False",
-      _result_malformed[-2] is True and _result_malformed[-1]["retried"] is False)
+      _result_malformed[-3] is True and _result_malformed[-2]["retried"] is False)
 
 # Regression: truncation on BOTH attempts still caps at exactly 2 calls -
 # never a second retry, never a loop.
@@ -192,7 +192,7 @@ check("regression: even truncated on BOTH attempts, the EXTRACTOR is "
 check("regression: extractor_parse_error stays True when the retry also "
       "truncates, and retried is still True (the retry DID happen, it "
       "just didn't help this time)",
-      _result_twice[-2] is True and _result_twice[-1]["retried"] is True)
+      _result_twice[-3] is True and _result_twice[-2]["retried"] is True)
 
 
 # =====================================================================

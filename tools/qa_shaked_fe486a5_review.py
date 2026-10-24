@@ -164,9 +164,22 @@ with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
     r_keep = client.post("/api/ariella/chat-clean", json={
         "message": "כן", "history": HISTORY_PENDING, "trip_state": dict(STATE_PENDING),
     })
-tu_keep = (r_keep.get_json() or {}).get("trip_update") or {}
+data_keep = r_keep.get_json() or {}
+tu_keep = data_keep.get("trip_update") or {}
+# Updated 23.10.2026 (J6 fix, Shaked/Shlomo's 5j finding): STATE_PENDING has
+# no route/lodging/car/destination_airports at all, so there is nothing
+# destination-dependent to lose - _destination_dependent_details_exist
+# correctly applies the change immediately instead of opening the
+# "delete and rebuild?" pending gate this test originally expected. Still
+# asserts the same thing the test's own name promises: a bare "כן" is
+# resolved WITHOUT a model call (the fake _post_claude's "לא אמור להגיע
+# לכאן" sentinel would otherwise have leaked into the reply).
 check("bare 'כן' to the destination-change question is resolved WITHOUT a model call (keep)",
-      tu_keep.get("destination_change_pending") == "פראג")
+      "לא אמור להגיע לכאן" not in str(data_keep.get("reply") or ""))
+check("bare 'כן' to the destination-change question applies the change immediately "
+      "(no dependent details to lose) and leaves no pending gate open",
+      "פראג" in ((tu_keep.get("destination") or {}).get("places") or [])
+      and not tu_keep.get("destination_change_pending"))
 
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude):
     r_new = client.post("/api/ariella/chat-clean", json={
