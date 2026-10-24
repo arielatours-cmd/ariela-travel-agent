@@ -489,6 +489,7 @@ def build_itinerary_days(text, answers, post_claude, key, model):
                 # Hebrew, duration_<lang> otherwise (only duration_en exists
                 # today) - never the Hebrew value on a non-Hebrew vacation.
                 "duration": str(it.get("duration") or (match or {}).get(f"duration_{lang}" if foreign else "משך מומלץ") or "").strip(),
+                "duration_en": str((match or {}).get("duration_en") or "").strip(),
                 # Structured, verified price data only (Din, 22.10) - the old
                 # free-text price note is no longer shown.
                 "price_info": {f: (match or {}).get(f) for f in _PRICE_FIELDS},

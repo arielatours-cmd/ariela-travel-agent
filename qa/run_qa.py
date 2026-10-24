@@ -6,6 +6,7 @@ Checks:
   3. routes     every GET page answers < 500, as a visitor and as a logged-in member
   4. cases      deterministic Hebrew parsers match qa/cases.json
   5. reasons    every displayed deal reason (scoring.py/database.py) has an English translation
+  6. missed     every "Missing:" label of the flight-card matcher has an English translation
 
 Usage: python qa/run_qa.py [--out qa/reports/latest.md]
 Exit code is non-zero when any check fails.
@@ -226,6 +227,43 @@ def check_deal_reasons() -> tuple[list[str], int]:
     return failures, len(texts)
 
 
+_MISSED_REASON_FUNCS = ("_objective_match_details", "_ski_selected_condition_details")
+
+
+def check_missed_reasons() -> tuple[list[str], int]:
+    """Every "Missing:" label the matcher can produce has an English translation
+    (Hebrew labels saved with pinned offers reached the English card, 23.10).
+    f-string labels ("5 ימים") are covered by MISSED_REASON_EN's patterns and
+    checked with a sample value."""
+    import ast
+    import re
+    import public_site
+    tree = ast.parse((ROOT / "public_site.py").read_text(encoding="utf-8"))
+    texts, failures = set(), []
+    for func in ast.walk(tree):
+        if isinstance(func, ast.FunctionDef) and func.name in _MISSED_REASON_FUNCS:
+            for node in ast.walk(func):
+                if isinstance(node, ast.JoinedStr):
+                    for part in node.values:
+                        part._ron_fstring = True  # pieces of an f-string: checked via the samples below
+            for node in ast.walk(func):
+                if (isinstance(node, ast.Constant) and isinstance(node.value, str) and not getattr(node, "_ron_fstring", False)
+                        and re.search(r"[֐-׿]", node.value)):
+                    texts.add(node.value)
+    for text in sorted(texts):
+        if not public_site._missed_reason_en(text):
+            failures.append(f"missing English for 'Missing:' label {text!r} - add it to public_site.MISSED_REASON_EN")
+    samples = ("5 ימים", "עד 1 קונקשן/ים", "שעת טיסה הלוך (ערב)", "שעת טיסה חזור (בוקר)",
+               # an unknown time-preference value must not leak in Hebrew (Shaked, 23.10)
+               "שעת טיסה חזור (לילה)", "Return time (לילה)", "Outbound time (לילה)")
+    for sample in samples:
+        if re.search(r"[֐-׿]", public_site._missed_reason_en(sample)) or not public_site._missed_reason_en(sample):
+            failures.append(f"f-string 'Missing:' label {sample!r} has no English pattern")
+    if public_site._time_pref_label_en("Return time", "לילה") != "Return time":
+        failures.append("unknown time preference: expected plain 'Return time'")
+    return failures, len(texts) + len(samples)
+
+
 def _contains(actual, expected) -> bool:
     if isinstance(expected, dict):
         return isinstance(actual, dict) and all(k in actual and _contains(actual[k], v) for k, v in expected.items())
@@ -271,6 +309,8 @@ def main() -> int:
     add("איפוס סיסמה (תהליך מלא)", check_password_reset())
     reason_fail, n_reasons = check_deal_reasons()
     add("תרגום סיבות הדיל לאנגלית", reason_fail, f" — {n_reasons} סיבות")
+    missed_fail, n_missed = check_missed_reasons()
+    add("תרגום 'לא כולל' לאנגלית", missed_fail, f" — {n_missed} תוויות")
     case_fail, n_cases = check_cases()
     add("הבנת שיחה (מפענחים דטרמיניסטיים)", case_fail, f" — {n_cases} מקרים")
 
