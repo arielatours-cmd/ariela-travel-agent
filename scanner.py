@@ -569,7 +569,12 @@ def search_flights(departure: str, arrival: str, outbound_date: str, return_date
         unique_outbounds.append(item)
 
     # Cost control for broad discovery scans. Targeted/customer searches keep full depth.
+    # Live round 13 F (24.10, Shlomo): the request asks Google to sort by price
+    # (sort_by=2), but best_flights comes before other_flights in the list above,
+    # so the cap could keep "best" outbounds and drop cheaper ones. Cut the
+    # cheapest ones instead - same number of outbounds, no extra API calls.
     if max_outbounds is not None:
+        unique_outbounds = sorted(unique_outbounds, key=lambda f: float(f.get("price") or 0))
         unique_outbounds = unique_outbounds[:max(1, int(max_outbounds))]
 
     # Whether Google returned any outbound flight at all is a reliable signal
@@ -683,6 +688,8 @@ def search_open_jaw_flights(departure: str, outbound_arrival: str, return_depart
     out_items = [f for f in (out_data.get("best_flights") or []) + (out_data.get("other_flights") or []) if isinstance(f.get("price"), (int, float))]
     ret_items = [f for f in (ret_data.get("best_flights") or []) + (ret_data.get("other_flights") or []) if isinstance(f.get("price"), (int, float))]
     if max_outbounds is not None:
+        # Same as search_flights: the cheapest outbounds, not best_flights first (no extra API calls).
+        out_items = sorted(out_items, key=lambda f: float(f.get("price") or 0))
         out_items = out_items[:max(1, int(max_outbounds))]
 
     try:
