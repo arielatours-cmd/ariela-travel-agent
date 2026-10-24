@@ -1,6 +1,7 @@
 # Live stage-1 run 14 (flight only) - sourced by run14_live.sh (needs reg/drive/say, P, PH).
 # Owner rules: recycle 2 of 5 within 48h (B Zadar, E Bergen from run 13), diversify the rest; every scenario has a
-# real typo; LIVE_SEARCH=1 per run (owner 23.10). Criteria updated 24.10 (scanned vacation -> subscription only;
+# real typo. NO live search (owner 23.10: one searching run per series - run 13 was it; while fixes are pending
+# the runs go without a scan): run WITHOUT LIVE_SEARCH. Criteria updated 24.10 (scanned vacation -> subscription only;
 # understanding through the model, no word lists).
 #  R1 NEW "תמליצי לי" (owner 24.10, updated): no destination -> Ariela draws the customer out with open questions
 #     about the direction (kind of trip, atmosphere, preferences - several allowed), then recommends catalog
@@ -10,8 +11,9 @@
 #  R3 RECYCLED run-13 E "ברגם" + baby: ONE question naming Bergen AND Bergamo; never "אין שדה".
 #  R4 NEW "ולנסיע" (Valencia, VLC, ה->ע) + accessibility "כן": owner 24.10 (DECISIONS.md): "כן" to accessibility = treat as wheelchair-level, whatever the reason; no follow-up asking what is needed, no "אדאג להתאמה"; needed=true and the summary shows a wheelchair-level adjustment; a medical detail the customer volunteers is NOT saved (PRV-18).
 #     The answer volunteers a medical detail ("עבר אירוע מוחי") - it must not be saved, shown or repeated (PRV-18).
-#  R5 NEW "טביליסו" (Tbilisi, TBS, י->ו): after "מאשרת" and the scan, "אפשר לדחות ביום?" -> Ariela recognises the
-#     vacation and points to the paid subscription; no new dates, no re-asking, no new scan.
+#  R5 RECYCLED (run-13 D account r13d, vacation 262 - scanned 24.10, inside the 48h window): back in the chat,
+#     "אפשר לדחות ביום?" -> Ariela recognises the existing vacation and points to the paid subscription (owner
+#     24.10); no new dates, no re-asking, no scan. Uses the existing account - no new vacation, no SerpAPI.
 _pids=""
 reg ${P}1 ${PH}1 female
 ( say ${P}1 "אני ובן הזוג שלי רוצים לטוס בפברואר לשבוע, אבל אין לנו מושג לאן. תמליצי לנו?"
@@ -31,7 +33,5 @@ reg ${P}4 ${PH}4 male
 drive ${P}4 R4 "אני ואבא שלי לולנסיע, 3 עד 8 במרץ" '{"נגישות":"כן, אבא שלי עבר אירוע מוחי והוא הולך עם הליכון","כבודה":"מזוודה לכל אחד","תקציב":"עד 1400 שקל לאדם","ישיר":"עדיף ישירה","מסלול":"לא","לינה":"יש לנו","רכב":"לא"}' > ${P}_R4.log 2>&1 &
 _pids="${_pids:-} $!"
 wait $_pids; _pids=""
-reg ${P}5 ${PH}5 female
-( drive ${P}5 R5 "אני ואחותי לטביליסו, 10 עד 15 באפריל" '{"נגישות":"לא","כבודה":"טרולי לכל אחת","תקציב":"עד 1000 שקל לאחת","ישיר":"לא חובה","מסלול":"לא","לינה":"יש לנו","רכב":"לא"}'
-  echo "---- flight change on the scanned vacation (expect: subscription referral, no change, no scan) ----"
-  say ${P}5 "רגע, אפשר לדחות את כל הטיסה ביום אחד?" ) > ${P}_R5.log 2>&1
+( echo "---- run-13 D vacation 262 (already scanned): flight change -> subscription referral, no change ----"
+  say r13d "היי, לגבי החופשה בהמבורג - אפשר לדחות את כל הטיסה ביום אחד?" ) > ${P}_R5.log 2>&1

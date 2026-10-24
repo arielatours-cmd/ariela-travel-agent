@@ -1,8 +1,9 @@
 # Live stage-1 run 14 (flight only) = qa/live/scenarios/run14_cases.sh on the live site.
-# Usage: bash qa/live/scenarios/run14_live.sh EXPECTED_COMMIT OUT_DIR   (~55 turns)
+# Usage: bash qa/live/scenarios/run14_live.sh EXPECTED_COMMIT OUT_DIR   (~45 turns; NO LIVE_SEARCH - see run14_cases.sh)
 set -u
 SC_DIR=$(cd "$(dirname "$0")" && pwd); L=$(cd "$SC_DIR/.." && pwd); OUT=${2:?out dir}; mkdir -p "$OUT"
 export ARIELA_QA_OUT="$OUT"; cd "$OUT"
+[ "${LIVE_SEARCH:-0}" = 1 ] && { echo "run 14 runs without a scan (owner 23.10) - unset LIVE_SEARCH"; exit 1; }
 C=$(curl -s -m 30 https://ariela-travel-agent.onrender.com/health | grep -o '"commit":"[^"]*"'); echo "$C"
 case "$C" in *"$1"*) ;; *) echo "WRONG COMMIT, abort"; exit 1;; esac
 reg()   { python3 "$L/register.py" "$@" 2>&1 | head -1; }
