@@ -3636,6 +3636,27 @@
    ],
    "expect_falsy": true,
    "source": "#175 70f8479 review"
+  },
+  {
+   "id": "dest-ambiguous-second-question-dropped",
+   "fn": "_enforce_one_option_question",
+   "args": [
+    "ברגן (נורווגיה) או ברגמו (איטליה)? ומה התקציב לאדם?",
+    {
+     "active_session": "flights",
+     "destination": {
+      "places": [
+       "ברגם"
+      ],
+      "mode": "specific",
+      "status": "known"
+     },
+     "destination_airports": [],
+     "_destination_ambiguous_hint": "שאלי: ברגמו (איטליה) או ברגן (נורווגיה)?"
+    }
+   ],
+   "expect": "ברגן (נורווגיה) או ברגמו (איטליה)?",
+   "source": "#176 a8b6425"
   }
  ]
 }
