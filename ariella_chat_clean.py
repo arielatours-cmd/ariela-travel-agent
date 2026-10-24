@@ -8697,6 +8697,22 @@ def _resolve_destination_by_meaning(trip_state, trip_update, destination_evidenc
                 trip_update, destination_evidence, message, history,
                 None, prior_airports, prior_destination,
             )
+        # Shaked's re-review of 7fb03d9e (dry-run 5l, J7, "וינה -> פראד",
+        # qa-dryrun 763e540, chat_resp_dr5l7.jsonl): this is the branch the
+        # REAL live J7 turn actually takes - the extractor's own evidence
+        # is a verbatim quote ("פראד") already present in the message, so
+        # verified_evidence is True here and _run_destination_recognition
+        # is NEVER reached at all (it only runs for the unverified/typo-
+        # recognition case above, or the separate already-settled-
+        # correction path further below). My first attempt at this fix
+        # only set the one-turn marker inside _run_destination_recognition,
+        # so it never fired for the actual repro. Set it here too, in this
+        # branch specifically - the only place that actually closes a
+        # genuine, already-verified destination change this turn.
+        elif places_changed and new_places:
+            trip_update["_destination_change_confirmed_fact"] = new_places[0]
+        elif airports_changed and new_airports:
+            trip_update["_destination_change_confirmed_fact"] = _verified_catalog_display_name(new_airports[0])
 
     fresh_resolution = not prior_airports and bool(new_airports)
     if fresh_resolution:
