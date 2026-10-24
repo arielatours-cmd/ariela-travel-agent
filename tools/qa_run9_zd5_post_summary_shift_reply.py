@@ -322,6 +322,14 @@ post_summary_state = {
     "departure_airport": "TLV",
     "budget_per_person": {"amount": 2000, "currency": "ILS"},
     "flight": {"baggage": ["checked_bag"], "connection_preference": "no_preference"},
+    # A post-summary state already reached ready_for_summary=True once,
+    # which itself already required accessibility to be settled (see
+    # _guided_incomplete_fields) - modeled here so the dry-run 5d item 3
+    # fix (accessibility also gates a single domain, e.g. flights,
+    # re-closing - not just the first time) doesn't block this turn's own
+    # unrelated reopen-then-reclose test.
+    "accessibility": {"asked": True, "needed": False},
+    "guided": {"current_question": None, "attempts": 0, "answered": ["dates", "travelers", "accessibility"]},
 }
 database.save_ariella_conversation(m_zd5, [
     {"role": "user", "content": "טורינו, 10-14 ביוני 2027, זוג, מזוודה"},

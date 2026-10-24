@@ -5,7 +5,7 @@ the business owner via Shlomo - interim fix until 021a).
   landmark_images_fix.json: each landmark checked against the Wikimedia
   Commons API (file exists; PD/CC0/CC BY/CC BY-SA only - Din, IMG-1).
 - The 9 that 404'd (LIS, VIE, ZRH, BRU, WAW, EVN, BEG, TGD, LJU) are
-  replaced, PRG -> Charles Bridge, OTP/KRK get a real photo again, LCA kept.
+  replaced, PRG -> Charles Bridge, OTP/KRK get a real photo again; LCA -> Ofek's Commons photo (was an unlicensed Unsplash photo).
 - The general image: the desert road -> Ofek's CC0 plane wing, our own file.
 - credit_text (Din's format) is shown on the deal card when the licence
   requires it; English uses the same format and parts.
@@ -42,7 +42,10 @@ check("the 9 that 404'd + PRG/OTP/KRK are Commons files now, no Special:Redirect
       all(L[c].startswith("https://upload.wikimedia.org/") for c in ("LIS", "VIE", "ZRH", "BRU", "WAW", "EVN", "BEG", "TGD", "LJU", "PRG", "OTP", "KRK"))
       and not any("Special:Redirect" in u for u in L.values()))
 check("PRG: Charles Bridge", "Charles" in fix["PRG"]["title"] or "Karl" in fix["PRG"]["title"])
-check("LCA kept as it was", L["LCA"].startswith("https://images.unsplash.com/photo-1507525428034"))
+check("LCA: Ofek's verified Commons photo (Church of Saint Lazarus, CC BY-SA 4.0) with its credit; no Unsplash landmark left",
+      L["LCA"] == fix["LCA"]["url_1200"] and "Saint_Lazarus" in L["LCA"]
+      and database.DESTINATION_IMAGE_CREDITS.get("LCA", {}).get("artist") == "Viaggiamocela"
+      and not any("unsplash.com" in u for u in L.values()))
 check("licences: PD / CC0 / CC BY / CC BY-SA only (Din, IMG-1)",
       all(any(x in v.get("license", "") for x in ("Public domain", "CC0", "CC BY")) and "NC" not in v.get("license", "") and "ND" not in v.get("license", "")
           for v in fix.values() if v["status"] != "keep_current"))
@@ -66,6 +69,9 @@ with app.test_request_context("/"):
     he = app.jinja_env.from_string(FULL).render(o=base, lang="he")
     en = app.jinja_env.from_string(FULL).render(o=base, lang="en")
     none = app.jinja_env.from_string(FULL).render(o=dict(base, arrival_code="ATH", destination_image_url=L["ATH"], destination_image_credit=None), lang="he")
+check("Shlomo 23.10: no Unsplash city layer left - the general image is the only fallback in every pool",
+      database._DESTINATION_IMAGE_FALLBACKS == (database.GENERIC_DESTINATION_IMAGE,)
+      and not any("photo-1477959858617" in u for p in database.DESTINATION_IMAGE_POOLS.values() for u in p))
 import html as _html  # noqa: E402
 lis = fix["LIS"]
 check("card HE: Din's credit text on the photo (the Latin part in <bdi> - Tom's QA: the comma jumped in RTL)",

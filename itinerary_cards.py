@@ -10,6 +10,7 @@ Honesty rules (per product owner):
   that isn't in the DB gets a map link only.
 - Images come from Wikipedia's page image for the place, when one exists.
 """
+import html
 import json
 import logging
 import os
@@ -96,6 +97,90 @@ def _wiki_image(name_en, city):
     except Exception:
         logging.info("Wikipedia image lookup failed for %s", name_en)
     return ""
+
+
+# Din (IMG-1, 23.10): Wikimedia photos only under PD / CC0 / CC BY / CC BY-SA,
+# each shown with a credit linking to its Commons page; anything else -> no photo.
+_ALLOWED_IMAGE_LICENSES = re.compile(r"^(public domain|pd\b|cc0|cc by(-sa)?( \d(\.\d)?)?)", re.IGNORECASE)
+
+
+# Din (IMG-1): a known author only. Any value made only of "unknown"/"anonymous"
+# words plus a role word ("Unknown artist", "Anonymous (photographer)", "author
+# unknown", "N/A") is no author - whatever the punctuation or parentheses.
+_UNKNOWN_WORDS = {"unknown", "anonymous", "anon", "unidentified", "unnamed"}
+_UNKNOWN_PHRASES = (["n", "a"], ["na"], ["not", "known"])
+_ROLE_WORDS = {"artist", "author", "photographer", "photo", "creator", "painter", "by"}
+
+
+def _is_unknown_artist(text):
+    words = re.findall(r"[^\W\d_]+", str(text or "").lower())
+    core = [w for w in words if w not in _ROLE_WORDS]
+    return not core or core in _UNKNOWN_PHRASES or set(core) <= _UNKNOWN_WORDS
+
+
+def _commons_text(raw):
+    """Plain text from a Commons extmetadata HTML value. Hidden elements
+    (display:none - e.g. "Anonymous" followed by a hidden "Unknown author",
+    Tom's QA on File:Ponte Vecchio, Florence.jpg) are dropped before the
+    tags, then entities are decoded."""
+    text = str(raw or "")
+    text = re.sub(r"<(\w+)[^>]*display\s*:\s*none[^>]*>.*?</\1>", "", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<[^>]+>", "", text)
+    for _ in range(3):  # double-escaped entities too ("&amp;amp;")
+        unescaped = html.unescape(text)
+        if unescaped == text:
+            break
+        text = unescaped
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _image_license(file_title):
+    """Licence metadata for a Wikipedia page image: {"artist", "license",
+    "page"} when the file is on Commons under an allowed licence, else None
+    (a local "fair use" file, NC/ND, unknown author or licence)."""
+    if not file_title:
+        return None
+    try:
+        resp = requests.get(_WIKI_API, headers=_WIKI_HEADERS, timeout=6, params={
+            "action": "query", "format": "json", "titles": f"File:{file_title}",
+            "prop": "imageinfo", "iiprop": "extmetadata|url",
+            "iiextmetadatafilter": "LicenseShortName|Artist",
+        })
+        for page in ((resp.json().get("query") or {}).get("pages") or {}).values():
+            info = (page.get("imageinfo") or [{}])[0]
+            meta = info.get("extmetadata") or {}
+            license_name = _commons_text((meta.get("LicenseShortName") or {}).get("value"))
+            artist = _commons_text((meta.get("Artist") or {}).get("value"))
+            if _is_unknown_artist(artist):
+                artist = ""  # Din: a known author only
+            page_url = str(info.get("descriptionurl") or "")
+            if (page_url.startswith("https://commons.wikimedia.org/") and artist and license_name
+                    and _ALLOWED_IMAGE_LICENSES.match(license_name) and not re.search(r"\b(nc|nd)\b", license_name.lower())):
+                return {"artist": artist, "license": license_name, "page": page_url}
+    except Exception:
+        logging.info("Wikimedia licence lookup failed for %s", file_title)
+    return None
+
+
+def _wiki_image_licensed(name_en, city):
+    """(thumbnail, credit) for the place's Wikipedia page image - only when
+    the file's licence allows it (see _image_license); else ("", None)."""
+    if not name_en:
+        return "", None
+    try:
+        resp = requests.get(_WIKI_API, headers=_WIKI_HEADERS, timeout=6, params={
+            "action": "query", "format": "json", "generator": "search",
+            "gsrsearch": f"{name_en} {city or ''}".strip(), "gsrlimit": 1,
+            "prop": "pageimages", "piprop": "thumbnail|name", "pithumbsize": 480,
+        })
+        for page in ((resp.json().get("query") or {}).get("pages") or {}).values():
+            thumb = (page.get("thumbnail") or {}).get("source")
+            credit = _image_license(page.get("pageimage")) if thumb else None
+            if thumb and credit:
+                return thumb, credit
+    except Exception:
+        logging.info("Wikipedia image lookup failed for %s", name_en)
+    return "", None
 
 
 def _parse_json(raw):
@@ -337,8 +422,8 @@ def build_itinerary_days(text, answers, post_claude, key, model):
                 "official_url": str((match or {}).get("אתר רשמי") or "").strip(),
                 "kids": str((match or {}).get("מתאים לילדים") or "").strip(),
                 "map_url": "https://www.google.com/maps/search/?api=1&query=" + quote_plus(f"{name_en or name_he} {city}".strip()),
-                "image": _wiki_image(name_en, city),
             }
+            card["image"], card["image_credit"] = _wiki_image_licensed(name_en, city)
             if card["official_url"] == card["tickets_url"]:
                 card["official_url"] = ""
             items.append(card)

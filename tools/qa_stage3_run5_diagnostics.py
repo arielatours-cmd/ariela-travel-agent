@@ -119,7 +119,12 @@ _hallucinated = {
     "destination": {"places": ["פלרמו"], "mode": "specific", "status": "known"},
     "destination_airports": ["SZG", "PRG", "CAI", "SSH"],
 }
-_locked = chat._guard_destination_change_evidence(_palermo_state, dict(_hallucinated), None, "כן")
+def _no_recognition(*a, **kw):
+    return json.dumps({"evidence": None, "candidates": [], "disambiguating_evidence": None})
+
+
+with patch.object(chat, "_post_claude", side_effect=_no_recognition):
+    _locked = chat._resolve_destination_by_meaning(_palermo_state, dict(_hallucinated), None, "כן", [])
 check("item 1a: an ungrounded destination_airports replacement (no evidence quote) is reverted to the prior value",
       _locked.get("destination_airports") == ["PMO"])
 
@@ -127,15 +132,15 @@ _genuine_change = {
     "destination": {"places": ["רומא"], "mode": "specific", "status": "known"},
     "destination_airports": ["FCO"],
 }
-_accepted = chat._guard_destination_change_evidence(
-    _palermo_state, dict(_genuine_change), "בעצם רומא", "רגע, בעצם רומא, לא פלרמו"
+_accepted = chat._resolve_destination_by_meaning(
+    _palermo_state, dict(_genuine_change), "בעצם רומא", "רגע, בעצם רומא, לא פלרמו", []
 )
 check("item 1a: a genuinely quoted destination change is accepted, not reverted",
       _accepted.get("destination_airports") == ["FCO"]
       and _accepted.get("destination", {}).get("places") == ["רומא"])
 
 _no_prior_state = {"destination": {"places": []}, "destination_airports": []}
-_first_time = chat._guard_destination_change_evidence(_no_prior_state, dict(_genuine_change), None, "רומא")
+_first_time = chat._resolve_destination_by_meaning(_no_prior_state, dict(_genuine_change), None, "רומא", [])
 check("regression: the FIRST time destination/airports are set (nothing to protect yet) is never blocked",
       _first_time.get("destination_airports") == ["FCO"])
 

@@ -306,6 +306,7 @@
           .itin-day-summary{margin:0 0 10px;color:#5d5346;font-size:14px}
           .itin-card{display:flex;gap:12px;background:#fff;border:1px solid #eee4d4;border-radius:12px;overflow:hidden;margin-top:10px;box-shadow:0 2px 8px #0000000a}
           .itin-card-img{width:112px;min-height:112px;object-fit:cover;flex-shrink:0}
+          .itin-card-credit{display:block;margin-top:6px;font-size:10.5px;color:#8a7f6c;text-decoration:none;overflow-wrap:anywhere}
           .itin-card-body{padding:10px 12px 12px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
           .itin-card-name{font-size:15px}
           .itin-card-en{font-size:12px;color:#8a8a8a}
@@ -391,7 +392,7 @@
                   {% if day.get('summary') %}<p class="itin-day-summary">{{ day.get('summary') }}</p>{% endif %}
                   {% for item in day.get('items') or [] %}
                     <article class="itin-card">
-                      {% if item.get('image') %}<img class="itin-card-img" src="{{ item.get('image') }}" alt="{{ item.get('name_he') }}" loading="lazy">{% endif %}
+                      {% if item.get('image') and item.get('image_credit') %}<img class="itin-card-img" src="{{ item.get('image') }}" alt="{{ item.get('name_he') }}" loading="lazy">{% endif %}
                       <div class="itin-card-body">
                         <strong class="itin-card-name">{{ item.get('name_he') }}</strong>
                         {% if item.get('name_en') %}<span class="itin-card-en">{{ item.get('name_en') }}</span>{% endif %}
@@ -414,6 +415,7 @@
                           {% if item.get('official_url') %}<a class="itin-btn" href="{{ item.get('official_url') }}" target="_blank" rel="noopener">{{ 'Official site' if site_lang == 'en' else 'אתר רשמי' }}</a>{% endif %}
                           <a class="itin-btn" href="{{ item.get('map_url') }}" target="_blank" rel="noopener">📍 {{ 'Map' if site_lang == 'en' else 'במפה' }}</a>
                         </div>
+                        {% set ic = item.get('image_credit') %}{% if item.get('image') and ic %}<a class="itin-card-credit" href="{{ ic.page }}" target="_blank" rel="noopener" dir="{{ 'ltr' if site_lang == 'en' else 'rtl' }}">{% if site_lang == 'en' %}Photo: {{ ic.artist }} / {{ ic.license }}, via Wikimedia Commons{% else %}צילום: <bdi>{{ ic.artist }} / {{ ic.license }}</bdi>, דרך Wikimedia Commons{% endif %}</a>{% endif %}
                       </div>
                     </article>
                   {% endfor %}

@@ -115,10 +115,18 @@ check("after the yes/no, the next field (accessibility) is asked with its own hi
 
 single = {"status": "answered", "mixed_per_passenger": False, "items": [{"type": "carry_on_only", "count": None}], "confidence": "high",
           "also_mentioned": {}, "correction": None}
-r, _ = run(single, "טרולי לכל אחת", st=state({"mixed_baggage_pending": True}))
-check("E: a single type saved via the redirect clears a lingering pending flag",
-      r["trip_update"]["guided"].get("mixed_baggage_pending") is False)
-check("E: accessibility ack uses its own hint - no raw English field name",
+# Updated 22.10 (dry-run 4, Bezalel's root-cause note): a pending yes/no now always makes baggage the
+# live question, so "טרולי לכל אחת" while the pointer shows accessibility is read as that answer
+# ("yes" + the type, which _guard_mixed_baggage_pending_write hands over as _mixed_baggage_evidenced_type).
+pend = state({"mixed_baggage_pending": True})
+pend_update = dict(pend, _mixed_baggage_evidenced_type="carry_on_only")
+with patch.object(chat, "_mixed_baggage_uniform_choice_by_meaning", return_value=True):
+    r = chat._handle_guided_extraction_turn("k", "m", "טרולי לכל אחת", [], pend, pend_update, STEPS)
+check("E: a pending flag never lingers - the type is saved and the flag cleared",
+      r["trip_update"]["guided"].get("mixed_baggage_pending") is False
+      and (r["trip_update"].get("flight") or {}).get("baggage") == ["carry_on_only"])
+r, _ = run(single, "טרולי לכל אחת")
+check("E: a single type saved via the redirect -> accessibility ack uses its own hint, no raw English field name",
       "accessibility" not in (r.get("dynamic_hint") or "") and "נגישות" in (r.get("dynamic_hint") or ""))
 
 
