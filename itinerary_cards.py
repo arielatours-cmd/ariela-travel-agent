@@ -34,8 +34,9 @@ _DAY_LINE = re.compile(
     r"(?<![א-ת])יום\s+(?:\d{1,2}(?!\d)|(?:ה?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת|אחרון)))"
 )
 
-# Itinerary text from a customer who chats in English ("Day 1: ...").
-_DAY_LINE_EN = re.compile(r"\bDay\s+\d{1,2}(?!\d)", re.IGNORECASE)
+# A non-Hebrew itinerary's day lines, by structure: the line opens with
+# "Day <number>" (the numbered-day format the plan is written in).
+_DAY_LINE_START = re.compile(r"^\W*Day\s+\d{1,2}(?!\d)", re.IGNORECASE)
 
 _STRUCTURE_PROMPT = """את ממירה מסלול טיול שאושר (טקסט חופשי בעברית) למבנה JSON עבור כרטיסי מסלול.
 כללים:
@@ -58,6 +59,7 @@ _STRUCTURE_PROMPT = """את ממירה מסלול טיול שאושר (טקסט 
 _STRUCTURE_PROMPT_FOREIGN = """You convert an approved trip itinerary (free text) into JSON for itinerary cards.
 Rules:
 - Include only days and places that appear in the text. Do not add attractions that were not mentioned.
+- Use only the day-by-day plan: ignore any introduction, closing question or side notes around it.
 - items are specific places to visit (a site, museum, park, neighborhood, beach, a named recommended restaurant) - not general activities such as "dinner", "rest" or "drive".
 - description: 1-2 sentences in {language} - what the place is and why it is worth visiting, in a friendly tone. No prices, no opening hours and no links.
 - name: the place's name as the itinerary gives it, in {language}.
@@ -74,9 +76,14 @@ _LANGUAGE_NAMES = {"en": "English", "fr": "French", "de": "German", "es": "Spani
                    "ru": "Russian", "ar": "Arabic", "pt": "Portuguese", "nl": "Dutch"}
 
 
+_LANG_CODE = re.compile(r"^[a-z]{2,3}$")
+
+
 def _vacation_lang(answers):
-    """The vacation's language code; missing/empty means Hebrew."""
-    return str((answers or {}).get("_lang") or "he").strip().lower() or "he"
+    """The vacation's language code; missing, empty or anything that isn't a
+    plain 2-3 letter code means Hebrew - free text never reaches the prompt."""
+    code = str((answers or {}).get("_lang") or "").strip().lower()
+    return code if _LANG_CODE.match(code) else "he"
 
 
 def _structure_prompt_for(lang):
@@ -226,21 +233,40 @@ def _parse_json(raw):
     return json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
 
 
-def core_itinerary_text(text):
+def core_itinerary_text(text, lang=None):
     """The day-by-day part only: drops the intro before the first day and a
     closing question/notes after the last one. Used for the plain-text
-    fallback while the cards aren't built yet."""
+    fallback while the cards aren't built yet.
+
+    Hebrew (lang missing/"he" - every vacation today) is exactly the original
+    logic. Another language is trimmed by structure only, never by a word
+    list (business owner's rule): it starts at the first line that opens with
+    "Day <number>" and drops trailing blank/question lines; with no such line
+    the text is kept whole."""
+    if _vacation_lang({"_lang": lang}) != "he":
+        return _core_itinerary_text_by_structure(text)
     lines = str(text or "").splitlines()
-    first = next((i for i, ln in enumerate(lines) if _DAY_LINE.search(ln) or _DAY_LINE_EN.search(ln)), None)
+    first = next((i for i, ln in enumerate(lines) if _DAY_LINE.search(ln)), None)
     if first is None:
         return str(text or "").strip()
     lines = lines[first:]
-    note_start = re.compile(r"^\W*(?:הערה|הערות|טיפ|חשוב|שימו לב|שימי לב|לתשומת לבך|נ\.?ב|note|notes|tip|important|p\.?s\b)", re.IGNORECASE)
+    note_start = re.compile(r"^\W*(?:הערה|הערות|טיפ|חשוב|שימו לב|שימי לב|לתשומת לבך|נ\.?ב)")
     while lines and (
         not lines[-1].strip()
         or lines[-1].strip().endswith("?")
         or note_start.match(lines[-1].strip())
     ):
+        lines.pop()
+    return "\n".join(lines).strip()
+
+
+def _core_itinerary_text_by_structure(text):
+    lines = str(text or "").splitlines()
+    first = next((i for i, ln in enumerate(lines) if _DAY_LINE_START.match(ln)), None)
+    if first is None:
+        return str(text or "").strip()
+    lines = lines[first:]
+    while lines and (not lines[-1].strip() or lines[-1].strip().endswith("?")):
         lines.pop()
     return "\n".join(lines).strip()
 
@@ -421,7 +447,7 @@ def attraction_tickets_url(tickets_url, official_url):
 
 def build_itinerary_days(text, answers, post_claude, key, model):
     """Structured day cards for an approved itinerary, or [] on failure."""
-    core = core_itinerary_text(text)
+    core = core_itinerary_text(text, (answers or {}).get("_lang"))
     if not core:
         return []
     lang = _vacation_lang(answers)
@@ -449,7 +475,8 @@ def build_itinerary_days(text, answers, post_claude, key, model):
                 continue
             # name_he is the card's display name; a non-Hebrew itinerary's model
             # output calls it "name" (and it is never matched as Hebrew below).
-            name_he = str(it.get("name_he") or (it.get("name") if foreign else "") or "").strip()
+            display = (it.get("name") or it.get("name_he")) if foreign else it.get("name_he")
+            name_he = str(display or "").strip()
             name_en = str(it.get("name_en") or "").strip()
             city = str(it.get("city") or d.get("city") or "").strip()
             match = _db_match(records, name_en, "" if foreign else name_he)
