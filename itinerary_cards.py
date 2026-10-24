@@ -34,6 +34,9 @@ _DAY_LINE = re.compile(
     r"(?<![א-ת])יום\s+(?:\d{1,2}(?!\d)|(?:ה?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת|אחרון)))"
 )
 
+# English itinerary text from a customer who chats in English ("Day 1: ...").
+_DAY_LINE_EN = re.compile(r"\bDay\s+\d{1,2}(?!\d)", re.IGNORECASE)
+
 _STRUCTURE_PROMPT = """את ממירה מסלול טיול שאושר (טקסט חופשי בעברית) למבנה JSON עבור כרטיסי מסלול.
 כללים:
 - כלול רק ימים ומקומות שמופיעים בטקסט. אל תוסיפי אטרקציות שלא הוזכרו.
@@ -45,6 +48,24 @@ _STRUCTURE_PROMPT = """את ממירה מסלול טיול שאושר (טקסט 
 - base: היישוב/האזור שבו ישנים באותו לילה, אם צוין, אחרת null.
 החזירי JSON בלבד בפורמט:
 {"days":[{"day":1,"date":null,"title":"כותרת קצרה ליום","city":"העיר/האזור העיקרי","base":null,"summary":"משפט אחד על היום","items":[{"name_he":"","name_en":null,"city":"","description":"","duration":null}]}]}"""
+
+# The same structuring step for a vacation whose customer chats in English
+# (answers["_lang"] == "en", Shlomo/business owner 24.10): the itinerary is
+# created in the customer's language, not translated - an instruction to the
+# model, same schema and keys, one call. "name" is the place's display name.
+_STRUCTURE_PROMPT_EN = """You convert an approved trip itinerary (free English text) into JSON for itinerary cards.
+Rules:
+- Include only days and places that appear in the text. Do not add attractions that were not mentioned.
+- items are specific places to visit (a site, museum, park, neighborhood, beach, a named recommended restaurant) - not general activities such as "dinner", "rest" or "drive".
+- description: 1-2 sentences in English - what the place is and why it is worth visiting, in a friendly tone. No prices, no opening hours and no links.
+- name: the place's name as the itinerary gives it, in English.
+- name_en: the place's commonly used English name (as on Wikipedia/maps), or null if it has no specific name.
+- duration: a short recommended visit length (e.g. "2 hours", "half a day") or null.
+- date: YYYY-MM-DD if it can be inferred from the text or the given departure date, otherwise null.
+- base: the town/area where the night is spent, if stated, otherwise null.
+- All text fields are in English.
+Return JSON only, in this format:
+{"days":[{"day":1,"date":null,"title":"Short day title","city":"Main city/area","base":null,"summary":"One sentence about the day","items":[{"name":"","name_en":null,"city":"","description":"","duration":null}]}]}"""
 
 
 def _load_db():
@@ -195,11 +216,11 @@ def core_itinerary_text(text):
     closing question/notes after the last one. Used for the plain-text
     fallback while the cards aren't built yet."""
     lines = str(text or "").splitlines()
-    first = next((i for i, ln in enumerate(lines) if _DAY_LINE.search(ln)), None)
+    first = next((i for i, ln in enumerate(lines) if _DAY_LINE.search(ln) or _DAY_LINE_EN.search(ln)), None)
     if first is None:
         return str(text or "").strip()
     lines = lines[first:]
-    note_start = re.compile(r"^\W*(?:הערה|הערות|טיפ|חשוב|שימו לב|שימי לב|לתשומת לבך|נ\.?ב)")
+    note_start = re.compile(r"^\W*(?:הערה|הערות|טיפ|חשוב|שימו לב|שימי לב|לתשומת לבך|נ\.?ב|note|notes|tip|important|p\.?s\b)", re.IGNORECASE)
     while lines and (
         not lines[-1].strip()
         or lines[-1].strip().endswith("?")
@@ -388,9 +409,15 @@ def build_itinerary_days(text, answers, post_claude, key, model):
     core = core_itinerary_text(text)
     if not core:
         return []
-    context = f"תאריך יציאה: {answers.get('departure_date') or 'לא ידוע'}, תאריך חזרה: {answers.get('return_date') or 'לא ידוע'}"
+    english = str((answers or {}).get("_lang") or "").lower() == "en"
+    if english:
+        context = f"Departure date: {answers.get('departure_date') or 'unknown'}, return date: {answers.get('return_date') or 'unknown'}"
+        prompt, message = _STRUCTURE_PROMPT_EN, "Approved itinerary:\n" + core
+    else:
+        context = f"תאריך יציאה: {answers.get('departure_date') or 'לא ידוע'}, תאריך חזרה: {answers.get('return_date') or 'לא ידוע'}"
+        prompt, message = _STRUCTURE_PROMPT, "המסלול שאושר:\n" + core
     try:
-        raw = post_claude(key, model, _STRUCTURE_PROMPT, context, [], "המסלול שאושר:\n" + core, 6000, include_history=False)
+        raw = post_claude(key, model, prompt, context, [], message, 6000, include_history=False)
         days = _parse_json(raw).get("days") or []
     except Exception:
         logging.exception("Itinerary structuring failed")
@@ -402,18 +429,20 @@ def build_itinerary_days(text, answers, post_claude, key, model):
             continue
         items = []
         for it in d.get("items") or []:
-            if not isinstance(it, dict) or not str(it.get("name_he") or it.get("name_en") or "").strip():
+            if not isinstance(it, dict) or not str(it.get("name_he") or it.get("name") or it.get("name_en") or "").strip():
                 continue
-            name_he = str(it.get("name_he") or "").strip()
+            # name_he is the card's display name; an English itinerary's model
+            # output calls it "name" (and it is never matched as Hebrew below).
+            name_he = str(it.get("name_he") or (it.get("name") if english else "") or "").strip()
             name_en = str(it.get("name_en") or "").strip()
             city = str(it.get("city") or d.get("city") or "").strip()
-            match = _db_match(records, name_en, name_he)
+            match = _db_match(records, name_en, "" if english else name_he)
             card = {
                 "name_he": name_he or name_en,
                 "name_en": name_en if name_en and name_en != name_he else "",
                 "city": city,
                 "description": str(it.get("description") or "").strip(),
-                "duration": str(it.get("duration") or (match or {}).get("משך מומלץ") or "").strip(),
+                "duration": str(it.get("duration") or (match or {}).get("duration_en" if english else "משך מומלץ") or "").strip(),
                 # Structured, verified price data only (Din, 22.10) - the old
                 # free-text price note is no longer shown.
                 "price_info": {f: (match or {}).get(f) for f in _PRICE_FIELDS},
