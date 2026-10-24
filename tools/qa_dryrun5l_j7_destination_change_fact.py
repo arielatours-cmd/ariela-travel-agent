@@ -1,6 +1,14 @@
 """QA for Shlomo's 5l follow-up list (23.10.2026, relayed after Shaked's
 qa/reports/2026-10-23-dryrun5l.md, SHA 2084d74 on branch `shaked`, 4/4 pass):
-three small items queued for a follow-up PR before round 13.
+items (a) and (b) of a 3-item follow-up list queued for a PR before round
+13 - item (c) (two model-wording-typo regex fixes) was REMOVED per
+Shlomo's explicit instruction (24.10.2026, review of bda9ef35): it
+violates the business owner's standing rule - no word lists, regex, or
+fixed sentences correcting the model's own free-text output. _fix_known_
+typos's existing נתב"ג/יעדיפות entries predate that rule and are
+grandfathered, but no new ones get added for a single observed typo; if
+either glitch recurs, the fix is a better instruction to the model, not
+another regex.
 
 (a) J7 ("וינה -> פראד"): PRG is saved to trip_update in the SAME turn
 (destination_change with verified=true), but Tinkerbell's reply hedged -
@@ -42,11 +50,7 @@ question per turn" generally - covered by
 tools/qa_dryrun5k_enforce_one_option_destination_question.py's own
 follow-up checks (added same round), not repeated here.
 
-(c) Two small recurring model wording glitches, same _fix_known_typos
-philosophy as the existing נתב"ג/יעדיפות fixes: J1's "ללעיר" (doubled ל
-before "עיר") and J0's "רק שרוצה לוודא" (a dropped אני).
-
-Run: python3 tools/qa_dryrun5l_j7_fact_and_typos.py
+Run: python3 tools/qa_dryrun5l_j7_destination_change_fact.py
 """
 import os
 import sys
@@ -136,22 +140,7 @@ check("(a) regression: a stale marker from a PRIOR turn's trip_state is "
       "popped, not carried forward as if this turn just saved it again",
       "_destination_change_confirmed_fact" not in _stale_result)
 
-# =====================================================================
-# (c) the two small typo fixes, same mechanism/philosophy as the existing
-# נתב"ג and יעדיפות fixes already in _fix_known_typos.
-# =====================================================================
-check('(c) J1 FIX: doubled ל before "עיר" ("ללעיר") is corrected to "לעיר"',
-      chat._fix_known_typos("אתה מתכוון ללעיר בצרפת, או שבעצם התכוונת ליוון כיעד?")
-      == "אתה מתכוון לעיר בצרפת, או שבעצם התכוונת ליוון כיעד?")
-check('(c) J0 FIX: the dropped-אני glitch ("רק שרוצה לוודא") is corrected to '
-      '"רק רוצה לוודא"',
-      chat._fix_known_typos("רק שרוצה לוודא שהגעת.") == "רק רוצה לוודא שהגעת.")
-check("(c) regression: ordinary text containing real, unrelated words "
-      '("לעיר", "רוצה לוודא") on their own is never touched',
-      chat._fix_known_typos("טסים לעיר חדשה, ורק רוצה לוודא שהכל מוכן.")
-      == "טסים לעיר חדשה, ורק רוצה לוודא שהכל מוכן.")
-
 if FAILED:
     print(f"\n{len(FAILED)} FAILED: {FAILED}")
     sys.exit(1)
-print("\nALL DRYRUN5L-J7-FACT-AND-TYPOS TESTS PASSED")
+print("\nALL DRYRUN5L-J7-DESTINATION-CHANGE-FACT TESTS PASSED")

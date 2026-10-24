@@ -4619,13 +4619,6 @@ def _fix_known_typos(text):
     # Seen live: a stray leading י turns "עדיפות" (preference) into the
     # non-word "יעדיפות" ("...או שיש לך יעדיפות אחרת?").
     text = re.sub(r'(?<![א-ת])יעדיפות(?![א-ת])', 'עדיפות', text)
-    # Shaked's dry-run 5l finding (J1, "ליון"): a doubled ל before "עיר"
-    # ("...אתה מתכוון ללעיר בצרפת...") - "ל" (to) duplicated onto "לעיר"
-    # itself instead of the real word, "לעיר".
-    text = re.sub(r'(?<![א-ת])ללעיר(?![א-ת])', 'לעיר', text)
-    # Shaked's dry-run 5l finding (J0, Bergen/Bergamo): a dropped אני turns
-    # "רק אני רוצה לוודא" into the ungrammatical "רק שרוצה לוודא".
-    text = re.sub(r'(?<![א-ת])רק שרוצה לוודא(?![א-ת])', 'רק רוצה לוודא', text)
     return text
 
 
