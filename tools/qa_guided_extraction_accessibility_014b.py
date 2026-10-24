@@ -24,6 +24,16 @@ wording:
    name the services it affects (flight/lodging/car/plan) and state it is
    used for no other purpose.
 
+SUPERSEDED 24.10.2026 (round-13 live finding A, Paphos, business owner's
+explicit directive): the open follow-up described in point 3 above and
+tested as scenario 4 below NO LONGER HAPPENS. A bare "yes" with nothing
+volunteered in the same message now resolves immediately, in full - her
+own words, "להתייחס לזה כאל כסא גלגלים לכל דבר... לא משנה מה הסיבה" (treat
+it like a wheelchair case for everything, whatever the reason) and "אין
+צורך לפרט" (no need to detail). Scenario 4 below is rewritten for this;
+scenario 5 (a SPECIFIC detail volunteered unprompted in the very first
+"yes" message, not a bare "yes") is unaffected and unchanged.
+
 Builds on 014a's same flag, `guided` state field and extraction method
 (model-based JSON, never a regex phrase list).
 
@@ -192,40 +202,37 @@ check("scenario 3: 'no' sets needed=False",
 check("scenario 3: accessibility marked answered, nothing further asked about it",
       "accessibility" in ((tu3.get("guided") or {}).get("answered") or []))
 
-# --- 4. "כן" without detail -> ONE open follow-up hint (not a repeat of
-#     the yes/no), then the follow-up reply fills needs/details and
-#     finally marks answered ---
+# --- 4. Round-13 live finding A (24.10.2026, business owner's directive):
+#     a bare "כן" with no detail in the same message resolves IMMEDIATELY,
+#     in full - never an open follow-up turn anymore. ---
 member4 = _make_member("qa-014b-s4@example.com")
 with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
     "status": "answered", "needed": True, "needs": [], "details": None,
     "confidence": "high", "also_mentioned": None, "correction": None,
 })):
-    state4a = dict(ROME_STATE_BASE)
-    state4a["guided"] = {"current_question": "accessibility", "attempts": 0, "answered": ["dates", "travelers"]}
-    r4a = _post("כן", [], state4a, member4)
-tu4a = r4a.get("trip_update") or {}
-check("scenario 4a: 'yes' with no detail yet gets an open-follow-up hint, not a repeat of the yes/no",
-      "מה יעזור" in str(tu4a.get("_guided_ask_hint") or "") or "מה בדיוק" in str(tu4a.get("_guided_ask_hint") or ""))
-check("scenario 4a: the follow-up hint explicitly forbids asking why/what medical condition",
-      "בלי לשאול" in str(tu4a.get("_guided_ask_hint") or ""))
-check("scenario 4a: accessibility stays open (not yet in answered)",
-      "accessibility" not in ((tu4a.get("guided") or {}).get("answered") or [])
-      and (tu4a.get("guided") or {}).get("current_question") == "accessibility")
-
-with patch.object(chat, "_post_claude", side_effect=_fake_post_claude_factory({
-    "status": "answered", "needed": True, "needs": ["reduced_mobility"], "detail_category": "walking_long_distance",
-    "confidence": "high", "also_mentioned": None, "correction": None,
-})):
-    state4b = dict(ROME_STATE_BASE)
-    state4b["guided"] = tu4a.get("guided")
-    state4b["accessibility"] = tu4a.get("accessibility")
-    r4b = _post("קשה לנו ללכת מרחקים ארוכים", [], state4b, member4)
-tu4b = r4b.get("trip_update") or {}
-acc4b = tu4b.get("accessibility") or {}
-check("scenario 4b: the follow-up's answer fills needs/details",
-      acc4b.get("needs") == ["reduced_mobility"] and acc4b.get("details") == "קושי בהליכה למרחקים ארוכים")
-check("scenario 4b: now marked answered",
-      "accessibility" in ((tu4b.get("guided") or {}).get("answered") or []))
+    state4 = dict(ROME_STATE_BASE)
+    state4["guided"] = {"current_question": "accessibility", "attempts": 0, "answered": ["dates", "travelers"]}
+    r4 = _post("כן", [], state4, member4)
+tu4 = r4.get("trip_update") or {}
+acc4 = tu4.get("accessibility") or {}
+check("scenario 4 FIX: a bare 'yes' resolves to the full accommodation "
+      "level immediately (needs=['wheelchair']), never left empty",
+      acc4.get("needs") == ["wheelchair"])
+check("scenario 4 FIX: details is the fixed full-accommodation phrase, "
+      "never a guess at what the customer specifically needs",
+      acc4.get("details") == chat._ACCESSIBILITY_FULL_NEED_DETAILS_HE)
+check("scenario 4 FIX: accessibility is marked answered on THIS turn - no "
+      "open follow-up turn is left pending",
+      "accessibility" in ((tu4.get("guided") or {}).get("answered") or [])
+      and (tu4.get("guided") or {}).get("current_question") != "accessibility")
+check("scenario 4 FIX: the one-turn _accessibility_just_resolved marker is "
+      "set, so Tinkerbell gets a fact to ground her acknowledgment on "
+      "this exact turn instead of improvising",
+      tu4.get("_accessibility_just_resolved") is True)
+check("scenario 4 regression: _accessibility_awaiting_detail never reads "
+      "True anymore for this resolved state - the old follow-up path is "
+      "structurally unreachable",
+      not chat._accessibility_awaiting_detail(tu4))
 
 # --- 5. Dry-run 3 / Din PRV-18 (Shaked, 22.10.2026): the exact live finding
 #     - a real medical reason survived verbatim into accessibility.details

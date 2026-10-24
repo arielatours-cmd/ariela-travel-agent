@@ -246,15 +246,21 @@ fragment3, _ = chat._guided_field_update_and_confirm("accessibility", SPECIFIC_R
 check("regression: a specific, valid category still gets its own real phrase, not the generic fallback",
       fragment3.get("accessibility", {}).get("details") == chat._ACCESSIBILITY_DETAIL_PHRASES_HE["wheelchair"])
 
-# Regression: needs is genuinely empty (no "other" either) and category is
-# null - details correctly stays absent (nothing to fall back from).
+# SUPERSEDED 24.10.2026 (round-13 live finding A, business owner's
+# directive - see tools/qa_dryrun_live13_a_accessibility_full_immediately.py):
+# needs genuinely empty (no "other" either) and category null used to
+# leave details absent entirely - now resolves immediately to the full
+# accommodation default instead of staying unresolved pending a follow-up
+# question that no longer happens.
 EMPTY_RESULT = {
     "status": "answered", "needed": True, "needs": [], "detail_category": None,
     "confidence": "low", "also_mentioned": None, "correction": None,
 }
 fragment4, _ = chat._guided_field_update_and_confirm("accessibility", EMPTY_RESULT)
-check("regression: no needs at all and no category - details correctly stays absent",
-      "details" not in fragment4.get("accessibility", {}))
+check("round-13 finding A FIX: no needs at all and no category - resolves "
+      "immediately to the full-accommodation default, never left absent",
+      fragment4.get("accessibility", {}).get("needs") == ["wheelchair"]
+      and fragment4.get("accessibility", {}).get("details") == chat._ACCESSIBILITY_FULL_NEED_DETAILS_HE)
 
 
 if FAILED:

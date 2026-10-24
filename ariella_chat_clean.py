@@ -2489,13 +2489,27 @@ def _accessibility_hint_text(state):
     acc = state.get("accessibility") if isinstance(state.get("accessibility"), dict) else {}
     if acc.get("needed") is not True:
         return ""
+    need_text = acc.get("details") or _accessibility_needs_label(acc.get("needs")) or "התאמה מיוחדת"
+    # Round-13 live finding A (24.10.2026, Paphos, business owner's
+    # directive): a bare "yes" now resolves immediately, in full - but
+    # with no open follow-up turn left to ground Tinkerbell's own
+    # acknowledgment, she free-generated a presumptuous "אדאג להתאמה
+    # שציינת" live (nothing was specified). This one-turn marker (see its
+    # setter in _handle_guided_extraction_turn) fires regardless of the
+    # session-start/summary gate below, with wording specific to THIS
+    # exact confirmation turn.
+    if state.get("_accessibility_just_resolved"):
+        return (
+            f"\nהצורך בנגישות אושר הרגע: {need_text}. אשרי זאת בפשטות ובביטחון - לעולם אל תטעני "
+            "שהלקוח ציין התאמה ספציפית (לא ציין), ואל תשאלי שאלת המשך על הסיבה או הפרט. אין להבטיח "
+            "דבר שלא ניתן לוודא מול הספק בפועל."
+        )
     active = str(state.get("active_session") or "")
     announced = acc.get("announced") if isinstance(acc.get("announced"), list) else []
     at_summary = bool(state.get("ready_for_summary"))
     session_just_started = bool(active) and active not in announced
     if not at_summary and not session_just_started:
         return ""
-    need_text = acc.get("details") or _accessibility_needs_label(acc.get("needs")) or "התאמה מיוחדת"
     service_hint = _ACCESSIBILITY_SERVICE_HINT.get(active, "")
     hint = f"\nללקוח יש צורך בנגישות/התאמה שצוין בשיחה: {need_text}. התייחסי אליו בתשובה הזו."
     if service_hint:
@@ -12784,6 +12798,12 @@ _ACCESSIBILITY_DETAIL_PHRASES_HE = {
     "vision": "קושי בראייה",
     "other": "התאמה מיוחדת אחרת",
 }
+# The business owner's explicit directive (24.10.2026, round-13 live
+# finding A, Paphos): the fixed phrase for a bare "yes" with no detail
+# volunteered in the same message - resolved to the full accommodation
+# level immediately, never a guess at what the customer specifically
+# needs (see _guided_field_update_and_confirm's accessibility branch).
+_ACCESSIBILITY_FULL_NEED_DETAILS_HE = "נדרשת התאמה מלאה (כיסא גלגלים)"
 # Per Shaked's QA on #76 (22.10.2026): these are internal schema values,
 # never shown to the customer or in the Hebrew summary/hint as-is - a
 # value label mapping, same principle as _BAGGAGE_HE for baggage types.
@@ -14029,10 +14049,22 @@ def _guided_field_update_and_confirm(field, result, raw_message=None, candidate_
             details = _ACCESSIBILITY_DETAIL_PHRASES_HE.get("other")
         acc = {"asked": True, "needed": needed}
         if needed:
-            if needs:
-                acc["needs"] = needs
-            if details:
-                acc["details"] = details
+            if not needs and not details:
+                # The business owner's explicit directive (24.10.2026,
+                # round-13 live finding A, Paphos): a bare "yes" with
+                # nothing volunteered in the same message is never
+                # followed by a detail question anymore - her own words,
+                # "להתייחס לזה כאל כסא גלגלים לכל דבר... לא משנה מה
+                # הסיבה" (treat it like a wheelchair case for everything,
+                # whatever the reason) and "אין צורך לפרט" (no need to
+                # detail). Resolved immediately, in full, right here -
+                # _accessibility_awaiting_detail never sees an empty
+                # needs/details once needed is True, so the old follow-up
+                # turn it used to trigger is now structurally unreachable.
+                needs = ["wheelchair"]
+                details = _ACCESSIBILITY_FULL_NEED_DETAILS_HE
+            acc["needs"] = needs
+            acc["details"] = details
         if mentions_medical:
             acc["_medical_detail_mentioned"] = True
         desc = (details or _accessibility_needs_label(needs) or "צורך בנגישות") if needed else "אין צורך בנגישות"
@@ -14721,6 +14753,19 @@ def _handle_guided_extraction_turn(key, model, message, history, trip_state, tri
         fragment, _ = _guided_field_update_and_confirm("accessibility", result)
         if fragment:
             trip_update = _merge_trip_state(trip_update, fragment)
+            # Round-13 live finding A (24.10.2026, Paphos, business owner's
+            # directive): a bare "yes" with nothing volunteered in the same
+            # message now resolves immediately, in full - no more open
+            # follow-up turn at all. But with no follow-up turn, Tinkerbell
+            # ALSO got no fact at all on THIS exact turn to ground her own
+            # acknowledgment, and free-generated a presumptuous "אדאג
+            # להתאמה שציינת" (nothing was specified) live. One-turn marker,
+            # consumed by _accessibility_hint_text and popped at the top of
+            # the next turn's guided dispatch (same pattern as
+            # _mixed_baggage_just_resolved).
+            if (not awaiting_detail_before and result.get("needed") is True
+                    and not (result.get("needs") or result.get("detail_category"))):
+                trip_update["_accessibility_just_resolved"] = True
         if not fragment or confidence != "high" or not _guided_field_known_with_confidence("accessibility", trip_update):
             # Nothing usable, low confidence, or a bare "yes" with no need
             # specified yet - stay on this field. _accessibility_awaiting_
@@ -17580,6 +17625,10 @@ def _chat_clean_impl():
         # severity-5c bug this whole mechanism exists to prevent. Same
         # unconditional pop, same place, for the same reason.
         trip_update.pop("_mixed_baggage_just_resolved", None)
+        # Same one-turn lifetime, same reason (round-13 live finding A) -
+        # see _accessibility_just_resolved's own setter, just above the
+        # accessibility branch in _handle_guided_extraction_turn.
+        trip_update.pop("_accessibility_just_resolved", None)
         _baggage_before_guided_dispatch = list((trip_update.get("flight") or {}).get("baggage") or []) if isinstance(trip_update.get("flight"), dict) else []
         if guided_steps and not _all_domains_already_decided:
             guided_turn = _handle_guided_extraction_turn(key, model, message, history, trip_state, trip_update, guided_steps)
